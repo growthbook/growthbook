@@ -1446,7 +1446,10 @@ export function reducePayload(
   };
 
   // Reduces a rule or an auto experiment
-  const prune = <T extends { condition?: ConditionInterface }>(item: T): T => {
+  const prune = <T extends { condition?: ConditionInterface }>(
+    item: T,
+    isRule: boolean,
+  ): T => {
     const condition = item.condition
       ? pruneCondition(attributes, item.condition, savedGroups)
       : null;
@@ -1456,8 +1459,9 @@ export function reducePayload(
     // condition, and a rule's prerequisites are checked before it
     else if (condition === false) {
       item.condition = { $not: {} };
-      // A force rule that never passes never returns its value
-      if ("force" in item) (item as { force?: unknown }).force = null;
+      // A force rule that never passes never returns its value. An auto
+      // experiment's forced variation still applies to a sticky bucketed user.
+      if (isRule && "force" in item) (item as { force?: unknown }).force = null;
     } else if (condition) item.condition = condition;
     return item;
   };
@@ -1483,7 +1487,7 @@ export function reducePayload(
     const scoped = inProjects(feature.metadata || {});
     const rules = feature.rules
       ?.filter((r) => !scoped || ruleInProjects(r.metadata))
-      .map(prune);
+      .map((r) => prune(r, true));
     // Stored before its parents are added, so a prerequisite cycle ends
     added.set(id, rules ? { ...feature, rules } : feature);
     (rules || []).forEach(addParents);
@@ -1494,7 +1498,7 @@ export function reducePayload(
   });
   const experiments = allExperiments
     .filter((e) => matches(e.metadata))
-    .map(prune);
+    .map((e) => prune(e, false));
   experiments.forEach(addParents);
   const features = Object.fromEntries(added);
 
@@ -1509,6 +1513,11 @@ export function reducePayload(
     const ref = item.contextualBanditRef;
     if (!ref || bandits.has(ref) || !hasOwn(allBandits, ref)) continue;
     const bandit = allBandits[ref];
+    // Evaluation tolerates a definition that isn't an object, so it stays
+    if (!bandit || typeof bandit !== "object" || Array.isArray(bandit)) {
+      bandits.set(ref, bandit);
+      continue;
+    }
     bandits.set(ref, {
       ...bandit,
       contexts: (bandit.contexts || []).flatMap((c) => {
@@ -1524,13 +1533,53 @@ export function reducePayload(
   }
   const contextualBandits = Object.fromEntries(bandits);
 
+  // Groups that keep their condition as written: those evaluated against
+  // something other than the user (each item in $elemMatch, or the parent's
+  // value in a prerequisite), and the groups those reference
+  const asWritten = new Set<string>();
+  const seen = new Set<string>();
+  const mark = (x: unknown, user: boolean) => {
+    if (typeof x === "string") {
+      if (!hasOwn(savedGroups, x) || asWritten.has(x)) return;
+      if (user && seen.has(x)) return;
+      (user ? seen : asWritten).add(x);
+      mark(savedGroups[x], user);
+    } else if (x && typeof x === "object") {
+      Object.entries(x).forEach(([k, v]) =>
+        mark(v, user && k !== "$elemMatch" && k !== "parentConditions"),
+      );
+    }
+  };
+  mark([features, experiments, contextualBandits], true);
+
+  // A group on a cycle can't be reduced on its own: its result depends on
+  // which group the evaluation entered the cycle from
+  const reaches = (from: string, to: string, visited: Set<string>): boolean => {
+    const found: string[] = [];
+    const collect = (x: unknown) => {
+      if (typeof x === "string") {
+        if (hasOwn(savedGroups, x)) found.push(x);
+      } else if (x && typeof x === "object") Object.values(x).forEach(collect);
+    };
+    collect(savedGroups[from]);
+    return found.some((id) => {
+      if (id === to) return true;
+      if (visited.has(id)) return false;
+      visited.add(id);
+      return reaches(id, to, visited);
+    });
+  };
+
   // Keep each saved group whose id appears as a string anywhere, with condition
   // groups reduced. This needs no list of the operators that reference groups.
   const groups = new Map<string, SavedGroupsPayload[string]>();
   const keep = (x: unknown) => {
     if (typeof x === "string") {
       if (!hasOwn(savedGroups, x) || groups.has(x)) return;
-      const condition = pruneSavedGroup(attributes, { id: x }, savedGroups);
+      const condition =
+        asWritten.has(x) || reaches(x, x, new Set())
+          ? null
+          : pruneSavedGroup(attributes, { id: x }, savedGroups);
       groups.set(
         x,
         condition && typeof condition === "object"

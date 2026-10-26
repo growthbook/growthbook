@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.11.2",
+  "specVersion": "0.11.3",
   "evalCondition": [
     [
       "$not - pass",
@@ -6989,6 +6989,232 @@
             ]
           }
         },
+        "experiments": [],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps a condition group that $elemMatch references as written, since it is evaluated against each item",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "condition": {
+                    "items": { "$elemMatch": { "$savedGroup": { "id": "g" } } }
+                  },
+                  "force": true
+                }
+              ]
+            }
+          },
+          "savedGroups": {
+            "g": {
+              "type": "condition",
+              "condition": { "active": true, "plan": "pro" }
+            }
+          }
+        },
+        "attributes": { "active": true }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": false,
+            "rules": [
+              {
+                "condition": {
+                  "items": { "$elemMatch": { "$savedGroup": { "id": "g" } } }
+                },
+                "force": true
+              }
+            ]
+          }
+        },
+        "savedGroups": {
+          "g": {
+            "type": "condition",
+            "condition": { "active": true, "plan": "pro" }
+          }
+        },
+        "experiments": []
+      }
+    ],
+    [
+      "keeps a condition group that a prerequisite references as written, since it is evaluated against the parent's value",
+      {
+        "payload": {
+          "features": {
+            "parent": { "defaultValue": "x" },
+            "f": {
+              "defaultValue": false,
+              "rules": [
+                {
+                  "parentConditions": [
+                    {
+                      "id": "parent",
+                      "condition": { "$savedGroup": { "id": "g" } }
+                    }
+                  ],
+                  "force": true
+                }
+              ]
+            }
+          },
+          "savedGroups": {
+            "g": {
+              "type": "condition",
+              "condition": { "value": "x", "country": "US" }
+            }
+          }
+        },
+        "attributes": { "country": "US" }
+      },
+      {
+        "features": {
+          "parent": { "defaultValue": "x" },
+          "f": {
+            "defaultValue": false,
+            "rules": [
+              {
+                "parentConditions": [
+                  {
+                    "id": "parent",
+                    "condition": { "$savedGroup": { "id": "g" } }
+                  }
+                ],
+                "force": true
+              }
+            ]
+          }
+        },
+        "savedGroups": {
+          "g": {
+            "type": "condition",
+            "condition": { "value": "x", "country": "US" }
+          }
+        },
+        "experiments": []
+      }
+    ],
+    [
+      "keeps condition groups on a cycle as written, since their result depends on where evaluation enters the cycle",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": false,
+              "rules": [
+                { "condition": { "$savedGroup": { "id": "b" } }, "force": true }
+              ]
+            }
+          },
+          "savedGroups": {
+            "a": {
+              "type": "condition",
+              "condition": {
+                "$or": [{ "$savedGroup": { "id": "b" } }, { "x": true }],
+                "y": true
+              }
+            },
+            "b": {
+              "type": "condition",
+              "condition": { "$not": { "$savedGroup": { "id": "a" } } }
+            }
+          }
+        },
+        "attributes": {}
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": false,
+            "rules": [
+              { "condition": { "$savedGroup": { "id": "b" } }, "force": true }
+            ]
+          }
+        },
+        "savedGroups": {
+          "b": {
+            "type": "condition",
+            "condition": { "$not": { "$savedGroup": { "id": "a" } } }
+          },
+          "a": {
+            "type": "condition",
+            "condition": {
+              "$or": [{ "$savedGroup": { "id": "b" } }, { "x": true }],
+              "y": true
+            }
+          }
+        },
+        "experiments": []
+      }
+    ],
+    [
+      "keeps the forced variation of an auto experiment that never matches, since a sticky bucket skips its condition",
+      {
+        "payload": {
+          "features": {},
+          "experiments": [
+            {
+              "key": "exp",
+              "changeId": "c",
+              "variations": ["a", "b"],
+              "hashAttribute": "id",
+              "condition": { "country": "US" },
+              "force": 1
+            }
+          ]
+        },
+        "attributes": { "country": "CA" }
+      },
+      {
+        "features": {},
+        "experiments": [
+          {
+            "key": "exp",
+            "changeId": "c",
+            "variations": ["a", "b"],
+            "hashAttribute": "id",
+            "condition": { "$not": {} },
+            "force": 1
+          }
+        ],
+        "savedGroups": {}
+      }
+    ],
+    [
+      "keeps a contextual bandit definition that isn't an object as it is",
+      {
+        "payload": {
+          "features": {
+            "f": {
+              "defaultValue": 0,
+              "rules": [
+                {
+                  "key": "e",
+                  "variations": [0, 1],
+                  "contextualBanditRef": "cb"
+                }
+              ]
+            }
+          },
+          "contextualBandits": { "cb": null }
+        },
+        "attributes": { "id": "1" }
+      },
+      {
+        "features": {
+          "f": {
+            "defaultValue": 0,
+            "rules": [
+              { "key": "e", "variations": [0, 1], "contextualBanditRef": "cb" }
+            ]
+          }
+        },
+        "contextualBandits": { "cb": null },
         "experiments": [],
         "savedGroups": {}
       }
