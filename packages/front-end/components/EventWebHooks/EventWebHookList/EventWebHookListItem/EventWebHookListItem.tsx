@@ -38,7 +38,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
       style={{ textDecoration: "none", padding: "16px 20px" }}
       className="card"
     >
-      <Flex gap="16px">
+      <Flex gap="4">
         <Flex
           align="center"
           justify="center"
@@ -53,24 +53,26 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
           <WebhookIcon type={payloadType} style={{ height: 22, width: 22 }} />
         </Flex>
         <Flex direction="column" gap="6px" minWidth="0">
-          <div className="d-flex align-items-center">
-            <h3 className="link-purple text-truncate mb-0">{name}</h3>
+          <Flex align="center" gap="2" minWidth="0">
+            <h3 className="link-purple text-truncate" style={{ margin: 0 }}>
+              {name}
+            </h3>
             {enabled && (
-              <div>
-                <span className="badge badge-gray text-uppercase ml-2">
-                  Enabled
-                </span>
-              </div>
+              <Badge
+                label="Enabled"
+                color="green"
+                variant="soft"
+                style={{ textTransform: "uppercase" }}
+              />
             )}
             {managedInSlack && (
               <Badge
                 label="Managed in Slack settings"
                 color="purple"
                 variant="soft"
-                ml="2"
               />
             )}
-          </div>
+          </Flex>
           <div className="d-flex">
             {!lastRunAt ? (
               <div className="text-muted">No runs</div>

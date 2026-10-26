@@ -1,5 +1,6 @@
 import { PiCheck, PiCopy } from "react-icons/pi";
 import clsx from "clsx";
+import { VisuallyHidden } from "@radix-ui/themes";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 
@@ -34,7 +35,8 @@ export default function ClickToCopy({
               performCopy(children);
             }
           }}
-          title="Copy to Clipboard"
+          title="Copy to clipboard"
+          aria-label="Copy to clipboard"
           style={{
             display: "inline-flex",
             padding: 0,
@@ -62,6 +64,9 @@ export default function ClickToCopy({
         </span>
       ) : null}
 
+      <VisuallyHidden role="status">
+        {copySuccess ? "Copied" : ""}
+      </VisuallyHidden>
       {copySuccess ? (
         <SimpleTooltip position="left">Copied to clipboard!</SimpleTooltip>
       ) : null}
