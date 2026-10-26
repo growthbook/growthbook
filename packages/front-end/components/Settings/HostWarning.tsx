@@ -12,7 +12,7 @@ export default function HostWarning({
   // Trying to connect to localhost
   if (
     host &&
-    host.match(/^([a-z0-9+-_]+:\/\/)?(localhost|127.0.0.1)($|[/?:])/)
+    host.match(/^([a-zA-Z0-9+.:-]+:\/\/)?(localhost|127.0.0.1)($|[/?:])/)
   ) {
     if (isCloud()) {
       return (

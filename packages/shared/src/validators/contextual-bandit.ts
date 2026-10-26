@@ -8,7 +8,11 @@ import {
 } from "./visual-changesets";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
-import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  allowUnscopedRulesBodyField,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
 import {
   BANDIT_TRACKING_KEY_DESCRIPTION,
   GENERIC_NAME_DESCRIPTION,
@@ -566,6 +570,7 @@ export const contextualBanditLinkedFeatureRuleFields = {
     .describe(
       "Publish the resulting revision immediately instead of leaving it as a draft.",
     ),
+  allowUnscopedRules: allowUnscopedRulesBodyField,
 };
 
 export const contextualBanditLinkedFeatureDraftVersionField = z.coerce

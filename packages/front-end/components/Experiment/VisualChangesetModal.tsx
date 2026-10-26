@@ -23,17 +23,26 @@ type VisualChangesetCreatePayload = {
   }[];
 };
 
+type CreatedVisualChangeset = Pick<
+  VisualChangesetInterface,
+  "id" | "editorUrl"
+>;
+
 type ModeTarget =
   | {
       mode: "add";
       experiment: ExperimentInterfaceStringDates;
-      onCreate?: (vc: VisualChangesetInterface) => void;
+      create?: never;
+      onCreate?: (vc: CreatedVisualChangeset) => void;
       visualChangeset?: never;
     }
   | {
       mode: "add";
-      create: (payload: VisualChangesetCreatePayload) => Promise<unknown>;
-      onCreate?: never;
+      experiment?: never;
+      create: (payload: VisualChangesetCreatePayload) => Promise<{
+        visualChangeset?: Partial<CreatedVisualChangeset>;
+      } | void>;
+      onCreate?: (vc: CreatedVisualChangeset) => void;
       visualChangeset?: never;
     }
   | {
@@ -94,8 +103,8 @@ const VisualChangesetModal: FC<
       ];
     }
     if (props.mode === "add") {
-      if ("create" in props) {
-        await props.create({
+      if ("create" in props && props.create) {
+        const res = await props.create({
           editorUrl: payload.editorUrl,
           urlPatterns: payload.urlPatterns.map(
             ({ pattern, type, include }) => ({
@@ -106,6 +115,10 @@ const VisualChangesetModal: FC<
           ),
         });
         mutate();
+        const vc = res?.visualChangeset;
+        if (vc?.id && vc.editorUrl) {
+          onCreate?.({ id: vc.id, editorUrl: vc.editorUrl });
+        }
         return;
       }
       const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
