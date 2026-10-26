@@ -5,7 +5,6 @@ import {
 } from "shared/types/experiment";
 import { useState } from "react";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
-import { datetime } from "shared/dates";
 import { useAuth } from "@/services/auth";
 import Field from "@/components/Forms/Field";
 import { validateSavedGroupTargeting } from "@/components/Features/SavedGroupTargetingField";
@@ -34,10 +33,8 @@ export default function EditPhaseModal({
     defaultValues: {
       ...experiment.phases[i],
       seed: experiment.phases[i]?.seed ?? experiment.trackingKey,
-      dateStarted: (experiment.phases[i]?.dateStarted ?? "").substr(0, 16),
-      dateEnded: experiment.phases[i]?.dateEnded
-        ? (experiment.phases[i]?.dateEnded ?? "").substr(0, 16)
-        : "",
+      dateStarted: experiment.phases[i]?.dateStarted ?? "",
+      dateEnded: experiment.phases[i]?.dateEnded ?? "",
     },
   });
   const [advancedOptionsOpen, setAdvancedOptionsOpen] = useState(false);
@@ -73,10 +70,11 @@ export default function EditPhaseModal({
         required
       />
       <DatePicker
-        label="Start Time (UTC)"
+        label="Start time"
+        timeZone="utc"
         date={form.watch("dateStarted")}
         setDate={(v) => {
-          form.setValue("dateStarted", v ? datetime(v) : "");
+          form.setValue("dateStarted", v ? v.toISOString() : "");
         }}
         scheduleEndDate={form.watch("dateEnded")}
         disableAfter={form.watch("dateEnded") || undefined}
@@ -84,10 +82,11 @@ export default function EditPhaseModal({
       {!(isDraft && !isMultiPhase) ? (
         <>
           <DatePicker
-            label="End Time (UTC)"
+            label="End time"
+            timeZone="utc"
             date={form.watch("dateEnded")}
             setDate={(v) => {
-              form.setValue("dateEnded", v ? datetime(v) : "");
+              form.setValue("dateEnded", v ? v.toISOString() : "");
             }}
             scheduleStartDate={form.watch("dateStarted")}
             disableBefore={form.watch("dateStarted") || undefined}

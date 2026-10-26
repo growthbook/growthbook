@@ -39,6 +39,7 @@ import {
 import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 import SampleDataSourceLink from "./SampleDataSourceLink";
 import ManagedWarehouseModal from "./ManagedWarehouseModal";
+import CustomDataSourceModal from "./CustomDataSourceModal";
 
 const OPTION_KEYS: DataSourceOptionKey[] = [
   "managed",
@@ -244,6 +245,7 @@ export default function DataSourceOptionsTable() {
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
   const [newDataSourceFormOpen, setNewDataSourceFormOpen] = useState(false);
+  const [customDataSourceOpen, setCustomDataSourceOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
   const setUpActions: Record<DataSourceOptionKey, OptionAction> = {
@@ -260,7 +262,7 @@ export default function DataSourceOptionsTable() {
     custom: {
       label: "Set up Custom Data Source",
       variant: "outline",
-      onClick: () => setNewDataSourceFormOpen(true),
+      onClick: () => setCustomDataSourceOpen(true),
     },
   };
 
@@ -327,6 +329,12 @@ export default function DataSourceOptionsTable() {
             await router.push(`/datasources/${id}`);
           }}
           onCancel={() => setNewDataSourceFormOpen(false)}
+        />
+      ) : null}
+      {customDataSourceOpen ? (
+        <CustomDataSourceModal
+          source="datasource-options"
+          close={() => setCustomDataSourceOpen(false)}
         />
       ) : null}
       {upgradeOpen ? (

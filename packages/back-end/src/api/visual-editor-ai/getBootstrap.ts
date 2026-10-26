@@ -1,8 +1,11 @@
 import { z } from "zod";
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { ContextualBanditInterface } from "shared/validators";
 import type { VisualChangesetInterface } from "shared/types/visual-changeset";
+import { changesetOwnerRef } from "shared/util";
 import {
   findVisualChangesets,
+  findVisualChangesetsByContextualBanditIds,
   findVisualChangesetsByExperimentIds,
 } from "back-end/src/models/VisualChangesetModel";
 import {
@@ -11,6 +14,11 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { logger } from "back-end/src/util/logger";
+import {
+  ChangesetOwner,
+  ContextualBanditChangesetOwner,
+  ExperimentChangesetOwner,
+} from "back-end/src/services/changesetOwner";
 import { requireUserAuth } from "./requireUserAuth";
 
 // Bootstrap data for the side panel's empty + switcher states: the user's
@@ -68,18 +76,29 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
   const search = (req.query.search ?? "").trim();
   let changesets: VisualChangesetInterface[];
   let experiments: ExperimentInterface[];
+  let contextualBandits: ContextualBanditInterface[];
   if (search) {
-    experiments = await findVisualExperimentsByName(
-      context,
-      search,
-      SEARCH_EXPERIMENT_CAP,
-    );
+    [experiments, contextualBandits] = await Promise.all([
+      findVisualExperimentsByName(context, search, SEARCH_EXPERIMENT_CAP),
+      context.models.contextualBandits.findVisualByName(
+        search,
+        SEARCH_EXPERIMENT_CAP,
+      ),
+    ]);
 
-    changesets = await findVisualChangesetsByExperimentIds(
-      experiments.map((e) => e.id),
-      req.organization.id,
-      CANDIDATE_CHANGESET_CAP,
-    );
+    const [experimentChangesets, cbChangesets] = await Promise.all([
+      findVisualChangesetsByExperimentIds(
+        experiments.map((e) => e.id),
+        req.organization.id,
+        CANDIDATE_CHANGESET_CAP,
+      ),
+      findVisualChangesetsByContextualBanditIds(
+        contextualBandits.map((cb) => cb.id),
+        req.organization.id,
+        CANDIDATE_CHANGESET_CAP,
+      ),
+    ]);
+    changesets = [...experimentChangesets, ...cbChangesets];
   } else {
     // `findVisualChangesets` returns newest-`_id`-first; we rely on that
     // as the tiebreaker after the dateUpdated sort below.
@@ -87,10 +106,35 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
       req.organization.id,
       CANDIDATE_CHANGESET_CAP,
     );
-    const expIds = Array.from(new Set(changesets.map((cs) => cs.experiment)));
-    experiments = await getExperimentsByIds(context, expIds);
+    const expIds = Array.from(
+      new Set(
+        changesets
+          .map((cs) => cs.experiment)
+          .filter((id): id is string => !!id),
+      ),
+    );
+    const cbIds = Array.from(
+      new Set(
+        changesets
+          .map((cs) => cs.contextualBandit)
+          .filter((id): id is string => !!id),
+      ),
+    );
+    [experiments, contextualBandits] = await Promise.all([
+      getExperimentsByIds(context, expIds),
+      context.models.contextualBandits.getByIds(cbIds),
+    ]);
   }
-  const experimentById = new Map(experiments.map((e) => [e.id, e]));
+  const ownerByKey = new Map<string, ChangesetOwner>([
+    ...experiments.map((e): [string, ChangesetOwner] => [
+      `experiment:${e.id}`,
+      new ExperimentChangesetOwner(context, e),
+    ]),
+    ...contextualBandits.map((cb): [string, ChangesetOwner] => [
+      `contextual-bandit:${cb.id}`,
+      new ContextualBanditChangesetOwner(context, cb),
+    ]),
+  ]);
 
   // dateUpdated / dateCreated arrive as Date from Mongoose but may be
   // strings in some serialization paths.
@@ -100,14 +144,12 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     return new Date(0).toISOString();
   };
 
-  const recentExperiments: Array<{
+  type RecentRow = {
     experimentId: string;
     experimentName: string;
     visualChangesetId: string;
     primaryUrl: string | null;
     extraPatternCount: number;
-    // Full list so the side panel can match against the active tab URL
-    // and surface "on this page" changesets first.
     urlPatterns: Array<{
       include: boolean;
       type: "simple" | "regex";
@@ -116,37 +158,40 @@ export const getBootstrap = createApiRequestHandler(validation)(async (req) => {
     project: string | null;
     status: string;
     updatedAt: string;
-  }> = [];
+    editable: boolean;
+  };
+  const recentExperiments: RecentRow[] = [];
   for (const cs of changesets) {
-    const exp = experimentById.get(cs.experiment);
-    // Skip changesets whose experiment we can't read (deleted or no
+    const ref = changesetOwnerRef(cs);
+    const owner = ref && ownerByKey.get(`${ref.kind}:${ref.id}`);
+    // Skip changesets whose owner we can't read (deleted or no
     // permission) — an orphan row the user can't open is a dead end.
-    if (!exp) continue;
+    if (!owner) continue;
     const patterns = cs.urlPatterns ?? [];
     // Prefer the first include rule as the "where it runs" label.
     const includes = patterns.filter((p) => p.include);
     const primary = includes[0] ?? patterns[0] ?? null;
     recentExperiments.push({
-      experimentId: exp.id,
-      experimentName: exp.name,
+      experimentId: owner.id,
+      experimentName: owner.name,
       visualChangesetId: cs.id,
       primaryUrl: primary?.pattern ?? null,
       extraPatternCount: Math.max(0, patterns.length - 1),
       urlPatterns: patterns,
-      project: exp.project || null,
-      status: exp.status,
-      updatedAt: toIso(exp.dateUpdated ?? exp.dateCreated),
+      project: owner.project || null,
+      status: owner.status,
+      updatedAt: toIso(owner.dateUpdated),
+      editable: owner.isEditable(),
     });
   }
-  // Default (non-search) list: draft experiments first (they're the ones you
-  // can edit), then by most-recently-updated within each group. Sorting drafts
-  // ahead of the trim means they win the MAX_RECENT slots over older
-  // running/stopped ones.
-  const statusRank = (s: string) => (s === "draft" ? 0 : 1);
+  // Default (non-search) list: editable rows first (draft experiments,
+  // draft or running CBs), then by most-recently-updated within each group.
+  // Sorting these ahead of the trim means they win the MAX_RECENT slots
+  // over older stopped ones.
   recentExperiments.sort((a, b) => {
     if (!search) {
-      const byStatus = statusRank(a.status) - statusRank(b.status);
-      if (byStatus !== 0) return byStatus;
+      const byEditable = (a.editable ? 0 : 1) - (b.editable ? 0 : 1);
+      if (byEditable !== 0) return byEditable;
     }
     return b.updatedAt.localeCompare(a.updatedAt);
   });

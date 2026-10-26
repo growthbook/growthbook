@@ -121,7 +121,9 @@ describe("json test suite", () => {
       const consoleErrorMock = jest
         .spyOn(console, "error")
         .mockImplementation();
-      expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
+      expect(evalCondition(value, condition, { savedGroups })).toEqual(
+        expected,
+      );
       consoleErrorMock.mockRestore();
     },
   );
@@ -131,7 +133,9 @@ describe("json test suite", () => {
   it.each(v2.evalCondition)(
     "savedGroupReferencesV2.evalCondition[%#] %s",
     (name, condition, value, expected, savedGroups = {}) => {
-      expect(evalCondition(value, condition, savedGroups)).toEqual(expected);
+      expect(evalCondition(value, condition, { savedGroups })).toEqual(
+        expected,
+      );
     },
   );
 

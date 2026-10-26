@@ -1940,9 +1940,6 @@
     }
   },
   "packages/front-end/pages/attributes.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
     "no-restricted-syntax": {
       "count": 1
     }

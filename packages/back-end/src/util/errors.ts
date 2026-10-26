@@ -72,6 +72,17 @@ export class InvalidTrackingKeyError extends ApiError<"invalid_tracking_key"> {
   }
 }
 
+export class UnscopedRuleError extends ApiError<"unscoped_rule"> {
+  constructor(count: number, ruleIds: string[]) {
+    super(
+      "unscoped_rule",
+      `${count === 1 ? "This rule applies" : `${count} rules apply`} to All Environments and All Projects. Your organization requires rules to target specific environments or Projects.`,
+      { ruleIds },
+    );
+    this.name = "UnscopedRuleError";
+  }
+}
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);
@@ -113,6 +124,18 @@ export class LicenseServerError extends Error {
 }
 
 export class VercelInstallationNotFound extends Error {}
+
+// Thrown before a held request's first write; runApiHandler turns it into a 202.
+export class ConfirmationRequiredError extends Error {
+  status = 202;
+  constructor(
+    readonly body: Record<string, unknown>,
+    readonly headers: Record<string, string>,
+  ) {
+    super(String(body.message));
+    this.name = "ConfirmationRequiredError";
+  }
+}
 
 export class BadRequestError extends Error {
   status = 400;
@@ -164,6 +187,14 @@ export class ConflictError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "ConflictError";
+  }
+}
+
+// The org's soft cap on drafts per feature; `overrideDraftLimit` gets past it.
+export class DraftLimitError extends ConflictError {
+  constructor(message: string) {
+    super(message);
+    this.name = "DraftLimitError";
   }
 }
 

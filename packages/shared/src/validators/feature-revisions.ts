@@ -11,6 +11,7 @@ import {
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -21,6 +22,11 @@ import {
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
+import {
+  REVIEW_ACTION_DESCRIPTION,
+  RULE_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -156,6 +162,8 @@ export const getFeatureRevisionLatestValidator = {
 export const postFeatureRevisionValidator = {
   method: "post" as const,
   path: "/features/:id/revisions",
+  confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevision",
   summary: "Create a draft revision",
   description:
@@ -174,7 +182,7 @@ export const postFeatureRevisionValidator = {
   querySchema: z
     .object({
       overrideDraftLimit: booleanQueryField.describe(
-        "If the organization caps concurrent drafts per feature (`maxConcurrentDrafts` setting), requests at or over the cap are rejected with a 409. Pass `true` to create the draft anyway.",
+        `If the organization caps concurrent drafts per feature (\`maxConcurrentDrafts\` setting), requests at or over the cap are rejected with a 409. Pass \`true\` to create the draft anyway. ${HUMAN_OVERRIDE_NOTE}`,
       ),
     })
     .strict(),
@@ -184,6 +192,7 @@ export const postFeatureRevisionValidator = {
 export const postFeatureRevisionDiscardValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/discard",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -200,6 +209,14 @@ export const postFeatureRevisionDiscardValidator = {
 export const postFeatureRevisionPublishValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/publish",
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    "rampSchedule.start",
+    "rampSchedule.edit",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -224,6 +241,13 @@ export const postFeatureRevisionPublishValidator = {
 export const postFeatureRevisionRevertValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/revert",
+  confirmation: [
+    "feature.draft",
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRevert",
   summary: "Revert the feature to a prior revision",
   description:
@@ -284,6 +308,7 @@ export const getFeatureRevisionMergeStatusValidator = {
 export const postFeatureRevisionRebaseValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rebase",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRebase",
   summary: "Rebase a draft revision onto the current live version",
   description:
@@ -307,6 +332,7 @@ export const postFeatureRevisionRebaseValidator = {
 export const postFeatureRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/request-review",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -328,6 +354,7 @@ export const postFeatureRevisionRequestReviewValidator = {
 export const postFeatureRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/submit-review",
+  confirmation: ["feature.review"] as const,
   operationId: "postFeatureRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description: `**Deprecated.** Use [POST /v2/features/:id/revisions/:version/submit-review](#operation/postFeatureRevisionSubmitReviewV2) instead.\n\nSubmits an \`approve\`, \`request-changes\`, or \`comment\` review on the draft. ${REVIEW_VERDICT_NOTE} Contributors cannot approve their own drafts, but may submit comments or request changes.\n\nWhen \`action\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
@@ -338,7 +365,10 @@ export const postFeatureRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -365,7 +395,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().describe(RULE_DESCRIPTION).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -448,6 +478,7 @@ const ruleCreateInput = z.union([
 export const postFeatureRevisionRuleAddValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRuleAdd",
   summary: "Add a rule to a draft revision",
   description:
@@ -473,6 +504,7 @@ export const postFeatureRevisionRuleAddValidator = {
 export const postFeatureRevisionRulesReorderValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules/reorder",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionRulesReorder",
   summary: "Reorder rules in an environment",
   description:
@@ -497,7 +529,7 @@ export const postFeatureRevisionRulesReorderValidator = {
 // them in a patch.
 const rulePatchSchema = z
   .object({
-    description: z.string().optional(),
+    description: z.string().describe(RULE_DESCRIPTION).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -525,6 +557,7 @@ const rulePatchSchema = z
 export const putFeatureRevisionRuleValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionRule",
   summary: "Update a rule in a draft revision",
   description:
@@ -550,6 +583,7 @@ export const putFeatureRevisionRuleValidator = {
 export const deleteFeatureRevisionRuleValidator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
+  confirmation: ["feature.draft"] as const,
   operationId: "deleteFeatureRevisionRule",
   summary: "Delete a rule from a draft revision",
   description:
@@ -572,6 +606,7 @@ export const deleteFeatureRevisionRuleValidator = {
 export const putFeatureRevisionRuleRampScheduleValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionRuleRampSchedule",
   summary: "Set ramp schedule for a rule",
   description:
@@ -596,6 +631,7 @@ export const putFeatureRevisionRuleRampScheduleValidator = {
 export const deleteFeatureRevisionRuleRampScheduleValidator = {
   method: "delete" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId/ramp-schedule",
+  confirmation: ["feature.draft"] as const,
   operationId: "deleteFeatureRevisionRuleRampSchedule",
   summary: "Remove ramp schedule from a rule",
   description:
@@ -620,6 +656,7 @@ export const deleteFeatureRevisionRuleRampScheduleValidator = {
 export const postFeatureRevisionToggleValidator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/toggle",
+  confirmation: ["feature.draft"] as const,
   operationId: "postFeatureRevisionToggle",
   summary: "Toggle an environment on/off in a draft revision",
   description:
@@ -643,6 +680,7 @@ export const postFeatureRevisionToggleValidator = {
 export const putFeatureRevisionDefaultValueValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/default-value",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionDefaultValue",
   summary: "Set the default value in a draft revision",
   description:
@@ -665,6 +703,7 @@ export const putFeatureRevisionDefaultValueValidator = {
 export const putFeatureRevisionPrerequisitesValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/prerequisites",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionPrerequisites",
   summary: "Set feature-level prerequisites in a draft revision",
   description:
@@ -687,6 +726,7 @@ export const putFeatureRevisionPrerequisitesValidator = {
 export const putFeatureRevisionMetadataValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/metadata",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionMetadata",
   summary: "Update revision metadata (comment, title, feature metadata)",
   description:
@@ -728,6 +768,7 @@ export const putFeatureRevisionMetadataValidator = {
 export const putFeatureRevisionArchiveValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/archive",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionArchive",
   summary: "Set archived state in a draft revision",
   description:
@@ -750,6 +791,7 @@ export const putFeatureRevisionArchiveValidator = {
 export const putFeatureRevisionHoldoutValidator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/holdout",
+  confirmation: ["feature.draft"] as const,
   operationId: "putFeatureRevisionHoldout",
   summary: "Set holdout in a draft revision",
   description:
