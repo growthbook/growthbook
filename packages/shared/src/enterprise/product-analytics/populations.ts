@@ -11,7 +11,7 @@ import type {
 
 export function validatePopulationMetricCompatibility(
   config: Pick<ExplorationConfig, "datasource" | "dimensions">,
-  value: MetricValue,
+  metricValue: MetricValue,
   metric: FactMetricInterface,
   population: MetricPopulation,
   factTable: FactTableInterface,
@@ -34,14 +34,14 @@ export function validatePopulationMetricCompatibility(
       "The population and metric must use the same Fact Table and Data Source.",
     );
   }
-  if (!value.unit || !factTable.userIdTypes.includes(value.unit)) {
+  if (!metricValue.unit || !factTable.userIdTypes.includes(metricValue.unit)) {
     throw new Error(
       "Select an identifier type supported by both the population and metric.",
     );
   }
   const violations = getPopulationRuleViolations({
     datasource: config.datasource,
-    userIdTypes: [value.unit],
+    userIdTypes: [metricValue.unit],
     steps: [
       {
         ...population,
