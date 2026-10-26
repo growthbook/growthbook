@@ -23,7 +23,7 @@ import { settingsNavLink } from "./sidebarNav";
 import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsNav.module.scss";
 
-// Native smooth scroll has no duration setting, so this eases over 300ms.
+// Native smooth scroll has no duration setting, so this eases over 200ms.
 export function scrollToSettingsSection(id: string) {
   const el = document.getElementById(id);
   if (!el) return;
@@ -36,7 +36,7 @@ export function scrollToSettingsSection(id: string) {
     parseFloat(getComputedStyle(el).scrollMarginTop);
   const start = performance.now();
   const step = (now: number) => {
-    const t = Math.min(1, (now - start) / 300);
+    const t = Math.min(1, (now - start) / 200);
     window.scrollTo({
       top: from + (to - from) * t * (2 - t),
       behavior: "instant",
