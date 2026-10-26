@@ -69,9 +69,11 @@ function toSeries(
       const date = new Date(`${day}T00:00:00Z`);
       if (!cell || isNaN(date.getTime())) return [];
       // Days of the window this bucket covers, to turn its total into a daily one
+      const bucketEnd = new Date(
+        Math.min(nextBucket(date, granularity).getTime(), end.getTime()),
+      );
       const days = Math.max(
-        (Math.min(nextBucket(date, granularity).getTime(), end.getTime()) -
-          Math.max(date.getTime(), start.getTime())) /
+        (bucketEnd.getTime() - Math.max(date.getTime(), start.getTime())) /
           DAY_MS,
         1 / 24,
       );
@@ -83,6 +85,7 @@ function toSeries(
             isRatio: false,
           }),
           total: (cell.numerator ?? 0) / days,
+          end: bucketEnd,
         },
       ];
     })
