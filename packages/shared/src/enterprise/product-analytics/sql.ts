@@ -161,7 +161,7 @@ interface MetricData {
     presenceExpr: string;
     unitAggregationExpr: string;
   };
-  presenceExpr?: string;
+  presenceExpr: string | null;
 }
 interface DimensionData {
   alias: string;
@@ -1111,6 +1111,20 @@ function getMetricData(
       rollupCountExpr = getRollupCountExpr(metric, alias);
     }
   }
+  // Population rows broaden the shared scan, so every metric needs its own
+  // presence marker to distinguish matching activity from population-only rows.
+  const requiresMetricPresence = factTableGroup.metrics.some(
+    (m) => m.population,
+  );
+  const presenceExpr = requiresMetricPresence
+    ? getEventValueExpr(
+        { ...columnRef, column: "$$count" },
+        factTable,
+        helpers,
+        alias,
+        null,
+      )
+    : null;
   const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
     columnRef,
@@ -1136,13 +1150,7 @@ function getMetricData(
       cappingSettings,
     ),
     population: populationData,
-    presenceExpr: getEventValueExpr(
-      { ...columnRef, column: "$$count" },
-      factTable,
-      helpers,
-      alias,
-      null,
-    ),
+    presenceExpr,
     unitAggregationExpr,
     rollupAggregationExpr,
     rollupCountExpr,
@@ -1365,7 +1373,7 @@ function generateFactTableRowsCTE(
   factTableGroup.metrics.forEach((m) => {
     const metricData = getMetricData(m, factTableGroup, helpers);
     selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
-    if (factTableGroup.metrics.some((m) => m.population)) {
+    if (metricData.presenceExpr !== null) {
       selectCols.push(`${metricData.presenceExpr} AS ${metricData.alias}_rows`);
     }
     if (metricData.population) {
@@ -1413,7 +1421,7 @@ function generateUnitAggregationCTE(
     // Population rows broaden the shared scan. They must not turn absent
     // activity into zero-valued contributors for neighboring series.
     const guardedExpr =
-      !metricData.population && factTableGroup.metrics.some((m) => m.population)
+      !metricData.population && metricData.presenceExpr !== null
         ? `CASE WHEN COUNT(${metricData.alias}_rows) > 0 THEN ${expr} ELSE NULL END`
         : expr;
     selects.push(`${guardedExpr} AS ${metricData.alias}`);
