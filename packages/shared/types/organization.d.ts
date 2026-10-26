@@ -227,10 +227,10 @@ export type ExperimentUpdateSchedule = {
   type: "cron" | "never" | "stale";
   cron?: string;
   hours?: number;
-  analysisEndDate?: "runTime" | "lag" | "fixedTime";
-  analysisEndLagHours?: number;
+  analysisEndDateMode?: "runTime" | "lag" | "fixedTime";
+  analysisEndDateLagHours?: number;
   // "HH:MM" in UTC; only used with a cron schedule
-  analysisEndTime?: string;
+  analysisEndDateTime?: string;
 };
 
 export type Environment = z.infer<typeof environment>;

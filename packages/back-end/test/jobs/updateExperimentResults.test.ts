@@ -140,8 +140,8 @@ describe("scheduled experiment updates", () => {
             updateSchedule: {
               type: "stale",
               hours: 6,
-              analysisEndDate: "lag",
-              analysisEndLagHours: 3,
+              analysisEndDateMode: "lag",
+              analysisEndDateLagHours: 3,
             },
           },
         },
@@ -223,8 +223,8 @@ describe("scheduled experiment updates", () => {
       updateSchedule: {
         type: "stale",
         hours: 6,
-        analysisEndDate: "lag",
-        analysisEndLagHours: 3,
+        analysisEndDateMode: "lag",
+        analysisEndDateLagHours: 3,
       },
     },
   ])(

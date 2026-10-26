@@ -369,8 +369,8 @@ describe("snapshot planning", () => {
         updateSchedule: {
           type: "stale",
           hours: 6,
-          analysisEndDate: "lag",
-          analysisEndLagHours: 3,
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 3,
         },
       };
       const before = Date.now();

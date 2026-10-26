@@ -394,11 +394,11 @@ export default function ExperimentSettings({
                     form.setValue("updateSchedule.type", v);
                     if (
                       v !== "cron" &&
-                      form.watch("updateSchedule.analysisEndDate") ===
+                      form.watch("updateSchedule.analysisEndDateMode") ===
                         "fixedTime"
                     ) {
                       form.setValue(
-                        "updateSchedule.analysisEndDate",
+                        "updateSchedule.analysisEndDateMode",
                         "runTime",
                       );
                     }
@@ -434,11 +434,12 @@ export default function ExperimentSettings({
                               max={168}
                               disabled={
                                 hasFileConfig() ||
-                                form.watch("updateSchedule.analysisEndDate") !==
-                                  "lag"
+                                form.watch(
+                                  "updateSchedule.analysisEndDateMode",
+                                ) !== "lag"
                               }
                               {...form.register(
-                                "updateSchedule.analysisEndLagHours",
+                                "updateSchedule.analysisEndDateLagHours",
                                 { valueAsNumber: true },
                               )}
                             />
@@ -461,11 +462,11 @@ export default function ExperimentSettings({
                                 disabled={
                                   hasFileConfig() ||
                                   form.watch(
-                                    "updateSchedule.analysisEndDate",
+                                    "updateSchedule.analysisEndDateMode",
                                   ) !== "fixedTime"
                                 }
                                 {...form.register(
-                                  "updateSchedule.analysisEndTime",
+                                  "updateSchedule.analysisEndDateTime",
                                 )}
                               />
                             </>
@@ -475,17 +476,17 @@ export default function ExperimentSettings({
                       gap="2"
                       descriptionSize="md"
                       value={
-                        form.watch("updateSchedule.analysisEndDate") ??
+                        form.watch("updateSchedule.analysisEndDateMode") ??
                         "runTime"
                       }
                       setValue={(v) => {
-                        form.setValue("updateSchedule.analysisEndDate", v);
+                        form.setValue("updateSchedule.analysisEndDateMode", v);
                         if (
                           v === "fixedTime" &&
-                          !form.watch("updateSchedule.analysisEndTime")
+                          !form.watch("updateSchedule.analysisEndDateTime")
                         ) {
                           form.setValue(
-                            "updateSchedule.analysisEndTime",
+                            "updateSchedule.analysisEndDateTime",
                             "00:00",
                           );
                         }

@@ -13,18 +13,18 @@ export function getScheduledAnalysisEndDate(
   now: Date = new Date(),
 ): Date | null {
   let cutoff: Date | null = null;
-  const mode = schedule?.analysisEndDate ?? "runTime";
+  const mode = schedule?.analysisEndDateMode ?? "runTime";
   switch (mode) {
     case "lag": {
       const lagHours = Math.min(
-        Math.max(schedule?.analysisEndLagHours || 0, 0),
+        Math.max(schedule?.analysisEndDateLagHours || 0, 0),
         168,
       );
       cutoff = new Date(now.getTime() - lagHours * 60 * 60 * 1000);
       break;
     }
     case "fixedTime": {
-      const time = schedule?.analysisEndTime;
+      const time = schedule?.analysisEndDateTime;
       const match =
         typeof time === "string" ? time.match(ANALYSIS_END_TIME_PATTERN) : null;
       if (schedule?.type !== "cron" || !match) break;
@@ -52,10 +52,10 @@ export function getScheduledAnalysisEndDate(
 export function getAnalysisEndDateSettingsError(
   schedule: ExperimentUpdateSchedule | null | undefined,
 ): string | null {
-  const mode = schedule?.analysisEndDate;
+  const mode = schedule?.analysisEndDateMode;
   if (mode === undefined || mode === "runTime") return null;
   if (mode === "lag") {
-    const hours = schedule?.analysisEndLagHours;
+    const hours = schedule?.analysisEndDateLagHours;
     return typeof hours === "number" &&
       Number.isInteger(hours) &&
       hours >= 1 &&
@@ -67,8 +67,8 @@ export function getAnalysisEndDateSettingsError(
     if (schedule?.type !== "cron") {
       return "An exact time of day requires a cron update schedule";
     }
-    return typeof schedule.analysisEndTime === "string" &&
-      ANALYSIS_END_TIME_PATTERN.test(schedule.analysisEndTime)
+    return typeof schedule.analysisEndDateTime === "string" &&
+      ANALYSIS_END_TIME_PATTERN.test(schedule.analysisEndDateTime)
       ? null
       : "Time of day must be in HH:MM format (UTC)";
   }

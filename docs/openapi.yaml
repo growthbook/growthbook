@@ -76173,17 +76173,17 @@ components:
                   anyOf:
                     - type: number
                     - type: 'null'
-                analysisEndDate:
+                analysisEndDateMode:
                   type: string
                   enum:
                     - runTime
                     - lag
                     - fixedTime
-                analysisEndLagHours:
+                analysisEndDateLagHours:
                   anyOf:
                     - type: number
                     - type: 'null'
-                analysisEndTime:
+                analysisEndDateTime:
                   anyOf:
                     - type: string
                       pattern: ^([01]\d|2[0-3]):[0-5]\d$

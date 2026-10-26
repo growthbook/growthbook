@@ -257,8 +257,8 @@ describe("organization config import", () => {
             updateSchedule: {
               type: "cron",
               cron: "0 3 * * *",
-              analysisEndDate: "fixedTime",
-              analysisEndTime: 300,
+              analysisEndDateMode: "fixedTime",
+              analysisEndDateTime: 300,
             },
           },
         },

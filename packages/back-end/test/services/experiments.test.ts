@@ -2597,7 +2597,7 @@ describe("getScheduledAnalysisEndDate", () => {
     ).toBeNull();
     expect(
       getScheduledAnalysisEndDate(
-        { ...cron, analysisEndDate: "runTime" },
+        { ...cron, analysisEndDateMode: "runTime" },
         phaseStart,
         now,
       ),
@@ -2607,7 +2607,11 @@ describe("getScheduledAnalysisEndDate", () => {
   it("subtracts the lag hours", () => {
     expect(
       getScheduledAnalysisEndDate(
-        { type: "stale", analysisEndDate: "lag", analysisEndLagHours: 3 },
+        {
+          type: "stale",
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 3,
+        },
         phaseStart,
         now,
       ),
@@ -2617,7 +2621,11 @@ describe("getScheduledAnalysisEndDate", () => {
   it("has no cutoff for a zero lag", () => {
     expect(
       getScheduledAnalysisEndDate(
-        { type: "stale", analysisEndDate: "lag", analysisEndLagHours: 0 },
+        {
+          type: "stale",
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 0,
+        },
         phaseStart,
         now,
       ),
@@ -2627,7 +2635,11 @@ describe("getScheduledAnalysisEndDate", () => {
   it("uses today's fixed time when it has passed", () => {
     expect(
       getScheduledAnalysisEndDate(
-        { ...cron, analysisEndDate: "fixedTime", analysisEndTime: "00:00" },
+        {
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "00:00",
+        },
         phaseStart,
         now,
       ),
@@ -2637,7 +2649,11 @@ describe("getScheduledAnalysisEndDate", () => {
   it("uses yesterday's fixed time when today's has not passed", () => {
     expect(
       getScheduledAnalysisEndDate(
-        { ...cron, analysisEndDate: "fixedTime", analysisEndTime: "23:00" },
+        {
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "23:00",
+        },
         phaseStart,
         now,
       ),
@@ -2650,8 +2666,8 @@ describe("getScheduledAnalysisEndDate", () => {
         {
           type: "stale",
           hours: 6,
-          analysisEndDate: "fixedTime",
-          analysisEndTime: "00:00",
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "00:00",
         },
         phaseStart,
         now,
@@ -2663,8 +2679,8 @@ describe("getScheduledAnalysisEndDate", () => {
     // A config file import can store a YAML number here.
     const schedule = {
       ...cron,
-      analysisEndDate: "fixedTime",
-      analysisEndTime: 0,
+      analysisEndDateMode: "fixedTime",
+      analysisEndDateTime: 0,
     } as unknown as ExperimentUpdateSchedule;
     expect(getScheduledAnalysisEndDate(schedule, phaseStart, now)).toBeNull();
   });
@@ -2672,7 +2688,11 @@ describe("getScheduledAnalysisEndDate", () => {
   it("has no cutoff when it falls before the analysis start", () => {
     expect(
       getScheduledAnalysisEndDate(
-        { ...cron, analysisEndDate: "fixedTime", analysisEndTime: "00:00" },
+        {
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "00:00",
+        },
         new Date("2026-09-30T01:00:00Z"),
         now,
       ),
@@ -2682,8 +2702,8 @@ describe("getScheduledAnalysisEndDate", () => {
   it("has no cutoff before a holdout's analysis period starts", () => {
     const schedule: ExperimentUpdateSchedule = {
       type: "stale",
-      analysisEndDate: "lag",
-      analysisEndLagHours: 3,
+      analysisEndDateMode: "lag",
+      analysisEndDateLagHours: 3,
     };
     const analysisPeriodStart = new Date("2026-09-30T02:00:00Z");
     expect(getScheduledAnalysisEndDate(schedule, phaseStart, now)).toEqual(
@@ -2704,18 +2724,18 @@ describe("getAnalysisEndDateSettingsError", () => {
     expect(
       getAnalysisEndDateSettingsError({
         type: "stale",
-        analysisEndDate: "runTime",
-        analysisEndLagHours: undefined,
+        analysisEndDateMode: "runTime",
+        analysisEndDateLagHours: undefined,
       }),
     ).toBeNull();
   });
 
   it("requires a whole number of lag hours between 1 and 168", () => {
-    const lag = (analysisEndLagHours?: number) =>
+    const lag = (analysisEndDateLagHours?: number) =>
       getAnalysisEndDateSettingsError({
         type: "stale",
-        analysisEndDate: "lag",
-        analysisEndLagHours,
+        analysisEndDateMode: "lag",
+        analysisEndDateLagHours,
       });
     expect(lag(1)).toBeNull();
     expect(lag(168)).toBeNull();
@@ -2728,23 +2748,29 @@ describe("getAnalysisEndDateSettingsError", () => {
     expect(
       getAnalysisEndDateSettingsError({
         ...cron,
-        analysisEndDate: "fixedTime",
-        analysisEndTime: "00:30",
+        analysisEndDateMode: "fixedTime",
+        analysisEndDateTime: "00:30",
       }),
     ).toBeNull();
     expect(
       getAnalysisEndDateSettingsError({
         type: "stale",
-        analysisEndDate: "fixedTime",
-        analysisEndTime: "00:30",
+        analysisEndDateMode: "fixedTime",
+        analysisEndDateTime: "00:30",
       }),
     ).toMatch(/cron/);
-    for (const analysisEndTime of [undefined, "", "24:00", "3:30", "03:60"]) {
+    for (const analysisEndDateTime of [
+      undefined,
+      "",
+      "24:00",
+      "3:30",
+      "03:60",
+    ]) {
       expect(
         getAnalysisEndDateSettingsError({
           ...cron,
-          analysisEndDate: "fixedTime",
-          analysisEndTime,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime,
         }),
       ).toMatch(/HH:MM/);
     }
