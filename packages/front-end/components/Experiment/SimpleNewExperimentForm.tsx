@@ -147,13 +147,17 @@ export function getAutoExposureQueryId({
   return matching.length === 1 ? matching[0].id : "";
 }
 
-// "id", or else the first attribute flagged for hashing. With none flagged the
-// form asks instead, starting from "id" only where the schema declares it.
-function defaultHashAttributeOf(
+// "id" when it's flagged for hashing, else the one attribute that is. With
+// several flagged and no "id", or none flagged, the form asks, starting from
+// "id" only where the schema declares it.
+export function defaultHashAttributeOf(
   schema: { property: string; hashAttribute?: boolean }[],
 ): string {
   const hashable = schema.filter((a) => a.hashAttribute).map((a) => a.property);
-  if (hashable.length) return hashable.includes("id") ? "id" : hashable[0];
+  if (hashable.length) {
+    if (hashable.includes("id")) return "id";
+    return hashable.length === 1 ? hashable[0] : "";
+  }
   return !schema.length || schema.some((a) => a.property === "id") ? "id" : "";
 }
 
@@ -296,11 +300,14 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
-  const hasHashAttributes = attributeSchema.some((a) => a.hashAttribute);
+  const hashableAttributes = attributeSchema.filter((a) => a.hashAttribute);
+  const hasHashAttributes = hashableAttributes.length > 0;
   const defaultHashAttribute = defaultHashAttributeOf(attributeSchema);
-  // Usually left to the default and changed afterwards on the Setup page; with
-  // no attribute flagged for hashing, the default may be one no SDK sends.
-  const askHashAttribute = !hasHashAttributes && attributeSchema.length > 0;
+  // It decides the units, and the assignment query and identifier follow it,
+  // so it's asked whenever there's a choice; with none flagged for hashing,
+  // the default may be one no SDK sends.
+  const askHashAttribute =
+    attributeSchema.length > 0 && hashableAttributes.length !== 1;
 
   const { availableFields: customFields, value: customFieldValues } =
     useReconciledCustomFields({
@@ -712,7 +719,10 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           className={hashAttributeHoldoutMismatch ? "warning" : undefined}
           value={form.watch("hashAttribute") ?? ""}
           onChange={(v) => form.setValue("hashAttribute", v)}
-          options={attributeSchema.map(toAttributeOption)}
+          options={(hasHashAttributes
+            ? hashableAttributes
+            : attributeSchema
+          ).map(toAttributeOption)}
           formatOptionLabel={formatAttributeOptionLabel}
           helpText={
             hashAttributeHoldoutMismatch ? (
