@@ -1,5 +1,5 @@
 {
-  "specVersion": "0.11.1",
+  "specVersion": "0.11.2",
   "evalCondition": [
     [
       "$not - pass",
@@ -7009,7 +7009,14 @@
     ["89123klj", "8952klfjas09ujkasdf", 2, 0.124],
     ["90850943850283058242805", "123", 2, 0.7516],
     ["()**(%$##$%#$#", "___)((*\":&", 2, 0.0128],
-    ["abc", "def", 99, null]
+    ["abc", "def", 99, null],
+    ["bucket-range-rounding", "user-3436", 2, 0.22],
+    ["bucket-range-rounding", "user-1177", 2, 0.344],
+    ["bucket-range-rounding", "user-427", 2, 0.109],
+    ["bucket-range-rounding", "user-68525", 2, 0.818],
+    ["bucket-range-rounding", "user-866", 2, 0.172],
+    ["bucket-range-rounding", "user-74", 1, 0.287],
+    ["bucket-range-rounding", "user-549", 1, 0.344]
   ],
   "getBucketRange": [
     [
@@ -10446,6 +10453,111 @@
       0,
       true,
       true
+    ],
+    [
+      "range end includes the user - 5 equal, coverage 0.1, hash v2",
+      { "attributes": { "id": "user-3436" } },
+      {
+        "key": "exp",
+        "seed": "bucket-range-rounding",
+        "hashVersion": 2,
+        "coverage": 0.1,
+        "variations": ["v0", "v1", "v2", "v3", "v4"],
+        "weights": [0.2, 0.2, 0.2, 0.2, 0.2]
+      },
+      "v1",
+      true,
+      true
+    ],
+    [
+      "range end excludes the user - 5 equal, coverage 0.72, hash v2",
+      { "attributes": { "id": "user-1177" } },
+      {
+        "key": "exp",
+        "seed": "bucket-range-rounding",
+        "hashVersion": 2,
+        "coverage": 0.72,
+        "variations": ["v0", "v1", "v2", "v3", "v4"],
+        "weights": [0.2, 0.2, 0.2, 0.2, 0.2]
+      },
+      "v0",
+      false,
+      false
+    ],
+    [
+      "range end includes the user - 10/90, coverage 0.01, hash v2",
+      { "attributes": { "id": "user-427" } },
+      {
+        "key": "exp",
+        "seed": "bucket-range-rounding",
+        "hashVersion": 2,
+        "coverage": 0.01,
+        "variations": ["v0", "v1"],
+        "weights": [0.1, 0.9]
+      },
+      "v1",
+      true,
+      true
+    ],
+    [
+      "range end includes the user - 30/70, coverage 0.74, hash v2",
+      { "attributes": { "id": "user-68525" } },
+      {
+        "key": "exp",
+        "seed": "bucket-range-rounding",
+        "hashVersion": 2,
+        "coverage": 0.74,
+        "variations": ["v0", "v1"],
+        "weights": [0.3, 0.7]
+      },
+      "v1",
+      true,
+      true
+    ],
+    [
+      "range end excludes the user - 10/20/30/40, coverage 0.36, hash v2",
+      { "attributes": { "id": "user-866" } },
+      {
+        "key": "exp",
+        "seed": "bucket-range-rounding",
+        "hashVersion": 2,
+        "coverage": 0.36,
+        "variations": ["v0", "v1", "v2", "v3"],
+        "weights": [0.1, 0.2, 0.3, 0.4]
+      },
+      "v0",
+      false,
+      false
+    ],
+    [
+      "range end includes the user - 20/30/50, coverage 0.29, hash v1",
+      { "attributes": { "id": "user-74" } },
+      {
+        "key": "exp",
+        "seed": "bucket-range-rounding",
+        "hashVersion": 1,
+        "coverage": 0.29,
+        "variations": ["v0", "v1", "v2"],
+        "weights": [0.2, 0.3, 0.5]
+      },
+      "v1",
+      true,
+      true
+    ],
+    [
+      "range end excludes the user - 20/30/50, coverage 0.48, hash v1",
+      { "attributes": { "id": "user-549" } },
+      {
+        "key": "exp",
+        "seed": "bucket-range-rounding",
+        "hashVersion": 1,
+        "coverage": 0.48,
+        "variations": ["v0", "v1", "v2"],
+        "weights": [0.2, 0.3, 0.5]
+      },
+      "v0",
+      false,
+      false
     ]
   ],
   "chooseVariation": [
