@@ -458,8 +458,9 @@ export interface InsertMetricSourceDataQueryParams {
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
   lastMaxTimestampRaw?: string | null;
-  // Wall-clock start of the refresh. The fact table scan never runs past it,
-  // so a row stamped ahead of the refresh can't become the cache watermark.
+  // Latest timestamp the fact table scan may load: the refresh's start time
+  // for an ended phase, the analysis end date for a running one. A row past it
+  // can't become the cache watermark.
   incrementalRefreshStartTime: Date;
 }
 

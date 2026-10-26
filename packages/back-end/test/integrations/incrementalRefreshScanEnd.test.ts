@@ -1,6 +1,7 @@
 import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
+import { getIncrementalMetricScanEnd } from "back-end/src/services/experiments";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
@@ -156,6 +157,32 @@ describe("incremental refresh metric source scan end", () => {
     const cte = factTableCte(sql);
     expect(cte).toMatch(/m\.timestamp\s*<=\s*'2024-01-17 00:00:00'/);
     expect(cte).not.toContain("2024-01-20");
+  });
+
+  it("bounds a running phase's scan at a lagged analysis end date", () => {
+    // Scheduled run at 03:00 analyzing through midnight. Scanning to 03:00
+    // would move the watermark past users exposed after midnight, who aren't
+    // in the units table yet, and the next refresh would skip their rows.
+    const sql = buildSql({
+      settings: baseSettings,
+      metric: conversionWindowMetric,
+      incrementalRefreshStartTime: getIncrementalMetricScanEnd(
+        {},
+        baseSettings,
+        new Date("2024-01-15T03:00:00Z"),
+      ),
+    });
+    const cte = factTableCte(sql);
+    expect(cte).toMatch(/m\.timestamp\s*<=\s*'2024-01-15 00:00:00'/);
+    expect(cte).not.toContain("03:00:00");
+  });
+
+  it("scans an ended phase to the refresh start time", () => {
+    const endDate = new Date("2024-01-10T00:00:00Z");
+    const now = new Date("2024-01-20T00:00:00Z");
+    expect(
+      getIncrementalMetricScanEnd({ dateEnded: endDate }, { endDate }, now),
+    ).toEqual(now);
   });
 
   it("keeps the snapshot end date for a metric without a conversion window", () => {

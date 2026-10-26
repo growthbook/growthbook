@@ -1059,6 +1059,21 @@ export function getScheduledAnalysisEndDate(
   return endDate > phaseStart ? endDate : now;
 }
 
+/**
+ * Latest fact timestamp an incremental refresh may load into its metric
+ * sources. The scan's MAX(timestamp) becomes the source watermark, so a running
+ * phase must stop at its analysis end date: rows past a lagged cutoff belong to
+ * units that aren't in the units table yet, and the next refresh would skip
+ * them. An ended phase scans to now so conversion windows can close.
+ */
+export function getIncrementalMetricScanEnd(
+  phase: Pick<ExperimentPhase, "dateEnded"> | undefined,
+  settings: Pick<ExperimentSnapshotSettings, "endDate">,
+  now: Date = new Date(),
+): Date {
+  return phase?.dateEnded ? now : settings.endDate;
+}
+
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
   const start = (
     exp?.banditStageDateStarted ??
@@ -2289,7 +2304,10 @@ export async function createSnapshotFromPlan({
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
-        incrementalRefreshStartTime: new Date(),
+        incrementalRefreshStartTime: getIncrementalMetricScanEnd(
+          experiment.phases[plan.snapshot.phase],
+          plan.snapshot.settings,
+        ),
         fullRefresh: runnerKind === "incremental-full",
       });
     } else if (runnerKind === "incremental-exploratory") {
