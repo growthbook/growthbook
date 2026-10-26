@@ -129,6 +129,7 @@ export async function runProductAnalyticsExploration(
   let metricsWithPopulations: FactMetricInterface[] = [];
   let metricsWithPopulationsFactTables: FactTableInterface[] = [];
   if (dataset.type === "metric") {
+    // Validate metrics with populations before cache lookup
     const metricsWithPopulationsValues = dataset.values.filter(
       (v) => v.population,
     );

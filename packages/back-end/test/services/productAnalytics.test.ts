@@ -365,30 +365,30 @@ describe("inline population validation before exploration cache lookup", () => {
   });
   const run = (c = config) =>
     runProductAnalyticsExploration(context, c, { cache: "required" });
-  it("passes the inline snapshot through to cache lookup without loading a saved population", async () => {
+  it("passes the supplied population rules to cache lookup", async () => {
     await expect(run()).resolves.toBeNull();
     expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
-    const changed = structuredClone(config);
-    if (changed.dataset.type !== "metric")
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
-    changed.dataset.values[0].population = {
+    testConfig.dataset.values[0].population = {
       ...population,
       aggregateFilter: ">2",
       aggregateFilterColumn: "$$count",
     };
-    await run(changed);
-    expect(findLatestByConfig.mock.calls[1][0]).toEqual(changed);
+    await run(testConfig);
+    expect(findLatestByConfig.mock.calls[1][0]).toEqual(testConfig);
     expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
   });
   it("rejects an incompatible fact table before reading the cache", async () => {
-    const changed = structuredClone(config);
-    if (changed.dataset.type !== "metric")
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
-    changed.dataset.values[0].population = {
+    testConfig.dataset.values[0].population = {
       ...population,
       source: { type: "factTable", factTableId: "other" },
     };
-    await expect(run(changed)).rejects.toThrow("same Fact Table");
+    await expect(run(testConfig)).rejects.toThrow("same Fact Table");
     expect(findLatestByConfig).not.toHaveBeenCalled();
   });
   it("checks datasource query permission even for cache-only requests", async () => {
