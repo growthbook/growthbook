@@ -215,6 +215,68 @@ describe("scheduled experiment updates", () => {
       await organizations.updateOne({ id: ORG_ID }, { $set: { settings: {} } });
     }
   });
+
+  it.each([
+    { through: "the run time", updateSchedule: { type: "stale", hours: 6 } },
+    {
+      through: "a lagged cutoff",
+      updateSchedule: {
+        type: "stale",
+        hours: 6,
+        analysisEndDate: "lag",
+        analysisEndLagHours: 3,
+      },
+    },
+  ])(
+    "runs when analyzing through $through and the latest snapshot ends in the future",
+    async ({ updateSchedule }) => {
+      const organizations = mongoose.connection.collection("organizations");
+      const snapshots = mongoose.connection.collection("experimentsnapshots");
+      await organizations.updateOne(
+        { id: ORG_ID },
+        { $set: { settings: { updateSchedule } } },
+      );
+      await experiments().insertOne({
+        ...running,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        variations: running.variations.map((v) => ({ ...v, screenshots: [] })),
+        phases: [
+          {
+            dateStarted: new Date(Date.now() - 48 * HOUR),
+            variationWeights: [0.5, 0.5],
+          },
+        ],
+        id: "exp_future",
+        nextSnapshotAttempt: new Date(),
+      });
+      await snapshots.insertOne({
+        organization: ORG_ID,
+        experiment: "exp_future",
+        phase: 0,
+        dimension: null,
+        type: "standard",
+        status: "success",
+        dateCreated: new Date(),
+        id: "snp_future",
+        settings: {
+          metricSettings: [],
+          endDate: new Date(Date.now() + 24 * HOUR),
+        },
+      });
+
+      try {
+        await updateSingleExperiment(jobFor("exp_future"));
+        expect(getDataSourceById).toHaveBeenCalledTimes(1);
+      } finally {
+        await snapshots.deleteMany({});
+        await organizations.updateOne(
+          { id: ORG_ID },
+          { $set: { settings: {} } },
+        );
+      }
+    },
+  );
 });
 
 describe("failing scheduled updates", () => {

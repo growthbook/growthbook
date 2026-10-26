@@ -1136,6 +1136,28 @@ export async function findLatestSuccessfulReportSnapshotId(
   return doc?.id ?? null;
 }
 
+/** Analysis end date of a phase's newest successful Overall snapshot, read without its analyses. */
+export async function findLatestSuccessfulSnapshotEndDate(
+  context: Context,
+  { experiment, phase }: { experiment: string; phase: number },
+): Promise<Date | null> {
+  const doc = await ExperimentSnapshotModel.findOne(
+    {
+      organization: context.org.id,
+      experiment,
+      phase,
+      dimension: null,
+      type: "standard",
+      status: "success",
+    },
+    { "settings.endDate": 1 },
+    { sort: { dateCreated: -1 } },
+  )
+    .lean<{ settings?: { endDate?: Date | string } }>()
+    .exec();
+  return doc?.settings?.endDate ? new Date(doc.settings.endDate) : null;
+}
+
 export async function dangerousFindStalledRunningSnapshotsFromAllOrgs(
   stalledBefore: Date,
   limit: number,

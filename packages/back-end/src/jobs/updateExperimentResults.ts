@@ -17,7 +17,7 @@ import {
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
-import { getLatestSuccessfulSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ConcurrentIncrementalRefreshError,
   UnrecoverableSnapshotError,
@@ -145,25 +145,29 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   // re-running would replace fresher results with older ones.
   const phaseIndex = experiment.phases.length - 1;
   const phase = experiment.phases[phaseIndex];
-  if (experiment.type !== "multi-armed-bandit" && phase && !phase.dateEnded) {
-    const updateSchedule = organization.settings?.updateSchedule ?? null;
+  const updateSchedule = organization.settings?.updateSchedule ?? null;
+  if (
+    updateSchedule?.analysisEndDate &&
+    updateSchedule.analysisEndDate !== "runTime" &&
+    experiment.type !== "multi-armed-bandit" &&
+    phase &&
+    !phase.dateEnded
+  ) {
+    const now = new Date();
     const cutoff = getScheduledAnalysisEndDate(
       updateSchedule,
       phase.dateStarted,
+      now,
     );
-    const latest = await getLatestSuccessfulSnapshot({
-      context,
+    const latestEndDate = await findLatestSuccessfulSnapshotEndDate(context, {
       experiment: experiment.id,
       phase: phaseIndex,
-      type: "standard",
-      metricIds: [],
     });
-    if (
-      latest &&
-      new Date(latest.settings.endDate).getTime() >= cutoff.getTime()
-    ) {
+    // An end date in the future (left by a phase end that was later cleared)
+    // must not hold off updates until that date.
+    if (latestEndDate && latestEndDate >= cutoff && latestEndDate <= now) {
       logger.info(
-        `Skipping scheduled update for experiment ${experimentId}: latest snapshot ${latest.id} already covers ${cutoff.toISOString()}`,
+        `Skipping scheduled update for experiment ${experimentId}: latest snapshot already covers ${cutoff.toISOString()}`,
       );
       const nextUpdate = determineNextDate(updateSchedule);
       if (nextUpdate) {
