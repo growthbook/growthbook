@@ -8,7 +8,6 @@ import {
   DemographicData,
   Invite,
   Member,
-  MemberRoleWithProjects,
   OrganizationInterface,
   OrganizationMessage,
   OrganizationSettings,
@@ -464,6 +463,31 @@ export async function addOrganizationInviteIfSeatAvailable(
   return doc ? toInterface(doc) : null;
 }
 
+// Replaces one invite in place; false if it no longer exists.
+export async function updateOrganizationInvite(
+  organizationId: string,
+  invite: Invite,
+) {
+  const res = await OrganizationModel.updateOne(
+    { id: organizationId, "invites.key": invite.key },
+    { $set: { "invites.$": invite } },
+  );
+  return res.matchedCount > 0;
+}
+
+// Null if the invite was already gone.
+export async function removeOrganizationInvite(
+  organizationId: string,
+  key: string,
+) {
+  const doc = await OrganizationModel.findOneAndUpdate(
+    { id: organizationId, "invites.key": key },
+    { $pull: { invites: { key } } },
+    { new: true },
+  );
+  return doc ? toInterface(doc) : null;
+}
+
 export async function acceptOrganizationInvite(
   organizationId: string,
   inviteKey: string,
@@ -663,11 +687,6 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
     );
   }
 
-  // Make sure role id is not already in use
-  if (org.customRoles?.find((r) => r.id === role.id)) {
-    throw new Error("That role id already exists");
-  }
-
   // Validate custom role id format
   if (!/^[a-zA-Z0-9_]+$/.test(role.id)) {
     throw new Error(
@@ -675,10 +694,14 @@ export async function addCustomRole(org: OrganizationInterface, role: Role) {
     );
   }
 
-  const customRoles = [...(org.customRoles || [])];
-  customRoles.push(role);
-
-  await updateOrganization(org.id, { customRoles });
+  // Guarded in the write so concurrent role changes can't overwrite each other
+  const res = await OrganizationModel.updateOne(
+    { id: org.id, "customRoles.id": { $ne: role.id } },
+    { $push: { customRoles: role } },
+  );
+  if (!res.matchedCount) {
+    throw new Error("That role id already exists");
+  }
 }
 
 export async function editCustomRole(
@@ -689,32 +712,32 @@ export async function editCustomRole(
   // Validation
   updates = customRoleValidator.omit({ id: true }).parse(updates);
 
-  let found = false;
-  const newCustomRoles = (org.customRoles || []).map((role) => {
-    if (role.id === id) {
-      found = true;
-      return {
-        ...role,
-        ...updates,
-      };
-    }
-    return role;
-  });
-
-  if (!found) {
+  const $set = Object.fromEntries(
+    Object.entries(updates)
+      .filter(([, v]) => v !== undefined)
+      .map(([k, v]) => [`customRoles.$.${k}`, v]),
+  );
+  const res = await OrganizationModel.updateOne(
+    { id: org.id, "customRoles.id": id },
+    { $set },
+  );
+  if (!res.matchedCount) {
     throw new Error("Role not found");
   }
-
-  await updateOrganization(org.id, { customRoles: newCustomRoles });
 }
 
-function usingRole(member: MemberRoleWithProjects, role: string): boolean {
+type RoleGrant = { role?: string; additionalRoles?: { role: string }[] };
+
+function usingRole(
+  holder: RoleGrant & { projectRoles?: RoleGrant[] },
+  role: string,
+): boolean {
   // Stored data can predate validation, so treat a non-array list as empty.
   const asArray = <T>(v: T[] | undefined): T[] => (Array.isArray(v) ? v : []);
   return (
-    member.role === role ||
-    asArray(member.additionalRoles).some((r) => r.role === role) ||
-    asArray(member.projectRoles).some(
+    holder.role === role ||
+    asArray(holder.additionalRoles).some((r) => r.role === role) ||
+    asArray(holder.projectRoles).some(
       (pr) =>
         pr.role === role ||
         asArray(pr.additionalRoles).some((r) => r.role === role),
@@ -752,31 +775,19 @@ export async function removeCustomRole(context: ReqContext, id: string) {
   // PATs are invisible to admins; a deleted role just fails closed for them.
   if (
     (await context.models.apiKeys.dangerousGetAllApiKeysInOrg()).some(
-      (key) => !key.userId && key.role === id,
+      (key) => !key.userId && usingRole(key, id),
     )
   ) {
     throw new Error("Role is currently being used by at least one API key");
   }
 
-  const newCustomRoles = (context.org.customRoles || []).filter(
-    (role) => role.id !== id,
+  const res = await OrganizationModel.updateOne(
+    { id: context.org.id, "customRoles.id": id },
+    { $pull: { customRoles: { id }, deactivatedRoles: id } },
   );
-
-  if (newCustomRoles.length === (context.org.customRoles || []).length) {
+  if (!res.matchedCount) {
     throw new Error("Role not found");
   }
-
-  const updates: Partial<OrganizationInterface> = {
-    customRoles: newCustomRoles,
-  };
-
-  if (context.org.deactivatedRoles?.includes(id)) {
-    updates.deactivatedRoles = context.org.deactivatedRoles.filter(
-      (r) => r !== id,
-    );
-  }
-
-  await updateOrganization(context.org.id, updates);
 }
 
 export async function deactivateRoleById(
@@ -790,24 +801,20 @@ export async function deactivateRoleById(
     throw new Error(`Unable to find role id ${id}`);
   }
 
-  const deactivatedRoles = new Set<string>(org.deactivatedRoles);
-  deactivatedRoles.add(id);
-
-  await updateOrganization(org.id, {
-    deactivatedRoles: Array.from(deactivatedRoles),
-  });
+  await OrganizationModel.updateOne(
+    { id: org.id },
+    { $addToSet: { deactivatedRoles: id } },
+  );
 }
 
 export async function activateRoleById(org: OrganizationInterface, id: string) {
-  if (!org.deactivatedRoles || !org.deactivatedRoles?.includes(id)) {
+  const res = await OrganizationModel.updateOne(
+    { id: org.id, deactivatedRoles: id },
+    { $pull: { deactivatedRoles: id } },
+  );
+  if (!res.matchedCount) {
     throw new Error("Cannot activate a role that isn't deactivated");
   }
-
-  const newDeactivatedRoles = org.deactivatedRoles.filter(
-    (role) => role !== id,
-  );
-
-  await updateOrganization(org.id, { deactivatedRoles: newDeactivatedRoles });
 }
 
 export async function addGetStartedChecklistItem(id: string, item: string) {
