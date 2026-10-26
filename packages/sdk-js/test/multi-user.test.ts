@@ -1,4 +1,5 @@
 import {
+  AutoExperiment,
   Experiment,
   FeatureApiResponse,
   FeatureRule,
@@ -513,6 +514,51 @@ describe("GrowthBookClient", () => {
       reduced.destroy();
     });
 
+    it("Keeps an auto experiment's forced variation for sticky bucketed users", () => {
+      const user: UserContext = {
+        attributes: { id: "u", country: "CA" },
+        saveStickyBucketAssignmentDoc: async () => {},
+        stickyBucketAssignmentDocs: {
+          "id||u": {
+            attributeName: "id",
+            attributeValue: "u",
+            assignments: { exp__0: "a" },
+          },
+        },
+      };
+      const experiment: AutoExperiment = {
+        key: "exp",
+        changeId: "c",
+        variations: [{}, {}],
+        meta: [{ key: "a" }, { key: "b" }],
+        hashAttribute: "id",
+        condition: { country: "US" },
+        force: 1,
+      };
+      const full = new GrowthBookClient().initSync({
+        payload: { features: {}, experiments: [experiment] },
+      });
+      const payload = full.reducePayload({ userContext: user });
+      const [reduced] = payload.experiments || [];
+      expect(reduced.force).toEqual(1);
+
+      // The sticky bucket skips the condition, so the forced variation applies
+      const gb = full.createScopedInstance(user);
+      expect(gb.runInlineExperiment(experiment).variationId).toEqual(1);
+      expect(gb.runInlineExperiment(reduced).variationId).toEqual(1);
+      full.destroy();
+    });
+
+    it("Leaves out contextualBandits when the payload has none", () => {
+      const gb = new GrowthBookClient().initSync({
+        payload: { features: { f: { defaultValue: true } } },
+      });
+      expect(
+        "contextualBandits" in gb.reducePayload({ userContext: {} }),
+      ).toEqual(false);
+      gb.destroy();
+    });
+
     it("Reduces payloads with the saved groups and bandits it evaluates with", () => {
       // Passed as options, not in the payload
       const savedGroups = {
@@ -556,7 +602,8 @@ describe("GrowthBookClient", () => {
     });
 
     it("Reduces many condition groups that share a large list", () => {
-      // The list also names c0, so c0 and the list form a cycle and stay as written
+      // The list also names c0, but a list's values never reference groups, so
+      // c0 is reduced like the others
       const values = ["c0", ...Array.from({ length: 5000 }, (_, i) => `u${i}`)];
       const savedGroups: SavedGroupsPayload = {
         big: { type: "list", attributeKey: "id", values },
@@ -593,8 +640,7 @@ describe("GrowthBookClient", () => {
       expect(reducedGroups.big).toEqual(savedGroups.big);
       expect(reducedGroups.a).toEqual(savedGroups.a);
       expect(reducedGroups.b).toEqual(savedGroups.b);
-      expect(reducedGroups.c0).toEqual(savedGroups.c0);
-      for (let i = 1; i < 300; i++) {
+      for (let i = 0; i < 300; i++) {
         expect(reducedGroups[`c${i}`]).toEqual({
           type: "condition",
           condition: { $savedGroup: { id: "big" } },

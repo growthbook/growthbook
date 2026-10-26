@@ -1532,6 +1532,14 @@ export function reducePayload(
     });
   }
   const contextualBandits = Object.fromEntries(bandits);
+  const reduced = [features, experiments, contextualBandits];
+
+  // A list's values are attribute values, never references to other groups
+  const canReference = (entry: SavedGroupsPayload[string] | undefined) =>
+    !!entry &&
+    typeof entry === "object" &&
+    !Array.isArray(entry) &&
+    entry.type !== "list";
 
   // Groups that keep their condition as written: those evaluated against
   // something other than the user (each item in $elemMatch, or the parent's
@@ -1543,14 +1551,16 @@ export function reducePayload(
       if (!hasOwn(savedGroups, x) || asWritten.has(x)) return;
       if (user && seen.has(x)) return;
       (user ? seen : asWritten).add(x);
-      mark(savedGroups[x], user);
+      if (canReference(savedGroups[x])) mark(savedGroups[x], user);
     } else if (x && typeof x === "object") {
       Object.entries(x).forEach(([k, v]) =>
         mark(v, user && k !== "$elemMatch" && k !== "parentConditions"),
       );
     }
   };
-  mark([features, experiments, contextualBandits], true);
+  // Walking the payload is only needed when there are groups to find
+  const hasGroups = Object.keys(savedGroups).length > 0;
+  if (hasGroups) mark(reduced, true);
 
   // The groups each group's contents mention, collected once, since a large
   // list can be shared by many groups
@@ -1565,7 +1575,7 @@ export function reducePayload(
         } else if (x && typeof x === "object")
           Object.values(x).forEach(collect);
       };
-      collect(savedGroups[id]);
+      if (canReference(savedGroups[id])) collect(savedGroups[id]);
       found = ids;
       refs.set(id, found);
     }
@@ -1619,17 +1629,19 @@ export function reducePayload(
           ? ({ ...savedGroups[x], condition } as SavedGroupPayloadEntry)
           : savedGroups[x],
       );
-      keep(groups.get(x));
+      if (canReference(savedGroups[x])) keep(groups.get(x));
     } else if (x && typeof x === "object") Object.values(x).forEach(keep);
   };
-  keep([features, experiments, contextualBandits]);
+  if (hasGroups) keep(reduced);
 
   return {
     features,
     experiments,
     savedGroups: Object.fromEntries(groups),
-    // Only when there were any, as with the payload's other optional keys
-    contextualBandits: ctx.global.contextualBandits && contextualBandits,
+    // Only when there were any, as with the payload's other optional keys.
+    // Left out rather than undefined, which JSON serializers like Next.js's
+    // props reject.
+    ...(ctx.global.contextualBandits ? { contextualBandits } : {}),
   };
 }
 
