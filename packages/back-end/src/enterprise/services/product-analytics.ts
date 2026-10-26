@@ -129,10 +129,10 @@ export async function runProductAnalyticsExploration(
   const metricMap: Map<string, FactMetricInterface> = new Map();
   const factTableMap: Map<string, FactTableInterface> = new Map();
   if (dataset.type === "metric") {
-    const populationValues = dataset.values.filter((v) => v.population);
-    if (populationValues.length) {
+    const metricsWithPopulations = dataset.values.filter((v) => v.population);
+    if (metricsWithPopulations.length) {
       const metrics = await context.models.factMetrics.getByIds(
-        populationValues.map((v) => v.metricId),
+        metricsWithPopulations.map((v) => v.metricId),
       );
       const tables = await getFactTablesByIds(context, [
         ...new Set(
@@ -143,7 +143,7 @@ export async function runProductAnalyticsExploration(
       ]);
       metrics.forEach((m) => metricMap.set(m.id, m));
       tables.forEach((t) => factTableMap.set(t.id, t));
-      for (const value of populationValues) {
+      for (const value of metricsWithPopulations) {
         const population = value.population;
         const metric = metrics.find((m) => m.id === value.metricId);
         const table = tables.find(
