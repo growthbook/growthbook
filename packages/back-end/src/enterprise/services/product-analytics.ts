@@ -17,7 +17,7 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
-  validateMetricPopulation,
+  validatePopulationMetricCompatibility,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -159,7 +159,13 @@ export async function runProductAnalyticsExploration(
             "Population previews require a saved metric",
           );
         try {
-          validateMetricPopulation(config, value, metric, population, table);
+          validatePopulationMetricCompatibility(
+            config,
+            value,
+            metric,
+            population,
+            table,
+          );
         } catch (e) {
           throw new BadRequestError(e instanceof Error ? e.message : String(e));
         }

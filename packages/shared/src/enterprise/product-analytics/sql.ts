@@ -56,7 +56,7 @@ import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";
 
-import { validateMetricPopulation } from "./populations";
+import { validatePopulationMetricCompatibility } from "./populations";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -408,7 +408,7 @@ function getFactTableGroups({
           }
           const population = value.population ?? undefined;
           if (population) {
-            validateMetricPopulation(
+            validatePopulationMetricCompatibility(
               config,
               value,
               originalMetric,
