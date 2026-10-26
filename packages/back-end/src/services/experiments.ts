@@ -758,8 +758,9 @@ export function getSnapshotSettings({
     guardrailMetrics = [];
   }
 
-  // Set currentDate in a const to use the same date for all metric settings
-  const currentDate = new Date();
+  // Lookback windows are counted back from the analysis end date, so they are
+  // sized from it too.
+  const analysisEndDate = phase.dateEnded || endDate || new Date();
 
   // Expand all derived metrics (slices and funnel steps) into the metricMap
   expandDerivedMetricsInMap({
@@ -769,7 +770,6 @@ export function getSnapshotSettings({
     metricGroups,
   });
 
-  const phaseEndDate = phase.dateEnded || currentDate;
   const lookbackOverride = getEffectiveLookbackOverride(
     experiment.attributionModel,
     experiment.lookbackOverride,
@@ -785,7 +785,7 @@ export function getSnapshotSettings({
         ? {
             value: Math.max(
               0,
-              differenceInMinutes(phaseEndDate, lookbackOverride.value, {
+              differenceInMinutes(analysisEndDate, lookbackOverride.value, {
                 roundingMethod: "ceil",
               }),
             ),
@@ -793,11 +793,15 @@ export function getSnapshotSettings({
           }
         : experiment.type === "holdout" &&
             phase.lookbackStartDate &&
-            phase.lookbackStartDate < currentDate
+            phase.lookbackStartDate < analysisEndDate
           ? {
-              value: differenceInMinutes(currentDate, phase.lookbackStartDate, {
-                roundingMethod: "ceil",
-              }),
+              value: differenceInMinutes(
+                analysisEndDate,
+                phase.lookbackStartDate,
+                {
+                  roundingMethod: "ceil",
+                },
+              ),
               unit: "minutes" as const,
             }
           : undefined;
@@ -905,7 +909,7 @@ export function getSnapshotSettings({
     dimensions: dimensions,
     precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
-    endDate: phase.dateEnded || endDate || new Date(),
+    endDate: analysisEndDate,
     experimentId: experiment.trackingKey || experiment.id,
     phase: {
       index: phaseIndex + "",

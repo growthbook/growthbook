@@ -488,6 +488,49 @@ describe("snapshot planning", () => {
     });
   });
 
+  it("sizes a holdout's analysis window from a lagged end date", () => {
+    const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
+      makeJoinabilityFixture();
+    const experiment = makeExperiment({
+      type: "holdout",
+      exposureQueryId: "exposure_user",
+      goalMetrics: ["m_joinable"],
+      metricOverrides: [],
+      phases: [
+        {
+          dateStarted: new Date("2025-01-01T00:00:00.000Z"),
+          lookbackStartDate: new Date("2025-01-10T00:00:00.000Z"),
+          variationWeights: [0.5, 0.5],
+        },
+      ] as ExperimentInterface["phases"],
+    });
+
+    const snapshotSettings = getSnapshotSettings({
+      experiment,
+      phaseIndex: 0,
+      snapshotType: "standard",
+      dimension: null,
+      regressionAdjustmentEnabled: false,
+      orgPriorSettings: undefined,
+      orgDisabledPrecomputedDimensions: true,
+      settingsForSnapshotMetrics,
+      metricMap,
+      factTableMap,
+      metricGroups: [],
+      incrementalRefreshModel: null,
+      datasource,
+      endDate: new Date("2025-01-10T06:00:00.000Z"),
+    });
+
+    expect(snapshotSettings.endDate).toEqual(
+      new Date("2025-01-10T06:00:00.000Z"),
+    );
+    expect(
+      snapshotSettings.metricSettings.find((m) => m.id === "m_joinable")
+        ?.computedSettings?.windowSettings,
+    ).toMatchObject({ type: "lookback", windowUnit: "hours", windowValue: 6 });
+  });
+
   it("report settings drop unjoinable metrics and their slices", () => {
     const { datasource, factTableMap, metricMap, settingsForSnapshotMetrics } =
       makeJoinabilityFixture();
