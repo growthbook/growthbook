@@ -1224,11 +1224,23 @@ function getStickyBucketAssignments(
     toString(hashValue),
   );
 
-  const { hashAttribute: fallbackAttribute, hashValue: fallbackValue } =
-    getHashAttribute(ctx, expFallbackAttribute);
-  const fallbackKey = fallbackValue
-    ? getStickyBucketAttributeKey(fallbackAttribute, toString(fallbackValue))
-    : null;
+  // Only consult a fallback attribute when one is actually configured.
+  // getHashAttribute() defaults a missing attribute to "id", so passing an
+  // undefined fallback through it would resolve to the "id" attribute and pull
+  // in the default "id"-keyed document for experiments that neither hash on
+  // "id" nor set a fallback, leaking sticky assignments across attributes. The
+  // Python, Ruby, and Go SDKs all skip the fallback lookup when it is unset.
+  let fallbackKey: StickyAttributeKey | null = null;
+  if (expFallbackAttribute) {
+    const { hashAttribute: fallbackAttribute, hashValue: fallbackValue } =
+      getHashAttribute(ctx, expFallbackAttribute);
+    if (fallbackValue) {
+      fallbackKey = getStickyBucketAttributeKey(
+        fallbackAttribute,
+        toString(fallbackValue),
+      );
+    }
+  }
 
   const assignments: StickyAssignments = {};
   if (fallbackKey && ctx.user.stickyBucketAssignmentDocs[fallbackKey]) {
