@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import clsx from "clsx";
@@ -93,22 +93,6 @@ export default function SettingsNav() {
 
   useEffect(() => () => setQuery(""), [setQuery]);
 
-  // Scrolls up with the page until the title is gone, then stays put.
-  const navRef = useRef<HTMLElement>(null);
-  const headerRef = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    const onScroll = () => {
-      const max = headerRef.current?.offsetHeight ?? 0;
-      navRef.current?.style.setProperty(
-        "--nav-shift",
-        `${Math.min(window.scrollY, max)}px`,
-      );
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   const onQueryChange = (q: string) => {
     setQuery(q);
     // Matches live on the General page, so typing elsewhere goes there.
@@ -116,8 +100,8 @@ export default function SettingsNav() {
   };
 
   return (
-    <aside ref={navRef} className={styles.nav} aria-label="Settings navigation">
-      <div ref={headerRef} className={styles.header}>
+    <aside className={styles.nav} aria-label="Settings navigation">
+      <div className={styles.header}>
         <Heading as="h2" size="2xl" mb="0">
           Settings
         </Heading>

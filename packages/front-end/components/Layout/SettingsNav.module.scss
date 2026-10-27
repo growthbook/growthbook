@@ -1,6 +1,6 @@
 .nav {
   position: fixed;
-  top: calc(56px + var(--settings-nav-inset) - var(--nav-shift, 0px));
+  top: calc(56px + var(--settings-nav-inset));
   bottom: var(--settings-nav-inset);
   left: calc(var(--settings-sidebar-width) + var(--settings-nav-inset));
   width: var(--settings-nav-width);
