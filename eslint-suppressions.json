@@ -1126,11 +1126,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/FactMetricTypeDisplayName.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Metrics/MetricForm/MetricDelaySettings.tsx": {
     "no-restricted-syntax": {
       "count": 2

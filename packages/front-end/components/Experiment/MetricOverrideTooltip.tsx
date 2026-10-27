@@ -20,7 +20,7 @@ import { StatsEngine } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { metricTypeLabel } from "@/services/metrics";
+import { metricTypeLabel } from "@/components/Metrics/FactMetricTypeDisplayName";
 import {
   describeMetricOverride,
   describeMetricSettings,
@@ -110,6 +110,7 @@ export function MetricOverrideTooltipContent({
     getMetricGroupById,
     getMetricById,
     getProjectById,
+    getFactTableById,
   } = useDefinitions();
   const { organization, hasCommercialFeature } = useUser();
   const orgSettings = useOrgSettings();
@@ -186,7 +187,7 @@ export function MetricOverrideTooltipContent({
     <OptionTooltipShell
       href={group ? `/metric-groups/${id}` : getMetricLink(id)}
       title={group?.name ?? metric?.name ?? id}
-      subtitle={metric ? metricTypeLabel(metric) : undefined}
+      subtitle={metric ? metricTypeLabel(metric, getFactTableById) : undefined}
       titleColor="dark"
     >
       {metric ? (
@@ -231,7 +232,7 @@ export function MetricOverrideTooltipContent({
                           {member.name} <PiArrowSquareOut />
                         </Link>
                         <Text size="sm" as="div" color="text-low">
-                          {metricTypeLabel(member)}
+                          {metricTypeLabel(member, getFactTableById)}
                         </Text>
                       </>
                     ) : (
