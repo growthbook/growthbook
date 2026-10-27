@@ -1642,7 +1642,7 @@ export async function postExperiment(
   if (!context.permissions.canUpdateExperiment(experiment, req.body)) {
     context.permissions.throwPermissionError();
   }
-  assertMeasurementArmExperimentEditable(experiment, data);
+  assertMeasurementArmExperimentEditable(experiment, req.body);
 
   const attributeScope = lazyAttributeScope(() =>
     getExperimentAttributeScopeProjects(context, {

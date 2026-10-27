@@ -1,5 +1,8 @@
 import { ContextualBanditInterface } from "shared/validators";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
+  assertMeasurementArmChangeAllowed,
+  assertMeasurementArmExperimentEditable,
   buildMeasurementArmSubdoc,
   measurementArmSyncFieldsChanged,
 } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
@@ -82,6 +85,101 @@ describe("buildMeasurementArmSubdoc", () => {
         rederiveTrackingKey: true,
       }).trackingKey,
     ).toBe("renamed__measurement_arm");
+  });
+});
+
+describe("assertMeasurementArmChangeAllowed", () => {
+  const arm = { enabled: true, percent: 0.1, seed: "s" };
+  const draft = {
+    status: "draft",
+    measurementArm: arm,
+  } as unknown as ContextualBanditInterface;
+  const running = {
+    ...draft,
+    status: "running",
+  } as unknown as ContextualBanditInterface;
+
+  it("allows changes while the CB is a draft", () => {
+    expect(() =>
+      assertMeasurementArmChangeAllowed(draft, {
+        measurementArm: { ...arm, percent: 0.2 },
+      }),
+    ).not.toThrow();
+  });
+
+  it("locks enabled and percent once the CB has started", () => {
+    expect(() =>
+      assertMeasurementArmChangeAllowed(running, {
+        measurementArm: { ...arm, percent: 0.2 },
+      }),
+    ).toThrow(/measurement_arm_locked/);
+    expect(() =>
+      assertMeasurementArmChangeAllowed(running, {
+        measurementArm: { ...arm, enabled: false },
+      }),
+    ).toThrow(/measurement_arm_locked/);
+  });
+
+  it("ignores writes that keep enabled and percent as they are", () => {
+    expect(() =>
+      assertMeasurementArmChangeAllowed(running, {
+        measurementArm: { ...arm, trackingKey: "renamed__measurement_arm" },
+      }),
+    ).not.toThrow();
+    expect(() => assertMeasurementArmChangeAllowed(running, {})).not.toThrow();
+  });
+});
+
+describe("assertMeasurementArmExperimentEditable", () => {
+  const experiment = {
+    type: "contextualBanditMeasurementArm",
+    name: "CB — measurement arm",
+    goalMetrics: ["met_g"],
+    secondaryMetrics: [],
+    guardrailMetrics: [],
+    phases: [{ dateStarted: new Date("2026-01-01") }],
+  } as unknown as ExperimentInterface;
+
+  it("allows secondary and guardrail metric changes", () => {
+    expect(() =>
+      assertMeasurementArmExperimentEditable(experiment, {
+        secondaryMetrics: ["met_s"],
+        guardrailMetrics: ["met_gr"],
+      }),
+    ).not.toThrow();
+  });
+
+  it("allows unchanged governed fields to be re-sent", () => {
+    expect(() =>
+      assertMeasurementArmExperimentEditable(experiment, {
+        name: "CB — measurement arm",
+        goalMetrics: ["met_g"],
+        description: "",
+      }),
+    ).not.toThrow();
+  });
+
+  it("rejects changes to governed fields and phase dates", () => {
+    expect(() =>
+      assertMeasurementArmExperimentEditable(experiment, {
+        goalMetrics: ["met_other"],
+      }),
+    ).toThrow(/goalMetrics/);
+    expect(() =>
+      assertMeasurementArmExperimentEditable(experiment, {
+        phaseStartDate: "2026-02-01",
+        currentPhase: 0,
+      }),
+    ).toThrow(/phaseStartDate/);
+  });
+
+  it("does nothing for other experiment types", () => {
+    expect(() =>
+      assertMeasurementArmExperimentEditable(
+        { ...experiment, type: "standard" } as ExperimentInterface,
+        { goalMetrics: ["met_other"] },
+      ),
+    ).not.toThrow();
   });
 });
 

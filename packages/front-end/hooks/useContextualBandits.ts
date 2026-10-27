@@ -67,11 +67,26 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
-export type ContextualBanditMeasurementArmResults = NonNullable<
-  z.infer<
-    typeof contextualBanditEndpoints.getContextualBanditResults.responseSchema
-  >["measurementArm"]
+export type ContextualBanditMeasurementArmResults = z.infer<
+  typeof contextualBanditEndpoints.contextualBanditMeasurementArmSummarySchema
 >;
+
+export function useContextualBanditMeasurementArm(cbId: string | undefined) {
+  const { data, error, mutate } = useRestApi(
+    contextualBanditEndpoints.getContextualBanditMeasurementArm,
+    cbId ? { params: { id: cbId } } : null,
+    {
+      refreshInterval: (d) =>
+        d?.measurementArm?.latestSnapshot?.status === "running" ? 5000 : 0,
+    },
+  );
+  return {
+    loading: !!cbId && !error && !data,
+    measurementArm: data?.measurementArm ?? null,
+    error,
+    mutate,
+  };
+}
 
 /** Fetches the features linked to a CB (enriched `LinkedFeatureInfo[]`) for the Linked Features section. */
 export function useContextualBanditLinkedFeatures(cbId: string | undefined) {

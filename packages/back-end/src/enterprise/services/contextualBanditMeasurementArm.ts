@@ -1,5 +1,7 @@
 import { v4 as uuidv4 } from "uuid";
 import isEqual from "lodash/isEqual";
+import { z } from "zod";
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE,
@@ -376,29 +378,9 @@ export function assertNotMeasurementArmExperiment(
   }
 }
 
-export type MeasurementArmResultsSummary = {
-  experimentId: string;
-  trackingKey: string;
-  percent: number;
-  status: string;
-  latestSnapshot: {
-    id: string;
-    dateCreated: string;
-    status: "running" | "success" | "error";
-    error?: string;
-  } | null;
-  decisionMetricResult: {
-    metricId: string;
-    controlMean: number | null;
-    banditMean: number | null;
-    controlUsers: number | null;
-    banditUsers: number | null;
-    lift: number | null;
-    ci: [number | null, number | null] | null;
-    chanceToWin: number | null;
-    pValue: number | null;
-  } | null;
-};
+export type MeasurementArmResultsSummary = z.infer<
+  typeof contextualBanditEndpoints.contextualBanditMeasurementArmSummarySchema
+>;
 
 /** The one-line comparison the CB Results tab shows; full results live on the experiment. */
 export async function getMeasurementArmResultsSummary(
@@ -446,6 +428,9 @@ export async function getMeasurementArmResultsSummary(
           status: status.status,
           error: status.error,
         }
+      : null,
+    resultsSnapshot: snapshot
+      ? { id: snapshot.id, dateCreated: snapshot.dateCreated.toISOString() }
       : null,
     decisionMetricResult:
       metricId && (banditMetric || controlMetric)

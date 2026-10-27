@@ -1509,6 +1509,8 @@ export function getFeatureDefinition({
           // capability; without it the CB rule ships un-wrapped.
           const measurementArm =
             hasPrerequisites &&
+            (capabilities === undefined ||
+              capabilities.includes("contextualBandits")) &&
             cb.status === "running" &&
             cb.measurementArm?.enabled &&
             cb.measurementArm.experimentId

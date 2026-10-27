@@ -59,7 +59,6 @@ import {
   useContextualBanditHealthIssues,
   useContextualBanditStatusHealth,
 } from "@/hooks/useContextualBandits";
-import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import Avatar from "@/ui/Avatar";
 
 function OverviewSection({
@@ -157,8 +156,6 @@ export default function ContextualBanditDetailPage({
   const showResultsTab = cb.status !== "draft";
 
   const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
-  const { measurementArm: measurementArmResults } =
-    useContextualBanditSnapshot();
 
   const formatConversionWindow = (value: number, unit: string): string =>
     `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
@@ -777,10 +774,7 @@ export default function ContextualBanditDetailPage({
         {showResultsTab ? (
           <TabsContent value="results">
             <Box pt="4">
-              <ContextualBanditMeasurementArmSummary
-                cb={cb}
-                measurementArm={measurementArmResults}
-              />
+              <ContextualBanditMeasurementArmSummary cb={cb} />
               <Frame>
                 <ContextualBanditResultsTable cb={cb} mutate={mutate} />
               </Frame>

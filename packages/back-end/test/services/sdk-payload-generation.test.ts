@@ -1951,6 +1951,19 @@ describe("SDK payload generation (scenario-specific)", () => {
         ]);
       });
 
+      it("ships the CB rule un-wrapped for an SDK without contextual bandit support", async () => {
+        const out = await buildSDKPayloadForConnection({
+          context: cbContext(armDoc),
+          connection: connectionForVersion("1.6.5"),
+          data: cbData(),
+        });
+        expect(out.features["$cbma:cb1"]).toBeUndefined();
+        const rules = out.features["f-cb"]?.rules as Record<string, unknown>[];
+        expect(rules?.length).toBe(1);
+        expect(rules[0].parentConditions).toBeUndefined();
+        expect(rules[0].force).toBeUndefined();
+      });
+
       it("ships the CB rule un-wrapped when the arm is disabled", async () => {
         const doc = {
           ...armDoc,

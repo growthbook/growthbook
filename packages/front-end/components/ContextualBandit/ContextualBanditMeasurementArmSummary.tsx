@@ -9,7 +9,7 @@ import {
   formatPercent,
   getExperimentMetricFormatter,
 } from "@/services/metrics";
-import { ContextualBanditMeasurementArmResults } from "@/hooks/useContextualBandits";
+import { useContextualBanditMeasurementArm } from "@/hooks/useContextualBandits";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -19,23 +19,24 @@ import Badge from "@/ui/Badge";
 
 export default function ContextualBanditMeasurementArmSummary({
   cb,
-  measurementArm,
 }: {
   cb: ApiContextualBanditInterface;
-  measurementArm: ContextualBanditMeasurementArmResults | null;
 }) {
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
   const displayCurrency = useCurrency();
+  const { measurementArm } = useContextualBanditMeasurementArm(
+    cb.measurementArm?.enabled ? cb.id : undefined,
+  );
 
   if (!cb.measurementArm?.enabled) return null;
 
   const percentLabel = formatPercent(cb.measurementArm.percent);
-  const experimentHref =
-    measurementArm || cb.measurementArm.experimentId
-      ? `/contextual-bandit/${cb.id}/measurement-arm`
-      : null;
+  const experimentHref = cb.measurementArm.experimentId
+    ? `/contextual-bandit/${cb.id}/measurement-arm`
+    : null;
 
   const result = measurementArm?.decisionMetricResult ?? null;
+  const latest = measurementArm?.latestSnapshot ?? null;
   const metric = result ? getExperimentMetricById(result.metricId) : null;
   const formatMean = (v: number | null) =>
     v == null
@@ -46,6 +47,24 @@ export default function ContextualBanditMeasurementArmSummary({
           })
         : formatNumber(v);
 
+  const latestAttempt =
+    latest?.status === "error" ? (
+      <Callout status="error" mt="2">
+        The last measurement arm update failed
+        {latest.error ? `: ${latest.error}` : "."}{" "}
+        {experimentHref ? (
+          <>
+            <Link href={experimentHref}>View results</Link> to inspect the
+            queries and re-run the analysis.
+          </>
+        ) : null}
+      </Callout>
+    ) : latest?.status === "running" ? (
+      <Text color="text-mid" size="sm">
+        Updating…
+      </Text>
+    ) : null;
+
   let body: React.ReactNode;
   if (cb.status === "draft") {
     body = (
@@ -55,25 +74,16 @@ export default function ContextualBanditMeasurementArmSummary({
       </Text>
     );
   } else if (!result) {
-    body =
-      measurementArm?.latestSnapshot?.status === "error" ? (
-        <Callout status="error">
-          The last measurement arm update failed
-          {measurementArm.latestSnapshot.error
-            ? `: ${measurementArm.latestSnapshot.error}`
-            : "."}{" "}
-          {experimentHref ? (
-            <>
-              <Link href={experimentHref}>View results</Link> to inspect the
-              queries and re-run the analysis.
-            </>
-          ) : null}
-        </Callout>
-      ) : (
-        <Text color="text-mid">
-          Collecting data — results appear after the first analysis runs.
-        </Text>
-      );
+    body = (
+      <>
+        {latest?.status !== "error" ? (
+          <Text color="text-mid">
+            Collecting data — results appear after the first analysis runs.
+          </Text>
+        ) : null}
+        {latestAttempt}
+      </>
+    );
   } else {
     const liftText =
       result.lift != null
@@ -109,10 +119,11 @@ export default function ContextualBanditMeasurementArmSummary({
           users) · Bandit {formatMean(result.banditMean)} (
           {result.banditUsers != null ? formatNumber(result.banditUsers) : "—"}{" "}
           users)
-          {measurementArm?.latestSnapshot
-            ? ` · Updated ${ago(measurementArm.latestSnapshot.dateCreated)}`
+          {measurementArm?.resultsSnapshot
+            ? ` · Updated ${ago(measurementArm.resultsSnapshot.dateCreated)}`
             : ""}
         </Text>
+        {latestAttempt}
       </Flex>
     );
   }
@@ -123,7 +134,7 @@ export default function ContextualBanditMeasurementArmSummary({
         <Box>
           <Flex align="center" gap="2" mb="2">
             <Heading as="h4" size="sm" mb="0">
-              Measurement arm
+              Measurement Arm
             </Heading>
             <Badge label={`${percentLabel} held back`} color="gray" />
           </Flex>

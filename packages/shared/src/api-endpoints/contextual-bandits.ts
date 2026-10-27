@@ -9,6 +9,7 @@ import {
   contextualBanditTrafficValidator,
 } from "../validators/contextual-bandit-snapshot";
 import { queryPointerValidator } from "../validators/queries";
+import { experimentStatus } from "../validators/experiments";
 import {
   contextualBanditEventResponseShape,
   contextualBanditIdAndEventParam,
@@ -291,37 +292,6 @@ export const getContextualBanditResults = {
         })
         .nullable(),
       latest: contextualBanditLatestStatusSchema.nullable(),
-      measurementArm: z
-        .object({
-          experimentId: z.string(),
-          trackingKey: z.string(),
-          percent: z.number(),
-          status: z.string(),
-          latestSnapshot: z
-            .object({
-              id: z.string(),
-              dateCreated: z.string(),
-              status: z.enum(["running", "success", "error"]),
-              error: z.string().optional(),
-            })
-            .nullable(),
-          decisionMetricResult: z
-            .object({
-              metricId: z.string(),
-              controlMean: z.number().nullable(),
-              banditMean: z.number().nullable(),
-              controlUsers: z.number().nullable(),
-              banditUsers: z.number().nullable(),
-              lift: z.number().nullable(),
-              ci: z
-                .tuple([z.number().nullable(), z.number().nullable()])
-                .nullable(),
-              chanceToWin: z.number().nullable(),
-              pValue: z.number().nullable(),
-            })
-            .nullable(),
-        })
-        .nullable(),
     })
     .strict(),
   summary: "Get latest Contextual Bandit results",
@@ -349,6 +319,60 @@ export const getContextualBanditStatus = {
   tags: ["ContextualBandits"],
   method: "get" as const,
   path: "/contextual-bandits/:id/status",
+};
+
+export const contextualBanditMeasurementArmSummarySchema = z
+  .object({
+    experimentId: z.string(),
+    trackingKey: z.string(),
+    percent: z.number(),
+    status: z.enum(experimentStatus),
+    latestSnapshot: z
+      .object({
+        id: z.string(),
+        dateCreated: z.string(),
+        status: z.enum(["running", "success", "error"]),
+        error: z.string().optional(),
+      })
+      .nullable(),
+    resultsSnapshot: z
+      .object({
+        id: z.string(),
+        dateCreated: z.string(),
+      })
+      .nullable(),
+    decisionMetricResult: z
+      .object({
+        metricId: z.string(),
+        controlMean: z.number().nullable(),
+        banditMean: z.number().nullable(),
+        controlUsers: z.number().nullable(),
+        banditUsers: z.number().nullable(),
+        lift: z.number().nullable(),
+        ci: z.tuple([z.number().nullable(), z.number().nullable()]).nullable(),
+        chanceToWin: z.number().nullable(),
+        pValue: z.number().nullable(),
+      })
+      .nullable(),
+  })
+  .strict();
+
+export const getContextualBanditMeasurementArm = {
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  paramsSchema: contextualBanditIdOnlyParam,
+  responseSchema: z
+    .object({
+      measurementArm: contextualBanditMeasurementArmSummarySchema.nullable(),
+    })
+    .strict(),
+  summary: "Get Contextual Bandit measurement arm results",
+  description:
+    "Returns the measurement arm experiment's status, latest analysis attempt, and the decision-metric comparison from its last successful analysis. `null` when the contextual bandit has no enabled measurement arm.",
+  operationId: "getContextualBanditMeasurementArm",
+  tags: ["ContextualBandits"],
+  method: "get" as const,
+  path: "/contextual-bandits/:id/measurement-arm",
 };
 
 export const getContextualBanditLinkedFeatures = {

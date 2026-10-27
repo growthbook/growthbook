@@ -1,5 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import useApi from "@/hooks/useApi";
+import { useContextualBandit } from "@/hooks/useContextualBandits";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 
@@ -9,11 +9,8 @@ export default function MeasurementArmBanner({
   experiment: ExperimentInterfaceStringDates;
 }) {
   const cbId = experiment.contextualBanditId;
-  const { data } = useApi<{ contextualBandit?: { name: string } }>(
-    cbId ? `/api/v1/contextual-bandits/${cbId}` : "",
-    { shouldRun: () => !!cbId },
-  );
-  const cbName = data?.contextualBandit?.name;
+  const { contextualBandit } = useContextualBandit(cbId);
+  const cbName = contextualBandit?.name;
 
   return (
     <Callout status="info" mb="3">

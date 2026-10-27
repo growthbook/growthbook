@@ -22,7 +22,6 @@ type ContextualBanditSnapshotContextValue = {
   contextualBanditSnapshot: ResultsResponse["contextualBanditSnapshot"];
   overallWeights: ResultsResponse["overallWeights"];
   results: ResultsResponse["results"];
-  measurementArm: ResultsResponse["measurementArm"];
   latest: LatestStatus;
   /** Error from the heavy results fetch. */
   error?: Error;
@@ -50,7 +49,6 @@ const contextualBanditSnapshotContext =
     contextualBanditSnapshot: null,
     overallWeights: null,
     results: null,
-    measurementArm: null,
     latest: null,
     mutate: () => Promise.resolve(),
     refreshStatus: () => Promise.resolve(),
@@ -209,7 +207,6 @@ export default function ContextualBanditSnapshotProvider({
         contextualBanditSnapshot: heavyData?.contextualBanditSnapshot ?? null,
         overallWeights: heavyData?.overallWeights ?? null,
         results: heavyData?.results ?? null,
-        measurementArm: heavyData?.measurementArm ?? null,
         latest,
         error,
         statusError,

@@ -656,9 +656,40 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       created,
     );
     if (patch) {
-      created = await this.update(created, patch);
+      created = await this.applyMeasurementArmPatch(created, patch);
     }
     return resolveOwnerEmail(this.toApiInterface(created), this.context);
+  }
+
+  private measurementArmGuard(doc: ContextualBanditInterface) {
+    return {
+      "measurementArm.experimentId": doc.measurementArm?.experimentId ?? {
+        $exists: false,
+      },
+    };
+  }
+
+  // Writes the experimentId set/cleared by reconcile, refusing to clobber an
+  // experimentId another request wrote in the meantime. The loser of that race
+  // removes the experiment it created and returns the stored doc instead.
+  private async applyMeasurementArmPatch(
+    doc: ContextualBanditInterface,
+    patch: Pick<ContextualBanditInterface, "measurementArm">,
+  ): Promise<ContextualBanditInterface> {
+    try {
+      return await this._updateOne(doc, patch, {
+        guard: this.measurementArmGuard(doc),
+      });
+    } catch (e) {
+      if (!(e instanceof CasConflictError)) throw e;
+      const created = patch.measurementArm?.experimentId;
+      if (created && created !== doc.measurementArm?.experimentId) {
+        await deleteMeasurementArmExperiment(this.context, created);
+      }
+      const current = await this.getById(doc.id);
+      if (!current) throw e;
+      return current;
+    }
   }
 
   // Held by what the update changes, which takes the bandit as it is now.
@@ -712,13 +743,17 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       links: [],
       pin: [existing.status, pinnedFields(existing, changes)],
     });
-    let updated = await this.update(existing, changes);
+    let updated = toUpdate.measurementArm
+      ? await this._updateOne(existing, changes, {
+          guard: this.measurementArmGuard(existing),
+        })
+      : await this.update(existing, changes);
     const patch = await reconcileMeasurementArmExperiment(
       this.context,
       updated,
     );
     if (patch) {
-      updated = await this.update(updated, patch);
+      updated = await this.applyMeasurementArmPatch(updated, patch);
     }
     return resolveOwnerEmail(this.toApiInterface(updated), this.context);
   }
