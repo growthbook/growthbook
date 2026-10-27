@@ -16,7 +16,6 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { Revision, patchOpsToPartial } from "shared/enterprise";
 import {
   parseSdkWebhookSnapshot,
-  sdkWebhookSnapshotValidator,
   SDKWebhookRevisionSnapshot,
 } from "shared/validators";
 import isEqual from "lodash/isEqual";
@@ -65,10 +64,9 @@ const payloadFormatLabels: Record<string, string | ReactElement> = {
 // Rows predating `httpMethod` default to POST, and a default timeout is
 // omitted, both as the server snapshots them.
 function toSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
-  return sdkWebhookSnapshotValidator.parse({
+  return parseSdkWebhookSnapshot({
     ...wh,
     httpMethod: wh.httpMethod ?? "POST",
-    timeoutSeconds: wh.timeoutSeconds ?? undefined,
   });
 }
 
