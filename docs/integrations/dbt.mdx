@@ -48,6 +48,8 @@ These are skipped with a message explaining why. Add `--strict` to fail the run 
 - Filters that reach a dimension two or more joins away, or that use `TimeDimension()` or `Metric()`
 - Ratio inputs that are themselves averages or percentiles
 - Percentiles below 0.001 or above 0.999
+- A joined dimension whose `<entity>__<dimension>` column name is already a column on the base model
+- Two metrics that share a column name but disagree on what it holds (for example, a physical `net_revenue_vc` column and the virtual column for a `net_revenue` measure)
 
 Quantile and Funnel metrics require a GrowthBook plan that includes them.
 
@@ -136,7 +138,7 @@ metrics:
 
 ### Models Without a Semantic Model
 
-A plain dbt model can also become a Fact Table by describing it in GrowthBook's own terms under `meta.growthbook`. `userIdTypes` marks it as a Fact Table; `metrics` entries use the Fact Metric API fields plus an `id`, and their numerators default to this table. The timestamp and identifier columns are declared for you; the rest are detected from the SQL.
+A plain dbt model can also become a Fact Table by describing it in GrowthBook's own terms under `meta.growthbook`. `userIdTypes` marks it as a Fact Table; `metrics` entries use the Fact Metric API fields plus an `id`, and their numerators default to this table. The timestamp, identifier and metric columns are declared for you (metric columns as numbers, or strings for `count distinct`); the rest are detected from the SQL.
 
 ```yml
 models:
@@ -173,4 +175,4 @@ growthbook-dbt sync --datasource <ds_id> [options]
 
 `--out` writes the exact bulk import payload, which you can inspect or feed to the script from the [GitHub metrics guide](/integrations/github-metrics).
 
-Fact Table ids are the semantic model names (with `__<entity>` appended for joined tables and `__<dimension>` for measures that use a different time dimension). Fact Metric ids are the dbt metric names with a `fact__` prefix (`revenue` becomes `fact__revenue`). The sync upserts by id, so renaming a metric in dbt creates a new one in GrowthBook; use `--prune` to archive the old one. It also means an existing Fact Table or Fact Metric with the same id, however it was created, is overwritten by the sync and becomes dbt-managed. A plain model whose name matches a generated Fact Table id is skipped.
+Fact Table ids are the semantic model names (with `__<entity>` appended for joined tables and `__<dimension>` for measures that use a different time dimension). Fact Metric ids are the dbt metric names with a `fact__` prefix (`revenue` becomes `fact__revenue`). The sync upserts by id, so renaming a metric in dbt creates a new one in GrowthBook; use `--prune` to archive the old one. It also means an existing Fact Table or Fact Metric with the same id, however it was created, is overwritten by the sync and becomes dbt-managed. A plain model whose name matches a generated Fact Table id is skipped. A plain-model metric whose id matches another metric's, with or without the `fact__` prefix, is skipped.

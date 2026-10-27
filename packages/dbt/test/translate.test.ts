@@ -469,6 +469,131 @@ describe("translate (legacy spec)", () => {
     }
   });
 
+  const pageViews = legacy.nodes["model.jaffle.page_views"];
+  const withPlainMetrics = (metrics: unknown[]) => ({
+    ...legacy,
+    nodes: {
+      ...legacy.nodes,
+      "model.jaffle.page_views": {
+        ...pageViews,
+        config: {
+          ...pageViews.config,
+          meta: {
+            growthbook: { ...pageViews.config.meta.growthbook, metrics },
+          },
+        },
+      },
+    },
+  });
+
+  it("skips a plain-model metric whose id the API would merge with another", () => {
+    const { payload, warnings } = run(
+      withPlainMetrics([
+        {
+          id: "fact__order_total",
+          name: "Dup",
+          metricType: "mean",
+          numerator: { column: "$$count" },
+        },
+      ]),
+    );
+    expect(
+      warnings.find((w) => w.resource === "metric fact__order_total")?.message,
+    ).toMatch(/already has the id "fact__order_total"/);
+    expect(
+      payload.factMetrics.filter((m) => m.id.endsWith("order_total")),
+    ).toHaveLength(1);
+  });
+
+  it("declares typed columns for plain-model metrics", () => {
+    const { payload } = run(
+      withPlainMetrics([
+        {
+          id: "time_on_page",
+          name: "Time on page",
+          metricType: "mean",
+          numerator: { column: "seconds" },
+        },
+        {
+          id: "pages",
+          name: "Pages",
+          metricType: "mean",
+          numerator: { column: "url", aggregation: "count distinct" },
+        },
+      ]),
+    );
+    expect(byId(payload.factTables, "page_views").columns).toEqual(
+      expect.arrayContaining([
+        { column: "seconds", datatype: "number" },
+        { column: "url", datatype: "string" },
+      ]),
+    );
+  });
+
+  it("skips a metric whose column means something else on the same table", () => {
+    const orders = legacy.semantic_models["semantic_model.jaffle.orders"];
+    const manifest = {
+      ...legacy,
+      semantic_models: {
+        ...legacy.semantic_models,
+        "semantic_model.jaffle.orders": {
+          ...orders,
+          measures: [
+            ...orders.measures,
+            { name: "physical_vc", agg: "sum", expr: "net_revenue_vc" },
+          ],
+        },
+      },
+      metrics: {
+        ...legacy.metrics,
+        physical_vc: {
+          name: "physical_vc",
+          type: "simple",
+          type_params: { measure: { name: "physical_vc" } },
+        },
+      },
+    };
+    const { payload, warnings } = run(manifest);
+    expect(
+      warnings.find((w) => w.resource === "metric physical_vc")?.message,
+    ).toMatch(
+      /"net_revenue_vc" is used as number column here but as number expression/,
+    );
+    expect(
+      payload.factMetrics.find((m) => m.id === "physical_vc"),
+    ).toBeUndefined();
+    expect(byId(payload.factMetrics, "net_revenue")).toBeDefined();
+  });
+
+  it("skips a joined table whose column names collide with the base model", () => {
+    const orders = legacy.semantic_models["semantic_model.jaffle.orders"];
+    const manifest = {
+      ...legacy,
+      semantic_models: {
+        ...legacy.semantic_models,
+        "semantic_model.jaffle.orders": {
+          ...orders,
+          dimensions: [
+            ...orders.dimensions,
+            {
+              name: "local_region",
+              type: "categorical",
+              expr: "customer__region",
+            },
+          ],
+        },
+      },
+    };
+    const { payload, warnings } = run(manifest);
+    expect(
+      warnings.find((w) => w.resource === "fact table orders__customer")
+        ?.message,
+    ).toMatch(/"customer__region" has the same name as a column on "orders"/);
+    expect(
+      payload.factTables.find((t) => t.id === "orders__customer"),
+    ).toBeUndefined();
+  });
+
   it("selects by tag, name glob and model, before translating anything", () => {
     const tagged = run(legacy, { select: ["tag:growthbook"] });
     expect(tagged.payload.factMetrics.map((m) => m.id)).toEqual([

@@ -1,5 +1,6 @@
 import { draftMetrics, TranslateContext } from "./metrics";
 import { importPlainModels } from "./plain-models";
+import { metricKey } from "./prune";
 import { planTables } from "./tables";
 import {
   DbtManifest,
@@ -95,13 +96,31 @@ export function translate(
     new Set(semantic.factTables.map((t) => t.id)),
   );
 
+  // The API stores `x` and `fact__x` under one id, so the later one would overwrite the first.
+  const seen = new Set<string>();
+  const factMetrics = [...semantic.factMetrics, ...plain.factMetrics].filter(
+    (m) => {
+      const key = metricKey(m.id);
+      if (!seen.has(key)) {
+        seen.add(key);
+        return true;
+      }
+      ctx.warnings.push({
+        level: "skipped",
+        resource: `metric ${m.id}`,
+        message: `another metric already has the id "${key}"`,
+      });
+      return false;
+    },
+  );
+
   const byId = (a: { id: string }, b: { id: string }) =>
     a.id.localeCompare(b.id);
   return {
     payload: {
       defaultManagedBy: "dbt",
       factTables: [...semantic.factTables, ...plain.factTables].sort(byId),
-      factMetrics: [...semantic.factMetrics, ...plain.factMetrics].sort(byId),
+      factMetrics: factMetrics.sort(byId),
     },
     warnings: ctx.warnings,
   };

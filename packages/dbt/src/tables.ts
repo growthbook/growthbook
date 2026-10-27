@@ -15,6 +15,11 @@ import {
   Unsupported,
 } from "./util";
 
+const describe = (c: FactTableColumn) =>
+  c.isVirtual
+    ? `${c.datatype} expression \`${c.sql}\``
+    : `${c.datatype} column`;
+
 interface TableDraft {
   id: string;
   model: DbtSemanticModel;
@@ -129,6 +134,26 @@ export function planTables(
         if (isIdent(col)) declare(col, "");
       }
 
+      // t.* already exposes these, so a joined column with the same name would be ambiguous.
+      const baseCols = new Set(
+        [
+          ...(model.entities ?? []),
+          ...(model.dimensions ?? []),
+          ...(model.measures ?? []),
+        ]
+          .map((x) => x.expr ?? x.name)
+          .concat(
+            ctx.metrics
+              .filter(
+                (m) =>
+                  m.type_params?.metric_aggregation_params?.semantic_model ===
+                  model.name,
+              )
+              .map((m) => m.type_params?.expr ?? m.name),
+          )
+          .map((c) => c.toLowerCase()),
+      );
+
       let sql = `SELECT * FROM ${rel}`;
       const joined = [...t.joins.keys()].sort();
       if (joined.length) {
@@ -152,6 +177,11 @@ export function planTables(
             const d = findDim(j.target, dim);
             if (!d) continue;
             const col = `${entity}__${dim}`;
+            if (baseCols.has(col.toLowerCase())) {
+              throw new Unsupported(
+                `joined column "${col}" has the same name as a column on "${model.name}"`,
+              );
+            }
             inner.push(`${d.expr ?? d.name} AS ${col}`);
             selects.push(`${alias}.${col}`);
             declare(col, "");
@@ -202,21 +232,23 @@ export function planTables(
       });
       continue;
     }
-    // First declaration of a column wins; a metric needing a different type
-    // for the same column (sum vs count_distinct) would be rejected by the API.
-    const conflict = d.refs
-      .flatMap((r) =>
-        r.usage.columns.map((c) => ({
-          c,
-          stored: tables.get(r.usage.factTableId)?.columns.get(c.column),
-        })),
-      )
-      .find(({ c, stored }) => stored && stored.datatype !== c.datatype);
+    // First declaration of a column wins. A metric needing a different type
+    // (sum vs count_distinct) would be rejected by the API; one needing a
+    // different definition (physical `x_vc` vs measure x's virtual column)
+    // would silently read the other one.
+    const conflict = d.refs.flatMap((r) =>
+      r.usage.columns.flatMap((c) => {
+        const stored = tables.get(r.usage.factTableId)?.columns.get(c.column);
+        return stored && describe(stored) !== describe(c)
+          ? [{ c, stored }]
+          : [];
+      }),
+    )[0];
     if (conflict) {
       warnings.push({
         level: "skipped",
         resource: `metric ${name}`,
-        message: `column "${conflict.c.column}" is used as ${conflict.c.datatype} here but ${conflict.stored?.datatype} by another metric on the same fact table`,
+        message: `column "${conflict.c.column}" is used as ${describe(conflict.c)} here but as ${describe(conflict.stored)} by another metric on the same fact table`,
       });
       continue;
     }

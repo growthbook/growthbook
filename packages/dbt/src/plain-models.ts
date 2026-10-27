@@ -8,6 +8,13 @@ import {
 } from "./types";
 import { gbMeta, isRecord, matches, omit, tagsOf } from "./util";
 
+// Column types the API's aggregation checks expect; other aggregations are left for detection.
+const inferredTypes: Partial<Record<string, FactTableColumn["datatype"]>> = {
+  sum: "number",
+  max: "number",
+  "count distinct": "string",
+};
+
 // Plain dbt models annotated with meta.growthbook in GrowthBook's own vocabulary.
 // `taken` holds the Fact Table ids already generated from semantic models.
 export function importPlainModels(
@@ -64,8 +71,9 @@ export function importPlainModels(
       columns: [],
     };
     Object.assign(data, omit(meta, ["enabled", "metrics", "userIdTypes"]));
-    // The API needs the timestamp and identifier columns declared up front;
-    // everything else is detected from the SQL.
+    // The API needs the timestamp, identifier and metric columns declared up
+    // front (a metric on a column of unknown type fails validation before
+    // detection can run); everything else is detected from the SQL.
     const columns = new Map<string, FactTableColumn>();
     for (const c of Array.isArray(data.columns) ? data.columns : []) {
       if (isRecord(c) && typeof c.column === "string") {
@@ -83,8 +91,6 @@ export function importPlainModels(
       const col = idColumns[idType];
       declare(typeof col === "string" ? col : idType, "");
     }
-    data.columns = [...columns.values()];
-    factTables.push({ id: node.name, data });
     for (const m of entries) {
       if (
         !isRecord(m) ||
@@ -107,9 +113,21 @@ export function importPlainModels(
         if (isRecord(ref) && typeof ref.factTableId !== "string") {
           metric[side] = { ...ref, factTableId: node.name };
         }
+        const r = metric[side];
+        const datatype = inferredTypes[r?.aggregation ?? "sum"];
+        if (
+          r?.factTableId === node.name &&
+          typeof r.column === "string" &&
+          !r.column.startsWith("$$") &&
+          datatype
+        ) {
+          declare(r.column, datatype);
+        }
       }
       factMetrics.push({ id: m.id, data: metric });
     }
+    data.columns = [...columns.values()];
+    factTables.push({ id: node.name, data });
   }
   return { factTables, factMetrics };
 }
