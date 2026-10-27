@@ -473,9 +473,9 @@ export default function ExplorerMainSection({
       style={{
         flex: "1",
         minHeight: 0,
-        // The explorer pages set it so the card ends 32px above the window
-        // (Explorer.tsx); the sidebar beside it keeps the full height.
-        paddingBottom: `var(--explorer-main-bottom, ${isSql ? "8px" : "12px"})`,
+        // The explorer pages set it so the card ends 32px above the window,
+        // level with the sidebar (Explorer.tsx).
+        paddingBottom: `var(--explorer-page-bottom, ${isSql ? "8px" : "12px"})`,
       }}
     >
       {showDataSourceSelector ? (
