@@ -19,6 +19,7 @@ import {
   linkedFeatureEnvStates,
   parsePlainJSONObject,
   pendingDraftApproved,
+  startBypassCovers,
 } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -92,7 +93,6 @@ import {
   FlagDraftPicks,
   resolveDraftPick,
   revisionHref,
-  startBypassCovers,
 } from "./draftPicks";
 import FlagValuesModal from "./FlagValuesModal";
 import FunnelConnector from "./FunnelConnector";

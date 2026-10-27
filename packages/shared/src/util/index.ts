@@ -274,6 +274,35 @@ export function isScheduledToStart(
   return exp.status === "draft" && hasPendingScheduledStart(exp);
 }
 
+// Whether a start armed past its drafts' approvals pinned this draft, and it
+// hasn't changed since.
+export function startBypassCovers(
+  exp: {
+    nextScheduledStatusUpdate?: {
+      type: string;
+      bypassApproval?: boolean;
+      pinnedDrafts?: {
+        featureId: string;
+        revisionVersion: number;
+        dateUpdated: Date | string;
+      }[];
+    } | null;
+  },
+  featureId: string,
+  draft: { version: number; dateUpdated?: Date | string | null },
+): boolean {
+  const staged = exp.nextScheduledStatusUpdate;
+  if (staged?.type !== "start" || !staged.bypassApproval) return false;
+  const { dateUpdated } = draft;
+  if (!dateUpdated) return false;
+  return (staged.pinnedDrafts ?? []).some(
+    (pin) =>
+      pin.featureId === featureId &&
+      pin.revisionVersion === draft.version &&
+      new Date(pin.dateUpdated).getTime() === new Date(dateUpdated).getTime(),
+  );
+}
+
 // Targeting, traffic and namespace. A running experiment with any implementation
 // changes them through a release plan: a draft rule or re-link serves at once.
 export function canEditDeliveryInPlace(

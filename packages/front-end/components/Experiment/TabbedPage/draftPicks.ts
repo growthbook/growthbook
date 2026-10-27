@@ -1,5 +1,4 @@
 import {
-  ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
@@ -61,25 +60,6 @@ export function resolveDraftPick(
     // Only the newest draft that changes the rule publishes at start.
     launches: !draft || draft.version === drafts[0]?.version,
   };
-}
-
-// Whether a start scheduled with the approval bypass pinned this draft, and it
-// hasn't changed since.
-export function startBypassCovers(
-  experiment: Pick<ExperimentInterfaceStringDates, "nextScheduledStatusUpdate">,
-  featureId: string,
-  draft: Pick<LinkedFeaturePendingDraft, "version" | "dateUpdated">,
-): boolean {
-  const staged = experiment.nextScheduledStatusUpdate;
-  if (staged?.type !== "start" || !staged.bypassApproval) return false;
-  const { dateUpdated } = draft;
-  if (!dateUpdated) return false;
-  return (staged.pinnedDrafts ?? []).some(
-    (pin) =>
-      pin.featureId === featureId &&
-      pin.revisionVersion === draft.version &&
-      new Date(pin.dateUpdated).getTime() === new Date(dateUpdated).getTime(),
-  );
 }
 
 /** One of a flag's revisions, on its page. */

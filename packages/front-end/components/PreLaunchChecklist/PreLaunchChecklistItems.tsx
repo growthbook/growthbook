@@ -14,10 +14,9 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { hasPendingScheduledStart } from "shared/util";
+import { hasPendingScheduledStart, startBypassCovers } from "shared/util";
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
-import { startBypassCovers } from "@/components/Experiment/TabbedPage/draftPicks";
 import { isBypassableStartItem } from "./checklistSummary";
 
 export type ChecklistAction =

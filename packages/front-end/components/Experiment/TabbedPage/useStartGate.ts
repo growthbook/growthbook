@@ -2,6 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
+import { canBypassStartApproval } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
@@ -46,20 +47,16 @@ export default function useStartGate({
     : null;
   const schedule = getStartSchedule(scheduledStartAt, now);
 
-  // The server waives these on the experiment's project and publishes each
-  // flag on its own.
   const approvalRows = summary.incomplete.blocking.filter(
     isBypassableStartItem,
   );
-  const canBypassApproval =
-    permissionsUtil.canBypassFlagApprovalChecks(experiment, "feature") &&
-    approvalRows.every((row) => {
-      const info = linkedFeatures.find((f) => f.feature.id === row.featureId);
-      return (
-        !!info &&
-        permissionsUtil.canBypassFlagApprovalChecks(info.feature, "feature")
-      );
-    });
+  const canBypassApproval = approvalRows.every((row) => {
+    const info = linkedFeatures.find((f) => f.feature.id === row.featureId);
+    return (
+      !!info &&
+      canBypassStartApproval(permissionsUtil, experiment, info.feature)
+    );
+  });
   const checklistLoading = checklistItemsRemaining === null;
   const checklist = withServerChecklist(
     {

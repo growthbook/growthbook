@@ -17,7 +17,8 @@ import {
   ChecklistStatus,
   ExperimentStartChecklistStatus,
 } from "shared/validators";
-import { hasPendingScheduledStart } from "shared/util";
+import { hasPendingScheduledStart, startBypassCovers } from "shared/util";
+import { canBypassStartApproval } from "shared/permissions";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -530,20 +531,13 @@ export async function armedStartBypassStands(
   if (!armer.permissions.canBypassFlagApprovalChecks(experiment, "feature")) {
     return false;
   }
-  const pins = staged.pinnedDrafts ?? [];
   return (await launchDraftRevisions(armer, experiment)).every(
-    ({ featureId, revisionVersion, revision }) => {
-      const pin = pins.find(
-        (p) =>
-          p.featureId === featureId && p.revisionVersion === revisionVersion,
-      );
-      return (
-        !!pin &&
-        !!revision &&
-        new Date(revision.dateUpdated).getTime() ===
-          new Date(pin.dateUpdated).getTime()
-      );
-    },
+    ({ featureId, revisionVersion, revision }) =>
+      !!revision &&
+      startBypassCovers(experiment, featureId, {
+        version: revisionVersion,
+        dateUpdated: revision.dateUpdated,
+      }),
   );
 }
 
@@ -609,7 +603,7 @@ export async function planStartGates(
         const feature = features.get(featureId);
         return (
           !!feature &&
-          context.permissions.canBypassFlagApprovalChecks(feature, "feature")
+          canBypassStartApproval(context.permissions, experiment, feature)
         );
       },
       restApiBypassesReviews: when === "now" && restApiBypassesReviews,

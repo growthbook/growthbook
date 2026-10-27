@@ -85,10 +85,7 @@ export const postExperimentStart = createApiRequestHandler(
       ? {
           when: "arm",
           skipChecklist,
-          bypassApproval: context.permissions.canBypassFlagApprovalChecks(
-            existing,
-            "feature",
-          ),
+          bypassApproval: true,
         }
       : {
           when: "now",
