@@ -1294,8 +1294,17 @@
       "anchors": []
     }
   },
+  "banner": {
+    "content": "**New:** See what we've shipped lately on our [Product Updates](https://growthbook.io/product-updates) page.",
+    "dismissible": true
+  },
   "navbar": {
     "links": [
+      {
+        "label": "Product Updates",
+        "icon": "bullhorn",
+        "href": "https://growthbook.io/product-updates"
+      },
       {
         "label": "Github",
         "type": "github",
