@@ -505,3 +505,112 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   white-space: nowrap;
   word-wrap: break-word;
 }
+
+/* "Open app" navbar link: Mintlify renders every navbar link as an outlined
+   pill, so drop the pill to keep it secondary to "Start for free".
+   Mintlify gives navbar links no unique class or id, so this selector keys
+   off the link's utm_content param. If that param changes in docs.json,
+   update the selector here too, or the link falls back to a pill. */
+.navbar-link > a[href*="utm_content=open-app"] {
+  border-color: transparent;
+  background: transparent;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+.navbar-link > a[href*="utm_content=open-app"]:hover {
+  background: transparent;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
+/* "Start for free" navbar CTA: a quick light sweep across the button every
+   5s, followed by a sparkle twinkling over the end of "free". */
+#topbar-cta-button > a {
+  --cta-cycle: 5s;
+  position: relative;
+  overflow: hidden;
+  /* Keeps the sparkle's z-index from stacking above Mintlify menus */
+  isolation: isolate;
+}
+
+#topbar-cta-button > a::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -75%;
+  width: 50%;
+  height: 100%;
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
+  );
+  transform: skewX(-20deg);
+  pointer-events: none;
+  animation: topbar-cta-shine var(--cta-cycle) ease-in-out infinite;
+}
+
+/* The sparkle's offsets and its 7% start are tuned to the "Start for free"
+   label. Retune them if the label in docs.json changes. */
+#topbar-cta-button > a::before {
+  content: "";
+  position: absolute;
+  top: 0.5em;
+  right: 0.8em;
+  /* Above the label, which Mintlify renders at z-index 10 */
+  z-index: 20;
+  width: 0.65em;
+  height: 0.65em;
+  background: #fff;
+  clip-path: polygon(
+    50% 0%,
+    61% 39%,
+    100% 50%,
+    61% 61%,
+    50% 100%,
+    39% 61%,
+    0% 50%,
+    39% 39%
+  );
+  opacity: 0;
+  transform: scale(0);
+  pointer-events: none;
+  animation: topbar-cta-sparkle var(--cta-cycle) ease-in-out infinite;
+}
+
+@keyframes topbar-cta-shine {
+  0% {
+    left: -75%;
+  }
+  10%,
+  100% {
+    left: 125%;
+  }
+}
+
+/* Starts at 7% (350ms), the moment the shine's trailing edge clears "free". */
+@keyframes topbar-cta-sparkle {
+  0%,
+  7% {
+    opacity: 0;
+    transform: scale(0) rotate(0deg);
+  }
+  10% {
+    opacity: 1;
+    transform: scale(1) rotate(45deg);
+  }
+  15%,
+  100% {
+    opacity: 0;
+    transform: scale(0) rotate(90deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #topbar-cta-button > a::after,
+  #topbar-cta-button > a::before {
+    animation: none;
+  }
+}
