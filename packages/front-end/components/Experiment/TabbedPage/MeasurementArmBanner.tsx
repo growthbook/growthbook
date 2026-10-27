@@ -20,7 +20,7 @@ export default function MeasurementArmBanner({
           <strong>{cbName ?? cbId}</strong>
         </Link>
       ) : (
-        "this contextual bandit"
+        "this Contextual Bandit"
       )}
       : compares users held back on the default experience against users in the
       Bandit. Variations, traffic, targeting, status and the goal metric follow

@@ -24,6 +24,8 @@ function getExperimentTypeName(experimentType: ExperimentType) {
       return "holdout";
     case "multi-armed-bandit":
       return "bandit";
+    case "contextualBanditMeasurementArm":
+      return "measurement arm";
   }
 }
 

@@ -17,6 +17,10 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 
+function truncate(s: string, max: number) {
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
 export default function ContextualBanditMeasurementArmSummary({
   cb,
 }: {
@@ -24,8 +28,8 @@ export default function ContextualBanditMeasurementArmSummary({
 }) {
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
   const displayCurrency = useCurrency();
-  const { measurementArm } = useContextualBanditMeasurementArm(
-    cb.measurementArm?.enabled ? cb.id : undefined,
+  const { measurementArm, loading, error } = useContextualBanditMeasurementArm(
+    cb.measurementArm?.enabled && cb.status !== "draft" ? cb.id : undefined,
   );
 
   if (!cb.measurementArm?.enabled) return null;
@@ -51,13 +55,8 @@ export default function ContextualBanditMeasurementArmSummary({
     latest?.status === "error" ? (
       <Callout status="error" mt="2">
         The last measurement arm update failed
-        {latest.error ? `: ${latest.error}` : "."}{" "}
-        {experimentHref ? (
-          <>
-            <Link href={experimentHref}>View results</Link> to inspect the
-            queries and re-run the analysis.
-          </>
-        ) : null}
+        {latest.error ? `: ${truncate(latest.error, 200)}` : "."} Open View
+        results to inspect the queries and re-run the analysis.
       </Callout>
     ) : latest?.status === "running" ? (
       <Text color="text-mid" size="sm">
@@ -66,7 +65,15 @@ export default function ContextualBanditMeasurementArmSummary({
     ) : null;
 
   let body: React.ReactNode;
-  if (cb.status === "draft") {
+  if (error) {
+    body = (
+      <Callout status="error">
+        Could not load the measurement arm results: {error.message}
+      </Callout>
+    );
+  } else if (loading) {
+    body = <Text color="text-mid">Loading…</Text>;
+  } else if (cb.status === "draft") {
     body = (
       <Text color="text-mid">
         {percentLabel} of eligible users will be held back on the default

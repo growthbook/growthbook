@@ -9,7 +9,6 @@ import {
   contextualBanditTrafficValidator,
 } from "../validators/contextual-bandit-snapshot";
 import { queryPointerValidator } from "../validators/queries";
-import { experimentStatus } from "../validators/experiments";
 import {
   contextualBanditEventResponseShape,
   contextualBanditIdAndEventParam,
@@ -18,6 +17,7 @@ import {
   contextualBanditIdOnlyParam,
   contextualBanditLinkedFeatureDraftVersionField,
   contextualBanditLinkedFeatureRuleFields,
+  contextualBanditMeasurementArmSummaryValidator,
   contextualBanditSnapshotResponseShape,
   leafWeightValidator,
 } from "../validators/contextual-bandit";
@@ -321,49 +321,13 @@ export const getContextualBanditStatus = {
   path: "/contextual-bandits/:id/status",
 };
 
-export const contextualBanditMeasurementArmSummarySchema = z
-  .object({
-    experimentId: z.string(),
-    trackingKey: z.string(),
-    percent: z.number(),
-    status: z.enum(experimentStatus),
-    latestSnapshot: z
-      .object({
-        id: z.string(),
-        dateCreated: z.string(),
-        status: z.enum(["running", "success", "error"]),
-        error: z.string().optional(),
-      })
-      .nullable(),
-    resultsSnapshot: z
-      .object({
-        id: z.string(),
-        dateCreated: z.string(),
-      })
-      .nullable(),
-    decisionMetricResult: z
-      .object({
-        metricId: z.string(),
-        controlMean: z.number().nullable(),
-        banditMean: z.number().nullable(),
-        controlUsers: z.number().nullable(),
-        banditUsers: z.number().nullable(),
-        lift: z.number().nullable(),
-        ci: z.tuple([z.number().nullable(), z.number().nullable()]).nullable(),
-        chanceToWin: z.number().nullable(),
-        pValue: z.number().nullable(),
-      })
-      .nullable(),
-  })
-  .strict();
-
 export const getContextualBanditMeasurementArm = {
   bodySchema: z.never(),
   querySchema: z.never(),
   paramsSchema: contextualBanditIdOnlyParam,
   responseSchema: z
     .object({
-      measurementArm: contextualBanditMeasurementArmSummarySchema.nullable(),
+      measurementArm: contextualBanditMeasurementArmSummaryValidator.nullable(),
     })
     .strict(),
   summary: "Get Contextual Bandit measurement arm results",

@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { banditStageType, screenshot, variation } from "./experiments";
+import {
+  banditStageType,
+  experimentStatus,
+  screenshot,
+  variation,
+} from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import {
   apiVisualChangesetValidator,
@@ -135,6 +140,46 @@ const apiContextualBanditMeasurementArmInput = z
   .describe(
     "Measurement arm settings. Omit to leave unchanged; omitted on create means no measurement arm.",
   );
+
+export const contextualBanditMeasurementArmSummaryValidator = z
+  .object({
+    experimentId: z.string(),
+    trackingKey: z.string(),
+    percent: z.number(),
+    status: z.enum(experimentStatus),
+    latestSnapshot: z
+      .object({
+        id: z.string(),
+        dateCreated: z.string(),
+        status: z.enum(["running", "success", "error"]),
+        error: z.string().optional(),
+      })
+      .nullable(),
+    resultsSnapshot: z
+      .object({
+        id: z.string(),
+        dateCreated: z.string(),
+      })
+      .nullable(),
+    decisionMetricResult: z
+      .object({
+        metricId: z.string(),
+        controlMean: z.number().nullable(),
+        banditMean: z.number().nullable(),
+        controlUsers: z.number().nullable(),
+        banditUsers: z.number().nullable(),
+        lift: z.number().nullable(),
+        ci: z.tuple([z.number().nullable(), z.number().nullable()]).nullable(),
+        chanceToWin: z.number().nullable(),
+        pValue: z.number().nullable(),
+      })
+      .nullable(),
+  })
+  .strict();
+
+export type ContextualBanditMeasurementArmSummary = z.infer<
+  typeof contextualBanditMeasurementArmSummaryValidator
+>;
 
 export const contextualBanditValidator = baseSchema
   .extend({

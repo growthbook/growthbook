@@ -147,7 +147,7 @@ export default function ContextualBanditTrafficTargetingModal({
           />
         ) : (
           <div>
-            <Text as="div" weight="medium" mb="1">
+            <Text as="div" weight="semibold" mb="1">
               Measurement arm size
             </Text>
             <Text as="div" color="text-mid">

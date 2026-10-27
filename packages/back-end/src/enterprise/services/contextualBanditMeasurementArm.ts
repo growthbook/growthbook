@@ -1,7 +1,5 @@
 import { v4 as uuidv4 } from "uuid";
 import isEqual from "lodash/isEqual";
-import { z } from "zod";
-import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE,
@@ -14,6 +12,7 @@ import { generateVariationId, getSnapshotAnalysis } from "shared/util";
 import {
   ContextualBanditInterface,
   ContextualBanditMeasurementArm,
+  ContextualBanditMeasurementArmSummary,
   DEFAULT_MEASUREMENT_ARM_PERCENT,
   MAX_MEASUREMENT_ARM_PERCENT,
   MIN_MEASUREMENT_ARM_PERCENT,
@@ -378,9 +377,8 @@ export function assertNotMeasurementArmExperiment(
   }
 }
 
-export type MeasurementArmResultsSummary = z.infer<
-  typeof contextualBanditEndpoints.contextualBanditMeasurementArmSummarySchema
->;
+export type MeasurementArmResultsSummary =
+  ContextualBanditMeasurementArmSummary;
 
 /** The one-line comparison the CB Results tab shows; full results live on the experiment. */
 export async function getMeasurementArmResultsSummary(
