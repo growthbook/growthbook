@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import clsx from "clsx";
@@ -7,6 +7,7 @@ import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import Badge from "@/ui/Badge";
+import Heading from "@/ui/Heading";
 import { TextField } from "@/ui/TextField";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -92,6 +93,22 @@ export default function SettingsNav() {
 
   useEffect(() => () => setQuery(""), [setQuery]);
 
+  // Scrolls up with the page until the title is gone, then stays put.
+  const navRef = useRef<HTMLElement>(null);
+  const headerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onScroll = () => {
+      const max = headerRef.current?.offsetHeight ?? 0;
+      navRef.current?.style.setProperty(
+        "--nav-shift",
+        `${Math.min(window.scrollY, max)}px`,
+      );
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
   const onQueryChange = (q: string) => {
     setQuery(q);
     // Matches live on the General page, so typing elsewhere goes there.
@@ -99,13 +116,18 @@ export default function SettingsNav() {
   };
 
   return (
-    <aside className={styles.nav} aria-label="Settings navigation">
+    <aside ref={navRef} className={styles.nav} aria-label="Settings navigation">
+      <div ref={headerRef} className={styles.header}>
+        <Heading as="h2" size="2xl" mb="0">
+          Settings
+        </Heading>
+      </div>
       <TextField
         ref={searchRef}
         type="search"
         size="md"
         mx="3"
-        mt="4"
+        mt="0"
         mb="2"
         aria-label="Search settings"
         placeholder="Search settings"

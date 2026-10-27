@@ -1,15 +1,11 @@
 .nav {
   position: fixed;
-  top: calc(56px + var(--settings-nav-inset));
+  top: calc(56px + var(--settings-nav-inset) - var(--nav-shift, 0px));
   bottom: var(--settings-nav-inset);
   left: calc(var(--settings-sidebar-width) + var(--settings-nav-inset));
   width: var(--settings-nav-width);
   display: flex;
   flex-direction: column;
-  background: var(--color-panel-solid);
-  border: 1px solid var(--slate-a4);
-  border-radius: var(--radius-4);
-  box-shadow: var(--shadow-3);
   overflow: hidden;
   z-index: 999;
   font-size: 13px;
@@ -18,6 +14,11 @@
   @media (max-width: 1399px) {
     display: none;
   }
+}
+
+// Lines the title up with the page titles beside it.
+.header {
+  padding: 16px var(--space-3) 20px;
 }
 
 .kbd {
@@ -82,7 +83,7 @@
   cursor: pointer;
 
   &:hover {
-    background: var(--violet-3);
+    background: var(--gray-a2);
     color: var(--color-text-high);
     text-decoration: none;
   }
@@ -94,8 +95,8 @@
 
 .active,
 .active:hover {
-  background: var(--violet-3);
-  color: var(--violet-11);
+  background: var(--gray-a3);
+  color: var(--color-text-high);
   font-weight: 600;
 }
 
