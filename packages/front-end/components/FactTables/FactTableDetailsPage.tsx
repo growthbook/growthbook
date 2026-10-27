@@ -455,7 +455,12 @@ export default function FactTableDetailsPage() {
         </Flex>
         {showSql && (
           <Box mt="3">
-            <Code code={factTable.sql} language="sql" maxHeight="405px" />
+            <Code
+              code={factTable.sql}
+              language="sql"
+              maxHeight="405px"
+              wrapLongLines
+            />
           </Box>
         )}
         {usesEventName(factTable.sql) && (

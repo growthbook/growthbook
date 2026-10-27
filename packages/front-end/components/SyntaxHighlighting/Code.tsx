@@ -66,6 +66,7 @@ export default function Code({
   startingLineNumber,
   showLineNumbers = true,
   maxHeight,
+  wrapLongLines = false,
 }: {
   code: string;
   language: Language;
@@ -81,6 +82,8 @@ export default function Code({
   startingLineNumber?: number;
   showLineNumbers?: boolean;
   maxHeight?: string;
+  // Wraps lines that are wider than the container instead of scrolling
+  wrapLongLines?: boolean;
 }) {
   language = language || "none";
   if (language === "sh") language = "bash";
@@ -230,6 +233,7 @@ export default function Code({
             className={clsx("rounded-bottom", className)}
             showLineNumbers={showLineNumbers}
             startingLineNumber={startingLineNumber ?? 1}
+            {...(wrapLongLines ? { wrapLines: true, wrapLongLines: true } : {})}
             {...(errorLine
               ? {
                   wrapLines: true,
