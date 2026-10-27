@@ -1086,7 +1086,9 @@ const EditMember: FC<{
               weight="bold"
               value={memberSuperAdmin === true}
               disabled={!canSet(memberSuperAdmin === true ? false : true)}
-              disabledMessage={selfMessage}
+              disabledMessage={
+                selfMessage ?? "Only full super admins can change this"
+              }
               setValue={(v) => setMemberSuperAdmin(v)}
             />
             <Flex direction="column" gap="2" pl="5">
@@ -1096,15 +1098,26 @@ const EditMember: FC<{
                     ? grantedList.filter((g) => g !== p)
                     : [...grantedList, p],
                 );
+                // View comes with any other permission, so show it as granted
+                const included =
+                  memberSuperAdmin === true ||
+                  (p === "view" && grantedList.some((g) => g !== "view"));
                 return (
                   <Checkbox
                     key={p}
                     id={`super-admin-${p}`}
                     label={SUPER_ADMIN_PERMISSION_LABELS[p]}
                     weight="regular"
-                    value={memberSuperAdmin === true || grantedList.includes(p)}
-                    disabled={memberSuperAdmin === true || !canSet(next)}
-                    disabledMessage={selfMessage}
+                    value={included || grantedList.includes(p)}
+                    disabled={included || !canSet(next)}
+                    disabledMessage={
+                      selfMessage ??
+                      (memberSuperAdmin === true
+                        ? "Included in full access"
+                        : included
+                          ? "Included with any other permission"
+                          : "You don't have permission to change this")
+                    }
                     setValue={() => setMemberSuperAdmin(next)}
                   />
                 );
