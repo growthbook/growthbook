@@ -1,9 +1,11 @@
 import { useMemo } from "react";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
+import { isUsersOpenDraft } from "shared/util";
 import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import { DraftMode } from "@/components/DraftSelector";
+import { useUser } from "@/services/UserContext";
 
 // Returns the draft version to pre-select in a modal.
 // Prefers the revision currently viewed on the feature page (if it's an active draft),
@@ -45,6 +47,19 @@ export function useDefaultDraft(
     }
     return activeDrafts[0]?.version ?? null;
   }, [activeDrafts, ctx]);
+}
+
+// The draft being viewed on the feature page, if the viewer made or contributed
+// to it; otherwise null so the change starts a new draft.
+export function useViewedOwnDraft(
+  revisionList: MinimalFeatureRevisionInterface[],
+): number | null {
+  const ctx = useFeatureRevisionsContext();
+  const { userId } = useUser();
+  const viewed = revisionList.find((r) => r.version === ctx?.currentVersion);
+  return viewed && isUsersOpenDraft(viewed, userId ?? null)
+    ? viewed.version
+    : null;
 }
 
 // Initial draft mode + target for metadata-style edit modals. When the user

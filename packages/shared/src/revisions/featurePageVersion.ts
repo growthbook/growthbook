@@ -26,6 +26,19 @@ function isOpenUserDraft(revision: FeaturePageRevisionSummary): boolean {
   return ACTIVE_DRAFT_STATUSES.has(revision.status);
 }
 
+/** An open, non-ramp draft the user made or contributed to. */
+export function isUsersOpenDraft(
+  revision: FeaturePageRevisionSummary,
+  userId: string | null,
+): boolean {
+  return (
+    userId !== null &&
+    isOpenUserDraft(revision) &&
+    (eventUserPersonId(revision.createdBy ?? null) === userId ||
+      (revision.contributors ?? []).includes(userId))
+  );
+}
+
 /**
  * A requested version that exists, then the viewer's newest open draft (made
  * or contributed to), then live. `revisionList` is newest first.
@@ -47,14 +60,6 @@ export function getFeaturePageDefaultVersion({
   ) {
     return requestedVersion;
   }
-  const ownDraft =
-    userId !== null
-      ? revisionList.find(
-          (r) =>
-            isOpenUserDraft(r) &&
-            (eventUserPersonId(r.createdBy ?? null) === userId ||
-              (r.contributors ?? []).includes(userId)),
-        )
-      : undefined;
+  const ownDraft = revisionList.find((r) => isUsersOpenDraft(r, userId));
   return ownDraft?.version ?? liveVersion;
 }
