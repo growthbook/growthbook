@@ -302,7 +302,10 @@ export type MultiSelectFieldProps = Omit<
     value: string[],
     action?: ActionMeta<SingleValue>["action"],
   ) => void;
+  /** Sorts the menu options and lets selected chips be dragged to reorder. */
   sort?: boolean;
+  /** Overrides `sort` for the menu only, so chips stay draggable. */
+  sortOptions?: boolean;
   customStyles?: StylesConfig<ColorOption, true>;
   customClassName?: string;
   closeMenuOnSelect?: boolean;
@@ -349,6 +352,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   initialOption,
   placeholder = "Select...",
   sort = true,
+  sortOptions = sort,
   disabled,
   autoFocus,
   customStyles,
@@ -382,7 +386,7 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
   const resolvedSize = size ?? "md";
   const usesLegacyHeight = legacyHeight ?? size === undefined;
   const styleSize = usesLegacyHeight ? "legacy" : resolvedSize;
-  const [map, sorted] = useSelectOptions(options, initialOption, sort);
+  const [map, sorted] = useSelectOptions(options, initialOption, sortOptions);
   // Creatable values may not exist in `options`; keep them as chips rather than dropping them.
   const selected = value
     .map((v) => map.get(v) ?? (creatable ? { label: v, value: v } : undefined))

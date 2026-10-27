@@ -4,7 +4,9 @@ import React, { useState, useEffect, useMemo } from "react";
 import {
   isSavedGroupAvailableForProjects,
   extractConditionAttributeKeys,
+  isRemoteGroupSupportedAttribute,
 } from "shared/util";
+import { isInternalAttributeName } from "shared/constants";
 import { some } from "lodash";
 import { PiPlusCircleBold, PiXBold, PiTextAa } from "react-icons/pi";
 import clsx from "clsx";
@@ -42,6 +44,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import RadioGroup from "@/ui/RadioGroup";
+import RemoteGroupNotLoadedWarning from "@/components/SavedGroups/RemoteGroupNotLoadedWarning";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
 import {
   OperatorOption,
@@ -60,7 +63,10 @@ import {
   formatAttributeOptionLabel,
   toAttributeOption,
 } from "./AttributeOptionTooltip";
-import { formatSavedGroupOptionLabel } from "./SavedGroupOptionTooltip";
+import {
+  formatSavedGroupOptionLabel,
+  formatSavedGroupOptionLabelFor,
+} from "./SavedGroupOptionTooltip";
 
 /** Operators that support a case-insensitive variant via checkbox (list + regex) */
 const OPERATORS_WITH_CASE_INSENSITIVE = new Set([
@@ -109,9 +115,13 @@ function useScopedAttributes(
       // Dotted keys reference a property on an object attribute.
       referenced.add(k.split(".")[0]);
     }
-    const scoped = new Set(scopedSchema.map((s) => s.property));
+    // Internal attributes are set by GrowthBook's SDKs, not targeted directly.
+    const visibleSchema = scopedSchema.filter(
+      (s) => !isInternalAttributeName(s.property),
+    );
+    const scoped = new Set(visibleSchema.map((s) => s.property));
     const attributeSchema = [
-      ...scopedSchema,
+      ...visibleSchema,
       ...allSchema.filter(
         (s) => !scoped.has(s.property) && referenced.has(s.property),
       ),
@@ -874,17 +884,23 @@ function ConditionAndGroupInput({
               }
               attributeSlot={fieldSelector}
               valueSlot={
-                <MultiSelectField
-                  legacyHeight
-                  disabled={disabled}
-                  value={ids}
-                  options={groupOptions}
-                  onChange={handleListChange}
-                  name="value"
-                  formatOptionLabel={formatSavedGroupOptionLabel}
-                  valueTitles={false}
-                  required
-                />
+                <Box style={{ flexBasis: "100%", minWidth: 0 }}>
+                  <MultiSelectField
+                    legacyHeight
+                    disabled={disabled}
+                    value={ids}
+                    options={groupOptions}
+                    onChange={handleListChange}
+                    name="value"
+                    formatOptionLabel={formatSavedGroupOptionLabel}
+                    valueTitles={false}
+                    required
+                  />
+                  {field === "$notSavedGroups" &&
+                    ids.map((id) => (
+                      <RemoteGroupNotLoadedWarning key={id} groupId={id} />
+                    ))}
+                </Box>
               }
               removeSlot={
                 (conds.length > 1 ||
@@ -923,7 +939,17 @@ function ConditionAndGroupInput({
         }
 
         const savedGroupOptions = savedGroups
-          .filter((g) => g.type === "list" && g.attributeKey === field)
+          // A remote group works on another string or number attribute: its
+          // IDs are matched against this attribute's raw value. Hashed
+          // attributes never match, so they don't get the option.
+          .filter(
+            (g) =>
+              (g.type === "list" && g.attributeKey === field) ||
+              (g.type === "remote" &&
+                (g.attributeKey === field ||
+                  isRemoteGroupSupportedAttribute(attribute) ||
+                  g.id === value)),
+          )
           .filter((group) => {
             // Preserve the selected group on existing out-of-scope conditions.
             if (
@@ -1088,11 +1114,16 @@ function ConditionAndGroupInput({
                         onChange={(v) => {
                           handleCondsChange(v, "value");
                         }}
-                        formatOptionLabel={formatSavedGroupOptionLabel}
+                        formatOptionLabel={formatSavedGroupOptionLabelFor(
+                          field,
+                        )}
                         name="value"
                         initialOption="Choose group..."
                         required
                       />
+                      {operator === "$notInGroup" && value && (
+                        <RemoteGroupNotLoadedWarning groupId={value} />
+                      )}
                     </Box>
                   ) : displayType === "array-field" ? (
                     <Flex
