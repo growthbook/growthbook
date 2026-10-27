@@ -136,16 +136,14 @@ export default function EditTargetingModal({
         submit={onSubmit(mutate, "namespace", stageChanges)}
         size="lg"
       >
-        <div className="pt-2">
-          <NamespaceSelector
-            form={form}
-            featureId={experiment.trackingKey}
-            trackingKey={experiment.trackingKey}
-            experimentHashAttribute={form.watch("hashAttribute")}
-            fallbackAttribute={form.watch("fallbackAttribute")}
-            hideEnableToggle
-          />
-        </div>
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+          experimentHashAttribute={form.watch("hashAttribute")}
+          fallbackAttribute={form.watch("fallbackAttribute")}
+          hideEnableToggle
+        />
       </ModalStandard>
     );
   }
