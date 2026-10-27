@@ -73086,6 +73086,32 @@ components:
                 type: array
                 items:
                   type: string
+              columnMapping:
+                description: >-
+                  The column `sql` returns for each role, where it isn't the
+                  canonical name (`experiment_id`, `variation_id`, `timestamp`,
+                  `experiment_name`, `variation_name`, or the identifier type's
+                  own name). Roles not listed use the canonical name.
+                type: object
+                properties:
+                  experimentIdColumn:
+                    type: string
+                  variationIdColumn:
+                    type: string
+                  timestampColumn:
+                    type: string
+                  userIdColumns:
+                    description: Column for each identifier type, keyed by type
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: string
+                  experimentNameColumn:
+                    type: string
+                  variationNameColumn:
+                    type: string
+                additionalProperties: false
             required:
               - id
               - name
