@@ -222,7 +222,7 @@ export default function ProfileMenu({
             "reviews",
             <MenuItemContent
               Icon={PiHourglassHigh}
-              label="Pending reviews"
+              label="Pending Reviews"
               trailing={
                 pendingReviewCount > 0 ? (
                   <Badge
@@ -242,18 +242,18 @@ export default function ProfileMenu({
       : []),
     item(
       "activity",
-      <MenuItemContent Icon={ActivityIcon} label="Activity feed" />,
+      <MenuItemContent Icon={ActivityIcon} label="Activity Feed" />,
       () => go("/activity"),
     ),
     item(
       "reports",
-      <MenuItemContent Icon={PiFileText} label="My reports" />,
+      <MenuItemContent Icon={PiFileText} label="My Reports" />,
       () => go("/reports"),
     ),
     { type: "separator", key: "sep-2" },
     item(
       "tokens",
-      <MenuItemContent Icon={TokenIcon} label="Personal access tokens" />,
+      <MenuItemContent Icon={TokenIcon} label="Personal Access Tokens" />,
       () => go("/account/personal-access-tokens"),
     ),
     item(
@@ -281,7 +281,7 @@ export default function ProfileMenu({
           `theme-${key}`,
           <MenuItemContent
             Icon={THEME_ICONS[key]}
-            label={key === "system" ? "System default" : THEME_LABELS[key]}
+            label={key === "system" ? "System Default" : THEME_LABELS[key]}
           />,
           () => {
             setOpen(false);
@@ -293,7 +293,7 @@ export default function ProfileMenu({
     { type: "separator", key: "sep-3" },
     item(
       "sign-out",
-      <MenuItemContent Icon={SignOutIcon} label="Sign out" />,
+      <MenuItemContent Icon={SignOutIcon} label="Sign Out" />,
       () => logout(),
     ),
   ];

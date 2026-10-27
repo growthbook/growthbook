@@ -106,8 +106,8 @@ export default function HelpMenu({
   const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 1500 });
 
   const items: HelpItem[] = [
-    helpLink("docs", PiBookOpen, "View docs", inferDocUrl()),
-    helpLink("slack", PiSlackLogo, "Join Slack community", SLACK_URL),
+    helpLink("docs", PiBookOpen, "View Docs", inferDocUrl()),
+    helpLink("slack", PiSlackLogo, "Join Slack Community", SLACK_URL),
     ...(offerLiveChat
       ? [
           {

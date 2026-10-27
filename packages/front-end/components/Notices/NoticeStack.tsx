@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
@@ -15,19 +15,27 @@ import styles from "./NoticeStack.module.scss";
 
 type Upgrade = NonNullable<AppNotice["upgrade"]>;
 
+// Below 1180px the header's first row is shared with the menu and GrowthBot
+// (TopNav.module.scss), so the notices are one compact button there.
+const COMPACT_QUERY = "(max-width: 1180px)";
+function useCompact() {
+  return useSyncExternalStore(
+    (listener) => {
+      const mq = window.matchMedia(COMPACT_QUERY);
+      mq.addEventListener("change", listener);
+      return () => mq.removeEventListener("change", listener);
+    },
+    () => window.matchMedia(COMPACT_QUERY).matches,
+    () => false,
+  );
+}
+
 // The most important notice in full, and a "+N" that lists them all, so a
 // crowded row stays one line.
 export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
   const [listOpen, setListOpen] = useState(false);
-  // Below 1180px the top notice's title can be cut off with "…"; the tooltip
-  // then shows it in full, above its details.
-  const pillRef = useRef<HTMLDivElement>(null);
-  const [titleClipped, setTitleClipped] = useState(false);
-  const checkClipped = () => {
-    const text = pillRef.current?.querySelector(`.${styles.pillText}`);
-    setTitleClipped(!!text && text.scrollWidth > text.clientWidth);
-  };
+  const compact = useCompact();
   // The list lives in the persistent top nav, so following a link closes it.
   const router = useRouter();
   useEffect(() => {
@@ -39,28 +47,65 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const ranked = rankNotices(notices);
   const [top, ...rest] = ranked;
 
+  const list = (
+    <Flex direction="column" gap="2">
+      {ranked.map((notice) => (
+        <NoticeCallout key={notice.id} notice={notice} onUpgrade={setUpgrade} />
+      ))}
+    </Flex>
+  );
+  const upgradeModal = upgrade ? (
+    <UpgradeModal
+      close={() => setUpgrade(null)}
+      source={upgrade.source}
+      commercialFeature={upgrade.commercialFeature}
+    />
+  ) : null;
+
+  // Even with one notice, so a tap shows its full text.
+  if (compact) {
+    return (
+      <Flex align="center" className={styles.stack}>
+        <Popover
+          open={listOpen}
+          onOpenChange={setListOpen}
+          side="bottom"
+          align="end"
+          contentStyle={{ maxWidth: 380 }}
+          onOpenAutoFocus={(e) => e.preventDefault()}
+          trigger={
+            <Button
+              variant="soft"
+              color="gray"
+              size="sm"
+              className={styles.more}
+              aria-label={
+                ranked.length === 1 ? "1 notice" : `${ranked.length} notices`
+              }
+            >
+              <PiWarningFill
+                size={15}
+                color={
+                  top.severity === "error" ? "var(--red-11)" : "var(--amber-11)"
+                }
+              />
+              {ranked.length}
+            </Button>
+          }
+          content={list}
+        />
+        {upgradeModal}
+      </Flex>
+    );
+  }
+
   return (
     <Flex align="center" gap="2" className={styles.stack}>
       <Tooltip
-        content={
-          <Box className={styles["notice-tooltip"]}>
-            {titleClipped ? (
-              <Text as="div" weight="semibold">
-                {top.title}
-              </Text>
-            ) : null}
-            {top.details}
-          </Box>
-        }
-        enabled={!!top.details || titleClipped}
+        content={<Box className={styles["notice-tooltip"]}>{top.details}</Box>}
+        enabled={!!top.details}
       >
-        <Flex
-          ref={pillRef}
-          display="inline-flex"
-          className={styles.pillWrap}
-          onMouseEnter={checkClipped}
-          onFocus={checkClipped}
-        >
+        <Flex display="inline-flex">
           <NoticePill notice={top} onUpgrade={setUpgrade} />
         </Flex>
       </Tooltip>
@@ -83,26 +128,10 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
               +{rest.length}
             </Button>
           }
-          content={
-            <Flex direction="column" gap="2">
-              {ranked.map((notice) => (
-                <NoticeCallout
-                  key={notice.id}
-                  notice={notice}
-                  onUpgrade={setUpgrade}
-                />
-              ))}
-            </Flex>
-          }
+          content={list}
         />
       ) : null}
-      {upgrade ? (
-        <UpgradeModal
-          close={() => setUpgrade(null)}
-          source={upgrade.source}
-          commercialFeature={upgrade.commercialFeature}
-        />
-      ) : null}
+      {upgradeModal}
     </Flex>
   );
 }
@@ -129,7 +158,7 @@ function NoticePill({
   const content = (
     <>
       <PiWarningFill size={15} />
-      <span className={styles.pillText}>{notice.title}</span>
+      {notice.title}
     </>
   );
   return link ? (
