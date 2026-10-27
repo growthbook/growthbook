@@ -1,0 +1,94 @@
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import Markdown from "@/components/Markdown/Markdown";
+import Metadata from "@/ui/Metadata";
+import ScrollArea from "@/ui/ScrollArea";
+import { PanelSection } from "@/components/Experiment/TabbedPage/ExperimentDetailsPanel";
+import ExpandableBlock from "@/components/Experiment/TabbedPage/ExpandableBlock";
+import {
+  EmptyValue,
+  ExperimentDates,
+  ExperimentStatusField,
+} from "@/components/Experiment/TabbedPage/ProjectTagBar";
+
+const count = (n: number, one: string, many: string) =>
+  n ? `${n} ${n === 1 ? one : many}` : null;
+
+/** The details rail of a shared experiment. */
+export default function PublicExperimentDetails({
+  experiment,
+  linkedFeatureCount,
+  visualChangesetCount,
+  urlRedirectCount,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  linkedFeatureCount: number;
+  visualChangesetCount: number;
+  urlRedirectCount: number;
+}) {
+  const linkedChanges = [
+    count(linkedFeatureCount, "Feature Flag", "Feature Flags"),
+    count(
+      visualChangesetCount,
+      "AI Visual Editor change",
+      "AI Visual Editor changes",
+    ),
+    count(urlRedirectCount, "URL Redirect", "URL Redirects"),
+  ].filter(Boolean);
+
+  return (
+    <ScrollArea fill style={{ flex: 1, minHeight: 0 }}>
+      <Flex px="5" py="4" direction="column" gap="4">
+        <PanelSection title="General">
+          <Flex direction="column" gap="3">
+            <Metadata
+              size="sm"
+              stacked
+              label="Description"
+              value={
+                <Box width="100%">
+                  {experiment.description ? (
+                    <ExpandableBlock>
+                      <Box style={{ fontSize: "var(--font-size-1)" }}>
+                        <Markdown
+                          isPublic
+                          shareUid={experiment.uid}
+                          shareType="experiment"
+                        >
+                          {experiment.description}
+                        </Markdown>
+                      </Box>
+                    </ExpandableBlock>
+                  ) : (
+                    <EmptyValue />
+                  )}
+                </Box>
+              }
+            />
+            <ExperimentStatusField experiment={experiment} />
+            <ExperimentDates experiment={experiment} />
+          </Flex>
+        </PanelSection>
+        <Separator size="4" />
+        <PanelSection title="Data">
+          <Flex direction="column" gap="3">
+            <Metadata
+              size="sm"
+              stacked
+              label="Experiment Key"
+              value={experiment.trackingKey || <EmptyValue />}
+            />
+            <Metadata
+              size="sm"
+              stacked
+              label="Linked changes"
+              value={
+                linkedChanges.length ? linkedChanges.join(", ") : <EmptyValue />
+              }
+            />
+          </Flex>
+        </PanelSection>
+      </Flex>
+    </ScrollArea>
+  );
+}

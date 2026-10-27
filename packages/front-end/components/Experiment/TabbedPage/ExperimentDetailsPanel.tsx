@@ -264,7 +264,7 @@ export default function ExperimentDetailsPanel({
   );
 }
 
-function PanelSection({
+export function PanelSection({
   title,
   action = null,
   children,

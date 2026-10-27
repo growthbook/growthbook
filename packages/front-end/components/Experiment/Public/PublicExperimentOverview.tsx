@@ -1,86 +1,78 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "shared/types/experiment";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React from "react";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
+import { Box, Separator } from "@radix-ui/themes";
 import Markdown from "@/components/Markdown/Markdown";
 import VariationsTable from "@/components/Experiment/VariationsTable";
-import LinkedChanges from "@/components/Experiment/LinkedChanges/LinkedChanges";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
 import DecisionMakingSettings from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 
 export default function PublicExperimentOverview({
   experiment,
-  visualChangesets,
-  urlRedirects,
-  linkedFeatures,
   ssrPolyfills,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  visualChangesets: VisualChangesetInterface[];
-  urlRedirects: URLRedirectInterface[];
-  linkedFeatures: LinkedFeatureInfo[];
   ssrPolyfills: SSRPolyfills;
 }) {
-  const hasLinkedChanges =
-    experiment?.hasVisualChangesets ||
-    (linkedFeatures?.length ?? 0) > 0 ||
-    experiment?.hasURLRedirects;
+  const hypothesis = experiment.hypothesis;
 
   return (
     <>
-      <h2>Overview</h2>
-
-      <div className="box px-4 py-3 mb-4">
-        <h4>Description</h4>
-        <Markdown
-          isPublic={true}
-          shareUid={experiment.uid}
-          shareType="experiment"
-        >
-          {experiment?.description || "_no description_"}
-        </Markdown>
-      </div>
-
-      {experiment?.type !== "multi-armed-bandit" && experiment?.hypothesis ? (
-        <div className="box px-4 py-3 mb-4">
-          <h4>Hypothesis</h4>
-          {experiment?.hypothesis}
-        </div>
+      {experiment.type !== "multi-armed-bandit" ? (
+        <>
+          <SetupFieldRow
+            label="Hypothesis"
+            labelSize="lg"
+            content="text"
+            labelAlign={hypothesis ? "top" : "center"}
+          >
+            {hypothesis ? (
+              <Markdown
+                isPublic
+                shareUid={experiment.uid}
+                shareType="experiment"
+              >
+                {hypothesis}
+              </Markdown>
+            ) : (
+              <Text
+                weight="regular"
+                color="text-mid"
+                size="md"
+                fontStyle="italic"
+              >
+                No hypothesis
+              </Text>
+            )}
+          </SetupFieldRow>
+          <Separator size="4" my="2" />
+        </>
       ) : null}
 
-      <h2>Implementation</h2>
-
-      <div className="box px-2 py-3 mb-4">
-        <h4 className="mx-3">Variations</h4>
+      <Box my="4">
+        <Heading as="h4" size="sm" color="text-high" mb="3">
+          Variations
+        </Heading>
         <VariationsTable
           experiment={experiment}
           canEditExperiment={false}
-          isPublic={true}
+          isPublic
           shareUid={experiment.uid}
           shareType="experiment"
+          noMargin
+          fill
         />
-      </div>
-
-      {hasLinkedChanges ? (
-        <>
-          <LinkedChanges
-            linkedFeatures={linkedFeatures}
-            visualChangesets={visualChangesets}
-            urlRedirects={urlRedirects}
-          />
-        </>
-      ) : null}
+      </Box>
 
       <AnalysisSettings
         experiment={experiment}
         envs={[]}
         canEdit={false}
         ssrPolyfills={ssrPolyfills}
-        isPublic={true}
+        isPublic
       />
       <DecisionMakingSettings
         experiment={experiment}

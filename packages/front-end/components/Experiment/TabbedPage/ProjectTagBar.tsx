@@ -190,17 +190,6 @@ export default function ProjectTagBar({
   const projectName = getProjectById(experiment.project || "")?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
 
-  const statusIndicator = useExperimentStatusIndicator()(experiment);
-  // A data problem shows as a health badge below, so the status leaves it out.
-  const statusDetail = getHealthStateFromDetailedStatus(
-    statusIndicator.detailedStatus,
-  )
-    ? null
-    : statusIndicator.detailedStatus;
-  const result =
-    experiment.status === "stopped" && statusDetail
-      ? experiment.results
-      : undefined;
   const isHoldout = experiment.type === "holdout";
 
   const projectValue = projectIsDeReferenced ? (
@@ -289,25 +278,7 @@ export default function ProjectTagBar({
           )
         }
       />
-      <Metadata
-        size="sm"
-        stacked
-        label="Status"
-        value={
-          <Flex align="baseline" gap={result ? "2" : "1"}>
-            <Text size="sm" color="text-high">
-              {statusIndicator.status}
-            </Text>
-            {result ? (
-              <ResultsIndicator results={result} size="xs" />
-            ) : statusDetail ? (
-              <Text size="sm" color="text-mid">
-                · {statusDetail}
-              </Text>
-            ) : null}
-          </Flex>
-        }
-      />
+      <ExperimentStatusField experiment={experiment} />
       <ExperimentDates experiment={experiment} />
       {experiment.status === "draft" && !isHoldout ? (
         <DraftSchedule
@@ -444,7 +415,47 @@ function RunningSchedule({
   );
 }
 
-function ExperimentDates({
+export function ExperimentStatusField({
+  experiment,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+}) {
+  const statusIndicator = useExperimentStatusIndicator()(experiment);
+  // A data problem shows as a health badge below, so the status leaves it out.
+  const statusDetail = getHealthStateFromDetailedStatus(
+    statusIndicator.detailedStatus,
+  )
+    ? null
+    : statusIndicator.detailedStatus;
+  const result =
+    experiment.status === "stopped" && statusDetail
+      ? experiment.results
+      : undefined;
+
+  return (
+    <Metadata
+      size="sm"
+      stacked
+      label="Status"
+      value={
+        <Flex align="baseline" gap={result ? "2" : "1"}>
+          <Text size="sm" color="text-high">
+            {statusIndicator.status}
+          </Text>
+          {result ? (
+            <ResultsIndicator results={result} size="xs" />
+          ) : statusDetail ? (
+            <Text size="sm" color="text-mid">
+              · {statusDetail}
+            </Text>
+          ) : null}
+        </Flex>
+      }
+    />
+  );
+}
+
+export function ExperimentDates({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
