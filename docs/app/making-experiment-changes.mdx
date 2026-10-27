@@ -57,3 +57,69 @@ We recommend this approach for any change that is not considered "safe" (listed 
 Because of how disruptive this can be, it's best to plan ahead before starting an experiment. It's better to start with more conservative targeting and scale up than the reverse (starting big and scaling back).
 
 As before, if you have Sticky Bucketing enabled, you have some additional options about how to treat already-bucketed users. By default when starting a new phase, these bucketed users will be reassigned (their sticky bucket will be cleared). You may instead choose to block these users from the experiment going forward (in which case they will still see the control). This strategy is only available in the "advanced" mode.
+
+## Using the API
+
+Agents, scripts, and integrations make the same changes through [`POST /api/v1/experiments/{id}/changes`](/api/experiments/operation/postExperimentChanges). The Make Changes flow in the app calls this endpoint too, so both reach the same verdict for the same change.
+
+Each request names one `changeType` and sends only the new values for it. Fields you leave out keep their current values, and `null` clears a field.
+
+| `changeType` | Fields                                               | In the app                                         |
+| ------------ | ---------------------------------------------------- | -------------------------------------------------- |
+| `coverage`   | `coverage`                                           | Traffic Percent                                    |
+| `weights`    | `trafficSplit` (not for Bandits)                     | Variation Weights                                  |
+| `targeting`  | `targetingCondition`, `savedGroups`, `prerequisites` | Saved Group, Attribute, and Prerequisite Targeting |
+| `namespace`  | `namespace` (`{ namespaceId, ranges }`, or `null`)   | Namespace Targeting                                |
+| `new-phase`  | none                                                 | Start a New Phase                                  |
+| `advanced`   | any combination of the above                         | Advanced: multiple changes at once                 |
+
+The endpoint works on draft and running experiments and Bandits. It refuses stopped and archived experiments, and holdouts.
+
+### Release plans
+
+A change with no trade-off applies in place: same phase, same seed, and no one is reassigned. That covers the "safe" changes above, and any change to an experiment that isn't live yet. Every other change on a live experiment needs a `releasePlan`. Each plan name says what happens to the phase and to users already in the experiment:
+
+| `releasePlan`                 | Phase                    | Users already in the experiment                            | In the app                                            |
+| ----------------------------- | ------------------------ | ---------------------------------------------------------- | ----------------------------------------------------- |
+| `same-phase-keep-assignments` | Same; analysis continues | Keep their variation. Needs Sticky Bucketing (not Bandits) | Same Phase, apply changes to new traffic only         |
+| `same-phase-reassign`         | Same; analysis continues | Re-bucketed; some switch variation. Not for Bandits        | Same Phase, apply changes to everyone                 |
+| `new-phase-rerandomize`       | New; analysis restarts   | Everyone re-randomized with a new seed                     | New Phase, re-randomize traffic                       |
+| `new-phase-keep-assignments`  | New; analysis restarts   | Keep their variation. `new-phase` only                     | New Phase, do not re-randomize                        |
+| `new-phase-exclude-exposed`   | New; analysis restarts   | Excluded; only new users enter. `advanced` only            | New Phase, re-randomize traffic, block bucketed users |
+
+A risky change sent without a plan is refused with a `422` and code `release_plan_required`. Nothing is written. The `details` hold the assessment: the risks, every plan with its trade-offs (bias, whether users may switch variation, whether the analysis restarts), and the recommended plan. GrowthBook never applies the recommended plan on its own. Resend with the plan you choose.
+
+```json
+POST /api/v1/experiments/exp_123/changes
+{ "changeType": "coverage", "coverage": 0.5 }
+
+422
+{
+  "message": "Decreasing traffic needs a `releasePlan`. ... Recommended: `same-phase-keep-assignments`. ...",
+  "code": "release_plan_required",
+  "details": {
+    "requiresReleasePlan": true,
+    "risks": [{ "code": "decrease-coverage", "message": "..." }],
+    "recommendedReleasePlan": "same-phase-keep-assignments",
+    "releasePlans": [
+      { "plan": "new-phase-rerandomize", "available": true, "bias": "none", "usersMaySwitchVariation": true, "analysisRestarts": true, ... },
+      ...
+    ]
+  }
+}
+```
+
+A plan that doesn't fit gets a `422` with code `release_plan_not_allowed`, and `details.rejection` says why:
+
+- `requires-sticky-bucketing`: the plan needs Sticky Bucketing, which is off for this experiment.
+- `unsafe-for-change-type`: the plan would bias results or switch users' variations for this kind of change. As in the app, `changeType: "advanced"` accepts it, and its response lists the risks you accept.
+
+### Preview with `dryRun`
+
+Add `"dryRun": true` to any request to preview it. A dry run runs every check the real request runs, including permissions and custom hooks, and returns the same response or error. It writes nothing. A successful dry run returns the assessment and the experiment as it would look after the change.
+
+### What a change leaves behind
+
+A successful request returns `{ dryRun, assessment, experiment }`. Its entry in the experiment's history names the change type and the release plan, plus an optional `reason` you send in the request. When the change starts a new phase, the `reason` also becomes the closed phase's reason for stopping.
+
+The general [update endpoint](/api/experiments/operation/updateExperiment) still accepts a full `phases` array. It stores phases as sent, with no release plan, so use Make Changes to change a running experiment.

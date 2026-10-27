@@ -9556,7 +9556,7 @@ paths:
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
         '422':
-          description: Error
+          description: Unprocessable Entity
           content:
             application/json:
               schema:
@@ -10512,7 +10512,7 @@ paths:
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
         '422':
-          description: Error
+          description: Unprocessable Entity
           content:
             application/json:
               schema:
@@ -12677,7 +12677,7 @@ paths:
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
         '422':
-          description: Error
+          description: Unprocessable Entity
           content:
             application/json:
               schema:
@@ -13451,7 +13451,7 @@ paths:
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
         '422':
-          description: Error
+          description: Unprocessable Entity
           content:
             application/json:
               schema:
@@ -18065,7 +18065,7 @@ paths:
                   - code
                   - details
         '422':
-          description: Error
+          description: Unprocessable Entity
           content:
             application/json:
               schema:
@@ -19996,7 +19996,7 @@ paths:
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
         '422':
-          description: Error
+          description: Unprocessable Entity
           content:
             application/json:
               schema:
@@ -20155,7 +20155,7 @@ paths:
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
         '422':
-          description: Error
+          description: Unprocessable Entity
           content:
             application/json:
               schema:
