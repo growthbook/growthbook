@@ -26,7 +26,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AttributeModal from "@/components/Features/AttributeModal";
 import Link from "@/ui/Link";
-import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
+import { ExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueryModal";
 import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import { EventForwarderManagedBadge } from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { dataSourceConnections } from "@/services/eventSchema";
@@ -709,7 +709,7 @@ export default function FinishSettingUp({
               {exposureQueries.length === 0 && (
                 <Box px="4" py="3">
                   <Text as="p" color="text-mid" mb="0">
-                    No exposure queries yet. Write a query to start running
+                    No exposure queries yet. Add a query to start running
                     experiments.
                   </Text>
                 </Box>
@@ -755,6 +755,7 @@ export default function FinishSettingUp({
                 <Button
                   variant="ghost"
                   icon={<PiPlus />}
+                  disabled={!hasIdentifiers}
                   onClick={() =>
                     setQueryModal({
                       index: null,
@@ -764,7 +765,7 @@ export default function FinishSettingUp({
                     })
                   }
                 >
-                  {exposureQueries.length ? "Add query" : "Write query"}
+                  Add query
                 </Button>
               </Box>
             )}
@@ -831,9 +832,8 @@ export default function FinishSettingUp({
       />
 
       {queryModal && (
-        <AddEditExperimentAssignmentQueryModal
+        <ExperimentAssignmentQueryModal
           dataSource={dataSource}
-          mode={queryModal.index === null ? "add" : "edit"}
           exposureQuery={
             queryModal.index === null
               ? undefined

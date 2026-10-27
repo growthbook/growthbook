@@ -8,6 +8,7 @@ import authenticateApiRequestMiddleware from "back-end/src/middleware/authentica
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -35,6 +36,7 @@ import {
   getApiRateLimitBucket,
 } from "back-end/src/util/apiRateLimit";
 import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
+import { getSavedGroupUploadFile } from "./saved-groups/getSavedGroupUploadFile";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -79,6 +81,7 @@ const API_MODELS: ModelClass[] = [
   DashboardModel,
   ContextualBanditModel,
   ContextualBanditQueryModel,
+  InterleavingModel,
   CustomFieldModel,
   MetricGroupModel,
   TeamModel,
@@ -252,6 +255,13 @@ API_MODELS.forEach((modelClass) => {
     description: spec.navDescription ?? "",
   };
 });
+
+// Not JSON, so it can't use createApiRequestHandler. Documented on
+// postSavedGroupUpload.
+router.get(
+  "/v1/saved-groups/:id/uploads/:version/file",
+  getSavedGroupUploadFile,
+);
 
 allRoutes.forEach((route) => {
   if (!route.method) {

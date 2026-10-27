@@ -29,7 +29,7 @@ export default function PopulationMoreMenu({
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
 
-  const canEdit = permissionsUtil.canUpdatePopulation(population, population);
+  const canEdit = permissionsUtil.canUpdatePopulation(population, {});
   const canDuplicate = permissionsUtil.canCreatePopulation(population);
   const canDelete = permissionsUtil.canDeletePopulation(population);
   if (!canEdit && !canDuplicate && !canDelete && !onAuditLog) return null;

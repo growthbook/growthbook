@@ -18,8 +18,11 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
-/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default off. */
-export const OAUTH_AS_ENABLED = stringToBoolean(process.env.OAUTH_AS_ENABLED);
+/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default on. */
+export const OAUTH_AS_ENABLED = stringToBoolean(
+  process.env.OAUTH_AS_ENABLED,
+  true,
+);
 
 /**
  * Issuer identifier for the OAuth AS (RFC 8414). Falls back to API_HOST, then
@@ -87,6 +90,17 @@ export const UPLOAD_METHOD = (() => {
 
   return "local";
 })();
+
+/**
+ * The largest CSV a Remote Group upload can be, in MB. 100 MB is about 2.8
+ * million UUIDs or 4 million typical email addresses. It can go up to 5 GB
+ * (5120), S3's limit for one upload.
+ */
+export const REMOTE_SAVED_GROUP_MAX_UPLOAD_MB = parseEnvInt(
+  process.env.REMOTE_SAVED_GROUP_MAX_UPLOAD_MB,
+  100,
+  { min: 1, max: 5120, name: "REMOTE_SAVED_GROUP_MAX_UPLOAD_MB" },
+);
 
 let MONGODB_URI = process.env.MONGODB_URI || "";
 

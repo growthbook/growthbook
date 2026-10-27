@@ -16,8 +16,7 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
-  assumesRequesterRole,
-  requesterHeaderPolicy,
+  actsAsUser,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -128,14 +127,23 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { PaymentRequiredError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PaymentRequiredError,
+} from "back-end/src/util/errors";
+import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
 import {
+  ArmingOAuthSignIn,
   decodeArmingApiKeyId,
   isArmingApiKeyId,
   SECRET_API_KEY_ID,
 } from "back-end/src/util/armingApiKeyId";
-import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
+import { oauthTokenScope } from "back-end/src/util/oauth-token.util";
+import {
+  getKeyPermissionsForRequest,
+  normalizeInviteEmail,
+} from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -1150,10 +1158,7 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email
-    .toLowerCase()
-    .replace(/^[\s;,]+/, "")
-    .replace(/[\s;,]+$/, "");
+  email = normalizeInviteEmail(email);
 
   if (!z.string().email().safeParse(email).success) {
     throw new Error(`Invalid email address: ${email}`);
@@ -1422,6 +1427,12 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
+    const analysisEndDateError = getAnalysisEndDateSettingsError(
+      config.organization.settings.updateSchedule,
+    );
+    if (analysisEndDateError) {
+      throw new BadRequestError(analysisEndDateError);
+    }
     await sanitizeDefaultRoleUpdate(context, config.organization.settings);
     const settings = {
       ...organization.settings,
@@ -1944,8 +1955,10 @@ export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   armingId: string,
 ): Promise<ApiReqContext | null> {
-  const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
-  const key = await getOrgApiKey(org, apiKeyId);
+  const { apiKeyId, requesterId, oauth } = decodeArmingApiKeyId(armingId);
+  const key = oauth
+    ? await oauthGrantKey(org, apiKeyId, oauth)
+    : await getOrgApiKey(org, apiKeyId);
   if (
     !key ||
     key.disabled ||
@@ -1955,10 +1968,7 @@ export async function getContextForApiKeyIdInOrg(
     return null;
   }
   // Armed while assuming a member, it replays only while the key still would.
-  if (
-    requesterId &&
-    (!assumesRequesterRole(key) || requesterHeaderPolicy(key) === "rejected")
-  ) {
+  if (requesterId && !actsAsUser(key)) {
     return null;
   }
   const user = key.userId ? await getUserById(key.userId) : null;
@@ -2009,6 +2019,39 @@ export async function getContextForApiKeyIdInOrg(
       teams,
       restrictedProjects,
     }),
+  });
+}
+
+// An OAuth sign-in's tokens last an hour and the one that armed work is likely
+// gone, so the work runs on the grant, with the permissions its tokens get.
+// Only the grant it was armed under counts: once that's revoked, a later
+// consent or a new grant for the same app doesn't bring the work back.
+async function oauthGrantKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+  { clientId, userId, armedAt }: ArmingOAuthSignIn,
+): Promise<ApiKeyInterface | null> {
+  const grant = await getContextForAgendaJobByOrgObject(
+    org,
+  ).models.oauthGrants.getGrant(clientId, userId);
+  if (
+    !grant ||
+    grant.revoked ||
+    !(armedAt >= grant.dateCreated.getTime()) ||
+    (grant.revokedAt && grant.revokedAt.getTime() >= armedAt)
+  ) {
+    return null;
+  }
+  return migrateApiKey({
+    id: apiKeyId,
+    key: "",
+    secret: true,
+    organization: org.id,
+    userId,
+    oauthClientId: clientId,
+    description: `OAuth access token (${clientId})`,
+    dateCreated: grant.dateCreated,
+    ...oauthTokenScope(grant.permissions ?? null),
   });
 }
 

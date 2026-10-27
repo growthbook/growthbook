@@ -58,7 +58,7 @@ export default function PopulationPage() {
     return <LoadingOverlay />;
   }
 
-  const canEdit = permissionsUtil.canUpdatePopulation(population, population);
+  const canEdit = permissionsUtil.canUpdatePopulation(population, {});
   const editHref = canEdit ? `/populations/${population.id}/edit` : null;
   const update = async (
     body: Partial<{ owner: string; projects: string[]; description: string }>,
@@ -85,10 +85,7 @@ export default function PopulationPage() {
           label={<>Projects</>}
           value={population.projects}
           permissionRequired={(project) =>
-            permissionsUtil.canUpdatePopulation(
-              { projects: [project] },
-              { projects: [project] },
-            )
+            permissionsUtil.canUpdatePopulation({ projects: [project] }, {})
           }
           cancel={() => setEditProjectsOpen(false)}
           save={(projects) => update({ projects })}

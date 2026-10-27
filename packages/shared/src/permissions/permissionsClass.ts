@@ -684,6 +684,22 @@ export class Permissions {
     );
   };
 
+  // A project move serves the pseudo flag through the destination's SDK
+  // connections too, so both sides need run permission.
+  public canRunInterleavingUpdate = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    const projects = new Set(existing.project ? [existing.project] : [""]);
+    if ("project" in updated) projects.add(updated.project || "");
+    return this.checkEnvFilterPermission(
+      { projects: [...projects] },
+      environments,
+      "runExperiments",
+    );
+  };
+
   public canRunContextualBanditQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
@@ -1595,7 +1611,8 @@ export class Permissions {
       datasetType === "metric" ||
       datasetType === "fact_table" ||
       datasetType === "funnel" ||
-      datasetType === "journey"
+      datasetType === "journey" ||
+      datasetType === "population"
     ) {
       return this.canRunMetricAnalysisQueries(datasource);
     }

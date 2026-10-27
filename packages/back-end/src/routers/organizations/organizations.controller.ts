@@ -176,6 +176,7 @@ import {
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
 import { validatePriorSettings } from "back-end/src/util/priors";
+import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
   getInstallation,
   setInstallationName,
@@ -1786,6 +1787,13 @@ export async function putOrganization(
 
     validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
 
+    const analysisEndDateError = getAnalysisEndDateSettingsError(
+      settings?.updateSchedule,
+    );
+    if (analysisEndDateError) {
+      context.throwBadRequestError(analysisEndDateError);
+    }
+
     for (const field of [
       "maxPatLifetimeDays",
       "maxApiKeyLifetimeDays",
@@ -2007,8 +2015,7 @@ export async function postApiKey(
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
-    requesterHeader?: ApiKeyInterface["requesterHeader"];
-    requesterPermissions?: ApiKeyInterface["requesterPermissions"];
+    actAs?: ApiKeyInterface["actAs"];
     expiresAt?: string | null;
     confirmRules?: ConfirmRule[] | null;
   }>,
@@ -2024,8 +2031,7 @@ export async function postApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requesterHeader,
-    requesterPermissions,
+    actAs,
     expiresAt: expiresAtInput,
     confirmRules,
   } = req.body;
@@ -2061,8 +2067,7 @@ export async function postApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requesterHeader,
-      requesterPermissions,
+      actAs,
       expiresAt,
       confirmRules,
     });
@@ -2094,8 +2099,7 @@ export async function putApiKey(
       environments?: string[];
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
-      requesterHeader?: ApiKeyInterface["requesterHeader"];
-      requesterPermissions?: ApiKeyInterface["requesterPermissions"];
+      actAs?: ApiKeyInterface["actAs"];
       expiresAt?: string | null;
       confirmRules?: ConfirmRule[] | null;
     },
@@ -2113,8 +2117,7 @@ export async function putApiKey(
     environments,
     additionalRoles,
     projectRoles,
-    requesterHeader,
-    requesterPermissions,
+    actAs,
     expiresAt,
     confirmRules,
   } = req.body;
@@ -2131,8 +2134,7 @@ export async function putApiKey(
       environments,
       additionalRoles,
       projectRoles,
-      requesterHeader,
-      requesterPermissions,
+      actAs,
       expiresAt:
         expiresAt === undefined ? undefined : parseExpiresAt(expiresAt),
       confirmRules,
