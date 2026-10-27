@@ -18,8 +18,8 @@ Options:
   --entities <map>      dbt entity -> identifier type, e.g. customer=user_id,visitor=anonymous_id
   --select <list>       only sync these metrics/models (name globs or tag:<tag>)
   --exclude <list>      never sync these metrics/models (name globs or tag:<tag>)
-  --dry-run             validate against the API without writing (with --prune, lists what would be archived)
-  --strict              exit 1 if anything was skipped
+  --dry-run             validate against the API without writing (with --prune, lists what would be archived or unarchived)
+  --strict              exit 1 if anything was skipped or a selector matched nothing
   --prune               archive dbt-managed Fact Tables/Metrics on the Data Source that are no longer in dbt (and unarchive ones that return)
   --out <path>          write the payload to a file instead of calling the API
   -h, --help
@@ -145,14 +145,27 @@ async function main() {
     `Translated ${payload.factTables.length} fact table(s) and ${payload.factMetrics.length} metric(s)`,
   );
   const skipped = warnings.filter((w) => w.level === "skipped").length;
-  if (args.strict && skipped) {
-    throw new Error(`${skipped} resource(s) were skipped (--strict)`);
+  const unmatched = warnings.filter((w) => w.resource.startsWith("--")).length;
+  if (args.strict && (skipped || unmatched)) {
+    throw new Error(
+      `${skipped} resource(s) were skipped and ${unmatched} selector(s) matched nothing (--strict)`,
+    );
   }
 
   if (args.out) {
     writeFileSync(args.out, JSON.stringify(payload, null, 2) + "\n");
     console.log(`Wrote ${args.out}`);
     return;
+  }
+
+  // A skipped table drops every metric on it, which prune would read as removed from dbt.
+  const skippedTables = warnings.filter(
+    (w) => w.level === "skipped" && w.resource.startsWith("fact table "),
+  );
+  if (args.prune && skippedTables.length) {
+    throw new Error(
+      `--prune refused: ${skippedTables.length} fact table(s) were skipped, so their metrics would be archived while still defined in dbt. Fix the skips above (often --entities) and run again.`,
+    );
   }
 
   const bulk = async (dryRun: boolean) => {

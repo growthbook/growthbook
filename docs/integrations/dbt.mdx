@@ -6,7 +6,7 @@ sidebarTitle: dbt (Semantic Layer)
 
 If you define metrics in dbt's semantic layer (MetricFlow), the `@growthbook/dbt` CLI turns them into GrowthBook Fact Tables and Fact Metrics and keeps them in sync. It reads the artifacts dbt writes after `dbt parse`, so it needs no warehouse connection and no dbt runtime of its own.
 
-This builds on the same bulk import API as the [GitHub metrics guide](/integrations/github-metrics). Fact Tables and Fact Metrics it creates are marked as managed by dbt, so they can only be changed from dbt. Self-hosted GrowthBook needs a version that supports dbt-managed resources.
+This builds on the same bulk import API as the [GitHub metrics guide](/integrations/github-metrics). Fact Tables and Fact Metrics it creates are marked as managed by dbt, so they are read-only in the GrowthBook UI: change them in dbt and sync again. Self-hosted GrowthBook needs a version that supports dbt-managed resources.
 
 ## How Definitions Map
 
@@ -107,7 +107,7 @@ npx @growthbook/dbt sync --datasource ds_abc123 --select tag:growthbook
 npx @growthbook/dbt sync --datasource ds_abc123 --exclude 'stg_*,internal_revenue'
 ```
 
-By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Prune never archives resources created any other way, including through the API. They are archived rather than deleted so existing experiment results keep working, and a later `--prune` run unarchives them if they reappear in dbt. Combine `--prune` with `--dry-run` to list what would be archived or unarchived without changing anything. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
+By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Prune never archives resources created any other way, including through the API. They are archived rather than deleted so existing experiment results keep working, and a later `--prune` run unarchives them if they reappear in dbt. Combine `--prune` with `--dry-run` to list what would be archived or unarchived without changing anything. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`, and it refuses to run when a Fact Table was skipped (for example because no entity maps to an identifier type), since that would archive metrics still defined in dbt; metrics disabled with `meta.growthbook.enabled: false` are still archived.
 
 ## Overrides
 
@@ -164,8 +164,8 @@ growthbook-dbt sync --datasource <ds_id> [options]
   --entities <map>      dbt entity -> identifier type, e.g. customer=user_id
   --select <list>       only sync these metrics/models (name globs or tag:<tag>)
   --exclude <list>      never sync these metrics/models
-  --dry-run             validate against the API without writing (with --prune, lists what would be archived)
-  --strict              exit 1 if anything was skipped
+  --dry-run             validate against the API without writing (with --prune, lists what would be archived or unarchived)
+  --strict              exit 1 if anything was skipped or a selector matched nothing
   --prune               archive dbt-managed resources no longer in dbt
   --out <path>          write the payload to a file instead of calling the API
 ```
