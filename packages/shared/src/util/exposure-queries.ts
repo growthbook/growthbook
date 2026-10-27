@@ -518,24 +518,41 @@ export function resolveExposureQueryForAnalysis(
 
 /**
  * Assignment queries added, changed or removed between two lists, matched by
- * id. Validation errors are written by the server, so they don't count.
+ * id. A repeated id is matched in order: the first query with that id in the
+ * new list against the first saved one, and so on. Validation errors are
+ * written by the server, so they don't count.
  */
 export function getChangedExposureQueries<
   Q extends { id?: string; error?: unknown },
 >(previous: Q[], next: Q[]): { previous: Q | null; next: Q | null }[] {
-  const byId = new Map(previous.filter((q) => q.id).map((q) => [q.id, q]));
+  const byId = new Map<string, Q[]>();
+  for (const query of previous) {
+    if (!query.id) continue;
+    byId.set(query.id, [...(byId.get(query.id) ?? []), query]);
+  }
   const changes: { previous: Q | null; next: Q | null }[] = [];
   for (const query of next) {
-    const before = query.id ? byId.get(query.id) : undefined;
-    if (before) byId.delete(query.id);
+    const before = query.id ? byId.get(query.id)?.shift() : undefined;
     if (!before || !isEqual(omit(before, "error"), omit(query, "error"))) {
       changes.push({ previous: before ?? null, next: query });
     }
   }
-  for (const removed of byId.values()) {
+  for (const removed of [...byId.values()].flat()) {
     changes.push({ previous: removed, next: null });
   }
   return changes;
+}
+
+/**
+ * Saved assignment queries with the given id. Ids are meant to be unique, but
+ * older saves could repeat one, and analysis looks queries up by id, so a
+ * change to one of them affects them all.
+ */
+export function getSavedQueriesSharingId<Q extends { id?: string }>(
+  saved: Q[],
+  id: string | undefined,
+): Q[] {
+  return id ? saved.filter((q) => q.id === id) : [];
 }
 
 /**

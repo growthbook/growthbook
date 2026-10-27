@@ -1,6 +1,7 @@
 import {
   getChangedExposureQueries,
   getDataSourceSaveChanges,
+  getSavedQueriesSharingId,
   assertExposureQueryDeclaresIdentifierType,
   getExposureQueryIdentifierTypes,
   parseAssignmentQueryInput,
@@ -882,6 +883,43 @@ describe("getChangedExposureQueries", () => {
       { previous: null, next: added },
       { previous: b, next: null },
     ]);
+  });
+
+  it("lists a query reusing a saved id as added", () => {
+    const reused = { id: "eq_a", query: "SELECT 3" };
+    expect(getChangedExposureQueries([a, b], [a, b, reused])).toEqual([
+      { previous: null, next: reused },
+    ]);
+  });
+
+  it("pairs repeated ids in order", () => {
+    const a2 = { id: "eq_a", query: "SELECT 3" };
+    expect(getChangedExposureQueries([a, a2], [a, a2])).toEqual([]);
+    expect(getChangedExposureQueries([a, a2], [a2])).toEqual([
+      { previous: a, next: a2 },
+      { previous: a2, next: null },
+    ]);
+    expect(getChangedExposureQueries([a, a2], [a])).toEqual([
+      { previous: a2, next: null },
+    ]);
+  });
+});
+
+describe("getSavedQueriesSharingId", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const a2 = { id: "eq_a", query: "SELECT 2" };
+  const b = { id: "eq_b", query: "SELECT 3" };
+
+  it("returns every saved query with the id", () => {
+    expect(getSavedQueriesSharingId([a, b, a2], "eq_a")).toEqual([a, a2]);
+    expect(getSavedQueriesSharingId([a, b, a2], "eq_c")).toEqual([]);
+  });
+
+  it("returns nothing for a missing id", () => {
+    expect(getSavedQueriesSharingId([a, { query: "SELECT 4" }], "")).toEqual(
+      [],
+    );
+    expect(getSavedQueriesSharingId([a], undefined)).toEqual([]);
   });
 });
 

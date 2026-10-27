@@ -1,13 +1,16 @@
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import pick from "lodash/pick";
+import uniqid from "uniqid";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  getChangedExposureQueries,
   getDataSourceSaveChanges,
+  getSavedQueriesSharingId,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -405,17 +408,62 @@ function assertCanUpdateDataSource(
     permissions.throwPermissionError();
   }
 
+  const saved = datasource.settings?.queries?.exposure ?? [];
   const nextDatasource = { projects: body.projects ?? datasource.projects };
   for (const change of exposureQueryChanges) {
     if (
       (change.previous &&
-        !permissions.canUpdateExposureQuery(change.previous, datasource)) ||
+        [
+          change.previous,
+          ...getSavedQueriesSharingId(saved, change.previous.id),
+        ].some((q) => !permissions.canUpdateExposureQuery(q, datasource))) ||
       (change.next &&
         !permissions.canUpdateExposureQuery(change.next, nextDatasource))
     ) {
       permissions.throwPermissionError();
     }
   }
+}
+
+/**
+ * A member who can't edit the whole data source gets server ids for the
+ * assignment queries they add, so an added query can't take over the id of a
+ * saved one in Projects they can't edit.
+ */
+function assignServerIdsToAddedExposureQueries(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: PutDataSourceBody,
+): PutDataSourceBody {
+  const { settings } = body;
+  const exposure = settings?.queries?.exposure;
+  if (
+    !settings ||
+    !exposure ||
+    context.permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    return body;
+  }
+  const added = new Set(
+    getChangedExposureQueries(
+      datasource.settings?.queries?.exposure ?? [],
+      exposure,
+    )
+      .filter((change) => !change.previous)
+      .map((change) => change.next),
+  );
+  return {
+    ...body,
+    settings: {
+      ...settings,
+      queries: {
+        ...settings.queries,
+        exposure: exposure.map((query) =>
+          added.has(query) ? { ...query, id: uniqid("exq_") } : query,
+        ),
+      },
+    },
+  };
 }
 
 // Tests credentials without saving anything. Connection failures come back as a
@@ -535,7 +583,6 @@ export async function putDataSource(
     description,
     type,
     params,
-    settings,
     projects,
     metricsToCreate,
     eventForwarderConfig,
@@ -550,7 +597,13 @@ export async function putDataSource(
     return;
   }
 
-  assertCanUpdateDataSource(context, datasource, req.body);
+  const body = assignServerIdsToAddedExposureQueries(
+    context,
+    datasource,
+    req.body,
+  );
+  const { settings } = body;
+  assertCanUpdateDataSource(context, datasource, body);
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
