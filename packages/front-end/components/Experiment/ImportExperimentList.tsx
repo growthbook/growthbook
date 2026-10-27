@@ -7,7 +7,13 @@ import React, {
   useState,
 } from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { PiDotsThreeVertical, PiInfo, PiMagnifyingGlass } from "react-icons/pi";
+import {
+  PiDotsThreeVertical,
+  PiInfo,
+  PiListBullets,
+  PiMagnifyingGlass,
+  PiWarning,
+} from "react-icons/pi";
 import {
   PastExperiment,
   PastExperimentsInterface,
@@ -53,7 +59,6 @@ import {
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@/ui/DropdownMenu";
-import Heading from "@/ui/Heading";
 import Pagination from "@/ui/Pagination";
 import { Popover } from "@/ui/Popover";
 import { Select, SelectItem } from "@/ui/Select";
@@ -110,6 +115,52 @@ function InfoTip({ label, content }: { label: string; content: ReactNode }) {
         <PiInfo />
       </Flex>
     </UITooltip>
+  );
+}
+
+function ImportEmptyState({
+  icon,
+  color = "violet",
+  title,
+  description,
+  children,
+}: {
+  icon: ReactNode;
+  color?: "violet" | "red";
+  title: string;
+  description: ReactNode;
+  children?: ReactNode;
+}) {
+  return (
+    <Flex direction="column" align="center" gap="2" py="7">
+      <Flex
+        align="center"
+        justify="center"
+        mb="1"
+        style={{
+          width: 44,
+          height: 44,
+          borderRadius: "var(--radius-3)",
+          background: `var(--${color}-a3)`,
+          color: `var(--${color}-11)`,
+        }}
+      >
+        {icon}
+      </Flex>
+      <Text as="div" size="lg" weight="semibold" align="center">
+        {title}
+      </Text>
+      <Box maxWidth="520px">
+        <Text as="p" color="text-mid" align="center">
+          {description}
+        </Text>
+      </Box>
+      {children && (
+        <Flex gap="4" mt="2">
+          {children}
+        </Flex>
+      )}
+    </Flex>
   );
 }
 
@@ -527,6 +578,10 @@ const ImportExperimentList: FC<{
       ).size,
     ]),
   );
+  const otherIdentifier = identifierTypes.find(
+    (t) => t !== identifierType && (identifierCounts.get(t) ?? 0) > 0,
+  );
+
   const tabCounts: Record<Tab, number> = {
     all: items.length,
     running: 0,
@@ -560,6 +615,34 @@ const ImportExperimentList: FC<{
     await mutate();
   };
 
+  const runQueriesButton = (variant: "outline" | "solid") => (
+    <RunQueriesButton
+      cta={
+        importFailed
+          ? "Try again"
+          : data.experiments.latestData
+            ? "Refresh"
+            : "Run query"
+      }
+      cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
+      mutate={mutate}
+      model={data.experiments}
+      icon={hasStarted ? "refresh" : "run"}
+      radixVariant={variant}
+      setError={setRunError}
+      onSubmit={async () => {
+        await apiCall<{ id: string }>("/experiments/import", {
+          method: "POST",
+          body: JSON.stringify({
+            datasource: data.experiments.datasource,
+            force: true,
+          }),
+        });
+        await mutate();
+      }}
+    />
+  );
+
   const queryControls = (
     <Flex align="center" gap="3" ml="auto">
       {hasStarted && (
@@ -571,27 +654,8 @@ const ImportExperimentList: FC<{
           Updated {ago(data.experiments.runStarted ?? "")}
         </Text>
       )}
-      {canRunQueries && (
-        <RunQueriesButton
-          cta={data.experiments.latestData ? "Refresh" : "Run query"}
-          cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
-          mutate={mutate}
-          model={data.experiments}
-          icon="refresh"
-          radixVariant={data.experiments.latestData ? "outline" : "solid"}
-          setError={setRunError}
-          onSubmit={async () => {
-            await apiCall<{ id: string }>("/experiments/import", {
-              method: "POST",
-              body: JSON.stringify({
-                datasource: data.experiments.datasource,
-                force: true,
-              }),
-            });
-            await mutate();
-          }}
-        />
-      )}
+      {/* Before the first search, Run lives in the empty state */}
+      {canRunQueries && hasStarted && runQueriesButton("outline")}
       {hasStarted && (
         <DropdownMenu
           menuPlacement="end"
@@ -667,10 +731,10 @@ const ImportExperimentList: FC<{
           <Metadata label="Date range" value={dateRange} size="sm" />
         </Flex>
       )}
-      {(runError || importFailed) && (
+      {(runError || (importFailed && identifiersWithRows.size > 0)) && (
         <Callout status="error" mb="4">
           {runError && <p>Could not start a new import: {runError}</p>}
-          {importFailed && (
+          {importFailed && identifiersWithRows.size > 0 && (
             <>
               <p>Error importing experiments.</p>
               {datasource?.id && (
@@ -722,45 +786,68 @@ const ImportExperimentList: FC<{
       )}
       {identifiersWithRows.size === 0 ? (
         status === "running" ? (
-          <Flex justify="center" py="6">
-            <LoadingSpinner />
-          </Flex>
+          <ImportEmptyState
+            icon={<LoadingSpinner />}
+            title="Searching for experiments"
+            description="This can take a few minutes on large tables. You can close this window; results will be here when you come back."
+          />
         ) : !hasStarted ? (
-          <Flex direction="column" align="center" gap="2" py="6">
-            <Heading as="h3" size="md">
-              Find Experiments You&apos;ve Already Run
-            </Heading>
-            <Text as="p" align="center" color="text-mid">
-              {canRunQueries
-                ? `Run the query above to search the past ${data.lookbackDays} days of your Experiment Assignment Queries. Later refreshes only fetch new data.`
-                : `This Data Source hasn't been searched for experiments yet. Ask someone who can run queries on it to run the import.`}{" "}
-              {lookbackHint}
-            </Text>
-          </Flex>
+          canRunQueries ? (
+            <ImportEmptyState
+              icon={<PiMagnifyingGlass size={20} />}
+              title="Find experiments you've already run"
+              description={
+                <>
+                  Search the past {data.lookbackDays} days of your Experiment
+                  Assignment Queries. Later refreshes only fetch new data.{" "}
+                  {lookbackHint}
+                </>
+              }
+            >
+              {runQueriesButton("solid")}
+            </ImportEmptyState>
+          ) : (
+            <ImportEmptyState
+              icon={<PiMagnifyingGlass size={20} />}
+              title="This Data Source hasn't been searched yet"
+              description="Ask someone who can run queries on it to run the import. Experiments will show up here afterwards."
+            />
+          )
+        ) : importFailed ? (
+          <ImportEmptyState
+            color="red"
+            icon={<PiWarning size={20} />}
+            title="We couldn't search this Data Source"
+            description={
+              <>
+                Your Experiment Assignment Queries may be misconfigured.{" "}
+                {!!datasource?.dateUpdated &&
+                  datasource.dateUpdated > data.experiments.dateUpdated &&
+                  "The Data Source has changed since this search, so trying again may fix it. "}
+                The query error has the details.
+              </>
+            }
+          >
+            <Link onClick={() => setShowQueries(true)}>View queries</Link>
+            {datasource && (
+              <Link href={`/datasources/${datasource.id}?openAll=1`}>
+                Edit Data Source
+              </Link>
+            )}
+          </ImportEmptyState>
         ) : (
-          <Box py="4">
-            <Heading as="h3" size="md" mb="2">
-              No Experiments Found
-            </Heading>
-            <p>
-              No past experiments were returned from this Data Source. If you
-              are expecting past experiments, check the following:
-            </p>
-            <ul>
-              <li>
-                Too old: only experiments from the past {data.lookbackDays} days
-                are searched
-              </li>
-              <li>
-                Not enough traffic: experiments are not shown if they had fewer
-                than 5 units per variation
-              </li>
-              <li>
-                Incorrect query: the experiment assignment query runs but is not
-                pulling the right data
-              </li>
-            </ul>
-          </Box>
+          <ImportEmptyState
+            icon={<PiListBullets size={20} />}
+            title="No experiments found"
+            description={`We only list experiments from the past ${data.lookbackDays} days with at least 5 units per variation. If yours should be here, check that your assignment queries return its rows.`}
+          >
+            <Link onClick={() => setShowQueries(true)}>View queries</Link>
+            {datasource && (
+              <Link href={`/datasources/${datasource.id}?openAll=1`}>
+                Edit assignment queries
+              </Link>
+            )}
+          </ImportEmptyState>
         )
       ) : (
         <>
@@ -1111,7 +1198,25 @@ const ImportExperimentList: FC<{
                     <Text as="div" align="center" color="text-mid">
                       {identifierType !== null &&
                       !identifiersWithRows.has(identifierType) ? (
-                        <>No experiments found for {identifierType}.</>
+                        <>
+                          No experiments found for{" "}
+                          <Text mono>{identifierType}</Text>.
+                          {otherIdentifier && (
+                            <>
+                              {" "}
+                              <Link
+                                onClick={() => {
+                                  setSelectedIdentifierType(otherIdentifier);
+                                  setPage(1);
+                                }}
+                              >
+                                Switch to {otherIdentifier}
+                              </Link>{" "}
+                              ({identifierCounts.get(otherIdentifier)}{" "}
+                              experiments)
+                            </>
+                          )}
+                        </>
                       ) : (
                         <>
                           No experiments match your current filters.{" "}
