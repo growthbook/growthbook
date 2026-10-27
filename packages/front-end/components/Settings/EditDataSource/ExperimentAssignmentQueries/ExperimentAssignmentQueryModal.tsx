@@ -604,12 +604,21 @@ export const ExperimentAssignmentQueryModal = ({
         >
           <Flex direction="column" gap="3">
             {mode === "table" && selectedTable ? (
-              <TextField
-                label="Source table"
-                value={selectedTable.path.replace(/`/g, "")}
-                readOnly
-                append={<Link onClick={() => setStep(0)}>Change</Link>}
-              />
+              <>
+                <TextField
+                  label="Source table"
+                  value={selectedTable.path.replace(/`/g, "")}
+                  readOnly
+                  append={<Link onClick={() => setStep(0)}>Change</Link>}
+                />
+                {source.template ? (
+                  <Callout status="info" size="sm">
+                    GA4 events table detected. The{" "}
+                    <code>experiment_viewed</code> events were selected
+                    automatically.
+                  </Callout>
+                ) : null}
+              </>
             ) : (
               <Code
                 language="sql"
@@ -803,12 +812,6 @@ export const ExperimentAssignmentQueryModal = ({
                 <Callout status="warning" size="sm" mb="2">
                   Map both the experiment name and the variation name, or leave
                   both empty.
-                </Callout>
-              ) : null}
-              {mode === "table" && source.template ? (
-                <Callout status="info" size="sm" mb="2">
-                  GA4 events table detected. The experiment_viewed events were
-                  selected automatically.
                 </Callout>
               ) : null}
               {removedIdentifierTypes.length > 0 ? (

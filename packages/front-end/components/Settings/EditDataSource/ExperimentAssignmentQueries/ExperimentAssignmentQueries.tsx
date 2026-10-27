@@ -140,7 +140,7 @@ export const ExperimentAssignmentQueries: FC<
 
         <Box>
           <UITooltip
-            content="Add an identifier type first"
+            content="Needs an identifier type"
             enabled={canAdd && !hasIdentifiers}
           >
             <span style={{ display: "inline-flex" }}>

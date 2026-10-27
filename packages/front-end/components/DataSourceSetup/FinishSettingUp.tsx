@@ -767,11 +767,6 @@ export default function FinishSettingUp({
                 >
                   Add query
                 </Button>
-                {!hasIdentifiers ? (
-                  <HelperText status="info" size="sm" mt="1">
-                    Needs an identifier type
-                  </HelperText>
-                ) : null}
               </Box>
             )}
             <Flex align="center" justify="between" gap="3" mt="3">
