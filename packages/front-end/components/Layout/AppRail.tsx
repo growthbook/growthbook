@@ -601,6 +601,12 @@ export default function AppRail() {
     } as FocusOptions);
     const onKeyDown = (e: KeyboardEvent) => {
       if (!nav) return;
+      // The command palette's shortcut closes the drawer, as its Search row
+      // does, so Tab doesn't bring focus back into the drawer behind it.
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        setDrawerOpen(false);
+        return;
+      }
       if (e.key === "Escape") {
         if (e.defaultPrevented) return;
         e.preventDefault();

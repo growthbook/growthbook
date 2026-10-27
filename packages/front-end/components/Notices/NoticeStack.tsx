@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
@@ -20,6 +20,14 @@ type Upgrade = NonNullable<AppNotice["upgrade"]>;
 export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
   const [listOpen, setListOpen] = useState(false);
+  // Below 1180px the top notice's title can be cut off with "…"; the tooltip
+  // then shows it in full, above its details.
+  const pillRef = useRef<HTMLDivElement>(null);
+  const [titleClipped, setTitleClipped] = useState(false);
+  const checkClipped = () => {
+    const text = pillRef.current?.querySelector(`.${styles.pillText}`);
+    setTitleClipped(!!text && text.scrollWidth > text.clientWidth);
+  };
   // The list lives in the persistent top nav, so following a link closes it.
   const router = useRouter();
   useEffect(() => {
@@ -34,10 +42,25 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   return (
     <Flex align="center" gap="2" className={styles.stack}>
       <Tooltip
-        content={<Box className={styles["notice-tooltip"]}>{top.details}</Box>}
-        enabled={!!top.details}
+        content={
+          <Box className={styles["notice-tooltip"]}>
+            {titleClipped ? (
+              <Text as="div" weight="semibold">
+                {top.title}
+              </Text>
+            ) : null}
+            {top.details}
+          </Box>
+        }
+        enabled={!!top.details || titleClipped}
       >
-        <Flex display="inline-flex" className={styles.pillWrap}>
+        <Flex
+          ref={pillRef}
+          display="inline-flex"
+          className={styles.pillWrap}
+          onMouseEnter={checkClipped}
+          onFocus={checkClipped}
+        >
           <NoticePill notice={top} onUpgrade={setUpgrade} />
         </Flex>
       </Tooltip>
