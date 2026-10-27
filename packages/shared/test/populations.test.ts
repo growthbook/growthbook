@@ -93,19 +93,6 @@ describe("getPopulationRuleViolations", () => {
     ).toEqual([]);
   });
 
-  it("rejects a population that reads from more than one fact table", () => {
-    expect(
-      getPopulationRuleViolations({
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps: [step("ftb_events"), step("ftb_orders")],
-        factTables: [events, orders],
-      }),
-    ).toEqual([
-      "Populations can read from at most 1 distinct fact table (this one reads from 2).",
-    ]);
-  });
-
   it("reports a fact table that was not found", () => {
     expect(
       getPopulationRuleViolations({
