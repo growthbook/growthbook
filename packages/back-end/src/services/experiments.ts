@@ -1919,6 +1919,14 @@ export async function planSnapshot({
       : [];
 
   const phase = experiment.phases[phaseIndex];
+  const scheduledCutoff =
+    triggeredBy === "schedule" &&
+    type === "standard" &&
+    experiment.type !== "multi-armed-bandit"
+      ? getScheduledAnalysisEndDate(
+          organization.settings?.updateSchedule ?? null,
+        )
+      : null;
   const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
@@ -1939,18 +1947,15 @@ export async function planSnapshot({
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
     // `null` is a decided "no cutoff"; only an omitted one is derived here, so
-    // the scheduled job's own cutoff and clock are kept.
+    // the scheduled job's own cutoff and clock are kept. The job skips a cutoff
+    // before the phase started; a REST call analyzes through now instead.
     cutoff:
       cutoff !== undefined
         ? cutoff
-        : triggeredBy === "schedule" &&
-            type === "standard" &&
-            experiment.type !== "multi-armed-bandit" &&
-            phase
-          ? getScheduledAnalysisEndDate(
-              organization.settings?.updateSchedule ?? null,
-              phase.lookbackStartDate ?? phase.dateStarted,
-            )
+        : scheduledCutoff &&
+            phase &&
+            scheduledCutoff > (phase.lookbackStartDate ?? phase.dateStarted)
+          ? scheduledCutoff
           : null,
   };
 

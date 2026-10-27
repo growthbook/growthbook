@@ -217,6 +217,66 @@ describe("scheduled experiment updates", () => {
   });
 
   it.each([
+    {
+      phase: "an experiment that started an hour ago",
+      fields: {},
+      phaseFields: { dateStarted: new Date(Date.now() - HOUR) },
+    },
+    {
+      phase: "a holdout whose analysis period started an hour ago",
+      fields: { type: "holdout" },
+      phaseFields: {
+        dateStarted: new Date(Date.now() - 48 * HOUR),
+        lookbackStartDate: new Date(Date.now() - HOUR),
+      },
+    },
+  ])(
+    "skips and reschedules when the lagged cutoff is before $phase",
+    async ({ fields, phaseFields }) => {
+      const organizations = mongoose.connection.collection("organizations");
+      await organizations.updateOne(
+        { id: ORG_ID },
+        {
+          $set: {
+            settings: {
+              updateSchedule: {
+                type: "stale",
+                hours: 6,
+                analysisEndDateMode: "lag",
+                analysisEndDateLagHours: 3,
+              },
+            },
+          },
+        },
+      );
+      await experiments().insertOne({
+        ...running,
+        ...fields,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        variations: running.variations.map((v) => ({ ...v, screenshots: [] })),
+        phases: [{ ...phaseFields, variationWeights: [0.5, 0.5] }],
+        id: "exp_new_phase",
+        nextSnapshotAttempt: new Date(),
+      });
+
+      try {
+        await updateSingleExperiment(jobFor("exp_new_phase"));
+        expect(getDataSourceById).not.toHaveBeenCalled();
+        const doc = await experiments().findOne({ id: "exp_new_phase" });
+        expect(doc?.nextSnapshotAttempt.getTime()).toBeGreaterThan(
+          Date.now() + 5 * HOUR,
+        );
+      } finally {
+        await organizations.updateOne(
+          { id: ORG_ID },
+          { $set: { settings: {} } },
+        );
+      }
+    },
+  );
+
+  it.each([
     { through: "the run time", updateSchedule: { type: "stale", hours: 6 } },
     {
       through: "a lagged cutoff",

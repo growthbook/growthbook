@@ -2587,18 +2587,16 @@ describe("assertValidReleasedVariationId", () => {
 
 describe("getScheduledAnalysisEndDate", () => {
   const now = new Date("2026-09-30T03:07:00Z");
-  const phaseStart = new Date("2026-09-01T00:00:00Z");
   const cron = { type: "cron" as const, cron: "0 3 * * *" };
 
   it("has no cutoff when the update analyzes through its run time", () => {
-    expect(getScheduledAnalysisEndDate(null, phaseStart, now)).toBeNull();
+    expect(getScheduledAnalysisEndDate(null, now)).toBeNull();
     expect(
-      getScheduledAnalysisEndDate({ type: "stale", hours: 6 }, phaseStart, now),
+      getScheduledAnalysisEndDate({ type: "stale", hours: 6 }, now),
     ).toBeNull();
     expect(
       getScheduledAnalysisEndDate(
         { ...cron, analysisEndDateMode: "runTime" },
-        phaseStart,
         now,
       ),
     ).toBeNull();
@@ -2612,7 +2610,6 @@ describe("getScheduledAnalysisEndDate", () => {
           analysisEndDateMode: "lag",
           analysisEndDateLagHours: 3,
         },
-        phaseStart,
         now,
       ),
     ).toEqual(new Date("2026-09-30T00:07:00Z"));
@@ -2626,7 +2623,6 @@ describe("getScheduledAnalysisEndDate", () => {
           analysisEndDateMode: "lag",
           analysisEndDateLagHours: 0,
         },
-        phaseStart,
         now,
       ),
     ).toBeNull();
@@ -2640,7 +2636,6 @@ describe("getScheduledAnalysisEndDate", () => {
           analysisEndDateMode: "fixedTime",
           analysisEndDateTime: "00:00",
         },
-        phaseStart,
         now,
       ),
     ).toEqual(new Date("2026-09-30T00:00:00Z"));
@@ -2654,7 +2649,6 @@ describe("getScheduledAnalysisEndDate", () => {
           analysisEndDateMode: "fixedTime",
           analysisEndDateTime: "23:00",
         },
-        phaseStart,
         now,
       ),
     ).toEqual(new Date("2026-09-29T23:00:00Z"));
@@ -2669,7 +2663,6 @@ describe("getScheduledAnalysisEndDate", () => {
           analysisEndDateMode: "fixedTime",
           analysisEndDateTime: "00:00",
         },
-        phaseStart,
         now,
       ),
     ).toBeNull();
@@ -2682,36 +2675,7 @@ describe("getScheduledAnalysisEndDate", () => {
       analysisEndDateMode: "fixedTime",
       analysisEndDateTime: 0,
     } as unknown as ExperimentUpdateSchedule;
-    expect(getScheduledAnalysisEndDate(schedule, phaseStart, now)).toBeNull();
-  });
-
-  it("has no cutoff when it falls before the analysis start", () => {
-    expect(
-      getScheduledAnalysisEndDate(
-        {
-          ...cron,
-          analysisEndDateMode: "fixedTime",
-          analysisEndDateTime: "00:00",
-        },
-        new Date("2026-09-30T01:00:00Z"),
-        now,
-      ),
-    ).toBeNull();
-  });
-
-  it("has no cutoff before a holdout's analysis period starts", () => {
-    const schedule: ExperimentUpdateSchedule = {
-      type: "stale",
-      analysisEndDateMode: "lag",
-      analysisEndDateLagHours: 3,
-    };
-    const analysisPeriodStart = new Date("2026-09-30T02:00:00Z");
-    expect(getScheduledAnalysisEndDate(schedule, phaseStart, now)).toEqual(
-      new Date("2026-09-30T00:07:00Z"),
-    );
-    expect(
-      getScheduledAnalysisEndDate(schedule, analysisPeriodStart, now),
-    ).toBeNull();
+    expect(getScheduledAnalysisEndDate(schedule, now)).toBeNull();
   });
 });
 

@@ -141,30 +141,33 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     return;
   }
 
-  // A newer update (e.g. a manual one) may already cover a lagged cutoff;
-  // re-running would replace fresher results with older ones.
   const phaseIndex = experiment.phases.length - 1;
   const phase = experiment.phases[phaseIndex];
   const updateSchedule = organization.settings?.updateSchedule ?? null;
   const now = new Date();
   const cutoff =
     experiment.type !== "multi-armed-bandit" && phase && !phase.dateEnded
-      ? getScheduledAnalysisEndDate(
-          updateSchedule,
-          phase.lookbackStartDate ?? phase.dateStarted,
-          now,
-        )
+      ? getScheduledAnalysisEndDate(updateSchedule, now)
       : null;
-  if (cutoff) {
+  if (phase && cutoff) {
     const latestEndDate = await findLatestSuccessfulSnapshotEndDate(context, {
       experiment: experiment.id,
       phase: phaseIndex,
     });
-    // An end date in the future (left by a phase end that was later cleared)
-    // must not hold off updates until that date.
-    if (latestEndDate && latestEndDate >= cutoff && latestEndDate <= now) {
+    // A cutoff before the phase started leaves no data to analyze yet. A newer
+    // update (e.g. a manual one) may already cover a later cutoff; re-running
+    // would replace fresher results with older ones. An end date in the future
+    // (left by a phase end that was later cleared) must not hold off updates
+    // until that date.
+    const skipReason =
+      cutoff <= (phase.lookbackStartDate ?? phase.dateStarted)
+        ? "cutoff is before the phase started"
+        : latestEndDate && latestEndDate >= cutoff && latestEndDate <= now
+          ? "latest snapshot already covers"
+          : null;
+    if (skipReason) {
       logger.info(
-        `Skipping scheduled update for experiment ${experimentId}: latest snapshot already covers ${cutoff.toISOString()}`,
+        `Skipping scheduled update for experiment ${experimentId}: ${skipReason} ${cutoff.toISOString()}`,
       );
       const nextUpdate = determineNextDate(updateSchedule);
       if (nextUpdate) {

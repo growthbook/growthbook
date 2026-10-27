@@ -5,11 +5,11 @@ const ANALYSIS_END_TIME_PATTERN = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
 /**
  * The cutoff a scheduled update of a running phase analyzes through, or null
- * when it analyzes through its run time.
+ * when it analyzes through its run time. The cutoff can be before the phase
+ * started; callers decide what that means.
  */
 export function getScheduledAnalysisEndDate(
   schedule: ExperimentUpdateSchedule | null,
-  analysisStart: Date,
   now: Date = new Date(),
 ): Date | null {
   let cutoff: Date | null = null;
@@ -45,7 +45,7 @@ export function getScheduledAnalysisEndDate(
     default:
       mode satisfies never;
   }
-  return cutoff && cutoff > analysisStart && cutoff < now ? cutoff : null;
+  return cutoff && cutoff < now ? cutoff : null;
 }
 
 /** Why an update schedule's analysis end date settings can't be saved, if they can't. */
