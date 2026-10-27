@@ -26,6 +26,14 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
 
 export const metricPopulationValidator = populationStepValidator
   .omit({ windowSettings: true })
+  .extend({
+    rowFilters: z
+      .array(rowFilterValidator)
+      .optional()
+      .transform((filters) => filters ?? [])
+      .pipe(z.array(rowFilterValidator))
+      .meta({ default: [] }),
+  })
   .strict();
 export type MetricPopulation = z.infer<typeof metricPopulationValidator>;
 

@@ -41272,6 +41272,7 @@ paths:
                                                             - factTableId
                                                           additionalProperties: false
                                                     rowFilters:
+                                                      default: []
                                                       type: array
                                                       items:
                                                         type: object
@@ -41323,7 +41324,6 @@ paths:
                                                       type: string
                                                   required:
                                                     - source
-                                                    - rowFilters
                                                   additionalProperties: false
                                                 - type: 'null'
                                           required:
@@ -44716,6 +44716,7 @@ paths:
                                                             - factTableId
                                                           additionalProperties: false
                                                     rowFilters:
+                                                      default: []
                                                       type: array
                                                       items:
                                                         type: object
@@ -44767,7 +44768,6 @@ paths:
                                                       type: string
                                                   required:
                                                     - source
-                                                    - rowFilters
                                                   additionalProperties: false
                                                 - type: 'null'
                                           required:
@@ -48357,6 +48357,7 @@ paths:
                                                         - factTableId
                                                       additionalProperties: false
                                                 rowFilters:
+                                                  default: []
                                                   type: array
                                                   items:
                                                     type: object
@@ -48408,7 +48409,6 @@ paths:
                                                   type: string
                                               required:
                                                 - source
-                                                - rowFilters
                                               additionalProperties: false
                                             - type: 'null'
                                       required:
@@ -52009,6 +52009,7 @@ paths:
                                                         - factTableId
                                                       additionalProperties: false
                                                 rowFilters:
+                                                  default: []
                                                   type: array
                                                   items:
                                                     type: object
@@ -52060,7 +52061,6 @@ paths:
                                                   type: string
                                               required:
                                                 - source
-                                                - rowFilters
                                               additionalProperties: false
                                             - type: 'null'
                                       required:
@@ -57593,6 +57593,7 @@ paths:
                                           - factTableId
                                         additionalProperties: false
                                   rowFilters:
+                                    default: []
                                     type: array
                                     items:
                                       type: object
@@ -57644,7 +57645,6 @@ paths:
                                     type: string
                                 required:
                                   - source
-                                  - rowFilters
                                 additionalProperties: false
                               - type: 'null'
                         required:
@@ -58097,6 +58097,7 @@ paths:
                                                         - factTableId
                                                       additionalProperties: false
                                                 rowFilters:
+                                                  default: []
                                                   type: array
                                                   items:
                                                     type: object
@@ -80240,6 +80241,7 @@ components:
                                                 - factTableId
                                               additionalProperties: false
                                         rowFilters:
+                                          default: []
                                           type: array
                                           items:
                                             type: object
@@ -83484,6 +83486,7 @@ components:
                                           - factTableId
                                         additionalProperties: false
                                   rowFilters:
+                                    default: []
                                     type: array
                                     items:
                                       type: object

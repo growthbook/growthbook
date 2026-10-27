@@ -629,6 +629,32 @@ describe("population-backed proportions", () => {
     expect(parsed).toEqual(config);
   });
 
+  it("normalizes omitted population filters to an empty array", () => {
+    const input = {
+      ...config,
+      dataset: {
+        ...config.dataset,
+        values: [
+          {
+            ...config.dataset.values[0],
+            population: { source: population.source },
+          },
+        ],
+      },
+    };
+    const explicit = structuredClone(config);
+    explicit.dataset.values[0].population = {
+      source: population.source,
+      rowFilters: [],
+    };
+    expect(explorationConfigValidator.parse(input)).toEqual(
+      explorationConfigValidator.parse(explicit),
+    );
+    expect(
+      metricPopulationValidator.parse({ source: population.source }),
+    ).toEqual({ source: population.source, rowFilters: [] });
+  });
+
   it("rejects names on attached populations but requires them on standalone series", () => {
     expect(metricPopulationValidator.parse(population)).toEqual(population);
     const c = structuredClone(config);
