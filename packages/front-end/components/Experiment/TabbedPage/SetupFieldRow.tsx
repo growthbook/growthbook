@@ -105,3 +105,24 @@ export function InfoTip({ content }: { content: ReactNode }) {
     </Tooltip>
   );
 }
+
+/**
+ * Rows edited together, on a gray ground that reaches past them so their
+ * labels stay in line with the rows around it.
+ */
+export function SetupFieldGroup({ children }: { children: ReactNode }) {
+  return (
+    <Box
+      mx="-4"
+      px="4"
+      py="2"
+      my="2"
+      style={{
+        backgroundColor: "var(--gray-a2)",
+        borderRadius: "var(--radius-3)",
+      }}
+    >
+      {children}
+    </Box>
+  );
+}

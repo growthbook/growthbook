@@ -39,7 +39,8 @@ import Tooltip from "@/ui/Tooltip";
 import SetupFieldRow from "./SetupFieldRow";
 import { QuickEditRow } from "./QuickEditButton";
 
-function Card({
+/** One boxed group of advanced analysis settings. */
+export function SettingsCard({
   title,
   reset,
   children,
@@ -225,7 +226,7 @@ export default function AnalysisPlanAdvanced({
       </CollapseTrigger>
       <Collapse open={open}>
         <Box pt="3">
-          <Card title="Statistics" reset={resetStatistics}>
+          <SettingsCard title="Statistics" reset={resetStatistics}>
             <SetupFieldRow label="Stats engine">
               <Box maxWidth="300px">
                 <StatsEngineSelect
@@ -320,10 +321,10 @@ export default function AnalysisPlanAdvanced({
                 </Flex>
               </SetupFieldRow>
             ) : null}
-          </Card>
+          </SettingsCard>
 
           {datasource ? (
-            <Card title="Exposures" reset={resetExposures}>
+            <SettingsCard title="Exposures" reset={resetExposures}>
               <SetupFieldRow
                 label="Activation metric"
                 tooltip="Users must convert on this metric before being included."
@@ -398,11 +399,11 @@ export default function AnalysisPlanAdvanced({
                   </HelperText>
                 </SetupFieldRow>
               ) : null}
-            </Card>
+            </SettingsCard>
           ) : null}
 
           {datasource ? (
-            <Card title="Metrics" reset={resetMetrics}>
+            <SettingsCard title="Metrics" reset={resetMetrics}>
               {properties?.separateExperimentResultQueries ? (
                 <>
                   <SetupFieldRow
@@ -526,7 +527,7 @@ export default function AnalysisPlanAdvanced({
                   </QuickEditRow>
                 </SetupFieldRow>
               ) : null}
-            </Card>
+            </SettingsCard>
           ) : null}
         </Box>
       </Collapse>

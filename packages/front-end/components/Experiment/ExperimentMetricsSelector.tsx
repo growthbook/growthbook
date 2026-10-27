@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { ReactNode, useState, useMemo } from "react";
 import { resolveAnalysisIdentifierType } from "shared/util";
 import { FaPlusCircle } from "react-icons/fa";
 import { Text } from "@radix-ui/themes";
@@ -19,6 +19,7 @@ import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experime
 import { getExposureQuery } from "@/services/datasources";
 import Callout from "@/ui/Callout";
 import MetricsSelector from "./MetricsSelector";
+import SetupFieldRow from "./TabbedPage/SetupFieldRow";
 
 export interface Props {
   datasource?: string;
@@ -46,6 +47,8 @@ export interface Props {
   experimentId?: string;
   requireDatasource?: boolean;
   experimentType: ExperimentType | undefined;
+  // Each selector beside its label, as on the experiment's setup page.
+  asRows?: boolean;
 }
 
 export default function ExperimentMetricsSelector({
@@ -74,6 +77,7 @@ export default function ExperimentMetricsSelector({
   experimentId,
   requireDatasource = false,
   experimentType,
+  asRows = false,
 }: Props) {
   const {
     getExperimentMetricById,
@@ -252,57 +256,77 @@ export default function ExperimentMetricsSelector({
     factTables,
   ]);
 
+  const section = (label: string, description: string, field: ReactNode) =>
+    asRows ? (
+      <SetupFieldRow label={label} tooltip={description}>
+        {field}
+      </SetupFieldRow>
+    ) : (
+      <div className="form-group flex-1">
+        <label className="font-weight-bold mb-1">{label}</label>
+        <Text
+          as="p"
+          size="2"
+          style={{ color: "var(--color-text-mid)" }}
+          className="mb-1"
+        >
+          {description}
+        </Text>
+        {field}
+      </div>
+    );
+
   return (
     <>
-      {setGoalMetrics !== undefined && (
-        <div className="form-group flex-1">
-          <label className="font-weight-bold mb-1">
-            {!forceSingleGoalMetric ? "Goal Metrics" : "Decision Metric"}
-          </label>
-          <Text
-            as="p"
-            size="2"
-            style={{ color: "var(--color-text-mid)" }}
-            className="mb-1"
-          >
-            {goalMetricsDescription
-              ? goalMetricsDescription
-              : !forceSingleGoalMetric
-                ? "The primary metrics you are trying to improve with this experiment. "
-                : "Choose the goal metric that will be used to update variation weights. "}
-          </Text>
-          <MetricsSelector
-            selected={goalMetrics}
-            onChange={setGoalMetrics}
-            datasource={datasource}
-            exposureQueryId={exposureQueryId}
-            exposureQueryIdentifierType={exposureQueryIdentifierType}
-            project={project}
-            autoFocus={autoFocus}
-            includeFacts={true}
-            forceSingleMetric={forceSingleGoalMetric}
-            includeGroups={!forceSingleGoalMetric}
-            excludeQuantiles={noQuantileGoalMetrics || excludeQuantiles}
-            allowedFactMetricTypes={goalMetricAllowedFactMetricTypes}
-            filterConversionWindowMetrics={filterConversionWindowMetrics}
-            noLegacyMetrics={noLegacyMetrics}
-            disabled={disabled || goalDisabled}
-            requireDatasource={requireDatasource}
-            getMetricDisabledInfo={getMetricDisabledInfo}
-          />
-          {hasIdentifierTypeMismatch && (
-            <Callout status="warning" my="4">
-              Mismatch between the randomization unit and the Decision Metric
-              identifier type can lead to double counting if the randomization
-              unit has multiple exposures.
-            </Callout>
-          )}
-        </div>
-      )}
+      {setGoalMetrics !== undefined &&
+        section(
+          asRows
+            ? !forceSingleGoalMetric
+              ? "Goal metrics"
+              : "Decision metric"
+            : !forceSingleGoalMetric
+              ? "Goal Metrics"
+              : "Decision Metric",
+          goalMetricsDescription
+            ? goalMetricsDescription
+            : !forceSingleGoalMetric
+              ? asRows
+                ? "What this experiment is trying to improve."
+                : "The primary metrics you are trying to improve with this experiment. "
+              : "Choose the goal metric that will be used to update variation weights. ",
+          <>
+            <MetricsSelector
+              selected={goalMetrics}
+              onChange={setGoalMetrics}
+              datasource={datasource}
+              exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={exposureQueryIdentifierType}
+              project={project}
+              autoFocus={autoFocus}
+              includeFacts={true}
+              forceSingleMetric={forceSingleGoalMetric}
+              includeGroups={!forceSingleGoalMetric}
+              excludeQuantiles={noQuantileGoalMetrics || excludeQuantiles}
+              allowedFactMetricTypes={goalMetricAllowedFactMetricTypes}
+              filterConversionWindowMetrics={filterConversionWindowMetrics}
+              noLegacyMetrics={noLegacyMetrics}
+              disabled={disabled || goalDisabled}
+              requireDatasource={requireDatasource}
+              getMetricDisabledInfo={getMetricDisabledInfo}
+            />
+            {hasIdentifierTypeMismatch && (
+              <Callout status="warning" my="4">
+                Mismatch between the randomization unit and the Decision Metric
+                identifier type can lead to double counting if the randomization
+                unit has multiple exposures.
+              </Callout>
+            )}
+          </>,
+        )}
 
-      {setSecondaryMetrics !== undefined && (
-        <div className="form-group flex-1">
-          {secondaryCollapsed ? (
+      {setSecondaryMetrics !== undefined &&
+        (secondaryCollapsed ? (
+          <div className="form-group flex-1">
             <a
               role="button"
               className="d-inline-block link-purple font-weight-bold mt-2"
@@ -311,41 +335,35 @@ export default function ExperimentMetricsSelector({
               <FaPlusCircle className="mr-1" />
               Add Secondary Metrics
             </a>
-          ) : (
-            <>
-              <label className="font-weight-bold mb-1">Secondary Metrics</label>
-              <Text
-                as="p"
-                size="2"
-                style={{ color: "var(--color-text-mid)" }}
-                className="mb-1"
-              >
-                {!forceSingleGoalMetric
-                  ? "Additional metrics to learn about experiment impacts, but not primary objectives."
-                  : "Additional metrics to learn about experiment impacts. "}
-              </Text>
-              <MetricsSelector
-                selected={secondaryMetrics}
-                onChange={setSecondaryMetrics}
-                datasource={datasource}
-                exposureQueryId={exposureQueryId}
-                exposureQueryIdentifierType={exposureQueryIdentifierType}
-                project={project}
-                includeFacts={true}
-                filterConversionWindowMetrics={filterConversionWindowMetrics}
-                excludeQuantiles={excludeQuantiles}
-                noLegacyMetrics={noLegacyMetrics}
-                disabled={disabled}
-                getMetricDisabledInfo={getMetricDisabledInfo}
-              />
-            </>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (
+          section(
+            asRows ? "Secondary metrics" : "Secondary Metrics",
+            asRows
+              ? "Extra metrics to learn from, but not the objective."
+              : !forceSingleGoalMetric
+                ? "Additional metrics to learn about experiment impacts, but not primary objectives."
+                : "Additional metrics to learn about experiment impacts. ",
+            <MetricsSelector
+              selected={secondaryMetrics}
+              onChange={setSecondaryMetrics}
+              datasource={datasource}
+              exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={exposureQueryIdentifierType}
+              project={project}
+              includeFacts={true}
+              filterConversionWindowMetrics={filterConversionWindowMetrics}
+              excludeQuantiles={excludeQuantiles}
+              noLegacyMetrics={noLegacyMetrics}
+              disabled={disabled}
+              getMetricDisabledInfo={getMetricDisabledInfo}
+            />,
+          )
+        ))}
 
-      {setGuardrailMetrics !== undefined && (
-        <div className="form-group flex-1">
-          {guardrailCollapsed ? (
+      {setGuardrailMetrics !== undefined &&
+        (guardrailCollapsed ? (
+          <div className="form-group flex-1">
             <a
               role="button"
               className="d-inline-block link-purple font-weight-bold mt-2"
@@ -354,36 +372,29 @@ export default function ExperimentMetricsSelector({
               <FaPlusCircle className="mr-1" />
               Add Guardrail Metrics
             </a>
-          ) : (
-            <>
-              <label className="font-weight-bold mb-1">Guardrail Metrics</label>
-              <Text
-                as="p"
-                size="2"
-                style={{ color: "var(--color-text-mid)" }}
-                className="mb-1"
-              >
-                Metrics you want to monitor, but are NOT specifically trying to
-                improve.
-              </Text>
-              <MetricsSelector
-                selected={guardrailMetrics}
-                onChange={setGuardrailMetrics}
-                datasource={datasource}
-                exposureQueryId={exposureQueryId}
-                exposureQueryIdentifierType={exposureQueryIdentifierType}
-                project={project}
-                includeFacts={true}
-                filterConversionWindowMetrics={filterConversionWindowMetrics}
-                excludeQuantiles={excludeQuantiles}
-                noLegacyMetrics={noLegacyMetrics}
-                disabled={disabled}
-                getMetricDisabledInfo={getMetricDisabledInfo}
-              />
-            </>
-          )}
-        </div>
-      )}
+          </div>
+        ) : (
+          section(
+            asRows ? "Guardrail metrics" : "Guardrail Metrics",
+            asRows
+              ? "Metrics to watch for harm, not to improve."
+              : "Metrics you want to monitor, but are NOT specifically trying to improve.",
+            <MetricsSelector
+              selected={guardrailMetrics}
+              onChange={setGuardrailMetrics}
+              datasource={datasource}
+              exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={exposureQueryIdentifierType}
+              project={project}
+              includeFacts={true}
+              filterConversionWindowMetrics={filterConversionWindowMetrics}
+              excludeQuantiles={excludeQuantiles}
+              noLegacyMetrics={noLegacyMetrics}
+              disabled={disabled}
+              getMetricDisabledInfo={getMetricDisabledInfo}
+            />,
+          )
+        ))}
     </>
   );
 }

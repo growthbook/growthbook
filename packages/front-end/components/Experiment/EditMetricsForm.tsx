@@ -12,14 +12,12 @@ import {
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentMetricDefinition } from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
-import Collapsible from "react-collapsible";
-import { PiCaretRightFill } from "react-icons/pi";
+import { Box, Separator } from "@radix-ui/themes";
 import { getScopedSettings } from "shared/settings";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
@@ -27,11 +25,14 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
+import Text from "@/ui/Text";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import { MetricsSelectorTooltip } from "./MetricsSelector";
 import MetricSelector from "./MetricSelector";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
+import { SettingsCard } from "./TabbedPage/AnalysisPlanAdvanced";
+import SetupFieldRow from "./TabbedPage/SetupFieldRow";
 
 export interface EditMetricsFormInterface {
   goalMetrics: string[];
@@ -141,6 +142,7 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const settings = useOrgSettings();
   const { organization, hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
@@ -213,6 +215,7 @@ const EditMetricsForm: FC<{
       })}
     >
       <ExperimentMetricsSelector
+        asRows
         noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
@@ -255,18 +258,10 @@ const EditMetricsForm: FC<{
 
       {!isHoldout && !(isBandit && experiment.status === "running") ? (
         <>
-          <div className="form-group">
-            <label className="font-weight-bold mb-1">Activation Metric</label>
-            <div className="mb-1">
-              <span className="font-italic">
-                Users must convert on this metric before being included.{" "}
-              </span>
-              <MetricsSelectorTooltip
-                onlyBinomial={true}
-                noFactFunnelMetrics={true}
-                isSingular={true}
-              />
-            </div>
+          <SetupFieldRow
+            label="Activation metric"
+            tooltip="Users must convert on this metric before being included."
+          >
             <MetricSelector
               initialOption="None"
               value={form.watch("activationMetric")}
@@ -281,9 +276,10 @@ const EditMetricsForm: FC<{
               filterFactFunnelMetrics
               includeFacts={true}
             />
-          </div>
+          </SetupFieldRow>
 
           <CustomMetricSlicesSelector
+            asRow
             goalMetrics={form.watch("goalMetrics")}
             secondaryMetrics={form.watch("secondaryMetrics")}
             guardrailMetrics={form.watch("guardrailMetrics")}
@@ -298,52 +294,45 @@ const EditMetricsForm: FC<{
             }
           />
 
-          <hr className="mt-4" />
-
-          <Collapsible
-            trigger={
-              <div className="link-purple font-weight-bold mt-4 mb-2">
-                <PiCaretRightFill className="chevron mr-1" />
-                Advanced Settings
-              </div>
-            }
-            transitionTime={100}
-          >
-            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-              <div className="form-group mb-2">
-                <PremiumTooltip commercialFeature="override-metrics">
-                  <label className="font-weight-bold mb-1">
-                    Metric Overrides (optional)
-                  </label>
-                </PremiumTooltip>
-                <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-                  <p className="mb-0">
-                    Override metric behaviors within this experiment.
-                  </p>
-                  <p className="mb-0">
-                    Anything you don&apos;t override follows the metric&apos;s
-                    own settings.
-                  </p>
-                </div>
-                <MetricsOverridesSelector
-                  experiment={experiment}
-                  form={form}
-                  statsEngine={statsEngine}
-                  disabled={
-                    !hasOverrideMetricsFeature ||
-                    isExperimentIncludedInIncrementalRefresh
-                  }
-                />
-                {!hasOverrideMetricsFeature && (
-                  <UpgradeMessage
-                    showUpgradeModal={() => setUpgradeModal(true)}
-                    commercialFeature="override-metrics"
-                    upgradeMessage="override metrics"
-                  />
-                )}
-              </div>
-            </div>
-          </Collapsible>
+          <Box>
+            <Separator size="4" my="5" />
+            <CollapseTrigger
+              open={advancedOpen}
+              onOpenChange={setAdvancedOpen}
+              caret="start"
+            >
+              <Text weight="medium" color="text-high">
+                Advanced
+              </Text>
+            </CollapseTrigger>
+            <Collapse open={advancedOpen}>
+              <Box pt="3">
+                <SettingsCard title="Metrics">
+                  <SetupFieldRow
+                    label="Metric overrides"
+                    tooltip="Override metric behaviors within this experiment."
+                  >
+                    <MetricsOverridesSelector
+                      experiment={experiment}
+                      form={form}
+                      statsEngine={statsEngine}
+                      disabled={
+                        !hasOverrideMetricsFeature ||
+                        isExperimentIncludedInIncrementalRefresh
+                      }
+                    />
+                    {!hasOverrideMetricsFeature && (
+                      <UpgradeMessage
+                        showUpgradeModal={() => setUpgradeModal(true)}
+                        commercialFeature="override-metrics"
+                        upgradeMessage="override metrics"
+                      />
+                    )}
+                  </SetupFieldRow>
+                </SettingsCard>
+              </Box>
+            </Collapse>
+          </Box>
         </>
       ) : null}
     </ModalStandard>
