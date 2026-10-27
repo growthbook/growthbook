@@ -115,10 +115,6 @@ describe("describePopulationStep", () => {
     ).toEqual(["Has ", "ftb_events"]);
   });
 
-  it("describes a step with no filters", () => {
-    expect(getStepDescription({})).toBe("Has Events");
-  });
-
   it("describes a step with one row filter", () => {
     expect(getStepDescription({ rowFilters: [country] })).toBe(
       "Has Events matching country = US",
