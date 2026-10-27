@@ -51,51 +51,22 @@ export interface Props {
   asRows?: boolean;
 }
 
-export default function ExperimentMetricsSelector({
-  datasource,
-  exposureQueryId,
-  exposureQueryIdentifierType,
-  project,
-  goalMetrics,
-  secondaryMetrics,
-  guardrailMetrics,
-  setGoalMetrics,
-  setSecondaryMetrics,
-  setGuardrailMetrics,
-  autoFocus = false,
-  forceSingleGoalMetric = false,
-  noQuantileGoalMetrics = false,
-  goalMetricAllowedFactMetricTypes,
-  noLegacyMetrics = false,
-  disabled,
-  goalDisabled,
-  collapseSecondary,
-  collapseGuardrail,
-  goalMetricsDescription,
-  filterConversionWindowMetrics,
-  excludeQuantiles = false,
-  experimentId,
-  requireDatasource = false,
-  experimentType,
-  asRows = false,
-}: Props) {
-  const {
-    getExperimentMetricById,
-    getDatasourceById,
-    metricGroups,
-    factTables,
-  } = useDefinitions();
-
+/** Which metrics an experiment can't use, and why. */
+export function useMetricDisabledInfo(
+  datasource: string | undefined,
+  experimentId: string | undefined,
+  experimentType: ExperimentType | undefined,
+) {
+  const { getExperimentMetricById, getDatasourceById, metricGroups } =
+    useDefinitions();
+  const datasourceObj = datasource ? getDatasourceById(datasource) : null;
+  const incrementalRefresh = getIsExperimentIncludedInIncrementalRefresh(
+    datasourceObj ?? undefined,
+    experimentId,
+    experimentType,
+  );
   const getMetricDisabledInfo = useMemo(
     () => (metricId: string, isGroup: boolean) => {
-      const datasourceObj = datasource ? getDatasourceById(datasource) : null;
-      const isExperimentIncludedInIncrementalRefresh =
-        getIsExperimentIncludedInIncrementalRefresh(
-          datasourceObj ?? undefined,
-          experimentId,
-          experimentType,
-        );
-
       // Query generation rejects funnel metrics for bandits.
       if (experimentType === "multi-armed-bandit") {
         const ids = isGroup
@@ -116,7 +87,7 @@ export default function ExperimentMetricsSelector({
         }
       }
 
-      if (!isExperimentIncludedInIncrementalRefresh) {
+      if (!incrementalRefresh) {
         return { disabled: false };
       }
 
@@ -188,13 +159,51 @@ export default function ExperimentMetricsSelector({
       return { disabled: false };
     },
     [
-      datasource,
-      experimentId,
+      datasourceObj,
+      incrementalRefresh,
       experimentType,
       getExperimentMetricById,
-      getDatasourceById,
       metricGroups,
     ],
+  );
+  return { incrementalRefresh, getMetricDisabledInfo };
+}
+
+export default function ExperimentMetricsSelector({
+  datasource,
+  exposureQueryId,
+  exposureQueryIdentifierType,
+  project,
+  goalMetrics,
+  secondaryMetrics,
+  guardrailMetrics,
+  setGoalMetrics,
+  setSecondaryMetrics,
+  setGuardrailMetrics,
+  autoFocus = false,
+  forceSingleGoalMetric = false,
+  noQuantileGoalMetrics = false,
+  goalMetricAllowedFactMetricTypes,
+  noLegacyMetrics = false,
+  disabled,
+  goalDisabled,
+  collapseSecondary,
+  collapseGuardrail,
+  goalMetricsDescription,
+  filterConversionWindowMetrics,
+  excludeQuantiles = false,
+  experimentId,
+  requireDatasource = false,
+  experimentType,
+  asRows = false,
+}: Props) {
+  const { getExperimentMetricById, getDatasourceById, factTables } =
+    useDefinitions();
+
+  const { getMetricDisabledInfo } = useMetricDisabledInfo(
+    datasource,
+    experimentId,
+    experimentType,
   );
 
   const [secondaryCollapsed, setSecondaryCollapsed] = useState<boolean>(

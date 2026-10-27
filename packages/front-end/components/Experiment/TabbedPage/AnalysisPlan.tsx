@@ -27,6 +27,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SelectField from "@/components/Forms/SelectField";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
+import { useMetricDisabledInfo } from "@/components/Experiment/ExperimentMetricsSelector";
 import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
@@ -506,6 +507,12 @@ export default function AnalysisPlan({
     });
   }, [settingsOpen, settingsFocus, setSettingsOpen, canEdit]);
 
+  // Rows for an experiment on Incremental Refresh offer only what it supports.
+  const { incrementalRefresh, getMetricDisabledInfo } = useMetricDisabledInfo(
+    datasource,
+    experiment.id,
+    experiment.type,
+  );
   const metricRow = (
     label: string,
     tooltip: string,
@@ -526,9 +533,12 @@ export default function AnalysisPlan({
         }}
         datasource={datasource}
         exposureQueryId={exposureQueryId}
+        exposureQueryIdentifierType={identifierType || undefined}
         project={experiment.project}
         includeFacts
         includeGroups
+        noLegacyMetrics={incrementalRefresh}
+        getMetricDisabledInfo={getMetricDisabledInfo}
         metricOverrides={metricOverrides}
         targetMDEOverrides={
           field === "goalMetrics" ? targetMDEOverrides : undefined

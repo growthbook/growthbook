@@ -15,6 +15,7 @@ import ColumnResizeHandleStories from "@/ui/ColumnResizeHandle.stories";
 import ColumnSettingsStories from "@/ui/ColumnSettings.stories";
 import ColumnSettingsButtonStories from "@/ui/ColumnSettingsButton.stories";
 import CheckboxStories from "@/ui/Checkbox.stories";
+import CollapseStories from "@/ui/Collapse.stories";
 import DataListStories from "@/ui/DataList.stories";
 import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
@@ -32,6 +33,7 @@ import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
+import ScrollAreaStories from "@/ui/ScrollArea.stories";
 import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
 import SegmentedControlStories from "@/ui/SegmentedControl.stories";
 import SelectStories from "@/ui/Select.stories";
@@ -87,6 +89,7 @@ export default function DesignSystemPage() {
       Stories: ColumnSettingsButtonStories,
     },
     { name: "Checkbox", Stories: CheckboxStories },
+    { name: "Collapse", Stories: CollapseStories },
     { name: "DataList", Stories: DataListStories },
     { name: "DatePicker", Stories: DatePickerStories },
     { name: "DropdownMenu", Stories: DropdownMenuStories },
@@ -118,6 +121,7 @@ export default function DesignSystemPage() {
     { name: "ProgressBar", Stories: ProgressBarStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
+    { name: "ScrollArea", Stories: ScrollAreaStories },
     { name: "SegmentedControl", Stories: SegmentedControlStories },
     { name: "Select", Stories: SelectStories },
     {

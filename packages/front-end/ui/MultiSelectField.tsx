@@ -9,6 +9,7 @@ import {
 } from "react";
 import ReactSelect, {
   components,
+  CSSObjectWithLabel,
   GroupBase,
   MultiValueGenericProps,
   MultiValueProps,
@@ -498,8 +499,10 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
             : ReactSelectProps.styles.control(base, state)),
           minHeight: usesLegacyHeight ? 36 : sizeMinHeight[resolvedSize],
         }),
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        multiValueLabel: (base: any, state: any) => {
+        multiValueLabel: (
+          base: CSSObjectWithLabel,
+          state: MultiValueProps<ColorOption, true, GroupBase<ColorOption>>,
+        ) => {
           const styled = customStyles?.multiValueLabel
             ? customStyles.multiValueLabel(
                 ReactSelectProps.styles.multiValueLabel(base),

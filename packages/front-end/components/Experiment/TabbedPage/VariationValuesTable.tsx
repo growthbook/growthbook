@@ -251,7 +251,7 @@ export default function VariationValuesTable({
         </Box>
         <Box pt="3" pb="2" minHeight="22px" />
       </Box>
-      <Box className="appbox mb-0" style={{ overflow: "hidden" }}>
+      <Box className="appbox" mb="0" style={{ overflow: "hidden" }}>
         <Box
           style={{ overflowX: "auto", overflowY: "hidden" }}
           onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}

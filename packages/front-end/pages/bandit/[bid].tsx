@@ -19,6 +19,10 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import {
+  stagedEditsScope,
+  useStagedState,
+} from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -31,8 +35,6 @@ const BanditExperimentPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [targetingDraft, setTargetingDraft] =
-    useState<ExperimentTargetingData | null>(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -44,6 +46,12 @@ const BanditExperimentPage = (): ReactElement => {
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${bid}`);
+  const [targetingDraft, setTargetingDraft] =
+    useStagedState<ExperimentTargetingData | null>(
+      "targeting",
+      null,
+      data ? stagedEditsScope(data.experiment) : null,
+    );
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
