@@ -54,12 +54,17 @@ import {
   rebasedRevisionChanges,
   getFeaturePageDefaultVersion,
   naiveFlattenV1Rules,
+  getMalformedPrereqConditionError,
 } from "shared/util";
 import {
   statusFromStandingVerdicts,
   getHealthSettings,
 } from "shared/enterprise";
-import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
+} from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
@@ -69,7 +74,6 @@ import {
 import {
   ACTIVE_DRAFT_STATUSES,
   eventUserIdentity,
-  FEATURE_KEY_REGEX,
   RampScheduleInterface,
   RampStepAction,
   RevisionMetadata,
@@ -157,6 +161,7 @@ import {
 import { getRealtimeUsageByHour } from "back-end/src/models/RealtimeModel";
 import { dangerousLookupOrganizationByApiKey } from "back-end/src/util/api-key.util";
 import { generateId } from "back-end/src/util/uuid";
+import { mergeSyncRules } from "back-end/src/util/flattenRules";
 import {
   addIdsToFlatRules,
   addIdsToRules,
@@ -264,6 +269,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { logger } from "back-end/src/util/logger";
 import { yieldEventLoop } from "back-end/src/util/yield";
+import { sendJsonWithSlicedList } from "back-end/src/util/slicedJson";
 import { addTagsDiff } from "back-end/src/models/TagModel";
 import {
   CACHE_CONTROL_MAX_AGE,
@@ -306,9 +312,13 @@ import {
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
-import { validateCreateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
+import { validateSafeRolloutFields } from "back-end/src/validators/safe-rollout";
 import { getSafeRolloutRuleFromFeature } from "back-end/src/routers/safe-rollout/safe-rollout.helper";
 import { UnrecoverableApiError } from "back-end/src/util/errors";
+import {
+  MAX_IDS_QUERY_LENGTH,
+  parseIdsQuery,
+} from "back-end/src/util/validation";
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
@@ -915,7 +925,7 @@ export async function postFeatures(
     context.permissions.throwPermissionError();
   }
 
-  if (!id) {
+  if (typeof id !== "string" || !id) {
     throw new Error("Must specify feature key");
   }
 
@@ -932,10 +942,8 @@ export async function postFeatures(
     throw new Error("Feature missing initial environment toggle settings");
   }
 
-  if (!id.match(FEATURE_KEY_REGEX)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, and the characters _-.:|",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   if (org.settings?.requireProjectForFeatures && !otherProps.project) {
@@ -1055,7 +1063,10 @@ export async function postFeatures(
   // A duplicate echoes its source's rules; only what the copy changes is
   // re-checked.
   const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
-  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules);
+  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules, {
+    copiesRules: true,
+  });
+  validatePrerequisiteConditions(feature.prerequisites ?? []);
   await assertValidPrerequisiteParents(context, feature, source ?? undefined);
   assertFeatureValuesValid(context, feature, {
     defaultValue: feature.defaultValue,
@@ -3403,16 +3414,17 @@ export async function postFeatureRule(
 
   // Pre-generate the safeRollout id so hooks see the rule's final shape; the doc is created after prevalidation
   let validatedSafeRolloutFields: Awaited<
-    ReturnType<typeof validateCreateSafeRolloutFields>
+    ReturnType<typeof validateSafeRolloutFields>
   > | null = null;
   if (rule.type === "safe-rollout") {
     if (!context.hasPremiumFeature("safe-rollout")) {
       throw new Error(`Safe Rollout rules is a premium feature.`);
     }
 
-    validatedSafeRolloutFields = await validateCreateSafeRolloutFields(
+    validatedSafeRolloutFields = await validateSafeRolloutFields(
       omit(safeRolloutFields, "rampUpSchedule"),
       context,
+      { project: feature.project ?? "" },
     );
 
     rule.status = "running";
@@ -3654,7 +3666,8 @@ export async function postFeatureSync(
       FeatureInterface,
       "organization" | "version" | "dateCreated" | "dateUpdated"
     >,
-    { id: string }
+    { id: string },
+    { mirror?: string }
   >,
   res: Response<
     { status: 200; feature: FeatureInterface },
@@ -3684,10 +3697,32 @@ export async function postFeatureSync(
     context.permissions.throwPermissionError();
   }
 
+  const mirror = req.query.mirror === "true";
+
+  const environmentsEnabled: Record<string, boolean> = {};
+  const envEnabledIn = data.environmentSettings as
+    | Record<string, { enabled?: boolean }>
+    | undefined;
+  for (const env of environments) {
+    const enabled = envEnabledIn?.[env]?.enabled;
+    if (
+      mirror &&
+      typeof enabled === "boolean" &&
+      enabled !== !!feature.environmentSettings?.[env]?.enabled
+    ) {
+      environmentsEnabled[env] = enabled;
+    }
+  }
+
   if (
     !context.permissions.canPublishFeature(
       feature,
-      Array.from(getEnabledEnvironments(feature, environments)),
+      Array.from(
+        new Set([
+          ...getEnabledEnvironments(feature, environments),
+          ...Object.keys(environmentsEnabled),
+        ]),
+      ),
     )
   ) {
     context.permissions.throwPermissionError();
@@ -3715,68 +3750,33 @@ export async function postFeatureSync(
     metadata.tags = data.tags;
   }
 
-  // The Sync endpoint accepts per-env rule arrays under
-  // `environmentSettings[env].rules`. Produce a flat array with unique ids by
-  // narrowing live rules to the envs the caller did NOT override, then
-  // appending the caller's inbound rules stamped per env. A naive per-env
-  // fan-out would duplicate `allEnvironments: true` rules across envs.
   const liveFeatureRules: FeatureRule[] = feature.rules ?? [];
   const envSettingsIn = data.environmentSettings as
     | Record<string, { rules?: FeatureRule[] }>
     | undefined;
-  const inboundEnvs = new Set<string>(
-    environments.filter((e) => envSettingsIn?.[e]?.rules !== undefined),
-  );
-
-  const buildNextFlatRules = (): FeatureRule[] => {
-    const result: FeatureRule[] = [];
-
-    for (const r of liveFeatureRules) {
-      // Env subset of this rule NOT replaced by an inbound per-env override.
-      let remainingEnvs: string[];
-      if (r.allEnvironments) {
-        remainingEnvs = environments.filter((e) => !inboundEnvs.has(e));
-        if (remainingEnvs.length === 0) continue;
-        if (remainingEnvs.length === environments.length) {
-          result.push(r);
-          continue;
-        }
-      } else {
-        remainingEnvs = (r.environments ?? []).filter(
-          (e) => !inboundEnvs.has(e),
-        );
-        if (remainingEnvs.length === 0) continue;
-      }
-      result.push({
-        ...r,
-        allEnvironments: false,
-        environments: remainingEnvs,
-      });
-    }
-
-    // Append inbound rules for overridden envs, each stamped to a single env.
-    environments.forEach((env) => {
-      const inbound = envSettingsIn?.[env]?.rules;
-      if (inbound === undefined) return;
-      inbound.forEach((r) =>
-        result.push({
-          ...r,
-          allEnvironments: false,
-          environments: [env],
-        } as FeatureRule),
-      );
-    });
-
-    return result;
-  };
-  const nextFlatRules = buildNextFlatRules();
+  const flatRulesIn =
+    mirror && Array.isArray(data.rules) ? data.rules : undefined;
+  if (flatRulesIn) {
+    inheritStoredRolloutSeeds(flatRulesIn, liveFeatureRules);
+    addIdsToFlatRules(flatRulesIn, feature.id);
+  }
+  const { rules: nextFlatRules, replacedAll } = mergeSyncRules({
+    liveRules: liveFeatureRules,
+    environments,
+    envSettings: envSettingsIn,
+    rules: flatRulesIn,
+    knownEnvironments: Object.keys(data.environmentSettings ?? {}),
+  });
   const changes: Partial<FeatureRevisionInterface> = {
     rules: nextFlatRules,
     defaultValue: data.defaultValue ?? feature.defaultValue,
     ...(Object.keys(metadata).length ? { metadata } : {}),
+    ...(Object.keys(environmentsEnabled).length ? { environmentsEnabled } : {}),
   };
 
-  let needsNewRevision = Object.keys(metadata).length > 0;
+  let needsNewRevision =
+    Object.keys(metadata).length > 0 ||
+    Object.keys(environmentsEnabled).length > 0;
 
   if (
     data.defaultValue != null &&
@@ -3785,7 +3785,9 @@ export async function postFeatureSync(
     needsNewRevision = true;
   }
 
-  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? []);
+  await assertValidFeatureRules(context, nextFlatRules, feature.rules ?? [], {
+    copiesRules: true,
+  });
   await assertValidPrerequisiteParents(
     context,
     { ...feature, rules: nextFlatRules },
@@ -3814,6 +3816,9 @@ export async function postFeatureSync(
     ) {
       needsNewRevision = true;
     }
+  }
+  if (replacedAll && !isEqual(nextFlatRules, liveFeatureRules)) {
+    needsNewRevision = true;
   }
 
   // Lands like every other dashboard route: draft, review check, then the
@@ -6350,20 +6355,30 @@ export async function getFeatures(
   }
   const includeArchived = !!req.query.includeArchived;
 
+  // Every feature in the organization can take a while to load and encode,
+  // so stop as soon as the client gives up
+  const disconnected = new AbortController();
+  res.on("close", () => disconnected.abort());
+
   const features = await getAllFeatures(context, {
     projects: project ? [project] : undefined,
     includeArchived,
+    signal: disconnected.signal,
   });
+  if (disconnected.signal.aborted) return;
 
   const hasArchived = includeArchived
     ? features.some((f) => f.archived)
     : await hasArchivedFeatures(context, project);
+  if (disconnected.signal.aborted) return;
 
-  res.status(200).json({
-    status: 200,
+  await sendJsonWithSlicedList(
+    res,
+    { status: 200, hasArchived },
+    "features",
     features,
-    hasArchived,
-  });
+    disconnected.signal,
+  );
 }
 
 // Code references are only shown on the flag's Stats tab, so they load there
@@ -7661,6 +7676,7 @@ function evalDeterministicPrereqValueBackend(
   value: any,
   condition: string,
 ): "pass" | "fail" {
+  if (getMalformedPrereqConditionError(condition)) return "fail";
   try {
     const conditionObj = JSON.parse(condition || "{}");
     // Empty condition means "is truthy"
@@ -7719,7 +7735,7 @@ export async function getFeatureMetaInfo(
   const features = await getFeatureMetaInfoById(context, {
     includeDefaultValue: defaultValue === "1",
     project: project || undefined,
-    ids: ids ? ids.split(",").filter(Boolean) : undefined,
+    ids: parseIdsQuery(ids),
   });
 
   res.status(200).json({ status: 200, features });
@@ -7736,9 +7752,7 @@ export async function getFeatureDraftStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
   const features = await getActiveDraftStates(context.org.id, featureIds);
   res.status(200).json({ status: 200, features });
 }
@@ -7752,9 +7766,7 @@ export async function getFeaturesHealth(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids);
 
   const [
     { features: allFeatures, experiments: allExperiments },
@@ -7899,9 +7911,9 @@ export async function getFeaturesStatus(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const raw = await getFeatureEnvStatus(context, featureIds);
 
@@ -7933,9 +7945,7 @@ export async function getFeaturesDependents(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : [];
+  const featureIds = parseIdsQuery(req.query.ids) ?? [];
 
   if (!featureIds.length) {
     return res.status(200).json({ status: 200, dependents: {} });
@@ -8235,9 +8245,9 @@ export async function getFeatureRampStates(
   >,
 ) {
   const context = getContextFromReq(req);
-  const featureIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const featureIds = parseIdsQuery(req.query.ids, {
+    max: MAX_IDS_QUERY_LENGTH,
+  });
 
   const NON_TERMINAL_STATUSES = [
     "pending",

@@ -25,6 +25,8 @@ import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { CustomDimensionMetadata } from "@/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner";
+import ProjectBadges from "@/components/ProjectBadges";
+import UITooltip from "@/ui/Tooltip";
 
 type ExperimentAssignmentQueriesProps = DataSourceQueryEditingModalBaseProps;
 type UIMode = "view" | "edit" | "add" | "dimension";
@@ -40,7 +42,9 @@ export const ExperimentAssignmentQueries: FC<
   const [openIndexes, setOpenIndexes] = useState<boolean[]>(initialOpenIndexes);
 
   const permissionsUtil = usePermissionsUtil();
-  canEdit = canEdit && permissionsUtil.canUpdateDataSourceSettings(dataSource);
+  const canAdd = canEdit && permissionsUtil.canAddExposureQuery(dataSource);
+  const canEditQuery = (query: ExposureQuery) =>
+    canEdit && permissionsUtil.canUpdateExposureQuery(query, dataSource);
 
   const handleExpandCollapseForIndex = useCallback(
     (index) => () => {
@@ -133,7 +137,7 @@ export const ExperimentAssignmentQueries: FC<
         </Box>
 
         <Box>
-          <Button onClick={handleAdd} disabled={!canEdit} icon={<PiPlus />}>
+          <Button onClick={handleAdd} disabled={!canAdd} icon={<PiPlus />}>
             Add
           </Button>
         </Box>
@@ -175,7 +179,7 @@ export const ExperimentAssignmentQueries: FC<
                   <p className="text-muted mb-0 mt-1">{query.description}</p>
                 )}
 
-                <Flex gap="4">
+                <Flex gap="4" wrap="wrap" align="center">
                   <Box>
                     <strong className="font-weight-semibold">
                       Identifiers:{" "}
@@ -203,6 +207,26 @@ export const ExperimentAssignmentQueries: FC<
                       <em className="text-muted">none</em>
                     )}
                   </Box>
+                  <Box>
+                    <strong className="font-weight-semibold">Projects: </strong>
+                    {query.projects?.length ? (
+                      <ProjectBadges
+                        resourceType="experiment assignment query"
+                        projectIds={query.projects}
+                      />
+                    ) : dataSource.projects?.length ? (
+                      <UITooltip content="Inherited from the Data Source">
+                        <span>
+                          <ProjectBadges
+                            resourceType="experiment assignment query"
+                            projectIds={dataSource.projects}
+                          />
+                        </span>
+                      </UITooltip>
+                    ) : (
+                      <ProjectBadges resourceType="experiment assignment query" />
+                    )}
+                  </Box>
                 </Flex>
                 {query.error && (
                   <Callout status="error" mt="3">
@@ -219,7 +243,7 @@ export const ExperimentAssignmentQueries: FC<
                         >
                           Check it again.
                         </Button>
-                        {canEdit && !isManaged && (
+                        {canEditQuery(query) && !isManaged && (
                           <Button
                             color="inherit"
                             onClick={handleActionClicked(idx, "edit")}
@@ -239,7 +263,7 @@ export const ExperimentAssignmentQueries: FC<
               {/* region Actions*/}
 
               <Flex align="center">
-                {canEdit && (
+                {canEditQuery(query) && (
                   <DropdownMenu
                     trigger={
                       <IconButton

@@ -44,6 +44,7 @@ type Definitions = {
   // including projects the viewer cannot read.
   targetingOptOutProjectIds: string[];
   savedGroups: SavedGroupForDefinitions[];
+  _savedGroupsIncludingArchived: SavedGroupForDefinitions[];
   constants: ConstantWithoutValue[];
   _constantsIncludingArchived: ConstantWithoutValue[];
   configs: ConfigWithoutValue[];
@@ -107,6 +108,7 @@ const defaultValue: DefinitionContextValue = {
   segments: [],
   tags: [],
   savedGroups: [],
+  _savedGroupsIncludingArchived: [],
   constants: [],
   _constantsIncludingArchived: [],
   configs: [],
@@ -247,7 +249,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
     }
     return data.factMetrics.filter((m) => {
       const numeratorFactTable = data.factTables.find(
-        (f) => f.id === m.denominator?.factTableId,
+        (f) => f.id === m.numerator?.factTableId,
       );
       const denominatorFactTable = m.denominator?.factTableId
         ? data.factTables.find((f) => f.id === m.denominator?.factTableId)
@@ -397,6 +399,7 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
       segments: data.segments,
       tags: allTags,
       savedGroups: activeSavedGroups,
+      _savedGroupsIncludingArchived: allSavedGroups,
       constants: activeConstants,
       _constantsIncludingArchived: allConstants,
       configs: activeConfigs,
@@ -453,7 +456,11 @@ export const DefinitionsProvider: FC<{ children: ReactNode }> = ({
         }
       },
       mutateDefinitions: async (changes) => {
-        await mutate(Object.assign({ ...data }, changes), true);
+        if (changes) {
+          await mutate(Object.assign({ ...data }, changes), false);
+        }
+        // Passing cache data to SWR starts revalidation without awaiting it.
+        await mutate();
       },
     };
   }

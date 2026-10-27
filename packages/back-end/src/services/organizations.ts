@@ -16,8 +16,7 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
-  assumesRequesterRole,
-  requesterHeaderPolicy,
+  actsAsUser,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -48,6 +47,7 @@ import {
   SELF_HOSTED_DEFAULT_AI_MODELS,
   CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  AUTOCOMPLETE_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
   STTModel,
@@ -130,10 +130,12 @@ import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { PaymentRequiredError } from "back-end/src/util/errors";
 import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
 import {
+  ArmingOAuthSignIn,
   decodeArmingApiKeyId,
   isArmingApiKeyId,
   SECRET_API_KEY_ID,
 } from "back-end/src/util/armingApiKeyId";
+import { oauthTokenScope } from "back-end/src/util/oauth-token.util";
 import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
@@ -354,6 +356,8 @@ export async function getAISettingsForOrg(
   // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
   visualEditorImageModel: string;
+  // Resolved AI Assistant autocomplete model.
+  autocompleteAIModel: AIModel;
   // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
 }> {
@@ -416,6 +420,16 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
+  // Cheapest tier unless the org picked one; it runs on every pause in
+  // typing. Cloud's managed Anthropic key covers it, self-hosted needs a key.
+  const autocompleteAIModel: AIModel =
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.aiAutocompleteModel,
+      keySource,
+    ) ||
+    (keySource.anthropic !== "none" ? AUTOCOMPLETE_AI_MODEL : defaultAIModel);
+
   const sttModel: STTModel | null = !aiEnabled
     ? null
     : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
@@ -441,6 +455,7 @@ export async function getAISettingsForOrg(
     sttModel,
     visualEditorAIModel,
     visualEditorImageModel,
+    autocompleteAIModel,
     visualEditorAIContext: (
       context.org.settings?.visualEditorAIContext || ""
     ).trim(),
@@ -1924,22 +1939,26 @@ export async function getContextForAgendaJobByOrgId(
 }
 
 // An API key as a principal, built the way the request middleware builds it.
-// Null when the key is gone or disabled. Unscoped PATs are stamped as their
-// user and never arrive here; a scoped one runs as its user under its cap.
+// Null when the key is gone, disabled or expired. A PAT runs as its user, under
+// its cap when scoped.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
   armingId: string,
 ): Promise<ApiReqContext | null> {
-  const { apiKeyId, requesterId } = decodeArmingApiKeyId(armingId);
-  const key = await getOrgApiKey(org, apiKeyId);
-  if (!key || key.disabled || !key.role || isExpired(key.expiresAt)) {
+  const { apiKeyId, requesterId, oauth } = decodeArmingApiKeyId(armingId);
+  const key = oauth
+    ? await oauthGrantKey(org, apiKeyId, oauth)
+    : await getOrgApiKey(org, apiKeyId);
+  if (
+    !key ||
+    key.disabled ||
+    (!key.role && !key.userId) ||
+    isExpired(key.expiresAt)
+  ) {
     return null;
   }
   // Armed while assuming a member, it replays only while the key still would.
-  if (
-    requesterId &&
-    (!assumesRequesterRole(key) || requesterHeaderPolicy(key) === "rejected")
-  ) {
+  if (requesterId && !actsAsUser(key)) {
     return null;
   }
   const user = key.userId ? await getUserById(key.userId) : null;
@@ -1990,6 +2009,39 @@ export async function getContextForApiKeyIdInOrg(
       teams,
       restrictedProjects,
     }),
+  });
+}
+
+// An OAuth sign-in's tokens last an hour and the one that armed work is likely
+// gone, so the work runs on the grant, with the permissions its tokens get.
+// Only the grant it was armed under counts: once that's revoked, a later
+// consent or a new grant for the same app doesn't bring the work back.
+async function oauthGrantKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+  { clientId, userId, armedAt }: ArmingOAuthSignIn,
+): Promise<ApiKeyInterface | null> {
+  const grant = await getContextForAgendaJobByOrgObject(
+    org,
+  ).models.oauthGrants.getGrant(clientId, userId);
+  if (
+    !grant ||
+    grant.revoked ||
+    !(armedAt >= grant.dateCreated.getTime()) ||
+    (grant.revokedAt && grant.revokedAt.getTime() >= armedAt)
+  ) {
+    return null;
+  }
+  return migrateApiKey({
+    id: apiKeyId,
+    key: "",
+    secret: true,
+    organization: org.id,
+    userId,
+    oauthClientId: clientId,
+    description: `OAuth access token (${clientId})`,
+    dateCreated: grant.dateCreated,
+    ...oauthTokenScope(grant.permissions ?? null),
   });
 }
 

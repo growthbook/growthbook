@@ -2978,6 +2978,7 @@ export default function ReviewAndPublish({
                               onScheduleDateChange(d ? d.toISOString() : "")
                             }
                             precision="datetime"
+                            timeZone="local"
                             disableBefore={new Date().toISOString()}
                           />
                           <Flex align="center" gap="1" mt="2">

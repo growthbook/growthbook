@@ -145,12 +145,12 @@ requirements** is on.
 
 Organization API keys with **Review** access can approve too. A key acting as
 itself is judged on its own role, never satisfies a required approver team, and
-can't approve a draft it created or edited. A key that assumes a member's role
-approves as that member, and its approval counts only where both the key and
-the member could approve. Since the key chooses who it names, it can draft as
-one member and approve as another, including a member of a required approver
-team. To stop that, set the key to **Use key's role** or give it a role without
-**Review** access. See
+can't approve a draft it created or edited. A key that acts as **User** approves
+as the member it names, and its approval counts only where both the key and the
+member could approve. Since the key chooses who it names, it can draft as one
+member and approve as another, including a member of a required approver team.
+To stop that, make the key act as **System**, which always approves as itself,
+or give it a role without **Review** access. See
 [Naming who asked](/api/introduction#naming-who-asked).
 
 <Frame>

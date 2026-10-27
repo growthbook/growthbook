@@ -41,6 +41,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
+  getPersonalAccessTokenCap,
   getPersonalAccessTokenPermissions,
   getUserPermissions,
   getEnvironmentIdsFromOrg,
@@ -106,6 +107,8 @@ import { SlackWorkspaceConnectionModel } from "back-end/src/models/SlackWorkspac
 import { SlackUserLinkModel } from "back-end/src/models/SlackUserLinkModel";
 import { SlackTaskClaimModel } from "back-end/src/models/SlackTaskClaimModel";
 import { AICredentialModel } from "back-end/src/models/AICredentialModel";
+import { ConfirmationModel } from "back-end/src/models/ConfirmationModel";
+import { ConfirmationAttemptModel } from "back-end/src/models/ConfirmationAttemptModel";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { OAuthAuthCodeModel } from "back-end/src/models/OAuthAuthCodeModel";
 import { QueryLogModel } from "back-end/src/models/QueryLogModel";
@@ -166,6 +169,8 @@ export type ModelName =
   | "slackUserLinks"
   | "slackTaskClaims"
   | "apiKeys"
+  | "confirmations"
+  | "confirmationAttempts"
   | "oauthAuthCodes"
   | "oauthGrants"
   | "oauthRefreshTokens"
@@ -229,6 +234,8 @@ export const modelClasses = {
   slackUserLinks: SlackUserLinkModel,
   slackTaskClaims: SlackTaskClaimModel,
   apiKeys: ApiKeyModel,
+  confirmations: ConfirmationModel,
+  confirmationAttempts: ConfirmationAttemptModel,
   oauthAuthCodes: OAuthAuthCodeModel,
   queryLogs: QueryLogModel,
   oauthGrants: OAuthGrantModel,
@@ -358,11 +365,14 @@ export class ReqContextClass {
 
   /**
    * The request whose ignoreWarnings/skip* flags apply, when it isn't `req`.
-   * Set by the agent while it replays a confirmed call: the flags belong to
+   * Set while a confirmed call replays (by the agent or decideConfirmation): the flags belong to
    * that call, not to the chat request (web) or to its absence (Slack, which
    * would otherwise read as a background job that ignores every warning).
    */
   public dispatchedRequest: OverrideSource | null = null;
+
+  /** Set while a confirmed request replays, so its hold lets the write through. */
+  public confirmationId: string | null = null;
 
   // Models
   public models!: ModelInstances;
@@ -413,6 +423,8 @@ export class ReqContextClass {
       slackUserLinks: new SlackUserLinkModel(this),
       slackTaskClaims: new SlackTaskClaimModel(this),
       apiKeys: new ApiKeyModel(this),
+      confirmations: new ConfirmationModel(this),
+      confirmationAttempts: new ConfirmationAttemptModel(this),
       oauthAuthCodes: new OAuthAuthCodeModel(this),
       queryLogs: new QueryLogModel(this),
       oauthGrants: new OAuthGrantModel(this),
@@ -466,9 +478,10 @@ export class ReqContextClass {
     return this.apiKey && this.actorId === this.apiKey ? this.apiKey : null;
   }
 
-  // An org key assuming a member's role may use that member's author rights
-  // only where its own role allows the action too, so it never does more than
-  // the key alone could. `check` runs against the key's own permissions.
+  // An org key assuming a member's role, or a scoped token acting as its user,
+  // may use that person's author rights only where its own role allows the
+  // action too, so it never does more than the key alone could. `check` runs
+  // against the key's own permissions.
   public authorRightsAllow(check: (context: this) => boolean): boolean {
     if (!this.assumingKeyPermissions) return true;
     const keyContext: this = Object.create(this);
@@ -490,6 +503,7 @@ export class ReqContextClass {
   public environments: string[];
   public auditUser: EventUser;
   public apiKey?: string;
+  public apiKeyData?: ApiKeyInterface;
   private scopedApiKey = false;
   public req?: Request;
   public logger: pino.BaseLogger;
@@ -501,7 +515,19 @@ export class ReqContextClass {
   // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
   // with the work), a user as themselves, an org key as itself with its requester.
   public get armer(): { userId?: string; apiKey?: string } {
-    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    if (this.scopedApiKey) {
+      const clientId = this.apiKeyData?.oauthClientId;
+      return {
+        apiKey:
+          this.apiKey && clientId && this.userId
+            ? encodeArmingApiKeyId(this.apiKey, undefined, {
+                clientId,
+                userId: this.userId,
+                armedAt: Date.now(),
+              })
+            : this.apiKey,
+      };
+    }
     if (this.userId) return { userId: this.userId };
     if (!this.apiKey) return {};
     return {
@@ -548,6 +574,7 @@ export class ReqContextClass {
     this.isApiRequest = auditUser?.type === "api_key";
     this.role = role;
     this.apiKey = apiKey;
+    this.apiKeyData = apiKeyData;
     this.req = req;
 
     if (this.req && this.req.log) {
@@ -574,6 +601,16 @@ export class ReqContextClass {
             restrictedProjects,
           )
         : getUserPermissions(user, org, teams || [], restrictedProjects);
+      if (apiKeyData?.userId && apiKeyData.scoped) {
+        this.assumingKeyPermissions = new Permissions(
+          getPersonalAccessTokenCap(
+            apiKeyData,
+            org,
+            teams || [],
+            restrictedProjects,
+          ),
+        );
+      }
     }
     // If an API key or background job is making this request
     else {
@@ -618,6 +655,11 @@ export class ReqContextClass {
     const v = req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
+  }
+
+  // Background jobs (no req) are never blocked by the rule scope setting.
+  public get allowUnscopedRules(): boolean {
+    return !this.overrideSource || this.bodyFlag("allowUnscopedRules");
   }
 
   private get overrideSource(): OverrideSource | undefined {

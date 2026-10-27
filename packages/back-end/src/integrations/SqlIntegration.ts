@@ -30,7 +30,7 @@ import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   MetricValueParams,
   ExperimentMetricQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   PastExperimentQueryResponse,
   ExperimentMetricQueryResponse,
   ExperimentMetricQueryResponseRows,
@@ -527,13 +527,11 @@ export default abstract class SqlIntegration
   hasQuantileSketch(): boolean {
     return false;
   }
-  getPastExperimentQuery(params: PastExperimentParams): string {
-    // TODO: for past experiments, UNION all exposure queries together
-    const experimentQueries = this.datasource.settings.queries?.exposure || [];
-
+  getPastExperimentQuery(params: PastExperimentQueryParams): string {
     return buildPastExperimentQuerySql(
       this.getSqlDialect(),
-      experimentQueries,
+      params.exposureQuery,
+      params.identifierTypes,
       params.from,
       new Date(),
     );
@@ -553,6 +551,7 @@ export default abstract class SqlIntegration
       rows: rows.map((row) => {
         return {
           exposure_query: row.exposure_query,
+          identifier_type: row.identifier_type,
           experiment_id: row.experiment_id,
           experiment_name: row.experiment_name,
           variation_id: row.variation_id ?? "",
@@ -843,8 +842,16 @@ export default abstract class SqlIntegration
     );
     return {
       rows: rows.map((row) => ({
+        row_type: row.row_type === "cell" ? "cell" : "summary",
         statistic: parseFloat(row.statistic) || 0,
         degrees_of_freedom: parseInt(row.degrees_of_freedom, 10) || 0,
+        bandit_version:
+          (row.bandit_version ?? null) !== null ? `${row.bandit_version}` : "",
+        leaf_id: (row.leaf_id ?? null) !== null ? `${row.leaf_id}` : "",
+        variation: (row.variation ?? null) !== null ? `${row.variation}` : "",
+        observed: parseFloat(row.observed) || 0,
+        expected: parseFloat(row.expected) || 0,
+        multiple_exposures: parseInt(row.multiple_exposures, 10) || 0,
       })),
       statistics,
     };

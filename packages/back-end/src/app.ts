@@ -40,6 +40,7 @@ import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import { trimTrailingSlashes } from "./util/http.util";
 import {
   oauthAsAuthedRouter,
   oauthAsPublicRouter,
@@ -127,6 +128,7 @@ import { tagRouter } from "./routers/tag/tag.router";
 import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { learningsRouter } from "./routers/learnings/learnings.router";
+import { confirmationsRouter } from "./routers/confirmations/confirmations.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
@@ -290,10 +292,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host: (
+      api_host: trimTrailingSlashes(
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port")
-      ).replace(/\/+$/, ""),
+          req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      ),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -687,6 +689,7 @@ app.use("/saved-groups", savedGroupRouter);
 app.use("/archetype", ArchetypeRouter);
 
 app.use("/learnings", learningsRouter);
+app.use("/confirmations", confirmationsRouter);
 
 app.use("/attribute", AttributeRouter);
 

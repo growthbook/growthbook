@@ -29,7 +29,7 @@ import RecommendedFactMetricsModal, {
 } from "@/components/FactTables/RecommendedFactMetricsModal";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
+import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import {
   DropdownMenu,
   DropdownMenuGroup,
@@ -40,7 +40,6 @@ import {
   isMergeAggregationMetric,
   REST_API_ONLY_EDIT_MESSAGE,
 } from "@/services/factMetrics";
-import FactMetricModal from "./FactMetricModal";
 
 function FactMetricRowMenu({
   metric,
@@ -66,10 +65,7 @@ function FactMetricRowMenu({
     canEdit && !metric.archived && !editDisabledReason && !!onEdit;
   const canShowDisabledEdit =
     canEdit && !metric.archived && !!editDisabledReason;
-  // Duplicate uses the same FactMetricModal as Edit, so anything that locks
-  // editing to the REST API also has to lock Duplicate — otherwise a user
-  // could open a half-broken modal pre-filled with values the picker can no
-  // longer represent.
+  // Neither editor can represent metrics restricted to REST API editing.
   const canDuplicateMenu = canDuplicate && !editDisabledReason;
   const canShowDisabledDuplicate = canDuplicate && !!editDisabledReason;
 
@@ -171,7 +167,6 @@ export default function FactMetricList({
   factTable,
   metrics: providedMetrics,
 }: Props) {
-  const [newOpen, setNewOpen] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
 
   const { _factMetricsIncludingArchived: factMetrics, getProjectById } =
@@ -193,12 +188,7 @@ export default function FactMetricList({
     hasCommercialFeature("metric-slices") &&
     factTable.columns.some((col) => col.isAutoSliceColumn && !col.deleted);
 
-  const [editMetric, setEditMetric] = useState<
-    FactMetricInterface | undefined
-  >();
-  const [duplicateMetric, setDuplicateMetric] = useState<
-    FactMetricInterface | undefined
-  >();
+  const factMetricFlow = useFactMetricFlow("fact-table");
 
   const canEdit = (factMetric: FactMetricInterface) => {
     let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
@@ -314,28 +304,7 @@ export default function FactMetricList({
 
   return (
     <>
-      {editMetric && (
-        <FactMetricModal
-          close={() => setEditMetric(undefined)}
-          existing={editMetric}
-          source="fact-metric"
-        />
-      )}
-      {newOpen && (
-        <FactMetricModal
-          close={() => setNewOpen(false)}
-          initialFactTable={factTable.id}
-          source="fact-table"
-        />
-      )}
-      {duplicateMetric && (
-        <FactMetricModal
-          close={() => setDuplicateMetric(undefined)}
-          existing={duplicateMetric}
-          duplicate
-          source="fact-table-duplicate"
-        />
-      )}
+      {factMetricFlow.modal}
       {showRecommendedMetricsModal && (
         <RecommendedFactMetricsModal
           factTable={factTable}
@@ -381,20 +350,7 @@ export default function FactMetricList({
           </>
         )}
         <Box ml="auto">
-          <Tooltip
-            content={`You don't have permission to add metrics to this fact table`}
-            enabled={!canCreateMetrics}
-          >
-            <Button
-              onClick={() => {
-                if (!canCreateMetrics) return;
-                setNewOpen(true);
-              }}
-              disabled={!canCreateMetrics}
-            >
-              Add Metric
-            </Button>
-          </Tooltip>
+          {factMetricFlow.createButton({ factTable: factTable.id })}
         </Box>
       </Flex>
       {metrics.length > 0 && (
@@ -516,22 +472,14 @@ export default function FactMetricList({
                       canEdit={canEdit(metric)}
                       canDelete={canDelete(metric)}
                       canDuplicate={canCreateMetrics}
-                      onEdit={() => setEditMetric(metric)}
+                      onEdit={() => factMetricFlow.edit(metric)}
                       editDisabledReason={
                         isMergeAggregationMetric(metric)
                           ? REST_API_ONLY_EDIT_MESSAGE
                           : undefined
                       }
                       onDuplicate={() =>
-                        setDuplicateMetric({
-                          ...metric,
-                          name: `${metric.name} (Copy)`,
-                          managedBy:
-                            metric.managedBy === "admin" &&
-                            permissionsUtil.canCreateOfficialResources(metric)
-                              ? "admin"
-                              : "",
-                        })
+                        factMetricFlow.open({ duplicate: metric })
                       }
                     />
                   </td>

@@ -1368,6 +1368,18 @@ describe("productAnalyticsDateDimensionBucketMergeKey", () => {
       ),
     ).toBe(productAnalyticsDateDimensionBucketMergeKey("2024-01-03", day));
   });
+
+  it("reads zoneless warehouse buckets as UTC, whatever the runtime's zone", () => {
+    expect(
+      productAnalyticsDateDimensionBucketMergeKey("2024-01-03 00:00:00", "day"),
+    ).toBe(Date.UTC(2024, 0, 3));
+    expect(
+      productAnalyticsDateDimensionBucketMergeKey(
+        "2024-01-03 07:00:00",
+        "hour",
+      ),
+    ).toBe(Date.UTC(2024, 0, 3, 7));
+  });
 });
 
 describe("densifyComparisonExplorationTimeseries", () => {

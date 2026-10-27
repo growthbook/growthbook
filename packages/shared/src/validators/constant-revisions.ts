@@ -24,6 +24,16 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  NEW_DRAFT_COMMENT_DESCRIPTION,
+  NEW_DRAFT_TITLE_DESCRIPTION,
+  REVERT_COMMENT_IGNORED_DESCRIPTION,
+  REVIEW_COMMENT_DESCRIPTION,
+  REVISION_TITLE_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
 
@@ -47,8 +57,11 @@ const revisionParamsStrict = constantKeyParams.extend({
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z.string().optional(),
-  revisionComment: z.string().optional(),
+  revisionTitle: z.string().describe(NEW_DRAFT_TITLE_DESCRIPTION).optional(),
+  revisionComment: z
+    .string()
+    .describe(NEW_DRAFT_COMMENT_DESCRIPTION)
+    .optional(),
 };
 
 // ---- Shared response schemas ----
@@ -294,6 +307,7 @@ export const getConstantRevisionMergeStatusValidator = {
 export const postConstantRevisionValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key",
+  confirmation: ["constant.draft"] as const,
   operationId: "postConstantRevision",
   summary: "Create a draft revision",
   description:
@@ -310,6 +324,7 @@ export const postConstantRevisionValidator = {
 export const postConstantRevisionDiscardValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/discard",
+  confirmation: ["constant.draft"] as const,
   operationId: "postConstantRevisionDiscard",
   summary: "Discard a draft revision",
   description:
@@ -324,6 +339,12 @@ export const postConstantRevisionDiscardValidator = {
 export const postConstantRevisionPublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/publish",
+  confirmation: [
+    "constant.publish",
+    "constant.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "postConstantRevisionPublish",
   summary: "Publish a draft revision",
   description:
@@ -345,6 +366,14 @@ export const postConstantRevisionPublishValidator = {
 export const postConstantRevisionRevertValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/revert",
+  confirmation: [
+    "constant.draft",
+    "constant.publish",
+    "constant.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  // Holds once the strategy is known: a draft, or a publish that lands.
+  confirmationInHandler: true,
   operationId: "postConstantRevisionRevert",
   summary: "Revert the constant to a prior revision",
   description:
@@ -359,8 +388,11 @@ export const postConstantRevisionRevertValidator = {
         .describe(
           "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
         ),
-      title: z.string().optional(),
-      comment: z.string().optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      comment: z
+        .string()
+        .describe(REVERT_COMMENT_IGNORED_DESCRIPTION)
+        .optional(),
       ...publishOverrideBodyFields,
     })
     .strict(),
@@ -373,6 +405,7 @@ export const postConstantRevisionRevertValidator = {
 export const postConstantRevisionRebaseValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/rebase",
+  confirmation: ["constant.draft"] as const,
   operationId: "postConstantRevisionRebase",
   summary: "Rebase a draft revision onto the current live constant",
   description:
@@ -397,6 +430,7 @@ export const postConstantRevisionRebaseValidator = {
 export const postConstantRevisionRequestReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/request-review",
+  confirmation: ["constant.draft"] as const,
   operationId: "postConstantRevisionRequestReview",
   summary: "Request review for a draft revision",
   description:
@@ -419,6 +453,7 @@ export const postConstantRevisionRequestReviewValidator = {
 export const postConstantRevisionSubmitReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/submit-review",
+  confirmation: ["constant.review"] as const,
   operationId: "postConstantRevisionSubmitReview",
   summary: "Submit a review on a draft revision",
   description: `Submits an \`approve\`, \`request-changes\`, or \`comment\` review on the revision. ${REVIEW_VERDICT_NOTE} Submitting \`approve\` or \`request-changes\` needs Review access. A \`comment\` is participation rather than a verdict, so it is also open to the Comments permission or draft authority on the entity. Authors and contributors cannot submit \`approve\` reviews on their own drafts when the org has \`blockSelfApproval\` enabled.\n\nWhen \`decision\` is \`approve\` and the revision has \`autoPublishOnApproval\` enabled, the revision is automatically published after approval. The response includes \`autoPublished: true\` when this happens. Pass \`skipAutoPublish: true\` to approve without triggering auto-publish.`,
@@ -427,7 +462,7 @@ export const postConstantRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       decision: z.enum(reviewDecision),
-      comment: z.string().optional(),
+      comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -442,6 +477,7 @@ export const postConstantRevisionSubmitReviewValidator = {
 export const putConstantRevisionMetadataValidator = {
   method: "put" as const,
   path: "/constants-revisions/:key/:version/metadata",
+  confirmation: ["constant.draft"] as const,
   operationId: "putConstantRevisionMetadata",
   summary: "Update constant metadata in a draft revision",
   description:
@@ -451,9 +487,9 @@ export const putConstantRevisionMetadataValidator = {
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
-      name: z.string().optional(),
+      name: z.string().describe(GENERIC_NAME_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
-      description: z.string().optional(),
+      description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
       project: z.string().optional(),
     })
     .strict(),
@@ -464,6 +500,7 @@ export const putConstantRevisionMetadataValidator = {
 export const putConstantRevisionValueValidator = {
   method: "put" as const,
   path: "/constants-revisions/:key/:version/value",
+  confirmation: ["constant.draft"] as const,
   operationId: "putConstantRevisionValue",
   summary: "Update the value of a constant draft revision",
   description:
@@ -492,6 +529,7 @@ export const putConstantRevisionValueValidator = {
 export const putConstantRevisionArchiveValidator = {
   method: "put" as const,
   path: "/constants-revisions/:key/:version/archive",
+  confirmation: ["constant.draft"] as const,
   operationId: "putConstantRevisionArchive",
   summary: "Stage an archive/unarchive in a draft revision",
   description:
@@ -514,6 +552,7 @@ export const putConstantRevisionArchiveValidator = {
 export const postConstantRevisionSchedulePublishValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/schedule-publish",
+  confirmation: ["constant.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
   operationId: "postConstantRevisionSchedulePublish",
   summary: "Schedule (or cancel) a deferred publish",
   description:
@@ -541,6 +580,7 @@ export const postConstantRevisionSchedulePublishValidator = {
 export const postConstantRevisionReopenValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/reopen",
+  confirmation: ["constant.draft"] as const,
   operationId: "postConstantRevisionReopen",
   summary: "Reopen a discarded revision",
   description:
@@ -555,6 +595,7 @@ export const postConstantRevisionReopenValidator = {
 export const postConstantRevisionRecallReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/recall-review",
+  confirmation: ["constant.draft"] as const,
   operationId: "postConstantRevisionRecallReview",
   summary: "Recall a review request",
   description:
@@ -569,6 +610,7 @@ export const postConstantRevisionRecallReviewValidator = {
 export const postConstantRevisionUndoReviewValidator = {
   method: "post" as const,
   path: "/constants-revisions/:key/:version/undo-review",
+  confirmation: ["constant.review"] as const,
   operationId: "postConstantRevisionUndoReview",
   summary: "Retract your own review verdict",
   description: `Retracts the calling user's own active \`approve\` or \`request-changes\` verdict, returning the revision to \`pending-review\`. Review comments stay in the log. Retracting a \`request-changes\` can leave the revision approved by someone else, in which case an armed auto-publish fires. ${REVIEW_VERDICT_NOTE}`,

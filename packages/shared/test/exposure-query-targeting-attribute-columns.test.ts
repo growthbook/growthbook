@@ -6,6 +6,7 @@ import {
   getInvalidTargetingAttributeColumnsForExposureQueries,
   getMalformedTargetingAttributeColumnsForExposureQueries,
   isSafeSqlIdentifier,
+  queryHasContextualBanditSrmColumns,
 } from "../src/validators/exposure-query-targeting-attribute-columns";
 
 const schema: SDKAttributeSchema = [
@@ -114,6 +115,40 @@ describe("exposure query targeting attribute columns", () => {
         },
       ]),
     ).toThrow(/is not a valid column name/);
+  });
+
+  describe("queryHasContextualBanditSrmColumns", () => {
+    it("detects all required SRM columns", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          "SELECT bandit_version, leaf_id, variation_weights FROM exposures",
+        ),
+      ).toBe(true);
+    });
+
+    it("ignores required columns that appear only in comments", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          "SELECT bandit_version, leaf_id -- variation_weights not selected\nFROM exposures",
+        ),
+      ).toBe(false);
+    });
+
+    it("detects required columns exposed via double-quoted (ANSI/PostgreSQL) aliases", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          'SELECT source.version AS "bandit_version", source.leaf AS "leaf_id", source.weights AS "variation_weights" FROM exposures',
+        ),
+      ).toBe(true);
+    });
+
+    it("still ignores a required column that only appears in a single-quoted string", () => {
+      expect(
+        queryHasContextualBanditSrmColumns(
+          "SELECT bandit_version, leaf_id, 'variation_weights' AS note FROM exposures",
+        ),
+      ).toBe(false);
+    });
   });
 
   it("formatInvalidTargetingAttributeColumnMessages uses entered names and dedupes", () => {

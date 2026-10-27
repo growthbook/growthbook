@@ -44,6 +44,7 @@ import {
   eventUserIdentity,
 } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { editDisarmsFeatureDraft } from "back-end/src/services/confirmations";
 import {
   featureForSavedGroupValidation,
   Feature as SavedGroupScopeFeature,
@@ -730,6 +731,19 @@ export async function getOpenDraftRules(
     { rules: 1, _id: 0 },
   ).lean();
   return docs.map((d) => d.rules);
+}
+
+export async function getActiveDraftVersions(
+  organization: string,
+  featureId: string,
+): Promise<number[]> {
+  const docs = await FeatureRevisionModel.find(
+    { organization, featureId, status: { $in: ACTIVE_DRAFT_STATUSES } },
+    { version: 1, _id: 0 },
+  )
+    .sort({ version: 1 })
+    .lean();
+  return docs.map((d) => d.version);
 }
 
 export async function hasDraft(
@@ -1623,6 +1637,7 @@ export async function updateRevision(
     revision: proposedRevision,
     original: revision,
   });
+  const disarm = editDisarmsFeatureDraft(context, proposedRevision);
 
   // Track contributors by identity, and the key behind an edit in either mode,
   // via atomic $addToSet.
@@ -1631,6 +1646,10 @@ export async function updateRevision(
   const addToSet = {
     ...(contributorId != null ? { contributors: contributorId } : {}),
     ...(editorKey ? { editorKeys: editorKey } : {}),
+  };
+  const unset = {
+    ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
+    ...(disarm ? { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 } : {}),
   };
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the
@@ -1661,11 +1680,12 @@ export async function updateRevision(
         // policy hooks and the REST API don't count approvals made against
         // older content, while the UI can still attribute them.
         ...(clearReviews ? { reviews: staleReviews } : {}),
+        ...(disarm ? { autoPublishOnApproval: false } : {}),
       },
       // The reset starts a new review cycle, so it takes a new cycle number —
       // atomically, like every other cycle start.
       ...(clearReviews ? { $inc: { reviewCycle: 1 } } : {}),
-      ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
       ...(Object.keys(addToSet).length ? { $addToSet: addToSet } : {}),
     },
     { new: true },
@@ -1689,6 +1709,11 @@ export async function updateRevision(
     });
 
   const updatedRevision = toInterface(doc, context, feature);
+  if (disarm) {
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
+    });
+  }
 
   // Linkage sync whenever draft rules change.
   if ("rules" in changes) {

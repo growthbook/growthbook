@@ -293,7 +293,8 @@
                     "pages": [
                       "integrations/ai-agents/wizard",
                       "integrations/mcp",
-                      "integrations/ai-agents/agent-skills"
+                      "integrations/ai-agents/agent-skills",
+                      "integrations/ai-agents/api-keys"
                     ]
                   },
                   "integrations/vercel",
@@ -979,7 +980,10 @@
               },
               {
                 "group": "Meta",
-                "pages": ["api/meta/operation/getVersion"]
+                "pages": [
+                  "api/meta/operation/getVersion",
+                  "api/meta/operation/getConfirmation"
+                ]
               },
               {
                 "group": "Contextual Bandits",
@@ -991,6 +995,7 @@
                   "api/ContextualBandits/operation/listContextualBanditEvents",
                   "api/ContextualBandits/operation/getContextualBanditEvent",
                   "api/ContextualBandits/operation/getContextualBanditResults",
+                  "api/ContextualBandits/operation/getContextualBanditStatus",
                   "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
                   "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",
@@ -1003,7 +1008,9 @@
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBanditVariations",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
+                  "api/ContextualBandits/operation/cancelContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
+                  "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
                 ]
               },
               {
@@ -1027,6 +1034,17 @@
                   "api/ContextualBanditQueries/operation/deleteContextualBanditQuery",
                   "api/ContextualBanditQueries/operation/listContextualBanditQueries",
                   "api/ContextualBanditQueries/operation/createContextualBanditQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Experiments",
+                "pages": [
+                  "api/Interleavings/operation/getInterleaving",
+                  "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/listInterleavings",
+                  "api/Interleavings/operation/createInterleaving",
+                  "api/Interleavings/operation/startInterleaving",
+                  "api/Interleavings/operation/stopInterleaving"
                 ]
               },
               {
@@ -1164,6 +1182,8 @@
               "api/ConfigSchemaSource_model",
               "api/ConfigSchemaVerify_model",
               "api/ConfigSchemaWarning_model",
+              "api/Confirmation_model",
+              "api/ConfirmationHeld_model",
               "api/Constant_model",
               "api/ConstantReferences_model",
               "api/ConstantRevision_model",
@@ -1216,6 +1236,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Interleaving_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
@@ -1254,7 +1275,8 @@
               "api/TargetingReviewRule_model",
               "api/Team_model",
               "api/VisualChange_model",
-              "api/VisualChangeset_model"
+              "api/VisualChangeset_model",
+              "api/VisualEditorCbExperimentStub_model"
             ]
           }
         ]

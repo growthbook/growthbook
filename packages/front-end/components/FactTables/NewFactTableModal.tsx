@@ -38,7 +38,10 @@ import { mapDatabaseTypeToEnum } from "shared/enterprise";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import { buildRowFilterWhereClause } from "shared/experiments";
 import { DocLink } from "@/components/DocLink";
-import { getNewExperimentDatasourceDefaults } from "@/components/Experiment/NewExperimentForm";
+import {
+  getNewExperimentDatasourceDefaults,
+  getInitialFactTableQuery,
+} from "@/services/datasources";
 import NewFactTableSqlStep, {
   FactTableSqlMode,
   SAMPLE_ROW_LIMIT,
@@ -52,7 +55,6 @@ import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getInitialFactTableQuery } from "@/services/datasources";
 import {
   getColumnMappingError,
   getDefaultPartitionColumn,
@@ -412,7 +414,15 @@ function AdditionalColumnsRow({
 
 const BODY_HEIGHT = "calc(93vh - 200px)";
 
-export default function NewFactTableModal({ close }: { close: () => void }) {
+export default function NewFactTableModal({
+  close,
+  datasourceId: initialDatasourceId,
+  lockDatasource = false,
+}: {
+  close: () => void;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+}) {
   const router = useRouter();
   const growthbook = useGrowthBook();
   const { apiCall } = useAuth();
@@ -424,6 +434,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
   const [step, setStep] = useState(0);
   const [datasourceId, setDatasourceId] = useState(
     () =>
+      initialDatasourceId ||
       getNewExperimentDatasourceDefaults({ datasources, settings, project })
         .datasource,
   );
@@ -1010,6 +1021,7 @@ export default function NewFactTableModal({ close }: { close: () => void }) {
             key={mode}
             datasourceId={datasourceId}
             setDatasourceId={setDatasourceId}
+            lockDatasource={lockDatasource}
             sql={factTableSql}
             setSql={setSql}
             detected={detected}

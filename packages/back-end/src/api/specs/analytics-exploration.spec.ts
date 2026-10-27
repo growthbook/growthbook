@@ -171,6 +171,7 @@ export const getProductAnalyticsColumnValuesBodySchema = z
 export const getProductAnalyticsColumnValuesEndpoint = {
   pathFragment: "/column-values",
   verb: "post" as const,
+  confirmation: [],
   operationId: "getProductAnalyticsColumnValues",
   validator: {
     bodySchema: getProductAnalyticsColumnValuesBodySchema,
@@ -195,6 +196,7 @@ export function makeExplorationEndpoint<
   return {
     pathFragment: opts.pathFragment,
     verb: "post" as const,
+    confirmation: [],
     operationId: opts.operationId,
     validator: {
       bodySchema: bodyValidator,

@@ -6,7 +6,6 @@ import {
 import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,
-  getPopulationStepsLabel,
   MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
   type PopulationRuleFactTable,
@@ -90,29 +89,6 @@ describe("getPopulationFactTableIds", () => {
         step("ftb_orders"),
       ]),
     ).toEqual(["ftb_orders", "ftb_events"]);
-  });
-});
-
-describe("getPopulationStepsLabel", () => {
-  const names: Record<string, string> = {
-    ftb_events: "Events",
-    ftb_orders: "Orders",
-  };
-  const getName = (id: string) => names[id];
-
-  it("joins step fact table names in order", () => {
-    expect(
-      getPopulationStepsLabel(
-        [step("ftb_events"), step("ftb_orders"), step("ftb_events")],
-        getName,
-      ),
-    ).toBe("Events → Orders → Events");
-  });
-
-  it("falls back to the fact table id when the name is unknown", () => {
-    expect(
-      getPopulationStepsLabel([step("ftb_events"), step("ftb_gone")], getName),
-    ).toBe("Events → ftb_gone");
   });
 });
 
@@ -312,6 +288,23 @@ describe("getPopulationRuleViolations", () => {
         'Invalid aggregate filter "lots" (step 1). Use comparisons such as ">=3" or ">=3,<10".',
         'Invalid aggregate filter ">=3,<" (step 2). Use comparisons such as ">=3" or ">=3,<10".',
         'Invalid aggregate filter "," (step 3). Use comparisons such as ">=3" or ">=3,<10".',
+      ]);
+    });
+
+    it("rejects JSON sub-fields when the fact table has no jsonFields", () => {
+      const slimEvents: PopulationRuleFactTable = {
+        ...events,
+        columns: events.columns.map((c) => ({ ...c, jsonFields: undefined })),
+      };
+      expect(
+        getPopulationRuleViolations({
+          datasource: "ds_main",
+          userIdTypes: ["user_id"],
+          steps: [withAggregate("props.quantity")],
+          factTables: [slimEvents],
+        }),
+      ).toEqual([
+        `Aggregate filter column 'props.quantity' must be a numeric column or "$$count" (step 1).`,
       ]);
     });
 
