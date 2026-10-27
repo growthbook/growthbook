@@ -835,7 +835,7 @@ export default function FeatureValueField({
         variant="ghost"
         onClick={copyValue}
       >
-        <CopyIcon copied={copySuccess} size={12} />
+        <CopyIcon copied={copySuccess} size="sm" />
       </IconButton>
     </Tooltip>
   );

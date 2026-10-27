@@ -259,7 +259,7 @@ export default function ValueDisplay({
                       }
                     }}
                   >
-                    <CopyIcon copied={copySuccess} size={12} />
+                    <CopyIcon copied={copySuccess} size="sm" />
                   </IconButton>
                 </Tooltip>
               ) : null}
@@ -275,7 +275,7 @@ export default function ValueDisplay({
                       setModalOpen(true);
                     }}
                   >
-                    <FullscreenIcon size={12} />
+                    <FullscreenIcon size="sm" />
                   </IconButton>
                 </Tooltip>
               )}

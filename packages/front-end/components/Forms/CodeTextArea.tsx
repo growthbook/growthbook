@@ -648,12 +648,7 @@ export default function CodeTextArea({
                     {showCopyButton && (
                       <EditorAction
                         label={copySuccess ? "Copied" : "Copy to clipboard"}
-                        icon={
-                          <CopyIcon
-                            copied={copySuccess}
-                            size={EDITOR_ACTION_ICON_SIZE}
-                          />
-                        }
+                        icon={<CopyIcon copied={copySuccess} size="sm" />}
                         onClick={() => {
                           if (!copySuccess) performCopy(value);
                         }}
@@ -667,12 +662,7 @@ export default function CodeTextArea({
                             ? "Exit full screen (ESC)"
                             : "Edit in full screen"
                         }
-                        icon={
-                          <FullscreenIcon
-                            exit={isFullscreen}
-                            size={EDITOR_ACTION_ICON_SIZE}
-                          />
-                        }
+                        icon={<FullscreenIcon exit={isFullscreen} size="sm" />}
                         onClick={() => {
                           if (onRequestFullscreen) {
                             onRequestFullscreen();
