@@ -259,16 +259,20 @@ export default function CustomMetricSlicesSelector({
               </label>
             )}
 
-            <Text
-              as="p"
-              className="mb-2"
-              style={{ color: "var(--color-text-mid)" }}
-            >
-              Define custom slices to analyze across all experiment metrics.{" "}
-              <DocLink useRadix={false} docSection="customSlices">
-                Learn More <PiArrowSquareOut />
-              </DocLink>
-            </Text>
+            {disabled && !customMetricSlices.length ? (
+              <Text style={{ color: "var(--color-text-mid)" }}>None</Text>
+            ) : (
+              <Text
+                as="p"
+                className="mb-2"
+                style={{ color: "var(--color-text-mid)" }}
+              >
+                Define custom slices to analyze across all experiment metrics.{" "}
+                <DocLink useRadix={false} docSection="customSlices">
+                  Learn more <PiArrowSquareOut />
+                </DocLink>
+              </Text>
+            )}
 
             {customMetricSlices.map((levels, levelsIndex) => {
               const isEditing =
@@ -552,16 +556,9 @@ function SliceSelector({
       </div>
     ) : null
   ) : shouldShowAndButton ? (
-    <a
-      role="button"
-      onClick={(e) => {
-        e.preventDefault();
-        setAddingSlice(true);
-      }}
-      className="link-purple mx-1"
-    >
+    <Link mx="1" onClick={() => setAddingSlice(true)}>
       + AND
-    </a>
+    </Link>
   ) : null;
 }
 

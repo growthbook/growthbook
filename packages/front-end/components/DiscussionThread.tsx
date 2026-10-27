@@ -4,9 +4,8 @@ import {
   DiscussionInterface,
   Comment,
 } from "shared/types/discussion";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { datetime } from "shared/dates";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
@@ -15,7 +14,11 @@ import Callout from "@/ui/Callout";
 import ScrollArea from "@/ui/ScrollArea";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
@@ -98,17 +101,12 @@ const DiscussionThread: FC<{
                       : comment.userId === userId && (
                           <DropdownMenu
                             trigger={
-                              <IconButton
-                                variant="ghost"
-                                color="gray"
-                                radius="full"
+                              <MoreMenuTrigger
+                                label="Comment actions"
                                 size="1"
-                                highContrast
                                 // Undo the ghost variant's negative margin.
                                 style={{ margin: 0 }}
-                              >
-                                <BsThreeDotsVertical size={14} />
-                              </IconButton>
+                              />
                             }
                             variant="soft"
                             menuPlacement="end"

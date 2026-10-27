@@ -248,12 +248,12 @@ export default function StartContextualBanditModal({
                 <Text>{coveragePct}% included</Text>
               </TargetingSummaryRow>
               {hasAttributeTargeting && (
-                <TargetingSummaryRow label="Attribute Targeting">
+                <TargetingSummaryRow label="Attribute targeting">
                   <ConditionDisplay condition={cb.condition ?? "{}"} />
                 </TargetingSummaryRow>
               )}
               {hasSavedGroupTargeting && (
-                <TargetingSummaryRow label="Saved Group Targeting">
+                <TargetingSummaryRow label="Saved Group targeting">
                   <SavedGroupTargetingDisplay
                     savedGroups={cb.savedGroups ?? []}
                   />

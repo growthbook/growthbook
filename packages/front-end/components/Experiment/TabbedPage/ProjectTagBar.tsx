@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
-import { PiWarning } from "react-icons/pi";
+import { PiLockSimple, PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import {
   getExposureQueryIdentifierTypes,
@@ -12,6 +12,7 @@ import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
@@ -35,6 +36,17 @@ export function EmptyValue() {
     <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
       None
     </Text>
+  );
+}
+
+export function RestrictedValue() {
+  return (
+    <UITooltip content="This Data Source is in a Project you don't have access to.">
+      <Flex as="span" align="center" gap="1" style={{ display: "inline-flex" }}>
+        <PiLockSimple />
+        <em>Restricted</em>
+      </Flex>
+    </UITooltip>
   );
 }
 
@@ -91,7 +103,7 @@ export function ExperimentDataFields({
         label="Data Source"
         value={
           datasourceId ? (
-            datasource?.name || <em>Restricted</em>
+            datasource?.name || <RestrictedValue />
           ) : (
             <EmptyValue />
           )
@@ -101,7 +113,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Assignment Query"
+          label="Assignment query"
           value={
             exposureQueryId ? (
               (exposureQuery?.name ?? <em>Restricted</em>)
@@ -117,7 +129,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Identifier Type"
+          label="Identifier type"
           value={resolveAnalysisIdentifierType(
             exposureQuery,
             identifierType || undefined,

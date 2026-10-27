@@ -201,8 +201,10 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                             setLocalWindowValue(null);
                           }}
                           disabled={disabled}
+                          aria-label="Lookback window length"
                         />
                         <SelectField
+                          aria-label="Lookback window unit"
                           size="legacy"
                           value={
                             lookbackOverride.valueUnit ??

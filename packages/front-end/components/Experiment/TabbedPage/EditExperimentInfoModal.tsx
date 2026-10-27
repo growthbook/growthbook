@@ -122,7 +122,7 @@ export default function EditExperimentInfoModal({
         <Field
           size="legacy"
           autoFocus
-          label="Experiment Name"
+          label="Experiment name"
           {...form.register("name")}
           required
         />

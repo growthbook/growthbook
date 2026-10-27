@@ -100,6 +100,7 @@ export function InfoTip({ content }: { content: ReactNode }) {
       {/* Focusable, so the tip opens from the keyboard too. */}
       <span
         tabIndex={0}
+        role="button"
         aria-label="More information"
         style={{
           display: "inline-flex",

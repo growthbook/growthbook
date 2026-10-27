@@ -7,7 +7,6 @@ import {
   useState,
 } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiLockSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
 import { datasourceChangeDrops } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -47,11 +46,11 @@ import AssignmentQueryFields, {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
+import { RestrictedValue } from "./ProjectTagBar";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
 import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
 import DecisionPlan from "./DecisionPlan";
@@ -71,6 +70,9 @@ type AssignmentSelection = {
   // "" leaves it to the query's first declared identifier.
   identifierType: string;
 };
+
+export const DATASOURCE_CHANGE_NOTE =
+  "Metrics and segments that aren't from the new Data Source are removed.";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -380,14 +382,6 @@ export default function AnalysisPlan({
   const selectedDatasource = getDatasourceById(datasource);
   // Set, but in a project the viewer can't see; so is its assignment query.
   const hiddenDatasource = !!datasource && !selectedDatasource;
-  const restricted = (
-    <Tooltip content="This data source is in a project you don't have access to.">
-      <Flex as="span" align="center" gap="1" style={{ display: "inline-flex" }}>
-        <PiLockSimple />
-        <em>Restricted</em>
-      </Flex>
-    </Tooltip>
-  );
   const hashAttributeIdentifierTypeMap = useMemo(
     () =>
       getHashAttributeIdentifierTypeMap(
@@ -613,9 +607,11 @@ export default function AnalysisPlan({
         >
           <QuickEditRow label="Edit Data Source" onEdit={editDatasource}>
             <Text color="text-high">
-              {hiddenDatasource
-                ? restricted
-                : (selectedDatasource?.name ?? <em>None</em>)}
+              {hiddenDatasource ? (
+                <RestrictedValue />
+              ) : (
+                (selectedDatasource?.name ?? <em>None</em>)
+              )}
             </Text>
           </QuickEditRow>
           {resolution.conflict && resolution.identifierType ? (
@@ -800,9 +796,7 @@ function DataSourceModal({
         initialOption="None"
         options={options}
         helpText={
-          !sameSource && value.datasource
-            ? "Metrics and segments that aren't from the new Data Source are removed."
-            : undefined
+          !sameSource && value.datasource ? DATASOURCE_CHANGE_NOTE : undefined
         }
       />
       {selected?.properties?.exposureQueries ? (
@@ -858,7 +852,8 @@ function AttributeConflict({
     <HelperText status="warning" size="sm" mt="1">
       <span>
         This experiment assigns by <code>{hashAttribute}</code> but is analyzed
-        per <code>{identifierType}</code>, which it isn&apos;t linked to.{" "}
+        per <code>{identifierType}</code>, which the assignment attribute
+        isn&apos;t linked to.{" "}
         <Flex as="span" gap="3" display="inline-flex">
           {children}
         </Flex>

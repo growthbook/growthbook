@@ -24,7 +24,7 @@ import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import MetricSelector from "@/components/Experiment/MetricSelector";
+import ActivationMetricRow from "@/components/Experiment/ActivationMetricRow";
 import MetricAnalysisWindowSelector from "@/components/Experiment/MetricAnalysisWindowSelector";
 import CustomMetricSlicesSelector from "@/components/Experiment/CustomMetricSlicesSelector";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -325,33 +325,16 @@ export default function AnalysisPlanAdvanced({
 
           {datasource ? (
             <SettingsCard title="Exposures" reset={resetExposures}>
-              <SetupFieldRow
-                label="Activation metric"
-                tooltip="Users must convert on this metric before being included."
-              >
-                <Tooltip
-                  content="Activation Metrics are not yet supported with Incremental Refresh."
-                  enabled={incrementalRefresh}
-                >
-                  <Box>
-                    <MetricSelector
-                      datasource={datasourceId}
-                      exposureQueryId={exposureQueryId}
-                      exposureQueryIdentifierType={identifierType ?? undefined}
-                      project={experiment.project}
-                      includeFacts
-                      initialOption="None"
-                      onlyBinomial
-                      filterFactFunnelMetrics
-                      value={experiment.activationMetric || ""}
-                      onChange={(value) =>
-                        stage({ activationMetric: value || "" })
-                      }
-                      disabled={disabled || incrementalRefresh}
-                    />
-                  </Box>
-                </Tooltip>
-              </SetupFieldRow>
+              <ActivationMetricRow
+                datasource={datasourceId}
+                exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={identifierType ?? undefined}
+                project={experiment.project}
+                value={experiment.activationMetric || ""}
+                onChange={(metric) => stage({ activationMetric: metric })}
+                disabled={disabled}
+                incrementalRefresh={incrementalRefresh}
+              />
               {properties?.experimentSegments &&
               datasourceSegments.length > 0 ? (
                 <SetupFieldRow

@@ -2,8 +2,11 @@ import { ReactNode, ReactElement, useRef } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
 import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
-import { FaCircleCheck, FaCircleXmark } from "react-icons/fa6";
+import {
+  PiArrowSquareOut,
+  PiCheckCircleFill,
+  PiXCircleFill,
+} from "react-icons/pi";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -1921,7 +1924,7 @@ function EnvEnabledIndicator({
   // Teal, not green: a check beside approval verdicts reads as one.
   const color = enabled ? "var(--teal-10)" : featureStatusColors.off;
   const label = enabled ? "On" : "Off";
-  const Icon = enabled ? FaCircleCheck : FaCircleXmark;
+  const Icon = enabled ? PiCheckCircleFill : PiXCircleFill;
   return (
     <UiTooltip content={label}>
       <span style={{ display: "inline-flex", alignItems: "center" }}>

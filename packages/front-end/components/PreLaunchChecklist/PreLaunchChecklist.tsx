@@ -126,7 +126,7 @@ function ChecklistRow({
         readOnly={!toggle}
         checkboxTooltip={
           item.type === "auto" && !complete && !readOnly
-            ? "Automatically detected and marked as 'complete' when task is finished"
+            ? "Checked automatically when this task is finished."
             : undefined
         }
         containerClassName={clsx({

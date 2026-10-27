@@ -148,6 +148,8 @@ import useURLHash from "@/hooks/useURLHash";
 // Sub-views of the review surface: "overview" is the conversation-first view
 // (notes, human-readable changes, review activity), "changes" is the diff-first
 // view (JSON diffs, full edit timeline, inline diff comments).
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
+
 type ReviewSubTab = "overview" | "changes";
 import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
@@ -2005,13 +2007,14 @@ export default function ReviewAndPublish({
   };
   doSubmitRef.current = doSubmit;
 
-  const experimentNames = experiments.map((e) => e.name).join(", ");
+  const experimentNames = listFormat.format(experiments.map((e) => e.name));
   // The server refuses an armed publish that would leave these unstarted.
   const armedLaunchWarning =
     armedWhenApproved && launchesExperiments ? (
       <HelperText status="warning" size="sm" mt="2">
         An automatic publish can&apos;t start {experimentNames}, so this draft
-        won&apos;t publish on its own.
+        won&apos;t publish on its own. Publish it directly once it&apos;s
+        approved.
       </HelperText>
     ) : null;
 
@@ -2276,12 +2279,16 @@ export default function ReviewAndPublish({
     (exp) => !startsThisDraft.includes(exp),
   );
   const experimentLinks = (group: ExperimentInterfaceStringDates[]) =>
-    group.map((exp, i) => (
-      <Fragment key={exp.id}>
-        {i > 0 ? ", " : null}
-        <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
-      </Fragment>
-    ));
+    listFormat.formatToParts(group.map((exp) => exp.id)).map((part, i) => {
+      const exp = group.find((e) => e.id === part.value);
+      return part.type === "element" && exp ? (
+        <Link key={exp.id} href={`/experiment/${exp.id}`}>
+          {exp.name}
+        </Link>
+      ) : (
+        <Fragment key={i}>{part.value}</Fragment>
+      );
+    });
 
   const renderExperimentGroup = (
     title: string,
@@ -2635,7 +2642,12 @@ export default function ReviewAndPublish({
         {selectedExperiments.size === 1
           ? "this experiment"
           : "these experiments"}
-        {onlyScheduledSelected ? " to start" : ""}.
+        {onlyScheduledSelected
+          ? " to start"
+          : selectedScheduledCount > 0
+            ? " at the times below"
+            : ""}
+        .
       </Text>
       {experiments.map((experiment) => {
         if (!selectedExperiments.has(experiment.id)) return null;
@@ -3367,8 +3379,12 @@ export default function ReviewAndPublish({
                         )}
 
                         {experimentsStep && checklistBlocked && (
-                          <HelperText status="warning" size="sm">
-                            Resolve the Must resolve items to continue.
+                          <HelperText status="error" size="sm">
+                            Complete the Must resolve items to{" "}
+                            {onlyScheduledSelected
+                              ? "schedule the start"
+                              : "publish"}
+                            .
                           </HelperText>
                         )}
 

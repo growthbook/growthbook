@@ -1443,6 +1443,11 @@ function JSONCodeEditor({
         slimGutter
         showCopyButton
         matchValueDisplay
+        actions={
+          disabled ? null : (
+            <FormatJsonAction value={value} setValue={setValue} />
+          )
+        }
       />
     </Box>
   );

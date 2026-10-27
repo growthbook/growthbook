@@ -231,7 +231,7 @@ export default function DecisionPlan({
                   </QuickEditRow>
                 ) : (
                   <Text color="text-high">
-                    You choose what happens when you stop the experiment
+                    You choose what happens when you stop the experiment.
                   </Text>
                 )}
               </InnerRow>

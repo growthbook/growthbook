@@ -124,6 +124,11 @@ export default function TargetingForm({
           disableCoverage={changeType === "weights"}
           disableVariations={changeType === "traffic"}
           hideSplits={type === "multi-armed-bandit"}
+          coverageLabel={
+            type === "multi-armed-bandit"
+              ? "Traffic included in this Bandit"
+              : undefined
+          }
           // Alone on its step, the step's title already names it.
           label={
             !isAdvancedChange

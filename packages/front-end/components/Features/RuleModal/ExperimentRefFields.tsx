@@ -1,10 +1,9 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import React from "react";
-import { PiClock } from "react-icons/pi";
+import { PiArrowSquareOut, PiClock } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
@@ -197,7 +196,7 @@ export default function ExperimentRefFields({
             href={`/${kind}/${selectedExperiment.id}#overview`}
             target="_blank"
           >
-            View this {noun} <FaExternalLinkAlt />
+            View this {noun} <PiArrowSquareOut />
           </Link>{" "}
           to make changes to assignment or targeting conditions.
         </HelperText>

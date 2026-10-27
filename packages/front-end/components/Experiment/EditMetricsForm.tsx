@@ -28,7 +28,7 @@ import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import MetricSelector from "./MetricSelector";
+import ActivationMetricRow from "./ActivationMetricRow";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
 import { SettingsCard } from "./TabbedPage/AnalysisPlanAdvanced";
@@ -258,25 +258,14 @@ const EditMetricsForm: FC<{
 
       {!isHoldout && !(isBandit && experiment.status === "running") ? (
         <>
-          <SetupFieldRow
-            label="Activation metric"
-            tooltip="Users must convert on this metric before being included."
-          >
-            <MetricSelector
-              initialOption="None"
-              value={form.watch("activationMetric")}
-              exposureQueryId={experiment.exposureQueryId}
-              exposureQueryIdentifierType={
-                experiment.exposureQueryIdentifierType
-              }
-              onChange={(metric) => form.setValue("activationMetric", metric)}
-              datasource={experiment.datasource}
-              project={experiment.project}
-              onlyBinomial
-              filterFactFunnelMetrics
-              includeFacts={true}
-            />
-          </SetupFieldRow>
+          <ActivationMetricRow
+            datasource={experiment.datasource}
+            exposureQueryId={experiment.exposureQueryId}
+            exposureQueryIdentifierType={experiment.exposureQueryIdentifierType}
+            project={experiment.project}
+            value={form.watch("activationMetric")}
+            onChange={(metric) => form.setValue("activationMetric", metric)}
+          />
 
           <CustomMetricSlicesSelector
             asRow

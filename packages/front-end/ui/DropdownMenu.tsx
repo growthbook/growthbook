@@ -2,12 +2,15 @@ import {
   Box,
   Flex,
   DropdownMenu as RadixDropdownMenu,
+  IconButton,
   Text,
 } from "@radix-ui/themes";
 import type { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { PiCaretDown, PiWarningFill } from "react-icons/pi";
+import { BsThreeDotsVertical } from "react-icons/bs";
 import { amber } from "@radix-ui/colors";
 import React, {
+  forwardRef,
   ReactElement,
   useCallback,
   useEffect,
@@ -58,6 +61,35 @@ type DropdownProps = {
     typeof RadixDropdownMenu.Content
   >["onCloseAutoFocus"];
 } & MarginProps;
+
+const MORE_ICON_SIZES = { "1": 14, "2": 16, "3": 18 };
+
+/** The ⋮ button that opens a menu: a DropdownMenu `trigger`, named by `label`. */
+export const MoreMenuTrigger = forwardRef<
+  HTMLButtonElement,
+  Omit<
+    React.ComponentPropsWithoutRef<typeof IconButton>,
+    "children" | "size" | "aria-label"
+  > & {
+    label: string;
+    size?: "1" | "2" | "3";
+  }
+>(function MoreMenuTrigger({ label, size = "2", ...props }, ref) {
+  return (
+    <IconButton
+      ref={ref}
+      variant="ghost"
+      color="gray"
+      radius="full"
+      size={size}
+      highContrast
+      aria-label={label}
+      {...props}
+    >
+      <BsThreeDotsVertical size={MORE_ICON_SIZES[size]} />
+    </IconButton>
+  );
+});
 
 export function DropdownMenu({
   trigger,

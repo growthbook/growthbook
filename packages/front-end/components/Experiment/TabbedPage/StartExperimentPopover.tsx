@@ -189,7 +189,7 @@ function StartContent({
                 style={{ whiteSpace: "nowrap" }}
               >
                 {hasStatusSchedule(experiment)
-                  ? "Change schedule"
+                  ? "Edit schedule"
                   : "Add schedule"}
               </Link>
             ) : null

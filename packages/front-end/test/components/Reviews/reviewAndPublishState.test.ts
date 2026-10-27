@@ -123,20 +123,20 @@ describe("getReviewAndPublishState", () => {
       expect(s.submitAction).toBe("publish");
     });
 
-    it("uses 'Schedule to Start' when only scheduled experiments are selected, naming the day they share", () => {
+    it("uses 'Schedule to start' when only scheduled experiments are selected, naming the day they share", () => {
       const scheduled = {
         hasSelectedExperiments: true,
         experimentsStep: true,
         onlyScheduledSelected: true,
       };
       expect(getReviewAndPublishState(base(scheduled)).ctaLabel).toBe(
-        "Schedule to Start",
+        "Schedule to start",
       );
       expect(
         getReviewAndPublishState(
           base({ ...scheduled, scheduledStartDay: "Oct 29" }),
         ).ctaLabel,
-      ).toBe("Schedule to Start (Oct 29)");
+      ).toBe("Schedule to start (Oct 29)");
     });
 
     it("requires admin bypass to publish through a ramp lockdown", () => {

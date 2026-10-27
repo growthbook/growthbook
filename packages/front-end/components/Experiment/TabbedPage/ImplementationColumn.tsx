@@ -1,10 +1,9 @@
 import clsx from "clsx";
 import { ReactNode } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
-import { DropdownMenu } from "@/ui/DropdownMenu";
+import { DropdownMenu, MoreMenuTrigger } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
@@ -135,18 +134,7 @@ export function ColumnHeader({
             {kind && menu.length ? <CardHeaderDivider /> : null}
             {menu.length ? (
               <DropdownMenu
-                trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
-                    aria-label={menuLabel}
-                  >
-                    <BsThreeDotsVertical size={16} />
-                  </IconButton>
-                }
+                trigger={<MoreMenuTrigger label={menuLabel} />}
                 menuPlacement="end"
                 variant="soft"
               >

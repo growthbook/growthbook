@@ -18,7 +18,6 @@ import {
 import { generateVariationId, isNamespaceSelectable } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -26,7 +25,11 @@ import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Tooltip from "@/ui/Tooltip";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
 import Link from "@/ui/Link";
 import track from "@/services/track";
@@ -183,17 +186,10 @@ function FunnelCard({
           {menu ? (
             <DropdownMenu
               trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="2"
-                  highContrast
+                <MoreMenuTrigger
+                  label={`${title} actions`}
                   style={{ margin: 0 }}
-                  aria-label={`${title} actions`}
-                >
-                  <BsThreeDotsVertical size={16} />
-                </IconButton>
+                />
               }
               menuPlacement="end"
               variant="soft"
@@ -591,7 +587,7 @@ export default function TrafficAllocationFunnel({
               ? (weights) => stagePatch({ variationWeights: weights })
               : null
           }
-          splitNote={isBandit ? "Managed by bandit" : null}
+          splitNote={isBandit ? "Managed by Bandit" : null}
           onEditKeys={
             canEditExperiment && !variationsLocked
               ? editVariationKeys

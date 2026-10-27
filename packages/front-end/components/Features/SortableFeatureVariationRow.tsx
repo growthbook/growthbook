@@ -1,6 +1,5 @@
 import { forwardRef, useEffect, useState } from "react";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import {
@@ -24,6 +23,7 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import useSortableItem from "@/hooks/useSortableItem";
@@ -316,16 +316,10 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
             {setVariations && !onlySafeToEditVariationMetadata ? (
               <DropdownMenu
                 trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
+                  <MoreMenuTrigger
+                    label="Variation actions"
                     style={{ margin: 0 }}
-                  >
-                    <BsThreeDotsVertical size={16} />
-                  </IconButton>
+                  />
                 }
                 menuPlacement="end"
                 variant="soft"

@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
@@ -7,17 +7,17 @@ import {
 } from "shared/types/experiment";
 import { changedTargeting, hasAttributeCondition } from "shared/experiments";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBInfo } from "@/components/Icons";
 import ChangesTable, {
   ChangesTableRow,
 } from "@/components/Reviews/ChangesTable";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
+import { InfoTip } from "./SetupFieldRow";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -88,13 +88,11 @@ function useTargetingFields(
         return (
           <>
             {name}{" "}
-            <span className="text-muted">
-              ({percentFormatter.format(coverage)})
-            </span>
+            <Text color="text-low">({percentFormatter.format(coverage)})</Text>
             {ranges.length > 0 && (
-              <span className="text-muted small ml-1">
+              <Text size="sm" color="text-low" ml="1">
                 {formatRanges(ranges)}
-              </span>
+              </Text>
             )}
           </>
         );
@@ -180,9 +178,9 @@ export default function TargetingInfo({
   const fields = useTargetingFields(experiment);
   if (!experiment.phases.length) {
     return (
-      <div className="mb-3">
+      <Box mb="3">
         <em>No targeting configured yet</em>
-      </div>
+      </Box>
     );
   }
   return (
@@ -190,20 +188,15 @@ export default function TargetingInfo({
       {fields
         .filter((field) => !field.advanced)
         .map((field) => (
-          <div key={field.key} className="mb-3">
-            <div className="mb-1">
-              <strong>{field.label}</strong>
-              {field.tooltip ? (
-                <>
-                  {" "}
-                  <Tooltip body={field.tooltip}>
-                    <GBInfo />
-                  </Tooltip>
-                </>
-              ) : null}
-            </div>
+          <Box key={field.key} mb="3">
+            <Flex align="center" gap="1" mb="1">
+              <Text weight="semibold" color="text-high">
+                {field.label}
+              </Text>
+              {field.tooltip ? <InfoTip content={field.tooltip} /> : null}
+            </Flex>
             <div>{field.render(targeting)}</div>
-          </div>
+          </Box>
         ))}
     </div>
   );
@@ -267,17 +260,26 @@ export function TargetingChanges({
             after: minBucketMoved
               ? "Excluded from the experiment"
               : "Reassigned",
+            // Only the versions that move.
             details: [
-              {
-                label: "Bucket version",
-                before: live.bucketVersion,
-                after: value.bucketVersion ?? live.bucketVersion,
-              },
-              {
-                label: "Minimum bucket version",
-                before: live.minBucketVersion,
-                after: value.minBucketVersion ?? live.minBucketVersion,
-              },
+              ...(bucketMoved
+                ? [
+                    {
+                      label: "Bucket version",
+                      before: live.bucketVersion,
+                      after: value.bucketVersion ?? live.bucketVersion,
+                    },
+                  ]
+                : []),
+              ...(minBucketMoved
+                ? [
+                    {
+                      label: "Minimum bucket version",
+                      before: live.minBucketVersion,
+                      after: value.minBucketVersion ?? live.minBucketVersion,
+                    },
+                  ]
+                : []),
             ],
           },
         ]

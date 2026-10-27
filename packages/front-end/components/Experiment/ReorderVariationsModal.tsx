@@ -10,7 +10,7 @@ import Text from "@/ui/Text";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import SortableVariationsList from "@/components/Features/SortableVariationsList";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import VariationNumber from "@/ui/VariationNumber";
+import VariationLabel from "@/ui/VariationLabel";
 import useSortableItem from "@/hooks/useSortableItem";
 
 type Row = SortableVariation & Pick<Variation, "description" | "screenshots">;
@@ -40,9 +40,8 @@ function SortableRow({ row, i }: { row: Row; i: number }) {
       >
         <RiDraggable size={16} />
       </Flex>
-      <VariationNumber number={i} />
       <Box flexGrow="1" minWidth="0">
-        <Text truncate>{row.name}</Text>
+        <VariationLabel number={i} name={row.name ?? ""} />
       </Box>
       <Text color="text-low">{Math.round(row.weight * 1000) / 10}%</Text>
     </Flex>

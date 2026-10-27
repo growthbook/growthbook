@@ -99,8 +99,8 @@ export interface RnPState {
 
 export function scheduleToStartLabel(scheduledStartDay: string | null) {
   return scheduledStartDay
-    ? `Schedule to Start (${scheduledStartDay})`
-    : "Schedule to Start";
+    ? `Schedule to start (${scheduledStartDay})`
+    : "Schedule to start";
 }
 
 function publishLabel(

@@ -21,14 +21,13 @@ import {
   pendingDraftApproved,
   startBypassCovers,
 } from "shared/util";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowSquareOut,
   PiCaretDownFill,
   PiFlag,
   PiPlus,
 } from "react-icons/pi";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   EnvironmentInputsPopover,
   getEnvironmentStates,
@@ -50,6 +49,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownSubMenu,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -275,17 +275,10 @@ export default function VariationValuesTable({
                 <Flex ml="auto">
                   <DropdownMenu
                     trigger={
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        radius="full"
-                        size="2"
-                        highContrast
+                      <MoreMenuTrigger
+                        label="Variation actions"
                         className={styles.revealOnHover}
-                        aria-label="Variation actions"
-                      >
-                        <BsThreeDotsVertical size={16} />
-                      </IconButton>
+                      />
                     }
                     menuPlacement="start"
                     variant="soft"
@@ -818,12 +811,12 @@ function FlagColumn({
       experiment.status === "running"
         ? {
             status: "warning",
-            text: "Feature Flag is archived and is not serving.",
+            text: "This Feature Flag is archived and isn't serving. Unarchive it to serve again.",
           }
         : launches
           ? {
               status: "warning",
-              text: "Feature Flag is archived and won't serve on experiment start.",
+              text: "This Feature Flag is archived and won't serve when the experiment starts. Unarchive it first.",
             }
           : { status: "info", text: "This Feature Flag is archived." },
     );
@@ -854,7 +847,7 @@ function FlagColumn({
         ? `Only Revision ${launchDraft.version} publishes when the experiment starts. Publish ${draftMention} from the Feature Flag.`
         : needsApproval
           ? approvalBypassed
-            ? `${draftMention} publishes when the experiment starts, its approval bypassed. Editing it means it needs approval first.`
+            ? `${draftMention} publishes when the experiment starts, without approval. If you edit it, it needs approval before it can publish.`
             : `${draftMention} needs approval. Once approved, it publishes when the experiment starts.`
           : `${draftMention} publishes when the experiment starts, or publish it from the Feature Flag.`,
     );

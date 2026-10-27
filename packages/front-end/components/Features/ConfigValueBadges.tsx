@@ -111,7 +111,8 @@ export function ConfigEnvironmentsBadge({
               </>
             ) : (
               <>
-                <strong>{environment}</strong> has none.
+                <strong>{environment}</strong> has none, so the values shown are
+                the Config&apos;s own.
               </>
             )}
           </Box>

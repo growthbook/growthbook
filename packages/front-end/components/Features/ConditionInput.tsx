@@ -7,7 +7,6 @@ import {
 } from "shared/util";
 import { some } from "lodash";
 import { PiPlusCircleBold, PiXBold, PiTextAa } from "react-icons/pi";
-import { FaMagic } from "react-icons/fa";
 import clsx from "clsx";
 import format from "date-fns/format";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
@@ -22,10 +21,10 @@ import {
   useAttributeSchema,
   getDefaultOperator,
   getFormatEquivalentOperator,
-  formatJSON,
   resolveAttributeFilter,
 } from "@/services/features";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
 import Field from "@/components/Forms/Field";
 import SelectField, {
   FormatOptionLabelType,
@@ -281,27 +280,9 @@ export default function ConditionInput({
       ),
     );
 
-    // Formats only when asked: formatting a large condition on every
-    // keystroke makes typing lag.
-    const formatJSONButton = locked ? null : (
-      <Link
-        onClick={(e) => {
-          e.preventDefault();
-          const formatted = formatJSON(value);
-          if (formatted && formatted !== value) setValue(formatted);
-        }}
-        style={{ whiteSpace: "nowrap" }}
-      >
-        <FaMagic /> Format JSON
-      </Link>
-    );
-
     const combinedHelpText = (
       <>
-        <Flex justify="between" align="center">
-          <div>JSON format using MongoDB query syntax.</div>
-          {formatJSONButton}
-        </Flex>
+        <div>JSON format using MongoDB query syntax.</div>
         {hasSecureAttributes && (
           <HelperText status="warning" mt="2">
             Secure attribute hashing not guaranteed to work for complicated
@@ -400,6 +381,11 @@ export default function ConditionInput({
               showCopyButton={!locked}
               showFullscreenButton={!locked}
               disabled={locked}
+              actions={
+                locked ? null : (
+                  <FormatJsonAction value={value} setValue={setValue} />
+                )
+              }
             />
           </Box>
         )}

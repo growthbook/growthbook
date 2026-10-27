@@ -563,6 +563,7 @@ export default function EditScheduleModal({
               {endMode === "on-date" && (
                 <DatePicker
                   label=""
+                  placeholder="Choose a date..."
                   date={stopAt || undefined}
                   setDate={(d) =>
                     form.setValue("stopAt", d ? d.toISOString() : "")

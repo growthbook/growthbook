@@ -20,7 +20,7 @@ const conflict = { loading: false, remaining: 1, blocking: 1, approval: 0 };
 const startNow = "Bypass remaining To Do items and start now";
 const reviewAndTodo =
   "Bypass approvals and remaining To Do items and start now";
-const futureLabel = "Schedule to Start (Oct 3)";
+const futureLabel = "Schedule to start (Oct 3)";
 
 describe("getStartSchedule", () => {
   it.each([

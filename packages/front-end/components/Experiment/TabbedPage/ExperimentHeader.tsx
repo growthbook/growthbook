@@ -15,16 +15,15 @@ import {
   type LinkedChangesResolution,
 } from "shared/util";
 import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
-import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import {
   PiCheck,
   PiClockFill,
   PiEye,
   PiLink,
   PiPencilSimple,
+  PiRocketLaunch,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -54,6 +53,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownSubMenu,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import { useWatching } from "@/services/WatchProvider";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -130,9 +130,12 @@ const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
 };
 
 const HEALTH_TAB_DISABLED_REASONS = {
-  NO_DATASOURCE: "Choose a Data Source to see Experiment Health",
+  NO_DATASOURCE:
+    "Choose a Data Source on the Setup tab to see Experiment Health.",
   UNSUPPORTED_DATASOURCE:
-    "Experiment Health is not available for Mixpanel or (legacy) Google Analytics data sources",
+    "Experiment Health isn't available for Mixpanel or legacy Google Analytics Data Sources.",
+  RESTRICTED_DATASOURCE:
+    "This experiment's Data Source is in a Project you don't have access to.",
 };
 
 const DisabledHealthTabTooltip = ({
@@ -517,7 +520,7 @@ export default function ExperimentHeader({
       style={
         canRunExperiment && startBlocked ? { pointerEvents: "none" } : undefined
       }
-      icon={futureStart ? <PiClockFill /> : <MdRocketLaunch />}
+      icon={futureStart ? <PiClockFill /> : <PiRocketLaunch />}
     >
       {futureStart
         ? startGate.actions.label
@@ -1065,16 +1068,7 @@ export default function ExperimentHeader({
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
                 trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="3"
-                    highContrast
-                    ml="2"
-                  >
-                    <BsThreeDotsVertical size={18} />
-                  </IconButton>
+                  <MoreMenuTrigger label="More actions" size="3" ml="2" />
                 }
                 open={dropdownOpen}
                 onOpenChange={(o) => {
@@ -1390,9 +1384,11 @@ export default function ExperimentHeader({
                       {disableHealthTab ? (
                         <DisabledHealthTabTooltip
                           reason={
-                            experiment.datasource
-                              ? "UNSUPPORTED_DATASOURCE"
-                              : "NO_DATASOURCE"
+                            !experiment.datasource
+                              ? "NO_DATASOURCE"
+                              : dataSource
+                                ? "UNSUPPORTED_DATASOURCE"
+                                : "RESTRICTED_DATASOURCE"
                           }
                         >
                           <TabsTrigger disabled value="health">

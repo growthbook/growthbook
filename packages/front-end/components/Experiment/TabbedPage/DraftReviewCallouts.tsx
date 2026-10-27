@@ -39,6 +39,9 @@ function listHeading(states: DraftReviewState[]): string {
   if (ready === states.length) {
     return "The following Feature Flags are ready to publish:";
   }
+  if (states.every((state) => state === "changes-requested")) {
+    return "Changes were requested on the following Feature Flags:";
+  }
   return ready
     ? "The following Feature Flags need approval or publishing:"
     : "The following Feature Flags need approval:";

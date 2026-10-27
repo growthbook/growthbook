@@ -66,7 +66,8 @@ import {
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
-import MetricSelector from "./MetricSelector";
+import ActivationMetricRow from "./ActivationMetricRow";
+import { DATASOURCE_CHANGE_NOTE } from "./TabbedPage/AnalysisPlan";
 import { SettingsCard } from "./TabbedPage/AnalysisPlanAdvanced";
 import SetupFieldRow, { SetupFieldGroup } from "./TabbedPage/SetupFieldRow";
 import { QuickEditRow } from "./TabbedPage/QuickEditButton";
@@ -673,13 +674,7 @@ const AnalysisForm: FC<{
                   }))}
                 className="portal-overflow-ellipsis"
                 helpText={
-                  experiment.datasource ? (
-                    <>
-                      <strong className="text-danger">Warning:</strong> Changing
-                      this will remove all metrics and segments from the
-                      experiment.
-                    </>
-                  ) : undefined
+                  experiment.datasource ? DATASOURCE_CHANGE_NOTE : undefined
                 }
               />
             </SetupFieldRow>
@@ -928,33 +923,15 @@ const AnalysisForm: FC<{
             />
 
             {!!datasource && !isBandit && !isHoldout && (
-              <SetupFieldRow
-                label="Activation metric"
-                tooltip="Users must convert on this metric before being included."
+              <ActivationMetricRow
+                datasource={form.watch("datasource")}
+                exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
+                project={experiment.project}
+                value={form.watch("activationMetric")}
+                onChange={(metric) => form.setValue("activationMetric", metric)}
+                incrementalRefresh={isExperimentIncludedInIncrementalRefresh}
               >
-                <Tooltip
-                  shouldDisplay={
-                    isExperimentIncludedInIncrementalRefresh &&
-                    form.watch("activationMetric") === ""
-                  }
-                  body="Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
-                >
-                  <MetricSelector
-                    disabled={isExperimentIncludedInIncrementalRefresh}
-                    datasource={form.watch("datasource")}
-                    exposureQueryId={exposureQueryId}
-                    exposureQueryIdentifierType={exposureQueryIdentifierType}
-                    project={experiment.project}
-                    includeFacts={true}
-                    initialOption="None"
-                    onlyBinomial
-                    filterFactFunnelMetrics
-                    value={form.watch("activationMetric")}
-                    onChange={(value) =>
-                      form.setValue("activationMetric", value || "")
-                    }
-                  />
-                </Tooltip>
                 {isExperimentIncludedInIncrementalRefresh &&
                   form.watch("activationMetric") !== "" && (
                     <Callout status="warning" mb="2">
@@ -969,7 +946,7 @@ const AnalysisForm: FC<{
                       .
                     </Callout>
                   )}
-              </SetupFieldRow>
+              </ActivationMetricRow>
             )}
 
             <CustomMetricSlicesSelector
