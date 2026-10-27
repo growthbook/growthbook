@@ -36,7 +36,8 @@ export default function ProjectModal({
         const body = {
           name: value.name || "",
           description: value.description,
-          publicId: value.publicId,
+          // Blank means unchanged on edit and generated on create; "" fails validation.
+          publicId: value.publicId || undefined,
           owner: value.owner,
         };
         if (existing.id) {
