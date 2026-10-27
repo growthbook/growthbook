@@ -17,6 +17,7 @@ import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypa
 import {
   confirmationLink,
   requireConfirmation,
+  unarchiveActions,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 import { requireExperiment } from "./requireExperiment";
@@ -59,9 +60,7 @@ export const postExperimentUnarchive = createApiRequestHandler(
   }
   await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   await requireConfirmation(req.context, {
-    actions: [
-      experiment.status === "draft" ? "experiment.draft" : "experiment.start",
-    ],
+    actions: unarchiveActions(experiment),
     project: experiment.project,
     summary: `Unarchive ${experiment.name}`,
     links: [confirmationLink("experiment", experiment.id, experiment.name)],

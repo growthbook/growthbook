@@ -79,6 +79,7 @@ import {
   gateNotices,
   queuedDraftsHold,
   requireConfirmation,
+  unarchiveActions,
 } from "back-end/src/services/confirmations";
 import {
   assertExperimentPayloadCommercialFeatures,
@@ -580,12 +581,11 @@ export const updateExperiment = createApiRequestHandler(
 
   const liveActions = [
     ...experimentChangeActions(experiment, changes),
-    // Archiving holds as POST /archive does, a kept rollout's publish included;
-    // unarchiving puts it back in the payload.
+    // Archiving and unarchiving hold as POST /archive and /unarchive do.
     ...(archive === true
       ? postExperimentArchiveValidator.confirmation
-      : archive === false && experiment.status !== "draft"
-        ? (["experiment.start"] as const)
+      : archive === false
+        ? unarchiveActions(experiment)
         : []),
   ];
   // A stop ends the phase and a restart reopens it, applied after liveActions

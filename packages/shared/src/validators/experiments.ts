@@ -2112,6 +2112,17 @@ export const getExperimentNamesValidator = {
   path: "/experiment-names",
 };
 
+// Archiving or deleting resolves the experiment's flag rules: it publishes them
+// (past a required review, for a caller who may bypass one) and rewrites the
+// open drafts holding them.
+const EXPERIMENT_REMOVAL_CONFIRMATION = [
+  "experiment.stop",
+  "feature.publish",
+  "feature.archive",
+  "feature.draft",
+  "override.bypassApproval",
+] as const;
+
 export const postExperimentArchiveValidator = {
   bodySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
   querySchema: z.never(),
@@ -2126,11 +2137,7 @@ export const postExperimentArchiveValidator = {
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id/archive",
-  confirmation: [
-    "experiment.stop",
-    "feature.publish",
-    "feature.archive",
-  ] as const,
+  confirmation: EXPERIMENT_REMOVAL_CONFIRMATION,
 };
 
 export const postExperimentUnarchiveValidator = {
@@ -2166,11 +2173,7 @@ export const deleteExperimentValidator = {
   tags: ["experiments"],
   method: "delete" as const,
   path: "/experiments/:id",
-  confirmation: [
-    "experiment.stop",
-    "feature.publish",
-    "feature.archive",
-  ] as const,
+  confirmation: EXPERIMENT_REMOVAL_CONFIRMATION,
 };
 
 export const getExperimentValidator = {

@@ -1120,6 +1120,33 @@ describe("confirmations", () => {
     ]);
   });
 
+  it("holds unarchiving a draft with an armed start as the start it restores", async () => {
+    await seed("production");
+    await seedExperiment();
+    await mongoose.connection.collection("experiments").updateOne(
+      { id: EXP },
+      {
+        $set: {
+          archived: true,
+          nextScheduledStatusUpdate: {
+            type: "start",
+            date: new Date(Date.now() + 86_400_000),
+          },
+        },
+      },
+    );
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["feature.publish"] }] }),
+    );
+    const unarchive = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}/unarchive`),
+    ).send({});
+    expect(unarchive.status).toBe(202);
+    expect(unarchive.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: [] },
+    ]);
+  });
+
   it("holds every publish as skipping a review when REST bypasses reviews", async () => {
     await seed("production");
     await insertConstant("hitl_bypass");
