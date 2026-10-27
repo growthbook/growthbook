@@ -5,7 +5,7 @@ export default function EmptyPowerCalculation({
 }) {
   return (
     <div className="pagecontents">
-      <div className="row mb-4 align-items-center">
+      <div className="row mb-4" style={{ alignItems: "center" }}>
         <div className="col">
           <div className="d-flex justify-space-between align-items-center">
             <h1>Power Calculator</h1>

@@ -65,7 +65,7 @@ export const EventsPage: FC<EventsPageProps> = ({
 
   return (
     <div className="container py-4">
-      <div className="row align-items-center">
+      <div className="row" style={{ alignItems: "center" }}>
         <div className="col">
           <h1>Events</h1>
         </div>
