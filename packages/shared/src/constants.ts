@@ -184,6 +184,14 @@ export const UNSUPPORTED_METRIC_EXPLORER_TYPES: readonly FactMetricType[] = [
 
 export const MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID = "ch_events";
 
+// Known ids for the "GrowthBook AI traces" tracker's fact tables, so identifier
+// syncs can find them regardless of renames.
+export const MANAGED_WAREHOUSE_TRACES_FACT_TABLE_IDS = {
+  spans: "ch_ai_spans",
+  turns: "ch_ai_turns",
+  conversations: "ch_ai_conversations",
+} as const;
+
 export const sdkLanguages = [
   "nocode-webflow",
   "nocode-wordpress",

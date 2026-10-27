@@ -359,16 +359,23 @@ export async function createArchetype(req: AuthRequest, res: Response) {
 
 ### Default Roles
 
-| Role           | Description                   |
-| -------------- | ----------------------------- |
-| `noaccess`     | No permissions                |
-| `readonly`     | Read-only access              |
-| `collaborator` | Read + comments + ideas       |
-| `visualEditor` | Visual editor access          |
-| `engineer`     | Features + SDK + environments |
-| `analyst`      | Analytics + metrics + SQL     |
-| `experimenter` | Engineer + analyst combined   |
-| `admin`        | Full access                   |
+| Role                    | Description                   |
+| ----------------------- | ----------------------------- |
+| `noaccess`              | No permissions                |
+| `readonly`              | Read-only access              |
+| `collaborator`          | Read + comments + ideas       |
+| `visualEditor`          | Visual editor access          |
+| `gbDefault_traceIngest` | API keys only; no permissions |
+| `engineer`              | Features + SDK + environments |
+| `analyst`               | Analytics + metrics + SQL     |
+| `experimenter`          | Engineer + analyst combined   |
+| `admin`                 | Full access                   |
+
+`gbDefault_traceIngest` is API-key-only (`API_KEY_ONLY_ROLE_IDS`): `isRoleValid` rejects it
+for members, invites, teams, SCIM, and the default role; `ApiKeyModel` allows it
+only as an org secret key's base role (not on scoped PATs or as an extra rule);
+role pickers hide it; and the REST API refuses keys that have it. It exists for keys that send AI traces
+to the ingestor.
 
 ### How Permissions Resolve
 

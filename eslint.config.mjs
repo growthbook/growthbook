@@ -686,6 +686,7 @@ export default defineConfig([
       "./packages/shared/*.js",
       "./packages/front-end/next.config.js",
       "./packages/sdk-js/plugins/index.js",
+      "./packages/sdk-js/otel/index.js",
       "./packages/sdk-js/test/*.test.ts",
       "./packages/sdk-js/.babelrc.js",
     ],

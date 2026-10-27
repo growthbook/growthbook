@@ -13,6 +13,10 @@
  *
  * Exception: "new-metric-creation-flow" is added ahead of the flag's creation
  * for the metric editor experiment (front-end hooks/useFactMetricFlow.tsx).
+ *
+ * Exception: "trace-ingest" is added ahead of the flag's creation. It shows
+ * the "AI trace ingest key" option when creating an org secret key and the
+ * "GrowthBook AI traces" event tracker on the Managed Warehouse.
  */
 export type AppFeatures = {
   // Added ahead of the flag's creation in GrowthBook's own account
@@ -151,6 +155,7 @@ export type AppFeatures = {
   "pricing-phase-1-limits": Record<string, unknown>;
   "eu-data-region": boolean;
   populations: boolean;
+  "trace-ingest": boolean;
   "new-data-source-onboarding": boolean;
   "new-metric-creation-flow": boolean;
 };

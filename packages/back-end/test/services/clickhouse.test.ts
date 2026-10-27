@@ -265,6 +265,109 @@ describe("syncManagedWarehouseIdentifiers", () => {
     expect(mockSyncFactTable).not.toHaveBeenCalled();
   });
 
+  describe("AI traces fact tables", () => {
+    const schema: SDKAttributeSchema = [
+      { property: "plan", datatype: "string" },
+    ];
+
+    function makeAiFactTable(
+      id: string,
+      idType: string,
+      overrides: Partial<FactTableInterface> = {},
+    ): FactTableInterface {
+      return {
+        id,
+        datasource: "managed_warehouse",
+        sql: `SELECT\n  Timestamp AS timestamp,\n  UserId AS ${idType},\n  TraceId AS trace_id\nFROM ai_turns\nWHERE Errors > 0`,
+        columns: [
+          makeFactTableColumn("timestamp", { datatype: "date" }),
+          makeFactTableColumn(idType, { description: "App user" }),
+          makeFactTableColumn("trace_id"),
+        ],
+        userIdTypes: [idType],
+        ...overrides,
+      } as unknown as FactTableInterface;
+    }
+
+    function mockFactTables(tables: FactTableInterface[]) {
+      const byId = new Map(tables.map((t) => [t.id, t]));
+      byId.set(
+        MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+        makeManagedFactTable(schema),
+      );
+      mockGetFactTableById.mockImplementation(
+        async (...[, id]) => byId.get(id) ?? null,
+      );
+    }
+
+    function aiSyncCalls() {
+      return mockSyncFactTable.mock.calls.filter(
+        ([, ft]) => ft.id !== MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID,
+      );
+    }
+
+    function withIdAttribute(identifier: "user_id" | "device_id") {
+      mockGetDatasource.mockResolvedValue({
+        ...datasource,
+        settings: { ...datasource.settings, idAttributeIdentifier: identifier },
+      } as unknown as GrowthbookClickhouseDataSource);
+    }
+
+    it("remaps only the UserId alias, column, and identifier type", async () => {
+      withIdAttribute("user_id");
+      const spans = makeAiFactTable("ch_ai_spans", "device_id");
+      const turns = makeAiFactTable("ch_ai_turns", "device_id");
+      mockFactTables([spans, turns]);
+
+      await syncManagedWarehouseIdentifiers(context, schema);
+
+      expect(aiSyncCalls()).toHaveLength(2);
+      const [, ft, changes] = aiSyncCalls()[1];
+      expect(ft).toBe(turns);
+      expect(changes.sql).toBe(
+        turns.sql.replace("UserId AS device_id", "UserId AS user_id"),
+      );
+      expect(changes.userIdTypes).toEqual(["user_id"]);
+      expect(changes.columns?.map((c) => c.column)).toEqual([
+        "timestamp",
+        "user_id",
+        "trace_id",
+      ]);
+      expect(changes.columns?.[1]).toMatchObject({
+        name: "user_id",
+        description: "App user",
+      });
+    });
+
+    it("leaves AI fact tables alone when already mapped, edited away, or on another Data Source", async () => {
+      withIdAttribute("user_id");
+      mockFactTables([
+        makeAiFactTable("ch_ai_spans", "user_id"),
+        makeAiFactTable("ch_ai_turns", "device_id", {
+          sql: "SELECT Timestamp AS timestamp, app_user AS device_id FROM ai_turns",
+        }),
+        makeAiFactTable("ch_ai_conversations", "device_id", {
+          datasource: "ds_other",
+        }),
+      ]);
+
+      await syncManagedWarehouseIdentifiers(context, schema);
+
+      expect(aiSyncCalls()).toHaveLength(0);
+    });
+
+    it("maps back to device_id by default", async () => {
+      mockFactTables([makeAiFactTable("ch_ai_conversations", "user_id")]);
+
+      await syncManagedWarehouseIdentifiers(context, schema);
+
+      expect(aiSyncCalls()).toHaveLength(1);
+      const changes = aiSyncCalls()[0][2];
+      expect(changes.sql).toContain("UserId AS device_id,");
+      expect(changes.userIdTypes).toEqual(["device_id"]);
+    });
+  });
+
   it("no-ops for legacy (materialized-column) warehouses", async () => {
     mockGetDatasource.mockResolvedValue({
       ...datasource,

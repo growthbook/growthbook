@@ -1,0 +1,4 @@
+{
+  "main": "../dist/cjs/otel/index.js",
+  "types": "../dist/otel/index.d.ts"
+}
