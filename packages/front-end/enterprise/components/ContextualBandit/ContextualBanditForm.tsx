@@ -438,13 +438,15 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
       contextualAttributes: submitContextualAttributes,
 
-      measurementArmEnabled: !!data.measurementArmEnabled,
-      ...(data.measurementArmEnabled
-        ? {
-            measurementArmPercent:
-              data.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
-          }
-        : {}),
+      measurementArm: {
+        enabled: !!data.measurementArmEnabled,
+        ...(data.measurementArmEnabled
+          ? {
+              percent:
+                data.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+            }
+          : {}),
+      },
     };
 
     const res = await restApiCall(

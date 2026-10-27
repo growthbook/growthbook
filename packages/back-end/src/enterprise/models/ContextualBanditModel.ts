@@ -592,13 +592,13 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
     const orgSettings = this.context.org.settings;
-    const { measurementArmEnabled, measurementArmPercent, ...rest } = body;
+    const { measurementArm, ...rest } = body;
 
     return {
       ...rest,
       measurementArm: buildMeasurementArmSubdoc({
-        enabled: measurementArmEnabled,
-        percent: measurementArmPercent,
+        enabled: measurementArm?.enabled,
+        percent: measurementArm?.percent,
         cbTrackingKey: body.trackingKey,
       }),
       scheduleValue:
@@ -633,12 +633,6 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     const body = apiUpdateContextualBanditBody.parse(rawBody);
     const out: Partial<ContextualBanditInterface> = {};
     for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {
-      if (
-        field === "measurementArmEnabled" ||
-        field === "measurementArmPercent"
-      ) {
-        continue;
-      }
       if (body[field] !== undefined) {
         (out as Record<string, unknown>)[field] = body[field];
       }
@@ -704,7 +698,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       );
     }
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const { measurementArmEnabled, measurementArmPercent } =
+    const { measurementArm: armInput } =
       apiUpdateContextualBanditBody.parse(body);
     const toUpdate = (await this.processApiUpdateBody(body)) as Record<
       string,
@@ -713,14 +707,10 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     const nextTrackingKey = toUpdate.trackingKey as string | undefined;
     const trackingKeyChanged =
       nextTrackingKey !== undefined && nextTrackingKey !== existing.trackingKey;
-    if (
-      measurementArmEnabled !== undefined ||
-      measurementArmPercent !== undefined ||
-      (trackingKeyChanged && existing.measurementArm)
-    ) {
+    if (armInput || (trackingKeyChanged && existing.measurementArm)) {
       const measurementArm = buildMeasurementArmSubdoc({
-        enabled: measurementArmEnabled,
-        percent: measurementArmPercent,
+        enabled: armInput?.enabled,
+        percent: armInput?.percent,
         existing: existing.measurementArm,
         cbTrackingKey: nextTrackingKey ?? existing.trackingKey,
         rederiveTrackingKey: trackingKeyChanged && existing.status === "draft",

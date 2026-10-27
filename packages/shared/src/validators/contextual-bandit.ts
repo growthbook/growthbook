@@ -100,12 +100,41 @@ export type ContextualBanditMeasurementArm = z.infer<
   typeof contextualBanditMeasurementArmValidator
 >;
 
-const apiContextualBanditMeasurementArm = z.object({
-  enabled: z.boolean(),
-  percent: z.number(),
-  experimentId: z.string().optional(),
-  trackingKey: z.string().optional(),
-});
+const apiContextualBanditMeasurementArm = z
+  .object({
+    enabled: z.boolean(),
+    percent: z
+      .number()
+      .describe(
+        "Share of eligible traffic held back on the default experience, as a decimal (0.05 = 5%).",
+      ),
+    experimentId: z
+      .string()
+      .optional()
+      .describe(
+        "The experiment that compares held-back users against users in the Bandit.",
+      ),
+    trackingKey: z.string().optional(),
+  })
+  .describe(
+    "Measurement arm: holds back a share of eligible traffic on the default experience and compares it against the Bandit in a linked experiment. Only changeable while the Contextual Bandit is a draft.",
+  );
+
+const apiContextualBanditMeasurementArmInput = z
+  .strictObject({
+    enabled: z.boolean().optional(),
+    percent: z
+      .number()
+      .min(0)
+      .max(MAX_MEASUREMENT_ARM_PERCENT)
+      .optional()
+      .describe(
+        "Share of eligible traffic to hold back, 0.01 to 0.5. Ignored when `enabled` is false; defaults to 0.05.",
+      ),
+  })
+  .describe(
+    "Measurement arm settings. Omit to leave unchanged; omitted on create means no measurement arm.",
+  );
 
 export const contextualBanditValidator = baseSchema
   .extend({
@@ -228,7 +257,13 @@ export const apiContextualBanditValidator = namedSchema(
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
     priorSampleSize: z.number().int().nonnegative(),
-    holdoutPercent: z.number().min(0).max(0.5),
+    holdoutPercent: z
+      .number()
+      .min(0)
+      .max(0.5)
+      .describe(
+        "Reserved for a future holdout feature. Currently always 0 and not applied; use `measurementArm` to hold back traffic.",
+      ),
     measurementArm: apiContextualBanditMeasurementArm.optional(),
     banditModelVersion: z.number().int().nonnegative(),
     scheduleValue: z.number().optional(),
@@ -300,12 +335,7 @@ export const apiCreateContextualBanditBody = z.strictObject({
   conversionWindowValue: z.number().optional(),
   conversionWindowUnit: z.enum(["hours", "days"]).optional(),
 
-  measurementArmEnabled: z.boolean().optional(),
-  measurementArmPercent: z
-    .number()
-    .min(0)
-    .max(MAX_MEASUREMENT_ARM_PERCENT)
-    .optional(),
+  measurementArm: apiContextualBanditMeasurementArmInput.optional(),
 });
 
 export type ApiCreateContextualBanditBody = z.infer<
@@ -351,12 +381,7 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
 
-  measurementArmEnabled: z.boolean().optional(),
-  measurementArmPercent: z
-    .number()
-    .min(0)
-    .max(MAX_MEASUREMENT_ARM_PERCENT)
-    .optional(),
+  measurementArm: apiContextualBanditMeasurementArmInput.optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<
@@ -392,8 +417,6 @@ export const CONTEXTUAL_BANDIT_API_UPDATE_FIELDS = [
   "savedGroups",
   "prerequisites",
   "seed",
-  "measurementArmEnabled",
-  "measurementArmPercent",
 ] as const satisfies readonly (keyof ApiUpdateContextualBanditBody)[];
 
 export const apiContextualBanditStartValidator = {

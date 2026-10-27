@@ -3376,6 +3376,10 @@ export async function toExperimentApiInterface(
     trackingKey: experiment.trackingKey,
     name: experiment.name || "",
     type: experimentType,
+    ...(experimentType === "contextualBanditMeasurementArm" &&
+    experiment.contextualBanditId
+      ? { contextualBanditId: experiment.contextualBanditId }
+      : {}),
     project: experiment.project || "",
     hypothesis: experiment.hypothesis || "",
     description: experiment.description || "",

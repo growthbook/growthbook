@@ -982,6 +982,12 @@ const apiExperimentShape = z.object({
     "holdout",
     "contextualBanditMeasurementArm",
   ]),
+  contextualBanditId: z
+    .string()
+    .optional()
+    .describe(
+      "Set on a `contextualBanditMeasurementArm` experiment: the Contextual Bandit it measures.",
+    ),
   project: z.string(),
   hypothesis: z.string(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH),

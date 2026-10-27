@@ -99,10 +99,12 @@ export default function ContextualBanditTrafficTargetingModal({
               prerequisites: data.prerequisites,
               ...(cb.status === "draft"
                 ? {
-                    measurementArmEnabled: data.measurementArmEnabled,
-                    ...(data.measurementArmEnabled
-                      ? { measurementArmPercent: data.measurementArmPercent }
-                      : {}),
+                    measurementArm: {
+                      enabled: data.measurementArmEnabled,
+                      ...(data.measurementArmEnabled
+                        ? { percent: data.measurementArmPercent }
+                        : {}),
+                    },
                   }
                 : {}),
             },
