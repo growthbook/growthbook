@@ -25,6 +25,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { getEventColumns, getSqlSummaryTokens } from "@/services/factTables";
+import { formatSql } from "@/services/sqlFormatter";
 import useApi from "@/hooks/useApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useColumnValueCounts from "@/hooks/useColumnValueCounts";
@@ -456,7 +457,11 @@ export default function FactTableDetailsPage() {
         {showSql && (
           <Box mt="3">
             <Code
-              code={factTable.sql}
+              // Display only: the saved SQL keeps its own formatting
+              code={
+                formatSql(factTable.sql, datasource?.type).formattedSql ??
+                factTable.sql
+              }
               language="sql"
               maxHeight="405px"
               wrapLongLines
