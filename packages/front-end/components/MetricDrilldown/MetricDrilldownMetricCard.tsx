@@ -14,6 +14,7 @@ import {
   isFactFunnelMetric,
   isRatioMetric,
   getRowFilterSQL,
+  DEFAULT_IDENTIFIER_QUOTE,
 } from "shared/experiments";
 import { createLikeStringMatchFn } from "shared/sql";
 import Metadata from "@/ui/Metadata";
@@ -64,6 +65,7 @@ function RowFilterDisplay({
               evalBoolean: (col, value) =>
                 `${col} IS ${value ? "TRUE" : "FALSE"}`,
               jsonExtract: (col, path) => `${col}.${path}`,
+              identifierQuote: DEFAULT_IDENTIFIER_QUOTE,
               showSourceComment: true,
             }),
           )

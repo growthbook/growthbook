@@ -22,10 +22,15 @@ import {
   ensureLimit,
   format,
   isMultiStatementSQL,
+  quoteIdentifier,
   SQL_ROW_LIMIT,
   usesBackslashStringEscapes,
 } from "shared/sql";
-import { TemplateVariables, SqlDialect } from "shared/types/sql";
+import {
+  TemplateVariables,
+  SqlDialect,
+  SqlIdentifierQuote,
+} from "shared/types/sql";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   MetricValueParams,
@@ -199,6 +204,7 @@ import { getSampleUnitsCTE } from "back-end/src/integrations/sql/ctes/sample-uni
 import { getSegmentCTE } from "back-end/src/integrations/sql/ctes/segment-cte";
 import { toTimestampWithMs } from "back-end/src/integrations/sql/primitives/to-timestamp-with-ms";
 import { afterWatermark } from "back-end/src/integrations/sql/primitives/watermark";
+import { assertSafeTablePathParts } from "back-end/src/integrations/sql/primitives/table-path";
 import { getUserExperimentExposuresQuery as getUserExperimentExposuresQueryFromSql } from "back-end/src/integrations/sql/queries/user-experiment-exposures-query";
 export { MAX_ROWS_UNIT_AGGREGATE_QUERY } from "back-end/src/services/experimentQueries/constants";
 export { MAX_ROWS_PAST_EXPERIMENTS_QUERY } from "back-end/src/integrations/sql/queries/past-experiment-query";
@@ -504,7 +510,7 @@ export default abstract class SqlIntegration
 
   requiresDatabase = true;
   requiresSchema = true;
-  escapePathCharacter: string | null = null;
+  escapePathCharacter: SqlIdentifierQuote | null = null;
   columnNamesAreCaseSensitive = false;
 
   ensureMaxLimit(sql: string, limit: number): string {
@@ -1279,7 +1285,7 @@ export default abstract class SqlIntegration
     // Add table name
     path += tableName;
     return this.escapePathCharacter
-      ? `${this.escapePathCharacter}${path}${this.escapePathCharacter}`
+      ? quoteIdentifier(path, this.escapePathCharacter)
       : path;
   }
 
@@ -1334,6 +1340,8 @@ export default abstract class SqlIntegration
     tableSchema: string,
     tableName: string,
   ): Promise<{ tableData: null | unknown[] }> {
+    assertSafeTablePathParts(databaseName, tableSchema);
+    const { escapeStringLiteral } = this.getSqlDialect();
     const partitionCondition = this.getPartitionColumnCondition();
     const sql = `
   SELECT
@@ -1346,9 +1354,9 @@ export default abstract class SqlIntegration
   FROM
     ${this.getInformationSchemaTable(tableSchema, databaseName)}
   WHERE
-    table_name = '${tableName}'
-    AND table_schema = '${tableSchema}'
-    AND table_catalog = '${databaseName}'`;
+    table_name = '${escapeStringLiteral(tableName)}'
+    AND table_schema = '${escapeStringLiteral(tableSchema)}'
+    AND table_catalog = '${escapeStringLiteral(databaseName)}'`;
 
     const results = await this.runQuery(
       format(sql, this.getSqlDialect().formatDialect),
@@ -1388,7 +1396,7 @@ export default abstract class SqlIntegration
             `event_time >= '${getDateLimitStart(start)}'`,
           getAdditionalEvents: () => [],
           getEventFilterWhereClause: (eventName: string) =>
-            `event_name = '${eventName}'`,
+            `event_name = '${this.getSqlDialect().escapeStringLiteral(eventName)}'`,
         };
       }
       case "rudderstack":
@@ -1404,8 +1412,10 @@ export default abstract class SqlIntegration
           ],
           anonymousIdColumn: "anonymous_id",
           displayNameColumn: "event_text",
-          getTrackedEventTablePath: ({ eventName, schema }) =>
-            this.generateTablePath(eventName, schema),
+          getTrackedEventTablePath: ({ eventName, schema }) => {
+            assertSafeTablePathParts(eventName);
+            return this.generateTablePath(eventName, schema);
+          },
           getDateLimitClause: (start) =>
             `received_at >= '${getDateLimitStart(start)}'`,
           getAdditionalEvents: () => [
@@ -1926,7 +1936,7 @@ export default abstract class SqlIntegration
               .join("\n")}
           FROM __newExposures e
           WHERE
-            e.experiment_id = '${settings.experimentId}'
+            e.experiment_id = '${this.getSqlDialect().escapeStringLiteral(settings.experimentId)}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
                 ? `AND ${afterWatermark(this.getSqlDialect(), "e.timestamp", params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`

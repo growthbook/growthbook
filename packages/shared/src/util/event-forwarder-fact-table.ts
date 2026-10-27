@@ -1,3 +1,4 @@
+import { quoteIdentifier } from "shared/sql";
 import type { CreateColumnProps } from "shared/types/fact-table";
 import type {
   SDKAttribute,
@@ -5,6 +6,7 @@ import type {
   SDKAttributeType,
 } from "shared/types/organization";
 import type { UserIdType } from "shared/types/datasource";
+import { databricksDialect } from "../dialects/databricks";
 import {
   attributeMatchesDatasourceProjects,
   getEventForwarderUserIdTypeSourceAttribute,
@@ -143,7 +145,7 @@ export function buildDatabricksEventForwarderTableReference(
 }
 
 export function quoteBigQueryIdentifier(identifier: string): string {
-  return `\`${identifier}\``;
+  return quoteIdentifier(identifier, "`");
 }
 
 /**
@@ -160,12 +162,12 @@ function escapeBigQueryJsonPathKey(key: string): string {
 }
 
 function quoteSnowflakeVariantFieldName(fieldName: string): string {
-  return `"${fieldName.replace(/"/g, '""')}"`;
+  return quoteIdentifier(fieldName, '"');
 }
 
 // Keys are sanitized Avro field names, so only the SQL string literal needs escaping.
 function buildDatabricksVariantPath(key: string): string {
-  return `'$.${key.replace(/'/g, "''")}'`;
+  return `'$.${databricksDialect.escapeStringLiteral(key)}'`;
 }
 
 function buildDatabricksFlatMapAttributeValueSql(

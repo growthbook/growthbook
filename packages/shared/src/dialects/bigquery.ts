@@ -199,7 +199,7 @@ export const bigQueryDialect: SqlDialect = {
   // don't overflow in the statistics CTEs.
   castToFloat: (col: string) => `CAST(${col} AS FLOAT64)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
+    const raw = `JSON_VALUE(${jsonCol}, '$.${bigQueryEscapeStringLiteral(path)}')`;
     return isNumeric ? bigQueryDialect.castToFloat(raw) : raw;
   },
   // BigQuery uses `IGNORE NULLS` in aggregates rather than `FILTER (WHERE …)`.

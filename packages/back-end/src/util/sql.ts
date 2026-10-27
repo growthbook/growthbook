@@ -1,7 +1,7 @@
 import Handlebars from "handlebars";
 import { SQLVars, SqlDialect } from "shared/types/sql";
 import { FactTableColumnType, JSONColumnFields } from "shared/types/fact-table";
-import { helpers } from "./handlebarsHelpers";
+import { escapeTemplateStringLiteral, helpers } from "./handlebarsHelpers";
 
 // Register all the helpers from handlebarsHelpers
 Object.keys(helpers).forEach((helperName) => {
@@ -96,6 +96,9 @@ export function compileSqlTemplate(
   if (!experimentId) {
     experimentId = "%";
   }
+  // Templates quote it themselves ('{{ experimentId }}'), and tracking keys
+  // can be imported from warehouse data.
+  experimentId = escapeTemplateStringLiteral(experimentId, dialect);
 
   const replacements: Record<string, unknown> = {
     ...templateVariables,

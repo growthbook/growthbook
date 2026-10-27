@@ -1698,3 +1698,43 @@ describe("assignment query permissions", () => {
     ).toBe(false);
   });
 });
+
+describe("canRunTestQueries", () => {
+  const org: OrganizationInterface = {
+    id: "org_test_queries",
+    name: "Test Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: {},
+  };
+  const datasource = { projects: [] };
+
+  function withPermissions(extra: Record<string, boolean>) {
+    return new Permissions({
+      global: {
+        permissions: { ...roleToPermissionMap("readonly", org), ...extra },
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+      projects: {},
+    });
+  }
+
+  it("needs a SQL-authoring permission on top of running queries", () => {
+    expect(
+      withPermissions({ runQueries: true }).canRunTestQueries(datasource),
+    ).toBe(false);
+    expect(
+      withPermissions({
+        runQueries: true,
+        manageFactTables: true,
+      }).canRunTestQueries(datasource),
+    ).toBe(true);
+    expect(
+      withPermissions({ manageFactTables: true }).canRunTestQueries(datasource),
+    ).toBe(false);
+  });
+});

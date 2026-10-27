@@ -104,6 +104,21 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     expect(sql).toContain("'props.plan'");
   });
 
+  it("escapes a JSON key sampled from warehouse data", () => {
+    const key = "x'y\\";
+    const sql = buildSql(dialect, {
+      factTable: jsonFactTable,
+      columns: [makeColumn(`props.${key}`)],
+    });
+    const stripWhitespace = (s: string) => s.replace(/\s+/g, "");
+    expect(stripWhitespace(sql)).toContain(
+      stripWhitespace(
+        dialect.castToString(dialect.jsonExtract("props", key, false)),
+      ),
+    );
+    expect(sql).toContain(`'${dialect.escapeStringLiteral(`props.${key}`)}'`);
+  });
+
   it("filters matching values before ranking them", () => {
     const sql = buildSql(dialect, { searchTerm: "Needle" });
     expect(sql).toMatch(/CASE\s+WHEN[\s\S]*LOWER/i);

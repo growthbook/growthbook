@@ -128,7 +128,7 @@ export function getContextualBanditSrmQuery(
         FROM
           __rawExperiment e
         WHERE
-          e.experiment_id = '${settings.experimentId}'
+          e.experiment_id = '${dialect.escapeStringLiteral(settings.experimentId)}'
           AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate

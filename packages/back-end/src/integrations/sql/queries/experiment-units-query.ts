@@ -176,7 +176,7 @@ export function getExperimentUnitsQuery(
       FROM
           __rawExperiment e
       WHERE
-          e.experiment_id = '${unitsSettings.experimentId}'
+          e.experiment_id = '${dialect.escapeStringLiteral(unitsSettings.experimentId)}'
           AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate

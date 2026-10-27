@@ -1127,6 +1127,21 @@ export const ALL_PERMISSIONS = [
   ...ENV_SCOPED_PERMISSIONS,
 ];
 
+// Permissions that already let a user write SQL that runs against a data source.
+export const SQL_AUTHORING_PERMISSIONS: (typeof PROJECT_SCOPED_PERMISSIONS)[number][] =
+  [
+    "runSqlExplorerQueries",
+    "createAnalyses",
+    "createMetrics",
+    "createSegments",
+    "createDatasources",
+    "editDatasourceSettings",
+    "manageFactTables",
+    "manageFactFilters",
+    "manageFactMetrics",
+    "managePopulations",
+  ];
+
 export const READ_ONLY_PERMISSIONS = [
   "readData",
   "viewAuditLog",

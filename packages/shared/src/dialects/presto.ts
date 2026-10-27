@@ -31,7 +31,7 @@ export const prestoDialect: SqlDialect = {
     `date_diff('day', ${startCol}, ${endCol})`,
   castToFloat: (col: string) => `CAST(${col} AS DOUBLE)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    const raw = `json_extract_scalar(${jsonCol}, '$.${prestoDialect.escapeStringLiteral(path)}')`;
     return isNumeric ? prestoDialect.castToFloat(raw) : raw;
   },
   hasCountDistinctHLL: () => true,

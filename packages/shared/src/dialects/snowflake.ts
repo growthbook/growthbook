@@ -3,6 +3,7 @@ import type { DataType } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
 import { indicesTableUnpivot } from "./clauses/indices-table-unpivot";
+import { quoteJsonPathSegments } from "./clauses/json-path";
 import {
   approxTopKCapacity,
   eligibleTopValueExpr,
@@ -80,7 +81,7 @@ export const snowflakeDialect: SqlDialect = {
     return `COALESCE((${sumBelow}) * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) =>
-    `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
+    `PARSE_JSON(${jsonCol}):${quoteJsonPathSegments(path, '"')}::${isNumeric ? "float" : "string"}`,
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
   // Snowflake aggregate-with-sort uses `WITHIN GROUP`. NULLs are skipped

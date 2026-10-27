@@ -23,6 +23,7 @@ import {
   mssqlDialect,
   postgresDialect,
   prestoDialect,
+  athenaDialect,
   verticaDialect,
   adobeExperiencePlatformQueryServiceDialect,
 } from "shared/dialects";
@@ -329,6 +330,88 @@ describe("bigquery integration", () => {
     it("escapes backticks within a key", () => {
       const sql = clickHouseDialect.jsonExtract("attributes", "a`b", false);
       expect(sql).toContain("attributes.`a``b`::Nullable(String)");
+    });
+
+    it("escapes backslashes within a key", () => {
+      const sql = clickHouseDialect.jsonExtract("attributes", "a\\", false);
+      expect(sql).toContain("attributes.`a\\\\`::Nullable(String)");
+    });
+  });
+
+  describe("jsonExtract escapes JSON keys from warehouse data", () => {
+    // A single quote or a trailing backslash ends an unescaped literal early.
+    const key = "x'y\\";
+
+    it.each([
+      {
+        dialect: bigQueryDialect,
+        expected: String.raw`JSON_VALUE(props, '$.x\'y\\')`,
+      },
+      {
+        dialect: mysqlDialect,
+        expected: String.raw`JSON_EXTRACT(props, '$.x''y\\')`,
+      },
+      {
+        dialect: mssqlDialect,
+        expected: String.raw`JSON_VALUE(props, '$.x''y\')`,
+      },
+      {
+        dialect: prestoDialect,
+        expected: String.raw`json_extract_scalar(props, '$.x''y\')`,
+      },
+      {
+        dialect: athenaDialect,
+        expected: String.raw`json_extract_scalar(props, '$.x''y\')`,
+      },
+      {
+        dialect: adobeExperiencePlatformQueryServiceDialect,
+        expected: String.raw`get_json_object(props, '$.x\'y\\')`,
+      },
+      {
+        dialect: verticaDialect,
+        expected: String.raw`MAPLOOKUP(MapJSONExtractor(props), 'x''y\')`,
+      },
+      {
+        dialect: postgresDialect,
+        expected: String.raw`JSON_EXTRACT_PATH_TEXT(props::json, 'x''y\')`,
+      },
+      {
+        dialect: redshiftDialect,
+        expected: String.raw`JSON_EXTRACT_PATH_TEXT(props, 'x''y\\', TRUE)`,
+      },
+      {
+        dialect: clickHouseDialect,
+        expected: String.raw`JSONExtractString(props, 'x''y\\')`,
+      },
+      {
+        dialect: clickHouseDialect,
+        expected: "props.`x'y\\\\`::Nullable(String)",
+      },
+      {
+        dialect: snowflakeDialect,
+        expected: String.raw`PARSE_JSON(props):"x'y\\"::string`,
+      },
+      { dialect: databricksDialect, expected: "props:`x'y\\\\`" },
+    ])("$dialect.formatDialect: $expected", ({ dialect, expected }) => {
+      expect(dialect.jsonExtract("props", key, false)).toContain(expected);
+    });
+
+    it("quotes only the non-identifier segments of a Snowflake path", () => {
+      expect(snowflakeDialect.jsonExtract("props", "a.b_c[0].d", true)).toBe(
+        "PARSE_JSON(props):a.b_c[0].d::float",
+      );
+      expect(
+        snowflakeDialect.jsonExtract("props", 'user.first "name"', false),
+      ).toBe('PARSE_JSON(props):user."first ""name"""::string');
+    });
+
+    it("quotes only the non-identifier segments of a Databricks path", () => {
+      expect(databricksDialect.jsonExtract("props", "a.b_c[0].d", false)).toBe(
+        "props:a.b_c[0].d",
+      );
+      expect(databricksDialect.jsonExtract("props", "user.$a`b", false)).toBe(
+        "props:user.`$a``b`",
+      );
     });
   });
 

@@ -212,6 +212,16 @@ describe("backend", () => {
       ).toEqual(`SELECT * WHERE expid LIKE 'my-experiment'`);
     });
 
+    it("escapes experimentId for the string literal the template wraps it in", () => {
+      expect(
+        compileSqlTemplate(
+          `SELECT * WHERE expid = '{{experimentId}}'`,
+          { startDate, endDate, experimentId: "x' OR '1'='1" },
+          baseDialect,
+        ),
+      ).toEqual(`SELECT * WHERE expid = 'x'' OR ''1''=''1'`);
+    });
+
     it("sqlstring helper uses a dialect-aware escape when supplied", () => {
       // Backslash-escape style (BigQuery / Databricks): escape both `\` and
       // `'` with a leading backslash. The template receives this dialect via

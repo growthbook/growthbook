@@ -74,7 +74,7 @@ export function getExperimentFactMetricStatisticsCTE(
             // A funnel emits its own set of statistics
             if (isFactFunnelMetric(data.metric)) {
               return `
-           , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
+           , ${dialect.castToString(`'${dialect.escapeStringLiteral(data.id)}'`)} as ${data.alias}_id
             ${data.metric.funnelSettings.steps
               .map(
                 (step, stepIndex) => `-- ${step.name}
@@ -120,7 +120,7 @@ export function getExperimentFactMetricStatisticsCTE(
                 ].join("")
               : "";
             return `
-           , ${dialect.castToString(`'${data.id}'`)} as ${data.alias}_id
+           , ${dialect.castToString(`'${dialect.escapeStringLiteral(data.id)}'`)} as ${data.alias}_id
             ${
               data.computeUncappedMetric
                 ? `

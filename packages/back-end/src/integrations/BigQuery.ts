@@ -10,6 +10,7 @@ import {
   bigQueryCreateTablePartitions,
 } from "shared/enterprise";
 import { format } from "shared/sql";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 import {
   ExternalIdCallback,
   InformationSchema,
@@ -37,7 +38,7 @@ import SqlIntegration from "./SqlIntegration";
 
 export default class BigQuery extends SqlIntegration {
   params!: BigQueryConnectionParams;
-  escapePathCharacter = "`";
+  escapePathCharacter: SqlIdentifierQuote = "`";
   setParams(encryptedParams: string) {
     this.params =
       decryptDataSourceParams<BigQueryConnectionParams>(encryptedParams);

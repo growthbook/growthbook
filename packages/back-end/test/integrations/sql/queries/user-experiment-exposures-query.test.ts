@@ -39,4 +39,15 @@ describe("getUserExperimentExposuresQuery", () => {
     );
     expect(sql).not.toContain(postgresDialect.castToString("anonymous_id"));
   });
+
+  it("escapes the unit id", () => {
+    const sql = getUserExperimentExposuresQuery(postgresDialect, datasource, {
+      unitId: "u' OR '1'='1",
+      userIdType: "user_id",
+      lookbackDays: 7,
+    });
+    expect(sql).toContain(
+      `${postgresDialect.castToString("user_id")} = 'u'' OR ''1''=''1'`,
+    );
+  });
 });

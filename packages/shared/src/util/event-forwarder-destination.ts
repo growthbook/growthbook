@@ -1,3 +1,5 @@
+import { quoteIdentifier } from "shared/sql";
+
 const BIGQUERY_TABLE_NAME_MAX_LENGTH = 1024;
 const SNOWFLAKE_IDENTIFIER_MAX_LENGTH = 255;
 const SNOWFLAKE_HOST_SUFFIX = ".snowflakecomputing.com";
@@ -547,7 +549,7 @@ export function resolveDatabricksEventForwarderTableNames(
 }
 
 export function quoteDatabricksIdentifier(identifier: string): string {
-  return `\`${identifier.replace(/`/g, "``")}\``;
+  return quoteIdentifier(identifier, "`");
 }
 
 function assertDatabricksIdentifier(segment: string, label: string): string {

@@ -2,6 +2,7 @@ import { getValidDate } from "shared/dates";
 import {
   buildMinimalOrCondition,
   format,
+  quoteIdentifier,
   SQL_ROW_LIMIT,
   stripTrailingSemicolon,
 } from "shared/sql";
@@ -94,8 +95,7 @@ function quoteSqlIdentifier(name: string, helpers: SqlDialect): string {
       : helpers.unquotedIdentifierFold === "lower"
         ? name.toLowerCase()
         : name;
-  const escaped = folded.split(quote).join(`${quote}${quote}`);
-  return `${quote}${escaped}${quote}`;
+  return quoteIdentifier(folded, quote);
 }
 
 // Funnel fact metrics are excluded: product-analytics explorations describe
@@ -679,6 +679,8 @@ function getStaticDimensionFilters(
       d.column,
       factTable,
       helpers.jsonExtract,
+      "",
+      helpers.identifierQuote,
     );
     const valueList = d.values
       .map((v) => `'${helpers.escapeStringLiteral(v)}'`)

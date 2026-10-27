@@ -1,4 +1,4 @@
-import { createLikeMatchFns } from "shared/sql";
+import { createLikeMatchFns, quoteIdentifier } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
 import { eligibleTopValueExpr } from "./clauses/approx-top-values";
@@ -14,7 +14,7 @@ const SAFE_CH_IDENTIFIER = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 // it isn't a safe bare identifier — `attributes.company id` is invalid SQL,
 // `attributes.\`company id\`` is correct.
 const quoteClickHouseJsonPath = (path: string): string =>
-  SAFE_CH_IDENTIFIER.test(path) ? path : `\`${path.replace(/`/g, "``")}\``;
+  SAFE_CH_IDENTIFIER.test(path) ? path : quoteIdentifier(path, "`");
 
 export const clickHouseDialect: SqlDialect = {
   ...baseDialect,
@@ -100,7 +100,7 @@ export const clickHouseDialect: SqlDialect = {
 if(
   toTypeName(${jsonCol}) = 'JSON',
   toFloat64OrNull(${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String)),
-  JSONExtractFloat(${jsonCol}, '${path}')
+  JSONExtractFloat(${jsonCol}, '${clickHouseEscapeStringLiteral(path)}')
 )
       `;
     }
@@ -111,7 +111,7 @@ if(
 if(
   toTypeName(${jsonCol}) = 'JSON',
   ${jsonCol}.${quoteClickHouseJsonPath(path)}::Nullable(String),
-  JSONExtractString(${jsonCol}, '${path}')
+  JSONExtractString(${jsonCol}, '${clickHouseEscapeStringLiteral(path)}')
 )
       `;
   },

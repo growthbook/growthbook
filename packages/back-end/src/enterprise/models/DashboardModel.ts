@@ -5,6 +5,7 @@ import { UpdateProps } from "shared/types/base-model";
 import { Permissions } from "shared/permissions";
 import { isString, PermissionError } from "shared/util";
 import {
+  getSqlExprRowFilterValues,
   ApiCreateDashboardBlockInterface,
   ApiDashboardBlockInterface,
   blockHasFieldOfType,
@@ -39,6 +40,7 @@ import {
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { getValidDate } from "shared/dates";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   MakeModelClass,
   ScopedFilterQuery,
@@ -352,6 +354,7 @@ export class DashboardModel extends BaseClass {
     previousDoc?: DashboardDocument,
   ) {
     await this.assertOwnerCanManage(toSave, previousDoc);
+    await this.assertCanRunChangedExplorations(toSave, previousDoc);
     if (toSave.experimentId) {
       if (toSave.updateSchedule) {
         throw new Error(
@@ -363,6 +366,40 @@ export class DashboardModel extends BaseClass {
         throw new Error(
           "Must define an update schedule to enable auto updates",
         );
+      }
+    }
+  }
+
+  // Scheduled refreshes run blocks without a user's permissions, so whoever
+  // adds or changes an exploration block must be able to run it.
+  private async assertCanRunChangedExplorations(
+    dashboard: DashboardInterface,
+    previous?: DashboardInterface,
+  ) {
+    const previousConfigs = new Map(
+      (previous?.blocks ?? []).map((b) => [
+        b.id,
+        "config" in b ? b.config : undefined,
+      ]),
+    );
+    for (const block of dashboard.blocks) {
+      if (!("config" in block)) continue;
+      const { config } = block;
+      if (isEqual(previousConfigs.get(block.id), config)) continue;
+      const datasource = await getDataSourceById(
+        this.context,
+        config.datasource,
+      );
+      if (
+        !datasource ||
+        !this.context.permissions.canRunProductAnalyticsExplorationQueries(
+          datasource,
+          config.dataset.type,
+        ) ||
+        (getSqlExprRowFilterValues(config).length > 0 &&
+          !this.context.permissions.canRunSqlExplorerQueries(datasource))
+      ) {
+        this.context.permissions.throwPermissionError();
       }
     }
   }

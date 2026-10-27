@@ -1908,6 +1908,18 @@ describe("Experiments", () => {
         ).toBe(`m.unknown`);
       });
 
+      it("leaves plain and dotted names bare and quotes anything else", () => {
+        expect(
+          getColumnExpression("geo.country", factTable, jsonExtract, "", "`"),
+        ).toBe("geo.country");
+        expect(
+          getColumnExpression("my col", factTable, jsonExtract, "m", "`"),
+        ).toBe("m.`my col`");
+        expect(
+          getColumnExpression(`x" OR "1"="1`, factTable, jsonExtract, "", '"'),
+        ).toBe(`"x"" OR ""1""=""1"`);
+      });
+
       it("assumes datatype of string for unknown JSON fields", () => {
         expect(
           getColumnExpression(
