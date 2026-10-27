@@ -37,6 +37,7 @@ import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Metadata from "@/ui/Metadata";
 import Modal from "@/ui/Modal";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -351,34 +352,24 @@ const ImportExperimentList: FC<{
       return !earliest || d < earliest ? d : earliest;
     }, null);
 
-  const lookbackSummary = (
-    <>
-      Experiments your Experiment Assignment Queries recorded
-      {data?.experiments?.config ? (
-        <>
-          {" "}
-          from {date(lookbackStart ?? data.experiments.config.start)} to{" "}
-          {date(data.experiments.config.end)}
-        </>
-      ) : (
-        <> in the past {data?.lookbackDays ?? 365} days</>
-      )}
-      .
+  const dateRange = data?.experiments?.config ? (
+    <Flex align="center" gap="1">
+      <Text color="text-mid">
+        {date(lookbackStart ?? data.experiments.config.start)} –{" "}
+        {date(data.experiments.config.end)}
+      </Text>
       {!isCloud() && (
-        <>
-          {" "}
-          <Tooltip
-            body={
-              <>
-                You can change the lookback window with the{" "}
-                <code>IMPORT_LIMIT_DAYS</code> environment variable.
-              </>
-            }
-          />
-        </>
+        <Tooltip
+          body={
+            <>
+              You can change the lookback window with the{" "}
+              <code>IMPORT_LIMIT_DAYS</code> environment variable.
+            </>
+          }
+        />
       )}
-    </>
-  );
+    </Flex>
+  ) : null;
 
   const layout = (body: ReactNode) => (
     <>
@@ -606,7 +597,7 @@ const ImportExperimentList: FC<{
         />
       )}
       {(supportedDatasources.length > 1 || hasStarted || canRunQueries) && (
-        <Flex align="end" gap="3" wrap="wrap" mb="4">
+        <Flex align="end" gap="5" wrap="wrap" mb="4">
           {supportedDatasources.length > 1 && (
             <Select
               label="Data Source"
@@ -623,13 +614,14 @@ const ImportExperimentList: FC<{
               ))}
             </Select>
           )}
+          {hasStarted && dateRange && (
+            // Same height as the select's trigger so the two line up
+            <Flex align="center" style={{ height: 32 }}>
+              <Metadata label="Date range" value={dateRange} />
+            </Flex>
+          )}
           {queryControls}
         </Flex>
-      )}
-      {hasStarted && (
-        <Text as="p" size="sm" color="text-mid" mb="4">
-          {lookbackSummary}
-        </Text>
       )}
       {(runError || importFailed) && (
         <Callout status="error" mb="4">
