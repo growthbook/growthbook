@@ -1414,7 +1414,12 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
-  if (!context.permissions.canUpdateExposureQuery(exposureQuery, dataSource)) {
+  if (
+    getSavedQueriesSharingId(
+      copy.settings.queries.exposure,
+      exposureQueryId,
+    ).some((q) => !context.permissions.canUpdateExposureQuery(q, dataSource))
+  ) {
     context.permissions.throwPermissionError();
   }
   // Only dimension metadata; the rest of the query is edited through the data
