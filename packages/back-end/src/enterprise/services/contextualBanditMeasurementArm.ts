@@ -51,7 +51,7 @@ export function buildMeasurementArmSubdoc({
   cbTrackingKey: string;
   rederiveTrackingKey?: boolean;
 }): ContextualBanditMeasurementArm {
-  const resolvedEnabled = enabled ?? existing?.enabled ?? true;
+  const resolvedEnabled = enabled ?? existing?.enabled ?? false;
   let resolvedPercent =
     percent ?? existing?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT;
   if (resolvedPercent < MIN_MEASUREMENT_ARM_PERCENT) {

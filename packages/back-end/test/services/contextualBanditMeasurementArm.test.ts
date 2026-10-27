@@ -13,14 +13,20 @@ describe("buildMeasurementArmSubdoc", () => {
     seed: "seed-1",
   };
 
-  it("defaults a new arm to enabled at 5%", () => {
+  it("defaults a new arm to off at 5% when the API body omits it", () => {
     const arm = buildMeasurementArmSubdoc({ cbTrackingKey: "cb-key" });
     expect(arm).toMatchObject({
-      enabled: true,
+      enabled: false,
       percent: 0.05,
       trackingKey: "cb-key__measurement_arm",
     });
     expect(arm.seed).toBeTruthy();
+  });
+
+  it("enables the arm when asked, at the default percent", () => {
+    expect(
+      buildMeasurementArmSubdoc({ enabled: true, cbTrackingKey: "cb-key" }),
+    ).toMatchObject({ enabled: true, percent: 0.05 });
   });
 
   it("accepts 0% when disabling and keeps the stored percent", () => {
