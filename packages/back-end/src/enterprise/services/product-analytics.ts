@@ -159,7 +159,7 @@ export async function runProductAnalyticsExploration(
         }
         if (value.draftMetric)
           throw new BadRequestError(
-            "Metrics with populations require a saved metric",
+            "Metrics with populations require a saved metric.",
           );
         try {
           validatePopulationMetricCompatibility(
