@@ -523,7 +523,21 @@ export async function getExperimentByUid(
   return doc ? toInterface(doc) : null;
 }
 
-export async function getAllExperiments(
+type ExperimentListFilters = {
+  project?: string;
+  includeArchived?: boolean;
+  // Tri-state archived filter: true = archived only, false = exclude
+  // archived, undefined = fall back to `includeArchived`.
+  archived?: boolean;
+  type?: ExperimentType;
+  datasourceId?: string;
+  trackingKey?: string;
+  status?: ExperimentStatus;
+  // Only these experiments
+  ids?: string[];
+};
+
+function getExperimentListQuery(
   context: ReqContext | ApiReqContext,
   {
     project,
@@ -533,25 +547,9 @@ export async function getAllExperiments(
     datasourceId,
     trackingKey,
     status,
-    sortBy,
-    limit,
-  }: {
-    project?: string;
-    includeArchived?: boolean;
-    // Tri-state archived filter: true = archived only, false = exclude
-    // archived, undefined = fall back to `includeArchived`.
-    archived?: boolean;
-    type?: ExperimentType;
-    datasourceId?: string;
-    trackingKey?: string;
-    status?: ExperimentStatus;
-    sortBy?: SortFilter;
-    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
-    // it, large orgs materialize the full result set (each row carries
-    // a potentially large analysis blob).
-    limit?: number;
-  } = {},
-): Promise<ExperimentInterface[]> {
+    ids,
+  }: ExperimentListFilters,
+): FilterQuery<ExperimentDocument> {
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
   };
@@ -588,7 +586,65 @@ export async function getAllExperiments(
     query.type = { $ne: "holdout" };
   }
 
-  return await findExperiments(context, query, limit, sortBy);
+  if (ids) {
+    query.id = { $in: ids };
+  }
+
+  return query;
+}
+
+export async function getAllExperiments(
+  context: ReqContext | ApiReqContext,
+  {
+    sortBy,
+    limit,
+    ...filters
+  }: ExperimentListFilters & {
+    sortBy?: SortFilter;
+    // Mongo-cursor-level cap; pair with `sortBy` to get top-N. Without
+    // it, large orgs materialize the full result set (each row carries
+    // a potentially large analysis blob).
+    limit?: number;
+  } = {},
+): Promise<ExperimentInterface[]> {
+  if (filters.ids && !filters.ids.length) return [];
+  return await findExperiments(
+    context,
+    getExperimentListQuery(context, filters),
+    limit,
+    sortBy,
+  );
+}
+
+export type ExperimentListKey = Pick<
+  ExperimentInterface,
+  "id" | "project" | "name" | "dateCreated" | "dateUpdated"
+>;
+
+// Lightweight sibling of `getAllExperiments` for sorting and paginating a
+// list before loading full experiments. Skips `upgradeExperimentDoc`, which
+// does not touch any of the projected fields.
+export async function getAllExperimentListKeys(
+  context: ReqContext | ApiReqContext,
+  filters: ExperimentListFilters = {},
+): Promise<ExperimentListKey[]> {
+  if (filters.ids && !filters.ids.length) return [];
+  const docs = await getCollection<ExperimentListKey>(COLLECTION)
+    .find(getExperimentListQuery(context, filters), {
+      projection: {
+        _id: 0,
+        id: 1,
+        project: 1,
+        name: 1,
+        dateCreated: 1,
+        dateUpdated: 1,
+      },
+    })
+    .toArray();
+
+  return docs.filter((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  );
 }
 
 // What `countActiveExperimentsUsingNamespace` reads: the projected fields

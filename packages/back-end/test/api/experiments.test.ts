@@ -38,6 +38,12 @@ jest.mock("../../src/models/ExperimentModel", () => ({
   createExperiment: jest.fn(),
   updateExperiment: jest.fn(),
   getAllExperiments: jest.fn(),
+  // Derive list keys from whatever the test feeds getAllExperiments
+  getAllExperimentListKeys: jest.fn((...args) =>
+    jest
+      .requireMock("../../src/models/ExperimentModel")
+      .getAllExperiments(...args),
+  ),
 }));
 
 jest.mock("../../src/models/ExperimentSnapshotModel", () => ({
@@ -599,6 +605,38 @@ describe("experiments API", () => {
         "exp_zebra",
         "exp_apple",
       ]);
+    });
+
+    it("only loads full experiments for the requested page", async () => {
+      const older = {
+        ...experiment,
+        id: "exp_older",
+        dateCreated: new Date("2020-01-01"),
+      };
+      const newer = {
+        ...experiment,
+        id: "exp_newer",
+        dateCreated: new Date("2024-01-01"),
+      };
+      (getAllExperiments as jest.Mock).mockResolvedValue([newer, older]);
+      const res = await request(app)
+        .get("/api/v1/experiments?limit=1&offset=1")
+        .set("Authorization", "Bearer foo");
+
+      expect(res.status).toBe(200);
+      expect(res.body.experiments.map((e: { id: string }) => e.id)).toEqual([
+        "exp_newer",
+      ]);
+      expect(res.body).toMatchObject({
+        count: 1,
+        total: 2,
+        hasMore: false,
+        nextOffset: null,
+      });
+      expect(getAllExperiments).toHaveBeenLastCalledWith(
+        expect.anything(),
+        expect.objectContaining({ ids: ["exp_newer"] }),
+      );
     });
 
     it("rejects an unsupported sortBy field", async () => {

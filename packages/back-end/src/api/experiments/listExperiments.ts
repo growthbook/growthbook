@@ -4,7 +4,11 @@ import {
 } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import { ProjectInterface } from "shared/types/project";
-import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import {
+  ExperimentListKey,
+  getAllExperimentListKeys,
+  getAllExperiments,
+} from "back-end/src/models/ExperimentModel";
 import { toExperimentApiInterface } from "back-end/src/services/experiments";
 import {
   buildExperimentFilterResolvers,
@@ -16,6 +20,7 @@ import {
 import { resolveOwnerEmails } from "back-end/src/services/owner";
 import {
   applyPagination,
+  applyPaginationAndLoad,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
 
@@ -43,14 +48,14 @@ export const listExperiments = createApiRequestHandler(
 
   // Filter at the database level where possible
   // Note: type is not specified, which defaults to excluding holdouts
-  const experiments = await getAllExperiments(req.context, {
+  const dbFilters = {
     includeArchived: true,
     archived,
     project: req.query.projectId,
     datasourceId: req.query.datasourceId,
     trackingKey: req.query.trackingKey ?? req.query.experimentId,
     status: req.query.status,
-  });
+  };
 
   // The remaining filters share the app's experiment-list semantics (matching
   // is case-insensitive; values within a category are ORed, categories are
@@ -73,36 +78,43 @@ export const listExperiments = createApiRequestHandler(
         ? false
         : undefined;
 
-  // Resolvers require extra lookups (projects, org members), so skip the
-  // filter pass entirely when no in-memory filters were requested
   const hasFilters =
     bandits !== undefined ||
     Object.values(filters).some((value) => value !== undefined);
-  const filteredExperiments = hasFilters
-    ? filterExperiments({
-        experiments,
-        filters,
-        resolvers: await buildExperimentFilterResolvers(req.context),
-        bandits,
-      })
-    : experiments;
 
-  // Sort in Node: the endpoint materializes the full (permission-filtered)
-  // result set for in-memory pagination anyway, so sorting here is free,
-  // sidesteps Mongo's in-memory sort memory ceiling on large orgs, and lets
-  // `name` sort case-insensitively (Mongo would sort by raw byte order)
+  // Sort in Node: sidesteps Mongo's in-memory sort memory ceiling on large
+  // orgs and lets `name` sort case-insensitively (Mongo would sort by raw
+  // byte order)
   const sortBy = req.query.sortBy ?? "dateCreated";
   const sortDir = req.query.sortOrder === "desc" ? -1 : 1;
-  const sorted = [...filteredExperiments].sort((a, b) => {
-    const diff =
-      sortBy === "name"
-        ? a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
-        : a[sortBy].getTime() - b[sortBy].getTime();
-    return sortDir === -1 ? -diff : diff;
-  });
+  const sort = <T extends ExperimentListKey>(items: T[]): T[] =>
+    [...items].sort((a, b) => {
+      const diff =
+        sortBy === "name"
+          ? a.name.localeCompare(b.name, undefined, { sensitivity: "base" })
+          : a[sortBy].getTime() - b[sortBy].getTime();
+      return sortDir === -1 ? -diff : diff;
+    });
 
-  // TODO: Move pagination (limit/offset) to database for better performance
-  const { filtered, returnFields } = applyPagination(sorted, req.query);
+  // Without in-memory filters, sort and page lightweight keys and only load
+  // full experiments for the requested page
+  const { filtered, returnFields } = hasFilters
+    ? applyPagination(
+        sort(
+          filterExperiments({
+            experiments: await getAllExperiments(req.context, dbFilters),
+            filters,
+            resolvers: await buildExperimentFilterResolvers(req.context),
+            bandits,
+          }),
+        ),
+        req.query,
+      )
+    : await applyPaginationAndLoad(
+        sort(await getAllExperimentListKeys(req.context, dbFilters)),
+        req.query,
+        (ids) => getAllExperiments(req.context, { ...dbFilters, ids }),
+      );
 
   // Batch-load all projects for the filtered experiments to avoid N+1 queries
   const projectIds = [

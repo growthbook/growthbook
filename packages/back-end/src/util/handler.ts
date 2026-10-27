@@ -634,6 +634,34 @@ export function applyPagination<T>(
   };
 }
 
+/**
+ * Like applyPagination, but pages lightweight keys and only loads the full
+ * items for the requested page. Items are returned in key order; keys whose
+ * item no longer loads are dropped, so `count` can be lower than `limit`.
+ */
+export async function applyPaginationAndLoad<T extends { id: string }>(
+  keys: { id: string }[],
+  query: PaginationQuery,
+  load: (ids: string[]) => Promise<T[]>,
+): Promise<{
+  filtered: T[];
+  returnFields: ApiPaginationFields;
+}> {
+  const { filtered: pageKeys, returnFields } = applyPagination(keys, query);
+  const ids = pageKeys.map((k) => k.id);
+  const byId = new Map(
+    (ids.length ? await load(ids) : []).map((item) => [item.id, item]),
+  );
+  const filtered = ids
+    .map((id) => byId.get(id))
+    .filter((item): item is T => item !== undefined);
+
+  return {
+    filtered,
+    returnFields: { ...returnFields, count: filtered.length },
+  };
+}
+
 export function applyFilter<T>(
   queryValue: T,
   actualValue: T | T[],
