@@ -4,19 +4,19 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
+import type { ExperimentChangeType } from "shared/validators";
 import { useEnvironments } from "@/services/features";
 import FeatureVariationsInput from "@/components//Features/FeatureVariationsInput";
 import NamespaceSelector from "@/components//Features/NamespaceSelector";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import Callout from "@/ui/Callout";
 import { useAttributeScopePicker } from "./useAttributeScopePicker";
-import type { ChangeType } from "./MakeChangesFlow";
 
 export interface TargetingFormProps {
   experiment: ExperimentInterfaceStringDates;
   attributeProjects?: string[] | null;
   form: UseFormReturn<ExperimentTargetingData>;
-  changeType?: ChangeType;
+  changeType?: ExperimentChangeType;
   conditionKey: number;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
 }
@@ -101,7 +101,7 @@ export default function TargetingForm({
         </>
       )}
 
-      {["traffic", "weights", "advanced"].includes(changeType) && (
+      {["coverage", "weights", "advanced"].includes(changeType) && (
         <FeatureVariationsInput
           valueType={"string"}
           coverage={form.watch("coverage")}
@@ -121,10 +121,10 @@ export default function TargetingForm({
           }
           showPreview={false}
           disableCoverage={changeType === "weights"}
-          disableVariations={changeType === "traffic"}
+          disableVariations={changeType === "coverage"}
           hideVariations={type === "multi-armed-bandit"}
           label={
-            changeType === "traffic" || type === "multi-armed-bandit"
+            changeType === "coverage" || type === "multi-armed-bandit"
               ? "Traffic Percentage"
               : changeType === "weights"
                 ? "Variation Weights"

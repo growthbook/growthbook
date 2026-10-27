@@ -264,13 +264,8 @@ export type ExperimentTargetingData = Pick<
     | "attributeScopeAllProjects"
     | "hashVersion"
     | "disableStickyBucketing"
-    | "bucketVersion"
-    | "minBucketVersion"
     | "trackingKey"
-  > & {
-    newPhase: boolean;
-    reseed: boolean;
-  };
+  >;
 
 export type LinkedFeatureState =
   | "locked"

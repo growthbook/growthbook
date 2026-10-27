@@ -36,6 +36,19 @@ type CallArgs<T extends AnyEndpointSpec> =
     ? [args?: ArgsFor<T>]
     : [args: ArgsFor<T>];
 
+/** A failed REST call, keeping the typed `code` and `details` of the body. */
+export class RestApiError extends Error {
+  constructor(
+    message: string,
+    readonly status: number,
+    readonly code?: string,
+    readonly details?: unknown,
+  ) {
+    super(message);
+    this.name = "RestApiError";
+  }
+}
+
 type RequestArgs = {
   params?: Record<string, unknown>;
   body?: unknown;
@@ -114,7 +127,12 @@ export function useRestApiCall() {
       let response = await issue(url);
 
       if (!response.ok) {
-        let errData: { message?: string; warnings?: string[] } | null = null;
+        let errData: {
+          message?: string;
+          warnings?: string[];
+          code?: string;
+          details?: unknown;
+        } | null = null;
         try {
           errData = await response.json();
         } catch {
@@ -138,7 +156,12 @@ export function useRestApiCall() {
             throw new Error(retryMessage);
           }
         } else {
-          throw new Error(errData?.message || "There was an error");
+          throw new RestApiError(
+            errData?.message || "There was an error",
+            response.status,
+            errData?.code,
+            errData?.details,
+          );
         }
       }
 

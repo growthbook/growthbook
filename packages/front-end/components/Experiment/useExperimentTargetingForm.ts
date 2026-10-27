@@ -6,6 +6,7 @@ import {
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import omit from "lodash/omit";
+import type { ExperimentChangeType } from "shared/validators";
 import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
 import { validateAndFixCondition } from "shared/util";
 import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
@@ -20,7 +21,6 @@ import {
 } from "@/services/features";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { allConnectionsSupportBucketingV2 } from "./HashVersionSelector";
-import { ChangeType } from "./MakeChangesFlow";
 
 export interface UseExperimentTargetingFormResult {
   form: UseFormReturn<ExperimentTargetingData>;
@@ -32,11 +32,20 @@ export interface UseExperimentTargetingFormResult {
   prerequisiteTargetingSdkIssues: boolean;
   setPrerequisiteTargetingSdkIssues: (v: boolean) => void;
   canSubmit: boolean;
-  onSubmit: (mutate: () => void, scope?: ChangeType) => () => Promise<void>;
+  /** Client-side checks before a save; throws with a message to show. */
+  validate: (
+    value: ExperimentTargetingData,
+    scope?: ExperimentChangeType,
+  ) => ExperimentTargetingData;
+  onSubmit: (
+    mutate: () => void,
+    scope?: ExperimentChangeType,
+  ) => () => Promise<void>;
 }
 
-// Shared by the targeting and traffic modals, which both POST to the same
-// `/experiment/:id/targeting` endpoint. When `attributeScopeProjects` is
+// Shared by the targeting, traffic, and namespace modals. Their simple forms
+// (experiment not live) POST to `/experiment/:id/targeting`; Make Changes
+// (live) goes through the REST endpoint. When `attributeScopeProjects` is
 // omitted the pre-flight falls back to `experiment.project`.
 export function useExperimentTargetingForm(
   experiment: ExperimentInterfaceStringDates,
@@ -73,8 +82,6 @@ export function useExperimentTargetingForm(
     attributeScopeAllProjects: experiment.attributeScopeAllProjects ?? false,
     hashVersion: experiment.hashVersion || (hasSDKWithNoBucketingV2 ? 1 : 2),
     disableStickyBucketing: experiment.disableStickyBucketing ?? false,
-    bucketVersion: experiment.bucketVersion || 1,
-    minBucketVersion: experiment.minBucketVersion || 0,
     namespace: (() => {
       const saved = lastPhase?.namespace;
       if (!saved) {
@@ -105,90 +112,97 @@ export function useExperimentTargetingForm(
         id: v.id,
         status: "active" as const,
       })),
-    newPhase: false,
-    reseed: true,
   };
 
   const form = useForm<ExperimentTargetingData>({
     defaultValues,
   });
 
-  const onSubmit = (mutate: () => void, scope: ChangeType = "advanced") =>
-    form.handleSubmit(async (value) => {
-      // Targeting fields (saved groups, condition, prerequisites) are only
-      // editable from the targeting modal and the unscoped/advanced flow. Skip
-      // their non-change-aware validation otherwise so a traffic- or
-      // namespace-only save can't be blocked by a stale targeting value the
-      // user never saw.
-      const targetingEditable = scope === "targeting" || scope === "advanced";
+  const validate = (
+    value: ExperimentTargetingData,
+    scope: ExperimentChangeType = "advanced",
+  ) => {
+    // Targeting fields (saved groups, condition, prerequisites) are only
+    // editable from the targeting modal and the unscoped/advanced flow. Skip
+    // their non-change-aware validation otherwise so a traffic- or
+    // namespace-only save can't be blocked by a stale targeting value the
+    // user never saw.
+    const targetingEditable = scope === "targeting" || scope === "advanced";
 
-      if (targetingEditable) {
-        validateSavedGroupTargeting(value.savedGroups);
+    if (targetingEditable) {
+      validateSavedGroupTargeting(value.savedGroups);
 
-        validateAndFixCondition(value.condition, (condition) => {
-          form.setValue("condition", condition);
-          forceConditionRender();
-        });
+      validateAndFixCondition(value.condition, (condition) => {
+        form.setValue("condition", condition);
+        forceConditionRender();
+      });
 
-        if (value.prerequisites) {
-          if (value.prerequisites.some((p) => !p.id)) {
-            throw new Error("Cannot have empty prerequisites");
-          }
+      if (value.prerequisites) {
+        if (value.prerequisites.some((p) => !p.id)) {
+          throw new Error("Cannot have empty prerequisites");
         }
       }
+    }
 
-      if (prerequisiteTargetingSdkIssues) {
-        throw new Error("Prerequisite targeting issues must be resolved");
-      }
+    if (prerequisiteTargetingSdkIssues) {
+      throw new Error("Prerequisite targeting issues must be resolved");
+    }
 
-      // Existing persisted attribute values. Passed as `existingParts` so the
-      // pre-flight only validates attributes the user actually changed —
-      // unchanged stale hash/fallback/condition values won't block unrelated
-      // saves even though we still POST the full payload.
-      const existingAttributeParts = {
-        hashAttribute: experiment.hashAttribute || "id",
-        fallbackAttribute: experiment.fallbackAttribute || "",
-        condition: lastPhase?.condition ?? "",
-      };
+    // Existing persisted attribute values. Passed as `existingParts` so the
+    // pre-flight only validates attributes the user actually changed —
+    // unchanged stale hash/fallback/condition values won't block unrelated
+    // saves even though we still POST the full payload.
+    const existingAttributeParts = {
+      hashAttribute: experiment.hashAttribute || "id",
+      fallbackAttribute: experiment.fallbackAttribute || "",
+      condition: lastPhase?.condition ?? "",
+    };
 
-      // Opt-in client-side pre-flight — mirrors the back-end check in
-      // postExperimentTargeting so typo'd attributes fail fast without a
-      // round-trip and with the same error wording.
-      validateUnregisteredAttributes(
-        {
-          hashAttribute: (value as { hashAttribute?: string }).hashAttribute,
-          fallbackAttribute: (value as { fallbackAttribute?: string })
-            .fallbackAttribute,
-          condition: value.condition,
-        },
-        "experiment",
-        {
-          attributeSchema: allAttributesSchema,
-          requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
-          project:
-            value.attributeScopeAllProjects && !strictScoping
-              ? null
-              : attributeScopeProjects !== undefined
-                ? attributeScopeProjects
-                : experiment.project || undefined,
-        },
-        existingAttributeParts,
-      );
+    // Opt-in client-side pre-flight — mirrors the back-end check in
+    // postExperimentTargeting so typo'd attributes fail fast without a
+    // round-trip and with the same error wording.
+    validateUnregisteredAttributes(
+      {
+        hashAttribute: (value as { hashAttribute?: string }).hashAttribute,
+        fallbackAttribute: (value as { fallbackAttribute?: string })
+          .fallbackAttribute,
+        condition: value.condition,
+      },
+      "experiment",
+      {
+        attributeSchema: allAttributesSchema,
+        requireRegisteredAttributes: orgSettings.requireRegisteredAttributes,
+        project:
+          value.attributeScopeAllProjects && !strictScoping
+            ? null
+            : attributeScopeProjects !== undefined
+              ? attributeScopeProjects
+              : experiment.project || undefined,
+      },
+      existingAttributeParts,
+    );
 
-      // Collapse contiguous / overlapping namespace ranges on save so the
-      // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →
-      // [0.6, 1]). We do this here rather than while the user is editing so
-      // ranges don't flicker and collapse mid-edit.
-      const ns = value.namespace as
-        | { enabled?: boolean; ranges?: [number, number][] }
-        | undefined;
-      if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
-        ns.ranges = mergeContiguousRanges(ns.ranges);
-      }
+    // Collapse contiguous / overlapping namespace ranges on save so the
+    // persisted phase carries a clean shape (e.g. [0.6, 0.9] + [0.9, 1] →
+    // [0.6, 1]). We do this here rather than while the user is editing so
+    // ranges don't flicker and collapse mid-edit.
+    const ns = value.namespace as
+      | { enabled?: boolean; ranges?: [number, number][] }
+      | undefined;
+    if (ns?.enabled && ns.ranges && ns.ranges.length > 0) {
+      ns.ranges = mergeContiguousRanges(ns.ranges);
+    }
+    return value;
+  };
 
+  const onSubmit = (
+    mutate: () => void,
+    scope: ExperimentChangeType = "advanced",
+  ) =>
+    form.handleSubmit(async (value) => {
       await apiCall(`/experiment/${experiment.id}/targeting`, {
         method: "POST",
-        body: JSON.stringify(value),
+        body: JSON.stringify(validate(value, scope)),
       });
       mutate();
     });
@@ -200,6 +214,7 @@ export function useExperimentTargetingForm(
     prerequisiteTargetingSdkIssues,
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
+    validate,
     onSubmit,
   };
 }

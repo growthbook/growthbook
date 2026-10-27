@@ -228,7 +228,7 @@ function MakeChanges({
     conditionKey,
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
-    onSubmit,
+    validate,
   } = useExperimentTargetingForm(experiment, enforcement);
 
   return (
@@ -237,7 +237,8 @@ function MakeChanges({
       attributeProjects={dropdown}
       form={form}
       defaultValues={defaultValues}
-      onSubmit={(scope) => onSubmit(mutate, scope)()}
+      validate={validate}
+      mutate={mutate}
       close={close}
       canSubmit={canSubmit}
       conditionKey={conditionKey}

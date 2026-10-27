@@ -3,9 +3,15 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
+import {
+  ChangeAssessment,
+  ExperimentChangeType,
+  postExperimentChangesValidator,
+  ReleasePlan,
+} from "shared/validators";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -13,26 +19,12 @@ import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
+import { RestApiError, useRestApiCall } from "@/services/restApi";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import TargetingForm from "./TargetingForm";
-
-export type ChangeType =
-  | "targeting"
-  | "traffic"
-  | "weights"
-  | "namespace"
-  | "advanced"
-  | "phase";
-
-export type ReleasePlan =
-  | "new-phase"
-  | "same-phase-sticky"
-  | "same-phase-everyone"
-  | "new-phase-block-sticky" //advanced only
-  | "new-phase-same-seed" // available from "new phase" only
-  | "";
+import { buildMakeChangesBody } from "./makeChangesRequest";
 
 export interface MakeChangesFlowProps {
   experiment: ExperimentInterfaceStringDates;
@@ -42,9 +34,12 @@ export interface MakeChangesFlowProps {
   // and the namespace shape produced by `EditTargetingModal` doesn't always match
   // the strict `ExperimentTargetingData` shape (legacy vs. multi-range namespaces).
   defaultValues: Record<string, unknown>;
-  // Receives the selected change type as the validation scope so the shared
-  // submit handler only validates the fields this flow actually rendered.
-  onSubmit: (scope?: ChangeType) => Promise<void>;
+  // Client-side checks, scoped to the fields the selected change type renders.
+  validate: (
+    value: ExperimentTargetingData,
+    scope?: ExperimentChangeType,
+  ) => ExperimentTargetingData;
+  mutate: () => void;
   close: () => void;
   canSubmit: boolean;
   conditionKey: number;
@@ -56,38 +51,53 @@ export default function MakeChangesFlow({
   attributeProjects,
   form,
   defaultValues,
-  onSubmit,
+  validate,
+  mutate,
   close,
   canSubmit,
   conditionKey,
   setPrerequisiteTargetingSdkIssues,
 }: MakeChangesFlowProps) {
+  const restApiCall = useRestApiCall();
   const [step, setStep] = useState(0);
-  const [changeType, setChangeType] = useState<ChangeType | undefined>();
+  const [changeType, setChangeType] = useState<
+    ExperimentChangeType | undefined
+  >();
   const [releasePlan, setReleasePlan] = useState<ReleasePlan | undefined>();
   const [changesConfirmed, setChangesConfirmed] = useState(false);
+  const [assessment, setAssessment] = useState<ChangeAssessment | null>(null);
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
 
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  const lastStepNumber = changeType !== "phase" ? 2 : 1;
+  const lastStepNumber = changeType !== "new-phase" ? 2 : 1;
+  const onReviewStep = !!changeType && step === lastStepNumber;
 
   // useWatch so that form.setValue calls from NamespaceSelector (a child)
-  // trigger a re-render here. Control flags are excluded because they're
-  // mutated programmatically by the change-type step, not by the user.
+  // trigger a re-render here.
   const watchedValues = useWatch({ control: form.control });
+  // Picker view preference — must not arm the publish flow on its own.
   const pickForCompare = <T extends Record<string, unknown>>(v: T) =>
-    omit(v, [
-      "newPhase",
-      "reseed",
-      "bucketVersion",
-      "minBucketVersion",
-      // Picker view preference — must not arm the publish flow on its own.
-      "attributeScopeAllProjects",
-    ]);
+    omit(v, ["attributeScopeAllProjects"]);
   const hasChanges = !isEqual(
     pickForCompare(watchedValues),
     pickForCompare(defaultValues),
   );
+
+  const requestBody = (values: ExperimentTargetingData) =>
+    changeType
+      ? buildMakeChangesBody({
+          experiment,
+          changeType,
+          values,
+          defaults: defaultValues as Partial<ExperimentTargetingData>,
+        })
+      : null;
+
+  // Review & Deploy shows the server's assessment of exactly this request.
+  const reviewKey = onReviewStep
+    ? JSON.stringify(requestBody(watchedValues as ExperimentTargetingData))
+    : null;
 
   useEffect(() => {
     if (changeType !== "advanced") {
@@ -97,17 +107,72 @@ export default function MakeChangesFlow({
 
   useEffect(() => {
     if (step !== lastStepNumber) {
-      if (changeType === "phase") {
-        setReleasePlan("new-phase");
-      } else {
-        setReleasePlan("");
-      }
+      setReleasePlan(undefined);
       setChangesConfirmed(false);
     }
-  }, [changeType, step, lastStepNumber, setReleasePlan]);
+  }, [changeType, step, lastStepNumber]);
+
+  // The parent rebuilds `validate` every render; read the latest one without
+  // re-running the preview.
+  const validateRef = useRef(validate);
+  useEffect(() => {
+    validateRef.current = validate;
+  });
+
+  useEffect(() => {
+    setAssessment(null);
+    setAssessmentError(null);
+    if (!reviewKey) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        validateRef.current(structuredClone(form.getValues()), changeType);
+        // Custom-hook warnings surface on publish, as before; skipping them
+        // here lets the preview show the plans.
+        const res = await restApiCall(postExperimentChangesValidator, {
+          params: { id: experiment.id },
+          body: {
+            ...JSON.parse(reviewKey),
+            dryRun: true,
+            ignoreWarnings: true,
+          },
+        });
+        if (!cancelled) setAssessment(res.assessment);
+      } catch (e) {
+        if (cancelled) return;
+        if (e instanceof RestApiError && e.code === "release_plan_required") {
+          setAssessment(e.details as ChangeAssessment);
+        } else {
+          setAssessmentError(e.message);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [reviewKey, changeType, experiment.id, form, restApiCall]);
+
+  // Preselect the recommended plan; keep the user's pick while it's available.
+  useEffect(() => {
+    if (!assessment) return;
+    setReleasePlan((current) =>
+      current &&
+      assessment.releasePlans.some((p) => p.plan === current && p.available)
+        ? current
+        : assessment.recommendedReleasePlan,
+    );
+  }, [assessment]);
 
   const submit = async () => {
-    await onSubmit(changeType);
+    if (!changeType || !releasePlan) return;
+    const values = validate(structuredClone(form.getValues()), changeType);
+    const body = requestBody(values);
+    if (!body) return;
+    await restApiCall(postExperimentChangesValidator, {
+      params: { id: experiment.id },
+      body: { ...body, releasePlan },
+    });
+    mutate();
     track("edit-experiment-targeting", {
       type: changeType,
       action: releasePlan,
@@ -123,18 +188,21 @@ export default function MakeChangesFlow({
     ctaEnabled = false;
     blockSteps = [1, 2];
   } else {
-    if (changeType !== "phase" && !hasChanges) {
+    if (changeType !== "new-phase" && !hasChanges) {
       if (step === 1) {
         cta = "No changes";
         ctaEnabled = false;
       }
       blockSteps = [lastStepNumber];
     }
-    if (!releasePlan && step === lastStepNumber) {
+    if (onReviewStep && !assessment) {
+      cta = assessmentError ? "Can't publish" : "Reviewing changes...";
+      ctaEnabled = false;
+    } else if (!releasePlan && onReviewStep) {
       cta = "Select a release plan";
       ctaEnabled = false;
     }
-    if (step === lastStepNumber && !changesConfirmed) {
+    if (onReviewStep && !changesConfirmed) {
       // Only name the confirm gate when it's the sole remaining blocker.
       if (ctaEnabled) disabledMessage = 'Check "Confirm" to publish';
       ctaEnabled = false;
@@ -203,7 +271,7 @@ export default function MakeChangesFlow({
         </div>
       </Page>
 
-      {changeType !== "phase" && (
+      {changeType !== "new-phase" && (
         <Page display="Make Changes">
           <div>
             <TargetingForm
@@ -226,6 +294,8 @@ export default function MakeChangesFlow({
             experiment={experiment}
             form={form}
             changeType={changeType}
+            assessment={assessment}
+            assessmentError={assessmentError}
             releasePlan={releasePlan}
             setReleasePlan={setReleasePlan}
           />
@@ -241,13 +311,13 @@ function ChangeTypeSelector({
   setChangeType,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  changeType?: ChangeType;
-  setChangeType: (changeType: ChangeType) => void;
+  changeType?: ExperimentChangeType;
+  setChangeType: (changeType: ExperimentChangeType) => void;
 }) {
   const { namespaces } = useOrgSettings();
 
   const options: RadioOptions = [
-    { label: "Start a New Phase", value: "phase" },
+    { label: "Start a New Phase", value: "new-phase" },
     {
       label: "Saved Group, Attribute, and Prerequisite Targeting",
       value: "targeting",
@@ -257,7 +327,7 @@ function ChangeTypeSelector({
       value: "namespace",
       disabled: !namespaces?.length,
     },
-    { label: "Traffic Percent", value: "traffic" },
+    { label: "Traffic Percent", value: "coverage" },
     ...(experiment.type !== "multi-armed-bandit"
       ? [{ label: "Variation Weights", value: "weights" }]
       : []),
@@ -266,7 +336,7 @@ function ChangeTypeSelector({
       value: "advanced",
       ...(experiment.type !== "multi-armed-bandit"
         ? {
-            error: `When making multiple changes at the same time, it can be difficult to control for the impact of each change. 
+            error: `When making multiple changes at the same time, it can be difficult to control for the impact of each change.
               The risk of introducing experimental bias increases. Proceed with caution.`,
             errorLevel: "warning",
           }
@@ -280,7 +350,7 @@ function ChangeTypeSelector({
       <div className="mt-3">
         <RadioGroup
           value={changeType || ""}
-          setValue={(v: ChangeType) => setChangeType(v)}
+          setValue={(v: ExperimentChangeType) => setChangeType(v)}
           options={options.filter((o) => !o.disabled)}
         />
       </div>

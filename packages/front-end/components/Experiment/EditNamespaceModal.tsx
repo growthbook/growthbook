@@ -33,6 +33,7 @@ export default function EditNamespaceModal({
     conditionKey,
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
+    validate,
     onSubmit,
   } = useExperimentTargetingForm(experiment, enforcement);
 
@@ -68,7 +69,8 @@ export default function EditNamespaceModal({
       attributeProjects={dropdown}
       form={form}
       defaultValues={defaultValues}
-      onSubmit={(scope) => onSubmit(mutate, scope)()}
+      validate={validate}
+      mutate={mutate}
       close={close}
       canSubmit={canSubmit}
       conditionKey={conditionKey}

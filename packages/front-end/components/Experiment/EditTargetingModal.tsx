@@ -53,6 +53,7 @@ export default function EditTargetingModal({
     conditionKey,
     setPrerequisiteTargetingSdkIssues,
     canSubmit,
+    validate,
     onSubmit,
   } = useExperimentTargetingForm(experiment, enforcementScope);
 
@@ -238,7 +239,8 @@ export default function EditTargetingModal({
       attributeProjects={dropdownScope}
       form={form}
       defaultValues={defaultValues}
-      onSubmit={(scope) => onSubmit(mutate, scope)()}
+      validate={validate}
+      mutate={mutate}
       close={close}
       canSubmit={canSubmit}
       conditionKey={conditionKey}
