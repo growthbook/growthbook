@@ -21,7 +21,6 @@ import {
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { applyPagination } from "back-end/src/util/handler";
-import { migratePopulation } from "back-end/src/util/population-migration";
 import { MakeModelClass } from "./BaseModel";
 
 function withStepDefaults(
@@ -52,10 +51,6 @@ const BaseClass = MakeModelClass({
 });
 
 export class PopulationModel extends BaseClass {
-  protected migrate(legacyDoc: unknown): PopulationInterface {
-    return migratePopulation(legacyDoc);
-  }
-
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
   ) {
