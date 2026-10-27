@@ -1112,7 +1112,7 @@ describe("applyExperimentChanges", () => {
         },
         refusal: {
           status: 409,
-          message: `The URL Redirect from ${A} changed since`,
+          message: "URL Redirect url_a changed since you loaded it",
         },
       },
       {
@@ -1265,7 +1265,11 @@ describe("applyExperimentChanges", () => {
       // Its own base is stale now.
       await expect(
         run({ editVisualChangesets: [editVc0] }),
-      ).rejects.toMatchObject({ status: 409 });
+      ).rejects.toMatchObject({
+        status: 409,
+        code: "changes_conflict",
+        details: { urlRedirectIds: [], visualChangesetIds: ["vcs_1"] },
+      });
     });
   });
 
@@ -1437,6 +1441,32 @@ describe("applyExperimentChanges", () => {
     ])("refuses values $name", async ({ flagValues, message }) => {
       await seedSplit();
       await expect(run({ flagValues })).rejects.toThrow(message);
+      expect(await refRules("draft")).toEqual([]);
+    });
+
+    it("names the flag as moved when its groups were loaded from different revisions", async () => {
+      await seedSplit();
+      await expect(
+        run({
+          flagValues: [
+            {
+              featureId: FLAG,
+              ruleIds: ["fr_prod"],
+              variations: arms("a", "prod"),
+              revision: LIVE,
+            },
+            {
+              featureId: FLAG,
+              ruleIds: ["fr_stage"],
+              variations: arms("a", "stage"),
+              revision: { version: 2, dateUpdated: LOADED },
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        code: "changes_conflict",
+        details: { featureIds: [FLAG] },
+      });
       expect(await refRules("draft")).toEqual([]);
     });
   });

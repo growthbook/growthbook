@@ -137,6 +137,7 @@ type Staged = {
   values: Record<string, string>;
   sparse?: boolean;
 };
+type StagedFor = Staged & { for: number | "new" };
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -488,13 +489,24 @@ function FlagColumn({
   // Past a draft, a flag's values and environments edit on its own page.
   const showingLive = experiment.status !== "draft";
   const { feature } = info;
+  const valuesEditId = `flag:${feature.id}${
+    group ? `:${group.ruleIds.join(",")}` : ""
+  }`;
+  const [stagedFor, setStaged] = useStagedState<StagedFor | null>(
+    valuesEditId,
+    null,
+  );
   const pick = draftPicks.value[feature.id];
+  const holdsNew = stagedFor?.for === "new";
   const {
     drafts,
     draft: pendingDraft,
     target,
     launches: isLaunchDraft,
-  } = useMemo(() => resolveDraftPick(info, pick), [info, pick]);
+  } = useMemo(
+    () => resolveDraftPick(info, pick, holdsNew),
+    [info, pick, holdsNew],
+  );
 
   const fromDraft = !!pendingDraft && target === "draft";
   const showsDraft = fromDraft && !showingLive;
@@ -526,24 +538,16 @@ function FlagColumn({
     ? pendingDraft.defaultValue
     : feature.defaultValue;
 
-  const valuesEditId = `flag:${feature.id}${
-    group ? `:${group.ruleIds.join(",")}` : ""
-  }`;
   const groupEnvironments = group
     ? group.environments.join(", ") || "no environments"
     : null;
-  const [stagedFor, setStaged] = useStagedState<
-    (Staged & { for: number | "new" }) | null
-  >(valuesEditId, null);
   // Values staged for a draft since published or discarded stay, aimed at
   // what's open now; the save's conflict check says that draft moved.
-  const staged =
-    stagedFor &&
-    (stagedFor.for === workingOn ||
-      (stagedFor.for !== "new" &&
-        !drafts.some((d) => d.version === stagedFor.for)))
-      ? stagedFor
-      : null;
+  const aimsHere = (s: StagedFor | null): s is StagedFor =>
+    !!s &&
+    (s.for === workingOn ||
+      (s.for !== "new" && !drafts.some((d) => d.version === s.for)));
+  const staged = aimsHere(stagedFor) ? stagedFor : null;
   const pinTarget = (next: number | "new") =>
     draftPicks.set(feature.id, {
       newestVersion: drafts[0]?.version ?? null,
@@ -594,7 +598,7 @@ function FlagColumn({
       pinTarget(workingOn);
     }
     setStaged((prev) => {
-      const kept = prev?.for === workingOn ? prev : null;
+      const kept = aimsHere(prev) ? prev : null;
       return {
         for: workingOn,
         values: { ...kept?.values, ...patch.values },

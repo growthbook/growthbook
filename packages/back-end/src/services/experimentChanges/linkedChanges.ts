@@ -31,7 +31,11 @@ import {
   assertCanRunLinkedChanges,
   auditVisualChangeEditAfterStart,
 } from "back-end/src/services/experiments";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  ChangesConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
 import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 import {
   asJson,
@@ -103,25 +107,24 @@ const editableParts = (change: {
     domMutations: change.domMutations ?? [],
   });
 
-function assertVisualBaseMatches(
+function visualBaseMoved(
   current: VisualChangesetInterface,
   { changes, base }: VisualEdit,
-) {
+): boolean {
   assertBaseCoversChanges(changes, base);
-  const moved = () => changedSinceLoaded(visualName(current));
   for (const key of ["editorUrl", "urlPatterns"] as const) {
     if (key in changes && !isEqual(asJson(current[key]), asJson(base[key]))) {
-      throw moved();
+      return true;
     }
   }
-  if (!changes.visualChanges) return;
+  if (!changes.visualChanges) return false;
   const loaded = loadedVisualChanges.safeParse(base.visualChanges);
   if (!loaded.success) {
     throw new BadRequestError(
       "base is missing the loaded value of visualChanges",
     );
   }
-  for (const { id } of changes.visualChanges) {
+  return changes.visualChanges.some(({ id }) => {
     const was = loaded.data.find((c) => c.id === id);
     if (!was) {
       throw new BadRequestError(
@@ -129,10 +132,8 @@ function assertVisualBaseMatches(
       );
     }
     const now = current.visualChanges.find((c) => c.id === id);
-    if (!now || !isEqual(editableParts(now), editableParts(was))) {
-      throw moved();
-    }
-  }
+    return !now || !isEqual(editableParts(now), editableParts(was));
+  });
 }
 
 // Every check, with no writes, judged against the variations the save leaves.
@@ -194,20 +195,46 @@ export async function planLinkedChanges(
     variationsChange: !!changes.variations,
   };
 
-  if (touchesRedirects) {
-    const stored = await context.models.urlRedirects.findByExperiment(
-      experiment.id,
-    );
-    const byId = new Map(stored.map((r) => [r.id, r]));
-    plan.removeRedirects = removes.flatMap((id) => byId.get(id) ?? []);
-    plan.editRedirects = edits.map((edit) => {
-      const loaded = byId.get(edit.id);
-      if (!loaded || isoOrNull(loaded.dateUpdated) !== edit.dateUpdated) {
-        throw changedSinceLoaded(redirectName(loaded ?? edit));
-      }
-      return { loaded, edit };
+  // Every edit whose base moved is named at once, before any other check.
+  const urlRedirectIds: string[] = [];
+  const visualChangesetIds: string[] = [];
+  const storedRedirects = touchesRedirects
+    ? await context.models.urlRedirects.findByExperiment(experiment.id)
+    : [];
+  const redirectsById = new Map(storedRedirects.map((r) => [r.id, r]));
+  plan.removeRedirects = removes.flatMap((id) => redirectsById.get(id) ?? []);
+  plan.editRedirects = edits.flatMap((edit) => {
+    const loaded = redirectsById.get(edit.id);
+    if (!loaded || isoOrNull(loaded.dateUpdated) !== edit.dateUpdated) {
+      urlRedirectIds.push(edit.id);
+      return [];
+    }
+    return [{ loaded, edit }];
+  });
+  if (touchesVisual) {
+    assertScheduledStartAllows(experiment, "Visual Editor changes");
+  }
+  const storedVisual = touchesVisual
+    ? await findVisualChangesetsByExperiment(experiment.id, context.org.id)
+    : [];
+  const visualById = new Map(storedVisual.map((c) => [c.id, c]));
+  plan.removeVisual = visualRemoves.filter((id) => visualById.has(id));
+  for (const edit of visualEdits) {
+    const current = visualById.get(edit.id);
+    if (!current || visualBaseMoved(current, edit)) {
+      visualChangesetIds.push(edit.id);
+    }
+  }
+  if (urlRedirectIds.length || visualChangesetIds.length) {
+    throw new ChangesConflictError({
+      fields: [],
+      featureIds: [],
+      urlRedirectIds,
+      visualChangesetIds,
     });
+  }
 
+  if (touchesRedirects) {
     const staged = [...adds, ...edits];
     for (const redirect of staged) {
       assertRedirectOrigin(redirect);
@@ -219,7 +246,9 @@ export async function planLinkedChanges(
       // too: a draft isn't served yet, but they all go live together.
       const served = await context.models.urlRedirects.getServedRedirects();
       const kept = [
-        ...new Map([...served, ...stored].map((r) => [r.id, r])).values(),
+        ...new Map(
+          [...served, ...storedRedirects].map((r) => [r.id, r]),
+        ).values(),
       ].filter((r) => !replaced.has(r.id));
       for (const redirect of staged) {
         if (!redirect.checkCircularDependencies) continue;
@@ -231,30 +260,20 @@ export async function planLinkedChanges(
     }
   }
 
-  if (touchesVisual) {
-    assertScheduledStartAllows(experiment, "Visual Editor changes");
-    const stored = await findVisualChangesetsByExperiment(
-      experiment.id,
-      context.org.id,
+  for (const edit of visualEdits) {
+    const current = visualById.get(edit.id);
+    if (!current) continue;
+    const staged = edit.changes.visualChanges ?? [];
+    assertListedOnce(
+      staged.map((c) => c.id),
+      "visual change",
     );
-    const byId = new Map(stored.map((c) => [c.id, c]));
-    plan.removeVisual = visualRemoves.filter((id) => byId.has(id));
-    for (const edit of visualEdits) {
-      const current = byId.get(edit.id);
-      if (!current) throw changedSinceLoaded("A Visual Editor change");
-      const staged = edit.changes.visualChanges ?? [];
-      assertListedOnce(
-        staged.map((c) => c.id),
-        "visual change",
-      );
-      assertVisualBaseMatches(current, edit);
-      for (const { id } of staged) {
-        const change = current.visualChanges.find((c) => c.id === id);
-        if (!change || !variationIds.includes(change.variation)) {
-          throw new BadRequestError(
-            `${visualName(current)} edits a variation this save removes. Discard that edit, or keep the variation.`,
-          );
-        }
+    for (const { id } of staged) {
+      const change = current.visualChanges.find((c) => c.id === id);
+      if (!change || !variationIds.includes(change.variation)) {
+        throw new BadRequestError(
+          `${visualName(current)} edits a variation this save removes. Discard that edit, or keep the variation.`,
+        );
       }
     }
   }
@@ -310,7 +329,9 @@ async function writeEach({
       throw changedSinceLoaded("A Visual Editor change");
     }
     // The Visual Editor may have written since the plan.
-    assertVisualBaseMatches(current, edit);
+    if (visualBaseMoved(current, edit)) {
+      throw changedSinceLoaded(visualName(current));
+    }
     const staged = new Map(
       (edit.changes.visualChanges ?? []).map((c) => [c.id, c]),
     );

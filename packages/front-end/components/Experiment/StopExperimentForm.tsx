@@ -18,7 +18,9 @@ import SelectField from "@/components/Forms/SelectField";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
-import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
+import RunningExperimentDecisionBanner, {
+  decidedVariations,
+} from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -153,14 +155,11 @@ const StopExperimentForm: FC<{
     variations?.[form.watch("winner")]?.id !== recommendedReleaseVariationId;
   const { apiCall } = useAuth();
 
-  const decisionBanner =
-    runningExperimentStatus && decisionCriteria
-      ? RunningExperimentDecisionBanner({
-          experiment,
-          runningExperimentStatus,
-          decisionCriteria,
-          showDecisionCriteriaLink: false,
-        })
+  const decision =
+    runningExperimentStatus &&
+    decisionCriteria &&
+    decidedVariations(experiment, runningExperimentStatus).length
+      ? { runningExperimentStatus, decisionCriteria }
       : null;
 
   const submit = form.handleSubmit(async (value) => {
@@ -220,13 +219,17 @@ const StopExperimentForm: FC<{
       ctaColor={isStopped ? "violet" : "red"}
     >
       <Flex direction={"column"} gap={"1"}>
-        {decisionBanner ? (
+        {decision ? (
           <>
             <Flex direction={"column"} gap="0">
               <Text as="label" weight="semibold">
                 Recommendation
               </Text>
-              {decisionBanner}
+              <RunningExperimentDecisionBanner
+                experiment={experiment}
+                {...decision}
+                showDecisionCriteriaLink={false}
+              />
             </Flex>
             <hr className="m-1" />
           </>

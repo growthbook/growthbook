@@ -110,20 +110,11 @@ function assertFlagValuesEntries(
     }
     return;
   }
-  const [{ revision }] = entries;
   const seen = new Set<string>();
   for (const entry of entries) {
     if (!entry.ruleIds || entry.environments) {
       throw new BadRequestError(
         `Feature Flag ${featureId} can appear more than once only to set values for separate groups of its rules.`,
-      );
-    }
-    if (
-      entry.revision.version !== revision.version ||
-      entry.revision.dateUpdated !== revision.dateUpdated
-    ) {
-      throw new BadRequestError(
-        `Feature Flag ${featureId}: every group of rules must be loaded from the same revision.`,
       );
     }
     for (const id of entry.ruleIds) {
@@ -211,6 +202,12 @@ async function planFlagValues(
     }
 
     const loadedFrom = entries[0].revision;
+    // Groups staged on either side of someone else's save disagree.
+    const loadedApart = entries.some(
+      ({ revision }) =>
+        revision.version !== loadedFrom.version ||
+        revision.dateUpdated !== loadedFrom.dateUpdated,
+    );
     const loaded = await getRevision({
       context,
       organization: feature.organization,
@@ -223,6 +220,7 @@ async function planFlagValues(
     const startsDraft =
       loadedFrom.dateUpdated === null && loadedFrom.version === feature.version;
     if (
+      loadedApart ||
       !loaded ||
       (!startsDraft &&
         (isoOrNull(loaded.dateUpdated) !== loadedFrom.dateUpdated ||
@@ -484,6 +482,8 @@ export async function applyExperimentChanges({
     throw new ChangesConflictError({
       fields: fieldConflicts,
       featureIds: flagConflicts,
+      urlRedirectIds: [],
+      visualChangesetIds: [],
     });
   }
 

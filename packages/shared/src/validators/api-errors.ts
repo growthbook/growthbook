@@ -95,6 +95,8 @@ export const apiErrorRegistry = {
     detailsSchema: z.object({
       fields: z.array(z.string()),
       featureIds: z.array(z.string()),
+      urlRedirectIds: z.array(z.string()),
+      visualChangesetIds: z.array(z.string()),
     }),
   },
   unscoped_rule: {

@@ -281,22 +281,36 @@ describe("custom launch checklist tasks", () => {
 });
 
 describe("assertScheduledStartNotHardBlocked", () => {
-  it("refuses to fire with a merge conflict, as a retryable failure", async () => {
-    (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([
-      { ...draftFlag, hasMergeConflict: true },
-    ]);
+  it.each([
+    {
+      name: "a merge conflict",
+      flag: { hasMergeConflict: true },
+      key: "mergeConflict:flag_1",
+    },
+    {
+      name: "a removal still in its draft",
+      flag: { pendingRemoval: { version: 3, status: "draft" } },
+      key: "pendingRemoval:flag_1",
+    },
+  ])(
+    "refuses to fire with $name, as a retryable failure",
+    async ({ flag, key }) => {
+      (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([
+        { ...draftFlag, ...flag },
+      ]);
 
-    const error = await assertScheduledStartNotHardBlocked(
-      context,
-      draft,
-    ).catch((e) => e);
+      const error = await assertScheduledStartNotHardBlocked(
+        context,
+        draft,
+      ).catch((e) => e);
 
-    expect(error).toBeInstanceOf(ChecklistIncompleteError);
-    expect(isTerminalPublishError(error)).toBe(false);
-    expect(error.details.remainingChecklistItems).toEqual([
-      expect.objectContaining({ key: "mergeConflict:flag_1" }),
-    ]);
-  });
+      expect(error).toBeInstanceOf(ChecklistIncompleteError);
+      expect(isTerminalPublishError(error)).toBe(false);
+      expect(error.details.remainingChecklistItems).toEqual([
+        expect.objectContaining({ key }),
+      ]);
+    },
+  );
 });
 
 describe("assertStartNotBlocked and startResult", () => {

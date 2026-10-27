@@ -42,6 +42,7 @@ import EditVariationMetadataModal from "@/components/Experiment/EditVariationMet
 import EditVariationKeysModal from "@/components/Experiment/EditVariationKeysModal";
 import HoldoutTrafficAndTargeting from "@/components/Holdout/HoldoutTrafficAndTargeting";
 import TrafficAllocationFunnel, {
+  changesVariationList,
   TargetingDraft,
 } from "@/components/Experiment/TabbedPage/TrafficAllocationFunnel";
 import AnalysisSettings from "@/components/Experiment/TabbedPage/AnalysisSettings";
@@ -77,6 +78,7 @@ import {
   linkedChangesBody,
   newRedirectKey,
   pruneLinkedChanges,
+  rebaseLinkedChanges,
   RedirectFields,
   removeRedirect,
   removeVisual,
@@ -195,7 +197,12 @@ export default function Implementation({
         targetingDraft?.value?.variationWeights ??
         phases[phases.length - 1]?.variationWeights,
     }),
-    discard: () => setVariationsDraft(null),
+    discard: () => {
+      setVariationsDraft(null);
+      if (changesVariationList(targetingDraft?.value ?? null, experiment)) {
+        targetingDraft?.set(null);
+      }
+    },
   });
 
   // Only a pending scheduled START should lock down editing (the experiment is
@@ -232,6 +239,10 @@ export default function Implementation({
       label: "URL redirects and visual changes",
       changes: () => linkedBody,
       discard: clearLinked,
+      rebase: () =>
+        setLinkedDraft((d) =>
+          rebaseLinkedChanges(d, urlRedirects, visualChangesets),
+        ),
     },
   );
   const onStageVisualTargeting = useCallback(

@@ -79,6 +79,8 @@ export class ChangesConflictError extends ApiError<"changes_conflict"> {
     const names = [
       ...details.fields,
       ...details.featureIds.map((id) => `Feature Flag ${id}`),
+      ...details.urlRedirectIds.map((id) => `URL Redirect ${id}`),
+      ...details.visualChangesetIds.map((id) => `Visual Editor change ${id}`),
     ];
     super(
       "changes_conflict",

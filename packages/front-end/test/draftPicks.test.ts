@@ -58,6 +58,10 @@ describe("resolveDraftPick", () => {
     };
     expect(on(cleaned, pick)).toBe(7);
   });
+
+  it("holds a new draft whatever opens while values are staged for it", () => {
+    expect(resolveDraftPick(info(8), undefined, true).target).toBe("new");
+  });
 });
 
 describe("draftReviewState", () => {

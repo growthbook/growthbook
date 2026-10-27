@@ -215,7 +215,7 @@ export function stageVisualTargeting(
 export function stageVisualChange(
   draft: LinkedChangesDraft,
   stored: VisualChangesetInterface,
-  change: VisualChange,
+  change: Pick<VisualChange, "id" | "css" | "js" | "domMutations">,
 ): LinkedChangesDraft {
   const storedChange = stored.visualChanges.find((c) => c.id === change.id);
   if (!storedChange) return draft;
@@ -251,6 +251,34 @@ export function undoVisual(
     editedVisual: omit(draft.editedVisual, id),
     removedVisual: draft.removedVisual.filter((v) => v !== id),
   };
+}
+
+/** Stages every edit again over what's stored now, so saving overwrites it. */
+export function rebaseLinkedChanges(
+  draft: LinkedChangesDraft,
+  redirects: URLRedirectInterface[],
+  changesets: VisualChangesetInterface[],
+): LinkedChangesDraft {
+  let next: LinkedChangesDraft = {
+    ...draft,
+    editedRedirects: {},
+    editedVisual: {},
+  };
+  for (const [id, fields] of Object.entries(draft.editedRedirects)) {
+    const stored = redirects.find((r) => r.id === id);
+    if (stored) next = editRedirect(next, { key: id, stored }, fields);
+  }
+  for (const [id, { targeting, changes }] of Object.entries(
+    draft.editedVisual,
+  )) {
+    const stored = changesets.find((c) => c.id === id);
+    if (!stored) continue;
+    if (targeting) next = stageVisualTargeting(next, stored, targeting.value);
+    for (const { value } of Object.values(changes)) {
+      next = stageVisualChange(next, stored, value);
+    }
+  }
+  return next;
 }
 
 // Drops what no longer exists. A visual change for a variation staged away

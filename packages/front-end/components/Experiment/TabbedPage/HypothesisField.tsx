@@ -40,7 +40,10 @@ export default function HypothesisField({
   const aiSuggestion = useRef<string | null>(null);
 
   const savedValue = experiment.hypothesis || "";
-  const [value, setValue] = useStagedState("inline:hypothesis", savedValue);
+  const [value, setValue, clearValue] = useStagedState(
+    "inline:hypothesis",
+    savedValue,
+  );
   const [editingOnDemand, setEditingOnDemand] = useState(
     () => value.trim() !== savedValue.trim(),
   );
@@ -59,10 +62,12 @@ export default function HypothesisField({
           }),
         });
       }
+      // Saved, it's what's stored; still staged, it would revert a later change.
+      clearValue();
       setEditingOnDemand(false);
     },
     discard: () => {
-      setValue(savedValue);
+      clearValue();
       setEditingOnDemand(false);
     },
   });

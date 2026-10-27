@@ -46,9 +46,8 @@ export type CheckListItem = {
 // Opens the flag in a new tab, at its draft unless `draft` is false.
 export function linkedFeatureAction(
   f: LinkedFeatureInfo,
-  draft = true,
+  version = f.draftRevisionVersion ?? null,
 ): ChecklistAction {
-  const version = draft ? (f.draftRevisionVersion ?? null) : null;
   return {
     href: `/features/${f.feature.id}${version !== null ? `?v=${version}` : ""}`,
     external: true,
@@ -89,10 +88,7 @@ function toRow(
     ...(item.manual ? { manualKey: item.key } : {}),
     ...(flag
       ? {
-          action: linkedFeatureAction(
-            flag,
-            !item.key.startsWith("missingVariationValues:"),
-          ),
+          action: linkedFeatureAction(flag, item.revision),
         }
       : {}),
   };

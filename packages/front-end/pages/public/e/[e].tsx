@@ -4,15 +4,12 @@ import Head from "next/head";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { truncateString } from "shared/util";
 import { date } from "shared/dates";
 import React, { useState } from "react";
 import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
@@ -49,20 +46,14 @@ export async function getServerSideProps(context) {
       context.res.statusCode = 404;
     }
 
-    const snapshot = data?.snapshot;
-    const visualChangesets = data?.visualChangesets;
-    const urlRedirects = data?.urlRedirects;
-    const linkedFeatures = data?.linkedFeatures;
-    const ssrData = data?.ssrData;
-
     return {
       props: {
         experiment: experiment || null,
-        snapshot: snapshot || null,
-        visualChangesets: visualChangesets || null,
-        urlRedirects: urlRedirects || null,
-        linkedFeatures: linkedFeatures || null,
-        ssrData: ssrData || null,
+        snapshot: data?.snapshot || null,
+        linkedFeatureCount: data?.linkedFeatureCount ?? 0,
+        visualChangesetCount: data?.visualChangesetCount ?? 0,
+        urlRedirectCount: data?.urlRedirectCount ?? 0,
+        ssrData: data?.ssrData || null,
       },
     };
   } catch (e) {
@@ -76,9 +67,9 @@ export async function getServerSideProps(context) {
 interface PublicExperimentPageProps {
   experiment: ExperimentInterfaceStringDates | null;
   snapshot: ExperimentSnapshotInterface | null;
-  visualChangesets: VisualChangesetInterface[] | null;
-  urlRedirects: URLRedirectInterface[] | null;
-  linkedFeatures: LinkedFeatureInfo[] | null;
+  linkedFeatureCount: number;
+  visualChangesetCount: number;
+  urlRedirectCount: number;
   ssrData: ExperimentReportSSRData | null;
 }
 
@@ -87,9 +78,9 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const {
     experiment,
     snapshot,
-    visualChangesets,
-    urlRedirects,
-    linkedFeatures,
+    linkedFeatureCount,
+    visualChangesetCount,
+    urlRedirectCount,
     ssrData,
   } = props;
 
@@ -134,7 +125,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     !experiment ||
     (experiment?.status === "draft" && !hasResults && phases.length === 1);
 
-  const [tabsPinSentinelRef, headerPinned] = usePinnedHeader(!shouldHideTabs);
+  const [tabsPinSentinelRef, headerPinned] = usePinnedHeader(!!experiment);
 
   const isBandit = experiment?.type === "multi-armed-bandit";
   const onOverview = shouldHideTabs || tab === "overview";
@@ -186,7 +177,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
         />
       ) : null}
 
-      {shouldHideTabs ? null : (
+      {!experiment ? null : (
         <>
           <div
             ref={tabsPinSentinelRef}
@@ -205,20 +196,23 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
           >
             <div className="position-relative container-fluid pagecontents px-4">
               <div className="d-flex align-items-center header-tabs">
+                {/* Kept without tabs: the details toggle lives here. */}
                 <Tabs
                   value={tab}
                   onValueChange={(t: ExperimentTab) => setTab(t)}
                   style={{ flex: 1, minWidth: 0 }}
                 >
-                  <TabsList size="lg">
-                    <Flex align="center" className="flex-1">
-                      <TabsTrigger value="overview">Overview</TabsTrigger>
-                      <TabsTrigger value="results">Results</TabsTrigger>
-                      {isBandit ? (
-                        <TabsTrigger value="explore">Explore</TabsTrigger>
-                      ) : null}
-                    </Flex>
-                  </TabsList>
+                  {shouldHideTabs ? null : (
+                    <TabsList size="lg">
+                      <Flex align="center" className="flex-1">
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="results">Results</TabsTrigger>
+                        {isBandit ? (
+                          <TabsTrigger value="explore">Explore</TabsTrigger>
+                        ) : null}
+                      </Flex>
+                    </TabsList>
+                  )}
                 </Tabs>
                 {onOverview ? (
                   <DetailsPanelToggle
@@ -250,9 +244,9 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
             panel={
               <PublicExperimentDetails
                 experiment={experiment}
-                linkedFeatureCount={linkedFeatures?.length ?? 0}
-                visualChangesetCount={visualChangesets?.length ?? 0}
-                urlRedirectCount={urlRedirects?.length ?? 0}
+                linkedFeatureCount={linkedFeatureCount}
+                visualChangesetCount={visualChangesetCount}
+                urlRedirectCount={urlRedirectCount}
               />
             }
           >

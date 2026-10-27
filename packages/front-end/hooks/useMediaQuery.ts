@@ -1,23 +1,22 @@
-import { useEffect, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
-/** True while the media query matches; re-renders only when that flips. */
+/**
+ * True while the media query matches; re-renders only when that flips. Right
+ * from the first paint, except a server-rendered page, which hydrates as not
+ * matching and then catches up.
+ */
 export default function useMediaQuery(query: string): boolean {
-  // Read up front so the first paint is already on the right side.
-  const [matches, setMatches] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      !!window.matchMedia &&
-      window.matchMedia(query).matches,
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      const mq = window.matchMedia?.(query);
+      mq?.addEventListener("change", onChange);
+      return () => mq?.removeEventListener("change", onChange);
+    },
+    [query],
   );
-
-  useEffect(() => {
-    if (!window.matchMedia) return;
-    const mq = window.matchMedia(query);
-    const update = () => setMatches(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, [query]);
-
-  return matches;
+  return useSyncExternalStore(
+    subscribe,
+    () => !!window.matchMedia?.(query).matches,
+    () => false,
+  );
 }

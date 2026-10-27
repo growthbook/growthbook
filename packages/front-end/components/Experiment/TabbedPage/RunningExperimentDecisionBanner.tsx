@@ -31,6 +31,27 @@ const DECISIONS = {
   "rollback-now": { label: "Roll back now", color: "red", variant: "solid" },
 } as const;
 
+type Decision = Extract<
+  ExperimentResultStatusData,
+  { status: keyof typeof DECISIONS }
+>;
+const isDecision = (data: ExperimentResultStatusData): data is Decision =>
+  data.status in DECISIONS;
+
+/** The variations a recommendation is about; none when there's none to show. */
+export function decidedVariations(
+  experiment: ExperimentInterfaceStringDates,
+  data: ExperimentResultStatusData,
+): VariationWithIndex[] {
+  if (!isDecision(data)) return [];
+  const indexed = getLatestPhaseVariations(experiment).map<VariationWithIndex>(
+    (v, i) => ({ ...v, index: i }),
+  );
+  return data.variations
+    .map(({ variationId }) => indexed.find((v) => v.id === variationId))
+    .filter((v) => v !== undefined);
+}
+
 type Props = {
   experiment: ExperimentInterfaceStringDates;
   runningExperimentStatus: ExperimentResultStatusData;
@@ -49,38 +70,21 @@ export default function RunningExperimentDecisionBanner({
   const { snapshot, analysis } = useSnapshot();
   const { getExperimentMetricById } = useDefinitions();
 
-  const variations = getLatestPhaseVariations(experiment);
-  const indexedVariations = variations.map<VariationWithIndex>((v, i) => ({
-    ...v,
-    index: i,
-  }));
-
-  if (
-    runningExperimentStatus.status !== "ship-now" &&
-    runningExperimentStatus.status !== "ready-for-review" &&
-    runningExperimentStatus.status !== "rollback-now"
-  )
-    return null;
-
-  const decidedVariations: VariationWithIndex[] =
-    runningExperimentStatus.variations
-      .map(({ variationId }) =>
-        indexedVariations.find((v) => v.id === variationId),
-      )
-      .filter((v) => v !== undefined);
+  const decided = decidedVariations(experiment, runningExperimentStatus);
+  if (!isDecision(runningExperimentStatus) || !decided.length) return null;
+  const { status } = runningExperimentStatus;
 
   const variationNames: Record<string, JSX.Element> = {};
-  variations.forEach((v) => {
+  getLatestPhaseVariations(experiment).forEach((v) => {
     variationNames[v.id] = <VariationLabel number={v.index} name={v.name} />;
   });
-  if (decidedVariations.length === 0) return null;
 
   // An ambiguous multi-winner ship is resolved at the scheduled end by the
   // tiebreaker metric. Surface that here so it's visible before the end date.
   const tiebreakerMetricId =
     experiment.statusUpdateSchedule?.scheduledStopPlan?.tiebreakerMetricId;
   const isShipTie =
-    runningExperimentStatus.status === "ship-now" &&
+    status === "ship-now" &&
     runningExperimentStatus.variations.length > 1 &&
     !!tiebreakerMetricId;
   const tiebreakerMetric = tiebreakerMetricId
@@ -103,7 +107,7 @@ export default function RunningExperimentDecisionBanner({
     if (decision.action === "ship") tiebreakerWinnerId = decision.variationId;
   }
 
-  const decision = DECISIONS[runningExperimentStatus.status];
+  const decision = DECISIONS[status];
   const tiebreakerWinner = tiebreakerWinnerId
     ? variationNames[tiebreakerWinnerId]
     : null;
@@ -119,7 +123,7 @@ export default function RunningExperimentDecisionBanner({
             radius="full"
           />
           <Flex align="center" gap="1" wrap="wrap">
-            {decidedVariations.map((v, i) => (
+            {decided.map((v, i) => (
               <Fragment key={v.id}>
                 <VariationLabel
                   number={v.index}
@@ -127,7 +131,7 @@ export default function RunningExperimentDecisionBanner({
                   maxWidth="240px"
                   size="lg"
                 />
-                {i !== decidedVariations.length - 1 ? (
+                {i !== decided.length - 1 ? (
                   <Text color="text-mid">,</Text>
                 ) : null}
               </Fragment>

@@ -1012,9 +1012,11 @@ export async function updateExperiment({
 
   const allChanges = {
     ...changes,
-    // Staging a scheduled change, or clearing one, retires the last failure.
+    // Staging a scheduled change, clearing one, or a status change made some
+    // other way retires the last failure.
     ...(experiment.scheduledStatusUpdateFailure &&
-    "nextScheduledStatusUpdate" in changes &&
+    ("nextScheduledStatusUpdate" in changes ||
+      (!!changes.status && changes.status !== experiment.status)) &&
     !("scheduledStatusUpdateFailure" in changes)
       ? { scheduledStatusUpdateFailure: null }
       : {}),

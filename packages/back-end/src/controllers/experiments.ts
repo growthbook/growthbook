@@ -954,13 +954,14 @@ export async function getExperimentPublic(
     snapshot,
   });
 
+  // Counts only: the changes themselves can hold drafts and URLs.
   res.status(200).json({
     status: 200,
     experiment,
     snapshot,
-    visualChangesets,
-    urlRedirects,
-    linkedFeatures,
+    linkedFeatureCount: linkedFeatures.length,
+    visualChangesetCount: visualChangesets.length,
+    urlRedirectCount: urlRedirects.length,
     ssrData,
   });
 }

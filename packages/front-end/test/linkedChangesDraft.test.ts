@@ -9,6 +9,7 @@ import {
   linkedChangesBody,
   newRedirectKey,
   pruneLinkedChanges,
+  rebaseLinkedChanges,
   RedirectFields,
   removeRedirect,
   removeVisual,
@@ -149,6 +150,40 @@ describe("linkedChangesDraft", () => {
       { ...c0, css: ".a{color:red}" },
     );
     expect(visual.editedVisual[vc.id].changes.c0.base.css).toBe("");
+  });
+
+  it("Keep mine stages each edit over what's stored now, and drops one that now matches", () => {
+    const draft = stageVisualChange(
+      stageVisualChange(
+        editRedirect(EMPTY, onStored, fields({ persistQueryString: false })),
+        vc,
+        { ...c0, css: ".a{}" },
+      ),
+      vc,
+      { ...c1, css: ".mine{}" },
+    );
+    const moved = { ...stored, dateUpdated: new Date("2026-02-01") };
+    // Someone else saved c0 as this edit has it, and moved c1.
+    const movedVc = {
+      ...vc,
+      visualChanges: [
+        { ...c0, css: ".a{}" },
+        { ...c1, css: ".theirs{}" },
+      ],
+    };
+
+    const rebased = rebaseLinkedChanges(draft, [moved], [movedVc]);
+
+    expect(rebased.editedRedirects[stored.id].dateUpdated).toBe(
+      "2026-02-01T00:00:00.000Z",
+    );
+    expect(rebased.editedVisual[vc.id].changes).toEqual({
+      c1: {
+        variation: "v1",
+        value: expect.objectContaining({ css: ".mine{}" }),
+        base: expect.objectContaining({ css: ".theirs{}" }),
+      },
+    });
   });
 
   it("sends only what's touched, each beside its base, with js always a string", () => {

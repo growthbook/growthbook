@@ -12,6 +12,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import isEqual from "lodash/isEqual";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { conflictingFields, experimentFieldValue } from "shared/experiments";
 import {
@@ -120,12 +121,17 @@ function changesConflict(e: unknown): ChangesConflict | null {
 
 function touches(
   share: ExperimentChangesBody | null,
-  { fields, featureIds }: ChangesConflict,
+  { fields, featureIds, urlRedirectIds, visualChangesetIds }: ChangesConflict,
 ): boolean {
   return (
     Object.keys(share?.experiment?.changes ?? {}).some((key) =>
       fields.includes(key),
-    ) || !!share?.flagValues?.some((f) => featureIds.includes(f.featureId))
+    ) ||
+    !!share?.flagValues?.some((f) => featureIds.includes(f.featureId)) ||
+    !!share?.editUrlRedirects?.some((r) => urlRedirectIds.includes(r.id)) ||
+    !!share?.editVisualChangesets?.some((c) =>
+      visualChangesetIds.includes(c.id),
+    )
   );
 }
 
@@ -221,7 +227,7 @@ export function useStagedState<T>(
   slot: string,
   initial: T,
   scope?: string | null,
-): [T, Dispatch<SetStateAction<T>>] {
+): [T, Dispatch<SetStateAction<T>>, () => void] {
   const providerScope = useContext(ExperimentEditsContext)?.scope ?? null;
   const resolvedScope = scope === undefined ? providerScope : scope;
   const key = resolvedScope
@@ -255,7 +261,13 @@ export function useStagedState<T>(
     if (key) writeStaged(key, resolve(readStaged(key) as Stored<T>));
     else setLocal(resolve);
   }, []);
-  return [value, set];
+  // Back to following `initial`, whatever it is by then.
+  const clear = useCallback(() => {
+    const { key } = latest.current;
+    if (key) writeStaged(key, UNSET);
+    else setLocal(UNSET);
+  }, []);
+  return [value, set, clear];
 }
 
 // Collects the page's in-place edits so one Save writes them together.
@@ -290,6 +302,13 @@ export function ExperimentEditsProvider({
   const [drifted, setDrifted] = useState<string[]>([]);
   const formId = useId();
   const form = useRef<HTMLFormElement>(null);
+  // A rebase reads the page as rendered, so it waits for the refetch to render.
+  const rebaseOnRender = useRef<PendingEdit[]>([]);
+  const [refetched, setRefetched] = useState(0);
+  useEffect(() => {
+    rebaseOnRender.current.forEach((edit) => edit.rebase?.());
+    rebaseOnRender.current = [];
+  }, [refetched]);
 
   const markDrifted = useCallback((id: string, isDrifted: boolean) => {
     setDrifted((prev) =>
@@ -351,20 +370,19 @@ export function ExperimentEditsProvider({
     const pending = [...edits.current.entries()];
     // A refused save keeps each edit's base, so a retry can't quietly
     // overwrite the change that refused it.
-    const saved: PendingEdit[] = [];
-    let refetch = false;
+    const saved: { edit: PendingEdit; sent: ExperimentChangesBody }[] = [];
+    // Even when refused: some refusals come after part of the save landed.
+    let posted = false;
     try {
       if (pending.length) {
+        const sent = pending.map(([, edit]) => edit.changes({ dryRun: false }));
+        posted = true;
         try {
-          await postChanges(
-            pending.map(([, edit]) => edit.changes({ dryRun: false })),
-            false,
-          );
+          await postChanges(sent, false);
         } catch (e) {
           const conflict = changesConflict(e);
           if (!conflict) throw e;
           // Refetched, so keeping an edit takes what was saved as its base.
-          refetch = true;
           setConflicts(
             pending
               .filter(([, edit]) => touches(dryRunShare(edit), conflict))
@@ -372,7 +390,7 @@ export function ExperimentEditsProvider({
           );
           throw new ConflictFlagged();
         }
-        saved.push(...pending.map(([, edit]) => edit));
+        saved.push(...pending.map(([, edit], i) => ({ edit, sent: sent[i] })));
       }
       setUnscopedRefusal(null);
       setAllowUnscopedRules(false);
@@ -388,8 +406,13 @@ export function ExperimentEditsProvider({
       }
     } finally {
       // Cleared once the refetch lands, so the page never shows the old values.
-      if (saved.length || refetch) await mutate();
-      saved.forEach((edit) => edit.onSaved?.());
+      if (posted) await mutate();
+      // One changed while it saved stays staged, over what it saved.
+      saved.forEach(({ edit, sent }) => {
+        if (isEqual(dryRunShare(edit), sent)) edit.onSaved?.();
+        else rebaseOnRender.current.push(edit);
+      });
+      if (rebaseOnRender.current.length) setRefetched((n) => n + 1);
       setSaving(false);
     }
   }, [postChanges, mutate]);

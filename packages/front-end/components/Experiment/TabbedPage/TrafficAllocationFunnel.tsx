@@ -60,7 +60,7 @@ export interface Props {
   editNamespace?: (() => void) | null;
   /** Offers the + that appends a variation and evens out the split. */
   canAddVariation: boolean;
-  stageVariations: (variations: Variation[]) => void;
+  stageVariations: (variations: Variation[] | null) => void;
   flagEnvironments: FlagEnvironmentsDraft;
   holdoutDraft?: HoldoutDraft;
   /** Whether the experiment can leave its holdout here. */
@@ -78,6 +78,18 @@ export interface Props {
   safeToEdit: boolean;
   /** Targeting confirmed in a modal but not yet written. */
   targetingDraft?: TargetingDraft;
+}
+
+// Whether staged targeting rewrites the phase's variation list (an add, a
+// removal or a reorder), which the Variations edit stages alongside it.
+export function changesVariationList(
+  staged: ExperimentTargetingData | null,
+  experiment: ExperimentInterfaceStringDates,
+): boolean {
+  if (!staged?.variations) return false;
+  const ids = (variations: { id: string }[] = []) =>
+    variations.map((v) => v.id).join("\u0000");
+  return ids(staged.variations) !== ids(experiment.phases.at(-1)?.variations);
 }
 
 export interface TargetingDraft {
@@ -229,7 +241,12 @@ export default function TrafficAllocationFunnel({
       ...patch,
     }));
 
-  const clearStaged = () => targetingDraft?.set(null);
+  // A variation added, removed or reordered was staged in both edits, so
+  // discarding one takes the other with it.
+  const clearStaged = () => {
+    if (changesVariationList(staged, experiment)) stageVariations(null);
+    targetingDraft?.set(null);
+  };
   const [targetingBase, rebaseTargeting] = useEditBase(
     "targeting",
     !!staged,

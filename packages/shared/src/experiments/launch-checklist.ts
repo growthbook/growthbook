@@ -29,6 +29,9 @@ export type LaunchChecklistItem = {
   hardBlock: boolean;
   manual: boolean;
   featureId?: string;
+  // The flag revision the row is about, when not its launch draft; null for
+  // the flag itself.
+  revision?: number | null;
   // A custom task, by its place in the configured checklist.
   customTask?: { index: number; url?: string; propertyKey?: string };
 };
@@ -121,7 +124,7 @@ export function missingVariationValueItems(
         f,
         "missingVariationValues:",
         `Fill in missing variation values for ${f.feature.id}`,
-        { hardBlock: false },
+        { hardBlock: false, revision: null },
       ),
     );
 }
@@ -250,6 +253,22 @@ export function getLaunchChecklistItems({
   const armed = hasPendingScheduledStart(experiment);
   items.push(
     ...mergeConflictItems(linkedFeatures),
+    // A start publishes only drafts with the rule, so the live rule would serve.
+    ...linkedFeatures.flatMap((f) =>
+      f.pendingRemoval
+        ? [
+            flagItem(
+              f,
+              "pendingRemoval:",
+              `Publish Revision ${f.pendingRemoval.version} of ${f.feature.id}, which removes this experiment's rule`,
+              {
+                description: "Or keep the Feature Flag.",
+                revision: f.pendingRemoval.version,
+              },
+            ),
+          ]
+        : [],
+    ),
     ...linkedFeatures
       .filter((f) => f.state === "draft" && f.cannotPublish)
       .map((f) =>

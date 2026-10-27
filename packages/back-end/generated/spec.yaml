@@ -86975,9 +86975,19 @@ components:
           type: array
           items:
             type: string
+        urlRedirectIds:
+          type: array
+          items:
+            type: string
+        visualChangesetIds:
+          type: array
+          items:
+            type: string
       required:
         - fields
         - featureIds
+        - urlRedirectIds
+        - visualChangesetIds
       additionalProperties: false
     ApiErrorUnscopedRuleDetails:
       type: object

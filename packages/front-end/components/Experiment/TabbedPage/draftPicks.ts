@@ -39,13 +39,16 @@ export function flagDrafts(
 export function resolveDraftPick(
   info: LinkedFeatureInfo,
   pick: DraftPick | undefined,
+  // Values staged for a new draft keep it until they're saved or discarded.
+  holdsNew = false,
 ) {
   const drafts = flagDrafts(info);
   const picked = pick?.target;
   const startsNew =
-    picked === "new" &&
-    pick?.newestVersion === (drafts[0]?.version ?? null) &&
-    canStartSeparateDraft(info);
+    holdsNew ||
+    (picked === "new" &&
+      pick?.newestVersion === (drafts[0]?.version ?? null) &&
+      canStartSeparateDraft(info));
   const draft =
     (typeof picked === "number"
       ? drafts.find((d) => d.version === picked)
