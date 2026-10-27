@@ -240,6 +240,9 @@ html.app-drawer-open body {
     margin-top: 0 !important;
   }
   $end: ':is(:last-child, .rt-TabsContent[data-state="active"], .rt-Grid > *)';
+  // It stops at a card: a card ending the page loses its margin, but what's
+  // inside keeps its spacing to the card's edge.
+  $through: "#{$end}:not(.appbox, .card, .box, .rt-Card)";
   $chain: "> #{$end}";
   @for $depth from 1 through 7 {
     // A ghost button keeps its negative margin, which lines up its text.
@@ -249,7 +252,7 @@ html.app-drawer-open body {
     & #{$chain}.pagination-area {
       padding-bottom: 0;
     }
-    $chain: $chain + " > #{$end}";
+    $chain: "> #{$through} #{$chain}";
   }
 }
 
