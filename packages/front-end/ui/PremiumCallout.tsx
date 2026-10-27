@@ -96,7 +96,7 @@ export default function PremiumCallout({
         weight="medium"
       >
         <Flex as="span" align="center" gap="1">
-          Talk to sales <PiArrowSquareOut size={15} />
+          Talk to Sales <PiArrowSquareOut size={15} />
         </Flex>
       </Link>
     );
