@@ -1,7 +1,7 @@
 import EChartsReact from "echarts-for-react";
 import { date } from "shared/dates";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import { formatUtcWeekday } from "@/components/FactTables/MetricEditor/activityChart";
+import { formatUtcWeekday } from "@/components/QueryPreview/activityChart";
 import {
   cssColorToHex,
   getChartThemeColors,

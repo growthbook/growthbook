@@ -11,15 +11,17 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Text from "@/ui/Text";
 import {
   getMetricPreviewConfig,
-  getMetricPreviewDateRange,
   getMetricPreviewUnits,
 } from "@/components/FactTables/MetricEditor/metricPreview";
+import { getPreviewDateRange } from "@/components/QueryPreview/previewUtils";
 import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
-import { ExplorerProvider } from "./ExplorerContext";
+import PreviewEmptyState from "@/components/QueryPreview/PreviewEmptyState";
+import PreviewShell, {
+  PreviewFooter,
+} from "@/components/QueryPreview/PreviewShell";
+import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import MetricPreviewChart from "./MainSection/MetricPreviewChart";
-import PreviewEmptyState from "./MainSection/PreviewEmptyState";
-import PreviewShell, { PreviewFooter } from "./MainSection/PreviewShell";
-import PreviewUnitSelect from "./MainSection/PreviewUnitSelect";
+import { ExplorerProvider } from "./ExplorerContext";
 
 const EMPTY_CONFIG: ExplorationConfig = {
   ...DEFAULT_EXPLORE_STATE,
@@ -73,7 +75,7 @@ export default function MetricPerformance({
   // Recompute when the UTC day rolls over so "last 7 days" doesn't go stale.
   const utcToday = new Date().toISOString().slice(0, 10);
   const dateRange = useMemo(
-    () => getMetricPreviewDateRange(new Date(`${utcToday}T00:00:00Z`)),
+    () => getPreviewDateRange(new Date(`${utcToday}T00:00:00Z`)),
     [utcToday],
   );
   const config = useMemo(
@@ -111,6 +113,7 @@ export default function MetricPerformance({
   return (
     <DefinitionsContext.Provider value={previewDefinitions}>
       <ExplorerProvider
+        mode="passive-preview"
         initialConfig={config ?? EMPTY_CONFIG}
         queryEnabled={config !== null}
         trackingSource="metric-preview"

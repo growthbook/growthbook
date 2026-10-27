@@ -66,13 +66,6 @@ import { useExploreData, CacheOption } from "./useExploreData";
 
 const MAX_TRACKED_ERROR_LENGTH = 500;
 
-// Passive previews: auto-refresh only reads the cache and a failed refresh
-// keeps the last successful result.
-const PREVIEW_TRACKING_SOURCES = new Set([
-  "metric-preview",
-  "population-preview",
-]);
-
 type SetDraftStateAction =
   | ExplorerDraftConfig
   | ((prevState: ExplorerDraftConfig) => ExplorerDraftConfig);
@@ -168,6 +161,8 @@ export function useDefaultDataSourceId(): string | undefined {
 }
 
 interface ExplorerProviderProps {
+  /** Passive previews only auto-read cache and retain results on failed cache reads. */
+  mode?: "explorer" | "passive-preview";
   queryEnabled?: boolean;
   children: ReactNode;
   initialConfig: ExplorerDraftConfig;
@@ -188,6 +183,7 @@ interface ExplorerProviderProps {
 }
 
 export function ExplorerProvider({
+  mode = "explorer",
   queryEnabled = true,
   children,
   initialConfig,
@@ -207,8 +203,7 @@ export function ExplorerProvider({
     datasources,
     getDatasourceById,
   } = useDefinitions();
-  const isPreviewSource =
-    !!trackingSource && PREVIEW_TRACKING_SOURCES.has(trackingSource);
+  const isPassivePreview = mode === "passive-preview";
 
   const [, setDefaultDataSourceId] = useLocalStorage<string>(
     LOCALSTORAGE_EXPLORER_DATASOURCE_KEY,
@@ -546,7 +541,7 @@ export function ExplorerProvider({
 
       // A failed automatic preview refresh must keep the last successful graph.
       if (
-        isPreviewSource &&
+        isPassivePreview &&
         cache === "required" &&
         (fetchError || fetchResult?.status === "error")
       ) {
@@ -809,7 +804,7 @@ export function ExplorerProvider({
       isManagedWarehouse,
       managedWarehouseUnavailable,
       trackingSource,
-      isPreviewSource,
+      isPassivePreview,
       getDatasourceById,
       getFactMetricById,
     ],
@@ -877,7 +872,7 @@ export function ExplorerProvider({
       !forceFunnelAutoSubmit;
 
     if (needsFetch) {
-      if (isPreviewSource) {
+      if (isPassivePreview) {
         // Each submit cancels the in-flight poll, so a draft edit would drop
         // a running "Run query" result. Wait for it; this effect reruns when
         // polling ends and checks the cache for the latest draft.
@@ -913,7 +908,7 @@ export function ExplorerProvider({
     }
   }, [
     needsFetch,
-    isPreviewSource,
+    isPassivePreview,
     polling,
     needsUpdate,
     doSubmit,

@@ -6,6 +6,7 @@ import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
@@ -78,12 +79,10 @@ export default function PreviewShell({
   /** Empty-state copy when `config` is null. Defaults to `emptyDescription`. */
   incompleteDescription?: string;
   warehouseUnavailableText: string;
-  /** Renders the chart, a spinner, or nothing for an error. */
+  /** Called only when a result is available to render. */
   renderChart: (state: {
-    exploration: ProductAnalyticsExploration | null;
+    exploration: ProductAnalyticsExploration;
     submittedExploreState: ExplorationConfig;
-    loading: boolean;
-    error: string | null;
   }) => ReactNode;
 }) {
   const {
@@ -125,14 +124,18 @@ export default function PreviewShell({
           </Text>
         </Flex>
       )}
-      {exploration || loading ? (
+      {error && !loading ? (
+        <Callout status="error">{error}</Callout>
+      ) : loading && !exploration ? (
+        <Flex p="4" align="center" justify="center">
+          <LoadingSpinner />
+        </Flex>
+      ) : exploration ? (
         renderChart({
           exploration,
           submittedExploreState: submittedExploreState ?? draftExploreState,
-          loading,
-          error,
         })
-      ) : error ? null : (
+      ) : (
         <PreviewEmptyState
           description={
             config
@@ -141,9 +144,6 @@ export default function PreviewShell({
           }
         />
       )}
-      {/* The chart renders nothing for an error, so show it here in place of
-          the chart or empty state. */}
-      {error && !loading && <Callout status="error">{error}</Callout>}
       <PreviewFooter
         exploration={exploration}
         outdated={outdated}

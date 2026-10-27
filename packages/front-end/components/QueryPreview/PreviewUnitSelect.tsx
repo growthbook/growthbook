@@ -1,8 +1,8 @@
 import { Select, SelectItem, SelectSize } from "@/ui/Select";
-import { getMetricPreviewUnitLabel } from "@/components/FactTables/MetricEditor/metricPreview";
+import { getPreviewUnitLabel } from "@/components/QueryPreview/previewUtils";
 import styles from "./PreviewUnitSelect.module.scss";
 
-type UnitLabelFactTable = Parameters<typeof getMetricPreviewUnitLabel>[1];
+type UnitLabelFactTable = Parameters<typeof getPreviewUnitLabel>[1];
 
 // Picks the identifier a preview counts by. Options show the unit's display
 // name over its column; the trigger shows the name only.
@@ -31,7 +31,7 @@ export default function PreviewUnitSelect({
       setValue={setValue}
     >
       {units.map((id) => {
-        const { label, column } = getMetricPreviewUnitLabel(id, factTable);
+        const { label, column } = getPreviewUnitLabel(id, factTable);
         return (
           <SelectItem
             key={id}

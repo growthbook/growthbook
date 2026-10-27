@@ -7,44 +7,29 @@ import type {
 import { ago, datetime } from "shared/dates";
 import { getEffectiveMetricValue } from "shared/enterprise";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
 import {
-  formatPreviewHeadline,
   getMetricPreviewPartLabels,
   getMetricPreviewSummary,
 } from "@/components/FactTables/MetricEditor/metricPreview";
-import { fillDailyBuckets } from "@/components/FactTables/MetricEditor/activityChart";
+import { formatPreviewHeadline } from "@/components/QueryPreview/previewUtils";
+import { fillDailyBuckets } from "@/components/QueryPreview/activityChart";
+import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
+import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
 import FunnelChart from "./FunnelChart";
-import DailyBarChart from "./DailyBarChart";
-import PreviewHeadline from "./PreviewHeadline";
 
 // The metric editor's preview: a headline value over daily bars for one
-// metric. Errors are shown by the caller.
+// metric.
 export default function MetricPreviewChart({
   exploration,
   submittedExploreState,
-  loading,
-  error,
 }: {
-  exploration: ProductAnalyticsExploration | null;
+  exploration: ProductAnalyticsExploration;
   submittedExploreState: ExplorationConfig;
-  loading: boolean;
-  error: string | null;
 }) {
   const { getFactMetricById } = useDefinitions();
-
-  if (error && !loading) return null;
-  if (loading && !exploration) {
-    return (
-      <Flex p="4" align="center" justify="center">
-        <LoadingSpinner />
-      </Flex>
-    );
-  }
-  if (!exploration) return null;
 
   const dataset = submittedExploreState.dataset;
   if (dataset.type === "funnel") {

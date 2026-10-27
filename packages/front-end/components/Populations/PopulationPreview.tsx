@@ -8,40 +8,24 @@ import {
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
-import DailyBarChart from "@/enterprise/components/ProductAnalytics/MainSection/DailyBarChart";
-import PreviewHeadline from "@/enterprise/components/ProductAnalytics/MainSection/PreviewHeadline";
-import PreviewShell from "@/enterprise/components/ProductAnalytics/MainSection/PreviewShell";
-import PreviewUnitSelect from "@/enterprise/components/ProductAnalytics/MainSection/PreviewUnitSelect";
+import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
+import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
+import PreviewShell from "@/components/QueryPreview/PreviewShell";
+import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import {
-  getMetricPreviewDateRange,
+  getPreviewDateRange,
   formatPreviewHeadline,
-} from "@/components/FactTables/MetricEditor/metricPreview";
-import { getActivityChart } from "@/components/FactTables/MetricEditor/activityChart";
-import LoadingSpinner from "@/components/LoadingSpinner";
+} from "@/components/QueryPreview/previewUtils";
+import { getActivityChart } from "@/components/QueryPreview/activityChart";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 
-// Daily distinct members for one population. Errors are shown by the shell.
 function MembersChart({
   exploration,
-  loading,
-  error,
 }: {
-  exploration: ProductAnalyticsExploration | null;
-  loading: boolean;
-  error: string | null;
+  exploration: ProductAnalyticsExploration;
 }) {
-  if (error && !loading) return null;
-  if (loading && !exploration) {
-    return (
-      <Flex p="4" align="center" justify="center">
-        <LoadingSpinner />
-      </Flex>
-    );
-  }
-  if (!exploration) return null;
-
   const chart = getActivityChart(exploration);
   const average = chart.days.length ? chart.total / chart.days.length : null;
   return (
@@ -92,7 +76,7 @@ export default function PopulationPreview({
       datasource: population.datasource,
       chartType: "bar",
       showAs: "total",
-      dateRange: getMetricPreviewDateRange(new Date(`${utcToday}T00:00:00Z`)),
+      dateRange: getPreviewDateRange(new Date(`${utcToday}T00:00:00Z`)),
       dimensions: [
         { dimensionType: "date", column: "date", dateGranularity: "day" },
       ],
@@ -131,6 +115,7 @@ export default function PopulationPreview({
         </Text>
       ) : (
         <ExplorerProvider
+          mode="passive-preview"
           initialConfig={config}
           queryEnabled={!!unit}
           trackingSource="population-preview"
@@ -139,12 +124,8 @@ export default function PopulationPreview({
             config={config}
             emptyDescription="Run the query to see daily member counts for the last 7 complete days."
             warehouseUnavailableText="The preview will be available when the warehouse is ready."
-            renderChart={({ exploration, loading, error }) => (
-              <MembersChart
-                exploration={exploration}
-                loading={loading}
-                error={error}
-              />
+            renderChart={({ exploration }) => (
+              <MembersChart exploration={exploration} />
             )}
             controls={
               <PreviewUnitSelect
