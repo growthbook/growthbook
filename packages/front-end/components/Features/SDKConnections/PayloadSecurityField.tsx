@@ -58,6 +58,10 @@ export default function PayloadSecurityField({
   );
   const encryptionSupported = currentCaps.includes("encryption");
   const remoteEvalSupported = currentCaps.includes("remoteEval");
+  const remoteEvalLatestSupported = getConnectionSDKCapabilities(
+    { languages, sdkVersion },
+    "max-ver-intersection",
+  ).includes("remoteEval");
   const singleLanguage = languages.length === 1 ? languages[0] : undefined;
   const encryptionVersion = singleLanguage
     ? getSDKCapabilityVersion(singleLanguage, "encryption")
@@ -179,6 +183,69 @@ export default function PayloadSecurityField({
     </Box>
   );
 
+  const remoteEvalTooltip = (
+    <>
+      <Text as="p" mb="2">
+        <strong>Remote Evaluation</strong> fully secures your SDK by evaluating
+        feature flags exclusively on a private server instead of within a
+        front-end environment. This ensures that any sensitive information
+        within targeting rules or unused feature variations are never seen by
+        the client.
+      </Text>
+      <Text as="p" mb="2">
+        Remote evaluation provides the same security benefits as a backend SDK.
+        However, remote evaluation is neither needed nor supported for backend
+        SDKs.
+      </Text>
+      <Text as="div" mb="2">
+        Remote evaluation does come with a few cost considerations:
+        <ol style={{ paddingLeft: "1rem", marginTop: "0.5rem" }}>
+          <li style={{ marginBottom: "0.5rem" }}>
+            It will increase network traffic. Evaluated payloads cannot be
+            shared across different users; therefore CDN cache misses will
+            increase.
+          </li>
+          <li>
+            Any connections using Streaming Updates will incur a slight delay.
+            An additional network hop is required to retrieve the evaluated
+            payload from the server.
+          </li>
+        </ol>
+      </Text>
+    </>
+  );
+
+  const remoteOptions = remoteEvalSupported ? (
+    <Box>
+      <Text as="div" size="md" weight="medium" mb="2">
+        Remote Evaluation Options
+      </Text>
+      <Checkbox
+        weight="regular"
+        value={value.delivery === "remote"}
+        disabled={!hasRemoteEvaluationFeature || !remoteEvalLatestSupported}
+        setValue={(v) =>
+          onChange({
+            delivery: v
+              ? "remote"
+              : value.encryptPayload || value.hashSecureAttributes
+                ? "ciphered"
+                : "plain",
+          })
+        }
+        label={
+          <PremiumTooltip
+            commercialFeature="remote-evaluation"
+            tipMinWidth="600px"
+            body={remoteEvalTooltip}
+          >
+            Use remote evaluation <PiInfo />
+          </PremiumTooltip>
+        }
+      />
+    </Box>
+  ) : null;
+
   const activeCipherOptions = [
     value.encryptPayload && "Encrypt payload",
     value.hashSecureAttributes && "Hash secure attributes",
@@ -231,7 +298,12 @@ export default function PayloadSecurityField({
         </Flex>
       ),
       description: "Adds obfuscation while remaining cacheable",
-      renderOnSelect: <Box mt="2">{cipherOptions}</Box>,
+      renderOnSelect: (
+        <Flex direction="column" gap="3" mt="2">
+          {cipherOptions}
+          {remoteOptions}
+        </Flex>
+      ),
     },
     ...(remoteEvalSupported
       ? [
@@ -241,39 +313,7 @@ export default function PayloadSecurityField({
               <PremiumTooltip
                 commercialFeature="remote-evaluation"
                 tipMinWidth="600px"
-                body={
-                  <>
-                    <Text as="p" mb="2">
-                      <strong>Remote Evaluation</strong> fully secures your SDK
-                      by evaluating feature flags exclusively on a private
-                      server instead of within a front-end environment. This
-                      ensures that any sensitive information within targeting
-                      rules or unused feature variations are never seen by the
-                      client.
-                    </Text>
-                    <Text as="p" mb="2">
-                      Remote evaluation provides the same security benefits as a
-                      backend SDK. However, remote evaluation is neither needed
-                      nor supported for backend SDKs.
-                    </Text>
-                    <Text as="div" mb="2">
-                      Remote evaluation does come with a few cost
-                      considerations:
-                      <ol style={{ paddingLeft: "1rem", marginTop: "0.5rem" }}>
-                        <li style={{ marginBottom: "0.5rem" }}>
-                          It will increase network traffic. Evaluated payloads
-                          cannot be shared across different users; therefore CDN
-                          cache misses will increase.
-                        </li>
-                        <li>
-                          Any connections using Streaming Updates will incur a
-                          slight delay. An additional network hop is required to
-                          retrieve the evaluated payload from the server.
-                        </li>
-                      </ol>
-                    </Text>
-                  </>
-                }
+                body={remoteEvalTooltip}
               >
                 Remote Evaluated <PiInfo />
               </PremiumTooltip>
@@ -283,6 +323,7 @@ export default function PayloadSecurityField({
             renderOnSelect: (
               <Flex direction="column" gap="3" mt="2">
                 {cipherOptions}
+                {remoteOptions}
                 {isCloud() && (
                   <Callout status="info" size="sm">
                     Cloud customers must self-host a remote evaluation service
