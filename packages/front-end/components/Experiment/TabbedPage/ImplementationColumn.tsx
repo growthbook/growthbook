@@ -24,6 +24,8 @@ export type ColumnLayout = {
 
 export type ImplementationColumn = {
   key: string;
+  // What each variation gets from it, so the table can tell rows apart.
+  served: Record<string, string>;
   render: (layout: ColumnLayout) => ReactNode;
 };
 

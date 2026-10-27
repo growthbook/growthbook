@@ -1,9 +1,12 @@
 import clsx from "clsx";
+import isEqual from "lodash/isEqual";
 import {
   forwardRef,
   HTMLAttributes,
   ReactElement,
   ReactNode,
+  useCallback,
+  useEffect,
   useMemo,
   useState,
 } from "react";
@@ -97,11 +100,14 @@ import {
 import FlagValuesModal from "./FlagValuesModal";
 import FunnelConnector from "./FunnelConnector";
 import {
-  getDuplicateVariationIds,
+  getDuplicateRows,
   repairVariationValues,
+  servedValues,
   variationLabel,
 } from "./variationValues";
 import styles from "./VariationValuesTable.module.scss";
+
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 const TABLE_MIN_WIDTH = 692;
 const VARIATION_NARROWEST_WIDTH = 130;
@@ -231,6 +237,35 @@ export default function VariationValuesTable({
   });
   const [scrolled, setScrolled] = useState(false);
 
+  // What each flag column serves, as it reports it, staged values included.
+  const [flagServed, setFlagServed] = useState<
+    Record<string, Record<string, string>>
+  >({});
+  const reportServed = useCallback(
+    (column: string, served: Record<string, string> | null) =>
+      setFlagServed((prev) => {
+        if (isEqual(prev[column] ?? null, served)) return prev;
+        const next = { ...prev };
+        if (served) next[column] = served;
+        else delete next[column];
+        return next;
+      }),
+    [],
+  );
+  // Judged once every column has reported, so a partial row can't match.
+  const duplicateRows =
+    experiment.status === "draft" &&
+    flagColumns.every(({ key }) => flagServed[key])
+      ? getDuplicateRows(
+          variations.map((v) => v.id),
+          [
+            ...flagColumns.map(({ key }) => flagServed[key]),
+            ...implementationColumns.map((c) => c.served),
+          ],
+        )
+      : [];
+  const duplicateIds = new Set(duplicateRows.flat());
+
   if (!variations.length) return null;
 
   return (
@@ -339,6 +374,16 @@ export default function VariationValuesTable({
                   </Link>
                 </div>
               ) : null}
+              {duplicateRows.map((ids) => (
+                <HelperText key={ids.join()} status="warning" size="sm">
+                  {listFormat.format(
+                    variations
+                      .filter((v) => ids.includes(v.id))
+                      .map(variationLabel),
+                  )}{" "}
+                  serve the same {columnCount === 1 ? "value" : "values"}.
+                </HelperText>
+              ))}
             </div>
 
             <SplitColumn
@@ -352,6 +397,9 @@ export default function VariationValuesTable({
               <div key={key} className={styles.implementationColumn}>
                 <FlagColumn
                   layout={layoutFor(i)}
+                  columnKey={key}
+                  reportServed={reportServed}
+                  duplicateIds={duplicateIds}
                   experiment={experiment}
                   info={info}
                   group={group}
@@ -489,6 +537,9 @@ function StagedUnlink({
 
 function FlagColumn({
   layout,
+  columnKey,
+  reportServed,
+  duplicateIds,
   experiment,
   info,
   group,
@@ -499,6 +550,10 @@ function FlagColumn({
   setLinkAction,
 }: {
   layout: ColumnLayout;
+  columnKey: string;
+  reportServed: (column: string, served: Record<string, string> | null) => void;
+  // Variations that match another in every column.
+  duplicateIds: Set<string>;
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   group: ValueGroup | null;
@@ -631,12 +686,18 @@ function FlagColumn({
     });
   };
 
-  const duplicateIds = getDuplicateVariationIds(
-    variations.map((v) => ({ variationId: v.id, value: valueFor(v.id) })),
-    valueType,
-    sparse,
-    sparseBase,
+  const served = JSON.stringify(
+    servedValues(
+      variations.map((v) => ({ variationId: v.id, value: valueFor(v.id) })),
+      valueType,
+      sparse,
+      sparseBase,
+    ),
   );
+  useEffect(() => {
+    reportServed(columnKey, JSON.parse(served));
+    return () => reportServed(columnKey, null);
+  }, [reportServed, columnKey, served]);
 
   const dirty =
     !!stagedScope ||
@@ -871,12 +932,6 @@ function FlagColumn({
     notices.push({
       status: "warning",
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
-    });
-  }
-  if (!showingLive && duplicateIds.size) {
-    notices.push({
-      status: "error",
-      text: "Multiple variations serve the same value.",
     });
   }
   if (onFlag && describesShown && info.rulesAbove) {
@@ -1195,7 +1250,6 @@ function FlagColumn({
             const value = showingLive
               ? liveValues.find((l) => l.variationId === v.id)?.value
               : valueFor(v.id);
-            const duplicate = !showingLive && duplicateIds.has(v.id);
             return (
               <ColumnCell key={v.id} layout={layout} row={i}>
                 <FeatureValueCell
@@ -1204,7 +1258,7 @@ function FlagColumn({
                   feature={showingLive ? feature : displayFeature}
                   sparse={showingLive ? liveSparse : sparse}
                   editable={editable && !showingLive}
-                  error={duplicate}
+                  outlineStyle={duplicateIds.has(v.id) ? "warning" : undefined}
                   onChange={(next) => stage({ values: { [v.id]: next } })}
                   onOpenEditor={() => setEditingValues(v.id)}
                   label={variationLabel(v)}

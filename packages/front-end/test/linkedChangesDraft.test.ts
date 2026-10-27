@@ -18,6 +18,7 @@ import {
   stageVisualChange,
   stageVisualTargeting,
   undoRedirect,
+  visualServedValues,
 } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 
 const LOADED = "2026-01-02T00:00:00.000Z";
@@ -295,5 +296,13 @@ describe("linkedChangesDraft", () => {
     ]);
     expect(edited.stored).toBe(vc);
     expect(shownVisualChangesets(removeVisual(EMPTY, vc.id), [vc])).toEqual([]);
+  });
+
+  it("reads an empty visual change as no change", () => {
+    expect(visualServedValues(vc, [...variationIds, "v2"])).toEqual({
+      v0: "",
+      v1: expect.stringContaining(".b{}"),
+      v2: "",
+    });
   });
 });

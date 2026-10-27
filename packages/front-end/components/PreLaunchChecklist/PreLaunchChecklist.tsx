@@ -333,7 +333,7 @@ export function PreLaunchChecklistPanel() {
   if (loading) return <LoadingSpinner />;
 
   return (
-    <>
+    <Flex direction="column" gap="3">
       {loadError ? (
         loadErrorNotice
       ) : summary.remaining === 0 ? (
@@ -352,7 +352,7 @@ export function PreLaunchChecklistPanel() {
           {toggleError}
         </HelperText>
       ) : null}
-    </>
+    </Flex>
   );
 }
 

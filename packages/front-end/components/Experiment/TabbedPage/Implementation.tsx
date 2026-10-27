@@ -84,6 +84,8 @@ import {
   removeVisual,
   ShownRedirect,
   shownUrlRedirects,
+  redirectServedValues,
+  visualServedValues,
   shownVisualChangesets,
   stageVisualChange,
   stageVisualTargeting,
@@ -340,6 +342,7 @@ export default function Implementation({
   const implementationColumns: ImplementationColumn[] = [
     ...shownRedirects.map((r) => ({
       key: `redirect:${r.key}`,
+      served: redirectServedValues(r, shownVariationIds),
       render: (layout: ColumnLayout) => (
         <UrlRedirectColumn
           layout={layout}
@@ -356,6 +359,7 @@ export default function Implementation({
     })),
     ...shownChangesets.map((shown) => ({
       key: `visual:${shown.stored.id}`,
+      served: visualServedValues(shown.changeset, shownVariationIds),
       render: (layout: ColumnLayout) => (
         <VisualChangesetColumn
           layout={layout}

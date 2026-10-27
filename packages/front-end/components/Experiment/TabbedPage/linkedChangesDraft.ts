@@ -2,6 +2,7 @@ import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
 import type { ExperimentChangesBody } from "shared/validators";
 import { syncedDestinationURLs } from "shared/experiments";
+import { sortObjectKeys } from "shared/util";
 import {
   DestinationURL,
   URLRedirectInterface,
@@ -90,6 +91,37 @@ const fieldsOf = (r: RedirectFields): RedirectFields => ({
 const destinations = (urls: DestinationURL[]) =>
   Object.fromEntries(
     urls.filter((d) => d.url).map((d) => [d.variation, d.url]),
+  );
+
+/** Where each variation is sent; "" leaves it on the page it matched. */
+export const redirectServedValues = (
+  r: Pick<RedirectFields, "destinationURLs">,
+  variationIds: string[],
+): Record<string, string> => {
+  const urls = destinations(r.destinationURLs);
+  return Object.fromEntries(variationIds.map((id) => [id, urls[id] ?? ""]));
+};
+
+/** What each variation changes on the page; "" changes nothing. */
+export const visualServedValues = (
+  changeset: Pick<VisualChangesetInterface, "visualChanges">,
+  variationIds: string[],
+): Record<string, string> =>
+  Object.fromEntries(
+    variationIds.map((id) => {
+      const change = changeset.visualChanges.find((c) => c.variation === id);
+      const changes = change && {
+        css: change.css.trim(),
+        js: (change.js ?? "").trim(),
+        domMutations: change.domMutations,
+      };
+      return [
+        id,
+        changes && (changes.css || changes.js || changes.domMutations.length)
+          ? JSON.stringify(sortObjectKeys(changes))
+          : "",
+      ];
+    }),
   );
 
 type RedirectContent = Pick<
