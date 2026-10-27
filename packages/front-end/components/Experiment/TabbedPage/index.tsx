@@ -905,7 +905,6 @@ function TabbedPageContents({
                 mutate={mutate}
                 holdoutProjects={holdout?.projects}
                 editMetrics={editMetrics}
-                editResult={editResult}
                 envs={envs}
                 setTab={setTabAndScroll}
                 isTabActive={tab === "results"}

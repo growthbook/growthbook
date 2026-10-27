@@ -27,7 +27,6 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import StatusBanner from "@/components/Experiment/StatusBanner";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -59,9 +58,7 @@ const CompactResults = dynamic(
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
-  draftMode?: boolean;
   editMetrics?: () => void;
-  editResult?: () => void;
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
@@ -77,9 +74,7 @@ const Results: FC<{
 }> = ({
   experiment,
   mutateExperiment,
-  draftMode = false,
   editMetrics,
-  editResult,
   statsEngine,
   analysisBarSettings,
   setAnalysisBarSettings,
@@ -183,7 +178,6 @@ const Results: FC<{
     })) || [];
 
   const showCompactResults =
-    !draftMode &&
     hasData &&
     hasValidStatsEngine &&
     snapshot &&
@@ -191,7 +185,6 @@ const Results: FC<{
     !analysis?.settings?.dimensions?.length;
 
   const showBreakDownResults =
-    !draftMode &&
     hasData &&
     hasValidStatsEngine &&
     ((snapshot?.dimension &&
@@ -199,7 +192,6 @@ const Results: FC<{
       (analysis?.settings?.dimensions?.length ?? 0) > 0);
 
   const showDateResults =
-    !draftMode &&
     hasData &&
     hasValidStatsEngine &&
     snapshot?.dimension?.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
@@ -244,10 +236,6 @@ const Results: FC<{
   const hasQueries = queryStrings.length > 0;
   return (
     <>
-      {!draftMode ? null : (
-        <StatusBanner editResult={editResult || undefined} />
-      )}
-
       {!hasMetrics && (
         <Callout
           status="info"

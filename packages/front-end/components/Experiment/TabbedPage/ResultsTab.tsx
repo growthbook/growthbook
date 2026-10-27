@@ -71,7 +71,6 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   mutate: () => void;
   editMetrics?: (() => void) | null;
-  editResult?: (() => void) | null;
   holdoutProjects?: string[];
   envs: string[];
   setTab: (tab: ExperimentTab) => void;
@@ -109,7 +108,6 @@ export default function ResultsTab({
   envs,
   mutate,
   editMetrics,
-  editResult,
   setTab,
   isTabActive,
   analysisBarSettings,
@@ -501,7 +499,6 @@ export default function ResultsTab({
                   experiment={experiment}
                   mutateExperiment={mutate}
                   editMetrics={editMetrics ?? undefined}
-                  editResult={editResult ?? undefined}
                   statsEngine={statsEngine}
                   analysisBarSettings={analysisBarSettings}
                   setAnalysisBarSettings={setAnalysisBarSettings}
