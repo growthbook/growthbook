@@ -844,10 +844,10 @@ const ImportExperimentList: FC<{
                       ))}
                       <Separator size="4" my="1" />
                       <Checkbox
-                        label="Separate row per query"
-                        description="Off: an experiment found by several queries shows once, using the query with the most units."
-                        value={!dedupeFilter}
-                        setValue={(v) => setDedupeFilter(!v)}
+                        label="Combine duplicate experiments"
+                        description="An experiment found by several assignment queries shows once, using the query with the most units"
+                        value={dedupeFilter}
+                        setValue={setDedupeFilter}
                       />
                     </Flex>
                   }
