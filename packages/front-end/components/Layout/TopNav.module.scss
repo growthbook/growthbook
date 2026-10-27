@@ -66,6 +66,49 @@ $sidebarwidth: var(--app-rail-width, 240px);
     }
   }
 }
+// Under the header's bottom edge (and any bar pinned under it), content
+// scrolling up fades into the page's background instead of being cut off,
+// as the GrowthBot panel's conversation does at its top (AgentPanel
+// .module.scss): 32px, from the background to clear. At z-index 1 and
+// before the page, sticky headers and tab bars pinned there cover it.
+.headerFade {
+  position: fixed;
+  top: var(--page-top-offset);
+  left: $sidebarwidth;
+  right: var(--agent-rail-width, 0px);
+  height: 32px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--color-background), transparent);
+  opacity: 0;
+  transition:
+    opacity 200ms ease,
+    left 200ms ease,
+    right var(--agent-dock-duration) var(--agent-dock-easing);
+  :global(html.agent-dock-motion) & {
+    transition:
+      opacity 200ms ease,
+      left var(--agent-dock-duration) var(--agent-dock-easing),
+      right var(--agent-dock-duration) var(--agent-dock-easing);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    :global(html.agent-dock-motion) & {
+      transition: none;
+    }
+  }
+  @media (max-width: 1180px) {
+    left: 0;
+  }
+  @media print {
+    display: none;
+  }
+
+  &.scrolled {
+    opacity: 1;
+  }
+}
+
 .topbarlite {
   display: flex;
   justify-content: space-between;
