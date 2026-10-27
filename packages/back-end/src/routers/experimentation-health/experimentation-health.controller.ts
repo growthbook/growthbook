@@ -1,11 +1,15 @@
 import type { Response } from "express";
+import { omit } from "lodash";
 import {
   CustomQualityCheck,
   ExperimentationHealthQualitySettings,
   ORG_DEFAULT_SCOPE,
 } from "shared/validators";
 import { countHealthOverrides } from "shared/enterprise";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
@@ -29,22 +33,29 @@ function recheckScope(context: ReqContext, project: string) {
 }
 
 // Picks a judge for each custom rule that's new or changed, unless an admin
-// chose one; unchanged rules keep the judge they were saved with
+// chose one; unchanged rules keep the judge they were saved with. Rule text
+// is only sent for classification while the organization has AI turned on.
 async function classifyCustomChecks(
   checks: CustomQualityCheck[],
   saved: CustomQualityCheck[],
+  aiEnabled: boolean,
 ): Promise<CustomQualityCheck[]> {
   return Promise.all(
     checks.map(async (check) => {
       if (check.judgeChosenBy === "admin" && check.judge) return check;
-      const before = saved.find((c) => c.id === check.id);
+      const before = saved.find(
+        (c) => c.id === check.id && c.rule === check.rule,
+      );
       const judge =
-        before?.judgeChosenBy !== "admin" &&
-        before?.rule === check.rule &&
-        before.judge
+        before?.judgeChosenBy !== "admin" && before?.judge
           ? before.judge
-          : await classifyCustomCheckJudge(check.rule);
-      return { ...check, judge, judgeChosenBy: "auto" as const };
+          : aiEnabled
+            ? await classifyCustomCheckJudge(check.rule)
+            : null;
+      // Unclassified rules use the chat model until a later save
+      return judge
+        ? { ...check, judge, judgeChosenBy: "auto" as const }
+        : omit(check, ["judge", "judgeChosenBy"]);
     }),
   );
 }
@@ -88,15 +99,23 @@ export async function putExperimentationHealthSettings(
   }
 
   if (quality.config?.customAiChecks?.length) {
-    const saved =
-      await context.models.experimentationHealthSettings.getForScope(project);
+    // A Project copying the organization's rules reuses their judges
+    const records = await Promise.all(
+      [project, ORG_DEFAULT_SCOPE].map((scope) =>
+        context.models.experimentationHealthSettings.getForScope(scope),
+      ),
+    );
+    const aiEnabled =
+      !!context.org.settings?.aiEnabled &&
+      (await getAISettingsForOrg(context)).aiEnabled;
     quality = {
       ...quality,
       config: {
         ...quality.config,
         customAiChecks: await classifyCustomChecks(
           quality.config.customAiChecks,
-          saved?.quality?.config?.customAiChecks ?? [],
+          records.flatMap((r) => r?.quality?.config?.customAiChecks ?? []),
+          aiEnabled,
         ),
       },
     };

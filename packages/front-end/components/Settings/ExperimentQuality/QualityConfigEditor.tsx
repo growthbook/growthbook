@@ -502,50 +502,67 @@ export default function QualityConfigEditor({
                             }
                           />
                           {decisionModelAvailable && (
-                            <Flex align="center" gap="2" mt="2" wrap="wrap">
-                              <Text size="sm" color="text-mid">
-                                Judged by
-                              </Text>
-                              <Select
-                                size="sm"
-                                aria-label="Judged by"
-                                value={
-                                  custom.judgeChosenBy === "admin" &&
-                                  custom.judge
-                                    ? custom.judge
-                                    : "auto"
-                                }
-                                setValue={(v) =>
-                                  setDraft(
-                                    setCustomCheckJudge(
-                                      draft,
-                                      custom.id,
-                                      v === "decision" || v === "llm"
-                                        ? v
-                                        : null,
-                                    ),
-                                  )
-                                }
-                                disabled={!included}
-                              >
-                                <SelectItem value="auto">
-                                  Choose automatically
-                                </SelectItem>
-                                <SelectItem value="decision">
-                                  {JUDGE_LABELS.decision}
-                                </SelectItem>
-                                <SelectItem value="llm">
-                                  {JUDGE_LABELS.llm}
-                                </SelectItem>
-                              </Select>
-                              {custom.judgeChosenBy !== "admin" && (
-                                <Text size="sm" color="text-low">
-                                  {custom.judge
-                                    ? `Picked automatically: ${JUDGE_LABELS[custom.judge]}.`
-                                    : "Picked when you save. Rules that need counting, points or dates use the AI model."}
+                            <Box mt="2">
+                              <Flex align="center" gap="2" wrap="wrap">
+                                <Text
+                                  size="sm"
+                                  weight="medium"
+                                  color="text-mid"
+                                >
+                                  Judged by
                                 </Text>
-                              )}
-                            </Flex>
+                                <Select
+                                  size="sm"
+                                  aria-label="Judged by"
+                                  value={
+                                    custom.judgeChosenBy === "admin" &&
+                                    custom.judge
+                                      ? custom.judge
+                                      : "auto"
+                                  }
+                                  setValue={(v) =>
+                                    setDraft(
+                                      setCustomCheckJudge(
+                                        draft,
+                                        custom.id,
+                                        v === "decision" || v === "llm"
+                                          ? v
+                                          : null,
+                                      ),
+                                    )
+                                  }
+                                  disabled={!included}
+                                >
+                                  <SelectItem value="auto">
+                                    Choose automatically
+                                  </SelectItem>
+                                  <SelectItem value="decision">
+                                    {JUDGE_LABELS.decision}
+                                  </SelectItem>
+                                  <SelectItem value="llm">
+                                    {JUDGE_LABELS.llm}
+                                  </SelectItem>
+                                </Select>
+                                {custom.judgeChosenBy !== "admin" && (
+                                  <Text size="sm" color="text-low">
+                                    {custom.judge
+                                      ? `Picked automatically: ${JUDGE_LABELS[custom.judge]}.`
+                                      : "Picked when you save."}
+                                  </Text>
+                                )}
+                              </Flex>
+                              <Text
+                                size="sm"
+                                color="text-low"
+                                as="p"
+                                mt="1"
+                                mb="0"
+                              >
+                                The decision model is fast and judges wording
+                                and meaning. Rules that need counting, points or
+                                dates need the AI model.
+                              </Text>
+                            </Box>
                           )}
                         </>
                       }

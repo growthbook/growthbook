@@ -482,16 +482,16 @@ export function getExperimentDigestForCustomRules(
     type: experiment.type ?? "standard",
     hypothesis: experiment.hypothesis ?? "",
     description: experiment.description ?? "",
-    tags: [...experiment.tags].sort(),
+    tags: [...(experiment.tags ?? [])].sort(),
     project: experiment.project ?? "",
     hasOwner: !!experiment.owner?.trim(),
     goalMetricNames: [...goalMetricNames].sort(),
-    goalMetricCount: experiment.goalMetrics.length,
-    variations: experiment.variations.map((v) => ({
+    goalMetricCount: experiment.goalMetrics?.length ?? 0,
+    variations: (experiment.variations ?? []).map((v) => ({
       name: v.name,
-      screenshotCount: v.screenshots.length,
+      screenshotCount: v.screenshots?.length ?? 0,
     })),
-    phases: experiment.phases.map((p) => ({
+    phases: (experiment.phases ?? []).map((p) => ({
       dateStarted: toISO(p.dateStarted),
       dateEnded: toISO(p.dateEnded),
     })),
@@ -509,8 +509,8 @@ export function haveAIQualityInputsChanged(
   after: ExperimentForQualityScore,
 ): boolean {
   return (
-    getExperimentDigestForCustomRules(before, before.goalMetrics) !==
-    getExperimentDigestForCustomRules(after, after.goalMetrics)
+    getExperimentDigestForCustomRules(before, before.goalMetrics ?? []) !==
+    getExperimentDigestForCustomRules(after, after.goalMetrics ?? [])
   );
 }
 
