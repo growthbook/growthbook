@@ -282,6 +282,7 @@ export default function PayloadSecurityField({
             disabled: !hasRemoteEvaluationFeature,
             renderOnSelect: (
               <Flex direction="column" gap="3" mt="2">
+                {cipherOptions}
                 {isCloud() && (
                   <Callout status="info" size="sm">
                     Cloud customers must self-host a remote evaluation service

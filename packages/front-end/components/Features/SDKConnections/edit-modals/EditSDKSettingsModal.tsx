@@ -8,7 +8,6 @@ import { Box, Flex, Separator } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import PayloadSecurityField, {
@@ -271,10 +270,11 @@ export default function EditSDKSettingsModal({
             setValue={(v) => onChange({ includeProjectIdInMetadata: v })}
           />
           <Box>
-            <Switch
+            <Checkbox
+              weight="regular"
               label={<CustomFieldsLabel />}
               value={value.includeCustomFieldsInMetadata}
-              onChange={(v) =>
+              setValue={(v) =>
                 onChange({
                   includeCustomFieldsInMetadata: v,
                   ...(v ? {} : { allowedCustomFieldsInMetadata: [] }),
@@ -350,10 +350,11 @@ export default function EditSDKSettingsModal({
 
       {s === "proxy" && isCloud() && (
         <Flex direction="column" gap="3">
-          <Switch
+          <Checkbox
+            weight="regular"
             label={SETTING_TITLES.useProxy}
             value={value.proxyEnabled}
-            onChange={(v) => onChange({ proxyEnabled: v })}
+            setValue={(v) => onChange({ proxyEnabled: v })}
           />
           {value.proxyEnabled && (
             <TextField

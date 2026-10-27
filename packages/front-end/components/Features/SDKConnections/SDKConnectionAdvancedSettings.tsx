@@ -6,7 +6,6 @@ import { Box, Flex } from "@radix-ui/themes";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import MultiSelectField from "@/ui/MultiSelectField";
-import Switch from "@/ui/Switch";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -92,10 +91,11 @@ export default function SDKConnectionAdvancedSettings({
       {/* Self-hosted configures the proxy via env vars. */}
       {isCloud() && (
         <Category title={CATEGORY_TITLES.proxy}>
-          <Switch
+          <Checkbox
+            weight="regular"
             label={SETTING_TITLES.useProxy}
             value={value.proxyEnabled}
-            onChange={(v) => onChange({ proxyEnabled: v })}
+            setValue={(v) => onChange({ proxyEnabled: v })}
           />
           {value.proxyEnabled && (
             <TextField
@@ -222,10 +222,11 @@ export default function SDKConnectionAdvancedSettings({
                 label={<ProjectIdsLabel />}
               />
               <Box>
-                <Switch
+                <Checkbox
+                  weight="regular"
                   label={<CustomFieldsLabel />}
                   value={value.includeCustomFieldsInMetadata}
-                  onChange={(v) =>
+                  setValue={(v) =>
                     onChange({
                       includeCustomFieldsInMetadata: v,
                       ...(v ? {} : { allowedCustomFieldsInMetadata: [] }),
