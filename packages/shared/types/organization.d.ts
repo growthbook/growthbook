@@ -20,6 +20,7 @@ import {
 } from "shared/enterprise";
 import { AIModel, AIProvider, EmbeddingModel, STTModel } from "shared/ai";
 import {
+  AICustomModel,
   AgreementType,
   dailyUsageByKeyValidator,
   environment,
@@ -295,6 +296,8 @@ export interface OrganizationSettings {
   // AI Assistant skill names turned off for this org, so new skills start enabled.
   disabledAgentSkills?: string[];
   defaultAIModel?: AIModel;
+  // Text models outside the built-in list, referenced as `custom:<provider>:<id>`.
+  aiCustomModels?: AICustomModel[];
   embeddingModel?: EmbeddingModel;
   // Voice dictation. Unset resolves in getAISettingsForOrg.
   sttModel?: STTModel;

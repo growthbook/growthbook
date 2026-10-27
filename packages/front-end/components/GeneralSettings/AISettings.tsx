@@ -14,6 +14,7 @@ import {
   getProviderForAIModel,
   resolveDefaultSTTModel,
 } from "shared/ai";
+import type { AICustomModel } from "shared/validators";
 import {
   EMBEDDING_MODEL_OPTIONS,
   getAvailableAIModelOptions,
@@ -40,6 +41,7 @@ import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
+import CustomAIModels from "./CustomAIModels";
 import AgentSkillsSettings from "./AgentSkillsSettings";
 
 function getPrompts(data: { prompts: AIPromptInterface[] }): Array<{
@@ -265,6 +267,8 @@ export default function AISettings({
     ),
   };
 
+  const customModels: AICustomModel[] = form.watch("aiCustomModels") ?? [];
+
   const clearModelSettings = (keys: AIModelSettingKey[]) => {
     keys.forEach((key) => form.setValue(key, ""));
     mutatePrompts();
@@ -423,6 +427,31 @@ export default function AISettings({
               />
 
               {form.watch("aiEnabled") && canChooseModels && (
+                <CustomAIModels
+                  models={customModels}
+                  providers={availableProviders ?? []}
+                  canEdit={canEdit}
+                  onChange={(models, removedKey) => {
+                    form.setValue("aiCustomModels", models, {
+                      shouldDirty: true,
+                    });
+                    if (!removedKey) return;
+                    (
+                      [
+                        "defaultAIModel",
+                        "aiAutocompleteModel",
+                        "visualEditorAIModel",
+                      ] as const
+                    ).forEach((key) => {
+                      if (form.getValues(key) === removedKey) {
+                        form.setValue(key, "", { shouldDirty: true });
+                      }
+                    });
+                  }}
+                />
+              )}
+
+              {form.watch("aiEnabled") && canChooseModels && (
                 <>
                   <Box mb="6" width="100%">
                     <Text
@@ -446,6 +475,7 @@ export default function AISettings({
                         ...getAvailableAIModelOptions(
                           availableProviders,
                           form.watch("defaultAIModel"),
+                          customModels,
                         ),
                       ]}
                       formatOptionLabel={(option, { context }) =>
@@ -557,6 +587,7 @@ export default function AISettings({
                           ...getAvailableAIModelOptions(
                             availableProviders,
                             form.watch("aiAutocompleteModel"),
+                            customModels,
                           ),
                         ]}
                         formatOptionLabel={(option, { context }) =>
@@ -649,6 +680,7 @@ export default function AISettings({
                                   promptForm.watch(
                                     `${prompt.promptType}-model`,
                                   ) || "",
+                                  customModels,
                                 )}
                                 formatOptionLabel={(option, { context }) =>
                                   modelOptionLabel(
@@ -809,6 +841,7 @@ export default function AISettings({
                             ...getAvailableAIModelOptions(
                               availableProviders,
                               form.watch("visualEditorAIModel") || "",
+                              customModels,
                             ),
                           ]}
                         />

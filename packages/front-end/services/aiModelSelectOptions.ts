@@ -3,9 +3,12 @@ import {
   AI_IMAGE_MODELS,
   AI_PROVIDER_MODEL_MAP,
   DEFAULT_EMBEDDING_MODEL,
+  getCustomModelKey,
   getImageModelMeta,
   getProviderForAIModel,
+  parseCustomModelKey,
 } from "shared/ai";
+import type { AICustomModel } from "shared/validators";
 import { ensureValuesExactlyMatchUnion } from "shared/util";
 
 type FlatOption = { value: string; label: string };
@@ -149,6 +152,7 @@ function withSelectedOption<T extends FlatOption | GroupedOption>(
 export function getAvailableAIModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
+  customModels: readonly AICustomModel[] = [],
 ): (FlatOption | GroupedOption)[] {
   const allProviders = Object.keys(AI_PROVIDER_MODEL_MAP) as AIProvider[];
 
@@ -162,18 +166,22 @@ export function getAvailableAIModelOptions(
   const groups = providers
     .map((provider) => ({
       label: PROVIDER_DISPLAY_NAMES[provider],
-      options: AI_PROVIDER_MODEL_MAP[provider].map((value) => ({
-        value,
-        label: AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
-      })),
+      options: [
+        ...customModels
+          .filter((m) => m.provider === provider)
+          .map((m) => ({
+            value: getCustomModelKey(m),
+            label: `${m.id} (custom)`,
+          })),
+        ...AI_PROVIDER_MODEL_MAP[provider].map((value) => ({
+          value,
+          label: AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
+        })),
+      ],
     }))
     .sort((a, b) => a.label.localeCompare(b.label));
 
-  return withSelectedOption(
-    groups,
-    selectedModel,
-    (value) => AI_MODEL_DISPLAY_LABELS[value as AIModel] ?? value,
-  );
+  return withSelectedOption(groups, selectedModel, getModelDisplayLabel);
 }
 
 /**
@@ -211,6 +219,8 @@ export const GROWTHBOOK_DEFAULT_MODEL_OPTION = {
 
 /** Display name for any model id — text, image or embedding. */
 export function getModelDisplayLabel(model: string): string {
+  const custom = parseCustomModelKey(model);
+  if (custom) return `${custom.id} (custom)`;
   return (
     AI_MODEL_DISPLAY_LABELS[model as AIModel] ??
     getImageModelMeta(model)?.label ??
@@ -227,10 +237,15 @@ export function getModelDisplayLabel(model: string): string {
 export function getAvailablePromptModelOptions(
   availableProviders: readonly AIProvider[] | undefined,
   selectedModel?: string,
+  customModels: readonly AICustomModel[] = [],
 ): (FlatOption | GroupedOption)[] {
   return [
     USE_DEFAULT_MODEL_OPTION,
-    ...getAvailableAIModelOptions(availableProviders, selectedModel),
+    ...getAvailableAIModelOptions(
+      availableProviders,
+      selectedModel,
+      customModels,
+    ),
   ];
 }
 

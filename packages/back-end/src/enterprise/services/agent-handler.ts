@@ -371,14 +371,14 @@ async function executeAgentTurn<TParams>({
   // GrowthBook's model while a BYOK org gets the one it picked — silently
   // discarding those picks was the bug. Also catches a stored model
   // disallowed mid-conversation by a downgrade.
-  const { keySource, defaultAIModel } = await getAISettingsForOrg(
+  const { keySource, defaultAIModel, customModels } = await getAISettingsForOrg(
     context,
     false,
   );
   const overrideModel: AIModel | undefined =
-    getAllowedAIModel("text", storedModel, keySource) ||
-    getAllowedAIModel("text", body.model, keySource) ||
-    getAllowedAIModel("text", dbOverrideModel, keySource);
+    getAllowedAIModel("text", storedModel, keySource, customModels) ||
+    getAllowedAIModel("text", body.model, keySource, customModels) ||
+    getAllowedAIModel("text", dbOverrideModel, keySource, customModels);
 
   const resolvedModel = overrideModel || defaultAIModel;
 

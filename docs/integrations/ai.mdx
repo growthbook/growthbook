@@ -109,6 +109,8 @@ If your company routes LLM traffic through an AI gateway or proxy (such as LiteL
 
 The endpoint must accept the same API format as the provider you're configuring. Changing the base URL always requires re-entering the key.
 
+If your gateway uses its own model names, add them under **Custom models** on the same page. Choose the provider whose API format the model uses and enter the model ID exactly as your gateway expects it. For OpenAI-format models, also pick the API your gateway supports: Chat Completions, which most gateways support, or Responses. Check **Accepts image input** if the model can take images, so the AI Visual Editor can send it screenshots. Custom models then appear in every model picker. You can also use this for model IDs we don't list yet, such as fine-tuned models.
+
 On GrowthBook Cloud, the base URL must use `https` and resolve to a public address. Self-hosted installs can use any address, or set it with the `*_BASE_URL` [environment variables](/self-host/env#ai-provider-api-keys).
 
 <CommercialFeature feature="ai-byok" description="Custom endpoints are available on Enterprise plans." />

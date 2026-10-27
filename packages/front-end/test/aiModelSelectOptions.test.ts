@@ -234,3 +234,37 @@ describe("getAvailableSTTModelOptions", () => {
     }
   });
 });
+
+describe("custom models in pickers", () => {
+  const customModels = [
+    { provider: "anthropic" as const, id: "claude-proxy", vision: false },
+    {
+      provider: "openai" as const,
+      id: "my-gpt",
+      apiFormat: "chat" as const,
+      vision: false,
+    },
+  ];
+
+  it("lists custom models under their provider, first", () => {
+    const options = getAvailableAIModelOptions(
+      ["anthropic"],
+      undefined,
+      customModels,
+    );
+    const anthropic = options.find(
+      (o): o is Group => "options" in o && o.label === "Anthropic",
+    );
+    expect(anthropic?.options[0]).toEqual({
+      value: "custom:anthropic:claude-proxy",
+      label: "claude-proxy (custom)",
+    });
+    expect(values(options)).not.toContain("custom:openai:my-gpt");
+  });
+
+  it("labels a custom model by its id", () => {
+    expect(getModelDisplayLabel("custom:openai:my-gpt")).toBe(
+      "my-gpt (custom)",
+    );
+  });
+});

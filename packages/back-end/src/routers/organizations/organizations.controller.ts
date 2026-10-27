@@ -21,6 +21,7 @@ import { LicenseInterface, accountFeatures } from "shared/enterprise";
 import {
   AgreementType,
   ConfirmRule,
+  aiCustomModelsValidator,
   updateSdkWebhookValidator,
 } from "shared/validators";
 import { entityTypes } from "shared/constants";
@@ -1698,6 +1699,15 @@ export async function putOrganization(
     });
     if ("defaultRole" in settings) {
       await sanitizeDefaultRoleUpdate(context, settings);
+    }
+    if ("aiCustomModels" in settings) {
+      const parsed = aiCustomModelsValidator.safeParse(settings.aiCustomModels);
+      if (!parsed.success) {
+        throw new Error(
+          `Invalid custom AI models: ${parsed.error.issues[0]?.message ?? "check each entry"}`,
+        );
+      }
+      settings.aiCustomModels = parsed.data;
     }
   }
 
