@@ -125,6 +125,7 @@ export const postExperimentStart = createApiRequestHandler(
       skipChecklist,
       // By authority, as starting now is; the job asks again when it fires.
       bypassApproval: true,
+      plan,
     });
 
     await req.audit({
@@ -162,6 +163,7 @@ export const postExperimentStart = createApiRequestHandler(
     skipChecklist,
     bypassLockdown,
     restApiBypassesReviews,
+    plan,
   });
 
   await req.audit({

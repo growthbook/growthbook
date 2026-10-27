@@ -5,6 +5,7 @@ import {
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
+import { sdkConnectionServesProject } from "shared/experiments";
 import {
   createContext,
   ReactNode,
@@ -62,10 +63,8 @@ export function useLaunchChecklistData(
   const { data: sdkData, error: sdkError } = useSDKConnections();
   const connections = useMemo(
     () =>
-      (sdkData?.connections ?? []).filter(
-        (connection) =>
-          !connection.projects.length ||
-          connection.projects.includes(experiment.project || ""),
+      (sdkData?.connections ?? []).filter((connection) =>
+        sdkConnectionServesProject(connection, experiment.project),
       ),
     [sdkData, experiment.project],
   );

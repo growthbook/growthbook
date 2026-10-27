@@ -9,6 +9,7 @@ import {
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { PiLockSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
+import { datasourceChangeDrops } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import {
   ExperimentAnalysisSettingsDraft,
@@ -228,38 +229,37 @@ export default function AnalysisPlan({
     setIdentifierType("");
     // Cleared, the rest stays for switching back.
     if (!id) return;
-    const fromSource = (metricId: string) =>
-      (getExperimentMetricById(metricId) ?? getMetricGroupById(metricId))
-        ?.datasource === id;
+    const {
+      goalMetrics: keptGoals,
+      secondaryMetrics: keptSecondaries,
+      guardrailMetrics: keptGuardrails,
+      ...advancedDrops
+    } = datasourceChangeDrops(
+      { ...effective, goalMetrics, secondaryMetrics, guardrailMetrics },
+      {
+        metricFromSource: (metricId) =>
+          (getExperimentMetricById(metricId) ?? getMetricGroupById(metricId))
+            ?.datasource === id,
+        segmentFromSource: (segmentId) =>
+          getSegmentById(segmentId)?.datasource === id,
+      },
+    );
     (
       [
-        ["goalMetrics", goalMetrics, setGoalMetrics],
-        ["secondaryMetrics", secondaryMetrics, setSecondaryMetrics],
-        ["guardrailMetrics", guardrailMetrics, setGuardrailMetrics],
+        ["goalMetrics", keptGoals, setGoalMetrics],
+        ["secondaryMetrics", keptSecondaries, setSecondaryMetrics],
+        ["guardrailMetrics", keptGuardrails, setGuardrailMetrics],
       ] as const
-    ).forEach(([field, ids, set]) => {
-      const kept = ids.filter(fromSource);
-      if (kept.length === ids.length) return;
+    ).forEach(([field, kept, set]) => {
+      if (!kept) return;
       touch(field);
       set(kept);
     });
-    const { segment, activationMetric, precomputedUnitDimensionIds } =
-      effective;
-    stage({
-      ...(segment && getSegmentById(segment)?.datasource !== id
-        ? { segment: "" }
-        : {}),
-      ...(activationMetric && !fromSource(activationMetric)
-        ? { activationMetric: "" }
-        : {}),
-      ...(precomputedUnitDimensionIds?.length
-        ? { precomputedUnitDimensionIds: [] }
-        : {}),
-    });
+    stage(advancedDrops);
   };
   const changeSelection = (next: AssignmentSelection) => {
+    touch("datasource", "exposureQueryId", "exposureQueryIdentifierType");
     changeDatasource(next.datasource);
-    touch("exposureQueryId", "exposureQueryIdentifierType");
     setExposureQueryId(next.exposureQueryId);
     setIdentifierType(next.identifierType);
     // A table or identifier picked by hand brings its assignment attribute.
@@ -600,6 +600,7 @@ export default function AnalysisPlan({
           hashAttribute={hashAttribute}
           stagesAttribute={!!stageHashAttribute}
           value={{ datasource, exposureQueryId, identifierType }}
+          suggested={!experiment.datasource}
           options={datasourceOptions}
           close={() => setEditingDatasource(false)}
           change={changeSelection}
@@ -618,7 +619,7 @@ export default function AnalysisPlan({
           label="Data Source"
           content="text"
         >
-          <QuickEditRow label="Edit data source" onEdit={editDatasource}>
+          <QuickEditRow label="Edit Data Source" onEdit={editDatasource}>
             <Text color="text-high">
               {hiddenDatasource
                 ? restricted
@@ -728,6 +729,7 @@ function DataSourceModal({
   hashAttribute,
   stagesAttribute,
   value,
+  suggested,
   options,
   close,
   change,
@@ -737,6 +739,8 @@ function DataSourceModal({
   // Confirming also stages the attribute the chosen identifier leads to.
   stagesAttribute: boolean;
   value: AssignmentSelection;
+  // Filled in by the page rather than saved, so confirming it is a change.
+  suggested: boolean;
   options: { value: string; label: string }[];
   close: () => void;
   change: (next: AssignmentSelection) => void;
@@ -779,6 +783,7 @@ function DataSourceModal({
     ),
   });
   const changed =
+    suggested ||
     !sameSource ||
     exposureQueryId !== value.exposureQueryId ||
     (identifierType ?? "") !== initialIdentifier;
@@ -808,7 +813,7 @@ function DataSourceModal({
         options={options}
         helpText={
           !sameSource && value.datasource
-            ? "Metrics and segments that aren't from the new data source are removed."
+            ? "Metrics and segments that aren't from the new Data Source are removed."
             : undefined
         }
       />

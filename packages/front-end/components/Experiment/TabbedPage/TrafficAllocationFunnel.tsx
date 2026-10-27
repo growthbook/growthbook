@@ -15,7 +15,7 @@ import {
   hasTargetingConfigured,
   onlyTrafficFields,
 } from "shared/experiments";
-import { generateVariationId } from "shared/util";
+import { generateVariationId, isNamespaceSelectable } from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
@@ -33,7 +33,6 @@ import { hasUnpublishedChanges } from "@/components/Experiment/LinkedChanges/lin
 import track from "@/services/track";
 import { PercentField } from "@/components/Forms/PercentSliderField";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
-import { isNamespaceSelectable } from "@/components/Features/NamespaceSelector";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import { useHoldouts } from "@/hooks/useHoldouts";

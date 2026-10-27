@@ -55,9 +55,13 @@ function DraftLink({
       color="violet"
       underline="hover"
     >
-      <strong>{featureId}</strong> ·{" "}
+      <strong>{featureId}</strong>
       <Tooltip content={revisionStatusLabel(draft.status)}>
-        <StatusDot inline color={draftStatusDotColor(draft.status)} />
+        <StatusDot
+          inline
+          color={draftStatusDotColor(draft.status)}
+          style={{ marginLeft: "var(--space-2)" }}
+        />
       </Tooltip>{" "}
       Revision {draft.version}
     </Link>

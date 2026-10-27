@@ -78,7 +78,15 @@ describe("updateSingleExperimentStatus", () => {
     await updateSingleExperimentStatus(job);
     expect(executeExperimentStart).not.toHaveBeenCalled();
     expect(updateExperiment).toHaveBeenCalledWith(
-      expect.objectContaining({ changes: { nextScheduledStatusUpdate: null } }),
+      expect.objectContaining({
+        changes: {
+          nextScheduledStatusUpdate: null,
+          scheduledStatusUpdateFailure: expect.objectContaining({
+            type: "start",
+            reason: expect.stringContaining("may not run the experiment"),
+          }),
+        },
+      }),
     );
     expect(notifyScheduledStatusUpdateFailed).toHaveBeenCalledWith(
       expect.objectContaining({ willRetry: false }),
@@ -111,6 +119,7 @@ describe("updateSingleExperimentStatus", () => {
         changes: {
           nextScheduledStatusUpdate: expect.objectContaining({
             failedAttempts: 1,
+            lastError: expect.stringContaining("could not be resolved"),
             scheduledByApiKey: "key_ci",
           }),
         },

@@ -24,10 +24,13 @@ describe("startChecklistGates", () => {
       [
         item("datasource"),
         item("datasource-done", { status: "complete" }),
-        item("visualEditorChanges", { required: false }),
         item("Sign off", { manual: true }),
-        item("pendingApproval:flag_a", { hardBlock: true }),
-        item("mergeConflict:flag_b", { hardBlock: true }),
+        item("missingVariationValues:flag_c", { featureId: "flag_c" }),
+        item("pendingApproval:flag_a", {
+          hardBlock: true,
+          featureId: "flag_a",
+        }),
+        item("mergeConflict:flag_b", { hardBlock: true, featureId: "flag_b" }),
       ],
       new Map([
         ["flag_a", 3],
@@ -48,6 +51,11 @@ describe("startChecklistGates", () => {
         resolution: expect.objectContaining({
           path: "/experiments/exp_1/start-checklist/manual/complete",
         }),
+      }),
+      expect.objectContaining({
+        key: "missingVariationValues:flag_c",
+        featureId: "flag_c",
+        override: "skipChecklist",
       }),
       expect.objectContaining({
         key: "pendingApproval:flag_a",
@@ -78,9 +86,12 @@ describe("evaluateStartGates", () => {
       "exp_1",
       [
         item("goalMetric"),
-        item("pendingApproval:mine", { hardBlock: true }),
-        item("pendingApproval:theirs", { hardBlock: true }),
-        item("mergeConflict:mine", { hardBlock: true }),
+        item("pendingApproval:mine", { hardBlock: true, featureId: "mine" }),
+        item("pendingApproval:theirs", {
+          hardBlock: true,
+          featureId: "theirs",
+        }),
+        item("mergeConflict:mine", { hardBlock: true, featureId: "mine" }),
       ],
       new Map(),
     ),

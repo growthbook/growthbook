@@ -10,6 +10,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "@/ui/Checkbox";
@@ -95,7 +96,7 @@ const UrlRedirectModal: FC<{
         },
   );
 
-  const onSubmit = form.handleSubmit(async (value) => {
+  const onSubmit = validatedSubmit(form, async (value) => {
     await stage({
       urlPattern: value.originUrl,
       destinationURLs: [

@@ -1,6 +1,7 @@
 import type { ExperimentInterface } from "shared/types/experiment";
 import { isFactMetric } from "../../experiments";
 import {
+  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
 } from "../../constants";
@@ -207,8 +208,8 @@ export const getScopedSettings = (
   return scopeSettings(settings, scopes);
 };
 
-// An experiment's analysis settings that fall back to the org or project when
-// unset. Stored on the experiment, a later change there can't move its results.
+// Analysis settings stored on the experiment when unset, so a later org or
+// project change can't move these.
 export const SETTLED_ANALYSIS_SETTINGS = [
   "statsEngine",
   "regressionAdjustmentEnabled",
@@ -238,9 +239,8 @@ export function getUnsetAnalysisSettings({
   const orgSettings = organization.settings ?? {};
   const resolved: SettledAnalysisSettings = {
     statsEngine: settings.statsEngine.value ?? DEFAULT_STATS_ENGINE,
-    // The analysis turns CUPED on when the org or the experiment does, so the
-    // org's setting is the one an unset experiment gets.
-    regressionAdjustmentEnabled: !!orgSettings.regressionAdjustmentEnabled,
+    // An experiment without its own CUPED setting is analyzed without CUPED.
+    regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
     postStratificationEnabled: settings.postStratificationEnabled.value,
     sequentialTestingEnabled: !!orgSettings.sequentialTestingEnabled,
     sequentialTestingTuningParameter:

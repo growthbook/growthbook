@@ -1,5 +1,11 @@
 import { ReactElement } from "react";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLaunchChecklistItems,
+  type LaunchChecklistItem,
+  mergeConflictItems,
+  missingVariationValueItems,
+  unrelatedDraftChangeItems,
+} from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -8,17 +14,8 @@ import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunc
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import {
-  experimentHasLiveLinkedChanges,
-  hasPendingScheduledStart,
-  hasVisualChanges,
-  linkedDraftApproved,
-} from "shared/util";
-import {
-  BuiltInChecklistItemKey,
-  getHiddenBuiltInChecklistItems,
-  PENDING_APPROVAL_ITEM_PREFIX,
-} from "shared/validators";
+import { hasPendingScheduledStart } from "shared/util";
+import { PENDING_APPROVAL_ITEM_PREFIX } from "shared/validators";
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import { startBypassCovers } from "@/components/Experiment/TabbedPage/draftPicks";
@@ -71,69 +68,66 @@ export function blockingRow(
   };
 }
 
+// A shared checklist item as a row, opening its flag when it's about one.
+function toRow(
+  item: LaunchChecklistItem,
+  linkedFeatures: LinkedFeatureInfo[],
+): CheckListItem {
+  const flag = item.featureId
+    ? linkedFeatures.find((f) => f.feature.id === item.featureId)
+    : undefined;
+  return {
+    key: item.customTask
+      ? `custom:${item.customTask.index}:${item.key}`
+      : item.key,
+    display: item.label,
+    description: item.description,
+    status: item.status,
+    type: item.manual ? "manual" : "auto",
+    required: item.required,
+    hardBlock: item.hardBlock,
+    featureId: item.featureId,
+    ...(item.manual ? { manualKey: item.key } : {}),
+    ...(flag
+      ? {
+          action: linkedFeatureAction(
+            flag,
+            !item.key.startsWith("missingVariationValues:"),
+          ),
+        }
+      : {}),
+  };
+}
+
 // Rows a linked flag raises wherever it goes live: an experiment's start or a
 // Contextual Bandit's.
 export function mergeConflictRows(
   linkedFeatures: LinkedFeatureInfo[],
 ): CheckListItem[] {
-  return linkedFeatures
-    .filter((f) => f.state === "draft" && f.hasMergeConflict)
-    .map((f) =>
-      blockingRow({
-        key: `mergeConflict:${f.feature.id}`,
-        display: `Resolve the merge conflict in ${f.feature.id}`,
-        action: linkedFeatureAction(f),
-      }),
-    );
+  return mergeConflictItems(linkedFeatures).map((item) =>
+    toRow(item, linkedFeatures),
+  );
 }
 
-// The draft being published is exempt: its own publish takes the extra edits.
 export function unrelatedDraftChangeRows(
   linkedFeatures: LinkedFeatureInfo[],
   entity: "experiment" | "Contextual Bandit",
   publishingFeatureId?: string,
 ): CheckListItem[] {
-  return linkedFeatures
-    .filter(
-      (f) =>
-        f.state === "draft" &&
-        f.hasUnrelatedDraftChanges &&
-        !f.hasMergeConflict &&
-        f.feature.id !== publishingFeatureId,
-    )
-    .map((f) =>
-      blockingRow({
-        key: `unrelatedDraftChanges:${f.feature.id}`,
-        display: `The ${f.feature.id} draft has changes unrelated to this ${entity}`,
-        description:
-          "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
-        action: linkedFeatureAction(f),
-      }),
-    );
+  return unrelatedDraftChangeItems(
+    linkedFeatures,
+    entity,
+    publishingFeatureId,
+  ).map((item) => toRow(item, linkedFeatures));
 }
 
 export function missingVariationValueRows(
   linkedFeatures: LinkedFeatureInfo[],
   variations: { id: string }[],
 ): CheckListItem[] {
-  return linkedFeatures
-    .filter((f) => {
-      if (f.state === "discarded" || f.state === "archived") return false;
-      const configuredVariationIds = new Set(
-        f.values.map((v) => v.variationId),
-      );
-      return variations.some((v) => !configuredVariationIds.has(v.id));
-    })
-    .map(
-      (f): CheckListItem => ({
-        key: `missingVariationValues:${f.feature.id}`,
-        status: "incomplete",
-        type: "auto",
-        required: true,
-        display: `Fill in missing variation values for ${f.feature.id}`,
-        action: linkedFeatureAction(f, false),
-      }),
-    );
+  return missingVariationValueItems(linkedFeatures, variations).map((item) =>
+    toRow(item, linkedFeatures),
+  );
 }
 
 export function getChecklistItems({
@@ -166,330 +160,93 @@ export function getChecklistItems({
   editSchedule?: (() => void) | null;
   createSdkConnection?: (() => void) | null;
 }): CheckListItem[] {
-  const isBandit = experiment.type === "multi-armed-bandit";
-
   const startApproved = hasPendingScheduledStart(experiment);
   const onClick = (fn?: (() => void) | null): ChecklistAction | undefined =>
     fn ? { onClick: fn } : undefined;
   // Opens the analysis settings on the field the item is about.
   const openSettingsOn = (focus: AnalysisFormFocus | null) =>
     onClick(openAnalysisSettings && (() => openAnalysisSettings(focus)));
-
-  function isChecklistItemComplete(
-    // Some items we check completion for automatically, others require users to manually check an item as complete
-    type: "auto" | "manual",
-    key: string,
-    customFieldId?: string,
-  ): boolean {
-    if (type === "auto") {
-      if (!key) return false;
-      switch (key) {
-        case "hypothesis":
-          return !!experiment.hypothesis;
-        case "screenshots":
-          return getLatestPhaseVariations(experiment).every(
-            (v) => !!v.screenshots.length,
-          );
-        case "description":
-          return !!experiment.description;
-        case "project":
-          return !!experiment.project;
-        case "tag":
-          return experiment.tags?.length > 0;
-        case "customField":
-          if (customFieldId) {
-            const expField = experiment?.customFields?.[customFieldId];
-            return !!expField;
-          }
-          return false;
-        case "prerequisiteTargeting": {
-          const prerequisites =
-            experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
-          return !!prerequisites && prerequisites.length > 0;
-        }
-        case "schedule":
-          return !!experiment.statusUpdateSchedule?.startAt;
-      }
-    }
-
-    const manualChecklistStatus = experiment.manualLaunchChecklist || [];
-
-    const index = manualChecklistStatus.findIndex((task) => task.key === key);
-
-    if (index === -1 || !manualChecklistStatus[index]) {
-      return false;
-    }
-
-    return manualChecklistStatus[index].status === "complete";
-  }
-  const items: CheckListItem[] = [];
-  const hidden = getHiddenBuiltInChecklistItems(checklist, experiment);
-  const pushBuiltIn = (key: BuiltInChecklistItemKey, item: CheckListItem) => {
-    if (!hidden.has(key)) items.push(item);
-  };
-
-  if (!isBandit) {
-    const hasDatasource = !!experiment.datasource;
-    const hasAssignmentTable = !!experiment.exposureQueryId;
-
-    pushBuiltIn("datasource", {
-      type: "auto",
-      key: "datasource",
-      required: true,
-      status: hasDatasource ? "complete" : "incomplete",
-      display: "Select a Data Source",
-      action: openSettingsOn("datasource"),
-    });
-
-    pushBuiltIn("exposureQuery", {
-      type: "auto",
-      key: "exposureQuery",
-      required: true,
-      status: hasAssignmentTable ? "complete" : "incomplete",
-      display: "Select an experiment assignment table",
-      action: openSettingsOn("exposureQuery"),
-    });
-
-    if (hasDatasource && hasAssignmentTable) {
-      pushBuiltIn("goalMetric", {
-        type: "auto",
-        key: "goalMetric",
-        required: true,
-        status:
-          (experiment.goalMetrics?.length ?? 0) > 0 ? "complete" : "incomplete",
-        display: "Add at least one goal metric",
-        action: openSettingsOn("goalMetrics"),
-      });
-    }
-  }
-
-  // Publishing this flag's draft is what takes it live.
-  const publishesLinkedFeature =
-    !!publishingFeatureId &&
-    linkedFeatures.some(
-      (f) => f.feature.id === publishingFeatureId && f.state === "draft",
-    );
-  const hasLiveLinkedChanges =
-    experimentHasLiveLinkedChanges(experiment, linkedFeatures) ||
-    publishesLinkedFeature;
-  const hasLinkedChanges =
-    linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
-    experiment.hasVisualChangesets ||
-    experiment.hasURLRedirects;
-  const linkedChangesDone =
-    (isBandit && hasLiveLinkedChanges) || (!isBandit && hasLinkedChanges);
-  pushBuiltIn("linkedChanges", {
-    key: "linkedChanges",
-    display: `Add a${isBandit ? " live" : ""} linked Feature Flag, AI Visual Editor change, or URL redirect`,
-    action: onClick(openImplementation),
-    required: true,
-    // The header won't start a Bandit without one. Only the experiment page
-    // blocks on it: elsewhere, publishing is how the change goes live.
-    hardBlock: isBandit && !publishingFeatureId,
-    status: linkedChangesDone ? "complete" : "incomplete",
-    type: "auto",
-  });
-
-  if (isBandit) {
-    items.push({
-      key: "banditGoalMetric",
-      display: "Choose a decision metric and update cadence",
-      action: openSettingsOn(null),
-      status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
-      type: "auto",
-      required: true,
-    });
-  }
-
-  if (linkedFeatures.length > 0) {
-    // Merge conflicts, missing approvals, and unrelated draft changes are
-    // hard blockers — auto-publish would reject or silently push unreviewed
-    // edits. Surfaced as separate items so multiple issues on one draft
-    // aren't hidden behind a single row.
-    items.push(...mergeConflictRows(linkedFeatures));
-
-    linkedFeatures
-      .filter((f) => f.state === "draft" && f.cannotPublish)
-      .forEach((f) => {
-        items.push(
-          blockingRow({
-            key: `publishPermission:${f.feature.id}`,
-            display: startApproved
-              ? `Whoever scheduled this start can no longer publish ${f.feature.id}`
-              : `You need permission to publish ${f.feature.id} before this experiment can start`,
-            description: startApproved
-              ? "Reschedule or unschedule the start, then approve it again from an account that can."
-              : undefined,
-            action: linkedFeatureAction(f),
-          }),
-        );
-      });
-
-    // Publishing this feature's own draft (from its Review & Publish page) is
-    // what approves it, so skip the self-referential approval row. Drafts with
-    // unrelated changes are likewise covered by that publish flow.
-    linkedFeatures
-      .filter(
-        (f) =>
-          f.pendingApproval &&
-          !f.hasUnrelatedDraftChanges &&
-          f.feature.id !== publishingFeatureId,
-      )
-      .forEach((f) => {
-        // The confirmed start publishes it past its approval.
-        const bypassed =
-          !!f.pendingDraft &&
-          startBypassCovers(experiment, f.feature.id, f.pendingDraft);
-        items.push({
-          key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
-          featureId: f.feature.id,
-          status:
-            bypassed || linkedDraftApproved(f) ? "complete" : "incomplete",
-          type: "auto",
-          required: true,
-          hardBlock: true,
-          display: bypassed
-            ? `Approval bypassed for the Feature Flag draft for ${f.feature.id}`
-            : `Approve the Feature Flag draft for ${f.feature.id}`,
-          action: linkedFeatureAction(f),
-        });
-      });
-
-    items.push(
-      ...unrelatedDraftChangeRows(
-        linkedFeatures,
-        "experiment",
-        publishingFeatureId,
-      ),
-      ...missingVariationValueRows(
-        linkedFeatures,
-        getLatestPhaseVariations(experiment),
-      ),
-    );
-  }
-
-  const hasAnyVisualChanges = visualChangesets.some((vc) =>
-    hasVisualChanges(vc.visualChanges),
-  );
-  // No empty visual changesets
-  if (visualChangesets.length > 0) {
-    items.push({
-      key: "visualEditorChanges",
-      display: "Add changes in the AI Visual Editor",
-      action: onClick(openImplementation),
-      status: hasAnyVisualChanges ? "complete" : "incomplete",
-      type: "auto",
-      // An A/A test is a valid experiment that doesn't have changes, so don't make this required
-      required: false,
-    });
-  }
-
-  // Experiment has phases
-  const hasPhases = experiment.phases.length > 0;
-  pushBuiltIn("targeting", {
-    key: "targeting",
-    display: "Configure variation assignment and targeting",
-    // A confirmed start fixes targeting until it's unscheduled.
-    action: onClick(
-      editTargeting && !startApproved
-        ? () => {
-            editTargeting();
-            track("Edit targeting", { source: "experiment-start-banner" });
-          }
-        : null,
-    ),
-    status: hasPhases ? "complete" : "incomplete",
-    type: "auto",
-    required: true,
-    // The start refuses a draft with no phase to run.
-    hardBlock: !hasPhases,
-  });
-
   const verifiedConnections = connections.some((c) => c.connected);
-  const addConnection = connections.length
-    ? undefined
-    : onClick(createSdkConnection);
-  pushBuiltIn("sdkConnection", {
-    type: "auto",
-    key: "sdkConnection",
-    status: connections.length ? "complete" : "incomplete",
-    display: "Add an SDK Connection",
-    action: addConnection ?? { href: "/sdks" },
-    required: true,
-    warning:
-      connections.length > 0 && !verifiedConnections
-        ? "An SDK Connection exists, but it has not been verified to be working yet"
-        : undefined,
-  });
 
-  if (hasAnyVisualChanges) {
-    items.push({
-      type: "auto",
-      key: "visualEditorSdk",
-      status: connections.some((c) => c.includeVisualExperiments)
-        ? "complete"
-        : "incomplete",
-      display:
-        "Enable Visual Editor experiments on an SDK Connection for this Project",
-      action: { href: "/sdks" },
-      required: true,
-    });
-  }
-
-  if (urlRedirects.length > 0) {
-    items.push({
-      type: "auto",
-      key: "urlRedirectSdk",
-      status: connections.some((c) => c.includeRedirectExperiments)
-        ? "complete"
-        : "incomplete",
-      display:
-        "Enable URL redirect experiments on an SDK Connection for this Project",
-      action: { href: "/sdks" },
-      required: true,
-    });
-  }
-
-  checklist?.tasks?.forEach((item, i) => {
-    // Task text can repeat, or match a built-in key.
-    const key = `custom:${i}:${item.task}`;
-    if (item.completionType === "manual") {
-      items.push({
-        type: "manual",
-        key,
-        manualKey: item.task,
-        status: isChecklistItemComplete("manual", item.task)
-          ? "complete"
-          : "incomplete",
-        display: item.task,
-        action: item.url ? { href: item.url, external: true } : undefined,
-        required: true,
-      });
+  return getLaunchChecklistItems({
+    experiment,
+    linkedFeatures,
+    visualChangesets,
+    urlRedirects,
+    sdkConnections: connections,
+    checklist,
+    publishingFeatureId,
+  }).map((item): CheckListItem => {
+    const row = toRow(item, linkedFeatures);
+    if (item.customTask) {
+      const isSchedule =
+        !item.manual && item.customTask.propertyKey === "schedule";
+      return {
+        ...row,
+        action: isSchedule
+          ? onClick(editSchedule)
+          : item.customTask.url
+            ? { href: item.customTask.url, external: true }
+            : undefined,
+      };
     }
-
-    if (item.completionType === "auto" && item.propertyKey) {
-      if (
-        isBandit &&
-        (item.propertyKey === "hypothesis" || item.propertyKey === "schedule")
-      ) {
-        return;
-      }
-      const isSchedule = item.propertyKey === "schedule";
-      items.push({
-        key,
-        display: isSchedule ? "Add a scheduled start date" : item.task,
-        action: isSchedule ? onClick(editSchedule) : undefined,
-        status: isChecklistItemComplete(
-          "auto",
-          item.propertyKey,
-          item.customFieldId,
-        )
-          ? "complete"
-          : "incomplete",
-        type: "auto",
-        required: true,
-      });
+    if (item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX)) {
+      const draft = linkedFeatures.find(
+        (f) => f.feature.id === item.featureId,
+      )?.pendingDraft;
+      // The confirmed start publishes it past its approval.
+      return draft &&
+        item.featureId &&
+        startBypassCovers(experiment, item.featureId, draft)
+        ? {
+            ...row,
+            status: "complete",
+            display: `Approval bypassed for the Feature Flag draft for ${item.featureId}`,
+          }
+        : row;
+    }
+    switch (item.key) {
+      case "datasource":
+      case "exposureQuery":
+        return { ...row, action: openSettingsOn(item.key) };
+      case "goalMetric":
+        return { ...row, action: openSettingsOn("goalMetrics") };
+      case "banditGoalMetric":
+        return { ...row, action: openSettingsOn(null) };
+      case "linkedChanges":
+      case "visualEditorChanges":
+        return { ...row, action: onClick(openImplementation) };
+      case "targeting":
+        return {
+          ...row,
+          // A confirmed start fixes targeting until it's unscheduled.
+          action: onClick(
+            editTargeting && !startApproved
+              ? () => {
+                  editTargeting();
+                  track("Edit targeting", {
+                    source: "experiment-start-banner",
+                  });
+                }
+              : null,
+          ),
+        };
+      case "sdkConnection":
+        return {
+          ...row,
+          action: (connections.length
+            ? undefined
+            : onClick(createSdkConnection)) ?? { href: "/sdks" },
+          warning:
+            connections.length > 0 && !verifiedConnections
+              ? "An SDK Connection exists, but it has not been verified to be working yet"
+              : undefined,
+        };
+      case "visualEditorSdk":
+      case "urlRedirectSdk":
+        return { ...row, action: { href: "/sdks" } };
+      default:
+        return row;
     }
   });
-  return items;
 }

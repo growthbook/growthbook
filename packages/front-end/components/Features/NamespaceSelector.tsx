@@ -5,6 +5,7 @@ import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
 import { Namespaces } from "shared/types/organization";
+import { isNamespaceSelectable } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { NamespaceApiResponse } from "@/pages/namespaces";
@@ -82,21 +83,6 @@ const DISABLED_NAMESPACE: CanonicalNamespace = {
   format: "legacy",
   ranges: [],
 };
-
-// With a fallback attribute only legacy namespaces can take the experiment; a
-// multi-range one needs the experiment's hash attribute.
-export function isNamespaceSelectable(
-  namespace: Namespaces,
-  {
-    hashAttribute,
-    fallbackAttribute,
-  }: { hashAttribute: string; fallbackAttribute: string },
-): boolean {
-  if (namespace.status === "inactive") return false;
-  const legacy = namespace.format !== "multiRange";
-  if (fallbackAttribute.trim()) return legacy;
-  return legacy || namespace.hashAttribute === hashAttribute;
-}
 
 export default function NamespaceSelector({
   form,

@@ -106,6 +106,13 @@ export function ColumnHeader({
         minWidth="0"
         className={clsx(menuOnly && styles.clearOfMenu)}
       >
+        {problem ? (
+          <Tooltip content={problem}>
+            <Flex flexShrink="0" style={{ color: "var(--amber-11)" }}>
+              <PiWarningFill />
+            </Flex>
+          </Tooltip>
+        ) : null}
         {icon ? (
           <Flex flexShrink="0" style={{ color: "var(--color-text-low)" }}>
             {icon}
@@ -115,13 +122,6 @@ export function ColumnHeader({
           <Flex align="baseline" gap="1" minWidth="0">
             {title}
           </Flex>
-        ) : null}
-        {problem ? (
-          <Tooltip content={problem}>
-            <Flex flexShrink="0" style={{ color: "var(--amber-11)" }}>
-              <PiWarningFill />
-            </Flex>
-          </Tooltip>
         ) : null}
         {kind || menu.length ? (
           <Flex

@@ -3,6 +3,7 @@
 import "back-end/src/services/features";
 import { ExperimentInterface } from "shared/types/experiment";
 import { getScopedSettings } from "shared/settings";
+import { builtInChecklistItemKeyValidator } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
@@ -17,8 +18,11 @@ import {
 } from "back-end/src/util/errors";
 import {
   assertScheduledStartNotHardBlocked,
+  assertStartNotBlocked,
   getExperimentStartChecklistStatus,
+  type StartPlan,
   startExperiment,
+  startResult,
   statusChangeEffects,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
@@ -241,10 +245,14 @@ describe("statusChangeEffects", () => {
 });
 
 describe("custom launch checklist tasks", () => {
+  const builtIn = new Set<string>([
+    ...builtInChecklistItemKeyValidator.options,
+    "banditGoalMetric",
+  ]);
   const customStatuses = async (experiment: ExperimentInterface) =>
     Object.fromEntries(
       (await getExperimentStartChecklistStatus(context, experiment))
-        .filter((item) => item.reason.startsWith("Required custom"))
+        .filter((item) => !builtIn.has(item.key))
         .map((item) => [item.key, item.status]),
     );
 
@@ -320,5 +328,74 @@ describe("assertScheduledStartNotHardBlocked", () => {
     expect(error.details.remainingChecklistItems).toEqual([
       expect.objectContaining({ key: "mergeConflict:flag_1" }),
     ]);
+  });
+});
+
+describe("assertStartNotBlocked and startResult", () => {
+  const gate = (key: string, override: "skipChecklist" | null) => ({
+    key,
+    type: "checklist-item",
+    severity: override ? ("warning" as const) : ("blocker" as const),
+    messages: [`${key} is open`],
+    override,
+    requiresPermission: null,
+    resolution: null,
+  });
+  const plan = (blocking: ReturnType<typeof gate>[]): StartPlan => ({
+    checklistItems: blocking.map((g) => ({
+      key: g.key,
+      required: true,
+      status: "incomplete",
+      manual: false,
+      reason: g.messages[0],
+    })),
+    gates: blocking,
+    blocking,
+    bypassed: [],
+    skipped: [],
+  });
+  const message = (p: StartPlan) => {
+    try {
+      assertStartNotBlocked(p);
+      return null;
+    } catch (e) {
+      return (e as Error).message;
+    }
+  };
+
+  it.each([
+    [[], null],
+    [[gate("goalMetric", "skipChecklist")], "required checklist items"],
+    [[gate("targeting", null)], "targeting is open"],
+    [[gate("a", null), gate("b", null)], "cannot be bypassed"],
+  ])("refuses with what blocks it (%#)", (blocking, expected) => {
+    const refusal = message(plan(blocking));
+    if (expected === null) expect(refusal).toBeNull();
+    else expect(refusal).toContain(expected);
+  });
+
+  it("reports what a start got past and published", () => {
+    expect(
+      startResult(
+        {
+          ...plan([]),
+          skipped: [
+            { ...gate("goalMetric", "skipChecklist"), via: "skipChecklist" },
+          ],
+        },
+        [{ featureId: "flag_1", revisionVersion: 3 }],
+      ),
+    ).toEqual({
+      bypassedGates: [
+        {
+          key: "goalMetric",
+          type: "checklist-item",
+          outcome: "bypassed",
+          via: "skipChecklist",
+        },
+      ],
+      publishedFeatureDrafts: [{ featureId: "flag_1", revisionVersion: 3 }],
+    });
+    expect(startResult(plan([]))).toEqual({});
   });
 });

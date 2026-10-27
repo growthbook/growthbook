@@ -42,7 +42,8 @@ export const apiErrorRegistry = {
   },
   checklist_incomplete: {
     status: 409,
-    description: "Required checklist items are incomplete",
+    description:
+      "An experiment start is blocked by its launch checklist or a linked Feature Flag",
     detailsSchema: z.object({
       remainingChecklistItems: z.array(checklistItemSchema),
     }),

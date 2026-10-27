@@ -253,7 +253,7 @@ describe("getUnsetAnalysisSettings", () => {
       }),
     ).toEqual({
       statsEngine: "frequentist",
-      regressionAdjustmentEnabled: true,
+      regressionAdjustmentEnabled: false,
       postStratificationEnabled: true,
       sequentialTestingTuningParameter: 2000,
     });

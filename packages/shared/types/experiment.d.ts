@@ -159,6 +159,13 @@ type NextScheduledStatusUpdateStringDates = Omit<
   date: string;
 };
 
+type ScheduledStatusUpdateFailureStringDates = Omit<
+  NonNullable<ExperimentInterface["scheduledStatusUpdateFailure"]>,
+  "date"
+> & {
+  date: string;
+};
+
 type StatusUpdateScheduleStringDates = Omit<
   NonNullable<ExperimentInterface["statusUpdateSchedule"]>,
   "startAt" | "stopAt"
@@ -208,12 +215,14 @@ export type ExperimentInterfaceStringDates = Omit<
   | "dateUpdated"
   | "phases"
   | "nextScheduledStatusUpdate"
+  | "scheduledStatusUpdateFailure"
   | "statusUpdateSchedule"
 > & {
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
   nextScheduledStatusUpdate?: NextScheduledStatusUpdateStringDates | null;
+  scheduledStatusUpdateFailure?: ScheduledStatusUpdateFailureStringDates | null;
   statusUpdateSchedule?: StatusUpdateScheduleStringDates | null;
 };
 

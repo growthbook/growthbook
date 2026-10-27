@@ -667,7 +667,7 @@ export default function VisualChangesetColumn({
               visualChangeset={vc}
               size="sm"
               beforeLeave={edits?.allowUnload}
-              button="AI Visual Editor"
+              button="Open editor"
             />
           ) : (
             "AI Visual Editor"

@@ -53,13 +53,13 @@ export function startChecklistGates(
   draftVersions: Map<string, number>,
 ): StartGate[] {
   return items
-    .filter((item) => item.required && item.status === "incomplete")
+    .filter((item) => item.status === "incomplete")
     .map((item): StartGate => {
       const blocker = FLAG_BLOCKERS.find(({ prefix }) =>
         item.key.startsWith(prefix),
       );
-      if (blocker) {
-        const featureId = item.key.slice(blocker.prefix.length);
+      const { featureId } = item;
+      if (blocker && featureId) {
         return {
           ...makeBlockingGate({
             type: blocker.type,
@@ -80,6 +80,7 @@ export function startChecklistGates(
       }
       return {
         key: item.key,
+        ...(featureId ? { featureId } : {}),
         type: "checklist-item",
         severity: item.hardBlock ? "blocker" : "warning",
         messages: [item.reason],

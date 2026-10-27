@@ -52,6 +52,7 @@ import {
 } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useStartExperiment from "./useStartExperiment";
@@ -69,6 +70,7 @@ import {
 import UnsavedEditsBar from "./UnsavedEditsBar";
 import SetupTabOverview from "./SetupTabOverview";
 import DraftReviewCallouts from "./DraftReviewCallouts";
+import ScheduledUpdateFailureCallout from "./ScheduledUpdateFailureCallout";
 import Implementation, { IMPLEMENTATION_ID } from "./Implementation";
 import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
@@ -417,7 +419,19 @@ function TabbedPageContents({
     holdout,
   );
 
+  // Other tabs show what's saved, so leaving Setup with staged edits leaves them.
+  const [pendingTab, setPendingTab] = useState<{
+    tab: ExperimentTab;
+    scrollToId?: string;
+  } | null>(null);
   const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {
+    if (edits?.dirty && onSetup && tab.split("/")[0] !== "overview") {
+      setPendingTab({ tab, scrollToId });
+      return;
+    }
+    switchTab(tab, scrollToId);
+  };
+  const switchTab = (tab: ExperimentTab, scrollToId?: string) => {
     setTab(tab);
     setTabPath("");
     const newUrl = window.location.href.replace(/#.*/, "") + "#" + tab;
@@ -616,6 +630,20 @@ function TabbedPageContents({
       )}
       {/* TODO: Update Experiment Header props to include redirect and pipe through to StartExperimentBanner */}
 
+      {pendingTab ? (
+        <ConfirmDialog
+          title="Leave without saving?"
+          content="You have unsaved changes to this experiment. Leaving Setup discards them."
+          yesText="Leave Setup"
+          noText="Keep editing"
+          onConfirm={() => {
+            edits?.discardAll();
+            switchTab(pendingTab.tab, pendingTab.scrollToId);
+            setPendingTab(null);
+          }}
+          onCancel={() => setPendingTab(null)}
+        />
+      ) : null}
       <ExperimentHeader
         experiment={experiment}
         holdout={holdout}
@@ -730,6 +758,10 @@ function TabbedPageContents({
                     : "d-none d-print-block",
                 )}
               >
+                <ScheduledUpdateFailureCallout
+                  experiment={experiment}
+                  editSchedule={editSchedule}
+                />
                 <DraftReviewCallouts
                   experiment={experiment}
                   linkedFeatures={linkedFeatures}

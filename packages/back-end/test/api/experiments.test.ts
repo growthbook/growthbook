@@ -2133,7 +2133,7 @@ describe("experiments API", () => {
         });
       });
 
-      it("moves a draft to another data source along with one of its queries", async () => {
+      it("moves to another data source along with one of its queries", async () => {
         (getExperimentById as jest.Mock).mockResolvedValue({
           ...withSelection,
           status: "draft",
@@ -2175,13 +2175,29 @@ describe("experiments API", () => {
           exposureQueryId: "eq_other",
         });
 
-        (getExperimentById as jest.Mock).mockResolvedValue(withSelection);
-        const started = await move({
+        // As in the app, at any status, leaving the old source's settings.
+        updateReqContext({
+          models: {
+            segments: {
+              getById: jest
+                .fn()
+                .mockResolvedValue({ id: "seg_old", datasource: "ds_123" }),
+            },
+          },
+        });
+        (getExperimentById as jest.Mock).mockResolvedValue({
+          ...withSelection,
+          segment: "seg_old",
+          precomputedUnitDimensionIds: ["dim_old"],
+        });
+        const running = await move({
           datasourceId: "ds_other",
           assignmentQueryId: "eq_other",
         });
-        expect(started.status).toBe(400);
-        expect(started.body.message).toContain("draft");
+        expect(running.status).toBe(200);
+        expect(
+          (updateExperiment as jest.Mock).mock.calls.at(-1)[0].changes,
+        ).toMatchObject({ segment: "", precomputedUnitDimensionIds: [] });
       });
 
       it("accepts re-sending a selection whose query no longer declares it", async () => {

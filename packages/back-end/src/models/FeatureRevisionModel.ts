@@ -582,12 +582,8 @@ export async function getLinkageSyncRevisionSummaries(
   };
 }
 
-/**
- * Reconcile both linkage projections after a write that only moves drafts
- * around. Each is awaited when a rule of its kind is on either side of the
- * write (the only way it can go stale), so the response and a start right
- * after it see it; otherwise experiment linkage runs in the background.
- */
+// Re-syncs both linkage projections after a draft-only write, awaiting each one
+// a rule of its kind touches so a start right after sees it.
 async function syncLinkagesAfterDraftWrite(
   context: ReqContext | ApiReqContext,
   revision: Pick<FeatureRevisionInterface, "organization" | "featureId">,

@@ -278,15 +278,20 @@ function AddImplementationButton({
     experiment,
     blockedReason,
   );
+  // Once there's a page of changes, this adds another rather than reopening it.
+  const label =
+    type === "visual" && experiment.hasVisualChangesets
+      ? "Another AI Visual Editor page"
+      : ADD_OPTIONS[type].addLabel;
   const button = (
     <Button
       variant={ghost ? "ghost" : "outline"}
       icon={<PiPlus />}
       onClick={onClick}
       disabled={!!disabledReason}
-      aria-label={`Add ${ADD_OPTIONS[type].addLabel}`}
+      aria-label={`Add ${label}`}
     >
-      {ADD_OPTIONS[type].addLabel}
+      {label}
     </Button>
   );
   if (disabledReason) {

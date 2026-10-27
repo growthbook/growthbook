@@ -319,11 +319,22 @@ export const updateSingleExperimentStatus = async (
       await updateExperiment({
         context,
         experiment: latest,
-        changes: {
-          nextScheduledStatusUpdate: willRetry
-            ? { ...scheduled, failedAttempts: attempts }
-            : null,
-        },
+        changes: willRetry
+          ? {
+              nextScheduledStatusUpdate: {
+                ...scheduled,
+                failedAttempts: attempts,
+                lastError: reason,
+              },
+            }
+          : {
+              nextScheduledStatusUpdate: null,
+              scheduledStatusUpdateFailure: {
+                type: scheduled.type,
+                date: new Date(),
+                reason,
+              },
+            },
       });
     } catch (inner) {
       logger.error(

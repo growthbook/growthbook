@@ -245,6 +245,7 @@ const experimentSchema = new mongoose.Schema({
     type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
+    lastError: String,
     scheduledBy: String,
     scheduledByApiKey: String,
     bypassApproval: Boolean,
@@ -260,6 +261,12 @@ const experimentSchema = new mongoose.Schema({
       ],
       default: undefined,
     },
+  },
+  scheduledStatusUpdateFailure: {
+    _id: false,
+    type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
+    date: Date,
+    reason: String,
   },
   results: String,
   analysis: String,
@@ -898,6 +905,10 @@ export async function createExperiment({
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
+    // A new experiment starts from the org's CUPED setting.
+    regressionAdjustmentEnabled:
+      data.regressionAdjustmentEnabled ??
+      !!context.org.settings?.regressionAdjustmentEnabled,
     // set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
@@ -1001,6 +1012,12 @@ export async function updateExperiment({
 
   const allChanges = {
     ...changes,
+    // Staging a scheduled change, or clearing one, retires the last failure.
+    ...(experiment.scheduledStatusUpdateFailure &&
+    "nextScheduledStatusUpdate" in changes &&
+    !("scheduledStatusUpdateFailure" in changes)
+      ? { scheduledStatusUpdateFailure: null }
+      : {}),
     dateUpdated: new Date(),
   };
   if (allChanges.name === "")

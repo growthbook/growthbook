@@ -78,6 +78,7 @@ import {
   getPhaseVariations,
   isVariationWeightsSumValid,
   scheduleWriteNeedsRunPermission,
+  sdkConnectionServesProject,
   withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
@@ -5943,12 +5944,6 @@ export async function getLinkedChangeEnvironmentStates(
 }> {
   const environments = getEnvironmentIdsFromOrg(context.org);
   const connections = await findSDKConnectionsByOrganization(context);
-  const experimentProject = experiment.project || "";
-
-  const connectionCoversProject = (c: { projects?: string[] }) => {
-    if (!c.projects || c.projects.length === 0) return true;
-    return c.projects.includes(experimentProject);
-  };
 
   const visualChangesetEnvStates: Record<string, LinkedChangeEnvState> = {};
   const urlRedirectEnvStates: Record<string, LinkedChangeEnvState> = {};
@@ -5956,12 +5951,16 @@ export async function getLinkedChangeEnvironmentStates(
   for (const env of environments) {
     const envConnections = connections.filter((c) => c.environment === env);
     visualChangesetEnvStates[env] = envConnections.some(
-      (c) => c.includeVisualExperiments && connectionCoversProject(c),
+      (c) =>
+        c.includeVisualExperiments &&
+        sdkConnectionServesProject(c, experiment.project),
     )
       ? "active"
       : "no-sdk-connection";
     urlRedirectEnvStates[env] = envConnections.some(
-      (c) => c.includeRedirectExperiments && connectionCoversProject(c),
+      (c) =>
+        c.includeRedirectExperiments &&
+        sdkConnectionServesProject(c, experiment.project),
     )
       ? "active"
       : "no-sdk-connection";

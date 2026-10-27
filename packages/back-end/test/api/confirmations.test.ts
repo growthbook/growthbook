@@ -1073,7 +1073,7 @@ describe("confirmations", () => {
       .findOne({ id: held.body.confirmation.id });
     expect(stored?.notices).toContainEqual({
       severity: "warning",
-      messages: ["Select a data source before starting."],
+      messages: ["Select a Data Source"],
       via: "skipChecklist",
     });
   });

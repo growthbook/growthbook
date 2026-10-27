@@ -496,6 +496,8 @@ export const nextScheduledStatusUpdateValidator = z.object({
   // The job clears `nextScheduledStatusUpdate` once this hits the retry cap
   // (see SCHEDULED_STATUS_UPDATE_MAX_ATTEMPTS in updateExperimentStatus.ts).
   failedAttempts: z.number().int().nonnegative().optional(),
+  // Why the last attempt failed, while it's retried.
+  lastError: z.string().optional(),
   // Who armed it, a user or an org API key; the job fires and audits as them.
   scheduledBy: z.string().optional(),
   scheduledByApiKey: z.string().optional(),
@@ -511,6 +513,12 @@ export const nextScheduledStatusUpdateValidator = z.object({
       }),
     )
     .optional(),
+});
+
+export const scheduledStatusUpdateFailureValidator = z.object({
+  type: z.enum(SCHEDULED_STATUS_UPDATE_TYPES),
+  date: z.date(),
+  reason: z.string(),
 });
 
 export const experimentInterface = z
@@ -595,6 +603,10 @@ export const experimentInterface = z
     customMetricSlices: z.array(customMetricSlice).optional(),
     statusUpdateSchedule: statusUpdateScheduleValidator.optional().nullable(),
     nextScheduledStatusUpdate: nextScheduledStatusUpdateValidator
+      .optional()
+      .nullable(),
+    // A scheduled change the job gave up on, until another is staged.
+    scheduledStatusUpdateFailure: scheduledStatusUpdateFailureValidator
       .optional()
       .nullable(),
     precomputedUnitDimensionIds: z
@@ -1615,13 +1627,21 @@ const postExperimentBody = z
   })
   .strict();
 
+export const linkedChangesResolution = z.enum(["materialize", "remove"]);
+
+const linkedChangesField = linkedChangesResolution
+  .optional()
+  .describe(
+    'Required while the experiment still serves through linked changes. "materialize" keeps a stopped experiment\'s released variation as a permanent force rule on each linked Feature Flag; "remove" acknowledges that the linked changes stop serving.',
+  );
+
 // UpdateExperimentPayload.yaml
 const updateExperimentBody = z
   .object({
     datasourceId: z
       .string()
       .describe(
-        "Can only be set if existing experiment does not have a datasource",
+        "Changing it needs an `assignmentQueryId` from the new one, and drops the metrics, segment and unit dimensions that aren't from it.",
       )
       .optional(),
     ...apiAssignmentQueryInputFields("assignmentQuery"),
@@ -1669,6 +1689,7 @@ const updateExperimentBody = z
       .optional(),
     owner: ownerInputField.optional(),
     archived: z.boolean().optional(),
+    linkedChanges: linkedChangesField,
     status: z.enum(experimentStatus).optional(),
     autoRefresh: z.boolean().optional(),
     hashAttribute: z.string().optional(),
@@ -2091,14 +2112,6 @@ export const getExperimentNamesValidator = {
   path: "/experiment-names",
 };
 
-export const linkedChangesResolution = z.enum(["materialize", "remove"]);
-
-const linkedChangesField = linkedChangesResolution
-  .optional()
-  .describe(
-    'Required while the experiment still serves through linked changes. "materialize" keeps a stopped experiment\'s released variation as a permanent force rule on each linked Feature Flag; "remove" acknowledges that the linked changes stop serving.',
-  );
-
 export const postExperimentArchiveValidator = {
   bodySchema: z.object({ linkedChanges: linkedChangesField }).strict(),
   querySchema: z.never(),
@@ -2132,7 +2145,7 @@ export const postExperimentUnarchiveValidator = {
   tags: ["experiments"],
   method: "post" as const,
   path: "/experiments/:id/unarchive",
-  // A draft only; anything else goes back in the SDK payload.
+  // A draft unarchives as a draft edit; anything else goes live again, a start.
   confirmation: ["experiment.draft", "experiment.start"] as const,
   confirmationInHandler: true,
 };
@@ -2193,6 +2206,10 @@ const startChecklistItemStatusValidator = z
       .describe(
         "When true, this item cannot be bypassed with `skipChecklist` — the experiment cannot be started until it is resolved.",
       ),
+    featureId: z
+      .string()
+      .optional()
+      .describe("The linked Feature Flag the item is about."),
   })
   .strict();
 
@@ -2255,11 +2272,13 @@ const startGateValidator = z
 const experimentStartChecklistResponseValidator = z
   .object({
     checklistItems: z.array(startChecklistItemStatusValidator),
-    status: experimentStartChecklistStatusValidator,
+    status: experimentStartChecklistStatusValidator.describe(
+      "`notReady` while there's any gate.",
+    ),
     gates: z
       .array(startGateValidator)
       .describe(
-        "Each incomplete required item as a gate; a refused start returns the blocking ones in `gates`.",
+        "Each incomplete required item, and each linked Feature Flag a ramp locks, as a gate. A refused start returns the blocking ones in `gates`.",
       ),
   })
   .strict();

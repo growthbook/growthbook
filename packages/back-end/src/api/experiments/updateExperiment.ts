@@ -1,5 +1,8 @@
-import { isUndefined, omit, omitBy } from "lodash";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import { omit } from "lodash";
+import {
+  datasourceChangeDrops,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
   parseAssignmentQueryInput,
@@ -55,6 +58,7 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import {
   archiveExperimentWithCleanup,
+  assertCanArchive,
   unarchiveExperimentWithCleanup,
 } from "back-end/src/services/experimentRemoval";
 import {
@@ -138,11 +142,6 @@ export const updateExperiment = createApiRequestHandler(
     payload.datasourceId !== undefined &&
     payload.datasourceId !== experiment.datasource;
   if (datasourceChanged) {
-    if (experiment.datasource && experiment.status !== "draft") {
-      throw new BadRequestError(
-        "The data source can only change while the experiment is a draft.",
-      );
-    }
     if (!datasource) {
       throw new Error("Datasource not found.");
     }
@@ -271,11 +270,9 @@ export const updateExperiment = createApiRequestHandler(
     guardrailMetrics: payload.guardrailMetrics,
     activationMetric: payload.activationMetric,
   };
-  // A new data source has to hold every metric the experiment keeps.
+  // Metrics sent with a new data source have to be from it.
   const newMetricIds = getAllMetricIdsFromExperiment(
-    datasourceChanged
-      ? { ...experiment, ...omitBy(payloadMetrics, isUndefined) }
-      : payloadMetrics,
+    payloadMetrics,
     true,
     metricGroups,
   ).filter((m) => datasourceChanged || !oldMetricIds.includes(m));
@@ -343,9 +340,10 @@ export const updateExperiment = createApiRequestHandler(
       payload.assignmentQueryId !== experiment.exposureQueryId) ||
     identifierTypeChanged;
   if (shouldValidatePrecomputedUnitDimensionIds) {
+    // A new data source drops the old one's, unless they're sent.
     const effectivePrecomputedUnitDimensionIds =
       payload.precomputedUnitDimensionIds ??
-      experiment.precomputedUnitDimensionIds ??
+      (datasourceChanged ? [] : experiment.precomputedUnitDimensionIds) ??
       [];
     if (effectivePrecomputedUnitDimensionIds.length > 0) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
@@ -433,7 +431,21 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   const resolvedOwner = await resolveOwnerToUserId(payload.owner, req.context);
+  // As in the app, what the experiment keeps from the old source goes with it.
+  const segment =
+    datasourceChanged && experiment.segment
+      ? await req.context.models.segments.getById(experiment.segment)
+      : null;
   const changes = {
+    ...(datasourceChanged && datasource
+      ? datasourceChangeDrops(experiment, {
+          metricFromSource: (id) =>
+            (map.get(id)?.datasource ??
+              metricGroups.find((g) => g.id === id)?.datasource) ===
+            datasource.id,
+          segmentFromSource: () => segment?.datasource === datasource.id,
+        })
+      : {}),
     ...updateExperimentApiPayloadToInterface(
       {
         ...payload,
@@ -481,6 +493,13 @@ export const updateExperiment = createApiRequestHandler(
   delete changes.archived;
   if (archive !== null) {
     await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+  }
+  if (archive) {
+    await assertCanArchive({
+      context: req.context,
+      experiment,
+      linkedChanges: payload.linkedChanges,
+    });
   }
 
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
@@ -540,14 +559,14 @@ export const updateExperiment = createApiRequestHandler(
   const bypassLockdown =
     isStartingFromDraft && canBypassReviewChecks(req, experiment);
   const restApiBypassesReviews = canUseRestApiBypassSetting(req);
-  // A start meets what POST /start does, judged on the experiment as this
-  // update leaves it, and before the hold.
+  // A start meets what POST /start does, before the hold: judged on the draft
+  // as this update leaves it, still a draft so its flags' drafts count.
   let startPlan: StartPlan | null = null;
   if (isStartingFromDraft) {
     await assertCanPublishPendingFeatureDrafts(req.context, experiment);
     startPlan = await planStartGates(
       req.context,
-      { ...experiment, ...changes },
+      { ...experiment, ...changes, status: experiment.status },
       {
         when: "now",
         skipChecklist,
@@ -594,6 +613,7 @@ export const updateExperiment = createApiRequestHandler(
       ? experiment.pendingFeatureDrafts
       : undefined,
   );
+  // Everything that can refuse has run, so a confirmed update only writes.
   await requireConfirmation(req.context, {
     actions: [
       ...(liveActions.length ? liveActions : ["experiment.draft" as const]),
@@ -621,6 +641,7 @@ export const updateExperiment = createApiRequestHandler(
       ? await archiveExperimentWithCleanup({
           context: req.context,
           experiment,
+          linkedChanges: payload.linkedChanges,
           eventAudit: req.eventAudit,
           audit: req.audit,
           restApiBypassesReviews,
@@ -662,6 +683,7 @@ export const updateExperiment = createApiRequestHandler(
         skipChecklist,
         bypassLockdown,
         restApiBypassesReviews,
+        plan: startPlan ?? undefined,
       });
     startAcknowledgment = getStartAcknowledgment({
       checklistItems,

@@ -72,18 +72,14 @@ type Args = {
   restApiBypassesReviews?: boolean;
 };
 
-// Returns true when the rules were frozen in place.
-async function resolveLinkedChanges(
+async function assertLinkedChangesResolvable(
   {
     context,
     experiment,
     linkedChanges,
-    eventAudit,
-    audit,
-    restApiBypassesReviews,
-  }: Args,
+  }: Pick<Args, "context" | "experiment" | "linkedChanges">,
   verb: string,
-): Promise<boolean> {
+): Promise<void> {
   // The blocker and the cleanup only see readable flags.
   await assertLinkedFlagsReadable(context, experiment);
   const info = await getLinkedFeatureInfo(context, experiment);
@@ -91,12 +87,31 @@ async function resolveLinkedChanges(
   if (blocker && !linkedChanges) {
     throw linkedChangesBlocked(blocker, verb);
   }
-  if (linkedChanges !== "materialize") return false;
-  if (!canMaterializeLinkedChanges(experiment, blocker)) {
+  if (
+    linkedChanges === "materialize" &&
+    !canMaterializeLinkedChanges(experiment, blocker)
+  ) {
     throw new BadRequestError(
       "Only a stopped experiment with a temporary rollout on Feature Flags, and no namespace, can keep its released variation as a permanent rule.",
     );
   }
+}
+
+// Returns true when the rules were frozen in place.
+async function resolveLinkedChanges(
+  args: Args,
+  verb: string,
+): Promise<boolean> {
+  const {
+    context,
+    experiment,
+    linkedChanges,
+    eventAudit,
+    audit,
+    restApiBypassesReviews,
+  } = args;
+  await assertLinkedChangesResolvable(args, verb);
+  if (linkedChanges !== "materialize") return false;
   await materializeExperimentRules({
     context,
     experiment,
@@ -142,6 +157,18 @@ export async function deleteExperimentWithCleanup(args: Args): Promise<void> {
       logger.warn(e, "Error removing experiment from holdout");
     }
   }
+}
+
+// Everything an archive can refuse on, for a caller that checks before writing.
+export async function assertCanArchive(
+  args: Pick<Args, "context" | "experiment" | "linkedChanges">,
+): Promise<void> {
+  await validateExperimentChange({
+    context: args.context,
+    experiment: args.experiment,
+    changes: { archived: true },
+  });
+  await assertLinkedChangesResolvable(args, "archive");
 }
 
 export async function archiveExperimentWithCleanup(
