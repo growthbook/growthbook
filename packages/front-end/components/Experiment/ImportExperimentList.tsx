@@ -37,6 +37,7 @@ import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
+import Metadata from "@/ui/Metadata";
 import Modal from "@/ui/Modal";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -353,7 +354,7 @@ const ImportExperimentList: FC<{
 
   const dateRange = data?.experiments?.config ? (
     <Flex align="center" gap="1">
-      <Text color="text-mid">
+      <Text size="sm" color="text-mid">
         {date(lookbackStart ?? data.experiments.config.start)} –{" "}
         {date(data.experiments.config.end)}
       </Text>
@@ -520,16 +521,13 @@ const ImportExperimentList: FC<{
   const queryControls = (
     <Flex align="center" gap="3" ml="auto">
       {hasStarted && (
-        <Flex direction="column" align="end">
-          {dateRange}
-          <Text
-            size="sm"
-            color="text-low"
-            title={datetime(data.experiments.runStarted ?? "")}
-          >
-            Updated {ago(data.experiments.runStarted ?? "")}
-          </Text>
-        </Flex>
+        <Text
+          size="sm"
+          color="text-low"
+          title={datetime(data.experiments.runStarted ?? "")}
+        >
+          Updated {ago(data.experiments.runStarted ?? "")}
+        </Text>
       )}
       {canRunQueries && (
         <RunQueriesButton
@@ -617,6 +615,11 @@ const ImportExperimentList: FC<{
             </Select>
           )}
           {queryControls}
+        </Flex>
+      )}
+      {hasStarted && dateRange && (
+        <Flex justify="end" mt="-2" mb="4">
+          <Metadata label="Date range" value={dateRange} size="sm" />
         </Flex>
       )}
       {(runError || importFailed) && (
