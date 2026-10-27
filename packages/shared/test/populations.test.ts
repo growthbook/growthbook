@@ -117,6 +117,18 @@ describe("getPopulationRuleViolations", () => {
     ).toEqual(["Fact table ftb_missing not found."]);
   });
 
+  it("reports a fact table used by several steps only once", () => {
+    // Intentionally bypass the single-step schema to cover deduplicated errors.
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [step("ftb_missing"), step("ftb_missing")],
+        factTables: [],
+      }),
+    ).toEqual(["Fact table ftb_missing not found."]);
+  });
+
   it("reports a fact table from a different Data Source", () => {
     expect(
       getPopulationRuleViolations({
