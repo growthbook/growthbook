@@ -442,6 +442,23 @@ In addition to the helper functions above, there are a number of methods related
 
 The public methods are `evalCondition`, `pruneCondition`, and `reducePayload`, and everything else is a private helper function.
 
+### Type rules
+
+Conditions never convert between types. An attribute only matches a condition value of the same type: string, number, boolean, null, array or object.
+
+- When the types differ, the positive operator returns `false` and its negation returns `true`. `$ne`, `$nin`, `$not`, `$vne` and `$notInGroup` are always the exact opposite of `$eq`, `$in`, the inner condition, `$veq` and `$inGroup`.
+- A missing attribute is `null`. It never counts as `0`, `""`, `false` or a version.
+- `$gt`, `$gte`, `$lt` and `$lte` compare two numbers or two strings. Strings compare as text, so `"10" < "9"` is `true`. Booleans have no order, so these operators return `false` for them.
+- Version operators compare two strings or two numbers.
+- `$regex` and `$regexi` match strings only.
+- `$elemMatch`, `$size`, `$all` and `$alli` return `false` for an attribute that isn't an array.
+- `$in`, `$nin` and saved group lists use strict membership, so `5` is not in `["5"]`.
+- `$exists` and `$type` work on any type.
+
+Integers and floats are both numbers. In languages where booleans are numbers, such as Python, check for booleans first.
+
+In debug mode, the JS SDK logs each type mismatch with the attribute path, the operator, and both values. This helps customers find attributes sent with the wrong type.
+
 ### public evalCondition(attributes: Attributes, condition: Condition): boolean
 
 This is the main function used to evaluate a condition. Internally, the condition helpers return `true`, `false`, or `null`. `null` means the result depends on an operator or saved group type this SDK doesn't support. A `false` decides an AND, a `true` decides an OR, and negating `null` leaves it `null`. `evalCondition` only passes on `true`, so a condition this SDK can't evaluate fails, even under `$not` or `$nor`.
@@ -965,6 +982,8 @@ There are basic comparison operators in the form `attributeValue {op} conditionV
 - `$gte` &gt;=
 - `$regex` ~ (regex match)
 
+These follow the [type rules](#type-rules). For example, `$lt` returns `false` unless both values are numbers or both are strings.
+
 There are 3 operators where conditionValue is an array. All of these should return `false` if `conditionValue` is not an array for whatever reason.
 
 - `$in`
@@ -996,7 +1015,7 @@ There are 3 other operators:
 
 For `$inGroup` and `$notInGroup`, a saved group of a type this SDK doesn't support returns `null`.
 
-There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details.
+There are 6 operators that are used for comparing version strings, e.g. `v1.2.3` or `1.2.3`. See [paddedVersionString(input)](#private-paddedversionstring-input-string) for details. If the two values aren't both strings or both numbers, `$vne` returns `true` and the others return `false`.
 
 If operator doesn't match any of these, return `null` and potentially log the error for debug purposes.
 
