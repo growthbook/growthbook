@@ -23,6 +23,10 @@ import {
 } from "./shared";
 import { windowTypeValidator } from "./fact-table";
 import {
+  changeAssessmentSchema,
+  postExperimentChangesBody,
+} from "./experiment-changes";
+import {
   ownerEmailField,
   ownerField,
   ownerInputField,
@@ -2128,6 +2132,8 @@ export const updateExperimentValidator = {
     })
     .strict(),
   summary: "Update a single experiment",
+  description:
+    "To change a running experiment's traffic, weights, targeting, namespace, or phase, use Make Changes (`POST /experiments/{id}/changes`). It works out whether the change needs a new phase or re-randomization and asks for a release plan when the change has a trade-off. This endpoint stores `phases` as sent.",
   confirmation: [
     "experiment.draft",
     "experiment.start",
@@ -2145,6 +2151,55 @@ export const updateExperimentValidator = {
   method: "post" as const,
   path: "/experiments/:id",
   possibleErrors: ["pending_draft_publish_failed"] as const,
+};
+
+export const postExperimentChangesValidator = {
+  bodySchema: postExperimentChangesBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      dryRun: z.boolean(),
+      assessment: changeAssessmentSchema,
+      experiment: apiExperimentValidator.describe(
+        "The experiment after the change. On a dry run, how it would look.",
+      ),
+    })
+    .strict(),
+  summary: "Make changes to an experiment",
+  description: [
+    "Changes the latest phase's traffic, weights, targeting, or namespace, or starts a new phase, the way the Make Changes flow does in the app. Works on draft and running experiments and Bandits.",
+    "",
+    "On a running experiment that is live in the SDK payload, some changes trade unbiased results against a stable user experience. Those need a `releasePlan`. Without one the request returns 422 `release_plan_required`, whose `details` list the risks, every plan with its trade-offs, and the recommended plan. Changes with no trade-off apply in place.",
+    "",
+    "Add `dryRun: true` to preview any change. It runs the same checks and returns the same response or error, without saving.",
+  ].join("\n"),
+  confirmation: [
+    "experiment.draft",
+    "experiment.targeting",
+    "experiment.traffic",
+    "experiment.phases",
+    "experiment.other",
+  ] as const,
+  confirmationInHandler: true,
+  operationId: "postExperimentChanges",
+  tags: ["experiments"],
+  method: "post" as const,
+  path: "/experiments/:id/changes",
+  exampleRequest: {
+    params: { id: "exp_abc123" },
+    body: {
+      changeType: "coverage" as const,
+      coverage: 0.5,
+      releasePlan: "same-phase-keep-assignments" as const,
+      reason: "Cutting traffic while we investigate a checkout error spike",
+    },
+  },
+  possibleErrors: [
+    "release_plan_required",
+    "release_plan_not_allowed",
+    "invalid_status",
+  ] as const,
 };
 
 export const postExperimentStartValidator = {

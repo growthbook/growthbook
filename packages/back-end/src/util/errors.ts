@@ -83,6 +83,26 @@ export class UnscopedRuleError extends ApiError<"unscoped_rule"> {
   }
 }
 
+export class ReleasePlanRequiredError extends ApiError<"release_plan_required"> {
+  constructor(
+    message: string,
+    assessment: ApiErrorDetails<"release_plan_required">,
+  ) {
+    super("release_plan_required", message, assessment);
+    this.name = "ReleasePlanRequiredError";
+  }
+}
+
+export class ReleasePlanNotAllowedError extends ApiError<"release_plan_not_allowed"> {
+  constructor(
+    message: string,
+    details: ApiErrorDetails<"release_plan_not_allowed">,
+  ) {
+    super("release_plan_not_allowed", message, details);
+    this.name = "ReleasePlanNotAllowedError";
+  }
+}
+
 export class MissingDatasourceParamsError extends Error {
   constructor(message: string) {
     super(message);
@@ -124,6 +144,15 @@ export class LicenseServerError extends Error {
 }
 
 export class VercelInstallationNotFound extends Error {}
+
+// Errors thrown by a dry run, so runApiHandler can mark the error body.
+const dryRunErrors = new WeakSet<object>();
+export function markDryRunError(e: unknown): void {
+  if (e && typeof e === "object") dryRunErrors.add(e);
+}
+export function isDryRunError(e: unknown): boolean {
+  return !!e && typeof e === "object" && dryRunErrors.has(e);
+}
 
 // Thrown before a held request's first write; runApiHandler turns it into a 202.
 export class ConfirmationRequiredError extends Error {

@@ -7,6 +7,7 @@ import { listExperimentResults } from "./listExperimentResults";
 import { getExperiment } from "./getExperiment";
 import { listExperiments } from "./listExperiments";
 import { updateExperiment } from "./updateExperiment";
+import { postExperimentChanges } from "./postExperimentChanges";
 import { postExperiment } from "./postExperiment";
 import { postExperimentStart } from "./postExperimentStart";
 import { postExperimentStartChecklistManualComplete } from "./postExperimentStartChecklist";
@@ -32,6 +33,7 @@ export const experimentsRoutes: OpenApiRoute[] = [
   getExperimentResults,
   getExperimentBulkResults,
   updateExperiment,
+  postExperimentChanges,
   postExperimentStart,
   postExperimentStartChecklistManualComplete,
   postExperimentStop,

@@ -110,6 +110,7 @@ export * from "./contextual-bandit-event";
 export * from "./interleaving";
 export * from "./interleaving.spec";
 export * from "./api-errors";
+export * from "./experiment-changes";
 export * from "./experiment-alerts";
 export * from "./holdout-notifications";
 export * from "./slack-user-link";

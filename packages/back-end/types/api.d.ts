@@ -50,6 +50,8 @@ type ApiErrorResponseBase = {
   warnings?: string[];
   // Populated on 422 blocked-publish responses: every blocking gate and the body flag that clears it.
   gates?: PublishGate[];
+  // Set when the failed request was a dry run.
+  dryRun?: boolean;
 };
 type ApiErrorResponseStructured = {
   [C in ApiErrorCode]: {
@@ -60,6 +62,7 @@ type ApiErrorResponseStructured = {
     conflicts?: unknown[];
     warnings?: string[];
     gates?: PublishGate[];
+    dryRun?: boolean;
   };
 }[ApiErrorCode];
 

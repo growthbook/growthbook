@@ -16685,6 +16685,12 @@ paths:
     post:
       operationId: updateExperiment
       summary: Update a single experiment
+      description: >-
+        To change a running experiment's traffic, weights, targeting, namespace,
+        or phase, use Make Changes (`POST /experiments/{id}/changes`). It works
+        out whether the change needs a new phase or re-randomization and asks
+        for a release plan when the change has a trade-off. This endpoint stores
+        `phases` as sent.
       tags:
         - experiments
       parameters:
@@ -17462,6 +17468,653 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/changes:
+    post:
+      operationId: postExperimentChanges
+      summary: Make changes to an experiment
+      description: >-
+        Changes the latest phase's traffic, weights, targeting, or namespace, or
+        starts a new phase, the way the Make Changes flow does in the app. Works
+        on draft and running experiments and Bandits.
+
+
+        On a running experiment that is live in the SDK payload, some changes
+        trade unbiased results against a stable user experience. Those need a
+        `releasePlan`. Without one the request returns 422
+        `release_plan_required`, whose `details` list the risks, every plan with
+        its trade-offs, and the recommended plan. Changes with no trade-off
+        apply in place.
+
+
+        Add `dryRun: true` to preview any change. It runs the same checks and
+        returns the same response or error, without saving.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              description: >-
+                One kind of change to the latest phase. Fields the request
+                leaves out keep their current values; `null` clears a field.
+                `advanced` combines several changes at once, which makes it
+                harder to tell which one moved the results.
+              anyOf:
+                - type: object
+                  properties:
+                    changeType:
+                      type: string
+                      const: coverage
+                    coverage:
+                      description: >-
+                        Share of eligible users included in the experiment, from
+                        0 to 1.
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                    releasePlan:
+                      description: >-
+                        Required only when the change has a trade-off. Omit it
+                        and a risky change returns 422 `release_plan_required`
+                        listing the plans, their trade-offs, and the recommended
+                        one. A `new-phase` change always needs one.
+                      type: string
+                      enum:
+                        - same-phase-keep-assignments
+                        - same-phase-reassign
+                        - new-phase-rerandomize
+                        - new-phase-keep-assignments
+                        - new-phase-exclude-exposed
+                    reason:
+                      description: >-
+                        Why this change is being made, in the requester's own
+                        words. Recorded in the experiment's history. When the
+                        change starts a new phase, it also becomes the closed
+                        phase's reason for stopping.
+                      type: string
+                      maxLength: 1000
+                    dryRun:
+                      description: >-
+                        Set to true to preview. The request runs every check and
+                        returns the same response or error, but nothing is
+                        saved, and error bodies carry `dryRun: true`. A 200 dry
+                        run means the same request without `dryRun` will
+                        succeed, unless the experiment changes in between.
+                      type: boolean
+                    ignoreWarnings:
+                      description: >-
+                        Set to true to acknowledge the warnings listed in a
+                        blocked response and continue. This covers experiment
+                        guards, locked dependents, and references affected by an
+                        archive. When the organization treats schema failures as
+                        warnings, it also covers schema and invariant warnings.
+                        It never bypasses a rejected Custom Hook. On revision
+                        publish endpoints, it can also force-publish an
+                        out-of-date draft when the caller has Bypass draft
+                        approvals access. Only set this when a person has
+                        explicitly asked you to. If a check blocks you, stop and
+                        ask a person instead of working around it.
+                      type: boolean
+                  required:
+                    - changeType
+                    - coverage
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    changeType:
+                      type: string
+                      const: weights
+                    trafficSplit:
+                      description: >-
+                        One weight per variation, keyed by `variationId`,
+                        summing to 1. Same shape as `trafficSplit` on the
+                        experiment's phases.
+                      minItems: 2
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          weight:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                        required:
+                          - variationId
+                          - weight
+                        additionalProperties: false
+                    releasePlan:
+                      description: >-
+                        Required only when the change has a trade-off. Omit it
+                        and a risky change returns 422 `release_plan_required`
+                        listing the plans, their trade-offs, and the recommended
+                        one. A `new-phase` change always needs one.
+                      type: string
+                      enum:
+                        - same-phase-keep-assignments
+                        - same-phase-reassign
+                        - new-phase-rerandomize
+                        - new-phase-keep-assignments
+                        - new-phase-exclude-exposed
+                    reason:
+                      description: >-
+                        Why this change is being made, in the requester's own
+                        words. Recorded in the experiment's history. When the
+                        change starts a new phase, it also becomes the closed
+                        phase's reason for stopping.
+                      type: string
+                      maxLength: 1000
+                    dryRun:
+                      description: >-
+                        Set to true to preview. The request runs every check and
+                        returns the same response or error, but nothing is
+                        saved, and error bodies carry `dryRun: true`. A 200 dry
+                        run means the same request without `dryRun` will
+                        succeed, unless the experiment changes in between.
+                      type: boolean
+                    ignoreWarnings:
+                      description: >-
+                        Set to true to acknowledge the warnings listed in a
+                        blocked response and continue. This covers experiment
+                        guards, locked dependents, and references affected by an
+                        archive. When the organization treats schema failures as
+                        warnings, it also covers schema and invariant warnings.
+                        It never bypasses a rejected Custom Hook. On revision
+                        publish endpoints, it can also force-publish an
+                        out-of-date draft when the caller has Bypass draft
+                        approvals access. Only set this when a person has
+                        explicitly asked you to. If a check blocks you, stop and
+                        ask a person instead of working around it.
+                      type: boolean
+                  required:
+                    - changeType
+                    - trafficSplit
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    changeType:
+                      type: string
+                      const: targeting
+                    targetingCondition:
+                      description: >-
+                        Attribute targeting condition as a JSON string, as in
+                        the experiment's `targetingCondition`. `null` removes
+                        the condition. Omit to keep the current one.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    savedGroups:
+                      description: >-
+                        Saved Group targeting. `null` removes all of it. Omit to
+                        keep the current value.
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - match
+                              - ids
+                            additionalProperties: false
+                        - type: 'null'
+                    prerequisites:
+                      description: >-
+                        Prerequisite Feature Flags. `null` removes all of them.
+                        Omit to keep the current ones.
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                            required:
+                              - id
+                              - condition
+                            additionalProperties: false
+                        - type: 'null'
+                    releasePlan:
+                      description: >-
+                        Required only when the change has a trade-off. Omit it
+                        and a risky change returns 422 `release_plan_required`
+                        listing the plans, their trade-offs, and the recommended
+                        one. A `new-phase` change always needs one.
+                      type: string
+                      enum:
+                        - same-phase-keep-assignments
+                        - same-phase-reassign
+                        - new-phase-rerandomize
+                        - new-phase-keep-assignments
+                        - new-phase-exclude-exposed
+                    reason:
+                      description: >-
+                        Why this change is being made, in the requester's own
+                        words. Recorded in the experiment's history. When the
+                        change starts a new phase, it also becomes the closed
+                        phase's reason for stopping.
+                      type: string
+                      maxLength: 1000
+                    dryRun:
+                      description: >-
+                        Set to true to preview. The request runs every check and
+                        returns the same response or error, but nothing is
+                        saved, and error bodies carry `dryRun: true`. A 200 dry
+                        run means the same request without `dryRun` will
+                        succeed, unless the experiment changes in between.
+                      type: boolean
+                    ignoreWarnings:
+                      description: >-
+                        Set to true to acknowledge the warnings listed in a
+                        blocked response and continue. This covers experiment
+                        guards, locked dependents, and references affected by an
+                        archive. When the organization treats schema failures as
+                        warnings, it also covers schema and invariant warnings.
+                        It never bypasses a rejected Custom Hook. On revision
+                        publish endpoints, it can also force-publish an
+                        out-of-date draft when the caller has Bypass draft
+                        approvals access. Only set this when a person has
+                        explicitly asked you to. If a check blocks you, stop and
+                        ask a person instead of working around it.
+                      type: boolean
+                  required:
+                    - changeType
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    changeType:
+                      type: string
+                      const: namespace
+                    namespace:
+                      description: >-
+                        The namespace and the ranges of it this experiment
+                        occupies. A legacy namespace takes a single range.
+                        `null` takes the experiment out of its namespace.
+                      anyOf:
+                        - type: object
+                          properties:
+                            namespaceId:
+                              type: string
+                            ranges:
+                              minItems: 1
+                              type: array
+                              items:
+                                type: array
+                                prefixItems:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                          required:
+                            - namespaceId
+                            - ranges
+                          additionalProperties: false
+                        - type: 'null'
+                    releasePlan:
+                      description: >-
+                        Required only when the change has a trade-off. Omit it
+                        and a risky change returns 422 `release_plan_required`
+                        listing the plans, their trade-offs, and the recommended
+                        one. A `new-phase` change always needs one.
+                      type: string
+                      enum:
+                        - same-phase-keep-assignments
+                        - same-phase-reassign
+                        - new-phase-rerandomize
+                        - new-phase-keep-assignments
+                        - new-phase-exclude-exposed
+                    reason:
+                      description: >-
+                        Why this change is being made, in the requester's own
+                        words. Recorded in the experiment's history. When the
+                        change starts a new phase, it also becomes the closed
+                        phase's reason for stopping.
+                      type: string
+                      maxLength: 1000
+                    dryRun:
+                      description: >-
+                        Set to true to preview. The request runs every check and
+                        returns the same response or error, but nothing is
+                        saved, and error bodies carry `dryRun: true`. A 200 dry
+                        run means the same request without `dryRun` will
+                        succeed, unless the experiment changes in between.
+                      type: boolean
+                    ignoreWarnings:
+                      description: >-
+                        Set to true to acknowledge the warnings listed in a
+                        blocked response and continue. This covers experiment
+                        guards, locked dependents, and references affected by an
+                        archive. When the organization treats schema failures as
+                        warnings, it also covers schema and invariant warnings.
+                        It never bypasses a rejected Custom Hook. On revision
+                        publish endpoints, it can also force-publish an
+                        out-of-date draft when the caller has Bypass draft
+                        approvals access. Only set this when a person has
+                        explicitly asked you to. If a check blocks you, stop and
+                        ask a person instead of working around it.
+                      type: boolean
+                  required:
+                    - changeType
+                    - namespace
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    changeType:
+                      type: string
+                      const: new-phase
+                    releasePlan:
+                      description: >-
+                        Required only when the change has a trade-off. Omit it
+                        and a risky change returns 422 `release_plan_required`
+                        listing the plans, their trade-offs, and the recommended
+                        one. A `new-phase` change always needs one.
+                      type: string
+                      enum:
+                        - same-phase-keep-assignments
+                        - same-phase-reassign
+                        - new-phase-rerandomize
+                        - new-phase-keep-assignments
+                        - new-phase-exclude-exposed
+                    reason:
+                      description: >-
+                        Why this change is being made, in the requester's own
+                        words. Recorded in the experiment's history. When the
+                        change starts a new phase, it also becomes the closed
+                        phase's reason for stopping.
+                      type: string
+                      maxLength: 1000
+                    dryRun:
+                      description: >-
+                        Set to true to preview. The request runs every check and
+                        returns the same response or error, but nothing is
+                        saved, and error bodies carry `dryRun: true`. A 200 dry
+                        run means the same request without `dryRun` will
+                        succeed, unless the experiment changes in between.
+                      type: boolean
+                    ignoreWarnings:
+                      description: >-
+                        Set to true to acknowledge the warnings listed in a
+                        blocked response and continue. This covers experiment
+                        guards, locked dependents, and references affected by an
+                        archive. When the organization treats schema failures as
+                        warnings, it also covers schema and invariant warnings.
+                        It never bypasses a rejected Custom Hook. On revision
+                        publish endpoints, it can also force-publish an
+                        out-of-date draft when the caller has Bypass draft
+                        approvals access. Only set this when a person has
+                        explicitly asked you to. If a check blocks you, stop and
+                        ask a person instead of working around it.
+                      type: boolean
+                  required:
+                    - changeType
+                  additionalProperties: false
+                - type: object
+                  properties:
+                    changeType:
+                      type: string
+                      const: advanced
+                    coverage:
+                      description: >-
+                        Share of eligible users included in the experiment, from
+                        0 to 1.
+                      type: number
+                      minimum: 0
+                      maximum: 1
+                    trafficSplit:
+                      description: >-
+                        One weight per variation, keyed by `variationId`,
+                        summing to 1. Same shape as `trafficSplit` on the
+                        experiment's phases.
+                      minItems: 2
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          variationId:
+                            type: string
+                          weight:
+                            type: number
+                            minimum: 0
+                            maximum: 1
+                        required:
+                          - variationId
+                          - weight
+                        additionalProperties: false
+                    targetingCondition:
+                      description: >-
+                        Attribute targeting condition as a JSON string, as in
+                        the experiment's `targetingCondition`. `null` removes
+                        the condition. Omit to keep the current one.
+                      anyOf:
+                        - type: string
+                        - type: 'null'
+                    savedGroups:
+                      description: >-
+                        Saved Group targeting. `null` removes all of it. Omit to
+                        keep the current value.
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              match:
+                                type: string
+                                enum:
+                                  - all
+                                  - none
+                                  - any
+                              ids:
+                                type: array
+                                items:
+                                  type: string
+                            required:
+                              - match
+                              - ids
+                            additionalProperties: false
+                        - type: 'null'
+                    prerequisites:
+                      description: >-
+                        Prerequisite Feature Flags. `null` removes all of them.
+                        Omit to keep the current ones.
+                      anyOf:
+                        - type: array
+                          items:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              condition:
+                                type: string
+                            required:
+                              - id
+                              - condition
+                            additionalProperties: false
+                        - type: 'null'
+                    namespace:
+                      description: >-
+                        The namespace and the ranges of it this experiment
+                        occupies. A legacy namespace takes a single range.
+                        `null` takes the experiment out of its namespace.
+                      anyOf:
+                        - type: object
+                          properties:
+                            namespaceId:
+                              type: string
+                            ranges:
+                              minItems: 1
+                              type: array
+                              items:
+                                type: array
+                                prefixItems:
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                                  - type: number
+                                    minimum: 0
+                                    maximum: 1
+                          required:
+                            - namespaceId
+                            - ranges
+                          additionalProperties: false
+                        - type: 'null'
+                    releasePlan:
+                      description: >-
+                        Required only when the change has a trade-off. Omit it
+                        and a risky change returns 422 `release_plan_required`
+                        listing the plans, their trade-offs, and the recommended
+                        one. A `new-phase` change always needs one.
+                      type: string
+                      enum:
+                        - same-phase-keep-assignments
+                        - same-phase-reassign
+                        - new-phase-rerandomize
+                        - new-phase-keep-assignments
+                        - new-phase-exclude-exposed
+                    reason:
+                      description: >-
+                        Why this change is being made, in the requester's own
+                        words. Recorded in the experiment's history. When the
+                        change starts a new phase, it also becomes the closed
+                        phase's reason for stopping.
+                      type: string
+                      maxLength: 1000
+                    dryRun:
+                      description: >-
+                        Set to true to preview. The request runs every check and
+                        returns the same response or error, but nothing is
+                        saved, and error bodies carry `dryRun: true`. A 200 dry
+                        run means the same request without `dryRun` will
+                        succeed, unless the experiment changes in between.
+                      type: boolean
+                    ignoreWarnings:
+                      description: >-
+                        Set to true to acknowledge the warnings listed in a
+                        blocked response and continue. This covers experiment
+                        guards, locked dependents, and references affected by an
+                        archive. When the organization treats schema failures as
+                        warnings, it also covers schema and invariant warnings.
+                        It never bypasses a rejected Custom Hook. On revision
+                        publish endpoints, it can also force-publish an
+                        out-of-date draft when the caller has Bypass draft
+                        approvals access. Only set this when a person has
+                        explicitly asked you to. If a check blocks you, stop and
+                        ask a person instead of working around it.
+                      type: boolean
+                  required:
+                    - changeType
+                  additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  dryRun:
+                    type: boolean
+                  assessment:
+                    $ref: '#/components/schemas/assessment'
+                  experiment:
+                    description: >-
+                      The experiment after the change. On a dry run, how it
+                      would look.
+                    $ref: '#/components/schemas/Experiment'
+                required:
+                  - dryRun
+                  - assessment
+                  - experiment
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+        '409':
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                type: object
+                description: Resource is not in a valid status for this operation
+                properties:
+                  message:
+                    type: string
+                  code:
+                    type: string
+                    enum:
+                      - invalid_status
+                  details:
+                    $ref: '#/components/schemas/ApiErrorInvalidStatusDetails'
+                required:
+                  - message
+                  - code
+                  - details
+        '422':
+          description: Error
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    description: >-
+                      The change has a trade-off between unbiased results and a
+                      stable user experience. Resend it with a `releasePlan`
+                      from `details.releasePlans`.
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - release_plan_required
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorReleasePlanRequiredDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: >-
+                      The `releasePlan` sent can't be used for this change on
+                      this experiment
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - release_plan_not_allowed
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorReleasePlanNotAllowedDetails
+                    required:
+                      - message
+                      - code
+                      - details
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/exp_abc123/changes' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"changeType":"coverage","coverage":0.5,"releasePlan":"same-phase-keep-assignments","reason":"Cutting traffic while we investigate a checkout error spike"}'
   /v1/experiments/{id}/start:
     post:
       operationId: postExperimentStart
@@ -86533,6 +87186,321 @@ components:
       required:
         - hooks
       additionalProperties: false
+    ApiErrorReleasePlanRequiredDetails:
+      type: object
+      properties:
+        requiresReleasePlan:
+          description: >-
+            True when the change has a trade-off and must name a `releasePlan`.
+            False means the change applies in place (same phase, same seed, no
+            one reassigned) unless a plan is named.
+          type: boolean
+        risks:
+          description: Why the change is risky, one entry per reason.
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                enum:
+                  - more-restrictive-targeting
+                  - ambiguous-targeting-change
+                  - decrease-coverage
+                  - add-to-namespace
+                  - decrease-namespace-range
+                  - change-variation-weights
+                  - multiple-changes
+                  - bandit-restart
+              message:
+                type: string
+            required:
+              - code
+              - message
+            additionalProperties: false
+        recommendedReleasePlan:
+          description: >-
+            The plan GrowthBook recommends for this change. Always an available
+            plan.
+          type: string
+          enum:
+            - same-phase-keep-assignments
+            - same-phase-reassign
+            - new-phase-rerandomize
+            - new-phase-keep-assignments
+            - new-phase-exclude-exposed
+        releasePlans:
+          description: Every plan offered for this change type, with its trade-offs.
+          type: array
+          items:
+            type: object
+            properties:
+              plan:
+                description: >-
+                  How to roll out a change that trades unbiased results against
+                  a stable user experience. Each value reads `<phase>-<what
+                  happens to users already in the experiment>`:
+
+                  - `same-phase-keep-assignments`: same phase, analysis
+                  continues. Exposed users keep their variation; the change
+                  applies to new traffic only. Needs Sticky Bucketing (except on
+                  Bandits).
+
+                  - `same-phase-reassign`: same phase, analysis continues.
+                  Exposed users are re-bucketed under the new settings, so some
+                  switch variation. Not offered on Bandits.
+
+                  - `new-phase-rerandomize`: new phase with a new seed. Everyone
+                  is re-randomized and the analysis restarts. On a Bandit,
+                  exploration restarts.
+
+                  - `new-phase-keep-assignments`: new phase with the same seed.
+                  Users keep their variation and the analysis restarts.
+                  `new-phase` changes only.
+
+                  - `new-phase-exclude-exposed`: new phase with a new seed.
+                  Users already exposed are excluded; only new users enter.
+                  `advanced` changes only; needs Sticky Bucketing.
+                type: string
+                enum:
+                  - same-phase-keep-assignments
+                  - same-phase-reassign
+                  - new-phase-rerandomize
+                  - new-phase-keep-assignments
+                  - new-phase-exclude-exposed
+              available:
+                description: Whether this plan can be sent for this change.
+                type: boolean
+              unavailableReason:
+                anyOf:
+                  - description: >-
+                      `requires-sticky-bucketing`: the plan needs Sticky
+                      Bucketing, which is off for this experiment.
+                      `unsafe-for-change-type`: the plan would bias results or
+                      reassign users for this change type. Standard experiments
+                      accept it under `changeType: advanced`; Bandits never do.
+                    type: string
+                    enum:
+                      - requires-sticky-bucketing
+                      - unsafe-for-change-type
+                  - type: 'null'
+              bias:
+                description: Statistical impact of this plan on the experiment's results.
+                type: string
+                enum:
+                  - none
+                  - may-bias
+                  - high-risk
+              usersMaySwitchVariation:
+                description: >-
+                  Whether some users already exposed may see a different
+                  variation.
+                type: boolean
+              analysisRestarts:
+                description: >-
+                  Whether the plan starts a new phase, restarting the analysis
+                  window.
+                type: boolean
+              banditRestarts:
+                description: >-
+                  Whether the Bandit's exploration restarts with equal weights.
+                  True for every plan on a Bandit.
+                type: boolean
+            required:
+              - plan
+              - available
+              - unavailableReason
+              - bias
+              - usersMaySwitchVariation
+              - analysisRestarts
+              - banditRestarts
+            additionalProperties: false
+        docUrl:
+          type: string
+      required:
+        - requiresReleasePlan
+        - risks
+        - recommendedReleasePlan
+        - releasePlans
+        - docUrl
+      additionalProperties: false
+    ApiErrorReleasePlanNotAllowedDetails:
+      type: object
+      properties:
+        requiresReleasePlan:
+          description: >-
+            True when the change has a trade-off and must name a `releasePlan`.
+            False means the change applies in place (same phase, same seed, no
+            one reassigned) unless a plan is named.
+          type: boolean
+        risks:
+          description: Why the change is risky, one entry per reason.
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                enum:
+                  - more-restrictive-targeting
+                  - ambiguous-targeting-change
+                  - decrease-coverage
+                  - add-to-namespace
+                  - decrease-namespace-range
+                  - change-variation-weights
+                  - multiple-changes
+                  - bandit-restart
+              message:
+                type: string
+            required:
+              - code
+              - message
+            additionalProperties: false
+        recommendedReleasePlan:
+          description: >-
+            The plan GrowthBook recommends for this change. Always an available
+            plan.
+          type: string
+          enum:
+            - same-phase-keep-assignments
+            - same-phase-reassign
+            - new-phase-rerandomize
+            - new-phase-keep-assignments
+            - new-phase-exclude-exposed
+        releasePlans:
+          description: Every plan offered for this change type, with its trade-offs.
+          type: array
+          items:
+            type: object
+            properties:
+              plan:
+                description: >-
+                  How to roll out a change that trades unbiased results against
+                  a stable user experience. Each value reads `<phase>-<what
+                  happens to users already in the experiment>`:
+
+                  - `same-phase-keep-assignments`: same phase, analysis
+                  continues. Exposed users keep their variation; the change
+                  applies to new traffic only. Needs Sticky Bucketing (except on
+                  Bandits).
+
+                  - `same-phase-reassign`: same phase, analysis continues.
+                  Exposed users are re-bucketed under the new settings, so some
+                  switch variation. Not offered on Bandits.
+
+                  - `new-phase-rerandomize`: new phase with a new seed. Everyone
+                  is re-randomized and the analysis restarts. On a Bandit,
+                  exploration restarts.
+
+                  - `new-phase-keep-assignments`: new phase with the same seed.
+                  Users keep their variation and the analysis restarts.
+                  `new-phase` changes only.
+
+                  - `new-phase-exclude-exposed`: new phase with a new seed.
+                  Users already exposed are excluded; only new users enter.
+                  `advanced` changes only; needs Sticky Bucketing.
+                type: string
+                enum:
+                  - same-phase-keep-assignments
+                  - same-phase-reassign
+                  - new-phase-rerandomize
+                  - new-phase-keep-assignments
+                  - new-phase-exclude-exposed
+              available:
+                description: Whether this plan can be sent for this change.
+                type: boolean
+              unavailableReason:
+                anyOf:
+                  - description: >-
+                      `requires-sticky-bucketing`: the plan needs Sticky
+                      Bucketing, which is off for this experiment.
+                      `unsafe-for-change-type`: the plan would bias results or
+                      reassign users for this change type. Standard experiments
+                      accept it under `changeType: advanced`; Bandits never do.
+                    type: string
+                    enum:
+                      - requires-sticky-bucketing
+                      - unsafe-for-change-type
+                  - type: 'null'
+              bias:
+                description: Statistical impact of this plan on the experiment's results.
+                type: string
+                enum:
+                  - none
+                  - may-bias
+                  - high-risk
+              usersMaySwitchVariation:
+                description: >-
+                  Whether some users already exposed may see a different
+                  variation.
+                type: boolean
+              analysisRestarts:
+                description: >-
+                  Whether the plan starts a new phase, restarting the analysis
+                  window.
+                type: boolean
+              banditRestarts:
+                description: >-
+                  Whether the Bandit's exploration restarts with equal weights.
+                  True for every plan on a Bandit.
+                type: boolean
+            required:
+              - plan
+              - available
+              - unavailableReason
+              - bias
+              - usersMaySwitchVariation
+              - analysisRestarts
+              - banditRestarts
+            additionalProperties: false
+        docUrl:
+          type: string
+        requestedPlan:
+          description: >-
+            How to roll out a change that trades unbiased results against a
+            stable user experience. Each value reads `<phase>-<what happens to
+            users already in the experiment>`:
+
+            - `same-phase-keep-assignments`: same phase, analysis continues.
+            Exposed users keep their variation; the change applies to new
+            traffic only. Needs Sticky Bucketing (except on Bandits).
+
+            - `same-phase-reassign`: same phase, analysis continues. Exposed
+            users are re-bucketed under the new settings, so some switch
+            variation. Not offered on Bandits.
+
+            - `new-phase-rerandomize`: new phase with a new seed. Everyone is
+            re-randomized and the analysis restarts. On a Bandit, exploration
+            restarts.
+
+            - `new-phase-keep-assignments`: new phase with the same seed. Users
+            keep their variation and the analysis restarts. `new-phase` changes
+            only.
+
+            - `new-phase-exclude-exposed`: new phase with a new seed. Users
+            already exposed are excluded; only new users enter. `advanced`
+            changes only; needs Sticky Bucketing.
+          type: string
+          enum:
+            - same-phase-keep-assignments
+            - same-phase-reassign
+            - new-phase-rerandomize
+            - new-phase-keep-assignments
+            - new-phase-exclude-exposed
+        rejection:
+          type: string
+          enum:
+            - requires-sticky-bucketing
+            - unsafe-for-change-type
+      required:
+        - requiresReleasePlan
+        - risks
+        - recommendedReleasePlan
+        - releasePlans
+        - docUrl
+        - requestedPlan
+        - rejection
+      additionalProperties: false
     bypassedGates:
       type: object
       properties:
@@ -87565,6 +88533,144 @@ components:
         - status
         - manual
         - reason
+      additionalProperties: false
+    assessment:
+      type: object
+      properties:
+        requiresReleasePlan:
+          description: >-
+            True when the change has a trade-off and must name a `releasePlan`.
+            False means the change applies in place (same phase, same seed, no
+            one reassigned) unless a plan is named.
+          type: boolean
+        risks:
+          description: Why the change is risky, one entry per reason.
+          type: array
+          items:
+            type: object
+            properties:
+              code:
+                type: string
+                enum:
+                  - more-restrictive-targeting
+                  - ambiguous-targeting-change
+                  - decrease-coverage
+                  - add-to-namespace
+                  - decrease-namespace-range
+                  - change-variation-weights
+                  - multiple-changes
+                  - bandit-restart
+              message:
+                type: string
+            required:
+              - code
+              - message
+            additionalProperties: false
+        recommendedReleasePlan:
+          description: >-
+            The plan GrowthBook recommends for this change. Always an available
+            plan.
+          type: string
+          enum:
+            - same-phase-keep-assignments
+            - same-phase-reassign
+            - new-phase-rerandomize
+            - new-phase-keep-assignments
+            - new-phase-exclude-exposed
+        releasePlans:
+          description: Every plan offered for this change type, with its trade-offs.
+          type: array
+          items:
+            type: object
+            properties:
+              plan:
+                description: >-
+                  How to roll out a change that trades unbiased results against
+                  a stable user experience. Each value reads `<phase>-<what
+                  happens to users already in the experiment>`:
+
+                  - `same-phase-keep-assignments`: same phase, analysis
+                  continues. Exposed users keep their variation; the change
+                  applies to new traffic only. Needs Sticky Bucketing (except on
+                  Bandits).
+
+                  - `same-phase-reassign`: same phase, analysis continues.
+                  Exposed users are re-bucketed under the new settings, so some
+                  switch variation. Not offered on Bandits.
+
+                  - `new-phase-rerandomize`: new phase with a new seed. Everyone
+                  is re-randomized and the analysis restarts. On a Bandit,
+                  exploration restarts.
+
+                  - `new-phase-keep-assignments`: new phase with the same seed.
+                  Users keep their variation and the analysis restarts.
+                  `new-phase` changes only.
+
+                  - `new-phase-exclude-exposed`: new phase with a new seed.
+                  Users already exposed are excluded; only new users enter.
+                  `advanced` changes only; needs Sticky Bucketing.
+                type: string
+                enum:
+                  - same-phase-keep-assignments
+                  - same-phase-reassign
+                  - new-phase-rerandomize
+                  - new-phase-keep-assignments
+                  - new-phase-exclude-exposed
+              available:
+                description: Whether this plan can be sent for this change.
+                type: boolean
+              unavailableReason:
+                anyOf:
+                  - description: >-
+                      `requires-sticky-bucketing`: the plan needs Sticky
+                      Bucketing, which is off for this experiment.
+                      `unsafe-for-change-type`: the plan would bias results or
+                      reassign users for this change type. Standard experiments
+                      accept it under `changeType: advanced`; Bandits never do.
+                    type: string
+                    enum:
+                      - requires-sticky-bucketing
+                      - unsafe-for-change-type
+                  - type: 'null'
+              bias:
+                description: Statistical impact of this plan on the experiment's results.
+                type: string
+                enum:
+                  - none
+                  - may-bias
+                  - high-risk
+              usersMaySwitchVariation:
+                description: >-
+                  Whether some users already exposed may see a different
+                  variation.
+                type: boolean
+              analysisRestarts:
+                description: >-
+                  Whether the plan starts a new phase, restarting the analysis
+                  window.
+                type: boolean
+              banditRestarts:
+                description: >-
+                  Whether the Bandit's exploration restarts with equal weights.
+                  True for every plan on a Bandit.
+                type: boolean
+            required:
+              - plan
+              - available
+              - unavailableReason
+              - bias
+              - usersMaySwitchVariation
+              - analysisRestarts
+              - banditRestarts
+            additionalProperties: false
+        docUrl:
+          type: string
+      required:
+        - requiresReleasePlan
+        - risks
+        - recommendedReleasePlan
+        - releasePlans
+        - docUrl
       additionalProperties: false
     snapshot:
       type: object

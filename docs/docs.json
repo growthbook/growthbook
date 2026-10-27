@@ -692,6 +692,7 @@
                   "api/experiments/operation/updateExperiment",
                   "api/experiments/operation/getExperimentStartChecklist",
                   "api/experiments/operation/getExperimentResults",
+                  "api/experiments/operation/postExperimentChanges",
                   "api/experiments/operation/postExperimentStart",
                   "api/experiments/operation/postExperimentStartChecklistManualComplete",
                   "api/experiments/operation/postExperimentStop",

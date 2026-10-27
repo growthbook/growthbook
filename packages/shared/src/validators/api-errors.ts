@@ -1,4 +1,9 @@
 import { z } from "zod";
+import {
+  changeAssessmentSchema,
+  releasePlanSchema,
+  releasePlanUnavailableReasons,
+} from "./experiment-changes";
 
 // Deliberately a standalone definition rather than a reference to
 // startChecklistItemStatusValidator: keeping the error contract decoupled from
@@ -98,6 +103,21 @@ export const apiErrorRegistry = {
     description:
       "A custom validation hook rejected the change or failed to run",
     detailsSchema: z.object({ hooks: z.array(customHookErrorSchema) }),
+  },
+  release_plan_required: {
+    status: 422,
+    description:
+      "The change has a trade-off between unbiased results and a stable user experience. Resend it with a `releasePlan` from `details.releasePlans`.",
+    detailsSchema: changeAssessmentSchema,
+  },
+  release_plan_not_allowed: {
+    status: 422,
+    description:
+      "The `releasePlan` sent can't be used for this change on this experiment",
+    detailsSchema: changeAssessmentSchema.extend({
+      requestedPlan: releasePlanSchema,
+      rejection: z.enum(releasePlanUnavailableReasons),
+    }),
   },
 } satisfies Record<
   string,

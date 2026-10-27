@@ -34,6 +34,7 @@ import {
   ConfirmationRequiredError,
   CustomHookError,
   DraftLimitError,
+  isDryRunError,
   MergeConflictError,
   SoftWarningError,
   UnscopedRuleError,
@@ -245,6 +246,7 @@ export async function runApiHandler(
       return { status: 202, body: e.body, headers: e.headers };
     }
     const body: ApiErrorResponse = { message: e.message };
+    if (isDryRunError(e)) body.dryRun = true;
     if (e instanceof ApiError) {
       body.code = e.code;
       body.details = e.details;
