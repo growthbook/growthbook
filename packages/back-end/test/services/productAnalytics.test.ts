@@ -248,7 +248,6 @@ describe("draft metric explorations", () => {
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric");
     testConfig.dataset.values[0].population = {
-      name: "All users",
       source: { type: "factTable", factTableId: "ft_1" },
       rowFilters: [],
     };
@@ -339,7 +338,6 @@ describe("draft metric explorations", () => {
 
 describe("inline population validation before exploration cache lookup", () => {
   const population = {
-    name: "Eligible users",
     source: { type: "factTable" as const, factTableId: "ft_1" },
     rowFilters: [],
   };

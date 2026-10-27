@@ -43,7 +43,6 @@ describe("explorationConfigReferencesColumn", () => {
 
   describe("inline metric populations", () => {
     const population: MetricPopulation = {
-      name: "Population",
       source: { type: "factTable", factTableId: "ft1" },
       rowFilters: [],
     };

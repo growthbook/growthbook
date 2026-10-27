@@ -13,6 +13,7 @@ import {
   metricPopulationValidator,
   metricTypeValidator,
   explorationConfigValidator,
+  populationExplorationConfigValidator,
 } from "shared/validators";
 import {
   FactMetricInterface,
@@ -49,7 +50,6 @@ const metric = {
   quantileSettings: null,
 } as FactMetricInterface;
 const population: MetricPopulation = {
-  name: "Mobile users",
   source: { type: "factTable", factTableId: "events" },
   rowFilters: [{ column: "device_type", operator: "=", values: ["mobile"] }],
   aggregateFilter: ">10",
@@ -627,6 +627,36 @@ describe("population-backed proportions", () => {
       decodeExplorationConfigJson(encodeExplorationConfig(config)),
     );
     expect(parsed).toEqual(config);
+  });
+
+  it("rejects names on attached populations but requires them on standalone series", () => {
+    expect(metricPopulationValidator.parse(population)).toEqual(population);
+    const c = structuredClone(config);
+    c.dataset.values[0].population = {
+      ...population,
+      name: "Mobile users",
+    } as MetricPopulation;
+    expect(explorationConfigValidator.safeParse(c).success).toBe(false);
+    const standalone = {
+      ...config,
+      type: "population",
+      dataset: {
+        type: "population",
+        values: [{ ...population, type: "population", unit: "user_id" }],
+      },
+    };
+    expect(
+      populationExplorationConfigValidator.safeParse(standalone).success,
+    ).toBe(false);
+    expect(
+      populationExplorationConfigValidator.safeParse({
+        ...standalone,
+        dataset: {
+          ...standalone.dataset,
+          values: [{ ...standalone.dataset.values[0], name: "Mobile users" }],
+        },
+      }).success,
+    ).toBe(true);
   });
 
   it.each(metricTypeValidator.options.filter((type) => type !== "proportion"))(

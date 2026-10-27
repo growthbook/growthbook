@@ -41321,12 +41321,9 @@ paths:
                                                         Numeric column to total, or "$$count" to
                                                         count rows. Requires aggregateFilter
                                                       type: string
-                                                    name:
-                                                      type: string
                                                   required:
                                                     - source
                                                     - rowFilters
-                                                    - name
                                                   additionalProperties: false
                                                 - type: 'null'
                                           required:
@@ -44768,12 +44765,9 @@ paths:
                                                         Numeric column to total, or "$$count" to
                                                         count rows. Requires aggregateFilter
                                                       type: string
-                                                    name:
-                                                      type: string
                                                   required:
                                                     - source
                                                     - rowFilters
-                                                    - name
                                                   additionalProperties: false
                                                 - type: 'null'
                                           required:
@@ -48412,12 +48406,9 @@ paths:
                                                     Numeric column to total, or "$$count" to
                                                     count rows. Requires aggregateFilter
                                                   type: string
-                                                name:
-                                                  type: string
                                               required:
                                                 - source
                                                 - rowFilters
-                                                - name
                                               additionalProperties: false
                                             - type: 'null'
                                       required:
@@ -52067,12 +52058,9 @@ paths:
                                                     Numeric column to total, or "$$count" to
                                                     count rows. Requires aggregateFilter
                                                   type: string
-                                                name:
-                                                  type: string
                                               required:
                                                 - source
                                                 - rowFilters
-                                                - name
                                               additionalProperties: false
                                             - type: 'null'
                                       required:
@@ -57654,12 +57642,9 @@ paths:
                                       Numeric column to total, or "$$count" to
                                       count rows. Requires aggregateFilter
                                     type: string
-                                  name:
-                                    type: string
                                 required:
                                   - source
                                   - rowFilters
-                                  - name
                                 additionalProperties: false
                               - type: 'null'
                         required:
@@ -58161,12 +58146,9 @@ paths:
                                                     Numeric column to total, or "$$count" to
                                                     count rows. Requires aggregateFilter
                                                   type: string
-                                                name:
-                                                  type: string
                                               required:
                                                 - source
                                                 - rowFilters
-                                                - name
                                               additionalProperties: false
                                             - type: 'null'
                                       required:
@@ -80307,12 +80289,9 @@ components:
                                             Numeric column to total, or "$$count" to
                                             count rows. Requires aggregateFilter
                                           type: string
-                                        name:
-                                          type: string
                                       required:
                                         - source
                                         - rowFilters
-                                        - name
                                       additionalProperties: false
                                     - type: 'null'
                               required:
@@ -83554,12 +83533,9 @@ components:
                                       Numeric column to total, or "$$count" to
                                       count rows. Requires aggregateFilter
                                     type: string
-                                  name:
-                                    type: string
                                 required:
                                   - source
                                   - rowFilters
-                                  - name
                                 additionalProperties: false
                               - type: 'null'
                         required:
