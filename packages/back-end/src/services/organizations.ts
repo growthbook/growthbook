@@ -127,7 +127,11 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { PaymentRequiredError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PaymentRequiredError,
+} from "back-end/src/util/errors";
+import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
 import {
   ArmingOAuthSignIn,
@@ -1423,6 +1427,12 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
+    const analysisEndDateError = getAnalysisEndDateSettingsError(
+      config.organization.settings.updateSchedule,
+    );
+    if (analysisEndDateError) {
+      throw new BadRequestError(analysisEndDateError);
+    }
     await sanitizeDefaultRoleUpdate(context, config.organization.settings);
     const settings = {
       ...organization.settings,
