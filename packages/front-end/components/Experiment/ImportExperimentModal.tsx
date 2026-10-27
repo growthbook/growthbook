@@ -96,7 +96,7 @@ const ImportExperimentModal: FC<{
 
   const footer = (
     <Modal.Footer>
-      <Flex justify="between" align="center" flexGrow="1">
+      <Flex justify="between" align="center" flexGrow="1" pl="3">
         <Text color="text-mid">
           Don&apos;t see your experiment?{" "}
           <Link onClick={() => setImportModal(false)}>Create from scratch</Link>
