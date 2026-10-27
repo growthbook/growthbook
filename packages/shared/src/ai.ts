@@ -15,6 +15,8 @@ export const AI_PROVIDER_META: Record<
     label: string;
     envVar: string;
     legacyEnvVars?: string[];
+    baseUrlEnvVar: string;
+    defaultBaseUrl: string;
     keyPlaceholder: string;
     consoleUrl: string;
   }
@@ -22,18 +24,24 @@ export const AI_PROVIDER_META: Record<
   openai: {
     label: "OpenAI",
     envVar: "OPENAI_API_KEY",
+    baseUrlEnvVar: "OPENAI_BASE_URL",
+    defaultBaseUrl: "https://api.openai.com/v1",
     keyPlaceholder: "sk-...",
     consoleUrl: "https://platform.openai.com/api-keys",
   },
   anthropic: {
     label: "Anthropic",
     envVar: "ANTHROPIC_API_KEY",
+    baseUrlEnvVar: "ANTHROPIC_BASE_URL",
+    defaultBaseUrl: "https://api.anthropic.com/v1",
     keyPlaceholder: "sk-ant-...",
     consoleUrl: "https://console.anthropic.com/settings/keys",
   },
   google: {
     label: "Google",
     envVar: "GOOGLE_AI_API_KEY",
+    baseUrlEnvVar: "GOOGLE_AI_BASE_URL",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
     legacyEnvVars: ["GEMINI_API_KEY"],
     keyPlaceholder: "AIza...",
     consoleUrl: "https://aistudio.google.com/apikey",
@@ -41,12 +49,16 @@ export const AI_PROVIDER_META: Record<
   xai: {
     label: "xAI",
     envVar: "XAI_API_KEY",
+    baseUrlEnvVar: "XAI_BASE_URL",
+    defaultBaseUrl: "https://api.x.ai/v1",
     keyPlaceholder: "xai-...",
     consoleUrl: "https://console.x.ai",
   },
   mistral: {
     label: "Mistral",
     envVar: "MISTRAL_API_KEY",
+    baseUrlEnvVar: "MISTRAL_BASE_URL",
+    defaultBaseUrl: "https://api.mistral.ai/v1",
     keyPlaceholder: "...",
     consoleUrl: "https://console.mistral.ai/api-keys",
   },

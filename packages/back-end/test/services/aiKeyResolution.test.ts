@@ -16,6 +16,7 @@ const AI_ENV_VARS = [
   ...AI_PROVIDERS.flatMap((provider) => [
     AI_PROVIDER_META[provider].envVar,
     ...(AI_PROVIDER_META[provider].legacyEnvVars ?? []),
+    AI_PROVIDER_META[provider].baseUrlEnvVar,
   ]),
   "IS_CLOUD",
 ];
@@ -44,11 +45,13 @@ const credential = (
   provider: AIProvider,
   encryptedKey: string,
   last4: string,
+  baseUrl?: string,
 ): AICredentialInterface => ({
   organization: "org_1",
   provider,
   encryptedKey,
   last4,
+  baseUrl,
   updatedByEmail: "admin@example.com",
   dateCreated: new Date(),
   dateUpdated: new Date(),
@@ -94,6 +97,7 @@ describe("getResolvedAIKeys", () => {
     expect(keys.anthropic).toEqual({
       key: "org-anthropic",
       source: "organization",
+      baseUrl: "",
     });
   });
 
@@ -108,7 +112,11 @@ describe("getResolvedAIKeys", () => {
 
     const keys = await resolve(mod, context);
 
-    expect(keys.anthropic).toEqual({ key: "env-anthropic", source: "env" });
+    expect(keys.anthropic).toEqual({
+      key: "env-anthropic",
+      source: "env",
+      baseUrl: "",
+    });
   });
 
   it("uses a stored key self-hosted when no env var is set", async () => {
@@ -122,6 +130,7 @@ describe("getResolvedAIKeys", () => {
     expect(keys.anthropic).toEqual({
       key: "org-anthropic",
       source: "organization",
+      baseUrl: "",
     });
   });
 
@@ -131,7 +140,11 @@ describe("getResolvedAIKeys", () => {
 
     const keys = await resolve(mod, context);
 
-    expect(keys.openai).toEqual({ key: "env-openai", source: "env" });
+    expect(keys.openai).toEqual({
+      key: "env-openai",
+      source: "env",
+      baseUrl: "",
+    });
   });
 
   it("reports no key when neither source has one", async () => {
@@ -140,7 +153,7 @@ describe("getResolvedAIKeys", () => {
 
     const keys = await resolve(mod, context);
 
-    expect(keys.mistral).toEqual({ key: "", source: "none" });
+    expect(keys.mistral).toEqual({ key: "", source: "none", baseUrl: "" });
   });
 
   it("resolves each provider independently", async () => {
@@ -167,7 +180,11 @@ describe("getResolvedAIKeys", () => {
 
     const keys = await resolve(mod, context);
 
-    expect(keys.anthropic).toEqual({ key: "env-anthropic", source: "env" });
+    expect(keys.anthropic).toEqual({
+      key: "env-anthropic",
+      source: "env",
+      baseUrl: "",
+    });
   });
 
   it("rejects decrypted text that does not match the stored fingerprint", async () => {
@@ -179,6 +196,7 @@ describe("getResolvedAIKeys", () => {
     expect((await resolve(mod, context)).anthropic).toEqual({
       key: "env-anthropic",
       source: "env",
+      baseUrl: "",
     });
   });
 
@@ -192,7 +210,11 @@ describe("getResolvedAIKeys", () => {
 
     const keys = await resolve(mod, context);
 
-    expect(keys.openai).toEqual({ key: "env-openai", source: "env" });
+    expect(keys.openai).toEqual({
+      key: "env-openai",
+      source: "env",
+      baseUrl: "",
+    });
   });
 
   it("queries once per request no matter how many callers ask", async () => {
@@ -254,6 +276,7 @@ describe("getResolvedAIKeys", () => {
     expect((await resolve(mod, context)).google).toEqual({
       key: "legacy",
       source: "env",
+      baseUrl: "",
     });
   });
 
@@ -267,7 +290,7 @@ describe("getResolvedAIKeys", () => {
     const keys = await resolve(mod, context);
 
     expect(hasPremiumFeature).toHaveBeenCalledWith("ai-byok");
-    expect(keys.anthropic).toEqual({ key: "", source: "none" });
+    expect(keys.anthropic).toEqual({ key: "", source: "none", baseUrl: "" });
   });
 
   it("falls back to the managed key when the plan does not include BYOK", async () => {
@@ -285,6 +308,7 @@ describe("getResolvedAIKeys", () => {
     expect((await resolve(mod, context)).anthropic).toEqual({
       key: "env-anthropic",
       source: "env",
+      baseUrl: "",
     });
   });
 
@@ -295,5 +319,73 @@ describe("getResolvedAIKeys", () => {
     await resolve(mod, context);
 
     expect(getAll).not.toHaveBeenCalled();
+  });
+
+  it("returns a stored key's own base URL", async () => {
+    const mod = loadModule({ IS_CLOUD: "true" });
+    const { context } = makeContext([
+      credential(
+        "openai",
+        mod.encryptAIKey("org-openai"),
+        "enai",
+        "https://gateway.example.com/v1",
+      ),
+    ]);
+
+    expect((await resolve(mod, context)).openai).toEqual({
+      key: "org-openai",
+      source: "organization",
+      baseUrl: "https://gateway.example.com/v1",
+    });
+  });
+
+  it("pairs a self-hosted env key with its base URL env var", async () => {
+    const mod = loadModule({
+      OPENAI_API_KEY: "env-openai",
+      OPENAI_BASE_URL: "http://litellm:4000/v1/",
+    });
+    const { context } = makeContext([]);
+
+    expect((await resolve(mod, context)).openai).toEqual({
+      key: "env-openai",
+      source: "env",
+      baseUrl: "http://litellm:4000/v1",
+    });
+  });
+
+  it("applies the base URL env var to a self-hosted stored key without its own", async () => {
+    const mod = loadModule({ MISTRAL_BASE_URL: "https://proxy.internal/v1" });
+    const { context } = makeContext([
+      credential("mistral", mod.encryptAIKey("org-mistral"), "tral"),
+    ]);
+
+    expect((await resolve(mod, context)).mistral.baseUrl).toBe(
+      "https://proxy.internal/v1",
+    );
+  });
+
+  it("never applies a base URL env var on Cloud", async () => {
+    const mod = loadModule({
+      ANTHROPIC_API_KEY: "env-anthropic",
+      ANTHROPIC_BASE_URL: "https://proxy.internal/v1",
+      IS_CLOUD: "true",
+    });
+    const { context } = makeContext([
+      credential("openai", mod.encryptAIKey("org-openai"), "enai"),
+    ]);
+
+    const keys = await resolve(mod, context);
+    expect(keys.anthropic.baseUrl).toBe("");
+    expect(keys.openai.baseUrl).toBe("");
+  });
+
+  it("ignores an invalid base URL env var", async () => {
+    const mod = loadModule({
+      XAI_API_KEY: "env-xai",
+      XAI_BASE_URL: "not a url",
+    });
+    const { context } = makeContext([]);
+
+    expect((await resolve(mod, context)).xai.baseUrl).toBe("");
   });
 });

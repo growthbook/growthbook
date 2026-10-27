@@ -352,6 +352,9 @@ export async function getAISettingsForOrg(
   xaiAPIKey: string;
   mistralAPIKey: string;
   googleAPIKey: string;
+  // Custom endpoint per provider ("" = the provider's own API). Only filled in
+  // with `includeKey`, since it goes with the key.
+  baseUrls: Record<AIProvider, string>;
   // Where each provider's key came from. Non-secret, so returned regardless of
   // `includeKey`.
   keySource: Record<AIProvider, AIKeySource>;
@@ -451,6 +454,13 @@ export async function getAISettingsForOrg(
     xaiAPIKey: includeKey ? resolvedKeys.xai.key : "",
     mistralAPIKey: includeKey ? resolvedKeys.mistral.key : "",
     googleAPIKey: includeKey ? resolvedKeys.google.key : "",
+    baseUrls: AI_PROVIDERS.reduce(
+      (acc, provider) => {
+        acc[provider] = includeKey ? resolvedKeys[provider].baseUrl : "";
+        return acc;
+      },
+      {} as Record<AIProvider, string>,
+    ),
     keySource,
     defaultAIModel,
     embeddingModel:

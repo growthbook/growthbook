@@ -103,6 +103,16 @@ Skills tell the in-app AI Assistant how to carry out tasks such as creating a Fe
 
 Self-hosted installs can also add their own skills or replace the built-in ones. See [AI Assistant Skills](/self-host/env#ai-assistant-skills) in the environment variable reference.
 
+## Custom endpoints
+
+If your company routes LLM traffic through an AI gateway or proxy (such as LiteLLM, Portkey, Cloudflare AI Gateway, or an in-house gateway), you can point a provider at it instead of the provider's public API. When you add or replace a provider key under **Settings → General → AI & Prompts**, fill in **Base URL** with your gateway's address, for example `https://ai-gateway.example.com/v1`, and use the key your gateway expects.
+
+The endpoint must accept the same API format as the provider you're configuring. Changing the base URL always requires re-entering the key.
+
+On GrowthBook Cloud, the base URL must use `https` and resolve to a public address. Self-hosted installs can use any address, or set it with the `*_BASE_URL` [environment variables](/self-host/env#ai-provider-api-keys).
+
+<CommercialFeature feature="ai-byok" description="Custom endpoints are available on Enterprise plans." />
+
 ## Self-Hosted AI Integrations
 
 Self-hosted GrowthBook instances can enable these AI features, by adding a OpenAI API key to the AI settings page.

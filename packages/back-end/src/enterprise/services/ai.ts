@@ -65,6 +65,7 @@ import {
   estimateAIStepsUsd,
 } from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getAIClientOptions } from "back-end/src/services/aiEndpoint";
 
 const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,
@@ -99,6 +100,7 @@ export const getAIProviderClass = async (
     xaiAPIKey,
     mistralAPIKey,
     googleAPIKey,
+    baseUrls,
   } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
@@ -113,37 +115,31 @@ export const getAIProviderClass = async (
     if (!anthropicAPIKey) {
       throw new Error(missingAIKeyMessage("anthropic"));
     }
-    return createAnthropic({
-      apiKey: anthropicAPIKey,
-    });
+    return createAnthropic(
+      getAIClientOptions(anthropicAPIKey, baseUrls.anthropic),
+    );
   } else if (selectedProvider === "xai") {
     if (!xaiAPIKey) {
       throw new Error(missingAIKeyMessage("xai"));
     }
-    return createXai({
-      apiKey: xaiAPIKey,
-    });
+    return createXai(getAIClientOptions(xaiAPIKey, baseUrls.xai));
   } else if (selectedProvider === "mistral") {
     if (!mistralAPIKey) {
       throw new Error(missingAIKeyMessage("mistral"));
     }
-    return createMistral({
-      apiKey: mistralAPIKey,
-    });
+    return createMistral(getAIClientOptions(mistralAPIKey, baseUrls.mistral));
   } else if (selectedProvider === "google") {
     if (!googleAPIKey) {
       throw new Error(missingAIKeyMessage("google"));
     }
-    return createGoogleGenerativeAI({
-      apiKey: googleAPIKey,
-    });
+    return createGoogleGenerativeAI(
+      getAIClientOptions(googleAPIKey, baseUrls.google),
+    );
   } else {
     if (!openAIAPIKey) {
       throw new Error(missingAIKeyMessage("openai"));
     }
-    return createOpenAI({
-      apiKey: openAIAPIKey,
-    });
+    return createOpenAI(getAIClientOptions(openAIAPIKey, baseUrls.openai));
   }
 };
 
@@ -1236,6 +1232,7 @@ export async function generateEmbeddings({
     googleAPIKey,
     embeddingModel,
     keySource,
+    baseUrls,
   } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
@@ -1251,23 +1248,23 @@ export async function generateEmbeddings({
     if (!openAIAPIKey) {
       throw new Error("OpenAI API key not set");
     }
-    aiProvider = createOpenAI({
-      apiKey: openAIAPIKey,
-    });
+    aiProvider = createOpenAI(
+      getAIClientOptions(openAIAPIKey, baseUrls.openai),
+    );
   } else if (provider === "mistral") {
     if (!mistralAPIKey) {
       throw new Error("Mistral API key not set");
     }
-    aiProvider = createMistral({
-      apiKey: mistralAPIKey,
-    });
+    aiProvider = createMistral(
+      getAIClientOptions(mistralAPIKey, baseUrls.mistral),
+    );
   } else if (provider === "google") {
     if (!googleAPIKey) {
       throw new Error("Google AI API key not set");
     }
-    aiProvider = createGoogleGenerativeAI({
-      apiKey: googleAPIKey,
-    });
+    aiProvider = createGoogleGenerativeAI(
+      getAIClientOptions(googleAPIKey, baseUrls.google),
+    );
   } else {
     throw new Error(`Unsupported embedding provider: ${provider}`);
   }

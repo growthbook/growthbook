@@ -8,6 +8,8 @@ export const aiCredentialSchema = createBaseSchemaWithPrimaryKey({
 }).safeExtend({
   encryptedKey: z.string(),
   last4: z.string(),
+  // Empty or missing means the provider's own API.
+  baseUrl: z.string().optional(),
   updatedByEmail: z.string(),
 });
 
