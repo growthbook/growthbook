@@ -4,7 +4,7 @@ import {
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import { useId, useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
 import MultiSelectField from "@/ui/MultiSelectField";
@@ -19,6 +19,7 @@ import {
   deliveryModeFromConnection,
   sanitizeSavedGroupFormat,
   SDKConnectionAdvancedValue,
+  shouldShowPayloadSecurity,
 } from "@/components/Features/SDKConnections/sdkConnectionRules";
 import SavedGroupFormatField from "@/components/Features/SDKConnections/SavedGroupFormatField";
 import {
@@ -73,7 +74,7 @@ export default function EditSDKSettingsModal({
   connection: SDKConnectionInterface;
   close: () => void;
   mutate: () => Promise<unknown> | void;
-  section: SDKConnectionEditSection;
+  section: SDKConnectionEditSection | "all";
 } & SdkConnectionRevisionProps) {
   const customFields = useCustomFields();
   const { hasCommercialFeature } = useUser();
@@ -95,6 +96,17 @@ export default function EditSDKSettingsModal({
     latestSdkCapabilities.includes("visualEditor");
   const showRedirectSettings = latestSdkCapabilities.includes("redirects");
   const canStream = isCloud() || !!connection.proxy?.enabled;
+  const sections: SDKConnectionEditSection[] = [
+    ...(shouldShowPayloadSecurity(connection.languages)
+      ? (["payloadSecurity"] as const)
+      : []),
+    "experiments",
+    ...(showSavedGroupSettings ? (["savedGroups"] as const) : []),
+    "payloadMetadata",
+    "observability",
+    // Self-hosted configures the proxy via env vars.
+    ...(isCloud() ? (["proxy"] as const) : []),
+  ];
   const { draftSelector, save } = useSdkConnectionRevisionFlow({
     connection,
     mutate,
@@ -110,11 +122,11 @@ export default function EditSDKSettingsModal({
   const onChange = (patch: Partial<FormValue>) =>
     setValue((v) => ({ ...v, ...patch }));
 
-  const submit = async () => {
-    switch (section) {
+  const updatesFor = (s: SDKConnectionEditSection): Record<string, unknown> => {
+    switch (s) {
       case "payloadSecurity": {
         const plain = value.delivery === "plain";
-        await save({
+        return {
           encryptPayload: plain ? false : value.encryptPayload,
           hashSecureAttributes: plain ? false : value.hashSecureAttributes,
           remoteEvalEnabled:
@@ -122,32 +134,29 @@ export default function EditSDKSettingsModal({
             latestSdkCapabilities.includes("remoteEval") &&
             hasRemoteEvaluationFeature,
           includeExperimentNames: value.includeExperimentNames,
-        });
-        return;
+        };
       }
       case "experiments": {
         const visual =
           showVisualEditorSettings && value.includeVisualExperiments;
         const redirect =
           showRedirectSettings && value.includeRedirectExperiments;
-        await save({
+        return {
           includeVisualExperiments: visual,
           includeRedirectExperiments: redirect,
           includeExperimentNames: value.includeExperimentNames,
           includeDraftExperiments:
-            (visual || redirect) && !!connection.includeDraftExperiments,
-        });
-        return;
+            (visual || redirect) && value.includeDraftExperiments,
+        };
       }
       case "savedGroups":
-        await save({
+        return {
           savedGroupFormat: sanitizeSavedGroupFormat(value.savedGroupFormat, {
             currentCapabilities: currentSdkCapabilities,
           }),
-        });
-        return;
+        };
       case "payloadMetadata":
-        await save({
+        return {
           includeProjectIdInMetadata: value.includeProjectIdInMetadata,
           includeCustomFieldsInMetadata: value.includeCustomFieldsInMetadata,
           allowedCustomFieldsInMetadata: value.includeCustomFieldsInMetadata
@@ -156,34 +165,227 @@ export default function EditSDKSettingsModal({
           includeTagsInMetadata: value.includeTagsInMetadata,
           includeExperimentScheduleInMetadata:
             value.includeExperimentScheduleInMetadata,
-        });
-        return;
+        };
       case "observability":
-        await save({
+        return {
           includeRuleIds: value.includeRuleIds,
           includeDraftExperimentRefs: value.includeDraftExperimentRefs,
           includeDraftExperiments:
-            (!!connection.includeVisualExperiments ||
-              !!connection.includeRedirectExperiments) &&
+            (value.includeVisualExperiments ||
+              value.includeRedirectExperiments) &&
             value.includeDraftExperiments,
-        });
-        return;
+        };
       case "proxy":
-        if (!isCloud()) return;
-        await save({
+        if (!isCloud()) return {};
+        return {
           proxyEnabled: value.proxyEnabled,
           proxyHost: value.proxyHost,
-        });
-        return;
+        };
     }
   };
+
+  const submit = async () => {
+    if (section !== "all") {
+      await save(updatesFor(section));
+      return;
+    }
+    await save({
+      ...Object.assign({}, ...sections.map(updatesFor)),
+      // Resolve against the experiment toggles saved alongside it.
+      includeDraftExperiments:
+        updatesFor("experiments").includeDraftExperiments,
+    });
+  };
+
+  const fields = (s: SDKConnectionEditSection) => (
+    <>
+      {s === "payloadSecurity" && (
+        <>
+          <PayloadSecurityField
+            value={value}
+            onChange={onChange}
+            languages={connection.languages}
+            sdkVersion={connection.sdkVersion}
+            hideLabel
+          />
+          {canStream && value.delivery !== "ciphered" && (
+            <Box mt="3">
+              <Text size="sm" color="text-mid">
+                Streaming updates are enabled — feature changes are pushed to
+                subscribed SDKs in real time.
+              </Text>
+            </Box>
+          )}
+        </>
+      )}
+
+      {s === "experiments" && (
+        <Flex direction="column" gap="2">
+          {showVisualEditorSettings && (
+            <Checkbox
+              weight="regular"
+              label={<VisualEditorLabel />}
+              value={value.includeVisualExperiments}
+              setValue={(v) => onChange({ includeVisualExperiments: v })}
+            />
+          )}
+          {showRedirectSettings && (
+            <Checkbox
+              weight="regular"
+              label={<UrlRedirectLabel />}
+              value={value.includeRedirectExperiments}
+              setValue={(v) => onChange({ includeRedirectExperiments: v })}
+            />
+          )}
+          <Checkbox
+            weight="regular"
+            label={<HideNamesLabel />}
+            value={!value.includeExperimentNames}
+            setValue={(v) => onChange({ includeExperimentNames: !v })}
+          />
+        </Flex>
+      )}
+
+      {s === "savedGroups" &&
+        (showSavedGroupSettings ? (
+          <SavedGroupFormatField
+            value={value.savedGroupFormat}
+            onChange={(savedGroupFormat) => onChange({ savedGroupFormat })}
+            languages={connection.languages}
+            sdkVersion={connection.sdkVersion}
+            remoteEvalEnabled={!!connection.remoteEvalEnabled}
+            storedFormat={savedGroupFormatFromConnection(connection)}
+          />
+        ) : (
+          <Text size="sm" color="text-mid">
+            Not supported by this connection&apos;s SDK version.
+          </Text>
+        ))}
+
+      {s === "payloadMetadata" && (
+        <Flex direction="column" gap="2">
+          <Checkbox
+            weight="regular"
+            label={<ProjectIdsLabel />}
+            value={value.includeProjectIdInMetadata}
+            setValue={(v) => onChange({ includeProjectIdInMetadata: v })}
+          />
+          <Box>
+            <Switch
+              label={<CustomFieldsLabel />}
+              value={value.includeCustomFieldsInMetadata}
+              onChange={(v) =>
+                onChange({
+                  includeCustomFieldsInMetadata: v,
+                  ...(v ? {} : { allowedCustomFieldsInMetadata: [] }),
+                })
+              }
+            />
+            {value.includeCustomFieldsInMetadata && (
+              <Box mt="2">
+                <MultiSelectField
+                  placeholder="No fields included"
+                  value={value.allowedCustomFieldsInMetadata}
+                  onChange={(fields) =>
+                    onChange({ allowedCustomFieldsInMetadata: fields })
+                  }
+                  options={(customFields || []).map((cf) => ({
+                    label: cf.name,
+                    value: cf.id,
+                  }))}
+                  sort={false}
+                  closeMenuOnSelect={true}
+                />
+              </Box>
+            )}
+          </Box>
+          <Checkbox
+            weight="regular"
+            label={<TagsLabel />}
+            value={value.includeTagsInMetadata}
+            setValue={(v) => onChange({ includeTagsInMetadata: v })}
+          />
+          <Checkbox
+            weight="regular"
+            label={<ScheduleDatesLabel />}
+            value={value.includeExperimentScheduleInMetadata}
+            setValue={(v) =>
+              onChange({ includeExperimentScheduleInMetadata: v })
+            }
+          />
+        </Flex>
+      )}
+
+      {s === "observability" && (
+        <Flex direction="column" gap="3">
+          <Checkbox
+            weight="regular"
+            label={SETTING_TITLES.ruleIds}
+            value={value.includeRuleIds}
+            setValue={(v) => onChange({ includeRuleIds: v })}
+          />
+          <Box>
+            <Text as="div" size="md" weight="medium" mb="2">
+              Draft mode experiments
+            </Text>
+            <Flex direction="column" gap="2">
+              <Checkbox
+                weight="regular"
+                label={<DraftRulesLabel />}
+                value={value.includeDraftExperimentRefs}
+                setValue={(v) => onChange({ includeDraftExperimentRefs: v })}
+              />
+              {(showVisualEditorSettings || showRedirectSettings) && (
+                <Checkbox
+                  weight="regular"
+                  label={<DraftExperimentsLabel />}
+                  value={value.includeDraftExperiments}
+                  setValue={(v) => onChange({ includeDraftExperiments: v })}
+                />
+              )}
+            </Flex>
+          </Box>
+        </Flex>
+      )}
+
+      {s === "proxy" && isCloud() && (
+        <Flex direction="column" gap="3">
+          <Switch
+            label={SETTING_TITLES.useProxy}
+            value={value.proxyEnabled}
+            onChange={(v) => onChange({ proxyEnabled: v })}
+          />
+          {value.proxyEnabled && (
+            <TextField
+              id={proxyHostId}
+              type="url"
+              placeholder="https://"
+              value={value.proxyHost}
+              onChange={(e) => onChange({ proxyHost: e.target.value })}
+              label={
+                <Text as="label" htmlFor={proxyHostId} weight="semibold">
+                  {SETTING_TITLES.proxyHost}{" "}
+                  <Text size="sm" weight="regular" color="text-mid">
+                    (optional)
+                  </Text>{" "}
+                  <ProxyHostTooltip />
+                </Text>
+              }
+            />
+          )}
+        </Flex>
+      )}
+    </>
+  );
 
   return (
     <ModalStandard
       trackingEventModalType=""
       open={true}
       close={close}
-      header={`Edit ${CATEGORY_TITLES[section]}`}
+      header={
+        section === "all" ? "Edit settings" : `Edit ${CATEGORY_TITLES[section]}`
+      }
       size="lg"
       submit={submit}
       cta="Save"
@@ -191,187 +393,20 @@ export default function EditSDKSettingsModal({
       <Flex direction="column" gap="5" style={{ minWidth: 0, width: "100%" }}>
         {draftSelector}
 
-        <Box>
-          <GroupLabel>{CATEGORY_TITLES[section]}</GroupLabel>
-
-          {section === "payloadSecurity" && (
-            <>
-              <PayloadSecurityField
-                value={value}
-                onChange={onChange}
-                languages={connection.languages}
-                sdkVersion={connection.sdkVersion}
-              />
-              {canStream && value.delivery !== "ciphered" && (
-                <Box mt="3">
-                  <Text size="sm" color="text-mid">
-                    Streaming updates are enabled — feature changes are pushed
-                    to subscribed SDKs in real time.
-                  </Text>
-                </Box>
-              )}
-            </>
-          )}
-
-          {section === "experiments" && (
-            <Flex direction="column" gap="2">
-              {showVisualEditorSettings && (
-                <Checkbox
-                  weight="regular"
-                  label={<VisualEditorLabel />}
-                  value={value.includeVisualExperiments}
-                  setValue={(v) => onChange({ includeVisualExperiments: v })}
-                />
-              )}
-              {showRedirectSettings && (
-                <Checkbox
-                  weight="regular"
-                  label={<UrlRedirectLabel />}
-                  value={value.includeRedirectExperiments}
-                  setValue={(v) => onChange({ includeRedirectExperiments: v })}
-                />
-              )}
-              <Checkbox
-                weight="regular"
-                label={<HideNamesLabel />}
-                value={!value.includeExperimentNames}
-                setValue={(v) => onChange({ includeExperimentNames: !v })}
-              />
-            </Flex>
-          )}
-
-          {section === "savedGroups" &&
-            (showSavedGroupSettings ? (
-              <SavedGroupFormatField
-                value={value.savedGroupFormat}
-                onChange={(savedGroupFormat) => onChange({ savedGroupFormat })}
-                languages={connection.languages}
-                sdkVersion={connection.sdkVersion}
-                remoteEvalEnabled={!!connection.remoteEvalEnabled}
-                storedFormat={savedGroupFormatFromConnection(connection)}
-              />
-            ) : (
-              <Text size="sm" color="text-mid">
-                Not supported by this connection&apos;s SDK version.
-              </Text>
-            ))}
-
-          {section === "payloadMetadata" && (
-            <Flex direction="column" gap="2">
-              <Checkbox
-                weight="regular"
-                label={<ProjectIdsLabel />}
-                value={value.includeProjectIdInMetadata}
-                setValue={(v) => onChange({ includeProjectIdInMetadata: v })}
-              />
-              <Box>
-                <Switch
-                  label={<CustomFieldsLabel />}
-                  value={value.includeCustomFieldsInMetadata}
-                  onChange={(v) =>
-                    onChange({
-                      includeCustomFieldsInMetadata: v,
-                      ...(v ? {} : { allowedCustomFieldsInMetadata: [] }),
-                    })
-                  }
-                />
-                {value.includeCustomFieldsInMetadata && (
-                  <Box mt="2">
-                    <MultiSelectField
-                      placeholder="No fields included"
-                      value={value.allowedCustomFieldsInMetadata}
-                      onChange={(fields) =>
-                        onChange({ allowedCustomFieldsInMetadata: fields })
-                      }
-                      options={(customFields || []).map((cf) => ({
-                        label: cf.name,
-                        value: cf.id,
-                      }))}
-                      sort={false}
-                      closeMenuOnSelect={true}
-                    />
-                  </Box>
-                )}
-              </Box>
-              <Checkbox
-                weight="regular"
-                label={<TagsLabel />}
-                value={value.includeTagsInMetadata}
-                setValue={(v) => onChange({ includeTagsInMetadata: v })}
-              />
-              <Checkbox
-                weight="regular"
-                label={<ScheduleDatesLabel />}
-                value={value.includeExperimentScheduleInMetadata}
-                setValue={(v) =>
-                  onChange({ includeExperimentScheduleInMetadata: v })
-                }
-              />
-            </Flex>
-          )}
-
-          {section === "observability" && (
-            <Flex direction="column" gap="3">
-              <Checkbox
-                weight="regular"
-                label={SETTING_TITLES.ruleIds}
-                value={value.includeRuleIds}
-                setValue={(v) => onChange({ includeRuleIds: v })}
-              />
-              <Box>
-                <Text as="div" size="md" weight="medium" mb="2">
-                  Draft mode experiments
-                </Text>
-                <Flex direction="column" gap="2">
-                  <Checkbox
-                    weight="regular"
-                    label={<DraftRulesLabel />}
-                    value={value.includeDraftExperimentRefs}
-                    setValue={(v) =>
-                      onChange({ includeDraftExperimentRefs: v })
-                    }
-                  />
-                  {(showVisualEditorSettings || showRedirectSettings) && (
-                    <Checkbox
-                      weight="regular"
-                      label={<DraftExperimentsLabel />}
-                      value={value.includeDraftExperiments}
-                      setValue={(v) => onChange({ includeDraftExperiments: v })}
-                    />
-                  )}
-                </Flex>
-              </Box>
-            </Flex>
-          )}
-
-          {section === "proxy" && isCloud() && (
-            <Flex direction="column" gap="3">
-              <Switch
-                label={SETTING_TITLES.useProxy}
-                value={value.proxyEnabled}
-                onChange={(v) => onChange({ proxyEnabled: v })}
-              />
-              {value.proxyEnabled && (
-                <TextField
-                  id={proxyHostId}
-                  type="url"
-                  placeholder="https://"
-                  value={value.proxyHost}
-                  onChange={(e) => onChange({ proxyHost: e.target.value })}
-                  label={
-                    <Text as="label" htmlFor={proxyHostId} weight="semibold">
-                      {SETTING_TITLES.proxyHost}{" "}
-                      <Text size="sm" weight="regular" color="text-mid">
-                        (optional)
-                      </Text>{" "}
-                      <ProxyHostTooltip />
-                    </Text>
-                  }
-                />
-              )}
-            </Flex>
-          )}
-        </Box>
+        {section === "all" ? (
+          sections.map((s, i) => (
+            <Box key={s}>
+              {i > 0 && <Separator size="4" mb="5" />}
+              <GroupLabel>{CATEGORY_TITLES[s]}</GroupLabel>
+              {fields(s)}
+            </Box>
+          ))
+        ) : (
+          <Box>
+            <GroupLabel>{CATEGORY_TITLES[section]}</GroupLabel>
+            {fields(section)}
+          </Box>
+        )}
       </Flex>
     </ModalStandard>
   );

@@ -35,11 +35,13 @@ export default function PayloadSecurityField({
   onChange,
   languages,
   sdkVersion,
+  hideLabel = false,
 }: {
   value: PayloadSecurityValue;
   onChange: (patch: Partial<PayloadSecurityValue>) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
+  hideLabel?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasEncryptionFeature = hasCommercialFeature(
@@ -311,10 +313,12 @@ export default function PayloadSecurityField({
 
   return (
     <Box>
-      <Flex align="center" gap="1" mb="2">
-        <Text weight="semibold">Payload Security</Text>
-        <Tooltip body="How much of the feature definition the SDK receives, and whether it can be cached." />
-      </Flex>
+      {!hideLabel && (
+        <Flex align="center" gap="1" mb="2">
+          <Text weight="semibold">Payload Security</Text>
+          <Tooltip body="How much of the feature definition the SDK receives, and whether it can be cached." />
+        </Flex>
+      )}
       <RadioGroup
         value={value.delivery}
         setValue={(v) => {

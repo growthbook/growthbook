@@ -212,7 +212,7 @@ export default function SDKConnectionPage() {
   const [showCompareModal, setShowCompareModal] = useState(false);
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [editSection, setEditSection] = useState<
-    SDKConnectionEditSection | "overview" | null
+    SDKConnectionEditSection | "all" | "overview" | null
   >(null);
 
   const connection: SDKConnectionInterface | undefined =
@@ -657,13 +657,10 @@ export default function SDKConnectionPage() {
             />
           </Box>
           <Box mt="5">
-            <Heading size="lg" as="h2" mb="3">
-              Settings
-            </Heading>
             <SDKConnectionSettingsCards
               connection={displayedConn}
               canUpdate={canUpdate}
-              onEditSection={setEditSection}
+              onEdit={() => setEditSection("all")}
             />
           </Box>
         </TabsContent>

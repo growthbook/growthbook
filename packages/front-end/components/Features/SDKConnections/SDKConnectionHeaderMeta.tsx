@@ -4,7 +4,6 @@ import {
   getDisallowedProjects,
 } from "shared/util";
 import { Flex } from "@radix-ui/themes";
-import { getApiBaseUrl } from "@/components/Features/CodeSnippetModal";
 import SDKLanguageLogo from "@/components/Features/SDKConnections/SDKLanguageLogo";
 import EnvironmentProjectsBadge from "@/components/Features/SDKConnections/EnvironmentProjectsBadge";
 import ProjectBadges from "@/components/ProjectBadges";
@@ -70,7 +69,6 @@ export default function SDKConnectionHeaderMeta({
           label="Proxy"
           value={connection.proxy?.enabled ? "Enabled" : "Disabled"}
         />
-        <Metadata label="API Host" value={getApiBaseUrl(connection)} />
       </Flex>
       <Flex align="center" gap="5" wrap="wrap">
         <Metadata label="Environment" value={connection.environment} />
