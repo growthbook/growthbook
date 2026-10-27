@@ -27,4 +27,6 @@ export interface VisualChangesetInterface {
   experiment?: string;
   contextualBandit?: string;
   visualChanges: VisualChange[];
+  // Stamped by every update, so a guarded one can tell it was written since.
+  dateUpdated?: Date;
 }

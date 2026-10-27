@@ -429,12 +429,14 @@ async function compensate(
         );
         if (!restored) failed.push(`${c.featureId} (draft v${c.version})`);
       } else {
-        await deleteRevisionForFailedLanding(
+        const deleted = await deleteRevisionForFailedLanding(
           context,
           context.org.id,
           c.featureId,
           c.version,
+          c.writtenDateUpdated,
         );
+        if (!deleted) failed.push(`${c.featureId} (draft v${c.version})`);
       }
     } catch (e) {
       logger.error(e, `Could not roll back ${c.featureId} v${c.version}`);
@@ -547,6 +549,24 @@ export async function applyExperimentChanges({
       );
     }
 
+    // Every save, linked changes alone too, lands only on the experiment it
+    // was planned against: started or scheduled since, it stops here.
+    const fresh = await getExperimentById(context, experiment.id);
+    const readSet = new Set([
+      ...PLAN_INPUT_FIELDS,
+      ...(Object.keys(
+        experimentPlan?.changes ?? {},
+      ) as (keyof ExperimentInterface)[]),
+    ]);
+    if (
+      !fresh ||
+      [...readSet].some(
+        (key) => !isEqual(asJson(fresh[key]), asJson(experiment[key])),
+      )
+    ) {
+      throw changedSinceLoaded("The experiment");
+    }
+
     if (!experimentPlan || !Object.keys(experimentPlan.changes).length) {
       return {
         dryRun: false,
@@ -560,20 +580,6 @@ export async function applyExperimentChanges({
         }),
         flags,
       };
-    }
-
-    const fresh = await getExperimentById(context, experiment.id);
-    const readSet = new Set([
-      ...PLAN_INPUT_FIELDS,
-      ...(Object.keys(experimentPlan.changes) as (keyof ExperimentInterface)[]),
-    ]);
-    if (
-      !fresh ||
-      [...readSet].some(
-        (key) => !isEqual(asJson(fresh[key]), asJson(experiment[key])),
-      )
-    ) {
-      throw changedSinceLoaded("The experiment");
     }
     // Nothing rolls back once the experiment lands, so the linked changes'
     // bases are checked again first.

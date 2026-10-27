@@ -3491,21 +3491,30 @@ export async function getActiveDraftStates(
  * created the revision. Its log rows go with it — a later revision REUSES the
  * freed version number and would otherwise adopt this landing's history.
  */
+// With `writtenDateUpdated`, deletes only an unpublished revision nothing but
+// the caller has written since. False = someone else's write landed, so it
+// stays.
 export async function deleteRevisionForFailedLanding(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
   version: number,
-) {
-  await FeatureRevisionModel.deleteOne({
+  writtenDateUpdated?: Date,
+): Promise<boolean> {
+  const { deletedCount } = await FeatureRevisionModel.deleteOne({
     organization,
     featureId,
     version,
+    ...(writtenDateUpdated
+      ? { dateUpdated: writtenDateUpdated, status: { $ne: "published" } }
+      : {}),
   });
+  if (!deletedCount) return false;
   await context.models.featureRevisionLogs.deleteAllByFeatureIdAndVersion(
     featureId,
     version,
   );
+  return true;
 }
 
 // Stored shape, read past mongoose: the interface is env-filtered and

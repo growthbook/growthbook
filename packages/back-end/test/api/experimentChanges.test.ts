@@ -439,15 +439,8 @@ describe("applyExperimentChanges", () => {
     expect((await storedRevision(2))?.dateUpdated).toEqual(new Date(LOADED));
   });
 
-  it("deletes a draft it created, and reports a draft someone else edited meanwhile", async () => {
+  it("deletes a draft it created, and leaves and reports a draft someone else edited meanwhile", async () => {
     await seed({ withDraft: false });
-    mockWriteExperiment = async () => {
-      await collection("featurerevisions").updateOne(
-        { featureId: FLAG, version: 2 },
-        { $set: { dateUpdated: new Date() } },
-      );
-      throw new Error("lost race");
-    };
     const body = {
       experiment: hypothesisChange("old"),
       flagValues: [
@@ -456,10 +449,29 @@ describe("applyExperimentChanges", () => {
         }),
       ],
     };
-    // A created draft is deleted by identity, so an edit to it does not block the undo.
+    mockWriteExperiment = async () => {
+      throw new Error("lost race");
+    };
     await expect(run(body)).rejects.toThrow("lost race");
     expect(await revisionRules(2)).toBeNull();
 
+    mockWriteExperiment = async () => {
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 2 },
+        { $set: { dateUpdated: new Date() } },
+      );
+      throw new Error("lost race");
+    };
+    await expect(run(body)).rejects.toMatchObject({
+      status: 500,
+      message: expect.stringContaining(`${FLAG} (draft v2)`),
+    });
+    expect(await revisionRules(2)).toEqual(arms("a", "new"));
+
+    await collection("featurerevisions").deleteOne({
+      featureId: FLAG,
+      version: 2,
+    });
     await collection("featurerevisions").insertOne(
       revisionDoc(2, new Date(LOADED)),
     );
@@ -1036,6 +1048,23 @@ describe("applyExperimentChanges", () => {
         }),
       ]);
       expect(result.experiment).toMatchObject({ hasURLRedirects: true });
+    });
+
+    it("adds no URL Redirect once the experiment started after it was loaded", async () => {
+      await seedLinked();
+      const loaded = await storedExperiment();
+      await setExperiment({ status: "running" });
+
+      await expect(
+        applyExperimentChanges({
+          context,
+          experiment: loaded,
+          body: { addUrlRedirects: [staged(A)] },
+          audit: async () => undefined,
+          eventAudit: { type: "api_key", apiKey: "key" },
+        }),
+      ).rejects.toThrow("The experiment changed since you loaded it");
+      expect(await storedRedirects()).toEqual([]);
     });
 
     it("edits a URL Redirect and a Visual Editor change in a save that swaps a variation", async () => {

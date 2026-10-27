@@ -336,10 +336,11 @@ async function writeEach({
       (edit.changes.visualChanges ?? []).map((c) => [c.id, c]),
     );
     const experiment = await read();
-    await updateVisualChangeset({
+    const { matched } = await updateVisualChangeset({
       visualChangeset: current,
       owner: new ExperimentChangesetOwner(context, experiment),
       context,
+      guarded: true,
       updates: {
         ...pick(edit.changes, ["editorUrl", "urlPatterns"]),
         ...(edit.changes.visualChanges && {
@@ -350,6 +351,8 @@ async function writeEach({
         }),
       },
     });
+    // The Visual Editor wrote between the check above and this write.
+    if (!matched) throw changedSinceLoaded(visualName(current));
     if (experiment.status !== "draft") {
       await auditVisualChangeEditAfterStart(audit, experiment, current.id);
     }
