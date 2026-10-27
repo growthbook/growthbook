@@ -83,9 +83,9 @@ patchedDependencies:
   presto-client@1.1.0:
     hash: 9fd1f0ac9c8a83e477d0fbea5a3b9c67665121c24b78fa4d5af0cf112c3d1efb
     path: patches/presto-client@1.1.0.patch
-  snowflake-sdk@2.4.3:
-    hash: 8c7e578e3178d99f0511648c6eff487fb79b7f508a07fdac0ef90b83476ef9a0
-    path: patches/snowflake-sdk@2.4.3.patch
+  snowflake-sdk@3.4.1:
+    hash: 3f0df3f98e89e50ba3562910a829dc13e557f2fb60190da17220aebcb4057906
+    path: patches/snowflake-sdk@3.4.1.patch
 
 importers:
 
@@ -459,8 +459,8 @@ importers:
         specifier: workspace:*
         version: link:../shared
       snowflake-sdk:
-        specifier: ^2.4.3
-        version: 2.4.3(patch_hash=8c7e578e3178d99f0511648c6eff487fb79b7f508a07fdac0ef90b83476ef9a0)(asn1.js@5.4.1)
+        specifier: ^3.4.1
+        version: 3.4.1(patch_hash=3f0df3f98e89e50ba3562910a829dc13e557f2fb60190da17220aebcb4057906)(asn1.js@5.4.1)
       stats-ts:
         specifier: workspace:*
         version: link:../stats-ts
@@ -12796,9 +12796,9 @@ packages:
   snake-case@3.0.4:
     resolution: {integrity: sha512-LAOh4z89bGQvl9pFfNF8V146i7o7/CqFPbqzYgP+yYzDIDeS9HaNFtXABamRW+AQzEVODcvE79ljJ+8a9YSdMg==}
 
-  snowflake-sdk@2.4.3:
-    resolution: {integrity: sha512-R9f4CL34RcgAL/8o1iOfbfUk1Dc58eHTKFt9IqVUqnnBdiyu583m81nh7c4tTiB3/TeJGIi1BTRJONV+K5tfxQ==}
-    engines: {node: '>=18'}
+  snowflake-sdk@3.4.1:
+    resolution: {integrity: sha512-L4fvZJQdLO7Et7ul1fncfSQRrfs/32pl+sJiintBhk8xYiBpyUfgklAsKi9KCF8eUW3aItcyn1YP9dx8cMyJ9w==}
+    engines: {node: '>=20'}
     peerDependencies:
       asn1.js: ^5.4.1
 
@@ -13251,8 +13251,8 @@ packages:
     resolution: {integrity: sha512-o5sSPKEkg/DIQNmH43V0/uerLrpzVedkUh8tGNvaeXpfpuwjKenlSox/2O/BTlZUtEe+JG7s5YhEz608PlAHRA==}
     engines: {node: '>=0.6'}
 
-  toml@4.3.0:
-    resolution: {integrity: sha512-lVb8X9BsPVuH0M4BKeS91tXAmJvCjQ5UIyAbQFaxkKGyUFK2RPkhwaFSQH8vbpl1d23eu/IBH+dwVMHWaq9A5A==}
+  toml@5.0.1:
+    resolution: {integrity: sha512-EqYNA/YvUNndrA2B3O2ojzLQoTQrBxeZ9UIjQwk8t10oe6n7dwclBwd9IdZQTOKwe6vWX+AXtl6IntXRbepdxQ==}
     engines: {node: '>=20'}
 
   totalist@3.0.1:
@@ -14428,11 +14428,11 @@ snapshots:
       '@aws-sdk/middleware-sdk-s3': 3.972.51
       '@aws-sdk/middleware-ssec': 3.972.10
       '@aws-sdk/signature-v4-multi-region': 3.996.34
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.12
       '@smithy/core': 3.24.6
       '@smithy/fetch-http-handler': 5.4.6
       '@smithy/node-http-handler': 4.7.7
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.3
       tslib: 2.8.1
 
   '@aws-sdk/client-sts@3.1031.0':
@@ -14486,11 +14486,11 @@ snapshots:
       '@aws-sdk/core': 3.974.20
       '@aws-sdk/credential-provider-node': 3.972.55
       '@aws-sdk/signature-v4-multi-region': 3.996.34
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.12
       '@smithy/core': 3.24.6
       '@smithy/fetch-http-handler': 5.4.6
       '@smithy/node-http-handler': 4.7.7
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.3
       tslib: 2.8.1
 
   '@aws-sdk/core@3.974.0':
@@ -14750,10 +14750,10 @@ snapshots:
 
   '@aws-sdk/ec2-metadata-service@3.1051.0':
     dependencies:
-      '@aws-sdk/types': 3.973.8
+      '@aws-sdk/types': 3.973.12
       '@smithy/core': 3.24.6
       '@smithy/node-http-handler': 4.7.7
-      '@smithy/types': 4.14.1
+      '@smithy/types': 4.14.3
       tslib: 2.8.1
 
   '@aws-sdk/middleware-bucket-endpoint@3.972.10':
@@ -28612,7 +28612,7 @@ snapshots:
       dot-case: 3.0.4
       tslib: 2.8.1
 
-  snowflake-sdk@2.4.3(patch_hash=8c7e578e3178d99f0511648c6eff487fb79b7f508a07fdac0ef90b83476ef9a0)(asn1.js@5.4.1):
+  snowflake-sdk@3.4.1(patch_hash=3f0df3f98e89e50ba3562910a829dc13e557f2fb60190da17220aebcb4057906)(asn1.js@5.4.1):
     dependencies:
       '@aws-crypto/sha256-js': 5.2.0
       '@aws-sdk/client-s3': 3.1051.0
@@ -28621,9 +28621,9 @@ snapshots:
       '@aws-sdk/ec2-metadata-service': 3.1051.0
       '@azure/identity': 4.13.0
       '@azure/storage-blob': 12.26.0
-      '@smithy/node-http-handler': 4.5.3
+      '@smithy/node-http-handler': 4.7.7
       '@smithy/protocol-http': 5.3.14
-      '@smithy/signature-v4': 5.3.14
+      '@smithy/signature-v4': 5.4.6
       '@techteamer/ocsp': 1.0.1
       asn1.js: 5.4.1
       asn1.js-rfc2560: 5.0.1(asn1.js@5.4.1)
@@ -28644,7 +28644,7 @@ snapshots:
       oauth4webapi: 3.8.2
       open: 7.4.2
       simple-lru-cache: 0.0.2
-      toml: 4.3.0
+      toml: 5.0.1
       winston: 3.11.0
     transitivePeerDependencies:
       - debug
@@ -29158,7 +29158,7 @@ snapshots:
 
   toidentifier@1.0.1: {}
 
-  toml@4.3.0: {}
+  toml@5.0.1: {}
 
   totalist@3.0.1: {}
 

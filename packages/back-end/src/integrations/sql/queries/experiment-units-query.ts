@@ -2,6 +2,7 @@ import { getDelayWindowHours, getUserIdTypes } from "shared/experiments";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
+import { getSnapshotCutoffDate } from "shared/util";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 
 import { getConversionWindowClause } from "back-end/src/integrations/sql/clauses/conversion-window-clause";
@@ -203,6 +204,7 @@ export function getExperimentUnitsQuery(
               [activationMetric],
               unitsSettings.endDate,
               overrideConversionWindows,
+              getSnapshotCutoffDate(unitsSettings),
             ),
             experimentId: unitsSettings.experimentId,
             phase: unitsSettings.phase,
