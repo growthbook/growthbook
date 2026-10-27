@@ -381,11 +381,10 @@ const ImportExperimentList: FC<{
     </>
   );
 
-  const layout = (headerAction: ReactNode, body: ReactNode) => (
+  const layout = (body: ReactNode) => (
     <>
       <Modal.Header>
         <Modal.Title>Import Experiment</Modal.Title>
-        {headerAction}
       </Modal.Header>
       <Modal.Description>{description}</Modal.Description>
       <Modal.Body>{body}</Modal.Body>
@@ -394,10 +393,10 @@ const ImportExperimentList: FC<{
   );
 
   if (error) {
-    return layout(null, <Callout status="error">{error.message}</Callout>);
+    return layout(<Callout status="error">{error.message}</Callout>);
   }
   if (!data || !ready) {
-    return layout(null, <LoadingOverlay />);
+    return layout(<LoadingOverlay />);
   }
 
   const supportedDatasources = datasources
@@ -526,8 +525,8 @@ const ImportExperimentList: FC<{
     await mutate();
   };
 
-  const headerAction = (
-    <Flex align="center" gap="3">
+  const queryControls = (
+    <Flex align="center" gap="3" ml="auto">
       {hasStarted && (
         <Text
           size="sm"
@@ -604,25 +603,28 @@ const ImportExperimentList: FC<{
           close={() => setShowQueries(false)}
         />
       )}
-      {supportedDatasources.length > 1 && (
-        <Box mb="4">
-          <Select
-            label="Data Source"
-            labelSize="sm"
-            size="sm"
-            value={data.experiments.datasource}
-            setValue={changeDatasource}
-            style={{ width: 320, maxWidth: "100%" }}
-          >
-            {supportedDatasources.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name}
-                {d.description ? ` — ${d.description}` : ""}
-                {d.id === defaultDataSource ? " (default)" : ""}
-              </SelectItem>
-            ))}
-          </Select>
-        </Box>
+      {(supportedDatasources.length > 1 || hasStarted || canRunQueries) && (
+        <Flex align="end" gap="3" wrap="wrap" mb="4">
+          {supportedDatasources.length > 1 && (
+            <Select
+              label="Data Source"
+              labelSize="sm"
+              size="sm"
+              value={data.experiments.datasource}
+              setValue={changeDatasource}
+              style={{ width: 320, maxWidth: "100%" }}
+            >
+              {supportedDatasources.map((d) => (
+                <SelectItem key={d.id} value={d.id}>
+                  {d.name}
+                  {d.description ? ` — ${d.description}` : ""}
+                  {d.id === defaultDataSource ? " (default)" : ""}
+                </SelectItem>
+              ))}
+            </Select>
+          )}
+          {queryControls}
+        </Flex>
       )}
       {(runError || importFailed) && (
         <Callout status="error" mb="4">
@@ -1086,7 +1088,7 @@ const ImportExperimentList: FC<{
     </>
   );
 
-  return layout(headerAction, body);
+  return layout(body);
 };
 
 export default ImportExperimentList;
