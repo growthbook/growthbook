@@ -64,7 +64,7 @@ export function newRedirectKey(draft: LinkedChangesDraft): string {
   return `new-redirect-${n}`;
 }
 
-type StagedMark = "added" | "edited" | "removed" | null;
+type StagedMark = "added" | "edited" | null;
 
 export type ShownRedirect = RedirectFields & {
   key: string;
@@ -335,27 +335,28 @@ export function hasSetAsideVisualChanges(
   });
 }
 
-/** The stored redirects with what's staged over them, then the staged adds. */
+/**
+ * The stored redirects with what's staged over them, then the staged adds. One
+ * staged for removal is already gone.
+ */
 export function shownUrlRedirects(
   draft: LinkedChangesDraft,
   stored: URLRedirectInterface[],
 ): ShownRedirect[] {
   return [
-    ...stored.map((r): ShownRedirect => {
-      const edit = draft.editedRedirects[r.id];
-      return {
-        ...(edit
-          ? fieldsOf(edit)
-          : fieldsOf({ ...r, checkCircularDependencies: true })),
-        key: r.id,
-        stored: r,
-        staged: draft.removedRedirects.includes(r.id)
-          ? "removed"
-          : edit
-            ? "edited"
-            : null,
-      };
-    }),
+    ...stored
+      .filter((r) => !draft.removedRedirects.includes(r.id))
+      .map((r): ShownRedirect => {
+        const edit = draft.editedRedirects[r.id];
+        return {
+          ...(edit
+            ? fieldsOf(edit)
+            : fieldsOf({ ...r, checkCircularDependencies: true })),
+          key: r.id,
+          stored: r,
+          staged: edit ? "edited" : null,
+        };
+      }),
     ...draft.addedRedirects.map(
       (a): ShownRedirect => ({
         ...fieldsOf(a),
@@ -371,27 +372,25 @@ export function shownVisualChangesets(
   draft: LinkedChangesDraft,
   stored: VisualChangesetInterface[],
 ): ShownVisualChangeset[] {
-  return stored.map((vc) => {
-    const edit = draft.editedVisual[vc.id];
-    return {
-      changeset: edit
-        ? {
-            ...vc,
-            ...edit.targeting?.value,
-            visualChanges: vc.visualChanges.map((c) => ({
-              ...c,
-              ...edit.changes[c.id]?.value,
-            })),
-          }
-        : vc,
-      stored: vc,
-      staged: draft.removedVisual.includes(vc.id)
-        ? "removed"
-        : edit
-          ? "edited"
-          : null,
-    };
-  });
+  return stored
+    .filter((vc) => !draft.removedVisual.includes(vc.id))
+    .map((vc) => {
+      const edit = draft.editedVisual[vc.id];
+      return {
+        changeset: edit
+          ? {
+              ...vc,
+              ...edit.targeting?.value,
+              visualChanges: vc.visualChanges.map((c) => ({
+                ...c,
+                ...edit.changes[c.id]?.value,
+              })),
+            }
+          : vc,
+        stored: vc,
+        staged: edit ? "edited" : null,
+      };
+    });
 }
 
 // Each redirect gets one destination per variation the save leaves, as the

@@ -35,7 +35,6 @@ function RedirectDestination({ from, to }: { from: string; to: string }) {
 const STAGED_NOTES = {
   added: "Added when you save.",
   edited: "Changed when you save.",
-  removed: "Removed from this experiment when you save.",
 };
 
 export default function UrlRedirectColumn({
@@ -61,8 +60,7 @@ export default function UrlRedirectColumn({
 }) {
   const { variations } = layout;
   const origin = redirect.urlPattern;
-  const editable = canEdit && redirect.staged !== "removed";
-  const menu = editable
+  const menu = canEdit
     ? [
         <DropdownMenuItem
           key="edit"

@@ -488,9 +488,7 @@ export default function VisualChangesetColumn({
   const { variations } = layout;
   const edits = useExperimentEdits();
   const vc = shown.changeset;
-  const removed = shown.staged === "removed";
-  const editable = canEdit && !removed;
-  const canChange = editable && !lockedReason;
+  const canChange = canEdit && !lockedReason;
   const [viewing, setViewing] = useState<string | null>(null);
   const [editingTargeting, setEditingTargeting] = useState(false);
   const [editingVisualChange, setEditingVisualChange] =
@@ -522,21 +520,20 @@ export default function VisualChangesetColumn({
     experiment.status === "stopped" &&
     !!experiment.releasedVariationId &&
     !experiment.excludeFromPayload;
-  const stagedNote = removed
-    ? "Removed from this experiment when you save."
-    : experiment.status === "running"
+  const stagedNote =
+    experiment.status === "running"
       ? "Serves to this experiment's traffic as soon as you save."
       : releasing
         ? "Changes to the released variation serve to all traffic as soon as you save."
         : "Changed when you save.";
-  const launchable = editable && canLaunch;
+  const launchable = canEdit && canLaunch;
   const firstInclude = vc.urlPatterns?.find((p) => p.include);
   const target = firstInclude
     ? firstInclude.type === "regex"
       ? firstInclude.pattern
       : withoutProtocol(firstInclude.pattern)
     : withoutProtocol(vc.editorUrl);
-  const menu = editable
+  const menu = canEdit
     ? [
         <DropdownMenuItem
           key="targeting"
@@ -636,7 +633,7 @@ export default function VisualChangesetColumn({
             "AI Visual Editor"
           )
         }
-        problem={hasChanges || removed ? null : "No changes yet"}
+        problem={hasChanges ? null : "No changes yet"}
         menu={menu}
         menuLabel="AI Visual Editor changes actions"
       />

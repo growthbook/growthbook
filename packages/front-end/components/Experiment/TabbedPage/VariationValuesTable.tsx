@@ -178,19 +178,34 @@ export default function VariationValuesTable({
   const [linkActions, setLinkActions] = useStagedState<
     Record<string, LinkAction>
   >("link-actions", {});
-  const flagColumns = linkedFeatures.flatMap((info): FlagColumnSource[] =>
-    info.valueGroups?.length
-      ? info.valueGroups.map((group, index) => ({
-          key: `${info.feature.id}:${group.ruleIds.join(",")}`,
-          info: { ...group, feature: info.feature },
-          group: {
-            ruleIds: group.ruleIds,
-            environments: group.environments,
-            first: index === 0,
-          },
-        }))
-      : [{ key: info.feature.id, info, group: null }],
-  );
+  const setLinkAction = (featureId: string, action: LinkAction | null) =>
+    setLinkActions((prev) => {
+      const next = { ...prev };
+      if (action) next[featureId] = action;
+      else delete next[featureId];
+      return next;
+    });
+  // A flag staged for removal leaves the table; discarding brings it back.
+  const removedFlags = linkedFeatures
+    .map((info) => info.feature.id)
+    .filter(
+      (id) => experiment.status === "draft" && linkActions[id] === "remove",
+    );
+  const flagColumns = linkedFeatures
+    .filter((info) => !removedFlags.includes(info.feature.id))
+    .flatMap((info): FlagColumnSource[] =>
+      info.valueGroups?.length
+        ? info.valueGroups.map((group, index) => ({
+            key: `${info.feature.id}:${group.ruleIds.join(",")}`,
+            info: { ...group, feature: info.feature },
+            group: {
+              ruleIds: group.ruleIds,
+              environments: group.environments,
+              first: index === 0,
+            },
+          }))
+        : [{ key: info.feature.id, info, group: null }],
+    );
   const columnCount = flagColumns.length + implementationColumns.length;
   const flagTrack = `clamp(${FLAG_WIDTH}px, (100cqw - ${
     BORDERS + VARIATION_WIDTH + SPLIT_WIDTH
@@ -352,12 +367,7 @@ export default function VariationValuesTable({
                   draftPicks={draftPicks}
                   linkAction={linkActions[info.feature.id] ?? null}
                   setLinkAction={(action) =>
-                    setLinkActions((prev) => {
-                      const next = { ...prev };
-                      if (action) next[info.feature.id] = action;
-                      else delete next[info.feature.id];
-                      return next;
-                    })
+                    setLinkAction(info.feature.id, action)
                   }
                 />
               </div>
@@ -366,6 +376,13 @@ export default function VariationValuesTable({
               <div key={c.key} className={styles.implementationColumn}>
                 {c.render(layoutFor(flagColumns.length + i))}
               </div>
+            ))}
+            {removedFlags.map((id) => (
+              <StagedUnlink
+                key={id}
+                featureId={id}
+                discard={() => setLinkAction(id, null)}
+              />
             ))}
           </div>
         </Box>
@@ -461,6 +478,22 @@ type FlagColumnSource = {
   group: ValueGroup | null;
 };
 
+// Saves a removed flag's unlink once its column has left the table.
+function StagedUnlink({
+  featureId,
+  discard,
+}: {
+  featureId: string;
+  discard: () => void;
+}) {
+  useRegisterExperimentEdit(`link:${featureId}`, true, {
+    label: `Remove ${featureId}`,
+    changes: () => ({ unlinkFeatures: [featureId] }),
+    discard,
+  });
+  return null;
+}
+
 function FlagColumn({
   layout,
   experiment,
@@ -513,7 +546,6 @@ function FlagColumn({
   const workingOn = fromDraft ? pendingDraft.version : "new";
   const orphaned = info.state === "discarded";
   const relinking = linkAction === "relink";
-  const removing = linkAction === "remove";
   const pendingRemoval = info.pendingRemoval;
   const liveValues = info.liveValues ?? info.values;
   const liveSparse = info.liveSparse ?? info.sparse ?? false;
@@ -590,8 +622,7 @@ function FlagColumn({
   const canEditFlagLinks =
     canEdit && permissionsUtil.canEditFeatureDrafts(feature);
   const canEditFlag = canEditFlagLinks && !pendingRemoval;
-  const editable =
-    canEditFlag && !lockedBySchedule && (onFlag || relinking) && !removing;
+  const editable = canEditFlag && !lockedBySchedule && (onFlag || relinking);
 
   const stage = (patch: Partial<Staged>) => {
     if (typeof workingOn === "number" && pick?.target !== workingOn) {
@@ -703,31 +734,26 @@ function FlagColumn({
     `link:${feature.id}`,
     !!linkAction && !showingLive && (!group || group.first),
     {
-      label: removing
-        ? `Remove ${feature.id}`
-        : linkAction === "keep"
-          ? `Keep ${feature.id}`
-          : `Link ${feature.id}`,
+      label:
+        linkAction === "keep" ? `Keep ${feature.id}` : `Link ${feature.id}`,
       changes: (options) =>
-        removing
-          ? { unlinkFeatures: [feature.id] }
-          : linkAction === "keep"
-            ? { keepFeatures: [feature.id] }
-            : {
-                linkFeatures: [
-                  {
-                    featureId: feature.id,
-                    variations: checkedValues(options),
-                    ...(sparse && { sparse }),
-                    ...(info.relinkFrom && {
-                      environments: {
-                        allEnvironments: info.relinkFrom.allEnvironments,
-                        environments: info.relinkFrom.environments,
-                      },
-                    }),
-                  },
-                ],
-              },
+        linkAction === "keep"
+          ? { keepFeatures: [feature.id] }
+          : {
+              linkFeatures: [
+                {
+                  featureId: feature.id,
+                  variations: checkedValues(options),
+                  ...(sparse && { sparse }),
+                  ...(info.relinkFrom && {
+                    environments: {
+                      allEnvironments: info.relinkFrom.allEnvironments,
+                      environments: info.relinkFrom.environments,
+                    },
+                  }),
+                },
+              ],
+            },
       discard: clearLinkAction,
     },
   );
@@ -917,16 +943,12 @@ function FlagColumn({
   const linkActionNote =
     linkAction === "keep"
       ? `Saving puts the rule back into Revision ${pendingRemoval?.version}.`
-      : relinking
-        ? "Saving adds the rule to a new draft, published when the experiment starts."
-        : info.liveHasMatchingRule
-          ? "Saving starts a draft that removes the rule. Publish it to unlink the Feature Flag."
-          : "Saving unlinks the Feature Flag.";
+      : "Saving adds the rule to a new draft, published when the experiment starts.";
 
   const notLive = showingLive && !info.liveHasMatchingRule;
   const noValues = (orphaned && !relinking) || notLive;
   const showEnvironments =
-    environmentStates.length > 0 && !orphaned && !removing && !notLive;
+    environmentStates.length > 0 && !orphaned && !notLive;
   const canEditEnvironments = canEditFlag && showEnvironments && !group;
   const startsDraft =
     !showsDraft && !showingLive && (editable || canChooseTarget);

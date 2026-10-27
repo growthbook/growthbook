@@ -264,7 +264,7 @@ describe("linkedChangesDraft", () => {
     ).toEqual(["c1"]);
   });
 
-  it("shows what's stored with what's staged over it", () => {
+  it("shows what's stored with what's staged over it, less what's removed", () => {
     const other = redirect("url_2");
     let draft = addRedirect(EMPTY, "new-1", fields());
     draft = removeRedirect(draft, { key: other.id, stored: other });
@@ -281,7 +281,6 @@ describe("linkedChangesDraft", () => {
       ]),
     ).toEqual([
       ["url_1", "edited", false],
-      ["url_2", "removed", true],
       ["new-1", "added", true],
     ]);
 
@@ -295,8 +294,6 @@ describe("linkedChangesDraft", () => {
       ".b{}",
     ]);
     expect(edited.stored).toBe(vc);
-    expect(
-      shownVisualChangesets(removeVisual(EMPTY, vc.id), [vc])[0].staged,
-    ).toBe("removed");
+    expect(shownVisualChangesets(removeVisual(EMPTY, vc.id), [vc])).toEqual([]);
   });
 });
