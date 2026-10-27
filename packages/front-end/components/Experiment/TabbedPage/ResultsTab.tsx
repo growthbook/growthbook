@@ -11,7 +11,6 @@ import {
   ExperimentSnapshotReportArgs,
   ReportInterface,
 } from "shared/types/report";
-import NextLink from "next/link";
 import { useRouter } from "next/router";
 import { PiInfo } from "react-icons/pi";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
@@ -28,6 +27,7 @@ import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import { getHonoredPrecomputedUnitDimensionIds } from "@/services/experiments";
 import track from "@/services/track";
 import Metadata from "@/ui/Metadata";
@@ -458,9 +458,8 @@ export default function ResultsTab({
             onSnapshotSuccessfulUpdate={onSnapshotSuccessfulUpdate}
           />
           {experiment.status === "draft" ? (
-            <Callout status="info" mx="3" my="4">
-              Your experiment is still in a <strong>draft</strong> state. You
-              must start the experiment first before seeing results.
+            <Callout status="info" contentAlign="center" mx="3" my="3">
+              This experiment is still a draft. Start it to see results.
             </Callout>
           ) : (
             <>
@@ -468,38 +467,35 @@ export default function ResultsTab({
               !experiment.datasource &&
               !snapshot &&
               !experiment.id.match(/^exp_sample/) ? (
-                <div className="appbox text-center m-4 px-3 py-4">
-                  <p className="h4">Use GrowthBook for Analysis</p>
-                  {datasources.length > 0 ? (
-                    <>
-                      <p>
-                        Select a Data Source and metrics so GrowthBook can
-                        analyze the experiment results.
-                      </p>
-                      <button
-                        className="btn btn-primary"
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setAnalysisSettingsOpen(true);
-                        }}
+                <Callout
+                  status="info"
+                  contentAlign="center"
+                  mx="3"
+                  my="3"
+                  action={
+                    datasources.length > 0 ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAnalysisSettingsOpen(true)}
                       >
                         Select Data Source
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <p>
-                        Connect GrowthBook to your data and use our powerful
-                        metrics and stats engine to automatically analyze your
-                        experiment results.
-                      </p>
-                      <NextLink href="/datasources" className="btn btn-primary">
-                        Connect to your Data
-                      </NextLink>
-                    </>
-                  )}
-                </div>
+                      </Button>
+                    ) : (
+                      <LinkButton
+                        href="/datasources"
+                        variant="outline"
+                        size="sm"
+                      >
+                        Connect a Data Source
+                      </LinkButton>
+                    )
+                  }
+                >
+                  {datasources.length > 0
+                    ? "Select a Data Source and metrics so GrowthBook can analyze this experiment's results."
+                    : "Connect GrowthBook to your data to analyze this experiment's results automatically."}
+                </Callout>
               ) : (
                 <Results
                   experiment={experiment}

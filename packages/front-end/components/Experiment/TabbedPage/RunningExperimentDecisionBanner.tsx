@@ -1,4 +1,4 @@
-import { Text, Flex, Box } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
@@ -7,34 +7,49 @@ import {
   VariationWithIndex,
 } from "shared/types/experiment";
 import { Fragment, useState } from "react";
-import { BsLightningFill } from "react-icons/bs";
-import Collapsible from "react-collapsible";
-import { FaAngleRight } from "react-icons/fa";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import {
   buildTiebreakerLiftMap,
   resolveScheduledShipDecision,
 } from "shared/enterprise";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
-import Link from "@/ui/Link";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Collapse from "@/ui/Collapse";
+import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 
-interface Props {
+const DECISIONS = {
+  "ship-now": { label: "Ship now", color: "green", variant: "solid" },
+  "ready-for-review": {
+    label: "Ready for review",
+    color: "amber",
+    variant: "soft",
+  },
+  "rollback-now": { label: "Roll back now", color: "red", variant: "solid" },
+} as const;
+
+type Props = {
   experiment: ExperimentInterfaceStringDates;
   runningExperimentStatus: ExperimentResultStatusData;
   decisionCriteria: DecisionCriteriaData;
   showDecisionCriteriaLink?: boolean;
-}
+} & MarginProps;
 
 export default function RunningExperimentDecisionBanner({
   experiment,
   runningExperimentStatus,
   decisionCriteria,
   showDecisionCriteriaLink = true,
+  ...margin
 }: Props) {
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
+  const [open, setOpen] = useState(false);
   const { snapshot, analysis } = useSnapshot();
   const { getExperimentMetricById } = useDefinitions();
 
@@ -92,86 +107,84 @@ export default function RunningExperimentDecisionBanner({
     if (decision.action === "ship") tiebreakerWinnerId = decision.variationId;
   }
 
-  const tiebreakerLine = isShipTie ? (
-    <Flex direction="row" align="center" gap="1">
-      <Text size="1" className="text-muted">
-        Ties will be broken by {tiebreakerMetricName}
-        {tiebreakerWinnerId && variationNames[tiebreakerWinnerId] ? ":" : "…"}
-      </Text>
-      {tiebreakerWinnerId && variationNames[tiebreakerWinnerId] ? (
-        <Box>{variationNames[tiebreakerWinnerId]}</Box>
-      ) : null}
-    </Flex>
-  ) : null;
+  const decision = DECISIONS[runningExperimentStatus.status];
+  const tiebreakerWinner = tiebreakerWinnerId
+    ? variationNames[tiebreakerWinnerId]
+    : null;
 
-  let decisionContent: JSX.Element | null = null;
-  if (runningExperimentStatus.status === "ship-now") {
-    decisionContent = (
-      <>
-        <BsLightningFill className="mx-1 text-success" />
-        <Text weight="bold">Ship now:</Text>
-      </>
-    );
-  } else if (runningExperimentStatus.status === "ready-for-review") {
-    decisionContent = (
-      <>
-        <BsLightningFill className="mx-1 text-warning" />
-        <Text weight="bold">Ready for review:</Text>
-      </>
-    );
-  } else if (runningExperimentStatus.status === "rollback-now") {
-    decisionContent = (
-      <>
-        <BsLightningFill className="mx-1 text-danger" />
-        <Text weight="bold">Rollback now:</Text>
-      </>
-    );
-  }
-
-  const banner = decisionContent && (
-    <div className="appbox p-3">
-      <Box>
-        <Collapsible
-          trigger={
-            <Flex direction="row" align="center" justify="between">
-              <Box>
-                <Flex direction="row" align="center">
-                  {decisionContent}
-                  <Flex direction="row" align="center" gap="1" ml="2">
-                    {decidedVariations.map((v, i) => (
-                      <Fragment key={v.id}>
-                        <Box>{variationNames[v.id]}</Box>
-                        {i !== decidedVariations.length - 1 ? (
-                          <Text mx="1">,</Text>
-                        ) : null}
-                      </Fragment>
-                    ))}
-                  </Flex>
-                </Flex>
-                {tiebreakerLine ? <Box mt="1">{tiebreakerLine}</Box> : null}
-              </Box>
-              <Link>
-                View Details
-                <FaAngleRight className="chevron ml-1" />
-              </Link>
-            </Flex>
-          }
-          transitionTime={100}
+  const banner = (
+    <Callout
+      status="info"
+      icon={null}
+      style={{ paddingBlock: "var(--space-2)" }}
+      {...margin}
+    >
+      <Flex align="center" justify="between" gap="3" minHeight="28px">
+        <Flex align="center" gap="2" wrap="wrap">
+          <Badge
+            label={decision.label}
+            color={decision.color}
+            variant={decision.variant}
+            radius="full"
+          />
+          <Flex align="center" gap="1" wrap="wrap">
+            {decidedVariations.map((v, i) => (
+              <Fragment key={v.id}>
+                <VariationLabel
+                  number={v.index}
+                  name={v.name}
+                  maxWidth="240px"
+                  size="lg"
+                />
+                {i !== decidedVariations.length - 1 ? (
+                  <Text color="text-mid">,</Text>
+                ) : null}
+              </Fragment>
+            ))}
+          </Flex>
+          {isShipTie ? (
+            <>
+              <Text color="text-low">·</Text>
+              <Flex align="center" gap="1">
+                <Text color="text-low">
+                  Ties broken by {tiebreakerMetricName}
+                  {tiebreakerWinner ? ":" : "…"}
+                </Text>
+                {tiebreakerWinner}
+              </Flex>
+            </>
+          ) : null}
+        </Flex>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={open ? <PiCaretDown /> : <PiCaretRight />}
+          iconPosition="right"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
         >
-          <>
-            <hr className="mt-3" />
-            <ExperimentDecisionExplanation
-              status={runningExperimentStatus}
-              variations={runningExperimentStatus.variations}
-              variationNames={variationNames}
-              showDecisionCriteria={showDecisionCriteria}
-              setShowDecisionCriteria={setShowDecisionCriteria}
-              showDecisionCriteriaLink={showDecisionCriteriaLink}
-            />
-          </>
-        </Collapsible>
-      </Box>
-    </div>
+          {open ? "Hide details" : "View details"}
+        </Button>
+      </Flex>
+      <Collapse open={open}>
+        <Separator
+          size="4"
+          my="2"
+          style={{ backgroundColor: "var(--gray-a4)" }}
+        />
+        <Box style={{ color: "var(--color-text-mid)" }}>
+          <ExperimentDecisionExplanation
+            status={runningExperimentStatus}
+            variations={runningExperimentStatus.variations}
+            variationNames={variationNames}
+            showDecisionCriteria={showDecisionCriteria}
+            setShowDecisionCriteria={setShowDecisionCriteria}
+            showDecisionCriteriaLink={showDecisionCriteriaLink}
+            reasonColor={decision.color}
+          />
+        </Box>
+      </Collapse>
+    </Callout>
   );
   return (
     <>

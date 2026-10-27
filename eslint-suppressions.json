@@ -408,11 +408,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ExperimentDecisionExplanation.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -427,11 +422,6 @@
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
     "no-restricted-imports": {
       "count": 1
     }

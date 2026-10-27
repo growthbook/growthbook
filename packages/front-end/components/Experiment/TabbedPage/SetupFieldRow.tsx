@@ -91,7 +91,13 @@ export default function SetupFieldRow({
 export function InfoTip({ content }: { content: ReactNode }) {
   return (
     <Tooltip content={content}>
-      <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
+      <span
+        style={{
+          display: "inline-flex",
+          verticalAlign: "middle",
+          color: "var(--color-text-mid)",
+        }}
+      >
         <PiInfo />
       </span>
     </Tooltip>

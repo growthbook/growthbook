@@ -39,6 +39,7 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
@@ -51,6 +52,7 @@ import {
   TABS_HEADER_HEIGHT_PX,
 } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import ExperimentHeader from "./ExperimentHeader";
@@ -75,6 +77,11 @@ import Implementation, { IMPLEMENTATION_ID } from "./Implementation";
 import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
+import RunningExperimentDecisionBanner from "./RunningExperimentDecisionBanner";
+import ScheduledEndPassedBanner from "./ScheduledEndPassedBanner";
+import UnhealthyExperimentBanner, {
+  showsUnhealthyBanner,
+} from "./UnhealthyExperimentBanner";
 import HealthTab from "./HealthTab";
 
 const experimentTabs = [
@@ -340,6 +347,7 @@ function TabbedPageContents({
     getExperimentMetricById,
     getFactTableById,
     factTables,
+    getDatasourceById,
   } = useDefinitions();
 
   // Extract available metrics and groups for filtering
@@ -547,8 +555,25 @@ function TabbedPageContents({
 
   const isHoldout = experiment.type === "holdout";
 
+  const { getDecisionCriteria, getRunningExperimentResultStatus } =
+    useRunningExperimentStatus();
+  const decisionCriteria = getDecisionCriteria(
+    experiment.decisionFrameworkSettings?.decisionCriteriaId,
+  );
+  const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
+  const dataSource = getDatasourceById(experiment.datasource);
+  const healthTabAvailable =
+    !!dataSource && !datasourcesWithoutHealthData.has(dataSource.type);
+
   const showStoppedBanner =
     experiment.status === "stopped" && tab !== "dashboards";
+  // Setup's content starts close under the tabs; the other tabs pad their own.
+  const bannerMargin = {
+    mt: "3",
+    mb: tab === "overview" ? "4" : "0",
+  } as const;
+  const showRunningBanners =
+    experiment.status === "running" && !isHoldout && tab !== "dashboards";
 
   return (
     <PreLaunchChecklistProvider
@@ -712,30 +737,65 @@ function TabbedPageContents({
                   <CustomMarkdown page={"experiment"} variables={variables} />
                 )}
               {showStoppedBanner && (
-                <div className="pt-3">
-                  <StoppedExperimentBanner
-                    experiment={experiment}
-                    linkedFeatures={linkedFeatures}
-                    mutate={mutate}
-                    editResult={editResult || undefined}
-                  />
-                </div>
+                <StoppedExperimentBanner
+                  experiment={experiment}
+                  linkedFeatures={linkedFeatures}
+                  mutate={mutate}
+                  editResult={editResult || undefined}
+                  {...bannerMargin}
+                />
               )}
+              {showRunningBanners &&
+              tab !== "health" &&
+              showsUnhealthyBanner(experiment, runningExperimentStatus) ? (
+                <UnhealthyExperimentBanner
+                  status={runningExperimentStatus!}
+                  viewHealth={
+                    healthTabAvailable ? () => setTabAndScroll("health") : null
+                  }
+                  {...bannerMargin}
+                />
+              ) : null}
+              {showRunningBanners && runningExperimentStatus ? (
+                <RunningExperimentDecisionBanner
+                  experiment={experiment}
+                  runningExperimentStatus={runningExperimentStatus}
+                  decisionCriteria={decisionCriteria}
+                  {...bannerMargin}
+                />
+              ) : null}
+              {showRunningBanners && !isBandit ? (
+                <ScheduledEndPassedBanner
+                  experiment={experiment}
+                  runningExperimentStatus={runningExperimentStatus}
+                  editSchedule={
+                    canEditExperiment && editSchedule
+                      ? () => editSchedule()
+                      : undefined
+                  }
+                  {...bannerMargin}
+                />
+              ) : null}
               {viewingOldPhase &&
                 ((!isBandit && tab === "results") ||
                   (isBandit && tab === "explore")) && (
-                  <Callout status="info" mt="3">
+                  <Callout
+                    status="info"
+                    contentAlign="center"
+                    action={
+                      <Link
+                        onClick={() => setPhase(experiment.phases.length - 1)}
+                      >
+                        {isHoldout
+                          ? "Switch to analysis phase"
+                          : "Switch to latest phase"}
+                      </Link>
+                    }
+                    {...bannerMargin}
+                  >
                     {isHoldout
-                      ? "You are viewing the results of the entire holdout period."
-                      : "You are viewing the results of a previous experiment phase."}
-                    <Link
-                      ml="2"
-                      onClick={() => setPhase(experiment.phases.length - 1)}
-                    >
-                      {isHoldout
-                        ? "Switch to the analysis phase to view results with a lookback based on the analysis phase start date."
-                        : "Switch to the latest phase"}
-                    </Link>
+                      ? "You're viewing results for the whole holdout period. The analysis phase looks back from its own start date."
+                      : "You're viewing results from a previous phase."}
                   </Callout>
                 )}
 

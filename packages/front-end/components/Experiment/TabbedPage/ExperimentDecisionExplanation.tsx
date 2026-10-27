@@ -1,11 +1,13 @@
-import { Box, Text, Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { DecisionFrameworkExperimentRecommendationStatus } from "shared/types/experiment";
 import {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
 } from "shared/enterprise";
-import { Fragment } from "react";
+import { Fragment, ReactNode } from "react";
+import { PiCheckCircleBold, PiXCircleBold } from "react-icons/pi";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 interface Props {
   status: DecisionFrameworkExperimentRecommendationStatus;
@@ -17,6 +19,8 @@ interface Props {
   showDecisionCriteria: boolean;
   setShowDecisionCriteria: (show: boolean) => void;
   showDecisionCriteriaLink?: boolean;
+  // The decision's colour, for each reason's icon.
+  reasonColor: ReasonColor;
 }
 
 const getRecommendationText = (
@@ -25,15 +29,15 @@ const getRecommendationText = (
 ) => {
   switch (status) {
     case "ship-now":
-      return `Review reasons to ship${
-        multipleVariations ? " and select the preferred variation" : ""
-      }.`;
+      return multipleVariations
+        ? "Reasons to ship (select the preferred variation):"
+        : "Reasons to ship:";
     case "ready-for-review":
-      return `Reasons to review${
-        multipleVariations ? " the eligible variations" : ""
-      }.`;
+      return multipleVariations
+        ? "Reasons to review the eligible variations:"
+        : "Reasons to review:";
     case "rollback-now":
-      return "Review reasons to rollback.";
+      return "Reasons to roll back:";
   }
 };
 
@@ -44,6 +48,7 @@ export default function ExperimentDecisionExplanation({
   showDecisionCriteria,
   setShowDecisionCriteria,
   showDecisionCriteriaLink,
+  reasonColor,
 }: Props) {
   // If the experiment is not in a decision state, don't show anything
   if (
@@ -109,95 +114,95 @@ export default function ExperimentDecisionExplanation({
   });
 
   return (
-    <Box mt="4" ml="3">
-      <Text size="2">
+    <Box>
+      <Text as="div" mb="2">
         {getRecommendationText(status.status, variations.length > 1)}
       </Text>
       {decidingRules.map((r) => (
         <Fragment key={JSON.stringify(r.variationIds)}>
-          <Flex direction="column" mb="2">
-            <Flex direction="row" align="center" gap="1" mb="1">
-              {decidingRules.length > 1
-                ? r.variationIds.map((v, i) => (
-                    <Fragment key={v}>
-                      <Box>{variationNames[v]}</Box>
-                      {i !== r.variationIds.length - 1 ? (
-                        <Text mx="1">,</Text>
-                      ) : null}
-                    </Fragment>
-                  ))
-                : null}
+          {decidingRules.length > 1 ? (
+            <Flex align="center" gap="1" mt="2" mb="1">
+              {r.variationIds.map((v, i) => (
+                <Fragment key={v}>
+                  <Box>{variationNames[v]}</Box>
+                  {i !== r.variationIds.length - 1 ? <Text>,</Text> : null}
+                </Fragment>
+              ))}
             </Flex>
-          </Flex>
-          <Flex direction="column" gap="2">
+          ) : null}
+          <Flex direction="column" gap="1">
             {status.powerReached && (
-              <Flex gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">
-                  The experiment has reached the targeted statistical power.
-                </Text>
-              </Flex>
+              <Reason color={reasonColor}>
+                The experiment has reached the targeted statistical power.
+              </Reason>
             )}
             {!status.powerReached && status.scheduledEndPassed && (
-              <Flex gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">
-                  The scheduled end date has passed and a recommendation can be
-                  made.
-                </Text>
-              </Flex>
+              <Reason color={reasonColor}>
+                The scheduled end date has passed and a recommendation can be
+                made.
+              </Reason>
             )}
             {!status.powerReached &&
               !status.scheduledEndPassed &&
               status.sequentialUsed && (
-                <Flex gap="2" align="center">
-                  <Text size="2" className="text-muted">
-                    •
-                  </Text>
-                  <Text size="2">
-                    Sequential testing was used in the analysis, enabling early
-                    stopping.
-                  </Text>
-                </Flex>
+                <Reason color={reasonColor}>
+                  Sequential testing was used in the analysis, enabling early
+                  stopping.
+                </Reason>
               )}
             {r.decidingRule?.conditions.map((condition, i) => (
-              <Flex key={i} gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">{getConditionText(condition)}</Text>
-              </Flex>
+              <Reason key={i} color={reasonColor}>
+                {getConditionText(condition)}
+              </Reason>
             ))}
             {!r.decidingRule && (
-              <Flex gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">
-                  No other decision rules were triggered, and{" "}
-                  {status.status === "ship-now"
-                    ? "ship"
-                    : status.status === "ready-for-review"
-                      ? "review"
-                      : "rollback"}{" "}
-                  is the default action.
-                </Text>
-              </Flex>
+              <Reason color={reasonColor}>
+                No other decision rules were triggered, and{" "}
+                {status.status === "ship-now"
+                  ? "ship"
+                  : status.status === "ready-for-review"
+                    ? "review"
+                    : "rollback"}{" "}
+                is the default action.
+              </Reason>
             )}
           </Flex>
         </Fragment>
       ))}
       {showDecisionCriteriaLink ? (
-        <Box mt="4" mb="2">
+        <Box mt="3" mb="1">
           <Link onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}>
-            View Decision Criteria
+            View decision criteria
           </Link>
         </Box>
       ) : null}
     </Box>
+  );
+}
+
+type ReasonColor = "green" | "amber" | "red";
+
+// A roll back's reasons count against the variation; the others for it.
+export function Reason({
+  color,
+  icon = color === "red" ? <PiXCircleBold /> : <PiCheckCircleBold />,
+  children,
+}: {
+  color: ReasonColor;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Flex gap="2" align="start">
+      {/* Level with the reason's first line. */}
+      <Flex
+        flexShrink="0"
+        align="center"
+        style={{ height: "var(--line-height-2)", color: `var(--${color}-11)` }}
+      >
+        {icon}
+      </Flex>
+      <Text>{children}</Text>
+    </Flex>
   );
 }

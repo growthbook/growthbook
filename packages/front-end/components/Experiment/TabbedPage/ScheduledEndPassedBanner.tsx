@@ -1,20 +1,29 @@
-import { Flex, Box, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
 } from "shared/types/experiment";
-import { format } from "date-fns-tz";
-import { BsLightningFill } from "react-icons/bs";
-import Collapsible from "react-collapsible";
-import { PiCaretRight } from "react-icons/pi";
+import { date } from "shared/dates";
+import { useState } from "react";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
+import {
+  PiCaretDown,
+  PiCaretRight,
+  PiClockFill,
+  PiWarningCircleBold,
+} from "react-icons/pi";
+import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
+import Collapse from "@/ui/Collapse";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import { Reason } from "./ExperimentDecisionExplanation";
 
-interface Props {
+type Props = {
   experiment: ExperimentInterfaceStringDates;
   runningExperimentStatus?: ExperimentResultStatusData;
   editSchedule?: () => void;
-}
+} & MarginProps;
 
 type DecisiveStatus = "ship-now" | "rollback-now" | "ready-for-review";
 
@@ -54,7 +63,9 @@ export default function ScheduledEndPassedBanner({
   experiment,
   runningExperimentStatus,
   editSchedule,
+  ...margin
 }: Props) {
+  const [open, setOpen] = useState(false);
   const stopAt = experiment.statusUpdateSchedule?.stopAt;
   const scheduledEndPassed =
     experiment.status === "running" &&
@@ -68,62 +79,59 @@ export default function ScheduledEndPassedBanner({
     status === "rollback-now" ||
     status === "ready-for-review";
 
-  if (!scheduledEndPassed || !status || hasDecision) return null;
+  if (!scheduledEndPassed || !runningExperimentStatus || hasDecision) {
+    return null;
+  }
 
   return (
-    <Box className="appbox" p="3">
-      <Collapsible
-        trigger={
-          <Flex direction="row" align="center" justify="between">
-            <Box>
-              <Flex direction="row" align="center" gap="1">
-                <BsLightningFill color="var(--warning)" />
-                <Text weight="semibold">Scheduled end passed:</Text>
-                <Box ml="1">
-                  <Text>No clear recommendation</Text>
-                </Box>
-              </Flex>
+    <Callout
+      status="info"
+      icon={null}
+      style={{ paddingBlock: "var(--space-2)" }}
+      {...margin}
+    >
+      <Flex align="center" justify="between" gap="3" minHeight="28px">
+        <Flex align="center" gap="2" wrap="wrap">
+          <PiClockFill
+            size={16}
+            style={{ color: "var(--amber-11)", flexShrink: 0 }}
+          />
+          <Text color="text-mid">Past its scheduled end, {date(stopAt)}</Text>
+          <Text color="text-low">·</Text>
+          <Text color="text-low">No clear recommendation</Text>
+        </Flex>
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={open ? <PiCaretDown /> : <PiCaretRight />}
+          iconPosition="right"
+          aria-expanded={open}
+          onClick={() => setOpen(!open)}
+        >
+          {open ? "Hide details" : "View details"}
+        </Button>
+      </Flex>
+      <Collapse open={open}>
+        <Separator
+          size="4"
+          my="2"
+          style={{ backgroundColor: "var(--gray-a4)" }}
+        />
+        <Box style={{ color: "var(--color-text-mid)" }}>
+          <Text as="div" mb="2">
+            The experiment kept running past its scheduled end, as its schedule
+            asks. There&apos;s no clear recommendation because:
+          </Text>
+          <Reason color="amber" icon={<PiWarningCircleBold />}>
+            {getReasonText(runningExperimentStatus)}
+          </Reason>
+          {editSchedule ? (
+            <Box mt="3" mb="1">
+              <Link onClick={editSchedule}>Edit schedule</Link>
             </Box>
-            <Link>
-              <Flex align="center" gap="1">
-                <Text>View details</Text>
-                <PiCaretRight className="chevron" />
-              </Flex>
-            </Link>
-          </Flex>
-        }
-        transitionTime={100}
-      >
-        <>
-          <Separator size="4" mt="3" />
-          <Box mt="4" ml="3">
-            <Flex direction="column" gap="4">
-              <Text as="p" size="md">
-                This experiment passed its scheduled end date on{" "}
-                {format(new Date(stopAt), "MMM d, yyyy 'at' h:mm a (z)")} and
-                was kept running as requested by the experiment schedule.
-              </Text>
-              <Text as="p" size="md">
-                There is no clear decision recommendation for the following
-                reason(s):
-              </Text>
-            </Flex>
-            <Flex direction="column" gap="2" mt="2">
-              <Flex gap="2" align="center">
-                <Text size="md" color="text-mid">
-                  •
-                </Text>
-                <Text size="md">{getReasonText(runningExperimentStatus)}</Text>
-              </Flex>
-            </Flex>
-            {editSchedule ? (
-              <Box mt="4" mb="2">
-                <Link onClick={editSchedule}>Edit schedule</Link>
-              </Box>
-            ) : null}
-          </Box>
-        </>
-      </Collapsible>
-    </Box>
+          ) : null}
+        </Box>
+      </Collapse>
+    </Callout>
   );
 }

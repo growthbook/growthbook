@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { Box, Separator, Flex } from "@radix-ui/themes";
 import { PiClock, PiPencilSimple } from "react-icons/pi";
 import { date } from "shared/dates";
@@ -21,18 +22,19 @@ import { revealedByQuickEdit, revealsQuickEdit } from "./QuickEditButton";
 
 const HEADLINE_HEIGHT = "28px";
 
-export interface Props {
+export type Props = {
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   mutate: () => void;
   editResult?: () => void;
-}
+} & MarginProps;
 
 export default function StoppedExperimentBanner({
   experiment,
   linkedFeatures,
   mutate,
   editResult,
+  ...margin
 }: Props) {
   const { apiCall } = useAuth();
   const [confirmingStop, setConfirmingStop] = useState(false);
@@ -95,7 +97,7 @@ export default function StoppedExperimentBanner({
           onCancel={() => setConfirmingStop(false)}
         />
       ) : null}
-      <Flex direction="column" gap="3" mb="4">
+      <Flex direction="column" gap="3" {...margin}>
         <Box className={revealsQuickEdit}>
           <Callout
             status="info"

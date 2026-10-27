@@ -70,8 +70,6 @@ import SelectField from "@/components/Forms/SelectField";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import HelperText from "@/ui/HelperText";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
-import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
-import ScheduledEndPassedBanner from "@/components/Experiment/TabbedPage/ScheduledEndPassedBanner";
 import StartHoldoutModal from "@/components/Experiment/TabbedPage/StartHoldoutModal";
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
@@ -375,12 +373,7 @@ export default function ExperimentHeader({
 
   const hasResults = !!analysis?.results?.[0];
 
-  const { getDecisionCriteria, getRunningExperimentResultStatus } =
-    useRunningExperimentStatus();
-
-  const decisionCriteria = getDecisionCriteria(
-    experiment.decisionFrameworkSettings?.decisionCriteriaId,
-  );
+  const { getRunningExperimentResultStatus } = useRunningExperimentStatus();
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
@@ -565,28 +558,8 @@ export default function ExperimentHeader({
     />
   );
 
-  const runningExperimentDecisionBanner =
-    experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
-      <RunningExperimentDecisionBanner
-        experiment={experiment}
-        runningExperimentStatus={runningExperimentStatus}
-        decisionCriteria={decisionCriteria}
-      />
-    ) : null;
-
   const detailsToggleLabel = detailsOpen ? "Hide details" : "Show details";
   const DetailsToggleIcon = detailsOpen ? PiSidebarSimpleFill : PiSidebarSimple;
-
-  const scheduledEndPassedBanner =
-    experiment.status === "running" && !isHoldout && !isBandit ? (
-      <ScheduledEndPassedBanner
-        experiment={experiment}
-        runningExperimentStatus={runningExperimentStatus}
-        editSchedule={
-          canEditExperiment && editSchedule ? () => editSchedule() : undefined
-        }
-      />
-    ) : null;
 
   return (
     <>
@@ -1316,17 +1289,6 @@ export default function ExperimentHeader({
             </DropdownMenu>
           </Flex>
         </Flex>
-
-        {runningExperimentDecisionBanner ? (
-          <Box pt="1" pb="1">
-            {runningExperimentDecisionBanner}
-          </Box>
-        ) : null}
-        {scheduledEndPassedBanner ? (
-          <Box pt="1" pb="1">
-            {scheduledEndPassedBanner}
-          </Box>
-        ) : null}
       </div>
 
       {showDashboardView ? null : (
