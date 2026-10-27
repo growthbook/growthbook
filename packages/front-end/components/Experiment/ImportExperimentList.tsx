@@ -608,8 +608,6 @@ const ImportExperimentList: FC<{
           {supportedDatasources.length > 1 && (
             <Select
               label="Data Source"
-              labelSize="sm"
-              size="sm"
               value={data.experiments.datasource}
               setValue={changeDatasource}
               style={{ width: 320, maxWidth: "100%" }}
