@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { FeatureInterface } from "shared/types/feature";
 import { MinimalFeatureRevisionInterface } from "shared/types/feature-revision";
 import { ACTIVE_DRAFT_STATUSES } from "shared/validators";
 import { isUsersOpenDraft } from "shared/util";
@@ -6,6 +7,8 @@ import { useFeatureRevisionsContext } from "@/contexts/FeatureRevisionsContext";
 import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import { DraftMode } from "@/components/DraftSelector";
 import { useUser } from "@/services/UserContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 // Returns the draft version to pre-select in a modal.
 // Prefers the revision currently viewed on the feature page (if it's an active draft),
@@ -49,17 +52,40 @@ export function useDefaultDraft(
   }, [activeDrafts, ctx]);
 }
 
-// The draft being viewed on the feature page, if the viewer made or contributed
-// to it; otherwise null so the change starts a new draft.
-export function useViewedOwnDraft(
+// Add Rule starts a new draft unless the viewer is on their own open draft. At
+// the draft cap (no bypass) it starts on the usual default draft, matching the
+// draft bar, so the bar doesn't open on "new" and then flip.
+export function useAddRuleDraftDefault(
+  feature: FeatureInterface,
   revisionList: MinimalFeatureRevisionInterface[],
-): number | null {
+): { mode: DraftMode; defaultDraft: number | null } {
   const ctx = useFeatureRevisionsContext();
   const { userId } = useUser();
+  const settings = useOrgSettings();
+  const permissionsUtil = usePermissionsUtil();
+  const fallbackDraft = useDefaultDraft(revisionList);
+
   const viewed = revisionList.find((r) => r.version === ctx?.currentVersion);
-  return viewed && isUsersOpenDraft(viewed, userId ?? null)
-    ? viewed.version
-    : null;
+  const viewedOwnDraft =
+    viewed && isUsersOpenDraft(viewed, userId ?? null) ? viewed.version : null;
+  const defaultDraft = viewedOwnDraft ?? fallbackDraft;
+
+  const maxDrafts = settings?.maxConcurrentDrafts || 0;
+  const activeDraftCount = revisionList.filter(
+    (r) =>
+      !isRampGenerated(r) &&
+      (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(r.status),
+  ).length;
+  const newDraftBlocked =
+    maxDrafts > 0 &&
+    activeDraftCount >= maxDrafts &&
+    !permissionsUtil.canBypassFlagApprovalChecks(feature, "feature");
+
+  const mode: DraftMode =
+    defaultDraft !== null && (viewedOwnDraft !== null || newDraftBlocked)
+      ? "existing"
+      : "new";
+  return { mode, defaultDraft };
 }
 
 // Initial draft mode + target for metadata-style edit modals. When the user
