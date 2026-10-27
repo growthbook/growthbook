@@ -16,6 +16,15 @@
   opacity: 1;
 }
 
+.dimmed {
+  opacity: 0.5;
+
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+}
+
 // Nothing to hover on a touch screen, so the button simply shows.
 @media (hover: none) {
   .edit {

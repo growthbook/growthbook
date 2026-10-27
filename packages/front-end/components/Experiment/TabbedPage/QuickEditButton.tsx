@@ -50,6 +50,9 @@ export default function QuickEditButton({
   size = "1",
   labelTooltip = true,
   fillsRow = false,
+  dimmed = false,
+  radius = size === "2" ? "full" : "medium",
+  inline = false,
 }: {
   label: string;
   onClick: () => void;
@@ -59,9 +62,14 @@ export default function QuickEditButton({
   labelTooltip?: boolean;
   // Clicked from anywhere in its `QuickEditRow`.
   fillsRow?: boolean;
+  // Rests at half strength instead of hidden, where nothing reveals it.
+  dimmed?: boolean;
+  radius?: "medium" | "full";
+  // Sits in a line of text without making it taller.
+  inline?: boolean;
 }) {
   return (
-    <span className={styles.edit}>
+    <span className={clsx(styles.edit, dimmed && styles.dimmed)}>
       <Tooltip
         content={blockedReason ?? label}
         enabled={!!blockedReason || labelTooltip}
@@ -69,14 +77,15 @@ export default function QuickEditButton({
         confineToTrigger={!blockedReason}
       >
         <IconButton
+          type="button"
           size={size}
           variant="ghost"
           color="violet"
-          radius={size === "2" ? "full" : "medium"}
+          radius={radius}
           disabled={!!blockedReason}
           aria-label={label}
           className={fillsRow ? styles.rowTarget : undefined}
-          style={{ margin: 0 }}
+          style={inline ? undefined : { margin: 0 }}
           onClick={onClick}
         >
           <PiPencilSimple size={size === "2" ? 16 : 14} />

@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from "react";
-import { FaTimes, FaPlusCircle } from "react-icons/fa";
+import { FaTimes } from "react-icons/fa";
 import {
-  PiPencilSimpleFill,
+  PiPencilSimple,
+  PiPlus,
   PiX,
   PiStackBold,
   PiArrowSquareOut,
 } from "react-icons/pi";
-import { Text, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Text, Flex, IconButton } from "@radix-ui/themes";
 import {
   isFactMetric,
   expandMetricGroups,
@@ -21,6 +22,7 @@ import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 
@@ -340,7 +342,7 @@ export default function CustomMetricSlicesSelector({
                             }}
                             mr="1"
                           >
-                            <PiPencilSimpleFill />
+                            <PiPencilSimple />
                           </IconButton>
                           <IconButton
                             color="red"
@@ -362,14 +364,11 @@ export default function CustomMetricSlicesSelector({
             })}
 
             {disabled ? null : editState === null ? (
-              <a
-                role="button"
-                className="d-inline-block link-purple font-weight-bold mt-1"
-                onClick={() => startEditing(-1)}
-              >
-                <FaPlusCircle className="mr-1" />
-                Add custom slice
-              </a>
+              <Box mt="1">
+                <Link onClick={() => startEditing(-1)}>
+                  <PiPlus /> Add custom slice
+                </Link>
+              </Box>
             ) : editState === "adding" ? (
               // Adding new entry
               <div className="appbox px-2 py-1 mb-2">

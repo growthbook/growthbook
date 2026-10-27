@@ -36,7 +36,6 @@ import {
   funnelStepMetricId,
   isFactMetric,
 } from "shared/experiments";
-import { PiPencilSimpleFill } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import {
   ExperimentTableRow,
@@ -52,6 +51,7 @@ import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefa
 import { useCurrency } from "@/hooks/useCurrency";
 import PValueColumn from "@/components/Experiment/PValueColumn";
 import ChangeColumn from "@/components/Experiment/ChangeColumn";
+import QuickEditButton from "@/components/Experiment/TabbedPage/QuickEditButton";
 import TimeSeriesButton from "@/components/TimeSeriesButton";
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -582,16 +582,14 @@ export default function ResultsTable({
                           </div>
                           {editMetrics ? (
                             <div className="col d-flex align-items-end px-0">
-                              <a
-                                role="button"
-                                className="cursor-pointer link-purple"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  editMetrics();
-                                }}
-                              >
-                                <PiPencilSimpleFill size={15} />
-                              </a>
+                              <QuickEditButton
+                                label="Edit metrics"
+                                onClick={editMetrics}
+                                labelTooltip={false}
+                                dimmed
+                                radius="full"
+                                inline
+                              />
                             </div>
                           ) : null}
                         </div>
