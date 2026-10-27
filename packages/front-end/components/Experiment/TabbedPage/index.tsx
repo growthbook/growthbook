@@ -716,7 +716,6 @@ function TabbedPageContents({
                 mutate={mutate}
                 disableEditing={viewingOldPhase}
                 stagedHoldoutId={stagedHoldout}
-                editSchedule={editSchedule}
                 tab={detailsTab}
                 setTab={setDetailsTab}
               />

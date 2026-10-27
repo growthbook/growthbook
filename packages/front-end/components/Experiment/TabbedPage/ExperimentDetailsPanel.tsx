@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import ProjectTagBar, {
-  EmptyValue,
   ExperimentDataFields,
   QuickEditField,
 } from "@/components/Experiment/TabbedPage/ProjectTagBar";
@@ -20,8 +19,6 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
-import Metadata from "@/ui/Metadata";
-import Markdown from "@/components/Markdown/Markdown";
 import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
@@ -33,7 +30,6 @@ import {
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import ExpandableBlock from "./ExpandableBlock";
-import ExperimentHealthBadges from "./ExperimentHealthBadges";
 
 const DETAILS_PANEL_TABS = ["details", "comments"] as const;
 export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
@@ -42,7 +38,6 @@ export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
   stagedHoldoutId?: string | null;
-  editSchedule?: (() => void) | null;
   mutate: () => void;
   disableEditing?: boolean;
   tab: DetailsPanelTab;
@@ -53,7 +48,6 @@ export default function ExperimentDetailsPanel({
   experiment,
   holdout,
   stagedHoldoutId = null,
-  editSchedule = null,
   mutate,
   disableEditing,
   tab,
@@ -90,9 +84,6 @@ export default function ExperimentDetailsPanel({
     ) : null;
 
   const fieldAction = (field: QuickEditField) => {
-    if (field === "schedule") {
-      return editSchedule ? pencil("Edit schedule", editSchedule) : null;
-    }
     // The key only changes while nothing is serving it, or about to.
     if (
       field === "trackingKey" &&
@@ -197,35 +188,11 @@ export default function ExperimentDetailsPanel({
                 }
               >
                 <Flex direction="column" gap="3">
-                  <Metadata
-                    size="sm"
-                    stacked
-                    label="Description"
-                    action={pencil("Edit description", () =>
-                      editSection("description"),
-                    )}
-                    value={
-                      <Box width="100%">
-                        {experiment.description ? (
-                          // Clamped, so a long one doesn't push the rest of
-                          // the column away.
-                          <ExpandableBlock>
-                            <Box style={{ fontSize: "var(--font-size-1)" }}>
-                              <Markdown>{experiment.description}</Markdown>
-                            </Box>
-                          </ExpandableBlock>
-                        ) : (
-                          <EmptyValue />
-                        )}
-                      </Box>
-                    }
-                  />
                   <ProjectTagBar
                     experiment={experiment}
                     holdout={holdout}
                     fieldAction={rowAction}
                   />
-                  <ExperimentHealthBadges experiment={experiment} />
                   {customFieldRows}
                 </Flex>
               </PanelSection>

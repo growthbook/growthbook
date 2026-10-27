@@ -44,7 +44,14 @@ export default function SetupFieldRow({
     // A narrow row wraps, putting the label on its own line.
     <Flex
       id={id}
-      align={labelAlign === "center" ? "center" : "start"}
+      // Text shares the label's baseline, whatever their sizes.
+      align={
+        labelAlign === "center"
+          ? "center"
+          : content === "text"
+            ? "baseline"
+            : "start"
+      }
       gap="4"
       py="2"
       wrap="wrap"

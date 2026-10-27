@@ -462,12 +462,11 @@ export default function Implementation({
           stage={setVariationsDraft}
         />
       )}
-      {/* Divides it from the hypothesis, which bandits and holdouts don't have. */}
-      {!isBandit && !isHoldout ? <Separator size="4" my="2" /> : null}
+      {/* Divides it from the description and hypothesis above. */}
+      <Separator size="4" my="2" />
       <div
         id={IMPLEMENTATION_ID}
-        // First on a bandit's page, it's inset like the hypothesis it replaces.
-        className={isBandit ? "pt-2 mb-4" : "my-4"}
+        className="my-4"
         style={{ scrollMarginTop: "100px" }}
       >
         <Heading as="h4" size="sm" color="text-high" mb="2">

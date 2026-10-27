@@ -21,38 +21,55 @@ import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
+import ExpandableBlock from "./ExpandableBlock";
+
+const FIELDS = {
+  hypothesis: {
+    label: "Hypothesis",
+    placeholder: "What do you expect to happen, and why?",
+  },
+  description: {
+    label: "Description",
+    placeholder: "What is this experiment about?",
+  },
+};
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  field: keyof typeof FIELDS;
   // Show the editor rather than the rendered markdown.
   editable: boolean;
   // Where not editable, it still opens for editing from its pencil.
   canEdit: boolean;
 }
 
-export default function HypothesisField({
+export default function ExperimentTextField({
   experiment,
+  field,
   editable: editableHere,
   canEdit,
 }: Props) {
   const { apiCall } = useAuth();
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
+  const { label, placeholder } = FIELDS[field];
+  const isHypothesis = field === "hypothesis";
+  const slot = `inline:${field}`;
 
-  const savedValue = experiment.hypothesis || "";
-  const [value, setValue, clearValue] = useStagedState(
-    "inline:hypothesis",
-    savedValue,
-  );
+  const savedValue = experiment[field] || "";
+  const [value, setValue, clearValue] = useStagedState(slot, savedValue);
   const [editingOnDemand, setEditingOnDemand] = useState(
     () => value.trim() !== savedValue.trim(),
   );
   const editable = editableHere || editingOnDemand;
 
   const dirty = editable && value.trim() !== savedValue.trim();
-  useExperimentFieldEdit("inline:hypothesis", dirty, experiment, {
-    label: "Hypothesis",
-    fields: () => ({ hypothesis: value.trim() }),
+  useExperimentFieldEdit(slot, dirty, experiment, {
+    label,
+    fields: () =>
+      isHypothesis
+        ? { hypothesis: value.trim() }
+        : { description: value.trim() },
     onSaved: () => {
       if (aiSuggestion.current) {
         track("experiment-hypothesis-saved-after-ai-suggestion", {
@@ -104,8 +121,8 @@ export default function HypothesisField({
     <AIRichTextField
       value={value}
       onChange={setValue}
-      placeholder="What do you expect to happen, and why?"
-      aiSuggestFunction={suggestHypothesis}
+      placeholder={placeholder}
+      aiSuggestFunction={isHypothesis ? suggestHypothesis : undefined}
       aiButtonText="Check hypothesis"
       onAISuggestionReceived={(result) => {
         aiSuggestion.current = result;
@@ -114,16 +131,23 @@ export default function HypothesisField({
       collapsibleToolbar
     />
   ) : savedValue ? (
-    <Markdown>{savedValue}</Markdown>
+    isHypothesis ? (
+      <Markdown>{savedValue}</Markdown>
+    ) : (
+      // Clamped, so a long one doesn't push the rest of the page away.
+      <ExpandableBlock>
+        <Markdown>{savedValue}</Markdown>
+      </ExpandableBlock>
+    )
   ) : (
     <Text weight="regular" color="text-mid" size="md" fontStyle="italic">
-      No hypothesis
+      No {field}
     </Text>
   );
 
   return (
     <SetupFieldRow
-      label="Hypothesis"
+      label={label}
       labelSize="lg"
       content={editable ? "control" : "text"}
       // One line with its pencil, so the label centres on it.
@@ -137,7 +161,7 @@ export default function HypothesisField({
         >
           <Box minWidth="0">{body}</Box>
           <QuickEditButton
-            label="Edit hypothesis"
+            label={`Edit ${field}`}
             onClick={() => setEditingOnDemand(true)}
           />
         </Flex>

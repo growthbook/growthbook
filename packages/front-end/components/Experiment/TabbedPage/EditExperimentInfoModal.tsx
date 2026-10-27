@@ -14,7 +14,6 @@ import SelectOwner from "@/components/Owner/SelectOwner";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
-import RichTextEditor from "@/ui/RichTextEditor";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import {
@@ -28,7 +27,6 @@ export type InfoSection =
   | "owner"
   | "tags"
   | "project"
-  | "description"
   | "customFields";
 
 export const SECTION_HEADERS: Record<InfoSection, string> = {
@@ -37,7 +35,6 @@ export const SECTION_HEADERS: Record<InfoSection, string> = {
   owner: "Edit Owner",
   tags: "Edit Tags",
   project: "Edit Project",
-  description: "Edit Description",
   customFields: "Edit Additional Fields",
 };
 
@@ -86,7 +83,6 @@ export default function EditExperimentInfoModal({
       owner: experiment.owner || "",
       tags: experiment.tags,
       project: experiment.project || "",
-      description: experiment.description || "",
       customFields: reconcileCustomFieldValues(
         customFields,
         experiment.customFields,
@@ -105,7 +101,7 @@ export default function EditExperimentInfoModal({
       open={true}
       close={() => setShowEditInfoModal(false)}
       trackingEventModalType="edit-experiment-info"
-      size={section === "description" ? "lg" : "md"}
+      size="md"
       trackingEventModalSource="experiment-more-menu"
       header={
         customFieldId && shownCustomFields.length
@@ -189,21 +185,6 @@ export default function EditExperimentInfoModal({
             </Callout>
           ) : null}
         </>
-      ) : null}
-      {section === "description" ? (
-        <Box>
-          <Box mb="2">
-            <Text weight="semibold">Description</Text>
-          </Box>
-          <RichTextEditor
-            value={form.watch("description")}
-            onChange={(description) =>
-              form.setValue("description", description)
-            }
-            height="md"
-            autoGrow
-          />
-        </Box>
       ) : null}
       {section === "customFields" && shownCustomFields.length > 0 ? (
         <CustomFieldInput

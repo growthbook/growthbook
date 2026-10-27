@@ -5,7 +5,7 @@ import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperime
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
-import HypothesisField from "@/components/Experiment/TabbedPage/HypothesisField";
+import ExperimentTextField from "@/components/Experiment/TabbedPage/ExperimentTextField";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
@@ -113,12 +113,20 @@ export default function SetupTabOverview({
       )}
 
       {!isBandit && !isHoldout && (
-        <HypothesisField
+        <ExperimentTextField
           experiment={experiment}
+          field="hypothesis"
           editable={editInline}
           canEdit={canEditExperiment}
         />
       )}
+      <ExperimentTextField
+        experiment={experiment}
+        field="description"
+        // A bandit has no hypothesis, so its description is what's written.
+        editable={isBandit && editInline}
+        canEdit={canEditExperiment}
+      />
     </div>
   );
 }
