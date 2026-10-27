@@ -37,7 +37,10 @@ export function gbMeta(x: WithMeta): Record<string, unknown> {
   const gb = (x.config?.meta ?? x.meta)?.growthbook;
   return isRecord(gb) ? gb : {};
 }
-export const tagsOf = (x: WithMeta): string[] => x.tags ?? x.config?.tags ?? [];
+// dbt 1.12 writes an empty top-level `tags` beside the real `config.tags`, so read both.
+export const tagsOf = (x: WithMeta): string[] => [
+  ...new Set([...(x.tags ?? []), ...(x.config?.tags ?? [])]),
+];
 export const filtersOf = (f?: DbtFilter | null): string[] =>
   (f?.where_filters ?? []).map((w) => w.where_sql_template);
 

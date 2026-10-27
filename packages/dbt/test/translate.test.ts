@@ -376,6 +376,46 @@ describe("translate (legacy spec)", () => {
     ]);
   });
 
+  it("reads config.tags when dbt also writes an empty top-level tags", () => {
+    const manifest = {
+      ...legacy,
+      metrics: {
+        ...legacy.metrics,
+        "metric.jaffle.orders_from_west": {
+          ...legacy.metrics["metric.jaffle.orders_from_west"],
+          tags: [],
+          config: { meta: {}, tags: ["config_only"] },
+        },
+      },
+    };
+    const { payload } = run(manifest, { select: ["tag:config_only"] });
+    expect(payload.factMetrics.map((m) => m.id)).toEqual(["orders_from_west"]);
+    expect(byId(payload.factMetrics, "orders_from_west").tags).toEqual([
+      "config_only",
+    ]);
+  });
+
+  it("rejects an entity mapping that names no entity or identifier type", () => {
+    expect(() => run(legacy, { entities: { custmer: "user_id" } })).toThrow(
+      /no semantic model has an entity named "custmer"/,
+    );
+    expect(() => run(legacy, { entities: { customer: "userid" } })).toThrow(
+      /"userid" is not an identifier type on this Data Source/,
+    );
+  });
+
+  it("notes selectors that match nothing", () => {
+    const { payload, warnings } = run(legacy, { select: ["revnue"] });
+    expect(payload.factMetrics).toEqual([]);
+    expect(warnings).toEqual([
+      {
+        level: "note",
+        resource: "--select",
+        message: '"revnue" matched no metric or model',
+      },
+    ]);
+  });
+
   it("skips tables with no usable entity", () => {
     const { payload, warnings } = run(legacy, {
       entities: {},
@@ -389,7 +429,9 @@ describe("translate (legacy spec)", () => {
 });
 
 describe("translate (v1.12 spec)", () => {
-  const { payload, warnings } = run(newSpec);
+  const { payload, warnings } = run(newSpec, {
+    entities: { customer: "user_id" },
+  });
   const metric = (id: string) => byId(payload.factMetrics, id);
 
   it("reads metric_aggregation_params and metric-based inputs", () => {

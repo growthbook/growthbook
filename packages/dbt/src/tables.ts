@@ -107,7 +107,7 @@ export function planTables(
       }
       if (!userIdTypes.length) {
         throw new Unsupported(
-          `no entity on "${model.name}" maps to a Data Source identifier type (use --entities)`,
+          `no entity on "${model.name}" maps to a Data Source identifier type (use --entities; identifier types: ${opts.idTypes?.join(", ") ?? "unknown"})`,
         );
       }
       for (const d of model.dimensions ?? []) {

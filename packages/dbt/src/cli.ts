@@ -113,7 +113,7 @@ async function main() {
       .filter((x) => x);
   const entities = Object.fromEntries(
     (list(args.entities) ?? []).map((pair) => {
-      const [from, to] = pair.split("=");
+      const [from, to] = pair.split("=").map((s) => s.trim());
       if (!from || !to) throw new Error(`Invalid --entities entry "${pair}"`);
       return [from, to];
     }),
