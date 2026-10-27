@@ -113,6 +113,7 @@ import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
+import { countMongoCalls } from "./util/mongoCallStats";
 import {
   ApiError,
   shouldSkipErrorLog,
@@ -315,6 +316,8 @@ app.use(async (req, res, next) => {
     next(e);
   }
 });
+
+app.use(countMongoCalls);
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);

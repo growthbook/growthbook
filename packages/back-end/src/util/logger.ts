@@ -1,7 +1,7 @@
 import { format } from "util";
 import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
-import { Request } from "express";
+import { Request, Response } from "express";
 import { BaseLogger, Level } from "pino";
 import {
   ErrorWrapper,
@@ -11,6 +11,7 @@ import {
 import { ApiRequestLocals } from "back-end/types/api";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ENVIRONMENT, IS_CLOUD, LOG_LEVEL } from "./secrets";
+import { getMongoCallSummary } from "./mongoCallStats";
 
 const redactPaths = [
   "req.headers.authorization",
@@ -67,6 +68,23 @@ export function getCustomLogProps(req: Request) {
   return data;
 }
 
+// Only on the request completed/errored lines
+function getRequestCompletionProps(req: Request, res: Response) {
+  const data: {
+    route?: string;
+    mongo?: ReturnType<typeof getMongoCallSummary>;
+  } = {};
+  // An error that leaves a mounted router resets req.baseUrl
+  if (res.statusCode < 400 && typeof req.route?.path === "string") {
+    data.route = req.baseUrl + req.route.path;
+  }
+  const mongo = getMongoCallSummary(req);
+  if (mongo) {
+    data.mongo = mongo;
+  }
+  return data;
+}
+
 const isValidLevel = (input: unknown): input is Level => {
   return (
     ["fatal", "error", "warn", "info", "debug", "trace"] as const
@@ -83,6 +101,14 @@ export const httpLogger = pinoHttp({
     remove: true,
   },
   customProps: getCustomLogProps,
+  customSuccessObject: (req, res, val) => ({
+    ...val,
+    ...getRequestCompletionProps(req as Request, res as Response),
+  }),
+  customErrorObject: (req, res, err, val) => ({
+    ...val,
+    ...getRequestCompletionProps(req as Request, res as Response),
+  }),
   customReceivedMessage: stringToBoolean(process.env.LOG_REQUEST_STARTED)
     ? () => "Request started"
     : undefined,
