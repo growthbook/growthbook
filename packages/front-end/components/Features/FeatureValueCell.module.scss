@@ -62,14 +62,6 @@
   }
 }
 
-.error::before {
-  border-color: var(--red-8);
-}
-
-.warning::before {
-  border-color: var(--amber-8);
-}
-
 // Inset like the copy and expand buttons, clear of the scrollbar.
 .openEditor {
   position: absolute;

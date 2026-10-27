@@ -31,7 +31,6 @@ export default function FeatureValueCell({
   feature,
   sparse = false,
   editable,
-  outlineStyle,
   onChange,
   onOpenEditor,
   label,
@@ -41,7 +40,6 @@ export default function FeatureValueCell({
   feature: FeatureInterface;
   sparse?: boolean;
   editable: boolean;
-  outlineStyle?: "error" | "warning";
   onChange: (next: string) => void;
   onOpenEditor?: () => void;
   label: string;
@@ -64,7 +62,6 @@ export default function FeatureValueCell({
           multilineTextField
           size="md"
           hideCopyButton={feature.valueType !== "string"}
-          outlineStyle={outlineStyle}
           fullWidth
         />
       ) : (
@@ -73,9 +70,8 @@ export default function FeatureValueCell({
             styles.value,
             showsCode ? styles.code : styles.centered,
             showsText && styles.text,
-            (editable || outlineStyle) && styles.frame,
+            editable && styles.frame,
             cornerStyles.hoverActions,
-            outlineStyle && styles[outlineStyle],
           )}
         >
           {value === undefined ? (

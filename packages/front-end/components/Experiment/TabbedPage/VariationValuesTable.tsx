@@ -107,8 +107,6 @@ import {
 } from "./variationValues";
 import styles from "./VariationValuesTable.module.scss";
 
-const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
-
 const TABLE_MIN_WIDTH = 692;
 const VARIATION_NARROWEST_WIDTH = 130;
 const SPLIT_WIDTH = 124;
@@ -264,14 +262,12 @@ export default function VariationValuesTable({
           ],
         )
       : [];
-  const duplicateIds = new Set(duplicateRows.flat());
   // One issue however many columns it spans, so the first flag column says it.
-  const duplicateNotes = duplicateRows.map(
-    (ids) =>
-      `${listFormat.format(
-        variations.filter((v) => ids.includes(v.id)).map(variationLabel),
-      )} serve the same ${columnCount === 1 ? "value" : "values"}.`,
-  );
+  const duplicateNote = !duplicateRows.length
+    ? null
+    : duplicateRows[0].length === variations.length
+      ? "Some variations serve the same set of values. This will cause the experiment to run as an A/A test."
+      : "Some variations serve the same set of values.";
 
   if (!variations.length) return null;
 
@@ -396,8 +392,7 @@ export default function VariationValuesTable({
                   layout={layoutFor(i)}
                   columnKey={key}
                   reportServed={reportServed}
-                  duplicateIds={duplicateIds}
-                  duplicateNotes={i === 0 ? duplicateNotes : []}
+                  duplicateNote={i === 0 ? duplicateNote : null}
                   experiment={experiment}
                   info={info}
                   group={group}
@@ -537,8 +532,7 @@ function FlagColumn({
   layout,
   columnKey,
   reportServed,
-  duplicateIds,
-  duplicateNotes,
+  duplicateNote,
   experiment,
   info,
   group,
@@ -551,9 +545,7 @@ function FlagColumn({
   layout: ColumnLayout;
   columnKey: string;
   reportServed: (column: string, served: Record<string, string> | null) => void;
-  // Variations that match another in every column.
-  duplicateIds: Set<string>;
-  duplicateNotes: string[];
+  duplicateNote: string | null;
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   group: ValueGroup | null;
@@ -934,7 +926,7 @@ function FlagColumn({
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
     });
   }
-  duplicateNotes.forEach((text) => notices.push({ status: "warning", text }));
+  if (duplicateNote) notices.push({ status: "warning", text: duplicateNote });
   if (onFlag && describesShown && info.rulesAbove) {
     notices.push({
       status: "info",
@@ -1259,7 +1251,6 @@ function FlagColumn({
                   feature={showingLive ? feature : displayFeature}
                   sparse={showingLive ? liveSparse : sparse}
                   editable={editable && !showingLive}
-                  outlineStyle={duplicateIds.has(v.id) ? "warning" : undefined}
                   onChange={(next) => stage({ values: { [v.id]: next } })}
                   onOpenEditor={() => setEditingValues(v.id)}
                   label={variationLabel(v)}
