@@ -107,7 +107,7 @@ npx @growthbook/dbt sync --datasource ds_abc123 --select tag:growthbook
 npx @growthbook/dbt sync --datasource ds_abc123 --exclude 'stg_*,internal_revenue'
 ```
 
-By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Resources created any other way, including through the API, are never touched. They are archived rather than deleted so existing experiment results keep working, and they are unarchived automatically if they reappear in dbt. Combine `--prune` with `--dry-run` to list what would be archived or unarchived without changing anything. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
+By default, metrics removed from dbt stay in GrowthBook. Add `--prune` to archive dbt-managed Fact Tables and Fact Metrics on the Data Source that are no longer produced by the sync. Prune never archives resources created any other way, including through the API. They are archived rather than deleted so existing experiment results keep working, and a later `--prune` run unarchives them if they reappear in dbt. Combine `--prune` with `--dry-run` to list what would be archived or unarchived without changing anything. Because a selected subset is not the full picture, `--prune` cannot be combined with `--select` or `--exclude`; metrics disabled with `meta.growthbook.enabled: false` are still archived.
 
 ## Overrides
 
@@ -172,4 +172,4 @@ growthbook-dbt sync --datasource <ds_id> [options]
 
 `--out` writes the exact bulk import payload, which you can inspect or feed to the script from the [GitHub metrics guide](/integrations/github-metrics).
 
-Fact Table ids are the semantic model names (with `__<entity>` appended for joined tables and `__<dimension>` for measures that use a different time dimension). Fact Metric ids are the dbt metric names. The sync upserts by id, so renaming a metric in dbt creates a new one in GrowthBook; use `--prune` to archive the old one.
+Fact Table ids are the semantic model names (with `__<entity>` appended for joined tables and `__<dimension>` for measures that use a different time dimension). Fact Metric ids are the dbt metric names with a `fact__` prefix (`revenue` becomes `fact__revenue`). The sync upserts by id, so renaming a metric in dbt creates a new one in GrowthBook; use `--prune` to archive the old one. It also means an existing Fact Table or Fact Metric with the same id, however it was created, is overwritten by the sync and becomes dbt-managed.
