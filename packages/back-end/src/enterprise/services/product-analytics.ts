@@ -134,6 +134,11 @@ export async function runProductAnalyticsExploration(
       (v) => v.population,
     );
     if (metricsWithPopulationsValues.length) {
+      if (metricsWithPopulationsValues.some((value) => value.draftMetric)) {
+        throw new BadRequestError(
+          "Metrics with populations require a saved metric.",
+        );
+      }
       metricsWithPopulations = await context.models.factMetrics.getByIds(
         metricsWithPopulationsValues.map((v) => v.metricId),
       );
@@ -157,10 +162,6 @@ export async function runProductAnalyticsExploration(
             "Population, metric, or Fact Table not found",
           );
         }
-        if (value.draftMetric)
-          throw new BadRequestError(
-            "Metrics with populations require a saved metric.",
-          );
         try {
           validatePopulationMetricCompatibility(
             config,

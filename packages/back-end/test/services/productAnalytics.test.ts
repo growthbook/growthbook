@@ -243,6 +243,29 @@ describe("draft metric explorations", () => {
   });
   const internal = { cache: "never", allowDraftMetrics: true } as const;
 
+  it("rejects a draft with a population before saved-definition or cache lookups", async () => {
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
+      throw new Error("Expected metric");
+    testConfig.dataset.values[0].population = {
+      name: "All users",
+      source: { type: "factTable", factTableId: "ft_1" },
+      rowFilters: [],
+    };
+    const run = runProductAnalyticsExploration(context, testConfig, {
+      ...internal,
+      cache: "preferred",
+    });
+    await expect(run).rejects.toThrow(BadRequestError);
+    await expect(run).rejects.toThrow(
+      "Metrics with populations require a saved metric.",
+    );
+    expect(getByIds).not.toHaveBeenCalled();
+    expect(getFactTablesByIdsMock).not.toHaveBeenCalled();
+    expect(findLatestByConfig).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("uses and validates the unsaved calculation without loading a saved metric", async () => {
     await expect(
       runProductAnalyticsExploration(context, config, internal),
