@@ -39,7 +39,7 @@ import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
+import { hasHealthData } from "@/components/HealthTab/constants";
 import DashboardsTab from "@/enterprise/components/Dashboards/DashboardsTab";
 import { useExperimentDashboards } from "@/hooks/useDashboards";
 import Callout from "@/ui/Callout";
@@ -562,8 +562,7 @@ function TabbedPageContents({
   );
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
   const dataSource = getDatasourceById(experiment.datasource);
-  const healthTabAvailable =
-    !!dataSource && !datasourcesWithoutHealthData.has(dataSource.type);
+  const healthTabAvailable = hasHealthData(dataSource);
 
   const showStoppedBanner =
     experiment.status === "stopped" && tab !== "dashboards";

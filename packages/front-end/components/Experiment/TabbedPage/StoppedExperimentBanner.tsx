@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { Box, Separator, Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiClock, PiPencilSimple } from "react-icons/pi";
 import { date } from "shared/dates";
 import { getAllVariations } from "shared/experiments";
@@ -12,15 +12,15 @@ import { includeExperimentInPayload } from "shared/util";
 import { useAuth } from "@/services/auth";
 import { DocLink } from "@/components/DocLink";
 import Markdown from "@/components/Markdown/Markdown";
-import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import ResultsIndicator, {
+  RESULT_LABELS,
+} from "@/components/Experiment/ResultsIndicator";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
-import { revealedByQuickEdit, revealsQuickEdit } from "./QuickEditButton";
-
-const HEADLINE_HEIGHT = "28px";
+import ExperimentBanner from "./ExperimentBanner";
 
 export type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -51,8 +51,7 @@ export default function StoppedExperimentBanner({
   const result = experiment.results;
   const variations = getAllVariations(experiment);
 
-  const winningIndex =
-    result === "lost" ? 0 : result === "won" ? experiment.winner || 1 : -1;
+  const winningIndex = result === "won" ? experiment.winner || 1 : -1;
   const releasedIndex = variations.findIndex(
     (v) => v.id === experiment.releasedVariationId,
   );
@@ -69,11 +68,9 @@ export default function StoppedExperimentBanner({
   const winner = !isHoldout && !!variations[winningIndex];
   const headline = isHoldout
     ? "Holdout stopped"
-    : result === "inconclusive"
-      ? "Inconclusive"
-      : result === "dnf"
-        ? "Did not finish"
-        : "Experiment stopped";
+    : result === "inconclusive" || result === "dnf"
+      ? RESULT_LABELS[result]
+      : "Experiment stopped";
   const dateEnded = experiment.phases.at(-1)?.dateEnded;
   const stoppedOn = dateEnded ? date(dateEnded) : null;
   const analysis = experiment.analysis;
@@ -98,61 +95,45 @@ export default function StoppedExperimentBanner({
         />
       ) : null}
       <Flex direction="column" gap="3" {...margin}>
-        <Box className={revealsQuickEdit}>
-          <Callout
-            status="info"
-            icon={null}
-            style={{ paddingBlock: "var(--space-2)" }}
-          >
-            <Flex
-              align="center"
-              justify="between"
-              gap="3"
-              minHeight={HEADLINE_HEIGHT}
-            >
-              <Flex align="center" gap="2" wrap="wrap">
-                {winner && result ? (
-                  <>
-                    <ResultsIndicator results={result} />
-                    {variationLabel(winningIndex, "lg")}
-                  </>
-                ) : (
-                  <Text weight="medium" size="lg" color="text-mid">
-                    {headline}
-                  </Text>
-                )}
-                {stoppedOn ? (
-                  <>
-                    <Text color="text-low">·</Text>
-                    <Text color="text-low">Stopped {stoppedOn}</Text>
-                  </>
-                ) : null}
-              </Flex>
-              {editResult && !isHoldout ? (
-                <span className={revealedByQuickEdit}>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    icon={<PiPencilSimple />}
-                    onClick={editResult}
-                  >
-                    Edit result
-                  </Button>
-                </span>
+        <ExperimentBanner
+          headline={
+            <>
+              {winner && result ? (
+                <>
+                  <ResultsIndicator results={result} />
+                  {variationLabel(winningIndex, "lg")}
+                </>
+              ) : result === "lost" && !isHoldout ? (
+                // No variation beside it: Control would read as the loser.
+                <ResultsIndicator results={result} />
+              ) : (
+                <Text weight="medium" size="lg" color="text-mid">
+                  {headline}
+                </Text>
+              )}
+              {stoppedOn ? (
+                <>
+                  <Text color="text-low">·</Text>
+                  <Text color="text-low">Stopped {stoppedOn}</Text>
+                </>
               ) : null}
-            </Flex>
-            {analysis ? (
-              <Box my="1" style={{ color: "var(--color-text-mid)" }}>
-                <Separator
-                  size="4"
-                  my="2"
-                  style={{ backgroundColor: "var(--gray-a4)" }}
-                />
-                <Markdown>{analysis}</Markdown>
-              </Box>
-            ) : null}
-          </Callout>
-        </Box>
+            </>
+          }
+          hoverAction={
+            editResult && !isHoldout ? (
+              <Button
+                variant="ghost"
+                size="sm"
+                icon={<PiPencilSimple />}
+                onClick={editResult}
+              >
+                Edit result
+              </Button>
+            ) : null
+          }
+        >
+          {analysis ? <Markdown>{analysis}</Markdown> : null}
+        </ExperimentBanner>
         {temporaryRollout ? (
           <Callout
             status="warning"

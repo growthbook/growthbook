@@ -67,7 +67,7 @@ export default function UnhealthyExperimentBanner({
         <Fragment key={label}>
           {i ? ", " : null}
           <Tooltip content={detail}>
-            <span>{label}</span>
+            <span tabIndex={0}>{label}</span>
           </Tooltip>
         </Fragment>
       ))}

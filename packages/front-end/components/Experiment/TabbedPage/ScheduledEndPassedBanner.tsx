@@ -1,23 +1,15 @@
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   ExperimentResultStatusData,
 } from "shared/types/experiment";
 import { date } from "shared/dates";
-import { useState } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import {
-  PiCaretDown,
-  PiCaretRight,
-  PiClockFill,
-  PiWarningCircleBold,
-} from "react-icons/pi";
-import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
-import Collapse from "@/ui/Collapse";
+import { PiClockFill, PiWarningCircleBold } from "react-icons/pi";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { Reason } from "./ExperimentDecisionExplanation";
+import ExperimentBanner from "./ExperimentBanner";
 
 type Props = {
   experiment: ExperimentInterfaceStringDates;
@@ -65,7 +57,6 @@ export default function ScheduledEndPassedBanner({
   editSchedule,
   ...margin
 }: Props) {
-  const [open, setOpen] = useState(false);
   const stopAt = experiment.statusUpdateSchedule?.stopAt;
   const scheduledEndPassed =
     experiment.status === "running" &&
@@ -84,14 +75,9 @@ export default function ScheduledEndPassedBanner({
   }
 
   return (
-    <Callout
-      status="info"
-      icon={null}
-      style={{ paddingBlock: "var(--space-2)" }}
-      {...margin}
-    >
-      <Flex align="center" justify="between" gap="3" minHeight="28px">
-        <Flex align="center" gap="2" wrap="wrap">
+    <ExperimentBanner
+      headline={
+        <>
           <PiClockFill
             size={16}
             style={{ color: "var(--amber-11)", flexShrink: 0 }}
@@ -99,25 +85,10 @@ export default function ScheduledEndPassedBanner({
           <Text color="text-mid">Past its scheduled end, {date(stopAt)}</Text>
           <Text color="text-low">·</Text>
           <Text color="text-low">No clear recommendation</Text>
-        </Flex>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={open ? <PiCaretDown /> : <PiCaretRight />}
-          iconPosition="right"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {open ? "Hide details" : "View details"}
-        </Button>
-      </Flex>
-      <Collapse open={open}>
-        <Separator
-          size="4"
-          my="2"
-          style={{ backgroundColor: "var(--gray-a4)" }}
-        />
-        <Box style={{ color: "var(--color-text-mid)" }}>
+        </>
+      }
+      details={
+        <>
           <Text as="div" mb="2">
             The experiment kept running past its scheduled end, as its schedule
             asks. There&apos;s no clear recommendation because:
@@ -130,8 +101,9 @@ export default function ScheduledEndPassedBanner({
               <Link onClick={editSchedule}>Edit schedule</Link>
             </Box>
           ) : null}
-        </Box>
-      </Collapse>
-    </Callout>
+        </>
+      }
+      {...margin}
+    />
   );
 }

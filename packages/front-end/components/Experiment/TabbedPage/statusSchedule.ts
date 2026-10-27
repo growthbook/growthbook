@@ -8,6 +8,9 @@ import { format } from "date-fns-tz";
 export const scheduledTime = (value: string | Date) =>
   format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
 
+const stopAfterSpan = ({ value, unit }: { value: number; unit: string }) =>
+  `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
+
 /** When a schedule ends: a date, or a span after the start. */
 export const scheduledEnd = (
   schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
@@ -15,7 +18,7 @@ export const scheduledEnd = (
   schedule?.stopAt
     ? scheduledTime(schedule.stopAt)
     : schedule?.stopAfter
-      ? `${schedule.stopAfter.value} ${schedule.stopAfter.unit} after start`
+      ? `${stopAfterSpan(schedule.stopAfter)} after start`
       : null;
 
 /** Whether a start or end is scheduled. A stop plan alone schedules nothing. */
@@ -61,10 +64,6 @@ export const scheduleTimes = (
     started: !!started,
     ended: !!ended,
     starts: start ? at(start) : null,
-    ends: end
-      ? at(end)
-      : after
-        ? `After ${after.value} ${after.value === 1 ? after.unit.replace(/s$/, "") : after.unit}`
-        : null,
+    ends: end ? at(end) : after ? `After ${stopAfterSpan(after)}` : null,
   };
 };

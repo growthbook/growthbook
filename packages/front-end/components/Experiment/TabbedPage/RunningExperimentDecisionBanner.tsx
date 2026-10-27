@@ -1,4 +1,4 @@
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
@@ -8,21 +8,18 @@ import {
 } from "shared/types/experiment";
 import { Fragment, useState } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import {
   buildTiebreakerLiftMap,
   resolveScheduledShipDecision,
 } from "shared/enterprise";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import Badge from "@/ui/Badge";
-import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
-import Collapse from "@/ui/Collapse";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
+import ExperimentBanner from "./ExperimentBanner";
 
 const DECISIONS = {
   "ship-now": { label: "Ship now", color: "green", variant: "solid" },
@@ -49,7 +46,6 @@ export default function RunningExperimentDecisionBanner({
   ...margin
 }: Props) {
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
-  const [open, setOpen] = useState(false);
   const { snapshot, analysis } = useSnapshot();
   const { getExperimentMetricById } = useDefinitions();
 
@@ -113,14 +109,9 @@ export default function RunningExperimentDecisionBanner({
     : null;
 
   const banner = (
-    <Callout
-      status="info"
-      icon={null}
-      style={{ paddingBlock: "var(--space-2)" }}
-      {...margin}
-    >
-      <Flex align="center" justify="between" gap="3" minHeight="28px">
-        <Flex align="center" gap="2" wrap="wrap">
+    <ExperimentBanner
+      headline={
+        <>
           <Badge
             label={decision.label}
             color={decision.color}
@@ -154,37 +145,21 @@ export default function RunningExperimentDecisionBanner({
               </Flex>
             </>
           ) : null}
-        </Flex>
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={open ? <PiCaretDown /> : <PiCaretRight />}
-          iconPosition="right"
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {open ? "Hide details" : "View details"}
-        </Button>
-      </Flex>
-      <Collapse open={open}>
-        <Separator
-          size="4"
-          my="2"
-          style={{ backgroundColor: "var(--gray-a4)" }}
+        </>
+      }
+      details={
+        <ExperimentDecisionExplanation
+          status={runningExperimentStatus}
+          variations={runningExperimentStatus.variations}
+          variationNames={variationNames}
+          showDecisionCriteria={showDecisionCriteria}
+          setShowDecisionCriteria={setShowDecisionCriteria}
+          showDecisionCriteriaLink={showDecisionCriteriaLink}
+          reasonColor={decision.color}
         />
-        <Box style={{ color: "var(--color-text-mid)" }}>
-          <ExperimentDecisionExplanation
-            status={runningExperimentStatus}
-            variations={runningExperimentStatus.variations}
-            variationNames={variationNames}
-            showDecisionCriteria={showDecisionCriteria}
-            setShowDecisionCriteria={setShowDecisionCriteria}
-            showDecisionCriteriaLink={showDecisionCriteriaLink}
-            reasonColor={decision.color}
-          />
-        </Box>
-      </Collapse>
-    </Callout>
+      }
+      {...margin}
+    />
   );
   return (
     <>

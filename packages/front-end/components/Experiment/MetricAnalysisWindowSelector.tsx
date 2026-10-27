@@ -147,6 +147,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
                           date={lookbackOverride.value}
                           timeZone="utc"
                           containerClassName="mb-0"
+                          disabled={disabled}
                           setDate={(d) => {
                             if (d) {
                               onLookbackOverrideChange({

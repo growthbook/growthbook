@@ -38,6 +38,7 @@ import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDril
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import { hasHealthData } from "@/components/HealthTab/constants";
 import { ExperimentTab } from "./TabbedPage";
 import { showsUnhealthyBanner } from "./TabbedPage/UnhealthyExperimentBanner";
 
@@ -500,8 +501,11 @@ const Results: FC<{
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
               isLatestPhase={phase === experiment.phases.length - 1}
+              // Only where the page's banner takes their place and links
+              // to the details on the Health tab.
               showHealthWarnings={
                 phase !== experiment.phases.length - 1 ||
+                !hasHealthData(datasource) ||
                 !showsUnhealthyBanner(
                   experiment,
                   getRunningExperimentResultStatus(experiment),

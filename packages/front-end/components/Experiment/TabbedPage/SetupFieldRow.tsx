@@ -90,7 +90,10 @@ export default function SetupFieldRow({
 export function InfoTip({ content }: { content: ReactNode }) {
   return (
     <Tooltip content={content}>
+      {/* Focusable, so the tip opens from the keyboard too. */}
       <span
+        tabIndex={0}
+        aria-label="More information"
         style={{
           display: "inline-flex",
           verticalAlign: "middle",

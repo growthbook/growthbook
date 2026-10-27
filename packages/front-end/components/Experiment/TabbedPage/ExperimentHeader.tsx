@@ -25,8 +25,6 @@ import {
   PiEye,
   PiLink,
   PiPencilSimple,
-  PiSidebarSimple,
-  PiSidebarSimpleFill,
 } from "react-icons/pi";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
@@ -74,8 +72,9 @@ import StartHoldoutModal from "@/components/Experiment/TabbedPage/StartHoldoutMo
 import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { TABS_HEADER_HEIGHT_PX } from "@/components/Layout/constants";
-import { datasourcesWithoutHealthData } from "@/components/HealthTab/constants";
+import usePinnedHeader from "@/hooks/usePinnedHeader";
+import { DetailsPanelToggle } from "@/components/CollapsiblePanelLayout";
+import { hasHealthData } from "@/components/HealthTab/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
 import EditExperimentInfoModal from "./EditExperimentInfoModal";
@@ -338,8 +337,8 @@ export default function ExperimentHeader({
   const reportArgs: ExperimentSnapshotReportArgs = {
     userIdType: userIdType as "user" | "anonymous" | undefined,
   };
-  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
-  const [headerPinned, setHeaderPinned] = useState(false);
+  const [tabsPinSentinelRef, headerPinned] =
+    usePinnedHeader(!showDashboardView);
 
   const phases = experiment.phases || [];
   const hasMultiplePhases = phases.length > 1;
@@ -361,9 +360,7 @@ export default function ExperimentHeader({
     permissionsUtil.canViewExperimentTemplateModal(experiment.project) &&
     hasCommercialFeature("templates");
 
-  const isUsingHealthUnsupportedDatasource =
-    !dataSource || datasourcesWithoutHealthData.has(dataSource.type);
-  const disableHealthTab = isUsingHealthUnsupportedDatasource;
+  const disableHealthTab = !hasHealthData(dataSource);
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const isHoldout = experiment.type === "holdout";
@@ -376,25 +373,6 @@ export default function ExperimentHeader({
   const { getRunningExperimentResultStatus } = useRunningExperimentStatus();
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
-
-  useEffect(() => {
-    if (showDashboardView) return;
-    const el = tabsPinSentinelRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setHeaderPinned(!entry.isIntersecting);
-      },
-      {
-        root: null,
-        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
-        threshold: 0,
-      },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [showDashboardView]);
 
   // When the tab strip is hidden, the only reachable view is the overview, so
   // force the active tab there. Once `tab` is already "overview" this is a
@@ -557,9 +535,6 @@ export default function ExperimentHeader({
       trigger={startButton}
     />
   );
-
-  const detailsToggleLabel = detailsOpen ? "Hide details" : "Show details";
-  const DetailsToggleIcon = detailsOpen ? PiSidebarSimpleFill : PiSidebarSimple;
 
   return (
     <>
@@ -1371,30 +1346,10 @@ export default function ExperimentHeader({
                     </Flex>
                   </TabsList>
                 </Tabs>
-                <UITooltip content={detailsToggleLabel}>
-                  <IconButton
-                    size="1"
-                    variant="ghost"
-                    color="gray"
-                    style={{
-                      // Ghost sizes itself from its padding; pin the box so
-                      // the toggle does not shift as it flips.
-                      margin: 0,
-                      marginLeft: "var(--space-3)",
-                      padding: 0,
-                      width: "var(--space-5)",
-                      height: "var(--space-5)",
-                    }}
-                    aria-label={detailsToggleLabel}
-                    onClick={() => setDetailsOpen(!detailsOpen)}
-                  >
-                    {/* Flipped so the small bar sits on the right, like the panel. */}
-                    <DetailsToggleIcon
-                      size={16}
-                      style={{ transform: "scaleX(-1)" }}
-                    />
-                  </IconButton>
-                </UITooltip>
+                <DetailsPanelToggle
+                  open={detailsOpen}
+                  setOpen={setDetailsOpen}
+                />
               </div>
             </div>
           </div>

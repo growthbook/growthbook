@@ -5,9 +5,11 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiSidebarSimple, PiSidebarSimpleFill } from "react-icons/pi";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
+import Tooltip from "@/ui/Tooltip";
 import styles from "./CollapsiblePanelLayout.module.scss";
 
 export const PANEL_WIDTH_PX = 360;
@@ -251,5 +253,41 @@ export default function CollapsiblePanelLayout({
         </Box>
       ) : null}
     </Flex>
+  );
+}
+
+// Opens and closes the panel, from the tab bar beside it.
+export function DetailsPanelToggle({
+  open,
+  setOpen,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
+  const label = open ? "Hide details" : "Show details";
+  const Icon = open ? PiSidebarSimpleFill : PiSidebarSimple;
+  return (
+    <Tooltip content={label}>
+      <IconButton
+        type="button"
+        size="1"
+        variant="ghost"
+        color="gray"
+        style={{
+          // Ghost sizes itself from its padding; pin the box so the toggle
+          // does not shift as it flips.
+          margin: 0,
+          marginLeft: "var(--space-3)",
+          padding: 0,
+          width: "var(--space-5)",
+          height: "var(--space-5)",
+        }}
+        aria-label={label}
+        onClick={() => setOpen(!open)}
+      >
+        {/* Flipped so the small bar sits on the right, like the panel. */}
+        <Icon size={16} style={{ transform: "scaleX(-1)" }} />
+      </IconButton>
+    </Tooltip>
   );
 }

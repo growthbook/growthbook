@@ -8,10 +8,9 @@ import {
 } from "shared/types/experiment";
 import { truncateString } from "shared/util";
 import { date } from "shared/dates";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState } from "react";
 import clsx from "clsx";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiSidebarSimple, PiSidebarSimpleFill } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import PageHead from "@/components/Layout/PageHead";
@@ -21,15 +20,16 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
 import PublicExperimentDetails from "@/components/Experiment/Public/PublicExperimentDetails";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
-import UITooltip from "@/ui/Tooltip";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { ExperimentTab } from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
 import CollapsiblePanelLayout, {
+  DetailsPanelToggle,
   PANEL_WIDTH_PX,
 } from "@/components/CollapsiblePanelLayout";
+import usePinnedHeader from "@/hooks/usePinnedHeader";
 import {
   NARROW_LAYOUT_BREAKPOINT_PX,
   TABS_BAR_HEIGHT_PX,
@@ -103,18 +103,12 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     `tabbedPageTab__public__${experiment?.id}`,
     "overview",
   );
-  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
-  const [headerPinned, setHeaderPinned] = useState(false);
 
   // Open beside the overview when there's room for it; narrow, only on request.
   const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
   const [detailsOpen, setDetailsOpen] = useState<boolean | null>(null);
   const detailsShown = detailsOpen ?? !narrow;
   const [detailsWidth, setDetailsWidth] = useState(PANEL_WIDTH_PX);
-  const detailsToggleLabel = detailsShown ? "Hide details" : "Show details";
-  const DetailsToggleIcon = detailsShown
-    ? PiSidebarSimpleFill
-    : PiSidebarSimple;
 
   const phases = experiment?.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -140,24 +134,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     !experiment ||
     (experiment?.status === "draft" && !hasResults && phases.length === 1);
 
-  useEffect(() => {
-    if (shouldHideTabs) return;
-    const el = tabsPinSentinelRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setHeaderPinned(!entry.isIntersecting);
-      },
-      {
-        root: null,
-        rootMargin: `-${TABS_HEADER_HEIGHT_PX}px 0px 0px 0px`,
-        threshold: 0,
-      },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [shouldHideTabs]);
+  const [tabsPinSentinelRef, headerPinned] = usePinnedHeader(!shouldHideTabs);
 
   const isBandit = experiment?.type === "multi-armed-bandit";
   const onOverview = shouldHideTabs || tab === "overview";
@@ -244,30 +221,13 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
                   </TabsList>
                 </Tabs>
                 {onOverview ? (
-                  <UITooltip content={detailsToggleLabel}>
-                    <IconButton
-                      size="1"
-                      variant="ghost"
-                      color="gray"
-                      style={{
-                        margin: 0,
-                        marginLeft: "var(--space-3)",
-                        padding: 0,
-                        width: "var(--space-5)",
-                        height: "var(--space-5)",
-                      }}
-                      aria-label={detailsToggleLabel}
-                      onClick={() => {
-                        setDetailsWidth(PANEL_WIDTH_PX);
-                        setDetailsOpen(!detailsShown);
-                      }}
-                    >
-                      <DetailsToggleIcon
-                        size={16}
-                        style={{ transform: "scaleX(-1)" }}
-                      />
-                    </IconButton>
-                  </UITooltip>
+                  <DetailsPanelToggle
+                    open={detailsShown}
+                    setOpen={(open) => {
+                      setDetailsWidth(PANEL_WIDTH_PX);
+                      setDetailsOpen(open);
+                    }}
+                  />
                 ) : null}
               </div>
             </div>

@@ -21,7 +21,7 @@ const getColorAndVariant = (
   }
 };
 
-const displayName = {
+export const RESULT_LABELS: Record<Results, string> = {
   won: "Won",
   lost: "Lost",
   dnf: "Didn't finish",
@@ -40,7 +40,7 @@ const ResultsIndicator: FC<{
       variant={variant}
       radius="full"
       size={size}
-      label={displayName[results]}
+      label={RESULT_LABELS[results]}
     />
   );
 };
