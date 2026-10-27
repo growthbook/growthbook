@@ -5,7 +5,7 @@ import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import LoadingOverlay from "@/components/LoadingOverlay";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import Modal from "@/ui/Modal";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -152,7 +152,9 @@ const ImportExperimentModal: FC<{
                 </Select>
               </>
             ) : (
-              <LoadingOverlay />
+              <Flex justify="center" py="6">
+                <LoadingSpinner />
+              </Flex>
             )}
           </Modal.Body>
           {footer}

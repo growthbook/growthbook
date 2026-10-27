@@ -1,6 +1,13 @@
-import React, { FC, ReactNode, useCallback, useMemo, useState } from "react";
+import React, {
+  FC,
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
-import { PiDotsThreeVertical, PiMagnifyingGlass } from "react-icons/pi";
+import { PiDotsThreeVertical, PiInfo, PiMagnifyingGlass } from "react-icons/pi";
 import {
   PastExperiment,
   PastExperimentsInterface,
@@ -30,9 +37,7 @@ import RunQueriesButton, {
   getQueryStatus,
 } from "@/components/Queries/RunQueriesButton";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
-import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -90,6 +95,34 @@ function QueryNames({ queries }: { queries: { id: string; name: string }[] }) {
       ))}
     </>
   );
+}
+
+function InfoTip({ label, content }: { label: string; content: ReactNode }) {
+  return (
+    <UITooltip content={content}>
+      <Flex
+        as="span"
+        display="inline-flex"
+        tabIndex={0}
+        aria-label={label}
+        style={{ color: "var(--color-text-low)", verticalAlign: "middle" }}
+      >
+        <PiInfo />
+      </Flex>
+    </UITooltip>
+  );
+}
+
+// One row per trackingKey, keeping the assignment query with the most units
+function dedupeByTrackingKey<T extends { trackingKey: string; users: number }>(
+  rows: T[],
+): T[] {
+  const deduped = new Map<string, T>();
+  rows.forEach((e) => {
+    const existing = deduped.get(e.trackingKey);
+    if (!existing || existing.users < e.users) deduped.set(e.trackingKey, e);
+  });
+  return Array.from(deduped.values());
 }
 
 function getImportValue(
@@ -256,6 +289,26 @@ const ImportExperimentList: FC<{
     [isRowInScope, identifierType],
   );
 
+  const identifierQueries = useMemo(
+    () =>
+      inScopeQueries.filter(
+        (q) =>
+          identifierType === null ||
+          getExposureQueryIdentifierTypes(q).includes(identifierType),
+      ),
+    [inScopeQueries, identifierType],
+  );
+  // Unticked queries only count while their checkbox is on screen
+  const activeExcludedQueryIds = useMemo(
+    () =>
+      identifierQueries.length > 1
+        ? excludedQueryIds.filter((id) =>
+            identifierQueries.some((q) => q.id === id),
+          )
+        : [],
+    [excludedQueryIds, identifierQueries],
+  );
+
   const getExistingId = useCallback(
     (e: PastExperiment) =>
       data?.existing?.[
@@ -271,7 +324,7 @@ const ImportExperimentList: FC<{
     (items: typeof pastExpArr) => {
       const rows = items.filter((e) => {
         if (!isRowAvailable(e)) return false;
-        if (excludedQueryIds.includes(e.exposureQueryId)) return false;
+        if (activeExcludedQueryIds.includes(e.exposureQueryId)) return false;
         if (hideImported && getExistingId(e) !== undefined) return false;
         if (
           minUsersFilter &&
@@ -293,25 +346,11 @@ const ImportExperimentList: FC<{
         return true;
       });
 
-      // Group by trackingKey instead of trackingKey/exposureQueryId
-      if (dedupeFilter) {
-        const deduped = new Map<string, (typeof rows)[0]>();
-        rows.forEach((e) => {
-          const key = e.trackingKey;
-          if (!deduped.has(key)) {
-            deduped.set(key, e);
-          } else if ((deduped.get(key)?.users || 0) < e.users) {
-            deduped.set(key, e);
-          }
-        });
-        return Array.from(deduped.values());
-      }
-
-      return rows;
+      return dedupeFilter ? dedupeByTrackingKey(rows) : rows;
     },
     [
+      activeExcludedQueryIds,
       dedupeFilter,
-      excludedQueryIds,
       getExistingId,
       hideImported,
       isRowAvailable,
@@ -335,6 +374,7 @@ const ImportExperimentList: FC<{
     // The modal opens over the experiments list, which owns the URL's `q`
     disableUrlSearchTerm: true,
   });
+  useEffect(() => setPage(1), [searchInputProps.value]);
 
   // The earliest data any row on screen can come from
   const lookbackStart = inScopeQueries
@@ -352,22 +392,24 @@ const ImportExperimentList: FC<{
       return !earliest || d < earliest ? d : earliest;
     }, null);
 
+  const lookbackHint = isCloud() ? null : (
+    <InfoTip
+      label="About the lookback window"
+      content={
+        <>
+          You can change the lookback window with the{" "}
+          <code>IMPORT_LIMIT_DAYS</code> environment variable.
+        </>
+      }
+    />
+  );
   const dateRange = data?.experiments?.config ? (
     <Flex align="center" gap="1">
       <Text size="sm" color="text-mid">
         {date(lookbackStart ?? data.experiments.config.start)} –{" "}
         {date(data.experiments.config.end)}
       </Text>
-      {!isCloud() && (
-        <Tooltip
-          body={
-            <>
-              You can change the lookback window with the{" "}
-              <code>IMPORT_LIMIT_DAYS</code> environment variable.
-            </>
-          }
-        />
-      )}
+      {lookbackHint}
     </Flex>
   ) : null;
 
@@ -389,7 +431,11 @@ const ImportExperimentList: FC<{
     return layout(<Callout status="error">{error.message}</Callout>);
   }
   if (!data || !ready) {
-    return layout(<LoadingOverlay />);
+    return layout(
+      <Flex justify="center" py="6">
+        <LoadingSpinner />
+      </Flex>,
+    );
   }
 
   const supportedDatasources = datasources
@@ -418,6 +464,7 @@ const ImportExperimentList: FC<{
     setExcludedQueryIds([]);
     setHideImported(false);
     clearSearch();
+    setTab("all");
     setPage(1);
   }
 
@@ -470,9 +517,6 @@ const ImportExperimentList: FC<{
     : [];
 
   const identifierRows = pastExpArr.filter(isRowAvailable);
-  const totalRows = dedupeFilter
-    ? new Set(identifierRows.map((e) => e.trackingKey)).size
-    : identifierRows.length;
   const identifierCounts = new Map(
     identifierTypes.map((t) => [
       t,
@@ -483,20 +527,18 @@ const ImportExperimentList: FC<{
       ).size,
     ]),
   );
-  const identifierQueries = inScopeQueries.filter(
-    (q) =>
-      identifierType === null ||
-      getExposureQueryIdentifierTypes(q).includes(identifierType),
-  );
-
   const tabCounts: Record<Tab, number> = {
     all: items.length,
     running: 0,
     stopped: 0,
   };
   items.forEach((e) => tabCounts[getRowStatus(e)]++);
-  const tabItems =
-    tab === "all" ? items : items.filter((e) => getRowStatus(e) === tab);
+  const inTab = (e: PastExperiment) => tab === "all" || getRowStatus(e) === tab;
+  const tabItems = items.filter(inTab);
+  // What the tab would show with no filters or search
+  const tabTotal = (
+    dedupeFilter ? dedupeByTrackingKey(identifierRows) : identifierRows
+  ).filter(inTab).length;
   const currentPage = Math.min(
     page,
     Math.max(1, Math.ceil(tabItems.length / PAGE_SIZE)),
@@ -536,7 +578,7 @@ const ImportExperimentList: FC<{
           mutate={mutate}
           model={data.experiments}
           icon="refresh"
-          radixVariant="outline"
+          radixVariant={data.experiments.latestData ? "outline" : "solid"}
           setError={setRunError}
           onSubmit={async () => {
             await apiCall<{ id: string }>("/experiments/import", {
@@ -596,27 +638,30 @@ const ImportExperimentList: FC<{
           close={() => setShowQueries(false)}
         />
       )}
-      {(supportedDatasources.length > 1 || hasStarted || canRunQueries) && (
-        <Flex align="end" gap="3" wrap="wrap" mb="4">
-          {supportedDatasources.length > 1 && (
-            <Select
-              label="Data Source"
-              value={data.experiments.datasource}
-              setValue={changeDatasource}
-              style={{ width: 320, maxWidth: "100%" }}
-            >
-              {supportedDatasources.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                  {d.description ? ` — ${d.description}` : ""}
-                  {d.id === defaultDataSource ? " (default)" : ""}
-                </SelectItem>
-              ))}
-            </Select>
-          )}
-          {queryControls}
-        </Flex>
-      )}
+      <Flex align="end" gap="3" wrap="wrap" mb="4">
+        {supportedDatasources.length > 1 ? (
+          <Select
+            label="Data Source"
+            value={data.experiments.datasource}
+            setValue={changeDatasource}
+            style={{ width: 320, maxWidth: "100%" }}
+          >
+            {supportedDatasources.map((d) => (
+              <SelectItem key={d.id} value={d.id}>
+                {d.name}
+                {d.description ? ` — ${d.description}` : ""}
+                {d.id === defaultDataSource ? " (default)" : ""}
+              </SelectItem>
+            ))}
+          </Select>
+        ) : (
+          // Same height as the button row so the label lines up with it
+          <Flex align="center" height="32px">
+            <Metadata label="Data Source" value={datasource?.name ?? ""} />
+          </Flex>
+        )}
+        {queryControls}
+      </Flex>
       {hasStarted && dateRange && (
         <Flex justify="end" mt="-2" mb="4">
           <Metadata label="Date range" value={dateRange} size="sm" />
@@ -686,9 +731,10 @@ const ImportExperimentList: FC<{
               Find Experiments You&apos;ve Already Run
             </Heading>
             <Text as="p" align="center" color="text-mid">
-              Run the query above to search the past {data.lookbackDays} days of
-              your Experiment Assignment Queries. Later refreshes only fetch new
-              data.
+              {canRunQueries
+                ? `Run the query above to search the past ${data.lookbackDays} days of your Experiment Assignment Queries. Later refreshes only fetch new data.`
+                : `This Data Source hasn't been searched for experiments yet. Ask someone who can run queries on it to run the import.`}{" "}
+              {lookbackHint}
             </Text>
           </Flex>
         ) : (
@@ -810,9 +856,9 @@ const ImportExperimentList: FC<{
                     heading: (
                       <>
                         Assignment query
-                        {excludedQueryIds.length > 0 && (
+                        {activeExcludedQueryIds.length > 0 && (
                           <Badge
-                            label={`${identifierQueries.length - excludedQueryIds.length}`}
+                            label={`${identifierQueries.length - activeExcludedQueryIds.length}`}
                             size="xs"
                             radius="full"
                             ml="1"
@@ -951,14 +997,24 @@ const ImportExperimentList: FC<{
                   Assignment query
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="startDate">
-                  Dates
+                  Started
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="endDate">
+                  Ended
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="numVariations">
                   Variations
                 </SortableTableColumnHeader>
-                <SortableTableColumnHeader field="users">
-                  Approx units{" "}
-                  <Tooltip body="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate." />
+                <SortableTableColumnHeader
+                  field="users"
+                  endAdornment={
+                    <InfoTip
+                      label="About approximate units"
+                      content="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate."
+                    />
+                  }
+                >
+                  Approx units
                 </SortableTableColumnHeader>
                 <TableColumnHeader>Status</TableColumnHeader>
                 <TableColumnHeader />
@@ -991,16 +1047,19 @@ const ImportExperimentList: FC<{
                       {e.exposureQueryName}
                     </TableCell>
                     <TableCell style={{ whiteSpace: "nowrap" }}>
-                      <Tooltip
-                        body={
-                          e.startOfRange
-                            ? "We only have partial data for this experiment since it was already running at the start of our query"
-                            : ""
-                        }
-                      >
-                        {date(e.startDate)}
-                        {e.startOfRange ? "*" : ""} – {date(e.endDate)}
-                      </Tooltip>
+                      {date(e.startDate)}
+                      {e.startOfRange && (
+                        <>
+                          {" "}
+                          <InfoTip
+                            label="Partial data"
+                            content="We only have partial data for this experiment since it was already running at the start of our query"
+                          />
+                        </>
+                      )}
+                    </TableCell>
+                    <TableCell style={{ whiteSpace: "nowrap" }}>
+                      {date(e.endDate)}
                       <Text as="div" size="sm" color="text-low">
                         {daysBetween(e.startDate, e.endDate)} days
                       </Text>
@@ -1048,7 +1107,7 @@ const ImportExperimentList: FC<{
               })}
               {pageItems.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7}>
+                  <TableCell colSpan={8}>
                     <Text as="div" align="center" color="text-mid">
                       {identifierType !== null &&
                       !identifiersWithRows.has(identifierType) ? (
@@ -1067,15 +1126,15 @@ const ImportExperimentList: FC<{
           </Table>
           <Flex justify="between" align="center" gap="3" mt="3">
             <Text size="sm" color="text-mid">
-              {items.length < totalRows ? (
+              {tabItems.length < tabTotal ? (
                 <>
-                  <strong>{items.length}</strong> of{" "}
-                  <strong>{totalRows}</strong> experiments match your filters.{" "}
+                  <strong>{tabItems.length}</strong> of{" "}
+                  <strong>{tabTotal}</strong> experiments match your filters.{" "}
                   <Link onClick={clearFilters}>Clear filters</Link>
                 </>
               ) : (
                 <>
-                  <strong>{totalRows}</strong> experiments
+                  <strong>{tabTotal}</strong> experiments
                 </>
               )}
             </Text>
