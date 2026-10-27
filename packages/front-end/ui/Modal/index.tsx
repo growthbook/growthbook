@@ -105,7 +105,7 @@ type RootProps = TrackingEventModalProps & {
   size?: Size;
   dismissible?: boolean;
   hasDescription?: boolean;
-  // 560px wide with 20px padding and a divider under the header.
+  // 560px wide with 16px padding and a divider under the header.
   compact?: boolean;
   children: ReactNode;
 };
@@ -258,7 +258,7 @@ function Header({ children }: { children: ReactNode }) {
         align="center"
         gap="3"
         style={{
-          padding: "16px 20px",
+          padding: "var(--space-4)",
           borderBottom: "1px solid var(--gray-a5)",
         }}
       >
@@ -317,7 +317,9 @@ function Body({ children }: { children: ReactNode }) {
       <Box
         className={styles.body}
         style={{
-          padding: compact ? "20px" : "0 var(--space-7) var(--space-5)",
+          padding: compact
+            ? "var(--space-4)"
+            : "0 var(--space-7) var(--space-5)",
         }}
       >
         {error && <ErrorDisplay error={error} details={errorDetails} mb="5" />}
@@ -351,7 +353,7 @@ function Footer({
         // action on the left lines up with the content.
         style={{
           padding: compact
-            ? "14px 20px"
+            ? "14px var(--space-4)"
             : "20px var(--space-7) 20px calc(var(--space-7) - var(--space-3))",
         }}
       >

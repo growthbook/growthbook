@@ -35,7 +35,7 @@ export const EventWebHookListItem: FC<EventWebHookListItemProps> = ({
   return (
     <Link
       href={href}
-      style={{ textDecoration: "none", padding: "16px 20px" }}
+      style={{ textDecoration: "none", padding: "var(--space-4)" }}
       className="card"
     >
       <Flex gap="4">

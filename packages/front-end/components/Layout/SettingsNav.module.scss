@@ -18,7 +18,7 @@
 
 // Lines the title up with the page titles beside it.
 .header {
-  padding: var(--space-4) var(--space-3) 20px;
+  padding: var(--space-4) var(--space-3);
 }
 
 .kbd {
@@ -50,7 +50,7 @@
   padding: 4px 12px 24px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-4);
 }
 
 .group {

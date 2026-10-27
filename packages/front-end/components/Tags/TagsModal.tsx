@@ -87,7 +87,7 @@ export default function TagsModal({
         await onSuccess();
       })}
     >
-      <Flex direction="column" style={{ gap: 20 }}>
+      <Flex direction="column" gap="4">
         {isEdit ? (
           <Flex direction="column" gap="1">
             <Text weight="semibold">Name</Text>
