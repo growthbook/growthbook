@@ -541,13 +541,17 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
 
         for (const wh of newWebhooks) {
           if (!oldById.has(wh.id)) {
+            // A stable id per draft webhook makes a retried landing skip the
+            // ones an earlier, failed attempt already created.
+            const id = wh.id.startsWith("temp_")
+              ? `wh_${entity.sdkConnection.id}_${wh.id.slice("temp_".length)}`
+              : wh.id;
+            if (await context.models.sdkWebhooks.getById(id)) continue;
             await context.models.sdkWebhooks.create({
               ...context.models.sdkWebhooks.getDefaultCreateProps(
                 entity.sdkConnection.id,
               ),
-              // Keep the snapshot's id so a retry doesn't duplicate the
-              // webhook; client-side `temp_` ids are minted by the model.
-              ...(wh.id && !wh.id.startsWith("temp_") ? { id: wh.id } : {}),
+              id,
               name: wh.name,
               endpoint: wh.endpoint,
               httpMethod: wh.httpMethod,

@@ -366,8 +366,8 @@ export const putSDKConnection = async (
     }
   }
 
-  // `checkMergeConflicts` reads top-level paths, so the op replaces the whole
-  // settings object, layered on the state being edited (the draft's, if any).
+  // The op replaces the whole settings object, layered on the state being
+  // edited (the draft's, if any); merges look inside it per setting.
   const currentSettingsSnapshot = buildSettingsSnapshotValue(
     currentState,
   ) as SDKConnectionSettingsRevisionSnapshot;
@@ -417,8 +417,10 @@ export const putSDKConnection = async (
 
   // Publish gates run before the draft is minted. Publish authority is the
   // edit permission, already checked above.
+  // Only the explicit admin override lands an approval-required change;
+  // `autoPublish` alone means "publish if no approval is needed".
   if (wantsMerge && needsApproval) {
-    if (!explicitPublish) {
+    if (!bypassApproval) {
       throw new BadRequestError(
         "This change requires approval. Save it as a draft revision and submit it for review.",
       );
@@ -477,8 +479,7 @@ export const putSDKConnection = async (
   // a half-applied change; reopen if the write fails.
   const priorRevision = revision;
   revision = await context.models.revisions.merge(revision.id, context.userId, {
-    // Only record a bypass when the caller used the explicit admin override.
-    bypass: needsApproval && bypassApproval,
+    bypass: needsApproval,
   });
 
   // The guarded write is conditioned on the stamp the diff was computed

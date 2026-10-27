@@ -19,6 +19,7 @@ import {
   isSdkConnectionRevisionMetadataOnly,
   isSdkConnectionRevisionReviewExempt,
   getSdkConnectionGoverningRules,
+  mergeNestedBranch,
 } from "../../../src/revisions/helpers";
 import type {
   RevisionTargetType,
@@ -1259,5 +1260,104 @@ describe("revisions helpers", () => {
         ),
       ).toBe(false);
     });
+  });
+});
+
+describe("SDK connection nested merges", () => {
+  const fields = new Set(["sdkConnection", "sdkWebhooks"]);
+  const wh = (id: string, name: string) => ({
+    id,
+    name,
+    endpoint: "https://x",
+  });
+  const base = {
+    sdkConnection: {
+      name: "A",
+      includeRuleIds: false,
+      hashSecureAttributes: true,
+    },
+    sdkWebhooks: [wh("w1", "one"), wh("w2", "two")],
+  };
+
+  it("auto-merges a draft and a live edit to different settings", () => {
+    const live = {
+      ...base,
+      sdkConnection: { ...base.sdkConnection, includeRuleIds: true },
+    };
+    const ops = [
+      {
+        op: "replace" as const,
+        path: "/sdkConnection",
+        value: { ...base.sdkConnection, name: "B" },
+      },
+    ];
+    const result = checkMergeConflicts(base, live, ops, fields);
+    expect(result.success).toBe(true);
+    expect(result.mergedChanges.sdkConnection).toEqual({
+      name: "B",
+      includeRuleIds: true,
+      hashSecureAttributes: true,
+    });
+  });
+
+  it("conflicts only when both sides changed the same setting, proposing just the draft's edits", () => {
+    const live = {
+      ...base,
+      sdkConnection: {
+        ...base.sdkConnection,
+        name: "Live",
+        includeRuleIds: true,
+      },
+    };
+    const ops = [
+      {
+        op: "replace" as const,
+        path: "/sdkConnection",
+        value: { ...base.sdkConnection, name: "Draft" },
+      },
+    ];
+    const result = checkMergeConflicts(base, live, ops, fields);
+    expect(result.success).toBe(false);
+    expect(result.conflicts[0].proposedValue).toEqual({
+      name: "Draft",
+      includeRuleIds: true,
+      hashSecureAttributes: true,
+    });
+  });
+
+  it("merges webhooks by id so a live-added webhook survives a draft edit", () => {
+    const live = {
+      ...base,
+      sdkWebhooks: [...base.sdkWebhooks, wh("w3", "new")],
+    };
+    const ops = [
+      {
+        op: "replace" as const,
+        path: "/sdkWebhooks",
+        value: [wh("w1", "one renamed")],
+      },
+    ];
+    const result = checkMergeConflicts(base, live, ops, fields);
+    expect(result.success).toBe(true);
+    expect(result.mergedChanges.sdkWebhooks).toEqual([
+      wh("w1", "one renamed"),
+      wh("w3", "new"),
+    ]);
+  });
+
+  it("keeps live on colliding keys when preferring live", () => {
+    expect(
+      mergeNestedBranch(
+        "sdkConnection",
+        { name: "A", tags: false },
+        { name: "Live", tags: false },
+        { name: "Draft", tags: true },
+        "live",
+      ),
+    ).toEqual({ merged: { name: "Live", tags: true }, conflicts: ["name"] });
+  });
+
+  it("ignores fields that aren't nested branches", () => {
+    expect(mergeNestedBranch("values", [], [], [], "proposed")).toBeNull();
   });
 });

@@ -166,7 +166,8 @@ export function useSdkConnectionRevisionFlow({
     const mode: DraftMode =
       draftMode === "publish" && !effectiveCanAutoPublish ? "new" : draftMode;
 
-    if (mode === "publish" && Object.keys(changed).length === 0) {
+    // A no-op save must not mint an empty draft either.
+    if (Object.keys(changed).length === 0) {
       await mutate();
       return;
     }

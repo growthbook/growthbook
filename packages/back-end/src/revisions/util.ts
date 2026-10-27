@@ -6,6 +6,7 @@ import {
   JsonPatchOperation,
   Revision,
   RevisionTargetType,
+  mergeNestedBranch,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
@@ -140,7 +141,21 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
     }
     return false;
   });
-  return applyPatchToSnapshot(liveEntity, effectiveOps);
+  // A nested branch lands only what the draft changed in it, so unrelated live
+  // edits made since the draft's base survive.
+  const landedOps = effectiveOps.map((op) => {
+    if (op.op !== "replace" && op.op !== "add") return op;
+    const field = op.path.split("/")[1];
+    const nested = mergeNestedBranch(
+      field,
+      baseSnapshot[field],
+      liveEntity[field],
+      op.value,
+      "proposed",
+    );
+    return nested ? { ...op, value: nested.merged } : op;
+  });
+  return applyPatchToSnapshot(liveEntity, landedOps);
 }
 
 // Whether a merge changes the entity's project ownership. Covers both the

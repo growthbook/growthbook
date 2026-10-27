@@ -952,16 +952,19 @@ describe("sdkConnectionAdapter", () => {
         { ...baseWebhook, name: "Renamed" },
         { ...baseWebhook, id: "temp_3", name: "Three" },
       ];
+      const model = webhooksModel(ctx);
+      model.getById.mockImplementation(async (id: string) =>
+        id.startsWith("wh_") ? null : { id },
+      );
       const result = await sdkConnectionAdapter.applyChanges(ctx, entity, {
         sdkWebhooks: proposed,
       });
-      const model = webhooksModel(ctx);
       expect(model.create).toHaveBeenCalledTimes(1);
       expect(model.create.mock.calls[0][0]).toMatchObject({
+        id: "wh_sdk-1_3",
         sdks: ["sdk-1"],
         name: "Three",
       });
-      expect(model.create.mock.calls[0][0]).not.toHaveProperty("id");
       expect(model.update).toHaveBeenCalledTimes(1);
       expect(model.update.mock.calls[0][1]).toMatchObject({ name: "Renamed" });
       expect(model.delete).toHaveBeenCalledTimes(1);
@@ -977,8 +980,18 @@ describe("sdkConnectionAdapter", () => {
       });
     });
 
+    it("skips draft webhooks a failed earlier landing already created", async () => {
+      const ctx = makeContext({});
+      await sdkConnectionAdapter.applyChanges(ctx, liveEntity, {
+        sdkWebhooks: [{ ...baseWebhook, id: "temp_9" }],
+      });
+      expect(webhooksModel(ctx).getById).toHaveBeenCalledWith("wh_sdk-1_9");
+      expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
+    });
+
     it("keeps a non-temp snapshot id when creating a webhook", async () => {
       const ctx = makeContext({});
+      webhooksModel(ctx).getById.mockResolvedValue(null);
       await sdkConnectionAdapter.applyChanges(ctx, liveEntity, {
         sdkWebhooks: [{ ...baseWebhook, id: "wh-kept" }],
       });

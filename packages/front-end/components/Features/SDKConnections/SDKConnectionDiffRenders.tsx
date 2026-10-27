@@ -650,7 +650,7 @@ export const REVISION_SDK_CONNECTION_DIFF_CONFIG: RevisionDiffConfig<SDKConnecti
   {
     sections: [
       {
-        label: "Name",
+        label: "Connection",
         keys: ["sdkConnection"],
         render: renderSDKConnectionName,
         getBadges: getSDKConnectionNameBadges,

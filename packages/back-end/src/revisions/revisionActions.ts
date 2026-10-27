@@ -4,6 +4,7 @@ import {
   Revision,
   RevisionTargetType,
   checkMergeConflicts,
+  mergeNestedBranch,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
@@ -1621,8 +1622,17 @@ export async function rebaseRevision({
           `Unsupported patch op "${op.op}" in ${entityType} revision rebase`,
         );
       }
+      // A nested branch is re-based onto live, keeping only the draft's edits.
+      const nested = mergeNestedBranch(
+        field,
+        baseSnapshot[field],
+        entity[field],
+        op.value,
+        "proposed",
+      );
+      const value = nested ? nested.merged : op.value;
       // Live already caught up to what the draft was proposing: nothing to say.
-      if (!isEqual(op.value, entity[field])) newOps.push(op);
+      if (!isEqual(value, entity[field])) newOps.push({ ...op, value });
       continue;
     }
 
@@ -1677,7 +1687,20 @@ export async function rebaseRevision({
         newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
       }
     }
-    // strategy === "discard" → drop the op, so the live value stands.
+    // strategy === "discard" → the live value stands. A nested branch keeps
+    // the draft's edits that don't collide with live.
+    if (strategy === "discard") {
+      const nested = mergeNestedBranch(
+        field,
+        conflict.baseValue,
+        conflict.liveValue,
+        conflict.proposedValue,
+        "live",
+      );
+      if (nested && !isEqual(nested.merged, entity[field])) {
+        newOps.push({ op: "replace", path: `/${field}`, value: nested.merged });
+      }
+    }
   }
 
   const updated = await context.models.revisions.rebase(

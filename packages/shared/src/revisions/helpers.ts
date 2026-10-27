@@ -655,6 +655,81 @@ export function getRevisionUpdatableFields(
   }
 }
 
+// SDK connection snapshots hold all settings under one key and all webhooks
+// under another, so two drafts touching different settings would otherwise
+// collide on the whole branch. These branches merge per setting / per webhook.
+const NESTED_MERGE_BRANCHES: Record<string, "byKey" | "byId"> = {
+  sdkConnection: "byKey",
+  sdkWebhooks: "byId",
+};
+
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === "object" && !Array.isArray(v);
+
+const byId = (v: unknown): Map<string, unknown> | null => {
+  if (!Array.isArray(v)) return null;
+  const map = new Map<string, unknown>();
+  for (const item of v) {
+    if (!isPlainObject(item) || typeof item.id !== "string") return null;
+    map.set(item.id, item);
+  }
+  return map;
+};
+
+// Three-way merge of one nested branch. `prefer` decides keys both sides
+// changed differently, which are also reported as conflicts. Returns null
+// when the field isn't a nested branch or the values don't have its shape.
+export function mergeNestedBranch(
+  field: string,
+  base: unknown,
+  live: unknown,
+  proposed: unknown,
+  prefer: "proposed" | "live",
+): { merged: unknown; conflicts: string[] } | null {
+  const kind = NESTED_MERGE_BRANCHES[field];
+  if (!kind) return null;
+  const conflicts: string[] = [];
+  const pick = (key: string, b: unknown, l: unknown, p: unknown) => {
+    const proposedChanged = !isEqual(p, b);
+    const liveChanged = !isEqual(l, b);
+    if (proposedChanged && liveChanged && !isEqual(p, l)) {
+      conflicts.push(key);
+      return prefer === "proposed" ? p : l;
+    }
+    return proposedChanged ? p : l;
+  };
+
+  if (kind === "byKey") {
+    const b = base ?? {};
+    const l = live ?? {};
+    const p = proposed ?? {};
+    if (!isPlainObject(b) || !isPlainObject(l) || !isPlainObject(p)) {
+      return null;
+    }
+    const merged: Record<string, unknown> = {};
+    for (const key of new Set([
+      ...Object.keys(b),
+      ...Object.keys(l),
+      ...Object.keys(p),
+    ])) {
+      const value = pick(key, b[key], l[key], p[key]);
+      if (value !== undefined) merged[key] = value;
+    }
+    return { merged, conflicts };
+  }
+
+  const b = byId(base ?? []);
+  const l = byId(live ?? []);
+  const p = byId(proposed ?? []);
+  if (!b || !l || !p) return null;
+  const merged: unknown[] = [];
+  for (const id of new Set([...l.keys(), ...p.keys(), ...b.keys()])) {
+    const value = pick(id, b.get(id), l.get(id), p.get(id));
+    if (value !== undefined) merged.push(value);
+  }
+  return { merged, conflicts };
+}
+
 export function checkMergeConflicts(
   baseState: Record<string, unknown>,
   liveState: Record<string, unknown>,
@@ -717,7 +792,24 @@ export function checkMergeConflicts(
 
     if (liveChanged && proposedChanged) {
       if (hasChanged(proposedValue, liveValue)) {
-        conflicts.push({ field, baseValue, liveValue, proposedValue });
+        const nested = mergeNestedBranch(
+          field,
+          baseValue,
+          liveValue,
+          proposedValue,
+          "proposed",
+        );
+        if (nested && !nested.conflicts.length) {
+          mergedChanges[field] = nested.merged;
+          fieldsChanged.push(field);
+          continue;
+        }
+        conflicts.push({
+          field,
+          baseValue,
+          liveValue,
+          proposedValue: nested ? nested.merged : proposedValue,
+        });
       } else {
         // Both changed to the same value — no conflict
         fieldsChanged.push(field);
