@@ -75,6 +75,13 @@ export function getPopulationDraftIssue(
   if (!draft.datasource) return "Choose a Data Source.";
   if (!draft.userIdTypes.length) return "Choose an identifier type.";
   if (!step.source.factTableId) return "Choose a fact table.";
+  const factTable = factTables.find((ft) => ft.id === step.source.factTableId);
+  if (
+    factTable &&
+    draft.userIdTypes.some((t) => !factTable.userIdTypes.includes(t))
+  ) {
+    return "The fact table doesn't support every selected identifier type.";
+  }
   if (!step.rowFilters.every(isRowFilterComplete)) {
     return "Finish the row filter.";
   }

@@ -33,8 +33,12 @@ export default function PopulationStepCard({
   userIdTypes: string[];
   onChange: (step: PopulationStep) => void;
 }) {
-  const { factTables } = useDefinitions();
+  const { factTables, getFactTableById } = useDefinitions();
   const { factTable } = useFullFactTable(step.source.factTableId || null);
+  const selectedFactTable = getFactTableById(step.source.factTableId);
+  const unsupportedUserIdTypes = selectedFactTable
+    ? userIdTypes.filter((t) => !selectedFactTable.userIdTypes.includes(t))
+    : [];
 
   const factTableOptions = useMemo(
     () =>
@@ -90,6 +94,11 @@ export default function PopulationStepCard({
             noOptionsMessage={() =>
               "No fact tables in this Data Source support every selected identifier type"
             }
+            error={
+              selectedFactTable && unsupportedUserIdTypes.length
+                ? `${selectedFactTable.name} doesn't support ${unsupportedUserIdTypes.join(", ")}. Choose another fact table or change the identifier types.`
+                : undefined
+            }
           />
         </Box>
       </Flex>
@@ -109,7 +118,7 @@ export default function PopulationStepCard({
         )}
 
         {step.aggregateFilterColumn !== undefined && (
-          <StepRow label="having">
+          <StepRow label="with">
             <AggregateFilterInput
               factTable={factTable}
               column={step.aggregateFilterColumn}

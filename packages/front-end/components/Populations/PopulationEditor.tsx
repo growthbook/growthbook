@@ -7,9 +7,12 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
+import Frame from "@/ui/Frame";
+import HelperText from "@/ui/HelperText";
 import TextField from "@/ui/TextField";
-import Tooltip from "@/ui/Tooltip";
 import { Select, SelectItem } from "@/ui/Select";
 import MultiSelectField from "@/ui/MultiSelectField";
 import PageHead from "@/components/Layout/PageHead";
@@ -85,6 +88,9 @@ export default function PopulationEditor({
     };
   });
   const [error, setError] = useState<string | null>(null);
+  const [pendingDatasource, setPendingDatasource] = useState<string | null>(
+    null,
+  );
 
   const projects = population?.projects ?? (project ? [project] : []);
   const canSave = population
@@ -106,13 +112,30 @@ export default function PopulationEditor({
   // Without full columns a JSON aggregate can't be checked, so Save stays
   // disabled until the step's fact table loads. SWR retries a failed request
   // with isLoading true, so `error` keeps the settled message during retries.
-  const issue = !canSave
+  const fullFactTablesLoaded = fullFactTablesLoadedFor(stepFactTableIds);
+  const blocker = !canSave
     ? "You don't have permission to save this Population."
-    : !fullFactTablesLoadedFor(stepFactTableIds)
-      ? fullFactTablesLoading && !fullFactTablesError
-        ? "Loading fact tables..."
-        : "A fact table on this Population could not be loaded."
-      : getPopulationDraftIssue(draft, ruleFactTables);
+    : !fullFactTablesLoaded && (!fullFactTablesLoading || fullFactTablesError)
+      ? "The fact table on this Population could not be loaded."
+      : null;
+  const issue =
+    blocker ??
+    (!fullFactTablesLoaded
+      ? "Loading fact table..."
+      : getPopulationDraftIssue(draft, ruleFactTables));
+  const noEligibleDatasources = !population && !eligibleDatasources.length;
+
+  const changeDatasource = (datasource: string) =>
+    setDraft((d) => ({
+      ...d,
+      datasource,
+      userIdTypes: defaultUserIdTypes(datasource),
+      step: newPopulationStep(),
+    }));
+  const stepHasContent =
+    !!draft.step.source.factTableId ||
+    draft.step.rowFilters.length > 0 ||
+    draft.step.aggregateFilterColumn !== undefined;
 
   const userIdTypeOptions =
     getDatasourceById(draft.datasource)?.settings.userIdTypes?.map(
@@ -170,32 +193,56 @@ export default function PopulationEditor({
         <Heading as="h1" size="xl">
           {title}
         </Heading>
-        <Flex gap="3">
+        <Flex gap="3" align="center" wrap="wrap" justify="end">
+          {issue && !blocker && !noEligibleDatasources && (
+            <HelperText status="info" size="sm">
+              {issue}
+            </HelperText>
+          )}
           <LinkButton href={cancelHref} variant="outline">
             Cancel
           </LinkButton>
-          <Tooltip content={issue ?? ""} enabled={!!issue}>
-            <span>
-              <Button onClick={save} setError={setError} disabled={!!issue}>
-                Save Population
-              </Button>
-            </span>
-          </Tooltip>
+          <Button onClick={save} setError={setError} disabled={!!issue}>
+            Save Population
+          </Button>
         </Flex>
       </Flex>
 
+      {blocker && (
+        <Callout status={canSave ? "error" : "warning"} mb="4">
+          {blocker}
+        </Callout>
+      )}
       {error && (
         <Callout status="error" mb="4">
           {error}
         </Callout>
       )}
+      {noEligibleDatasources && (
+        <Callout status="info" mb="4">
+          A Population is built from a fact table, so create one first.{" "}
+          <Link href="/fact-tables">Go to Fact Tables</Link>
+        </Callout>
+      )}
+      {pendingDatasource !== null && (
+        <ConfirmDialog
+          title="Change Data Source?"
+          content="Changing the Data Source clears the fact table and filters you've chosen."
+          yesText="Change Data Source"
+          onConfirm={() => {
+            changeDatasource(pendingDatasource);
+            setPendingDatasource(null);
+          }}
+          onCancel={() => setPendingDatasource(null)}
+        />
+      )}
 
       {/* The form's large flex-grow keeps the size panel at its base width
           until it wraps below. */}
       <Flex wrap="wrap" gap="4" align="start">
-        <Box
-          className="appbox"
-          p="5"
+        <Frame
+          px="5"
+          py="5"
           mb="0"
           minWidth="0"
           style={{ flex: "999 1 600px" }}
@@ -210,31 +257,41 @@ export default function PopulationEditor({
               placeholder="e.g. Signed up, never ordered"
               autoFocus={!population}
             />
-            <Select
-              label="Data Source"
-              value={draft.datasource}
-              disabled={!!population}
-              setValue={(datasource) =>
-                setDraft((d) => ({
-                  ...d,
-                  datasource,
-                  userIdTypes: defaultUserIdTypes(datasource),
-                  step: newPopulationStep(),
-                }))
-              }
-              placeholder="Choose a Data Source..."
-            >
-              {eligibleDatasources.map((d) => (
-                <SelectItem key={d.id} value={d.id}>
-                  {d.name}
-                </SelectItem>
-              ))}
-            </Select>
+            <Box>
+              <Select
+                label="Data Source"
+                value={draft.datasource}
+                disabled={!!population || noEligibleDatasources}
+                setValue={(datasource) => {
+                  if (datasource === draft.datasource) return;
+                  if (stepHasContent) {
+                    setPendingDatasource(datasource);
+                  } else {
+                    changeDatasource(datasource);
+                  }
+                }}
+                placeholder="Choose a Data Source..."
+              >
+                {eligibleDatasources.map((d) => (
+                  <SelectItem key={d.id} value={d.id}>
+                    {d.name}
+                  </SelectItem>
+                ))}
+              </Select>
+              {population && (
+                <Box mt="1">
+                  <Text size="sm" color="text-mid">
+                    Data Source can&apos;t be changed after the Population is
+                    created.
+                  </Text>
+                </Box>
+              )}
+            </Box>
             <MultiSelectField
               label="Identifier types"
               size="md"
               legacyLabelFormatting={false}
-              containerClassName="mb-0"
+              containerStyle={{ marginBottom: 0 }}
               value={draft.userIdTypes}
               onChange={(userIdTypes) =>
                 setDraft((d) => ({ ...d, userIdTypes }))
@@ -281,17 +338,17 @@ export default function PopulationEditor({
               onChange={(step) => setDraft((d) => ({ ...d, step }))}
             />
           </Box>
-        </Box>
+        </Frame>
 
-        <Box className="appbox" p="5" mb="0" style={{ flex: "1 1 280px" }}>
+        <Frame px="5" py="5" mb="0" style={{ flex: "1 1 280px" }}>
           <Heading as="h2" size="md" mb="3">
-            Population Size
+            Members
           </Heading>
           <Text size="sm" color="text-mid">
-            A live size preview is coming soon. Membership is calculated when
+            A live member count is coming soon. Membership is calculated when
             the Population refreshes.
           </Text>
-        </Box>
+        </Frame>
       </Flex>
     </Box>
   );

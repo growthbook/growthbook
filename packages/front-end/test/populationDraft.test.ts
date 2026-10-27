@@ -119,7 +119,7 @@ describe("getPopulationDraftIssue", () => {
 
   it("flags a fact table that doesn't support the identifier type", () => {
     expect(issue({ ...complete, userIdTypes: ["anonymous_id"] })).toBe(
-      "Fact table a does not support identifier types: anonymous_id.",
+      "The fact table doesn't support every selected identifier type.",
     );
   });
 
