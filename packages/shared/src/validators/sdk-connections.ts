@@ -146,7 +146,6 @@ export const sdkWebhookSnapshotValidator = z.object({
   headers: z.string().optional(),
   payloadFormat: payloadFormatValidator.optional(),
   payloadKey: z.string().optional(),
-  disabled: z.boolean().optional(),
   timeoutSeconds: webhookTimeoutSecondsValidator.optional(),
 });
 

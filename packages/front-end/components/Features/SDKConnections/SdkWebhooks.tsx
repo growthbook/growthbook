@@ -15,6 +15,7 @@ import { ago } from "shared/dates";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { Revision, patchOpsToPartial } from "shared/enterprise";
 import {
+  parseSdkWebhookSnapshot,
   sdkWebhookSnapshotValidator,
   SDKWebhookRevisionSnapshot,
 } from "shared/validators";
@@ -118,11 +119,12 @@ export default function SdkWebhooks({
     const proposed = patchOpsToPartial(
       selectedDraft.target.proposedChanges,
     ) as { sdkWebhooks?: SDKWebhookRevisionSnapshot[] };
-    if (proposed.sdkWebhooks) return proposed.sdkWebhooks;
     const baseline = selectedDraft.target.snapshot as {
       sdkWebhooks?: SDKWebhookRevisionSnapshot[];
     };
-    return baseline?.sdkWebhooks ?? [];
+    return (proposed.sdkWebhooks ?? baseline?.sdkWebhooks ?? []).map((wh) =>
+      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+    );
   })();
 
   const rows: WebhookRow[] = draftWebhookSnapshots

@@ -86,7 +86,6 @@ const baseWebhook: SDKWebhookRevisionSnapshot = {
   endpoint: "https://hooks.example.com/1",
   httpMethod: "POST",
   headers: "",
-  disabled: false,
 };
 
 const baseSnapshot = sdkConnectionAdapter.buildSnapshot(

@@ -23,6 +23,7 @@ import {
   SDKWebhookRevisionSnapshot,
   sdkConnectionSettingsSnapshotValidator,
   sdkConnectionUpdatableFieldsSchema,
+  parseSdkWebhookSnapshot,
   sdkWebhookSnapshotValidator,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
@@ -105,7 +106,6 @@ function toWebhookSnapshot(wh: WebhookInterface): SDKWebhookRevisionSnapshot {
     ...(wh.headers !== undefined && { headers: wh.headers }),
     ...(wh.payloadFormat !== undefined && { payloadFormat: wh.payloadFormat }),
     ...(wh.payloadKey !== undefined && { payloadKey: wh.payloadKey }),
-    ...(wh.disabled !== undefined && { disabled: wh.disabled }),
     ...((wh.timeoutSeconds ?? null) !== null && {
       timeoutSeconds: wh.timeoutSeconds,
     }),
@@ -458,9 +458,12 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       const newSettings = changes.sdkConnection as
         | SDKConnectionSettingsRevisionSnapshot
         | undefined;
-      const newWebhooks = changes.sdkWebhooks as
-        | SDKWebhookRevisionSnapshot[]
-        | undefined;
+      // Older drafts may carry delivery state; parsing keeps only editable fields.
+      const newWebhooks = (
+        changes.sdkWebhooks as SDKWebhookRevisionSnapshot[] | undefined
+      )?.map((wh) =>
+        parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+      );
       const settingsChanges = newSettings
         ? filterUpdatableChanges(
             newSettings,
@@ -556,7 +559,6 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               ...((wh.timeoutSeconds ?? null) !== null && {
                 timeoutSeconds: wh.timeoutSeconds,
               }),
-              disabled: wh.disabled ?? false,
             });
           }
         }
@@ -576,7 +578,6 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
                 payloadFormat: newWh.payloadFormat,
                 payloadKey: newWh.payloadKey,
                 timeoutSeconds: newWh.timeoutSeconds ?? null,
-                disabled: newWh.disabled,
               });
             }
           }
