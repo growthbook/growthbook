@@ -37,7 +37,6 @@ import { FilterHeading, FilterItem } from "@/components/Search/SearchFilters";
 import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
-import Metadata from "@/ui/Metadata";
 import Modal from "@/ui/Modal";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -521,13 +520,16 @@ const ImportExperimentList: FC<{
   const queryControls = (
     <Flex align="center" gap="3" ml="auto">
       {hasStarted && (
-        <Text
-          size="sm"
-          color="text-low"
-          title={datetime(data.experiments.runStarted ?? "")}
-        >
-          Updated {ago(data.experiments.runStarted ?? "")}
-        </Text>
+        <Flex direction="column" align="end">
+          {dateRange}
+          <Text
+            size="sm"
+            color="text-low"
+            title={datetime(data.experiments.runStarted ?? "")}
+          >
+            Updated {ago(data.experiments.runStarted ?? "")}
+          </Text>
+        </Flex>
       )}
       {canRunQueries && (
         <RunQueriesButton
@@ -597,7 +599,7 @@ const ImportExperimentList: FC<{
         />
       )}
       {(supportedDatasources.length > 1 || hasStarted || canRunQueries) && (
-        <Flex align="end" gap="5" wrap="wrap" mb="4">
+        <Flex align="end" gap="3" wrap="wrap" mb="4">
           {supportedDatasources.length > 1 && (
             <Select
               label="Data Source"
@@ -613,12 +615,6 @@ const ImportExperimentList: FC<{
                 </SelectItem>
               ))}
             </Select>
-          )}
-          {hasStarted && dateRange && (
-            // Same height as the select's trigger so the two line up
-            <Flex align="center" style={{ height: 32 }}>
-              <Metadata label="Date range" value={dateRange} />
-            </Flex>
           )}
           {queryControls}
         </Flex>
