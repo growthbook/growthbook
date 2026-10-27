@@ -1,3 +1,4 @@
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { useMemo, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiArrowClockwise, PiArrowLeft } from "react-icons/pi";
@@ -66,12 +67,20 @@ const BODY_HEIGHT = "calc(93vh - 200px)";
 const getExposureQueryColumnMappingError = (
   columns: DetectedColumn[],
   fromTable?: boolean,
+  savedTimestamp?: string,
 ) =>
-  getColumnMappingError(columns, fromTable, {
-    minColumns: 4,
-    separateColumns:
-      "separate columns for an experiment ID, a variation ID, a timestamp, and at least one identifier",
-  });
+  getColumnMappingError(
+    // Like the mapping step, accept a saved timestamp whatever its type
+    columns.map((c) =>
+      c.column === savedTimestamp ? { ...c, datatype: "date" } : c,
+    ),
+    fromTable,
+    {
+      minColumns: 4,
+      separateColumns:
+        "separate columns for an experiment ID, a variation ID, a timestamp, and at least one identifier",
+    },
+  );
 
 const ROLE_LABELS: Record<string, string> = {
   experiment_id: "Experiment ID",
@@ -134,6 +143,7 @@ export const ExperimentAssignmentQueryModal = ({
   const { projects: allProjects } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { apiCall } = useAuth();
+  const growthbook = useGrowthBook();
 
   const savedRoleColumns = exposureQuery ? getRoleColumns(exposureQuery) : {};
   const savedUserIdTypes = exposureQuery
@@ -224,16 +234,24 @@ export const ExperimentAssignmentQueryModal = ({
     );
   };
 
+  const getMappingError = (cols: DetectedColumn[], fromTable?: boolean) =>
+    getExposureQueryColumnMappingError(
+      cols,
+      fromTable,
+      savedRoleColumns.timestamp,
+    );
+
   const source = useSourceTable({
     datasource: dataSource,
     // A saved query keeps only its SQL, so edits stay in SQL mode
-    tableModeAvailable: !exposureQuery,
+    tableModeAvailable:
+      !exposureQuery && growthbook.isOn("fact-table-table-mode"),
     templates,
     queryType: "exposureQueryTest",
     sql,
     setSql,
     initialColumns: savedColumns,
-    getColumnMappingError: getExposureQueryColumnMappingError,
+    getColumnMappingError: getMappingError,
     onSelectTable: (tableName) => {
       if (!name || name === source.tableName) setName(tableName);
       // Otherwise the previous table's mappings carry over
@@ -264,7 +282,10 @@ export const ExperimentAssignmentQueryModal = ({
     detected !== savedColumns;
 
   const columns = detected || [];
-  const timestampOptions = columns.filter(isTimestampCandidate);
+  // The old modal didn't check types, so a saved string timestamp stays listed
+  const timestampOptions = columns.filter(
+    (c) => isTimestampCandidate(c) || c.column === savedRoleColumns.timestamp,
+  );
   const identifierOptions = columns.filter(isIdentifierCandidate);
   const columnsNeedingQuotes = findColumnsNeedingQuotes(
     {
@@ -347,7 +368,7 @@ export const ExperimentAssignmentQueryModal = ({
       );
       if (res.error) throw new Error(res.error);
       const cols = res.columns || [];
-      const error = getExposureQueryColumnMappingError(cols);
+      const error = getMappingError(cols);
       if (error) throw new Error(error);
       source.handleColumnsDetected(cols, sql);
     } catch (e) {
@@ -518,15 +539,6 @@ export const ExperimentAssignmentQueryModal = ({
           await validateSql.current?.();
         }}
       >
-        {mode === "sql" ? (
-          <Box px="2" py="1">
-            <Text>
-              Return a column for the experiment ID, variation ID, timestamp,
-              and at least one identifier ({identifierTypes.join(", ")}).
-              You&apos;ll map them to these roles on the next step.
-            </Text>
-          </Box>
-        ) : null}
         <Box
           p="2"
           style={

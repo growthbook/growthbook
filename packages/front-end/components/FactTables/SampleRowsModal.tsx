@@ -196,12 +196,7 @@ export function RowFilterSampleRowsModal({
           <TabsContent value="where">
             <Box style={{ height: 300, overflowY: "auto" }}>
               <Code
-                code={
-                  result?.generatedSql ??
-                  (result?.where
-                    ? `WHERE ${result.where}`
-                    : "-- No filters applied")
-                }
+                code={result?.generatedSql ?? `WHERE ${result?.where || ""}`}
                 language="sql"
               />
             </Box>
