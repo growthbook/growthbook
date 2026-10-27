@@ -67,7 +67,7 @@ export default function AgentChatHistory({
   const combined = !!onNewChat;
   const currentTitle =
     conversations.find((c) => c.conversationId === activeConversationId)
-      ?.title || "New conversation";
+      ?.title || "New Conversation";
 
   return (
     <DropdownMenu
@@ -140,7 +140,7 @@ export default function AgentChatHistory({
           >
             <Flex align="center" gap="2">
               <PiPlus size={14} aria-hidden="true" />
-              New conversation
+              New Conversation
             </Flex>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
