@@ -144,6 +144,9 @@ export const contextualBanditValidator = baseSchema
     maxLeaves: z.number().int().positive(),
     priorSampleSize: z.number().int().nonnegative(),
 
+    // TODO(holdout-v1.5): preserved on the doc but NOT wired through — the orchestrator,
+    // SQL runner, stats engine, SDK callback, and results UI all ignore non-zero values.
+    holdoutPercent: z.number().min(0).max(0.5),
     measurementArm: contextualBanditMeasurementArmValidator.optional(),
 
     banditModelVersion: z.number().int().nonnegative(),
@@ -225,6 +228,7 @@ export const apiContextualBanditValidator = namedSchema(
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
     priorSampleSize: z.number().int().nonnegative(),
+    holdoutPercent: z.number().min(0).max(0.5),
     measurementArm: apiContextualBanditMeasurementArm.optional(),
     banditModelVersion: z.number().int().nonnegative(),
     scheduleValue: z.number().optional(),

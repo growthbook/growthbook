@@ -148,6 +148,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
     initialValue?.variations ?? getDefaultVariations(initialNumVariations);
   const toEqualWeights = (vars: Variation[]) => getEqualWeights(vars.length);
 
+  // TODO(holdout-v1.5): wire up holdout configuration UI when back-end is ready.
   const form = useForm<ContextualBanditFormValues>({
     defaultValues: {
       measurementArmEnabled: initialValue?.measurementArmEnabled ?? true,

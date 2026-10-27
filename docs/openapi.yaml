@@ -81879,6 +81879,10 @@ components:
         priorSampleSize:
           type: integer
           minimum: 0
+        holdoutPercent:
+          type: number
+          minimum: 0
+          maximum: 0.5
         measurementArm:
           type: object
           properties:
@@ -81986,6 +81990,7 @@ components:
         - minUsersPerLeaf
         - maxLeaves
         - priorSampleSize
+        - holdoutPercent
         - banditModelVersion
       additionalProperties: false
     ContextualBanditQuery:

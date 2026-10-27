@@ -119,6 +119,7 @@ const BaseClass = MakeModelClass({
     "analysisSummary",
   ],
   defaultValues: {
+    holdoutPercent: 0,
     archived: false,
     minUsersPerLeaf: 100,
     maxLeaves: 12,
@@ -422,6 +423,7 @@ export function toApiContextualBandit(
     minUsersPerLeaf: doc.minUsersPerLeaf,
     maxLeaves: doc.maxLeaves,
     priorSampleSize: doc.priorSampleSize ?? 0,
+    holdoutPercent: doc.holdoutPercent,
     measurementArm: doc.measurementArm
       ? {
           enabled: doc.measurementArm.enabled,
@@ -608,6 +610,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       tags: body.tags ?? [],
       owner: body.owner ?? "",
       archived: false,
+      holdoutPercent: 0,
       banditModelVersion: 1,
       minUsersPerLeaf: body.minUsersPerLeaf ?? 100,
       maxLeaves: body.maxLeaves ?? 12,

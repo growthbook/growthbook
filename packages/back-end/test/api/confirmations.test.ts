@@ -280,6 +280,7 @@ const insertBandit = (id: string, status: "draft" | "running") =>
     contextualAttributes: ["country"],
     minUsersPerLeaf: 100,
     maxLeaves: 12,
+    holdoutPercent: 0,
     priorSampleSize: 0,
     banditModelVersion: 1,
   });
