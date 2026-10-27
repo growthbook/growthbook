@@ -3,7 +3,7 @@ import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import { useExperimentEdits } from "./ExperimentEdits";
-import StagedChanges from "./StagedChanges";
+import StagedChanges, { incompatibleNote } from "./StagedChanges";
 import styles from "./UnsavedEditsBar.module.scss";
 
 /** Appears once something on the page is edited, and is the only way to write it. */
@@ -38,7 +38,11 @@ export default function UnsavedEditsBar() {
               </Box>
             </Flex>
           ) : null}
-          {edits.conflicts.length ? (
+          {edits.incompatible.length ? (
+            <HelperText status="warning" size="sm">
+              {incompatibleNote(edits.experiment.status)}
+            </HelperText>
+          ) : edits.conflicts.length ? (
             <HelperText status="warning" size="sm">
               Someone else saved changes to what you edited. Keep yours or use
               theirs.
@@ -57,7 +61,10 @@ export default function UnsavedEditsBar() {
           >
             Discard changes
           </Button>
-          <Button disabled={edits.saving} onClick={() => edits.saveAll()}>
+          <Button
+            disabled={edits.saving || edits.incompatible.length > 0}
+            onClick={() => edits.saveAll()}
+          >
             {edits.saving ? "Saving..." : "Save"}
           </Button>
         </Flex>

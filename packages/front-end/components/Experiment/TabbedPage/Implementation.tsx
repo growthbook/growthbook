@@ -192,6 +192,7 @@ export default function Implementation({
   );
   useExperimentFieldEdit("variations", !!variationsDraft, experiment, {
     label: "Variations",
+    statusBound: true,
     fields: () => ({
       variations: variationsDraft ?? experiment.variations,
       // The split the page shows, so both writes agree on the count.
@@ -239,6 +240,7 @@ export default function Implementation({
         )),
     {
       label: "URL redirects and visual changes",
+      statusBound: true,
       changes: () => linkedBody,
       discard: clearLinked,
       rebase: () =>

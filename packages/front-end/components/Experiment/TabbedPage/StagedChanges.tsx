@@ -17,17 +17,27 @@ import { StagedReview, useExperimentEdits } from "./ExperimentEdits";
 
 type SaveCheck = { status: "ready" } | { status: "refused"; reason: string };
 
+export const incompatibleNote = (status: string) =>
+  `${
+    status === "draft"
+      ? "This experiment's status changed"
+      : "This experiment is no longer a draft"
+  }, so some changes can't be saved. Discard them to save the rest.`;
+
 function StagedChange({
   label,
   review,
   discard,
   keepMine,
+  incompatible,
 }: {
   label: string;
   review: StagedReview | null;
   discard: () => void;
   // Set while someone else's save conflicts with this edit.
   keepMine: (() => void) | null;
+  // Made before the experiment's status changed: it can only be discarded.
+  incompatible: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Shown as a change is judged, so key order and empty fields aren't diffs.
@@ -47,17 +57,24 @@ function StagedChange({
     </Link>
   );
   // Discarding a conflicted edit takes theirs, so it says so.
-  const actions = keepMine ? (
-    <Flex gap="3">
-      {link("Use theirs", discard)}
-      {link("Keep mine", keepMine)}
-    </Flex>
-  ) : (
-    link("Discard", discard)
-  );
+  const actions =
+    keepMine && !incompatible ? (
+      <Flex gap="3">
+        {link("Use theirs", discard)}
+        {link("Keep mine", keepMine)}
+      </Flex>
+    ) : (
+      link("Discard", discard)
+    );
   const title = (
     <Flex align="center" gap="1">
-      {keepMine ? (
+      {incompatible ? (
+        <Tooltip content="Made before the experiment's status changed.">
+          <Flex as="span" style={{ color: "var(--amber-11)" }}>
+            <RadixStatusIcon status="warning" size="sm" />
+          </Flex>
+        </Tooltip>
+      ) : keepMine ? (
         <Tooltip content="Someone else saved a change to this since you made yours.">
           <Flex as="span" style={{ color: "var(--amber-11)" }}>
             <RadixStatusIcon status="warning" size="sm" />
@@ -112,16 +129,22 @@ export default function StagedChanges() {
   const [check, setCheck] = useState<SaveCheck | null>(null);
   const staged = edits?.staged;
   const conflicts = edits?.conflicts;
-  // A save refused over someone else's change opens the list to resolve it.
+  const incompatible = edits?.incompatible;
+  // A save refused over someone else's change, or a status change that left
+  // edits behind, opens the list to resolve it.
   useEffect(() => {
-    if (conflicts?.length) setOpen(true);
-  }, [conflicts]);
+    if (conflicts?.length || incompatible?.length) setOpen(true);
+  }, [conflicts, incompatible]);
 
   // The check runs when the list opens or changes, not when the page renders.
   const checkAll = useRef(edits?.checkAll);
   checkAll.current = edits?.checkAll;
   useEffect(() => {
-    if (!open || !checkAll.current) return;
+    // Not while edits left behind still block the save.
+    if (!open || !checkAll.current || incompatible?.length) {
+      setCheck(null);
+      return;
+    }
     let current = true;
     setCheck(null);
     checkAll
@@ -145,7 +168,7 @@ export default function StagedChanges() {
     return () => {
       current = false;
     };
-  }, [open, staged, conflicts]);
+  }, [open, staged, conflicts, incompatible]);
 
   if (!edits || !staged) return null;
 
@@ -170,6 +193,11 @@ export default function StagedChanges() {
       }
       content={
         <Flex direction="column" gap="2">
+          {edits.incompatible.length ? (
+            <HelperText status="warning" size="sm" mb="1">
+              {incompatibleNote(edits.experiment.status)}
+            </HelperText>
+          ) : null}
           {staged.map(({ id, label }) => (
             <StagedChange
               key={id}
@@ -179,6 +207,7 @@ export default function StagedChanges() {
               keepMine={
                 edits.conflicts.includes(id) ? () => edits.keepMine(id) : null
               }
+              incompatible={edits.incompatible.includes(id)}
             />
           ))}
           {check?.status === "ready" ? (

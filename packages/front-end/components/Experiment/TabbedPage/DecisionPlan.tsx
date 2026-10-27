@@ -93,6 +93,7 @@ export default function DecisionPlan({
   } | null>("analysis-plan:schedule", null);
   useExperimentFieldEdit("schedule", !!stagedSchedule, plan, {
     label: "Schedule",
+    statusBound: true,
     fields: () => ({ statusUpdateSchedule: stagedSchedule?.schedule ?? null }),
     onSaved: () => setStagedSchedule(null),
     discard: () => setStagedSchedule(null),

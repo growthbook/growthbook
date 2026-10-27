@@ -192,9 +192,7 @@ export default function VariationValuesTable({
   // A flag staged for removal leaves the table; discarding brings it back.
   const removedFlags = linkedFeatures
     .map((info) => info.feature.id)
-    .filter(
-      (id) => experiment.status === "draft" && linkActions[id] === "remove",
-    );
+    .filter((id) => linkActions[id] === "remove");
   const flagColumns = linkedFeatures
     .filter((info) => !removedFlags.includes(info.feature.id))
     .flatMap((info): FlagColumnSource[] =>
@@ -522,6 +520,7 @@ function StagedUnlink({
 }) {
   useRegisterExperimentEdit(`link:${featureId}`, true, {
     label: `Remove ${featureId}`,
+    statusBound: true,
     changes: () => ({ unlinkFeatures: [featureId] }),
     discard,
   });
@@ -735,7 +734,8 @@ function FlagColumn({
     fromDraft
       ? { version: pendingDraft.version, dateUpdated: pendingDraft.dateUpdated }
       : { version: feature.version, dateUpdated: null };
-  const stagesValues = dirty && !linkAction && !showingLive;
+  // Past a draft, it stays registered so the page can say to discard it.
+  const stagesValues = dirty && !linkAction;
   const [revisionBase, rebaseRevision] = useEditBase(
     valuesEditId,
     stagesValues,
@@ -743,6 +743,7 @@ function FlagColumn({
   );
   useRegisterExperimentEdit(valuesEditId, stagesValues, {
     label: `${feature.id} values${groupEnvironments ? ` (${groupEnvironments})` : ""}`,
+    statusBound: true,
     rebase: rebaseRevision,
     review: () => ({
       before: {
@@ -776,10 +777,11 @@ function FlagColumn({
   };
   useRegisterExperimentEdit(
     `link:${feature.id}`,
-    !!linkAction && !showingLive && (!group || group.first),
+    !!linkAction && (!group || group.first),
     {
       label:
         linkAction === "keep" ? `Keep ${feature.id}` : `Link ${feature.id}`,
+      statusBound: true,
       changes: (options) =>
         linkAction === "keep"
           ? { keepFeatures: [feature.id] }

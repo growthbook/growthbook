@@ -256,6 +256,7 @@ export default function TrafficAllocationFunnel({
   // Over what's saved now: what the page shows, and what keeping mine keeps.
   const effective = staged ? { ...targetingDefaults, ...mine } : null;
   useRegisterExperimentEdit("targeting", !!staged, {
+    statusBound: true,
     discard: clearStaged,
     label: onlyTrafficFields(Object.keys(mine)) ? "Traffic" : "Targeting",
     review: () => reviewAgainstCurrent(experiment, mine),

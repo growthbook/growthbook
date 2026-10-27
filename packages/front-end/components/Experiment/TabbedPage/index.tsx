@@ -207,6 +207,7 @@ function TabbedPageContents({
   >("holdout", null);
   useExperimentFieldEdit("holdout", stagedHoldout !== null, experiment, {
     label: "Holdout",
+    statusBound: true,
     fields: () => (stagedHoldout !== null ? { holdoutId: stagedHoldout } : {}),
     discard: () => setStagedHoldout(null),
   });

@@ -30,6 +30,9 @@ import { mergeChanges } from "./mergeChanges";
 
 type PendingEdit = {
   label: string;
+  // Made for the experiment's status at the time, as delivery edits are for a
+  // draft: once the status moves, it can only be discarded.
+  statusBound?: boolean;
   // Without it, the review comes from the edit's share of the changeset.
   review?: () => StagedReview;
   discard: () => void;
@@ -86,6 +89,9 @@ interface ExperimentEditsValue {
   // Staged edits whose fields someone else saved since they were made.
   conflicts: string[];
   markDrifted: (id: string, drifted: boolean) => void;
+  // Status-bound edits made before the experiment's status changed.
+  incompatible: string[];
+  markIncompatible: (id: string, incompatible: boolean) => void;
   // Saves this edit over the other change next time.
   keepMine: (id: string) => void;
   discard: (id: string) => void;
@@ -152,10 +158,12 @@ export function experimentFieldChanges(
 
 const STAGED_EDITS_PREFIX = "gb-experiment-edits";
 
+// Per experiment, whatever its status: edits a status change leaves behind
+// stay to be saved or discarded (see `statusBound`).
 export function stagedEditsScope(
-  experiment: Pick<ExperimentInterfaceStringDates, "id" | "status">,
+  experiment: Pick<ExperimentInterfaceStringDates, "id">,
 ): string {
-  return `${experiment.id}:${experiment.status}`;
+  return experiment.id;
 }
 
 // Nothing staged: the slot reads as its caller's `initial`, so it follows what
@@ -201,22 +209,6 @@ function subscribeStaged(key: string, listener: () => void) {
     listeners.delete(listener);
     if (!listeners.size) stagedListeners.delete(key);
   };
-}
-
-function clearStagedEdits(scope: string) {
-  const prefix = `${STAGED_EDITS_PREFIX}:${scope}:`;
-  const keys = new Set(stagedValues.keys());
-  try {
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key) keys.add(key);
-    }
-  } catch {
-    // Only what's in memory, then.
-  }
-  keys.forEach((key) => {
-    if (key.startsWith(prefix)) writeStaged(key, UNSET);
-  });
 }
 
 /**
@@ -270,6 +262,11 @@ export function useStagedState<T>(
   return [value, set, clear];
 }
 
+function withId(ids: string[], id: string, on: boolean): string[] {
+  if (on === ids.includes(id)) return ids;
+  return on ? [...ids, id] : ids.filter((d) => d !== id);
+}
+
 // Collects the page's in-place edits so one Save writes them together.
 export function ExperimentEditsProvider({
   experiment,
@@ -286,13 +283,6 @@ export function ExperimentEditsProvider({
   const experimentId = experiment.id;
   const edits = useRef(new Map<string, PendingEdit>());
 
-  const previousScope = useRef(scope);
-  useEffect(() => {
-    const left = previousScope.current;
-    previousScope.current = scope;
-    if (left === scope || !left.startsWith(`${experimentId}:`)) return;
-    clearStagedEdits(left);
-  }, [scope, experimentId]);
   const [staged, setStaged] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -310,15 +300,17 @@ export function ExperimentEditsProvider({
     rebaseOnRender.current = [];
   }, [refetched]);
 
-  const markDrifted = useCallback((id: string, isDrifted: boolean) => {
-    setDrifted((prev) =>
-      isDrifted === prev.includes(id)
-        ? prev
-        : isDrifted
-          ? [...prev, id]
-          : prev.filter((d) => d !== id),
-    );
-  }, []);
+  const markDrifted = useCallback(
+    (id: string, isDrifted: boolean) =>
+      setDrifted((prev) => withId(prev, id, isDrifted)),
+    [],
+  );
+  const [incompatible, setIncompatible] = useState<string[]>([]);
+  const markIncompatible = useCallback(
+    (id: string, isIncompatible: boolean) =>
+      setIncompatible((prev) => withId(prev, id, isIncompatible)),
+    [],
+  );
   // Refused by a save, or already shown by a refetch: either way, resolved the
   // same way.
   const shownConflicts = useMemo(
@@ -331,7 +323,8 @@ export function ExperimentEditsProvider({
       edits.current.set(id, edit);
     } else {
       edits.current.delete(id);
-      setDrifted((prev) => prev.filter((d) => d !== id));
+      setDrifted((prev) => withId(prev, id, false));
+      setIncompatible((prev) => withId(prev, id, false));
     }
     setStaged((prev) => {
       const i = prev.findIndex((entry) => entry.id === id);
@@ -521,6 +514,8 @@ export function ExperimentEditsProvider({
       staged,
       conflicts: shownConflicts,
       markDrifted,
+      incompatible,
+      markIncompatible,
       keepMine,
       discard,
       review,
@@ -535,6 +530,8 @@ export function ExperimentEditsProvider({
       staged,
       shownConflicts,
       markDrifted,
+      incompatible,
+      markIncompatible,
       keepMine,
       saving,
       error,
@@ -588,8 +585,27 @@ export function useRegisterExperimentEdit(
   // edit: keyed on that, each change would unregister and re-register them all.
   const register = ctx?.register;
   const markDrifted = ctx?.markDrifted;
+  const markIncompatible = ctx?.markIncompatible;
   const latest = useRef(edit);
   latest.current = edit;
+
+  // The status it was staged under, kept across reloads like the edit.
+  const status = ctx?.experiment.status ?? null;
+  const statusBound = !!edit.statusBound;
+  const [stagedIn, setStagedIn] = useStagedState<string | null>(
+    `status:${id}`,
+    null,
+  );
+  useEffect(() => {
+    if (!statusBound) return;
+    if (dirty && stagedIn === null && status) setStagedIn(status);
+    if (!dirty && stagedIn !== null) setStagedIn(null);
+  }, [statusBound, dirty, stagedIn, status, setStagedIn]);
+  const incompatible =
+    statusBound && dirty && stagedIn !== null && stagedIn !== status;
+  useEffect(() => {
+    markIncompatible?.(id, incompatible);
+  }, [markIncompatible, id, incompatible]);
 
   // A refetched save by someone else over this edit's fields is flagged now,
   // not when Save is refused.
@@ -668,7 +684,10 @@ export function useExperimentFieldEdit(
   {
     fields,
     ...edit
-  }: Pick<PendingEdit, "label" | "review" | "discard" | "onSaved"> & {
+  }: Pick<
+    PendingEdit,
+    "label" | "review" | "discard" | "onSaved" | "statusBound"
+  > & {
     fields: () => ExperimentChangesFields;
   },
 ) {
