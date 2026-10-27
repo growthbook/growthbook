@@ -1,4 +1,5 @@
 import { FC, useEffect, useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { isProjectListValidForProject } from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -94,14 +95,16 @@ const ImportExperimentModal: FC<{
   }
 
   const footer = (
-    <Modal.Footer justify="between">
-      <Text color="text-mid">
-        Don&apos;t see your experiment?{" "}
-        <Link onClick={() => setImportModal(false)}>Create from scratch</Link>
-      </Text>
-      <Button variant="ghost" onClick={onClose}>
-        Close
-      </Button>
+    <Modal.Footer>
+      <Flex justify="between" align="center" flexGrow="1">
+        <Text color="text-mid">
+          Don&apos;t see your experiment?{" "}
+          <Link onClick={() => setImportModal(false)}>Create from scratch</Link>
+        </Text>
+        <Button variant="ghost" onClick={onClose}>
+          Close
+        </Button>
+      </Flex>
     </Modal.Footer>
   );
 
