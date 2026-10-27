@@ -16,6 +16,7 @@ import {
 import {
   DeterministicExperimentQualityCheckKey,
   ExperimentQualityCheckKey,
+  CustomQualityCheckJudge,
   ExperimentQualityCheckParams,
   ExperimentQualityConfigBody,
   ExperimentQualitySectionKey,
@@ -253,6 +254,7 @@ export interface ResolvedCustomQualityCheck {
   key: CustomQualityCheckKey;
   name: string;
   rule: string;
+  judge: CustomQualityCheckJudge;
   // Own flag AND the AI section is enabled
   enabled: boolean;
   // An equal share of the AI section alongside built-in AI checks
@@ -369,6 +371,7 @@ export function resolveExperimentQualityScoreSettings(
       key: customQualityCheckKey(c.id),
       name: c.name,
       rule: c.rule,
+      judge: c.judge ?? "llm",
       enabled: (c.enabled ?? true) && sections.ai.enabled,
       split: 0,
     }),
@@ -454,7 +457,8 @@ export function getAICheckHashInputs(
     .map((key) => [key, settings.checks[key].aiContext ?? ""]);
   const custom: Array<[string, string]> = settings.customAiChecks
     .filter((c) => c.enabled)
-    .map((c) => [c.key, c.rule]);
+    // A change of judge re-runs the check too
+    .map((c) => [c.key, `${c.judge}:${c.rule}`]);
   return [...builtin, ...custom].sort((a, b) => a[0].localeCompare(b[0]));
 }
 

@@ -27,6 +27,7 @@ export default function QualityScoreTab({
   anyDirty,
   canRecalculate,
   aiAvailable,
+  decisionModelAvailable,
   hypothesisDefinition,
   experimentCount,
 }: {
@@ -43,6 +44,7 @@ export default function QualityScoreTab({
   anyDirty: boolean;
   canRecalculate: boolean;
   aiAvailable: boolean;
+  decisionModelAvailable: boolean;
   hypothesisDefinition: string;
   // Non-archived experiments, for the re-score note
   experimentCount?: number;
@@ -143,6 +145,7 @@ export default function QualityScoreTab({
         draft={configDraft}
         setDraft={setConfigDraft}
         aiAvailable={aiAvailable}
+        decisionModelAvailable={decisionModelAvailable}
         hypothesisDefinition={hypothesisDefinition}
         aiSectionFooter={
           canRecalculate && (

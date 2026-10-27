@@ -161,12 +161,14 @@ async function judgeWithDecisionModel({
   experiment,
   settings,
   checks,
+  customChecks,
   goalMetricNames,
   hypothesisPrompt,
 }: {
   experiment: ExperimentInterface;
   settings: ResolvedSettings;
   checks: AIExperimentQualityCheckKey[];
+  customChecks: ResolvedSettings["customAiChecks"];
   goalMetricNames: string[];
   hypothesisPrompt: { prompt: string; isDefaultPrompt: boolean } | null;
 }): Promise<AIQualityCheckResult[]> {
@@ -186,8 +188,13 @@ async function judgeWithDecisionModel({
     alignmentGuidance:
       settings.checks["ai-hypothesis-metric-alignment"].aiContext?.trim() ||
       undefined,
+    builtInChecks: checks.length > 0,
+    customChecks: customChecks.map(({ key, rule }) => ({ key, rule })),
+    experimentDigest: customChecks.length
+      ? getExperimentDigestForCustomRules(experiment, goalMetricNames)
+      : "",
   });
-  return checks.flatMap((key) => {
+  return [...checks, ...customChecks.map((c) => c.key)].flatMap((key) => {
     const verdict = verdicts[key];
     return verdict ? [{ key, ...verdict }] : [];
   });
@@ -341,11 +348,20 @@ export async function computeAndStoreAIQualityChecks({
     return { status: "skipped" };
   }
 
-  // Built-in checks go to the decision model when one is configured; custom
-  // rules, and every check without one, go to the chat model
-  const decisionChecks = isDecisionModelConfigured() ? applicableChecks : [];
-  const chatChecks = decisionChecks.length ? [] : applicableChecks;
-  const useChatModel = !!chatChecks.length || !!applicableCustomChecks.length;
+  // With a decision model configured, it judges the built-in checks and the
+  // custom rules routed to it; the chat model judges the rest
+  const hasDecisionModel = isDecisionModelConfigured();
+  const decisionChecks = hasDecisionModel ? applicableChecks : [];
+  const chatChecks = hasDecisionModel ? [] : applicableChecks;
+  const decisionCustomChecks = hasDecisionModel
+    ? applicableCustomChecks.filter((c) => c.judge === "decision")
+    : [];
+  const chatCustomChecks = applicableCustomChecks.filter(
+    (c) => !decisionCustomChecks.includes(c),
+  );
+  const useDecisionModel =
+    !!decisionChecks.length || !!decisionCustomChecks.length;
+  const useChatModel = !!chatChecks.length || !!chatCustomChecks.length;
 
   // Wait out the AI usage limit; the caller retries later
   if (useChatModel) {
@@ -362,11 +378,12 @@ export async function computeAndStoreAIQualityChecks({
   let aiQualityResults: ExperimentAIQualityResults;
   try {
     const checks = await Promise.all([
-      decisionChecks.length
+      useDecisionModel
         ? judgeWithDecisionModel({
             experiment,
             settings,
             checks: decisionChecks,
+            customChecks: decisionCustomChecks,
             goalMetricNames,
             hypothesisPrompt,
           })
@@ -377,7 +394,7 @@ export async function computeAndStoreAIQualityChecks({
             experiment,
             settings,
             checks: chatChecks,
-            customChecks: applicableCustomChecks,
+            customChecks: chatCustomChecks,
             goalMetricNames,
             hypothesisDefinition: hypothesisPrompt?.prompt ?? "",
           })

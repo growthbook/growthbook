@@ -23,6 +23,7 @@ import { TextField } from "@/ui/TextField";
 import Field from "@/components/Forms/Field";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import { Select, SelectItem } from "@/ui/Select";
 import { SECTION_COLORS } from "@/components/Experiment/Quality/qualityDisplay";
 import ShareBar from "./ShareBar";
 import {
@@ -32,6 +33,7 @@ import {
   getEnabledSectionKeys,
   reflowSectionWeights,
   removeCustomCheck,
+  setCustomCheckJudge,
   setSectionEnabled,
   updateCheck,
   updateCustomCheck,
@@ -249,16 +251,24 @@ function FieldBelow({
   );
 }
 
+const JUDGE_LABELS = {
+  decision: "Decision model (fast)",
+  llm: "AI model",
+};
+
 export default function QualityConfigEditor({
   draft,
   setDraft,
   aiAvailable,
+  decisionModelAvailable,
   hypothesisDefinition,
   aiSectionFooter,
 }: {
   draft: QualityConfigDraft;
   setDraft: (draft: QualityConfigDraft) => void;
   aiAvailable: boolean;
+  // Custom checks can be routed to a decision model instead of the AI model
+  decisionModelAvailable: boolean;
   hypothesisDefinition: string;
   // Rendered at the bottom of the open AI checks section
   aiSectionFooter?: ReactNode;
@@ -480,16 +490,64 @@ export default function QualityConfigEditor({
                         </>
                       }
                       below={
-                        <FieldBelow
-                          label="What to evaluate"
-                          placeholder='Describe how to score this from the experiment data, e.g. "start with 10 points and take off 2 for every goal metric beyond 5"'
-                          value={custom.rule}
-                          onChange={(rule) =>
-                            setDraft(
-                              updateCustomCheck(draft, custom.id, { rule }),
-                            )
-                          }
-                        />
+                        <>
+                          <FieldBelow
+                            label="What to evaluate"
+                            placeholder='Describe how to score this from the experiment data, e.g. "start with 10 points and take off 2 for every goal metric beyond 5"'
+                            value={custom.rule}
+                            onChange={(rule) =>
+                              setDraft(
+                                updateCustomCheck(draft, custom.id, { rule }),
+                              )
+                            }
+                          />
+                          {decisionModelAvailable && (
+                            <Flex align="center" gap="2" mt="2" wrap="wrap">
+                              <Text size="sm" color="text-mid">
+                                Judged by
+                              </Text>
+                              <Select
+                                size="sm"
+                                aria-label="Judged by"
+                                value={
+                                  custom.judgeChosenBy === "admin" &&
+                                  custom.judge
+                                    ? custom.judge
+                                    : "auto"
+                                }
+                                setValue={(v) =>
+                                  setDraft(
+                                    setCustomCheckJudge(
+                                      draft,
+                                      custom.id,
+                                      v === "decision" || v === "llm"
+                                        ? v
+                                        : null,
+                                    ),
+                                  )
+                                }
+                                disabled={!included}
+                              >
+                                <SelectItem value="auto">
+                                  Choose automatically
+                                </SelectItem>
+                                <SelectItem value="decision">
+                                  {JUDGE_LABELS.decision}
+                                </SelectItem>
+                                <SelectItem value="llm">
+                                  {JUDGE_LABELS.llm}
+                                </SelectItem>
+                              </Select>
+                              {custom.judgeChosenBy !== "admin" && (
+                                <Text size="sm" color="text-low">
+                                  {custom.judge
+                                    ? `Picked automatically: ${JUDGE_LABELS[custom.judge]}.`
+                                    : "Picked when you save. Rules that need counting, points or dates use the AI model."}
+                                </Text>
+                              )}
+                            </Flex>
+                          )}
+                        </>
                       }
                       onToggle={(enabled) =>
                         setDraft(

@@ -6,6 +6,7 @@ import {
   roundToTotal,
 } from "shared/enterprise";
 import {
+  CustomQualityCheck,
   ExperimentQualityCheckKey,
   ExperimentQualityCheckParams,
   ExperimentQualityConfigBody,
@@ -30,12 +31,14 @@ export interface QualityConfigDraft {
       aiContext?: string;
     }
   >;
-  customAiChecks: Array<{
-    id: string;
-    name: string;
-    rule: string;
-    enabled: boolean;
-  }>;
+  customAiChecks: Array<
+    {
+      id: string;
+      name: string;
+      rule: string;
+      enabled: boolean;
+    } & Pick<CustomQualityCheck, "judge" | "judgeChosenBy">
+  >;
 }
 
 type DraftCheck = QualityConfigDraft["checks"][ExperimentQualityCheckKey];
@@ -92,6 +95,8 @@ export function configToDraft(
       name: c.name,
       rule: c.rule,
       enabled: stored?.customAiChecks?.[i]?.enabled ?? true,
+      // Unset until a save picks one automatically
+      ...pickJudge(stored?.customAiChecks?.[i]),
     })),
   };
   return normalizeSections(draft);
@@ -122,8 +127,11 @@ export function draftToConfig(
     checks,
     // Always sent, so saving with no custom checks clears earlier ones
     customAiChecks: draft.customAiChecks.map((c) => ({
-      ...c,
+      id: c.id,
       name: c.name.trim() || "Custom check",
+      rule: c.rule,
+      enabled: c.enabled,
+      ...pickJudge(c),
     })),
   };
 }
@@ -193,6 +201,9 @@ export function updateCheck(
   return "enabled" in updates ? normalizeSections(next) : next;
 }
 
+const pickJudge = (c?: Partial<CustomCheck>) =>
+  c?.judge ? { judge: c.judge, judgeChosenBy: c.judgeChosenBy } : {};
+
 export function updateCustomCheck(
   draft: QualityConfigDraft,
   id: string,
@@ -200,11 +211,37 @@ export function updateCustomCheck(
 ): QualityConfigDraft {
   const next = {
     ...draft,
-    customAiChecks: draft.customAiChecks.map((c) =>
-      c.id === id ? { ...c, ...updates } : c,
-    ),
+    customAiChecks: draft.customAiChecks.map((c) => {
+      if (c.id !== id) return c;
+      const updated = { ...c, ...updates };
+      // A rewritten rule is classified again on save, unless an admin chose
+      if (updates.rule === undefined || c.judgeChosenBy === "admin") {
+        return updated;
+      }
+      return { ...updated, judge: undefined, judgeChosenBy: undefined };
+    }),
   };
   return "enabled" in updates ? normalizeSections(next) : next;
+}
+
+// null hands the choice back to automatic classification on save
+export function setCustomCheckJudge(
+  draft: QualityConfigDraft,
+  id: string,
+  judge: CustomQualityCheck["judge"] | null,
+): QualityConfigDraft {
+  return {
+    ...draft,
+    customAiChecks: draft.customAiChecks.map((c) =>
+      c.id === id
+        ? {
+            ...c,
+            judge: judge ?? undefined,
+            judgeChosenBy: judge ? "admin" : undefined,
+          }
+        : c,
+    ),
+  };
 }
 
 export function addCustomCheck(draft: QualityConfigDraft): QualityConfigDraft {
