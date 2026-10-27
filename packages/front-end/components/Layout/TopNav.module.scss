@@ -69,15 +69,15 @@ $sidebarwidth: var(--app-rail-width, 240px);
 // Under the header's bottom edge (and any bar pinned under it), content
 // scrolling up fades into the page's background instead of being cut off,
 // as the GrowthBot panel's conversation does at its top (AgentPanel
-// .module.scss), from the background to clear, a third shorter than the
-// panel's 32px. At z-index 1 and
-// before the page, sticky headers and tab bars pinned there cover it.
+// .module.scss), from the background to clear, half the panel's 32px.
+// At z-index 1 and before the page, sticky headers and tab bars pinned
+// there cover it.
 .headerFade {
   position: fixed;
   top: var(--page-top-offset);
   left: $sidebarwidth;
   right: var(--agent-rail-width, 0px);
-  height: 21px;
+  height: 16px;
   z-index: 1;
   pointer-events: none;
   background: linear-gradient(to bottom, var(--color-background), transparent);
