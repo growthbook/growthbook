@@ -354,7 +354,6 @@ export default function DataSourceOptionsTable() {
       </Text>
       <SampleDataSourceLink />
 
-      {/* Scrolls sideways where the page is narrower than the table. */}
       <Box overflowX="auto">
         <Table
           variant="surface"
