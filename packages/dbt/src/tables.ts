@@ -32,12 +32,21 @@ export function planTables(
 
   // One table per (model, time dim, exact join set): a metric's table depends only on itself.
   const tables = new Map<string, TableDraft>();
+  // Names joined by "__" are ambiguous once a name contains "__" itself.
+  const identities = new Map<string, string>();
+  const collided = new Set<string>();
   for (const d of drafts) {
     for (const { usage: u } of d.refs) {
       const { model, timeDim } = u;
       const parts = [model.name];
       if (timeDim !== model.defaults?.agg_time_dimension) parts.push(timeDim);
-      u.factTableId = [...parts, ...[...u.joins.keys()].sort()].join("__");
+      const joins = [...u.joins.keys()].sort();
+      u.factTableId = [...parts, ...joins].join("__");
+      const identity = JSON.stringify([model.name, timeDim, joins]);
+      if ((identities.get(u.factTableId) ?? identity) !== identity) {
+        collided.add(u.factTableId);
+      }
+      identities.set(u.factTableId, identity);
       let t = tables.get(u.factTableId);
       if (!t) {
         t = {
@@ -65,6 +74,11 @@ export function planTables(
   for (const t of tables.values()) {
     const model = t.model;
     try {
+      if (collided.has(t.id)) {
+        throw new Unsupported(
+          `more than one semantic model, time dimension or join set produces this id; rename the one whose name contains "__"`,
+        );
+      }
       const rel = model.node_relation?.relation_name;
       if (!rel) {
         throw new Unsupported(
@@ -154,11 +168,12 @@ export function planTables(
         name: joined.length ? `${label} + ${joined.join(" + ")}` : label,
         datasource: opts.datasource,
         userIdTypes,
+        // Sent even when empty, so a mapping removed in dbt is removed in GrowthBook.
+        userIdColumns,
         sql,
         timestampColumn: tsCol,
         columns: [...columns.values()],
       };
-      if (Object.keys(userIdColumns).length) data.userIdColumns = userIdColumns;
       data.description = model.description ?? "";
       data.tags = tagsOf(model);
       Object.assign(data, omit(gbMeta(model), ["enabled"]));

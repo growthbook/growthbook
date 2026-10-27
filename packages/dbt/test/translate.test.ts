@@ -170,6 +170,44 @@ describe("translate (legacy spec)", () => {
     ]);
   });
 
+  it("keeps date comparisons as sql_expr, since GrowthBook compares date columns by day", () => {
+    const manifest = {
+      ...legacy,
+      metrics: {
+        ...legacy.metrics,
+        recent_orders: {
+          name: "recent_orders",
+          type: "simple",
+          type_params: { measure: { name: "order_count" } },
+          filter: {
+            where_filters: [
+              {
+                where_sql_template:
+                  "{{ Dimension('order_id__ordered_at') }} > '2024-01-01'",
+              },
+              {
+                where_sql_template:
+                  "{{ Dimension('order_id__ordered_at') }} IN ('2024-01-01', '2024-02-01')",
+              },
+            ],
+          },
+        },
+      },
+    };
+    const { payload } = run(manifest);
+    expect(byId(payload.factMetrics, "recent_orders").numerator).toEqual({
+      factTableId: "orders",
+      column: "$$count",
+      rowFilters: [
+        { operator: "sql_expr", values: ["ordered_at > '2024-01-01'"] },
+        {
+          operator: "sql_expr",
+          values: ["ordered_at IN ('2024-01-01', '2024-02-01')"],
+        },
+      ],
+    });
+  });
+
   it("maps aggregations", () => {
     expect(metric("order_total")).toMatchObject({
       name: "Order total",
@@ -317,6 +355,118 @@ describe("translate (legacy spec)", () => {
     expect(skipped("metric refund_count")).toBeUndefined();
     expect(skipped("metric disabled_metric")).toBeUndefined();
     expect(payload.factTables.find((t) => t.id === "refunds")).toBeUndefined();
+  });
+
+  it("sends an empty userIdColumns, so a mapping removed in dbt is cleared", () => {
+    expect(table("visits").userIdColumns).toEqual({});
+  });
+
+  it("drops metrics that join a disabled model", () => {
+    const customers = legacy.semantic_models["semantic_model.jaffle.customers"];
+    const manifest = {
+      ...legacy,
+      semantic_models: {
+        ...legacy.semantic_models,
+        "semantic_model.jaffle.customers": {
+          ...customers,
+          config: { meta: { growthbook: { enabled: false } } },
+        },
+      },
+    };
+    const { payload, warnings } = run(manifest);
+    expect(
+      warnings.find((w) => w.resource === "metric orders_from_west")?.message,
+    ).toMatch(/"customers", which is excluded/);
+    expect(
+      payload.factTables.find((t) => t.id === "orders__customer"),
+    ).toBeUndefined();
+    expect(
+      byId(payload.factMetrics, "order_total").numerator?.factTableId,
+    ).toBe("orders");
+  });
+
+  it("skips percentiles GrowthBook cannot store", () => {
+    const orders = legacy.semantic_models["semantic_model.jaffle.orders"];
+    const manifest = {
+      ...legacy,
+      semantic_models: {
+        ...legacy.semantic_models,
+        "semantic_model.jaffle.orders": {
+          ...orders,
+          measures: orders.measures.map((m) =>
+            m.name === "order_total_p90"
+              ? { ...m, agg_params: { ...m.agg_params, percentile: 0.9999 } }
+              : m,
+          ),
+        },
+      },
+    };
+    const { payload, warnings } = run(manifest);
+    expect(
+      warnings.find((w) => w.resource === "metric order_total_p90")?.message,
+    ).toMatch(/0\.9999 is outside the 0\.001 to 0\.999 range/);
+    expect(
+      payload.factMetrics.find((m) => m.id === "order_total_p90"),
+    ).toBeUndefined();
+  });
+
+  it("refuses two tables that would share an id", () => {
+    const manifest = {
+      ...legacy,
+      nodes: {
+        ...legacy.nodes,
+        "model.jaffle.orders__customer": {
+          name: "orders__customer",
+          resource_type: "model",
+          relation_name: "orders_customer",
+          config: { meta: { growthbook: { userIdTypes: ["user_id"] } } },
+        },
+      },
+    };
+    const plain = run(manifest);
+    expect(
+      plain.warnings.find((w) => w.resource === "fact table orders__customer")
+        ?.message,
+    ).toMatch(/generated from a semantic model already has this id/);
+    expect(byId(plain.payload.factTables, "orders__customer").sql).toMatch(
+      /LEFT JOIN/,
+    );
+
+    // Semantic names can't contain "__" in dbt, but nothing here relies on that.
+    const semantic = run({
+      ...legacy,
+      semantic_models: {
+        ...legacy.semantic_models,
+        collider: {
+          name: "orders__customer",
+          node_relation: { relation_name: "collider" },
+          defaults: { agg_time_dimension: "at" },
+          entities: [
+            { name: "customer", type: "primary", expr: "customer_id" },
+          ],
+          dimensions: [{ name: "at", type: "time" }],
+          measures: [{ name: "collider_count", agg: "count", expr: "x" }],
+        },
+      },
+      metrics: {
+        ...legacy.metrics,
+        collider: {
+          name: "collider",
+          type: "simple",
+          type_params: { measure: { name: "collider_count" } },
+        },
+      },
+    });
+    expect(
+      semantic.warnings.find(
+        (w) => w.resource === "fact table orders__customer",
+      )?.message,
+    ).toMatch(/more than one semantic model/);
+    for (const id of ["collider", "orders_from_west"]) {
+      expect(
+        semantic.payload.factMetrics.find((m) => m.id === id),
+      ).toBeUndefined();
+    }
   });
 
   it("selects by tag, name glob and model, before translating anything", () => {

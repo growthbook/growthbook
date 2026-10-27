@@ -86,7 +86,10 @@ async function main() {
     throw new Error("--prune cannot be combined with --select or --exclude");
   }
 
-  const api = async (path: string, init?: RequestInit): Promise<ApiResult> => {
+  const request = async (
+    path: string,
+    init?: RequestInit,
+  ): Promise<ApiResult> => {
     const res = await fetch(`${host}/api/v1${path}`, {
       ...init,
       headers: {
@@ -105,6 +108,32 @@ async function main() {
           : JSON.stringify(r.body)
       }`,
     );
+  // A key that requires confirmation holds writes: they answer 202 and run
+  // only once a person confirms them, so wait for the request's real outcome.
+  const api = async (path: string, init?: RequestInit): Promise<ApiResult> => {
+    const r = await request(path, init);
+    let c =
+      r.status === 202 && isRecord(r.body) && isRecord(r.body.confirmation)
+        ? r.body.confirmation
+        : null;
+    if (!c) return r;
+    console.log(`Waiting for a person to confirm this in GrowthBook: ${c.url}`);
+    while (c.status === "pending" || c.status === "running") {
+      const p = await request(`/confirmations/${c.id}?wait=30`);
+      if (!p.ok || !isRecord(p.body) || !isRecord(p.body.confirmation)) {
+        throw apiError("Waiting for confirmation", p);
+      }
+      c = p.body.confirmation;
+    }
+    const res = c.response;
+    if (c.status === "completed" && isRecord(res)) {
+      const status = Number(res.status);
+      return { ok: status >= 200 && status < 300, status, body: res.body };
+    }
+    throw new Error(
+      `Nothing was written: confirmation ${c.id} is ${c.status}${c.note ? ` (${c.note})` : ""}`,
+    );
+  };
 
   const list = (s?: string) =>
     s
@@ -131,8 +160,22 @@ async function main() {
   }
 
   const manifest: unknown = JSON.parse(readFileSync(args.manifest, "utf8"));
-  if (!isRecord(manifest))
-    throw new Error(`${args.manifest} is not a dbt manifest`);
+  // Any other JSON (package.json, semantic_manifest.json) translates to an
+  // empty payload, which --prune would read as everything leaving dbt.
+  const schema =
+    isRecord(manifest) && isRecord(manifest.metadata)
+      ? manifest.metadata.dbt_schema_version
+      : null;
+  if (
+    !isRecord(manifest) ||
+    !isRecord(manifest.nodes) ||
+    typeof schema !== "string" ||
+    !schema.includes("/manifest/")
+  ) {
+    throw new Error(
+      `${args.manifest} is not a dbt manifest.json (run dbt parse to write target/manifest.json)`,
+    );
+  }
   const { payload, warnings } = translate(manifest as DbtManifest, {
     datasource: args.datasource,
     entities,

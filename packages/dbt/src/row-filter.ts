@@ -15,17 +15,22 @@ function literal(raw: string): Literal | null {
 const COMPARISON = /^\s*([A-Za-z_]\w*)\s*(<=|>=|<>|!=|=|<|>)\s*(.+?)\s*$/;
 const IN_LIST = /^\s*([A-Za-z_]\w*)\s+(not\s+)?in\s*\(\s*(.+?)\s*\)\s*$/i;
 const NULL_CHECK = /^\s*([A-Za-z_]\w*)\s+is\s+(not\s+)?null\s*$/i;
+const DATE_LITERAL = /^\d{4}-\d{2}-\d{2}/;
 
 // Structured row filters are compiled by GrowthBook with no warehouse round
 // trip, unlike sql_expr, which is test-run against the warehouse on every
 // create. Numeric and boolean literals also need the column typed, or the
-// value is quoted as a string. Anything this doesn't match stays sql_expr.
+// value is quoted as a string. Date literals stay sql_expr: GrowthBook reads
+// '2024-01-01' as a whole day on a timestamp column, so `> '2024-01-01'`
+// would start on January 2. Anything this doesn't match stays sql_expr too.
 export function parseRowFilter(sql: string): {
   filter: RowFilter & { column: string };
   datatype?: "number" | "boolean";
 } | null {
   const hint = (lit: Literal) =>
     lit.kind === "string" ? {} : { datatype: lit.kind };
+  const isDate = (lit: Literal | null) =>
+    lit?.kind === "string" && DATE_LITERAL.test(lit.value);
 
   const nullCheck = NULL_CHECK.exec(sql);
   if (nullCheck) {
@@ -42,7 +47,7 @@ export function parseRowFilter(sql: string): {
     const lits = inList[3].split(",").map((v) => literal(v.trim()));
     const first = lits[0];
     if (!first || !lits.every((l) => l && l.kind === first.kind)) return null;
-    if (first.kind === "boolean") return null;
+    if (first.kind === "boolean" || lits.some(isDate)) return null;
     return {
       filter: {
         operator: inList[2] ? "not_in" : "in",
@@ -57,7 +62,7 @@ export function parseRowFilter(sql: string): {
   if (!cmp) return null;
   const [, column, rawOp, rawValue] = cmp;
   const lit = literal(rawValue);
-  if (!lit) return null;
+  if (!lit || isDate(lit)) return null;
   const op = rawOp === "<>" ? "!=" : rawOp;
   if (lit.kind === "boolean") {
     if (op !== "=" && op !== "!=") return null;

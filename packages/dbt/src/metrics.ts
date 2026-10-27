@@ -254,6 +254,12 @@ export function draftMetrics(ctx: TranslateContext): Draft[] {
             `no semantic model with primary entity "${entity}" defines dimension "${dim}"`,
           );
         }
+        // A joined model is read too, so disabling or excluding it drops the metric.
+        if (modelBlocked(target)) {
+          throw new Unsupported(
+            `depends on semantic model "${target.name}", which is excluded`,
+          );
+        }
         const join = usage.joins.get(entity) ?? {
           target,
           fk,
@@ -393,6 +399,12 @@ export function draftMetrics(ctx: TranslateContext): Draft[] {
           `percentile measure "${def.name}" has no percentile`,
         );
       }
+      const quantile = Math.round(q * 1000) / 1000;
+      if (quantile < 0.001 || quantile > 0.999) {
+        throw new Unsupported(
+          `percentile ${q} is outside the 0.001 to 0.999 range GrowthBook supports`,
+        );
+      }
       if (def.aggParams?.use_discrete_percentile) {
         warnings.push({
           level: "note",
@@ -406,7 +418,7 @@ export function draftMetrics(ctx: TranslateContext): Draft[] {
           metricType: "quantile",
           quantileSettings: {
             type: "event",
-            quantile: Math.round(q * 1000) / 1000,
+            quantile,
             ignoreZeros: false,
           },
         },

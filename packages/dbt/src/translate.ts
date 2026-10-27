@@ -89,7 +89,11 @@ export function translate(
   };
 
   const semantic = planTables(ctx, draftMetrics(ctx));
-  const plain = importPlainModels(ctx, values(manifest.nodes));
+  const plain = importPlainModels(
+    ctx,
+    values(manifest.nodes),
+    new Set(semantic.factTables.map((t) => t.id)),
+  );
 
   const byId = (a: { id: string }, b: { id: string }) =>
     a.id.localeCompare(b.id);

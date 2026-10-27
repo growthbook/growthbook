@@ -9,9 +9,11 @@ import {
 import { gbMeta, isRecord, matches, omit, tagsOf } from "./util";
 
 // Plain dbt models annotated with meta.growthbook in GrowthBook's own vocabulary.
+// `taken` holds the Fact Table ids already generated from semantic models.
 export function importPlainModels(
   ctx: TranslateContext,
   nodes: DbtNode[],
+  taken: Set<string>,
 ): Pick<BulkImportPayload, "factTables" | "factMetrics"> {
   const { opts, warnings, modelsByName } = ctx;
   const factTables: BulkImportPayload["factTables"] = [];
@@ -34,6 +36,15 @@ export function importPlainModels(
       },
     );
     if (!modelSelected && !entries.length) continue;
+    if (taken.has(node.name)) {
+      warnings.push({
+        level: "skipped",
+        resource: `fact table ${node.name}`,
+        message:
+          "a Fact Table generated from a semantic model already has this id",
+      });
+      continue;
+    }
     if (!node.relation_name) {
       warnings.push({
         level: "skipped",
