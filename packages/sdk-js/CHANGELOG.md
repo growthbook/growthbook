@@ -10,7 +10,11 @@
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
 - Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
 - Fix a percentage rollout (`coverage`) including one extra hash bucket, e.g. a 0.01% rollout turning on for 0.02% of users
-- `reducePayload` gives the same results as the full payload in more cases: it no longer reduces a saved group that `$elemMatch`, a prerequisite or a reference cycle evaluates outside the user's attributes, keeps an auto experiment's forced variation, and no longer throws on a contextual bandit definition that isn't an object
+- **Breaking:** A condition that depends on an operator or saved group type the SDK
+  doesn't support now always fails, even under `$not` or `$nor`
+- `$elemMatch` now supports `$or`, `$and`, `$nor`, and `$savedGroup` operators
+- Fix bug with attributes named like built-in properties (e.g. `constructor`, `toString`)
+- Added `reducePayload` method to shrink SSR-bootstrapped payloads to just the features, rules, and experiments relevant to each user.
 
 ## **1.8.0** - Sep 29, 2026
 
