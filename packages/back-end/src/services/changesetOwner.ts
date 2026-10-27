@@ -683,7 +683,7 @@ export class ContextualBanditChangesetOwner implements ChangesetOwner {
   }
 }
 
-function contextualBanditVisualChangesBlocked(
+export function contextualBanditVisualChangesBlocked(
   cb: Pick<ContextualBanditInterface, "status" | "archived">,
   verb: "added" | "edited",
 ): string {

@@ -15,6 +15,7 @@ import {
   expandMetricGroups,
   getAllMetricIdsFromExperiment,
   getAllVariations,
+  canEditContextualBanditVisualChanges,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -39,7 +40,14 @@ import {
 import { EventUserForResponseLocals } from "shared/types/events/event-types";
 import { CreateURLRedirectProps } from "shared/types/url-redirect";
 import { experimentChangesBody } from "shared/validators";
-import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
+import {
+  ContextualBanditChangesetOwner,
+  ExperimentChangesetOwner,
+  contextualBanditVisualChangesBlocked,
+  ownerNotFoundMessage,
+  resolveChangesetOwner,
+} from "back-end/src/services/changesetOwner";
+import { getEnvironments } from "back-end/src/util/organization.util";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   AuthRequest,
@@ -91,7 +99,10 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
+  deleteVisualChangesetById,
+  findVisualChangesetById,
   findVisualChangesetsByExperiment,
+  updateVisualChangeset,
 } from "back-end/src/models/VisualChangesetModel";
 import {
   findSnapshotById,
@@ -3106,6 +3117,102 @@ export async function postVisualChangeset(
   res.status(200).json({
     status: 200,
     visualChangeset,
+  });
+}
+
+export async function putVisualChangeset(
+  req: AuthRequest<Partial<VisualChangesetInterface>, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+  if (!owner) {
+    throw new Error(ownerNotFoundMessage(visualChangeset));
+  }
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    if (!canEditContextualBanditVisualChanges(owner.cb)) {
+      throw new Error(contextualBanditVisualChangesBlocked(owner.cb, "edited"));
+    }
+    if (!owner.canUpdateVisualChange()) {
+      context.permissions.throwPermissionError();
+    }
+    if (owner.cb.status === "running") {
+      const envs = getEnvironments(context.org).map((e) => e.id);
+      if (!context.permissions.canRunContextualBandit(owner.cb, envs)) {
+        context.permissions.throwPermissionError();
+      }
+    }
+  } else if (owner instanceof ExperimentChangesetOwner) {
+    assertVisualChangesEditable(context, owner.experiment);
+  }
+
+  const updates: Partial<VisualChangesetInterface> = {
+    editorUrl: req.body.editorUrl,
+    urlPatterns: req.body.urlPatterns,
+    visualChanges: req.body.visualChanges,
+  };
+
+  const ret = await updateVisualChangeset({
+    visualChangeset,
+    owner,
+    context,
+    updates,
+  });
+
+  res.status(200).json({
+    status: 200,
+    data: {
+      nModified: ret.nModified,
+      changesetId: ret.nModified > 0 ? req.params.id : undefined,
+      updates: ret.nModified > 0 ? req.body : undefined,
+    },
+  });
+}
+
+export async function deleteVisualChangeset(
+  req: AuthRequest<null, { id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { org } = context;
+
+  const visualChangeset = await findVisualChangesetById(req.params.id, org.id);
+  if (!visualChangeset) {
+    throw new Error("Visual Changeset not found");
+  }
+
+  const owner = await resolveChangesetOwner(context, visualChangeset);
+
+  if (owner instanceof ContextualBanditChangesetOwner) {
+    const envs = getEnvironments(context.org).map((e) => e.id);
+    if (
+      !owner.canUpdateOwner() ||
+      !context.permissions.canRunContextualBandit(owner.cb, envs)
+    ) {
+      context.permissions.throwPermissionError();
+    }
+  } else {
+    const experiment =
+      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
+    if (experiment) assertVisualChangesEditable(context, experiment);
+    else assertCanRunLinkedChanges(context, {});
+  }
+
+  await deleteVisualChangesetById({
+    visualChangeset,
+    owner,
+    context,
+  });
+
+  res.status(200).json({
+    status: 200,
   });
 }
 

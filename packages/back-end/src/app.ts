@@ -878,6 +878,11 @@ app.post(
   "/experiments/:id/visual-changeset",
   experimentsController.postVisualChangeset,
 );
+app.put("/visual-changesets/:id", experimentsController.putVisualChangeset);
+app.delete(
+  "/visual-changesets/:id",
+  experimentsController.deleteVisualChangeset,
+);
 
 // Time Series
 app.get(
