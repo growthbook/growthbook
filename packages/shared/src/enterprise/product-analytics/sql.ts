@@ -1111,11 +1111,14 @@ function getMetricData(
       rollupCountExpr = getRollupCountExpr(metric, alias);
     }
   }
-  // Population rows broaden the shared scan, so every metric needs its own
-  // presence marker to distinguish matching activity from population-only rows.
-  const requiresMetricPresence = factTableGroup.metrics.some(
-    (m) => m.population,
-  );
+  // Count-like aggregates can turn another series' users into zero contributors.
+  // SUM/MAX already preserve NULL for absent activity and need no extra guard.
+  const requiresMetricPresence =
+    selectedUnit !== null &&
+    (columnRef.aggregation === "count distinct" ||
+      columnRef.aggregation === "hll merge" ||
+      columnRef.column === "$$distinctDates" ||
+      factTableGroup.metrics.some((m) => m.population));
   const presenceExpr = requiresMetricPresence
     ? getEventValueExpr(
         { ...columnRef, column: "$$count" },
@@ -1418,8 +1421,7 @@ function generateUnitAggregationCTE(
   // Add metrics
   includedMetrics.forEach((metricData) => {
     const expr = metricData.unitAggregationExpr || "NULL";
-    // Population rows broaden the shared scan. They must not turn absent
-    // activity into zero-valued contributors for neighboring series.
+    // Preserve actual zeros, but exclude users with no rows matching this metric.
     const guardedExpr =
       !metricData.population && metricData.presenceExpr !== null
         ? `CASE WHEN COUNT(${metricData.alias}_rows) > 0 THEN ${expr} ELSE NULL END`

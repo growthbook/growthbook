@@ -1309,7 +1309,7 @@ describe("productAnalytics", () => {
     );
 
     expect(sql).toMatch(
-      /HLL_COUNT\s*\(\s*HLL_MERGE\s*\(\s*m0\s*\)\s*\)\s+AS\s+m0/,
+      /CASE\s+WHEN COUNT\(m0_rows\) > 0 THEN HLL_COUNT\s*\(\s*HLL_MERGE\s*\(\s*m0\s*\)\s*\)\s+ELSE NULL\s+END AS\s+m0/,
     );
     expect(sql).toContain("CAST(SUM(m0) AS FLOAT) AS m0_numerator");
   });

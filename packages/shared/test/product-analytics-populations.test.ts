@@ -169,6 +169,79 @@ function execute(
 }
 
 describe("population-backed proportions", () => {
+  it.each(["daily", "overall"])(
+    "averages eight purchases over two purchasers independently of companion series (%s)",
+    (grouping) => {
+      const purchase: FactMetricInterface = {
+        ...metric,
+        id: "purchase_count",
+        metricType: "mean",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "count distinct",
+        },
+      };
+      const login: FactMetricInterface = {
+        ...metric,
+        id: "login",
+        numerator: {
+          ...metric.numerator!,
+          rowFilters: [
+            { column: "event_name", operator: "=", values: ["Login"] },
+          ],
+        },
+      };
+      const value = {
+        ...config.dataset.values[0],
+        metricId: purchase.id,
+        population: null,
+      };
+      const loginValue = { ...value, metricId: login.id };
+      const db = new DatabaseSync(":memory:");
+      try {
+        db.exec(`CREATE TABLE events(user_id TEXT, timestamp TEXT, revenue REAL, device_type TEXT, event_name TEXT);
+          INSERT INTO events VALUES
+          ('Alice','2026-09-01',1,'mobile','Purchase'),
+          ('Alice','2026-09-01',2,'mobile','Purchase'),
+          ('Bob','2026-09-01',0,'mobile','Login'),
+          ('Dylan','2026-09-01',1,'mobile','Purchase'),
+          ('Dylan','2026-09-01',2,'mobile','Purchase'),
+          ('Dylan','2026-09-01',3,'mobile','Purchase'),
+          ('Dylan','2026-09-01',4,'mobile','Purchase'),
+          ('Dylan','2026-09-01',5,'mobile','Purchase'),
+          ('Dylan','2026-09-01',6,'mobile','Purchase');`);
+        for (const values of [
+          [value],
+          [value, loginValue],
+          [value, loginValue, config.dataset.values[0]],
+        ]) {
+          const c: MetricExplorationConfig = {
+            ...config,
+            dimensions: grouping === "daily" ? config.dimensions : [],
+            showAs: "per_unit",
+            dataset: { type: "metric", values },
+          };
+          const { sql, orderedMetricIds } = query(c, population, purchase, [
+            login,
+            metric,
+          ]);
+          const result = transformProductAnalyticsRowsToResult(
+            c,
+            db.prepare(sql).all(),
+            orderedMetricIds,
+          );
+          expect(result.rows[0].values?.[0]).toMatchObject({
+            numerator: 8,
+            denominator: 2,
+          });
+        }
+      } finally {
+        db.close();
+      }
+    },
+  );
+
   describe("generated daily SQL (SQLite)", () => {
     it.each([
       { name: "without a population", selectedPopulation: null },
@@ -341,6 +414,74 @@ describe("population-backed proportions", () => {
       },
     );
   });
+
+  it.each(["daily", "overall"])(
+    "keeps mixed ordinary averages independent for %s queries",
+    (grouping) => {
+      const purchase: FactMetricInterface = {
+        ...metric,
+        id: "purchase_distinct",
+        metricType: "mean",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "count distinct",
+        },
+      };
+      const renewal: FactMetricInterface = {
+        ...purchase,
+        id: "renewal_distinct",
+        numerator: {
+          ...purchase.numerator!,
+          rowFilters: [
+            {
+              column: "event_name",
+              operator: "=",
+              values: ["Subscription Renewal"],
+            },
+            { column: "revenue", operator: ">", values: ["10"] },
+          ],
+        },
+      };
+      const ordinary: MetricExplorationConfig = {
+        ...config,
+        dimensions: grouping === "daily" ? config.dimensions : [],
+        showAs: "per_unit",
+        dataset: {
+          type: "metric",
+          values: [purchase, renewal].map((m) => ({
+            ...config.dataset.values[0],
+            metricId: m.id,
+            population: null,
+          })),
+        },
+      };
+      const combined: MetricExplorationConfig = {
+        ...ordinary,
+        dataset: {
+          type: "metric",
+          values: [...ordinary.dataset.values, config.dataset.values[0]],
+        },
+      };
+      const standalone: MetricExplorationConfig = {
+        ...ordinary,
+        dataset: { type: "metric", values: [ordinary.dataset.values[0]] },
+      };
+      const alone = execute(standalone, population, purchase);
+      const before = execute(ordinary, population, purchase, [renewal]);
+      const after = execute(combined, population, purchase, [renewal, metric]);
+      expect(before[0].values?.[0]).toMatchObject({
+        numerator: grouping === "daily" ? 4 : 5,
+        denominator: 4,
+      });
+      expect(
+        before.map((row) => ({ ...row, values: row.values?.slice(0, 1) })),
+      ).toEqual(alone);
+      expect(
+        after.map((row) => ({ ...row, values: row.values?.slice(0, 2) })),
+      ).toEqual(before);
+    },
+  );
 
   it("does not add population-only users to a neighboring distinct-count mean", () => {
     const other: FactMetricInterface = {
