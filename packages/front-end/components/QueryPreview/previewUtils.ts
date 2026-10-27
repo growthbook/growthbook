@@ -53,10 +53,8 @@ export function getPreviewUnitLabel(
   };
 }
 
-// The preview headline is 3rem in a ~330px panel. Compact notation keeps any
-// realistic value to about 8 characters ("-999.99T"), so it never runs past
-// the panel; tiny values keep their significant digits instead of rounding
-// to 0.
+// Compact large values for preview headlines; preserve significant digits
+// for small values instead of rounding them to zero.
 export function formatPreviewHeadline(value: number): string {
   const abs = Math.abs(value);
   if (abs >= 100_000) {
