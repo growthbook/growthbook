@@ -1,15 +1,20 @@
 type Entry<T> = {
+  // The stamp the load returned once it settles; the read stamp until then
   stamp: string;
   loadedAt: number;
   value: Promise<T | null>;
 };
+
+export type StampedLoad<T> = { value: T; stamp: string } | null;
 
 export type StampedCacheOptions<T> = {
   maxAgeMs: number;
   maxSize: number;
   // null means the key no longer exists
   readStamp: (key: string) => Promise<string | null>;
-  load: (key: string) => Promise<T | null>;
+  // Returns the value with its own stamp, which can differ from readStamp's
+  // when the two reads hit different replicas.
+  load: (key: string) => Promise<StampedLoad<T>>;
   now?: () => number;
 };
 
@@ -57,7 +62,13 @@ export class StampedCache<T> {
     const entry: Entry<T> = {
       stamp,
       loadedAt: now,
-      value: this.options.load(key).then((v) => deepFreeze(v)),
+      value: this.options.load(key).then((loaded) => {
+        if (!loaded) return null;
+        // Keyed by the loaded value's own stamp: if it is older than the read
+        // stamp, the next get sees a mismatch and reloads.
+        entry.stamp = loaded.stamp;
+        return deepFreeze(loaded.value);
+      }),
     };
     // Re-inserting keeps the map in load order, so the first key is the oldest
     this.entries.delete(key);

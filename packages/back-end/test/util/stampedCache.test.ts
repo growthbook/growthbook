@@ -1,5 +1,9 @@
 import { ObjectId } from "mongodb";
-import { StampedCache, deepFreeze } from "back-end/src/util/stampedCache";
+import {
+  StampedCache,
+  StampedLoad,
+  deepFreeze,
+} from "back-end/src/util/stampedCache";
 
 type Doc = { id: string; version: number; nested: { list: string[] } };
 
@@ -8,10 +12,14 @@ function setup({ maxAgeMs = 1000, maxSize = 10 } = {}) {
   const stamps = new Map<string, string>();
   const versions = new Map<string, number>();
   const readStamp = jest.fn(async (key: string) => stamps.get(key) ?? null);
-  const load = jest.fn(async (key: string): Promise<Doc | null> => {
+  const load = jest.fn(async (key: string): Promise<StampedLoad<Doc>> => {
     const version = versions.get(key);
-    if (version === undefined) return null;
-    return { id: key, version, nested: { list: ["a"] } };
+    const stamp = stamps.get(key);
+    if (version === undefined || stamp === undefined) return null;
+    return {
+      value: { id: key, version, nested: { list: ["a"] } },
+      stamp,
+    };
   });
   const cache = new StampedCache<Doc>({
     maxAgeMs,
@@ -136,6 +144,22 @@ describe("StampedCache", () => {
     await expect(cache.get("org_1")).rejects.toThrow("boom");
     expect(cache.size).toBe(0);
     expect((await cache.get("org_1"))?.version).toBe(1);
+  });
+
+  it("reloads when the load returned an older stamp than the read", async () => {
+    const { cache, load, write } = setup();
+    write("org_1", "s1");
+    // The stamp read sees s1, but the load hits a replica still on s0
+    load.mockImplementationOnce(async () => ({
+      value: { id: "org_1", version: 0, nested: { list: [] } },
+      stamp: "s0",
+    }));
+
+    expect((await cache.get("org_1"))?.version).toBe(0);
+    expect((await cache.get("org_1"))?.version).toBe(1);
+    expect(load).toHaveBeenCalledTimes(2);
+    expect((await cache.get("org_1"))?.version).toBe(1);
+    expect(load).toHaveBeenCalledTimes(2);
   });
 
   it("evicts the earliest-loaded key past the size limit", async () => {

@@ -195,8 +195,18 @@ const OrganizationModel = mongoose.model<OrganizationInterface>(
 );
 const COLLECTION = "organizations";
 
-const toInterface: ToInterface<OrganizationInterface> = (doc) =>
-  upgradeOrganizationDoc(removeMongooseFields(doc));
+const toInterface: ToInterface<OrganizationInterface> = (doc) => {
+  const org = removeMongooseFields<
+    OrganizationInterface & { changeStamp?: string }
+  >(doc);
+  delete org.changeStamp;
+  return upgradeOrganizationDoc(org);
+};
+
+// "" for an org that has not been written since changeStamp was added
+function readChangeStamp(doc: Record<string, unknown>): string {
+  return typeof doc.changeStamp === "string" ? doc.changeStamp : "";
+}
 
 export async function createOrganization({
   email,
@@ -332,7 +342,6 @@ export async function findOrganizationById(id: string) {
   return doc ? toInterface(doc) : null;
 }
 
-// "" for an org that has not been written since changeStamp was added
 export async function findOrganizationChangeStamp(
   id: string,
 ): Promise<string | null> {
@@ -340,8 +349,12 @@ export async function findOrganizationChangeStamp(
     { id },
     { projection: { _id: 0, changeStamp: 1 } },
   );
-  if (!doc) return null;
-  return typeof doc.changeStamp === "string" ? doc.changeStamp : "";
+  return doc ? readChangeStamp(doc) : null;
+}
+
+export async function findOrganizationByIdWithChangeStamp(id: string) {
+  const doc = await getCollection(COLLECTION).findOne({ id });
+  return doc ? { value: toInterface(doc), stamp: readChangeStamp(doc) } : null;
 }
 
 type DeletableKeys = Extract<

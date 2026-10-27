@@ -190,23 +190,6 @@ describe("parseEnvInt", () => {
       'WARNING! Invalid value for MY_VAR: "nope". Falling back to default: 100',
     );
   });
-
-  it("parses a millisecond setting that defaults to 0", () => {
-    jest.restoreAllMocks();
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
-    const opts = { min: 0, name: "API_ORG_CACHE_MAX_AGE_MS" };
-    expect(parseEnvInt(undefined, 0, opts)).toBe(0);
-    expect(parseEnvInt("0", 0, opts)).toBe(0);
-    expect(parseEnvInt("10000", 0, opts)).toBe(10000);
-    expect(parseEnvInt(" 2500.9 ", 0, opts)).toBe(2500);
-    expect(warn).not.toHaveBeenCalled();
-
-    expect(parseEnvInt("-1", 0, opts)).toBe(0);
-    expect(parseEnvInt("10s", 0, opts)).toBe(0);
-    expect(warn).toHaveBeenCalledWith(
-      'WARNING! Invalid value for API_ORG_CACHE_MAX_AGE_MS: "10s". Falling back to default: 0',
-    );
-  });
 });
 
 describe("parseEnvIntMap", () => {

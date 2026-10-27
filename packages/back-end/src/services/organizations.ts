@@ -89,6 +89,7 @@ import {
   createOrganization,
   findAllOrganizations,
   findOrganizationById,
+  findOrganizationByIdWithChangeStamp,
   findOrganizationByInviteKey,
   findOrganizationChangeStamp,
   findOrganizationsByDomain,
@@ -196,7 +197,7 @@ const restApiOrgCache =
         maxAgeMs: API_ORG_CACHE_MAX_AGE_MS,
         maxSize: 10,
         readStamp: findOrganizationChangeStamp,
-        load: findOrganizationById,
+        load: findOrganizationByIdWithChangeStamp,
       })
     : null;
 
