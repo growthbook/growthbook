@@ -65567,8 +65567,8 @@ paths:
                           additionalProperties: false
                       aggregateFilter:
                         description: >-
-                          Conditions on each unit's total within the window,
-                          such as ">=3" or ">=3,<10". Requires
+                          Conditions on each unit's total within the queried
+                          date range, such as ">=3" or ">=3,<10". Requires
                           aggregateFilterColumn
                         type: string
                       aggregateFilterColumn:
@@ -65576,43 +65576,6 @@ paths:
                           Numeric column to total, or "$$count" to count rows.
                           Requires aggregateFilter
                         type: string
-                      windowSettings:
-                        description: >-
-                          Defaults to no window. Conversion windows are only
-                          allowed on steps after the first
-                        type: object
-                        properties:
-                          type:
-                            type: string
-                            enum:
-                              - conversion
-                              - lookback
-                              - ''
-                          delayValue:
-                            type: number
-                          delayUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                          windowValue:
-                            type: number
-                          windowUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                        required:
-                          - type
-                          - delayValue
-                          - delayUnit
-                          - windowValue
-                          - windowUnit
-                        additionalProperties: false
                     required:
                       - source
                     additionalProperties: false
@@ -65775,8 +65738,8 @@ paths:
                           additionalProperties: false
                       aggregateFilter:
                         description: >-
-                          Conditions on each unit's total within the window,
-                          such as ">=3" or ">=3,<10". Requires
+                          Conditions on each unit's total within the queried
+                          date range, such as ">=3" or ">=3,<10". Requires
                           aggregateFilterColumn
                         type: string
                       aggregateFilterColumn:
@@ -65784,43 +65747,6 @@ paths:
                           Numeric column to total, or "$$count" to count rows.
                           Requires aggregateFilter
                         type: string
-                      windowSettings:
-                        description: >-
-                          Defaults to no window. Conversion windows are only
-                          allowed on steps after the first
-                        type: object
-                        properties:
-                          type:
-                            type: string
-                            enum:
-                              - conversion
-                              - lookback
-                              - ''
-                          delayValue:
-                            type: number
-                          delayUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                          windowValue:
-                            type: number
-                          windowUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                        required:
-                          - type
-                          - delayValue
-                          - delayUnit
-                          - windowValue
-                          - windowUnit
-                        additionalProperties: false
                     required:
                       - source
                     additionalProperties: false
@@ -86218,52 +86144,17 @@ components:
                   additionalProperties: false
               aggregateFilter:
                 description: >-
-                  Conditions on each unit's total within the window, such as
-                  ">=3" or ">=3,<10". Requires aggregateFilterColumn
+                  Conditions on each unit's total within the queried date range,
+                  such as ">=3" or ">=3,<10". Requires aggregateFilterColumn
                 type: string
               aggregateFilterColumn:
                 description: >-
                   Numeric column to total, or "$$count" to count rows. Requires
                   aggregateFilter
                 type: string
-              windowSettings:
-                type: object
-                properties:
-                  type:
-                    type: string
-                    enum:
-                      - conversion
-                      - lookback
-                      - ''
-                  delayValue:
-                    type: number
-                  delayUnit:
-                    type: string
-                    enum:
-                      - weeks
-                      - days
-                      - hours
-                      - minutes
-                  windowValue:
-                    type: number
-                  windowUnit:
-                    type: string
-                    enum:
-                      - weeks
-                      - days
-                      - hours
-                      - minutes
-                required:
-                  - type
-                  - delayValue
-                  - delayUnit
-                  - windowValue
-                  - windowUnit
-                additionalProperties: false
             required:
               - source
               - rowFilters
-              - windowSettings
             additionalProperties: false
       required:
         - id

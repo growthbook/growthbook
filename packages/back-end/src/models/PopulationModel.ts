@@ -21,6 +21,7 @@ import {
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { applyPagination } from "back-end/src/util/handler";
+import { migratePopulation } from "back-end/src/util/population-migration";
 import { MakeModelClass } from "./BaseModel";
 
 function withStepDefaults(
@@ -29,13 +30,6 @@ function withStepDefaults(
   return steps.map((step) => ({
     ...step,
     rowFilters: step.rowFilters ?? [],
-    windowSettings: step.windowSettings ?? {
-      type: "",
-      delayValue: 0,
-      delayUnit: "days",
-      windowValue: 0,
-      windowUnit: "days",
-    },
   }));
 }
 
@@ -58,6 +52,10 @@ const BaseClass = MakeModelClass({
 });
 
 export class PopulationModel extends BaseClass {
+  protected migrate(legacyDoc: unknown): PopulationInterface {
+    return migratePopulation(legacyDoc);
+  }
+
   public override async handleApiList(
     req: Parameters<InstanceType<typeof BaseClass>["handleApiList"]>[0],
   ) {
