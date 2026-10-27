@@ -142,7 +142,7 @@ export default function ExperimentSettings({
         id="exp-results"
         title="Results & Refresh"
         description="How often results update and how they're computed."
-        keywords="auto-update refresh schedule cron conversion window attribution dimensions slices import past experiments"
+        keywords="auto-update refresh schedule cron data cutoff lag conversion window attribution dimensions slices import past experiments"
       >
         <SettingsField label="Auto-update frequency">
           <RadioGroup
@@ -214,9 +214,94 @@ export default function ExperimentSettings({
             value={form.watch("updateSchedule.type")}
             setValue={(v) => {
               form.setValue("updateSchedule.type", v);
+              if (
+                v !== "cron" &&
+                form.watch("updateSchedule.analysisEndDateMode") === "fixedTime"
+              ) {
+                form.setValue("updateSchedule.analysisEndDateMode", "runTime");
+              }
             }}
           />
         </SettingsField>
+
+        {form.watch("updateSchedule.type") !== "never" && (
+          <SettingsField
+            label="Data cutoff for scheduled updates"
+            help="If your data takes time to land in your Data Source, use these options so scheduled updates only include complete data. Manual updates always include all data."
+          >
+            <RadioGroup
+              disabled={hasFileConfig()}
+              options={[
+                {
+                  label: "When the update runs",
+                  value: "runTime",
+                },
+                {
+                  label: "Hours before the update runs",
+                  value: "lag",
+                  description: (
+                    <Field
+                      size="md"
+                      append="hours"
+                      type="number"
+                      style={{ width: "180px" }}
+                      step={1}
+                      min={1}
+                      max={168}
+                      disabled={
+                        hasFileConfig() ||
+                        form.watch("updateSchedule.analysisEndDateMode") !==
+                          "lag"
+                      }
+                      {...form.register(
+                        "updateSchedule.analysisEndDateLagHours",
+                        { valueAsNumber: true },
+                      )}
+                    />
+                  ),
+                },
+                {
+                  label: "Most recent time of day",
+                  value: "fixedTime",
+                  disabled: form.watch("updateSchedule.type") !== "cron",
+                  description: (
+                    <>
+                      <Text as="p" mb="2">
+                        Requires a cron schedule.
+                      </Text>
+                      <Field
+                        size="md"
+                        append="UTC"
+                        type="time"
+                        style={{ width: "180px" }}
+                        disabled={
+                          hasFileConfig() ||
+                          form.watch("updateSchedule.analysisEndDateMode") !==
+                            "fixedTime"
+                        }
+                        {...form.register("updateSchedule.analysisEndDateTime")}
+                      />
+                    </>
+                  ),
+                },
+              ]}
+              gap="2"
+              descriptionSize="md"
+              value={
+                form.watch("updateSchedule.analysisEndDateMode") ?? "runTime"
+              }
+              setValue={(v) => {
+                form.setValue("updateSchedule.analysisEndDateMode", v);
+                if (
+                  v === "fixedTime" &&
+                  !form.watch("updateSchedule.analysisEndDateTime")
+                ) {
+                  form.setValue("updateSchedule.analysisEndDateTime", "00:00");
+                }
+              }}
+            />
+          </SettingsField>
+        )}
 
         <SettingsField
           label={
