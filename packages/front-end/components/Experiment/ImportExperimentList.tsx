@@ -388,7 +388,7 @@ const ImportExperimentList: FC<{
       </Modal.Header>
       <Modal.Description>
         Analyze experiments from another platform using the assignment data
-        already in your warehouse.
+        already in your warehouse
       </Modal.Description>
       <Modal.Body>{body}</Modal.Body>
       {footer}
