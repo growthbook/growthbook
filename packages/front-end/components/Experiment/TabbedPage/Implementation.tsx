@@ -329,7 +329,6 @@ export default function Implementation({
   const implementationColumns: ImplementationColumn[] = [
     ...shownRedirects.map((r) => ({
       key: `redirect:${r.key}`,
-      staged: !!r.staged,
       render: (layout: ColumnLayout) => (
         <UrlRedirectColumn
           layout={layout}
@@ -346,7 +345,6 @@ export default function Implementation({
     })),
     ...shownChangesets.map((shown) => ({
       key: `visual:${shown.stored.id}`,
-      staged: !!shown.staged,
       render: (layout: ColumnLayout) => (
         <VisualChangesetColumn
           layout={layout}

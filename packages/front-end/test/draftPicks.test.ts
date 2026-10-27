@@ -4,7 +4,6 @@ import {
   draftReviewState,
   resolveDraftPick,
   startBypassCovers,
-  withPickedDraft,
 } from "@/components/Experiment/TabbedPage/draftPicks";
 
 type PendingDraft = NonNullable<LinkedFeatureInfo["pendingDraft"]>;
@@ -58,20 +57,6 @@ describe("resolveDraftPick", () => {
       pendingDraft: { ...draft(7), hasUnrelatedDraftChanges: false },
     };
     expect(on(cleaned, pick)).toBe(7);
-  });
-});
-
-describe("withPickedDraft", () => {
-  it("puts the picked draft in place of the newest, and none when starting one", () => {
-    const flag = info(7, 5);
-    expect(withPickedDraft(flag, undefined)).toBe(flag);
-    expect(
-      withPickedDraft(flag, { newestVersion: 7, target: 5 }).pendingDraft
-        ?.version,
-    ).toBe(5);
-    expect(
-      withPickedDraft(flag, { newestVersion: 7, target: "new" }).pendingDraft,
-    ).toBeUndefined();
   });
 });
 

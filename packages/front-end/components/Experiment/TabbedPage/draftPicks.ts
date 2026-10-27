@@ -60,16 +60,6 @@ export function resolveDraftPick(
   };
 }
 
-/** The flag with the draft its row picked in place of the newest, or none when starting one. */
-export function withPickedDraft(
-  info: LinkedFeatureInfo,
-  pick: DraftPick | undefined,
-): LinkedFeatureInfo {
-  const { draft, target } = resolveDraftPick(info, pick);
-  const pendingDraft = target === "draft" ? draft : undefined;
-  return pendingDraft === info.pendingDraft ? info : { ...info, pendingDraft };
-}
-
 // Whether a start scheduled with the approval bypass pinned this draft, and it
 // hasn't changed since.
 export function startBypassCovers(

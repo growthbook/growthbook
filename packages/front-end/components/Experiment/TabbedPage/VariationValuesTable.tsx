@@ -56,8 +56,6 @@ import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
-import SegmentedControl from "@/ui/SegmentedControl";
 import VariationLabel from "@/ui/VariationLabel";
 import FeatureValueCell from "@/components/Features/FeatureValueCell";
 import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
@@ -104,8 +102,6 @@ import {
 } from "./variationValues";
 import styles from "./VariationValuesTable.module.scss";
 
-export type FlagView = "draft" | "live";
-
 const TABLE_MIN_WIDTH = 692;
 const VARIATION_NARROWEST_WIDTH = 130;
 const SPLIT_WIDTH = 124;
@@ -147,8 +143,6 @@ export interface Props {
   canEditFlagValues: boolean;
   flagEnvironments: FlagEnvironmentsDraft;
   draftPicks: FlagDraftPicks;
-  flagView: FlagView;
-  onChangeFlagView: ((view: FlagView) => void) | null;
   split: number[];
   onChangeSplit: ((split: number[]) => void) | null;
   splitNote: string | null;
@@ -166,8 +160,6 @@ export default function VariationValuesTable({
   canEditFlagValues,
   flagEnvironments,
   draftPicks,
-  flagView,
-  onChangeFlagView,
   split,
   onChangeSplit,
   splitNote,
@@ -219,7 +211,6 @@ export default function VariationValuesTable({
     firstValueRow,
     detailsRow,
     variations,
-    showingLive: flagView === "live",
   });
   const [scrolled, setScrolled] = useState(false);
 
@@ -241,20 +232,7 @@ export default function VariationValuesTable({
         >
           <FunnelConnector fill />
         </Box>
-        <Flex justify="end" align="center" pt="3" pb="2" minHeight="22px">
-          {onChangeFlagView ? (
-            <SegmentedControl
-              aria-label="Show Feature Flag values from"
-              size="sm"
-              value={flagView}
-              setValue={onChangeFlagView}
-              options={[
-                { value: "draft", label: "Draft" },
-                { value: "live", label: "Live" },
-              ]}
-            />
-          ) : null}
-        </Flex>
+        <Box pt="3" pb="2" minHeight="22px" />
       </Box>
       <Box className="appbox mb-0" style={{ overflow: "hidden" }}>
         <Box
@@ -505,7 +483,9 @@ function FlagColumn({
   const permissionsUtil = usePermissionsUtil();
   const [editEnvironments, setEditEnvironments] = useState(false);
   const { configs } = useDefinitions();
-  const { variations, showingLive } = layout;
+  const { variations } = layout;
+  // Past a draft, a flag's values and environments edit on its own page.
+  const showingLive = experiment.status !== "draft";
   const { feature } = info;
   const pick = draftPicks.value[feature.id];
   const {
@@ -674,12 +654,13 @@ function FlagColumn({
     fromDraft
       ? { version: pendingDraft.version, dateUpdated: pendingDraft.dateUpdated }
       : { version: feature.version, dateUpdated: null };
+  const stagesValues = dirty && !linkAction && !showingLive;
   const [revisionBase, rebaseRevision] = useEditBase(
     valuesEditId,
-    dirty && !linkAction,
+    stagesValues,
     loadedRevision,
   );
-  useRegisterExperimentEdit(valuesEditId, dirty && !linkAction, {
+  useRegisterExperimentEdit(valuesEditId, stagesValues, {
     label: `${feature.id} values${groupEnvironments ? ` (${groupEnvironments})` : ""}`,
     rebase: rebaseRevision,
     review: () => ({
@@ -714,7 +695,7 @@ function FlagColumn({
   };
   useRegisterExperimentEdit(
     `link:${feature.id}`,
-    !!linkAction && (!group || group.first),
+    !!linkAction && !showingLive && (!group || group.first),
     {
       label: removing
         ? `Remove ${feature.id}`
@@ -759,7 +740,6 @@ function FlagColumn({
   const canStartNew = canStartSeparateDraft(info) && canEdit;
   const canChooseTarget = !!pendingDraft && (drafts.length > 1 || canStartNew);
   const launches = experiment.status === "draft";
-  const removeBlocked = experiment.status === "running";
   const launchDraft = drafts[0];
   const draftLaunches = launches && isLaunchDraft;
   const stageLinkAction = (action: LinkAction) => {
@@ -838,19 +818,13 @@ function FlagColumn({
     });
   } else if (shownDraft && !lockedBySchedule && !cannotPublishLaunch) {
     draftNotes.push(
-      launches && !isLaunchDraft && launchDraft
+      !isLaunchDraft && launchDraft
         ? `Only Revision ${launchDraft.version} publishes when the experiment starts. Publish ${draftMention} from the Feature Flag.`
         : needsApproval
-          ? launches
-            ? approvalBypassed
-              ? `${draftMention} publishes when the experiment starts, its approval bypassed. Editing it means it needs approval first.`
-              : `${draftMention} needs approval. Once approved, it publishes when the experiment starts.`
-            : `${draftMention} needs approval before it can publish.`
-          : launches
-            ? `${draftMention} publishes when the experiment starts, or publish it from the Feature Flag.`
-            : experiment.status === "running"
-              ? `Publish ${draftMention} from the Feature Flag to change what this experiment serves.`
-              : `Publish ${draftMention} from the Feature Flag.`,
+          ? approvalBypassed
+            ? `${draftMention} publishes when the experiment starts, its approval bypassed. Editing it means it needs approval first.`
+            : `${draftMention} needs approval. Once approved, it publishes when the experiment starts.`
+          : `${draftMention} publishes when the experiment starts, or publish it from the Feature Flag.`,
     );
   }
   if (cannotPublishLaunch) {
@@ -928,11 +902,7 @@ function FlagColumn({
     linkAction === "keep"
       ? `Saving puts the rule back into Revision ${pendingRemoval?.version}.`
       : relinking
-        ? experiment.status === "running"
-          ? "Saving adds the rule to a new draft. Publish it to serve the experiment."
-          : launches
-            ? "Saving adds the rule to a new draft, published when the experiment starts."
-            : "Saving adds the rule to a new draft."
+        ? "Saving adds the rule to a new draft, published when the experiment starts."
         : info.liveHasMatchingRule
           ? "Saving starts a draft that removes the rule. Publish it to unlink the flag."
           : "Saving unlinks the flag.";
@@ -1064,16 +1034,9 @@ function FlagColumn({
       <DropdownMenuItem
         key="remove"
         color="red"
-        disabled={removeBlocked}
         onClick={() => stageLinkAction("remove")}
       >
-        <Tooltip
-          content="Set the experiment's status back to Draft to remove this Feature Flag."
-          side="left"
-          enabled={removeBlocked}
-        >
-          <span>Remove from experiment</span>
-        </Tooltip>
+        Remove from experiment
       </DropdownMenuItem>
     ) : null,
   ].filter(Boolean);
@@ -1243,7 +1206,20 @@ function FlagColumn({
             />
           ) : null
         }
-        end={!noValues && (showsDraft || startsDraft) ? revisionControl : null}
+        end={
+          showingLive ? (
+            <Link
+              href={`/features/${feature.id}${pendingDraft ? `?v=${pendingDraft.version}` : ""}`}
+              external
+              size="sm"
+            >
+              Edit Feature Flag
+              <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
+            </Link>
+          ) : !noValues && (showsDraft || startsDraft) ? (
+            revisionControl
+          ) : null
+        }
       >
         {noValues ? (
           !orphaned ? (

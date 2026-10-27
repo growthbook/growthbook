@@ -485,7 +485,7 @@ function VariationChangesModal({
 
 export default function VisualChangesetColumn({
   layout,
-  shown: staged,
+  shown,
   experiment,
   canEdit,
   lockedReason = null,
@@ -514,18 +514,11 @@ export default function VisualChangesetColumn({
   onRemove: (id: string) => void;
   onUndo: (id: string) => void;
 }) {
-  const { variations, showingLive } = layout;
+  const { variations } = layout;
   const edits = useExperimentEdits();
-  const shown: ShownVisualChangeset = useMemo(
-    () =>
-      showingLive
-        ? { stored: staged.stored, changeset: staged.stored, staged: null }
-        : staged,
-    [showingLive, staged],
-  );
   const vc = shown.changeset;
   const removed = shown.staged === "removed";
-  const editable = canEdit && !removed && !showingLive;
+  const editable = canEdit && !removed;
   const canChange = editable && !lockedReason;
   const [viewing, setViewing] = useState<string | null>(null);
   const [editingTargeting, setEditingTargeting] = useState(false);

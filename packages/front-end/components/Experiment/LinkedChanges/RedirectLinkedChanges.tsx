@@ -59,10 +59,9 @@ export default function UrlRedirectColumn({
   onRemove: () => void;
   onUndo: () => void;
 }) {
-  const { variations, showingLive } = layout;
-  const shown = showingLive ? redirect.stored : redirect;
-  const origin = (shown ?? redirect).urlPattern;
-  const editable = canEdit && !showingLive && redirect.staged !== "removed";
+  const { variations } = layout;
+  const origin = redirect.urlPattern;
+  const editable = canEdit && redirect.staged !== "removed";
   const menu = editable
     ? [
         <DropdownMenuItem
@@ -103,12 +102,12 @@ export default function UrlRedirectColumn({
         menuLabel={`${origin} actions`}
       />
       {variations.map((v, i) => {
-        const to = shown?.destinationURLs.find(
+        const to = redirect.destinationURLs.find(
           (d) => d.variation === v.id,
         )?.url;
         return (
           <ColumnCell key={v.id} layout={layout} row={i} fieldLine>
-            {!shown ? null : to ? (
+            {to ? (
               <RedirectDestination from={origin} to={to} />
             ) : (
               <Text color="text-low">No redirect</Text>
@@ -119,9 +118,7 @@ export default function UrlRedirectColumn({
       <ColumnFooter
         layout={layout}
         start={
-          shown &&
-          environmentStates &&
-          Object.keys(environmentStates).length ? (
+          environmentStates && Object.keys(environmentStates).length ? (
             <SdkConnectionEnvironmentsPopover
               environmentStates={environmentStates}
               kind="URL Redirect"
@@ -130,11 +127,7 @@ export default function UrlRedirectColumn({
           ) : null
         }
       >
-        {!shown ? (
-          <Text size="sm" color="text-low">
-            Not saved yet.
-          </Text>
-        ) : redirect.staged && !showingLive ? (
+        {redirect.staged ? (
           <StagedNote onUndo={onUndo}>
             {STAGED_NOTES[redirect.staged]}
           </StagedNote>

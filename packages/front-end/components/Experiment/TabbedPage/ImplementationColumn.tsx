@@ -21,12 +21,10 @@ export type ColumnLayout = {
   firstValueRow: number;
   detailsRow: number;
   variations: ShownVariation[];
-  showingLive: boolean;
 };
 
 export type ImplementationColumn = {
   key: string;
-  staged: boolean;
   render: (layout: ColumnLayout) => ReactNode;
 };
 

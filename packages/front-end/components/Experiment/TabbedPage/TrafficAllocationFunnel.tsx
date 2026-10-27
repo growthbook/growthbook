@@ -29,7 +29,6 @@ import Tooltip from "@/ui/Tooltip";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import ReorderVariationsModal from "@/components/Experiment/ReorderVariationsModal";
 import Link from "@/ui/Link";
-import { hasUnpublishedChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 import track from "@/services/track";
 import { PercentField } from "@/components/Forms/PercentSliderField";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
@@ -39,8 +38,8 @@ import { useHoldouts } from "@/hooks/useHoldouts";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import FunnelConnector from "./FunnelConnector";
 import { ImplementationColumn } from "./ImplementationColumn";
-import VariationValuesTable, { FlagView } from "./VariationValuesTable";
-import { DraftPick, FlagDraftPicks, withPickedDraft } from "./draftPicks";
+import VariationValuesTable from "./VariationValuesTable";
+import { DraftPick, FlagDraftPicks } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
 import SetupFieldRow from "./SetupFieldRow";
 import useExperimentEditing from "./useExperimentEditing";
@@ -334,29 +333,6 @@ export default function TrafficAllocationFunnel({
     }),
     [draftPickValue, setDraftPicks],
   );
-  const draftsDiffer = useMemo(
-    () =>
-      linkedFeatures.some((info) =>
-        hasUnpublishedChanges(
-          withPickedDraft(info, draftPickValue[info.feature.id]),
-        ),
-      ),
-    [linkedFeatures, draftPickValue],
-  );
-  const canViewLive =
-    experiment.status !== "draft" && linkedFeatures.length > 0;
-  const [chosenFlagView, setFlagView] = useState<FlagView | null>(null);
-  const flagNeedsAction = linkedFeatures.some(
-    (info) => info.state === "discarded" || !!info.pendingRemoval,
-  );
-  const flagView: FlagView = !canViewLive
-    ? "draft"
-    : (chosenFlagView ??
-      (draftsDiffer ||
-      flagNeedsAction ||
-      implementationColumns.some((c) => c.staged)
-        ? "draft"
-        : "live"));
   const isRunning = experiment.status === "running";
   const variationsLocked = isRunning || !safeToEdit;
   // Coverage and split edit in place only while delivery can.
@@ -592,8 +568,6 @@ export default function TrafficAllocationFunnel({
           canEditFlagValues={canEditFlagValues}
           flagEnvironments={flagEnvironments}
           draftPicks={draftPicks}
-          flagView={flagView}
-          onChangeFlagView={canViewLive ? setFlagView : null}
           split={variationWeights}
           onChangeSplit={
             editDeliveryInline && !isBandit
