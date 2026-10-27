@@ -44,7 +44,7 @@ interface Props
   resultsStatus?: RowResults["resultsStatus"];
   statsEngine?: StatsEngine;
   suspiciousChange?: boolean;
-  suspiciousThreshold?: number;
+  suspiciousThreshold: number;
   notEnoughData?: boolean;
   minSampleSize?: number;
   minPercentChange?: number;
@@ -80,7 +80,7 @@ export default function PercentGraph({
   resultsStatus = "",
   statsEngine = "frequentist",
   suspiciousChange = false,
-  suspiciousThreshold = 0,
+  suspiciousThreshold,
   notEnoughData = false,
   minSampleSize = 0,
   minPercentChange = 0,

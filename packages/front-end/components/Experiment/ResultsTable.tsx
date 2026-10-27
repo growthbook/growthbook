@@ -1307,6 +1307,9 @@ export default function ResultsTable({
                                             suspiciousChange={
                                               rowResults.suspiciousChange
                                             }
+                                            suspiciousThreshold={
+                                              rowResults.suspiciousThreshold
+                                            }
                                             notEnoughData={
                                               !rowResults.enoughData
                                             }
