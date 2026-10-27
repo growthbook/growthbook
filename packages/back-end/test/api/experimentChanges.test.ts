@@ -661,7 +661,7 @@ describe("applyExperimentChanges", () => {
       await seed({ withDraft: false });
       await setExperiment({ status: "running" });
       await expect(run({ unlinkFeatures: [FLAG] })).rejects.toThrow(
-        "Set the experiment's status back to Draft to remove this Feature Flag.",
+        "Set the experiment's status back to draft to remove this Feature Flag.",
       );
       expect(
         await collection("featurerevisions").countDocuments({

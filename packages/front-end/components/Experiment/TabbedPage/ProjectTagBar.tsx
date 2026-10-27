@@ -93,7 +93,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Experiment Key"
+          label="Experiment key"
           action={fieldAction?.("trackingKey")}
           value={experiment.trackingKey || <EmptyValue />}
         />

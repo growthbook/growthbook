@@ -2662,10 +2662,10 @@ export function assertVisualChangesEditable(
 ): void {
   if (experiment.archived) {
     throw new BadRequestError(
-      "Unarchive the experiment to change its Visual Editor changes.",
+      "Unarchive the experiment to change its AI Visual Editor changes.",
     );
   }
-  assertScheduledStartAllows(experiment, "Visual Editor changes");
+  assertScheduledStartAllows(experiment, "AI Visual Editor changes");
   assertCanRunLinkedChanges(context, experiment);
 }
 

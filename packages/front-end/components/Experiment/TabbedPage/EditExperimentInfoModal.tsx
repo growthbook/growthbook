@@ -136,7 +136,7 @@ export default function EditExperimentInfoModal({
           size="legacy"
           autoFocus
           disabled={experiment.status !== "draft"}
-          label="Experiment Key"
+          label="Experiment key"
           {...form.register("trackingKey")}
           required
           {...trackingKeyFormatProps}

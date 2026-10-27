@@ -80,7 +80,9 @@ export class ChangesConflictError extends ApiError<"changes_conflict"> {
       ...details.fields,
       ...details.featureIds.map((id) => `Feature Flag ${id}`),
       ...details.urlRedirectIds.map((id) => `URL Redirect ${id}`),
-      ...details.visualChangesetIds.map((id) => `Visual Editor change ${id}`),
+      ...details.visualChangesetIds.map(
+        (id) => `AI Visual Editor change ${id}`,
+      ),
     ];
     super(
       "changes_conflict",

@@ -635,7 +635,8 @@ function FlagColumn({
             shown = value;
           }
         }
-        return [variationLabel(v), shown];
+        // Indexed: two variations can share a name.
+        return [`${v.index}: ${variationLabel(v)}`, shown];
       }),
     );
 

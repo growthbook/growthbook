@@ -75,7 +75,7 @@ const redirectName = (redirect: { urlPattern: string }) =>
   `The URL Redirect from ${redirect.urlPattern}`;
 
 const visualName = (changeset: VisualChangesetInterface) =>
-  `The Visual Editor change for ${changeset.editorUrl}`;
+  `The AI Visual Editor change for ${changeset.editorUrl}`;
 
 function assertListedOnce(ids: string[], what: string) {
   if (new Set(ids).size !== ids.length) {
@@ -154,18 +154,18 @@ export async function planLinkedChanges(
 
   if (experiment.type === "holdout") {
     throw new BadRequestError(
-      "A holdout has no URL Redirects or Visual Editor changes.",
+      "A holdout has no URL Redirects or AI Visual Editor changes.",
     );
   }
   if (experiment.archived) {
     throw new BadRequestError(
-      "Unarchive the experiment to change its URL Redirects or Visual Editor changes.",
+      "Unarchive the experiment to change its URL Redirects or AI Visual Editor changes.",
     );
   }
   assertListedOnce([...edits.map((e) => e.id), ...removes], "URL Redirect");
   assertListedOnce(
     [...visualEdits.map((e) => e.id), ...visualRemoves],
-    "Visual Editor change",
+    "AI Visual Editor change",
   );
 
   const changes = experimentPlan?.changes ?? {};
@@ -212,7 +212,7 @@ export async function planLinkedChanges(
     return [{ loaded, edit }];
   });
   if (touchesVisual) {
-    assertScheduledStartAllows(experiment, "Visual Editor changes");
+    assertScheduledStartAllows(experiment, "AI Visual Editor changes");
   }
   const storedVisual = touchesVisual
     ? await findVisualChangesetsByExperiment(experiment.id, context.org.id)
@@ -326,7 +326,7 @@ async function writeEach({
   for (const edit of plan.editVisual) {
     const current = await findVisualChangesetById(edit.id, context.org.id);
     if (!current || current.experiment !== experimentId) {
-      throw changedSinceLoaded("A Visual Editor change");
+      throw changedSinceLoaded("An AI Visual Editor change");
     }
     // The Visual Editor may have written since the plan.
     if (visualBaseMoved(current, edit)) {

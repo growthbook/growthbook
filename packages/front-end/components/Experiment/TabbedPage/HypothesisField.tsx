@@ -106,7 +106,7 @@ export default function HypothesisField({
       onChange={setValue}
       placeholder="What do you expect to happen, and why?"
       aiSuggestFunction={suggestHypothesis}
-      aiButtonText="Check Hypothesis"
+      aiButtonText="Check hypothesis"
       onAISuggestionReceived={(result) => {
         aiSuggestion.current = result;
       }}

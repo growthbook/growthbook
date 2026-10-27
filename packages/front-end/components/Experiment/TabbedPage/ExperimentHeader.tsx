@@ -519,7 +519,7 @@ export default function ExperimentHeader({
       {futureStart
         ? startGate.actions.label
         : isHoldout
-          ? "Start Holdout"
+          ? "Start holdout"
           : getStartTitle(experiment, new Date())}
     </Button>
   );
@@ -1064,7 +1064,7 @@ export default function ExperimentHeader({
                             body="Override Holdout schedule and manually start Holdout now"
                             tipPosition="left"
                           >
-                            Start Holdout
+                            Start holdout
                           </Tooltip>
                         </DropdownMenuItem>
                       ))}

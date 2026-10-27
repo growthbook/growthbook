@@ -160,7 +160,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     return this.context.permissions.canUpdateExperiment(this.experiment, {});
   }
   assertCanCreateChangeset(): void {
-    assertScheduledStartAllows(this.experiment, "Visual Editor changes");
+    assertScheduledStartAllows(this.experiment, "AI Visual Editor changes");
   }
   canCreateChangeset(): boolean {
     return (
@@ -734,7 +734,7 @@ function requireDraftExperiment(
   >,
   { allowRunning = false }: { allowRunning?: boolean } = {},
 ): void {
-  assertScheduledStartAllows(experiment, "Visual Editor changes");
+  assertScheduledStartAllows(experiment, "AI Visual Editor changes");
   if (allowRunning && !experiment.archived && experiment.status === "running") {
     return;
   }

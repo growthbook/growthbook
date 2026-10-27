@@ -329,6 +329,7 @@ export default function FeatureVariationsInput({
                       </Flex>
                       {editingSplits &&
                         !isEqualWeights &&
+                        !disableVariations &&
                         !disableCustomSplit &&
                         !hideSplits && (
                           <Tooltip

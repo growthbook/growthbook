@@ -74,7 +74,7 @@ export default function PublicExperimentDetails({
             <Metadata
               size="sm"
               stacked
-              label="Experiment Key"
+              label="Experiment key"
               value={experiment.trackingKey || <EmptyValue />}
             />
             <Metadata

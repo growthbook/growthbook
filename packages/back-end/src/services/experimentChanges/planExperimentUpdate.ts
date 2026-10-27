@@ -450,7 +450,7 @@ export async function planExperimentUpdate(
     (experiment.status !== "draft" || experimentHasLinkedChanges(experiment))
   ) {
     throw new BadRequestError(
-      "A holdout can only change while the experiment is a draft with nothing linked. Discard the holdout change, or set the status back to Draft and remove its linked changes.",
+      "A holdout can only change while the experiment is a draft with nothing linked. Discard the holdout change, or set the status back to draft and remove its linked changes.",
     );
   }
 

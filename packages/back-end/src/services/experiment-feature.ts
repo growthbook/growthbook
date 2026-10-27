@@ -1310,7 +1310,7 @@ export async function assertFlagRemovable(
     getLaunchDraftVersion(experiment.id, openDrafts, liveRevision) !== null
   ) {
     throw new BadRequestError(
-      "Set the experiment's status back to Draft to remove this Feature Flag.",
+      "Set the experiment's status back to draft to remove this Feature Flag.",
     );
   }
 }
