@@ -655,6 +655,26 @@ export default function AgentPanel({
       dockedShown && open && expanded,
     );
   }, [dockedShown, open, expanded]);
+  // Only while the docked width comes or goes (the slide), the page's
+  // padding moves with it (global.scss); resizing the window with the panel
+  // open switches it at once.
+  const dockChanged = useRef(false);
+  useIsomorphicLayoutEffect(() => {
+    if (!dockChanged.current) {
+      dockChanged.current = true;
+      return;
+    }
+    const root = document.documentElement;
+    root.classList.add("agent-dock-sliding");
+    const timer = window.setTimeout(
+      () => root.classList.remove("agent-dock-sliding"),
+      AGENT_DOCK_MOTION_MS,
+    );
+    return () => {
+      window.clearTimeout(timer);
+      root.classList.remove("agent-dock-sliding");
+    };
+  }, [dockedShown]);
   useEffect(
     () => () => {
       const root = document.documentElement;

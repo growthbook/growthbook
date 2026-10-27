@@ -165,7 +165,7 @@ html.app-drawer-open body {
 }
 
 // The page's side padding moves only with the side nav and the docked
-// GrowthBot panel (html.app-rail-motion, AppRail.tsx; html.agent-dock-motion,
+// GrowthBot panel (html.app-rail-motion, AppRail.tsx; html.agent-dock-sliding,
 // AgentPanel.tsx), so resizing the window switches it at once.
 @mixin page-padding-motion($props...) {
   html.app-rail-motion & {
@@ -173,14 +173,14 @@ html.app-drawer-open body {
     transition-duration: 200ms;
     transition-timing-function: ease;
   }
-  html.agent-dock-motion & {
+  html.agent-dock-sliding & {
     transition-property: $props;
     transition-duration: var(--agent-dock-duration);
     transition-timing-function: var(--agent-dock-easing);
   }
   @media (prefers-reduced-motion: reduce) {
     html.app-rail-motion &,
-    html.agent-dock-motion & {
+    html.agent-dock-sliding & {
       transition: none;
     }
   }
