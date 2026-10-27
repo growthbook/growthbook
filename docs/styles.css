@@ -505,3 +505,13 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   white-space: nowrap;
   word-wrap: break-word;
 }
+
+/* Mintlify's <Frame> is always full width, so an image narrower than the
+   column gets wide side gutters but only 8px above and below. Shrink the
+   frame to the image so the padding is even. Iframes and videos size to the
+   frame, so they keep the full-width frame. */
+.frame:has(img):not(:has(iframe, video)) {
+  width: fit-content;
+  max-width: 100%;
+  margin-inline: auto;
+}
