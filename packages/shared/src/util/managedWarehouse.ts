@@ -106,7 +106,7 @@ export function formatQueryExecutionErrorForApi(e: unknown): string {
   // "[object Object]".
   if (typeof e === "object" && e !== null && "message" in e) {
     const message = (e as { message: unknown }).message;
-    if (message !== undefined && message !== null) {
+    if ((message ?? null) !== null) {
       return String(message);
     }
   }
