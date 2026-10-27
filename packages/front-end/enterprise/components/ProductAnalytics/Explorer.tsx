@@ -600,7 +600,18 @@ function ExplorerInner({ type }: { type: DatasetType }) {
               setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
               setUrlComparisonMode={setUrlComparisonMode}
             />
-            <ExplorerContent />
+            {/* The page's 32px bottom under the card (ExplorerMainSection):
+                the frame ends 8px above the window. */}
+            <div
+              style={
+                {
+                  display: "contents",
+                  "--explorer-main-bottom": "24px",
+                } as React.CSSProperties
+              }
+            >
+              <ExplorerContent />
+            </div>
           </>
         )}
       </ExplorerProvider>
