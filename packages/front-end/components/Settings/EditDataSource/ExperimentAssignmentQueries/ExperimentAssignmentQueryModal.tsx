@@ -834,7 +834,7 @@ export const ExperimentAssignmentQueryModal = ({
               placeholder="No dimensions"
               value={dimensions}
               options={dimensionOptions}
-              sort={false}
+              sortOptions={false}
               onChange={setDimensions}
               helpText="Columns to break experiment results down by."
             />
