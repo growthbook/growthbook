@@ -588,6 +588,10 @@ export default function StandardRuleFields({
                 setHashAttribute={(v: string) =>
                   form.setValue("hashAttribute", v)
                 }
+                fallbackAttribute={form.watch("fallbackAttribute")}
+                setFallbackAttribute={(v: string) =>
+                  form.setValue("fallbackAttribute", v)
+                }
                 attributeSchema={attributeSchema}
                 extraIndicator={attributeSelectIndicator}
                 hasHashAttributes={hasHashAttributes}

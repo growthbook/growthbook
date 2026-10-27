@@ -11,6 +11,7 @@ import { decimalToPercent, percentToDecimal } from "@/services/utils";
 import Text from "@/ui/Text";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
+import useOrgSettings from "@/hooks/useOrgSettings";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import {
   formatAttributeOptionLabel,
@@ -31,6 +32,8 @@ export interface RolloutHashingOptionsProps {
   // Hash attribute selection (optional)
   hashAttribute?: string;
   setHashAttribute?: (v: string) => void;
+  fallbackAttribute?: string;
+  setFallbackAttribute?: (v: string) => void;
   attributeSchema?: SDKAttributeSchema;
   hasHashAttributes?: boolean;
   // Hash version (optional)
@@ -50,6 +53,8 @@ export function RolloutHashingOptions({
   isLive,
   hashAttribute,
   setHashAttribute,
+  fallbackAttribute,
+  setFallbackAttribute,
   attributeSchema,
   hasHashAttributes,
   hashVersion,
@@ -57,9 +62,25 @@ export function RolloutHashingOptions({
   project,
   extraIndicator,
 }: RolloutHashingOptionsProps) {
+  const settings = useOrgSettings();
   const filteredAttributes = attributeSchema?.filter(
     (s) => !hasHashAttributes || s.hashAttribute,
   );
+  const fallbackOptions = [
+    { label: "None", value: "" },
+    ...(filteredAttributes ?? [])
+      .filter((s) => s.property !== hashAttribute)
+      .map(toAttributeOption),
+  ];
+  if (
+    fallbackAttribute &&
+    !fallbackOptions.some((o) => o.value === fallbackAttribute)
+  ) {
+    fallbackOptions.push({
+      label: fallbackAttribute,
+      value: fallbackAttribute,
+    });
+  }
 
   const { data: sdkConnectionsData } = useSDKConnections();
   // Fallback for call sites that don't wire hashVersion through a form
@@ -124,6 +145,22 @@ export function RolloutHashingOptions({
                   : undefined
               }
             />
+            {setFallbackAttribute &&
+              ((settings.useStickyBucketing &&
+                settings.useFallbackAttributes) ||
+                !!fallbackAttribute) && (
+                <SelectField
+                  label="Fallback attribute"
+                  value={fallbackAttribute ?? ""}
+                  onChange={setFallbackAttribute}
+                  options={fallbackOptions}
+                  formatOptionLabel={(o, meta) =>
+                    o.value ? formatAttributeOptionLabel(o, meta) : o.label
+                  }
+                  sort={false}
+                  helpText="Used for users without the Sample by attribute. Only SDKs with Sticky Bucketing use it."
+                />
+              )}
             {setHashVersion && (
               <>
                 <SelectField
@@ -162,6 +199,8 @@ export interface Props {
   // Hash attribute selection
   hashAttribute?: string;
   setHashAttribute?: (v: string) => void;
+  fallbackAttribute?: string;
+  setFallbackAttribute?: (v: string) => void;
   attributeSchema?: SDKAttributeSchema;
   hasHashAttributes?: boolean;
   // Hash version
@@ -190,6 +229,8 @@ export default function RolloutPercentInput({
   locked,
   hashAttribute,
   setHashAttribute,
+  fallbackAttribute,
+  setFallbackAttribute,
   attributeSchema,
   hasHashAttributes,
   hashVersion,
@@ -217,10 +258,15 @@ export default function RolloutPercentInput({
     // was auto-selected. Only expand when the user has actively customised the
     // seed, when there's an SDK compatibility warning, or when editing an
     // existing rule that already uses v1 (so they're aware of the legacy choice).
-    if (seed || hashVersionSdkWarning || (!isNew && hashVersion === 1)) {
+    if (
+      seed ||
+      fallbackAttribute ||
+      hashVersionSdkWarning ||
+      (!isNew && hashVersion === 1)
+    ) {
       setAdvancedOpen(true);
     }
-  }, [seed, hashVersion, hashVersionSdkWarning]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [seed, fallbackAttribute, hashVersion, hashVersionSdkWarning]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rampHasSubMaxCoverage =
     !!rampSchedule &&
@@ -289,6 +335,8 @@ export default function RolloutPercentInput({
           isLive={isLiveRule}
           hashAttribute={hashAttribute}
           setHashAttribute={setHashAttribute}
+          fallbackAttribute={fallbackAttribute}
+          setFallbackAttribute={setFallbackAttribute}
           extraIndicator={extraIndicator}
           attributeSchema={attributeSchema}
           hasHashAttributes={hasHashAttributes}

@@ -1745,6 +1745,9 @@ export function getFeatureDefinition({
               if (r.hashAttribute) {
                 rule.hashAttribute = r.hashAttribute;
               }
+              if (r.fallbackAttribute) {
+                rule.fallbackAttribute = r.fallbackAttribute;
+              }
               if (r.seed) {
                 rule.seed = r.seed;
               }

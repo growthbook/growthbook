@@ -18,6 +18,7 @@ export default function RolloutSummary({
   coverage,
   feature,
   hashAttribute,
+  fallbackAttribute,
   sparse = false,
   environment,
 }: {
@@ -25,6 +26,7 @@ export default function RolloutSummary({
   coverage: number;
   feature: FeatureInterface;
   hashAttribute: string;
+  fallbackAttribute?: string;
   monitored?: boolean;
   sparse?: boolean;
   // Environment this value is shown for, so a config-backed value previews its
@@ -46,6 +48,11 @@ export default function RolloutSummary({
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">SAMPLE</Text> by{" "}
         <AttributeBadge attributeId={hashAttribute} />
+        {fallbackAttribute ? (
+          <>
+            falling back to <AttributeBadge attributeId={fallbackAttribute} />
+          </>
+        ) : null}
       </Flex>
       <Box className="mb-3">
         <Flex gap="3" align="center">

@@ -2972,6 +2972,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         sparse: rule.sparse,
         coverage: rule.coverage ?? 1,
         hashAttribute: rule.hashAttribute,
+        fallbackAttribute: rule.fallbackAttribute,
         seed: rule.seed,
         // Emit so a GET→edit→PUT round-trip preserves it (else the rollout re-buckets).
         hashVersion: rule.hashVersion,
@@ -4209,6 +4210,9 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           condition: r.condition,
           savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
+          ...(r.fallbackAttribute && {
+            fallbackAttribute: r.fallbackAttribute,
+          }),
           // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
           ...(r.seed !== undefined && { seed: r.seed }),
           ...(r.hashVersion !== undefined && { hashVersion: r.hashVersion }),

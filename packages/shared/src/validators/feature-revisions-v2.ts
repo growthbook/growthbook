@@ -210,6 +210,12 @@ const targetingRuleCreateInputV2 = namedSchema(
         .describe(
           "Attribute to hash on for consistent assignment. Required when coverage < 1.",
         ),
+      fallbackAttribute: z
+        .string()
+        .optional()
+        .describe(
+          "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
+        ),
       seed: z.string().optional(),
       hashVersion: z
         .union([z.literal(1), z.literal(2)])
@@ -336,6 +342,7 @@ const rulePatchSchemaV2 = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),

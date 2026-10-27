@@ -169,6 +169,7 @@ export const rolloutRule = baseRule
     sparse: sparseRuleField,
     coverage: z.number(),
     hashAttribute: z.string(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
@@ -1000,6 +1001,12 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
         .optional(),
       coverage: z.coerce.number().gte(0).lte(1),
       hashAttribute: z.string(),
+      fallbackAttribute: z
+        .string()
+        .describe(
+          "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
+        )
+        .optional(),
       seed: z
         .string()
         .describe(
@@ -1526,6 +1533,12 @@ const postFeatureRolloutRule = z
         "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
       ),
     hashAttribute: z.string(),
+    fallbackAttribute: z
+      .string()
+      .describe(
+        "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
+      )
+      .optional(),
     seed: z.string().optional(),
     hashVersion: z
       .union([z.literal(1), z.literal(2)])

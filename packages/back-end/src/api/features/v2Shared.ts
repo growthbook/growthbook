@@ -340,6 +340,9 @@ export function mapV2ApiRuleToFeatureRule(
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
+      ...(ruleInput.fallbackAttribute && {
+        fallbackAttribute: ruleInput.fallbackAttribute,
+      }),
       // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
       ...(ruleInput.seed !== undefined && { seed: ruleInput.seed }),
       ...(ruleInput.hashVersion !== undefined && {

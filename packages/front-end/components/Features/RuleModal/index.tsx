@@ -1622,6 +1622,7 @@ export default function RuleModal({
         // eslint-disable-next-line
         delete (values as any).seed;
         delete (values as { hashVersion?: number }).hashVersion;
+        delete (values as { fallbackAttribute?: string }).fallbackAttribute;
       } else if (values.type === "rollout") {
         // An empty seed means "stamp this rule's own id" (the default for
         // duplicates) — omit it rather than submitting "".
@@ -1629,6 +1630,7 @@ export default function RuleModal({
           // eslint-disable-next-line
           delete (values as any).seed;
         }
+        if (!values.fallbackAttribute) delete values.fallbackAttribute;
       }
       if (
         values.scheduleRules &&

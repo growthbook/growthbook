@@ -606,6 +606,12 @@ const v2RuleRolloutBase = z
     sparse: v2SparseRuleField,
     coverage: z.number(),
     hashAttribute: z.string(),
+    fallbackAttribute: z
+      .string()
+      .describe(
+        "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
+      )
+      .optional(),
     seed: z
       .string()
       .describe("Optional seed for the hash function; defaults to the rule id")

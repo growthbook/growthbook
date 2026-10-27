@@ -3301,6 +3301,7 @@ describe("SDK Payloads", () => {
         id: "2",
         coverage: 0.8,
         hashAttribute: "id",
+        fallbackAttribute: "device_id",
         value: "false",
         enabled: true,
       },
@@ -3347,6 +3348,7 @@ describe("SDK Payloads", () => {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
+          fallbackAttribute: "device_id",
         },
         {
           coverage: 1,

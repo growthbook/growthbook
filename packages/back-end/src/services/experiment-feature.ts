@@ -1192,7 +1192,7 @@ async function rewriteExperimentRulesInDrafts({
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   refersToExperiment: (r: FeatureRule) => boolean;
-  rewrite: (rules: FeatureRule[]) => FeatureRule[];
+  rewrite: (rules: FeatureRule[], featureId: string) => FeatureRule[];
   logEntry: (touched: FeatureRule[]) => Parameters<typeof updateRevision>[4];
 }): Promise<FeatureRevisionInterface[]> {
   const rewritten: FeatureRevisionInterface[] = [];
@@ -1203,7 +1203,7 @@ async function rewriteExperimentRulesInDrafts({
       context,
       feature,
       draft,
-      { rules: rewrite(draft.rules ?? []) },
+      { rules: rewrite(draft.rules ?? [], feature.id) },
       logEntry(touched),
     );
     rewritten.push(draft);
@@ -1516,15 +1516,18 @@ async function resolveRulesForExperiment({
   comment,
   restApiBypassesReviews = false,
 }: CleanupArgs & {
-  replacement: (rule: ExperimentRefRule) => FeatureRule | null;
+  replacement: (
+    rule: ExperimentRefRule,
+    featureId: string,
+  ) => FeatureRule | null;
   action: string;
   comment: string;
 }): Promise<void> {
   const refersToExperiment = experimentRuleFor(experiment.id);
-  const rewrite = (rules: FeatureRule[]) =>
+  const rewrite = (rules: FeatureRule[], featureId: string) =>
     rules.flatMap((r) => {
       if (!refersToExperiment(r)) return [r];
-      const next = replacement(r);
+      const next = replacement(r, featureId);
       return next ? [next] : [];
     });
   const logEntry = removalLog(experiment, eventAudit, action);
@@ -1576,7 +1579,7 @@ async function resolveRulesForExperiment({
       checkIfRevisionNeedsReview({
         feature,
         baseRevision: live,
-        revision: { ...live, rules: rewrite(live.rules ?? []) },
+        revision: { ...live, rules: rewrite(live.rules ?? [], feature.id) },
         orgEnvironments: getEnvironments(context.org),
         settings: context.org.settings,
         requireApprovalsLicensed:
@@ -1608,7 +1611,10 @@ async function resolveRulesForExperiment({
             context,
             feature,
             cleanupDraft,
-            { rules: rewrite(cleanupDraft.rules ?? []), title: comment },
+            {
+              rules: rewrite(cleanupDraft.rules ?? [], feature.id),
+              title: comment,
+            },
             logEntry(liveTouched),
           )) ?? cleanupDraft;
         current = await mergeAndPublishRevision({
@@ -1681,7 +1687,59 @@ export async function removeRulesForDeletedExperiment({
   });
 }
 
-// Freezes the temporary rollout into a permanent rule with the phase's targeting.
+// The permanent rule serving the temporary rollout's value, with the phase's
+// targeting, to the same users.
+export function keptExperimentRule(
+  experiment: ExperimentInterface,
+  rule: ExperimentRefRule,
+  featureId: string,
+): FeatureRule | null {
+  const releasedId = experiment.releasedVariationId;
+  const value = rule.variations.find(
+    (v) => v.variationId === releasedId,
+  )?.value;
+  // The payload skips a rule whose released arm has no value, so dropping it
+  // changes nothing.
+  if (value === undefined) return null;
+  const phase = experiment.phases[experiment.phases.length - 1];
+  const coverage = phase?.coverage ?? 1;
+  const released = experiment.variations.find((v) => v.id === releasedId);
+  const kept = {
+    // A sparse arm stays a patch over the default, as it was served.
+    ...omit(rule, ["type", "experimentId", "variations"]),
+    value,
+    description: `Released from experiment "${experiment.name}"${
+      released ? ` (${released.name})` : ""
+    }`,
+    ...(phase?.condition && phase.condition !== "{}"
+      ? { condition: phase.condition }
+      : {}),
+    ...(phase?.savedGroups?.length ? { savedGroups: phase.savedGroups } : {}),
+    ...(phase?.prerequisites?.length
+      ? { prerequisites: phase.prerequisites }
+      : {}),
+  };
+  // The payload applies the phase's coverage to the released value too,
+  // hashed the same way, so the same users keep it.
+  return coverage < 1
+    ? {
+        ...kept,
+        type: "rollout",
+        coverage,
+        hashAttribute: experiment.hashAttribute,
+        ...(experiment.fallbackAttribute && !experiment.disableStickyBucketing
+          ? { fallbackAttribute: experiment.fallbackAttribute }
+          : {}),
+        // The SDK seeds a seedless rollout with the flag key.
+        seed: phase?.seed || featureId,
+        ...(experiment.hashVersion
+          ? { hashVersion: experiment.hashVersion }
+          : {}),
+      }
+    : { ...kept, type: "force" };
+}
+
+// Freezes the temporary rollout into a permanent rule.
 export async function materializeExperimentRules({
   context,
   experiment,
@@ -1690,21 +1748,14 @@ export async function materializeExperimentRules({
   audit,
   restApiBypassesReviews,
 }: CleanupArgs): Promise<void> {
-  const releasedId = experiment.releasedVariationId;
-  if (!releasedId) {
+  if (!experiment.releasedVariationId) {
     throw new Error("The experiment has no released variation to keep.");
   }
-  const phase = experiment.phases[experiment.phases.length - 1];
-  if (phase?.namespace?.enabled) {
+  if (experiment.phases[experiment.phases.length - 1]?.namespace?.enabled) {
     throw new Error(
       "A namespaced experiment cannot be kept as a permanent rule; stop the temporary rollout instead.",
     );
   }
-  const coverage = phase?.coverage ?? 1;
-  const released = experiment.variations.find((v) => v.id === releasedId);
-  const description = `Released from experiment "${experiment.name}"${
-    released ? ` (${released.name})` : ""
-  }`;
 
   await resolveRulesForExperiment({
     context,
@@ -1715,42 +1766,7 @@ export async function materializeExperimentRules({
     restApiBypassesReviews,
     action: "replace experiment rule with a permanent rule",
     comment: `Keep the released variation of "${experiment.name}"`,
-    replacement: (rule) => {
-      const value = rule.variations.find(
-        (v) => v.variationId === releasedId,
-      )?.value;
-      // The payload skips a rule whose released arm has no value, so dropping
-      // it changes nothing.
-      if (value === undefined) return null;
-      const kept = {
-        // A sparse arm stays a patch over the default, as it was served.
-        ...omit(rule, ["type", "experimentId", "variations"]),
-        value,
-        description,
-        ...(phase?.condition && phase.condition !== "{}"
-          ? { condition: phase.condition }
-          : {}),
-        ...(phase?.savedGroups?.length
-          ? { savedGroups: phase.savedGroups }
-          : {}),
-        ...(phase?.prerequisites?.length
-          ? { prerequisites: phase.prerequisites }
-          : {}),
-      };
-      // The payload applies the phase's coverage to the released value too,
-      // hashed the same way, so the same users keep it.
-      return coverage < 1
-        ? {
-            ...kept,
-            type: "rollout" as const,
-            coverage,
-            hashAttribute: experiment.hashAttribute,
-            ...(phase?.seed ? { seed: phase.seed } : {}),
-            ...(experiment.hashVersion
-              ? { hashVersion: experiment.hashVersion }
-              : {}),
-          }
-        : { ...kept, type: "force" as const };
-    },
+    replacement: (rule, featureId) =>
+      keptExperimentRule(experiment, rule, featureId),
   });
 }

@@ -1757,6 +1757,7 @@ export const Rule = forwardRef<HTMLDivElement, RuleProps>(
                 coverage={rule.coverage ?? 1}
                 feature={feature}
                 hashAttribute={rule.hashAttribute || ""}
+                fallbackAttribute={rule.fallbackAttribute}
                 sparse={rule.sparse}
                 environment={isAllEnvsView ? undefined : environment}
                 monitored={

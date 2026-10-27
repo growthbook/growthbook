@@ -1460,6 +1460,12 @@ paths:
                                   type: number
                                 hashAttribute:
                                   type: string
+                                fallbackAttribute:
+                                  description: >-
+                                    Used in place of `hashAttribute` when a user
+                                    lacks it. Only SDKs with Sticky Bucketing
+                                    enabled use it.
+                                  type: string
                                 seed:
                                   type: string
                                 hashVersion:
@@ -2134,6 +2140,12 @@ paths:
                                         experiment will skip this rule.
                                       type: number
                                     hashAttribute:
+                                      type: string
+                                    fallbackAttribute:
+                                      description: >-
+                                        Used in place of `hashAttribute` when a
+                                        user lacks it. Only SDKs with Sticky
+                                        Bucketing enabled use it.
                                       type: string
                                     seed:
                                       type: string
@@ -3039,6 +3051,12 @@ paths:
                                   type: number
                                 hashAttribute:
                                   type: string
+                                fallbackAttribute:
+                                  description: >-
+                                    Used in place of `hashAttribute` when a user
+                                    lacks it. Only SDKs with Sticky Bucketing
+                                    enabled use it.
+                                  type: string
                                 seed:
                                   type: string
                                 hashVersion:
@@ -3713,6 +3731,12 @@ paths:
                                         experiment will skip this rule.
                                       type: number
                                     hashAttribute:
+                                      type: string
+                                    fallbackAttribute:
+                                      description: >-
+                                        Used in place of `hashAttribute` when a
+                                        user lacks it. Only SDKs with Sticky
+                                        Bucketing enabled use it.
                                       type: string
                                     seed:
                                       type: string
@@ -5947,6 +5971,8 @@ paths:
                           maximum: 1
                         hashAttribute:
                           type: string
+                        fallbackAttribute:
+                          type: string
                         seed:
                           type: string
                         hashVersion:
@@ -6647,6 +6673,8 @@ paths:
                       minimum: 0
                       maximum: 1
                     hashAttribute:
+                      type: string
+                    fallbackAttribute:
                       type: string
                     seed:
                       type: string
@@ -9107,6 +9135,12 @@ paths:
                             type: number
                           hashAttribute:
                             type: string
+                          fallbackAttribute:
+                            description: >-
+                              Used in place of `hashAttribute` when a user lacks
+                              it. Only SDKs with Sticky Bucketing enabled use
+                              it.
+                            type: string
                           seed:
                             description: >-
                               Optional seed for the hash function; defaults to
@@ -10040,6 +10074,12 @@ paths:
                           coverage:
                             type: number
                           hashAttribute:
+                            type: string
+                          fallbackAttribute:
+                            description: >-
+                              Used in place of `hashAttribute` when a user lacks
+                              it. Only SDKs with Sticky Bucketing enabled use
+                              it.
                             type: string
                           seed:
                             description: >-
@@ -12863,6 +12903,8 @@ paths:
                       minimum: 0
                       maximum: 1
                     hashAttribute:
+                      type: string
+                    fallbackAttribute:
                       type: string
                     seed:
                       type: string
@@ -67146,6 +67188,11 @@ components:
               maximum: 1
             hashAttribute:
               type: string
+            fallbackAttribute:
+              description: >-
+                Used in place of `hashAttribute` when a user lacks it. Only SDKs
+                with Sticky Bucketing enabled use it.
+              type: string
             seed:
               description: Optional seed for the hash function; defaults to the rule id
               type: string
@@ -70684,6 +70731,11 @@ components:
           description: >-
             Attribute to hash on for consistent assignment. Required when
             coverage < 1.
+          type: string
+        fallbackAttribute:
+          description: >-
+            Used in place of `hashAttribute` when a user lacks it. Only SDKs
+            with Sticky Bucketing enabled use it.
           type: string
         seed:
           type: string
@@ -87372,6 +87424,8 @@ components:
                   coverage:
                     type: number
                   hashAttribute:
+                    type: string
+                  fallbackAttribute:
                     type: string
                   seed:
                     type: string
