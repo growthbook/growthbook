@@ -448,7 +448,9 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
           })
           .filter((v) => {
             if (creatable) return true;
-            return map.has(v);
+            // A disabled option can't be picked, so it can't be pasted either.
+            const option = map.get(v);
+            return !!option && !isOptionDisabled?.(option);
           });
 
         // Remove duplicates within pasted values AND against existing values

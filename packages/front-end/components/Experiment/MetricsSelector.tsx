@@ -565,7 +565,7 @@ const MetricsSelector: FC<{
     const counts: Record<string, number> = {};
     const selectedSet = new Set(selected);
     filteredOptions.forEach((m) => {
-      if (!selectedSet.has(m.id) && m.tags) {
+      if (!selectedSet.has(m.id) && !m.disabled && m.tags) {
         m.tags.forEach((t) => {
           counts[t] = (counts[t] || 0) + 1;
         });
@@ -867,7 +867,7 @@ const MetricsSelector: FC<{
             onSelect={(tag) => {
               const newValue = new Set(selected);
               filteredOptions.forEach((m) => {
-                if (m.tags?.includes(tag)) {
+                if (!m.disabled && m.tags?.includes(tag)) {
                   newValue.add(m.id);
                 }
               });
