@@ -356,11 +356,7 @@ export default function DataSourceOptionsTable() {
 
       {/* Scrolls sideways where the page is narrower than the table. */}
       <Box overflowX="auto">
-        <Table
-          variant="surface"
-          layout="fixed"
-          style={{ minWidth: 820, maxWidth: 1200 }}
-        >
+        <Table variant="surface" layout="fixed" style={{ minWidth: 820 }}>
           <TableHeader>
             <TableRow align="start">
               <TableColumnHeader style={{ width: 190 }} />
