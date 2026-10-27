@@ -439,33 +439,31 @@ const MultiSelectField: FC<MultiSelectFieldProps> = ({
       }
 
       if (Array.isArray(parsed)) {
-        let newValues = parsed
+        const known = parsed
           .map((v) => String(v))
           .filter(Boolean)
           .filter((v) => {
             if (!pattern) return true;
             return new RegExp(pattern).test(v);
           })
-          .filter((v) => {
-            if (creatable) return true;
-            // A disabled option can't be picked, so it can't be pasted either.
-            const option = map.get(v);
-            return !!option && !isOptionDisabled?.(option);
-          });
+          .filter((v) => creatable || map.has(v));
+        // Values it knows are taken as values, even any it can't add, rather
+        // than left as search text.
+        if (!known.length) return;
+        event.preventDefault();
+        event.stopPropagation();
 
-        // Remove duplicates within pasted values AND against existing values
+        // A disabled option can't be picked, so it can't be pasted either; nor
+        // a value it already has, or one pasted twice.
         const seen = new Set(value);
-        newValues = newValues.filter((v) => {
+        const newValues = known.filter((v) => {
+          const option = map.get(v);
+          if (option && isOptionDisabled?.(option)) return false;
           if (seen.has(v)) return false;
           seen.add(v);
           return true;
         });
-
-        if (newValues.length > 0) {
-          event.preventDefault();
-          event.stopPropagation();
-          onChange([...value, ...newValues]);
-        }
+        if (newValues.length > 0) onChange([...value, ...newValues]);
       }
     });
 
