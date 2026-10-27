@@ -46,7 +46,7 @@ export function resolveFactMetricCreation(
   ready: boolean,
   hasFactTable: boolean,
   embedded = false,
-) {
+): "pending" | "page" | "fact-table" | "inline" {
   if (!ready) return "pending";
   if (!embedded) return "page";
   if (!hasFactTable) return "fact-table";

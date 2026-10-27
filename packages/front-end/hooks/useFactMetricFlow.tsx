@@ -98,12 +98,7 @@ export default function useFactMetricFlow(
       disabledReason,
       permissionError: ready && !canCreate ? disabledReason : null,
       label: mode === "fact-table" ? "Create Fact Table" : "Add Fact Metric",
-      href:
-        mode === "page"
-          ? `/fact-metrics/new?${params}`
-          : mode === "fact-table" && !embedded
-            ? "/fact-tables"
-            : null,
+      href: mode === "page" ? `/fact-metrics/new?${params}` : null,
       source: params.get("source") || source,
     };
   };
