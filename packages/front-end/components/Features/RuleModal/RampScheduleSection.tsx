@@ -1439,6 +1439,7 @@ export default function RampScheduleSection({
       const removeEffectButton = (onClick: () => void) => (
         <Tooltip body="Remove effect" tipMinWidth="50px">
           <IconButton
+            type="button"
             variant="ghost"
             color="red"
             size="2"
@@ -3818,6 +3819,7 @@ export default function RampScheduleSection({
         disableBefore={new Date().toISOString()}
       />
       <IconButton
+        type="button"
         variant="ghost"
         color="gray"
         size="2"

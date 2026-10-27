@@ -126,6 +126,7 @@ export default function PremiumCallout({
         </Text>
         {dismissible ? (
           <IconButton
+            type="button"
             variant="ghost"
             color="gray"
             size="1"

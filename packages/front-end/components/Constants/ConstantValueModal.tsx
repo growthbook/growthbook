@@ -266,6 +266,7 @@ export default function ConstantValueModal({
                 <Flex align="center" justify="between" mb="1">
                   <Text weight="medium">{envId}</Text>
                   <IconButton
+                    type="button"
                     variant="ghost"
                     color="red"
                     size="2"

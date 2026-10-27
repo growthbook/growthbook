@@ -152,6 +152,7 @@ const RefreshBanditButton: FC<{
             className="nowrap py-0"
           >
             <button
+              type="button"
               className="dropdown-item py-2"
               onClick={() => {
                 setReweight(false);
@@ -161,6 +162,7 @@ const RefreshBanditButton: FC<{
               Check results
             </button>
             <button
+              type="button"
               className="dropdown-item py-2"
               onClick={() => {
                 setReweight(true);

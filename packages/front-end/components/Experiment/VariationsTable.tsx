@@ -165,6 +165,7 @@ interface Props {
 function AddVariationButton({ onClick }: { onClick: () => void }) {
   return (
     <IconButton
+      type="button"
       variant="ghost"
       color="violet"
       radius="full"
@@ -281,6 +282,7 @@ export function VariationBox({
             </Box>
             {canEdit && onEditMetadata && onEditTraffic ? (
               <IconButton
+                type="button"
                 variant="ghost"
                 size="1"
                 color="violet"

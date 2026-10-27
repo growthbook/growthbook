@@ -317,6 +317,7 @@ const VisualChangesetModal: FC<
         ))}
 
         <button
+          type="button"
           className="btn btn-link mt-1"
           onClick={(e) => {
             e.preventDefault();

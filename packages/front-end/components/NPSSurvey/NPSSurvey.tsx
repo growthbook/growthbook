@@ -377,6 +377,7 @@ export default function NPSSurvey() {
         aria-live="polite"
       >
         <IconButton
+          type="button"
           className={styles.close}
           variant="ghost"
           color="gray"

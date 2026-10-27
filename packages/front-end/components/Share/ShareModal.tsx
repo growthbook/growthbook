@@ -671,6 +671,7 @@ const ShareModal = ({
               <Flex justify="between" align="center">
                 <Dialog.Title>{title}</Dialog.Title>
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   size="3"

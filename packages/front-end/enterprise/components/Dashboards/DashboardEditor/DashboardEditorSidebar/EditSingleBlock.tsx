@@ -1730,6 +1730,7 @@ export default function EditSingleBlock({
                           <Text weight="bold">Saved Query</Text>
                           <Flex align="center" gap="1">
                             <IconButton
+                              type="button"
                               disabled={!savedQuery}
                               variant="soft"
                               size="1"
@@ -1740,6 +1741,7 @@ export default function EditSingleBlock({
                               <PiTrashSimpleFill />
                             </IconButton>
                             <IconButton
+                              type="button"
                               disabled={!savedQuery}
                               variant="soft"
                               size="1"
@@ -1753,6 +1755,7 @@ export default function EditSingleBlock({
                             </IconButton>
 
                             <IconButton
+                              type="button"
                               disabled={!savedQuery}
                               variant="soft"
                               size="1"

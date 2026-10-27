@@ -33,6 +33,7 @@ export const SlackIntegrationsListItem: FC<SlackIntegrationsListItemProps> = ({
           <div className="mb-3 mb-sm-0">
             {/* Actions */}
             <button
+              type="button"
               onClick={onEdit}
               className="btn btn-sm btn-outline-primary mr-1"
             >

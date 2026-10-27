@@ -321,6 +321,7 @@ export default function CustomMetricSlicesSelector({
                       style={{ gap: "0.5rem" }}
                     >
                       <IconButton
+                        type="button"
                         variant="ghost"
                         size="1"
                         onClick={(e) => {
@@ -332,6 +333,7 @@ export default function CustomMetricSlicesSelector({
                         <PiPencilSimpleFill />
                       </IconButton>
                       <IconButton
+                        type="button"
                         color="red"
                         variant="ghost"
                         size="1"
@@ -737,6 +739,7 @@ function EditingInterface({
           Done
         </Button>
         <IconButton
+          type="button"
           color="red"
           variant="ghost"
           size="1"

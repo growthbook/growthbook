@@ -47,6 +47,7 @@ const GoogleAnalyticsForm: FC<{
           ). Universal Analytics properties can connect below.
         </Callout>
         <button
+          type="button"
           className="btn btn-success"
           onClick={(e) => {
             e.preventDefault();
@@ -80,6 +81,7 @@ const GoogleAnalyticsForm: FC<{
               <FaCheck /> Authenticated
             </div>
             <button
+              type="button"
               className="btn btn-secondary"
               onClick={(e) => {
                 e.preventDefault();

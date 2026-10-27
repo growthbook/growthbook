@@ -148,6 +148,7 @@ const QueriesLastRun: FC<{
           >
             {onViewQueries && queries && queries.length > 0 ? (
               <IconButton
+                type="button"
                 variant="ghost"
                 color="red"
                 radius="full"

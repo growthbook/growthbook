@@ -267,6 +267,7 @@ export const ExperimentAssignmentQueries: FC<
                   <DropdownMenu
                     trigger={
                       <IconButton
+                        type="button"
                         variant="ghost"
                         color="gray"
                         radius="full"
@@ -314,6 +315,7 @@ export const ExperimentAssignmentQueries: FC<
                 )}
 
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   radius="full"

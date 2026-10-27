@@ -225,6 +225,7 @@ export default function PaymentInfo() {
                                   : null}
                                 <MoreMenu useRadix={false} className="pl-2">
                                   <button
+                                    type="button"
                                     className="dropdown-item"
                                     disabled={method.isDefault}
                                     onClick={(e) => {

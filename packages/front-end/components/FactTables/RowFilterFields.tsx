@@ -165,6 +165,7 @@ export function RowFilterEditorRows({
               )}
             </RowFilterFields>
             <IconButton
+              type="button"
               variant="ghost"
               color="gray"
               aria-label="Remove filter"

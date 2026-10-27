@@ -153,6 +153,7 @@ export const HoldoutRule = forwardRef<HTMLDivElement, Props>(
                 <DropdownMenu
                   trigger={
                     <IconButton
+                      type="button"
                       variant="ghost"
                       color="gray"
                       radius="full"

@@ -820,6 +820,7 @@ export default function ConfigJsonEditor({
           triggerStyle={{ marginLeft: 0, marginRight: 0 }}
           trigger={
             <IconButton
+              type="button"
               variant="ghost"
               color="gray"
               radius="full"

@@ -62,6 +62,7 @@ const MoreMenu: FC<{
       {useRadix ? (
         <div className="d-flex align-items-center">
           <IconButton
+            type="button"
             variant="ghost"
             color="gray"
             radius="full"

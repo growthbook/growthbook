@@ -480,7 +480,13 @@ export default function NewFactTableSqlStep({
             </Tooltip>
             <DropdownMenu
               trigger={
-                <IconButton variant="ghost" color="gray" radius="full" size="3">
+                <IconButton
+                  type="button"
+                  variant="ghost"
+                  color="gray"
+                  radius="full"
+                  size="3"
+                >
                   <PiDotsThreeVertical size={16} />
                 </IconButton>
               }

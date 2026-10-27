@@ -1051,6 +1051,7 @@ export default function EditSavedGroupPage() {
                 )}
                 {!editingNewDraftTitle && (
                   <IconButton
+                    type="button"
                     variant="ghost"
                     color="violet"
                     size="2"
@@ -1097,6 +1098,7 @@ export default function EditSavedGroupPage() {
             <DropdownMenu
               trigger={
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   radius="full"

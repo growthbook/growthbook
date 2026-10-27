@@ -58,7 +58,15 @@ const Link = forwardRef<HTMLAnchorElement, Props>(
     let radixProps = props;
 
     if (href === undefined) {
-      childrenWrapper = <button type={type}>{children}</button>;
+      childrenWrapper = (
+        <button
+          type={
+            type === "submit" ? "submit" : type === "reset" ? "reset" : "button"
+          }
+        >
+          {children}
+        </button>
+      );
     } else {
       const {
         replace,

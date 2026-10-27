@@ -58,6 +58,7 @@ const InviteList: FC<{
 
     const dismissButton = (
       <IconButton
+        type="button"
         variant="ghost"
         color="gray"
         highContrast
@@ -186,6 +187,7 @@ const InviteList: FC<{
                   <DropdownMenu
                     trigger={
                       <IconButton
+                        type="button"
                         variant="ghost"
                         color="gray"
                         radius="full"

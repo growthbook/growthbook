@@ -798,7 +798,10 @@ export default function SqlExplorerModal({
                             tab === `visualization-${index}` ? (
                               <DropdownMenu
                                 trigger={
-                                  <button className="btn btn-link pr-0">
+                                  <button
+                                    type="button"
+                                    className="btn btn-link pr-0"
+                                  >
                                     <BsThreeDotsVertical color="var(--text-color-main" />
                                   </button>
                                 }
@@ -1015,6 +1018,7 @@ export default function SqlExplorerModal({
                                     <DropdownMenu
                                       trigger={
                                         <IconButton
+                                          type="button"
                                           variant="ghost"
                                           color="gray"
                                           radius="full"

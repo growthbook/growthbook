@@ -712,6 +712,7 @@ const Admin: FC = () => {
 
         <TabsContent value="organizations">
           <button
+            type="button"
             className="btn btn-primary float-right"
             onClick={(e) => {
               e.preventDefault();

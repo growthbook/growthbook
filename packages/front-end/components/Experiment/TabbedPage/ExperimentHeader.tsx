@@ -938,6 +938,7 @@ export default function ExperimentHeader({
             <DropdownMenu
               trigger={
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   radius="full"
@@ -1108,6 +1109,7 @@ export default function ExperimentHeader({
                     >
                       <Flex as="div" align="center">
                         <IconButton
+                          type="button"
                           style={{
                             marginRight: "5px",
                             backgroundColor:

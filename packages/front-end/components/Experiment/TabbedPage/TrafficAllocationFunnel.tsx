@@ -79,6 +79,7 @@ function FunnelCard({
         </Flex>
         {onEdit && !disabled ? (
           <IconButton
+            type="button"
             variant="ghost"
             color="violet"
             onClick={() => onEdit()}

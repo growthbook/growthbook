@@ -37,6 +37,7 @@ export default function ColumnSettingsButton({
       trigger={
         trigger ?? (
           <IconButton
+            type="button"
             variant="ghost"
             color="gray"
             radius="small"

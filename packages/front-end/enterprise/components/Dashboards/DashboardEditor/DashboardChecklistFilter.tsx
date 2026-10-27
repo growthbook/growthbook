@@ -190,6 +190,7 @@ export default function DashboardChecklistFilter({
                         {o.node ?? o.label}
                       </Text>
                       <IconButton
+                        type="button"
                         size="1"
                         variant="ghost"
                         color="violet"
@@ -300,6 +301,7 @@ export default function DashboardChecklistFilter({
     <span className={styles.pillWrap}>
       {popover}
       <IconButton
+        type="button"
         size="1"
         variant="ghost"
         color="gray"

@@ -375,6 +375,7 @@ export default function ConfigFieldRow({
               triggerAsChild
               trigger={
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   size="1"
@@ -553,6 +554,7 @@ export default function ConfigFieldRow({
                     variant="soft"
                     trigger={
                       <IconButton
+                        type="button"
                         variant="ghost"
                         color="gray"
                         radius="full"

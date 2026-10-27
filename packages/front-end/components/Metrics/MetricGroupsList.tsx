@@ -175,6 +175,7 @@ const MetricGroupsList: FC = () => {
                       <>
                         {mg.archived ? (
                           <button
+                            type="button"
                             className="dropdown-item"
                             onClick={async (e) => {
                               e.preventDefault();
@@ -186,6 +187,7 @@ const MetricGroupsList: FC = () => {
                           </button>
                         ) : (
                           <button
+                            type="button"
                             className="dropdown-item"
                             onClick={(e) => {
                               e.preventDefault();

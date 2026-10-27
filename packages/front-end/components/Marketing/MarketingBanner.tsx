@@ -98,6 +98,7 @@ export default function MarketingBanner({
         {dismissible ? (
           <Tooltip content="Dismiss">
             <IconButton
+              type="button"
               variant="ghost"
               color="gray"
               size="1"

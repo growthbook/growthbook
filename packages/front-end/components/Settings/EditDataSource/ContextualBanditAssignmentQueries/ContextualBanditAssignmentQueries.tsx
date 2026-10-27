@@ -167,6 +167,7 @@ export const ContextualBanditAssignmentQueries: FC<
                   <DropdownMenu
                     trigger={
                       <IconButton
+                        type="button"
                         variant="ghost"
                         color="gray"
                         radius="full"
@@ -199,6 +200,7 @@ export const ContextualBanditAssignmentQueries: FC<
                 )}
 
                 <IconButton
+                  type="button"
                   variant="ghost"
                   color="gray"
                   radius="full"

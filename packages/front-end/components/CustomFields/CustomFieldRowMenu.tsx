@@ -40,6 +40,7 @@ export default function CustomFieldRowMenu({
     <DropdownMenu
       trigger={
         <IconButton
+          type="button"
           variant="ghost"
           color="gray"
           radius="full"

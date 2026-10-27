@@ -57,6 +57,7 @@ export default function AgentChatHistory({
       variant="soft"
       trigger={
         <IconButton
+          type="button"
           variant="ghost"
           size="1"
           title="Chat history"

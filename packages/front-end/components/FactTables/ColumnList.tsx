@@ -309,6 +309,7 @@ export default function ColumnList({ factTable, canEdit = false }: Props) {
                     <div className="d-flex align-items-center px-1">
                       {canEdit && !col.isJsonField && (
                         <IconButton
+                          type="button"
                           size="2"
                           variant="ghost"
                           onClick={() => {

@@ -106,6 +106,7 @@ const VariationDataForm: FC<{
             />
             <div className="input-group-append">
               <button
+                type="button"
                 className="btn btn-outline-primary"
                 onClick={(e) => {
                   e.preventDefault();

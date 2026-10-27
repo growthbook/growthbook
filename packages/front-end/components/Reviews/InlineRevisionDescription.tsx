@@ -28,6 +28,7 @@ export default function InlineRevisionDescription({
   const editButton =
     canEdit && onEdit ? (
       <IconButton
+        type="button"
         variant="ghost"
         color="violet"
         size="2"

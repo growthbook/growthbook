@@ -728,6 +728,7 @@ export function getRenderLabelColumn({
                   side="top"
                 >
                   <IconButton
+                    type="button"
                     size="1"
                     variant="ghost"
                     radius="full"

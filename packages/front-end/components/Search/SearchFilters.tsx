@@ -85,6 +85,7 @@ export const FilterHeading: FC<{
 }> = ({ heading, open }) => {
   return (
     <IconButton
+      type="button"
       variant="ghost"
       color="gray"
       radius="small"

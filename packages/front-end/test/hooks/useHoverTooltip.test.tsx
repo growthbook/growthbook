@@ -590,7 +590,7 @@ describe("HoverTooltip component", () => {
     render(
       <HoverTooltipProvider>
         <HoverTooltip content={<span>Tooltip content</span>}>
-          <button>Trigger</button>
+          <button type="button">Trigger</button>
         </HoverTooltip>
       </HoverTooltipProvider>,
     );
@@ -602,7 +602,7 @@ describe("HoverTooltip component", () => {
     render(
       <HoverTooltipProvider>
         <HoverTooltip content={<span>Tooltip content</span>} delayMs={100}>
-          <button>Trigger</button>
+          <button type="button">Trigger</button>
         </HoverTooltip>
       </HoverTooltipProvider>,
     );

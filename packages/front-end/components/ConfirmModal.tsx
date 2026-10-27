@@ -71,6 +71,7 @@ const ConfirmModal = ({
               <div>
                 {noText && (
                   <button
+                    type="button"
                     className="btn btn-outline-secondary no"
                     onClick={closeModal}
                   >
@@ -78,6 +79,7 @@ const ConfirmModal = ({
                   </button>
                 )}
                 <button
+                  type="button"
                   className={`btn btn-${yesColor} yes`}
                   onClick={onConfirm}
                 >

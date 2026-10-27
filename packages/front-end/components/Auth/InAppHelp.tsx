@@ -111,6 +111,7 @@ export default function InAppHelp() {
                   </strong>
                 </p>
                 <button
+                  type="button"
                   className="btn btn-premium font-weight-normal my-2 w-100"
                   onClick={() => setUpgradeModal(true)}
                 >
@@ -122,6 +123,7 @@ export default function InAppHelp() {
         </div>
       )}
       <button
+        type="button"
         className="btn btn-primary d-flex align-items-center justify-content-center position-fixed rounded-circle"
         onClick={() => {
           setShowFreeHelpWidget(!showFreeHelpWidget);
