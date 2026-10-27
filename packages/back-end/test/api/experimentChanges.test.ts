@@ -527,6 +527,20 @@ describe("applyExperimentChanges", () => {
       expect(await revisionRules(2)).toEqual(arms("a", "wide"));
     });
 
+    it("refuses scoping a rule to no environment, which would leave it unreachable", async () => {
+      await seed({ withDraft: true });
+      await expect(
+        run({
+          flagValues: [
+            draftValues(arms("a", "none"), {
+              environments: { allEnvironments: false, environments: [] },
+            }),
+          ],
+        }),
+      ).rejects.toThrow("Choose at least one environment");
+      expect(await revisionRules(2)).toEqual(arms("a", "draft"));
+    });
+
     it("refuses linking a flag again everywhere before writing anything, unless the save allows it", async () => {
       await seed({ withDraft: false });
       const body: ExperimentChangesBody = {

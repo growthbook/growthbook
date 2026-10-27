@@ -1147,6 +1147,12 @@ export function planExperimentRuleEnvironments({
       `No experiment rule found on "${feature.id}" to re-scope. It may have been removed.`,
     );
   }
+  // A rule in no environment serves nothing and drops off the experiment's page.
+  if (!scopedEnvironments.length) {
+    throw new BadRequestError(
+      `Choose at least one environment for the experiment's rule on "${feature.id}", or remove the Feature Flag from the experiment.`,
+    );
+  }
   return {
     scopedEnvironments,
     // Strips any stale environments[], as linking does.
