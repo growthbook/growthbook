@@ -1,4 +1,5 @@
 import { useState, FC, useCallback, useEffect } from "react";
+import isEqual from "lodash/isEqual";
 import {
   OrganizationInterface,
   OrganizationMessage,
@@ -40,14 +41,18 @@ const EditOrganization: FC<{
   disablable: boolean;
   currentOrg: OrganizationInterface;
 }> = ({ onEdit, close, id, disablable = true, currentOrg }) => {
-  const { superAdmin } = useUser();
-  // The server only checks fields that change, so disabling the rest is enough
+  const { superAdmin, userId } = useUser();
+  // Only changed fields are sent, so disabling the rest is enough
   const canMetadata = hasSuperAdminPermission(superAdmin, "metadata");
   const canBilling = hasSuperAdminPermission(superAdmin, "billing");
   const canSuspend = hasSuperAdminPermission(superAdmin, "suspend");
   const canMessages = hasSuperAdminPermission(superAdmin, "messages");
   const canSso = hasSuperAdminPermission(superAdmin, "sso");
-  const canProvision = hasSuperAdminPermission(superAdmin, "provision");
+  // Event forwarder actions run inside the org, so they also need a way in
+  const canProvision =
+    hasSuperAdminPermission(superAdmin, "provision") &&
+    (hasSuperAdminPermission(superAdmin, "impersonate") ||
+      currentOrg.members.some((m) => m.id === userId));
   const [name, setName] = useState(currentOrg.name);
   const [owner, setOwner] = useState(currentOrg.ownerEmail);
   const [externalId, setExternalId] = useState(currentOrg.externalId || "");
@@ -82,6 +87,22 @@ const EditOrganization: FC<{
   const [deletingEventForwarderId, setDeletingEventForwarderId] = useState<
     string | null
   >(null);
+
+  const values = {
+    name,
+    externalId,
+    licenseKey,
+    ownerEmail: owner,
+    verifiedDomain,
+    autoApproveMembers,
+    enterprise: legacyEnterprise,
+    freeSeats,
+    disableSelfServeBilling,
+    suspended,
+    messages: messages.map(({ id: _id, ...m }) => m),
+  };
+  // Snapshot from the first render, to diff against on submit
+  const [initialValues] = useState(values);
 
   const { apiCall } = useAuth();
 
@@ -118,25 +139,19 @@ const EditOrganization: FC<{
   }, [refreshEventForwarders, canProvision]);
 
   const handleSubmit = async () => {
+    // Send only what this admin changed, so a stale value for a field they
+    // didn't touch can't overwrite another admin's edit or fail a permission check
+    const changes = Object.fromEntries(
+      Object.entries(values).filter(
+        ([k, v]) => !isEqual(v, initialValues[k as keyof typeof values]),
+      ),
+    );
     await apiCall<{
       status: number;
       message?: string;
     }>("/admin/organization", {
       method: "PUT",
-      body: JSON.stringify({
-        orgId: id,
-        name,
-        externalId,
-        licenseKey,
-        ownerEmail: owner,
-        verifiedDomain,
-        autoApproveMembers,
-        enterprise: legacyEnterprise,
-        freeSeats,
-        disableSelfServeBilling,
-        suspended,
-        messages: messages.map(({ id: _id, ...m }) => m),
-      }),
+      body: JSON.stringify({ orgId: id, ...changes }),
     });
     onEdit();
   };

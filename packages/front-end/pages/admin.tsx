@@ -128,9 +128,12 @@ function OrganizationRow({
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
   const [editSSOOpen, setEditSSOOpen] = useState(false);
-  const { superAdmin } = useUser();
+  const { superAdmin, userId } = useUser();
   const canImpersonate = hasSuperAdminPermission(superAdmin, "impersonate");
-  const canProvision = hasSuperAdminPermission(superAdmin, "provision");
+  // Warehouse actions run inside the org, so they also need a way in
+  const canProvision =
+    hasSuperAdminPermission(superAdmin, "provision") &&
+    (canImpersonate || members.some((m) => m.id === userId));
   const canEditOrg = (
     ["metadata", "billing", "suspend", "messages", "provision", "sso"] as const
   ).some((p) => hasSuperAdminPermission(superAdmin, p));
@@ -139,6 +142,7 @@ function OrganizationRow({
     if (isCloud() && expanded && !license) {
       const fetchLicense = async () => {
         setLicenseLoading(true);
+        setLicenseError("");
         try {
           const res = await apiCall<{
             status: number;
@@ -257,7 +261,9 @@ function OrganizationRow({
               {organization.name}
             </a>
           ) : (
-            <span className="mb-1 h5">{organization.name}</span>
+            <Text size="lg" weight="semibold">
+              {organization.name}
+            </Text>
           )}
         </td>
         <td>{organization.ownerEmail}</td>
@@ -412,9 +418,9 @@ function OrganizationRow({
                     <div className="col-2 text-right">Managed Warehouse</div>
                     <div className="col-auto">
                       {!canProvision ? (
-                        <span className="font-weight-bold">
+                        <Text weight="semibold">
                           {managedWarehouseId ? "yes" : "no"}
-                        </span>
+                        </Text>
                       ) : managedWarehouseId ? (
                         <ConfirmButton
                           isDestructive
@@ -899,51 +905,45 @@ const Admin: FC = () => {
         </TabsContent>
 
         <TabsContent value="members">
-          <div className="mb-2 row align-items-center">
-            <div className="col-auto">
-              <form
-                className="d-flex form form-inline"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  setMemberPage(1);
-                  loadMembers(1, memberSearch, superAdminsOnly);
-                }}
-              >
-                <Field
-                  size="legacy"
-                  label="Search:"
-                  labelClassName="mr-2"
-                  value={memberSearch}
-                  onChange={(e) => setMemberSearch(e.target.value)}
-                  type="search"
-                />
-                <div>
-                  <button type="submit" className="btn btn-primary ml-2">
-                    <FaSearch />
-                  </button>
-                </div>
-              </form>
-            </div>
-            <div className="col-auto">
-              <Checkbox
-                id="super-admins-only"
-                label="Super admins only"
-                value={superAdminsOnly}
-                setValue={(v) => {
-                  setSuperAdminsOnly(v);
-                  setMemberPage(1);
-                  loadMembers(1, memberSearch, v);
-                }}
+          <Flex align="center" gap="5" mb="2">
+            <form
+              className="d-flex form form-inline"
+              onSubmit={(e) => {
+                e.preventDefault();
+                setMemberPage(1);
+                loadMembers(1, memberSearch, superAdminsOnly);
+              }}
+            >
+              <Field
+                size="legacy"
+                label="Search:"
+                labelClassName="mr-2"
+                value={memberSearch}
+                onChange={(e) => setMemberSearch(e.target.value)}
+                type="search"
               />
-            </div>
-            <div className="col-auto">
-              <span className="text-muted">
-                {numberFormatter.format(totalMembers)}{" "}
-                {memberSearch ? "matching" : ""} member
-                {totalMembers === 1 ? "" : "s"}
-              </span>
-            </div>
-          </div>
+              <div>
+                <button type="submit" className="btn btn-primary ml-2">
+                  <FaSearch />
+                </button>
+              </div>
+            </form>
+            <Checkbox
+              id="super-admins-only"
+              label="Super admins only"
+              value={superAdminsOnly}
+              setValue={(v) => {
+                setSuperAdminsOnly(v);
+                setMemberPage(1);
+                loadMembers(1, memberSearch, v);
+              }}
+            />
+            <span className="text-muted">
+              {numberFormatter.format(totalMembers)}{" "}
+              {memberSearch ? "matching" : ""} member
+              {totalMembers === 1 ? "" : "s"}
+            </span>
+          </Flex>
           {memberError && <Callout status="error">{memberError}</Callout>}
           <div className="position-relative">
             {memberLoading && <LoadingOverlay />}

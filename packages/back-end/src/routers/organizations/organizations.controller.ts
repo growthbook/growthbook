@@ -15,6 +15,7 @@ import {
   canManageApiKeySecret,
   getRoles,
   hasSuperAdminPermission,
+  holdsAllSuperAdminPermissions,
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
@@ -2622,6 +2623,14 @@ export async function deleteOrphanedUser(
     return res.status(400).json({
       status: 400,
       message: "Cannot find user with that id",
+    });
+  }
+
+  // A less privileged admin must not be able to remove a super admin
+  if (!holdsAllSuperAdminPermissions(req.superAdmin, user.superAdmin)) {
+    return res.status(403).json({
+      status: 403,
+      message: "You cannot delete a user with more super admin access than you",
     });
   }
 
