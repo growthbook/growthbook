@@ -628,20 +628,11 @@ export default function ReviewAndPublish({
   // ── Sub-tabs ──
   // "Overview" (human-readable changes + review activity) vs "Changes" (JSON
   // diffs + full timeline). Reflected in the URL hash as `#review,overview` /
-  // `#review,changes` so the view is deep-linkable. With no explicit sub-tab in
-  // the URL, a revision in review defaults to Changes so reviewers land on the
-  // diff; otherwise Conversation. (Mirrors the generic Review & Publish tab.)
+  // `#review,changes` so the view is deep-linkable; anything but
+  // `#review,changes` opens Conversation. (Mirrors the generic Review & Publish tab.)
   const [urlHash, setUrlHash] = useURLHash();
-  const subTabHash = urlHash?.split(",")[1];
   const subTab: ReviewSubTab =
-    subTabHash === "changes"
-      ? "changes"
-      : subTabHash === "overview"
-        ? "overview"
-        : revision?.status === "pending-review" ||
-            revision?.status === "changes-requested"
-          ? "changes"
-          : "overview";
+    urlHash?.split(",")[1] === "changes" ? "changes" : "overview";
   const setSubTab = useCallback(
     (t: ReviewSubTab) => {
       setUrlHash(t === "changes" ? "review,changes" : "review,overview");

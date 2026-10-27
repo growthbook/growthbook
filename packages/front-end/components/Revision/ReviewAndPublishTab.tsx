@@ -360,22 +360,12 @@ function ReviewAndPublishRevision<T>({
     setActionsDropdownOpen(false);
   }, [revision.id]);
 
-  // ── Sub-tabs (mirrors the feature Review & Publish tab): `#review` reads
-  // as Conversation, `#review,changes` as Changes. Diff-ref widgets in
+  // ── Sub-tabs (mirrors the feature Review & Publish tab): `#review,changes`
+  // opens Changes, anything else Conversation. Diff-ref widgets in
   // comments broadcast a sub-tab request before scrolling. ──
   const [urlHash, setUrlHash] = useURLHash();
-  const subTabHash = urlHash?.split(",")[1];
   const subTab: ReviewSubTab =
-    subTabHash === "changes"
-      ? "changes"
-      : subTabHash === "overview"
-        ? "overview"
-        : // No explicit sub-tab in the URL: a revision in review defaults to
-          // Changes so reviewers land on the diff; otherwise Conversation.
-          revision.status === "pending-review" ||
-            revision.status === "changes-requested"
-          ? "changes"
-          : "overview";
+    urlHash?.split(",")[1] === "changes" ? "changes" : "overview";
   const setSubTab = useCallback(
     (t: ReviewSubTab) => {
       setUrlHash(t === "changes" ? "review,changes" : "review,overview");

@@ -190,8 +190,9 @@ export function DiffFormatToggle({
 }
 
 // Height-capped wrapper with a fade-out and a "Show more"/"Show less" toggle
-// (same affordance as the Notes panel). Only collapses when the content
-// actually overflows; a ResizeObserver re-checks as content reflows.
+// (same affordance as the Notes panel). Starts expanded; the cap only applies
+// once collapsed and when the content actually overflows (a ResizeObserver
+// re-checks as content reflows).
 export function CollapsedSection({
   maxHeight,
   children,
@@ -199,7 +200,7 @@ export function CollapsedSection({
   maxHeight: number;
   children: React.ReactNode;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(true);
   const [overflowing, setOverflowing] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
