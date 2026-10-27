@@ -1,3 +1,6 @@
+import isEqualWith from "lodash/isEqualWith";
+import isPlainObject from "lodash/isPlainObject";
+
 type SettingsSectionDef = {
   id: string;
   title: string;
@@ -238,4 +241,19 @@ export function scrollToSettingsSection(id: string) {
   document
     .getElementById(id)
     ?.scrollIntoView({ behavior: "instant", block: "start" });
+}
+
+const isAbsent = (v: unknown) =>
+  v === undefined || v === null || v === "" || Number.isNaN(v);
+
+// Treats unset values alike at any depth, since saving drops undefined keys.
+export function sameSetting(a: unknown, b: unknown): boolean {
+  return isEqualWith(a, b, (x: unknown, y: unknown) => {
+    if (isAbsent(x) && isAbsent(y)) return true;
+    if (!isPlainObject(x) || !isPlainObject(y)) return undefined;
+    const xo = x as Record<string, unknown>;
+    const yo = y as Record<string, unknown>;
+    const keys = new Set([...Object.keys(xo), ...Object.keys(yo)]);
+    return [...keys].every((k) => sameSetting(xo[k], yo[k]));
+  });
 }

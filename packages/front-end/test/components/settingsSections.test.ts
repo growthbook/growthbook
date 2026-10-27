@@ -2,6 +2,7 @@ import {
   describeUnsavedChanges,
   matchesSettingsQuery,
   resolveSettingsHash,
+  sameSetting,
   sectionForField,
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
@@ -73,5 +74,23 @@ describe("unsaved change tracking", () => {
     expect(describeUnsavedChanges(5, ["ai", "markdown", "sdk"])).toBe(
       "5 unsaved changes in 3 sections",
     );
+  });
+});
+
+describe("sameSetting", () => {
+  it("ignores unset nested keys the saved value lacks", () => {
+    expect(
+      sameSetting(
+        { type: "stale", hours: 6, analysisEndDateLagHours: undefined },
+        { type: "stale", hours: 6 },
+      ),
+    ).toBe(true);
+    expect(sameSetting(NaN, undefined)).toBe(true);
+  });
+
+  it("still detects real changes", () => {
+    expect(sameSetting({ hours: 6 }, { hours: 12 })).toBe(false);
+    expect(sameSetting({ hours: 6, lag: 2 }, { hours: 6 })).toBe(false);
+    expect(sameSetting(["a"], ["a", "b"])).toBe(false);
   });
 });

@@ -54,10 +54,11 @@ import {
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
 import { createNavigationCancellation } from "@/components/FactTables/MetricEditor/navigationCancellation";
 import ConfirmDialog from "@/ui/ConfirmDialog";
-import { describeUnsavedChanges, sectionForField } from "./settingsSections";
-
-const isAbsent = (v: unknown) =>
-  v === undefined || v === null || v === "" || Number.isNaN(v);
+import {
+  describeUnsavedChanges,
+  sameSetting,
+  sectionForField,
+} from "./settingsSections";
 
 /** A saved model dropped from the registry reads as unset, so it falls back to the default. */
 const knownTextModel = <T extends string>(model: T | undefined) =>
@@ -307,8 +308,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     const current = (values as Record<string, unknown>)[k];
     const original = (originalValue as Record<string, unknown>)[k];
     // A remounted empty number input reads NaN or "" where the saved value is undefined.
-    if (isAbsent(current) && isAbsent(original)) return false;
-    return !isEqual(current, original);
+    return !sameSetting(current, original);
   });
   const dirtyPromptFields = Object.keys(promptForm.formState.dirtyFields);
   const orgValues = orgForm.watch();
@@ -413,8 +413,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       const prev = originalRef.current as Record<string, unknown>;
       const draft = { ...newVal } as Record<string, unknown>;
       Object.keys(prev).forEach((k) => {
-        if (isAbsent(current[k]) && isAbsent(prev[k])) return;
-        if (!isEqual(current[k], prev[k])) draft[k] = current[k];
+        if (!sameSetting(current[k], prev[k])) draft[k] = current[k];
       });
       form.reset(draft as OrganizationSettingsWithMetricDefaults);
       originalRef.current = newVal;
@@ -604,8 +603,12 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     setSavedCount(count);
   };
 
+  // Discards only on leaving Settings, not while the form hydrates elsewhere.
+  const wasActive = useRef(active);
   useEffect(() => {
-    if (!active && dirtyCount > 0) discardChanges();
+    const left = wasActive.current && !active;
+    wasActive.current = active;
+    if (left && dirtyCount > 0) discardChanges();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
