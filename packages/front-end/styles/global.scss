@@ -228,9 +228,10 @@ html.app-drawer-open body {
 
   // Nor do the first items' top margins or the last items' bottom ones,
   // which pass straight through a wrapper with no padding of its own: the
-  // first item, and the first inside that, two deep; the last, six deep.
+  // first item, and the first inside that, two deep; the last, seven deep.
   // In a set of tabs every tab's content stays on the page, the closed ones
-  // hidden, so the trail follows the open tab. A list's pagination bar ending
+  // hidden, so the trail follows the open tab; in a grid it follows every
+  // column, as any of them can be the tallest (Home). A list's pagination bar ending
   // the page drops its bottom padding too, so the 32px is under its links.
   $start: ":is(:first-child, style:first-child + *)";
   & > #{$start},
@@ -238,10 +239,11 @@ html.app-drawer-open body {
   & > #{$start} > #{$start} > #{$start} {
     margin-top: 0 !important;
   }
-  $end: ':is(:last-child, .rt-TabsContent[data-state="active"])';
+  $end: ':is(:last-child, .rt-TabsContent[data-state="active"], .rt-Grid > *)';
   $chain: "> #{$end}";
-  @for $depth from 1 through 6 {
-    & #{$chain} {
+  @for $depth from 1 through 7 {
+    // A ghost button keeps its negative margin, which lines up its text.
+    & #{$chain}:not(.rt-variant-ghost) {
       margin-bottom: 0 !important;
     }
     & #{$chain}.pagination-area {
