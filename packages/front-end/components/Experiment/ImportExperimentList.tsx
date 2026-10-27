@@ -387,8 +387,8 @@ const ImportExperimentList: FC<{
         <Modal.Title>Import Experiment</Modal.Title>
       </Modal.Header>
       <Modal.Description>
-        Bring experiments your Data Source has already tracked into GrowthBook
-        to analyze their results.
+        Analyze experiments from another platform using the assignment data
+        already in your warehouse.
       </Modal.Description>
       <Modal.Body>{body}</Modal.Body>
       {footer}
