@@ -42,6 +42,13 @@ import { getErrorMessage } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  FULL_REFRESH_NEXT_HINT,
+  INTERRUPTED_REFRESH_ERROR,
+  isIncrementalRefreshRun,
+  releaseInterruptedRefresh,
+  stopTimedOutRefresh,
+} from "back-end/src/jobs/interruptedRefresh";
 import { ApiReqContext } from "back-end/types/api";
 
 const JOB_NAME = "expireOldQueries";
@@ -97,30 +104,43 @@ const expireOldQueries = async () => {
   for (let i = 0; i < snapshots.length; i++) {
     const snapshot = snapshots[i];
     logger.warn("Updating status of snapshot " + snapshot.id);
-    updateQueryStatus(snapshot.queries, queryIds);
     const context = await getContextForAgendaJobByOrgId(snapshot.organization);
+
+    let error = "Queries were interrupted. Please try updating results again.";
+    const failedQueryIds = new Set(queryIds);
+    if (isIncrementalRefreshRun(snapshot)) {
+      try {
+        const { notRunQueryIds, needsFullRefresh } = await stopTimedOutRefresh(
+          context,
+          snapshot,
+        );
+        notRunQueryIds.forEach((id) => failedQueryIds.add(id));
+        if (needsFullRefresh) error = INTERRUPTED_REFRESH_ERROR;
+      } catch (e) {
+        logger.warn(
+          e,
+          `Failed to stop timed-out incremental refresh ${snapshot.id}`,
+        );
+        error = INTERRUPTED_REFRESH_ERROR;
+      }
+    }
+
+    updateQueryStatus(snapshot.queries, failedQueryIds);
     await updateSnapshot({
       context,
       id: snapshot.id,
       updates: {
-        error: "Queries were interrupted. Please try updating results again.",
+        error,
         status: "error",
         queries: snapshot.queries,
       },
       conclusion: { concludedBy: "reaper", reason: "stale-queries" },
     });
 
-    // Release the incremental refresh lock if this snapshot held it.
-    // This is safe because releaseLock filters on currentExecutionSnapshotId,
-    // so it only releases the lock if this specific snapshot still holds it.
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(
-          e,
-          "Failed to release incremental lock for expired snapshot",
-        ),
-      );
+    // Incremental refreshes released their lock above.
+    if (!isIncrementalRefreshRun(snapshot)) {
+      await releaseStalledSnapshotLock(context, snapshot);
+    }
   }
 
   // Look for matching reports and update the status
@@ -462,18 +482,31 @@ async function reapStalledSnapshots() {
       q.status = statusById.get(q.query) ?? q.status;
     });
 
+    // Drop the cache state the run may have appended to while it still holds
+    // the lock; when that is no longer possible, only a full refresh is safe.
+    const needsFullRefresh = isIncrementalRefreshRun(snapshot)
+      ? await releaseInterruptedRefresh(context, snapshot, statusById)
+      : false;
+
     const shouldScheduleSnapshotRetry =
       isOrphanedDag &&
+      !needsFullRefresh &&
       !snapshot.report &&
       snapshot.type === "standard" &&
       snapshot.triggeredBy === "schedule";
 
+    const notFinalizedError =
+      "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted." +
+      (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
     const error = isOrphanedDag
-      ? shouldScheduleSnapshotRetry
-        ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
-        : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
-      : "Snapshot stalled: queries finished but results were never finalized. This usually means the analysis step failed (check server logs) or the process was restarted." +
-        (recoverError ? ` Automatic recovery failed: ${recoverError}` : "");
+      ? needsFullRefresh
+        ? INTERRUPTED_REFRESH_ERROR
+        : shouldScheduleSnapshotRetry
+          ? "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. A retry has been scheduled."
+          : "Snapshot stalled: queries were never started. This can happen when the server restarts mid-refresh. Please try updating results again."
+      : needsFullRefresh
+        ? `${notFinalizedError} ${FULL_REFRESH_NEXT_HINT}`
+        : notFinalizedError;
 
     const reaped = await errorSnapshotIfStillRunning(
       context,
@@ -536,7 +569,9 @@ async function reapStalledSnapshots() {
       }
     }
 
-    await releaseStalledSnapshotLock(context, snapshot);
+    if (!isIncrementalRefreshRun(snapshot)) {
+      await releaseStalledSnapshotLock(context, snapshot);
+    }
   }
 }
 

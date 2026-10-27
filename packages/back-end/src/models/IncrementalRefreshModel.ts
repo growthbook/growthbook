@@ -220,6 +220,46 @@ export class IncrementalRefreshModel extends BaseClass {
     );
   }
 
+  /**
+   * Releases an interrupted run's lock and, in the same write, forgets the
+   * cache tables it may have appended to. Returns false if the run no longer
+   * held the lock, in which case nothing was changed.
+   */
+  public async releaseLockAfterInterruptedRun(
+    experimentId: string,
+    snapshotId: string,
+    {
+      metricGroupIdsToRebuild,
+      forceFullRefresh,
+    }: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
+  ): Promise<boolean> {
+    const pullGroups = { groupId: { $in: metricGroupIdsToRebuild } };
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: snapshotId,
+      },
+      {
+        $set: {
+          currentExecutionSnapshotId: null,
+          lockHeartbeatAt: null,
+          dateUpdated: new Date(),
+          ...(forceFullRefresh ? { unitsTableFullName: null } : {}),
+        },
+        ...(metricGroupIdsToRebuild.length
+          ? {
+              $pull: {
+                metricSources: pullGroups,
+                metricCovariateSources: pullGroups,
+              },
+            }
+          : {}),
+      },
+    );
+    return result.matchedCount > 0;
+  }
+
   public async touchLockHeartbeat(experimentId: string, snapshotId: string) {
     await this._dangerousGetCollection().updateOne(
       {
