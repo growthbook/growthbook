@@ -154,6 +154,38 @@ describe("requiresMutationConfirmation (deterministic mutation gate)", () => {
     ).toBe(true);
   });
 
+  it("lets a Make Changes dry run through and gates the commit", () => {
+    const change = { changeType: "coverage", coverage: 0.5 };
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/experiments/exp_123/changes",
+        body: { ...change, dryRun: true },
+      }),
+    ).toBe(false);
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/experiments/exp_123/changes",
+        body: change,
+      }),
+    ).toBe(true);
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/experiments/exp_123/changes",
+        body: { ...change, dryRun: "true" },
+      }),
+    ).toBe(true);
+    expect(
+      _requiresMutationConfirmation({
+        method: "POST",
+        path: "/api/v1/experiments/exp_123",
+        body: { ...change, dryRun: true },
+      }),
+    ).toBe(true);
+  });
+
   it("gates mutations to other resource types (metrics, projects, saved groups)", () => {
     expect(
       _requiresMutationConfirmation({

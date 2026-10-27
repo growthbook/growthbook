@@ -328,6 +328,8 @@ function buildGeneralAgentSystemPrompt(ctx: ReqContext): string {
 const SQL_QUERY_PATH_RE =
   /^\/api\/v[12]\/data-sources\/[^/]+\/sql\/(search-tables|table-schema|preview-values|run-query)\/?$/;
 
+const MAKE_CHANGES_PATH_RE = /^\/api\/v1\/experiments\/[^/]+\/changes\/?$/;
+
 // Strips `confirm` from agent-initiated SQL run-query bodies to prevent the
 // model from bypassing the cost confirmation gate.
 function stripConfirmFromSqlBody(path: string, body: unknown): unknown {
@@ -372,7 +374,25 @@ function requiresMutationConfirmation(input: DispatchInput): boolean {
   if (SQL_QUERY_PATH_RE.test(path)) {
     return false;
   }
+  // A Make Changes dry run never writes, so previews and release-plan 422s
+  // don't cost the user a click. Only this route: a body that ignores
+  // `dryRun` elsewhere would write unconfirmed.
+  if (
+    input.method === "POST" &&
+    MAKE_CHANGES_PATH_RE.test(path) &&
+    isDryRunBody(input.body)
+  ) {
+    return false;
+  }
   return true;
+}
+
+function isDryRunBody(body: unknown): boolean {
+  return (
+    !!body &&
+    typeof body === "object" &&
+    (body as Record<string, unknown>).dryRun === true
+  );
 }
 
 /** The page the user was on for the newest message that carried one. */

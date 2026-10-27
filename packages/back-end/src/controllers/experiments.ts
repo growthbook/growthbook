@@ -2974,15 +2974,11 @@ export async function postExperimentTargeting(
     attributeScopeAllProjects,
     hashVersion,
     disableStickyBucketing,
-    bucketVersion,
-    minBucketVersion,
     namespace,
     trackingKey,
     variationWeights,
     variations,
     seed,
-    newPhase,
-    reseed,
   } = req.body;
 
   const changes: Changeset = {};
@@ -3011,6 +3007,20 @@ export async function postExperimentTargeting(
     context,
     experiment.linkedFeatures || [],
   );
+
+  // Live changes need a release plan, which only Make Changes works out.
+  if (
+    experiment.type !== "holdout" &&
+    experiment.status === "running" &&
+    includeExperimentInPayload(experiment, linkedFeatures)
+  ) {
+    res.status(400).json({
+      status: 400,
+      message:
+        "This experiment is live. Use Make Changes to change its traffic, targeting, namespace, or phase.",
+    });
+    return;
+  }
 
   const activePhase = getActivePhase(experiment);
   await assertRegisteredAttributesScoped(
@@ -3055,7 +3065,7 @@ export async function postExperimentTargeting(
     phases.forEach((phase, i) => {
       phases[i] = { ...phase, ...holdoutTargeting };
     });
-  } else if (phases.length && !newPhase) {
+  } else if (phases.length) {
     phases[phases.length - 1] = {
       ...phases[phases.length - 1],
       condition,
@@ -3068,11 +3078,6 @@ export async function postExperimentTargeting(
       seed,
     };
   } else {
-    // If we had a previous phase, mark it as ended
-    if (phases.length) {
-      phases[phases.length - 1].dateEnded = new Date();
-    }
-
     phases.push({
       condition,
       savedGroups,
@@ -3084,7 +3089,7 @@ export async function postExperimentTargeting(
       reason: "",
       variationWeights,
       variations,
-      seed: phases.length && reseed ? uuidv4() : seed,
+      seed,
     });
   }
   changes.phases = phases;
@@ -3108,8 +3113,6 @@ export async function postExperimentTargeting(
     changes.fallbackAttribute = fallbackAttribute;
     changes.hashVersion = hashVersion;
     changes.disableStickyBucketing = disableStickyBucketing;
-    changes.bucketVersion = bucketVersion;
-    changes.minBucketVersion = minBucketVersion;
     if (trackingKey) changes.trackingKey = trackingKey;
   }
 
