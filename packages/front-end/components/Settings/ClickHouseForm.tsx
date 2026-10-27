@@ -2,12 +2,13 @@ import { FC, ChangeEventHandler } from "react";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
+import SSLConnectionFields from "./SSLConnectionFields";
 
 const ClickHouseForm: FC<{
   params: Partial<ClickHouseConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
@@ -87,6 +88,17 @@ const ClickHouseForm: FC<{
             placeholder={"Default: 1800"}
           />
         </div>
+        <SSLConnectionFields
+          existing={existing}
+          onParamChange={onParamChange}
+          setSSL={(ssl) => setParams({ ssl })}
+          value={{
+            ssl: !!params.ssl,
+            caCert: params.caCert,
+            clientCert: params.clientCert,
+            clientKey: params.clientKey,
+          }}
+        />
       </div>
     </>
   );

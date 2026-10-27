@@ -7,4 +7,8 @@ export interface ClickHouseConnectionParams {
   password: string;
   database: string;
   maxExecutionTime?: number;
+  ssl?: boolean;
+  caCert?: string;
+  clientCert?: string;
+  clientKey?: string;
 }

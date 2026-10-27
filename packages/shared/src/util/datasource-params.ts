@@ -79,6 +79,10 @@ const CLICKHOUSE_FAMILY = {
   password: "secret",
   database: "public",
   maxExecutionTime: "public",
+  ssl: "public",
+  caCert: "secret",
+  clientCert: "secret",
+  clientKey: "secret",
 } satisfies ParamClassification<DataSourceParamsForType<"clickhouse">>;
 
 const DATA_SOURCE_PARAM_SENSITIVITY = {
