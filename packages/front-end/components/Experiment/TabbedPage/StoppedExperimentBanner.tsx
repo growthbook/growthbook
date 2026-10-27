@@ -1,20 +1,25 @@
 import { useState } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Separator, Flex } from "@radix-ui/themes";
+import { PiClock, PiPencilSimple } from "react-icons/pi";
+import { date } from "shared/dates";
 import { getAllVariations } from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { includeExperimentInPayload } from "shared/util";
-import { DocLink } from "@/components/DocLink";
 import { useAuth } from "@/services/auth";
+import { DocLink } from "@/components/DocLink";
 import Markdown from "@/components/Markdown/Markdown";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Text from "@/ui/Text";
-import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import VariationLabel from "@/ui/VariationLabel";
+import { revealedByQuickEdit, revealsQuickEdit } from "./QuickEditButton";
+
+const HEADLINE_HEIGHT = "28px";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -44,17 +49,31 @@ export default function StoppedExperimentBanner({
   const result = experiment.results;
   const variations = getAllVariations(experiment);
 
-  const winningVariation =
-    (result === "lost"
-      ? variations[0]?.name
-      : result === "won"
-        ? variations[experiment.winner || 1]?.name
-        : "") || "";
-
-  const releasedVariation =
-    variations.find((v) => v.id === experiment.releasedVariationId)?.name || "";
+  const winningIndex =
+    result === "lost" ? 0 : result === "won" ? experiment.winner || 1 : -1;
+  const releasedIndex = variations.findIndex(
+    (v) => v.id === experiment.releasedVariationId,
+  );
+  const variationLabel = (i: number, size: "md" | "lg" = "md") => (
+    <VariationLabel
+      number={i}
+      name={variations[i]?.name || `Variation ${i}`}
+      maxWidth="240px"
+      size={size}
+    />
+  );
 
   const temporaryRollout = hasLiveLinkedChanges && !isHoldout;
+  const winner = !isHoldout && !!variations[winningIndex];
+  const headline = isHoldout
+    ? "Holdout stopped"
+    : result === "inconclusive"
+      ? "Inconclusive"
+      : result === "dnf"
+        ? "Did not finish"
+        : "Experiment stopped";
+  const dateEnded = experiment.phases.at(-1)?.dateEnded;
+  const stoppedOn = dateEnded ? date(dateEnded) : null;
   const analysis = experiment.analysis;
 
   return (
@@ -76,58 +95,98 @@ export default function StoppedExperimentBanner({
           onCancel={() => setConfirmingStop(false)}
         />
       ) : null}
-      <Callout
-        status="info"
-        contentAlign={temporaryRollout || analysis ? "start" : "center"}
-        mb="4"
-        action={
-          temporaryRollout ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setConfirmingStop(true)}
+      <Flex direction="column" gap="3" mb="4">
+        <Box className={revealsQuickEdit}>
+          <Callout
+            status="info"
+            icon={null}
+            style={{ paddingBlock: "var(--space-2)" }}
+          >
+            <Flex
+              align="center"
+              justify="between"
+              gap="3"
+              minHeight={HEADLINE_HEIGHT}
             >
-              Stop temporary rollout
-            </Button>
-          ) : undefined
-        }
-      >
-        <Flex align="center" gap="2" className={revealsQuickEdit}>
-          <Text weight="semibold">
-            {isHoldout ? "Holdout stopped" : "Experiment stopped"}
-          </Text>
-          {result ? <ResultsIndicator results={result} /> : null}
-          {editResult && !isHoldout ? (
-            <QuickEditButton label="Edit result" onClick={editResult} />
-          ) : null}
-        </Flex>
-        {temporaryRollout ? (
-          <Box mt="1">
-            {releasedVariation ? (
-              <>
-                {(result === "won" || result === "lost") &&
-                winningVariation !== releasedVariation ? (
+              <Flex align="center" gap="2" wrap="wrap">
+                {winner && result ? (
                   <>
-                    <strong>&quot;{winningVariation}&quot;</strong> won,
-                    but{" "}
+                    <ResultsIndicator results={result} />
+                    {variationLabel(winningIndex, "lg")}
+                  </>
+                ) : (
+                  <Text weight="medium" size="lg" color="text-mid">
+                    {headline}
+                  </Text>
+                )}
+                {stoppedOn ? (
+                  <>
+                    <Text color="text-low">·</Text>
+                    <Text color="text-low">Stopped {stoppedOn}</Text>
                   </>
                 ) : null}
-                <strong>&quot;{releasedVariation}&quot;</strong> was rolled out
-                to 100%.{" "}
-              </>
+              </Flex>
+              {editResult && !isHoldout ? (
+                <span className={revealedByQuickEdit}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    icon={<PiPencilSimple />}
+                    onClick={editResult}
+                  >
+                    Edit result
+                  </Button>
+                </span>
+              ) : null}
+            </Flex>
+            {analysis ? (
+              <Box my="1" style={{ color: "var(--color-text-mid)" }}>
+                <Separator
+                  size="4"
+                  my="2"
+                  style={{ backgroundColor: "var(--gray-a4)" }}
+                />
+                <Markdown>{analysis}</Markdown>
+              </Box>
             ) : null}
-            Changes are still being applied as a temporary rollout, to give you
-            time to implement them in code. When you no longer need it, stop the
-            rollout to improve site performance.{" "}
-            <DocLink docSection="temporaryRollout">Learn more</DocLink>
-          </Box>
+          </Callout>
+        </Box>
+        {temporaryRollout ? (
+          <Callout
+            status="warning"
+            icon={<PiClock />}
+            action={
+              <Button
+                variant="outline"
+                color="red"
+                size="sm"
+                onClick={() => setConfirmingStop(true)}
+              >
+                Stop temporary rollout
+              </Button>
+            }
+          >
+            {releasedIndex >= 0 ? (
+              <Flex align="center" gap="1" wrap="wrap">
+                <Text weight="semibold">Temporary rollout:</Text>
+                {variationLabel(releasedIndex)}
+                <span>to 100% of users</span>
+              </Flex>
+            ) : (
+              <Text as="div" weight="semibold">
+                Temporary rollout enabled
+              </Text>
+            )}
+            <Box mt="2">
+              Changes stay live until you implement them in code. Stop the
+              rollout once you&apos;re done to improve performance.{" "}
+              <span style={{ whiteSpace: "nowrap" }}>
+                <DocLink docSection="temporaryRollout">Learn more</DocLink>
+              </span>
+            </Box>
+          </Callout>
         ) : null}
-        {analysis ? (
-          <Box mt="2">
-            <Markdown>{analysis}</Markdown>
-          </Box>
-        ) : null}
-      </Callout>
+      </Flex>
     </>
   );
 }

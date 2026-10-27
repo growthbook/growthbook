@@ -110,3 +110,9 @@ Experiment Phases are used primarily to separate stages of an experiment that ar
 ### Making Changes While Running
 
 Read our dedicated guide on [making changes to running experiments](/app/making-experiment-changes).
+
+## Temporary Rollouts
+
+When an experiment finishes and you enable a Temporary Rollout to ship the winning variation, the variation continues to be delivered through the experiment's Feature Flags, URL Redirects and AI Visual Editor changes.
+
+Temporary Rollouts are explicitly named **temporary** because long-term you should re-implement the winning variation in your site's code. When you no longer need the rollout, stop it from the experiment to improve your site performance.

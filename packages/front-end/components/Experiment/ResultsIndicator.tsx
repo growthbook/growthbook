@@ -1,5 +1,5 @@
 import { FC } from "react";
-import Badge from "@/ui/Badge";
+import Badge, { Size } from "@/ui/Badge";
 
 export type Results = "won" | "lost" | "dnf" | "inconclusive";
 
@@ -30,7 +30,8 @@ const displayName = {
 
 const ResultsIndicator: FC<{
   results: Results;
-}> = ({ results }) => {
+  size?: Size;
+}> = ({ results, size }) => {
   const [color, variant] = getColorAndVariant(results);
 
   return (
@@ -38,6 +39,7 @@ const ResultsIndicator: FC<{
       color={color}
       variant={variant}
       radius="full"
+      size={size}
       label={displayName[results]}
     />
   );

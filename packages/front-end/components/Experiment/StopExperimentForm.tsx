@@ -394,6 +394,7 @@ const StopExperimentForm: FC<{
               aiSuggestFunction={aiSuggestFunction}
               aiButtonText="Generate Analysis"
               trackingSource="stop-experiment"
+              collapsibleToolbar
               onAISuggestionReceived={(result) => {
                 aiSuggestionRef.current = result;
               }}

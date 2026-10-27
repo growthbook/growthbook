@@ -8,6 +8,9 @@ import styles from "./QuickEditButton.module.scss";
 /** Put on whatever should reveal its quick-edit buttons on hover. */
 export const revealsQuickEdit = styles.revealsEdit;
 
+/** Put on any other action that waits for its `revealsQuickEdit` block. */
+export const revealedByQuickEdit = styles.edit;
+
 /** A value edited by clicking anywhere on its row; read-only without `onEdit`. */
 export function QuickEditRow({
   label,

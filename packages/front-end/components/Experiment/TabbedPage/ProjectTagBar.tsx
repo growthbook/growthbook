@@ -27,6 +27,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { getStartSchedule } from "./startActions";
 import { useStagedState } from "./ExperimentEdits";
 
@@ -196,6 +197,10 @@ export default function ProjectTagBar({
   )
     ? null
     : statusIndicator.detailedStatus;
+  const result =
+    experiment.status === "stopped" && statusDetail
+      ? experiment.results
+      : undefined;
   const isHoldout = experiment.type === "holdout";
 
   const projectValue = projectIsDeReferenced ? (
@@ -289,15 +294,18 @@ export default function ProjectTagBar({
         stacked
         label="Status"
         value={
-          <Text size="sm" color="text-high">
-            {statusIndicator.status}
-            {statusDetail ? (
+          <Flex align="baseline" gap={result ? "2" : "1"}>
+            <Text size="sm" color="text-high">
+              {statusIndicator.status}
+            </Text>
+            {result ? (
+              <ResultsIndicator results={result} size="xs" />
+            ) : statusDetail ? (
               <Text size="sm" color="text-mid">
-                {" "}
                 · {statusDetail}
               </Text>
             ) : null}
-          </Text>
+          </Flex>
         }
       />
       <ExperimentDates experiment={experiment} />
