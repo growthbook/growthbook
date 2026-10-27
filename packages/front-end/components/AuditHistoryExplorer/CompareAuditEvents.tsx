@@ -172,6 +172,7 @@ function RawAuditDetails({ entry }: { entry: CoarsenedAuditEntry<unknown> }) {
                 ],
                 ["Date", datetime(entry.dateStart)],
                 ["Author", <AuditEntryAuthor key="author" user={entry.user} />],
+                ...(entry.reason ? [["Reason", entry.reason]] : []),
                 ...(entry.count > 1
                   ? [["Merged events", String(entry.count)]]
                   : []),
@@ -440,6 +441,11 @@ export default function CompareAuditEvents<T>({
               display="name"
             />
           </Text>
+          {entry.reason && (
+            <Text size="sm" color="text-mid" as="div">
+              &ldquo;{entry.reason}&rdquo;
+            </Text>
+          )}
           {entry.count > 1 && (
             <Box mt="1">
               <Link

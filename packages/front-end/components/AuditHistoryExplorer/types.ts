@@ -38,6 +38,10 @@ export interface CoarsenedAuditEntry<T> {
   postSnapshot: T | null;
   /** How many raw entries were merged together. */
   count: number;
+  /** The first entry's free-text `reason`, when its writer recorded one. */
+  reason?: string;
+  /** The first entry's `details.context`, as its writer recorded it. */
+  context?: Record<string, unknown> | null;
   /**
    * Per-raw-entry snapshots for the group. Used to compute the union of
    * changed sections across all sub-events for the left-column title (so
@@ -128,6 +132,14 @@ export interface AuditDiffConfig<T> {
    * label entirely, or null to fall through to the default logic.
    */
   overrideEventLabel?: (entry: CoarsenedAuditEntry<T>) => string | null;
+  /**
+   * Entries this returns true for are never coarsened with their neighbours,
+   * so a label that describes one specific write stays on that write.
+   */
+  keepSeparate?: (entry: {
+    event: string;
+    context: Record<string, unknown> | null;
+  }) => boolean;
   /**
    * Optional view-only snapshot transform applied JIT before diffing.
    * Use this to parse embedded JSON strings (e.g. condition fields) into

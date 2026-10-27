@@ -25,6 +25,8 @@ interface RawAuditEntry<T> {
   user: AuditInterface["user"];
   preSnapshot: T | null;
   postSnapshot: T | null;
+  reason?: string;
+  context: Record<string, unknown> | null;
 }
 
 /**
@@ -76,6 +78,7 @@ function getTimeBucketKey(date: Date, groupBy: GroupByOption): string {
 function coarsenEntries<T>(
   entries: RawAuditEntry<T>[],
   groupBy: GroupByOption,
+  keepSeparate: AuditDiffConfig<T>["keepSeparate"],
 ): CoarsenedAuditEntry<T>[] {
   if (!entries.length) return [];
 
@@ -87,9 +90,7 @@ function coarsenEntries<T>(
   );
 
   let current: CoarsenedAuditEntry<T> | null = null;
-  let currentAuthorKey = "";
-  let currentBucketKey = "";
-  let currentEvent = "";
+  let currentKey = "";
 
   for (const entry of sorted) {
     if (!entry.postSnapshot) {
@@ -98,9 +99,7 @@ function coarsenEntries<T>(
       if (current) {
         result.push(current);
         current = null;
-        currentAuthorKey = "";
-        currentBucketKey = "";
-        currentEvent = "";
+        currentKey = "";
       }
       result.push({
         id: entry.id,
@@ -113,16 +112,18 @@ function coarsenEntries<T>(
         postSnapshot: null,
         rawSnapshots: [{ pre: entry.preSnapshot, post: null }],
         count: 1,
+        reason: entry.reason,
+        context: entry.context,
       });
       continue;
     }
 
-    const authorKey = getAuthorKey(entry.user);
-    const bucketKey = getTimeBucketKey(entry.dateCreated, groupBy);
-    const groupKey = `${bucketKey}||${authorKey}||${entry.event}`;
-    const prevGroupKey = `${currentBucketKey}||${currentAuthorKey}||${currentEvent}`;
+    // A separate entry gets a unique key, so nothing merges into or with it.
+    const groupKey = keepSeparate?.(entry)
+      ? `separate||${entry.id}`
+      : `${getTimeBucketKey(entry.dateCreated, groupBy)}||${getAuthorKey(entry.user)}||${entry.event}`;
 
-    if (current && groupKey === prevGroupKey) {
+    if (current && groupKey === currentKey) {
       // Merge into current group — update post to latest, extend date range
       current.postSnapshot = entry.postSnapshot;
       current.dateEnd = entry.dateCreated;
@@ -146,10 +147,10 @@ function coarsenEntries<T>(
         postSnapshot: entry.postSnapshot,
         rawSnapshots: [{ pre: entry.preSnapshot, post: entry.postSnapshot }],
         count: 1,
+        reason: entry.reason,
+        context: entry.context,
       };
-      currentAuthorKey = authorKey;
-      currentBucketKey = bucketKey;
-      currentEvent = entry.event;
+      currentKey = groupKey;
     }
   }
   if (current) result.push(current);
@@ -182,6 +183,8 @@ function splitCoarsenedEntry<T>(
         postSnapshot: r.postSnapshot,
         rawSnapshots: [{ pre, post: r.postSnapshot }],
         count: 1,
+        reason: r.reason,
+        context: r.context,
       } as CoarsenedAuditEntry<T>;
     })
     .filter((e): e is CoarsenedAuditEntry<T> => e !== null)
@@ -191,21 +194,27 @@ function splitCoarsenedEntry<T>(
 function parseDetails<T>(
   details: string | undefined,
   event: string,
-): { pre: T | null; post: T | null } {
-  if (!details) return { pre: null, post: null };
+): {
+  pre: T | null;
+  post: T | null;
+  context: Record<string, unknown> | null;
+} {
+  if (!details) return { pre: null, post: null, context: null };
   try {
     const parsed = JSON.parse(details) as {
       pre?: T;
       post?: T;
+      context?: Record<string, unknown>;
     };
     // Create events only have `post`
     const isCreate = event.endsWith(".create") || event.endsWith(".created");
     return {
       pre: isCreate ? null : (parsed.pre ?? null),
       post: parsed.post ?? null,
+      context: parsed.context ?? null,
     };
   } catch {
-    return { pre: null, post: null };
+    return { pre: null, post: null, context: null };
   }
 }
 
@@ -330,7 +339,7 @@ export function useAuditEntries<T>(
             alwaysVisible: labelOnlyEntry.alwaysVisible,
           });
         } else {
-          const { pre, post } = parseDetails<T>(e.details, e.event);
+          const { pre, post, context } = parseDetails<T>(e.details, e.event);
           parsed.push({
             id: e.id,
             event: e.event,
@@ -338,6 +347,8 @@ export function useAuditEntries<T>(
             user: e.user,
             preSnapshot: pre,
             postSnapshot: post,
+            reason: e.reason,
+            context,
           });
         }
       }
@@ -474,8 +485,8 @@ export function useAuditEntries<T>(
   );
 
   const entries = useMemo(
-    () => coarsenEntries(rawEntries, groupBy),
-    [rawEntries, groupBy],
+    () => coarsenEntries(rawEntries, groupBy, config.keepSeparate),
+    [rawEntries, groupBy, config.keepSeparate],
   );
   const markers = useMemo(
     () => [...rawMarkers].sort((a, b) => b.date.getTime() - a.date.getTime()),

@@ -2,6 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
+import type { ExperimentChangeType, ReleasePlan } from "shared/validators";
 import AuditHistoryExplorerModal from "@/components/AuditHistoryExplorer/AuditHistoryExplorerModal";
 import {
   AuditDiffConfig,
@@ -32,6 +33,39 @@ type ExperimentEventDef = {
     entry: CoarsenedAuditEntry<ExperimentInterfaceStringDates>,
   ) => string | null;
 };
+
+const MAKE_CHANGES_TYPE_LABELS: Record<ExperimentChangeType, string> = {
+  coverage: "Traffic",
+  weights: "Variation weights",
+  targeting: "Targeting",
+  namespace: "Namespace",
+  "new-phase": "New phase",
+  advanced: "Multiple changes",
+};
+
+const MAKE_CHANGES_PLAN_LABELS: Record<ReleasePlan, string> = {
+  "same-phase-keep-assignments": "Same phase, keep assignments",
+  "same-phase-reassign": "Same phase, reassign users",
+  "new-phase-rerandomize": "New phase, re-randomize",
+  "new-phase-keep-assignments": "New phase, keep assignments",
+  "new-phase-exclude-exposed": "New phase, exclude exposed users",
+};
+
+/** The headline for a write made through Make Changes, or null for others. */
+function makeChangesLabel(
+  context: Record<string, unknown> | null | undefined,
+): string | null {
+  const makeChanges = context?.makeChanges as
+    | { changeType?: ExperimentChangeType; releasePlan?: ReleasePlan | null }
+    | undefined;
+  const type =
+    makeChanges?.changeType && MAKE_CHANGES_TYPE_LABELS[makeChanges.changeType];
+  if (!type) return null;
+  const plan = makeChanges.releasePlan
+    ? MAKE_CHANGES_PLAN_LABELS[makeChanges.releasePlan]
+    : "Applied in place";
+  return `Make Changes: ${type} · ${plan}`;
+}
 
 /** All known experiment audit events. */
 export const EXPERIMENT_EVENTS: Record<string, ExperimentEventDef> = {
@@ -312,7 +346,10 @@ const EXPERIMENT_DIFF_CONFIG: AuditDiffConfig<ExperimentInterfaceStringDates> =
     },
     updateEventNames: ["experiment.update", "experiment.phase"],
     overrideEventLabel: (entry) =>
-      EXPERIMENT_EVENTS[entry.event]?.getLabel?.(entry) ?? null,
+      makeChangesLabel(entry.context) ??
+      EXPERIMENT_EVENTS[entry.event]?.getLabel?.(entry) ??
+      null,
+    keepSeparate: ({ context }) => !!makeChangesLabel(context),
     sections: [
       {
         label: "User targeting",
