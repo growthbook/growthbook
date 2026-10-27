@@ -3,6 +3,7 @@ import {
   ExperimentPhaseStringDates,
 } from "shared/types/experiment";
 import { hasPendingScheduledStart } from "shared/util";
+import { date } from "shared/dates";
 import { format } from "date-fns-tz";
 
 export const scheduledTime = (value: string | Date) =>
@@ -28,6 +29,104 @@ export const hasStatusSchedule = (target: {
   Object.entries(target.statusUpdateSchedule ?? {}).some(
     ([key, value]) => key !== "scheduledStopPlan" && (value ?? null) !== null,
   );
+
+type DatedExperiment = Pick<
+  ExperimentInterfaceStringDates,
+  "type" | "status" | "archived" | "dateCreated" | "statusUpdateSchedule"
+> & {
+  phases: Pick<ExperimentPhaseStringDates, "dateStarted" | "dateEnded">[];
+};
+
+type LabeledDate = { label: string; value: string };
+
+/**
+ * The dates the header reads: created until it starts, then started; and when
+ * it ended, or will. A passed end that kept it running is its banner's to say.
+ */
+export const headerDates = (
+  experiment: DatedExperiment,
+  now: Date,
+): LabeledDate[] => {
+  const { phases, status } = experiment;
+  const isHoldout = experiment.type === "holdout";
+  const latest = phases.at(-1);
+  // A holdout's phases are one run, which began with the first.
+  const started =
+    status !== "draft"
+      ? (isHoldout ? phases[0] : latest)?.dateStarted
+      : undefined;
+  const ended = status === "stopped" ? latest?.dateEnded : undefined;
+  const schedule = experiment.statusUpdateSchedule;
+  // Archived, its schedule never fires.
+  const ends =
+    status === "stopped" || experiment.archived
+      ? null
+      : schedule?.stopAt
+        ? new Date(schedule.stopAt) > now
+          ? date(schedule.stopAt)
+          : null
+        : schedule?.stopAfter
+          ? `${stopAfterSpan(schedule.stopAfter)} after start`
+          : null;
+  return [
+    started
+      ? {
+          label:
+            phases.length > 1 && !isHoldout
+              ? "Latest phase started"
+              : "Started",
+          value: date(started, "UTC"),
+        }
+      : { label: "Created", value: date(experiment.dateCreated, "UTC") },
+    ...(ended ? [{ label: "Ended", value: date(ended, "UTC") }] : []),
+    ...(ends ? [{ label: "Ends", value: ends }] : []),
+  ];
+};
+
+/** Every date behind the header's: its creation, each phase, its schedule. */
+export const allDates = (experiment: DatedExperiment): LabeledDate[] => {
+  const { phases, status } = experiment;
+  const isHoldout = experiment.type === "holdout";
+  const schedule = experiment.statusUpdateSchedule;
+  const day = (value: string | Date) => date(value, "UTC");
+  const dates = [{ label: "Created", value: day(experiment.dateCreated) }];
+  if (status === "draft") {
+    if (schedule?.startAt) {
+      dates.push({
+        label: "Scheduled start",
+        value: scheduledTime(schedule.startAt),
+      });
+    }
+  } else if (phases.length === 1 && !isHoldout) {
+    const [{ dateStarted, dateEnded }] = phases;
+    if (dateStarted) dates.push({ label: "Started", value: day(dateStarted) });
+    if (dateEnded) dates.push({ label: "Ended", value: day(dateEnded) });
+  } else {
+    phases.forEach(({ dateStarted, dateEnded }, i) => {
+      if (!dateStarted) return;
+      const end = dateEnded
+        ? day(dateEnded)
+        : status === "running" && i === phases.length - 1
+          ? "now"
+          : null;
+      dates.push({
+        label: isHoldout
+          ? i === 0
+            ? "Holdout"
+            : "Analysis"
+          : `Phase ${i + 1}`,
+        value: end ? `${day(dateStarted)} – ${end}` : day(dateStarted),
+      });
+    });
+  }
+  // Archived, its schedule never fires.
+  const end =
+    status !== "stopped" && !experiment.archived
+      ? scheduledEnd(schedule)
+      : null;
+  if (end) dates.push({ label: "Scheduled end", value: end });
+  return dates;
+};
 
 /** When an approved start fires, while one is armed. */
 export const armedStartDate = (

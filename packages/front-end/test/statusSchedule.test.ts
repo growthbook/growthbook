@@ -1,5 +1,7 @@
 import {
+  allDates,
   hasStatusSchedule,
+  headerDates,
   scheduleTimes,
 } from "@/components/Experiment/TabbedPage/statusSchedule";
 
@@ -100,5 +102,181 @@ describe("scheduleTimes", () => {
     ],
   ])("%j", (experiment, expected) => {
     expect(scheduleTimes(experiment)).toEqual(expected);
+  });
+});
+
+describe("headerDates", () => {
+  const now = new Date("2026-10-27T12:00:00Z");
+  const base = {
+    type: "standard" as const,
+    archived: false,
+    dateCreated: "2025-09-19T12:00:00Z",
+  };
+  const draft = { ...base, status: "draft" as const, phases: [] };
+  const running = {
+    ...base,
+    status: "running" as const,
+    phases: [{ dateStarted: "2026-01-14T12:00:00Z" }],
+  };
+  const futureEnd = { stopAt: "2026-11-30T12:00:00Z" };
+  const created = { label: "Created", value: "Sep 19, 2025" };
+  const started = { label: "Started", value: "Jan 14, 2026" };
+  it.each([
+    ["a draft", draft, [created]],
+    [
+      "a draft that ends a span after it starts",
+      {
+        ...draft,
+        statusUpdateSchedule: {
+          stopAfter: { value: 2, unit: "days" as const },
+        },
+      },
+      [created, { label: "Ends", value: "2 days after start" }],
+    ],
+    [
+      "a running experiment with an end ahead",
+      { ...running, statusUpdateSchedule: futureEnd },
+      [started, { label: "Ends", value: "Nov 30, 2026" }],
+    ],
+    [
+      "a running experiment past its end",
+      { ...running, statusUpdateSchedule: { stopAt: "2026-10-01T12:00:00Z" } },
+      [started],
+    ],
+    [
+      "an archived experiment, whose end never fires",
+      { ...running, archived: true, statusUpdateSchedule: futureEnd },
+      [started],
+    ],
+    [
+      "a stopped experiment's latest phase",
+      {
+        ...base,
+        status: "stopped" as const,
+        phases: [
+          { dateStarted: "2025-12-01T12:00:00Z" },
+          {
+            dateStarted: "2026-01-14T12:00:00Z",
+            dateEnded: "2026-02-03T12:00:00Z",
+          },
+        ],
+        statusUpdateSchedule: futureEnd,
+      },
+      [
+        { label: "Latest phase started", value: "Jan 14, 2026" },
+        { label: "Ended", value: "Feb 3, 2026" },
+      ],
+    ],
+    [
+      "a holdout, from its first phase",
+      {
+        ...running,
+        type: "holdout" as const,
+        phases: [
+          { dateStarted: "2025-12-01T12:00:00Z" },
+          { dateStarted: "2026-01-14T12:00:00Z" },
+        ],
+      },
+      [{ label: "Started", value: "Dec 1, 2025" }],
+    ],
+  ])("%s", (_, experiment, expected) => {
+    expect(headerDates(experiment, now)).toEqual(expected);
+  });
+});
+
+describe("allDates", () => {
+  const base = {
+    type: "standard" as const,
+    archived: false,
+    dateCreated: "2025-09-19T12:00:00Z",
+  };
+  const created = { label: "Created", value: "Sep 19, 2025" };
+  const running = {
+    ...base,
+    status: "running" as const,
+    phases: [{ dateStarted: "2026-01-14T12:00:00Z" }],
+  };
+  // Scheduled times read in the viewer's zone.
+  const at = (value: string) => expect.stringMatching(new RegExp(`^${value}`));
+  it.each([
+    ["a draft", { ...base, status: "draft" as const, phases: [] }, [created]],
+    [
+      "a scheduled draft",
+      {
+        ...base,
+        status: "draft" as const,
+        phases: [],
+        statusUpdateSchedule: {
+          startAt: "2026-10-30T09:00:00",
+          stopAfter: { value: 2, unit: "days" as const },
+        },
+      },
+      [
+        created,
+        { label: "Scheduled start", value: at("Oct 30, 2026 at 9:00 AM") },
+        { label: "Scheduled end", value: "2 days after start" },
+      ],
+    ],
+    [
+      "a running experiment with an end",
+      { ...running, statusUpdateSchedule: { stopAt: "2026-11-30T09:00:00" } },
+      [
+        created,
+        { label: "Started", value: "Jan 14, 2026" },
+        { label: "Scheduled end", value: at("Nov 30, 2026 at 9:00 AM") },
+      ],
+    ],
+    [
+      "an archived experiment, whose end never fires",
+      {
+        ...running,
+        archived: true,
+        statusUpdateSchedule: { stopAt: "2026-11-30T09:00:00" },
+      },
+      [created, { label: "Started", value: "Jan 14, 2026" }],
+    ],
+    [
+      "each phase of a running experiment",
+      {
+        ...running,
+        phases: [
+          {
+            dateStarted: "2025-12-01T12:00:00Z",
+            dateEnded: "2026-01-14T12:00:00Z",
+          },
+          { dateStarted: "2026-01-14T12:00:00Z" },
+        ],
+      },
+      [
+        created,
+        { label: "Phase 1", value: "Dec 1, 2025 – Jan 14, 2026" },
+        { label: "Phase 2", value: "Jan 14, 2026 – now" },
+      ],
+    ],
+    [
+      "a stopped holdout's periods",
+      {
+        ...base,
+        type: "holdout" as const,
+        status: "stopped" as const,
+        phases: [
+          {
+            dateStarted: "2025-12-01T12:00:00Z",
+            dateEnded: "2026-01-14T12:00:00Z",
+          },
+          {
+            dateStarted: "2026-01-14T12:00:00Z",
+            dateEnded: "2026-02-03T12:00:00Z",
+          },
+        ],
+      },
+      [
+        created,
+        { label: "Holdout", value: "Dec 1, 2025 – Jan 14, 2026" },
+        { label: "Analysis", value: "Jan 14, 2026 – Feb 3, 2026" },
+      ],
+    ],
+  ])("%s", (_, experiment, expected) => {
+    expect(allDates(experiment)).toEqual(expected);
   });
 });

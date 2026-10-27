@@ -14,7 +14,7 @@ import {
   getExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
 import { MdRocketLaunch } from "react-icons/md";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
@@ -87,6 +87,8 @@ import { StartBlockers } from "./StartSections";
 import {
   armedStartDate,
   hasStatusSchedule,
+  allDates,
+  headerDates,
   scheduledTime,
 } from "./statusSchedule";
 import { getStartTitle } from "./startActions";
@@ -492,6 +494,7 @@ export default function ExperimentHeader({
     ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate = armedStartDate(experiment);
+  const everyDate = allDates(experiment);
   const startGate = useStartGate({
     experiment,
     linkedFeatures,
@@ -863,7 +866,7 @@ export default function ExperimentHeader({
 
       <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-0">
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Flex align="center" gap="2" className={revealsQuickEdit}>
+          <Box className={revealsQuickEdit}>
             <Heading
               as="h1"
               size="2xl"
@@ -872,396 +875,480 @@ export default function ExperimentHeader({
               weight="medium"
             >
               {experiment.name}
-            </Heading>
-            {canEditExperiment && !isHoldout ? (
-              <QuickEditButton
-                label="Edit name"
-                onClick={() => setEditingName(true)}
-                blockedReason={editsBlocked}
-              />
-            ) : null}
-            <Box style={{ userSelect: "none" }}>
-              <ExperimentStatusIndicator experimentData={experiment} />
-            </Box>
-          </Flex>
-
-          <Flex direction="row" align="center" gap="2" flexShrink="0">
-            {isHoldout && holdout?.nextScheduledStatusUpdate ? (
-              <Button
-                variant="ghost"
-                onClick={() => setTab("overview", "holdout-schedule")}
+              {/* Inline, so they follow the name's last word when it wraps,
+                  centred on that line. */}
+              <Flex
+                as="span"
+                display="inline-flex"
+                align="center"
+                style={{
+                  verticalAlign: "top",
+                  height: "var(--heading-line-height-7)",
+                  lineHeight: 0,
+                }}
               >
-                {
-                  HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
-                    holdout.nextScheduledStatusUpdate.type
-                  ]
-                }
-                {format(
-                  new Date(holdout.nextScheduledStatusUpdate.date),
-                  "MMM d, yyyy 'at' h:mm a",
-                )}
-              </Button>
-            ) : (
-              <div>
-                {experiment.status === "running" ? (
-                  <ExperimentActionButtons
-                    editResult={canRunExperiment ? editResult : undefined}
-                    editTargeting={canRunExperiment ? editTargeting : undefined}
+                {canEditExperiment && !isHoldout ? (
+                  <QuickEditButton
+                    label="Edit name"
+                    onClick={() => setEditingName(true)}
                     blockedReason={editsBlocked}
-                    isBandit={isBandit}
-                    runningExperimentStatus={runningExperimentStatus}
-                    holdoutStage={holdoutStage}
+                    radius="full"
                   />
-                ) : experiment.status === "draft" && nextScheduledStartDate ? (
-                  <UITooltip
-                    content={
-                      editsBlocked ??
-                      (canRunExperiment
-                        ? scheduledTime(nextScheduledStartDate)
-                        : `${scheduledTime(nextScheduledStartDate)}. ${RUN_PERMISSION_REASON}`)
-                    }
-                  >
-                    <Button
-                      variant="ghost"
-                      disabled={!canRunExperiment || !!editsBlocked}
-                      onClick={() => editSchedule?.()}
-                    >
-                      Starts {format(nextScheduledStartDate, "MMM d")}{" "}
-                      {editSchedule && <PiPencilSimple className="ml-1" />}
-                    </Button>
-                  </UITooltip>
-                ) : experiment.status === "draft" &&
-                  !experiment.archived &&
-                  !canRunExperiment ? (
-                  <UITooltip content={RUN_PERMISSION_REASON}>
-                    {startButton}
-                  </UITooltip>
-                ) : experiment.status === "draft" && canRunExperiment ? (
-                  <Tooltip shouldDisplay={!!editsBlocked} body={editsBlocked}>
-                    {isHoldout ? (
-                      startButton
-                    ) : startBlocked ? (
-                      <Popover
-                        openOnHover
-                        side="bottom"
-                        align="end"
-                        contentStyle={{ maxWidth: 360 }}
-                        content={
-                          <StartBlockers
-                            items={startGate.blockers}
-                            upgrade={startGate.upgrade}
-                          />
-                        }
-                        trigger={
-                          // Still opens on request, as the status modal does.
-                          <span style={{ display: "inline-flex" }}>
-                            {startPopover}
-                          </span>
-                        }
-                      />
-                    ) : (
-                      startPopover
-                    )}
-                  </Tooltip>
                 ) : null}
-                {experiment.status === "stopped" && experiment.results ? (
-                  <>
-                    {canEditExperiment ? (
-                      <Button onClick={() => setShareModalOpen(true)}>
-                        Share...
-                      </Button>
-                    ) : shareLevel === "public" ? (
-                      shareLinkButton
-                    ) : null}
-                  </>
-                ) : null}
-              </div>
-            )}
-            <DropdownMenu
-              trigger={
-                <IconButton
-                  variant="ghost"
-                  color="gray"
-                  radius="full"
-                  size="3"
-                  highContrast
-                  ml="2"
-                >
-                  <BsThreeDotsVertical size={18} />
-                </IconButton>
-              }
-              open={dropdownOpen}
-              onOpenChange={(o) => {
-                setDropdownOpen(!!o);
-              }}
-              menuPlacement="end"
+                <Box as="span" ml="2" style={{ userSelect: "none" }}>
+                  <ExperimentStatusIndicator experimentData={experiment} />
+                </Box>
+              </Flex>
+            </Heading>
+          </Box>
+
+          {/* Takes what the title leaves; short of room, the dates wrap below
+              the buttons, ending where they do. The buttons and the menu share
+              one row height, so they stay centred on each other either way. */}
+          <Flex align="start" gap="2" flexGrow="1" flexBasis="0">
+            <Flex
+              direction="row-reverse"
+              wrap="wrap"
+              align="center"
+              gapX="4"
+              gapY="2"
+              flexGrow="1"
             >
-              {hasEditItems ? (
-                <DropdownMenuGroup>
-                  {showEditStatus && (
-                    <StoredActionItem
-                      onClick={() => {
-                        setStatusModal(true);
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit status
-                    </StoredActionItem>
-                  )}
-                  {showEditPhase && (
-                    <StoredActionItem
-                      onClick={() => {
-                        editPhases?.();
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      Edit phase
-                    </StoredActionItem>
-                  )}
-                  {showScheduleItem && (
-                    <StoredActionItem
-                      onClick={() => {
-                        editSchedule?.();
-                        setDropdownOpen(false);
-                      }}
-                    >
-                      {hasAnySchedule ? "Edit schedule" : "Add schedule"}
-                    </StoredActionItem>
-                  )}
-                </DropdownMenuGroup>
-              ) : null}
-              {showHoldoutActions ? (
-                <>
-                  {hasEditItems ? <DropdownMenuSeparator /> : null}
+              {/* Unwrapped, so the column never narrows past the buttons. */}
+              <Flex
+                align="center"
+                minHeight="var(--space-6)"
+                style={{ whiteSpace: "nowrap" }}
+              >
+                {isHoldout && holdout?.nextScheduledStatusUpdate ? (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setTab("overview", "holdout-schedule")}
+                  >
+                    {
+                      HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP[
+                        holdout.nextScheduledStatusUpdate.type
+                      ]
+                    }
+                    {format(
+                      new Date(holdout.nextScheduledStatusUpdate.date),
+                      "MMM d, yyyy 'at' h:mm a",
+                    )}
+                  </Button>
+                ) : (
+                  <div>
+                    {experiment.status === "running" ? (
+                      <ExperimentActionButtons
+                        editResult={canRunExperiment ? editResult : undefined}
+                        editTargeting={
+                          canRunExperiment ? editTargeting : undefined
+                        }
+                        blockedReason={editsBlocked}
+                        isBandit={isBandit}
+                        runningExperimentStatus={runningExperimentStatus}
+                        holdoutStage={holdoutStage}
+                      />
+                    ) : experiment.status === "draft" &&
+                      nextScheduledStartDate ? (
+                      <UITooltip
+                        content={
+                          editsBlocked ??
+                          (canRunExperiment
+                            ? scheduledTime(nextScheduledStartDate)
+                            : `${scheduledTime(nextScheduledStartDate)}. ${RUN_PERMISSION_REASON}`)
+                        }
+                      >
+                        <Button
+                          variant="ghost"
+                          disabled={!canRunExperiment || !!editsBlocked}
+                          onClick={() => editSchedule?.()}
+                        >
+                          Starts {format(nextScheduledStartDate, "MMM d")}{" "}
+                          {editSchedule && <PiPencilSimple className="ml-1" />}
+                        </Button>
+                      </UITooltip>
+                    ) : experiment.status === "draft" &&
+                      !experiment.archived &&
+                      !canRunExperiment ? (
+                      <UITooltip content={RUN_PERMISSION_REASON}>
+                        {startButton}
+                      </UITooltip>
+                    ) : experiment.status === "draft" && canRunExperiment ? (
+                      <Tooltip
+                        shouldDisplay={!!editsBlocked}
+                        body={editsBlocked}
+                      >
+                        {isHoldout ? (
+                          startButton
+                        ) : startBlocked ? (
+                          <Popover
+                            openOnHover
+                            side="bottom"
+                            align="end"
+                            contentStyle={{ maxWidth: 360 }}
+                            content={
+                              <StartBlockers
+                                items={startGate.blockers}
+                                upgrade={startGate.upgrade}
+                              />
+                            }
+                            trigger={
+                              // Still opens on request, as the status modal does.
+                              <span style={{ display: "inline-flex" }}>
+                                {startPopover}
+                              </span>
+                            }
+                          />
+                        ) : (
+                          startPopover
+                        )}
+                      </Tooltip>
+                    ) : null}
+                    {experiment.status === "stopped" && experiment.results ? (
+                      <>
+                        {canEditExperiment ? (
+                          <Button onClick={() => setShareModalOpen(true)}>
+                            Share...
+                          </Button>
+                        ) : shareLevel === "public" ? (
+                          shareLinkButton
+                        ) : null}
+                      </>
+                    ) : null}
+                  </div>
+                )}
+              </Flex>
+              {/* Breaks only between dates, never inside one. The rest of its
+                  dates are in the tooltip, when it has any. */}
+              <UITooltip
+                enabled={everyDate.length > 1}
+                content={
+                  <Flex direction="column" gap="1">
+                    {everyDate.map(({ label, value }) => (
+                      <span key={label}>
+                        <Text size="inherit" weight="semibold">
+                          {label}:
+                        </Text>{" "}
+                        {value}
+                      </span>
+                    ))}
+                  </Flex>
+                }
+              >
+                <span
+                  tabIndex={everyDate.length > 1 ? 0 : undefined}
+                  style={{ textAlign: "right" }}
+                >
+                  <Text color="text-mid">
+                    {headerDates(experiment, new Date()).map(
+                      ({ label, value }, i) => (
+                        <Fragment key={label}>
+                          {i > 0 ? " · " : null}
+                          <Text size="inherit" whiteSpace="nowrap">
+                            <Text
+                              size="inherit"
+                              weight="semibold"
+                              color="text-high"
+                              whiteSpace="nowrap"
+                            >
+                              {label}:
+                            </Text>{" "}
+                            {value}
+                          </Text>
+                        </Fragment>
+                      ),
+                    )}
+                  </Text>
+                </span>
+              </UITooltip>
+            </Flex>
+            <Flex align="center" height="var(--space-6)">
+              <DropdownMenu
+                trigger={
+                  <IconButton
+                    variant="ghost"
+                    color="gray"
+                    radius="full"
+                    size="3"
+                    highContrast
+                    ml="2"
+                  >
+                    <BsThreeDotsVertical size={18} />
+                  </IconButton>
+                }
+                open={dropdownOpen}
+                onOpenChange={(o) => {
+                  setDropdownOpen(!!o);
+                }}
+                menuPlacement="end"
+              >
+                {hasEditItems ? (
                   <DropdownMenuGroup>
-                    {showHoldoutOverride &&
-                      (experiment.status === "running" && editResult ? (
-                        <DropdownMenuItem
-                          onClick={() => {
-                            editResult();
-                            setDropdownOpen(false);
-                          }}
-                          disabled={!!editsBlocked}
-                        >
-                          <Tooltip
-                            body={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
-                            tipPosition="left"
-                          >
-                            {holdoutStage === "running"
-                              ? "Start Analysis Phase"
-                              : "Stop Holdout"}
-                          </Tooltip>
-                        </DropdownMenuItem>
-                      ) : (
-                        <DropdownMenuItem
-                          onClick={() => {
-                            setShowStartExperiment(true);
-                            setDropdownOpen(false);
-                          }}
-                          disabled={!!editsBlocked}
-                        >
-                          <Tooltip
-                            body="Override Holdout schedule and manually start Holdout now"
-                            tipPosition="left"
-                          >
-                            Start holdout
-                          </Tooltip>
-                        </DropdownMenuItem>
-                      ))}
-                    {showForceStatus && (
+                    {showEditStatus && (
                       <StoredActionItem
                         onClick={() => {
                           setStatusModal(true);
                           setDropdownOpen(false);
                         }}
                       >
-                        Force Status Change
+                        Edit status
+                      </StoredActionItem>
+                    )}
+                    {showEditPhase && (
+                      <StoredActionItem
+                        onClick={() => {
+                          editPhases?.();
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Edit phase
+                      </StoredActionItem>
+                    )}
+                    {showScheduleItem && (
+                      <StoredActionItem
+                        onClick={() => {
+                          editSchedule?.();
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        {hasAnySchedule ? "Edit schedule" : "Add schedule"}
                       </StoredActionItem>
                     )}
                   </DropdownMenuGroup>
-                </>
-              ) : null}
-              {hasEditItems || showHoldoutActions ? (
-                <DropdownMenuSeparator />
-              ) : null}
-              <DropdownMenuGroup>
-                {!isHoldout ? (
+                ) : null}
+                {showHoldoutActions ? (
                   <>
-                    <DropdownSubMenu
-                      trigger={
-                        <Flex
-                          align="center"
-                          className={isWatching ? "font-weight-bold" : ""}
-                        >
-                          <PiEye style={{ marginRight: "5px" }} size={18} />
-                          <span className="pr-5">
-                            {isWatching ? "Watching" : "Not watching"}
-                          </span>
-                        </Flex>
-                      }
-                    >
-                      <DropdownMenuItem
-                        onClick={async () => {
-                          await handleWatchUpdates(!isWatching);
-                        }}
-                      >
-                        {isWatching ? "Stop watching" : "Start watching"}
-                      </DropdownMenuItem>
-                    </DropdownSubMenu>
-                    <DropdownMenuItem
-                      onClick={() => {
-                        setWatchersModal(true);
-                        setDropdownOpen(false);
-                      }}
-                      disabled={!usersWatching.length}
-                    >
-                      <Flex as="div" align="center">
-                        <IconButton
-                          style={{
-                            marginRight: "5px",
-                            backgroundColor:
-                              usersWatching.length > 0
-                                ? "var(--violet-9)"
-                                : "var(--slate-9)",
+                    {hasEditItems ? <DropdownMenuSeparator /> : null}
+                    <DropdownMenuGroup>
+                      {showHoldoutOverride &&
+                        (experiment.status === "running" && editResult ? (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              editResult();
+                              setDropdownOpen(false);
+                            }}
+                            disabled={!!editsBlocked}
+                          >
+                            <Tooltip
+                              body={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
+                              tipPosition="left"
+                            >
+                              {holdoutStage === "running"
+                                ? "Start Analysis Phase"
+                                : "Stop Holdout"}
+                            </Tooltip>
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem
+                            onClick={() => {
+                              setShowStartExperiment(true);
+                              setDropdownOpen(false);
+                            }}
+                            disabled={!!editsBlocked}
+                          >
+                            <Tooltip
+                              body="Override Holdout schedule and manually start Holdout now"
+                              tipPosition="left"
+                            >
+                              Start holdout
+                            </Tooltip>
+                          </DropdownMenuItem>
+                        ))}
+                      {showForceStatus && (
+                        <StoredActionItem
+                          onClick={() => {
+                            setStatusModal(true);
+                            setDropdownOpen(false);
                           }}
-                          radius="full"
-                          size="1"
                         >
-                          {usersWatching.length || 0}
-                        </IconButton>
-                        {usersWatching.length > 0
-                          ? "View watchers"
-                          : "No watchers"}
-                      </Flex>
-                    </DropdownMenuItem>
+                          Force Status Change
+                        </StoredActionItem>
+                      )}
+                    </DropdownMenuGroup>
                   </>
                 ) : null}
-                <DropdownMenuItem
-                  onClick={() => {
-                    setCompareModal(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Audit history
-                </DropdownMenuItem>
-              </DropdownMenuGroup>
-              {/* Only show the separator if one of the following cases is true to avoid double separators */}
-              {(showConvertButton ||
-                showShareableReportButton ||
-                showShareButton ||
-                showSaveAsTemplateButton) &&
-              !isHoldout ? (
-                <DropdownMenuSeparator />
-              ) : null}
-              {showSaveAsTemplateButton && !isHoldout && (
-                <StoredActionItem
-                  onClick={() => {
-                    setShowTemplateForm(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Save as template...
-                </StoredActionItem>
-              )}
-              {showShareButton && !isHoldout && (
-                <StoredActionItem
-                  onClick={() => {
-                    setShareModalOpen(true);
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Share {isBandit ? "Bandit" : "Experiment"}
-                </StoredActionItem>
-              )}
-              {showShareableReportButton && !isHoldout && (
-                <StoredActionItem
-                  onClick={async () => {
-                    const res = await apiCall<{ report: ReportInterface }>(
-                      `/experiments/report/${snapshot.id}`,
-                      {
-                        method: "POST",
-                        body: reportArgs
-                          ? JSON.stringify(reportArgs)
-                          : undefined,
-                      },
-                    );
-                    if (!res.report) {
-                      throw new Error("Failed to create report");
-                    }
-                    track("Experiment Report: Create", {
-                      source: "experiment more menu",
-                    });
-                    await router.push(`/report/${res.report.id}`);
-                  }}
-                >
-                  Create shareable report
-                </StoredActionItem>
-              )}
-              {showConvertButton && !isHoldout && (
-                <>
-                  <DropdownMenuGroup>
+                {hasEditItems || showHoldoutActions ? (
+                  <DropdownMenuSeparator />
+                ) : null}
+                <DropdownMenuGroup>
+                  {!isHoldout ? (
+                    <>
+                      <DropdownSubMenu
+                        trigger={
+                          <Flex
+                            align="center"
+                            className={isWatching ? "font-weight-bold" : ""}
+                          >
+                            <PiEye style={{ marginRight: "5px" }} size={18} />
+                            <span className="pr-5">
+                              {isWatching ? "Watching" : "Not watching"}
+                            </span>
+                          </Flex>
+                        }
+                      >
+                        <DropdownMenuItem
+                          onClick={async () => {
+                            await handleWatchUpdates(!isWatching);
+                          }}
+                        >
+                          {isWatching ? "Stop watching" : "Start watching"}
+                        </DropdownMenuItem>
+                      </DropdownSubMenu>
+                      <DropdownMenuItem
+                        onClick={() => {
+                          setWatchersModal(true);
+                          setDropdownOpen(false);
+                        }}
+                        disabled={!usersWatching.length}
+                      >
+                        <Flex as="div" align="center">
+                          <IconButton
+                            style={{
+                              marginRight: "5px",
+                              backgroundColor:
+                                usersWatching.length > 0
+                                  ? "var(--violet-9)"
+                                  : "var(--slate-9)",
+                            }}
+                            radius="full"
+                            size="1"
+                          >
+                            {usersWatching.length || 0}
+                          </IconButton>
+                          {usersWatching.length > 0
+                            ? "View watchers"
+                            : "No watchers"}
+                        </Flex>
+                      </DropdownMenuItem>
+                    </>
+                  ) : null}
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setCompareModal(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Audit history
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+                {/* Only show the separator if one of the following cases is true to avoid double separators */}
+                {(showConvertButton ||
+                  showShareableReportButton ||
+                  showShareButton ||
+                  showSaveAsTemplateButton) &&
+                !isHoldout ? (
+                  <DropdownMenuSeparator />
+                ) : null}
+                {showSaveAsTemplateButton && !isHoldout && (
+                  <StoredActionItem
+                    onClick={() => {
+                      setShowTemplateForm(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Save as template...
+                  </StoredActionItem>
+                )}
+                {showShareButton && !isHoldout && (
+                  <StoredActionItem
+                    onClick={() => {
+                      setShareModalOpen(true);
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Share {isBandit ? "Bandit" : "Experiment"}
+                  </StoredActionItem>
+                )}
+                {showShareableReportButton && !isHoldout && (
+                  <StoredActionItem
+                    onClick={async () => {
+                      const res = await apiCall<{ report: ReportInterface }>(
+                        `/experiments/report/${snapshot.id}`,
+                        {
+                          method: "POST",
+                          body: reportArgs
+                            ? JSON.stringify(reportArgs)
+                            : undefined,
+                        },
+                      );
+                      if (!res.report) {
+                        throw new Error("Failed to create report");
+                      }
+                      track("Experiment Report: Create", {
+                        source: "experiment more menu",
+                      });
+                      await router.push(`/report/${res.report.id}`);
+                    }}
+                  >
+                    Create shareable report
+                  </StoredActionItem>
+                )}
+                {showConvertButton && !isHoldout && (
+                  <>
+                    <DropdownMenuGroup>
+                      <StoredActionItem
+                        onClick={() => {
+                          setShowBanditModal(true);
+                          setDropdownOpen(false);
+                        }}
+                      >
+                        Convert to {isBandit ? "Experiment" : "Bandit"}
+                      </StoredActionItem>
+                    </DropdownMenuGroup>
+                  </>
+                )}
+                {/* Only show the separator if one of the following cases is true to avoid double separators */}
+                {duplicate ||
+                canRunExperiment ||
+                canDeleteExperiment ||
+                (hasUpdatePermissions && experiment.archived) ? (
+                  <DropdownMenuSeparator />
+                ) : null}
+                <DropdownMenuGroup>
+                  {duplicate && (
                     <StoredActionItem
                       onClick={() => {
-                        setShowBanditModal(true);
+                        setDropdownOpen(false);
+                        duplicate();
+                      }}
+                    >
+                      Duplicate
+                    </StoredActionItem>
+                  )}
+                  {canRunExperiment && (
+                    <StoredActionItem
+                      onClick={() => {
+                        setShowArchiveModal(true);
                         setDropdownOpen(false);
                       }}
                     >
-                      Convert to {isBandit ? "Experiment" : "Bandit"}
+                      Archive
                     </StoredActionItem>
-                  </DropdownMenuGroup>
-                </>
-              )}
-              {/* Only show the separator if one of the following cases is true to avoid double separators */}
-              {duplicate ||
-              canRunExperiment ||
-              canDeleteExperiment ||
-              (hasUpdatePermissions && experiment.archived) ? (
-                <DropdownMenuSeparator />
-              ) : null}
-              <DropdownMenuGroup>
-                {duplicate && (
-                  <StoredActionItem
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      duplicate();
-                    }}
-                  >
-                    Duplicate
-                  </StoredActionItem>
-                )}
-                {canRunExperiment && (
-                  <StoredActionItem
-                    onClick={() => {
-                      setShowArchiveModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Archive
-                  </StoredActionItem>
-                )}
-                {hasUpdatePermissions && experiment.archived && (
-                  <StoredActionItem
-                    onClick={() => {
-                      setShowArchiveModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Unarchive
-                  </StoredActionItem>
-                )}
-                {canDeleteExperiment && (
-                  <StoredActionItem
-                    color="red"
-                    onClick={() => {
-                      setShowDeleteModal(true);
-                      setDropdownOpen(false);
-                    }}
-                  >
-                    Delete
-                  </StoredActionItem>
-                )}
-              </DropdownMenuGroup>
-            </DropdownMenu>
+                  )}
+                  {hasUpdatePermissions && experiment.archived && (
+                    <StoredActionItem
+                      onClick={() => {
+                        setShowArchiveModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Unarchive
+                    </StoredActionItem>
+                  )}
+                  {canDeleteExperiment && (
+                    <StoredActionItem
+                      color="red"
+                      onClick={() => {
+                        setShowDeleteModal(true);
+                        setDropdownOpen(false);
+                      }}
+                    >
+                      Delete
+                    </StoredActionItem>
+                  )}
+                </DropdownMenuGroup>
+              </DropdownMenu>
+            </Flex>
           </Flex>
         </Flex>
       </div>
@@ -1330,7 +1417,7 @@ export default function ExperimentHeader({
                       {hasMultiplePhases ? (
                         <>
                           <div className="flex-1" />
-                          <Text size="md" weight="medium">
+                          <Text size="md">
                             <PhaseSelector
                               phase={phase}
                               phases={experiment.phases}
