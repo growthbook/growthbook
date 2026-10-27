@@ -11,6 +11,7 @@ import {
 import {
   ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
+  postExperimentArchiveValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
@@ -579,10 +580,13 @@ export const updateExperiment = createApiRequestHandler(
 
   const liveActions = [
     ...experimentChangeActions(experiment, changes),
-    // Archiving takes an experiment out of the payload; unarchiving puts it back.
-    ...(archive !== null && experiment.status !== "draft"
-      ? [archive ? ("experiment.stop" as const) : ("experiment.start" as const)]
-      : []),
+    // Archiving holds as POST /archive does, a kept rollout's publish included;
+    // unarchiving puts it back in the payload.
+    ...(archive === true
+      ? postExperimentArchiveValidator.confirmation
+      : archive === false && experiment.status !== "draft"
+        ? (["experiment.start"] as const)
+        : []),
   ];
   // A stop ends the phase and a restart reopens it, applied after liveActions
   // as part of the status change. Phases sent with it are the caller's.

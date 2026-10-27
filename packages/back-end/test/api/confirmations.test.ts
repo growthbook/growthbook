@@ -1078,7 +1078,7 @@ describe("confirmations", () => {
     });
   });
 
-  it("holds archiving a live experiment as its stop, and unarchiving as its start", async () => {
+  it("holds archiving a live experiment as POST /archive does, and unarchiving as its start", async () => {
     await seed("production");
     await seedExperiment();
     const experiments = mongoose.connection.collection("experiments");
@@ -1104,6 +1104,19 @@ describe("confirmations", () => {
     expect(unarchive.status).toBe(202);
     expect(unarchive.body.confirmation.actions).toEqual([
       { action: "experiment.start", environments: [] },
+    ]);
+
+    await experiments.updateOne({ id: EXP }, { $set: { archived: false } });
+    // As POST /archive holds it, since keeping a rollout publishes its flags.
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["feature.publish"] }] }),
+    );
+    const publishHeld = await auth(
+      request(app).post(`/api/v1/experiments/${EXP}`),
+    ).send({ archived: true });
+    expect(publishHeld.status).toBe(202);
+    expect(publishHeld.body.confirmation.actions).toEqual([
+      { action: "feature.publish", environments: [] },
     ]);
   });
 
