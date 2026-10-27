@@ -130,7 +130,7 @@ describe("interleave", () => {
   it("drafts both rankers' lists and sends one exposure", async () => {
     const { gb, onExposure, eventLogger } = setup();
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
       rankingId: "r1",
@@ -170,7 +170,7 @@ describe("interleave", () => {
     const { gb } = setup();
     const run = (rankingId: string) =>
       interleave(gb, {
-        ranker: "search",
+        key: "search",
         getList,
         fallbackConfig,
         rankingId,
@@ -178,7 +178,7 @@ describe("interleave", () => {
     expect((await run("same")).result).toEqual((await run("same")).result);
     expect((await run("x")).rankingId).toBe("x");
     expect(
-      (await interleave(gb, { ranker: "search", getList, fallbackConfig }))
+      (await interleave(gb, { key: "search", getList, fallbackConfig }))
         .rankingId,
     ).toEqual(expect.any(String));
     gb.destroy();
@@ -187,7 +187,7 @@ describe("interleave", () => {
   it("accepts an async getList and object items", async () => {
     const { gb } = setup();
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList: async (config) => getList(config).map((id) => ({ id })),
       fallbackConfig,
     });
@@ -199,7 +199,7 @@ describe("interleave", () => {
     const { gb, onExposure } = setup();
     const spy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList: (config) => getList(config).map((name) => ({ name })),
       fallbackConfig,
     });
@@ -223,7 +223,7 @@ describe("interleave", () => {
       },
     );
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -240,7 +240,7 @@ describe("interleave", () => {
   it("serves the ranker the flag resolves to when it isn't interleaving", async () => {
     const { gb } = setup({ id: "u1" }, { force: "buyers-pick" });
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -252,7 +252,7 @@ describe("interleave", () => {
   it("serves the default ranker without interleaving when enabled is false", async () => {
     const { gb, onExposure } = setup();
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
       enabled: false,
@@ -271,7 +271,7 @@ describe("interleave", () => {
     const gb = new GrowthBook({ attributes: { id: "u1" } });
     gb.initSync({ payload: { features: flag() } });
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
       enabled: false,
@@ -286,7 +286,7 @@ describe("interleave", () => {
     async (attributes) => {
       const { gb, onExposure } = setup(attributes);
       const res = await interleave(gb, {
-        ranker: "search",
+        key: "search",
         getList,
         fallbackConfig,
       });
@@ -301,7 +301,7 @@ describe("interleave", () => {
     const gb = new GrowthBook({ attributes: { id: "u1" } });
     gb.initSync({ payload: { features: flag() } });
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -328,7 +328,7 @@ describe("interleave", () => {
     gb.initSync({ payload: payload() });
     const spy = jest.spyOn(console, "error").mockImplementation(() => {});
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -346,7 +346,7 @@ describe("interleave", () => {
     client.initSync({ payload: payload() });
     const user = client.createScopedInstance({ attributes: { id: "u2" } });
     const res = await interleave(user, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -364,7 +364,7 @@ describe("interleave", () => {
     client.initSync({ payload: payload() });
     const user = client.createScopedInstance({ attributes: {} });
     const res = await interleave(user, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -384,7 +384,7 @@ describe("interleave", () => {
     client.initSync({ payload: payload() });
     const user = client.createScopedInstance({ attributes: { id: "u2" } });
     const res = await interleave(user, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -401,7 +401,7 @@ describe("interleave", () => {
   ])("caps the list at maxItems on %s", async (_label, attributes, rule) => {
     const { gb } = setup(attributes, rule);
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
       maxItems: 2,
@@ -437,7 +437,7 @@ describe("interleave", () => {
       },
     });
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
       rankingId: "r1",
@@ -451,7 +451,7 @@ describe("interleave", () => {
     // Same seed as the rule-bearing payload, so the draft is identical
     const { gb: normal } = setup({ device_id: "d1", id: "u1" });
     const viaRules = await interleave(normal, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
       rankingId: "r1",
@@ -465,7 +465,7 @@ describe("interleave", () => {
   it("hashes with attribute overrides", async () => {
     const { gb, onExposure } = setup();
     await gb.setAttributeOverrides({ id: "override" });
-    await interleave(gb, { ranker: "search", getList, fallbackConfig });
+    await interleave(gb, { key: "search", getList, fallbackConfig });
     expect(onExposure.mock.calls[0][0].hashValue).toBe("override");
     gb.destroy();
 
@@ -478,7 +478,7 @@ describe("interleave", () => {
       attributes: { id: "u2" },
       attributeOverrides: { id: "override" },
     });
-    await interleave(user, { ranker: "search", getList, fallbackConfig });
+    await interleave(user, { key: "search", getList, fallbackConfig });
     expect(scopedExposure.mock.calls[0][0].hashValue).toBe("override");
     client.destroy();
   });
@@ -486,7 +486,7 @@ describe("interleave", () => {
   it("emits the exposure shape the analysis layer reads", async () => {
     const { gb, onExposure } = setup();
     await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
       rankingId: "r1",
@@ -557,7 +557,7 @@ describe("interleave", () => {
     gb.initSync({ payload: payload() });
 
     const res = await interleave(gb, {
-      ranker: "search",
+      key: "search",
       getList,
       fallbackConfig,
     });
@@ -591,7 +591,7 @@ describe("interleave", () => {
       });
 
       const res = await interleave(user, {
-        ranker: "search",
+        key: "search",
         getList,
         fallbackConfig,
       });
@@ -606,7 +606,7 @@ describe("interleave", () => {
     const { gb, onExposure } = setup();
     const page = (maxItems: number) =>
       interleave(gb, {
-        ranker: "search",
+        key: "search",
         getList,
         fallbackConfig,
         rankingId: "r-page",

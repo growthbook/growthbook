@@ -37,7 +37,7 @@ export type InterleavePluginOptions = {
 
 export type InterleaveOptions<T> = {
   // The interleaving experiment's key
-  ranker: string;
+  key: string;
   getList: (config: InterleaveConfig) => T[] | Promise<T[]>;
   // Used when the interleaving isn't in the payload
   fallbackConfig: InterleaveConfig;
@@ -165,14 +165,14 @@ export async function interleave<T>(
   gb: InterleaveInstance,
   options: InterleaveOptions<T>,
 ): Promise<InterleaveResult<T>> {
-  const { ranker, getList, fallbackConfig, maxItems } = options;
+  const { key, getList, fallbackConfig, maxItems } = options;
   const getItemId = options.getItemId || defaultItemId;
   const rankingId =
     options.rankingId ??
     genUUID(typeof crypto !== "undefined" ? crypto : undefined);
 
   const payload = gb.getDecryptedPayload();
-  const definition = payload.interleavings?.[ranker];
+  const definition = payload.interleavings?.[key];
   const variations = definition?.variations || [];
 
   // maxItems caps every list this returns, not just the drafted one, so the
@@ -199,7 +199,7 @@ export async function interleave<T>(
 
   if (!definition || variations.length !== 2) return notInterleaved();
 
-  const featureId = "$interleave:" + ranker;
+  const featureId = "$interleave:" + key;
   const value = gb.evalFeature<unknown>(featureId).value;
   if (
     !value ||
@@ -227,7 +227,7 @@ export async function interleave<T>(
   ];
   if (lists.some((l) => l.items.some((item) => !getItemId(item)))) {
     console.error(
-      `interleave: every item in "${ranker}" needs an id, pass getItemId`,
+      `interleave: every item in "${key}" needs an id, pass getItemId`,
     );
     return {
       result: capItems(lists[0].items),
