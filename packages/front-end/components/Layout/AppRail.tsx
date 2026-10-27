@@ -215,6 +215,10 @@ function CollapsedSection({
   const pinned = useRef(false);
   // Opened from the keyboard: focus returns to the icon on close.
   const keyboardOpened = useRef(false);
+  // Closing it from the keyboard (Escape) puts focus back on the icon,
+  // without reopening it.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const focusReturning = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimer = () => {
     if (timer.current) clearTimeout(timer.current);
@@ -252,6 +256,7 @@ function CollapsedSection({
   const { Icon } = section;
   const trigger = (
     <button
+      ref={triggerRef}
       type="button"
       className={clsx(
         styles.iconItem,
@@ -265,6 +270,10 @@ function CollapsedSection({
       onMouseEnter={tapOpens ? undefined : openNow}
       onMouseLeave={tapOpens ? undefined : closeSoon}
       onFocus={(e) => {
+        if (focusReturning.current) {
+          focusReturning.current = false;
+          return;
+        }
         // Keyboard focus opens it; a click's focus is left to the click.
         if (e.currentTarget.matches(":focus-visible")) {
           keyboardOpened.current = true;
@@ -325,7 +334,13 @@ function CollapsedSection({
         if (!focusOnOpen.current) e.preventDefault();
       }}
       onCloseAutoFocus={(e) => {
-        if (!keyboardOpened.current) e.preventDefault();
+        e.preventDefault();
+        if (!keyboardOpened.current) return;
+        // Only when focus was left nowhere, not when Tab moved it on.
+        const active = document.activeElement;
+        if (active && active !== document.body) return;
+        focusReturning.current = true;
+        triggerRef.current?.focus();
       }}
       content={
         <div
