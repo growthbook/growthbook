@@ -7,10 +7,7 @@ import {
 import { isProjectListValidForProject } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import {
-  duplicateFactMetric,
-  resolveFactMetricCreation,
-} from "@/services/metrics";
+import { resolveFactMetricCreation } from "@/services/metrics";
 import { envAllowsCreatingMetrics } from "@/services/env";
 import FactTableModal from "@/components/FactTables/FactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
@@ -201,7 +198,6 @@ export default function useFactMetricFlow(
     setTableTarget(null);
     setError(null);
   };
-  const duplicate = modalTarget?.duplicate;
   const modal = tableTarget ? (
     <FactTableModal
       close={() => setTableTarget(null)}
@@ -250,15 +246,6 @@ export default function useFactMetricFlow(
       close={close}
       initialFactTable={modalTarget.factTable}
       datasource={modalTarget.datasource}
-      existing={
-        duplicate
-          ? duplicateFactMetric(
-              duplicate,
-              permissionsUtil.canCreateOfficialResources(duplicate),
-            )
-          : undefined
-      }
-      duplicate={!!duplicate}
       source={modalTarget.source}
     />
   );
