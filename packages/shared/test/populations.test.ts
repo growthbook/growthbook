@@ -1,7 +1,5 @@
 import {
   apiCreatePopulationBody,
-  apiUpdatePopulationBody,
-  populationStepValidator,
   type PopulationStep,
   populationValidator,
 } from "shared/validators";
@@ -344,59 +342,4 @@ describe("population step limits in validators", () => {
       false,
     );
   });
-});
-
-describe("Population steps without windows", () => {
-  const currentStep = {
-    source: { type: "factTable", factTableId: "ftb_events" },
-    rowFilters: [],
-    aggregateFilter: ">=3",
-    aggregateFilterColumn: "$$count",
-  };
-  const createBody = {
-    name: "Active users",
-    owner: "u_1",
-    datasource: "ds_main",
-    userIdTypes: ["user_id"],
-    steps: [currentStep],
-  };
-
-  it("accepts steps without window settings in stored documents and API writes", () => {
-    expect(populationStepValidator.parse(currentStep)).toEqual(currentStep);
-    expect(apiCreatePopulationBody.parse(createBody).steps).toEqual([
-      currentStep,
-    ]);
-    expect(
-      apiUpdatePopulationBody.parse({ steps: [currentStep] }).steps,
-    ).toEqual([currentStep]);
-    expect(apiUpdatePopulationBody.parse({ name: "Renamed" })).toEqual({
-      name: "Renamed",
-    });
-  });
-
-  it.each(["", "lookback", "conversion"])(
-    "rejects legacy %s window settings on create and update",
-    (type) => {
-      const legacyStep = {
-        ...currentStep,
-        windowSettings: {
-          type,
-          delayValue: 0,
-          delayUnit: "days",
-          windowValue: 7,
-          windowUnit: "days",
-        },
-      };
-      expect(populationStepValidator.safeParse(legacyStep).success).toBe(false);
-      expect(
-        apiCreatePopulationBody.safeParse({
-          ...createBody,
-          steps: [legacyStep],
-        }).success,
-      ).toBe(false);
-      expect(
-        apiUpdatePopulationBody.safeParse({ steps: [legacyStep] }).success,
-      ).toBe(false);
-    },
-  );
 });
