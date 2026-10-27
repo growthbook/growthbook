@@ -32,7 +32,7 @@ import {
 import { differenceInMinutes } from "date-fns";
 import { getScopedSettings } from "shared/settings";
 import uniq from "lodash/uniq";
-import { pick, omit } from "lodash";
+import { pick, omit, mapValues } from "lodash";
 import {
   LegacyExperimentReportArgs,
   ExperimentSnapshotReportInterface,
@@ -57,6 +57,7 @@ import {
   MetricPriorSettings,
   MetricWindowSettings,
   FactTableInterface,
+  FactTableDefinition,
   ColumnInterface,
 } from "shared/types/fact-table";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -742,6 +743,20 @@ export function getReportSnapshotSettings({
   };
 }
 
+// SSR data is served on public share pages, which only need column formats and slices
+export function redactFactTableForSSR(
+  factTable: FactTableInterface,
+): FactTableDefinition {
+  return {
+    ...omit(factTable, ["sql", "userIdColumns", "timestampColumn"]),
+    eventName: "",
+    filters: [],
+    columns: factTable.columns.map((column) =>
+      omit(column, ["sql", "jsonFields", "topValues", "topValuesDate"]),
+    ),
+  };
+}
+
 export async function generateExperimentReportSSRData({
   context,
   organization,
@@ -958,7 +973,7 @@ export async function generateExperimentReportSSRData({
   return {
     metrics: metricMap,
     metricGroups,
-    factTables: factTableMap,
+    factTables: mapValues(factTableMap, redactFactTableForSSR),
     factMetricSlices,
     settings: orgSettings,
     projects: projectMap,

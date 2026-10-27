@@ -7,7 +7,7 @@ import { CommercialFeature } from "shared/enterprise";
 import { OrganizationSettings } from "shared/types/organization";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { DimensionInterface } from "shared/types/dimension";
-import { FactTableInterface, MetricPriorSettings } from "./fact-table";
+import { FactTableDefinition, MetricPriorSettings } from "./fact-table";
 import {
   AttributionModel,
   ExperimentPhase,
@@ -181,7 +181,7 @@ export type LegacyReportInterface = Omit<ExperimentReportInterface, "args"> & {
 export type ExperimentReportSSRData = {
   metrics: Record<string, ExperimentMetricInterface>;
   metricGroups: MetricGroupInterface[];
-  factTables: Record<string, FactTableInterface>;
+  factTables: Record<string, FactTableDefinition>;
   factMetricSlices: Record<
     string,
     Array<{
