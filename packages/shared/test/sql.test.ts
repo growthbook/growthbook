@@ -217,9 +217,18 @@ describe("stripTrailingSemicolon", () => {
     ["SELECT 'it\\'s;--' AS a;", "SELECT 'it\\'s;--' AS a"],
     ['SELECT "a\\";--" AS b;', 'SELECT "a\\";--" AS b'],
     ["SELECT 'a\\\\' AS b;", "SELECT 'a\\\\' AS b"],
-    // A backslash that isn't an escape (standard SQL) leaves a quote open,
-    // so quotes are ignored, as they were before quote handling
+    // Standard SQL, where a backslash is literal
     ["SELECT 'C:\\' AS p;", "SELECT 'C:\\' AS p"],
+    [
+      "SELECT 'C:\\' AS p, ';--' AS value;",
+      "SELECT 'C:\\' AS p, ';--' AS value",
+    ],
+    [
+      "SELECT 'C:\\' AS p, ';--' AS value",
+      "SELECT 'C:\\' AS p, ';--' AS value",
+    ],
+    ["SELECT \"C:\\\" AS p, ';' AS v;", "SELECT \"C:\\\" AS p, ';' AS v"],
+    // A quote neither reading closes: quotes are ignored, as before
     ["SELECT 'never closed;", "SELECT 'never closed"],
     // Quotes inside comments do not start a string
     ["SELECT 1 -- don't\n;", "SELECT 1 -- don't"],
