@@ -515,7 +515,7 @@ export async function collectFeaturePublishGates({
     return gates;
   }
 
-  const { proposedFeature, defaultToCheck, rulesToCheck } =
+  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
     computeProposedFeatureForValidation(
       context,
       feature,
@@ -554,10 +554,10 @@ export async function collectFeaturePublishGates({
     ...collectFeatureValueErrorsForPublish(
       proposedFeature,
       {
-        defaultValue: plan.mergeResult.defaultValue,
-        rules: plan.mergeResult.rules,
+        defaultValue: proposedFeature.defaultValue,
+        rules: proposedFeature.rules,
       },
-      feature,
+      valueSchemaChanged ? undefined : feature,
     ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {

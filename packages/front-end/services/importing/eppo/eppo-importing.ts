@@ -103,6 +103,7 @@ export type EppoFlag = {
   allocations?: EppoAllocation[];
   tag_names: string[];
   type?: "BANDIT" | "FEATURE_FLAG" | "LAYER";
+  created_at?: string;
 };
 
 export type EppoEntity = { id: number; name: string };
@@ -228,7 +229,18 @@ export type EppoData = {
   factSources: EppoFactSource[];
   metrics: EppoMetric[];
   experiments: EppoExperiment[];
+  // Flags created before this are kept for experiment targeting but not offered
+  flagsCreatedSince?: Date | null;
 };
+
+// The flags the import offers; the rest still inform experiment targeting
+export function importableFlags(eppo: EppoData): EppoFlag[] {
+  const since = eppo.flagsCreatedSince;
+  if (!since) return eppo.flags;
+  return eppo.flags.filter(
+    (f) => !f.created_at || new Date(f.created_at) >= since,
+  );
+}
 
 export type ApiCall = <T>(url: string, options?: RequestInit) => Promise<T>;
 
@@ -272,10 +284,21 @@ async function getAllPages<T>(
   return all;
 }
 
+export type FetchOptions = {
+  // Only experiments and flags created on or after this date. Experiments
+  // filter server-side (`created_since`); flags have no such filter and are
+  // filtered here on `created_at`.
+  createdSince?: Date | null;
+};
+
 export async function fetchEppoData(
   apiKey: string,
   apiCall: ApiCall,
+  { createdSince = null }: FetchOptions = {},
 ): Promise<EppoData> {
+  const experimentsEndpoint = createdSince
+    ? `experiments?created_since=${encodeURIComponent(createdSince.toISOString())}`
+    : "experiments";
   const get = <T>(endpoint: string) =>
     getFromEppo<T>(endpoint, apiKey, apiCall);
   const [
@@ -295,13 +318,14 @@ export async function fetchEppoData(
     get<EppoEntity>("definitions/entities"),
     get<EppoFactSource>("definitions/facts"),
     getAllPages<EppoMetric>("metrics", 50, apiKey, apiCall),
-    getAllPages<EppoExperiment>("experiments", 250, apiKey, apiCall),
+    getAllPages<EppoExperiment>(experimentsEndpoint, 250, apiKey, apiCall),
   ]);
   return {
     environments,
     tags,
     audiences,
     flags,
+    flagsCreatedSince: createdSince,
     entities,
     factSources,
     metrics,
@@ -1826,7 +1850,7 @@ export function matchItems(
       existing.experiments.get(experimentTrackingKey(e)),
     ),
     flags: new Map(
-      eppo.flags.map((f) => [
+      importableFlags(eppo).map((f) => [
         f.key,
         findMatch(
           imported.flags,
@@ -1907,6 +1931,18 @@ function getInitialContext(
   const factTableIds = ids("factSources", eppo.factSources, () => !!datasource);
   const metricIds = ids("metrics", eppo.metrics);
   const experiments = new Map<number, GBExperimentRef>();
+  // Experiments a flag refers to that this fetch didn't include (e.g. a date
+  // filter) keep the reference an earlier run created
+  eppo.flags.forEach((f) =>
+    (f.allocations ?? []).forEach((a) => {
+      const eppoId = a.experiment?.id;
+      if (!eppoId || eppo.experiments.some((e) => e.id === eppoId)) return;
+      const id = existing.imported.experiments.get(eppoId);
+      const ref = id && existing.experimentRefs.get(id);
+      if (!id || !ref) return;
+      experiments.set(eppoId, { id, ...ref });
+    }),
+  );
   eppo.experiments.forEach((e) => {
     const existingId = matches.experiments.get(String(e.id))?.existingId;
     const variations = e.variations
@@ -2033,7 +2069,7 @@ export function buildImportData(
         () => transformExperiment(e, ctx, ctx.experiments.get(e.id)),
       ),
     ),
-    flags: eppo.flags.map((f) =>
+    flags: importableFlags(eppo).map((f) =>
       buildItem(f.key, f.key, f, match("flags", f.key), () =>
         transformFlag(f, ctx),
       ),

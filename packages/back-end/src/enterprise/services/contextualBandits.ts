@@ -1541,6 +1541,19 @@ export function toContextualBanditSnapshotStatusSummary(
   };
 }
 
+export async function getContextualBanditStatusForUi(
+  context: ReqContext,
+  cb: ContextualBanditInterface,
+): Promise<SnapshotStatusSummary | null> {
+  const latestSnapshot =
+    await context.models.contextualBanditSnapshots.getLatestStatusForContextualBandit(
+      cb.id,
+    );
+  return latestSnapshot
+    ? toContextualBanditSnapshotStatusSummary(latestSnapshot)
+    : null;
+}
+
 /** Latest CBS run status + CBE stats payload for the CB results UI. */
 export async function getContextualBanditResultsForUi(
   context: ReqContext,

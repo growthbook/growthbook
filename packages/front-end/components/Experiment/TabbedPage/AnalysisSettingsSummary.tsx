@@ -35,6 +35,7 @@ import {
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
+  getSnapshotCutoffDate,
 } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
@@ -787,9 +788,16 @@ export default function AnalysisSettingsSummary({
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
         getValidDate(snapshotSettings.startDate),
       ) ||
+      // A running phase analyzed through a lagged cutoff ends before the
+      // snapshot ran, so measure its staleness from the run time.
       isDifferentDate(
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
-        getValidDate(snapshotSettings.endDate),
+        getValidDate(
+          !exp.phases?.[currentPhase ?? 0]?.dateEnded &&
+            snapshotSettings.endDateIsCutoff
+            ? snap?.dateCreated
+            : snapshotSettings.endDate,
+        ),
       )
     ) {
       reasons.push("Analysis dates changed");
@@ -914,6 +922,9 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                cutoffDate={
+                  snapshot ? getSnapshotCutoffDate(snapshot.settings) : null
+                }
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}

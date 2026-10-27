@@ -15,16 +15,34 @@ import { VisualTargeting } from "@/components/Experiment/TabbedPage/linkedChange
 
 const defaultType = "simple";
 
+type CreatedVisualChangeset = Pick<
+  VisualChangesetInterface,
+  "id" | "editorUrl"
+>;
+
 type Props = {
-  experiment: ExperimentInterfaceStringDates;
   close: () => void;
+  cta?: string;
   source?: string;
 } & (
   | {
       mode: "add";
+      experiment: ExperimentInterfaceStringDates;
+      create?: never;
       mutate: () => void;
-      onCreate?: (vc: VisualChangesetInterface) => void;
-      cta?: string;
+      onCreate?: (vc: CreatedVisualChangeset) => void;
+      visualChangeset?: never;
+      stage?: never;
+    }
+  | {
+      // For an owner other than an experiment, which creates it itself.
+      mode: "add";
+      experiment?: never;
+      create: (payload: VisualTargeting) => Promise<{
+        visualChangeset?: Partial<CreatedVisualChangeset>;
+      } | void>;
+      mutate: () => void;
+      onCreate?: (vc: CreatedVisualChangeset) => void;
       visualChangeset?: never;
       stage?: never;
     }
@@ -35,12 +53,18 @@ type Props = {
       stage: (targeting: VisualTargeting) => void;
       mutate?: never;
       onCreate?: never;
-      cta?: never;
+    }
+  | {
+      mode: "edit";
+      visualChangeset: VisualChangesetInterface;
+      stage?: never;
+      mutate: () => void;
+      onCreate?: never;
     }
 );
 
 const VisualChangesetModal: FC<Props> = (props) => {
-  const { mode, experiment, visualChangeset, close, source } = props;
+  const { mode, visualChangeset, close, source } = props;
   const { apiCall } = useAuth();
 
   let forceAdvancedMode = false;
@@ -87,11 +111,28 @@ const VisualChangesetModal: FC<Props> = (props) => {
       ];
     }
     if (props.mode === "edit") {
-      props.stage(payload);
+      if ("stage" in props && props.stage) {
+        props.stage(payload);
+        return;
+      }
+      await apiCall(`/visual-changesets/${props.visualChangeset.id}`, {
+        method: "PUT",
+        body: JSON.stringify(payload),
+      });
+      props.mutate?.();
+      return;
+    }
+    if ("create" in props && props.create) {
+      const res = await props.create(payload);
+      props.mutate();
+      const vc = res?.visualChangeset;
+      if (vc?.id && vc.editorUrl) {
+        props.onCreate?.({ id: vc.id, editorUrl: vc.editorUrl });
+      }
       return;
     }
     const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
-      `/experiments/${experiment.id}/visual-changeset`,
+      `/experiments/${props.experiment?.id}/visual-changeset`,
       {
         method: "POST",
         body: JSON.stringify(payload),
@@ -129,7 +170,7 @@ const VisualChangesetModal: FC<Props> = (props) => {
         mode === "add" ? "Add" : "Modify"
       } Visual Changes URL targeting`}
       submit={onSubmit}
-      cta={props.mode === "edit" ? "Apply" : props.cta}
+      cta={props.mode === "edit" && props.stage ? "Apply" : props.cta}
     >
       <Field
         size="legacy"

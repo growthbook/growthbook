@@ -1,0 +1,294 @@
+// Visual Editor changes on the experiment page: the targeting chips, the
+// per-variation summary and the change list.
+//
+// All colors / radii reference Radix theme tokens (`--accent-N`,
+// `--gray-N`, `--orange-N`, `--radius-N`, etc.) so dark mode swaps come
+// for free. The literal hex values from the design handoff are mapped to
+// the closest Radix step:
+//
+//   text high-contrast (#1F2D5C ink)           → --gray-12
+//   text low-contrast / soft (#60646C, #80838D) → --gray-11
+//   faint (#8B8D98)                            → --gray-10 / --gray-a9
+//   hairlines (#EDEEF0)                        → --gray-a4
+//   borders (#DDDEE3 / #E6E7EB)                → --gray-a6 / --gray-a5
+//   alt surface (#F7F7FA)                      → --gray-a3
+//   accent / accent-soft / accent-text         → --accent-9 / --accent-3 / --accent-11
+//   blue link (#006DCB)                        → --blue-11
+//   greens / reds for include/exclude          → --green / --red scales
+
+.ruleChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--gray-a2);
+  border: 1px solid var(--gray-a4);
+  border-radius: var(--radius-5);
+  padding: 2px 8px;
+  max-width: 100%;
+}
+
+.ruleChipExclude {
+  background: var(--red-a3);
+  border-color: var(--red-a6);
+}
+
+.ruleDot {
+  width: 5px;
+  height: 5px;
+  border-radius: var(--radius-5);
+  flex-shrink: 0;
+  background: var(--green-9);
+}
+
+.ruleDotExclude {
+  background: var(--red-9);
+}
+
+.rulePattern {
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  color: var(--gray-11);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rulePatternExclude {
+  color: var(--red-11);
+}
+
+.regexBadge {
+  font-family: var(--code-font-family);
+  font-size: 10px;
+  font-weight: 600;
+  flex-shrink: 0;
+  color: var(--accent-11);
+  background: var(--accent-a3);
+  border: 1px solid var(--accent-a6);
+  border-radius: var(--radius-1);
+  padding: 0 4px;
+}
+
+.changesToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  min-height: 32px;
+  background: var(--color-surface);
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-2);
+  padding: 0 var(--space-2);
+  cursor: pointer;
+  white-space: nowrap;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-regular);
+  color: var(--color-text-high);
+}
+
+// An outline, not a fill: a gray fill reads as disabled.
+.changesToggle:hover {
+  border-color: var(--accent-a8);
+}
+
+.changesChev {
+  display: inline-flex;
+  color: var(--gray-a9);
+}
+
+.changesToggle:hover .changesChev {
+  color: var(--accent-11);
+}
+
+// Expanded change list under a variation row.
+.changeList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// ---- Change row ----
+.change {
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-3);
+  overflow: hidden;
+  background: var(--color-panel-solid);
+}
+
+.changeHead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 13px;
+}
+
+.typeTile {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-3);
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--tone-soft);
+  color: var(--tone-solid);
+}
+
+.changeText {
+  flex: 1;
+  min-width: 0;
+}
+
+.changeHeadline {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+.changeVerbTitle {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--gray-12);
+}
+
+.selectorChip {
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  color: var(--gray-11);
+  background: var(--gray-a3);
+  border: 1px solid var(--gray-a5);
+  padding: 1px 6px;
+  border-radius: var(--radius-1);
+  // Long selectors wrap here (the chip now lives in the raw-values panel,
+  // not as an inline headline chip), so break rather than overflow.
+  word-break: break-all;
+}
+
+// "Applies to: <selector>" row at the top of the raw-values panel. Moved
+// out of the headline because a CSS selector isn't human-readable.
+.appliesTo {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.appliesToLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--gray-11);
+  flex-shrink: 0;
+}
+
+.changeHuman {
+  font-size: 12.5px;
+  color: var(--gray-11);
+  margin-top: 2px;
+}
+
+.afterChip {
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  color: var(--tone-text);
+  background: var(--tone-soft);
+  border-radius: var(--radius-2);
+  padding: 3px 8px;
+  white-space: nowrap;
+  // Gives way before the description does.
+  max-width: 40%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+.codeToggle {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--gray-a5);
+  color: var(--gray-a9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.codeToggle:hover {
+  background: var(--gray-a3);
+  color: var(--gray-12);
+}
+
+.codeToggleOpen {
+  background: var(--gray-a3);
+  color: var(--gray-12);
+}
+
+// Per-change-row delete affordance. Same dimensions as the code
+// toggle so the action cluster reads as one row; hover reveals a
+// red tint to flag the destructive nature. Reuses the codeToggle
+// base via class composition would be tidier — kept separate so
+// hover/disabled rules don't bleed.
+.deleteRowBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-2);
+  cursor: pointer;
+  flex-shrink: 0;
+  background: transparent;
+  border: 1px solid var(--gray-a5);
+  color: var(--gray-a9);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.deleteRowBtn:hover {
+  background: var(--red-a3);
+  border-color: var(--red-a6);
+  color: var(--red-11);
+}
+
+.codePanel {
+  padding: 0 13px 12px 55px;
+}
+
+// Image-swap preview: a contained thumbnail above the raw src line.
+// `max-height` is the gate; max-width fills available space so we
+// don't squash wider-than-tall images. Light background so transparent
+// PNGs read against both light and dark themes.
+.imagePreview {
+  margin-bottom: 8px;
+  padding: 6px;
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  background: var(--gray-a2);
+  display: inline-block;
+  max-width: 100%;
+
+  img {
+    display: block;
+    max-width: 100%;
+    max-height: 160px;
+    object-fit: contain;
+    border-radius: var(--radius-1);
+  }
+}
+
+.codeBlock {
+  margin: 0;
+  font-family: var(--code-font-family);
+  font-size: 11.5px;
+  line-height: 1.7;
+  color: var(--gray-11);
+  background: var(--gray-a3);
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-2);
+  padding: 9px 11px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}

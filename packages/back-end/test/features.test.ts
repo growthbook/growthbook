@@ -3109,8 +3109,8 @@ describe("SDK Payloads", () => {
       "exp-project",
     ]);
 
-    // targetingAllProjects omits the projects list (absent = all), rather than
-    // enumerating every org project
+    // targetingAllProjects is marked rather than enumerating every org project,
+    // since an absent list means no project
     const featureAllProjects = cloneDeep(feature);
     featureAllProjects.targetingAllProjects = true;
     const defAllProjects = getFeatureDefinition({
@@ -3125,6 +3125,24 @@ describe("SDK Payloads", () => {
       projectsMap,
     });
     expect(defAllProjects?.metadata?.projects).toBeUndefined();
+    expect(defAllProjects?.metadata?.allProjects).toBe(true);
+
+    // A feature in no project carries neither
+    const featureNoProject = cloneDeep(feature);
+    featureNoProject.project = "";
+    const defNoProject = getFeatureDefinition({
+      feature: featureNoProject,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defNoProject?.metadata?.projects).toBeUndefined();
+    expect(defNoProject?.metadata?.allProjects).toBeUndefined();
   });
 
   it("Emits a rule's explicit project scope, omitting when the rule targets all", () => {

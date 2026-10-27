@@ -83,7 +83,7 @@ export async function openVisualEditor({
   bypassChecks = false,
   beforeLeave,
 }: {
-  vc: VisualChangesetInterface;
+  vc: Pick<VisualChangesetInterface, "id" | "editorUrl">;
   apiCall: AuthContextValue["apiCall"];
   browser: string;
   deviceType: string;
@@ -190,7 +190,7 @@ export async function openVisualEditor({
 }
 
 const OpenVisualEditorLink: FC<{
-  visualChangeset: VisualChangesetInterface;
+  visualChangeset: Pick<VisualChangesetInterface, "id" | "editorUrl">;
   openSettings?: () => void;
   useRadix?: boolean;
   useLink?: boolean;

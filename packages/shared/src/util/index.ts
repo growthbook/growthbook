@@ -167,6 +167,18 @@ export function getSnapshotAnalysis(
   );
 }
 
+/**
+ * The latest timestamp a snapshot reads any data through: its end date when
+ * that is a cutoff, otherwise null (conversion windows may run past it).
+ */
+export function getSnapshotCutoffDate(
+  settings: Partial<
+    Pick<ExperimentSnapshotSettings, "endDate" | "endDateIsCutoff">
+  >,
+): Date | null {
+  return settings.endDateIsCutoff ? (settings.endDate ?? null) : null;
+}
+
 export function findAnalysisComputeFailure(
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null,
 ): { metricId: string; errorMessage: string | null } | null {

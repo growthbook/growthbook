@@ -28,7 +28,7 @@ import {
   ADDABLE_KINDS,
   AddImplementationMenu,
 } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
-import VisualChangesetColumn from "@/components/Experiment/VisualChangesetTable";
+import VisualChangesetColumn from "@/components/Experiment/VisualChangesetColumn";
 import VariationsTable from "@/components/Experiment/VariationsTable";
 import UrlRedirectModal from "@/components/Experiment/UrlRedirectModal";
 import {

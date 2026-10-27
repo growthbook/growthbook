@@ -304,6 +304,11 @@ export async function decrypt(
   }
 }
 
+// Own keys only, since keys like `toString` are inherited by every object
+export function hasOwn(obj: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toString(input: any): string {
   if (typeof input === "string") return input;
@@ -321,7 +326,12 @@ export function paddedVersionString(input: any): string {
   // Remove build info and leading `v` if any
   // Split version into parts (both core version numbers and pre-release tags)
   // "v1.2.3-rc.1+build123" -> ["1","2","3","rc","1"]
-  const parts = (input as string).replace(/(^v|\+.*$)/g, "").split(/[-.]/);
+  // (build metadata starts at the first `+`; avoid a regex here, `\+.*$` is quadratic)
+  let version = input as string;
+  if (version.startsWith("v")) version = version.slice(1);
+  const buildIndex = version.indexOf("+");
+  if (buildIndex !== -1) version = version.slice(0, buildIndex);
+  const parts = version.split(/[-.]/);
 
   // If it's SemVer without a pre-release, add `~` to the end
   // ["1","0","0"] -> ["1","0","0","~"]
