@@ -76,6 +76,7 @@ const openApiTags = [
   "custom-hooks",
   "organizations",
   "members",
+  "api-keys",
   "code-references",
   "archetypes",
   "queries",
@@ -221,6 +222,11 @@ const tags: Record<OpenApiTag, { display: string; description: string }> = {
   members: {
     display: "Members",
     description: "Members are users who have been invited to an organization.",
+  },
+  "api-keys": {
+    display: "API Keys",
+    description:
+      "Secret API keys and personal access tokens. Key values are never returned.",
   },
   organizations: {
     display: "Organizations",

@@ -63,6 +63,7 @@ import { factTablesRoutes } from "./fact-tables/fact-tables.router";
 import { factMetricsRoutes } from "./fact-metrics/fact-metrics.router";
 import { bulkImportRoutes } from "./bulk-import/bulk-import.router";
 import { membersRoutes } from "./members/members.router";
+import { apiKeysRoutes } from "./api-keys/api-keys.router";
 import { openaiRoutes } from "./openai/openai.router";
 import { visualEditorAiRoutes } from "./visual-editor-ai/visualEditorAi.router";
 import { archetypesRoutes } from "./archetypes/archetypes.router";
@@ -222,6 +223,7 @@ export const allRoutes = [
   ...bulkImportRoutes,
   ...codeRefsRoutes,
   ...membersRoutes,
+  ...apiKeysRoutes,
   ...queriesRoutes,
   ...settingsRoutes,
   ...metaRoutes,

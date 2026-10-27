@@ -1,7 +1,14 @@
 import { z } from "zod";
 import { createBaseSchemaWithPrimaryKey } from "./base-model";
-import { projectMemberRole, roleRule } from "./organization";
+import {
+  DUPLICATE_PROJECT_ROLES_MESSAGE,
+  hasNoDuplicateProjects,
+  projectMemberRole,
+  roleRule,
+} from "./organization";
 import { confirmRulesValidator } from "./confirmations";
+import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
+import { namedSchema } from "./openapi-helpers";
 
 // Who an org key's requests act as: itself, or the member a request names.
 export const actAsValidator = z.enum(["system", "user"]);
@@ -152,3 +159,159 @@ export const secretApiKeyRedacted = secretApiKey.omit({
   key: true,
   previousKey: true,
 });
+
+const apiProjectRoleRule = roleRule.safeExtend({
+  project: z.string(),
+  additionalRoles: z.array(roleRule).optional(),
+});
+
+export const apiApiKeyValidator = namedSchema(
+  "ApiKey",
+  z.strictObject({
+    id: z
+      .string()
+      .describe(
+        "Empty for a key created before keys had ids. Such a key is listed but can't be fetched or changed by id.",
+      ),
+    type: z
+      .enum(["organization", "personal"])
+      .describe(
+        "`organization` for a secret API key, `personal` for a personal access token",
+      ),
+    description: z.string(),
+    userId: z
+      .string()
+      .optional()
+      .describe("Personal access tokens only. The member who owns the token."),
+    userEmail: z
+      .string()
+      .optional()
+      .describe(
+        "Personal access tokens only. Absent once the owner leaves the organization.",
+      ),
+    scoped: z
+      .boolean()
+      .optional()
+      .describe(
+        "Personal access tokens only. When true, the token is limited to its role as well as its owner's permissions.",
+      ),
+    role: z
+      .string()
+      .optional()
+      .describe("Absent for an unscoped personal access token"),
+    limitAccessByEnvironment: z.boolean(),
+    environments: z.array(z.string()),
+    additionalRoles: z.array(roleRule).optional(),
+    projectRoles: z.array(apiProjectRoleRule).optional(),
+    actAs: actAsValidator
+      .optional()
+      .describe(
+        "Organization keys only. `system`: requests act as the key. `user`: every request names a member with `X-GrowthBook-Requested-By` and acts as them, within the key's role.",
+      ),
+    disabled: z.boolean(),
+    disabledBy: z.string().optional(),
+    dateCreated: z.string().meta({ format: "date-time" }).optional(),
+    dateUpdated: z.string().meta({ format: "date-time" }).optional(),
+    lastUsed: z
+      .string()
+      .meta({ format: "date-time" })
+      .nullable()
+      .describe(
+        "Last authentication with the key, including refused requests. Null if never used.",
+      ),
+    expiresAt: z
+      .string()
+      .meta({ format: "date-time" })
+      .nullable()
+      .describe("Null if the key does not expire"),
+  }),
+);
+export type ApiApiKey = z.infer<typeof apiApiKeyValidator>;
+
+const apiKeyIdParams = z.strictObject({
+  id: z.string().describe("The id of the API key or personal access token"),
+});
+
+export const listApiKeysValidator = {
+  method: "get" as const,
+  path: "/api-keys",
+  operationId: "listApiKeys",
+  summary: "Get all API keys",
+  description:
+    "Lists the secret API keys and personal access tokens the caller can see, without their values. Organization keys need permission to view API keys. Other members' personal access tokens need permission to manage members' tokens.",
+  tags: ["api-keys"],
+  paramsSchema: z.never(),
+  bodySchema: z.never(),
+  querySchema: z.strictObject({
+    ...paginationQueryFields,
+    type: z
+      .enum(["organization", "personal"])
+      .optional()
+      .describe("Only organization keys or only personal access tokens"),
+    userId: z
+      .string()
+      .optional()
+      .describe("Only personal access tokens owned by this member"),
+  }),
+  responseSchema: z.intersection(
+    z.object({ apiKeys: z.array(apiApiKeyValidator) }),
+    apiPaginationFieldsValidator,
+  ),
+};
+
+export const getApiKeyValidator = {
+  method: "get" as const,
+  path: "/api-keys/:id",
+  operationId: "getApiKey",
+  summary: "Get a single API key",
+  description:
+    "Looks up a secret API key or personal access token by id, without its value.",
+  tags: ["api-keys"],
+  paramsSchema: apiKeyIdParams,
+  bodySchema: z.never(),
+  querySchema: z.never(),
+  responseSchema: z.strictObject({ apiKey: apiApiKeyValidator }),
+};
+
+export const putApiKeyRolesValidator = {
+  method: "put" as const,
+  path: "/api-keys/:id/roles",
+  operationId: "putApiKeyRoles",
+  summary: "Replace an API key's roles",
+  description:
+    "Replaces an organization API key's roles and environment limits with the body. The key's value, description, expiry and disabled state are left alone. Needs permission to edit and create API keys. A key can't change its own roles, and can't grant `admin`, or a role that can manage members, API keys, organization settings or Projects.",
+  tags: ["api-keys"],
+  confirmation: ["access.apiKeys"] as const,
+  confirmationInHandler: true,
+  paramsSchema: apiKeyIdParams,
+  bodySchema: z.strictObject({
+    role: z.string().min(1),
+    limitAccessByEnvironment: z.boolean(),
+    environments: z
+      .array(z.string())
+      .describe("Each id must exist, even when the limit is off"),
+    additionalRoles: z.array(roleRule).describe("`[]` for none"),
+    projectRoles: z
+      .array(apiProjectRoleRule)
+      .refine(hasNoDuplicateProjects, {
+        message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+      })
+      .describe("`[]` for none. At most one rule per Project."),
+    actAs: actAsValidator
+      .optional()
+      .describe("Leave out to keep the key's current setting"),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe("Run every check and return the result without saving it"),
+  }),
+  querySchema: z.never(),
+  responseSchema: z.strictObject({
+    apiKey: apiApiKeyValidator,
+    changed: z
+      .boolean()
+      .describe(
+        "False when the key already had these roles. With `dryRun`, whether saving would change it.",
+      ),
+  }),
+};

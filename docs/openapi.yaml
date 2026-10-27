@@ -553,6 +553,9 @@ tags:
   - name: members
     x-displayName: Members
     description: Members are users who have been invited to an organization.
+  - name: api-keys
+    x-displayName: API Keys
+    description: Secret API keys and personal access tokens. Key values are never returned.
   - name: code-references
     x-displayName: Code References
     description: >-
@@ -638,6 +641,9 @@ tags:
   - name: AnalyticsExploration_model
     x-displayName: Analytics Exploration
     description: <SchemaDefinition schemaRef="#/components/schemas/AnalyticsExploration" />
+  - name: ApiKey_model
+    x-displayName: Api Key
+    description: <SchemaDefinition schemaRef="#/components/schemas/ApiKey" />
   - name: Archetype_model
     x-displayName: Archetype
     description: <SchemaDefinition schemaRef="#/components/schemas/Archetype" />
@@ -34783,6 +34789,225 @@ paths:
           source: |-
             curl -X DELETE 'https://api.growthbook.io/api/v1/members/abc123' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys:
+    get:
+      operationId: listApiKeys
+      summary: Get all API keys
+      description: >-
+        Lists the secret API keys and personal access tokens the caller can see,
+        without their values. Organization keys need permission to view API
+        keys. Other members' personal access tokens need permission to manage
+        members' tokens.
+      tags:
+        - api-keys
+      parameters:
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+        - name: type
+          in: query
+          description: Only organization keys or only personal access tokens
+          schema:
+            description: Only organization keys or only personal access tokens
+            type: string
+            enum:
+              - organization
+              - personal
+        - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - type: object
+                    properties:
+                      apiKeys:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ApiKey'
+                    required:
+                      - apiKeys
+                    additionalProperties: false
+                  - $ref: '#/components/schemas/PaginationFields'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/api-keys' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys/{id}:
+    get:
+      operationId: getApiKey
+      summary: Get a single API key
+      description: >-
+        Looks up a secret API key or personal access token by id, without its
+        value.
+      tags:
+        - api-keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the API key or personal access token
+          schema:
+            description: The id of the API key or personal access token
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKey:
+                    $ref: '#/components/schemas/ApiKey'
+                required:
+                  - apiKey
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/api-keys/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/api-keys/{id}/roles:
+    put:
+      operationId: putApiKeyRoles
+      summary: Replace an API key's roles
+      description: >-
+        Replaces an organization API key's roles and environment limits with the
+        body. The key's value, description, expiry and disabled state are left
+        alone. Needs permission to edit and create API keys. A key can't change
+        its own roles, and can't grant `admin`, or a role that can manage
+        members, API keys, organization settings or Projects.
+      tags:
+        - api-keys
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the API key or personal access token
+          schema:
+            description: The id of the API key or personal access token
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  minLength: 1
+                limitAccessByEnvironment:
+                  type: boolean
+                environments:
+                  description: Each id must exist, even when the limit is off
+                  type: array
+                  items:
+                    type: string
+                additionalRoles:
+                  description: '`[]` for none'
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                    required:
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                    additionalProperties: false
+                projectRoles:
+                  description: '`[]` for none. At most one rule per Project.'
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      role:
+                        type: string
+                      limitAccessByEnvironment:
+                        type: boolean
+                      environments:
+                        type: array
+                        items:
+                          type: string
+                      project:
+                        type: string
+                      additionalRoles:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            limitAccessByEnvironment:
+                              type: boolean
+                            environments:
+                              type: array
+                              items:
+                                type: string
+                          required:
+                            - role
+                            - limitAccessByEnvironment
+                            - environments
+                          additionalProperties: false
+                    required:
+                      - role
+                      - limitAccessByEnvironment
+                      - environments
+                      - project
+                    additionalProperties: false
+                actAs:
+                  description: Leave out to keep the key's current setting
+                  type: string
+                  enum:
+                    - system
+                    - user
+                dryRun:
+                  description: Run every check and return the result without saving it
+                  type: boolean
+              required:
+                - role
+                - limitAccessByEnvironment
+                - environments
+                - additionalRoles
+                - projectRoles
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  apiKey:
+                    $ref: '#/components/schemas/ApiKey'
+                  changed:
+                    description: >-
+                      False when the key already had these roles. With `dryRun`,
+                      whether saving would change it.
+                    type: boolean
+                required:
+                  - apiKey
+                  - changed
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X PUT 'https://api.growthbook.io/api/v1/api-keys/{id}/roles' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/queries/{id}:
     get:
       operationId: getQuery
@@ -66129,6 +66354,13 @@ components:
       schema:
         description: Name of the global role
         type: string
+    userId:
+      name: userId
+      in: query
+      description: Only personal access tokens owned by this member
+      schema:
+        description: Only personal access tokens owned by this member
+        type: string
     wait:
       name: wait
       in: query
@@ -76154,6 +76386,146 @@ components:
         - email
         - globalRole
       additionalProperties: false
+    ApiKey:
+      type: object
+      properties:
+        id:
+          description: >-
+            Empty for a key created before keys had ids. Such a key is listed
+            but can't be fetched or changed by id.
+          type: string
+        type:
+          description: >-
+            `organization` for a secret API key, `personal` for a personal
+            access token
+          type: string
+          enum:
+            - organization
+            - personal
+        description:
+          type: string
+        userId:
+          description: Personal access tokens only. The member who owns the token.
+          type: string
+        userEmail:
+          description: >-
+            Personal access tokens only. Absent once the owner leaves the
+            organization.
+          type: string
+        scoped:
+          description: >-
+            Personal access tokens only. When true, the token is limited to its
+            role as well as its owner's permissions.
+          type: boolean
+        role:
+          description: Absent for an unscoped personal access token
+          type: string
+        limitAccessByEnvironment:
+          type: boolean
+        environments:
+          type: array
+          items:
+            type: string
+        additionalRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+            required:
+              - role
+              - limitAccessByEnvironment
+              - environments
+            additionalProperties: false
+        projectRoles:
+          type: array
+          items:
+            type: object
+            properties:
+              role:
+                type: string
+              limitAccessByEnvironment:
+                type: boolean
+              environments:
+                type: array
+                items:
+                  type: string
+              project:
+                type: string
+              additionalRoles:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    role:
+                      type: string
+                    limitAccessByEnvironment:
+                      type: boolean
+                    environments:
+                      type: array
+                      items:
+                        type: string
+                  required:
+                    - role
+                    - limitAccessByEnvironment
+                    - environments
+                  additionalProperties: false
+            required:
+              - role
+              - limitAccessByEnvironment
+              - environments
+              - project
+            additionalProperties: false
+        actAs:
+          description: >-
+            Organization keys only. `system`: requests act as the key. `user`:
+            every request names a member with `X-GrowthBook-Requested-By` and
+            acts as them, within the key's role.
+          type: string
+          enum:
+            - system
+            - user
+        disabled:
+          type: boolean
+        disabledBy:
+          type: string
+        dateCreated:
+          format: date-time
+          type: string
+        dateUpdated:
+          format: date-time
+          type: string
+        lastUsed:
+          description: >-
+            Last authentication with the key, including refused requests. Null
+            if never used.
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+        expiresAt:
+          description: Null if the key does not expire
+          anyOf:
+            - format: date-time
+              type: string
+            - type: 'null'
+      required:
+        - id
+        - type
+        - description
+        - limitAccessByEnvironment
+        - environments
+        - disabled
+        - lastUsed
+        - expiresAt
+      additionalProperties: false
     Query:
       type: object
       properties:
@@ -76616,6 +76988,7 @@ components:
                   - settings.other
                   - access.members
                   - access.teams
+                  - access.apiKeys
                   - customHook.create
                   - customHook.edit
                   - customHook.delete
@@ -85655,6 +86028,7 @@ components:
                       - settings.other
                       - access.members
                       - access.teams
+                      - access.apiKeys
                       - customHook.create
                       - customHook.edit
                       - customHook.delete
@@ -89071,6 +89445,7 @@ x-tagGroups:
       - custom-hooks
       - organizations
       - members
+      - api-keys
       - code-references
       - archetypes
       - queries
@@ -89096,6 +89471,7 @@ x-tagGroups:
     tags:
       - AggregatedFactTable_model
       - AnalyticsExploration_model
+      - ApiKey_model
       - Archetype_model
       - Attribute_model
       - AutoRun_model

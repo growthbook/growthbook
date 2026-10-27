@@ -58,6 +58,7 @@ export const CONFIRM_ACTIONS = [
   "settings.other",
   "access.members",
   "access.teams",
+  "access.apiKeys",
   "customHook.create",
   "customHook.edit",
   "customHook.delete",

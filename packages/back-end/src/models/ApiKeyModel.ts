@@ -628,6 +628,7 @@ export class ApiKeyModel extends BaseClass {
       expiresAt?: Date | null;
       confirmRules?: ConfirmRule[] | null;
     },
+    { dryRun = false }: { dryRun?: boolean } = {},
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
@@ -651,7 +652,7 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       // Mirrors creation: no scopedRole means the token inherits its user's permissions.
-      const after = await this._updateOne(
+      return await this.saveSecretApiKeyPermissions(
         doc,
         {
           description,
@@ -664,9 +665,8 @@ export class ApiKeyModel extends BaseClass {
           ...(expiresAt !== undefined && { expiresAt }),
           ...(confirmRules !== undefined && { confirmRules }),
         },
-        { forceCanUpdate: true },
+        dryRun,
       );
-      return { before: doc, after };
     }
 
     if (!this.context.permissions.canUpdateApiKey()) {
@@ -708,15 +708,29 @@ export class ApiKeyModel extends BaseClass {
     // The stored `key` string is left untouched so already-issued tokens keep
     // working. Its `secret_<role>_` prefix is purely cosmetic and is
     // intentionally left stale after a role change rather than reissuing.
-    const after = await this._updateOne(
+    return await this.saveSecretApiKeyPermissions(
       doc,
       {
         ...authority,
         description,
         ...(expiresAt !== undefined && { expiresAt }),
       },
-      { forceCanUpdate: true },
+      dryRun,
     );
+  }
+
+  // A dry run runs the same checks as a save, and writes nothing.
+  private async saveSecretApiKeyPermissions(
+    doc: ApiKeyInterface,
+    updates: Parameters<ApiKeyModel["_updateOne"]>[1],
+    dryRun: boolean,
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+    if (dryRun) {
+      const after = { ...doc, ...updates };
+      await this.customValidation(after, doc);
+      return { before: doc, after };
+    }
+    const after = await this._updateOne(doc, updates, { forceCanUpdate: true });
     return { before: doc, after };
   }
 
@@ -1010,6 +1024,25 @@ export class ApiKeyModel extends BaseClass {
     // `userId: null`, which `$exists: true` would match.
     return await this._find({
       userId: { $ne: null },
+      oauthClientId: { $exists: false },
+    });
+  }
+
+  // Secret keys and PATs the caller can read. Legacy SDK keys and OAuth access
+  // tokens aren't credentials a person manages.
+  public async getSecretApiKeys(): Promise<ApiKeyInterface[]> {
+    return await this._find({
+      secret: true,
+      oauthClientId: { $exists: false },
+    });
+  }
+
+  public async getSecretApiKeyById(
+    id: string,
+  ): Promise<ApiKeyInterface | null> {
+    return await this._findOne({
+      id,
+      secret: true,
       oauthClientId: { $exists: false },
     });
   }
