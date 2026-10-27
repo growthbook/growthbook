@@ -100,6 +100,13 @@ export default function Code({
 
   const enoughLines = code.split("\n").length > (collapsedLines ?? 8);
 
+  // Line numbers are (digits + 0.25)em wide with 1em of right padding
+  const lastLineNumber =
+    (startingLineNumber ?? 1) + code.split("\n").length - 1;
+  const wrapIndentEm = showLineNumbers
+    ? String(lastLineNumber).length + 1.25
+    : 0;
+
   const style = useMemo(() => {
     const style = cloneDeep(getCodeTheme(theme));
 
@@ -233,7 +240,25 @@ export default function Code({
             className={clsx("rounded-bottom", className)}
             showLineNumbers={showLineNumbers}
             startingLineNumber={startingLineNumber ?? 1}
-            {...(wrapLongLines ? { wrapLines: true, wrapLongLines: true } : {})}
+            {...(wrapLongLines
+              ? {
+                  // The library's own wrapLongLines makes each line a flex
+                  // container when line numbers show, which collapses the
+                  // spaces between tokens. Wrap each line as a block with a
+                  // hanging indent past its line number instead.
+                  wrapLines: true,
+                  lineProps: (): React.HTMLProps<HTMLElement> => ({
+                    style: {
+                      display: "block",
+                      whiteSpace: "pre-wrap",
+                      overflowWrap: "anywhere",
+                      paddingLeft: `${wrapIndentEm}em`,
+                      textIndent: `-${wrapIndentEm}em`,
+                    },
+                  }),
+                  lineNumberStyle: { textIndent: 0 },
+                }
+              : {})}
             {...(errorLine
               ? {
                   wrapLines: true,
