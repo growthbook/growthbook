@@ -13,15 +13,24 @@ export function SettingsPageHeader({
   actions,
   as = "h1",
   mb = "4",
+  className,
 }: {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
   as?: "h1" | "h2";
   mb?: "0" | "4";
+  className?: string;
 }) {
   return (
-    <Flex justify="between" align="start" gap="4" wrap="wrap" mb={mb}>
+    <Flex
+      justify="between"
+      align="start"
+      gap="4"
+      wrap="wrap"
+      mb={mb}
+      className={className}
+    >
       <Box>
         <Heading
           as={as}
@@ -52,6 +61,7 @@ export default function SettingsPage({
   parent,
   breadcrumb,
   hideHeader,
+  headerClassName,
   contentClassName,
   children,
 }: {
@@ -61,6 +71,7 @@ export default function SettingsPage({
   parent?: BreadcrumbItem;
   breadcrumb?: BreadcrumbItem[];
   hideHeader?: boolean;
+  headerClassName?: string;
   contentClassName?: string;
   children: ReactNode;
 }) {
@@ -82,6 +93,7 @@ export default function SettingsPage({
             title={title}
             description={description}
             actions={actions}
+            className={headerClassName}
           />
         )}
         <Box className={contentClassName} pb="5">

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { useFormContext } from "react-hook-form";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
@@ -60,13 +60,21 @@ function Instructions({
   examples: string[];
 }) {
   const [open, setOpen] = useState(false);
+  const textRef = useRef<HTMLSpanElement>(null);
+  const [clamped, setClamped] = useState(false);
+  useLayoutEffect(() => {
+    const el = textRef.current;
+    if (el) setClamped(el.scrollHeight > el.clientHeight + 1);
+  }, [text]);
+  const hasMore = clamped || examples.length > 0;
   return (
-    <Flex direction="column" gap="2" mt="2" style={{ paddingLeft: 24 }}>
+    <Flex direction="column" gap="2" mt="2" pl="5">
       <Text weight="semibold" color="text-mid">
         Instructions sent to the AI Assistant
       </Text>
       <Text color="text-mid">
         <span
+          ref={textRef}
           style={
             open
               ? undefined
@@ -93,14 +101,16 @@ function Instructions({
           </Flex>
         </Flex>
       )}
-      <Box>
-        <Link onClick={() => setOpen(!open)}>
-          <Flex as="span" align="center" gap="1">
-            {open ? "Show less" : "Show more"}
-            {open ? <PiCaretUp /> : <PiCaretDown />}
-          </Flex>
-        </Link>
-      </Box>
+      {(open || hasMore) && (
+        <Box>
+          <Link aria-expanded={open} onClick={() => setOpen(!open)}>
+            <Flex as="span" align="center" gap="1">
+              {open ? "Show less" : "Show more"}
+              {open ? <PiCaretUp /> : <PiCaretDown />}
+            </Flex>
+          </Link>
+        </Box>
+      )}
     </Flex>
   );
 }

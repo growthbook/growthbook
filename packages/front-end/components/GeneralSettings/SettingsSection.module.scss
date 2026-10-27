@@ -77,5 +77,17 @@
 
 .generalContent {
   max-width: 920px;
-  padding-top: 16px;
+  padding-top: var(--space-4);
+}
+
+// The Settings nav title stands in for it from 1400px; screen readers still get the h1.
+@media (min-width: 1400px) {
+  .wideHidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
