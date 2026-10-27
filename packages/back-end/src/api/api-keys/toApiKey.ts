@@ -3,6 +3,16 @@ import { ApiApiKey } from "shared/validators";
 import { getUsersByIds } from "back-end/src/models/UserModel";
 import { ApiReqContext } from "back-end/types/api";
 
+// A 403 rather than an empty list, so a caller can tell "no keys" from "no
+// permission". Other members' PATs stay hidden by the model's canRead.
+export function assertCanViewApiKeys(context: ApiReqContext) {
+  if (!context.permissions.canViewApiKeys()) {
+    context.permissions.throwPermissionError(
+      "You do not have permission to read API keys. This needs permission to view API keys.",
+    );
+  }
+}
+
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
 // Never includes the key's value or encryption key.

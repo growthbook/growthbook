@@ -3,11 +3,12 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { toApiKeys } from "./toApiKey";
+import { assertCanViewApiKeys, toApiKeys } from "./toApiKey";
 
 export const listApiKeys = createApiRequestHandler(listApiKeysValidator)(async (
   req,
 ) => {
+  assertCanViewApiKeys(req.context);
   const { type, userId } = req.query;
   const keys = (await req.context.models.apiKeys.getSecretApiKeys())
     .filter(

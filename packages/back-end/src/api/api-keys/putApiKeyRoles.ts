@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import { putApiKeyRolesValidator } from "shared/validators";
 import { apiKeyRolesRefusal, changesApiKeyAuthority } from "shared/permissions";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -43,7 +44,16 @@ export const putApiKeyRoles = createApiRequestHandler(putApiKeyRolesValidator)(
     if (refusal) throw new BadRequestError(refusal);
 
     const updates = { ...roles, ...(actAs !== undefined && { actAs }) };
-    if (!changesApiKeyAuthority(key, { ...key, ...updates })) {
+    // The body is the key's whole role set, so its environment list is synced
+    // even while the limit is off, when it grants nothing.
+    const sameEnvironments = isEqual(
+      [...key.environments].sort(),
+      [...roles.environments].sort(),
+    );
+    if (
+      sameEnvironments &&
+      !changesApiKeyAuthority(key, { ...key, ...updates })
+    ) {
       const [apiKey] = await toApiKeys(context, [key]);
       return { apiKey, changed: false };
     }

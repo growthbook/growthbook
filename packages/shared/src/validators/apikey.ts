@@ -238,7 +238,7 @@ export const listApiKeysValidator = {
   operationId: "listApiKeys",
   summary: "Get all API keys",
   description:
-    "Lists the secret API keys and personal access tokens the caller can see, without their values. Organization keys need permission to view API keys. Other members' personal access tokens need permission to manage members' tokens.",
+    "Lists the secret API keys and personal access tokens the caller can see, without their values. Needs permission to view API keys. Other members' personal access tokens are only listed with permission to manage members' tokens.",
   tags: ["api-keys"],
   paramsSchema: z.never(),
   bodySchema: z.never(),
@@ -265,7 +265,7 @@ export const getApiKeyValidator = {
   operationId: "getApiKey",
   summary: "Get a single API key",
   description:
-    "Looks up a secret API key or personal access token by id, without its value.",
+    "Looks up a secret API key or personal access token by id, without its value. Needs permission to view API keys. Another member's personal access token is a 404 without permission to manage members' tokens.",
   tags: ["api-keys"],
   paramsSchema: apiKeyIdParams,
   bodySchema: z.never(),
@@ -279,7 +279,7 @@ export const putApiKeyRolesValidator = {
   operationId: "putApiKeyRoles",
   summary: "Replace an API key's roles",
   description:
-    "Replaces an organization API key's roles and environment limits with the body. The key's value, description, expiry and disabled state are left alone. Needs permission to edit and create API keys. A key can't change its own roles, and can't grant `admin`, or a role that can manage members, API keys, organization settings or Projects.",
+    "Replaces an organization API key's roles and environment limits with the body. The key's value, description, expiry and disabled state are left alone. Needs permission to edit and create API keys. A key can't change its own roles, and can't grant `admin`, or a role that can manage members, API keys, organization settings or Projects. These refusals are checked before comparing with the key, so a body naming one is refused even when the key already has it (for example, an existing admin key).",
   tags: ["api-keys"],
   confirmation: ["access.apiKeys"] as const,
   confirmationInHandler: true,

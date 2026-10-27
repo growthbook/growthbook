@@ -1,11 +1,12 @@
 import { getApiKeyValidator } from "shared/validators";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
-import { toApiKeys } from "./toApiKey";
+import { assertCanViewApiKeys, toApiKeys } from "./toApiKey";
 
 export const getApiKey = createApiRequestHandler(getApiKeyValidator)(async (
   req,
 ) => {
+  assertCanViewApiKeys(req.context);
   const key = await req.context.models.apiKeys.getSecretApiKeyById(
     req.params.id,
   );
