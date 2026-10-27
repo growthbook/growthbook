@@ -211,6 +211,120 @@ describe("assertIncrementalRefreshPrerequisites experimentSettingsHash", () => {
   });
 });
 
+describe("assertIncrementalRefreshPrerequisites analysis end date cutoff", () => {
+  const metric = factMetricFactory.build({ id: "m1" });
+  const metricMap = new Map([[metric.id, metric]]);
+  const org = { id: "org_123" } as OrganizationInterface;
+  const experiment = {
+    id: "exp_123",
+    activationMetric: undefined,
+  } as ExperimentInterface;
+  const integration = makeIntegration();
+  const cutoff = new Date("2024-06-01T12:00:00Z");
+  const before = new Date("2024-06-01T11:00:00Z");
+  const after = new Date("2024-06-01T13:00:00Z");
+
+  beforeEach(() => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+  });
+
+  const check = ({
+    endDateIsCutoff,
+    unitsMaxTimestamp,
+    metricMaxTimestamp,
+    analysisType,
+  }: {
+    endDateIsCutoff: boolean;
+    unitsMaxTimestamp: Date;
+    metricMaxTimestamp: Date;
+    analysisType: "main-update" | "main-fullRefresh";
+  }) => {
+    const snapshotSettings = makeSnapshotSettings({
+      endDate: cutoff,
+      ...(endDateIsCutoff ? { endDateIsCutoff: true } : {}),
+    });
+    return assertIncrementalRefreshPrerequisites({
+      org,
+      integration,
+      snapshotSettings,
+      metricMap,
+      experiment,
+      incrementalRefreshModel: makeIncrementalRefreshModel({
+        experimentSettingsHash: getExperimentSettingsHashForIncrementalRefresh(
+          snapshotSettings,
+          [],
+        ),
+        unitsMaxTimestamp,
+        metricSources: [
+          {
+            ...makeMetricSource("g1", "ftb_1", []),
+            maxTimestamp: metricMaxTimestamp,
+          },
+        ],
+      }),
+      analysisType,
+    });
+  };
+
+  it.each([
+    {
+      tables: "a metric source",
+      unitsMaxTimestamp: before,
+      metricMaxTimestamp: after,
+    },
+    {
+      tables: "the units table",
+      unitsMaxTimestamp: after,
+      metricMaxTimestamp: before,
+    },
+  ])(
+    "requires a full refresh when $tables holds rows past the cutoff",
+    async ({ unitsMaxTimestamp, metricMaxTimestamp }) => {
+      await expect(
+        check({
+          endDateIsCutoff: true,
+          unitsMaxTimestamp,
+          metricMaxTimestamp,
+          analysisType: "main-update",
+        }),
+      ).rejects.toThrow(ExperimentIncrementalPipelineRequiresFullRefreshError);
+    },
+  );
+
+  it("updates incrementally when the tables end at or before the cutoff", async () => {
+    await expect(
+      check({
+        endDateIsCutoff: true,
+        unitsMaxTimestamp: cutoff,
+        metricMaxTimestamp: before,
+        analysisType: "main-update",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("ignores rows past an end date that isn't a cutoff", async () => {
+    await expect(
+      check({
+        endDateIsCutoff: false,
+        unitsMaxTimestamp: after,
+        metricMaxTimestamp: after,
+        analysisType: "main-update",
+      }),
+    ).resolves.toBeUndefined();
+  });
+
+  it("allows the full refresh that rebuilds the tables through the cutoff", async () => {
+    await expect(
+      check({
+        endDateIsCutoff: true,
+        unitsMaxTimestamp: after,
+        metricMaxTimestamp: after,
+        analysisType: "main-fullRefresh",
+      }),
+    ).resolves.toBeUndefined();
+  });
+});
+
 type ExistingMetricSource =
   IncrementalRefreshInterface["metricSources"][number];
 

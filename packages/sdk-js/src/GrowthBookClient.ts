@@ -21,11 +21,13 @@ import type {
   LogUnion,
   Plugin,
   RefreshFeaturesOptions,
+  ReducePayloadOptions,
   Result,
   TrackingCallback,
   TrackingCallbackWithUser,
   UserContext,
   WidenPrimitives,
+  SavedGroupResolver,
 } from "./types/growthbook";
 import { loadSDKVersion } from "./util";
 import {
@@ -41,9 +43,15 @@ import {
   getAllStickyBucketAssignmentDocs,
   getApiHosts,
   getTrackingUserContext,
+  reducePayload,
   runExperiment,
 } from "./core";
 import { StickyBucketService } from "./sticky-bucket-service";
+import {
+  getRemoteSavedGroups,
+  isMissingRemoteGroupIds,
+  resolveRemoteGroupIds,
+} from "./remoteSavedGroups";
 
 const SDK_VERSION = loadSDKVersion();
 
@@ -189,6 +197,16 @@ export class GrowthBookClient<
   public getDecryptedPayload(): FeatureApiResponse {
     return this._decryptedPayload || this.getPayload();
   }
+  public reducePayload(options?: ReducePayloadOptions): FeatureApiResponse {
+    options = options || {};
+    return {
+      ...this.getDecryptedPayload(),
+      ...reducePayload(
+        this._getEvalContext(options.userContext || {}),
+        options,
+      ),
+    };
+  }
 
   private async _refresh({
     timeout,
@@ -274,6 +292,57 @@ export class GrowthBookClient<
     return result;
   }
 
+  /**
+   * A copy of `userContext` with the user's remote saved groups from
+   * `resolver`, or `userContext` unchanged if the resolver fails.
+   * Requires a Saved Group References v2 payload for group metadata. With
+   * inline/v1 payloads, resolve membership in the app and set `remoteGroupIds`
+   * directly instead of calling this helper.
+   */
+  public async addRemoteSavedGroups(
+    userContext: UserContext,
+    resolver: SavedGroupResolver,
+  ): Promise<UserContext> {
+    // No remote entries doesn't mean no remote rules: payloads for SDKs
+    // without remote support check __gb_remoteGroupIds directly. Leaving it
+    // unset makes those rules fail closed; [] would let every "not in group"
+    // rule match.
+    if (!getRemoteSavedGroups(this._options.savedGroups).length) {
+      return userContext;
+    }
+    const attributes = {
+      ...this._options.globalAttributes,
+      ...userContext.attributes,
+      ...userContext.attributeOverrides,
+    };
+    try {
+      let savedGroups = this._options.savedGroups;
+      let remoteGroupIds = await resolveRemoteGroupIds(
+        attributes,
+        savedGroups,
+        resolver,
+      );
+      // A refresh during the lookup can add groups the result doesn't cover,
+      // and a missing group would pass "not in group" rules. Look up once
+      // more for the new payload.
+      if (this._options.savedGroups !== savedGroups) {
+        savedGroups = this._options.savedGroups;
+        if (!getRemoteSavedGroups(savedGroups).length) return userContext;
+        remoteGroupIds = await resolveRemoteGroupIds(
+          attributes,
+          savedGroups,
+          resolver,
+        );
+      }
+      return { ...userContext, remoteGroupIds };
+    } catch (error) {
+      this.log("Could not resolve remote saved groups", { error });
+      return userContext;
+    }
+  }
+
+  private _warnedMissingRemoteGroupIds = false;
+
   private _getEvalContext(userContext: UserContext): EvalContext {
     if (this._options.globalAttributes) {
       userContext = {
@@ -283,6 +352,16 @@ export class GrowthBookClient<
           ...userContext.attributes,
         },
       };
+    }
+    if (
+      !this._warnedMissingRemoteGroupIds &&
+      isMissingRemoteGroupIds(userContext, this._options.savedGroups)
+    ) {
+      this._warnedMissingRemoteGroupIds = true;
+      this.log(
+        "The payload has remote saved groups, but the user has no remote group IDs. Rules using them won't match. See addRemoteSavedGroups.",
+        {},
+      );
     }
 
     return {
@@ -510,6 +589,12 @@ export class UserScopedGrowthBook<
   }
   public getDecryptedPayload() {
     return this._gb.getDecryptedPayload();
+  }
+  public reducePayload(options?: Omit<ReducePayloadOptions, "userContext">) {
+    return this._gb.reducePayload({
+      ...options,
+      userContext: this._userContext,
+    });
   }
   public inDevMode(): boolean {
     return !!this._userContext.enableDevMode;

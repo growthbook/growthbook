@@ -1,8 +1,10 @@
 import {
+  AutoExperiment,
   Experiment,
   FeatureApiResponse,
   FeatureRule,
   LocalStorageStickyBucketService,
+  SavedGroupsPayload,
   UserContext,
 } from "../src";
 import { GrowthBookClient } from "../src/GrowthBookClient";
@@ -476,6 +478,187 @@ describe("GrowthBookClient", () => {
       ).toEqual(false);
 
       gb.destroy();
+    });
+  });
+
+  describe("reducePayload", () => {
+    it("Keeps experiments that no longer match, for sticky buckets", () => {
+      const user: UserContext = {
+        attributes: { id: "u", country: "US" },
+        saveStickyBucketAssignmentDoc: async () => {},
+        stickyBucketAssignmentDocs: {
+          "id||u": {
+            attributeName: "id",
+            attributeValue: "u",
+            assignments: { exp__0: "b" },
+          },
+        },
+      };
+      const rule = {
+        key: "exp",
+        variations: ["A", "B"],
+        meta: [{ key: "a" }, { key: "b" }],
+        condition: { country: "CA" },
+      };
+      const full = new GrowthBookClient().initSync({
+        payload: {
+          features: { f: { defaultValue: "default", rules: [rule] } },
+        },
+      });
+      const reduced = new GrowthBookClient().initSync({
+        payload: full.reducePayload({ userContext: user }),
+      });
+      expect(full.evalFeature("f", user).value).toEqual("B");
+      expect(reduced.evalFeature("f", user).value).toEqual("B");
+      full.destroy();
+      reduced.destroy();
+    });
+
+    it("Keeps an auto experiment's forced variation for sticky bucketed users", () => {
+      const user: UserContext = {
+        attributes: { id: "u", country: "CA" },
+        saveStickyBucketAssignmentDoc: async () => {},
+        stickyBucketAssignmentDocs: {
+          "id||u": {
+            attributeName: "id",
+            attributeValue: "u",
+            assignments: { exp__0: "a" },
+          },
+        },
+      };
+      const experiment: AutoExperiment = {
+        key: "exp",
+        changeId: "c",
+        variations: [{}, {}],
+        meta: [{ key: "a" }, { key: "b" }],
+        hashAttribute: "id",
+        condition: { country: "US" },
+        force: 1,
+      };
+      const full = new GrowthBookClient().initSync({
+        payload: { features: {}, experiments: [experiment] },
+      });
+      const payload = full.reducePayload({ userContext: user });
+      const [reduced] = payload.experiments || [];
+      expect(reduced.force).toEqual(1);
+
+      // The sticky bucket skips the condition, so the forced variation applies
+      const gb = full.createScopedInstance(user);
+      expect(gb.runInlineExperiment(experiment).variationId).toEqual(1);
+      expect(gb.runInlineExperiment(reduced).variationId).toEqual(1);
+      full.destroy();
+    });
+
+    it("Leaves out contextualBandits when the payload has none", () => {
+      const gb = new GrowthBookClient().initSync({
+        payload: { features: { f: { defaultValue: true } } },
+      });
+      expect(
+        "contextualBandits" in gb.reducePayload({ userContext: {} }),
+      ).toEqual(false);
+      gb.destroy();
+    });
+
+    it("Reduces payloads with the saved groups and bandits it evaluates with", () => {
+      // Passed as options, not in the payload
+      const savedGroups = {
+        grp: { type: "list" as const, attributeKey: "id", values: ["123"] },
+      };
+      const contextualBandits = {
+        cb: { contexts: [{ leafId: 1, condition: {}, weights: [0, 1] }] },
+      };
+      const bandit = {
+        key: "exp",
+        variations: ["a", "b"],
+        contextualBanditRef: "cb",
+      };
+      const gb = new GrowthBookClient({
+        savedGroups,
+        contextualBandits,
+      }).initSync({
+        payload: {
+          features: {
+            feature: {
+              defaultValue: "off",
+              rules: [
+                { condition: { $savedGroup: { id: "grp" } }, force: "on" },
+                bandit,
+              ],
+            },
+          },
+        },
+      });
+
+      const payload = gb.reducePayload({
+        userContext: { attributes: { id: "123" } },
+      });
+      expect(payload.features?.feature.rules).toEqual([
+        { force: "on" },
+        bandit,
+      ]);
+      expect(payload.contextualBandits).toEqual(contextualBandits);
+
+      gb.destroy();
+    });
+
+    it("Reduces many condition groups that share a large list", () => {
+      // The list also names c0, but a list's values never reference groups, so
+      // c0 is reduced like the others
+      const values = ["c0", ...Array.from({ length: 5000 }, (_, i) => `u${i}`)];
+      const savedGroups: SavedGroupsPayload = {
+        big: { type: "list", attributeKey: "id", values },
+        a: {
+          type: "condition",
+          condition: { $or: [{ $savedGroup: { id: "b" } }, { x: true }] },
+        },
+        b: {
+          type: "condition",
+          condition: { $not: { $savedGroup: { id: "a" } } },
+        },
+      };
+      const rules: FeatureRule[] = [
+        { condition: { $savedGroup: { id: "b" } }, force: "cycle" },
+      ];
+      for (let i = 0; i < 300; i++) {
+        savedGroups[`c${i}`] = {
+          type: "condition",
+          condition: { country: "US", $savedGroup: { id: "big" } },
+        };
+        rules.push({ condition: { $savedGroup: { id: `c${i}` } }, force: i });
+      }
+      const full = new GrowthBookClient().initSync({
+        payload: {
+          features: { f: { defaultValue: "off", rules } },
+          savedGroups,
+        },
+      });
+      const payload = full.reducePayload({
+        userContext: { attributes: { country: "US" } },
+      });
+
+      const reducedGroups = payload.savedGroups || {};
+      expect(reducedGroups.big).toEqual(savedGroups.big);
+      expect(reducedGroups.a).toEqual(savedGroups.a);
+      expect(reducedGroups.b).toEqual(savedGroups.b);
+      for (let i = 0; i < 300; i++) {
+        expect(reducedGroups[`c${i}`]).toEqual({
+          type: "condition",
+          condition: { $savedGroup: { id: "big" } },
+        });
+      }
+
+      const reduced = new GrowthBookClient().initSync({ payload });
+      for (const attributes of [
+        { country: "US", id: "u42", x: false },
+        { country: "US", id: "nobody", x: true },
+        { country: "US", id: "nobody", x: false },
+      ]) {
+        expect(reduced.evalFeature("f", { attributes }).value).toEqual(
+          full.evalFeature("f", { attributes }).value,
+        );
+      }
+      full.destroy();
+      reduced.destroy();
     });
   });
 });

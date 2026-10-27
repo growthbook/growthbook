@@ -66,6 +66,7 @@ export type CommercialFeature =
   | "decision-framework"
   | "unlimited-cdn-usage"
   | "unlimited-managed-warehouse-usage"
+  | "unlimited-event-forwarder-usage"
   | "safe-rollout"
   | "require-project-for-features-setting"
   | "require-project-for-sdk-connections-setting"
@@ -243,6 +244,7 @@ const commercialFeaturesPro: CommercialFeature[] = [
   "safe-rollout",
   "ramp-schedules",
   "unlimited-managed-warehouse-usage",
+  "unlimited-event-forwarder-usage",
   "saveSqlExplorerQueries",
   "precomputed-dimensions",
   "product-analytics-dashboards",
@@ -307,7 +309,8 @@ const commercialFeaturesEnterprise: CommercialFeature[] = [
 
 export const accountFeatures: CommercialFeaturesMap = {
   oss: new Set<CommercialFeature>([]),
-  starter: new Set<CommercialFeature>([]),
+  // Metered on cloud (license-server STARTER_USAGE_LIMITS)
+  starter: new Set<CommercialFeature>(["events-forwarder"]),
   pro: new Set<CommercialFeature>(commercialFeaturesPro),
   pro_sso: new Set<CommercialFeature>(commercialFeaturesProSso),
   enterprise: new Set<CommercialFeature>(commercialFeaturesEnterprise),
