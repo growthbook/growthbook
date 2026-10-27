@@ -21,6 +21,11 @@ import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancell
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
+import {
+  getCancelledRunQueryStatuses,
+  isIncrementalRefreshRun,
+  releaseInterruptedRefresh,
+} from "back-end/src/jobs/interruptedRefresh";
 
 export const SNAPSHOT_CANCELLED_ERROR = "Update cancelled by user";
 
@@ -178,11 +183,21 @@ export async function cancelExperimentSnapshot(
     }
   }
 
-  await context.models.incrementalRefresh
-    .releaseLock(snapshot.experiment, snapshot.id)
-    .catch((e) =>
-      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
+  if (isIncrementalRefreshRun(snapshot)) {
+    // The fence above stops the run, so drop the cache state it may have
+    // appended to as the lock is released.
+    await releaseInterruptedRefresh(
+      context,
+      snapshot,
+      getCancelledRunQueryStatuses(before, after),
     );
+  } else {
+    await context.models.incrementalRefresh
+      .releaseLock(snapshot.experiment, snapshot.id)
+      .catch((e) =>
+        logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
+      );
+  }
 
   const afterStatusById = new Map(after.map((doc) => [doc.id, doc.status]));
   const cancelledQueryIds = pendingIds.filter(

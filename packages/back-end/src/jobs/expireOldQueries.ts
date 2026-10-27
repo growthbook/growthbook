@@ -47,6 +47,7 @@ import {
   INTERRUPTED_REFRESH_ERROR,
   isIncrementalRefreshRun,
   releaseInterruptedRefresh,
+  releaseLockWithoutCleanup,
   stopTimedOutRefresh,
 } from "back-end/src/jobs/interruptedRefresh";
 import { ApiReqContext } from "back-end/types/api";
@@ -122,6 +123,7 @@ const expireOldQueries = async () => {
           `Failed to stop timed-out incremental refresh ${snapshot.id}`,
         );
         error = INTERRUPTED_REFRESH_ERROR;
+        await releaseLockWithoutCleanup(context, snapshot);
       }
     }
 
@@ -137,7 +139,7 @@ const expireOldQueries = async () => {
       conclusion: { concludedBy: "reaper", reason: "stale-queries" },
     });
 
-    // Incremental refreshes released their lock above.
+    // Incremental refreshes released their lock above, with or without cleanup.
     if (!isIncrementalRefreshRun(snapshot)) {
       await releaseStalledSnapshotLock(context, snapshot);
     }

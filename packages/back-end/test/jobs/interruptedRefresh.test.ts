@@ -1,6 +1,7 @@
 import type { QueryStatus } from "shared/types/query";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
+  getCancelledRunQueryStatuses,
   InterruptedRunQuery,
   isIncrementalRefreshRun,
   NOT_RUN_QUERY_ERROR,
@@ -287,9 +288,12 @@ describe("isIncrementalRefreshRun", () => {
 
 describe("releasing an interrupted refresh", () => {
   const releaseLockAfterInterruptedRun = jest.fn();
+  const releaseLock = jest.fn();
   const context = {
     org: { id: "org_1" },
-    models: { incrementalRefresh: { releaseLockAfterInterruptedRun } },
+    models: {
+      incrementalRefresh: { releaseLockAfterInterruptedRun, releaseLock },
+    },
   } as unknown as ApiReqContext;
 
   function snapshot(
@@ -319,6 +323,7 @@ describe("releasing an interrupted refresh", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
+    releaseLock.mockResolvedValue(undefined);
   });
 
   describe("releaseInterruptedRefresh", () => {
@@ -419,6 +424,100 @@ describe("releasing an interrupted refresh", () => {
           ),
         ),
       ).resolves.toBe(true);
+      expect(releaseLock).toHaveBeenCalledWith("exp_1", SNAPSHOT_ID);
+    });
+
+    it("still resolves when the fallback release fails too", async () => {
+      releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+      releaseLock.mockRejectedValue(new Error("still down"));
+      await expect(
+        releaseInterruptedRefresh(context, snapshot(), statusMap({}, "queued")),
+      ).resolves.toBe(false);
+    });
+
+    it("does not fall back to a plain release when the cleanup write succeeds", async () => {
+      await releaseInterruptedRefresh(
+        context,
+        snapshot(),
+        statusMap({}, "succeeded"),
+      );
+      expect(releaseLock).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("cancelled runs", () => {
+    it("plans from the statuses before the cancel fenced pending queries", async () => {
+      const ids = (statuses: Statuses, defaultStatus: QueryStatus) =>
+        [...statusMap(statuses, defaultStatus)].map(([id, status]) => ({
+          id,
+          status,
+        }));
+      // Cancelled after the insert succeeded but before its timestamp query ran.
+      const before = ids(
+        {
+          max_timestamp_metrics_source_ft1_abc0: "queued",
+          statistics_ft1_abc0: "queued",
+          traffic: "running",
+        },
+        "succeeded",
+      );
+      const after = ids(
+        {
+          max_timestamp_metrics_source_ft1_abc0: "failed",
+          statistics_ft1_abc0: "failed",
+          traffic: "failed",
+        },
+        "succeeded",
+      );
+
+      await releaseInterruptedRefresh(
+        context,
+        snapshot(),
+        getCancelledRunQueryStatuses(before, after),
+      );
+
+      expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
+        "exp_1",
+        SNAPSHOT_ID,
+        { metricGroupIdsToRebuild: ["ft1_abc0"], forceFullRefresh: false },
+      );
+    });
+
+    it("needs nothing when the cancel came before any insert started", async () => {
+      const before = [
+        { id: "qry_insert_metrics_source_data_ft1_abc0", status: "queued" },
+        { id: "qry_update_snp_1", status: "running" },
+      ] as const;
+      const after = [
+        { id: "qry_insert_metrics_source_data_ft1_abc0", status: "failed" },
+        { id: "qry_update_snp_1", status: "failed" },
+      ] as const;
+
+      const statuses = getCancelledRunQueryStatuses([...before], [...after]);
+
+      expect(statuses).toEqual(
+        new Map([
+          ["qry_insert_metrics_source_data_ft1_abc0", "queued"],
+          ["qry_update_snp_1", "failed"],
+        ]),
+      );
+    });
+
+    it("leaves out queries the second read could not find", () => {
+      expect(
+        getCancelledRunQueryStatuses([{ id: "q1", status: "queued" }], []).has(
+          "q1",
+        ),
+      ).toBe(false);
+    });
+
+    it("keeps statuses that finished on their own", () => {
+      expect(
+        getCancelledRunQueryStatuses(
+          [{ id: "q1", status: "running" }],
+          [{ id: "q1", status: "succeeded" }],
+        ),
+      ).toEqual(new Map([["q1", "succeeded"]]));
     });
   });
 
@@ -442,7 +541,7 @@ describe("releasing an interrupted refresh", () => {
         "succeeded",
       );
       (failQueuedQueries as jest.Mock).mockImplementation(
-        async (_ctx, ids: string[]) => ids,
+        async (ctx: unknown, ids: string[]) => ids,
       );
 
       const result = await stopTimedOutRefresh(context, snapshot());

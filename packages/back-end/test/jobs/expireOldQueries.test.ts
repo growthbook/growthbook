@@ -965,6 +965,34 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       );
     });
 
+    it("releases the lock without cleanup when the timed-out run cannot be stopped", async () => {
+      const snapshot = incrementalSnapshot({
+        [insertName]: "failed",
+        [maxTsName]: "queued",
+      });
+      (getStaleQueries as jest.Mock).mockResolvedValue([
+        { id: `qry_${insertName}`, organization: "org_1" },
+      ]);
+      (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
+        snapshot,
+      ]);
+      (getQueryStatusesByIds as jest.Mock).mockRejectedValue(
+        new Error("mongo down"),
+      );
+
+      await runJob();
+
+      expect(releaseLockAfterInterruptedRun).not.toHaveBeenCalled();
+      expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+      expect(updateSnapshot).toHaveBeenCalledWith(
+        expect.objectContaining({
+          updates: expect.objectContaining({
+            error: INTERRUPTED_REFRESH_ERROR,
+          }),
+        }),
+      );
+    });
+
     it("keeps the usual timed-out message once the run is cleaned up", async () => {
       const snapshot = incrementalSnapshot({
         [insertName]: "failed",

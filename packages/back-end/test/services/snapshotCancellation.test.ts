@@ -191,6 +191,7 @@ describe("cancelExperimentSnapshot", () => {
   const organization = "org_1";
   let context: ReqContext;
   let releaseLock: jest.Mock;
+  let releaseLockAfterInterruptedRun: jest.Mock;
   let cancelQuery: jest.Mock;
   let canRunExperimentQueries: jest.Mock;
 
@@ -204,6 +205,7 @@ describe("cancelExperimentSnapshot", () => {
 
   beforeEach(() => {
     releaseLock = jest.fn().mockResolvedValue(undefined);
+    releaseLockAfterInterruptedRun = jest.fn().mockResolvedValue(true);
     cancelQuery = jest.fn().mockResolvedValue(undefined);
     canRunExperimentQueries = jest.fn().mockReturnValue(true);
     context = {
@@ -215,7 +217,9 @@ describe("cancelExperimentSnapshot", () => {
           throw new Error("permission denied");
         },
       },
-      models: { incrementalRefresh: { releaseLock } },
+      models: {
+        incrementalRefresh: { releaseLock, releaseLockAfterInterruptedRun },
+      },
       logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
     } as unknown as ReqContext;
     context.models.experimentSnapshotAnalysisChunks =
@@ -412,6 +416,40 @@ describe("cancelExperimentSnapshot", () => {
       }),
       "Experiment update completed",
     );
+  });
+
+  it("drops the metric source a cancelled incremental refresh appended to as it releases the lock", async () => {
+    const insert = await insertQuery("succeeded");
+    const maxTimestamp = await insertQuery("queued");
+    const { snapshot } = await insertReportSnapshot({
+      id: "snp_incremental",
+      status: "running",
+      queries: [
+        {
+          name: "insert_metrics_source_data_g1",
+          query: insert,
+          status: "succeeded",
+        },
+        {
+          name: "max_timestamp_metrics_source_g1",
+          query: maxTimestamp,
+          status: "queued",
+        },
+      ],
+      reportSnapshotId: "snp_prev",
+    });
+
+    await cancelExperimentSnapshot(context, {
+      ...snapshot,
+      runnerKind: "incremental-update",
+    });
+
+    expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
+      "exp_1",
+      snapshot.id,
+      { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
+    );
+    expect(releaseLock).not.toHaveBeenCalled();
   });
 
   it("keeps a running snapshot pinned by report.snapshot as a cancelled error when the report has no successful snapshot", async () => {

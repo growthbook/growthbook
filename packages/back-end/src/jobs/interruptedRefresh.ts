@@ -1,4 +1,4 @@
-import { QueryStatus } from "shared/types/query";
+import { QueryInterface, QueryStatus } from "shared/types/query";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   failQueuedQueries,
@@ -10,6 +10,7 @@ import {
 } from "back-end/src/queryRunners/incrementalRefreshQueryNames";
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
+import { ReqContext } from "back-end/types/request";
 
 export const FULL_REFRESH_NEXT_HINT =
   "Choose Full refresh from the results page's three-dot menu next, not Update, because Update could now fail or count some data twice.";
@@ -93,7 +94,7 @@ export function planInterruptedRunCleanup({
  * dropping but the run no longer held the lock, so only a full refresh is safe.
  */
 export async function releaseInterruptedRefresh(
-  context: ApiReqContext,
+  context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
     "id" | "experiment" | "runnerKind" | "queries"
@@ -130,10 +131,41 @@ export async function releaseInterruptedRefresh(
   } catch (e) {
     logger.warn(
       e,
-      `Failed to release the incremental refresh lock of interrupted snapshot ${snapshot.id}`,
+      `Failed to clean up interrupted incremental refresh ${snapshot.id}; releasing its lock without cleanup`,
     );
+    await releaseLockWithoutCleanup(context, snapshot);
     return needsCleanup;
   }
+}
+
+// Keeps a failed cleanup from also blocking the full refresh it asks for.
+export async function releaseLockWithoutCleanup(
+  context: ReqContext | ApiReqContext,
+  snapshot: Pick<ExperimentSnapshotInterface, "id" | "experiment">,
+) {
+  await context.models.incrementalRefresh
+    .releaseLock(snapshot.experiment, snapshot.id)
+    .catch((e) =>
+      logger.warn(
+        e,
+        `Failed to release the incremental refresh lock of interrupted snapshot ${snapshot.id}`,
+      ),
+    );
+}
+
+/**
+ * Statuses to plan a cancelled run's cleanup from. The cancel fails every
+ * pending query, so a query that was still queued before it never started.
+ */
+export function getCancelledRunQueryStatuses(
+  before: Pick<QueryInterface, "id" | "status">[],
+  after: Pick<QueryInterface, "id" | "status">[],
+): Map<string, QueryStatus> {
+  const statuses = new Map(after.map((doc) => [doc.id, doc.status]));
+  before
+    .filter((doc) => doc.status === "queued" && statuses.has(doc.id))
+    .forEach((doc) => statuses.set(doc.id, "queued"));
+  return statuses;
 }
 
 /**
