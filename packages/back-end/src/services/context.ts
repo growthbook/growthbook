@@ -1,6 +1,7 @@
 import {
   Permissions,
   getRolePermissions,
+  normalizeSuperAdmin,
   userHasPermission,
 } from "shared/permissions";
 import { uniq } from "lodash";
@@ -17,7 +18,11 @@ import {
 } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import { EventUser } from "shared/types/events/event-types";
-import { eventUserIdentity, eventUserPerson } from "shared/validators";
+import {
+  SuperAdmin,
+  eventUserIdentity,
+  eventUserPerson,
+} from "shared/validators";
 import { TeamInterface } from "shared/types/team";
 import { ProjectInterface } from "shared/types/project";
 import { ExperimentInterface } from "shared/types/experiment";
@@ -448,7 +453,7 @@ export class ReqContextClass {
   public userId = "";
   public email = "";
   public userName = "";
-  public superAdmin = false;
+  public superAdmin: SuperAdmin = false;
 
   // The person a request acts for: the signed-in user, a personal token's
   // owner, or the member whose role an org key assumes. Use it for owners,
@@ -556,7 +561,7 @@ export class ReqContextClass {
       id: string;
       email: string;
       name?: string;
-      superAdmin?: boolean;
+      superAdmin?: SuperAdmin;
     };
     apiKey?: string;
     role?: string;
@@ -590,7 +595,7 @@ export class ReqContextClass {
       this.userId = user.id;
       this.email = user.email;
       this.userName = user.name || "";
-      this.superAdmin = user.superAdmin || false;
+      this.superAdmin = normalizeSuperAdmin(user.superAdmin);
       this.scopedApiKey = !!apiKeyData?.scoped;
       this.userPermissions = apiKeyData?.userId
         ? getPersonalAccessTokenPermissions(

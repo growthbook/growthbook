@@ -9,7 +9,9 @@ import {
 } from "shared/types/event-forwarder";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { Flex } from "@radix-ui/themes";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
@@ -38,11 +40,19 @@ const EditOrganization: FC<{
   disablable: boolean;
   currentOrg: OrganizationInterface;
 }> = ({ onEdit, close, id, disablable = true, currentOrg }) => {
+  const { superAdmin } = useUser();
+  // The server only checks fields that change, so disabling the rest is enough
+  const canMetadata = hasSuperAdminPermission(superAdmin, "metadata");
+  const canBilling = hasSuperAdminPermission(superAdmin, "billing");
+  const canSuspend = hasSuperAdminPermission(superAdmin, "suspend");
+  const canMessages = hasSuperAdminPermission(superAdmin, "messages");
+  const canSso = hasSuperAdminPermission(superAdmin, "sso");
+  const canProvision = hasSuperAdminPermission(superAdmin, "provision");
   const [name, setName] = useState(currentOrg.name);
   const [owner, setOwner] = useState(currentOrg.ownerEmail);
   const [externalId, setExternalId] = useState(currentOrg.externalId || "");
   const [licenseKey, setLicenseKey] = useState(currentOrg.licenseKey || "");
-  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats || 3);
+  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats ?? 3);
   const [legacyEnterprise, setLegacyEnterprise] = useState(
     currentOrg.enterprise || false,
   );
@@ -65,7 +75,8 @@ const EditOrganization: FC<{
   const [eventForwarders, setEventForwarders] = useState<EventForwarderRow[]>(
     [],
   );
-  const [eventForwardersLoading, setEventForwardersLoading] = useState(true);
+  const [eventForwardersLoading, setEventForwardersLoading] =
+    useState(canProvision);
   const [eventForwardersError, setEventForwardersError] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [deletingEventForwarderId, setDeletingEventForwarderId] = useState<
@@ -103,8 +114,8 @@ const EditOrganization: FC<{
   }, [apiCall, id]);
 
   useEffect(() => {
-    refreshEventForwarders();
-  }, [refreshEventForwarders]);
+    if (canProvision) refreshEventForwarders();
+  }, [refreshEventForwarders, canProvision]);
 
   const handleSubmit = async () => {
     await apiCall<{
@@ -199,7 +210,7 @@ const EditOrganization: FC<{
       close={close}
       inline={!close}
       secondaryCTA={
-        disablable ? (
+        disablable && canSuspend ? (
           <div className="flex-grow-1">
             {currentOrg.disabled ? (
               <button
@@ -256,6 +267,7 @@ const EditOrganization: FC<{
           value={name}
           required
           minLength={3}
+          disabled={!canMetadata}
           onChange={(e) => setName(e.target.value)}
         />
         {isCloud() ? (
@@ -265,6 +277,7 @@ const EditOrganization: FC<{
               type="text"
               className="form-control"
               value={licenseKey}
+              disabled={!canBilling}
               onChange={(e) => setLicenseKey(e.target.value)}
             />
           </div>
@@ -275,6 +288,7 @@ const EditOrganization: FC<{
               type="text"
               className="form-control"
               value={externalId}
+              disabled={!canMetadata}
               minLength={3}
               onChange={(e) => setExternalId(e.target.value)}
             />
@@ -291,6 +305,7 @@ const EditOrganization: FC<{
             className="form-control"
             value={owner}
             required
+            disabled={!canMetadata}
             onChange={(e) => setOwner(e.target.value)}
           />
         </div>
@@ -300,6 +315,7 @@ const EditOrganization: FC<{
             type="text"
             className="form-control"
             value={verifiedDomain}
+            disabled={!canSso}
             onChange={(e) => setVerifiedDomain(e.target.value)}
           />
           <span className="text-muted small">
@@ -313,6 +329,7 @@ const EditOrganization: FC<{
             label="Auto approve members with email domain"
             value={autoApproveMembers}
             setValue={setAutoApproveMembers}
+            disabled={!canSso}
           />
         </div>
         {isCloud() ? (
@@ -323,7 +340,7 @@ const EditOrganization: FC<{
                 label="Suspend organization"
                 value={suspended}
                 setValue={setSuspended}
-                disabled={!disablable}
+                disabled={!disablable || !canSuspend}
                 disabledMessage="You cannot suspend the organization you are currently logged into."
               />
               <div>
@@ -340,6 +357,7 @@ const EditOrganization: FC<{
                 min={0}
                 className="form-control"
                 value={freeSeats}
+                disabled={!canBilling}
                 onChange={(e) => setFreeSeats(parseInt(e.target.value))}
               />
               <div>
@@ -355,6 +373,7 @@ const EditOrganization: FC<{
                 label="Disable self-serve billing"
                 value={disableSelfServeBilling}
                 setValue={setDisableSelfServeBilling}
+                disabled={!canBilling}
               />
               <div>
                 <span className="text-muted small">
@@ -379,6 +398,7 @@ const EditOrganization: FC<{
                   label="Enable Enterprise"
                   value={legacyEnterprise}
                   setValue={setLegacyEnterprise}
+                  disabled={!canBilling}
                 />
                 <div>
                   <span className="text-muted small">
@@ -397,6 +417,7 @@ const EditOrganization: FC<{
                   type="button"
                   className="btn btn-sm btn-outline-primary"
                   onClick={addMessage}
+                  disabled={!canMessages}
                 >
                   + Add Message
                 </button>
@@ -416,6 +437,7 @@ const EditOrganization: FC<{
                     className="form-control form-control-sm flex-grow-1"
                     placeholder="Message text (Markdown supported)"
                     value={msg.message}
+                    disabled={!canMessages}
                     onChange={(e) =>
                       updateMessage(msg.id, "message", e.target.value)
                     }
@@ -424,6 +446,7 @@ const EditOrganization: FC<{
                     className="form-control form-control-sm"
                     style={{ width: 110, flexShrink: 0 }}
                     value={msg.level}
+                    disabled={!canMessages}
                     onChange={(e) =>
                       updateMessage(
                         msg.id,
@@ -441,6 +464,7 @@ const EditOrganization: FC<{
                     className="btn btn-sm btn-outline-danger"
                     style={{ flexShrink: 0 }}
                     onClick={() => removeMessage(msg.id)}
+                    disabled={!canMessages}
                   >
                     &times;
                   </button>

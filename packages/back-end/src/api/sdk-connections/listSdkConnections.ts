@@ -18,7 +18,7 @@ export const listSdkConnections = createApiRequestHandler(
   let connections: SDKConnectionInterface[] = [];
 
   if (req.query.multiOrg) {
-    await validateIsSuperUserRequest(req);
+    await validateIsSuperUserRequest(req, "view");
     connections = await findAllSDKConnectionsAcrossAllOrgs();
   } else {
     connections = await findSDKConnectionsByOrganization(req.context);
