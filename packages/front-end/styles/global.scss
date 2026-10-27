@@ -265,8 +265,6 @@ html.app-drawer-open body {
   @include page-padding-motion(padding-left, padding-right);
 }
 
-// Reaches past the wrapper's padding to the page's edges (backgrounds,
-// borders, sticky bars), keeping what's inside in line with the page.
 .page-title-row {
   // A design-system h1 title (Heading xl, a 30px line) on the 28.8px line of
   // the h1 on Experiments and other list pages, so titles sit at the same
@@ -274,6 +272,8 @@ html.app-drawer-open body {
   --heading-line-height-6: 28.8px;
 }
 
+// Reaches past the wrapper's padding to the page's edges (backgrounds,
+// borders, sticky bars), keeping what's inside in line with the page.
 .page-bleed {
   margin-left: calc(-1 * var(--page-padding));
   margin-right: calc(-1 * var(--page-padding));
