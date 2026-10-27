@@ -1,8 +1,7 @@
 diff --git a/dist/index.d.ts b/dist/index.d.ts
-index 010d4793fc069048ad384e4ed839f1331cb67d98..1ccc01d05d4393dd2e0d3a2c9283bb36110d5f83 100644
 --- a/dist/index.d.ts
 +++ b/dist/index.d.ts
-@@ -287,9 +287,20 @@ declare module 'snowflake-sdk' {
+@@ -349,9 +349,20 @@ declare module 'snowflake-sdk' {
  
      /**
       *  Gets the results from a previously ran query based on queryId.
@@ -24,7 +23,7 @@ index 010d4793fc069048ad384e4ed839f1331cb67d98..1ccc01d05d4393dd2e0d3a2c9283bb36
      ): Promise<RowStatement | FileAndStageBindStatement>;
  
      /**
-@@ -299,13 +310,18 @@ declare module 'snowflake-sdk' {
+@@ -361,13 +372,18 @@ declare module 'snowflake-sdk' {
  
      /**
       * Checks whether the given status is currently running.
@@ -46,10 +45,9 @@ index 010d4793fc069048ad384e4ed839f1331cb67d98..1ccc01d05d4393dd2e0d3a2c9283bb36
      /**
       * Returns a JSON-serialized string of the connection state (master/session
 diff --git a/dist/lib/connection/connection.js b/dist/lib/connection/connection.js
-index 47d43aa44241e28d89f874ad74d55fcffbca7622..aa61a113e317c58d94ba1a51300b75e88341c371 100644
 --- a/dist/lib/connection/connection.js
 +++ b/dist/lib/connection/connection.js
-@@ -433,9 +433,10 @@ function Connection(context) {
+@@ -458,9 +458,10 @@ function Connection(context) {
       *
       * @returns {String} the query status.
       */
@@ -61,7 +59,7 @@ index 47d43aa44241e28d89f874ad74d55fcffbca7622..aa61a113e317c58d94ba1a51300b75e8
          const status = extractQueryStatus(response);
          let sqlState = null;
          if (this.isAnError(status)) {
-@@ -463,14 +464,14 @@ function Connection(context) {
+@@ -488,14 +489,14 @@ function Connection(context) {
      this.getResultsFromQueryId = async function (options) {
          const queryId = options.queryId;
          Logger.getInstance().trace('Connection[id: %s] - getResultsFromQueryId called for Query[id: %s].', this.getId(), queryId);
@@ -78,7 +76,7 @@ index 47d43aa44241e28d89f874ad74d55fcffbca7622..aa61a113e317c58d94ba1a51300b75e8
              queryStillExecuting = this.isStillRunning(status);
              if (!queryStillExecuting || status === QueryStatus.code.NO_QUERY_DATA) {
                  Logger.getInstance().trace('Connection[id: %s] - end of waiting for Query[id: %s] to finish executing. ' +
-@@ -506,7 +507,12 @@ function Connection(context) {
+@@ -531,7 +532,12 @@ function Connection(context) {
              throw Errors.createClientError(ErrorCodes.ERR_GET_RESULTS_QUERY_ID_NOT_SUCCESS_STATUS, true, queryId, status);
          }
          Logger.getInstance().debug('Connection[id: %s] - Query[id: %s] succeeded. Fetching the result.', this.getId(), queryId);
