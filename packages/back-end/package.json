@@ -130,7 +130,7 @@
     "satori": "^0.26.0",
     "scim2-parse-filter": "^0.2.8",
     "shared": "workspace:*",
-    "snowflake-sdk": "^2.4.3",
+    "snowflake-sdk": "^3.4.1",
     "stats-ts": "workspace:*",
     "string-env-interpolation": "^1.0.1",
     "stripe": "^17.4.0",

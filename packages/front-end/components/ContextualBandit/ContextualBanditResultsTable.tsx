@@ -1,5 +1,5 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import { ReactNode, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, SegmentedControl } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
@@ -28,7 +28,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { getExperimentMetricFormatter } from "@/services/metrics";
 import { useCurrency } from "@/hooks/useCurrency";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useContextualBanditResults } from "@/hooks/useContextualBandits";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
+import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";
 import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import ContextualBanditAttributeTable from "@/components/ContextualBandit/ContextualBanditAttributeTable";
@@ -172,7 +173,18 @@ export default function ContextualBanditResultsTable({
     refresh,
     cancel,
     refreshError,
-  } = useContextualBanditResults(cb.id);
+    statusError,
+    mutate: refetchSnapshot,
+    refreshStatus,
+  } = useContextualBanditSnapshot();
+
+  // Radix unmounts inactive tabs, so this runs each time the Results tab opens.
+  // Refresh the cheap status to catch a run that completed while idle (the
+  // provider only polls while a run is in progress); a newer success then
+  // triggers the heavy results fetch automatically.
+  useEffect(() => {
+    void refreshStatus();
+  }, [refreshStatus]);
 
   const datasource = cb.datasource ? getDatasourceById(cb.datasource) : null;
   const { contextualBanditQueriesMap } = useContextualBanditQueries(
@@ -468,6 +480,13 @@ export default function ContextualBanditResultsTable({
         <Callout status="error" mb="3">
           {refreshError}
         </Callout>
+      ) : null}
+
+      {statusError ? (
+        <StatusErrorCallout
+          error={statusError}
+          onRetry={() => refetchSnapshot()}
+        />
       ) : null}
 
       {hasTableData ? (

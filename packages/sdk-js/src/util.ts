@@ -305,13 +305,19 @@ export async function decrypt(
   }
 }
 
+// Own keys only, since keys like `toString` are inherited by every object
+export function hasOwn(obj: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
 // Return value at dot-separated path of an object
 export function getPath(obj: TestedObj, path: string) {
   const parts = path.split(".");
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let current: any = obj;
   for (let i = 0; i < parts.length; i++) {
-    if (current && typeof current === "object" && parts[i] in current) {
+    // Own keys only, so a missing `constructor` isn't the inherited one
+    if (current && typeof current === "object" && hasOwn(current, parts[i])) {
       current = current[parts[i]];
     } else {
       return null;

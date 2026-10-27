@@ -135,3 +135,14 @@ export function getKeyPermissionsForRequest({
     getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
   );
 }
+
+// Strips the separators people paste around addresses (whitespace, `;`, `,`).
+// A loop rather than `/[\s;,]+$/`, which is quadratic on long runs.
+export function normalizeInviteEmail(email: string): string {
+  const isSeparator = (ch: string) => ch === ";" || ch === "," || /\s/.test(ch);
+  let start = 0;
+  let end = email.length;
+  while (start < end && isSeparator(email[start])) start++;
+  while (end > start && isSeparator(email[end - 1])) end--;
+  return email.slice(start, end).toLowerCase();
+}

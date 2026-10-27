@@ -10,6 +10,7 @@
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
 - Add remote saved groups, whose IDs are looked up outside the payload: the `remoteGroupIds` option, `setRemoteGroupIds`, `GrowthBookClient.addRemoteSavedGroups`, `redisResolver`, and the `savedGroupReferencesRemote` capability
 - Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
+- Fix a percentage rollout (`coverage`) including one extra hash bucket, e.g. a 0.01% rollout turning on for 0.02% of users
 
 ## **1.8.0** - Sep 29, 2026
 

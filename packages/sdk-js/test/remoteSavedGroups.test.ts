@@ -7,6 +7,7 @@ import {
   getRemoteSavedGroups,
   redisResolver,
 } from "../src";
+import { pruneCondition } from "../src/mongrule";
 
 const savedGroups: SavedGroupsPayload = {
   grp_vip: { type: "remote", attributeKey: "account_id" },
@@ -284,5 +285,32 @@ describe("redisResolver", () => {
       groups,
     });
     expect(client.sMembers).not.toHaveBeenCalled();
+  });
+});
+
+describe("pruneCondition with remote groups", () => {
+  const condition = { $savedGroup: { id: "grp_vip" }, country: "US" };
+
+  it("keeps a remote group reference when the user's remote groups are unknown", () => {
+    expect(pruneCondition({ country: "US" }, condition, savedGroups)).toEqual({
+      $savedGroup: { id: "grp_vip" },
+    });
+  });
+
+  it("decides a remote group reference when the user's remote groups are known", () => {
+    expect(
+      pruneCondition(
+        { country: "US", __gb_remoteGroupIds: ["grp_vip"] },
+        condition,
+        savedGroups,
+      ),
+    ).toBe(true);
+    expect(
+      pruneCondition(
+        { country: "US", __gb_remoteGroupIds: [] },
+        condition,
+        savedGroups,
+      ),
+    ).toBe(false);
   });
 });

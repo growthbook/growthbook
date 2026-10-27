@@ -307,12 +307,11 @@ describe("remote groups evaluate correctly", () => {
     ["referencesV2 without the capability", V2, "referencesV2"],
   ] as const;
 
-  // Builds a rule condition the way a payload build does, then evaluates it.
-  const evaluate = (
+  // Builds a rule condition the way a payload build does.
+  const build = (
     capabilities: readonly SDKCapability[],
     savedGroupFormat: "inline" | "referencesV1" | "referencesV2",
     stored: object,
-    attributes: Record<string, unknown>,
   ) => {
     const strategy = getSavedGroupPayloadStrategy({
       capabilities: [...capabilities],
@@ -324,6 +323,19 @@ describe("remote groups evaluate correctly", () => {
     recursiveWalk(condition, strategy.createSavedGroupsOperatorHandler());
     strategy.finalizeCondition(condition);
     const payloadGroups = strategy.buildSavedGroupsPayload(evalGroups);
+    return { condition, payloadGroups };
+  };
+  const evaluate = (
+    capabilities: readonly SDKCapability[],
+    savedGroupFormat: "inline" | "referencesV1" | "referencesV2",
+    stored: object,
+    attributes: Record<string, unknown>,
+  ) => {
+    const { condition, payloadGroups } = build(
+      capabilities,
+      savedGroupFormat,
+      stored,
+    );
     return evalCondition(attributes, condition, {
       savedGroups: payloadGroups as EvalConditionOptions["savedGroups"],
     });
@@ -407,14 +419,10 @@ describe("remote groups evaluate correctly", () => {
     it("keeps unrelated empty-object conditions", () => {
       const stored = { profile: {}, account_id: { $inGroup: "vip" } };
       expect(
-        evaluate(capabilities, format, stored, {
-          ...member,
-          profile: { role: "admin" },
-        }),
-      ).toBe(false);
-      expect(
-        evaluate(capabilities, format, stored, { ...member, profile: {} }),
-      ).toBe(true);
+        JSON.stringify(build(capabilities, format, stored).condition),
+      ).toContain('"profile":{}');
+      expect(evaluate(capabilities, format, stored, member)).toBe(true);
+      expect(evaluate(capabilities, format, stored, nonMember)).toBe(false);
     });
   });
 
