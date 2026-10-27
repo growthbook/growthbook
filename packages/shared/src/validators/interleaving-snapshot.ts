@@ -40,7 +40,7 @@ export type InterleavingSnapshotSettings = z.infer<
 // One ranker's side of a result. `cr` is the value per treatment-drafted
 // competitive exposure in engaged impressions (paired analysis; both sides
 // share that denominator, which a fair team draft balances in expectation)
-// or per exposed user (preference analyses).
+// or per non-tied user (preference analyses).
 const interleavingResultSideValidator = z
   .object({ value: z.number(), cr: z.number() })
   .strict();
@@ -65,10 +65,10 @@ export const interleavingMetricResultValidator = z
   .object({
     metricId: z.string(),
     analysis: interleavingAnalysisValidator,
-    // Users the analysis is over: engaged users (paired) or exposed users
+    // Users represented: engaged users (paired) or exposed users (preference)
     users: z.number(),
     // What each side's `cr` divides `value` by: competitive treatment-drafted
-    // exposures in engaged impressions (paired) or exposed users (preference)
+    // exposures in engaged impressions (paired) or non-tied users (preference)
     denominator: z.number().optional(),
     control: interleavingResultSideValidator,
     treatment: interleavingResultSideValidator,
@@ -82,8 +82,6 @@ export type InterleavingMetricResult = z.infer<
 export const interleavingSnapshotValidator = baseSchema
   .extend({
     interleavingId: z.string(),
-    // Frozen from the parent so snapshot permissions don't need a parent load
-    project: z.string().optional(),
     status: z.enum(["pending", "running", "success", "error"]),
     error: z.string().optional(),
     runStarted: z.date().nullable(),

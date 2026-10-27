@@ -21,26 +21,46 @@ const BaseClass = MakeModelClass({
 });
 
 export class InterleavingSnapshotModel extends BaseClass {
-  // `project` is frozen from the parent Interleaving at creation, so
-  // snapshots carry their own project permissions
-  protected canRead(doc: InterleavingSnapshotInterface): boolean {
-    return this.context.permissions.canReadSingleProjectResource(doc.project);
+  // Snapshots have no project of their own: the parent Interleaving's current
+  // project is what authorizes them, and a snapshot is only ever reached
+  // through a parent already loaded via `models.interleavings`. A frozen copy
+  // of the project would go stale the moment the experiment moved.
+  protected canRead(): boolean {
+    return true;
+  }
+
+  // The datasource id is nested in frozenSettings, so BaseModel wouldn't
+  // detect it on its own.
+  protected override getForeignKeys(doc: InterleavingSnapshotInterface) {
+    const keys = super.getForeignKeys(doc);
+    const datasource = doc.frozenSettings?.datasourceId;
+    return datasource ? { ...keys, datasource } : keys;
+  }
+
+  // Refreshing results is a query, not an analysis edit. canCreateExperimentSnapshot
+  // is just canRunExperimentQueries, and that is what the service and the query
+  // runner check, so a RunQueries-only member has to pass here too.
+  private canRunQueries(doc: InterleavingSnapshotInterface): boolean {
+    const { datasource } = this.getForeignRefs(doc, false);
+    return (
+      !!datasource &&
+      this.context.permissions.canRunExperimentQueries(datasource)
+    );
   }
   protected canCreate(doc: InterleavingSnapshotInterface): boolean {
-    return this.context.permissions.canCreateInterleaving(doc);
+    return this.canRunQueries(doc);
   }
   protected canUpdate(existing: InterleavingSnapshotInterface): boolean {
-    return this.canCreate(existing);
+    return this.canRunQueries(existing);
   }
   protected canDelete(doc: InterleavingSnapshotInterface): boolean {
-    return this.canCreate(doc);
+    return this.canRunQueries(doc);
   }
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("interleaving");
   }
 
-  /** Latest snapshot for an interleaving experiment. */
   public async getLatestForInterleaving(
     interleavingId: string,
   ): Promise<InterleavingSnapshotInterface | null> {
@@ -51,7 +71,7 @@ export class InterleavingSnapshotModel extends BaseClass {
     return snapshots[0] || null;
   }
 
-  /** Recent snapshots for an interleaving experiment. */
+  // Capped at 100 regardless of what the caller asks for.
   public listForInterleaving(
     interleavingId: string,
     limit: number = 20,

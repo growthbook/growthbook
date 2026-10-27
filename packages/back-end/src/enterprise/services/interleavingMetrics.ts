@@ -104,6 +104,15 @@ export async function resolveInterleavingMetrics(
         `Interleaving metrics must use sum, max, or count aggregations: "${metric.name}"`,
       );
     }
+    // An aggregate filter thresholds a per-user total, but interleaving
+    // aggregates per item, so there is no grain that preserves the metric's
+    // meaning. Accepting one would silently report a sum where the metric
+    // defines an indicator.
+    if (numerator.aggregateFilter && numerator.aggregateFilterColumn) {
+      throw new Error(
+        `Interleaving metrics cannot use a user filter yet: "${metric.name}"`,
+      );
+    }
     return { config, metric, factTable };
   });
 }

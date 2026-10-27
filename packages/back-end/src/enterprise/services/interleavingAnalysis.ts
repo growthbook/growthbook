@@ -8,8 +8,37 @@ import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { getSourceIntegrationObject } from "back-end/src/services/datasource";
 import { InterleavingResultsQueryRunner } from "back-end/src/enterprise/queryRunners/InterleavingResultsQueryRunner";
+import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 
 type Context = ReqContext | ApiReqContext;
+
+export async function resolveInterleavingExposureQuery(
+  context: Context,
+  interleaving: Pick<
+    InterleavingInterface,
+    "interleavingExposureQueryId" | "datasource" | "userIdType"
+  >,
+) {
+  const query = await context.models.interleavingExposureQueries.getById(
+    interleaving.interleavingExposureQueryId,
+  );
+  if (!query) {
+    context.throwNotFoundError(
+      `Interleaving exposure query not found: ${interleaving.interleavingExposureQueryId}`,
+    );
+  }
+  if (query.datasourceId !== interleaving.datasource) {
+    throw new Error(
+      `Interleaving exposure query "${query.name}" belongs to a different Data Source than this interleaving experiment`,
+    );
+  }
+  if (!query.userIdTypes.includes(interleaving.userIdType)) {
+    throw new Error(
+      `Interleaving exposure query "${query.name}" doesn't declare the "${interleaving.userIdType}" identifier type`,
+    );
+  }
+  return query;
+}
 
 async function getIntegration(context: Context, datasourceId: string) {
   const ds = await getDataSourceById(context, datasourceId);
@@ -36,28 +65,12 @@ async function getInterleavingSnapshotSettings(
       "Start this interleaving experiment before updating results",
     );
   }
+  const endDate = interleaving.dateStopped ?? new Date();
 
-  const interleavingExposureQuery =
-    await context.models.interleavingExposureQueries.getById(
-      interleaving.interleavingExposureQueryId,
-    );
-  if (!interleavingExposureQuery) {
-    context.throwNotFoundError(
-      `Interleaving exposure query not found: ${interleaving.interleavingExposureQueryId}`,
-    );
-  }
-  if (interleavingExposureQuery.datasourceId !== interleaving.datasource) {
-    throw new Error(
-      `Interleaving exposure query "${interleavingExposureQuery.name}" belongs to a different Data Source than this interleaving experiment`,
-    );
-  }
-  if (
-    !interleavingExposureQuery.userIdTypes.includes(interleaving.userIdType)
-  ) {
-    throw new Error(
-      `Interleaving exposure query "${interleavingExposureQuery.name}" doesn't declare the "${interleaving.userIdType}" identifier type`,
-    );
-  }
+  const interleavingExposureQuery = await resolveInterleavingExposureQuery(
+    context,
+    interleaving,
+  );
 
   const [a, b] = interleaving.variations;
   return {
@@ -73,7 +86,7 @@ async function getInterleavingSnapshotSettings(
     ],
     metrics: interleaving.metrics,
     startDate: interleaving.dateStarted,
-    endDate: interleaving.dateStopped ?? null,
+    endDate,
   };
 }
 
@@ -104,9 +117,11 @@ export async function runInterleavingSnapshot(
     context.permissions.throwPermissionError();
   }
 
+  // Resolve before the snapshot exists so a bad metric never creates one
+  const metrics = await resolveInterleavingMetrics(context, settings);
+
   const snapshot = await context.models.interleavingSnapshots.create({
     interleavingId: settings.interleavingId,
-    project: interleaving.project,
     status: "running",
     queries: [],
     runStarted: null,
@@ -119,7 +134,17 @@ export async function runInterleavingSnapshot(
     integration,
     false,
   );
-  return runner.startAnalysis({ snapshotSettings: settings });
+  try {
+    return await runner.startAnalysis({ snapshotSettings: settings, metrics });
+  } catch (e) {
+    // startAnalysis doesn't catch startQueries errors; without this the
+    // snapshot would stay "running" forever and the UI would poll it
+    await context.models.interleavingSnapshots.updateById(snapshot.id, {
+      status: "error",
+      error: e.message,
+    });
+    throw e;
+  }
 }
 
 /** Cancel a running snapshot's queries and delete it. */
@@ -137,6 +162,8 @@ export async function cancelInterleavingSnapshot(
     false,
   );
   await runner.cancelQueries();
-  await context.models.interleavingSnapshots.delete(snapshot);
+  // deleteById re-reads through getById, which populates the datasource ref
+  // canDelete needs; delete() alone does not.
+  await context.models.interleavingSnapshots.deleteById(snapshot.id);
   return true;
 }

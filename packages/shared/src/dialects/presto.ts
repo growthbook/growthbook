@@ -4,6 +4,7 @@ import {
   approxTopKCapacity,
   eligibleTopValueExpr,
 } from "./clauses/approx-top-values";
+import { trinoJsonArray } from "./clauses/json-array";
 import { baseDialect } from "./base";
 
 export const prestoDialect: SqlDialect = {
@@ -34,13 +35,7 @@ export const prestoDialect: SqlDialect = {
     const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
     return isNumeric ? prestoDialect.castToFloat(raw) : raw;
   },
-  // CAST AS VARCHAR first so a JSON-typed column satisfies json_parse
-  jsonArray: {
-    unnest: (jsonColumn, itemAlias) =>
-      `CROSS JOIN UNNEST(CAST(json_parse(CAST(${jsonColumn} AS VARCHAR)) AS ARRAY(JSON))) AS ${itemAlias}_t(${itemAlias})`,
-    fieldText: (itemAlias, field) =>
-      `json_extract_scalar(${itemAlias}, '$.${field}')`,
-  },
+  jsonArray: trinoJsonArray,
   hasCountDistinctHLL: () => true,
   hllAggregate: (col: string) => `APPROX_SET(${col})`,
   hllReaggregate: (col: string) => `MERGE(CAST(${col} AS HyperLogLog))`,

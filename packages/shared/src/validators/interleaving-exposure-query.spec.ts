@@ -17,7 +17,8 @@ export const interleavingExposureQueryApiSpec = {
     updateBody: apiUpdateInterleavingExposureQueryBody,
   },
   includeDefaultCrud: true,
-  // Mirrors contextual-bandit-query: an auxiliary query config for an experiment type.
+  // Mirrors contextualBanditQueryApiSpec: a Data Source-owned query definition
+  // a parent experiment points at.
   confirmation: {
     create: ["experiment.create"],
     update: ["experiment.other"],

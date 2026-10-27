@@ -66,8 +66,8 @@ export type InterleavingVariation = z.infer<
   typeof interleavingVariationValidator
 >;
 
-// Interleaving env settings carry only `enabled`; prerequisites are
-// interleaving-wide, not per-environment.
+// Interleaving environments only carry an on/off switch — the targeting knobs on
+// featureEnvironment (rules, default value) have no meaning for a ranker.
 const interleavingEnvironment = z.object({ enabled: z.boolean() }).strict();
 
 const interleavingKeyField = z

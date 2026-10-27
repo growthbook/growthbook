@@ -1,3 +1,4 @@
+import betaDist from "@stdlib/stats/base/dists/beta";
 import normal from "@stdlib/stats/base/dists/normal";
 import t from "@stdlib/stats/base/dists/t";
 
@@ -32,4 +33,9 @@ export function tCdf(x: number, dof: number): number {
 /** Student's t quantile function (via `@stdlib`). */
 export function tQuantile(p: number, dof: number): number {
   return t.quantile(p, dof);
+}
+
+/** Beta quantile function (via `@stdlib`). */
+export function betaQuantile(p: number, alpha: number, beta: number): number {
+  return betaDist.quantile(p, alpha, beta);
 }

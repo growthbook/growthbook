@@ -95,12 +95,12 @@ describe("preferenceSignTest", () => {
       users_tied: 12,
     });
     expect(res.errorMessage).toBeNull();
-    expect(res.expected).toBeCloseTo(0.2, 10); // (30-18)/60
+    expect(res.expected).toBeCloseTo(0.25, 10); // (30-18)/(30+18)
     expect(res.pValue).toBeCloseTo(0.1114028911, 9);
-    expect(res.uplift.stddev).toBeCloseTo(0.1118033989, 9);
-    const halfWidth = 0.2191306351;
-    expect(res.ci[0]).toBeCloseTo(0.2 - halfWidth, 8);
-    expect(res.ci[1]).toBeCloseTo(0.2 + halfWidth, 8);
+    expect(res.uplift.stddev).toBeCloseTo(0.1397542486, 9);
+    // Clopper-Pearson on the 30/48 non-tied proportion, mapped by tau = 2p - 1.
+    expect(res.ci[0]).toBeCloseTo(-0.0529884788, 8);
+    expect(res.ci[1]).toBeCloseTo(0.5209551931, 8);
   });
 
   it("is symmetric: swapping T and C flips the sign", () => {
@@ -128,6 +128,38 @@ describe("preferenceSignTest", () => {
     expect(res.pValue).toBeCloseTo(1, 6);
   });
 
+  // A Wald interval has zero variance when every non-tied user agrees, which
+  // made the CI a point and contradicted the exact p-value.
+  it("keeps a usable interval when every non-tied user prefers one ranker", () => {
+    const res = preferenceSignTest({
+      users_pref_treatment: 2,
+      users_pref_control: 0,
+      users_tied: 98,
+    });
+    expect(res.errorMessage).toBeNull();
+    expect(res.expected).toBeCloseTo(1, 10);
+    expect(res.pValue).toBeCloseTo(0.5, 10);
+    expect(res.ci[0]).toBeCloseTo(-0.683772234, 8);
+    expect(res.ci[1]).toBeCloseTo(1, 10);
+  });
+
+  it("agrees with the exact p-value about whether zero is excluded", () => {
+    const cases = [
+      { users_pref_treatment: 2, users_pref_control: 0, users_tied: 98 },
+      { users_pref_treatment: 5, users_pref_control: 0, users_tied: 0 },
+      { users_pref_treatment: 1, users_pref_control: 0, users_tied: 1 },
+      { users_pref_treatment: 30, users_pref_control: 18, users_tied: 12 },
+      { users_pref_treatment: 0, users_pref_control: 9, users_tied: 3 },
+      { users_pref_treatment: 25, users_pref_control: 25, users_tied: 0 },
+    ];
+    for (const counts of cases) {
+      const res = preferenceSignTest(counts);
+      const [lo, hi] = res.ci;
+      const excludesZero = (lo ?? 0) > 0 || (hi ?? 0) < 0;
+      expect(excludesZero).toBe((res.pValue ?? 1) < 0.05);
+    }
+  });
+
   it("guards all-ties and tiny samples", () => {
     expect(
       preferenceSignTest({
@@ -140,7 +172,7 @@ describe("preferenceSignTest", () => {
       preferenceSignTest({
         users_pref_treatment: 1,
         users_pref_control: 0,
-        users_tied: 0,
+        users_tied: 100,
       }).errorMessage,
     ).toBe("NOT_ENOUGH_USERS");
   });

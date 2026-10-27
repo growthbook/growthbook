@@ -65,16 +65,30 @@ export class InterleavingExposureQueryModel extends BaseClass {
   protected async beforeDelete(
     doc: InterleavingExposureQueryInterface,
   ): Promise<void> {
+    // Scanned org-wide: delete is gated on the datasource, which is shared
+    // across projects, so a reference the caller cannot read still blocks.
     const referencing =
+      await this.context.models.interleavings.dangerousGetAllByExposureQueryIdForDependencyScan(
+        doc.id,
+      );
+    if (referencing.length === 0) return;
+
+    // Readable ones are named so the user knows what to fix; the rest are
+    // counted, so the error never discloses experiments in projects they
+    // cannot read.
+    const readable =
       await this.context.models.interleavings.getByInterleavingExposureQueryId(
         doc.id,
       );
-    if (referencing.length > 0) {
-      const names = referencing.map((i) => i.name).join(", ");
-      throw new Error(
-        `Cannot delete this interleaving exposure query because it is in use by ${referencing.length} interleaving experiment(s): ${names}. Update or remove those experiments first.`,
-      );
+    const readableIds = new Set(readable.map((i) => i.id));
+    const parts = readable.map((i) => i.name || i.id);
+    const hidden = referencing.filter((i) => !readableIds.has(i.id)).length;
+    if (hidden > 0) {
+      parts.push(`${hidden} you do not have access to`);
     }
+    throw new Error(
+      `Cannot delete this interleaving exposure query because it is in use by ${referencing.length} interleaving experiment(s): ${parts.join(", ")}. Update or remove those experiments first.`,
+    );
   }
 
   protected async customValidation(

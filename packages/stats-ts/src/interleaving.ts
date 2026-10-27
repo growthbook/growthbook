@@ -1,6 +1,6 @@
 import binomial from "@stdlib/stats/base/dists/binomial";
 import { FrequentistTestResult } from "./results";
-import { normQuantile, tCdf, tQuantile } from "./utils";
+import { betaQuantile, tCdf, tQuantile } from "./utils";
 
 // ---------------------------------------------------------------------------
 // Estimators for interleaving experiments. Both return the standard
@@ -125,18 +125,17 @@ export function pairedDeltaTest(
   };
 }
 
-// Sign test over per-user preferences. The estimand is the net preference
-// share tau = (P(prefer T) - P(prefer C)) across all users (ties contribute
-// zero); the test conditions on non-tied users (exact binomial vs p = 1/2).
+// Sign test over non-tied per-user preferences. The estimand is the net
+// preference share tau = P(prefer T) - P(prefer C), conditional on expressing
+// a preference; the exact test and interval use the same binomial sample.
 export function preferenceSignTest(
   counts: PreferenceCounts,
   alpha: number = 0.05,
 ): FrequentistTestResult {
   const nT = counts.users_pref_treatment;
   const nC = counts.users_pref_control;
-  const nTotal = nT + nC + counts.users_tied;
   const m = nT + nC;
-  if (nTotal < 2 || m < 1) {
+  if (m < 2) {
     return errorResult("NOT_ENOUGH_USERS");
   }
 
@@ -144,18 +143,20 @@ export function preferenceSignTest(
   const k = Math.min(nT, nC);
   const pValue = Math.min(1, 2 * binomial.cdf(k, m, 0.5));
 
-  // Net preference share over ALL users, with a normal-approximation CI
-  // from the non-tied preference proportion transformed to the tau scale
-  const est = (nT - nC) / nTotal;
+  // Transform the Clopper-Pearson interval for p to tau = 2p - 1. It inverts
+  // the same exact test, so the interval and p-value agree about zero.
+  const est = (nT - nC) / m;
+  const pLo = nT === 0 ? 0 : betaQuantile(alpha / 2, nT, m - nT + 1);
+  const pHi = nT === m ? 1 : betaQuantile(1 - alpha / 2, nT + 1, m - nT);
+
+  // Asymmetric, so no single stddev describes it. Report the Wald SE for
+  // consumers that need a normal summary; the CI above is authoritative.
   const pHat = nT / m;
-  const seP = Math.sqrt(Math.max(pHat * (1 - pHat), 1e-12) / m);
-  const scale = (2 * m) / nTotal; // d(tau)/d(p)
-  const seTau = seP * scale;
-  const halfWidth = normQuantile(1 - alpha / 2) * seTau;
+  const seTau = 2 * Math.sqrt((pHat * (1 - pHat)) / m);
 
   return {
     expected: est,
-    ci: [est - halfWidth, est + halfWidth],
+    ci: [2 * pLo - 1, 2 * pHi - 1],
     uplift: { dist: "normal", mean: est, stddev: seTau },
     errorMessage: null,
     pValue,

@@ -407,15 +407,14 @@ export async function getStaleQueries(): Promise<
 
   const docs = await QueryModel.find(query, {
     _id: 1,
-    id: 1,
-    organization: 1,
   }).limit(20);
   if (!docs.length) return [];
 
+  const ids = docs.map((d) => d._id);
   await QueryModel.updateMany(
     {
       ...query,
-      _id: { $in: docs.map((d) => d._id) },
+      _id: { $in: ids },
     },
     {
       $set: {
@@ -425,7 +424,12 @@ export async function getStaleQueries(): Promise<
     },
   );
 
-  return docs.map((doc) => ({ id: doc.id, organization: doc.organization }));
+  const failed = await QueryModel.find(
+    { _id: { $in: ids }, status: "failed" },
+    { id: 1, organization: 1 },
+  );
+
+  return failed.map((doc) => ({ id: doc.id, organization: doc.organization }));
 }
 
 export async function createNewQuery({
