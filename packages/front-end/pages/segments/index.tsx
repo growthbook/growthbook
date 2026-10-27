@@ -234,7 +234,6 @@ const SegmentPage: FC = () => {
               &quot;annual subscribers&quot; or &quot;left-handed people from
               France.&quot;
             </p>
-            {/* Scrolls sideways where the page is narrower than it. */}
             <div style={{ overflowX: "auto" }}>
               <table
                 className={clsx("table appbox gbtable", {

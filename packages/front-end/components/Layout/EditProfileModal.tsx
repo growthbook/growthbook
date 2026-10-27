@@ -3,7 +3,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import { useCelebrationLocalStorage } from "@/hooks/useCelebration";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import Field from "@/components/Forms/Field";
+import TextField from "@/ui/TextField";
 import Checkbox from "@/ui/Checkbox";
 
 export default function EditProfileModal({ close }: { close: () => void }) {
@@ -38,7 +38,7 @@ export default function EditProfileModal({ close }: { close: () => void }) {
       submit={() => onSubmit()}
       trackingEventModalType=""
     >
-      <Field label="Name" {...form.register("name")} />
+      <TextField label="Name" {...form.register("name")} />
       <Checkbox
         id="allowCelebration"
         label="Allow celebration"

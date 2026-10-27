@@ -425,7 +425,6 @@ export default function ExecReport() {
             View all
           </Link>
         </Flex>
-        {/* The table scrolls sideways when it's wider than its space. */}
         <Box className="appbox" p="4" px="4" overflowX="auto">
           <ExperimentList
             num={5}

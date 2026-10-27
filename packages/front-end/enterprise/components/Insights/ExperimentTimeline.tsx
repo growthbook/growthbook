@@ -138,7 +138,9 @@ const ExperimentTimeline: React.FC<{
   };
 
   // Follows its container, not just the window: the docked GrowthBot panel
-  // narrows the page without resizing the window.
+  // narrows the page without resizing the window. The container only renders
+  // with experiments to show, so it's observed again once they appear.
+  const hasExperiments = experiments.length > 0;
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -147,7 +149,7 @@ const ExperimentTimeline: React.FC<{
     const observer = new ResizeObserver(handleResize);
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [hasExperiments]);
 
   // Scales
   const xScale = scaleTime({

@@ -24,6 +24,7 @@ import Markdown from "@/components/Markdown/Markdown";
 import Button from "@/ui/Button";
 import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
+import Heading from "@/ui/Heading";
 import track from "@/services/track";
 import { suggestedReplyFromOptions } from "@/enterprise/components/AIChat/Composer/useAutocomplete";
 import { useUser } from "@/services/UserContext";
@@ -458,14 +459,20 @@ export default function AgentPanel({
     };
   }, [askPrompt, messages, loading]);
 
-  // Mounted while closed but without its DOM, so the listeners wait until
-  // it's open and the container exists.
+  // Kept mounted while it slides out. It mounts off-screen and starts sliding
+  // before the first paint: the read below makes the browser take in the
+  // off-screen position first, which waiting a frame doesn't guarantee on a
+  // busy page (the slide is then skipped).
+  const [rendered, setRendered] = useState(open);
+
+  // The panel has no DOM while closed, so the listeners start once it's open
+  // and rendered, when the scroll container exists.
   const { scrollContainerRef, handleScroll, resumeAutoScroll } = useAutoScroll({
     messages,
     activeTurnItems,
     displayedTextMap,
     conversationId,
-    enabled: open,
+    enabled: open && rendered,
   });
 
   // Checked on scroll, on resize, and as replies stream in.
@@ -515,11 +522,6 @@ export default function AgentPanel({
     prevLoadingRef.current = loading;
   }, [loading, open, focusInput]);
 
-  // Kept mounted while it slides out. It mounts off-screen and starts sliding
-  // before the first paint: the read below makes the browser take in the
-  // off-screen position first, which waiting a frame doesn't guarantee on a
-  // busy page (the slide is then skipped).
-  const [rendered, setRendered] = useState(open);
   const [shown, setShown] = useState(false);
   // For the whole slide in and out, and set first, before the read below
   // applies styles, so what moves on its own timing (the side nav) picks it up.
@@ -747,9 +749,8 @@ export default function AgentPanel({
   }, [overlay, open]);
 
   // The editor claims every Esc (ProseMirror), so whether the message box
-  // owns it is decided before it sees the key.
-  const inputRef = useRef(input);
-  inputRef.current = input;
+  // owns it is decided before it sees the key: only an open suggestion or
+  // ghost text does. A draft stays when the panel closes.
   const composerOwnsEscRef = useRef(false);
   const handlePanelKeyDownCapture = useCallback(
     (event: React.KeyboardEvent<HTMLDivElement>) => {
@@ -759,8 +760,7 @@ export default function AgentPanel({
       );
       composerOwnsEscRef.current =
         !!editor &&
-        (!!inputRef.current.trim() ||
-          editor.getAttribute("aria-expanded") === "true" ||
+        (editor.getAttribute("aria-expanded") === "true" ||
           !!editor.querySelector(`.${GHOST_TEXT_CLASS}`));
     },
     [],
@@ -1028,7 +1028,7 @@ export default function AgentPanel({
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={onToggleExpanded}
                 aria-label={
-                  expanded ? "Minimize agent panel" : "Maximize agent panel"
+                  expanded ? "Collapse agent panel" : "Expand agent panel"
                 }
               >
                 {expanded ? (
@@ -1115,12 +1115,9 @@ export default function AgentPanel({
                 </Flex>
                 {limitReached ? null : (
                   <Flex direction="column" gap="2">
-                    {/* A heading for its structure, styled as the greeting. */}
-                    <h3 className={styles.introHeading}>
-                      <Text size="md" weight="semibold">
-                        Suggestions
-                      </Text>
-                    </h3>
+                    <Heading as="h3" size="xs">
+                      Suggestions
+                    </Heading>
                     <Grid columns={expanded ? "2" : "1"} gap="2">
                       {STARTER_PROMPTS.map(({ prompt, Icon }) => (
                         <Button
