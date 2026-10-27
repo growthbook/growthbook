@@ -157,10 +157,10 @@ export function StartSummary({
   experiment: ExperimentInterfaceStringDates;
 }) {
   const { namespaces } = useOrgSettings();
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-  const { coverage: namespaceCoverage, name: namespaceName } =
-    getNamespaceDisplayData(latestPhase?.namespace, namespaces);
+  const latestPhase = experiment.phases.at(-1);
   if (!latestPhase) return null;
+  const { coverage: namespaceCoverage, name: namespaceName } =
+    getNamespaceDisplayData(latestPhase.namespace, namespaces);
 
   return (
     <Flex direction="column" gap="4">

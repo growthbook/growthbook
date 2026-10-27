@@ -19,7 +19,6 @@ import styles from "./InAppHelp.module.scss";
 const PYLON_CLEARANCE_PX = 76;
 
 const LAUNCHER_SIZE_PX = 56;
-// The launcher's `bottom` in InAppHelp.module.scss.
 const LAUNCHER_BOTTOM_PX = 10;
 
 export default function InAppHelp() {
@@ -107,7 +106,11 @@ export default function InAppHelp() {
             className={
               showFreeHelpWidget ? styles.closeLauncher : styles.chatLauncher
             }
-            style={{ width: LAUNCHER_SIZE_PX, height: LAUNCHER_SIZE_PX }}
+            style={{
+              bottom: LAUNCHER_BOTTOM_PX,
+              width: LAUNCHER_SIZE_PX,
+              height: LAUNCHER_SIZE_PX,
+            }}
             aria-label={showFreeHelpWidget ? "Close help" : "Help"}
           >
             {showFreeHelpWidget ? (

@@ -33,12 +33,12 @@ function ServeConfigHeader({
   configKey,
   name,
   badges,
-  label = "SERVE",
+  label,
 }: {
   configKey: string;
   name: string;
   badges: ReactNode;
-  label?: string | null;
+  label: string | null;
 }) {
   return (
     <Flex direction="row" gap="4" align="center">

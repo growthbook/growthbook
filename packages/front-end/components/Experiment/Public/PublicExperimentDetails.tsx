@@ -14,7 +14,6 @@ import {
 const count = (n: number, one: string, many: string) =>
   n ? `${n} ${n === 1 ? one : many}` : null;
 
-/** The details rail of a shared experiment. */
 export default function PublicExperimentDetails({
   experiment,
   linkedFeatureCount,

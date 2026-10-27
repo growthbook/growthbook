@@ -730,5 +730,3 @@ export function getMetricFormatter(
 
   return formatPercent;
 }
-
-// "dailyParticipation" → "Daily participation".

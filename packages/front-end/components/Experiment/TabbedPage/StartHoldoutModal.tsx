@@ -50,7 +50,7 @@ export default function StartHoldoutModal({
           Once started, experiments and features can be added to the holdout.
         </Modal.Description>
         <Modal.Body>
-          {experiment.phases?.length ? (
+          {experiment.phases.length ? (
             <StartModalSection
               title="Summary"
               icon={<PiInfoFill color="var(--indigo-11)" size={15} />}

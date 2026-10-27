@@ -111,7 +111,7 @@ const VisualChangesetModal: FC<Props> = (props) => {
       ];
     }
     if (props.mode === "edit") {
-      if ("stage" in props && props.stage) {
+      if (props.stage) {
         props.stage(payload);
         return;
       }
@@ -122,7 +122,7 @@ const VisualChangesetModal: FC<Props> = (props) => {
       props.mutate?.();
       return;
     }
-    if ("create" in props && props.create) {
+    if (props.create) {
       const res = await props.create(payload);
       props.mutate();
       const vc = res?.visualChangeset;

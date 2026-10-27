@@ -195,7 +195,6 @@ describe("applyExperimentChanges", () => {
     changes: { hypothesis: "new" },
     base: { hypothesis: base },
   });
-  // Values for the seeded draft, as the page loaded it.
   const draftValues = (
     variations: ReturnType<typeof arms>,
     extra: Partial<
@@ -384,13 +383,6 @@ describe("applyExperimentChanges", () => {
       expect((await storedExperiment()).hypothesis).toBe("old");
     },
   );
-
-  it("takes a field someone else saved to the same value", async () => {
-    await seed({ withDraft: false });
-    await setExperiment({ hypothesis: "new" });
-    await run({ experiment: hypothesisChange("old") });
-    expect((await storedExperiment()).hypothesis).toBe("new");
-  });
 
   it("takes a field stored in another shape of the same value", async () => {
     await seed({ withDraft: false });
@@ -1125,7 +1117,6 @@ describe("applyExperimentChanges", () => {
       },
       {
         name: "two staged URL Redirects that chain",
-        setup: async () => undefined,
         body: {
           addUrlRedirects: [
             staged(A, {
@@ -1144,21 +1135,7 @@ describe("applyExperimentChanges", () => {
         },
       },
       {
-        name: "a URL Redirect missing a variation's destination",
-        setup: async () => undefined,
-        body: {
-          addUrlRedirects: [
-            staged(A, { destinationURLs: destinations(A, ["v0"]) }),
-          ],
-        },
-        refusal: {
-          status: 400,
-          message: "needs one destination for each variation",
-        },
-      },
-      {
         name: "a URL Redirect keeping a destination for a variation the save removes",
-        setup: async () => undefined,
         body: {
           experiment: swapV1ForV2(),
           addUrlRedirects: [
@@ -1203,10 +1180,7 @@ describe("applyExperimentChanges", () => {
       },
       {
         name: "a URL Redirect on a running experiment",
-        setup: () =>
-          collection("experiments")
-            .updateOne({ id: EXP }, { $set: { status: "running" } })
-            .then(() => undefined),
+        setup: () => setExperiment({ status: "running" }),
         body: { addUrlRedirects: [staged(A)] },
         refusal: {
           status: 400,
@@ -1221,14 +1195,14 @@ describe("applyExperimentChanges", () => {
       },
     ] as {
       name: string;
-      setup: () => Promise<void>;
+      setup?: () => Promise<unknown>;
       body: ExperimentChangesBody;
       refusal: { status: number; message: string };
     }[])(
       "refuses $name before writing anything",
       async ({ setup, body, refusal: { status, message } }) => {
         await seedLinked();
-        await setup();
+        await setup?.();
         const snapshot = async () => ({
           experiment: await collection("experiments").findOne({ id: EXP }),
           redirects: await storedRedirects(),

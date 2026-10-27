@@ -207,9 +207,8 @@ export default function ExperimentDetailsPanel({
                     value={
                       <Box width="100%">
                         {experiment.description ? (
-                          // Beside the page rather than on it, so it reads at
-                          // the column's size, and a long one doesn't push
-                          // the rest of the column away.
+                          // Clamped, so a long one doesn't push the rest of
+                          // the column away.
                           <ExpandableBlock>
                             <Box style={{ fontSize: "var(--font-size-1)" }}>
                               <Markdown>{experiment.description}</Markdown>

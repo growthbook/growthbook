@@ -189,8 +189,7 @@ export const updateFeatureV2 = createApiRequestHandler(
 
   let defaultValue: string | undefined;
   if (req.body.defaultValue != null) {
-    // Always normalize (parse / dirty-json fixup), but only enforce the schema
-    // when not explicitly skipped.
+    // Enforce the schema unless explicitly skipped.
     defaultValue = assertStorableFeatureValue(
       req.context.canSkipSchemaValidationFor("feature")
         ? { ...effectiveFeature, jsonSchema: undefined }

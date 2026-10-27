@@ -500,8 +500,7 @@ export async function planExperimentUpdate(
       : data[key] !== experiment[key];
 
     if (hasChanges) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (changes as any)[key] = data[key];
+      Object.assign(changes, { [key]: data[key] });
     }
   });
 

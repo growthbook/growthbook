@@ -91,6 +91,7 @@ import {
   draftReviewState,
   FlagDraftPicks,
   resolveDraftPick,
+  revisionHref,
   startBypassCovers,
 } from "./draftPicks";
 import FlagValuesModal from "./FlagValuesModal";
@@ -786,12 +787,12 @@ function FlagColumn({
       experiment.status === "running"
         ? {
             status: "warning",
-            text: "Flag is archived and is not serving.",
+            text: "Feature Flag is archived and is not serving.",
           }
         : launches
           ? {
               status: "warning",
-              text: "Flag is archived and won't serve on experiment start.",
+              text: "Feature Flag is archived and won't serve on experiment start.",
             }
           : { status: "info", text: "This Feature Flag is archived." },
     );
@@ -857,7 +858,17 @@ function FlagColumn({
   if (onFlag && describesShown && info.rulesAbove) {
     notices.push({
       status: "info",
-      text: "Flag has rules above experiment's rule.",
+      text: "Feature Flag has rules above the experiment's rule.",
+    });
+  }
+  if (pendingRemoval && !linkAction) {
+    notices.push({
+      status: "warning",
+      text: `Revision ${pendingRemoval.version} removes this experiment's rule.`,
+      action: draftLink(
+        "Review draft",
+        draftReviewHref(feature.id, pendingRemoval.version),
+      ),
     });
   }
 
@@ -904,26 +915,11 @@ function FlagColumn({
       : relinking
         ? "Saving adds the rule to a new draft, published when the experiment starts."
         : info.liveHasMatchingRule
-          ? "Saving starts a draft that removes the rule. Publish it to unlink the flag."
-          : "Saving unlinks the flag.";
+          ? "Saving starts a draft that removes the rule. Publish it to unlink the Feature Flag."
+          : "Saving unlinks the Feature Flag.";
 
   const notLive = showingLive && !info.liveHasMatchingRule;
   const noValues = (orphaned && !relinking) || notLive;
-  const details = [
-    ...notices,
-    ...(pendingRemoval && !linkAction
-      ? [
-          {
-            status: "warning" as const,
-            text: `Revision ${pendingRemoval.version} removes this experiment's rule.`,
-            action: draftLink(
-              "Review draft",
-              draftReviewHref(feature.id, pendingRemoval.version),
-            ),
-          },
-        ]
-      : []),
-  ];
   const showEnvironments =
     environmentStates.length > 0 && !orphaned && !removing && !notLive;
   const canEditEnvironments = canEditFlag && showEnvironments && !group;
@@ -1047,7 +1043,7 @@ function FlagColumn({
     <Flex align="center" gap="3">
       <Box flexGrow="1" minWidth="0">
         <HelperText status="warning" size="sm">
-          Flag has no experiment rule.
+          Feature Flag has no experiment rule.
         </HelperText>
       </Box>
       {canEditFlagLinks && !showingLive ? (
@@ -1130,7 +1126,11 @@ function FlagColumn({
           <>
             <HeaderText truncate>
               <Link
-                href={`/features/${feature.id}${showingLive && pendingDraft ? `?v=${pendingDraft.version}` : ""}`}
+                href={
+                  showingLive && pendingDraft
+                    ? revisionHref(feature.id, pendingDraft.version)
+                    : `/features/${feature.id}`
+                }
                 external
               >
                 {feature.id}
@@ -1215,22 +1215,18 @@ function FlagColumn({
             : null
         }
       >
-        {noValues ? (
-          !orphaned ? (
-            <Text size="sm" color="text-low">
-              {pendingDraft
-                ? `Not on the live Feature Flag yet. ${draftMention} adds it.`
-                : "Not on the live Feature Flag yet."}
-            </Text>
-          ) : linkAction && !showingLive ? (
-            stagedLinkAction
-          ) : (
-            orphanNote
-          )
+        {noValues && !orphaned ? (
+          <Text size="sm" color="text-low">
+            {pendingDraft
+              ? `Not on the live Feature Flag yet. ${draftMention} adds it.`
+              : "Not on the live Feature Flag yet."}
+          </Text>
         ) : linkAction && !showingLive ? (
           stagedLinkAction
+        ) : noValues ? (
+          orphanNote
         ) : null}
-        {details.map((n, i) => (
+        {notices.map((n, i) => (
           <Flex key={i} align="baseline" gap="2" wrap="wrap">
             <HelperText status={n.status} size="sm">
               {n.text}

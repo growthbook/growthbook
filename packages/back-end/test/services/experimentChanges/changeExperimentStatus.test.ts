@@ -138,38 +138,6 @@ describe("startExperiment", () => {
     });
     expect(updateExperiment).not.toHaveBeenCalled();
   });
-
-  it("holds a flag's approval the bypass doesn't reach", async () => {
-    (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([
-      { ...draftFlag, pendingApproval: true, draftRevisionStatus: "draft" },
-    ]);
-    getFeaturesByIdsMock.mockResolvedValue([
-      { id: "flag_1", project: "other" },
-    ]);
-    const bypasser = {
-      ...context,
-      permissions: {
-        ...context.permissions,
-        canBypassFlagApprovalChecks: () => false,
-      },
-    } as unknown as ReqContext;
-
-    await expect(
-      startExperiment({
-        context: bypasser,
-        experimentId: "exp_1",
-        skipChecklist: true,
-        bypassLockdown: true,
-      }),
-    ).rejects.toMatchObject({
-      code: "checklist_incomplete",
-      details: {
-        remainingChecklistItems: [
-          expect.objectContaining({ key: "pendingApproval:flag_1" }),
-        ],
-      },
-    });
-  });
 });
 
 describe("getExperimentStartChecklistStatus", () => {

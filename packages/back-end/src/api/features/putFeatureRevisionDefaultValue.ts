@@ -52,7 +52,7 @@ export async function setRevisionDefaultValue(
       );
     }
 
-    // Always normalize; enforce the schema unless ?skipSchemaValidation=true.
+    // Enforce the schema unless ?skipSchemaValidation=true.
     const schemaFeature = withStagedSchema(feature, revision);
     const defaultValue = assertStorableFeatureValue(
       context.canSkipSchemaValidationFor("feature")

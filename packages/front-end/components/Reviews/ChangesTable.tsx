@@ -181,7 +181,6 @@ export default function ChangesTable({
           if (group.footer) {
             lines.push({ key: `${group.key}.footer`, label: group.footer });
           }
-          // The group's first and last lines take the room around its rules.
           return lines.map((line, i) =>
             row(
               line,

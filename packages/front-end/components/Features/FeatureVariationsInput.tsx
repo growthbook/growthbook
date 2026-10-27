@@ -34,6 +34,7 @@ import {
   SortableFeatureVariationRow,
   gridColumns,
   SortableVariation,
+  valueColumnIsKey,
 } from "./SortableFeatureVariationRow";
 import SortableVariationsList from "./SortableVariationsList";
 import { ValueDiffProvider } from "./ValueDiffContext";
@@ -107,16 +108,14 @@ export default function FeatureVariationsInput({
   const idsMatchIndexes = variations?.every((v, i) => v.value === i + "");
 
   const [editingSplits, setEditingSplits] = useState(startEditingSplits);
-  // A feature rule forces values; everywhere else the column holds variation keys.
-  const valueIsKey = valueAsId || !hideVariationIds;
+  const valueIsKey = valueColumnIsKey({ valueAsId, hideVariationIds });
   const [editingIds, setEditingIds] = useState(
     startEditingIndexes || !idsMatchIndexes,
   );
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
-  // Leaving advanced mode resets bespoke ids to their index. Descriptions stay:
-  // `showDescriptions` is the caller's call, not advanced mode's.
+  // Leaving advanced mode resets bespoke keys to their index.
   const exitAdvancedMode = () => {
     setEditingIds(false);
     if (!variations || !setVariations) return;
@@ -259,7 +258,7 @@ export default function FeatureVariationsInput({
             !!variations?.length &&
             !idsMatchIndexes && (
               <Callout status="warning" size="sm" mb="3">
-                Turning off Advanced resets variation ids to their position (0,
+                Turning off Advanced resets variation keys to their position (0,
                 1, 2&hellip;).
               </Callout>
             )}

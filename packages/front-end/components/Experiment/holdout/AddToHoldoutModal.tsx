@@ -5,7 +5,6 @@ import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 
-/** Picks the experiment's holdout, staged for the page's Save. */
 const AddToHoldoutModal = ({
   experiment,
   holdoutId,

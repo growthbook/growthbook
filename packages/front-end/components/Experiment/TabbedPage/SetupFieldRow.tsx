@@ -16,7 +16,6 @@ const PANEL_PADDING = "var(--space-4)";
 
 type LabelSize = "md" | "lg";
 
-/** A setup field: its label on the left, the control on the right. */
 export default function SetupFieldRow({
   id,
   label,

@@ -52,6 +52,38 @@ export interface Props {
   close: () => void;
 }
 
+function linkedChangeRow(
+  cb: ApiContextualBanditInterface,
+  linkedFeatures: LinkedFeatureInfo[],
+  visualChangesets: VisualChangesetInterface[],
+  visualChangesetsLoading: boolean,
+  visualChangesetsError: Error | undefined,
+): CheckListItem | null {
+  if (visualChangesetsError) {
+    return blockingRow({
+      key: "visual-changes-error",
+      display: `Couldn't load this Contextual Bandit's visual changes (${visualChangesetsError.message}). Reload the page and try again.`,
+    });
+  }
+  if (visualChangesetsLoading) {
+    return blockingRow({
+      key: "visual-changes-loading",
+      display: "Checking for saved AI Visual Editor changes…",
+    });
+  }
+  if (
+    linkedFeatures.length === 0 &&
+    !contextualBanditHasServableVisualChanges(cb, visualChangesets)
+  ) {
+    return blockingRow({
+      key: "no-linked-change",
+      display:
+        "Link at least one Feature Flag or save an AI Visual Editor change",
+    });
+  }
+  return null;
+}
+
 function getChecklistItems(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
@@ -59,30 +91,13 @@ function getChecklistItems(
   visualChangesetsLoading: boolean,
   visualChangesetsError: Error | undefined,
 ): CheckListItem[] {
-  const noLinkedChange = visualChangesetsError
-    ? [
-        blockingRow({
-          key: "visual-changes-error",
-          display: `Couldn't load this Contextual Bandit's visual changes (${visualChangesetsError.message}). Reload the page and try again.`,
-        }),
-      ]
-    : visualChangesetsLoading
-      ? [
-          blockingRow({
-            key: "visual-changes-loading",
-            display: "Checking for saved AI Visual Editor changes…",
-          }),
-        ]
-      : linkedFeatures.length === 0 &&
-          !contextualBanditHasServableVisualChanges(cb, visualChangesets)
-        ? [
-            blockingRow({
-              key: "no-linked-change",
-              display:
-                "Link at least one Feature Flag or save an AI Visual Editor change",
-            }),
-          ]
-        : [];
+  const noLinkedChange = linkedChangeRow(
+    cb,
+    linkedFeatures,
+    visualChangesets,
+    visualChangesetsLoading,
+    visualChangesetsError,
+  );
   const awaitingApproval = linkedFeatures
     .filter(
       (f) =>
@@ -105,7 +120,7 @@ function getChecklistItems(
       }),
     );
   return [
-    ...noLinkedChange,
+    ...(noLinkedChange ? [noLinkedChange] : []),
     ...mergeConflictRows(linkedFeatures),
     ...awaitingApproval,
     ...unrelatedDraftChangeRows(linkedFeatures, "Contextual Bandit"),

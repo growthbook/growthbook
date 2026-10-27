@@ -769,9 +769,7 @@ function TabbedPageContents({
                   experiment={experiment}
                   runningExperimentStatus={runningExperimentStatus}
                   editSchedule={
-                    canEditExperiment && editSchedule
-                      ? () => editSchedule()
-                      : undefined
+                    canEditExperiment && editSchedule ? editSchedule : undefined
                   }
                   {...bannerMargin}
                 />

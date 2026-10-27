@@ -203,7 +203,7 @@ export const postFeatureV2 = createApiRequestHandler(postFeatureV2Validator)(
       feature.valueType,
     );
     feature.jsonSchema = jsonSchema;
-    // Always normalize; enforce the schema unless explicitly skipped.
+    // Enforce the schema unless explicitly skipped.
     feature.defaultValue = assertStorableFeatureValue(
       req.context.canSkipSchemaValidationFor("feature")
         ? { ...feature, jsonSchema: undefined }

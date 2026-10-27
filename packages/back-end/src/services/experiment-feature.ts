@@ -333,18 +333,7 @@ async function mergeAndPublishRevision({
   bypassLockdown: boolean;
   conflictMessage: string;
 }) {
-  const { live, base } = await getLiveAndBaseRevisionsForFeature({
-    context,
-    feature,
-    revision,
-  });
-  const { mergeResult } = mergeDraftForAutoPublish(
-    context,
-    feature,
-    revision,
-    live,
-    base,
-  );
+  const mergeResult = await mergeOntoLive(context, feature, revision);
   if (!mergeResult.success) throw new Error(conflictMessage);
   return publishRevision({
     context,
@@ -354,6 +343,20 @@ async function mergeAndPublishRevision({
     comment,
     bypassLockdown,
   });
+}
+
+async function mergeOntoLive(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+) {
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  return mergeDraftForAutoPublish(context, feature, revision, live, base)
+    .mergeResult;
 }
 
 export type ExperimentFeatureUpdatePlan = {
@@ -1413,22 +1416,10 @@ async function discardDraftIfNoop({
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   eventAudit: EventUser;
-}): Promise<boolean> {
-  const { live, base } = await getLiveAndBaseRevisionsForFeature({
-    context,
-    feature,
-    revision,
-  });
-  const { mergeResult } = mergeDraftForAutoPublish(
-    context,
-    feature,
-    revision,
-    live,
-    base,
-  );
-  if (!mergeResult.success || mergeResultHasChanges(mergeResult)) return false;
+}): Promise<void> {
+  const mergeResult = await mergeOntoLive(context, feature, revision);
+  if (!mergeResult.success || mergeResultHasChanges(mergeResult)) return;
   await discardRevision(context, revision, eventAudit, feature.version);
-  return true;
 }
 
 // Undoes a pending removal. The draft the removal started is discarded once it

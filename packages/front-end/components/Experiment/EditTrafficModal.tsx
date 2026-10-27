@@ -36,7 +36,7 @@ export default function EditTrafficModal({
       close={close}
       header="Edit Population & Split"
       cta="Apply"
-      submit={async () =>
+      submit={() =>
         stage({
           coverage,
           variationWeights: isBandit

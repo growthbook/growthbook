@@ -8,7 +8,7 @@ import Heading from "@/ui/Heading";
 import { ICON_PROPERTIES } from "./constants";
 
 type Props = {
-  feature?: { id: string };
+  feature: { id: string };
   additionalBadge?: ReactNode;
   children?: ReactNode;
   heading: string;
@@ -34,7 +34,7 @@ export default function LinkedChange({
             <Avatar radius="small" color={radixColor} size="md" variant="soft">
               <Icon />
             </Avatar>
-            <Link href={`/features/${feature?.id}`}>
+            <Link href={`/features/${feature.id}`}>
               <Heading as="h4" size="sm" weight="medium" mb="0">
                 <Flex align="center">
                   {heading}

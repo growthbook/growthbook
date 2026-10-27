@@ -206,13 +206,11 @@ export default function EditExperimentInfoModal({
         </Box>
       ) : null}
       {section === "customFields" && shownCustomFields.length > 0 ? (
-        <Box>
-          <CustomFieldInput
-            fields={shownCustomFields}
-            value={form.watch("customFields")}
-            onChange={(value) => form.setValue("customFields", value)}
-          />
-        </Box>
+        <CustomFieldInput
+          fields={shownCustomFields}
+          value={form.watch("customFields")}
+          onChange={(value) => form.setValue("customFields", value)}
+        />
       ) : null}
     </ModalStandard>
   );

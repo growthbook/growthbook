@@ -1186,8 +1186,7 @@ export default function AnalysisSettingsSummary({
             ) : null
           }
         >
-          Error updating data:{" "}
-          {refreshError || "Query timed out after 30 minutes."}
+          Error updating data: {refreshError}
           {isExperimentIncludedInIncrementalRefresh
             ? " If it persists, try disabling incremental refresh for this experiment."
             : null}

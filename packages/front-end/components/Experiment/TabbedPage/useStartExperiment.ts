@@ -31,7 +31,6 @@ export type StartExperiment = ReturnType<typeof useStartExperiment>;
 export const RUN_PERMISSION_REASON =
   "Requires permission to start and stop experiments in this experiment's environments.";
 
-/** Starting an experiment or holdout. */
 export default function useStartExperiment({
   experiment,
   holdout,
@@ -104,7 +103,7 @@ export default function useStartExperiment({
   }) {
     // Only a holdout starts by adding its first phase; an experiment waits on
     // its targeting row, a hard block while it has none.
-    if (!experiment.phases?.length) {
+    if (!experiment.phases.length) {
       if (!isHoldout) {
         throw new Error("Set up targeting before starting this experiment.");
       }

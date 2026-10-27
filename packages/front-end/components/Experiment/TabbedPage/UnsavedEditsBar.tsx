@@ -55,7 +55,7 @@ export default function UnsavedEditsBar() {
             disabled={edits.saving}
             onClick={edits.discardAll}
           >
-            Discard Changes
+            Discard changes
           </Button>
           <Button disabled={edits.saving} onClick={() => edits.saveAll()}>
             {edits.saving ? "Saving..." : "Save"}

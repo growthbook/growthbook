@@ -8,7 +8,6 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { isUndefined } from "lodash";
 import {
   ExperimentMetricDefinition,
   expandMetricGroups,
@@ -121,14 +120,14 @@ export default function MetricsOverridesSelector({
     (m) => !usedMetrics.has(m),
   );
 
-  const addOverride = (id: string) => {
-    const metricOverride = getDefaultMetricOverridesFormValue(
-      [{ id }],
-      getExperimentMetricById,
-      settings,
-    )?.[0];
-    if (metricOverride) metricOverrides.append(metricOverride);
-  };
+  const addOverride = (id: string) =>
+    metricOverrides.append(
+      getDefaultMetricOverridesFormValue(
+        [{ id }],
+        getExperimentMetricById,
+        settings,
+      )[0],
+    );
 
   return (
     <Flex direction="column" gap="3">
@@ -297,9 +296,9 @@ function OverrideCard({
   const cupedOverridden = !!mo.regressionAdjustmentOverride;
   const days: number | undefined = mo.regressionAdjustmentDays;
   const daysWarning =
-    !isUndefined(days) && days > 28
+    days !== undefined && days > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
-      : !isUndefined(days) && days < 7
+      : days !== undefined && days < 7
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : null;
 

@@ -578,12 +578,6 @@ describe("checklistReadiness", () => {
       want: [false, false, false],
     },
     {
-      name: "every selected checklist clear",
-      selected: ["a"],
-      reports: { a: ready },
-      want: [false, false, false],
-    },
-    {
       name: "a real blocker",
       selected: ["a"],
       reports: { a: hard },

@@ -149,11 +149,11 @@ export default function VariationScreenshotManager({
     useSensor(TouchSensor, {
       activationConstraint: { delay: 150, tolerance: 5 },
     }),
-    useSensor(KeyboardSensor, {}),
+    useSensor(KeyboardSensor),
   );
+  const variation = experiment.variations[variationIndex];
   // The viewer reads screenshots off the experiment, which still holds the
   // saved ones.
-  const variation = experiment.variations[variationIndex];
   const stagedExperiment = useMemo(
     () => ({
       ...experiment,

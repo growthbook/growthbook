@@ -43,7 +43,6 @@ export type ChecklistReadyStatus = {
   loading: boolean;
 };
 
-// The rail's type scale, or a modal's and a page's.
 type ChecklistSize = "sm" | "md";
 
 const TIER_TITLES: Record<ChecklistTier, string> = {
@@ -101,7 +100,6 @@ function ChecklistRow({
   onToggleManual: ((manualKey: string, checked: boolean) => void) | null;
   // Fades the row out, then calls this.
   onFaded?: (() => void) | null;
-  // To read, not act on: no ticking, no action.
   readOnly?: boolean;
 }) {
   const complete = item.status === "complete";
@@ -202,7 +200,6 @@ function useFadingCompletions(
   return { withFading, isFading, faded };
 }
 
-/** Checklist rows to read, not act on. */
 export function ReadOnlyChecklistRows({ items }: { items: CheckListItem[] }) {
   return (
     <Flex direction="column" gap="2">
@@ -219,7 +216,6 @@ export function ReadOnlyChecklistRows({ items }: { items: CheckListItem[] }) {
   );
 }
 
-// Done items, in a last section that starts shut.
 function CompletedItems({
   items,
   size,
@@ -319,7 +315,6 @@ export function ChecklistItems({
 export const todoTitle = (remaining: number | null) =>
   remaining ? `To do (${remaining})` : "To do";
 
-/** Headed as on the details rail. */
 export function ChecklistTodoHeading({
   remaining,
 }: {
@@ -332,7 +327,6 @@ export function ChecklistTodoHeading({
   );
 }
 
-/** The details rail's To Do tab, or the start popover's To Do. */
 export function PreLaunchChecklistPanel() {
   const { summary, loading, loadError, toggleManualItem, toggleError } =
     usePreLaunchChecklist();
@@ -427,7 +421,6 @@ export function PreLaunchChecklistForDraftFeature({
     return <LoadingSpinner />;
   }
 
-  // Laid out as the start popover: hidden once nothing is left.
   const showTodo =
     experiment.status === "draft" &&
     (summary.remaining > 0 || loadError || summary.flagged.length > 0);

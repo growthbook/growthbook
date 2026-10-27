@@ -11,6 +11,7 @@ import { PiLockSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
 import { datasourceChangeDrops } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   ExperimentAnalysisSettingsDraft,
   experimentAnalysisSettingsDraft,
@@ -263,17 +264,12 @@ export default function AnalysisPlan({
     setExposureQueryId(next.exposureQueryId);
     setIdentifierType(next.identifierType);
     // A table or identifier picked by hand brings its assignment attribute.
-    const settings = getDatasourceById(next.datasource)?.settings;
-    const { attribute } = resolveAssignmentIdentifier({
-      query: settings?.queries?.exposure?.find(
-        (q) => q.id === next.exposureQueryId,
-      ),
-      identifierType: next.identifierType,
+    const { attribute } = resolveSelection(
+      getDatasourceById(next.datasource),
+      next.exposureQueryId,
+      next.identifierType,
       hashAttribute,
-      hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
-        settings?.userIdTypes,
-      ),
-    });
+    );
     if (attribute) stageHashAttribute?.(attribute);
   };
   const current = {
@@ -392,9 +388,6 @@ export default function AnalysisPlan({
       </Flex>
     </Tooltip>
   );
-  const exposureQueries = selectedDatasource?.settings?.queries?.exposure ?? [];
-  const exposureQuery = exposureQueries.find((q) => q.id === exposureQueryId);
-
   const hashAttributeIdentifierTypeMap = useMemo(
     () =>
       getHashAttributeIdentifierTypeMap(
@@ -402,12 +395,12 @@ export default function AnalysisPlan({
       ),
     [selectedDatasource?.settings?.userIdTypes],
   );
-  const resolution = resolveAssignmentIdentifier({
-    query: exposureQuery,
+  const resolution = resolveSelection(
+    selectedDatasource,
+    exposureQueryId,
     identifierType,
     hashAttribute,
-    hashAttributeIdentifierTypeMap,
-  });
+  );
   const scopedQueries = useMemo(
     () =>
       selectedDatasource
@@ -612,8 +605,7 @@ export default function AnalysisPlan({
           Analysis Plan
         </Heading>
 
-        {/* The data source and what's analyzed in it change together, in a
-            modal; the assignment query reads back in the details panel. */}
+        {/* The assignment query reads back in the details panel. */}
         <SetupFieldRow
           id="analysis-plan-datasource"
           label="Data Source"
@@ -772,16 +764,12 @@ function DataSourceModal({
     autoRepair: !sameSource,
     keepCurrentSelection: sameSource,
   });
-  const resolution = resolveAssignmentIdentifier({
-    query: selected?.settings?.queries?.exposure?.find(
-      (q) => q.id === exposureQueryId,
-    ),
+  const resolution = resolveSelection(
+    selected,
+    exposureQueryId,
     identifierType,
     hashAttribute,
-    hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
-      selected?.settings?.userIdTypes,
-    ),
-  });
+  );
   const changed =
     suggested ||
     !sameSource ||
@@ -798,7 +786,7 @@ function DataSourceModal({
       submit={() => {
         change({
           datasource,
-          exposureQueryId: exposureQueryId ?? "",
+          exposureQueryId,
           identifierType: identifierType ?? "",
         });
         close();
@@ -837,6 +825,23 @@ function DataSourceModal({
       ) : null}
     </ModalStandard>
   );
+}
+
+function resolveSelection(
+  datasource: DataSourceInterfaceWithParams | null,
+  exposureQueryId: string,
+  identifierType: string | undefined,
+  hashAttribute: string,
+) {
+  const settings = datasource?.settings;
+  return resolveAssignmentIdentifier({
+    query: settings?.queries?.exposure?.find((q) => q.id === exposureQueryId),
+    identifierType,
+    hashAttribute,
+    hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+      settings?.userIdTypes,
+    ),
+  });
 }
 
 function AttributeConflict({

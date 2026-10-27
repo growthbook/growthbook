@@ -55,7 +55,6 @@ describe("summarizeChecklist", () => {
     expect(summary.blocking).toBe(2);
   });
 
-  // A conflict is never the admin's to override.
   it("lets an admin's start bypass waive only approval", () => {
     expect(keys(items.filter(isBypassableStartItem))).toEqual([
       "pendingApproval:f1",

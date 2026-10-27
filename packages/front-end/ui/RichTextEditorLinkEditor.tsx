@@ -33,6 +33,18 @@ export interface LinkTarget {
   mode: "preview" | "edit";
 }
 
+// Inserted text merges into the text around it, so select just what was
+// inserted, ready to link.
+export function $insertTextSelected(selection: RangeSelection, text: string) {
+  selection.insertText(text);
+  const caret = selection.anchor;
+  selection.anchor.set(
+    caret.key,
+    Math.max(0, caret.offset - text.length),
+    caret.type,
+  );
+}
+
 // The link a selection or element sits in, so the toolbar button and a hover
 // open the same card.
 export function useLinkTarget() {
@@ -130,13 +142,7 @@ export default function RichTextEditorLinkEditor({
       if (!$isRangeSelection(selection)) return;
       // Insert the title as text, then link it: inserting a built link node
       // would duplicate its text.
-      selection.insertText(nextTitle);
-      const caret = selection.anchor;
-      selection.anchor.set(
-        caret.key,
-        Math.max(0, caret.offset - nextTitle.length),
-        caret.type,
-      );
+      $insertTextSelected(selection, nextTitle);
       $toggleLink(nextUrl);
     });
   };

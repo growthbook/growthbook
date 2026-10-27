@@ -214,7 +214,7 @@ const StopExperimentForm: FC<{
       }
       size="lg"
       close={close}
-      open={true}
+      open
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
       ctaColor={isStopped ? "violet" : "red"}

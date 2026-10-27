@@ -110,7 +110,5 @@ export function getAceCodeCss(
     `${scope} .ace_editor { font-family: ${CODE_FONT_FAMILY}; font-size-adjust: var(--code-font-x-height); line-height: ${CODE_LINE_HEIGHT}; }`,
     `${scope} .ace_content { font-weight: ${CODE_FONT_WEIGHT};${base ? ` color: ${base};` : ""} }`,
     ...rules,
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].join("\n");
 }

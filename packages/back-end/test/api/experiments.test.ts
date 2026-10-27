@@ -2175,7 +2175,7 @@ describe("experiments API", () => {
           exposureQueryId: "eq_other",
         });
 
-        // As in the app, at any status, leaving the old source's settings.
+        // A running experiment can move too, dropping the old source's settings.
         updateReqContext({
           models: {
             segments: {
@@ -3373,7 +3373,6 @@ describe("experiments API", () => {
         { id: "vb", status: "active" },
         { id: "vc", status: "active" },
       ]);
-      // A third variation evens out the split.
       expect(updateCall.changes.phases[1].variationWeights).toHaveLength(3);
     });
   });

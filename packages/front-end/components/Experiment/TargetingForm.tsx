@@ -120,7 +120,6 @@ export default function TargetingForm({
               };
             }) || []
           }
-          // Matches Setup's population and split modal.
           showPreview
           disableCoverage={changeType === "weights"}
           disableVariations={changeType === "traffic"}

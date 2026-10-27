@@ -7,7 +7,7 @@ import { getStorableVariations } from "shared/experiments";
 import { Flex } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import { StopSubmit } from "@/ui/Modal/StopSubmit";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Callout from "@/ui/Callout";
 import VariationLabel from "@/ui/VariationLabel";
 
@@ -32,26 +32,9 @@ export default function EditVariationKeysModal({
       open={true}
       close={close}
       cta="Apply"
-      // Checked here, not as a field rule: a failed rule resolves the submit
-      // and the modal closes without showing it.
-      submit={() => {
-        const keys = form.getValues("keys").map((key) => key.trim());
-        form.clearErrors();
-        const taken = keys.map((key, i) =>
-          keys.some((other, j) => j !== i && other === key),
-        );
-        if (taken.some(Boolean)) {
-          taken.forEach((isTaken, i) => {
-            if (isTaken) {
-              form.setError(`keys.${i}`, {
-                message: "Another variation already uses this ID.",
-              });
-            }
-          });
-          throw new StopSubmit();
-        }
-        stage(variations.map((v, i) => ({ ...v, key: keys[i] })));
-      }}
+      submit={validatedSubmit(form, ({ keys }) =>
+        stage(variations.map((v, i) => ({ ...v, key: keys[i].trim() }))),
+      )}
     >
       <Flex direction="column" gap="3">
         <Callout status="warning">
@@ -66,7 +49,14 @@ export default function EditVariationKeysModal({
               required
               containerClassName="mb-0"
               aria-label={`${v.name || `Variation ${i}`} ID`}
-              {...form.register(`keys.${i}`)}
+              {...form.register(`keys.${i}`, {
+                validate: (key) =>
+                  form
+                    .getValues("keys")
+                    .every(
+                      (other, j) => j === i || other.trim() !== key.trim(),
+                    ) || "Another variation already uses this ID.",
+              })}
               error={form.formState.errors.keys?.[i]?.message}
             />
           </Flex>

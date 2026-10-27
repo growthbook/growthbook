@@ -15,17 +15,16 @@ import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { hasPendingScheduledStart } from "shared/util";
-import { PENDING_APPROVAL_ITEM_PREFIX } from "shared/validators";
 import track from "@/services/track";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import { startBypassCovers } from "@/components/Experiment/TabbedPage/draftPicks";
+import { isBypassableStartItem } from "./checklistSummary";
 
 export type ChecklistAction =
   | { onClick: () => void }
   | { href: string; external?: boolean };
 
 export type CheckListItem = {
-  // Unique per row.
   key: string;
   // Plain copy: the row makes it a link when there's an action.
   display: string;
@@ -163,7 +162,6 @@ export function getChecklistItems({
   const startApproved = hasPendingScheduledStart(experiment);
   const onClick = (fn?: (() => void) | null): ChecklistAction | undefined =>
     fn ? { onClick: fn } : undefined;
-  // Opens the analysis settings on the field the item is about.
   const openSettingsOn = (focus: AnalysisFormFocus | null) =>
     onClick(openAnalysisSettings && (() => openAnalysisSettings(focus)));
   const verifiedConnections = connections.some((c) => c.connected);
@@ -190,7 +188,7 @@ export function getChecklistItems({
             : undefined,
       };
     }
-    if (item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX)) {
+    if (isBypassableStartItem(item)) {
       const draft = linkedFeatures.find(
         (f) => f.feature.id === item.featureId,
       )?.pendingDraft;

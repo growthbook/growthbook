@@ -65,6 +65,7 @@ import {
   IMAGE_TRANSFORMER,
 } from "./RichTextEditorImageNode";
 import RichTextEditorToolbar from "./RichTextEditorToolbar";
+import { $insertTextSelected } from "./RichTextEditorLinkEditor";
 import { AUTO_LINK_TRANSFORMER, URL_MATCHERS } from "./RichTextEditorAutoLink";
 import { hasMarkdownFormatting } from "./richTextFormatting";
 import styles from "./RichTextEditor.module.scss";
@@ -266,15 +267,7 @@ function PasteAndDrop({
           // With nothing selected, a label from the URL becomes the link text.
           const collapsed = selection.isCollapsed();
           if (collapsed) {
-            const label = getLinkLabelFromUrl(text);
-            selection.insertText(label);
-            // It merges into the text around it: select just the label.
-            const caret = selection.anchor;
-            selection.anchor.set(
-              caret.key,
-              Math.max(0, caret.offset - label.length),
-              caret.type,
-            );
+            $insertTextSelected(selection, getLinkLabelFromUrl(text));
             // Links don't nest, so inside one the URL stays text.
             if ($findMatchingParent(selection.anchor.getNode(), $isLinkNode)) {
               selection.insertText(text);

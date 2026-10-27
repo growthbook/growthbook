@@ -38,9 +38,6 @@ import {
 } from "./scheduledStart.fixture";
 import { setupApp } from "./api.setup";
 
-// A flag draft that would take a draft experiment live can't be armed on the
-// flag side: its publish would leave the experiment unstarted.
-
 const FLAG = "flag_bypass";
 
 const reviewOrg = {

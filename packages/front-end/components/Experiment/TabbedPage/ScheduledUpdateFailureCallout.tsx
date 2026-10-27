@@ -16,7 +16,7 @@ export default function ScheduledUpdateFailureCallout({
     <Button variant="outline" size="sm" onClick={editSchedule}>
       Edit schedule
     </Button>
-  ) : undefined;
+  ) : null;
 
   if (failure) {
     return (

@@ -49,7 +49,6 @@ function SortableRow({ row, i }: { row: Row; i: number }) {
   );
 }
 
-/** Reorders the variations, carrying each one's split and values with it. */
 export default function ReorderVariationsModal({
   experiment,
   weights,

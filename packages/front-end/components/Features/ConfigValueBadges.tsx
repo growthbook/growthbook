@@ -24,11 +24,11 @@ function useConfigOverrideEnvironments(
       : [configKey];
     // Matches the resolver: archived and cross-project overrides don't apply.
     const applies = (key: string) => {
-      const override = byKey.get(key);
+      const config = byKey.get(key);
       return (
-        !!override &&
-        !override.archived &&
-        (!override.project || override.project === project)
+        !!config &&
+        !config.archived &&
+        (!config.project || config.project === project)
       );
     };
     return environments

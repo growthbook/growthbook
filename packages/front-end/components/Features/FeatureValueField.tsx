@@ -607,6 +607,13 @@ export default function FeatureValueField({
     }
   }
 
+  const labelText =
+    label !== undefined ? (
+      <Text as="label" weight="semibold" mb="0">
+        {label}
+      </Text>
+    ) : null;
+
   if (valueType === "json") {
     // Sparse patch mode (JSON features): the value is a partial object merged
     // onto the default. We show a toggle on the label row and, when on,
@@ -638,13 +645,7 @@ export default function FeatureValueField({
         width="100%"
         style={{ minHeight: "var(--space-6)" }}
       >
-        {label !== undefined ? (
-          <Text as="label" weight="semibold" mb="0">
-            {label}
-          </Text>
-        ) : (
-          <Box />
-        )}
+        {labelText ?? <Box />}
         <Flex align="center" gap="3" flexShrink="0">
           {insertConstantButton}
           <SparsePatchToggle
@@ -671,13 +672,7 @@ export default function FeatureValueField({
         <Box mb="3">
           {sparseHeader}
           <SparseTabbedEditor
-            headerLeft={
-              !sparseHeader && label !== undefined ? (
-                <Text as="label" weight="semibold" mb="0">
-                  {label}
-                </Text>
-              ) : undefined
-            }
+            headerLeft={!sparseHeader ? labelText : undefined}
             headerRight={!sparseHeader ? insertConstantButton : undefined}
             value={value}
             setValue={setValue}
@@ -713,13 +708,7 @@ export default function FeatureValueField({
           // with sibling columns (e.g. the config JSON value/schema editors).
           style={{ minHeight: "var(--space-6)" }}
         >
-          {label !== undefined ? (
-            <Text as="label" weight="semibold" mb="0">
-              {label}
-            </Text>
-          ) : (
-            <Box />
-          )}
+          {labelText ?? <Box />}
           {insertConstantButton}
         </Flex>
       ) : null;
@@ -885,13 +874,7 @@ export default function FeatureValueField({
   const stringLabelRow =
     showStringPicker && !compactConstant ? (
       <Flex align="center" justify="between" gap="3" width="100%" mb="1">
-        {label !== undefined ? (
-          <Text as="label" weight="semibold" mb="0">
-            {label}
-          </Text>
-        ) : (
-          <Box />
-        )}
+        {labelText ?? <Box />}
         {stringInsertButton}
       </Flex>
     ) : null;

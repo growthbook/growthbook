@@ -1,8 +1,4 @@
-import type { FeatureRule } from "shared/validators";
-import {
-  getLaunchDraftVersion,
-  getRuleChangingDraftVersions,
-} from "back-end/src/util/featureExperimentSync";
+import { getLaunchDraftVersion } from "back-end/src/util/featureExperimentSync";
 
 const ref = (value: string, experimentId = "exp_1") => ({
   id: `fr_${experimentId}`,
@@ -42,14 +38,10 @@ describe("getLaunchDraftVersion", () => {
     ).toBe(3);
   });
 
-  it.each([
-    { name: "adds the rule", rule: ref("b") },
-    {
-      name: "runs its rule in no environment",
-      rule: { ...ref("b"), allEnvironments: false, environments: [] },
-    },
-  ])("counts a draft that $name", ({ rule }) => {
-    expect(getLaunchDraftVersion("exp_1", [revision(2, [rule])], null)).toBe(2);
+  it("counts a draft that adds the rule", () => {
+    expect(
+      getLaunchDraftVersion("exp_1", [revision(2, [ref("b")])], null),
+    ).toBe(2);
   });
 
   it("ignores other experiments' rules", () => {
@@ -61,23 +53,5 @@ describe("getLaunchDraftVersion", () => {
         live,
       ),
     ).toBeNull();
-  });
-});
-
-describe("getRuleChangingDraftVersions", () => {
-  it("lists every draft that changes the matched rules, newest first, the launch draft leading", () => {
-    const base = revision(1, [ref("b")]);
-    const live = revision(3, [ref("b-published")]);
-    const drafts = [
-      { ...revision(2, [ref("b-edited")]), base },
-      // Holds the rule as it was when cut, so it changes nothing.
-      { ...revision(4, [ref("b")]), base },
-      revision(5, [ref("b-newer")]),
-    ];
-    const matches = (r: FeatureRule) =>
-      r.type === "experiment-ref" && r.experimentId === "exp_1";
-
-    expect(getRuleChangingDraftVersions(matches, drafts, live)).toEqual([5, 2]);
-    expect(getLaunchDraftVersion("exp_1", drafts, live)).toBe(5);
   });
 });

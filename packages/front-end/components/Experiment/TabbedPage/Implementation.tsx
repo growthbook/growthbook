@@ -263,8 +263,8 @@ export default function Implementation({
     );
     setLinkedDraft(change);
   };
-  const { canEdit } = useExperimentEditing(experiment, disableEditing);
   const { canEdit: canEditExperiment } = useExperimentEditing(experiment);
+  const canEdit = canEditExperiment && !disableEditing;
   const { hasCommercialFeature } = useUser();
   const unscheduledDraft =
     experiment.status === "draft" && !experiment.nextScheduledStatusUpdate;

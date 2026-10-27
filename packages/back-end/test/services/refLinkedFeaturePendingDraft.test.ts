@@ -20,7 +20,6 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getFeatureRevisionsByFeatureIds: jest.fn(),
   getLinkageSyncRevisionSummaries: jest.fn(),
-  // Feeds attributeScopeProjects, which these cases do not exercise.
   getActiveDraftMetadataByFeatureIds: jest.fn(async () => ({})),
 }));
 jest.mock("back-end/src/services/features", () => ({
@@ -91,7 +90,6 @@ const context = {
   },
   hasPremiumFeature: () => true,
   permissions: { canPublishFeature: () => true },
-  // Names a governing Project in the approval assessment.
   getProjects: async () => [],
 } as unknown as ReqContext;
 
@@ -129,9 +127,9 @@ const stub = ({
   return summaries;
 };
 
-const run = (refIsDraft: boolean) =>
+const run = (refIsDraft: boolean, ctx = context) =>
   getRefLinkedFeatureInfo({
-    context,
+    context: ctx,
     linkedFeatureIds: ["flag"],
     refIsDraft,
     matchRule: (rule) =>
@@ -168,14 +166,12 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
       { variationId: "var_1", value: "draft-value" },
     ]);
     expect(info.pendingDraft?.pendingApproval).toBe(true);
-    // The live values are the before side of the diff.
     expect(info.liveValues).toEqual([
       { variationId: "var_0", value: "control" },
       { variationId: "var_1", value: "live-value" },
     ]);
-    // changeExperimentStatus filters `pendingApproval` with no state gate and
-    // reads `draftRevisionStatus` for the verdict — populating either here
-    // would hard-block a running experiment on an unrelated draft.
+    // Set on a running experiment, these would hard-block its start on an
+    // unrelated draft.
     expect(info.pendingApproval).toBeUndefined();
     expect(info.draftRevisionVersion).toBeUndefined();
     expect(info.draftRevisionStatus).toBeUndefined();
@@ -198,7 +194,6 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.pendingDraft?.version).toBe(5);
     expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
     expect(info.liveValues).toBeUndefined();
-    // On a draft experiment the sibling fields are populated.
     expect(info.draftRevisionVersion).toBe(5);
     expect(info.pendingApproval).toBe(true);
   });
@@ -209,32 +204,33 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
   ])(
     "judges approval by every Project governing the flag (targeting $targetingProjects)",
     async ({ targetingProjects, pendingApproval }) => {
-      const settings = context.org.settings;
       // Only the Project the flag may target has a review rule.
-      context.org.settings = {
-        ...settings,
-        requireReviews: [
-          {
-            requireReviewOn: true,
-            resetReviewOnChange: false,
-            environments: [],
-            projects: ["prj_targeted"],
+      const reviewed = {
+        ...context,
+        org: {
+          ...context.org,
+          settings: {
+            ...context.org.settings,
+            requireReviews: [
+              {
+                requireReviewOn: true,
+                resetReviewOnChange: false,
+                environments: [],
+                projects: ["prj_targeted"],
+              },
+            ],
           },
-        ],
-      } as typeof settings;
-      try {
-        stub({ live: [], drafts: [makeDraft(5, [refRule("draft-value")])] });
-        mockGetFeatures.mockResolvedValue([
-          { ...makeFeature([]), targetingProjects },
-        ]);
+        },
+      } as unknown as ReqContext;
+      stub({ live: [], drafts: [makeDraft(5, [refRule("draft-value")])] });
+      mockGetFeatures.mockResolvedValue([
+        { ...makeFeature([]), targetingProjects },
+      ]);
 
-        const [info] = await run(true);
+      const [info] = await run(true, reviewed);
 
-        expect(info.pendingApproval).toBe(pendingApproval);
-        expect(info.pendingDraft?.pendingApproval).toBe(!!pendingApproval);
-      } finally {
-        context.org.settings = settings;
-      }
+      expect(info.pendingApproval).toBe(pendingApproval);
+      expect(info.pendingDraft?.pendingApproval).toBe(!!pendingApproval);
     },
   );
 

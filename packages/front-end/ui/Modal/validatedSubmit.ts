@@ -1,9 +1,4 @@
-import {
-  FieldValues,
-  SubmitErrorHandler,
-  SubmitHandler,
-  UseFormReturn,
-} from "react-hook-form";
+import { FieldValues, SubmitHandler, UseFormReturn } from "react-hook-form";
 import { StopSubmit } from "./StopSubmit";
 
 /**
@@ -13,15 +8,13 @@ import { StopSubmit } from "./StopSubmit";
  */
 export function validatedSubmit<T extends FieldValues>(
   form: Pick<UseFormReturn<T>, "handleSubmit">,
-  // Typed by the form, not by the callbacks.
+  // Typed by the form, not by the callback.
   onValid: SubmitHandler<NoInfer<T>>,
-  onInvalid?: SubmitErrorHandler<NoInfer<T>>,
 ): () => Promise<void> {
   return async () => {
     let invalid = false;
-    await form.handleSubmit(onValid, async (errors, e) => {
+    await form.handleSubmit(onValid, () => {
       invalid = true;
-      await onInvalid?.(errors, e);
     })();
     if (invalid) throw new StopSubmit();
   };

@@ -234,6 +234,31 @@ const Results: FC<{
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasQueries = queryStrings.length > 0;
+
+  function noDataHint(): string | null {
+    if (!hasValidStatsEngine) {
+      return "The stats engine changed, so click Update to re-run the analysis.";
+    }
+    if (!snapshot) {
+      return datasource && permissionsUtil.canRunExperimentQueries(datasource)
+        ? "Click Update to run the analysis."
+        : null;
+    }
+    const started = phaseObj?.dateStarted ?? "";
+    if (phaseAgeMinutes >= 120) {
+      const noun = isBandit
+        ? "Bandit"
+        : experiment.type === "holdout"
+          ? "holdout"
+          : "experiment";
+      return `Make sure your ${noun} is tracking properly.`;
+    }
+    if (phaseAgeMinutes < 0) {
+      return `This experiment will start ${relativeDate(started)}. Once it has run for a little while, click Update to check again.`;
+    }
+    return `It started ${ago(started)}. Give it a little longer, then click Update to check again.`;
+  }
+
   return (
     <>
       {!hasMetrics && (
@@ -280,29 +305,7 @@ const Results: FC<{
         !dimensionNeedsOverallResultsFirst &&
         !snapshotLoading && (
           <Callout status="info" contentAlign="center" mx="3" my="3">
-            No data yet.{" "}
-            {!hasValidStatsEngine
-              ? "The stats engine changed, so click Update to re-run the analysis."
-              : !snapshot
-                ? datasource &&
-                  permissionsUtil.canRunExperimentQueries(datasource)
-                  ? "Click Update to run the analysis."
-                  : null
-                : phaseAgeMinutes >= 120
-                  ? `Make sure your ${
-                      isBandit
-                        ? "Bandit"
-                        : experiment.type === "holdout"
-                          ? "holdout"
-                          : "experiment"
-                    } is tracking properly.`
-                  : phaseAgeMinutes < 0
-                    ? `This experiment will start ${relativeDate(
-                        experiment.phases[phase]?.dateStarted ?? "",
-                      )}. Once it has run for a little while, click Update to check again.`
-                    : `It started ${ago(
-                        experiment.phases[phase]?.dateStarted ?? "",
-                      )}. Give it a little longer, then click Update to check again.`}
+            No data yet. {noDataHint()}
           </Callout>
         )}
 

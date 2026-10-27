@@ -38,7 +38,6 @@ type ChecklistExperiment = ExperimentInterface | ExperimentInterfaceStringDates;
 const complete = (done: boolean): LaunchChecklistItem["status"] =>
   done ? "complete" : "incomplete";
 
-// Whether an SDK Connection serves an experiment in `project`.
 export function sdkConnectionServesProject(
   connection: { projects?: string[] },
   project: string | undefined,

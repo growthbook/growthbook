@@ -1,21 +1,3 @@
-// Visual Editor changes on the experiment page: the targeting chips, the
-// per-variation summary and the change list.
-//
-// All colors / radii reference Radix theme tokens (`--accent-N`,
-// `--gray-N`, `--orange-N`, `--radius-N`, etc.) so dark mode swaps come
-// for free. The literal hex values from the design handoff are mapped to
-// the closest Radix step:
-//
-//   text high-contrast (#1F2D5C ink)           → --gray-12
-//   text low-contrast / soft (#60646C, #80838D) → --gray-11
-//   faint (#8B8D98)                            → --gray-10 / --gray-a9
-//   hairlines (#EDEEF0)                        → --gray-a4
-//   borders (#DDDEE3 / #E6E7EB)                → --gray-a6 / --gray-a5
-//   alt surface (#F7F7FA)                      → --gray-a3
-//   accent / accent-soft / accent-text         → --accent-9 / --accent-3 / --accent-11
-//   blue link (#006DCB)                        → --blue-11
-//   greens / reds for include/exclude          → --green / --red scales
-
 .ruleChip {
   display: inline-flex;
   align-items: center;
@@ -102,14 +84,12 @@
   color: var(--accent-11);
 }
 
-// Expanded change list under a variation row.
 .changeList {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-// ---- Change row ----
 .change {
   border: 1px solid var(--gray-a5);
   border-radius: var(--radius-3);
@@ -162,13 +142,9 @@
   border: 1px solid var(--gray-a5);
   padding: 1px 6px;
   border-radius: var(--radius-1);
-  // Long selectors wrap here (the chip now lives in the raw-values panel,
-  // not as an inline headline chip), so break rather than overflow.
   word-break: break-all;
 }
 
-// "Applies to: <selector>" row at the top of the raw-values panel. Moved
-// out of the headline because a CSS selector isn't human-readable.
 .appliesTo {
   display: flex;
   align-items: baseline;
@@ -204,35 +180,7 @@
   font-weight: 500;
 }
 
-.codeToggle {
-  width: 28px;
-  height: 28px;
-  border-radius: var(--radius-2);
-  cursor: pointer;
-  flex-shrink: 0;
-  background: transparent;
-  border: 1px solid var(--gray-a5);
-  color: var(--gray-a9);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.codeToggle:hover {
-  background: var(--gray-a3);
-  color: var(--gray-12);
-}
-
-.codeToggleOpen {
-  background: var(--gray-a3);
-  color: var(--gray-12);
-}
-
-// Per-change-row delete affordance. Same dimensions as the code
-// toggle so the action cluster reads as one row; hover reveals a
-// red tint to flag the destructive nature. Reuses the codeToggle
-// base via class composition would be tidier — kept separate so
-// hover/disabled rules don't bleed.
+.codeToggle,
 .deleteRowBtn {
   width: 28px;
   height: 28px;
@@ -247,6 +195,12 @@
   justify-content: center;
 }
 
+.codeToggle:hover,
+.codeToggleOpen {
+  background: var(--gray-a3);
+  color: var(--gray-12);
+}
+
 .deleteRowBtn:hover {
   background: var(--red-a3);
   border-color: var(--red-a6);
@@ -257,10 +211,7 @@
   padding: 0 13px 12px 55px;
 }
 
-// Image-swap preview: a contained thumbnail above the raw src line.
-// `max-height` is the gate; max-width fills available space so we
-// don't squash wider-than-tall images. Light background so transparent
-// PNGs read against both light and dark themes.
+// A tinted backing so transparent PNGs read in both themes.
 .imagePreview {
   margin-bottom: 8px;
   padding: 6px;

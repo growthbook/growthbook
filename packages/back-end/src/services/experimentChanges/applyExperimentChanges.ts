@@ -204,7 +204,8 @@ async function planFlagValues(
   const conflicts: string[] = [];
   features: for (const [featureId, entries] of entriesByFeature) {
     const feature = byId.get(featureId);
-    if (!feature) throw new NotFoundError(`Feature Flag ${featureId}`);
+    if (!feature)
+      throw new NotFoundError(`Feature Flag ${featureId} not found`);
     if (!context.permissions.canEditFeatureDrafts(feature)) {
       context.permissions.throwPermissionError();
     }
@@ -515,7 +516,8 @@ export async function applyExperimentChanges({
   for (const link of body.linkFeatures ?? []) {
     assertScopedRules(context, [{ id: "", ...linkRuleScope(link) }], []);
     const feature = await getFeature(context, link.featureId);
-    if (!feature) throw new NotFoundError(`Feature Flag ${link.featureId}`);
+    if (!feature)
+      throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
     await assertFlagLinkable({
       context,
       experiment: plannedExperiment,
@@ -669,7 +671,8 @@ async function finishFlags({
 }): Promise<ExperimentInterface> {
   for (const link of body.linkFeatures ?? []) {
     const feature = await getFeature(context, link.featureId);
-    if (!feature) throw new NotFoundError(`Feature Flag ${link.featureId}`);
+    if (!feature)
+      throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
     await linkFeatureToExperiment({
       context,
       experiment,

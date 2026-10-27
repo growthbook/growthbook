@@ -65,6 +65,17 @@ export function gridColumns({
     .join(" ");
 }
 
+// A feature rule forces values; everywhere else the column holds variation keys.
+export function valueColumnIsKey({
+  valueAsId,
+  hideVariationIds,
+}: {
+  valueAsId: boolean;
+  hideVariationIds?: boolean;
+}): boolean {
+  return valueAsId || !hideVariationIds;
+}
+
 export type SortableVariation = ExperimentValue & {
   id: string;
   description?: string;
@@ -149,8 +160,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       });
     };
 
-    // A feature rule forces values; everywhere else the column holds the key.
-    const valueIsKey = valueAsId || !hideVariationIds;
+    const valueIsKey = valueColumnIsKey({ valueAsId, hideVariationIds });
     const update = (patch: Partial<SortableVariation>) => {
       const newVariations = [...variations];
       newVariations[i] = { ...variation, ...patch };

@@ -2104,8 +2104,8 @@ export async function setPendingFeatureUnlink(
 
 // Queues a draft for auto-publish when the experiment transitions to running.
 // $addToSet is atomic and idempotent on exact (featureId, revisionVersion)
-// pairs. Multiple drafts of the same feature are intentionally allowed and
-// applied sequentially at start (publishPendingFeatureDraftsForExperiment).
+// pairs. A start publishes one draft per feature (getLaunchDrafts) and prunes
+// the rest.
 export async function addPendingFeatureDraftToExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,

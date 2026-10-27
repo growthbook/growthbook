@@ -55,8 +55,7 @@ import {
 import { withoutProtocol } from "./LinkedChanges/redirectDestination";
 import styles from "./VisualChangesetColumn.module.scss";
 
-/** Stored editor URLs often omit a protocol; Next.js Link treats those as
- * app-relative paths. */
+// Stored editor URLs often omit a protocol, which links treat as app-relative.
 function normalizeVisualEditorUrl(url: string): string {
   const trimmed = url.trim();
   if (!trimmed) return trimmed;
@@ -75,10 +74,8 @@ function visualChangeCount(change: VisualChange): number {
   );
 }
 
-// Pretty-print a CSS string for the per-row code disclosure. The visual
-// editor's Global CSS often arrives as one minified line; this gives it
-// scannable indentation + line-breaks without parsing anything beyond
-// `{` / `}` / `;` and string literals.
+// The editor's Global CSS often arrives minified; this only splits on
+// `{`, `}` and `;` outside string literals.
 function prettyPrintCss(css: string): string {
   const src = css.trim();
   if (!src) return src;
@@ -135,8 +132,6 @@ function prettyPrintCss(css: string): string {
     .trim();
 }
 
-// Per-change-type icon used in the change-row's left tile. The size/color
-// come from the wrapper; this is just the glyph.
 function TypeIcon({ type }: { type: ChangeType }) {
   switch (type) {
     case "spacing":
@@ -152,11 +147,8 @@ function TypeIcon({ type }: { type: ChangeType }) {
   }
 }
 
-// Per change-type tone vars consumed by `.typeTile` + `.afterChip`. Each
-// type maps to a Radix color scale; --N-9 (solid) / --N-a3 (soft alpha)
-// / --N-11 (low-contrast text) means dark mode swaps for free. Pushed
-// via inline `style` rather than per-type CSS classes to avoid five
-// near-identical class definitions in the module.
+// Consumed by `.typeTile` and `.afterChip`; inline rather than five
+// near-identical classes.
 function toneVars(type: ChangeType): React.CSSProperties {
   const scale = (() => {
     switch (type) {
@@ -179,8 +171,6 @@ function toneVars(type: ChangeType): React.CSSProperties {
   };
 }
 
-// Targeting-rule pill (Applies-to / Except rows). Includes get a green dot,
-// excludes a red dot; regex patterns get a small ".*" badge.
 function RuleChip({
   rule,
 }: {
@@ -208,9 +198,6 @@ function RuleChip({
   );
 }
 
-// One row in the expanded change list under a variation. Renders the
-// design's type tile + verb/title + selector chip + after chip + per-row
-// code disclosure + optional delete.
 function ChangeRow({
   h,
   onDelete,
@@ -220,16 +207,8 @@ function ChangeRow({
   onDelete?: () => void;
 }) {
   const [showCode, setShowCode] = useState(false);
-  // Falls to true when the preview image fails to load (404, CORS-
-  // blocked, etc.) — the thumbnail is hidden and the user sees the
-  // raw src URL only. Cheap and graceful; no need for a Suspense-y
-  // loading state since the image is lazy and inside a collapsed panel.
   const [imageError, setImageError] = useState(false);
-  // Lazily compute the displayed code text — for CSS-typed rows we
-  // pretty-print, for mutation rows the rawLines are already one
-  // declaration per line (or a short status note). Gated on
-  // `showCode` so the pretty-printer doesn't run on every render of a
-  // closed row (most rows stay closed; some changesets have many).
+  // Only while open; most rows stay closed.
   const codeText = useMemo(() => {
     if (!showCode) return "";
     return h.type === "css"
@@ -275,9 +254,7 @@ function ChangeRow({
       </Flex>
       {showCode && (
         <Box className={styles.codePanel}>
-          {/* The CSS selector lives here in the raw-values panel rather
-              than next to the human-readable description — it's an
-              implementation detail, not human-readable. */}
+          {/* A selector isn't human-readable, so it sits with the raw values. */}
           <div className={styles.appliesTo}>
             <span className={styles.appliesToLabel}>Applies to:</span>
             <code className={styles.selectorChip}>{h.selectorLabel}</code>
@@ -350,14 +327,6 @@ function changeRowsFor(
   return rows;
 }
 
-function orderedPatterns(urlPatterns: VisualChangesetInterface["urlPatterns"]) {
-  const includes = urlPatterns.filter((p) => p.include);
-  return {
-    includes,
-    ordered: [...includes, ...urlPatterns.filter((p) => !p.include)],
-  };
-}
-
 function MorePatterns({
   patterns,
 }: {
@@ -391,10 +360,11 @@ function AppliesTo({
 }: {
   urlPatterns: VisualChangesetInterface["urlPatterns"];
 }) {
-  const {
-    includes,
-    ordered: [first, ...rest],
-  } = orderedPatterns(urlPatterns);
+  const includes = urlPatterns.filter((p) => p.include);
+  const [first, ...rest] = [
+    ...includes,
+    ...urlPatterns.filter((p) => !p.include),
+  ];
   if (!first) return null;
   return (
     <Flex as="span" align="center" gap="2" minWidth="0" wrap="wrap">

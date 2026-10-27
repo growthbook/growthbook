@@ -184,10 +184,10 @@ export default function ValueDisplay({
     let attempts = 0;
     const tryScroll = () => {
       if (el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1) {
-        const lineHeight = el.scrollHeight / totalLines;
-        if (firstEmphasized * lineHeight <= el.clientHeight) return;
+        const rowHeight = el.scrollHeight / totalLines;
+        if (firstEmphasized * rowHeight <= el.clientHeight) return;
         const targetLine = Math.max(0, firstEmphasized - 2); // 0-based, minus a line of padding
-        el.scrollTop = targetLine * lineHeight;
+        el.scrollTop = targetLine * rowHeight;
         return;
       }
       if (++attempts < 90) raf = requestAnimationFrame(tryScroll);
