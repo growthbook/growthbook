@@ -51,6 +51,7 @@ import Heading from "@/ui/Heading";
 import Pagination from "@/ui/Pagination";
 import { Popover } from "@/ui/Popover";
 import { Select, SelectItem } from "@/ui/Select";
+import Switch from "@/ui/Switch";
 import Table, {
   TableBody,
   TableCell,
@@ -66,16 +67,15 @@ import UITooltip from "@/ui/Tooltip";
 const numberFormatter = new Intl.NumberFormat();
 const PAGE_SIZE = 20;
 
-type RowStatus = "running" | "stopped" | "imported";
+type RowStatus = "running" | "stopped";
 type Tab = "all" | RowStatus;
 
 const STATUS_BADGES: Record<
   RowStatus,
-  { label: string; color: "green" | "gray" | "violet" }
+  { label: string; color: "green" | "gray" }
 > = {
   running: { label: "Running", color: "green" },
   stopped: { label: "Stopped", color: "gray" },
-  imported: { label: "Imported", color: "violet" },
 };
 
 function QueryNames({ queries }: { queries: { id: string; name: string }[] }) {
@@ -192,6 +192,7 @@ const ImportExperimentList: FC<{
   );
   const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [dedupeFilter, setDedupeFilter] = useState(true);
+  const [hideImported, setHideImported] = useState(true);
   const [excludedQueryIds, setExcludedQueryIds] = useState<string[]>([]);
   const [tab, setTab] = useState<Tab>("all");
   const [page, setPage] = useState(1);
@@ -261,13 +262,8 @@ const ImportExperimentList: FC<{
       ],
     [data?.existing, dedupeFilter],
   );
-  const getRowStatus = useCallback(
-    (e: PastExperiment): RowStatus => {
-      if (getExistingId(e) !== undefined) return "imported";
-      return daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
-    },
-    [getExistingId],
-  );
+  const getRowStatus = (e: PastExperiment): RowStatus =>
+    daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
 
   // Searching
   const filterResults = useCallback(
@@ -275,6 +271,7 @@ const ImportExperimentList: FC<{
       const rows = items.filter((e) => {
         if (!isRowAvailable(e)) return false;
         if (excludedQueryIds.includes(e.exposureQueryId)) return false;
+        if (hideImported && getExistingId(e) !== undefined) return false;
         if (
           minUsersFilter &&
           e.users < parseIntWithDefault(minUsersFilter, 0)
@@ -314,6 +311,8 @@ const ImportExperimentList: FC<{
     [
       dedupeFilter,
       excludedQueryIds,
+      getExistingId,
+      hideImported,
       isRowAvailable,
       minLengthFilter,
       minUsersFilter,
@@ -426,6 +425,7 @@ const ImportExperimentList: FC<{
     setMinLengthFilter("0");
     setMinVariationsFilter("0");
     setExcludedQueryIds([]);
+    setHideImported(false);
     clearSearch();
     setPage(1);
   }
@@ -502,7 +502,6 @@ const ImportExperimentList: FC<{
     all: items.length,
     running: 0,
     stopped: 0,
-    imported: 0,
   };
   items.forEach((e) => tabCounts[getRowStatus(e)]++);
   const tabItems =
@@ -737,7 +736,7 @@ const ImportExperimentList: FC<{
             mb="3"
           >
             <TabsList>
-              {(["all", "running", "stopped", "imported"] as const).map((t) => (
+              {(["all", "running", "stopped"] as const).map((t) => (
                 <TabsTrigger key={t} value={t}>
                   {t === "all" ? "All" : STATUS_BADGES[t].label}
                   <Text size="sm" color="text-low" ml="2">
@@ -758,6 +757,15 @@ const ImportExperimentList: FC<{
               />
             </Box>
             <Flex align="center" gap="4">
+              <Switch
+                id="hide-imported"
+                label="Hide imported"
+                value={hideImported}
+                onChange={(v) => {
+                  setHideImported(v);
+                  setPage(1);
+                }}
+              />
               {identifierType !== null && identifierTypes.length > 1 && (
                 <DropdownMenu
                   variant="soft"
