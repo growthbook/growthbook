@@ -449,7 +449,7 @@ Conditions never convert between types. When an operator compares the attribute 
 - When the types differ, the positive operator returns `false` and its negation returns `true`. For valid conditions, `$ne`, `$nin`, `$not`, `$vne` and `$notInGroup` are the exact opposite of `$eq`, `$in`, the inner condition, `$veq` and `$inGroup`. There are three exceptions:
   - `$not` of an unsupported result stays unsupported (`null`).
   - `$in`, `$nin`, `$ini` and `$nini` all return `false` when the condition value isn't an array.
-  - `$inGroup` and `$notInGroup` both return `null` for an unsupported saved group type, and both return `false` for a saved group that doesn't exist or has no list of values.
+  - `$inGroup` and `$notInGroup` both return `null` for an unsupported saved group type, and both return `false` for a saved group that exists but has no list of values. A missing saved group counts as an empty list, so `$inGroup` returns `false` and `$notInGroup` returns `true`.
 - A missing attribute is `null`. It never counts as `0`, `""`, `false` or a version.
 - `$eq` and `$ne` compare like JS `===`. An array or object condition value never equals the attribute, so `$eq` returns `false` and `$ne` returns `true`.
 - A condition value that is an array or an object without operators, such as `{ "tags": ["a", "b"] }`, compares the JSON encoding of both values. Order matters for array items and object keys, and `1.0` equals `1`.
