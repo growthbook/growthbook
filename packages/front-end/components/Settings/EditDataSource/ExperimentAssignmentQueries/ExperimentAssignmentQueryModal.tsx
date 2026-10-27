@@ -20,7 +20,7 @@ import {
   ExposureQuery,
   ExposureQueryColumnMapping,
 } from "shared/types/datasource";
-import { DetectedColumn } from "shared/types/fact-table";
+import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
 import { getDataSourceSqlDialect } from "shared/dialects";
 import SourceStep from "@/components/SchemaBrowser/SourceStep";
 import { useSourceTable } from "@/components/SchemaBrowser/useSourceTable";
@@ -81,6 +81,19 @@ const getExposureQueryColumnMappingError = (
         "separate columns for an experiment ID, a variation ID, a timestamp, and at least one identifier",
     },
   );
+
+// In order of how often each type is used as a dimension, with the labels the
+// fact table column editor uses
+const DIMENSION_GROUP_LABELS: Record<FactTableColumnType, string> = {
+  string: "String",
+  boolean: "Boolean",
+  number: "Number",
+  "": "Unknown",
+  date: "Date / Datetime",
+  json: "JSON",
+  binary: "Binary",
+  other: "Other",
+};
 
 const ROLE_LABELS: Record<string, string> = {
   experiment_id: "Experiment ID",
@@ -303,8 +316,8 @@ export const ExperimentAssignmentQueryModal = ({
   const experimentName = validColumn(columns, experimentNameColumn);
   const variationName = validColumn(columns, variationNameColumn);
 
-  // String columns not claimed by a role are offered as dimensions. Already
-  // saved dimensions stay listed so editing never silently drops one.
+  // Columns not claimed by a role are offered as dimensions. Already saved
+  // dimensions stay listed so editing never silently drops one.
   const roleColumns = new Set(
     [
       experimentIdColumn,
@@ -316,13 +329,26 @@ export const ExperimentAssignmentQueryModal = ({
     ].filter(Boolean),
   );
   const savedDimensions = exposureQuery?.dimensions ?? [];
-  const dimensionOptions = columns
-    .filter(
-      (c) =>
-        savedDimensions.includes(c.column) ||
-        (!roleColumns.has(c.column) && isDimensionCandidate(c)),
-    )
-    .map((c) => ({ label: c.column, value: c.column }));
+  const dimensionColumns = columns.filter(
+    (c) =>
+      savedDimensions.includes(c.column) ||
+      (!roleColumns.has(c.column) && isDimensionCandidate(c)),
+  );
+  const dimensionGroups = Object.entries(DIMENSION_GROUP_LABELS)
+    .map(([type, label]) => ({
+      label,
+      options: dimensionColumns
+        .filter((c) => c.datatype === type)
+        .map((c) => c.column)
+        .sort((a, b) => a.localeCompare(b))
+        .map((column) => ({ label: column, value: column })),
+    }))
+    .filter((group) => group.options.length);
+  // A lone group header adds nothing
+  const dimensionOptions =
+    dimensionGroups.length > 1
+      ? dimensionGroups
+      : dimensionGroups.flatMap((group) => group.options);
 
   const mappedUserIdTypes = identifierTypes.filter((t) =>
     validColumn(identifierOptions, userIdColumns[t] || ""),
@@ -485,7 +511,7 @@ export const ExperimentAssignmentQueryModal = ({
       userIdTypes: mappedUserIdTypes,
       query: querySql,
       dimensions: dimensions.filter((d) =>
-        dimensionOptions.some((o) => o.value === d),
+        dimensionColumns.some((c) => c.column === d),
       ),
       hasNameCol,
       projects,
@@ -805,6 +831,7 @@ export const ExperimentAssignmentQueryModal = ({
               placeholder="No dimensions"
               value={dimensions}
               options={dimensionOptions}
+              sort={false}
               onChange={setDimensions}
               helpText="Columns to break experiment results down by."
             />
