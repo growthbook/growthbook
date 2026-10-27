@@ -18,9 +18,23 @@ import {
   ClientOptions,
   TrackingUserContext,
   UserContext,
+  SavedGroupsPayload,
+  ReducePayloadOptions,
+  PayloadMetadata,
+  SavedGroupPayloadEntry,
 } from "./types/growthbook";
-import { evalCondition } from "./mongrule";
-import { ConditionInterface, EvalConditionOptions } from "./types/mongrule";
+import {
+  evalCondition,
+  isIn,
+  pruneCondition,
+  pruneSavedGroup,
+} from "./mongrule";
+import {
+  ConditionInterface,
+  EvalConditionOptions,
+  ParentConditionInterface,
+  TestedObj,
+} from "./types/mongrule";
 import {
   chooseVariation,
   decrypt,
@@ -34,6 +48,7 @@ import {
   isIncluded,
   isURLTargeted,
   toString,
+  hasOwn,
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
 
@@ -254,10 +269,10 @@ export function evalFeature<V = unknown>(
           }
 
           const evalObj = { value: parentResult.value };
-          const evaled = evalCondition(
+          const evaled = evalConditionSafely(
             evalObj,
             parentCondition.condition || {},
-            evalConditionOptions(ctx),
+            ctx,
           );
           if (!evaled) {
             // blocking prerequisite eval failed: feature evaluation fails
@@ -628,11 +643,7 @@ export function runExperiment<T>(
 
         const evalObj = { value: parentResult.value };
         if (
-          !evalCondition(
-            evalObj,
-            parentCondition.condition || {},
-            evalConditionOptions(ctx),
-          )
+          !evalConditionSafely(evalObj, parentCondition.condition || {}, ctx)
         ) {
           process.env.NODE_ENV !== "production" &&
             ctx.global.log("Skip because prerequisite evaluation fails", {
@@ -886,7 +897,14 @@ function getContextualBanditLeaf(
   ctx: EvalContext,
 ): { leafId: number; weights: number[] } | null {
   for (const context of cbDefinition.contexts || []) {
-    if (conditionPasses((context.condition || {}) as ConditionInterface, ctx)) {
+    // A condition that throws makes the bandit use its fallback weights
+    if (
+      evalCondition(
+        getAttributes(ctx.user),
+        (context.condition || {}) as ConditionInterface,
+        evalConditionOptions(ctx),
+      )
+    ) {
       return { leafId: context.leafId, weights: context.weights };
     }
   }
@@ -952,11 +970,23 @@ function conditionPasses(
   condition: ConditionInterface,
   ctx: EvalContext,
 ): boolean {
-  return evalCondition(
-    getAttributes(ctx.user),
-    condition,
-    evalConditionOptions(ctx),
-  );
+  return evalConditionSafely(getAttributes(ctx.user), condition, ctx);
+}
+
+// A condition that throws, such as a malformed one, fails rather than breaking
+// evaluation
+function evalConditionSafely(
+  obj: TestedObj,
+  condition: ConditionInterface,
+  ctx: EvalContext,
+): boolean {
+  try {
+    return evalCondition(obj, condition, evalConditionOptions(ctx));
+  } catch (e) {
+    process.env.NODE_ENV !== "production" &&
+      ctx.global.log("Condition evaluation failed", { condition, error: e });
+    return false;
+  }
 }
 
 function evalConditionOptions(ctx: EvalContext): EvalConditionOptions {
@@ -1003,7 +1033,7 @@ function isIncludedInRollout(
   return range
     ? inRange(n, range)
     : coverage !== undefined
-      ? n <= coverage
+      ? n < coverage
       : true;
 }
 
@@ -1364,6 +1394,161 @@ export async function decryptPayload(
     delete data.encryptedContextualBandits;
   }
   return data;
+}
+
+// Shrinks a payload for a user whose attributes are only partly known, e.g. on
+// a server bootstrapping a browser. It evaluates the same as the full payload
+// for anyone who agrees with the known attributes.
+export function reducePayload(
+  ctx: EvalContext,
+  {
+    include = {},
+    exclude = {},
+    prerequisites = "keep",
+  }: Omit<ReducePayloadOptions, "userContext"> = {},
+): FeatureApiResponse {
+  const attributes = getAttributes(ctx.user);
+  const savedGroups = ctx.global.savedGroups || {};
+  const allFeatures = ctx.global.features || {};
+  const allExperiments = ctx.global.experiments || [];
+
+  // Only an array counts, as with `$in`, and any one of its values is enough
+  const has = (actual: unknown, want: unknown) =>
+    Array.isArray(want) && isIn(actual, want);
+
+  // A rule without projects applies wherever its feature is delivered
+  const ruleInProjects = (meta?: PayloadMetadata) =>
+    !include.projects ||
+    !meta ||
+    !meta.projects ||
+    has(meta.projects, include.projects);
+  // A feature or experiment has to list one of the projects, or be in all of
+  // them. One without projects is in none, like one without tags.
+  const inProjects = (meta: PayloadMetadata) =>
+    !include.projects ||
+    !!meta.allProjects ||
+    has(meta.projects, include.projects);
+  // Kept when it matches every `include` filter and no `exclude` filter. Only
+  // listed projects are excluded, so one in all projects stays.
+  const matches = (meta?: PayloadMetadata) => {
+    const m = meta || {};
+    const field = (k: string) => (m.customFields || {})[k];
+    const inFields = include.customFields || {};
+    const outFields = exclude.customFields || {};
+    return (
+      inProjects(m) &&
+      (!include.tags || has(m.tags, include.tags)) &&
+      Object.keys(inFields).every((k) => has(field(k), inFields[k])) &&
+      !has(m.projects, exclude.projects) &&
+      !has(m.tags, exclude.tags) &&
+      !Object.keys(outFields).some((k) => has(field(k), outFields[k]))
+    );
+  };
+
+  // Reduces a rule or an auto experiment
+  const prune = <T extends { condition?: ConditionInterface }>(item: T): T => {
+    const condition = item.condition
+      ? pruneCondition(attributes, item.condition, savedGroups)
+      : null;
+    item = { ...item };
+    if (condition === true) delete item.condition;
+    // Kept, since sticky buckets and forced variations skip an experiment's
+    // condition, and a rule's prerequisites are checked before it
+    else if (condition === false) {
+      item.condition = { $not: {} };
+      // A force rule that never passes never returns its value
+      if ("force" in item) (item as { force?: unknown }).force = null;
+    } else if (condition) item.condition = condition;
+    return item;
+  };
+
+  // Adds a feature, then the prerequisites the client evaluates for it, even
+  // when the filters drop them. With "filter", only the filters decide, except
+  // for holdouts, which aren't app features and are always kept.
+  // A Map keeps a `__proto__` key as a plain key.
+  const added = new Map<string, FeatureDefinition>();
+  const addParents = (item: {
+    parentConditions?: ParentConditionInterface[];
+  }) =>
+    (item.parentConditions || []).forEach((p) => {
+      if (prerequisites !== "filter" || p.id.startsWith("$holdout:")) {
+        add(p.id);
+      }
+    });
+  const add = (id: string) => {
+    const feature = hasOwn(allFeatures, id) && allFeatures[id];
+    if (!feature || added.has(id)) return;
+    // Rules scoped to other projects aren't served. A prerequisite from
+    // another project keeps its own, as on the server.
+    const scoped = inProjects(feature.metadata || {});
+    const rules = feature.rules
+      ?.filter((r) => !scoped || ruleInProjects(r.metadata))
+      .map(prune);
+    // Stored before its parents are added, so a prerequisite cycle ends
+    added.set(id, rules ? { ...feature, rules } : feature);
+    (rules || []).forEach(addParents);
+  };
+
+  Object.keys(allFeatures).forEach((id) => {
+    if (matches(allFeatures[id]?.metadata)) add(id);
+  });
+  const experiments = allExperiments
+    .filter((e) => matches(e.metadata))
+    .map(prune);
+  experiments.forEach(addParents);
+  const features = Object.fromEntries(added);
+
+  // The contextual bandits that kept rules and experiments use. A context
+  // whose condition never passes can't be the first that does, so it goes.
+  const allBandits = ctx.global.contextualBandits || {};
+  const bandits = new Map<string, ContextualBanditDefinition>();
+  for (const item of [
+    ...Object.values(features).flatMap((f) => f.rules || []),
+    ...experiments,
+  ]) {
+    const ref = item.contextualBanditRef;
+    if (!ref || bandits.has(ref) || !hasOwn(allBandits, ref)) continue;
+    const bandit = allBandits[ref];
+    bandits.set(ref, {
+      ...bandit,
+      contexts: (bandit.contexts || []).flatMap((c) => {
+        const condition = pruneCondition(
+          attributes,
+          (c.condition || {}) as ConditionInterface,
+          savedGroups,
+        );
+        if (condition === false) return [];
+        return [{ ...c, condition: condition === true ? {} : condition }];
+      }),
+    });
+  }
+  const contextualBandits = Object.fromEntries(bandits);
+
+  // Keep each saved group whose id appears as a string anywhere, with condition
+  // groups reduced. This needs no list of the operators that reference groups.
+  const groups = new Map<string, SavedGroupsPayload[string]>();
+  const keep = (x: unknown) => {
+    if (typeof x === "string") {
+      if (!hasOwn(savedGroups, x) || groups.has(x)) return;
+      const condition = pruneSavedGroup(attributes, { id: x }, savedGroups);
+      groups.set(
+        x,
+        condition && typeof condition === "object"
+          ? ({ ...savedGroups[x], condition } as SavedGroupPayloadEntry)
+          : savedGroups[x],
+      );
+      keep(groups.get(x));
+    } else if (x && typeof x === "object") Object.values(x).forEach(keep);
+  };
+  keep([features, experiments, contextualBandits]);
+
+  return {
+    features,
+    experiments,
+    savedGroups: Object.fromEntries(groups),
+    // Only when there were any, as with the payload's other optional keys
+    contextualBandits: ctx.global.contextualBandits && contextualBandits,
+  };
 }
 
 export function getApiHosts(options: Options | ClientOptions): {

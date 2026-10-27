@@ -17,7 +17,7 @@ export default function UpdateDimensionBreakdownModal({
   handleUpdateDimensionOnlyClick,
   handleGoToOverallResultsClick,
 }: Props) {
-  const dateLabel = datetime(sourceSnapshot.dateCreated);
+  const dateLabel = datetime(sourceSnapshot.analysisEndDate);
 
   return (
     <Modal.Root

@@ -2352,11 +2352,11 @@ export default abstract class SqlIntegration
       isRatioMetric(metric) &&
       metric.denominator?.factTableId === params.factTableId;
 
-    // A conversion window extends the scan past the phase end date, which for
-    // a running phase is the snapshot time, so it would admit rows stamped in
-    // the future. Those must not become the watermark (see
-    // InsertAggregatedFactTableDataQueryParams.windowEndDate), so never scan
-    // past the refresh's own clock.
+    // A conversion window extends the scan past the phase end date. For a
+    // running phase that would admit rows stamped in the future, or past a
+    // lagged analysis end date, and they must not become the watermark (see
+    // InsertAggregatedFactTableDataQueryParams.windowEndDate). The caller caps
+    // the scan (getIncrementalMetricScanEnd).
     const metricEnd =
       source.metricEnd > params.incrementalRefreshStartTime
         ? params.incrementalRefreshStartTime
