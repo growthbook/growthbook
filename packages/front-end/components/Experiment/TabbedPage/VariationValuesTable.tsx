@@ -1129,7 +1129,10 @@ function FlagColumn({
         title={
           <>
             <HeaderText truncate>
-              <Link href={`/features/${feature.id}`} external>
+              <Link
+                href={`/features/${feature.id}${showingLive && pendingDraft ? `?v=${pendingDraft.version}` : ""}`}
+                external
+              >
                 {feature.id}
               </Link>
             </HeaderText>
@@ -1207,18 +1210,9 @@ function FlagColumn({
           ) : null
         }
         end={
-          showingLive ? (
-            <Link
-              href={`/features/${feature.id}${pendingDraft ? `?v=${pendingDraft.version}` : ""}`}
-              external
-              size="sm"
-            >
-              Edit Feature Flag
-              <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
-            </Link>
-          ) : !noValues && (showsDraft || startsDraft) ? (
-            revisionControl
-          ) : null
+          !showingLive && !noValues && (showsDraft || startsDraft)
+            ? revisionControl
+            : null
         }
       >
         {noValues ? (
