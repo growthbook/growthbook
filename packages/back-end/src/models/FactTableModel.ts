@@ -27,6 +27,7 @@ import {
   ApiFactTableColumn,
   ApiFactTableFilter,
   isExternallyManaged,
+  externallyManagedError,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -391,7 +392,7 @@ export async function updateFactTable(
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
-      "Cannot update fact table managed by API if the request isn't from the API.",
+      externallyManagedError("update", "fact table", factTable.managedBy),
     );
   }
 
@@ -1202,7 +1203,7 @@ export async function deleteFactTable(
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error(
-      "Cannot delete fact table managed by API if the request isn't from the API.",
+      externallyManagedError("delete", "fact table", factTable.managedBy),
     );
   }
 

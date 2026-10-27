@@ -16,6 +16,7 @@ import {
   ApiFactMetric,
   validateFactMetricCapping,
   isExternallyManaged,
+  externallyManagedError,
 } from "shared/validators";
 import {
   ColumnRef,
@@ -433,7 +434,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
 
     if (isExternallyManaged(doc.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot create fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("create", "fact metric", doc.managedBy),
       );
     }
 
@@ -465,7 +466,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     // definition can't drift from the caller's source of truth.
     if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot update fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("update", "fact metric", existing.managedBy),
       );
     }
   }
@@ -474,7 +475,7 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     // Check the admin permission here?
     if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot delete fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("delete", "fact metric", existing.managedBy),
       );
     }
   }

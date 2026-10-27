@@ -192,6 +192,15 @@ export const factManagedByValidator = z.enum(["", "api", "admin", "dbt"]);
 export const isExternallyManaged = (managedBy?: string | null): boolean =>
   managedBy === "api" || managedBy === "dbt";
 
+export const externallyManagedError = (
+  action: "create" | "update" | "delete",
+  resource: "fact table" | "fact metric",
+  managedBy?: string | null,
+): string =>
+  managedBy === "dbt"
+    ? `Cannot ${action} ${resource} managed by dbt. Change it in your dbt project and sync again.`
+    : `Cannot ${action} ${resource} managed by API if the request isn't from the API.`;
+
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
