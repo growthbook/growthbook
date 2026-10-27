@@ -359,6 +359,14 @@ export const API_RATE_LIMIT_SEPARATE_REQUESTERS = stringToBoolean(
   process.env.API_RATE_LIMIT_SEPARATE_REQUESTERS,
 );
 
+// Opt-in: REST reads reuse an in-memory organization until its changeStamp
+// changes or the copy is this old. 0 loads it on every request.
+export const API_ORG_CACHE_MAX_AGE_MS = parseEnvInt(
+  process.env.API_ORG_CACHE_MAX_AGE_MS,
+  0,
+  { min: 0, name: "API_ORG_CACHE_MAX_AGE_MS" },
+);
+
 // Opt-in: the bulk experiment results export reads and hydrates every analysis
 // on every snapshot it returns, so it stays off unless a deployment enables it.
 export const EXPERIMENT_BULK_RESULTS_ENABLED = stringToBoolean(

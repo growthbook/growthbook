@@ -563,8 +563,9 @@ export function upgradeOrganizationDoc(
   const org: OrganizationInterface = { ...doc };
   const commercialFeatures = [...accountFeatures[getAccountPlan(org)]];
 
-  // Add settings from config.json
-  const configSettings = getConfigOrganizationSettings();
+  // Add settings from config.json. Copied because every org shares them and
+  // cached orgs are frozen.
+  const configSettings = cloneDeep(getConfigOrganizationSettings());
   org.settings = Object.assign({}, org.settings || {}, configSettings);
 
   // Add default environments if there are none yet

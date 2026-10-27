@@ -90,10 +90,12 @@ import {
   findAllOrganizations,
   findOrganizationById,
   findOrganizationByInviteKey,
+  findOrganizationChangeStamp,
   findOrganizationsByDomain,
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import {
+  API_ORG_CACHE_MAX_AGE_MS,
   APP_ORIGIN,
   GEMINI_IMAGE_MODEL,
   IS_CLOUD,
@@ -101,6 +103,7 @@ import {
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
+import { StampedCache } from "back-end/src/util/stampedCache";
 import {
   AIKeySource,
   canOrgChooseProviderModels,
@@ -185,6 +188,22 @@ export {
 
 export async function getOrganizationById(id: string) {
   return findOrganizationById(id);
+}
+
+const restApiOrgCache =
+  API_ORG_CACHE_MAX_AGE_MS > 0
+    ? new StampedCache<OrganizationInterface>({
+        maxAgeMs: API_ORG_CACHE_MAX_AGE_MS,
+        maxSize: 10,
+        readStamp: findOrganizationChangeStamp,
+        load: findOrganizationById,
+      })
+    : null;
+
+// For REST reads only: the result may be a shared, frozen copy. Copy anything
+// before changing it.
+export async function getOrganizationForRestRead(id: string) {
+  return restApiOrgCache ? restApiOrgCache.get(id) : findOrganizationById(id);
 }
 
 export async function setLicenseKey(

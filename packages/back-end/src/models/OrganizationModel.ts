@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import mongoose from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
@@ -168,9 +169,25 @@ const organizationSchema = new mongoose.Schema({
     customEnvironments: Boolean,
     roleManagement: Boolean,
   },
+  changeStamp: String,
 });
 
 organizationSchema.index({ "members.id": 1 });
+
+// Lets cached copies of an org detect any write. Writes that skip these hooks
+// (save, replaceOne, the raw collection) must set changeStamp themselves.
+organizationSchema.pre(
+  ["updateOne", "updateMany", "findOneAndUpdate"],
+  function () {
+    const changeStamp = randomUUID();
+    const update = this.getUpdate();
+    if (Array.isArray(update)) {
+      this.setUpdate([...update, { $set: { changeStamp } }]);
+    } else {
+      this.set("changeStamp", changeStamp);
+    }
+  },
+);
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
@@ -313,6 +330,18 @@ export async function findAllOrganizations(
 export async function findOrganizationById(id: string) {
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
+}
+
+// "" for an org that has not been written since changeStamp was added
+export async function findOrganizationChangeStamp(
+  id: string,
+): Promise<string | null> {
+  const doc = await getCollection(COLLECTION).findOne(
+    { id },
+    { projection: { _id: 0, changeStamp: 1 } },
+  );
+  if (!doc) return null;
+  return typeof doc.changeStamp === "string" ? doc.changeStamp : "";
 }
 
 type DeletableKeys = Extract<
