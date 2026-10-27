@@ -77,7 +77,11 @@ export function formatFallbackAttributeLabel(
   meta: { context: string },
 ) {
   if (!o.value) {
-    return <em className="text-muted">{o.label}</em>;
+    return (
+      <Text fontStyle="italic" color="text-low">
+        {o.label}
+      </Text>
+    );
   }
   return formatAttributeOptionLabel(o, meta);
 }

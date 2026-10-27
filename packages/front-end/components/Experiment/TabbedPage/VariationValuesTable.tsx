@@ -232,6 +232,7 @@ export default function VariationValuesTable({
     firstValueRow,
     detailsRow,
     variations,
+    tableNote: i === 0 ? duplicateNote : null,
   });
   const [scrolled, setScrolled] = useState(false);
 
@@ -262,7 +263,7 @@ export default function VariationValuesTable({
           ],
         )
       : [];
-  // One issue however many columns it spans, so the first flag column says it.
+  // One issue however many columns it spans, so the first column says it.
   const duplicateNote = !duplicateRows.length
     ? null
     : duplicateRows[0].length === variations.length
@@ -392,7 +393,6 @@ export default function VariationValuesTable({
                   layout={layoutFor(i)}
                   columnKey={key}
                   reportServed={reportServed}
-                  duplicateNote={i === 0 ? duplicateNote : null}
                   experiment={experiment}
                   info={info}
                   group={group}
@@ -532,7 +532,6 @@ function FlagColumn({
   layout,
   columnKey,
   reportServed,
-  duplicateNote,
   experiment,
   info,
   group,
@@ -545,7 +544,6 @@ function FlagColumn({
   layout: ColumnLayout;
   columnKey: string;
   reportServed: (column: string, served: Record<string, string> | null) => void;
-  duplicateNote: string | null;
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   group: ValueGroup | null;
@@ -926,7 +924,6 @@ function FlagColumn({
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
     });
   }
-  if (duplicateNote) notices.push({ status: "warning", text: duplicateNote });
   if (onFlag && describesShown && info.rulesAbove) {
     notices.push({
       status: "info",

@@ -20,6 +20,8 @@ export type ColumnLayout = {
   firstValueRow: number;
   detailsRow: number;
   variations: ShownVariation[];
+  // A warning about the whole table, given to one column to show.
+  tableNote?: string | null;
 };
 
 export type ImplementationColumn = {
@@ -200,6 +202,11 @@ export function ColumnFooter({
       ) : null}
       <Flex direction="column" gap="1" className={styles.footerMessages}>
         {children}
+        {layout.tableNote ? (
+          <HelperText status="warning" size="sm">
+            {layout.tableNote}
+          </HelperText>
+        ) : null}
       </Flex>
     </div>
   );
