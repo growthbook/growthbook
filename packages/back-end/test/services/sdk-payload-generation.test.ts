@@ -22,6 +22,7 @@ import {
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import { SavedGroupFormat } from "shared/types/sdk-connection";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { ApiReqContext } from "back-end/types/api";
 import {
   hashStrings,
@@ -1966,6 +1967,57 @@ describe("SDK payload generation (scenario-specific)", () => {
         expect(rules[0].coverage).toBe(0.8);
         expect(rules[0].condition).toEqual({ country: "US" });
         expect(rules[0].parentConditions).toBeUndefined();
+      });
+
+      it("keeps the wrapper when only a visual changeset references it", async () => {
+        const visualChangeset = {
+          id: "vcs-cb",
+          organization: "org-1",
+          contextualBandit: "cb1",
+          editorUrl: "https://example.com/",
+          urlPatterns: [
+            {
+              include: true,
+              type: "simple" as const,
+              pattern: "https://example.com/",
+            },
+          ],
+          visualChanges: [
+            {
+              id: "vc0",
+              variation: "v0",
+              description: "",
+              css: "",
+              domMutations: [],
+            },
+            {
+              id: "vc1",
+              variation: "v1",
+              description: "",
+              css: ".v1 { display: block; }",
+              domMutations: [],
+            },
+          ],
+        } as unknown as VisualChangesetInterface;
+        const out = await buildSDKPayloadForConnection({
+          context: cbContext(armDoc),
+          connection: {
+            ...connectionForVersion("1.8.1"),
+            includeVisualExperiments: true,
+          },
+          data: cbData({
+            features: [],
+            cbVisualExperiments: [
+              { contextualBandit: armDoc, visualChangeset },
+            ],
+          }),
+        });
+        expect(out.features["$cbma:cb1"]).toBeDefined();
+        const exp = out.experiments?.find((e) => e.key === "cb-track");
+        expect(exp?.parentConditions).toEqual([
+          { id: "$cbma:cb1", condition: { value: "bandit" } },
+        ]);
+        expect(exp?.coverage).toBe(1);
       });
 
       it("drops the wrapper while the CB is stopped", async () => {

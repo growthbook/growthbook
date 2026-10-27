@@ -5,10 +5,12 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useCurrency } from "@/hooks/useCurrency";
 import {
+  formatNumber,
   formatPercent,
   getExperimentMetricFormatter,
 } from "@/services/metrics";
 import { ContextualBanditMeasurementArmResults } from "@/hooks/useContextualBandits";
+import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
@@ -42,24 +44,36 @@ export default function ContextualBanditMeasurementArmSummary({
         ? getExperimentMetricFormatter(metric, getFactTableById)(v, {
             currency: displayCurrency,
           })
-        : String(v);
+        : formatNumber(v);
 
   let body: React.ReactNode;
   if (cb.status === "draft") {
     body = (
       <Text color="text-mid">
         {percentLabel} of eligible users will be held back on the default
-        experience once the bandit starts.
+        experience once the Bandit starts.
       </Text>
     );
   } else if (!result) {
-    body = (
-      <Text color="text-mid">
-        {measurementArm?.latestSnapshot?.status === "error"
-          ? "The last measurement arm update failed."
-          : "Collecting data — results appear after the first analysis runs."}
-      </Text>
-    );
+    body =
+      measurementArm?.latestSnapshot?.status === "error" ? (
+        <Callout status="error">
+          The last measurement arm update failed
+          {measurementArm.latestSnapshot.error
+            ? `: ${measurementArm.latestSnapshot.error}`
+            : "."}{" "}
+          {experimentHref ? (
+            <>
+              <Link href={experimentHref}>View results</Link> to inspect the
+              queries and re-run the analysis.
+            </>
+          ) : null}
+        </Callout>
+      ) : (
+        <Text color="text-mid">
+          Collecting data — results appear after the first analysis runs.
+        </Text>
+      );
   } else {
     const liftText =
       result.lift != null
@@ -71,7 +85,7 @@ export default function ContextualBanditMeasurementArmSummary({
         : "";
     const confidenceText =
       result.chanceToWin != null
-        ? ` · ${formatPercent(result.chanceToWin)} chance the bandit wins`
+        ? ` · ${formatPercent(result.chanceToWin)} chance the Bandit wins`
         : result.pValue != null
           ? ` · p = ${result.pValue.toFixed(3)}`
           : "";
@@ -89,8 +103,12 @@ export default function ContextualBanditMeasurementArmSummary({
         </Text>
         <Text color="text-mid" size="sm">
           Measurement arm {formatMean(result.controlMean)} (
-          {result.controlUsers ?? "—"} users) · Bandit{" "}
-          {formatMean(result.banditMean)} ({result.banditUsers ?? "—"} users)
+          {result.controlUsers != null
+            ? formatNumber(result.controlUsers)
+            : "—"}{" "}
+          users) · Bandit {formatMean(result.banditMean)} (
+          {result.banditUsers != null ? formatNumber(result.banditUsers) : "—"}{" "}
+          users)
           {measurementArm?.latestSnapshot
             ? ` · Updated ${ago(measurementArm.latestSnapshot.dateCreated)}`
             : ""}
@@ -112,7 +130,7 @@ export default function ContextualBanditMeasurementArmSummary({
           {body}
         </Box>
         {experimentHref ? (
-          <Link href={experimentHref}>See full results →</Link>
+          <Link href={experimentHref}>View results</Link>
         ) : null}
       </Flex>
     </Frame>

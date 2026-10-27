@@ -23,6 +23,7 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
+import HelperText from "@/ui/HelperText";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
@@ -212,6 +213,12 @@ const EditMetricsForm: FC<{
         mutate();
       })}
     >
+      {isMeasurementArm && (
+        <HelperText status="info" mb="4">
+          The goal metric follows the Contextual Bandit. Only secondary and
+          guardrail metrics can be changed here.
+        </HelperText>
+      )}
       <ExperimentMetricsSelector
         noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
@@ -222,10 +229,11 @@ const EditMetricsForm: FC<{
         secondaryMetrics={form.watch("secondaryMetrics")}
         guardrailMetrics={form.watch("guardrailMetrics")}
         setGoalMetrics={
-          !(isBandit && experiment.status === "running") && !isMeasurementArm
+          !(isBandit && experiment.status === "running")
             ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
             : undefined
         }
+        goalDisabled={isMeasurementArm}
         setSecondaryMetrics={(secondaryMetrics) =>
           form.setValue("secondaryMetrics", secondaryMetrics)
         }

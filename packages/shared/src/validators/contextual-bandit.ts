@@ -299,7 +299,7 @@ export const apiCreateContextualBanditBody = z.strictObject({
   measurementArmEnabled: z.boolean().optional(),
   measurementArmPercent: z
     .number()
-    .min(MIN_MEASUREMENT_ARM_PERCENT)
+    .min(0)
     .max(MAX_MEASUREMENT_ARM_PERCENT)
     .optional(),
 });
@@ -350,7 +350,7 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   measurementArmEnabled: z.boolean().optional(),
   measurementArmPercent: z
     .number()
-    .min(MIN_MEASUREMENT_ARM_PERCENT)
+    .min(0)
     .max(MAX_MEASUREMENT_ARM_PERCENT)
     .optional(),
 });

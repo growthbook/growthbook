@@ -26,8 +26,8 @@ export default function MeasurementArmBanner({
         "this contextual bandit"
       )}
       : compares users held back on the default experience against users in the
-      bandit. Variations, traffic, targeting, status and the goal metric follow
-      the bandit; only analysis settings can be changed here.
+      Bandit. Variations, traffic, targeting, status and the goal metric follow
+      the Bandit; only secondary and guardrail metrics can be changed here.
     </Callout>
   );
 }

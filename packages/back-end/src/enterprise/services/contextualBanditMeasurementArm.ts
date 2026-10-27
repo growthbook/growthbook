@@ -13,6 +13,8 @@ import {
   ContextualBanditInterface,
   ContextualBanditMeasurementArm,
   DEFAULT_MEASUREMENT_ARM_PERCENT,
+  MAX_MEASUREMENT_ARM_PERCENT,
+  MIN_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import {
   ExperimentInterface,
@@ -41,21 +43,65 @@ export function buildMeasurementArmSubdoc({
   percent,
   existing,
   cbTrackingKey,
+  rederiveTrackingKey,
 }: {
   enabled?: boolean;
   percent?: number;
   existing?: ContextualBanditMeasurementArm;
   cbTrackingKey: string;
+  rederiveTrackingKey?: boolean;
 }): ContextualBanditMeasurementArm {
+  const resolvedEnabled = enabled ?? existing?.enabled ?? true;
+  let resolvedPercent =
+    percent ?? existing?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT;
+  if (resolvedPercent < MIN_MEASUREMENT_ARM_PERCENT) {
+    if (resolvedEnabled) {
+      throw new BadRequestError(
+        `measurement_arm_percent: The measurement arm must hold back between ${MIN_MEASUREMENT_ARM_PERCENT * 100}% and ${MAX_MEASUREMENT_ARM_PERCENT * 100}% of traffic, or be disabled`,
+      );
+    }
+    resolvedPercent = existing?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT;
+  }
   return {
-    enabled: enabled ?? existing?.enabled ?? true,
-    percent: percent ?? existing?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+    enabled: resolvedEnabled,
+    percent: resolvedPercent,
     experimentId: existing?.experimentId,
     trackingKey:
-      existing?.trackingKey ??
-      getContextualBanditMeasurementArmTrackingKey(cbTrackingKey),
+      !rederiveTrackingKey && existing?.trackingKey
+        ? existing.trackingKey
+        : getContextualBanditMeasurementArmTrackingKey(cbTrackingKey),
     seed: existing?.seed ?? uuidv4(),
   };
+}
+
+const MEASUREMENT_ARM_SYNC_CB_FIELDS = [
+  "name",
+  "description",
+  "tags",
+  "project",
+  "owner",
+  "hashAttribute",
+  "trackingKey",
+  "datasource",
+  "decisionMetric",
+  "status",
+  "archived",
+  "dateStarted",
+  "dateStopped",
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+  "measurementArm",
+] as const satisfies readonly (keyof ContextualBanditInterface)[];
+
+export function measurementArmSyncFieldsChanged(
+  before: ContextualBanditInterface,
+  after: ContextualBanditInterface,
+): boolean {
+  return MEASUREMENT_ARM_SYNC_CB_FIELDS.some(
+    (field) => !isEqual(before[field], after[field]),
+  );
 }
 
 export function measurementArmIsActive(
@@ -82,7 +128,7 @@ export function assertMeasurementArmChangeAllowed(
   if (!changed) return;
   if (existing.status !== "draft") {
     throw new BadRequestError(
-      "measurement_arm_locked: The measurement arm can only be changed while the contextual bandit is a draft",
+      "measurement_arm_locked: The measurement arm can only be changed while the Contextual Bandit is a draft",
     );
   }
 }
@@ -99,7 +145,7 @@ function buildVariations(): Variation[] {
     },
     {
       id: generateVariationId(),
-      name: "Contextual bandit",
+      name: "Contextual Bandit",
       description: "",
       key: "1",
       screenshots: [],
@@ -259,8 +305,9 @@ export async function deleteMeasurementArmExperiment(
 /**
  * Reconciles the wrapper experiment with the CB doc after a create or update:
  * creates it when the arm was just enabled on a draft, deletes it when the arm
- * was disabled on a draft, otherwise re-syncs governed fields.
- * Returns the CB patch to persist (experimentId set/cleared) or null.
+ * was disabled on a draft. Governed-field sync happens in the model's
+ * afterUpdate hook. Returns the CB patch to persist (experimentId set/cleared)
+ * or null.
  */
 export async function reconcileMeasurementArmExperiment(
   context: Context,
@@ -287,9 +334,6 @@ export async function reconcileMeasurementArmExperiment(
     };
   }
 
-  if (arm.enabled && arm.experimentId) {
-    await syncMeasurementArmExperiment(context, cb);
-  }
   return null;
 }
 
@@ -316,7 +360,7 @@ export function assertMeasurementArmExperimentEditable(
   });
   if (blocked.length) {
     throw new BadRequestError(
-      `Only secondary and guardrail metrics can be changed on a measurement arm; [${blocked.join(", ")}] follow the contextual bandit`,
+      `Only secondary and guardrail metrics can be changed on a measurement arm; [${blocked.join(", ")}] follow the Contextual Bandit`,
     );
   }
 }
@@ -327,7 +371,7 @@ export function assertNotMeasurementArmExperiment(
 ): void {
   if (isContextualBanditMeasurementArm(experiment)) {
     throw new BadRequestError(
-      `Cannot ${action}: this experiment measures a contextual bandit and is managed from the bandit`,
+      `Cannot ${action}: this experiment measures a Contextual Bandit and is managed from the Bandit`,
     );
   }
 }

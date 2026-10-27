@@ -11,7 +11,6 @@ import {
   ApiCreateContextualBanditBody,
   getEligibleContextualAttributes,
   DEFAULT_MEASUREMENT_ARM_PERCENT,
-  MAX_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import { useRouter } from "next/router";
 import { getValidDate } from "shared/dates";
@@ -25,9 +24,7 @@ import {
 import { kebabCase } from "lodash";
 import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
-import Text from "@/ui/Text";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
-import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
+import MeasurementArmSizeField from "@/components/ContextualBandit/MeasurementArmSizeField";
 import { useWatching } from "@/services/WatchProvider";
 import { useRestApiCall } from "@/services/restApi";
 import track from "@/services/track";
@@ -441,8 +438,12 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
       contextualAttributes: submitContextualAttributes,
 
       measurementArmEnabled: !!data.measurementArmEnabled,
-      measurementArmPercent:
-        data.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+      ...(data.measurementArmEnabled
+        ? {
+            measurementArmPercent:
+              data.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+          }
+        : {}),
     };
 
     const res = await restApiCall(
@@ -590,48 +591,18 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
                 />
 
                 <Separator size="4" my="5" />
-                <div>
-                  <Text as="label" weight="medium" mb="1">
-                    Measurement Arm Size
-                  </Text>
-                  <Text as="div" color="text-mid" mb="2">
-                    Enter the percent of eligible traffic to hold back from the
-                    bandit on the default experience. The rest of the traffic
-                    goes to the bandit, and the two are compared on the Results
-                    tab. Set to 0 for no measurement arm. Locked once the bandit
-                    starts.
-                  </Text>
-                  <div
-                    className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
-                    style={{ width: 110 }}
-                  >
-                    <Field
-                      size="md"
-                      style={{ width: 95 }}
-                      value={
-                        form.watch("measurementArmEnabled")
-                          ? decimalToPercent(
-                              form.watch("measurementArmPercent") ??
-                                DEFAULT_MEASUREMENT_ARM_PERCENT,
-                            )
-                          : 0
-                      }
-                      onChange={(e) => {
-                        let pct = percentToDecimal(e.target.value);
-                        if (isNaN(pct) || pct < 0) pct = 0;
-                        if (pct > MAX_MEASUREMENT_ARM_PERCENT)
-                          pct = MAX_MEASUREMENT_ARM_PERCENT;
-                        form.setValue("measurementArmEnabled", pct > 0);
-                        form.setValue("measurementArmPercent", pct);
-                      }}
-                      type="number"
-                      min={0}
-                      max={decimalToPercent(MAX_MEASUREMENT_ARM_PERCENT)}
-                      step="1"
-                    />
-                    <span>%</span>
-                  </div>
-                </div>
+                <MeasurementArmSizeField
+                  value={{
+                    enabled: !!form.watch("measurementArmEnabled"),
+                    percent:
+                      form.watch("measurementArmPercent") ??
+                      DEFAULT_MEASUREMENT_ARM_PERCENT,
+                  }}
+                  onChange={({ enabled, percent }) => {
+                    form.setValue("measurementArmEnabled", enabled);
+                    form.setValue("measurementArmPercent", percent);
+                  }}
+                />
               </>
             )}
 

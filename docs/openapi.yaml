@@ -53895,7 +53895,7 @@ paths:
                   type: boolean
                 measurementArmPercent:
                   type: number
-                  minimum: 0.01
+                  minimum: 0
                   maximum: 0.5
               additionalProperties: false
       responses:
@@ -54026,7 +54026,7 @@ paths:
                   type: boolean
                 measurementArmPercent:
                   type: number
-                  minimum: 0.01
+                  minimum: 0
                   maximum: 0.5
               required:
                 - name

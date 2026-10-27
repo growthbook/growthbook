@@ -900,11 +900,21 @@ function generateCbVisualExperimentsPayload({
       return null;
     }
 
-    const condition = mergeConditionAndSavedGroups({
-      savedGroupStrategy,
-      condition: cb.condition,
-      savedGroups: cb.savedGroups,
-    });
+    const measurementArm =
+      (capabilities === undefined || capabilities.includes("prerequisites")) &&
+      cb.status === "running" &&
+      cb.measurementArm?.enabled &&
+      cb.measurementArm.experimentId
+        ? cb.measurementArm
+        : null;
+
+    const condition = measurementArm
+      ? undefined
+      : mergeConditionAndSavedGroups({
+          savedGroupStrategy,
+          condition: cb.condition,
+          savedGroups: cb.savedGroups,
+        });
 
     const exp = buildCbVisualAutoExperiment({
       cbVisualExperiment: data,
@@ -914,7 +924,15 @@ function generateCbVisualExperimentsPayload({
     });
     if (!exp) return null;
 
-    if (parsedPrerequisites.length) {
+    if (measurementArm) {
+      exp.parentConditions = [
+        {
+          id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
+          condition: { value: MEASUREMENT_ARM_BANDIT_VALUE },
+        },
+      ];
+      exp.coverage = 1;
+    } else if (parsedPrerequisites.length) {
       exp.parentConditions = parsedPrerequisites;
     }
 
@@ -2106,10 +2124,12 @@ export type SDKPayloadBuildInput = {
   data: SDKPayloadRawData;
 };
 
-// Keep only holdout defs that are referenced by at least one feature rule.
+// Keep only holdout defs that are referenced by at least one feature rule, and
+// measurement-arm defs referenced by a feature rule or an auto experiment.
 function pruneUnreferencedHoldouts(
   holdouts: Record<string, FeatureDefinition>,
   features: Record<string, FeatureDefinition>,
+  experiments: AutoExperiment[] = [],
 ): Record<string, FeatureDefinition> {
   const referenced = new Set<string>();
   for (const k in features) {
@@ -2121,6 +2141,13 @@ function pruneUnreferencedHoldouts(
         ) {
           referenced.add(pc.id);
         }
+      }
+    }
+  }
+  for (const exp of experiments) {
+    for (const pc of exp.parentConditions ?? []) {
+      if (pc.id?.startsWith(CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX)) {
+        referenced.add(pc.id);
       }
     }
   }
@@ -2335,6 +2362,7 @@ export async function buildSDKPayloadForConnection(
   const holdoutsInUse = pruneUnreferencedHoldouts(
     { ...holdoutFeatureDefinitions, ...measurementArmFeatureDefinitions },
     featureDefinitions,
+    experimentsDefinitions,
   );
 
   const interleavingsPayload = capabilities.includes("interleaving")

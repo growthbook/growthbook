@@ -792,6 +792,55 @@ describe("CB visual changesets in the auto-experiments payload", () => {
     } as unknown as Partial<ContextualBanditInterface>);
     expect(payloadFor(cb, makeChangeset(["v0", "v1"]))).toHaveLength(0);
   });
+
+  describe("measurement arm", () => {
+    const armedCb = () =>
+      makeCb({
+        variations: [V0, V1],
+        hasVisualChangesets: true,
+        coverage: 0.8,
+        condition: JSON.stringify({ country: "US" }),
+        measurementArm: {
+          enabled: true,
+          percent: 0.05,
+          experimentId: "exp-ma",
+          trackingKey: "cb_1_tk__measurement_arm",
+          seed: "ma-seed",
+        },
+      });
+
+    it("gates the auto experiment on the wrapper's bandit bucket instead of the CB targeting", () => {
+      const [exp] = payloadFor(armedCb(), makeChangeset(["v0", "v1"]), [
+        "contextualBandits",
+        "contextualBanditsAuto",
+        "prerequisites",
+      ]);
+      expect(exp.parentConditions).toEqual([
+        { id: "$cbma:cb_1", condition: { value: "bandit" } },
+      ]);
+      expect(exp.coverage).toBe(1);
+      expect(exp.condition).toBeUndefined();
+    });
+
+    it("ships un-wrapped when the connection lacks prerequisites", () => {
+      const [exp] = payloadFor(armedCb(), makeChangeset(["v0", "v1"]));
+      expect(exp.parentConditions).toBeUndefined();
+      expect(exp.coverage).toBe(0.8);
+      expect(exp.condition).toEqual({ country: "US" });
+    });
+
+    it("ships un-wrapped when the arm is disabled", () => {
+      const cb = armedCb();
+      cb.measurementArm = { ...cb.measurementArm!, enabled: false };
+      const [exp] = payloadFor(cb, makeChangeset(["v0", "v1"]), [
+        "contextualBandits",
+        "contextualBanditsAuto",
+        "prerequisites",
+      ]);
+      expect(exp.parentConditions).toBeUndefined();
+      expect(exp.coverage).toBe(0.8);
+    });
+  });
 });
 
 describe("CB visual prerequisites in another project", () => {

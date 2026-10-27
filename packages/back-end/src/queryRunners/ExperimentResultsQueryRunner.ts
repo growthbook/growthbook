@@ -147,7 +147,7 @@ export const startExperimentResultQueries = async (
     );
     if (!cb) {
       throw new UnrecoverableSnapshotError(
-        `Contextual bandit not found: ${snapshotSettings.contextualBanditId}`,
+        `Contextual Bandit not found: ${snapshotSettings.contextualBanditId}`,
       );
     }
     contextualBanditQuery = cb.contextualBanditQueryId
@@ -157,7 +157,7 @@ export const startExperimentResultQueries = async (
       : null;
     if (!contextualBanditQuery) {
       throw new UnrecoverableSnapshotError(
-        `Contextual bandit query not found: ${cb.contextualBanditQueryId}`,
+        `Contextual Bandit Query not found: ${cb.contextualBanditQueryId}`,
       );
     }
   }

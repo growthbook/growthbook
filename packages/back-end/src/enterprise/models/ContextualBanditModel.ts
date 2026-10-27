@@ -42,6 +42,7 @@ import {
 import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { logger } from "back-end/src/util/logger";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   resolveOwnerEmail,
@@ -80,6 +81,7 @@ import {
   assertMeasurementArmChangeAllowed,
   buildMeasurementArmSubdoc,
   deleteMeasurementArmExperiment,
+  measurementArmSyncFieldsChanged,
   reconcileMeasurementArmExperiment,
   syncMeasurementArmExperiment,
 } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
@@ -638,17 +640,6 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
         (out as Record<string, unknown>)[field] = body[field];
       }
     }
-    if (
-      body.measurementArmEnabled !== undefined ||
-      body.measurementArmPercent !== undefined
-    ) {
-      // Resolved against the stored doc in handleApiUpdate; stash the raw
-      // fields so the sub-doc can be merged there.
-      (out as Record<string, unknown>).__measurementArmInput = {
-        enabled: body.measurementArmEnabled,
-        percent: body.measurementArmPercent,
-      };
-    }
     return out as Parameters<typeof this.updateById>[1];
   }
 
@@ -679,21 +670,26 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       );
     }
     const body = (req.body ?? {}) as Record<string, unknown>;
+    const { measurementArmEnabled, measurementArmPercent } =
+      apiUpdateContextualBanditBody.parse(body);
     const toUpdate = (await this.processApiUpdateBody(body)) as Record<
       string,
       unknown
     >;
-    const armInput = toUpdate.__measurementArmInput as
-      | { enabled?: boolean; percent?: number }
-      | undefined;
-    delete toUpdate.__measurementArmInput;
-    if (armInput) {
+    const nextTrackingKey = toUpdate.trackingKey as string | undefined;
+    const trackingKeyChanged =
+      nextTrackingKey !== undefined && nextTrackingKey !== existing.trackingKey;
+    if (
+      measurementArmEnabled !== undefined ||
+      measurementArmPercent !== undefined ||
+      (trackingKeyChanged && existing.measurementArm)
+    ) {
       const measurementArm = buildMeasurementArmSubdoc({
-        enabled: armInput.enabled,
-        percent: armInput.percent,
+        enabled: measurementArmEnabled,
+        percent: measurementArmPercent,
         existing: existing.measurementArm,
-        cbTrackingKey:
-          (toUpdate.trackingKey as string | undefined) ?? existing.trackingKey,
+        cbTrackingKey: nextTrackingKey ?? existing.trackingKey,
+        rederiveTrackingKey: trackingKeyChanged && existing.status === "draft",
       });
       assertMeasurementArmChangeAllowed(existing, { measurementArm });
       toUpdate.measurementArm = measurementArm;
@@ -724,17 +720,22 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     return resolveOwnerEmail(this.toApiInterface(updated), this.context);
   }
 
-  protected override async afterUpdate(
+  // Keep the measurement-arm experiment in step with CB-governed fields
+  // (status, targeting, metric, naming). Sub-doc create/delete is handled by
+  // the API handlers so the experiment id can be written back.
+  private async syncMeasurementArmAfterUpdate(
     existing: ContextualBanditInterface,
-    _updates: Partial<ContextualBanditInterface>,
     newDoc: ContextualBanditInterface,
   ) {
-    // Keep the measurement-arm experiment in step with CB-governed fields
-    // (status, targeting, metric, naming). Sub-doc create/delete is handled by
-    // the API handlers so the experiment id can be written back.
     if (!newDoc.measurementArm?.experimentId) return;
-    if (!isEqual(existing, newDoc)) {
+    if (!measurementArmSyncFieldsChanged(existing, newDoc)) return;
+    try {
       await syncMeasurementArmExperiment(this.context, newDoc);
+    } catch (e) {
+      logger.error(
+        { err: e, cbId: newDoc.id },
+        "Failed to sync the measurement arm experiment",
+      );
     }
   }
 
@@ -779,6 +780,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     newDoc: ContextualBanditInterface,
     writeOptions?: WriteOptions,
   ) {
+    await this.syncMeasurementArmAfterUpdate(existing, newDoc);
     if (writeOptions?.skipSDKRefresh) return;
     if (!contextualBanditUpdateAffectsPayload(existing, updates, newDoc))
       return;

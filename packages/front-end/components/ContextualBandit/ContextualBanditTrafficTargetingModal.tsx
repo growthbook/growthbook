@@ -4,17 +4,15 @@ import { FormProvider, useForm } from "react-hook-form";
 import {
   ApiContextualBanditInterface,
   DEFAULT_MEASUREMENT_ARM_PERCENT,
-  MAX_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
+import { Separator } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
-import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
-import Field from "@/components/Forms/Field";
+import MeasurementArmSizeField from "@/components/ContextualBandit/MeasurementArmSizeField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
@@ -102,7 +100,9 @@ export default function ContextualBanditTrafficTargetingModal({
               ...(cb.status === "draft"
                 ? {
                     measurementArmEnabled: data.measurementArmEnabled,
-                    measurementArmPercent: data.measurementArmPercent,
+                    ...(data.measurementArmEnabled
+                      ? { measurementArmPercent: data.measurementArmPercent }
+                      : {}),
                   }
                 : {}),
             },
@@ -133,58 +133,30 @@ export default function ContextualBanditTrafficTargetingModal({
         <hr className="my-4" />
 
         {cb.status === "draft" ? (
-          <>
-            <div>
-              <Text as="label" weight="medium" mb="1">
-                Measurement Arm Size
-              </Text>
-              <Text as="div" color="text-mid" mb="2">
-                Enter the percent of eligible traffic to hold back from the
-                bandit on the default experience. The rest of the traffic goes
-                to the bandit, and the two are compared on the Results tab. Set
-                to 0 for no measurement arm. Locked once the bandit starts.
-              </Text>
-              <div
-                className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
-                style={{ width: 110 }}
-              >
-                <Field
-                  size="md"
-                  style={{ width: 95 }}
-                  value={
-                    form.watch("measurementArmEnabled")
-                      ? decimalToPercent(form.watch("measurementArmPercent"))
-                      : 0
-                  }
-                  onChange={(e) => {
-                    let pct = percentToDecimal(e.target.value);
-                    if (isNaN(pct) || pct < 0) pct = 0;
-                    if (pct > MAX_MEASUREMENT_ARM_PERCENT)
-                      pct = MAX_MEASUREMENT_ARM_PERCENT;
-                    form.setValue("measurementArmEnabled", pct > 0);
-                    form.setValue("measurementArmPercent", pct);
-                  }}
-                  type="number"
-                  min={0}
-                  max={decimalToPercent(MAX_MEASUREMENT_ARM_PERCENT)}
-                  step="1"
-                />
-                <span>%</span>
-              </div>
-            </div>
-          </>
+          <MeasurementArmSizeField
+            value={{
+              enabled: form.watch("measurementArmEnabled"),
+              percent: form.watch("measurementArmPercent"),
+            }}
+            onChange={({ enabled, percent }) => {
+              form.setValue("measurementArmEnabled", enabled);
+              form.setValue("measurementArmPercent", percent);
+            }}
+          />
         ) : (
-          <div className="form-group">
-            <label>Measurement arm</label>
-            <div className="text-muted">
+          <div>
+            <Text as="div" weight="medium" mb="1">
+              Measurement arm size
+            </Text>
+            <Text as="div" color="text-mid">
               {cb.measurementArm?.enabled
-                ? `${Math.round(cb.measurementArm.percent * 100)}% of eligible users are held back on the default experience. This is locked once the bandit has started.`
-                : "Off. A measurement arm can only be added while the bandit is a draft."}
-            </div>
+                ? `${Math.round(cb.measurementArm.percent * 100)}% of eligible users are held back on the default experience. This is locked once the Bandit has started.`
+                : "Off. A measurement arm can only be added while the Bandit is a draft."}
+            </Text>
           </div>
         )}
 
-        <hr className="my-4" />
+        <Separator size="4" my="4" />
 
         <ContextualBanditAssignmentAttributeSelect project={cb.project} />
 

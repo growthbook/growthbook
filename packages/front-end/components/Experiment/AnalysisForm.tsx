@@ -1047,6 +1047,12 @@ const AnalysisForm: FC<{
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
               </>
             )}
+            {isMeasurementArm && (
+              <HelperText status="info" mb="4">
+                The goal metric follows the Contextual Bandit. Only secondary
+                and guardrail metrics can be changed here.
+              </HelperText>
+            )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
               datasource={form.watch("datasource")}
@@ -1057,7 +1063,7 @@ const AnalysisForm: FC<{
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
               setGoalMetrics={
-                !isBandit && !lockCbGovernedFields
+                !isBandit
                   ? (goalMetrics) => form.setValue("goalMetrics", goalMetrics)
                   : undefined
               }

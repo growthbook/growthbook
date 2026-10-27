@@ -136,7 +136,8 @@ const ExperimentPage = ({
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
   // A measurement-arm experiment is owned by its contextual bandit: only the
-  // analysis settings are editable here; everything else is managed from the CB.
+  // secondary and guardrail metrics are editable here; everything else is
+  // managed from the CB.
   const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
 
   const canEditAnalysisSettings =

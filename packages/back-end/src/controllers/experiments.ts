@@ -1280,7 +1280,7 @@ export async function postExperiments(
     res.status(400).json({
       status: 400,
       message:
-        "Measurement arm experiments are created from a contextual bandit, not directly",
+        "Measurement arm experiments are created from a Contextual Bandit, not directly",
     });
     return;
   }
@@ -2468,6 +2468,7 @@ export async function postExperimentStatus(
     });
     return;
   }
+  assertNotMeasurementArmExperiment(experiment, "change status");
 
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
@@ -3795,6 +3796,7 @@ export async function deleteScreenshot(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "edit variations");
 
   const variationIndex = parseArrayIndex(
     variation,
@@ -3874,6 +3876,7 @@ export async function addScreenshot(
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
     context.permissions.throwPermissionError();
   }
+  assertNotMeasurementArmExperiment(experiment, "edit variations");
 
   const variationIndex = parseArrayIndex(
     variation,
