@@ -1540,7 +1540,6 @@ function ReviewAndPublishRevision<T>({
                     <DivergenceNotice
                       governance={governance}
                       liveVersion={liveVersion}
-                      baseVersion={liveVersion}
                       canRebase={canDraftOrEdit}
                       updating={submitting}
                       onResolveConflicts={() => setShowFixConflicts(true)}
@@ -1633,7 +1632,11 @@ function ReviewAndPublishRevision<T>({
                       icon={state.ctaLocked ? <PiLockSimple /> : undefined}
                       style={{ width: "100%" }}
                     >
-                      {state.ctaLabel}
+                      {/* Until bypass is ticked the step label belongs to the
+                      Request Review button above, not this one. */}
+                      {state.submitAction === "publish"
+                        ? state.ctaLabel
+                        : "Publish"}
                     </Button>
                   )}
 
