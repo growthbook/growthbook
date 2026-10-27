@@ -444,15 +444,20 @@ The public methods are `evalCondition`, `pruneCondition`, and `reducePayload`, a
 
 ### Type rules
 
-Conditions never convert between types. An attribute only matches a condition value of the same type: string, number, boolean, null, array or object.
+Conditions never convert between types. When an operator compares the attribute with a condition value, both must have the same type: string, number, boolean, null, array or object. Some operators compare something else: `$size` compares an array's length, and membership operators compare individual items.
 
-- When the types differ, the positive operator returns `false` and its negation returns `true`. `$ne`, `$nin`, `$not`, `$vne` and `$notInGroup` are always the exact opposite of `$eq`, `$in`, the inner condition, `$veq` and `$inGroup`.
+- When the types differ, the positive operator returns `false` and its negation returns `true`. For valid conditions, `$ne`, `$nin`, `$not`, `$vne` and `$notInGroup` are the exact opposite of `$eq`, `$in`, the inner condition, `$veq` and `$inGroup`. There are three exceptions:
+  - `$not` of an unsupported result stays unsupported (`null`).
+  - `$in`, `$nin`, `$ini` and `$nini` all return `false` when the condition value isn't an array.
+  - `$inGroup` and `$notInGroup` both return `null` for an unsupported saved group type, and both return `false` for a saved group that doesn't exist or has no list of values.
 - A missing attribute is `null`. It never counts as `0`, `""`, `false` or a version.
+- `$eq` and `$ne` compare like JS `===`. An array or object condition value never equals the attribute, so `$eq` returns `false` and `$ne` returns `true`.
+- A condition value that is an array or an object without operators, such as `{ "tags": ["a", "b"] }`, compares the JSON encoding of both values. Order matters for array items and object keys, and `1.0` equals `1`.
 - `$gt`, `$gte`, `$lt` and `$lte` compare two numbers or two strings. Strings compare as text, so `"10" < "9"` is `true`. Booleans have no order, so these operators return `false` for them.
-- Version operators compare two strings or two numbers.
+- Version operators compare two strings or two numbers. A number is converted to a string the way JS `String(n)` does it, so `1e21` becomes `"1e+21"` and `1e-7` becomes `"1e-7"`.
 - `$regex` and `$regexi` match strings only.
 - `$elemMatch`, `$size`, `$all` and `$alli` return `false` for an attribute that isn't an array.
-- `$in`, `$nin` and saved group lists use strict membership, so `5` is not in `["5"]`.
+- `$in`, `$nin` and saved group lists use strict membership, so `5` is not in `["5"]`. For an array attribute, they check whether any of its items is in the list. Items that are arrays or objects never match.
 - `$exists` and `$type` work on any type.
 
 Integers and floats are both numbers. In languages where booleans are numbers, such as Python, check for booleans first.
