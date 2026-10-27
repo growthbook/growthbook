@@ -211,24 +211,29 @@ export function getBanditStatisticsFactMetricCTE(
       `
         : ""
     }
+    , __variationEligiblePeriods AS (
+      -- Periods a variation received traffic in across ANY context. Used to distinguish between variations that received no traffic in a period and variations added mid-bandit.
+      SELECT DISTINCT
+        variation
+        , bandit_period
+      FROM
+        __banditPeriodStatistics
+    )
     , __variationPeriodWeightTotals AS (
-      -- Per-variation sum of the shared period weights, restricted to the
-      -- periods the variation actually has rows in.
+      -- Per-variation sum of the shared period weights over the periods the
+      -- variation was eligible in, per dimension.
       SELECT
-        bps.variation AS variation
-        ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
+        vep.variation AS variation
+        ${dimensionCols.map((d) => `, bpw.${d.alias} AS ${d.alias}`).join("")}
         , SUM(bpw.weight) AS variation_weight_total
       FROM
-        __banditPeriodStatistics bps
-      LEFT JOIN __banditPeriodWeights bpw ON (
-        bps.bandit_period = bpw.bandit_period
-        ${dimensionCols
-          .map((d) => `AND bps.${d.alias} = bpw.${d.alias}`)
-          .join("\n")}
+        __variationEligiblePeriods vep
+      JOIN __banditPeriodWeights bpw ON (
+        bpw.bandit_period = vep.bandit_period
       )
       GROUP BY
-        bps.variation
-        ${dimensionCols.map((d) => `, bps.${d.alias}`).join("")}
+        vep.variation
+        ${dimensionCols.map((d) => `, bpw.${d.alias}`).join("")}
     )
     SELECT
       bps.variation
