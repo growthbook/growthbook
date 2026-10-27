@@ -4,6 +4,7 @@ import type { ExperimentTargetingData } from "shared/types/experiment";
 import {
   changedTargeting,
   conflictingFields,
+  experimentFieldLabels,
   experimentFieldValue,
   getTargetingDefaults,
   hasAttributeCondition,
@@ -153,5 +154,18 @@ describe("conflictingFields", () => {
         base: { hypothesis: "loaded" },
       }),
     ).toEqual([]);
+  });
+});
+
+describe("experimentFieldLabels", () => {
+  it("names each field as the page does, once", () => {
+    expect(
+      experimentFieldLabels([
+        "coverage",
+        "skipPartialData",
+        "attributionModel",
+        "unknownField",
+      ]),
+    ).toEqual(["Traffic percent", "Conversion windows", "unknownField"]);
   });
 });

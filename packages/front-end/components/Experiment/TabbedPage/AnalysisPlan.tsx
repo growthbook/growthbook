@@ -152,7 +152,10 @@ export default function AnalysisPlan({
       }),
     [setAdvanced, experiment],
   );
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  // Open when it filters who's counted, so that isn't hidden.
+  const [advancedOpen, setAdvancedOpen] = useState(
+    !!experiment.activationMetric || !!experiment.segment,
+  );
 
   const effective = useMemo(
     () => ({ ...experiment, ...advanced }),

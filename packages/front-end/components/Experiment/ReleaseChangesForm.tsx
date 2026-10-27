@@ -84,7 +84,8 @@ export default function ReleaseChangesForm({
   useEffect(() => {
     if (releasePlan === "same-phase-sticky") {
       form.setValue("newPhase", false);
-      form.setValue("reseed", isBandit);
+      // Only a new phase takes a new seed.
+      form.setValue("reseed", false);
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
     } else if (releasePlan === "same-phase-everyone") {
@@ -119,7 +120,6 @@ export default function ReleaseChangesForm({
     form,
     experiment.bucketVersion,
     experiment.minBucketVersion,
-    isBandit,
   ]);
 
   if (!lastPhase) return null;
@@ -187,51 +187,26 @@ export default function ReleaseChangesForm({
         }}
       />
 
-      <div className="mt-4 mb-3">
-        <label className="mb-1">Impact</label>
-        <div className="font-weight-semibold">
-          {form.watch("newPhase")
-            ? form.watch("reseed")
-              ? `New phase${!isBandit ? ", new randomization seed." : "."}`
-              : `New phase${!isBandit ? ", same randomization seed." : "."}`
-            : form.watch("reseed")
-              ? `Same phase${!isBandit ? ", new randomization seed." : "."}`
-              : `Same phase${
-                  !isBandit ? ", same randomization seed." : "."
-                }`}{" "}
-          {isBandit &&
-            form.watch("newPhase") &&
-            "Variation weights will be reset. "}
-          {isBandit || usingStickyBucketing
-            ? (form.watch("bucketVersion") ?? 0) <=
-              (experiment.bucketVersion ?? 0)
-              ? "Sticky Bucketed users will keep their assigned bucket."
-              : (form.watch("minBucketVersion") ?? 0) <=
-                  (experiment.minBucketVersion ?? 0)
-                ? "Sticky Bucketed users will be reassigned."
-                : "Sticky Bucketed users will be excluded from the experiment."
-            : "No sticky bucketing."}
-          {form.watch("newPhase") && isBandit && (
-            <Callout status="warning" mt="2">
-              This Bandit will restart. Variation weights will reset (
-              {(() => {
-                const variations = getLatestPhaseVariations(experiment);
-                return variations
-                  .map((_, i) =>
-                    i < 3
-                      ? formatPercent(1 / (variations.length ?? 2))
-                      : i === 3
-                        ? "..."
-                        : null,
-                  )
-                  .filter(Boolean)
-                  .join(", ");
-              })()}
-              ).
-            </Callout>
-          )}
-        </div>
-      </div>
+      {/* What the plan changes shows in Changes below; this is what it costs. */}
+      {form.watch("newPhase") && isBandit && (
+        <Callout status="warning" mt="4" mb="3">
+          This Bandit will restart. Variation weights will reset (
+          {(() => {
+            const variations = getLatestPhaseVariations(experiment);
+            return variations
+              .map((_, i) =>
+                i < 3
+                  ? formatPercent(1 / (variations.length ?? 2))
+                  : i === 3
+                    ? "..."
+                    : null,
+              )
+              .filter(Boolean)
+              .join(", ");
+          })()}
+          ).
+        </Callout>
+      )}
 
       {recommendedRolloutData && changeType !== "phase" && (
         <ImpactTooltips

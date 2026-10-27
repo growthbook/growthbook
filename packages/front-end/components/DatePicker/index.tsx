@@ -227,6 +227,7 @@ export default function DatePicker({
   );
   const [open, setOpen] = useState(false);
   const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
+  const [fieldFocused, setFieldFocused] = useState(false);
   const fieldClickedTime = useRef(new Date());
 
   useEffect(() => {
@@ -291,8 +292,9 @@ export default function DatePicker({
   }
 
   const isRange = !!setDate2 || !!fixedSpanMode;
-  // A native date field can't show placeholder text, so it's plain text until set.
-  const showsPlaceholder = !!placeholder && !isRange && !date;
+  // A native date field can't show placeholder text, so it's plain text until
+  // set, and native again while focused so it can be typed into.
+  const showsPlaceholder = !!placeholder && !isRange && !date && !fieldFocused;
   const fieldLabel = isRange ? (label ?? label2) : label;
 
   const rangeFieldValue = useMemo(() => {
@@ -450,8 +452,6 @@ export default function DatePicker({
                     required={required}
                     readOnly={!!fixedSpanMode}
                     autoComplete="off"
-                    // Typing waits for a picked date; read-only would read as disabled.
-                    inputMode={showsPlaceholder ? "none" : undefined}
                     style={{
                       border: 0,
                       marginRight: -20,
@@ -482,7 +482,7 @@ export default function DatePicker({
                     }
                     value={isRange ? rangeFieldValue : bufferedDate}
                     onChange={(e) => {
-                      if (fixedSpanMode || showsPlaceholder) return;
+                      if (fixedSpanMode) return;
                       if (isRange) {
                         const v = e.target.value;
                         const [startPart, endPart] = splitRangeFieldInput(v);
@@ -495,6 +495,7 @@ export default function DatePicker({
                       }
                     }}
                     onFocus={() => {
+                      setFieldFocused(true);
                       if (!isRange) return;
                       setRangeFieldFocused(true);
                       if (date && date2) {
@@ -503,6 +504,7 @@ export default function DatePicker({
                       }
                     }}
                     onBlur={() => {
+                      setFieldFocused(false);
                       debouncedSetDate.flush();
                       debouncedApplyRange.flush();
                       if (isRange) {

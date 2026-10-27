@@ -1,5 +1,6 @@
 import omit from "lodash/omit";
 import type {
+  ExperimentChangesFields,
   ExperimentInterface,
   ExperimentPhase,
   FeaturePrerequisite,
@@ -78,6 +79,63 @@ export function sameFieldValue(key: string, a: unknown, b: unknown): boolean {
     return condition(a) === condition(b);
   }
   return sameCanonicalValue(a, b);
+}
+
+// As the experiment page names each field a save can change.
+const FIELD_LABELS: Record<keyof ExperimentChangesFields, string> = {
+  name: "Name",
+  description: "Description",
+  hypothesis: "Hypothesis",
+  variations: "Variations",
+  holdoutId: "Holdout",
+  condition: "Attribute targeting",
+  savedGroups: "Saved Group targeting",
+  prerequisites: "Prerequisite targeting",
+  seed: "Seed",
+  coverage: "Traffic percent",
+  variationWeights: "Variation weights",
+  namespace: "Namespace targeting",
+  hashAttribute: "Assignment attribute",
+  fallbackAttribute: "Fallback attribute",
+  attributeScopeAllProjects: "Attribute scope",
+  hashVersion: "Hashing algorithm",
+  disableStickyBucketing: "Sticky bucketing",
+  bucketVersion: "Bucket version",
+  minBucketVersion: "Minimum bucket version",
+  statusUpdateSchedule: "Schedule",
+  trackingKey: "Experiment key",
+  datasource: "Data Source",
+  exposureQueryId: "Assignment query",
+  exposureQueryIdentifierType: "Identifier type",
+  goalMetrics: "Goal metrics",
+  secondaryMetrics: "Secondary metrics",
+  guardrailMetrics: "Guardrail metrics",
+  activationMetric: "Activation metric",
+  metricOverrides: "Metric overrides",
+  lookbackOverride: "Metric windows",
+  decisionFrameworkSettings: "Decision framework",
+  segment: "Segment",
+  queryFilter: "Custom SQL filter",
+  skipPartialData: "Conversion windows",
+  attributionModel: "Conversion windows",
+  regressionAdjustmentEnabled: "CUPED",
+  postStratificationEnabled: "Post-stratification",
+  sequentialTestingEnabled: "Sequential testing",
+  sequentialTestingTuningParameter: "Sequential testing",
+  statsEngine: "Stats engine",
+  customMetricSlices: "Custom metric slices",
+  precomputedUnitDimensionIds: "Unit dimensions",
+};
+
+// Each field once, by its name on the page.
+export function experimentFieldLabels(keys: string[]): string[] {
+  return [
+    ...new Set(
+      keys.map(
+        (key) => FIELD_LABELS[key as keyof ExperimentChangesFields] ?? key,
+      ),
+    ),
+  ];
 }
 
 // Fields someone saved since `base` was loaded, to something other than the

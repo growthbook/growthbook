@@ -1,10 +1,8 @@
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import Markdown from "@/components/Markdown/Markdown";
 import Metadata from "@/ui/Metadata";
 import ScrollArea from "@/ui/ScrollArea";
 import { PanelSection } from "@/components/Experiment/TabbedPage/ExperimentDetailsPanel";
-import ExpandableBlock from "@/components/Experiment/TabbedPage/ExpandableBlock";
 import {
   EmptyValue,
   ExperimentDates,
@@ -40,30 +38,6 @@ export default function PublicExperimentDetails({
       <Flex px="5" py="4" direction="column" gap="4">
         <PanelSection title="General">
           <Flex direction="column" gap="3">
-            <Metadata
-              size="sm"
-              stacked
-              label="Description"
-              value={
-                <Box width="100%">
-                  {experiment.description ? (
-                    <ExpandableBlock>
-                      <Box style={{ fontSize: "var(--font-size-1)" }}>
-                        <Markdown
-                          isPublic
-                          shareUid={experiment.uid}
-                          shareType="experiment"
-                        >
-                          {experiment.description}
-                        </Markdown>
-                      </Box>
-                    </ExpandableBlock>
-                  ) : (
-                    <EmptyValue />
-                  )}
-                </Box>
-              }
-            />
             <ExperimentStatusField experiment={experiment} />
             <ExperimentDates experiment={experiment} />
           </Flex>

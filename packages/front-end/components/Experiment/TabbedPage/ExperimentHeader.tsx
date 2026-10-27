@@ -867,9 +867,10 @@ export default function ExperimentHeader({
         />
       ) : null}
 
-      <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-0">
+      <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-2">
         <Flex direction="row" align="start" justify="between" gap="5">
-          <Box className={revealsQuickEdit}>
+          {/* Raised so the name's x-height centres on the buttons' text. */}
+          <Box className={revealsQuickEdit} mt="-3px">
             <Heading
               as="h1"
               size="2xl"
@@ -898,7 +899,14 @@ export default function ExperimentHeader({
                     radius="full"
                   />
                 ) : null}
-                <Box as="span" ml="2" style={{ userSelect: "none" }}>
+                {/* Lowered so its text shares the buttons' baseline. */}
+                <Box
+                  as="span"
+                  ml="2"
+                  position="relative"
+                  top="2px"
+                  style={{ userSelect: "none" }}
+                >
                   <ExperimentStatusIndicator experimentData={experiment} />
                 </Box>
               </Flex>

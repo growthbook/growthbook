@@ -376,6 +376,19 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const hashAttributeHoldoutMismatch =
     !!holdoutHashAttribute &&
     form.watch("hashAttribute") !== holdoutHashAttribute;
+  // The holdout's attribute may not be flagged for hashing, and the field
+  // reads as empty unless its value is an option.
+  const currentHashAttribute = form.watch("hashAttribute");
+  const hashAttributeOptions =
+    !currentHashAttribute ||
+    selectableAttributes.some((a) => a.property === currentHashAttribute)
+      ? selectableAttributes
+      : [
+          ...selectableAttributes,
+          attributeSchema.find((a) => a.property === currentHashAttribute) ?? {
+            property: currentHashAttribute,
+          },
+        ];
 
   const watchedTemplateId = form.watch("templateId");
   const watchedTemplate = watchedTemplateId
@@ -716,7 +729,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           className={hashAttributeHoldoutMismatch ? "warning" : undefined}
           value={form.watch("hashAttribute") ?? ""}
           onChange={(v) => form.setValue("hashAttribute", v)}
-          options={selectableAttributes.map(toAttributeOption)}
+          options={hashAttributeOptions.map(toAttributeOption)}
           formatOptionLabel={formatAttributeOptionLabel}
           helpText={
             hashAttributeHoldoutMismatch ? (

@@ -754,7 +754,7 @@ describe("applyExperimentChanges", () => {
       run({
         experiment: { changes: { coverage: 0.5 }, base: { coverage: 1 } },
       }),
-    ).rejects.toThrow("changed since you loaded it");
+    ).rejects.toThrow("Traffic percent changed since you loaded it");
   });
 
   it("refuses taking a live rule out when a targeting Project's review rule governs the flag", async () => {

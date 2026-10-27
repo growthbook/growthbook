@@ -1,8 +1,10 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import { armedStartDate, scheduledTime } from "./statusSchedule";
 
-// A scheduled start or stop that's failing to apply, or that the job gave up on.
+// A scheduled start or stop that's failing to apply, or that the job gave up
+// on; otherwise a scheduled start, which locks what launches.
 export default function ScheduledUpdateFailureCallout({
   experiment,
   editSchedule,
@@ -17,6 +19,9 @@ export default function ScheduledUpdateFailureCallout({
       Edit schedule
     </Button>
   ) : null;
+  const nextStep = editSchedule
+    ? ""
+    : " Ask someone who can edit this experiment to reschedule it.";
 
   if (failure) {
     return (
@@ -27,7 +32,9 @@ export default function ScheduledUpdateFailureCallout({
         mb="4"
         action={action}
       >
-        The scheduled {failure.type} didn&apos;t happen: {failure.reason}
+        The scheduled {failure.type} didn&apos;t happen (gave up{" "}
+        {scheduledTime(failure.date)}): {failure.reason}
+        {nextStep}
       </Callout>
     );
   }
@@ -40,9 +47,24 @@ export default function ScheduledUpdateFailureCallout({
         mb="4"
         action={action}
       >
-        The scheduled {retrying.type} failed {retrying.failedAttempts}{" "}
+        The {retrying.type} scheduled for {scheduledTime(retrying.date)} failed{" "}
+        {retrying.failedAttempts}{" "}
         {retrying.failedAttempts === 1 ? "time" : "times"} and will retry:{" "}
         {retrying.lastError}
+      </Callout>
+    );
+  }
+  if (editSchedule && armedStartDate(experiment)) {
+    return (
+      <Callout
+        status="info"
+        contentAlign="center"
+        mt="2"
+        mb="4"
+        action={action}
+      >
+        The scheduled start locks what launches: targeting, traffic, variations
+        and the tracking key. Unschedule it to change them.
       </Callout>
     );
   }

@@ -2944,10 +2944,10 @@ export default function ReviewAndPublish({
                     unstartedExperiments.length ? (
                       <>
                         Publishing doesn&apos;t start{" "}
-                        <strong>
-                          {unstartedExperiments.map((e) => e.name).join(", ")}
-                        </strong>
-                        .
+                        {experimentLinks(unstartedExperiments)}.{" "}
+                        {unstartedExperiments.length === 1
+                          ? "Start it from its experiment page."
+                          : "Start them from their experiment pages."}
                       </>
                     ) : null
                   }

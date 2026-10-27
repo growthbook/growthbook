@@ -3,6 +3,7 @@ import {
   ApiErrorDetails,
   apiErrorRegistry,
 } from "shared/validators";
+import { experimentFieldLabels } from "shared/experiments";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 export abstract class ApiError<C extends ApiErrorCode> extends Error {
@@ -74,10 +75,16 @@ export class InvalidTrackingKeyError extends ApiError<"invalid_tracking_key"> {
   }
 }
 
+// "A", "A and B", "A, B, and C", as Intl.ListFormat joins them.
+const joinList = (names: string[]) =>
+  names.length < 3
+    ? names.join(" and ")
+    : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+
 export class ChangesConflictError extends ApiError<"changes_conflict"> {
   constructor(details: ApiErrorDetails<"changes_conflict">) {
     const names = [
-      ...details.fields,
+      ...experimentFieldLabels(details.fields),
       ...details.featureIds.map((id) => `Feature Flag ${id}`),
       ...details.urlRedirectIds.map((id) => `URL Redirect ${id}`),
       ...details.visualChangesetIds.map(
@@ -86,7 +93,7 @@ export class ChangesConflictError extends ApiError<"changes_conflict"> {
     ];
     super(
       "changes_conflict",
-      `${names.join(", ")} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
+      `${joinList(names)} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
       details,
     );
     this.name = "ChangesConflictError";
