@@ -140,7 +140,9 @@ inputFeatureFacts: Record<string, {
 } | null>; // null when no flag has that id
 ```
 
-A rule counts toward `hasRules` even when it's disabled or scheduled to start later. Facts never include rules, conditions or values, apart from a boolean flag's default. They're read once per save regardless of who made the change, and the Test panel doesn't add them.
+A rule counts toward `hasRules` even when it's disabled or scheduled to start later. Facts never include rules, conditions or values, apart from a boolean flag's default. They're read once per save regardless of who made the change.
+
+The Test panel doesn't pass `inputFeatureFacts`.
 
 ```js
 const killSwitch = inputFeatureFacts["checkout-kill-switch"];

@@ -730,7 +730,7 @@ function withInputFeatureFacts(
   facts: Map<string, HookInputFeatureFacts>,
   args: Record<string, unknown>,
 ): Record<string, unknown> {
-  if (!hook.inputFeatures) return args;
+  if (!hook.inputFeatures?.length) return args;
   return {
     ...args,
     inputFeatureFacts: Object.fromEntries(
