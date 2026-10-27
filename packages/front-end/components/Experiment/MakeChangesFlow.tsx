@@ -299,19 +299,19 @@ function ChangeTypeSelector({
   const { namespaces } = useOrgSettings();
 
   const options: RadioOptions = [
-    { label: "Start a New Phase", value: "phase" },
+    { label: "Start a new phase", value: "phase" },
     {
-      label: "Saved Group, Attribute, and Prerequisite Targeting",
+      label: "Saved Group, attribute, and prerequisite targeting",
       value: "targeting",
     },
     {
-      label: "Namespace Targeting",
+      label: "Namespace targeting",
       value: "namespace",
       disabled: !namespaces?.length,
     },
-    { label: "Traffic Percent", value: "traffic" },
+    { label: "Traffic percent", value: "traffic" },
     ...(experiment.type !== "multi-armed-bandit"
-      ? [{ label: "Variation Weights", value: "weights" }]
+      ? [{ label: "Variation weights", value: "weights" }]
       : []),
     {
       label: "Advanced: multiple changes at once",

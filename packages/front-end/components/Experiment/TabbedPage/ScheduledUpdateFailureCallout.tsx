@@ -63,7 +63,7 @@ export default function ScheduledUpdateFailureCallout({
         mb="4"
         action={action}
       >
-        The scheduled start locks what launches: targeting, traffic, variations
+        The scheduled start locks what launches: targeting, traffic, variations,
         and the experiment key. Unschedule it to change them.
       </Callout>
     );

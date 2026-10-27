@@ -14,9 +14,15 @@ import useSDKConnections from "@/hooks/useSDKConnections";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import {
+  formatFallbackAttributeLabel,
+  useFallbackAttributeOptions,
+} from "@/components/Features/FallbackAttributeSelector";
+import {
   formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
+
+const noop = () => {};
 
 export interface RolloutHashingOptionsProps {
   // Collapsible open state
@@ -66,21 +72,12 @@ export function RolloutHashingOptions({
   const filteredAttributes = attributeSchema?.filter(
     (s) => !hasHashAttributes || s.hashAttribute,
   );
-  const fallbackOptions = [
-    { label: "None", value: "" },
-    ...(filteredAttributes ?? [])
-      .filter((s) => s.property !== hashAttribute)
-      .map(toAttributeOption),
-  ];
-  if (
-    fallbackAttribute &&
-    !fallbackOptions.some((o) => o.value === fallbackAttribute)
-  ) {
-    fallbackOptions.push({
-      label: fallbackAttribute,
-      value: fallbackAttribute,
-    });
-  }
+  const fallbackOptions = useFallbackAttributeOptions({
+    attributeSchema: attributeSchema ?? [],
+    hashAttribute,
+    fallbackAttribute,
+    setFallbackAttribute: setFallbackAttribute ?? noop,
+  });
 
   const { data: sdkConnectionsData } = useSDKConnections();
   // Fallback for call sites that don't wire hashVersion through a form
@@ -149,17 +146,26 @@ export function RolloutHashingOptions({
               ((settings.useStickyBucketing &&
                 settings.useFallbackAttributes) ||
                 !!fallbackAttribute) && (
-                <SelectField
-                  label="Fallback attribute"
-                  value={fallbackAttribute ?? ""}
-                  onChange={setFallbackAttribute}
-                  options={fallbackOptions}
-                  formatOptionLabel={(o, meta) =>
-                    o.value ? formatAttributeOptionLabel(o, meta) : o.label
-                  }
-                  sort={false}
-                  helpText="Used for users without the Sample by attribute. Only SDKs with Sticky Bucketing use it."
-                />
+                <>
+                  <SelectField
+                    label="Fallback attribute"
+                    value={fallbackAttribute ?? ""}
+                    onChange={setFallbackAttribute}
+                    options={fallbackOptions}
+                    formatOptionLabel={formatFallbackAttributeLabel}
+                    sort={false}
+                    helpText="Used for users without the Sample by attribute. Only SDKs with Sticky Bucketing use it."
+                  />
+                  {fallbackAttribute ? (
+                    <SDKCapabilityWarning
+                      as="helperText"
+                      capability="stickyBucketing"
+                      project={project}
+                      someMessage="Some of your SDK Connections do not support Sticky Bucketing."
+                      noneMessage="None of your SDK Connections support Sticky Bucketing."
+                    />
+                  ) : null}
+                </>
               )}
             {setHashVersion && (
               <>

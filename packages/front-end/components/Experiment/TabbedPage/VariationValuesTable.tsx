@@ -265,6 +265,13 @@ export default function VariationValuesTable({
         )
       : [];
   const duplicateIds = new Set(duplicateRows.flat());
+  // One issue however many columns it spans, so the first flag column says it.
+  const duplicateNotes = duplicateRows.map(
+    (ids) =>
+      `${listFormat.format(
+        variations.filter((v) => ids.includes(v.id)).map(variationLabel),
+      )} serve the same ${columnCount === 1 ? "value" : "values"}.`,
+  );
 
   if (!variations.length) return null;
 
@@ -374,16 +381,6 @@ export default function VariationValuesTable({
                   </Link>
                 </div>
               ) : null}
-              {duplicateRows.map((ids) => (
-                <HelperText key={ids.join()} status="warning" size="sm">
-                  {listFormat.format(
-                    variations
-                      .filter((v) => ids.includes(v.id))
-                      .map(variationLabel),
-                  )}{" "}
-                  serve the same {columnCount === 1 ? "value" : "values"}.
-                </HelperText>
-              ))}
             </div>
 
             <SplitColumn
@@ -400,6 +397,7 @@ export default function VariationValuesTable({
                   columnKey={key}
                   reportServed={reportServed}
                   duplicateIds={duplicateIds}
+                  duplicateNotes={i === 0 ? duplicateNotes : []}
                   experiment={experiment}
                   info={info}
                   group={group}
@@ -540,6 +538,7 @@ function FlagColumn({
   columnKey,
   reportServed,
   duplicateIds,
+  duplicateNotes,
   experiment,
   info,
   group,
@@ -554,6 +553,7 @@ function FlagColumn({
   reportServed: (column: string, served: Record<string, string> | null) => void;
   // Variations that match another in every column.
   duplicateIds: Set<string>;
+  duplicateNotes: string[];
   experiment: ExperimentInterfaceStringDates;
   info: LinkedFeatureInfo;
   group: ValueGroup | null;
@@ -934,6 +934,7 @@ function FlagColumn({
       text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
     });
   }
+  duplicateNotes.forEach((text) => notices.push({ status: "warning", text }));
   if (onFlag && describesShown && info.rulesAbove) {
     notices.push({
       status: "info",

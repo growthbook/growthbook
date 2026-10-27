@@ -166,6 +166,6 @@ describe("experimentFieldLabels", () => {
         "attributionModel",
         "unknownField",
       ]),
-    ).toEqual(["Traffic percent", "Conversion windows", "unknownField"]);
+    ).toEqual(["traffic percent", "conversion windows", "unknownField"]);
   });
 });

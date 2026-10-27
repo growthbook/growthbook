@@ -110,7 +110,7 @@ export default function TargetingForm({
       {holdsBack ? (
         <Box mb="2">
           <Text as="div" weight="semibold">
-            {changeType === "traffic" ? "Traffic Percent" : "Variation Weights"}
+            {changeType === "traffic" ? "Traffic percent" : "Variation weights"}
           </Text>
           <Text as="div" size="sm" color="text-mid">
             {changeType === "traffic"
@@ -152,8 +152,8 @@ export default function TargetingForm({
             !isAdvancedChange
               ? null
               : type === "multi-armed-bandit"
-                ? "Traffic Percentage"
-                : "Traffic Percentage & Variation Weights"
+                ? "Traffic percent"
+                : "Traffic percent and variation weights"
           }
           startEditingSplits={true}
         />

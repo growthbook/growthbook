@@ -91,9 +91,10 @@ export class ChangesConflictError extends ApiError<"changes_conflict"> {
         (id) => `AI Visual Editor change ${id}`,
       ),
     ];
+    const list = joinList(names);
     super(
       "changes_conflict",
-      `${joinList(names)} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
+      `${list.charAt(0).toUpperCase()}${list.slice(1)} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
       details,
     );
     this.name = "ChangesConflictError";
