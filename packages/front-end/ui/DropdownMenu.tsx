@@ -62,7 +62,7 @@ type DropdownProps = {
   >["onCloseAutoFocus"];
 } & MarginProps;
 
-const MORE_ICON_SIZES = { "1": 14, "2": 16, "3": 18 };
+const MORE_ICON_SIZES = { sm: 14, md: 16, lg: 18 };
 
 /** The ⋮ button that opens a menu: a DropdownMenu `trigger`, named by `label`. */
 export const MoreMenuTrigger = forwardRef<
@@ -72,16 +72,16 @@ export const MoreMenuTrigger = forwardRef<
     "children" | "size" | "aria-label"
   > & {
     label: string;
-    size?: "1" | "2" | "3";
+    size?: Size<"sm" | "md" | "lg">;
   }
->(function MoreMenuTrigger({ label, size = "2", ...props }, ref) {
+>(function MoreMenuTrigger({ label, size = "md", ...props }, ref) {
   return (
     <IconButton
       ref={ref}
       variant="ghost"
       color="gray"
       radius="full"
-      size={size}
+      size={radixSize(size)}
       highContrast
       aria-label={label}
       {...props}

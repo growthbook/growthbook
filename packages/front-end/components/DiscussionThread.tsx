@@ -103,7 +103,7 @@ const DiscussionThread: FC<{
                             trigger={
                               <MoreMenuTrigger
                                 label="Comment actions"
-                                size="1"
+                                size="sm"
                                 // Undo the ghost variant's negative margin.
                                 style={{ margin: 0 }}
                               />

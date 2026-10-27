@@ -141,7 +141,7 @@ export default function InAppHelp() {
                 style={{ height: 22 }}
               />
               <Heading as="h4" size="sm" mb="0">
-                How can we help?
+                How Can We Help?
               </Heading>
             </Flex>
             <Flex direction="column" gap="3" p="4">

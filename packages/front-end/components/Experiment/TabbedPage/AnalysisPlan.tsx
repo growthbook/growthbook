@@ -507,8 +507,8 @@ export default function AnalysisPlan({
     });
   }, [settingsOpen, settingsFocus, setSettingsOpen, canEdit]);
 
-  // Rows for an experiment on Incremental Refresh offer only what it supports.
-  const { incrementalRefresh, getMetricDisabledInfo } = useMetricDisabledInfo(
+  // Metrics an experiment can't use show disabled, with the reason.
+  const getMetricDisabledInfo = useMetricDisabledInfo(
     datasource,
     experiment.id,
     experiment.type,
@@ -537,7 +537,6 @@ export default function AnalysisPlan({
         project={experiment.project}
         includeFacts
         includeGroups
-        noLegacyMetrics={incrementalRefresh}
         getMetricDisabledInfo={getMetricDisabledInfo}
         metricOverrides={metricOverrides}
         targetMDEOverrides={

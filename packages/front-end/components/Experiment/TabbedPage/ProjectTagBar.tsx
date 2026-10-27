@@ -42,7 +42,14 @@ export function EmptyValue() {
 export function RestrictedValue() {
   return (
     <UITooltip content="This Data Source is in a Project you don't have access to.">
-      <Flex as="span" align="center" gap="1" style={{ display: "inline-flex" }}>
+      {/* Focusable, so the reason reaches the keyboard too. */}
+      <Flex
+        as="span"
+        align="center"
+        gap="1"
+        tabIndex={0}
+        style={{ display: "inline-flex" }}
+      >
         <PiLockSimple />
         <em>Restricted</em>
       </Flex>
@@ -116,7 +123,8 @@ export function ExperimentDataFields({
           label="Assignment query"
           value={
             exposureQueryId ? (
-              (exposureQuery?.name ?? <em>Restricted</em>)
+              (exposureQuery?.name ??
+              (datasource ? <em>Not found</em> : <RestrictedValue />))
             ) : (
               <EmptyValue />
             )

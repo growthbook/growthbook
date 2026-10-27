@@ -1068,7 +1068,7 @@ export default function ExperimentHeader({
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
                 trigger={
-                  <MoreMenuTrigger label="More actions" size="3" ml="2" />
+                  <MoreMenuTrigger label="More actions" size="lg" ml="2" />
                 }
                 open={dropdownOpen}
                 onOpenChange={(o) => {

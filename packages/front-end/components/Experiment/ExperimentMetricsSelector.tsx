@@ -166,7 +166,7 @@ export function useMetricDisabledInfo(
       metricGroups,
     ],
   );
-  return { incrementalRefresh, getMetricDisabledInfo };
+  return getMetricDisabledInfo;
 }
 
 export default function ExperimentMetricsSelector({
@@ -200,7 +200,7 @@ export default function ExperimentMetricsSelector({
   const { getExperimentMetricById, getDatasourceById, factTables } =
     useDefinitions();
 
-  const { getMetricDisabledInfo } = useMetricDisabledInfo(
+  const getMetricDisabledInfo = useMetricDisabledInfo(
     datasource,
     experimentId,
     experimentType,
