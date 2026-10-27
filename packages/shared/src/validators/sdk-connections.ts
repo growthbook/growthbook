@@ -257,8 +257,14 @@ const putSdkConnectionBody = postSdkConnectionBody
       .boolean()
       .optional()
       .describe(
-        "Archive (true) or restore (false) the connection. Archiving takes the same authority as deleting it; restoring takes publish authority. A connection must be archived before it can be deleted.",
+        "Archive (true) or restore (false) the connection. Archiving takes the same authority as deleting it; restoring takes publish authority.",
       ),
+    bypassApproval: z
+      .boolean()
+      .describe(
+        "Set to true to update the live SDK connection without approval. The caller must have the `bypassApprovalSDKConnections` permission, or the organization must enable 'REST API always bypasses approval requirements'. This field has no effect when approval is not required.",
+      )
+      .optional(),
   })
   .strict();
 
@@ -338,7 +344,7 @@ export const putSdkConnectionValidator = {
     .strict(),
   summary: "Update a single sdk connection",
   description:
-    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's projects and environment, the request is refused unless the API key's role holds the `bypassApprovalSDKConnections` permission or the organization has enabled 'REST API always bypasses approval requirements'; open a draft from the SDK connection page instead. Set `archived` to archive or restore the connection.",
+    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's projects and environment, open a draft from the SDK connection page instead, or pass `bypassApproval` with the bypass permission. Set `archived` to archive or restore the connection.",
   confirmation: ["sdkConnection.edit"] as const,
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
@@ -357,7 +363,7 @@ export const deleteSdkConnectionValidator = {
     .strict(),
   summary: "Deletes a single SDK connection",
   description:
-    "The connection must already be archived (`PUT /sdk-connections/{id}` with `archived: true`), so that taking an SDK offline is a reviewable step when the organization requires approvals. Deleting an archived connection needs no approval.",
+    "A live connection can only be deleted when the organization enables 'REST API always bypasses approval requirements'. Otherwise archive it first (`PUT /sdk-connections/{id}` with `archived: true`), then delete it.",
   confirmation: ["sdkConnection.delete"] as const,
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],

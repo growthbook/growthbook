@@ -5,6 +5,7 @@ import {
 } from "back-end/src/models/SdkConnectionModel";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { BadRequestError } from "back-end/src/util/errors";
+import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
 
 export const deleteSdkConnection = createApiRequestHandler(
   deleteSdkConnectionValidator,
@@ -18,11 +19,12 @@ export const deleteSdkConnection = createApiRequestHandler(
     req.context.permissions.throwPermissionError();
   }
 
-  // Archiving is the reviewable step, so the hard delete requires it first.
-  if (!sdkConnection.archived) {
+  // Mirror features: a live connection can only be deleted when the org has
+  // opted into unrestricted REST writes; otherwise archive it first.
+  if (!sdkConnection.archived && !canUseRestApiBypassSetting(req)) {
     throw new BadRequestError(
-      "Archive the SDK connection before deleting it " +
-        "(PUT /sdk-connections/{id} with `archived: true`).",
+      "Cannot delete a live SDK connection via the REST API when 'REST API always bypasses approval requirements' is disabled. " +
+        "Archive the SDK connection first, or enable the bypass setting in organization settings.",
     );
   }
 

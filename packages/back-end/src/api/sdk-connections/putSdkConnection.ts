@@ -28,7 +28,8 @@ export const putSdkConnection = createApiRequestHandler(
     throw new Error("Could not find sdkConnection with that id");
   }
 
-  const params = await validatePutPayload(req.context, req.body, sdkConnection);
+  const { bypassApproval, ...body } = req.body;
+  const params = await validatePutPayload(req.context, body, sdkConnection);
 
   if (!req.context.permissions.canUpdateSDKConnection(sdkConnection, params))
     req.context.permissions.throwPermissionError();
@@ -87,15 +88,18 @@ export const putSdkConnection = createApiRequestHandler(
 
   const bypassedGates: BypassedGate[] = [];
   if (approvalRequired) {
+    if (!bypassApproval) {
+      throw new BadRequestError(
+        "This organization requires approvals on SDK connections. " +
+          "Open a draft from the SDK connection page, " +
+          'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalSDKConnections` permission.',
+      );
+    }
     const canBypass =
       canUseRestApiBypassSetting(req) ||
       adapter.canBypassApproval(req.context, baseline);
     if (!canBypass) {
-      throw new BadRequestError(
-        "This organization requires approvals on SDK connections. " +
-          "Open a draft from the SDK connection page, or use an API key whose " +
-          "role holds the bypassApprovalSDKConnections permission.",
-      );
+      req.context.permissions.throwPermissionError();
     }
     bypassedGates.push({
       type: "approval-required",
