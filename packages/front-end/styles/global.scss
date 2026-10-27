@@ -228,9 +228,10 @@ html.app-drawer-open body {
 
   // Nor do the first items' top margins or the last items' bottom ones,
   // which pass straight through a wrapper with no padding of its own: the
-  // first item, and the first inside that, two deep; the last, five deep.
+  // first item, and the first inside that, two deep; the last, six deep.
   // In a set of tabs every tab's content stays on the page, the closed ones
-  // hidden, so the trail follows the open tab.
+  // hidden, so the trail follows the open tab. A list's pagination bar ending
+  // the page drops its bottom padding too, so the 32px is under its links.
   $start: ":is(:first-child, style:first-child + *)";
   & > #{$start},
   & > #{$start} > #{$start},
@@ -239,9 +240,12 @@ html.app-drawer-open body {
   }
   $end: ':is(:last-child, .rt-TabsContent[data-state="active"])';
   $chain: "> #{$end}";
-  @for $depth from 1 through 5 {
+  @for $depth from 1 through 6 {
     & #{$chain} {
       margin-bottom: 0 !important;
+    }
+    & #{$chain}.pagination-area {
+      padding-bottom: 0;
     }
     $chain: $chain + " > #{$end}";
   }
