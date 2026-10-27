@@ -50,8 +50,9 @@ export const isTimestampCandidate = (c: DetectedColumn) =>
 export const isIdentifierCandidate = (c: DetectedColumn) =>
   ["string", "number", "other", ""].includes(c.datatype);
 
+// "other" is arrays, intervals and geo types, which don't slice sensibly
 export const isDimensionCandidate = (c: DetectedColumn) =>
-  ["string", ""].includes(c.datatype);
+  ["string", "number", "boolean", ""].includes(c.datatype);
 
 // The columns an object needs, beyond a timestamp and an identifier. A Fact
 // Table needs nothing more; an assignment query also needs its experiment and
