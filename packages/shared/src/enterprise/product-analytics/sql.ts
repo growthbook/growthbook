@@ -1075,7 +1075,7 @@ function getMetricData(
     if (unitIndex === -1) {
       throw new Error(`Unit ${selectedUnit} not found in fact table group`);
     }
-    unitAggregationExpr = `CASE WHEN COUNT(${alias}_rows) > 0 THEN ${getUnitAggregationExpr(columnRef, alias, helpers)} ELSE NULL END`;
+    unitAggregationExpr = getUnitAggregationExpr(columnRef, alias, helpers);
     const eligible = `${populationAlias} = 1 AND unit${unitIndex} IS NOT NULL`;
     rollupAggregationExpr = `SUM(CASE WHEN ${eligible} AND ${alias} = 1 THEN 1 ELSE 0 END)`;
     rollupCountExpr = `SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`;
@@ -1423,7 +1423,7 @@ function generateUnitAggregationCTE(
     const expr = metricData.unitAggregationExpr || "NULL";
     // Preserve actual zeros, but exclude users with no rows matching this metric.
     const guardedExpr =
-      !metricData.population && metricData.presenceExpr !== null
+      metricData.presenceExpr !== null
         ? `CASE WHEN COUNT(${metricData.alias}_rows) > 0 THEN ${expr} ELSE NULL END`
         : expr;
     selects.push(`${guardedExpr} AS ${metricData.alias}`);
