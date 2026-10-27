@@ -251,12 +251,12 @@ const CustomSchema: SchemaInterface = {
   experimentDimensions: [],
   getExperimentSQL: (tablePrefix, userIdTypes) => {
     return `SELECT
-  ${userIdTypes.map((ut) => `${ut} as ${ut},`).join("\n  ")}
-  timestamp as timestamp,
-  experiment_id as experiment_id,
-  variation_id as variation_id
+  ${userIdTypes.map((ut) => `${ut},`).join("\n  ")}
+  timestamp,
+  experiment_id,
+  variation_id
 FROM
-  ${tablePrefix}viewed_experiment`;
+  ${tablePrefix}experiment_viewed`;
   },
   getIdentitySQL: () => {
     return [];

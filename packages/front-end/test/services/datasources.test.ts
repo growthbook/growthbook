@@ -849,12 +849,12 @@ describe("getInitialExposureQuery", () => {
 
   it("covers the requested identifiers, else every declared one", () => {
     const requested = getInitialExposureQuery(datasource, ["user_id"]);
-    expect(requested).toContain("user_id as user_id");
+    expect(requested).toMatch(/^ {2}user_id,$/m);
     expect(requested).not.toContain("anonymous_id");
 
     const all = getInitialExposureQuery(datasource);
-    expect(all).toContain("anonymous_id as anonymous_id");
-    expect(all).toContain("user_id as user_id");
+    expect(all).toMatch(/^ {2}anonymous_id,$/m);
+    expect(all).toMatch(/^ {2}user_id,$/m);
   });
 
   it("falls back to user_id when the Data Source declares no identifiers", () => {
