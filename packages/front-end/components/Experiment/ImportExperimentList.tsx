@@ -352,7 +352,7 @@ const ImportExperimentList: FC<{
       return !earliest || d < earliest ? d : earliest;
     }, null);
 
-  const description = (
+  const lookbackSummary = (
     <>
       Experiments your Experiment Assignment Queries recorded
       {data?.experiments?.config ? (
@@ -386,7 +386,10 @@ const ImportExperimentList: FC<{
       <Modal.Header>
         <Modal.Title>Import Experiment</Modal.Title>
       </Modal.Header>
-      <Modal.Description>{description}</Modal.Description>
+      <Modal.Description>
+        Bring experiments your Data Source has already tracked into GrowthBook
+        to analyze their results.
+      </Modal.Description>
       <Modal.Body>{body}</Modal.Body>
       {footer}
     </>
@@ -623,6 +626,11 @@ const ImportExperimentList: FC<{
           )}
           {queryControls}
         </Flex>
+      )}
+      {hasStarted && (
+        <Text as="p" size="sm" color="text-mid" mb="4">
+          {lookbackSummary}
+        </Text>
       )}
       {(runError || importFailed) && (
         <Callout status="error" mb="4">
