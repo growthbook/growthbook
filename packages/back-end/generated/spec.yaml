@@ -41255,6 +41255,9 @@ paths:
                                                 - type: string
                                                 - type: 'null'
                                             population:
+                                              description: >-
+                                                **Beta** — this field is new and may
+                                                change in backwards-incompatible ways.
                                               anyOf:
                                                 - type: object
                                                   properties:
@@ -44699,6 +44702,9 @@ paths:
                                                 - type: string
                                                 - type: 'null'
                                             population:
+                                              description: >-
+                                                **Beta** — this field is new and may
+                                                change in backwards-incompatible ways.
                                               anyOf:
                                                 - type: object
                                                   properties:
@@ -48340,6 +48346,9 @@ paths:
                                             - type: string
                                             - type: 'null'
                                         population:
+                                          description: >-
+                                            **Beta** — this field is new and may
+                                            change in backwards-incompatible ways.
                                           anyOf:
                                             - type: object
                                               properties:
@@ -51992,6 +52001,9 @@ paths:
                                             - type: string
                                             - type: 'null'
                                         population:
+                                          description: >-
+                                            **Beta** — this field is new and may
+                                            change in backwards-incompatible ways.
                                           anyOf:
                                             - type: object
                                               properties:
@@ -57576,6 +57588,9 @@ paths:
                               - type: string
                               - type: 'null'
                           population:
+                            description: >-
+                              **Beta** — this field is new and may change in
+                              backwards-incompatible ways.
                             anyOf:
                               - type: object
                                 properties:
@@ -58080,6 +58095,9 @@ paths:
                                             - type: string
                                             - type: 'null'
                                         population:
+                                          description: >-
+                                            **Beta** — this field is new and may
+                                            change in backwards-incompatible ways.
                                           anyOf:
                                             - type: object
                                               properties:
@@ -80224,6 +80242,9 @@ components:
                                     - type: string
                                     - type: 'null'
                                 population:
+                                  description: >-
+                                    **Beta** — this field is new and may change
+                                    in backwards-incompatible ways.
                                   anyOf:
                                     - type: object
                                       properties:
@@ -83469,6 +83490,9 @@ components:
                               - type: string
                               - type: 'null'
                           population:
+                            description: >-
+                              **Beta** — this field is new and may change in
+                              backwards-incompatible ways.
                             anyOf:
                               - type: object
                                 properties:

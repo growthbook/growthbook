@@ -42,7 +42,12 @@ const metricValueValidator = baseValueValidator.extend({
   metricId: z.string(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
-  population: metricPopulationValidator.nullable().optional(),
+  population: metricPopulationValidator
+    .nullable()
+    .optional()
+    .describe(
+      "**Beta** — this field is new and may change in backwards-incompatible ways.",
+    ),
 });
 // Internal only (metric editor live preview): an unsaved metric definition to
 // run in place of a saved one. Kept out of the public validators so the REST
