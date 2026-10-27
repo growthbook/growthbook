@@ -1,17 +1,15 @@
-import {
-  postFeatureRevisionValidator,
-  ACTIVE_DRAFT_STATUSES,
-} from "shared/validators";
+import { postFeatureRevisionValidator } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiRequestLocals } from "back-end/types/api";
 import { toApiRevision } from "back-end/src/services/features";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
-import { ConflictError, NotFoundError } from "back-end/src/util/errors";
+import { DraftLimitError, NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { holdRoute, type HeldRoute } from "back-end/src/services/confirmations";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import {
-  countDocuments,
   createRevision,
+  getActiveDraftVersions,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { auditDetailsCreate } from "back-end/src/services/audit";
@@ -22,6 +20,7 @@ export async function createFeatureDraft(
     body: { comment?: string; title?: string };
     query?: { overrideDraftLimit?: string | boolean };
   },
+  route: HeldRoute,
 ) {
   const feature = await getFeature(req.context, req.params.id);
   if (!feature) throw new NotFoundError("Could not find feature");
@@ -39,18 +38,21 @@ export async function createFeatureDraft(
     req.query?.overrideDraftLimit?.toString(),
   );
   if (maxDrafts > 0 && !overrideDraftLimit) {
-    const activeDrafts = await countDocuments(req.context.org.id, {
-      featureId: feature.id,
-      status: [...ACTIVE_DRAFT_STATUSES],
-    });
-    if (activeDrafts >= maxDrafts) {
-      throw new ConflictError(
-        `This feature already has ${activeDrafts} active draft${
-          activeDrafts === 1 ? "" : "s"
-        } and your organization caps drafts at ${maxDrafts} per feature. Retry with ?overrideDraftLimit=true to create the draft anyway, or publish/discard an existing draft first.`,
+    const drafts = await getActiveDraftVersions(req.context.org.id, feature.id);
+    if (drafts.length >= maxDrafts) {
+      const existing =
+        drafts.length === 1
+          ? `an active draft (revision ${drafts[0]})`
+          : `${drafts.length} active drafts (revisions ${drafts.join(", ")})`;
+      throw new DraftLimitError(
+        `This Feature Flag already has ${existing}, and your organization allows ${maxDrafts} per Feature Flag. Add your changes to ${
+          drafts.length === 1 ? "that draft" : "one of them"
+        }, or publish or discard a draft first.`,
       );
     }
   }
+
+  await holdRoute(req.context, route, req);
 
   const environments = getEnvironmentIdsFromOrg(req.context.org);
 
@@ -93,6 +95,9 @@ export async function createFeatureDraft(
 export const postFeatureRevision = createApiRequestHandler(
   postFeatureRevisionValidator,
 )(async (req) => {
-  const { feature, revision } = await createFeatureDraft(req);
+  const { feature, revision } = await createFeatureDraft(
+    req,
+    postFeatureRevisionValidator,
+  );
   return { revision: toApiRevision(revision, req.context, feature) };
 });

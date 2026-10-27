@@ -8,6 +8,8 @@ import {
 } from "react-icons/pi";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
+import { contextualBanditHasServableVisualChanges } from "shared/experiments";
+import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import Modal from "@/ui/Modal";
 import ModalForm, { useModalForm } from "@/ui/Modal/ModalForm";
 import Button from "@/ui/Button";
@@ -30,6 +32,9 @@ import {
 export interface Props {
   cb: ApiContextualBanditInterface;
   linkedFeatures?: LinkedFeatureInfo[];
+  visualChangesets?: VisualChangesetInterface[];
+  visualChangesetsLoading?: boolean;
+  visualChangesetsError?: Error;
   startContextualBandit: () => Promise<void>;
   close: () => void;
 }
@@ -43,10 +48,12 @@ type BlockerItem = {
 function computeBlockers(
   cb: ApiContextualBanditInterface,
   linkedFeatures: LinkedFeatureInfo[],
+  visualChangesets: VisualChangesetInterface[],
+  visualChangesetsLoading: boolean,
+  visualChangesetsError: Error | undefined,
 ): { hardBlockerItems: BlockerItem[]; softBlockerItems: BlockerItem[] } {
   const hardBlockerItems: BlockerItem[] = [];
   const softBlockerItems: BlockerItem[] = [];
-
   const featureLink = (f: LinkedFeatureInfo) => (
     <Link
       href={`/features/${f.feature.id}${
@@ -59,13 +66,34 @@ function computeBlockers(
     </Link>
   );
 
-  if (linkedFeatures.length === 0) {
+  if (visualChangesetsError) {
     hardBlockerItems.push({
-      key: "no-linked-feature",
+      key: "visual-changes-error",
       hardBlock: true,
       display: (
         <>
-          Link at least one Feature Flag before this Contextual Bandit can start
+          Couldn&apos;t load this Contextual Bandit&apos;s visual changes (
+          {visualChangesetsError.message}). Reload the page and try again.
+        </>
+      ),
+    });
+  } else if (visualChangesetsLoading) {
+    hardBlockerItems.push({
+      key: "visual-changes-loading",
+      hardBlock: true,
+      display: <>Checking for saved AI Visual Editor changes…</>,
+    });
+  } else if (
+    linkedFeatures.length === 0 &&
+    !contextualBanditHasServableVisualChanges(cb, visualChangesets)
+  ) {
+    hardBlockerItems.push({
+      key: "no-linked-change",
+      hardBlock: true,
+      display: (
+        <>
+          Link at least one Feature Flag or save an AI Visual Editor change
+          before this Contextual Bandit can start
         </>
       ),
     });
@@ -79,8 +107,8 @@ function computeBlockers(
         hardBlock: true,
         display: (
           <>
-            Resolve merge conflict in {featureLink(f)} before this contextual
-            bandit can start
+            Resolve merge conflict in {featureLink(f)} before this Contextual
+            Bandit can start
           </>
         ),
       });
@@ -212,10 +240,12 @@ function SummaryRow({
 function LinkedChangeSection({
   type,
   count,
+  countLabel,
   children,
 }: {
   type: LinkedChange;
   count: number;
+  countLabel?: string;
   children: ReactNode;
 }) {
   const { component: Icon, radixColor } = ICON_PROPERTIES[type];
@@ -232,7 +262,7 @@ function LinkedChangeSection({
           <Icon />
         </Avatar>
         <Text weight="semibold" color="text-high">
-          {count} {count > 1 ? header : header.slice(0, -1)}
+          {countLabel ?? count} {count > 1 ? header : header.slice(0, -1)}
         </Text>
       </Flex>
       <Box pl="7">{children}</Box>
@@ -243,6 +273,9 @@ function LinkedChangeSection({
 export default function StartContextualBanditModal({
   cb,
   linkedFeatures = [],
+  visualChangesets = [],
+  visualChangesetsLoading = false,
+  visualChangesetsError,
   startContextualBandit,
   close,
 }: Props) {
@@ -255,6 +288,9 @@ export default function StartContextualBanditModal({
   const { hardBlockerItems, softBlockerItems } = computeBlockers(
     cb,
     linkedFeatures,
+    visualChangesets,
+    visualChangesetsLoading,
+    visualChangesetsError,
   );
   const hasHardBlockers = hardBlockerItems.length > 0;
   const hasBlockers = hasHardBlockers || softBlockerItems.length > 0;
@@ -373,7 +409,7 @@ export default function StartContextualBanditModal({
               </Flex>
             </Box>
           </Box>
-          {hasLinkedFeatures && (
+          {(hasLinkedFeatures || visualChangesets.length > 0) && (
             <Box
               mt="3"
               style={{
@@ -383,29 +419,51 @@ export default function StartContextualBanditModal({
               }}
             >
               <Text weight="semibold" color="text-high">
-                Linked changes will activate. Users will see bandit variations
+                Linked changes will activate. Users will see Bandit variations
                 immediately.
               </Text>
               <Flex direction="column" gap="4" mt="3">
-                <LinkedChangeSection
-                  type="feature-flag"
-                  count={linkedFeatures.length}
-                >
-                  <Flex wrap="wrap" gap="3">
-                    {linkedFeatures.map((info) =>
-                      info.feature?.id ? (
-                        <Link
-                          key={info.feature.id}
-                          href={`/features/${info.feature.id}`}
-                          target="_blank"
-                        >
-                          <Text weight="semibold">{info.feature.id}</Text>
-                          <PiArrowSquareOut className="ml-1" />
-                        </Link>
-                      ) : null,
-                    )}
-                  </Flex>
-                </LinkedChangeSection>
+                {hasLinkedFeatures && (
+                  <LinkedChangeSection
+                    type="feature-flag"
+                    count={linkedFeatures.length}
+                  >
+                    <Flex wrap="wrap" gap="3">
+                      {linkedFeatures.map((info) =>
+                        info.feature?.id ? (
+                          <Link
+                            key={info.feature.id}
+                            href={`/features/${info.feature.id}`}
+                            target="_blank"
+                          >
+                            <Text weight="semibold">{info.feature.id}</Text>
+                            <PiArrowSquareOut className="ml-1" />
+                          </Link>
+                        ) : null,
+                      )}
+                    </Flex>
+                  </LinkedChangeSection>
+                )}
+                {visualChangesets.length > 0 && (
+                  <LinkedChangeSection
+                    type="visual-editor"
+                    count={visualChangesets.length}
+                    countLabel={`${visualChangesets.length} Page${
+                      visualChangesets.length === 1 ? "" : "s"
+                    } with`}
+                  >
+                    <Flex wrap="wrap" gap="3">
+                      {visualChangesets.map((vc) =>
+                        vc.editorUrl ? (
+                          <Link key={vc.id} href={vc.editorUrl} target="_blank">
+                            <Text weight="semibold">{vc.editorUrl}</Text>
+                            <PiArrowSquareOut className="ml-1" />
+                          </Link>
+                        ) : null,
+                      )}
+                    </Flex>
+                  </LinkedChangeSection>
+                )}
               </Flex>
             </Box>
           )}

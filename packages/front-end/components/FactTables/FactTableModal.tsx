@@ -47,6 +47,7 @@ export interface Props {
   close: () => void;
   duplicate?: boolean;
   onCreate?: (factTable: FactTableInterface) => void;
+  initialDatasource?: string;
 }
 
 export default function FactTableModal({
@@ -54,6 +55,7 @@ export default function FactTableModal({
   close,
   duplicate = false,
   onCreate,
+  initialDatasource,
 }: Props) {
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
@@ -80,6 +82,7 @@ export default function FactTableModal({
     defaultValues: {
       datasource:
         existing?.datasource ||
+        initialDatasource ||
         getNewExperimentDatasourceDefaults({ datasources, settings, project })
           .datasource,
       description: existing?.description || "",

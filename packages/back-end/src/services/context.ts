@@ -41,6 +41,7 @@ import { getEffectiveOrgLimits } from "back-end/src/services/plan-limits";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import {
+  getPersonalAccessTokenCap,
   getPersonalAccessTokenPermissions,
   getUserPermissions,
   getEnvironmentIdsFromOrg,
@@ -73,6 +74,7 @@ import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { SavedQueryDataModel } from "back-end/src/models/SavedQueryDataModel";
 import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { SavedGroupUploadModel } from "back-end/src/models/SavedGroupUploadModel";
 import { ConstantModel } from "back-end/src/models/ConstantModel";
 import { ConfigModel } from "back-end/src/models/ConfigModel";
 import { FeatureRevisionLogModel } from "back-end/src/models/FeatureRevisionLogModel";
@@ -156,6 +158,7 @@ export type ModelName =
   | "sdkConnectionCache"
   | "sdkWebhooks"
   | "savedGroups"
+  | "savedGroupUploads"
   | "constants"
   | "configs"
   | "teams"
@@ -221,6 +224,7 @@ export const modelClasses = {
   sdkConnectionCache: SdkConnectionCacheModel,
   sdkWebhooks: SdkWebhookModel,
   savedGroups: SavedGroupModel,
+  savedGroupUploads: SavedGroupUploadModel,
   constants: ConstantModel,
   configs: ConfigModel,
   teams: TeamModel,
@@ -410,6 +414,7 @@ export class ReqContextClass {
       sdkConnectionCache: new SdkConnectionCacheModel(this),
       sdkWebhooks: new SdkWebhookModel(this),
       savedGroups: new SavedGroupModel(this),
+      savedGroupUploads: new SavedGroupUploadModel(this),
       constants: new ConstantModel(this),
       configs: new ConfigModel(this),
       teams: new TeamModel(this),
@@ -477,9 +482,10 @@ export class ReqContextClass {
     return this.apiKey && this.actorId === this.apiKey ? this.apiKey : null;
   }
 
-  // An org key assuming a member's role may use that member's author rights
-  // only where its own role allows the action too, so it never does more than
-  // the key alone could. `check` runs against the key's own permissions.
+  // An org key assuming a member's role, or a scoped token acting as its user,
+  // may use that person's author rights only where its own role allows the
+  // action too, so it never does more than the key alone could. `check` runs
+  // against the key's own permissions.
   public authorRightsAllow(check: (context: this) => boolean): boolean {
     if (!this.assumingKeyPermissions) return true;
     const keyContext: this = Object.create(this);
@@ -513,7 +519,19 @@ export class ReqContextClass {
   // Who a deferred action runs as: a scoped PAT as the key (so its cap travels
   // with the work), a user as themselves, an org key as itself with its requester.
   public get armer(): { userId?: string; apiKey?: string } {
-    if (this.scopedApiKey) return { apiKey: this.apiKey };
+    if (this.scopedApiKey) {
+      const clientId = this.apiKeyData?.oauthClientId;
+      return {
+        apiKey:
+          this.apiKey && clientId && this.userId
+            ? encodeArmingApiKeyId(this.apiKey, undefined, {
+                clientId,
+                userId: this.userId,
+                armedAt: Date.now(),
+              })
+            : this.apiKey,
+      };
+    }
     if (this.userId) return { userId: this.userId };
     if (!this.apiKey) return {};
     return {
@@ -587,6 +605,16 @@ export class ReqContextClass {
             restrictedProjects,
           )
         : getUserPermissions(user, org, teams || [], restrictedProjects);
+      if (apiKeyData?.userId && apiKeyData.scoped) {
+        this.assumingKeyPermissions = new Permissions(
+          getPersonalAccessTokenCap(
+            apiKeyData,
+            org,
+            teams || [],
+            restrictedProjects,
+          ),
+        );
+      }
     }
     // If an API key or background job is making this request
     else {
@@ -631,6 +659,11 @@ export class ReqContextClass {
     const v = req.query?.ignoreWarnings;
     if (typeof v !== "string") return false;
     return stringToBoolean(v);
+  }
+
+  // Background jobs (no req) are never blocked by the rule scope setting.
+  public get allowUnscopedRules(): boolean {
+    return !this.overrideSource || this.bodyFlag("allowUnscopedRules");
   }
 
   private get overrideSource(): OverrideSource | undefined {
@@ -782,7 +815,11 @@ export class ReqContextClass {
   }
 
   // Record an audit log entry
-  public async auditLog(data: AuditInterfaceInput) {
+  /**
+   * Records an audit event. Pass `id` to write it at most once: a repeat with
+   * the same id throws a duplicate key error.
+   */
+  public async auditLog(data: AuditInterfaceInput, id?: string) {
     const apiKeyUser =
       this.auditUser?.type === "api_key" ? this.auditUser : undefined;
     const auditUser = this.isApiRequest
@@ -806,12 +843,15 @@ export class ReqContextClass {
     if (!auditUser) {
       throw new Error("Must have user or apiKey in context to audit log");
     }
-    await insertAudit({
-      ...data,
-      user: auditUser,
-      organization: this.org.id,
-      dateCreated: new Date(),
-    });
+    await insertAudit(
+      {
+        ...data,
+        user: auditUser,
+        organization: this.org.id,
+        dateCreated: new Date(),
+      },
+      id,
+    );
   }
 
   // Cache common foreign references

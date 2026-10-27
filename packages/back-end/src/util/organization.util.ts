@@ -5,7 +5,7 @@ import {
 import { TeamInterface } from "shared/types/team";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
-  assumesRequesterRole,
+  actsAsUser,
   getRolePermissions,
   intersectUserPermissions,
 } from "shared/permissions";
@@ -51,6 +51,8 @@ export function getUserPermissions(
       },
       org,
       teams,
+      undefined,
+      { member: true },
     );
   }
 
@@ -64,6 +66,7 @@ export function getUserPermissions(
     teams,
     // Super admins bypass access-restricted projects
     user.superAdmin ? undefined : restrictedProjects,
+    { member: true },
   );
 }
 
@@ -84,12 +87,22 @@ export function getPersonalAccessTokenPermissions(
   if (!apiKey.scoped) return userPermissions;
   return intersectUserPermissions(
     userPermissions,
-    getRolePermissions(
-      { ...apiKey, role: apiKey.role ?? "noaccess" },
-      org,
-      teams,
-      restrictedProjects,
-    ),
+    getPersonalAccessTokenCap(apiKey, org, teams, restrictedProjects),
+  );
+}
+
+// What a scoped token's own role allows, before its user's permissions narrow it.
+export function getPersonalAccessTokenCap(
+  apiKey: ApiKeyInterface,
+  org: OrganizationInterface,
+  teams: TeamInterface[],
+  restrictedProjects?: string[],
+): UserPermissions {
+  return getRolePermissions(
+    { ...apiKey, role: apiKey.role ?? "noaccess" },
+    org,
+    teams,
+    restrictedProjects,
   );
 }
 
@@ -109,7 +122,7 @@ export function getKeyPermissionsForRequest({
   teams: TeamInterface[];
   restrictedProjects: string[];
 }): UserPermissions | undefined {
-  if (apiKey.userId || !requesterId || !assumesRequesterRole(apiKey)) {
+  if (apiKey.userId || !requesterId || !actsAsUser(apiKey)) {
     return undefined;
   }
   return intersectUserPermissions(
@@ -121,4 +134,15 @@ export function getKeyPermissionsForRequest({
     ),
     getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
   );
+}
+
+// Strips the separators people paste around addresses (whitespace, `;`, `,`).
+// A loop rather than `/[\s;,]+$/`, which is quadratic on long runs.
+export function normalizeInviteEmail(email: string): string {
+  const isSeparator = (ch: string) => ch === ";" || ch === "," || /\s/.test(ch);
+  let start = 0;
+  let end = email.length;
+  while (start < end && isSeparator(email[start])) start++;
+  while (end > start && isSeparator(email[end - 1])) end--;
+  return email.slice(start, end).toLowerCase();
 }

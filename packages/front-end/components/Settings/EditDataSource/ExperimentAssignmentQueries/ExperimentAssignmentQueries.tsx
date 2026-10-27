@@ -17,7 +17,7 @@ import {
 } from "@/components/Settings/EditDataSource/EventForwarderManaged";
 import { DataSourceQueryEditingModalBaseProps } from "@/components/Settings/EditDataSource/types";
 import Code from "@/components/SyntaxHighlighting/Code";
-import { AddEditExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal";
+import { ExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueryModal";
 import Button from "@/ui/Button";
 import { UpdateDimensionMetadataModal } from "@/components/Settings/EditDataSource/DimensionMetadata/UpdateDimensionMetadata";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -43,6 +43,8 @@ export const ExperimentAssignmentQueries: FC<
 
   const permissionsUtil = usePermissionsUtil();
   const canAdd = canEdit && permissionsUtil.canAddExposureQuery(dataSource);
+  // A query needs at least one identifier type to map a column to
+  const hasIdentifiers = !!dataSource.settings?.userIdTypes?.length;
   const canEditQuery = (query: ExposureQuery) =>
     canEdit && permissionsUtil.canUpdateExposureQuery(query, dataSource);
 
@@ -137,9 +139,20 @@ export const ExperimentAssignmentQueries: FC<
         </Box>
 
         <Box>
-          <Button onClick={handleAdd} disabled={!canAdd} icon={<PiPlus />}>
-            Add
-          </Button>
+          <UITooltip
+            content="Needs an identifier type"
+            enabled={canAdd && !hasIdentifiers}
+          >
+            <span style={{ display: "inline-flex" }}>
+              <Button
+                onClick={handleAdd}
+                disabled={!canAdd || !hasIdentifiers}
+                icon={<PiPlus />}
+              >
+                Add
+              </Button>
+            </span>
+          </UITooltip>
         </Box>
       </Flex>
       <p>
@@ -352,10 +365,13 @@ export const ExperimentAssignmentQueries: FC<
       {/* region Add/Edit modal */}
 
       {uiMode === "edit" || uiMode === "add" ? (
-        <AddEditExperimentAssignmentQueryModal
-          exposureQuery={experimentExposureQueries[editingIndex]}
+        <ExperimentAssignmentQueryModal
+          exposureQuery={
+            uiMode === "edit"
+              ? experimentExposureQueries[editingIndex]
+              : undefined
+          }
           dataSource={dataSource}
-          mode={uiMode}
           onSave={handleSave(editingIndex)}
           onCancel={handleCancel}
         />

@@ -22,6 +22,7 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   redirects: true,
   savedGroupReferences: true,
   savedGroupReferencesV2: true,
+  savedGroupReferencesRemote: true,
   visualEditor: true,
   visualEditorDragDrop: true,
   visualEditorJS: true,
@@ -29,6 +30,8 @@ const allCapabilities: Record<SDKCapability, boolean> = {
   caseInsensitiveMembership: true,
   namespacesV2: true,
   contextualBandits: true,
+  contextualBanditsAuto: true,
+  interleaving: true,
   trackingPlugin: true,
 };
 

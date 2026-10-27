@@ -247,6 +247,32 @@ export const getConnectionsSDKCapabilities = ({
   return uniq(capabilities);
 };
 
+// True when a single connection reaching the project supports every
+// capability itself, which a union across connections cannot tell.
+export const someConnectionSupportsCapabilities = ({
+  connections,
+  capabilities,
+  project,
+}: {
+  connections: Partial<SDKConnectionInterface>[];
+  capabilities: SDKCapability[];
+  project?: string;
+}): boolean =>
+  connections.some((connection) => {
+    if (
+      project !== undefined &&
+      (connection.projects ?? []).length > 0 &&
+      !connection.projects?.includes(project)
+    ) {
+      return false;
+    }
+    const supported = getConnectionSDKCapabilities(
+      connection,
+      "min-ver-intersection",
+    );
+    return capabilities.every((capability) => supported.includes(capability));
+  });
+
 export const getSDKCapabilityVersion = (
   language: SDKLanguage = "other",
   capability: SDKCapability,
