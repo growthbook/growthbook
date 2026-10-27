@@ -29,6 +29,7 @@ import { CustomHookError, SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
   expandOrgMembers,
@@ -40,6 +41,10 @@ import {
 } from "back-end/src/services/resolvableValues";
 import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";
+import {
+  buildHookInputFeatureFacts,
+  HookInputFeatureFacts,
+} from "./inputFeatureFacts";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
 
@@ -684,19 +689,54 @@ export async function collectCustomHookResults(
     configBases,
   );
 
+  const facts = await loadInputFeatureFacts(adminContext, hooks);
+
   const hardErrors: CustomHookErrorDetail[] = [];
   const warnings: string[] = [];
   for (const hook of hooks) {
+    const withInputs = (args: Record<string, unknown>) =>
+      withInputFeatureFacts(hook, facts, withHookTarget(hook, args) ?? args);
     const { error, warnings: hookWarnings } = await _runCustomHook(
       adminContext,
       hook,
-      withHookTarget(hook, functionArgs) ?? functionArgs,
-      withHookTarget(hook, originalFunctionArgs),
+      withInputs(functionArgs),
+      originalFunctionArgs ? withInputs(originalFunctionArgs) : undefined,
     );
     if (error) hardErrors.push(error);
     warnings.push(...hookWarnings);
   }
   return { hardErrors, warnings };
+}
+
+// One read per batch, under the hook execution context (all projects), so the
+// facts don't depend on who made the change. A failed read fails the change.
+async function loadInputFeatureFacts(
+  context: Context,
+  hooks: CustomHookInterface[],
+): Promise<Map<string, HookInputFeatureFacts>> {
+  const ids = [...new Set(hooks.flatMap((h) => h.inputFeatures ?? []))];
+  const facts = new Map<string, HookInputFeatureFacts>();
+  if (!ids.length) return facts;
+  const environmentIds = getEnvironmentIdsFromOrg(context.org);
+  for (const feature of await getFeaturesByIds(context, ids)) {
+    facts.set(feature.id, buildHookInputFeatureFacts(feature, environmentIds));
+  }
+  return facts;
+}
+
+// Hooks without a list get exactly their old arguments.
+function withInputFeatureFacts(
+  hook: CustomHookInterface,
+  facts: Map<string, HookInputFeatureFacts>,
+  args: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!hook.inputFeatures) return args;
+  return {
+    ...args,
+    inputFeatureFacts: Object.fromEntries(
+      hook.inputFeatures.map((id) => [id, facts.get(id) ?? null]),
+    ),
+  };
 }
 
 // Private methods

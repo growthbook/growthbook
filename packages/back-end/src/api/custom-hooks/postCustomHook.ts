@@ -15,6 +15,7 @@ export const postCustomHook = createApiRequestHandler(postCustomHookValidator)(
       entityType,
       entityId,
       incrementalChangesOnly,
+      inputFeatures,
     } = req.body;
 
     // Spread optional fields only when provided — explicit `undefined` values
@@ -32,6 +33,7 @@ export const postCustomHook = createApiRequestHandler(postCustomHookValidator)(
       ...(incrementalChangesOnly !== undefined
         ? { incrementalChangesOnly }
         : {}),
+      ...(inputFeatures !== undefined ? { inputFeatures } : {}),
     });
 
     return {

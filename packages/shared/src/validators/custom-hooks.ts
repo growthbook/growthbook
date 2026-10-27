@@ -17,6 +17,8 @@ export const customHookEntityTypes = [
   "experiment",
 ] as const;
 
+export const MAX_CUSTOM_HOOK_INPUT_FEATURES = 10;
+
 export const customHookValidator = z
   .object({
     id: z.string(),
@@ -35,6 +37,8 @@ export const customHookValidator = z
     lastSuccess: z.date().optional(),
     lastFailure: z.date().optional(),
     incrementalChangesOnly: z.boolean().optional(),
+    // Flag ids whose facts are passed to the hook as `inputFeatureFacts`.
+    inputFeatures: z.array(z.string()).optional(),
   })
   .strict();
 
@@ -52,6 +56,12 @@ export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
   validateConfigRevision: "config",
   validateExperiment: "experiment",
 };
+
+const inputFeaturesField = z
+  .array(z.string())
+  .describe(
+    `Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Not allowed on feature- or experiment-scoped hooks.`,
+  );
 
 // External REST API. Validators carry the OpenAPI route metadata.
 export const apiCustomHookValidator = namedSchema(
@@ -92,6 +102,7 @@ export const apiCustomHookValidator = namedSchema(
           "When true, errors/warnings that already existed before the change being validated are suppressed",
         )
         .optional(),
+      inputFeatures: inputFeaturesField.optional(),
       lastSuccess: z.string().meta({ format: "date-time" }).optional(),
       lastFailure: z.string().meta({ format: "date-time" }).optional(),
       dateCreated: z.string().meta({ format: "date-time" }),
@@ -115,6 +126,7 @@ const postCustomHookApiBody = z
     entityType: z.enum(customHookEntityTypes).optional(),
     entityId: z.string().optional(),
     incrementalChangesOnly: z.boolean().optional(),
+    inputFeatures: inputFeaturesField.optional(),
   })
   .strict();
 
@@ -140,6 +152,11 @@ const updateCustomHookApiBody = z
       )
       .optional(),
     incrementalChangesOnly: z.boolean().optional(),
+    inputFeatures: inputFeaturesField
+      .describe(
+        `Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Send [] to clear the list; omit to leave it unchanged.`,
+      )
+      .optional(),
   })
   .strict();
 

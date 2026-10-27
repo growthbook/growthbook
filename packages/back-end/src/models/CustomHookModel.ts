@@ -4,11 +4,13 @@ import {
   CustomHookType,
   customHookValidator,
   hookEntityType,
+  MAX_CUSTOM_HOOK_INPUT_FEATURES,
 } from "shared/validators";
 import { getConfigAncestorKeys } from "shared/util";
 import { UpdateProps } from "shared/types/base-model";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
+import { BadRequestError } from "back-end/src/util/errors";
 import { MakeModelClass } from "./BaseModel";
 
 // Whether a hook applies to the entity being validated. Entity-scoped hooks
@@ -158,6 +160,8 @@ export class CustomHookModel extends BaseClass {
       throw new Error("Entity-scoped custom hooks cannot set projects");
     }
 
+    await this.validateInputFeatures(doc, entityType, previousDoc);
+
     // Only verify entity existence when the scope is being set or retargeted —
     // otherwise a hook pinned to a since-deleted entity could never be
     // disabled, renamed, or cleaned up.
@@ -184,6 +188,44 @@ export class CustomHookModel extends BaseClass {
     }
   }
 
+  private async validateInputFeatures(
+    doc: CustomHookInterface,
+    entityType: CustomHookInterface["entityType"],
+    previousDoc?: CustomHookInterface,
+  ) {
+    const inputFeatures = doc.inputFeatures ?? [];
+    if (!inputFeatures.length) return;
+
+    if (inputFeatures.length > MAX_CUSTOM_HOOK_INPUT_FEATURES) {
+      throw new BadRequestError(
+        `A custom hook can list at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES} input features`,
+      );
+    }
+
+    if (entityType === "feature" || entityType === "experiment") {
+      throw new BadRequestError(
+        "This hook is attached to one feature or experiment, so it cannot have input features. Clear its inputFeatures field, or remove its feature or experiment scope.",
+      );
+    }
+
+    // Only newly added ids are checked, so removing an id or editing a hook
+    // whose listed flag was since deleted is never refused.
+    const previous = new Set(previousDoc?.inputFeatures ?? []);
+    const added = [...new Set(inputFeatures)].filter((id) => !previous.has(id));
+    if (!added.length) return;
+
+    // Loads only flags the person saving can read.
+    await this.context.populateForeignRefs({ feature: added });
+    const missing = added.filter(
+      (id) => !this.context.foreignRefs.feature.has(id),
+    );
+    if (missing.length) {
+      throw new BadRequestError(
+        `Input features not found, or you do not have access to them: ${missing.join(", ")}`,
+      );
+    }
+  }
+
   public toApiInterface(hook: CustomHookInterface): ApiCustomHook {
     return {
       id: hook.id,
@@ -197,6 +239,7 @@ export class CustomHookModel extends BaseClass {
       entityType: hook.entityType ?? undefined,
       entityId: hook.entityId ?? undefined,
       incrementalChangesOnly: hook.incrementalChangesOnly ?? undefined,
+      inputFeatures: hook.inputFeatures ?? undefined,
       lastSuccess: hook.lastSuccess?.toISOString(),
       lastFailure: hook.lastFailure?.toISOString(),
       dateCreated: hook.dateCreated.toISOString(),

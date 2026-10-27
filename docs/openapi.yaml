@@ -30393,6 +30393,14 @@ paths:
                   type: string
                 incrementalChangesOnly:
                   type: boolean
+                inputFeatures:
+                  description: >-
+                    Flag ids whose facts the hook receives as
+                    `inputFeatureFacts` (at most 10). Not allowed on feature- or
+                    experiment-scoped hooks.
+                  type: array
+                  items:
+                    type: string
               required:
                 - name
                 - hook
@@ -30591,6 +30599,14 @@ paths:
                     - type: 'null'
                 incrementalChangesOnly:
                   type: boolean
+                inputFeatures:
+                  description: >-
+                    Flag ids whose facts the hook receives as
+                    `inputFeatureFacts` (at most 10). Send [] to clear the list;
+                    omit to leave it unchanged.
+                  type: array
+                  items:
+                    type: string
               additionalProperties: false
       responses:
         '200':
@@ -74601,6 +74617,13 @@ components:
             When true, errors/warnings that already existed before the change
             being validated are suppressed
           type: boolean
+        inputFeatures:
+          description: >-
+            Flag ids whose facts the hook receives as `inputFeatureFacts` (at
+            most 10). Not allowed on feature- or experiment-scoped hooks.
+          type: array
+          items:
+            type: string
         lastSuccess:
           format: date-time
           type: string
