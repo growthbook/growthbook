@@ -60,10 +60,17 @@ export default async (): Promise<void> => {
     }
   }
 
-  setInterval(logMongoRoundTrip, ROUND_TRIP_LOG_INTERVAL_MS).unref();
+  scheduleMongoRoundTripLog();
 };
 
 const ROUND_TRIP_LOG_INTERVAL_MS = 60_000;
+
+function scheduleMongoRoundTripLog() {
+  setTimeout(async () => {
+    await logMongoRoundTrip();
+    scheduleMongoRoundTripLog();
+  }, ROUND_TRIP_LOG_INTERVAL_MS).unref();
+}
 
 async function logMongoRoundTrip() {
   try {

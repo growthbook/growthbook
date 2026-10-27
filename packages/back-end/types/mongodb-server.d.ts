@@ -5,7 +5,7 @@ declare module "mongodb/lib/sdam/server" {
       ns: unknown,
       cmd: unknown,
       options: unknown,
-      callback: (...args: unknown[]) => void,
+      callback?: (...args: unknown[]) => void,
     ): void;
   }
 }

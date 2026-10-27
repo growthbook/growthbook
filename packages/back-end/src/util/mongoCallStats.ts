@@ -66,11 +66,18 @@ export function installMongoCallCounter() {
   const original = Server.prototype.command;
   Server.prototype.command = function (ns, cmd, options, callback) {
     const stats = storage.getStore();
-    if (!stats) return original.call(this, ns, cmd, options, callback);
+    if (!stats || !callback) {
+      return original.call(this, ns, cmd, options, callback);
+    }
     const chain = stats.start(performance.now());
-    return original.call(this, ns, cmd, options, (...args) => {
+    try {
+      return original.call(this, ns, cmd, options, (...args) => {
+        stats.end(chain, performance.now());
+        callback(...args);
+      });
+    } catch (e) {
       stats.end(chain, performance.now());
-      callback(...args);
-    });
+      throw e;
+    }
   };
 }
