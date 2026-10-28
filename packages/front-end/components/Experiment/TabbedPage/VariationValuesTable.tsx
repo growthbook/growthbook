@@ -365,7 +365,7 @@ export default function VariationValuesTable({
                     ) : null}
                     {onEditKeys ? (
                       <DropdownMenuItem onClick={onEditKeys}>
-                        Change variation IDs
+                        Change variation keys
                       </DropdownMenuItem>
                     ) : null}
                     {onRemoveVariation ? (
@@ -948,20 +948,18 @@ function FlagColumn({
     action?: ReactNode;
   }[] = [];
   const draftNotes: string[] = [];
-  if (info.state === "archived") {
-    notices.push(
-      experiment.status === "running"
-        ? {
-            status: "warning",
-            text: "Archived, so it isn't serving.",
-          }
-        : launches
-          ? {
-              status: "warning",
-              text: "Archived, so it won't serve when the experiment starts.",
-            }
-          : { status: "info", text: "Archived." },
-    );
+  // Otherwise the header's mark says it.
+  if (
+    info.state === "archived" &&
+    (experiment.status === "running" || launches)
+  ) {
+    notices.push({
+      status: "warning",
+      text:
+        experiment.status === "running"
+          ? "Archived, so it isn't serving. Unarchive it to serve again."
+          : "Archived, so it won't serve when the experiment starts. Unarchive it first.",
+    });
   }
   if (shownDraft?.hasMergeConflict) {
     notices.push({
@@ -1010,7 +1008,7 @@ function FlagColumn({
   if (!group && onFlag && describesShown && info.inconsistentValues) {
     notices.push({
       status: "warning",
-      text: `This experiment's rules disagree. Showing the values from ${info.valuesFrom}.`,
+      text: `This experiment has more than one rule here, with different values. Showing the ones from ${info.valuesFrom}.`,
     });
   }
   if (onFlag && describesShown && info.rulesAbove) {

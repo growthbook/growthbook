@@ -255,7 +255,7 @@ export function getLaunchChecklistItems({
             flagItem(
               f,
               "pendingRemoval:",
-              `Publish Revision ${f.pendingRemoval.version} of ${f.feature.id} to remove it, or keep it`,
+              `Publish Revision ${f.pendingRemoval.version} of ${f.feature.id} to unlink it, or keep it linked`,
               { revision: f.pendingRemoval.version },
             ),
           ]
