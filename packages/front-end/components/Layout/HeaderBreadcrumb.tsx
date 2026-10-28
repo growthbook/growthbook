@@ -47,7 +47,12 @@ function Separator({
   );
 }
 
-export default function HeaderBreadcrumb() {
+export default function HeaderBreadcrumb({
+  pageTitle,
+}: {
+  // The page's name when it sets no crumb (Layout.tsx), e.g. Home.
+  pageTitle?: string;
+}) {
   const { breadcrumb } = usePageHead();
   const router = useRouter();
   const projectInHeader = useNarrowLayout();
@@ -57,7 +62,7 @@ export default function HeaderBreadcrumb() {
     ? null
     : (breadcrumb[0]?.display ??
       sideNavPageName(router.route.substring(1)) ??
-      null);
+      (pageTitle || null));
   const section =
     isDetail || (projectInHeader && breadcrumb[0]?.href) ? breadcrumb[0] : null;
   const middle = breadcrumb.slice(1, -1);

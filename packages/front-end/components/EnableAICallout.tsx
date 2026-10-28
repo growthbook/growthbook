@@ -1,13 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { BsStars } from "react-icons/bs";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import { useAISettings } from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import OptInModal from "@/components/License/OptInModal";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
-import { useEnableAI } from "@/hooks/useEnableAI";
+import track from "@/services/track";
 import { Status } from "@/ui/HelperText";
 
 type Props = {
@@ -30,8 +32,9 @@ export default function EnableAICallout({
   const { aiEnabled, aiAgreedTo } = useAISettings();
   const permissionsUtil = usePermissionsUtil();
   const canManageOrgSettings = permissionsUtil.canManageOrgSettings();
-  const { settings, hasCommercialFeature } = useUser();
-  const { enableAI, optInModal } = useEnableAI(source);
+  const { apiCall } = useAuth();
+  const { refreshOrganization, settings, hasCommercialFeature } = useUser();
+  const [showOptIn, setShowOptIn] = useState(false);
 
   const hasAISuggestions = hasCommercialFeature("ai-suggestions");
   // Whether the org setting is on (mirroring the settings-page checkbox:
@@ -42,6 +45,22 @@ export default function EnableAICallout({
 
   // Fully usable — nothing to show.
   if (hasAISuggestions && aiEnabled) return null;
+
+  const enableAI = async () => {
+    track("Enable AI Callout Clicked", { source });
+    // The AI opt-in agreement must be accepted before AI can be enabled. If
+    // the org hasn't agreed yet (cloud only), show the modal (which agrees and
+    // flips the org setting). Otherwise just update the org setting directly.
+    if (!aiAgreedTo) {
+      setShowOptIn(true);
+      return;
+    }
+    await apiCall("/organization", {
+      method: "PUT",
+      body: JSON.stringify({ settings: { aiEnabled: true } }),
+    });
+    await refreshOrganization();
+  };
 
   let status: Status;
   let message: string;
@@ -81,7 +100,9 @@ export default function EnableAICallout({
 
   return (
     <>
-      {optInModal}
+      {showOptIn && (
+        <OptInModal agreement="ai" onClose={() => setShowOptIn(false)} />
+      )}
       <Callout
         status={status}
         size={size}
