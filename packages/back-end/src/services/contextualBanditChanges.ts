@@ -23,7 +23,8 @@ export async function refreshLinkedFeaturePayloads(
   auditEvent:
     | "contextualBandit.start"
     | "contextualBandit.stop"
-    | "contextualBandit.refresh",
+    | "contextualBandit.refresh"
+    | "contextualBandit.delete",
 ): Promise<void> {
   const features = await getAllFeatures(context);
   if (!features.length) return;

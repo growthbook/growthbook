@@ -94,9 +94,10 @@ const ContextualBanditPage = (): ReactElement => {
   const canRun =
     !cb.archived &&
     permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
-  const canArchive =
-    permissionsUtil.canViewContextualBanditModal(cb.project) &&
-    cb.status !== "running";
+  const canArchive = cb.archived
+    ? permissionsUtil.canViewContextualBanditModal(cb.project)
+    : permissionsUtil.canViewContextualBanditModal(cb.project) &&
+      permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
   const canDelete =
     permissionsUtil.canDeleteContextualBandit(cb) && cb.status !== "running";
 

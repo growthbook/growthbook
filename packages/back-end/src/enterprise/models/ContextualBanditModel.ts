@@ -359,13 +359,6 @@ export class ContextualBanditModel extends BaseClass {
     doc: ContextualBanditInterface,
     previousDoc?: ContextualBanditInterface,
   ): Promise<void> {
-    if (doc.archived && doc.status === "running") {
-      throw new Error(
-        previousDoc?.archived
-          ? "Unarchive this contextual bandit before starting it"
-          : "Stop this contextual bandit before archiving it",
-      );
-    }
     // Only re-validate the decision metric when it (or the datasource) changes
     // so that CBs whose metric was deleted after the fact can still be
     // updated (e.g. unlinked).
@@ -546,8 +539,9 @@ export class ContextualBanditModel extends BaseClass {
     // payloads, so it needs the same run permission the start/stop endpoints
     // check; other edits only need the update permission.
     if (
-      updated?.status !== undefined &&
-      updated.status !== existing.status &&
+      ((updated?.status !== undefined && updated.status !== existing.status) ||
+        (updated?.archived !== undefined &&
+          updated.archived !== existing.archived)) &&
       !this.context.permissions.canRunContextualBandit(
         existing,
         this.context.org.settings?.environments?.map((e) => e.id) ?? [],
@@ -563,6 +557,20 @@ export class ContextualBanditModel extends BaseClass {
 
   protected canDelete(doc: ContextualBanditInterface): boolean {
     return this.context.permissions.canDeleteContextualBandit(doc);
+  }
+
+  protected async afterUpdate(
+    existing: ContextualBanditInterface,
+    _updates: Partial<ContextualBanditInterface>,
+    newDoc: ContextualBanditInterface,
+  ) {
+    if (existing.archived !== newDoc.archived) {
+      await refreshLinkedFeaturePayloads(
+        this.context,
+        newDoc,
+        "contextualBandit.refresh",
+      );
+    }
   }
 
   protected async beforeDelete(doc: ContextualBanditInterface) {
@@ -582,6 +590,11 @@ export class ContextualBanditModel extends BaseClass {
       contextualBandit: doc.id,
       organization: this.context.org.id,
     });
+    await refreshLinkedFeaturePayloads(
+      this.context,
+      doc,
+      "contextualBandit.delete",
+    );
   }
 
   public async applyWeightEpochUpdate(
@@ -907,6 +920,7 @@ export async function dangerousFindContextualBanditsToUpdate(
     .find({
       datasource: { $exists: true, $ne: "" },
       status: "running",
+      archived: { $ne: true },
       autoSnapshots: true,
       nextSnapshotAttempt: {
         $exists: true,

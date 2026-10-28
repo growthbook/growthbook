@@ -823,9 +823,20 @@ export default function ContextualBanditDetailPage({
               : "Archive this Contextual Bandit?"
           }
           content={
-            cb.archived
-              ? "It will show up in the main list again and can be edited and started."
-              : "It will move to the Archived tab and can't be edited or started until it is unarchived."
+            <>
+              <Text as="p">
+                {cb.archived
+                  ? "It will show up in the main list again and can be edited."
+                  : "It will move to the Archived tab and can't be edited until it is unarchived."}
+              </Text>
+              {cb.status === "running" ? (
+                <Callout status={cb.archived ? "info" : "warning"}>
+                  {cb.archived
+                    ? "This Contextual Bandit is still running and will resume serving to its linked Feature Flags."
+                    : "This will immediately stop all linked Feature Flags from serving this Contextual Bandit."}
+                </Callout>
+              ) : null}
+            </>
           }
           yesText={cb.archived ? "Unarchive" : "Archive"}
           color={cb.archived ? "violet" : "red"}
