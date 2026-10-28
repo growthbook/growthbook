@@ -146,7 +146,7 @@ const BaseClass = MakeModelClass({
           }
           if (cb.archived) {
             throw new Error(
-              "Unarchive this contextual bandit before starting it",
+              "Unarchive this Contextual Bandit before starting it",
             );
           }
           const linkedFeatures = await getContextualBanditLinkedFeatureInfo(
@@ -703,7 +703,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
 
   protected async beforeDelete(doc: ContextualBanditInterface) {
     if (doc.status === "running") {
-      throw new Error("Stop this contextual bandit before deleting it");
+      throw new Error("Stop this Contextual Bandit before deleting it");
     }
   }
 
