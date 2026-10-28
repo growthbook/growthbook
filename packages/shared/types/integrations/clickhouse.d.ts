@@ -7,4 +7,5 @@ export interface ClickHouseConnectionParams {
   password: string;
   database: string;
   maxExecutionTime?: number;
+  useMaterializedCTEs?: boolean;
 }

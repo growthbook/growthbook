@@ -72,7 +72,14 @@ export function getExperimentAggregateUnitsQuery(
             })},`
           : ""
       }
-      __distinctUnits AS (
+      __distinctUnits AS ${
+        dialect.useMaterializedCTEs &&
+        (experimentDimensions.length > 0 ||
+          activationMetric ||
+          computeBanditSrm)
+          ? "MATERIALIZED "
+          : ""
+      }(
         SELECT
           ${baseIdType}
           , variation
