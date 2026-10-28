@@ -99,13 +99,19 @@ describe("buildJourneySql — real dialects", () => {
     expect(sql).toMatch(/LEAD\s*\(/i);
   });
 
-  it("ClickHouse emits LEAD and ClickHouse-native dateTrunc, not QUALIFY", () => {
+  it("ClickHouse emits leadInFrame/lagInFrame, not LEAD/LAG or QUALIFY", () => {
     const { sql } = buildJourneySql(
       config(["event_name"]),
       factTableMap,
       clickHouseDialect,
     );
-    expect(sql).toMatch(/LEAD\s*\(/i);
+    // ClickHouse resolves uppercase LAG/LEAD only from 25.10 (#7336).
+    const flat = sql.replace(/\s+/g, " ");
+    expect(flat).toContain(
+      "leadInFrame(toNullable(step), 1) OVER ( PARTITION BY journey_unit, journey_day ORDER BY ts, step ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING )",
+    );
+    expect(flat).toContain("lagInFrame(toNullable(step), 1) OVER (");
+    expect(sql).not.toMatch(/\b(LAG|LEAD)\s*\(/);
     expect(sql).not.toMatch(/QUALIFY/i);
     expect(sql).not.toContain(" || ");
   });
