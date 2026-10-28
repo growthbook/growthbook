@@ -13,7 +13,7 @@ import {
 export const putOrganization = createApiRequestHandler(
   putOrganizationValidator,
 )(async (req) => {
-  await validateIsSuperUserRequest(req);
+  await validateIsSuperUserRequest(req, "metadata");
 
   const id = req.params.id;
   const { name, externalId } = req.body;

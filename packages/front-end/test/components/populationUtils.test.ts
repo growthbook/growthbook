@@ -28,13 +28,6 @@ function step(factTableId: string): PopulationStep {
   return {
     source: { type: "factTable", factTableId },
     rowFilters: [],
-    windowSettings: {
-      type: "",
-      delayValue: 0,
-      delayUnit: "days",
-      windowValue: 0,
-      windowUnit: "days",
-    },
   };
 }
 
@@ -74,12 +67,6 @@ describe("describePopulationStep", () => {
     operator: ">",
     values: ["100"],
   };
-  const lastWeek: PopulationStep["windowSettings"] = {
-    ...step("ftb_events").windowSettings,
-    type: "lookback",
-    windowValue: 1,
-    windowUnit: "weeks",
-  };
 
   const getStepDescription = (
     overrides: Partial<PopulationStep>,
@@ -108,7 +95,7 @@ describe("describePopulationStep", () => {
     ]);
   });
 
-  it("omits the trailing segment when there are no filters or windows", () => {
+  it("omits the trailing segment when there are no filters", () => {
     expect(
       describePopulationStep({
         step: step("ftb_events"),
@@ -128,7 +115,7 @@ describe("describePopulationStep", () => {
     ).toEqual(["Has ", "ftb_events"]);
   });
 
-  it("describes a step with no filters or windows", () => {
+  it("describes a step with no filters", () => {
     expect(getStepDescription({})).toBe("Has Events");
   });
 
@@ -171,25 +158,6 @@ describe("describePopulationStep", () => {
         aggregateFilter: ">100",
       }),
     ).toBe("Has Events matching total amount >100 per user_id");
-  });
-
-  it("describes a step with a lookback window", () => {
-    expect(getStepDescription({ windowSettings: lastWeek })).toBe(
-      "Has Events in the last 1 week",
-    );
-  });
-
-  it("describes a step with row filters, an aggregate filter, and a lookback window", () => {
-    expect(
-      getStepDescription({
-        rowFilters: [country],
-        aggregateFilterColumn: "$$count",
-        aggregateFilter: ">=3",
-        windowSettings: lastWeek,
-      }),
-    ).toBe(
-      "Has Events matching country = US and count >=3 per user_id in the last 1 week",
-    );
   });
 
   it("uses saved filter names", () => {
