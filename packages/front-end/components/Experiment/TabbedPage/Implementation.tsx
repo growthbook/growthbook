@@ -516,10 +516,10 @@ export default function Implementation({
                 experiment={stagedExperiment}
                 canEditExperiment={canEdit}
                 onEditMetadata={setEditMetadataIndex}
-                stageScreenshot={(index, screenshot) =>
+                stageScreenshot={(variationId, screenshot) =>
                   setVariationsDraft((prev) =>
-                    (prev ?? getStorableVariations(experiment)).map((v, i) =>
-                      i === index
+                    (prev ?? getStorableVariations(experiment)).map((v) =>
+                      v.id === variationId
                         ? { ...v, screenshots: [...v.screenshots, screenshot] }
                         : v,
                     ),

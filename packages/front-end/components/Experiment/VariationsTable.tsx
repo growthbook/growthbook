@@ -123,7 +123,7 @@ interface Props {
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
   /** Takes an upload as a staged change instead of saving it. */
-  stageScreenshot?: (variationIndex: number, screenshot: Screenshot) => void;
+  stageScreenshot?: (variationId: string, screenshot: Screenshot) => void;
   // When true, the cards fill the grid's own width, wrapping as it narrows.
   fill?: boolean;
 }
@@ -204,7 +204,7 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
-  stageScreenshot?: (variationIndex: number, screenshot: Screenshot) => void;
+  stageScreenshot?: (variationId: string, screenshot: Screenshot) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -286,9 +286,9 @@ export function VariationBox({
                       variation={i}
                       experiment={experiment.id}
                       attach={!stageScreenshot}
-                      onSuccess={(index, screenshot) =>
+                      onSuccess={(screenshot) =>
                         stageScreenshot
-                          ? stageScreenshot(index, screenshot)
+                          ? stageScreenshot(v.id, screenshot)
                           : mutate?.()
                       }
                     >

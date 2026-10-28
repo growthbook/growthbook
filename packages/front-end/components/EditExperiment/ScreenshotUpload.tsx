@@ -4,6 +4,7 @@ import React, {
   ClipboardEvent,
   ReactElement,
   ReactNode,
+  useEffect,
   useState,
 } from "react";
 import { useDropzone } from "react-dropzone";
@@ -18,7 +19,9 @@ import styles from "./ScreenshotUpload.module.scss";
 type props = {
   experiment: string;
   variation: number;
-  onSuccess: (variation: number, screenshot: Screenshot) => void;
+  onSuccess: (screenshot: Screenshot) => void;
+  // How many files are still uploading, for a form that waits on them.
+  onPendingChange?: (pending: number) => void;
   children?: ReactNode;
   className?: string;
   messageClassName?: string;
@@ -37,9 +40,13 @@ const ScreenshotUpload = ({
   messageClassName,
   message = "Drop",
   attach = true,
+  onPendingChange,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
+  useEffect(() => {
+    onPendingChange?.(loading);
+  }, [loading, onPendingChange]);
 
   if (!children && children !== 0)
     children = (
@@ -88,7 +95,7 @@ const ScreenshotUpload = ({
           );
         }
 
-        onSuccess(variation, {
+        onSuccess({
           path: fileURL,
           description: "",
         });

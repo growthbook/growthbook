@@ -124,12 +124,14 @@ export default function VariationScreenshotManager({
   variationIndex,
   screenshots,
   setScreenshots,
+  setUploading,
 }: {
   experiment: ExperimentInterfaceStringDates;
   variationIndex: number;
   screenshots: Screenshot[];
   // Updaters, since a multi-file drop adds them one at a time.
   setScreenshots: Dispatch<SetStateAction<Screenshot[]>>;
+  setUploading: (pending: number) => void;
 }) {
   // The tile is its own drag handle, so a click needs movement to become a drag.
   const sensors = useSensors(
@@ -181,9 +183,10 @@ export default function VariationScreenshotManager({
               messageClassName={styles.gridUploadMessage}
               message="Drop image here"
               attach={false}
-              onSuccess={(_, screenshot) =>
+              onSuccess={(screenshot) =>
                 setScreenshots((prev) => [...prev, screenshot])
               }
+              onPendingChange={setUploading}
             >
               {uploadTile}
             </ScreenshotUpload>

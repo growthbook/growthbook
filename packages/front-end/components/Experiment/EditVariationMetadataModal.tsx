@@ -41,6 +41,8 @@ const EditVariationMetadataModal: FC<Props> = ({
     },
   });
   const [screenshots, setScreenshots] = useState(variation?.screenshots ?? []);
+  // Apply stages only finished uploads, so it waits for the rest.
+  const [uploading, setUploading] = useState(0);
 
   if (!variation) return null;
 
@@ -68,6 +70,7 @@ const EditVariationMetadataModal: FC<Props> = ({
         track("edited-variation-metadata");
       })}
       cta="Apply"
+      ctaEnabled={uploading === 0}
     >
       <Flex direction="row" gap="3" align="start">
         <FieldAlignedVariationNumber number={variationIndex} />
@@ -89,6 +92,7 @@ const EditVariationMetadataModal: FC<Props> = ({
             variationIndex={variationIndex}
             screenshots={screenshots}
             setScreenshots={setScreenshots}
+            setUploading={setUploading}
           />
         </Flex>
         {/* Balances the badge's gutter so the fields stay centred. */}
