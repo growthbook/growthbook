@@ -1,6 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { createNavigationCancellation } from "@/components/FactTables/MetricEditor/navigationCancellation";
+import {
+  createNavigationCancellation,
+  isNavigationConfirmed,
+  runConfirmedNavigation,
+} from "@/components/FactTables/MetricEditor/navigationCancellation";
 
 export default function useSlackNavigationGuard() {
   const router = useRouter();
@@ -8,7 +12,6 @@ export default function useSlackNavigationGuard() {
     new Set(),
   );
   const [pendingHref, setPendingHref] = useState<string | null>(null);
-  const navigationConfirmed = useRef(false);
   const hasUnsavedChanges = dirtyWorkspaces.size > 0;
 
   const setWorkspaceDirty = useCallback((teamId: string, dirty: boolean) => {
@@ -25,7 +28,7 @@ export default function useSlackNavigationGuard() {
     if (!hasUnsavedChanges) return;
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (navigationConfirmed.current) return;
+      if (isNavigationConfirmed()) return;
       event.preventDefault();
       event.returnValue = "You have unsaved changes.";
     };
@@ -67,7 +70,7 @@ export default function useSlackNavigationGuard() {
     // Catches navigation made in code, e.g. the Settings nav and its search.
     const cancellation = createNavigationCancellation();
     const onRouteChangeStart = (url: string) => {
-      if (navigationConfirmed.current) return;
+      if (isNavigationConfirmed()) return;
       if (new URL(url, window.location.origin).pathname === router.pathname)
         return;
       setPendingHref(url);
@@ -89,13 +92,8 @@ export default function useSlackNavigationGuard() {
 
   const confirmNavigation = async () => {
     if (!pendingHref) return;
-    navigationConfirmed.current = true;
     setPendingHref(null);
-    try {
-      await router.push(pendingHref);
-    } finally {
-      navigationConfirmed.current = false;
-    }
+    await runConfirmedNavigation(() => router.push(pendingHref));
   };
 
   return {

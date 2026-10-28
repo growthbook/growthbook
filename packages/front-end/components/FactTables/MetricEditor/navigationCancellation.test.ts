@@ -1,4 +1,8 @@
-import { createNavigationCancellation } from "./navigationCancellation";
+import {
+  createNavigationCancellation,
+  isNavigationConfirmed,
+  runConfirmedNavigation,
+} from "./navigationCancellation";
 
 function reject(reason: unknown) {
   const event = new Event("unhandledrejection", { cancelable: true });
@@ -48,5 +52,23 @@ describe("metric navigation cancellation", () => {
     const cancellation = createNavigationCancellation();
     cancellation.dispose();
     expect(reject(cancellation.error).defaultPrevented).toBe(false);
+  });
+});
+
+describe("confirmed navigation", () => {
+  it("is confirmed only while the navigation runs", async () => {
+    let during = false;
+    await runConfirmedNavigation(async () => {
+      during = isNavigationConfirmed();
+    });
+    expect(during).toBe(true);
+    expect(isNavigationConfirmed()).toBe(false);
+  });
+
+  it("clears the flag when the navigation fails", async () => {
+    await expect(
+      runConfirmedNavigation(() => Promise.reject(new Error("blocked"))),
+    ).rejects.toThrow("blocked");
+    expect(isNavigationConfirmed()).toBe(false);
   });
 });

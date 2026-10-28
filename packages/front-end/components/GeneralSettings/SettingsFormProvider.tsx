@@ -56,7 +56,11 @@ import {
   useOrganizationMetricDefaults,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
-import { createNavigationCancellation } from "@/components/FactTables/MetricEditor/navigationCancellation";
+import {
+  createNavigationCancellation,
+  isNavigationConfirmed,
+  runConfirmedNavigation,
+} from "@/components/FactTables/MetricEditor/navigationCancellation";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import {
   describeUnsavedChanges,
@@ -711,7 +715,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   }, [active]);
 
   const [pendingHref, setPendingHref] = useState<string | null>(null);
-  const leaving = useRef(false);
   useEffect(() => {
     if (!active || !dirtyCount) return;
     const cancellation = createNavigationCancellation();
@@ -720,7 +723,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       e.returnValue = "";
     };
     const onRouteChangeStart = (url: string) => {
-      if (leaving.current) return;
+      if (isNavigationConfirmed()) return;
       if (isSettingsRoute(new URL(url, window.location.origin).pathname))
         return;
       setPendingHref(url);
@@ -769,13 +772,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
           noText="Keep editing"
           color="red"
           onConfirm={async () => {
-            leaving.current = true;
             setPendingHref(null);
-            try {
-              await router.push(pendingHref);
-            } finally {
-              leaving.current = false;
-            }
+            await runConfirmedNavigation(() => router.push(pendingHref));
           }}
           onCancel={() => setPendingHref(null)}
         />

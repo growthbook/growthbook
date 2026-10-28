@@ -20,3 +20,19 @@ export function createNavigationCancellation() {
       ),
   };
 }
+
+// Shared by every unsaved-changes guard, so one confirmed dialog lets the navigation through all of them.
+let confirmed = false;
+
+export function isNavigationConfirmed() {
+  return confirmed;
+}
+
+export async function runConfirmedNavigation(navigate: () => Promise<unknown>) {
+  confirmed = true;
+  try {
+    await navigate();
+  } finally {
+    confirmed = false;
+  }
+}
