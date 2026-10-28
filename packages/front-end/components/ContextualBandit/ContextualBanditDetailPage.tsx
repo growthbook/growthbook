@@ -1,5 +1,6 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { Fragment, ReactNode, useMemo, useState } from "react";
+import { useRouter } from "next/router";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { date } from "shared/dates";
@@ -95,6 +96,7 @@ export default function ContextualBanditDetailPage({
   mutate,
   canRun = false,
   canArchive = false,
+  canDelete = false,
   editOverview,
   editAnalysisMetrics,
   editVariations,
@@ -112,6 +114,7 @@ export default function ContextualBanditDetailPage({
   mutate: () => void;
   canRun?: boolean;
   canArchive?: boolean;
+  canDelete?: boolean;
   editOverview?: () => void;
   editAnalysisMetrics?: () => void;
   editVariations?: () => void;
@@ -133,6 +136,8 @@ export default function ContextualBanditDetailPage({
   );
   const [confirmStop, setConfirmStop] = useState(false);
   const [confirmArchive, setConfirmArchive] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const router = useRouter();
   const [showStart, setShowStart] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
@@ -294,6 +299,12 @@ export default function ContextualBanditDetailPage({
     });
     mutate();
   };
+  const deleteContextualBandit = async () => {
+    await restApiCall(contextualBanditEndpoints.deleteContextualBandit, {
+      params: { id: cb.id },
+    });
+    await router.push("/contextual-bandits");
+  };
 
   const renderMetricList = (ids: string[]): ReactNode =>
     ids.length ? (
@@ -396,17 +407,30 @@ export default function ContextualBanditDetailPage({
                 </DropdownMenuItem>
               </DropdownMenuGroup>
             ) : null}
-            {canArchive ? <DropdownMenuSeparator /> : null}
-            {canArchive ? (
+            {canArchive || canDelete ? <DropdownMenuSeparator /> : null}
+            {canArchive || canDelete ? (
               <DropdownMenuGroup>
-                <DropdownMenuItem
-                  onClick={() => {
-                    setDropdownOpen(false);
-                    setConfirmArchive(true);
-                  }}
-                >
-                  {cb.archived ? "Unarchive" : "Archive"}
-                </DropdownMenuItem>
+                {canArchive ? (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setConfirmArchive(true);
+                    }}
+                  >
+                    {cb.archived ? "Unarchive" : "Archive"}
+                  </DropdownMenuItem>
+                ) : null}
+                {canDelete ? (
+                  <DropdownMenuItem
+                    color="red"
+                    onClick={() => {
+                      setDropdownOpen(false);
+                      setConfirmDelete(true);
+                    }}
+                  >
+                    Delete
+                  </DropdownMenuItem>
+                ) : null}
               </DropdownMenuGroup>
             ) : null}
           </DropdownMenu>
@@ -810,6 +834,16 @@ export default function ContextualBanditDetailPage({
             setConfirmArchive(false);
           }}
           onCancel={() => setConfirmArchive(false)}
+        />
+      ) : null}
+      {confirmDelete ? (
+        <ConfirmDialog
+          title="Delete this Contextual Bandit?"
+          content="Its results history will be deleted. This can't be undone."
+          yesText="Delete"
+          color="red"
+          onConfirm={deleteContextualBandit}
+          onCancel={() => setConfirmDelete(false)}
         />
       ) : null}
     </Box>

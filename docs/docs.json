@@ -1001,6 +1001,7 @@
                   "api/ContextualBandits/operation/deleteContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/getContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBandit",
+                  "api/ContextualBandits/operation/deleteContextualBandit",
                   "api/ContextualBandits/operation/listContextualBandits",
                   "api/ContextualBandits/operation/createContextualBandit",
                   "api/ContextualBandits/operation/startContextualBandit",

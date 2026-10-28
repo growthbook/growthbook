@@ -54,6 +54,7 @@ import {
   MakeModelClass,
 } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { VisualChangesetModel } from "back-end/src/models/VisualChangesetModel";
 import {
   contextualBanditChangeActions,
   pinnedFields,
@@ -564,6 +565,12 @@ export class ContextualBanditModel extends BaseClass {
     return this.context.permissions.canDeleteContextualBandit(doc);
   }
 
+  protected async beforeDelete(doc: ContextualBanditInterface) {
+    if (doc.status === "running") {
+      throw new Error("Stop this contextual bandit before deleting it");
+    }
+  }
+
   protected async afterDelete(doc: ContextualBanditInterface) {
     await this.context.models.contextualBanditSnapshots.deleteForContextualBandit(
       doc.id,
@@ -571,6 +578,10 @@ export class ContextualBanditModel extends BaseClass {
     await this.context.models.contextualBanditEvents.deleteForContextualBandit(
       doc.id,
     );
+    await VisualChangesetModel.deleteMany({
+      contextualBandit: doc.id,
+      organization: this.context.org.id,
+    });
   }
 
   public async applyWeightEpochUpdate(

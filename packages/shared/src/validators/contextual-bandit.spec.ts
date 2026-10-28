@@ -85,7 +85,7 @@ export const contextualBanditApiSpec = {
     createBody: apiCreateContextualBanditBody,
     updateBody: apiUpdateContextualBanditBody,
   },
-  crudActions: ["get", "create", "list", "update"],
+  crudActions: ["get", "create", "list", "update", "delete"],
   crudValidatorOverrides: {
     list: apiListContextualBanditsValidator,
   },
@@ -100,6 +100,7 @@ export const contextualBanditApiSpec = {
       "experiment.phases",
       "experiment.other",
     ],
+    delete: ["experiment.other"],
   },
   confirmationInHandler: { update: true },
   customEndpoints: [
