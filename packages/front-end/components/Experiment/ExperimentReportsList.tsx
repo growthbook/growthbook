@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ReportInterface } from "shared/types/report";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
@@ -11,6 +11,7 @@ import { useSearch } from "@/services/search";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
 import Link from "@/ui/Link";
+import Pagination from "@/ui/Pagination";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import {
@@ -26,6 +27,8 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
+
+const PER_PAGE = 10;
 
 type ReportRow = {
   id: string;
@@ -92,17 +95,20 @@ export default function ExperimentReportsList({
     [data, userId, users, isAdmin],
   );
 
-  const { items, searchInputProps, SortableTableColumnHeader, pagination } =
-    useSearch({
-      items: rows,
-      searchFields: ["title^3", "description", "owner"],
-      localStorageKey: "experiment-reports",
-      defaultSortField: "dateUpdated",
-      defaultSortDir: -1,
-      // The page's own search owns the URL.
-      disableUrlSearchTerm: true,
-      pageSize: 10,
-    });
+  const { items, searchInputProps, SortableTableColumnHeader } = useSearch({
+    items: rows,
+    searchFields: ["title^3", "description", "owner"],
+    localStorageKey: "experiment-reports",
+    defaultSortField: "dateUpdated",
+    defaultSortDir: -1,
+    // The page's own search owns the URL.
+    disableUrlSearchTerm: true,
+  });
+
+  // Paged here: useSearch's own pagination is the legacy control.
+  const [page, setPage] = useState(1);
+  useEffect(() => setPage(1), [items.length]);
+  const shown = items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
   if (!experiment.datasource || !rows.length) return null;
 
@@ -136,7 +142,7 @@ export default function ExperimentReportsList({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {items.map((row) => (
+          {shown.map((row) => (
             <TableRow key={row.id}>
               <TableCell style={{ padding: "var(--space-0)" }}>
                 <Link
@@ -198,7 +204,14 @@ export default function ExperimentReportsList({
           ) : null}
         </TableBody>
       </Table>
-      {pagination}
+      {items.length > PER_PAGE ? (
+        <Pagination
+          numItemsTotal={items.length}
+          currentPage={page}
+          perPage={PER_PAGE}
+          onPageChange={setPage}
+        />
+      ) : null}
     </Box>
   );
 }
