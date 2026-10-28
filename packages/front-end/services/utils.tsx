@@ -39,6 +39,11 @@ export const gbContext: Context = {
       {
         experimentId: experiment.key,
         variationId: result.key,
+        ...(result.leafId !== undefined && {
+          leaf_id: result.leafId,
+          bandit_version: result.banditVersion,
+          variation_weights: JSON.stringify(result.variationWeights),
+        }),
         userContextAttributes: {
           attributes: {
             // hardcoded sublist of attributes without PII
