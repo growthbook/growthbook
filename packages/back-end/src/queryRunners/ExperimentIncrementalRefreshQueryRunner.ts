@@ -78,8 +78,10 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  concludeRefresh,
+  FULL_REFRESH_NEXT_HINT,
   isUpdateInvalidatedByInterruptedRun,
-  stopInterruptedRefreshOrRelease,
+  RESULTS_NOT_COMMITTED_ERROR,
   UPDATE_INVALIDATED_ERROR,
 } from "back-end/src/jobs/interruptedRefresh";
 import {
@@ -100,6 +102,9 @@ import { createOrderedWriter, OrderedWriter } from "./orderedWriter";
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
+
+const LOCK_LOST_ERROR =
+  "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.";
 
 const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
 
@@ -367,13 +372,15 @@ export const startExperimentIncrementalRefreshQueries = async (
           experimentId,
           executionId,
         );
-      if (!lockHeld) {
-        throw new Error(
-          "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.",
-        );
-      }
+      if (!lockHeld) throw new Error(LOCK_LOST_ERROR);
       return run(query, setExternalId, queryMetadata);
     };
+
+  // Saves state the next refresh relies on. A write that misses the lock
+  // fails the query, so a query never counts as succeeded without its state.
+  const saveRunState = async (write: () => Promise<boolean>) => {
+    if (!(await write())) throw new Error(LOCK_LOST_ERROR);
+  };
 
   const factMetrics: FactMetricInterface[] = [];
   for (const m of selectedMetrics) {
@@ -559,19 +566,18 @@ export const startExperimentIncrementalRefreshQueries = async (
       lastMaxTimestamp: lastMaxTimestamp || null,
     }),
     dependencies: [alterUnitsTableQuery.query],
-    run: (query, setExternalId, queryMetadata) =>
-      integration.runIncrementalWithNoOutputQuery(
+    // Saves the watermark before the query counts as succeeded.
+    run: async (query, setExternalId, queryMetadata) => {
+      const result = await integration.runIncrementalWithNoOutputQuery(
         query,
         setExternalId,
         queryMetadata,
-      ),
-    onSuccess: async (rows) => {
+      );
       // MAX() is NULL on an empty units table; persist null so a prior
       // watermark cannot survive a full refresh that matched no one.
-      const watermark = parseMaxTimestampRow(rows[0]);
-
-      const lockHeld =
-        await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+      const watermark = parseMaxTimestampRow(result.rows[0]);
+      await saveRunState(() =>
+        context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
           experimentId,
           executionId,
           {
@@ -585,13 +591,9 @@ export const startExperimentIncrementalRefreshQueries = async (
               ),
             unitsDimensions: eligibleDimensions.map((d) => d.id),
           },
-        );
-      if (lockHeld !== true) {
-        context.logger.warn(
-          "Incremental refresh execution lock lost for experiment: " +
-            experimentId,
-        );
-      }
+        ),
+      );
+      return result;
     },
     queryType: "experimentIncrementalRefreshMaxTimestampUnitsTable",
   });
@@ -859,22 +861,23 @@ export const startExperimentIncrementalRefreshQueries = async (
             ? [createMetricCovariateTableQuery.query]
             : []),
         ],
-        run: (
+        // Saves the watermark before the query counts as succeeded.
+        run: async (
           query: string,
           setExternalId: ExternalIdCallback,
           queryMetadata: RunQueryMetadata,
-        ) =>
-          integration.runIncrementalWithNoOutputQuery(
+        ) => {
+          const result = await integration.runIncrementalWithNoOutputQuery(
             query,
             setExternalId,
             queryMetadata,
-          ),
-        onSuccess: async () => {
+          );
           const incrementalRefresh =
             await context.models.incrementalRefresh.getLockedBySnapshotId(
               experimentId,
               queryParentId,
             );
+          if (!incrementalRefresh) throw new Error(LOCK_LOST_ERROR);
           const lastSuccessfulMaxTimestamp =
             incrementalRefresh?.unitsMaxTimestamp ?? null;
           const lastSuccessfulMaxTimestampRaw =
@@ -901,21 +904,16 @@ export const startExperimentIncrementalRefreshQueries = async (
               s.groupId === group.groupId ? updatedCovariateSource : s,
             );
           }
-          const lockHeld = await writeSourceLists(() =>
-            context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-              experimentId,
-              executionId,
-              {
-                metricCovariateSources: runningCovariateSourceData,
-              },
+          await saveRunState(() =>
+            writeSourceLists(() =>
+              context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+                experimentId,
+                executionId,
+                { metricCovariateSources: runningCovariateSourceData },
+              ),
             ),
           );
-          if (lockHeld !== true) {
-            context.logger.warn(
-              "Incremental refresh execution lock lost for experiment: " +
-                experimentId,
-            );
-          }
+          return result;
         },
       };
 
@@ -1005,21 +1003,15 @@ export const startExperimentIncrementalRefreshQueries = async (
           s.groupId === group.groupId ? updatedSource : s,
         );
       }
-      const lockHeld = await writeSourceLists(() =>
-        context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-          experimentId,
-          executionId,
-          {
-            metricSources: runningSourceData,
-          },
+      await saveRunState(() =>
+        writeSourceLists(() =>
+          context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+            experimentId,
+            executionId,
+            { metricSources: runningSourceData },
+          ),
         ),
       );
-      if (lockHeld !== true) {
-        context.logger.warn(
-          "Incremental refresh execution lock lost for experiment: " +
-            experimentId,
-        );
-      }
     };
 
     const maxTimestampMetricsSourceQuery = await startQuery({
@@ -1481,20 +1473,50 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     error: string,
   ): Promise<void> {
     // Reached from the runner's own failure paths, where neither the queries
-    // nor the analysis is known to be at fault.
-    const wrote = await errorSnapshotIfStillRunning(
+    // nor the analysis is known to be at fault. Queries may still be running.
+    const { needsFullRefresh } = await this.releaseConcludedRun("failed");
+    await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
-      { queries: this.model.queries, error },
+      {
+        queries: this.model.queries,
+        error: needsFullRefresh ? `${error} ${FULL_REFRESH_NEXT_HINT}` : error,
+      },
       "unknown",
       { concludedBy: this.concludedBy },
       this.experimentUpdateExecutionLogger,
     );
-    if (wrote) {
-      // Queued source-list writes must land while the run holds the lock.
+  }
+
+  /**
+   * Lands queued source-list writes, then concludes the run: commits its
+   * results if they can be trusted and releases the lock with whatever
+   * cleanup its status calls for.
+   */
+  private async releaseConcludedRun(
+    status: "succeeded" | "partially-succeeded" | "failed",
+    queries: Queries = this.model.queries,
+  ): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
+    try {
       await this.writeSourceLists.flush();
-      // Queries may still be running, so clean up as for an interrupted run.
-      await stopInterruptedRefreshOrRelease(this.context, this.model);
+      return await concludeRefresh(
+        this.context,
+        {
+          ...this.model,
+          queries: queries.length ? queries : this.model.queries,
+        },
+        status,
+      );
+    } catch (e) {
+      // The lock stays held; a retry or a stale takeover flags the tables.
+      this.context.logger.warn(
+        e,
+        "Failed to conclude the incremental refresh on terminal status",
+      );
+      return {
+        resultsError: status === "failed" ? null : RESULTS_NOT_COMMITTED_ERROR,
+        needsFullRefresh: true,
+      };
     }
   }
 
@@ -1513,12 +1535,33 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     error?: string;
     failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
-    const snapshotStatus =
+    let snapshotStatus: ExperimentSnapshotInterface["status"] =
       status === "running"
         ? "running"
         : status === "failed"
           ? "error"
           : "success";
+
+    // Concluded before the result is saved: results are saved only if they
+    // were committed, and the error can say when only a full refresh is safe.
+    if (snapshotStatus !== "running") {
+      const { resultsError, needsFullRefresh } = await this.releaseConcludedRun(
+        status === "failed" || status === "partially-succeeded"
+          ? status
+          : "succeeded",
+        queries,
+      );
+      if (resultsError) {
+        snapshotStatus = "error";
+        result = undefined;
+        error = resultsError;
+      }
+      if (needsFullRefresh) {
+        error = error
+          ? `${error} ${FULL_REFRESH_NEXT_HINT}`
+          : FULL_REFRESH_NEXT_HINT;
+      }
+    }
 
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
@@ -1542,64 +1585,6 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       await updateReport(this.model.organization, this.model.report, {
         snapshot: this.model.id,
       });
-    }
-
-    // Release the incremental refresh lock on any terminal status
-    // TODO: Properly handle partially-succeeded status that also becomes terminal??
-    if (snapshotStatus !== "running") {
-      // Queued source-list writes, such as a failed source's removal behind
-      // a slow covariate write, must land while the run holds the lock.
-      await this.writeSourceLists.flush();
-      if (snapshotStatus === "success") {
-        await this.context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(
-            this.model.experiment,
-            this.model.id,
-            { materializedBySnapshotId: this.model.id },
-          )
-          .catch((e) =>
-            this.context.logger.warn(
-              e,
-              "Failed to record pipeline tables snapshot id on success",
-            ),
-          );
-      }
-
-      if (
-        status === "succeeded" &&
-        this.model.runnerKind === "incremental-full"
-      ) {
-        await this.context.models.incrementalRefresh
-          .clearFullRefreshRequired(
-            this.model.experiment,
-            this.model.id,
-            this.model.dateCreated,
-          )
-          .catch((e) =>
-            this.context.logger.warn(
-              e,
-              "Failed to clear the full refresh flag after a full refresh",
-            ),
-          );
-      }
-
-      if (snapshotStatus === "error") {
-        // The run can fail while some of its queries are still running, so
-        // clean up as for an interrupted run.
-        await stopInterruptedRefreshOrRelease(this.context, {
-          ...this.model,
-          queries: queries.length ? queries : this.model.queries,
-        });
-      } else {
-        await this.context.models.incrementalRefresh
-          .releaseLock(this.model.experiment, this.model.id)
-          .catch((e) =>
-            this.context.logger.warn(
-              e,
-              "Failed to release incremental refresh lock on terminal status",
-            ),
-          );
-      }
     }
 
     return {

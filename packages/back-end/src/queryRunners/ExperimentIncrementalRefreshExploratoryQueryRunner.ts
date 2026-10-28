@@ -48,6 +48,10 @@ import { assertIncrementalRefreshPrerequisites } from "back-end/src/enterprise/s
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
+  concludeRefresh,
+  RESULTS_NOT_COMMITTED_ERROR,
+} from "back-end/src/jobs/interruptedRefresh";
+import {
   QueryRunner,
   QueryMap,
   ProcessedRowsType,
@@ -536,7 +540,8 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
   ): Promise<void> {
     // Reached from the runner's own failure paths, where neither the queries
     // nor the analysis is known to be at fault.
-    const wrote = await errorSnapshotIfStillRunning(
+    await this.releaseConcludedRun("failed");
+    await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
       { queries: this.model.queries, error },
@@ -544,15 +549,30 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       { concludedBy: this.concludedBy },
       this.experimentUpdateExecutionLogger,
     );
-    if (wrote) {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on shutdown error",
-          ),
-        );
+  }
+
+  // Commits the breakdown only while the lock is held and no interrupted run
+  // has flagged the tables it read, then releases the lock.
+  private async releaseConcludedRun(
+    status: "succeeded" | "partially-succeeded" | "failed",
+    queries: Queries = this.model.queries,
+  ): Promise<string | null> {
+    try {
+      const { resultsError } = await concludeRefresh(
+        this.context,
+        {
+          ...this.model,
+          queries: queries.length ? queries : this.model.queries,
+        },
+        status,
+      );
+      return resultsError;
+    } catch (e) {
+      this.context.logger.warn(
+        e,
+        "Failed to conclude the dimension breakdown on terminal status",
+      );
+      return status === "failed" ? null : RESULTS_NOT_COMMITTED_ERROR;
     }
   }
 
@@ -571,17 +591,33 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
     error?: string;
     failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
+    let snapshotStatus: ExperimentSnapshotInterface["status"] =
+      status === "running"
+        ? "running"
+        : status === "failed"
+          ? "error"
+          : "success";
+    // This runner holds the lock so it never reads the tables while a refresh
+    // mutates them; its results are saved only if they were committed.
+    if (snapshotStatus !== "running") {
+      const resultsError = await this.releaseConcludedRun(
+        status === "failed" || status === "partially-succeeded"
+          ? status
+          : "succeeded",
+        queries,
+      );
+      if (resultsError) {
+        snapshotStatus = "error";
+        result = undefined;
+        error = resultsError;
+      }
+    }
     const updates: Partial<ExperimentSnapshotInterface> = {
       queries,
       runStarted,
       error,
       ...result,
-      status:
-        status === "running"
-          ? "running"
-          : status === "failed"
-            ? "error"
-            : "success",
+      status: snapshotStatus,
     };
     await updateSnapshot({
       context: this.context,
@@ -598,20 +634,6 @@ export class ExperimentIncrementalRefreshExploratoryQueryRunner extends QueryRun
       await updateReport(this.model.organization, this.model.report, {
         snapshot: this.model.id,
       });
-    }
-
-    // Release the incremental refresh lock on any terminal status. This runner
-    // acquires the lock (see createSnapshotFromPlan) so that it does not read
-    // the shared pipeline tables while an incremental refresh is mutating them.
-    if (updates.status !== "running") {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
     }
 
     return {

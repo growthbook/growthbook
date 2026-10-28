@@ -369,6 +369,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     });
     hasFreshLockHeartbeat.mockResolvedValue(false);
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
+    requireFullRefresh.mockResolvedValue(undefined);
     (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([]);
     (failQueuedQueries as jest.Mock).mockImplementation(
       async (_: unknown, ids: string[]) => ids,
@@ -906,6 +907,41 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         /^Snapshot stalled: queries finished but results were never finalized\./,
       );
       expect(error).toMatch(/Choose Full refresh .* count some data twice\.$/);
+    });
+
+    it("leaves a run for the next pass when neither its cleanup nor the flag can be written", async () => {
+      mockCandidates([
+        incrementalSnapshot({ [insertName]: "failed", [maxTsName]: "queued" }),
+      ]);
+      releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+      requireFullRefresh.mockRejectedValue(new Error("mongo down"));
+
+      await runJob();
+
+      expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+      expect(releaseLock).not.toHaveBeenCalled();
+    });
+
+    it("leaves a timed-out run for the reaper when neither its cleanup nor the flag can be written", async () => {
+      const snapshot = incrementalSnapshot({
+        [insertName]: "failed",
+        [maxTsName]: "queued",
+      });
+      (getStaleQueries as jest.Mock).mockResolvedValue([
+        { id: `qry_${insertName}`, organization: "org_1" },
+      ]);
+      (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
+        snapshot,
+      ]);
+      releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+      requireFullRefresh.mockRejectedValue(new Error("mongo down"));
+
+      await runJob();
+
+      expect(updateSnapshot).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: "snp_1" }),
+      );
+      expect(releaseLock).not.toHaveBeenCalled();
     });
 
     it("stops and cleans up an orphaned run before it errors the snapshot", async () => {

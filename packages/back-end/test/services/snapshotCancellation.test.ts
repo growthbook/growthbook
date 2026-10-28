@@ -466,6 +466,43 @@ describe("cancelExperimentSnapshot", () => {
     expect(releaseLock).not.toHaveBeenCalled();
   });
 
+  it("leaves an incremental refresh running for the reaper when neither its cleanup nor the flag can be written", async () => {
+    const insert = await insertQuery("succeeded");
+    const maxTimestamp = await insertQuery("queued");
+    const { snapshot } = await insertReportSnapshot({
+      id: "snp_incremental",
+      status: "running",
+      queries: [
+        {
+          name: "insert_metrics_source_data_g1",
+          query: insert,
+          status: "succeeded",
+        },
+        {
+          name: "max_timestamp_metrics_source_g1",
+          query: maxTimestamp,
+          status: "queued",
+        },
+      ],
+      reportSnapshotId: "snp_prev",
+    });
+    releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+    jest
+      .mocked(context.models.incrementalRefresh.requireFullRefresh)
+      .mockRejectedValueOnce(new Error("mongo down"));
+
+    await expect(
+      cancelExperimentSnapshot(context, {
+        ...snapshot,
+        runnerKind: "incremental-update",
+      }),
+    ).rejects.toThrow("mongo down");
+    expect((await findSnapshotById(context, snapshot.id))?.status).toBe(
+      "running",
+    );
+    expect(releaseLock).not.toHaveBeenCalled();
+  });
+
   it("counts an insert the runner started during the cancel as started", async () => {
     const update = await insertQuery("succeeded");
     const insert = await insertQuery("queued");

@@ -1,5 +1,8 @@
 import type { QueryStatus } from "shared/types/query";
-import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import type {
+  ExperimentSnapshotInterface,
+  SnapshotQueryRunnerKind,
+} from "shared/types/experiment-snapshot";
 import {
   getCancelledRunQueryStatuses,
   INTERRUPTED_RUN_FULL_REFRESH_REASON,
@@ -68,11 +71,15 @@ function runQueries({
   }));
 }
 
-function plan(args: Parameters<typeof runQueries>[0] = {}) {
+function plan(
+  args: Parameters<typeof runQueries>[0] = {},
+  runFinished = false,
+) {
   return planInterruptedRunCleanup({
     snapshotId: SNAPSHOT_ID,
     fullRefresh: !!args.fullRefresh,
     queries: runQueries(args),
+    runFinished,
   });
 }
 
@@ -141,6 +148,37 @@ describe("planInterruptedRunCleanup", () => {
         },
       }).metricGroupIdsToRebuild,
     ).toEqual(["ft2_def0"]);
+  });
+
+  describe("for a run that finished", () => {
+    it("rebuilds only the source whose timestamp query failed in a full refresh", () => {
+      expect(
+        plan(
+          {
+            fullRefresh: true,
+            statuses: { max_timestamp_metrics_source_ft1_abc0: "failed" },
+          },
+          true,
+        ),
+      ).toEqual({
+        metricGroupIdsToRebuild: ["ft1_abc0"],
+        forceFullRefresh: false,
+      });
+    });
+
+    it("forces a full refresh when the units table was dropped and never renamed", () => {
+      expect(
+        plan(
+          {
+            statuses: {
+              [`alter_${SNAPSHOT_ID}`]: "failed",
+              [`max_timestamp_${SNAPSHOT_ID}`]: "failed",
+            },
+          },
+          true,
+        ).forceFullRefresh,
+      ).toBe(true);
+    });
   });
 
   it("counts an insert whose status cannot be read as started", () => {
@@ -421,7 +459,7 @@ describe("releasing an interrupted refresh", () => {
       expect(requireFullRefresh).toHaveBeenCalledWith("exp_1", flagged);
     });
 
-    it("still reports a full refresh when flagging it fails", async () => {
+    it("throws, so the caller retries, when flagging it fails", async () => {
       releaseLockAfterInterruptedRun.mockResolvedValue(false);
       requireFullRefresh.mockRejectedValue(new Error("mongo down"));
       await expect(
@@ -433,7 +471,16 @@ describe("releasing an interrupted refresh", () => {
             "succeeded",
           ),
         ),
-      ).resolves.toBe(true);
+      ).rejects.toThrow("mongo down");
+    });
+
+    it("keeps the lock when neither the cleanup nor the flag can be written", async () => {
+      releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+      requireFullRefresh.mockRejectedValue(new Error("mongo down"));
+      await expect(
+        stopInterruptedRefreshOrRelease(context, snapshot()),
+      ).rejects.toThrow("mongo down");
+      expect(releaseLock).not.toHaveBeenCalled();
     });
 
     it("does not flag a full refresh when the cleanup was applied", async () => {
@@ -690,10 +737,30 @@ describe("isUpdateInvalidatedByInterruptedRun", () => {
       false,
     ],
     ["an Update that lost its state", "incremental-update", null, false],
-    ["a full refresh with the state flagged", "incremental-full", flag, false],
   ] as const)("%s", (_, runnerKind, state, expected) => {
     expect(isUpdateInvalidatedByInterruptedRun({ runnerKind }, state)).toBe(
       expected,
     );
   });
+
+  // Every runner kind, and whether it reads the cache tables as they are. A
+  // new kind must be listed here, or this fails to type-check.
+  const readsCacheAsIs = {
+    "incremental-update": true,
+    "incremental-exploratory": true,
+    "incremental-full": false,
+    results: false,
+  } satisfies Record<SnapshotQueryRunnerKind, boolean>;
+
+  it.each(Object.entries(readsCacheAsIs))(
+    "%s distrusts flagged tables: %s",
+    (runnerKind, reads) => {
+      expect(
+        isUpdateInvalidatedByInterruptedRun(
+          { runnerKind: runnerKind as SnapshotQueryRunnerKind },
+          flag,
+        ),
+      ).toBe(reads);
+    },
+  );
 });

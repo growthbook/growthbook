@@ -16,6 +16,9 @@ export const COLLECTION_NAME = "incrementalrefresh";
 // of a refresh.
 export const INCREMENTAL_LOCK_STALE_MS = 10 * 60 * 1000;
 
+export const STALE_LOCK_FULL_REFRESH_REASON =
+  "An earlier update stopped without releasing its lock, so the cache tables may hold rows it never recorded.";
+
 const BaseClass = MakeModelClass({
   schema: incrementalRefreshValidator,
   collectionName: COLLECTION_NAME,
@@ -50,12 +53,51 @@ export class IncrementalRefreshModel extends BaseClass {
   }
 
   private getAvailableLockFilter() {
+    return [{ currentExecutionSnapshotId: null }, ...this.getStaleLockFilter()];
+  }
+
+  private getStaleLockFilter() {
     const staleThreshold = new Date(Date.now() - INCREMENTAL_LOCK_STALE_MS);
     return [
-      { currentExecutionSnapshotId: null },
       { lockHeartbeatAt: { $lt: staleThreshold, $ne: null } },
       { lockHeartbeatAt: null, dateUpdated: { $lt: staleThreshold } },
     ];
+  }
+
+  /**
+   * Takes the lock on an existing document. Taking it from a run that never
+   * released it also flags the tables in the same write: that run may still
+   * be appending rows it will never record.
+   */
+  private async claimLock(
+    filter: Record<string, unknown>,
+    fields: Record<string, unknown>,
+    snapshotId: string,
+  ): Promise<boolean> {
+    const collection = this._dangerousGetCollection();
+    const free = await collection.updateOne(
+      { ...filter, currentExecutionSnapshotId: null },
+      { $set: fields },
+    );
+    if (free.matchedCount > 0) return true;
+    const stale = await collection.updateOne(
+      {
+        ...filter,
+        currentExecutionSnapshotId: { $ne: null },
+        $or: this.getStaleLockFilter(),
+      },
+      {
+        $set: {
+          ...fields,
+          fullRefreshRequired: {
+            reason: STALE_LOCK_FULL_REFRESH_REASON,
+            snapshotId,
+            date: new Date(),
+          },
+        },
+      },
+    );
+    return stale.matchedCount > 0;
   }
 
   private newPhaseDoc(experimentId: string, phase: number) {
@@ -94,28 +136,30 @@ export class IncrementalRefreshModel extends BaseClass {
     };
 
     try {
-      const existingPhase = await collection.updateOne(
-        {
-          organization: this.context.org.id,
-          experimentId,
-          phase,
-          $or: lockAvailable,
-        },
-        { $set: lockFields },
-      );
-      if (existingPhase.matchedCount > 0) return true;
+      if (
+        await this.claimLock(
+          { organization: this.context.org.id, experimentId, phase },
+          lockFields,
+          snapshotId,
+        )
+      ) {
+        return true;
+      }
 
-      const legacyPhase = await collection.updateOne(
-        {
-          organization: this.context.org.id,
-          experimentId,
-          phase: { $exists: false },
-          experimentSettingsHash: legacyExperimentSettingsHash,
-          $or: lockAvailable,
-        },
-        { $set: { phase, ...lockFields } },
-      );
-      if (legacyPhase.matchedCount > 0) return true;
+      if (
+        await this.claimLock(
+          {
+            organization: this.context.org.id,
+            experimentId,
+            phase: { $exists: false },
+            experimentSettingsHash: legacyExperimentSettingsHash,
+          },
+          { phase, ...lockFields },
+          snapshotId,
+        )
+      ) {
+        return true;
+      }
 
       const conflictingDoc = await collection.findOne(
         {
@@ -175,10 +219,15 @@ export class IncrementalRefreshModel extends BaseClass {
     };
 
     try {
-      const existing = await collection.updateOne(claimFilter, {
-        $set: claimFields,
-      });
-      if (existing.matchedCount > 0) return true;
+      if (
+        await this.claimLock(
+          { organization: this.context.org.id, experimentId, phase },
+          claimFields,
+          token,
+        )
+      ) {
+        return true;
+      }
 
       const heldByRefresh = await collection.findOne(
         { organization: this.context.org.id, experimentId, phase },
@@ -293,11 +342,45 @@ export class IncrementalRefreshModel extends BaseClass {
         organization: this.context.org.id,
         experimentId,
         currentExecutionSnapshotId: snapshotId,
-        "fullRefreshRequired.date": { $lt: refreshStartedAt },
+        // A flag set when this refresh took a stale lock is its own to clear.
+        $or: [
+          { "fullRefreshRequired.date": { $lt: refreshStartedAt } },
+          { "fullRefreshRequired.snapshotId": snapshotId },
+        ],
       },
       { $set: { fullRefreshRequired: null, dateUpdated: new Date() } },
     );
     return result.modifiedCount > 0;
+  }
+
+  /**
+   * The commit point for a run's results: records them only while the run
+   * still holds the lock and, when `requireUnflagged`, no interrupted run has
+   * flagged the tables. Returns false when nothing was recorded.
+   */
+  public async commitRunResults(
+    experimentId: string,
+    snapshotId: string,
+    {
+      materialized,
+      requireUnflagged,
+    }: { materialized: boolean; requireUnflagged: boolean },
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: snapshotId,
+        ...(requireUnflagged ? { fullRefreshRequired: null } : {}),
+      },
+      {
+        $set: {
+          dateUpdated: new Date(),
+          ...(materialized ? { materializedBySnapshotId: snapshotId } : {}),
+        },
+      },
+    );
+    return result.matchedCount > 0;
   }
 
   public async touchLockHeartbeat(experimentId: string, snapshotId: string) {

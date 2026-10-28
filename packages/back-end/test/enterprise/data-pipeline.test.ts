@@ -862,3 +862,62 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
     ).toBe(true);
   });
 });
+
+describe("cache tables flagged by an interrupted run", () => {
+  type AnalysisType = Parameters<
+    typeof assertIncrementalRefreshPrerequisites
+  >[0]["analysisType"];
+  // Every analysis that can read the tables. A new one must be listed here,
+  // or this fails to type-check.
+  const analysisTypes = {
+    "main-update": true,
+    exploratory: true,
+    "main-fullRefresh": false,
+  } satisfies Record<AnalysisType, boolean>;
+
+  const metric = factMetricFactory.build({ id: "m1" });
+  const flagged = makeIncrementalRefreshModel({
+    fullRefreshRequired: {
+      reason: "An earlier update stopped part-way.",
+      snapshotId: "snp_old",
+      date: new Date(),
+    },
+  });
+
+  beforeEach(() => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+  });
+
+  it.each(Object.entries(analysisTypes))(
+    "%s refuses them unless it rebuilds them: %s",
+    async (analysisType, refuses) => {
+      const result = assertIncrementalRefreshPrerequisites({
+        org: { id: "org_123" } as OrganizationInterface,
+        integration: makeIntegration(),
+        snapshotSettings: makeSnapshotSettings(),
+        metricMap: new Map([[metric.id, metric]]),
+        experiment: { id: "exp_123" } as ExperimentInterface,
+        incrementalRefreshModel: flagged,
+        analysisType: analysisType as AnalysisType,
+      });
+      if (refuses) {
+        await expect(result).rejects.toBeInstanceOf(
+          ExperimentIncrementalPipelineRequiresFullRefreshError,
+        );
+      } else {
+        await expect(result).resolves.toBeUndefined();
+      }
+    },
+  );
+
+  it("sends a dimension breakdown to a full refresh", () => {
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
+        snapshotSettings: makeSnapshotSettings(),
+        incrementalRefreshModel: flagged,
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(true);
+  });
+});
