@@ -19,7 +19,7 @@ export default function ExplorerDataTable({
   submittedExploreState,
   loading,
   hasChart = false,
-  isStale = false,
+  padForFloatingCallout = false,
   query = null,
   compareEnabled = false,
   comparisonExploration = null,
@@ -31,7 +31,7 @@ export default function ExplorerDataTable({
   submittedExploreState: ExplorationConfig | null;
   loading: boolean;
   hasChart?: boolean;
-  isStale?: boolean;
+  padForFloatingCallout?: boolean;
   query?: QueryInterface | null;
   compareEnabled?: boolean;
   comparisonExploration?: ProductAnalyticsExploration | null;
@@ -147,7 +147,7 @@ export default function ExplorerDataTable({
           : undefined
       }
       renderCell={renderCell}
-      paddingTop={(isStale || loading) && !hasChart ? 35 : 0}
+      paddingTop={padForFloatingCallout || (loading && !hasChart) ? 35 : 0}
     />
   );
 }
