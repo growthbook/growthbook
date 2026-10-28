@@ -587,7 +587,6 @@ export default function ResultsTable({
                                 onClick={editMetrics}
                                 labelTooltip={false}
                                 dimmed
-                                radius="full"
                                 inline
                               />
                             </div>

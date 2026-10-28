@@ -57,7 +57,6 @@ export default function QuickEditButton({
   labelTooltip = true,
   fillsRow = false,
   dimmed = false,
-  radius = size === "2" ? "full" : "medium",
   inline = false,
 }: {
   label: string;
@@ -70,7 +69,6 @@ export default function QuickEditButton({
   fillsRow?: boolean;
   // Rests at half strength instead of hidden, where nothing reveals it.
   dimmed?: boolean;
-  radius?: "medium" | "full";
   // Sits in a line of text without making it taller.
   inline?: boolean;
 }) {
@@ -87,7 +85,7 @@ export default function QuickEditButton({
           size={size}
           variant="ghost"
           color="violet"
-          radius={radius}
+          radius="full"
           disabled={!!blockedReason}
           aria-label={label}
           className={fillsRow ? styles.rowTarget : undefined}

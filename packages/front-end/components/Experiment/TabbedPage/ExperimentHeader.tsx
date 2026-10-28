@@ -896,7 +896,6 @@ export default function ExperimentHeader({
                     label="Edit name"
                     onClick={() => setEditingName(true)}
                     blockedReason={editsBlocked}
-                    radius="full"
                   />
                 ) : null}
                 {/* Lowered so its text shares the buttons' baseline. */}
