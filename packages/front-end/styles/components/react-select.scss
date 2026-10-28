@@ -100,6 +100,28 @@
   }
 }
 
+.gb-select-wrapper--sm {
+  .gb-select__control {
+    min-height: 28px !important;
+    border-radius: var(--radius-2) !important;
+  }
+  .gb-select__value-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .gb-select__input-container {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .gb-select__indicator {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+  .gb-select__input {
+    font-size: var(--font-size-2) !important;
+  }
+}
+
 .gb-select-wrapper--md {
   .gb-select__control {
     min-height: 32px !important;

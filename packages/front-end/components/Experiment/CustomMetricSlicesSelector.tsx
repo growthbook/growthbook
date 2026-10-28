@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from "react";
+import React, { ReactNode, useState, useMemo } from "react";
 import {
   PiPencilSimple,
   PiPlus,
@@ -15,10 +15,11 @@ import {
 } from "shared/experiments";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { CustomMetricSlice } from "shared/validators";
+import { StylesConfig } from "react-select";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import SelectField from "@/components/Forms/SelectField";
+import SelectField, { SingleValue } from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -414,6 +415,46 @@ function SlicesRow({
   );
 }
 
+// A menu as wide as its options, not the narrower field it opens from.
+const FIT_MENU: StylesConfig<SingleValue, boolean> = {
+  menu: (base) => ({ ...base, width: "max-content", minWidth: "100%" }),
+};
+
+// As wide as its value, up to a limit, so focusing or opening it doesn't
+// reflow the row; only a new value does.
+function FitToValue({
+  text,
+  input = false,
+  children,
+}: {
+  text: string;
+  // A text input, with no dropdown arrow to leave room for.
+  input?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Box style={{ display: "inline-grid", minWidth: 72, maxWidth: 220 }}>
+      <Box
+        aria-hidden
+        style={{
+          gridArea: "1 / 1",
+          height: 0,
+          overflow: "hidden",
+          visibility: "hidden",
+          whiteSpace: "nowrap",
+          fontSize: "var(--font-size-2)",
+          paddingInline: input ? "12px" : "10px 40px",
+        }}
+      >
+        {text}
+      </Box>
+      <Box style={{ gridArea: "1 / 1", width: 0, minWidth: "100%" }}>
+        {children}
+      </Box>
+    </Box>
+  );
+}
+
 // Slice selector component for adding new slices
 function SliceSelector({
   editingSliceLevels,
@@ -513,7 +554,7 @@ function SliceSelector({
   return addingSlice ? (
     sortedSlices.length > 0 ? (
       <SelectField
-        size="md"
+        size="sm"
         value=""
         onChange={(value) => {
           if (value) {
@@ -644,55 +685,61 @@ function EditingInterface({
 
           const name = sliceColumn.name || sliceLevel.column;
           const availableLevels = Array.from(sliceColumn.levels).sort();
+          const value = sliceLevel.levels[0] || "";
           const valueInput =
             sliceColumn.datatype === "boolean" ? (
-              <SelectField
-                size="md"
-                value={sliceLevel.levels[0] || ""}
-                onChange={(value) =>
-                  updateSliceLevel(levelIndex, "level", value)
-                }
-                options={[
-                  { label: "TRUE", value: "true" },
-                  { label: "FALSE", value: "false" },
-                  { label: "NULL", value: "null" },
-                ]}
-                className="mb-0"
-                style={{ width: 130 }}
-                placeholder="Select..."
-                autoFocus={!sliceLevel.levels[0]}
-                sort={false}
-              />
+              <FitToValue text={value.toUpperCase() || "Select..."}>
+                <SelectField
+                  size="sm"
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(value) =>
+                    updateSliceLevel(levelIndex, "level", value)
+                  }
+                  options={[
+                    { label: "TRUE", value: "true" },
+                    { label: "FALSE", value: "false" },
+                    { label: "NULL", value: "null" },
+                  ]}
+                  className="mb-0"
+                  placeholder="Select..."
+                  autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
+                  containerStyles={FIT_MENU}
+                />
+              </FitToValue>
             ) : availableLevels.length > 0 ? (
-              <SelectField
-                size="md"
-                value={sliceLevel.levels[0] || ""}
-                onChange={(value) =>
-                  updateSliceLevel(levelIndex, "level", value)
-                }
-                options={availableLevels.map((level) => ({
-                  label: level,
-                  value: level,
-                }))}
-                className="mb-0"
-                style={{ width: 130 }}
-                createable
-                placeholder=""
-                autoFocus={!sliceLevel.levels[0]}
-                sort={false}
-              />
+              <FitToValue text={value}>
+                <SelectField
+                  size="sm"
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(value) =>
+                    updateSliceLevel(levelIndex, "level", value)
+                  }
+                  options={availableLevels.map((level) => ({
+                    label: level,
+                    value: level,
+                  }))}
+                  className="mb-0"
+                  createable
+                  placeholder=""
+                  autoFocus={!sliceLevel.levels[0]}
+                  sort={false}
+                  containerStyles={FIT_MENU}
+                />
+              </FitToValue>
             ) : (
-              <Field
-                size="md"
-                value={sliceLevel.levels[0] || ""}
-                onChange={(e) =>
-                  updateSliceLevel(levelIndex, "level", e.target.value)
-                }
-                containerClassName="mb-0"
-                style={{ width: 130 }}
-                placeholder="Column value..."
-                autoFocus={!sliceLevel.levels[0]}
-              />
+              <FitToValue text={value || "Column value..."} input>
+                <Field
+                  size="sm"
+                  value={sliceLevel.levels[0] || ""}
+                  onChange={(e) =>
+                    updateSliceLevel(levelIndex, "level", e.target.value)
+                  }
+                  containerClassName="mb-0"
+                  placeholder="Column value..."
+                  autoFocus={!sliceLevel.levels[0]}
+                />
+              </FitToValue>
             );
 
           // AND wraps with its chip, so a line never ends on it.
@@ -737,7 +784,10 @@ function EditingInterface({
         />
       </Flex>
 
-      <Flex justify="end" gap="2">
+      <Flex justify="end" align="center" gap="3">
+        <Button size="sm" variant="ghost" onClick={cancelEditing}>
+          Cancel
+        </Button>
         <Button
           size="sm"
           onClick={saveEditing}
@@ -749,9 +799,6 @@ function EditingInterface({
           }
         >
           Done
-        </Button>
-        <Button size="sm" variant="ghost" color="red" onClick={cancelEditing}>
-          Cancel
         </Button>
       </Flex>
     </Flex>
