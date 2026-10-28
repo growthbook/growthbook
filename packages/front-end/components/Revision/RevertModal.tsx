@@ -78,6 +78,13 @@ export interface Props<T extends RevertableEntity> {
   canLandArchive?: boolean;
   // Draft authority: enough to PROPOSE a revert as a draft, never to land it.
   canDraft: boolean;
+  /**
+   * Why the selected target can't be restored, e.g. it names something that
+   * no longer exists. Shown as a warning, and blocks the revert.
+   */
+  getTargetProblem?: (targetState: T) => string | null;
+  /** Something to know about restoring the selected target; doesn't block. */
+  getTargetWarning?: (targetState: T) => string | null;
   // Renders the entity's DraftSelectorForChanges (publish-now vs. create-draft
   // picker). Supplied by the thin per-entity wrappers so the revert modal reuses
   // the same component features use, instead of re-implementing the control.
@@ -107,6 +114,8 @@ export default function RevertModal<T extends RevertableEntity>({
   canLandRevertForTarget,
   canLandArchive: canLandArchiveEntity,
   canDraft,
+  getTargetProblem,
+  getTargetWarning,
   renderDraftSelector,
   close,
   onRevisionCreated,
@@ -255,6 +264,8 @@ export default function RevertModal<T extends RevertableEntity>({
   const publishNow = mode === "publish";
 
   const visibleDiffs = diffs.filter((d) => d.a !== d.b);
+  const targetProblem = getTargetProblem?.(targetState) ?? null;
+  const targetWarning = getTargetWarning?.(targetState) ?? null;
 
   return (
     <ModalStandard
@@ -268,7 +279,9 @@ export default function RevertModal<T extends RevertableEntity>({
       // A target matching live has no diff to apply, so the endpoint refuses it —
       // the modal says so above and the button follows.
       ctaEnabled={
-        visibleDiffs.length > 0 && (publishNow ? canPublishNow : canCreateDraft)
+        visibleDiffs.length > 0 &&
+        !targetProblem &&
+        (publishNow ? canPublishNow : canCreateDraft)
       }
       size="lg"
       submit={async () => {
@@ -366,6 +379,17 @@ export default function RevertModal<T extends RevertableEntity>({
           </Text>
         )}
       </Box>
+
+      {targetProblem && (
+        <Callout status="error" mb="4">
+          {targetProblem}
+        </Callout>
+      )}
+      {!targetProblem && targetWarning && (
+        <Callout status="warning" mb="4">
+          {targetWarning}
+        </Callout>
+      )}
 
       {archiveDrifts && (
         <Callout status="warning" mb="4">

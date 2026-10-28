@@ -1,7 +1,9 @@
 import {
+  Attributes,
   EvalContext,
   ContextualBanditDefinition,
   FeatureDefinition,
+  FeatureDefinitions,
   FeatureResult,
   Experiment,
   FeatureResultSource,
@@ -22,6 +24,7 @@ import {
   ReducePayloadOptions,
   PayloadMetadata,
   SavedGroupPayloadEntry,
+  InterleavingDefinitions,
 } from "./types/growthbook";
 import {
   evalCondition,
@@ -51,6 +54,7 @@ import {
   hasOwn,
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
+import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
 
 export const EVENT_FEATURE_EVALUATED = "Feature Evaluated";
 export const EVENT_EXPERIMENT_VIEWED = "Experiment Viewed";
@@ -878,10 +882,13 @@ function getFeatureResult<T>(
   return ret;
 }
 
-function getAttributes(user: UserContext) {
+function getAttributes(user: UserContext): Attributes {
   return {
     ...user.attributes,
     ...user.attributeOverrides,
+    ...(user.remoteGroupIds && {
+      [REMOTE_GROUP_IDS_ATTRIBUTE]: user.remoteGroupIds,
+    }),
   };
 }
 
@@ -1393,6 +1400,16 @@ export async function decryptPayload(
     }
     delete data.encryptedContextualBandits;
   }
+  if (data.encryptedInterleavings) {
+    try {
+      data.interleavings = JSON.parse(
+        await decrypt(data.encryptedInterleavings, decryptionKey, subtle),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    delete data.encryptedInterleavings;
+  }
   return data;
 }
 
@@ -1643,6 +1660,22 @@ export function reducePayload(
     // props reject.
     ...(ctx.global.contextualBandits ? { contextualBandits } : {}),
   };
+}
+
+// Interleavings whose `$interleave:` flag survived a reduction. The definitions
+// aren't features, so the filters never see them; keeping one whose flag was
+// dropped would serve every user the first ranker and log no exposure.
+export function reduceInterleavings(
+  interleavings: InterleavingDefinitions,
+  features: FeatureDefinitions | undefined,
+): InterleavingDefinitions {
+  const kept = features || {};
+  // Object.fromEntries keeps a `__proto__` key as a plain key
+  return Object.fromEntries(
+    Object.entries(interleavings).filter(([key]) =>
+      hasOwn(kept, "$interleave:" + key),
+    ),
+  );
 }
 
 export function getApiHosts(options: Options | ClientOptions): {

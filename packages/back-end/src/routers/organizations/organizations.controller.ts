@@ -14,6 +14,8 @@ import {
   canApplyExpirationPolicy,
   canManageApiKeySecret,
   getRoles,
+  hasSuperAdminPermission,
+  holdsAllSuperAdminPermissions,
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
@@ -1547,7 +1549,11 @@ export async function signup(
 
   let verifiedDomain = "";
   if (IS_MULTI_ORG) {
-    if (orgs && !ALLOW_SELF_ORG_CREATION && !req.superAdmin) {
+    if (
+      orgs &&
+      !ALLOW_SELF_ORG_CREATION &&
+      !hasSuperAdminPermission(req.superAdmin, "create")
+    ) {
       throw new Error(
         "You are not allowed to create an organization.  Ask your site admin.",
       );
@@ -2469,7 +2475,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
     throw new Error("Unable to get orphaned users on GrowthBook Cloud");
   }
 
-  if (IS_MULTI_ORG && !req.superAdmin) {
+  if (IS_MULTI_ORG && !hasSuperAdminPermission(req.superAdmin, "users")) {
     throw new Error(
       "Only super admins get orphaned users on multi-org deployments",
     );
@@ -2513,7 +2519,7 @@ export async function addOrphanedUser(
     throw new Error("This action is not permitted on GrowthBook Cloud");
   }
 
-  if (IS_MULTI_ORG && !req.superAdmin) {
+  if (IS_MULTI_ORG && !hasSuperAdminPermission(req.superAdmin, "users")) {
     throw new Error(
       "Only super admins can add orphaned users on multi-org deployments",
     );
@@ -2603,7 +2609,7 @@ export async function deleteOrphanedUser(
     throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
   }
 
-  if (IS_MULTI_ORG && !req.superAdmin) {
+  if (IS_MULTI_ORG && !hasSuperAdminPermission(req.superAdmin, "users")) {
     throw new Error(
       "Only super admins delete orphaned users on multi-org deployments",
     );
@@ -2617,6 +2623,14 @@ export async function deleteOrphanedUser(
     return res.status(400).json({
       status: 400,
       message: "Cannot find user with that id",
+    });
+  }
+
+  // A less privileged admin must not be able to remove a super admin
+  if (!holdsAllSuperAdminPermissions(req.superAdmin, user.superAdmin)) {
+    return res.status(403).json({
+      status: 403,
+      message: "You cannot delete a user with more super admin access than you",
     });
   }
 
