@@ -12,6 +12,7 @@ import {
   getQueryStatusesByIds,
 } from "back-end/src/models/QueryModel";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import type { OrderedWriter } from "back-end/src/queryRunners/orderedWriter";
 import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
@@ -30,6 +31,7 @@ const context = {
     incrementalRefresh: {
       releaseLock: jest.fn().mockResolvedValue(undefined),
       releaseLockAfterInterruptedRun: jest.fn().mockResolvedValue(true),
+      updateByExperimentIdIfCurrentExecution: jest.fn().mockResolvedValue(true),
     },
   },
 } as unknown as ReqContext;
@@ -167,4 +169,51 @@ describe("ExperimentIncrementalRefreshQueryRunner failing with queries still pen
     ).writeErrorIfStillActive("boom");
     expectCleanedUp();
   });
+
+  it.each(["partially-succeeded", "failed"] as const)(
+    "lands queued source-list writes before releasing the lock (%s)",
+    async (status) => {
+      jest.mocked(getQueryStatusesByIds).mockResolvedValue([]);
+      const runner = new ExperimentIncrementalRefreshQueryRunner(
+        context,
+        incrementalSnapshot,
+        { datasource: {} } as SourceIntegrationInterface,
+      );
+      const order: string[] = [];
+      let landSlowWrite = () => {};
+      const writeSourceLists = (
+        runner as unknown as { writeSourceLists: OrderedWriter }
+      ).writeSourceLists;
+      // A slow covariate write, then a failed source's removal behind it.
+      writeSourceLists(
+        () =>
+          new Promise<void>((resolve) => {
+            landSlowWrite = () => {
+              order.push("covariate write");
+              resolve();
+            };
+          }),
+      );
+      writeSourceLists(async () => {
+        order.push("source removal");
+      });
+      const release = jest.mocked(
+        status === "failed"
+          ? context.models.incrementalRefresh.releaseLockAfterInterruptedRun
+          : context.models.incrementalRefresh.releaseLock,
+      );
+      release.mockImplementationOnce(async () => {
+        order.push("release");
+        return true;
+      });
+
+      const updating = runner.updateModel({ status, queries: [] });
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(release).not.toHaveBeenCalled();
+      landSlowWrite();
+      await updating;
+
+      expect(order).toEqual(["covariate write", "source removal", "release"]);
+    },
+  );
 });

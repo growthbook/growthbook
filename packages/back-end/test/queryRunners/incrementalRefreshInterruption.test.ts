@@ -25,6 +25,7 @@ import {
   failQueuedQueries,
 } from "back-end/src/models/QueryModel";
 import { startExperimentIncrementalRefreshQueries } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { createOrderedWriter } from "back-end/src/queryRunners/orderedWriter";
 import {
   rollupQueryStatus,
   type ProcessedRowsType,
@@ -406,6 +407,11 @@ class SimRun {
   queries: SimQuery[] = [];
   steps = 0;
   failures: string[] = [];
+  writer = createOrderedWriter();
+  // Covariate callbacks left running in the background, as QueryRunner does.
+  detachCovariateCallbacks = false;
+  detached: Promise<unknown>[] = [];
+  beforeCallback: (q: SimQuery, queries: SimQuery[]) => void = () => undefined;
 
   constructor(
     readonly snapshotId: string,
@@ -511,7 +517,17 @@ class SimRun {
 
   async callback(q: SimQuery, countStep = true) {
     if (countStep) this.step();
-    await q.params.onSuccess?.(q.rows ?? []);
+    this.beforeCallback(q, this.queries);
+    const done = q.params.onSuccess?.(q.rows ?? []);
+    if (
+      this.detachCovariateCallbacks &&
+      q.name.startsWith("insert_metrics_covariate_data_")
+    ) {
+      this.detached.push(Promise.resolve(done));
+      await new Promise((resolve) => setImmediate(resolve));
+    } else {
+      await done;
+    }
     q.phase = "done";
   }
 
@@ -614,6 +630,8 @@ function buildMetrics({ groups, covariates }: Config) {
 
 let model: IncrementalRefreshModel;
 const pendingWrites = new Set<Promise<unknown>>();
+// While set, covariate source-list writes wait for it, like a slow write.
+let covariateWriteGate: Promise<void> | null = null;
 
 // Same lock and cleanup semantics as IncrementalRefreshModel, without Mongo,
 // so the full sweep stays fast. The Mongo-backed sweep below checks it agrees.
@@ -715,6 +733,7 @@ class InMemoryIncrementalRefreshModel {
     const doc = this.docs.get(experimentId);
     if (doc) {
       doc.fullRefreshRequired = { reason, snapshotId, date: new Date() };
+      doc.dateUpdated = new Date();
     }
   }
 
@@ -727,6 +746,7 @@ class InMemoryIncrementalRefreshModel {
     if (!doc?.fullRefreshRequired) return false;
     if (doc.fullRefreshRequired.date >= refreshStartedAt) return false;
     doc.fullRefreshRequired = null;
+    doc.dateUpdated = new Date();
     return true;
   }
 }
@@ -749,7 +769,11 @@ function createModel(backend: "memory" | "mongo") {
       : (new InMemoryIncrementalRefreshModel() as unknown as IncrementalRefreshModel);
   const write = m.updateByExperimentIdIfCurrentExecution.bind(m);
   m.updateByExperimentIdIfCurrentExecution = (...args) => {
-    const p = write(...args);
+    const gate =
+      covariateWriteGate && "metricCovariateSources" in args[2]
+        ? covariateWriteGate
+        : Promise.resolve();
+    const p = gate.then(() => write(...args));
     pendingWrites.add(p);
     p.finally(() => pendingWrites.delete(p)).catch(() => undefined);
     return p;
@@ -794,12 +818,16 @@ class Experiment {
     stopAfter = null,
     failQueryIndex = null,
     schedule = "serial",
+    detachCovariateCallbacks = false,
+    beforeCallback,
   }: {
     now: number;
     fullRefresh: boolean;
     stopAfter?: number | null;
     failQueryIndex?: number | null;
     schedule?: Schedule;
+    detachCovariateCallbacks?: boolean;
+    beforeCallback?: (q: SimQuery, queries: SimQuery[]) => void;
   }) {
     const snapshotId = `snp_${++snapshotCounter}`;
     this.startedAt.set(snapshotId, new Date());
@@ -819,6 +847,8 @@ class Experiment {
       stopAfter,
       failQueryIndex,
     );
+    run.detachCovariateCallbacks = detachCovariateCallbacks;
+    if (beforeCallback) run.beforeCallback = beforeCallback;
     const { factTableMap, metrics, settings } = this.built;
     await startExperimentIncrementalRefreshQueries(
       context(),
@@ -837,9 +867,10 @@ class Experiment {
       this.sim.integration,
       run.startQuery,
       null,
+      run.writer,
     );
     const finished = await run.execute(schedule);
-    await drainWrites();
+    if (!detachCovariateCallbacks) await drainWrites();
     return { run, finished };
   }
 
@@ -856,6 +887,7 @@ class Experiment {
   }
 
   async release(run: SimRun) {
+    await run.writer.flush();
     if (!run.failures.length) {
       await model.updateByExperimentIdIfCurrentExecution(
         this.id,
@@ -1158,7 +1190,7 @@ async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
     );
     const needsFullRefresh =
       status === "failed"
-        ? await cleanUp("timedOut", exp.id, run)
+        ? await run.writer.flush().then(() => cleanUp("timedOut", exp.id, run))
         : (await exp.release(run), false);
     const where = `${run.queries[failQueryIndex].name} failed (run ${status})`;
     try {
@@ -1181,6 +1213,150 @@ async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
     }
   }
   return failures;
+}
+
+// A covariate callback's write is slow, and a max-timestamp query fails while
+// it is queued, so the source's removal waits behind it. The run partially
+// succeeds and is released; the removal must land first.
+async function slowCovariateWriteThenFailedSource(config: Config) {
+  // The last source, so no later write queues behind the slow one.
+  const probe = await (
+    await setUpExperiment(config)
+  ).startRun({ now: INTERRUPTED_AT, fullRefresh: false });
+  const failQueryIndex = probe.run.queries
+    .map((q) => q.name)
+    .lastIndexOf(
+      probe.run.queries
+        .map((q) => q.name)
+        .filter((n) => n.startsWith("max_timestamp_metrics_source_"))
+        .pop() ?? "",
+    );
+
+  const exp = await setUpExperiment(config);
+  let landCovariateWrite = () => {};
+  const { run } = await exp.startRun({
+    now: INTERRUPTED_AT,
+    fullRefresh: false,
+    failQueryIndex,
+    detachCovariateCallbacks: true,
+    // Slows the covariate write of the source whose timestamp query fails.
+    beforeCallback: (q, queries) => {
+      const failing = queries[failQueryIndex]?.name ?? "";
+      const groupId = failing.replace("max_timestamp_metrics_source_", "");
+      if (q.name === `insert_metrics_covariate_data_${groupId}`) {
+        covariateWriteGate = new Promise((resolve) => {
+          landCovariateWrite = resolve;
+        });
+      }
+    },
+  });
+  expect(
+    rollupQueryStatus(
+      run.queries.map((q) => ({ name: q.name, query: q.id, status: q.status })),
+    ),
+  ).toBe("partially-succeeded");
+
+  const releasing = exp.release(run);
+  await new Promise((resolve) => setImmediate(resolve));
+  covariateWriteGate = null;
+  landCovariateWrite();
+  await releasing;
+  await Promise.allSettled(run.detached);
+  await drainWrites();
+
+  await nextRefresh(exp, false);
+  expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+}
+
+async function expectFencedCleanupOnlyFlags(fullRefresh: boolean) {
+  const config = { groups: 2, covariates: true };
+  const total = await countSteps(config, fullRefresh, "serial");
+  for (let stopAfter = 0; stopAfter < total; stopAfter++) {
+    for (const path of ["reaper", "timedOut", "cancel"] as const) {
+      const exp = await setUpExperiment(config);
+      const { run } = await exp.startRun({
+        now: INTERRUPTED_AT,
+        fullRefresh,
+        stopAfter,
+      });
+      await model.updateByExperimentIdIfCurrentExecution(
+        exp.id,
+        run.snapshotId,
+        { currentExecutionSnapshotId: "snp_other" },
+      );
+      const before = await getDoc(exp.id);
+      const plan = planInterruptedRunCleanup({
+        snapshotId: run.snapshotId,
+        fullRefresh,
+        queries: run.queries.map((q) => ({
+          name: q.name,
+          status: q.status,
+        })),
+      });
+      const needsFullRefresh = await cleanUp(path, exp.id, run);
+      expect(await getDoc(exp.id)).toEqual({
+        ...before,
+        dateUpdated: needsFullRefresh ? expect.anything() : before?.dateUpdated,
+        fullRefreshRequired: needsFullRefresh
+          ? expect.objectContaining({
+              reason: expect.any(String),
+              snapshotId: run.snapshotId,
+            })
+          : before?.fullRefreshRequired,
+      });
+      if (path === "reaper") {
+        expect(needsFullRefresh).toBe(
+          plan.forceFullRefresh || plan.metricGroupIdsToRebuild.length > 0,
+        );
+      }
+    }
+  }
+}
+
+// A run loses its stale lock to another refresh, then gets cleaned up. Only the
+// flag can say the tables are untrusted; the full refresh it forces recovers.
+async function expectStaleLockRecoveredByFlag(
+  fullRefresh: boolean,
+  thiefFullRefresh: boolean,
+) {
+  const config = { groups: 2, covariates: true };
+  const total = await countSteps(config, fullRefresh, "serial");
+  let flagged = 0;
+  for (let stopAfter = 0; stopAfter < total; stopAfter++) {
+    for (const path of ["reaper", "timedOut", "cancel"] as const) {
+      const exp = await setUpExperiment(config);
+      const { run } = await exp.startRun({
+        now: INTERRUPTED_AT,
+        fullRefresh,
+        stopAfter,
+      });
+      await model.releaseLock(exp.id, run.snapshotId);
+      const { run: thief } = await exp.startRun({
+        now: INTERRUPTED_AT + 50,
+        fullRefresh: thiefFullRefresh,
+      });
+
+      const needsFullRefresh = await cleanUp(path, exp.id, run);
+      const state = await model.getLockedBySnapshotId(exp.id, thief.snapshotId);
+      expect(!!state?.fullRefreshRequired).toBe(needsFullRefresh);
+      expect(
+        isUpdateInvalidatedByInterruptedRun(snapshotOf(exp.id, thief), state),
+      ).toBe(needsFullRefresh && !thiefFullRefresh);
+      if (needsFullRefresh) flagged++;
+
+      // Started before the flag, so even a full refresh keeps it.
+      await exp.release(thief);
+      expect(!!(await getDoc(exp.id))?.fullRefreshRequired).toBe(
+        needsFullRefresh,
+      );
+
+      await new Promise((resolve) => setTimeout(resolve, 2));
+      await nextRefresh(exp, false);
+      expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+      expect((await getDoc(exp.id))?.fullRefreshRequired ?? null).toBe(null);
+    }
+  }
+  expect(flagged).toBeGreaterThan(0);
 }
 
 describe("incremental refresh interruption (in-memory lock state)", () => {
@@ -1226,104 +1402,21 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
 
   it.each(modes)(
     "only flags a full refresh when another snapshot holds the lock: $mode",
-    async ({ fullRefresh }) => {
-      const config = { groups: 2, covariates: true };
-      const total = await countSteps(config, fullRefresh, "serial");
-      for (let stopAfter = 0; stopAfter < total; stopAfter++) {
-        for (const path of ["reaper", "timedOut", "cancel"] as const) {
-          const exp = await setUpExperiment(config);
-          const { run } = await exp.startRun({
-            now: INTERRUPTED_AT,
-            fullRefresh,
-            stopAfter,
-          });
-          await model.updateByExperimentIdIfCurrentExecution(
-            exp.id,
-            run.snapshotId,
-            { currentExecutionSnapshotId: "snp_other" },
-          );
-          const before = await getDoc(exp.id);
-          const plan = planInterruptedRunCleanup({
-            snapshotId: run.snapshotId,
-            fullRefresh,
-            queries: run.queries.map((q) => ({
-              name: q.name,
-              status: q.status,
-            })),
-          });
-          const needsFullRefresh = await cleanUp(path, exp.id, run);
-          expect(await getDoc(exp.id)).toEqual({
-            ...before,
-            fullRefreshRequired: needsFullRefresh
-              ? expect.objectContaining({
-                  reason: expect.any(String),
-                  snapshotId: run.snapshotId,
-                })
-              : before?.fullRefreshRequired,
-          });
-          if (path === "reaper") {
-            expect(needsFullRefresh).toBe(
-              plan.forceFullRefresh || plan.metricGroupIdsToRebuild.length > 0,
-            );
-          }
-        }
-      }
+    ({ fullRefresh }) => expectFencedCleanupOnlyFlags(fullRefresh),
+  );
+
+  it.each([1, 2, 3])(
+    "rebuilds a failed source whose removal queued behind a slow covariate write (%i group(s))",
+    async (groups) => {
+      await slowCovariateWriteThenFailedSource({ groups, covariates: true });
     },
   );
 
   describe.each(modes)("$mode whose lock went stale", ({ fullRefresh }) => {
     it.each(modes)(
       "is recovered by the full refresh the flag forces after a $mode took the lock",
-      async ({ fullRefresh: thiefFullRefresh }) => {
-        const config = { groups: 2, covariates: true };
-        const total = await countSteps(config, fullRefresh, "serial");
-        let flagged = 0;
-        for (let stopAfter = 0; stopAfter < total; stopAfter++) {
-          for (const path of ["reaper", "timedOut", "cancel"] as const) {
-            const exp = await setUpExperiment(config);
-            const { run } = await exp.startRun({
-              now: INTERRUPTED_AT,
-              fullRefresh,
-              stopAfter,
-            });
-            await model.releaseLock(exp.id, run.snapshotId);
-            const { run: thief } = await exp.startRun({
-              now: INTERRUPTED_AT + 50,
-              fullRefresh: thiefFullRefresh,
-            });
-
-            const needsFullRefresh = await cleanUp(path, exp.id, run);
-            const state = await model.getLockedBySnapshotId(
-              exp.id,
-              thief.snapshotId,
-            );
-            expect(!!state?.fullRefreshRequired).toBe(needsFullRefresh);
-            expect(
-              isUpdateInvalidatedByInterruptedRun(
-                snapshotOf(exp.id, thief),
-                state,
-              ),
-            ).toBe(needsFullRefresh && !thiefFullRefresh);
-            if (needsFullRefresh) flagged++;
-
-            // Started before the flag, so even a full refresh keeps it.
-            await exp.release(thief);
-            expect(!!(await getDoc(exp.id))?.fullRefreshRequired).toBe(
-              needsFullRefresh,
-            );
-
-            await new Promise((resolve) => setTimeout(resolve, 2));
-            await nextRefresh(exp, false);
-            expect(await exp.contents()).toEqual(
-              expectedContents(config, NEXT_AT),
-            );
-            expect((await getDoc(exp.id))?.fullRefreshRequired ?? null).toBe(
-              null,
-            );
-          }
-        }
-        expect(flagged).toBeGreaterThan(0);
-      },
+      ({ fullRefresh: thiefFullRefresh }) =>
+        expectStaleLockRecoveredByFlag(fullRefresh, thiefFullRefresh),
       120_000,
     );
   });
@@ -1359,6 +1452,166 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
   afterAll(async () => {
     await mongoose.connection.db!.collection(COLLECTION_NAME).deleteMany({});
     await disconnectTestMongo();
+  });
+
+  it.each(modes)(
+    "only flags a full refresh when another snapshot holds the lock: $mode",
+    ({ fullRefresh }) => expectFencedCleanupOnlyFlags(fullRefresh),
+  );
+
+  describe.each(modes)("$mode whose lock went stale", ({ fullRefresh }) => {
+    it.each(modes)(
+      "is recovered by the full refresh the flag forces after a $mode took the lock",
+      ({ fullRefresh: thiefFullRefresh }) =>
+        expectStaleLockRecoveredByFlag(fullRefresh, thiefFullRefresh),
+      120_000,
+    );
+  });
+
+  it("flags every phase of only that experiment when the lock moved on", async () => {
+    const exp = await setUpExperiment({ groups: 1, covariates: false });
+    const other = await setUpExperiment({ groups: 1, covariates: false });
+    await model.acquireLock({
+      experimentId: exp.id,
+      phase: 1,
+      snapshotId: "snp_phase_1",
+      legacyExperimentSettingsHash: "unused",
+    });
+
+    // The run's lock is gone, so its started insert can only be flagged.
+    const needsFullRefresh = await releaseInterruptedRefresh(
+      context(),
+      {
+        id: "snp_lost",
+        experiment: exp.id,
+        runnerKind: "incremental-update",
+        queries: [
+          {
+            name: "insert_metrics_source_data_g1",
+            query: "q1",
+            status: "running",
+          },
+        ],
+      },
+      new Map([["q1", "running"]]),
+    );
+
+    expect(needsFullRefresh).toBe(true);
+    for (const phase of [0, 1]) {
+      expect(
+        (await model.getByExperimentIdAndPhase(exp.id, phase))
+          ?.fullRefreshRequired,
+      ).toEqual(expect.objectContaining({ snapshotId: "snp_lost" }));
+    }
+    expect((await getDoc(other.id))?.fullRefreshRequired ?? null).toBeNull();
+  });
+
+  it("keeps the flag when the full refresh lost its lock before it finished", async () => {
+    const exp = await setUpExperiment({ groups: 1, covariates: false });
+    await releaseInterruptedRefresh(
+      context(),
+      {
+        id: "snp_lost",
+        experiment: exp.id,
+        runnerKind: "incremental-update",
+        queries: [
+          {
+            name: "insert_metrics_source_data_g1",
+            query: "q1",
+            status: "running",
+          },
+        ],
+      },
+      new Map([["q1", "running"]]),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 2));
+
+    const { run } = await exp.startRun({ now: NEXT_AT, fullRefresh: true });
+    await model.updateByExperimentIdIfCurrentExecution(exp.id, run.snapshotId, {
+      currentExecutionSnapshotId: "snp_other",
+    });
+    await exp.release(run);
+
+    expect((await getDoc(exp.id))?.fullRefreshRequired).toEqual(
+      expect.objectContaining({ snapshotId: "snp_lost" }),
+    );
+  });
+
+  it("drops the sources to rebuild and releases the lock in one write", async () => {
+    const exp = await setUpExperiment({ groups: 2, covariates: true });
+    const before = await getDoc(exp.id);
+    const [rebuilt, kept] = (before?.metricSources ?? []).map((s) => s.groupId);
+    await model.acquireLock({
+      experimentId: exp.id,
+      phase: 0,
+      snapshotId: "snp_cleanup",
+      legacyExperimentSettingsHash: "unused",
+    });
+
+    const needsFullRefresh = await releaseInterruptedRefresh(
+      context(),
+      {
+        id: "snp_cleanup",
+        experiment: exp.id,
+        runnerKind: "incremental-update",
+        queries: [
+          {
+            name: `insert_metrics_source_data_${rebuilt}`,
+            query: "q1",
+            status: "running",
+          },
+          {
+            name: `max_timestamp_metrics_source_${rebuilt}`,
+            query: "q2",
+            status: "queued",
+          },
+        ],
+      },
+      new Map([
+        ["q1", "running"],
+        ["q2", "queued"],
+      ]),
+    );
+
+    expect(needsFullRefresh).toBe(false);
+    const doc = await getDoc(exp.id);
+    expect(doc?.currentExecutionSnapshotId).toBeNull();
+    expect(doc?.lockHeartbeatAt).toBeNull();
+    expect(doc?.unitsTableFullName).toBe(before?.unitsTableFullName);
+    expect(doc?.metricSources.map((s) => s.groupId)).toEqual([kept]);
+    expect(doc?.metricCovariateSources.map((s) => s.groupId)).toEqual([kept]);
+  });
+
+  it("forgets the units table when the run stopped between drop and rename", async () => {
+    const exp = await setUpExperiment({ groups: 2, covariates: true });
+    await model.acquireLock({
+      experimentId: exp.id,
+      phase: 0,
+      snapshotId: "snp_cleanup",
+      legacyExperimentSettingsHash: "unused",
+    });
+
+    await releaseInterruptedRefresh(
+      context(),
+      {
+        id: "snp_cleanup",
+        experiment: exp.id,
+        runnerKind: "incremental-update",
+        queries: [
+          { name: "drop_snp_cleanup", query: "q1", status: "succeeded" },
+          { name: "alter_snp_cleanup", query: "q2", status: "running" },
+        ],
+      },
+      new Map([
+        ["q1", "succeeded"],
+        ["q2", "running"],
+      ]),
+    );
+
+    const doc = await getDoc(exp.id);
+    expect(doc?.unitsTableFullName).toBeNull();
+    expect(doc?.metricSources).toHaveLength(2);
+    expect(doc?.currentExecutionSnapshotId).toBeNull();
   });
 
   it.each(modes)(

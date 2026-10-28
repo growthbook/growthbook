@@ -125,4 +125,38 @@ describe("createOrderedWriter", () => {
     blocked.resolve();
     await a;
   });
+
+  describe("flush", () => {
+    it("waits for every queued write, including ones queued while waiting", async () => {
+      const write = createOrderedWriter();
+      const slow = deferred<void>();
+      const landed: string[] = [];
+      write(async () => {
+        await slow.promise;
+        landed.push("first");
+        write(async () => {
+          landed.push("queued meanwhile");
+        });
+      });
+
+      let flushed = false;
+      const flushing = write.flush().then(() => (flushed = true));
+      await flush();
+      expect(flushed).toBe(false);
+
+      slow.resolve();
+      await flushing;
+      expect(landed).toEqual(["first", "queued meanwhile"]);
+    });
+
+    it("settles when a queued write fails", async () => {
+      const write = createOrderedWriter();
+      write(() => Promise.reject(new Error("boom"))).catch(() => undefined);
+      await expect(write.flush()).resolves.toBeUndefined();
+    });
+
+    it("settles at once with nothing queued", async () => {
+      await expect(createOrderedWriter().flush()).resolves.toBeUndefined();
+    });
+  });
 });
