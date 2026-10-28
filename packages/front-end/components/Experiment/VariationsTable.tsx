@@ -27,6 +27,8 @@ import styles from "./VariationsTable.module.scss";
 const NO_IMAGE_SIZE = 42;
 // The stand-in for a screenshot that won't load.
 const UNAVAILABLE_IMAGE_HEIGHT = 150;
+// A tall screenshot scales down to this, centred, keeping its proportions.
+const SUMMARY_IMAGE_MAX_HEIGHT = 300;
 
 // Narrower than this and a card has no room for a name beside its controls.
 const MIN_VARIATION_WIDTH = 220;
@@ -375,6 +377,7 @@ const VariationsTable: FC<Props> = ({
                 i={v.index}
                 v={v}
                 experiment={experiment}
+                height={SUMMARY_IMAGE_MAX_HEIGHT}
                 showIds={hasUniqueIDs}
                 canEdit={canEditExperiment}
                 allowImages={allowImages}
