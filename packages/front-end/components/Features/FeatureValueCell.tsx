@@ -142,8 +142,11 @@ export default function FeatureValueCell({
               extraActions={tall ? null : editButton}
             />
           )}
-          {tall && editButton ? (
-            <Box className={clsx(styles.openEditor, cornerStyles.actions)}>
+          {editButton && (tall || value === undefined) ? (
+            <Box
+              className={clsx(styles.openEditor, cornerStyles.actions)}
+              style={tall ? undefined : ONE_LINE_ACTIONS.style}
+            >
               {editButton}
             </Box>
           ) : null}
