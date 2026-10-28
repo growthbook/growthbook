@@ -98,7 +98,19 @@ export function formatQueryExecutionErrorForApi(e: unknown): string {
   if (e instanceof ManagedWarehouseOutOfMemoryError) {
     return MANAGED_WAREHOUSE_OUT_OF_MEMORY_ERROR_CODE;
   }
-  return e instanceof Error ? e.message : String(e);
+  if (e instanceof Error) {
+    return e.message;
+  }
+  // Some datasource drivers reject with plain objects rather than Error
+  // instances. Preserve their useful message instead of returning
+  // "[object Object]".
+  if (typeof e === "object" && e !== null && "message" in e) {
+    const message = (e as { message: unknown }).message;
+    if ((message ?? null) !== null) {
+      return String(message);
+    }
+  }
+  return String(e);
 }
 
 /**
