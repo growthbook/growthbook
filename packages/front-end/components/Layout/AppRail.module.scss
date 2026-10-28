@@ -607,29 +607,23 @@
   }
 }
 
-// @/ui Button's outline variant (Radix's .rt-variant-outline) on a rail row.
+// Violet text and icon, with no border, expanded and collapsed; the rows'
+// hover fill and focus ring.
 .upgrade.upgrade {
   margin-top: var(--space-2);
-  border-radius: var(--radius-2);
-  box-shadow: inset 0 0 0 1px var(--violet-a8);
   color: var(--violet-a11);
+  font-weight: var(--font-weight-medium);
 
   .rowIcon {
     color: var(--violet-a11);
   }
 
   &:hover {
-    background: var(--violet-a2);
     color: var(--violet-a11);
-  }
 
-  &:active {
-    background: var(--violet-a3);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-8);
-    outline-offset: -1px;
+    .rowIcon {
+      color: var(--violet-a11);
+    }
   }
 }
 
