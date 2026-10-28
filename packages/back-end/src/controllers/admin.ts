@@ -9,6 +9,7 @@ import {
   normalizeSuperAdmin,
 } from "shared/permissions";
 import { SuperAdminPermission, superAdminValidator } from "shared/validators";
+import { AdminOrgSummary, getAdminOrgSummary } from "shared/enterprise";
 import {
   OrganizationInterface,
   OrganizationMessage,
@@ -46,6 +47,18 @@ import {
 } from "back-end/src/services/audit";
 import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
 import { licenseInit } from "back-end/src/enterprise";
+import {
+  _dangerousGetOrgIdsByLicensePlans,
+  _dangerousGetOrgIdsBySubscriptionStatus,
+  getLicensesByKeys,
+} from "back-end/src/enterprise/models/licenseModel";
+import {
+  adminOrgFiltersValidator,
+  buildAdminOrgQuery,
+  getLicensePlansForFilter,
+  isSubscriptionStatusFilter,
+} from "back-end/src/util/adminOrgQuery";
+import { getCollection } from "back-end/src/util/mongo.util";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -86,31 +99,102 @@ export async function _dangerousAdminGetOrganizations(
 
   const { page, search } = req.query;
 
+  const parsed = adminOrgFiltersValidator.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid organization filters",
+    });
+  }
+  const filters = parsed.data;
+
+  const [planOrgIds, statusOrgIds, ssoOrgIds] = await Promise.all([
+    filters.plan
+      ? _dangerousGetOrgIdsByLicensePlans(
+          getLicensePlansForFilter(filters.plan),
+        )
+      : undefined,
+    isSubscriptionStatusFilter(filters.status)
+      ? _dangerousGetOrgIdsBySubscriptionStatus(filters.status)
+      : undefined,
+    filters.loginMethod === "sso" || filters.loginMethod === "none"
+      ? _dangerousGetAllSSOConnections().then((connections) =>
+          connections.flatMap((c) =>
+            !c.disabled && c.organization ? [c.organization] : [],
+          ),
+        )
+      : undefined,
+  ]);
+
   const { organizations, total } = await findAllOrganizations(
     parseIntWithDefault(page, 1),
     search || "",
+    50,
+    buildAdminOrgQuery(filters, {
+      plan: planOrgIds,
+      status: statusOrgIds,
+      sso: ssoOrgIds,
+    }),
   );
 
-  const rawSSOs = await _dangerousGetAllSSOConnections();
-  // we don't want to expose sensitive information, so strip out the clientSecret
-  const ssoConnections = rawSSOs.map((sso) => {
-    return {
-      ...sso,
-      clientSecret: "",
-    };
+  const licenses = await getLicensesByKeys(
+    organizations.flatMap((o) => (o.licenseKey ? [o.licenseKey] : [])),
+  );
+  const summaries: Record<string, AdminOrgSummary> = {};
+  organizations.forEach((o) => {
+    summaries[o.id] = getAdminOrgSummary(
+      o,
+      licenses.find((l) => l.id === o.licenseKey) ?? null,
+    );
   });
-
-  const orgIds = organizations.map((o) => o.id);
-
-  const datasources =
-    await _dangerourslyGetAllDatasourcesByOrganizations(orgIds);
 
   return res.status(200).json({
     status: 200,
     organizations,
-    ssoConnections,
-    datasources,
+    summaries,
     total,
+  });
+}
+
+export async function _dangerousAdminGetOrganization(
+  req: AuthRequest<null, { orgId: string }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
+  }
+
+  const org = await getOrganizationById(req.params.orgId);
+  if (!org) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+
+  const countFor = (collection: string) =>
+    getCollection(collection).countDocuments({ organization: org.id });
+
+  const [ssoConnections, datasources, ...counts] = await Promise.all([
+    _dangerousGetSSOConnectionsByOrganization(org.id),
+    _dangerourslyGetAllDatasourcesByOrganizations([org.id]),
+    countFor("projects"),
+    countFor("features"),
+    countFor("experiments"),
+    countFor("sdkconnections"),
+    countFor("savedgroups"),
+  ]);
+  const [projects, features, experiments, sdkConnections, savedGroups] = counts;
+
+  return res.status(200).json({
+    status: 200,
+    organization: org,
+    // Strip the secret, like the SSO edit form expects
+    ssoConnection: ssoConnections[0]
+      ? { ...ssoConnections[0], clientSecret: "" }
+      : null,
+    datasources: datasources.map(({ id, name, type }) => ({ id, name, type })),
+    counts: { projects, features, experiments, sdkConnections, savedGroups },
   });
 }
 

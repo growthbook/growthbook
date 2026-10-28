@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
 import { z } from "zod";
@@ -283,10 +283,11 @@ export async function findAllOrganizations(
   page: number,
   search: string,
   limit: number = 50,
+  filter: FilterQuery<OrganizationInterface> = {},
 ) {
   const regex = new RegExp(escapeRegExp(search), "i");
 
-  const query = search
+  const searchQuery = search
     ? {
         $or: [
           { name: regex },
@@ -297,13 +298,15 @@ export async function findAllOrganizations(
         ],
       }
     : {};
+  const hasFilter = Object.keys(filter).length > 0;
+  const query = hasFilter ? { $and: [searchQuery, filter] } : searchQuery;
 
   const docs = await OrganizationModel.find(query)
     .sort({ _id: -1 })
     .skip((page - 1) * limit)
     .limit(limit);
 
-  const total = await (search
+  const total = await (search || hasFilter
     ? OrganizationModel.find(query).countDocuments()
     : OrganizationModel.find().estimatedDocumentCount());
 

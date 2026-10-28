@@ -72,3 +72,45 @@ export async function getLicenseByKey(
   const doc = await LicenseModel.findOne({ id: key });
   return doc ? toInterface(doc) : null;
 }
+
+export async function getLicensesByKeys(
+  keys: string[],
+): Promise<LicenseInterface[]> {
+  if (!keys.length) return [];
+  const docs = await LicenseModel.find({ id: { $in: keys } });
+  return docs.map(toInterface);
+}
+
+// Keys issued before 12/2022 have no organizationId, so they're never matched
+export async function _dangerousGetOrgIdsByLicensePlans(
+  plans: string[],
+): Promise<string[]> {
+  return LicenseModel.distinct("organizationId", {
+    plan: { $in: plans },
+    archived: { $ne: true },
+  });
+}
+
+export async function _dangerousGetOrgIdsBySubscriptionStatus(
+  status: "trialing" | "past_due" | "canceled",
+): Promise<string[]> {
+  // Same precedence as getSubscriptionFromLicense: Orb first, then Stripe
+  const subscriptionMatches = [
+    {
+      "orbSubscription.id": { $nin: [null, ""] },
+      "orbSubscription.status": status,
+    },
+    {
+      "orbSubscription.id": { $in: [null, ""] },
+      "stripeSubscription.id": { $nin: [null, ""] },
+      "stripeSubscription.status": status,
+    },
+  ];
+  return LicenseModel.distinct("organizationId", {
+    archived: { $ne: true },
+    $or:
+      status === "trialing"
+        ? [...subscriptionMatches, { isTrial: true }]
+        : subscriptionMatches,
+  });
+}
