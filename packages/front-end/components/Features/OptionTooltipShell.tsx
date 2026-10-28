@@ -141,7 +141,9 @@ export function OptionPopover({
             position: "relative",
             display: isValue ? "flex" : "block",
             alignItems: isValue ? "center" : undefined,
-            minWidth: isValue ? undefined : 80,
+            // A value fills the select so its label can shrink to fit
+            width: isValue ? "100%" : undefined,
+            minWidth: isValue ? 0 : 80,
             maxWidth: 400,
           }}
         >
@@ -156,13 +158,15 @@ export function OptionPopover({
 export function OptionLabel({
   label,
   style,
+  maxWidth = OPTION_LABEL_MAX_WIDTH,
 }: {
   label: string;
   style?: React.CSSProperties;
+  maxWidth?: number | string;
 }) {
   return (
     <Text size="md">
-      <OverflowText maxWidth={OPTION_LABEL_MAX_WIDTH} style={style}>
+      <OverflowText maxWidth={maxWidth} style={style}>
         {label}
       </OverflowText>
     </Text>
