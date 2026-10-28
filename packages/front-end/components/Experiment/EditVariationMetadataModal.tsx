@@ -21,7 +21,6 @@ interface Props {
   close: () => void;
   // Hands the edited variations to the page, which saves them with the rest.
   stage: (variations: Variation[]) => void;
-  mutate: () => void;
   source?: string;
 }
 
@@ -30,7 +29,6 @@ const EditVariationMetadataModal: FC<Props> = ({
   variationIndex,
   close,
   stage,
-  mutate,
   source,
 }) => {
   const variations = getStorableVariations(experiment);
@@ -42,8 +40,6 @@ const EditVariationMetadataModal: FC<Props> = ({
       description: variation?.description ?? "",
     },
   });
-  // Uploads write straight through; order and removals are staged with the
-  // rest of the variation.
   const [screenshots, setScreenshots] = useState(variation?.screenshots ?? []);
 
   if (!variation) return null;
@@ -93,7 +89,6 @@ const EditVariationMetadataModal: FC<Props> = ({
             variationIndex={variationIndex}
             screenshots={screenshots}
             setScreenshots={setScreenshots}
-            mutate={mutate}
           />
         </Flex>
         {/* Balances the badge's gutter so the fields stay centred. */}

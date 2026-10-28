@@ -1,5 +1,6 @@
 import {
   ExperimentInterfaceStringDates,
+  Screenshot,
   Variation,
 } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
@@ -20,7 +21,6 @@ import VariationLabel from "@/ui/VariationLabel";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
-import { useScreenshotUploadBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import styles from "./VariationsTable.module.scss";
 
 // A small marker, so an empty variation doesn't reserve screenshot-sized space.
@@ -51,20 +51,13 @@ const ScreenshotCarousel: FC<{
   shareUid,
   shareType = "experiment",
 }) => {
-  const [allowClick, setAllowClick] = useState(true);
-  const hasErrorRef = useRef(false);
+  // Only an image that failed to load stays out of the lightbox; the rest of
+  // its carousel still opens it.
+  const failedPaths = useRef(new Set<string>());
 
   const handleError = useCallback(
-    (msg: string) => {
-      // Only update state if we haven't already set the error
-      if (!hasErrorRef.current) {
-        hasErrorRef.current = true;
-        // Use setTimeout to defer the state update to avoid setState during render
-        setTimeout(() => {
-          setAllowClick(false);
-        }, 0);
-      }
-
+    (path: string, msg: string) => {
+      failedPaths.current.add(path);
       return (
         <Flex
           title={msg}
@@ -91,9 +84,8 @@ const ScreenshotCarousel: FC<{
   return (
     <Carousel
       onClick={(i) => {
-        if (allowClick && onClick) {
-          onClick(i);
-        }
+        const path = variation.screenshots[i]?.path;
+        if (onClick && path && !failedPaths.current.has(path)) onClick(i);
       }}
       maxChildHeight={maxChildHeight}
     >
@@ -108,7 +100,7 @@ const ScreenshotCarousel: FC<{
             height: "100%",
             objectFit: "contain",
           }}
-          onErrorMsg={handleError}
+          onErrorMsg={(msg) => handleError(s.path, msg)}
           isPublic={isPublic}
           shareUid={shareUid}
           shareType={shareType}
@@ -132,19 +124,13 @@ interface Props {
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
+  /** Takes an upload as a staged change instead of saving it. */
+  stageScreenshot?: (variationIndex: number, screenshot: Screenshot) => void;
   // When true, the cards fill the grid's own width, wrapping as it narrows.
   fill?: boolean;
 }
 
-function NoImageBox({
-  canEdit,
-  blockedReason = null,
-}: {
-  canEdit?: boolean;
-  /** Why an upload has to wait, shown on a disabled placeholder. */
-  blockedReason?: string | null;
-}) {
-  const blocked = !!canEdit && !!blockedReason;
+function NoImageBox({ canEdit }: { canEdit?: boolean }) {
   const box = (
     <Flex
       align="center"
@@ -152,7 +138,7 @@ function NoImageBox({
       className={clsx(
         "appbox mb-0",
         styles.noImageBox,
-        canEdit && !blocked && styles.noImageBoxEditable,
+        canEdit && styles.noImageBoxEditable,
       )}
       flexShrink="0"
       style={{
@@ -161,9 +147,7 @@ function NoImageBox({
         height: NO_IMAGE_SIZE + "px",
         color: "var(--slate-8)",
         border: "none",
-        cursor: blocked ? "not-allowed" : undefined,
       }}
-      aria-disabled={blocked || undefined}
     >
       {canEdit ? (
         <PiCameraPlusLight size="26px" />
@@ -174,7 +158,7 @@ function NoImageBox({
   );
 
   return canEdit ? (
-    <Tooltip content={blockedReason ?? "Upload image"} side="top">
+    <Tooltip content="Upload image" side="top">
       {box}
     </Tooltip>
   ) : (
@@ -201,6 +185,7 @@ export function VariationBox({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
+  stageScreenshot,
 }: {
   i: number;
   v: Variation;
@@ -220,9 +205,9 @@ export function VariationBox({
   shareUid?: string;
   shareType?: "experiment" | "report";
   onEditMetadata?: (variationIndex: number) => void;
+  stageScreenshot?: (variationIndex: number, screenshot: Screenshot) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
-  const uploadBlocked = useScreenshotUploadBlockedReason();
   const isBandit = experiment.type === "multi-armed-bandit";
   const shouldShowSplit = showSplit ?? !isBandit;
 
@@ -297,17 +282,18 @@ export function VariationBox({
                 {/* The upload wrapper is the flex item, so it holds the width. */}
                 <Box flexShrink="0" width={NO_IMAGE_SIZE + "px"}>
                   {canEdit && !blockFileUploads ? (
-                    uploadBlocked ? (
-                      <NoImageBox canEdit blockedReason={uploadBlocked} />
-                    ) : (
-                      <ScreenshotUpload
-                        variation={i}
-                        experiment={experiment.id}
-                        onSuccess={() => mutate?.()}
-                      >
-                        <NoImageBox canEdit />
-                      </ScreenshotUpload>
-                    )
+                    <ScreenshotUpload
+                      variation={i}
+                      experiment={experiment.id}
+                      attach={!stageScreenshot}
+                      onSuccess={(index, screenshot) =>
+                        stageScreenshot
+                          ? stageScreenshot(index, screenshot)
+                          : mutate?.()
+                      }
+                    >
+                      <NoImageBox canEdit />
+                    </ScreenshotUpload>
                   ) : (
                     <NoImageBox canEdit={false} />
                   )}
@@ -354,6 +340,7 @@ const VariationsTable: FC<Props> = ({
   shareUid,
   shareType = "experiment",
   onEditMetadata,
+  stageScreenshot,
   fill = false,
 }) => {
   const variations = getLatestPhaseVariations(experiment);
@@ -414,6 +401,7 @@ const VariationsTable: FC<Props> = ({
                 shareUid={shareUid}
                 shareType={shareType}
                 onEditMetadata={onEditMetadata}
+                stageScreenshot={stageScreenshot}
                 showNoImage={
                   experiment.status === "draft" ||
                   canEditExperiment ||

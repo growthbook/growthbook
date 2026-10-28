@@ -26,7 +26,6 @@ import Tooltip from "@/ui/Tooltip";
 import ExperimentCarouselModal from "@/components/Experiment/ExperimentCarouselModal";
 import placeholderStyles from "@/components/Experiment/VariationsTable.module.scss";
 import useSortableItem from "@/hooks/useSortableItem";
-import { useScreenshotUploadBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import styles from "./VariationScreenshotManager.module.scss";
 
 const TILE_ASPECT = "1 / 1";
@@ -34,31 +33,23 @@ const TILE_ASPECT = "1 / 1";
 // Shared so a reorder doesn't re-request every signed URL.
 const imageCache = {};
 
-// An element, not a component, so a tooltip can use it as its trigger.
-function uploadTile(blocked: boolean) {
-  return (
-    <Flex
-      align="center"
-      justify="center"
-      width="100%"
-      className={clsx(
-        "appbox mb-0",
-        styles.uploadTile,
-        placeholderStyles.noImageBox,
-        !blocked && placeholderStyles.noImageBoxEditable,
-      )}
-      style={{
-        aspectRatio: TILE_ASPECT,
-        border: "none",
-        cursor: blocked ? "not-allowed" : undefined,
-      }}
-      aria-disabled={blocked || undefined}
-    >
-      <PiCameraPlusLight size={32} />
-      {blocked ? null : <span className={styles.uploadHint}>Upload image</span>}
-    </Flex>
-  );
-}
+const uploadTile = (
+  <Flex
+    align="center"
+    justify="center"
+    width="100%"
+    className={clsx(
+      "appbox mb-0",
+      styles.uploadTile,
+      placeholderStyles.noImageBox,
+      placeholderStyles.noImageBoxEditable,
+    )}
+    style={{ aspectRatio: TILE_ASPECT, border: "none" }}
+  >
+    <PiCameraPlusLight size={32} />
+    <span className={styles.uploadHint}>Upload image</span>
+  </Flex>
+);
 
 function ScreenshotTile({
   screenshot,
@@ -126,22 +117,19 @@ function ScreenshotTile({
   );
 }
 
-// Uploads land immediately; order and removals ride along with the form's save.
-// So cancelling won't undo an upload, and a removed file stays in storage.
+// Uploads, order and removals all ride along with the form's save, so
+// cancelling drops an upload; its file, like a removed one, stays in storage.
 export default function VariationScreenshotManager({
   experiment,
   variationIndex,
   screenshots,
   setScreenshots,
-  mutate,
 }: {
   experiment: ExperimentInterfaceStringDates;
   variationIndex: number;
   screenshots: Screenshot[];
   // Updaters, since a multi-file drop adds them one at a time.
   setScreenshots: Dispatch<SetStateAction<Screenshot[]>>;
-  // The upload is already saved; the page's copy has to catch up before its save.
-  mutate: () => void;
 }) {
   // The tile is its own drag handle, so a click needs movement to become a drag.
   const sensors = useSensors(
@@ -164,7 +152,6 @@ export default function VariationScreenshotManager({
     [experiment, variationIndex, screenshots],
   );
   const [lightbox, setLightbox] = useState<number | null>(null);
-  const uploadBlocked = useScreenshotUploadBlockedReason();
 
   return (
     <Box>
@@ -187,25 +174,19 @@ export default function VariationScreenshotManager({
           strategy={rectSortingStrategy}
         >
           <Grid columns="4" gap="4">
-            {uploadBlocked ? (
-              <Tooltip content={uploadBlocked} side="top">
-                {uploadTile(true)}
-              </Tooltip>
-            ) : (
-              <ScreenshotUpload
-                experiment={experiment.id}
-                variation={variationIndex}
-                className={styles.gridUpload}
-                messageClassName={styles.gridUploadMessage}
-                message="Drop image here"
-                onSuccess={(_, screenshot) => {
-                  setScreenshots((prev) => [...prev, screenshot]);
-                  mutate();
-                }}
-              >
-                {uploadTile(false)}
-              </ScreenshotUpload>
-            )}
+            <ScreenshotUpload
+              experiment={experiment.id}
+              variation={variationIndex}
+              className={styles.gridUpload}
+              messageClassName={styles.gridUploadMessage}
+              message="Drop image here"
+              attach={false}
+              onSuccess={(_, screenshot) =>
+                setScreenshots((prev) => [...prev, screenshot])
+              }
+            >
+              {uploadTile}
+            </ScreenshotUpload>
             {screenshots.map((s, i) => (
               <ScreenshotTile
                 key={s.path}

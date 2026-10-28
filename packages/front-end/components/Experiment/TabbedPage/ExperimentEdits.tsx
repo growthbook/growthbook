@@ -800,13 +800,6 @@ export function useEditsBlockedReason(): string | null {
 
 // An upload writes to the stored variation at an index staged variation edits
 // may have moved, and saving them would drop it.
-export function useScreenshotUploadBlockedReason(): string | null {
-  const [stagedVariations] = useStagedState<unknown>("variations", null);
-  return stagedVariations
-    ? "Save or discard your variation changes first."
-    : null;
-}
-
 /** An id to join, "" to leave, or null for none staged. */
 export interface HoldoutDraft {
   value: string | null;

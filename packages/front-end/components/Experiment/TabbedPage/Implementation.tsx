@@ -21,6 +21,7 @@ import {
 import {
   getActivePhaseIndex,
   getLatestPhaseVariations,
+  getStorableVariations,
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import UrlRedirectColumn from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
@@ -444,7 +445,6 @@ export default function Implementation({
           variationIndex={editMetadataIndex}
           close={() => setEditMetadataIndex(null)}
           stage={setVariationsDraft}
-          mutate={mutate}
           source="implementation-tab"
         />
       )}
@@ -516,6 +516,15 @@ export default function Implementation({
                 experiment={stagedExperiment}
                 canEditExperiment={canEdit}
                 onEditMetadata={setEditMetadataIndex}
+                stageScreenshot={(index, screenshot) =>
+                  setVariationsDraft((prev) =>
+                    (prev ?? getStorableVariations(experiment)).map((v, i) =>
+                      i === index
+                        ? { ...v, screenshots: [...v.screenshots, screenshot] }
+                        : v,
+                    ),
+                  )
+                }
                 mutate={mutate}
                 showSplit={false}
                 noMargin

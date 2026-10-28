@@ -24,6 +24,8 @@ type props = {
   messageClassName?: string;
   // Short by default: the variation card's drop target is tiny.
   message?: ReactNode;
+  // False only stores the file, leaving `onSuccess` to stage it.
+  attach?: boolean;
 };
 
 const ScreenshotUpload = ({
@@ -34,6 +36,7 @@ const ScreenshotUpload = ({
   className,
   messageClassName,
   message = "Drop",
+  attach = true,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
@@ -71,17 +74,19 @@ const ScreenshotUpload = ({
       try {
         const { fileURL } = await uploadFile(apiCall, file);
 
-        await apiCall(
-          `/experiment/${experiment}/variation/${variation}/screenshot`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              url: fileURL,
-              // TODO: allow customizing description
-              description: "",
-            }),
-          },
-        );
+        if (attach) {
+          await apiCall(
+            `/experiment/${experiment}/variation/${variation}/screenshot`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                url: fileURL,
+                // TODO: allow customizing description
+                description: "",
+              }),
+            },
+          );
+        }
 
         onSuccess(variation, {
           path: fileURL,
