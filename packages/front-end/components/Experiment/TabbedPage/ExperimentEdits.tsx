@@ -293,6 +293,10 @@ export function ExperimentEditsProvider({
   const [saving, setSaving] = useState(false);
   // Read by discards, which mid-save would drop a value the save still writes.
   const savingNow = useRef(false);
+  // Discarding everything mid-save, as leaving does, waits for the save: what
+  // it saved stays saved, and the rest goes. Kept as the edits were asked for,
+  // since the page may be gone by then.
+  const discardAfterSave = useRef<PendingEdit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
@@ -427,6 +431,9 @@ export function ExperimentEditsProvider({
       if (rebaseOnRender.current.length) setRefetched((n) => n + 1);
       savingNow.current = false;
       setSaving(false);
+      const deferred = discardAfterSave.current;
+      discardAfterSave.current = null;
+      deferred?.forEach((edit) => edit.discard());
     }
   }, [postChanges, mutate]);
 
@@ -444,7 +451,10 @@ export function ExperimentEditsProvider({
   }, []);
 
   const discardAll = useCallback(() => {
-    if (savingNow.current) return;
+    if (savingNow.current) {
+      discardAfterSave.current = [...edits.current.values()];
+      return;
+    }
     [...edits.current.values()].forEach((edit) => edit.discard());
     setError(null);
     setConflicts([]);
