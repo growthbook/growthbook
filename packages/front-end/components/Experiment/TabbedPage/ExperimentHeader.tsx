@@ -498,6 +498,47 @@ export default function ExperimentHeader({
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate = armedStartDate(experiment);
   const everyDate = allDates(experiment);
+  const everyDateList = (
+    <Flex direction="column" gap="1">
+      {everyDate.map(({ label, value }) => (
+        <span key={label}>
+          <Text size="inherit" weight="semibold">
+            {label}:
+          </Text>{" "}
+          {value}
+        </span>
+      ))}
+    </Flex>
+  );
+  // Breaks only between dates, never inside one. The rest of its dates are in
+  // the tooltip, when it has any.
+  const datesLine = (
+    <UITooltip enabled={everyDate.length > 1} content={everyDateList}>
+      <span
+        tabIndex={everyDate.length > 1 ? 0 : undefined}
+        style={{ textAlign: "right" }}
+      >
+        <Text color="text-mid">
+          {headerDates(experiment, new Date()).map(({ label, value }, i) => (
+            <Fragment key={label}>
+              {i > 0 ? " · " : null}
+              <Text size="inherit" whiteSpace="nowrap">
+                <Text
+                  size="inherit"
+                  weight="semibold"
+                  color="text-high"
+                  whiteSpace="nowrap"
+                >
+                  {label}:
+                </Text>{" "}
+                {value}
+              </Text>
+            </Fragment>
+          ))}
+        </Text>
+      </span>
+    </UITooltip>
+  );
   const startGate = useStartGate({
     experiment,
     linkedFeatures,
@@ -1028,49 +1069,8 @@ export default function ExperimentHeader({
                   </div>
                 )}
               </Flex>
-              {/* Breaks only between dates, never inside one. The rest of its
-                  dates are in the tooltip, when it has any. */}
-              <UITooltip
-                enabled={everyDate.length > 1}
-                content={
-                  <Flex direction="column" gap="1">
-                    {everyDate.map(({ label, value }) => (
-                      <span key={label}>
-                        <Text size="inherit" weight="semibold">
-                          {label}:
-                        </Text>{" "}
-                        {value}
-                      </span>
-                    ))}
-                  </Flex>
-                }
-              >
-                <span
-                  tabIndex={everyDate.length > 1 ? 0 : undefined}
-                  style={{ textAlign: "right" }}
-                >
-                  <Text color="text-mid">
-                    {headerDates(experiment, new Date()).map(
-                      ({ label, value }, i) => (
-                        <Fragment key={label}>
-                          {i > 0 ? " · " : null}
-                          <Text size="inherit" whiteSpace="nowrap">
-                            <Text
-                              size="inherit"
-                              weight="semibold"
-                              color="text-high"
-                              whiteSpace="nowrap"
-                            >
-                              {label}:
-                            </Text>{" "}
-                            {value}
-                          </Text>
-                        </Fragment>
-                      ),
-                    )}
-                  </Text>
-                </span>
-              </UITooltip>
+              {/* Without the tab row, the dates sit under the actions. */}
+              {showDashboardView ? datesLine : null}
             </Flex>
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
@@ -1417,22 +1417,22 @@ export default function ExperimentHeader({
                           ) : null}
                         </TabsTrigger>
                       )}
+                      <div className="flex-1" />
+                      {/* One date item at a time: the phases, or the dates. */}
                       {hasMultiplePhases ? (
-                        <>
-                          <div className="flex-1" />
-                          <Text size="md">
-                            <PhaseSelector
-                              phase={phase}
-                              phases={experiment.phases}
-                              isBandit={
-                                experiment.type === "multi-armed-bandit"
-                              }
-                              isHoldout={experiment.type === "holdout"}
-                              holdout={holdout}
-                            />
-                          </Text>
-                        </>
-                      ) : null}
+                        <Text size="md">
+                          <PhaseSelector
+                            phase={phase}
+                            phases={experiment.phases}
+                            isBandit={experiment.type === "multi-armed-bandit"}
+                            isHoldout={experiment.type === "holdout"}
+                            holdout={holdout}
+                            details={everyDateList}
+                          />
+                        </Text>
+                      ) : (
+                        datesLine
+                      )}
                     </Flex>
                   </TabsList>
                 </Tabs>

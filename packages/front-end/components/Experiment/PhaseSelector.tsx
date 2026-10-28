@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { date } from "shared/dates";
 import { parseIntWithDefault } from "shared/util";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
@@ -14,6 +15,8 @@ export interface Props {
   isBandit?: boolean;
   isHoldout?: boolean;
   holdout?: HoldoutInterfaceStringDates;
+  // More for the selected phase's tooltip.
+  details?: ReactNode;
 }
 
 export default function PhaseSelector({
@@ -22,6 +25,7 @@ export default function PhaseSelector({
   isBandit,
   isHoldout,
   holdout,
+  details,
 }: Props) {
   const {
     phase: snapshotPhase,
@@ -57,6 +61,7 @@ export default function PhaseSelector({
               {!isHoldout && (
                 <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
               )}
+              {details ? <div className="mt-2">{details}</div> : null}
             </>
           }
           shouldDisplay={!isBandit}
