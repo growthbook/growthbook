@@ -1,4 +1,5 @@
 import {
+  Attributes,
   EvalContext,
   ContextualBanditDefinition,
   FeatureDefinition,
@@ -51,6 +52,7 @@ import {
   hasOwn,
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
+import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
 
 export const EVENT_FEATURE_EVALUATED = "Feature Evaluated";
 export const EVENT_EXPERIMENT_VIEWED = "Experiment Viewed";
@@ -878,10 +880,13 @@ function getFeatureResult<T>(
   return ret;
 }
 
-function getAttributes(user: UserContext) {
+function getAttributes(user: UserContext): Attributes {
   return {
     ...user.attributes,
     ...user.attributeOverrides,
+    ...(user.remoteGroupIds && {
+      [REMOTE_GROUP_IDS_ATTRIBUTE]: user.remoteGroupIds,
+    }),
   };
 }
 

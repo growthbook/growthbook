@@ -1,4 +1,5 @@
 import { useState, FC, useCallback, useEffect } from "react";
+import isEqual from "lodash/isEqual";
 import {
   OrganizationInterface,
   OrganizationMessage,
@@ -10,7 +11,9 @@ import {
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import Modal from "@/components/Modal";
 import { isCloud } from "@/services/env";
 import Checkbox from "@/ui/Checkbox";
@@ -40,11 +43,23 @@ const EditOrganization: FC<{
   disablable: boolean;
   currentOrg: OrganizationInterface;
 }> = ({ onEdit, close, id, disablable = true, currentOrg }) => {
+  const { superAdmin, userId } = useUser();
+  // Only changed fields are sent, so disabling the rest is enough
+  const canMetadata = hasSuperAdminPermission(superAdmin, "metadata");
+  const canBilling = hasSuperAdminPermission(superAdmin, "billing");
+  const canSuspend = hasSuperAdminPermission(superAdmin, "suspend");
+  const canMessages = hasSuperAdminPermission(superAdmin, "messages");
+  const canSso = hasSuperAdminPermission(superAdmin, "sso");
+  // Event forwarder actions run inside the org, so they also need a way in
+  const canProvision =
+    hasSuperAdminPermission(superAdmin, "provision") &&
+    (hasSuperAdminPermission(superAdmin, "impersonate") ||
+      currentOrg.members.some((m) => m.id === userId));
   const [name, setName] = useState(currentOrg.name);
   const [owner, setOwner] = useState(currentOrg.ownerEmail);
   const [externalId, setExternalId] = useState(currentOrg.externalId || "");
   const [licenseKey, setLicenseKey] = useState(currentOrg.licenseKey || "");
-  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats || 3);
+  const [freeSeats, setFreeSeats] = useState(currentOrg.freeSeats ?? 3);
   const [legacyEnterprise, setLegacyEnterprise] = useState(
     currentOrg.enterprise || false,
   );
@@ -67,12 +82,29 @@ const EditOrganization: FC<{
   const [eventForwarders, setEventForwarders] = useState<EventForwarderRow[]>(
     [],
   );
-  const [eventForwardersLoading, setEventForwardersLoading] = useState(true);
+  const [eventForwardersLoading, setEventForwardersLoading] =
+    useState(canProvision);
   const [eventForwardersError, setEventForwardersError] = useState("");
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
   const [deletingEventForwarderId, setDeletingEventForwarderId] = useState<
     string | null
   >(null);
+
+  const values = {
+    name,
+    externalId,
+    licenseKey,
+    ownerEmail: owner,
+    verifiedDomain,
+    autoApproveMembers,
+    enterprise: legacyEnterprise,
+    freeSeats,
+    disableSelfServeBilling,
+    suspended,
+    messages: messages.map(({ id: _id, ...m }) => m),
+  };
+  // Snapshot from the first render, to diff against on submit
+  const [initialValues] = useState(values);
 
   const { apiCall } = useAuth();
 
@@ -105,29 +137,23 @@ const EditOrganization: FC<{
   }, [apiCall, id]);
 
   useEffect(() => {
-    refreshEventForwarders();
-  }, [refreshEventForwarders]);
+    if (canProvision) refreshEventForwarders();
+  }, [refreshEventForwarders, canProvision]);
 
   const handleSubmit = async () => {
+    // Send only what this admin changed, so a stale value for a field they
+    // didn't touch can't overwrite another admin's edit or fail a permission check
+    const changes = Object.fromEntries(
+      Object.entries(values).filter(
+        ([k, v]) => !isEqual(v, initialValues[k as keyof typeof values]),
+      ),
+    );
     await apiCall<{
       status: number;
       message?: string;
     }>("/admin/organization", {
       method: "PUT",
-      body: JSON.stringify({
-        orgId: id,
-        name,
-        externalId,
-        licenseKey,
-        ownerEmail: owner,
-        verifiedDomain,
-        autoApproveMembers,
-        enterprise: legacyEnterprise,
-        freeSeats,
-        disableSelfServeBilling,
-        suspended,
-        messages: messages.map(({ id: _id, ...m }) => m),
-      }),
+      body: JSON.stringify({ orgId: id, ...changes }),
     });
     onEdit();
   };
@@ -201,7 +227,7 @@ const EditOrganization: FC<{
       close={close}
       inline={!close}
       secondaryCTA={
-        disablable ? (
+        disablable && canSuspend ? (
           <div className="flex-grow-1">
             {currentOrg.disabled ? (
               <button
@@ -258,6 +284,7 @@ const EditOrganization: FC<{
           value={name}
           required
           minLength={3}
+          disabled={!canMetadata}
           onChange={(e) => setName(e.target.value)}
         />
         {isCloud() ? (
@@ -267,6 +294,7 @@ const EditOrganization: FC<{
               type="text"
               className="form-control"
               value={licenseKey}
+              disabled={!canBilling}
               onChange={(e) => setLicenseKey(e.target.value)}
             />
           </div>
@@ -277,6 +305,7 @@ const EditOrganization: FC<{
               type="text"
               className="form-control"
               value={externalId}
+              disabled={!canMetadata}
               minLength={3}
               onChange={(e) => setExternalId(e.target.value)}
             />
@@ -293,6 +322,7 @@ const EditOrganization: FC<{
             className="form-control"
             value={owner}
             required
+            disabled={!canMetadata}
             onChange={(e) => setOwner(e.target.value)}
           />
         </div>
@@ -302,6 +332,7 @@ const EditOrganization: FC<{
             type="text"
             className="form-control"
             value={verifiedDomain}
+            disabled={!canSso}
             onChange={(e) => setVerifiedDomain(e.target.value)}
           />
           <span className="text-muted small">
@@ -315,6 +346,7 @@ const EditOrganization: FC<{
             label="Auto approve members with email domain"
             value={autoApproveMembers}
             setValue={setAutoApproveMembers}
+            disabled={!canSso}
           />
         </div>
         {isCloud() ? (
@@ -325,7 +357,7 @@ const EditOrganization: FC<{
                 label="Suspend organization"
                 value={suspended}
                 setValue={setSuspended}
-                disabled={!disablable}
+                disabled={!disablable || !canSuspend}
                 disabledMessage="You cannot suspend the organization you are currently logged into."
               />
               <div>
@@ -342,6 +374,7 @@ const EditOrganization: FC<{
                 min={0}
                 className="form-control"
                 value={freeSeats}
+                disabled={!canBilling}
                 onChange={(e) => setFreeSeats(parseInt(e.target.value))}
               />
               <div>
@@ -357,6 +390,7 @@ const EditOrganization: FC<{
                 label="Disable self-serve billing"
                 value={disableSelfServeBilling}
                 setValue={setDisableSelfServeBilling}
+                disabled={!canBilling}
               />
               <div>
                 <span className="text-muted small">
@@ -381,6 +415,7 @@ const EditOrganization: FC<{
                   label="Enable Enterprise"
                   value={legacyEnterprise}
                   setValue={setLegacyEnterprise}
+                  disabled={!canBilling}
                 />
                 <div>
                   <span className="text-muted small">
@@ -400,6 +435,7 @@ const EditOrganization: FC<{
                   size="sm"
                   icon={<PiPlus />}
                   onClick={addMessage}
+                  disabled={!canMessages}
                 >
                   Add message
                 </Button>
@@ -419,6 +455,7 @@ const EditOrganization: FC<{
                     className="form-control form-control-sm flex-grow-1"
                     placeholder="Message text (Markdown supported)"
                     value={msg.message}
+                    disabled={!canMessages}
                     onChange={(e) =>
                       updateMessage(msg.id, "message", e.target.value)
                     }
@@ -427,6 +464,7 @@ const EditOrganization: FC<{
                     className="form-control form-control-sm"
                     style={{ width: 110, flexShrink: 0 }}
                     value={msg.level}
+                    disabled={!canMessages}
                     onChange={(e) =>
                       updateMessage(
                         msg.id,
@@ -444,6 +482,7 @@ const EditOrganization: FC<{
                     className="btn btn-sm btn-outline-danger"
                     style={{ flexShrink: 0 }}
                     onClick={() => removeMessage(msg.id)}
+                    disabled={!canMessages}
                   >
                     &times;
                   </button>

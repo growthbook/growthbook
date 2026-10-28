@@ -18,6 +18,18 @@ import Collapsible from "react-collapsible";
 import { LicenseInterface } from "shared/enterprise";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
+import { UserInterface } from "shared/types/user";
+import {
+  SUPER_ADMIN_PERMISSIONS,
+  SuperAdmin,
+  SuperAdminPermission,
+} from "shared/validators";
+import {
+  canChangeSuperAdmin,
+  hasSuperAdminPermission,
+  holdsAllSuperAdminPermissions,
+  normalizeSuperAdmin,
+} from "shared/permissions";
 import { useForm } from "react-hook-form";
 import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
 import Field from "@/components/Forms/Field";
@@ -57,7 +69,29 @@ interface memberOrgProps {
   members: number;
   role: string;
 }
+type AdminMember = ExpandedMember & Pick<UserInterface, "superAdmin">;
+
 const numberFormatter = new Intl.NumberFormat();
+
+const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
+  view: "View the admin page",
+  impersonate: "Impersonate organizations",
+  sso: "Manage SSO and email domain auto-join",
+  billing: "Manage license keys and billing",
+  messages: "Manage organization messages",
+  provision: "Provision Managed Warehouses and event forwarders",
+  metadata: "Edit organization details",
+  suspend: "Suspend and disable organizations",
+  create: "Create organizations",
+  users: "Edit user names and verified status",
+  grant: "Grant super admin access",
+};
+
+function formatSuperAdmin(superAdmin: SuperAdmin | undefined) {
+  const normalized = normalizeSuperAdmin(superAdmin);
+  if (normalized === true) return "Full access";
+  return normalized ? normalized.join(", ") : "-";
+}
 
 function OrganizationRow({
   organization,
@@ -87,6 +121,7 @@ function OrganizationRow({
   const { settings, members, ...otherAttributes } = organization;
   const [license, setLicense] = useState<LicenseInterface | null>(null);
   const [licenseLoading, setLicenseLoading] = useState(false);
+  const [licenseError, setLicenseError] = useState("");
   const { apiCall } = useAuth();
   const [clickhouseModalOpen, setClickhouseModalOpen] = useState(false);
   const [clickhouseRegion, setClickhouseRegion] =
@@ -96,25 +131,32 @@ function OrganizationRow({
     datasources.find((ds) => ds.type === "growthbook_clickhouse")?.id || null,
   );
   const [editSSOOpen, setEditSSOOpen] = useState(false);
+  const { superAdmin, userId } = useUser();
+  const canImpersonate = hasSuperAdminPermission(superAdmin, "impersonate");
+  // Warehouse actions run inside the org, so they also need a way in
+  const canProvision =
+    hasSuperAdminPermission(superAdmin, "provision") &&
+    (canImpersonate || members.some((m) => m.id === userId));
+  const canEditOrg = (
+    ["metadata", "billing", "suspend", "messages", "provision", "sso"] as const
+  ).some((p) => hasSuperAdminPermission(superAdmin, p));
 
   useEffect(() => {
     if (isCloud() && expanded && !license) {
       const fetchLicense = async () => {
         setLicenseLoading(true);
-        const res = await apiCall<{
-          status: number;
-          licenseData: LicenseInterface;
-        }>(`/license`, {
-          method: "GET",
-          headers: { "X-Organization": organization.id },
-        });
-
-        setLicenseLoading(false);
-        if (res.status !== 200) {
-          throw new Error("There was an error fetching the license");
+        setLicenseError("");
+        try {
+          const res = await apiCall<{
+            status: number;
+            license: LicenseInterface | null;
+          }>(`/admin/organization/${organization.id}/license`);
+          setLicense(res.license);
+        } catch (e) {
+          setLicenseError(e.message);
+        } finally {
+          setLicenseLoading(false);
         }
-
-        setLicense(res.licenseData);
       };
 
       fetchLicense();
@@ -210,9 +252,13 @@ function OrganizationRow({
         })}
       >
         <td>
-          <Link onClick={() => switchTo(organization)}>
-            {organization.name}
-          </Link>
+          {canImpersonate ? (
+            <Link onClick={() => switchTo(organization)}>
+              {organization.name}
+            </Link>
+          ) : (
+            <Text>{organization.name}</Text>
+          )}
         </td>
         <td>{organization.ownerEmail}</td>
         <td>{date(organization.dateCreated)}</td>
@@ -231,17 +277,19 @@ function OrganizationRow({
         )}
         <td>{organization.members.length ?? 0}</td>
         <td className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditOrgModalOpen(true);
-            }}
-            style={{ lineHeight: "40px" }}
-          >
-            <PiPencilSimple />
-          </a>
+          {canEditOrg && (
+            <a
+              href="#"
+              className="d-block w-100 h-100"
+              onClick={(e) => {
+                e.preventDefault();
+                setEditOrgModalOpen(true);
+              }}
+              style={{ lineHeight: "40px" }}
+            >
+              <PiPencilSimple />
+            </a>
+          )}
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
@@ -297,7 +345,7 @@ function OrganizationRow({
                       }`
                     : "no"}
                 </div>
-                {isCloud() && (
+                {isCloud() && hasSuperAdminPermission(superAdmin, "sso") && (
                   <div className="col-auto">
                     <a
                       href="#"
@@ -363,7 +411,11 @@ function OrganizationRow({
                   <div className="row">
                     <div className="col-2 text-right">Managed Warehouse</div>
                     <div className="col-auto">
-                      {managedWarehouseId ? (
+                      {!canProvision ? (
+                        <Text weight="semibold">
+                          {managedWarehouseId ? "yes" : "no"}
+                        </Text>
+                      ) : managedWarehouseId ? (
                         <ConfirmButton
                           isDestructive
                           onClick={async () => {
@@ -460,10 +512,14 @@ function OrganizationRow({
                   transitionTime={150}
                 >
                   {licenseLoading && <LoadingSpinner />}
-                  {(license && (
-                    <Code language="json" code={stringify(license)} />
-                  )) ||
-                    "No license found for this organization."}
+                  {licenseError ? (
+                    <Callout status="error">{licenseError}</Callout>
+                  ) : (
+                    (license && (
+                      <Code language="json" code={stringify(license)} />
+                    )) ||
+                    "No license found for this organization."
+                  )}
                 </Collapsible>
               </div>
             )}
@@ -480,13 +536,17 @@ function MemberRow({
   memberOrgs,
   onEdit,
 }: {
-  member: ExpandedMember;
+  member: AdminMember;
   current: boolean;
   memberOrgs: memberOrgProps[];
   onEdit: () => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [editMemberModalOpen, setEditMemberModalOpen] = useState(false);
+  const { superAdmin } = useUser();
+  const canEdit =
+    hasSuperAdminPermission(superAdmin, "users") ||
+    hasSuperAdminPermission(superAdmin, "grant");
 
   return (
     <>
@@ -508,20 +568,25 @@ function MemberRow({
         <td>{member.dateCreated ? date(member.dateCreated) : "-"}</td>
         <td>{member.verified ? "Yes" : "No"}</td>
         <td>
+          <small>{formatSuperAdmin(member.superAdmin)}</small>
+        </td>
+        <td>
           {memberOrgs.length ? memberOrgs.map((mo) => mo.name).join(", ") : "-"}
         </td>
         <td className="p-0 text-center">
-          <a
-            href="#"
-            className="d-block w-100 h-100"
-            onClick={(e) => {
-              e.preventDefault();
-              setEditMemberModalOpen(true);
-            }}
-            style={{ lineHeight: "40px" }}
-          >
-            <PiPencilSimple />
-          </a>
+          {canEdit && (
+            <a
+              href="#"
+              className="d-block w-100 h-100"
+              onClick={(e) => {
+                e.preventDefault();
+                setEditMemberModalOpen(true);
+              }}
+              style={{ lineHeight: "40px" }}
+            >
+              <PiPencilSimple />
+            </a>
+          )}
         </td>
         <td style={{ width: 40 }} className="p-0 text-center">
           <a
@@ -539,7 +604,7 @@ function MemberRow({
       </tr>
       {expanded && (
         <tr>
-          <td colSpan={8} className="bg-light">
+          <td colSpan={9} className="bg-light">
             <div className="mb-3">
               <h4>Organization Info</h4>
               <div className="row">
@@ -580,17 +645,19 @@ const Admin: FC = () => {
 
   const [memberPage, setMemberPage] = useState(1);
   const [memberSearch, setMemberSearch] = useState("");
+  const [superAdminsOnly, setSuperAdminsOnly] = useState(false);
 
   const { orgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
 
   const { license, superAdmin } = useUser();
+  const canView = hasSuperAdminPermission(superAdmin, "view");
   const [orgs, setOrgs] = useState<OrganizationInterface[]>([]);
   const [ssoConnections, setSsoConnections] = useState<
     SSOConnectionInterface[]
   >([]);
   const [datasources, setDatasources] = useState<DataSourceInterface[]>([]);
   const [total, setTotal] = useState(0);
-  const [members, setMembers] = useState<ExpandedMember[]>([]);
+  const [members, setMembers] = useState<AdminMember[]>([]);
   const [memberOrgs, setMemberOrgs] = useState<{
     string?: memberOrgProps[];
   }>({});
@@ -630,16 +697,17 @@ const Admin: FC = () => {
   );
 
   const loadMembers = useCallback(
-    async (page: number, search: string) => {
+    async (page: number, search: string, superAdminsOnly: boolean) => {
       setMemberLoading(true);
       const params = new URLSearchParams();
 
       params.append("page", page + "");
       params.append("search", search);
+      if (superAdminsOnly) params.append("superAdmins", "1");
 
       try {
         const res = await apiCall<{
-          members: ExpandedMember[];
+          members: AdminMember[];
           total: number;
           memberOrgs: { string: memberOrgProps[] };
         }>(`/admin/members?${params.toString()}`);
@@ -648,7 +716,7 @@ const Admin: FC = () => {
         setTotalMembers(res.total);
         setMemberError("");
       } catch (e) {
-        setError(e.message);
+        setMemberError(e.message);
       }
 
       setMemberLoading(false);
@@ -657,16 +725,16 @@ const Admin: FC = () => {
   );
 
   useEffect(() => {
-    if (!superAdmin) return;
+    if (!canView) return;
 
     loadOrgs(page, search);
-    loadMembers(memberPage, memberSearch);
+    loadMembers(memberPage, memberSearch, superAdminsOnly);
     // eslint-disable-next-line
-  }, [superAdmin]);
+  }, [canView]);
 
   const [orgModalOpen, setOrgModalOpen] = useState(false);
 
-  if (!superAdmin) {
+  if (!canView) {
     return (
       <Callout status="error">Only super admins can view this page</Callout>
     );
@@ -740,9 +808,11 @@ const Admin: FC = () => {
                 {total === 1 ? "" : "s"}
               </Text>
             </Flex>
-            <Button icon={<PiPlus />} onClick={() => setOrgModalOpen(true)}>
-              New organization
-            </Button>
+            {hasSuperAdminPermission(superAdmin, "create") && (
+              <Button icon={<PiPlus />} onClick={() => setOrgModalOpen(true)}>
+                New organization
+              </Button>
+            )}
           </Flex>
           {error && <Callout status="error">{error}</Callout>}
           <div className="position-relative">
@@ -811,17 +881,19 @@ const Admin: FC = () => {
               }}
             />
           </div>
-          {!isCloud() && isMultiOrg() && (
-            <div className="divider border-top mt-3">
-              <OrphanedUsersList
-                mutateUsers={() => {
-                  loadOrgs(page, search);
-                }}
-                numUsersInAccount={0}
-                enableAdd={false}
-              />
-            </div>
-          )}
+          {!isCloud() &&
+            isMultiOrg() &&
+            hasSuperAdminPermission(superAdmin, "users") && (
+              <div className="divider border-top mt-3">
+                <OrphanedUsersList
+                  mutateUsers={() => {
+                    loadOrgs(page, search);
+                  }}
+                  numUsersInAccount={0}
+                  enableAdd={false}
+                />
+              </div>
+            )}
         </TabsContent>
 
         <TabsContent value="members">
@@ -830,7 +902,7 @@ const Admin: FC = () => {
               onSubmit={(e) => {
                 e.preventDefault();
                 setMemberPage(1);
-                loadMembers(1, memberSearch);
+                loadMembers(1, memberSearch, superAdminsOnly);
               }}
             >
               <Flex align="center" gap="2">
@@ -849,6 +921,16 @@ const Admin: FC = () => {
                 </Button>
               </Flex>
             </form>
+            <Checkbox
+              id="super-admins-only"
+              label="Super admins only"
+              value={superAdminsOnly}
+              setValue={(v) => {
+                setSuperAdminsOnly(v);
+                setMemberPage(1);
+                loadMembers(1, memberSearch, v);
+              }}
+            />
             <Text color="text-mid">
               {numberFormatter.format(totalMembers)}{" "}
               {memberSearch ? "matching" : ""} member
@@ -869,6 +951,7 @@ const Admin: FC = () => {
                   <th>Id</th>
                   <th>Created</th>
                   <th title="Verified Email">Verified</th>
+                  <th>Super admin</th>
                   <th>Orgs</th>
                   <th style={{ width: 40 }}></th>
                   <th style={{ width: 40 }}></th>
@@ -882,7 +965,7 @@ const Admin: FC = () => {
                     key={m.id}
                     current={m.id === orgId}
                     onEdit={() => {
-                      loadMembers(memberPage, memberSearch);
+                      loadMembers(memberPage, memberSearch, superAdminsOnly);
                     }}
                   />
                 ))}
@@ -894,7 +977,7 @@ const Admin: FC = () => {
               perPage={50}
               onPageChange={(page) => {
                 setMemberPage(page);
-                loadMembers(memberPage, memberSearch);
+                loadMembers(page, memberSearch, superAdminsOnly);
               }}
             />
           </div>
@@ -907,13 +990,30 @@ const Admin: FC = () => {
 const EditMember: FC<{
   onEdit: () => void;
   close?: () => void;
-  member: ExpandedMember;
+  member: AdminMember;
 }> = ({ onEdit, close, member }) => {
   const [verified, setVerified] = useState(member.verified);
   const [name, setName] = useState(member.name);
   const [email, setEmail] = useState(member.email);
+  const [memberSuperAdmin, setMemberSuperAdmin] = useState<SuperAdmin>(
+    normalizeSuperAdmin(member.superAdmin),
+  );
 
   const { apiCall } = useAuth();
+  const { superAdmin, userId } = useUser();
+
+  // Mirrors the server checks in _dangerousAdminPutMember
+  const canEditDetails =
+    hasSuperAdminPermission(superAdmin, "users") &&
+    holdsAllSuperAdminPermissions(superAdmin, member.superAdmin);
+  const canGrant = hasSuperAdminPermission(superAdmin, "grant");
+  const isSelf = member.id === userId;
+  const canSet = (next: SuperAdmin) =>
+    !isSelf && canChangeSuperAdmin(superAdmin, member.superAdmin, next);
+  const selfMessage = isSelf
+    ? "You cannot change your own super admin access"
+    : undefined;
+  const grantedList = Array.isArray(memberSuperAdmin) ? memberSuperAdmin : [];
 
   const handleSubmit = async () => {
     await apiCall<{
@@ -926,6 +1026,7 @@ const EditMember: FC<{
         verified: verified,
         email: email,
         name: name,
+        ...(canGrant && !isSelf ? { superAdmin: memberSuperAdmin } : {}),
       }),
     });
     onEdit();
@@ -949,6 +1050,7 @@ const EditMember: FC<{
           value={name}
           required
           minLength={3}
+          disabled={!canEditDetails}
           onChange={(e) => setName(e.target.value)}
         />
         <div className="mt-3">
@@ -958,6 +1060,7 @@ const EditMember: FC<{
             className="form-control"
             value={email}
             required
+            disabled={superAdmin !== true}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>
@@ -966,9 +1069,58 @@ const EditMember: FC<{
             label="Verified Email"
             id="verified"
             value={verified}
+            disabled={!canEditDetails}
             onChange={(e) => setVerified(e)}
           />
         </div>
+        {canGrant && (
+          <Flex direction="column" gap="3" mt="5">
+            <Text weight="semibold">Super admin access</Text>
+            <Checkbox
+              id="super-admin-full"
+              label="Full access"
+              weight="bold"
+              value={memberSuperAdmin === true}
+              disabled={!canSet(memberSuperAdmin === true ? false : true)}
+              disabledMessage={
+                selfMessage ?? "Only full super admins can change this"
+              }
+              setValue={(v) => setMemberSuperAdmin(v)}
+            />
+            <Flex direction="column" gap="2" pl="5">
+              {SUPER_ADMIN_PERMISSIONS.map((p) => {
+                const next = normalizeSuperAdmin(
+                  grantedList.includes(p)
+                    ? grantedList.filter((g) => g !== p)
+                    : [...grantedList, p],
+                );
+                // View comes with any other permission, so show it as granted
+                const included =
+                  memberSuperAdmin === true ||
+                  (p === "view" && grantedList.some((g) => g !== "view"));
+                return (
+                  <Checkbox
+                    key={p}
+                    id={`super-admin-${p}`}
+                    label={SUPER_ADMIN_PERMISSION_LABELS[p]}
+                    weight="regular"
+                    value={included || grantedList.includes(p)}
+                    disabled={included || !canSet(next)}
+                    disabledMessage={
+                      selfMessage ??
+                      (memberSuperAdmin === true
+                        ? "Included in full access"
+                        : included
+                          ? "Included with any other permission"
+                          : "You don't have permission to change this")
+                    }
+                    setValue={() => setMemberSuperAdmin(next)}
+                  />
+                );
+              })}
+            </Flex>
+          </Flex>
+        )}
       </div>
     </Modal>
   );
@@ -1159,7 +1311,6 @@ function EditSSOModal({
             ...payload,
             enforceSSO: enforceSSO,
           }),
-          headers: { "X-Organization": organizationId },
         });
 
         onSave && onSave();
