@@ -30398,9 +30398,11 @@ paths:
                     Feature Flag ids whose facts the hook receives as
                     `inputFeatureFacts` (at most 10). Not allowed on hooks
                     scoped to one Feature Flag or experiment.
+                  maxItems: 10
                   type: array
                   items:
                     type: string
+                    minLength: 1
               required:
                 - name
                 - hook
@@ -30604,9 +30606,11 @@ paths:
                     Feature Flag ids whose facts the hook receives as
                     `inputFeatureFacts` (at most 10). Send [] to clear the list;
                     omit to leave it unchanged.
+                  maxItems: 10
                   type: array
                   items:
                     type: string
+                    minLength: 1
               additionalProperties: false
       responses:
         '200':

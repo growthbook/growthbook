@@ -26,7 +26,9 @@ function scopeStr(h: Snap): string {
 }
 
 function inputFeaturesStr(h: Snap): string {
-  return h?.inputFeatures?.length ? h.inputFeatures.join(", ") : "—";
+  return h?.inputFeatures?.length
+    ? [...h.inputFeatures].sort().join(", ")
+    : "—";
 }
 
 function ChangeRow({

@@ -124,32 +124,38 @@ In some cases, you should NOT enable this option. For example, a hook that preve
 
 ### Input Feature Flags
 
-An organization-wide, project or config-scoped hook can list up to 10 Feature Flag ids in its `inputFeatures` field (set through the [REST API](/api/#tag/custom-hooks)). Each time the hook runs it gets an extra `inputFeatureFacts` argument with a few facts about each listed Feature Flag, so it can check another Feature Flag, such as a kill switch, without calling the API. Hooks scoped to a single Feature Flag or experiment can't list input Feature Flags.
+An organization-wide, project or config-scoped hook can list up to 10 Feature Flag ids in its `inputFeatures` field (set through the [REST API](/api/#tag/custom-hooks)). Each time the hook runs on a save or publish it gets an extra `inputFeatureFacts` argument with a few facts about each listed Feature Flag, so it can check another Feature Flag, such as a kill switch, without calling the API. The Test panel doesn't pass it (see below). Hooks scoped to a single Feature Flag or experiment can't list input Feature Flags.
 
 ```ts
 inputFeatureFacts: Record<string, {
-  project: string;                // "" when the flag has no project
+  project: string;                // "" when the Feature Flag has no project
   archived: boolean;
   valueType: string;              // "" when not a known type
-  booleanDefault: boolean | null; // null unless a boolean flag's default is "true" or "false"
-  hasPrerequisites: boolean;      // flag-level, or in any environment
+  booleanDefault: boolean | null; // null unless a boolean Feature Flag's default is "true" or "false"
+  hasPrerequisites: boolean;      // Feature Flag-level, or in any environment
   hasConfig: boolean;             // a base config, or a default value that extends a config
   hasHoldout: boolean;
   // One entry per environment in the organization
   environments: Record<string, { enabled: boolean; hasRules: boolean }>;
-} | null>; // null when no flag has that id
+} | null>; // null when no Feature Flag has that id
 ```
 
-A rule counts toward `hasRules` even when it's disabled or scheduled to start later. Facts never include rules, conditions or values, apart from a boolean Feature Flag's default. They're read once per hook batch (each set of hooks that runs together for a change), regardless of who made the change. During a bulk publish, they reflect the other Feature Flags' proposed states from the same publish.
-
-The Test panel doesn't pass `inputFeatureFacts`.
+A rule counts toward `hasRules` even when it's disabled or scheduled to start later. Facts never include rules, conditions or values, apart from a boolean Feature Flag's default. They're read once per hook batch (each set of hooks that runs together for a change), regardless of who made the change. During a bulk publish, they reflect the other Feature Flags' proposed states from the same publish. If a hook lists the Feature Flag it's validating, those facts describe its saved state, not the change being validated; use the hook's own arguments for that.
 
 ```js
-const killSwitch = inputFeatureFacts["checkout-kill-switch"];
+// The Test panel doesn't pass inputFeatureFacts, so guard against it being undefined.
+const killSwitch =
+  typeof inputFeatureFacts !== "undefined"
+    ? inputFeatureFacts["checkout-kill-switch"]
+    : null;
 if (killSwitch && killSwitch.environments.production?.enabled) {
   throw new Error("Checkout changes are frozen while the kill switch is on");
 }
 ```
+
+Disable **Incremental Changes Only** for hooks like this one, whose rejection depends only on input Feature Flag facts. Both runs see the same facts, so with the option on the rejection would be treated as pre-existing and suppressed.
+
+The Test panel and the `POST /custom-hooks/test` endpoint don't pass `inputFeatureFacts`, so a hook that reads it without a `typeof` guard throws a `ReferenceError` there.
 
 To save a hook with input Feature Flags you must be able to read each newly added Feature Flag. Anyone who can edit the hook's code can see these facts about the listed Feature Flags.
 
