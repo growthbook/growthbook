@@ -55,6 +55,7 @@ import styles from "./AppRail.module.scss";
 
 const SearchIcon = withOpticalWeight(PiMagnifyingGlass);
 const SettingsIcon = withOpticalWeight(PiGearSix);
+const UpgradeIcon = withOpticalWeight(PiArrowCircleUp);
 
 // Phosphor's regular lightbulb without the highlight inside the bulb,
 // thickened as withOpticalWeight does.
@@ -983,7 +984,7 @@ export default function AppRail() {
             {showUpgrade ? (
               <RailItem
                 collapsed={contentCollapsed}
-                Icon={PiArrowCircleUp}
+                Icon={UpgradeIcon}
                 label="Upgrade"
                 onClick={() => {
                   // The drawer's Tab trap would pull focus out of the window.
