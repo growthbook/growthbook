@@ -260,11 +260,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/ExperimentGraph.tsx": {
     "no-restricted-syntax": {
       "count": 1
