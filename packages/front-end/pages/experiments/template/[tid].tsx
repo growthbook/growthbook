@@ -73,10 +73,6 @@ const TemplatePage: FC = () => {
       <PageHead
         breadcrumb={[
           {
-            display: "Experiments",
-            href: `/experiments`,
-          },
-          {
             display: "Templates",
             href: `/experiments/templates`,
           },
