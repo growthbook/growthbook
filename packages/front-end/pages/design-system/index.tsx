@@ -23,6 +23,7 @@ import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.sto
 import FieldStories from "@/ui/Field.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
 import TextStories from "@/ui/Text.stories";
+import TruncatedTextStories from "@/ui/TruncatedText.stories";
 import TextFieldStories from "@/ui/TextField.stories";
 import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
@@ -105,6 +106,7 @@ export default function DesignSystemPage() {
     { name: "VariationNumber", Stories: VariationNumberStories },
     { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
+    { name: "TruncatedText", Stories: TruncatedTextStories },
     {
       name: "TextField",
       description:

@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
@@ -26,28 +26,11 @@ import {
   MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
 import useSortableItem from "@/hooks/useSortableItem";
-import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
+import TruncatedText from "@/ui/TruncatedText";
 import FeatureValueField from "./FeatureValueField";
 import { reorderVariations } from "./SortableVariationsList";
 import styles from "./VariationsInput.module.scss";
-
-// Cut off to fit its column, with all of it on hover once it is.
-function TruncatedText({ text }: { text: string }) {
-  const ref = useRef<HTMLElement>(null);
-  const truncated = useIsOverflowingX(ref, true, text);
-  return (
-    <Tooltip content={text} enabled={truncated}>
-      {/* Text keeps only its own props, so the trigger is its box. */}
-      <Box minWidth="0">
-        <Text ref={ref} as="div" truncate>
-          {text}
-        </Text>
-      </Box>
-    </Tooltip>
-  );
-}
 
 // The column template the header row and every variation row share.
 export function gridColumns({

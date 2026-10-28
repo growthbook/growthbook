@@ -534,7 +534,8 @@ export default function ExperimentHeader({
     <UITooltip enabled={everyDate.length > 1} content={everyDateList}>
       <span
         tabIndex={everyDate.length > 1 ? 0 : undefined}
-        style={{ textAlign: "right" }}
+        // Inset, so the box clipping it to one line keeps its focus ring.
+        style={{ textAlign: "right", outlineOffset: -2 }}
       >
         <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
           {headerDates(experiment, new Date()).map(({ label, value }, i) => (
