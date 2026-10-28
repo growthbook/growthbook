@@ -29,6 +29,8 @@
 
 // Wide enough for "35 of 35", so paging never changes the ribbon's width.
 .count {
+  // Its own size, so the width is measured in the text's characters.
+  font-size: var(--font-size-1);
   width: 7ch;
   text-align: center;
   font-variant-numeric: tabular-nums;

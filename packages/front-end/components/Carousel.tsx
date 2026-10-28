@@ -57,8 +57,9 @@ const Carousel: FC<{
         })}
       </div>
       {num > 1 ? (
-        // Pinned to the top, so it stays put whatever each image's height.
-        <Flex align="center" gap="2" className={styles.ribbon}>
+        // Pinned to the top, so it stays put whatever each image's height;
+        // the count's fixed width spaces it from the arrows.
+        <Flex align="center" className={styles.ribbon}>
           <IconButton
             type="button"
             variant="ghost"
@@ -74,7 +75,7 @@ const Carousel: FC<{
             <PiCaretLeft size={16} />
           </IconButton>
           <span className={styles.count}>
-            <Text color="text-mid" whiteSpace="nowrap">
+            <Text size="sm" color="text-mid" whiteSpace="nowrap">
               {current + 1} of {num}
             </Text>
           </span>
