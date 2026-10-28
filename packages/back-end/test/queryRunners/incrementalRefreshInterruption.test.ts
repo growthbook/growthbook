@@ -25,16 +25,17 @@ import {
   failQueuedQueries,
 } from "back-end/src/models/QueryModel";
 import { startExperimentIncrementalRefreshQueries } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import type {
-  ProcessedRowsType,
-  RowsType,
-  StartQueryParams,
+import {
+  rollupQueryStatus,
+  type ProcessedRowsType,
+  type RowsType,
+  type StartQueryParams,
 } from "back-end/src/queryRunners/QueryRunner";
 import {
   getCancelledRunQueryStatuses,
   planInterruptedRunCleanup,
   releaseInterruptedRefresh,
-  stopTimedOutRefresh,
+  stopInterruptedRefresh,
 } from "back-end/src/jobs/interruptedRefresh";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ApiReqContext } from "back-end/types/api";
@@ -411,7 +412,7 @@ class SimRun {
     private readonly sim: ReturnType<typeof createIntegration>,
     private readonly warehouse: Warehouse,
     private readonly stopAfter: number | null,
-    private readonly failQueryName: string | null,
+    private readonly failQueryIndex: number | null,
   ) {}
 
   startQuery = async (
@@ -446,15 +447,18 @@ class SimRun {
 
   private ready() {
     const byId = new Map(this.queries.map((q) => [q.id, q]));
-    this.queries
-      .filter((q) => q.status === "queued")
-      .filter((q) =>
-        q.dependencies.some((d) => byId.get(d)?.status === "failed"),
-      )
-      .forEach((q) => {
+    let blocked: SimQuery[];
+    do {
+      blocked = this.queries.filter(
+        (q) =>
+          q.status === "queued" &&
+          q.dependencies.some((d) => byId.get(d)?.status === "failed"),
+      );
+      blocked.forEach((q) => {
         q.status = "failed";
         q.phase = "done";
       });
+    } while (blocked.length);
     return this.queries.filter(
       (q) =>
         q.status === "queued" &&
@@ -464,7 +468,7 @@ class SimRun {
 
   private async start(q: SimQuery) {
     this.step();
-    if (q.name === this.failQueryName) {
+    if (this.queries.indexOf(q) === this.failQueryIndex) {
       this.fail(q);
       return;
     }
@@ -764,13 +768,13 @@ class Experiment {
     now,
     fullRefresh,
     stopAfter = null,
-    failQueryName = null,
+    failQueryIndex = null,
     schedule = "serial",
   }: {
     now: number;
     fullRefresh: boolean;
     stopAfter?: number | null;
-    failQueryName?: string | null;
+    failQueryIndex?: number | null;
     schedule?: Schedule;
   }) {
     const snapshotId = `snp_${++snapshotCounter}`;
@@ -788,7 +792,7 @@ class Experiment {
       this.sim,
       this.warehouse,
       stopAfter,
-      failQueryName,
+      failQueryIndex,
     );
     const { factTableMap, metrics, settings } = this.built;
     await startExperimentIncrementalRefreshQueries(
@@ -964,14 +968,16 @@ async function cleanUp(
           return true;
         }),
       );
-      const { needsFullRefresh } = await stopTimedOutRefresh(
+      const { needsFullRefresh } = await stopInterruptedRefresh(
         context(),
         snapshot,
       );
       return needsFullRefresh;
     }
     case "cancel": {
-      const before = run.queries.map((q) => ({ id: q.id, status: q.status }));
+      const notStartedIds = run.queries
+        .filter((q) => q.status === "queued")
+        .map((q) => q.id);
       run.queries
         .filter((q) => q.status === "queued" || q.status === "running")
         .forEach((q) => (q.status = "failed"));
@@ -979,7 +985,7 @@ async function cleanUp(
       return releaseInterruptedRefresh(
         context(),
         snapshot,
-        getCancelledRunQueryStatuses(before, after),
+        getCancelledRunQueryStatuses(notStartedIds, after),
       );
     }
   }
@@ -1095,6 +1101,54 @@ async function sweep(
   return failures;
 }
 
+// Fails each query in turn and lets the rest of the run finish, then releases
+// the run the way the runner does: as an interrupted run when its status rolls
+// up to failed, otherwise with a plain release.
+async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
+  const failures: string[] = [];
+  const count = (
+    await (
+      await setUpExperiment(config)
+    ).startRun({ now: INTERRUPTED_AT, fullRefresh })
+  ).run.queries.length;
+  for (let failQueryIndex = 0; failQueryIndex < count; failQueryIndex++) {
+    const exp = await setUpExperiment(config);
+    const { run, finished } = await exp.startRun({
+      now: INTERRUPTED_AT,
+      fullRefresh,
+      failQueryIndex,
+    });
+    expect(finished).toBe(true);
+    const status = rollupQueryStatus(
+      run.queries.map((q) => ({ name: q.name, query: q.id, status: q.status })),
+    );
+    const needsFullRefresh =
+      status === "failed"
+        ? await cleanUp("timedOut", exp.id, run)
+        : (await exp.release(run), false);
+    const where = `${run.queries[failQueryIndex].name} failed (run ${status})`;
+    try {
+      const doc = await getDoc(exp.id);
+      const next = await exp.completeRun(
+        NEXT_AT,
+        needsFullRefresh || !doc?.unitsTableFullName,
+      );
+      if (next.failures.length) {
+        // A partially failed run releases its lock as is, so the next Update
+        // may fail on a table it left missing. It must fail loudly and a
+        // full refresh must then recover.
+        expect(status).not.toBe("failed");
+        await exp.completeRun(NEXT_AT, true);
+      }
+      expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      failures.push(`${where}: ${message.split("\n").slice(0, 12).join(" ")}`);
+    }
+  }
+  return failures;
+}
+
 describe("incremental refresh interruption (in-memory lock state)", () => {
   beforeAll(() => {
     model = createModel("memory");
@@ -1174,6 +1228,15 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       }
     },
   );
+
+  describe.each(modes)("$mode", ({ fullRefresh }) => {
+    it.each(configs.map((c) => [label(c), c] as const))(
+      "recovers from any one query failing: %s",
+      async (_, config) => {
+        expect(await sweepQueryFailures(config, fullRefresh)).toEqual([]);
+      },
+    );
+  });
 
   describe.each(modes)("$mode", ({ fullRefresh }) => {
     it.each(configs.map((c) => [label(c), c] as const))(

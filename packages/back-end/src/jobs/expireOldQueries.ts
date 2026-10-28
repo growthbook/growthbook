@@ -46,9 +46,7 @@ import {
   FULL_REFRESH_NEXT_HINT,
   INTERRUPTED_REFRESH_ERROR,
   isIncrementalRefreshRun,
-  releaseInterruptedRefresh,
-  releaseLockWithoutCleanup,
-  stopTimedOutRefresh,
+  stopInterruptedRefreshOrRelease,
 } from "back-end/src/jobs/interruptedRefresh";
 import { ApiReqContext } from "back-end/types/api";
 
@@ -110,21 +108,10 @@ const expireOldQueries = async () => {
     let error = "Queries were interrupted. Please try updating results again.";
     const failedQueryIds = new Set(queryIds);
     if (isIncrementalRefreshRun(snapshot)) {
-      try {
-        const { notRunQueryIds, needsFullRefresh } = await stopTimedOutRefresh(
-          context,
-          snapshot,
-        );
-        notRunQueryIds.forEach((id) => failedQueryIds.add(id));
-        if (needsFullRefresh) error = INTERRUPTED_REFRESH_ERROR;
-      } catch (e) {
-        logger.warn(
-          e,
-          `Failed to stop timed-out incremental refresh ${snapshot.id}`,
-        );
-        error = INTERRUPTED_REFRESH_ERROR;
-        await releaseLockWithoutCleanup(context, snapshot);
-      }
+      const { notRunQueryIds, needsFullRefresh } =
+        await stopInterruptedRefreshOrRelease(context, snapshot);
+      notRunQueryIds.forEach((id) => failedQueryIds.add(id));
+      if (needsFullRefresh) error = INTERRUPTED_REFRESH_ERROR;
     }
 
     updateQueryStatus(snapshot.queries, failedQueryIds);
@@ -479,16 +466,20 @@ async function reapStalledSnapshots() {
       }
     }
 
+    // Before the snapshot is errored: stop its queued queries from starting,
+    // then drop the cache state it may have appended to as the lock is
+    // released. When that is no longer possible, only a full refresh is safe.
+    const { notRunQueryIds, needsFullRefresh } = isIncrementalRefreshRun(
+      snapshot,
+    )
+      ? await stopInterruptedRefreshOrRelease(context, snapshot)
+      : { notRunQueryIds: [], needsFullRefresh: false };
+
     const statusById = new Map(queryStatuses.map((s) => [s.id, s.status]));
+    notRunQueryIds.forEach((id) => statusById.set(id, "failed"));
     snapshot.queries.forEach((q) => {
       q.status = statusById.get(q.query) ?? q.status;
     });
-
-    // Drop the cache state the run may have appended to while it still holds
-    // the lock; when that is no longer possible, only a full refresh is safe.
-    const needsFullRefresh = isIncrementalRefreshRun(snapshot)
-      ? await releaseInterruptedRefresh(context, snapshot, statusById)
-      : false;
 
     const shouldScheduleSnapshotRetry =
       isOrphanedDag &&

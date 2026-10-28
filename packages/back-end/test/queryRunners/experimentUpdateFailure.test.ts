@@ -3,18 +3,34 @@ import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapsh
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
-import { updateSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  errorSnapshotIfStillRunning,
+  updateSnapshot,
+} from "back-end/src/models/ExperimentSnapshotModel";
+import {
+  failQueuedQueries,
+  getQueryStatusesByIds,
+} from "back-end/src/models/QueryModel";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   updateSnapshot: jest.fn(),
+  errorSnapshotIfStillRunning: jest.fn(),
+}));
+jest.mock("back-end/src/models/QueryModel", () => ({
+  ...jest.requireActual("back-end/src/models/QueryModel"),
+  getQueryStatusesByIds: jest.fn(),
+  failQueuedQueries: jest.fn(),
 }));
 const context = {
   org: { id: "org_test" },
   permissions: { canRunExperimentQueries: () => true },
   models: {
-    incrementalRefresh: { releaseLock: jest.fn().mockResolvedValue(undefined) },
+    incrementalRefresh: {
+      releaseLock: jest.fn().mockResolvedValue(undefined),
+      releaseLockAfterInterruptedRun: jest.fn().mockResolvedValue(true),
+    },
   },
 } as unknown as ReqContext;
 const snapshot = {
@@ -25,7 +41,11 @@ const snapshot = {
   queries: [],
 } as unknown as ExperimentSnapshotInterface;
 
-beforeEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.clearAllMocks();
+  jest.mocked(getQueryStatusesByIds).mockResolvedValue([]);
+  jest.mocked(failQueuedQueries).mockImplementation(async (_, ids) => ids);
+});
 
 describe.each([
   ExperimentResultsQueryRunner,
@@ -72,5 +92,79 @@ describe.each([
     expect(updateSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({ conclusion: { concludedBy: "recovery" } }),
     );
+  });
+});
+
+describe("ExperimentIncrementalRefreshQueryRunner failing with queries still pending", () => {
+  // The insert is still running when the run fails; its timestamp query has
+  // not started.
+  const incrementalSnapshot = {
+    ...snapshot,
+    runnerKind: "incremental-update",
+    queries: [
+      {
+        name: "insert_metrics_source_data_g1",
+        query: "q_insert",
+        status: "running",
+      },
+      {
+        name: "max_timestamp_metrics_source_g1",
+        query: "q_max",
+        status: "queued",
+      },
+    ],
+  } as unknown as ExperimentSnapshotInterface;
+
+  beforeEach(() => {
+    jest.mocked(getQueryStatusesByIds).mockResolvedValue([
+      { id: "q_insert", status: "running", createdAt: new Date() },
+      { id: "q_max", status: "queued", createdAt: new Date() },
+    ]);
+  });
+
+  function expectCleanedUp() {
+    expect(failQueuedQueries).toHaveBeenCalledWith(
+      context,
+      ["q_max"],
+      expect.any(String),
+    );
+    expect(
+      context.models.incrementalRefresh.releaseLockAfterInterruptedRun,
+    ).toHaveBeenCalledWith("exp_test", "snap_test", {
+      metricGroupIdsToRebuild: ["g1"],
+      forceFullRefresh: false,
+    });
+    expect(
+      context.models.incrementalRefresh.releaseLock,
+    ).not.toHaveBeenCalled();
+  }
+
+  it("drops what the run may have appended when its status rolls up to failed", async () => {
+    const runner = new ExperimentIncrementalRefreshQueryRunner(
+      context,
+      incrementalSnapshot,
+      { datasource: {} } as SourceIntegrationInterface,
+    );
+    await runner.updateModel({
+      status: "failed",
+      queries: incrementalSnapshot.queries,
+      error: "Error running one or more database queries",
+    });
+    expectCleanedUp();
+  });
+
+  it("drops what the run may have appended when it shuts down with an error", async () => {
+    jest.mocked(errorSnapshotIfStillRunning).mockResolvedValue(true);
+    const runner = new ExperimentIncrementalRefreshQueryRunner(
+      context,
+      incrementalSnapshot,
+      { datasource: {} } as SourceIntegrationInterface,
+    );
+    await (
+      runner as unknown as {
+        writeErrorIfStillActive: (error: string) => Promise<void>;
+      }
+    ).writeErrorIfStillActive("boom");
+    expectCleanedUp();
   });
 });

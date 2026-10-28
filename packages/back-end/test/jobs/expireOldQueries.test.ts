@@ -368,7 +368,9 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     hasFreshLockHeartbeat.mockResolvedValue(false);
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
     (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([]);
-    (failQueuedQueries as jest.Mock).mockResolvedValue([]);
+    (failQueuedQueries as jest.Mock).mockImplementation(
+      async (_: unknown, ids: string[]) => ids,
+    );
   });
 
   async function runJob() {
@@ -898,6 +900,38 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         /^Snapshot stalled: queries finished but results were never finalized\./,
       );
       expect(error).toMatch(/Choose Full refresh .* count some data twice\.$/);
+    });
+
+    it("stops and cleans up an orphaned run before it errors the snapshot", async () => {
+      mockCandidates([
+        incrementalSnapshot({ [insertName]: "failed", [maxTsName]: "queued" }),
+      ]);
+
+      await runJob();
+
+      const order = (fn: unknown) =>
+        (fn as jest.Mock).mock.invocationCallOrder[0];
+      expect(order(failQueuedQueries)).toBeLessThan(
+        order(releaseLockAfterInterruptedRun),
+      );
+      expect(order(releaseLockAfterInterruptedRun)).toBeLessThan(
+        order(errorSnapshotIfStillRunning),
+      );
+    });
+
+    it("rebuilds the source of an insert the runner started during the reap", async () => {
+      mockCandidates([
+        incrementalSnapshot({ [insertName]: "queued", [maxTsName]: "queued" }),
+      ]);
+      (failQueuedQueries as jest.Mock).mockResolvedValue([`qry_${maxTsName}`]);
+
+      await runJob();
+
+      expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
+        "exp_1",
+        "snp_1",
+        { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
+      );
     });
 
     it("keeps the usual message when nothing needed dropping", async () => {

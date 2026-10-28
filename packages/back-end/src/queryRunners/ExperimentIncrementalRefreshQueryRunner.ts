@@ -77,6 +77,7 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
+import { stopInterruptedRefreshOrRelease } from "back-end/src/jobs/interruptedRefresh";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -1474,14 +1475,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on shutdown error",
-          ),
-        );
+      // Queries may still be running, so clean up as for an interrupted run.
+      await stopInterruptedRefreshOrRelease(this.context, this.model);
     }
   }
 
@@ -1549,14 +1544,23 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           );
       }
 
-      await this.context.models.incrementalRefresh
-        .releaseLock(this.model.experiment, this.model.id)
-        .catch((e) =>
-          this.context.logger.warn(
-            e,
-            "Failed to release incremental refresh lock on terminal status",
-          ),
-        );
+      if (snapshotStatus === "error") {
+        // The run can fail while some of its queries are still running, so
+        // clean up as for an interrupted run.
+        await stopInterruptedRefreshOrRelease(this.context, {
+          ...this.model,
+          queries: queries.length ? queries : this.model.queries,
+        });
+      } else {
+        await this.context.models.incrementalRefresh
+          .releaseLock(this.model.experiment, this.model.id)
+          .catch((e) =>
+            this.context.logger.warn(
+              e,
+              "Failed to release incremental refresh lock on terminal status",
+            ),
+          );
+      }
     }
 
     return {

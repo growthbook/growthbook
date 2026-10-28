@@ -154,27 +154,28 @@ export async function releaseLockWithoutCleanup(
 }
 
 /**
- * Statuses to plan a cancelled run's cleanup from. The cancel fails every
- * pending query, so a query that was still queued before it never started.
+ * Statuses to plan a cancelled run's cleanup from. Only the queries the cancel
+ * failed while they were still queued are known never to have started.
  */
 export function getCancelledRunQueryStatuses(
-  before: Pick<QueryInterface, "id" | "status">[],
+  notStartedIds: string[],
   after: Pick<QueryInterface, "id" | "status">[],
 ): Map<string, QueryStatus> {
   const statuses = new Map(after.map((doc) => [doc.id, doc.status]));
-  before
-    .filter((doc) => doc.status === "queued" && statuses.has(doc.id))
-    .forEach((doc) => statuses.set(doc.id, "queued"));
+  notStartedIds
+    .filter((id) => statuses.has(id))
+    .forEach((id) => statuses.set(id, "queued"));
   return statuses;
 }
 
 /**
- * For a refresh whose running query timed out: fails its queries that have
- * not started, so none can start later, then releases the run. Returns the
- * ids it failed and whether only a full refresh is safe next.
+ * For a refresh that stopped with queries still pending (a timed-out query, a
+ * stalled run, or the runner's own failure): fails its queries that have not
+ * started, so none can start later, then releases the run. Returns the ids it
+ * failed and whether only a full refresh is safe next.
  */
-export async function stopTimedOutRefresh(
-  context: ApiReqContext,
+export async function stopInterruptedRefresh(
+  context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
     "id" | "experiment" | "runnerKind" | "queries" | "organization"
@@ -203,4 +204,21 @@ export async function stopTimedOutRefresh(
     statusByQueryId,
   );
   return { notRunQueryIds, needsFullRefresh };
+}
+
+// Never leaves the lock held: a failed cleanup falls back to a plain release.
+export async function stopInterruptedRefreshOrRelease(
+  context: ReqContext | ApiReqContext,
+  snapshot: Parameters<typeof stopInterruptedRefresh>[1],
+): Promise<{ notRunQueryIds: string[]; needsFullRefresh: boolean }> {
+  try {
+    return await stopInterruptedRefresh(context, snapshot);
+  } catch (e) {
+    logger.warn(
+      e,
+      `Failed to stop interrupted incremental refresh ${snapshot.id}`,
+    );
+    await releaseLockWithoutCleanup(context, snapshot);
+    return { notRunQueryIds: [], needsFullRefresh: true };
+  }
 }

@@ -8,6 +8,7 @@ import {
   reconcileSnapshotQueryPointers,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
+  failQueuedQueries,
   getQueryStatusesByIds,
   markPendingQueriesAsFailed,
 } from "back-end/src/models/QueryModel";
@@ -124,7 +125,13 @@ export async function cancelExperimentSnapshot(
     .map((doc) => doc.id);
 
   // The fence: once pending docs are failed, no live runner can promote a
-  // queued query or record a result for a running one.
+  // queued query or record a result for a running one. Queued docs go first,
+  // so a query the runner starts meanwhile is not taken as never started.
+  const notStartedIds = await failQueuedQueries(
+    context,
+    before.filter((doc) => doc.status === "queued").map((doc) => doc.id),
+    QUERY_CANCELLED_BY_USER_ERROR,
+  );
   await markPendingQueriesAsFailed(
     context,
     pendingIds,
@@ -189,7 +196,7 @@ export async function cancelExperimentSnapshot(
     await releaseInterruptedRefresh(
       context,
       snapshot,
-      getCancelledRunQueryStatuses(before, after),
+      getCancelledRunQueryStatuses(notStartedIds, after),
     );
   } else {
     await context.models.incrementalRefresh

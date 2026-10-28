@@ -25,6 +25,7 @@ import {
   createCompletedQuery,
   createNewQuery,
   getQueriesByIds,
+  getQueryStatusesByIds,
   markPendingQueriesAsFailed,
   setQueryExternalId,
 } from "back-end/src/models/QueryModel";
@@ -34,6 +35,15 @@ import { getIntegrationFromDatasourceId } from "back-end/src/services/datasource
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { BadRequestError } from "back-end/src/util/errors";
 import { ReqContext } from "back-end/types/request";
+
+// Real reads by default; one test interleaves a runner write after a read.
+jest.mock("back-end/src/models/QueryModel", () => {
+  const actual = jest.requireActual("back-end/src/models/QueryModel");
+  return {
+    ...actual,
+    getQueryStatusesByIds: jest.fn(actual.getQueryStatusesByIds),
+  };
+});
 
 jest.mock("back-end/src/services/datasource", () => ({
   getIntegrationFromDatasourceId: jest.fn(),
@@ -450,6 +460,53 @@ describe("cancelExperimentSnapshot", () => {
       { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
     );
     expect(releaseLock).not.toHaveBeenCalled();
+  });
+
+  it("counts an insert the runner started during the cancel as started", async () => {
+    const update = await insertQuery("succeeded");
+    const insert = await insertQuery("queued");
+    const maxTimestamp = await insertQuery("queued");
+    const { snapshot } = await insertReportSnapshot({
+      id: "snp_incremental",
+      status: "running",
+      queries: [
+        { name: "update_snp_incremental", query: update, status: "succeeded" },
+        {
+          name: "insert_metrics_source_data_g1",
+          query: insert,
+          status: "queued",
+        },
+        {
+          name: "max_timestamp_metrics_source_g1",
+          query: maxTimestamp,
+          status: "queued",
+        },
+      ],
+      reportSnapshotId: "snp_prev",
+    });
+    // The runner starts the insert right after the cancel's first read.
+    const read = jest.requireActual("back-end/src/models/QueryModel")
+      .getQueryStatusesByIds as typeof getQueryStatusesByIds;
+    jest
+      .mocked(getQueryStatusesByIds)
+      .mockImplementationOnce(async (...args) => {
+        const statuses = await read(...args);
+        await mongoose.connection
+          .db!.collection("queries")
+          .updateOne({ id: insert }, { $set: { status: "running" } });
+        return statuses;
+      });
+
+    await cancelExperimentSnapshot(context, {
+      ...snapshot,
+      runnerKind: "incremental-update",
+    });
+
+    expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
+      "exp_1",
+      snapshot.id,
+      { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
+    );
   });
 
   it("keeps a running snapshot pinned by report.snapshot as a cancelled error when the report has no successful snapshot", async () => {

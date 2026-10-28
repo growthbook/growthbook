@@ -7,7 +7,7 @@ import {
   NOT_RUN_QUERY_ERROR,
   planInterruptedRunCleanup,
   releaseInterruptedRefresh,
-  stopTimedOutRefresh,
+  stopInterruptedRefresh,
 } from "back-end/src/jobs/interruptedRefresh";
 import {
   failQueuedQueries,
@@ -446,7 +446,7 @@ describe("releasing an interrupted refresh", () => {
   });
 
   describe("cancelled runs", () => {
-    it("plans from the statuses before the cancel fenced pending queries", async () => {
+    it("plans from the queries the cancel failed while still queued", async () => {
       const ids = (statuses: Statuses, defaultStatus: QueryStatus) =>
         [...statusMap(statuses, defaultStatus)].map(([id, status]) => ({
           id,
@@ -473,7 +473,10 @@ describe("releasing an interrupted refresh", () => {
       await releaseInterruptedRefresh(
         context,
         snapshot(),
-        getCancelledRunQueryStatuses(before, after),
+        getCancelledRunQueryStatuses(
+          before.filter((q) => q.status === "queued").map((q) => q.id),
+          after,
+        ),
       );
 
       expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
@@ -483,17 +486,16 @@ describe("releasing an interrupted refresh", () => {
       );
     });
 
-    it("needs nothing when the cancel came before any insert started", async () => {
-      const before = [
-        { id: "qry_insert_metrics_source_data_ft1_abc0", status: "queued" },
-        { id: "qry_update_snp_1", status: "running" },
-      ] as const;
+    it("treats only the queries the cancel failed while queued as not started", async () => {
       const after = [
         { id: "qry_insert_metrics_source_data_ft1_abc0", status: "failed" },
         { id: "qry_update_snp_1", status: "failed" },
       ] as const;
 
-      const statuses = getCancelledRunQueryStatuses([...before], [...after]);
+      const statuses = getCancelledRunQueryStatuses(
+        ["qry_insert_metrics_source_data_ft1_abc0"],
+        [...after],
+      );
 
       expect(statuses).toEqual(
         new Map([
@@ -504,24 +506,17 @@ describe("releasing an interrupted refresh", () => {
     });
 
     it("leaves out queries the second read could not find", () => {
-      expect(
-        getCancelledRunQueryStatuses([{ id: "q1", status: "queued" }], []).has(
-          "q1",
-        ),
-      ).toBe(false);
+      expect(getCancelledRunQueryStatuses(["q1"], []).has("q1")).toBe(false);
     });
 
     it("keeps statuses that finished on their own", () => {
       expect(
-        getCancelledRunQueryStatuses(
-          [{ id: "q1", status: "running" }],
-          [{ id: "q1", status: "succeeded" }],
-        ),
+        getCancelledRunQueryStatuses([], [{ id: "q1", status: "succeeded" }]),
       ).toEqual(new Map([["q1", "succeeded"]]));
     });
   });
 
-  describe("stopTimedOutRefresh", () => {
+  describe("stopInterruptedRefresh", () => {
     function mockStatuses(statuses: Statuses, defaultStatus: QueryStatus) {
       (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
         [...statusMap(statuses, defaultStatus)].map(([id, status]) => ({
@@ -544,7 +539,7 @@ describe("releasing an interrupted refresh", () => {
         async (ctx: unknown, ids: string[]) => ids,
       );
 
-      const result = await stopTimedOutRefresh(context, snapshot());
+      const result = await stopInterruptedRefresh(context, snapshot());
 
       expect(failQueuedQueries).toHaveBeenCalledWith(
         context,
@@ -585,7 +580,7 @@ describe("releasing an interrupted refresh", () => {
         "qry_max_timestamp_metrics_source_ft1_abc0",
       ]);
 
-      await stopTimedOutRefresh(context, snapshot());
+      await stopInterruptedRefresh(context, snapshot());
 
       expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
         "exp_1",
@@ -602,7 +597,9 @@ describe("releasing an interrupted refresh", () => {
       (failQueuedQueries as jest.Mock).mockResolvedValue([]);
       releaseLockAfterInterruptedRun.mockResolvedValue(false);
 
-      await expect(stopTimedOutRefresh(context, snapshot())).resolves.toEqual({
+      await expect(
+        stopInterruptedRefresh(context, snapshot()),
+      ).resolves.toEqual({
         notRunQueryIds: [],
         needsFullRefresh: true,
       });
