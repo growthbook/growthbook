@@ -33,7 +33,8 @@
   left: var(--settings-sidebar-width);
   right: 0;
   bottom: 0;
-  z-index: 1000;
+  // Over the sub nav (999 too, but earlier in the DOM) and under the slide-out sidebar (1000).
+  z-index: 999;
   // Lines the count up with the sub nav's content.
   padding: var(--space-3) var(--space-3) var(--space-3)
     calc(var(--settings-nav-inset) + var(--space-3));
@@ -48,6 +49,11 @@
   // Without the sub nav, the count lines up with the page content instead.
   @media (max-width: 1399px) {
     padding-left: 40px;
+  }
+  // The sidebar slides away here and the content starts at the window edge.
+  @media (max-width: 1180px) {
+    left: 0;
+    padding-right: max(40px, calc(100% - 960px));
   }
 }
 

@@ -1,4 +1,4 @@
-import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
+import { BsFlag, BsCodeSlash, BsHouse, BsShieldLock } from "react-icons/bs";
 import {
   GBDatabase,
   GBExperiment,
@@ -264,7 +264,7 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|admin|projects|integrations|events|importing)/,
+    path: /^(settings|projects|integrations|events|importing)/,
     autoClose: true,
     hideSubLinks: true,
     subLinks: [
@@ -355,14 +355,14 @@ export const navlinks: SidebarLinkProps[] = [
         path: /^settings\/billing/,
         filter: ({ permissionsUtils }) => permissionsUtils.canManageBilling(),
       },
-      {
-        name: "Admin",
-        href: "/admin",
-        path: /^admin/,
-        divider: true,
-        filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
-      },
     ],
+  },
+  {
+    name: "Admin",
+    href: "/admin",
+    Icon: BsShieldLock,
+    path: /^admin/,
+    filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
   },
 ];
 

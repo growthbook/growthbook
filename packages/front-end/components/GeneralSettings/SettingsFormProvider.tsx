@@ -652,6 +652,10 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             throw new Error("Installation name cannot be empty");
           orgPatch.installationName = org.installationName.trim();
         }
+        // The server stores trimmed values, so the form shows them too and reads as saved.
+        (Object.keys(orgPatch) as (keyof OrgDetailsForm)[]).forEach((k) =>
+          orgForm.setValue(k, orgPatch[k] ?? ""),
+        );
       }
 
       // Only changed settings are sent, so limited roles aren't rejected for untouched fields.
@@ -698,7 +702,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         .filter((t): t is string => !!t);
     });
     if (invalidSections !== null) {
-      const where = (invalidSections as string[]).join(" and ");
+      const where = new Intl.ListFormat("en", { type: "conjunction" }).format(
+        invalidSections as string[],
+      );
       setSubmitError(
         where
           ? `Fix the invalid settings in ${where}, then save again.`

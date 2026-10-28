@@ -16,13 +16,13 @@ describe("isSettingsRoute", () => {
     expect(isSettingsRoute("/events")).toBe(true);
     expect(isSettingsRoute("/events/[eventid]")).toBe(true);
     expect(isSettingsRoute("/integrations/slack")).toBe(true);
-    expect(isSettingsRoute("/admin")).toBe(true);
     expect(isSettingsRoute("/importing")).toBe(true);
   });
 
   it("does not match other pages", () => {
     expect(isSettingsRoute("/")).toBe(false);
     expect(isSettingsRoute("/features")).toBe(false);
+    expect(isSettingsRoute("/admin")).toBe(false);
     expect(isSettingsRoute("/project/[pid]")).toBe(false);
     expect(isSettingsRoute("/experiment/[eid]")).toBe(false);
   });

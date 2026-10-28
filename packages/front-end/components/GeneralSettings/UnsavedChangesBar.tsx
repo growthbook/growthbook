@@ -104,7 +104,6 @@ export default function UnsavedChangesBar() {
             aria-label="Unsaved changes"
           >
             <Flex align="center" gap="3" wrap="wrap">
-              {dirtyCount > 0 && <span className={styles.unsavedDot} />}
               <Box flexGrow="1" aria-live="polite">
                 {dirtyCount > 0 && (
                   <Popover

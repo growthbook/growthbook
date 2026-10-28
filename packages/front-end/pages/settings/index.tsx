@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from "react";
+import escapeRegExp from "lodash/escapeRegExp";
 import { Box, Flex } from "@radix-ui/themes";
 import { hasFileConfig, isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -124,23 +125,22 @@ const GeneralSettingsPage = (): React.ReactElement => {
   // Browsers without the Highlight API skip this.
   useEffect(() => {
     if (!("highlights" in CSS)) return;
-    const tokens = tokenizeSettingsQuery(query);
+    // Matching the original text keeps offsets valid; lowercasing can change length (e.g. "İ").
+    const patterns = tokenizeSettingsQuery(query).map(
+      (token) => new RegExp(escapeRegExp(token), "gi"),
+    );
     const ranges: Range[] = [];
     pageRef.current
       ?.querySelectorAll("[data-settings-card]")
       .forEach((card) => {
         const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
         for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-          const text = node.textContent?.toLowerCase() ?? "";
-          for (const token of tokens) {
-            for (
-              let i = text.indexOf(token);
-              i !== -1;
-              i = text.indexOf(token, i + token.length)
-            ) {
+          const text = node.textContent ?? "";
+          for (const pattern of patterns) {
+            for (const match of text.matchAll(pattern)) {
               const range = new Range();
-              range.setStart(node, i);
-              range.setEnd(node, i + token.length);
+              range.setStart(node, match.index);
+              range.setEnd(node, match.index + match[0].length);
               ranges.push(range);
             }
           }

@@ -750,6 +750,7 @@ const Admin: FC = () => {
   return (
     <SettingsPage
       title="Admin"
+      breadcrumb={[{ display: "Admin" }]}
       description="Manage organizations and members on this GrowthBook instance."
     >
       {orgModalOpen && (
