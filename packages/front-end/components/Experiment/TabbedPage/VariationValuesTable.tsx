@@ -903,17 +903,24 @@ function FlagColumn({
   };
 
   const shownDraft = showsDraft ? pendingDraft : null;
-  const problem = shownDraft?.hasMergeConflict
-    ? "Merge conflict"
-    : shownDraft?.rebaseRequired
-      ? "Needs rebase"
-      : draftLaunches && shownDraft?.hasUnrelatedDraftChanges
-        ? "Changes beyond this experiment"
-        : orphaned
-          ? "Rule missing"
-          : info.state === "archived"
-            ? "Archived"
-            : null;
+  const problem: { text: string; status: "error" | "warning" | "info" } | null =
+    shownDraft?.hasMergeConflict
+      ? { text: "Merge conflict", status: "error" }
+      : shownDraft?.rebaseRequired
+        ? { text: "Needs rebase", status: "warning" }
+        : draftLaunches && shownDraft?.hasUnrelatedDraftChanges
+          ? { text: "Changes beyond this experiment", status: "error" }
+          : orphaned
+            ? { text: "Rule missing", status: "warning" }
+            : info.state === "archived"
+              ? {
+                  text: "Archived",
+                  status:
+                    experiment.status === "running" || launches
+                      ? "warning"
+                      : "info",
+                }
+              : null;
   const needsApproval =
     !!shownDraft?.pendingApproval && !pendingDraftApproved(shownDraft);
   const approvalBypassed =

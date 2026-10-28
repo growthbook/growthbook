@@ -2,10 +2,9 @@ import clsx from "clsx";
 import { ReactNode } from "react";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiWarningFill } from "react-icons/pi";
 import { DropdownMenu, MoreMenuTrigger } from "@/ui/DropdownMenu";
 import Button from "@/ui/Button";
-import HelperText from "@/ui/HelperText";
+import HelperText, { getRadixColor, RadixStatusIcon } from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./VariationValuesTable.module.scss";
@@ -85,7 +84,8 @@ export function ColumnHeader({
   layout: ColumnLayout;
   icon?: ReactNode;
   title?: ReactNode;
-  problem?: string | null;
+  // As severe as the column's note about it.
+  problem?: { text: string; status: "error" | "warning" | "info" } | null;
   kind?: ReactNode;
   menu?: ReactNode[];
   menuLabel: string;
@@ -108,9 +108,14 @@ export function ColumnHeader({
         className={clsx(menuOnly && styles.clearOfMenu)}
       >
         {problem ? (
-          <Tooltip content={problem}>
-            <Flex flexShrink="0" style={{ color: "var(--amber-11)" }}>
-              <PiWarningFill />
+          <Tooltip content={problem.text}>
+            <Flex
+              flexShrink="0"
+              style={{
+                color: `var(--${getRadixColor(problem.status)}-11)`,
+              }}
+            >
+              <RadixStatusIcon status={problem.status} size="md" />
             </Flex>
           </Tooltip>
         ) : null}

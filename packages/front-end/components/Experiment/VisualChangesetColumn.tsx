@@ -633,7 +633,9 @@ export default function VisualChangesetColumn({
             "AI Visual Editor"
           )
         }
-        problem={hasChanges ? null : "No changes yet"}
+        problem={
+          hasChanges ? null : { text: "No changes yet", status: "warning" }
+        }
         menu={menu}
         menuLabel="AI Visual Editor changes actions"
       />
