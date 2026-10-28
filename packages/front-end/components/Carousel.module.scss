@@ -13,7 +13,7 @@
   left: 50%;
   z-index: 1;
   transform: translateX(-50%);
-  padding: 2px var(--space-1);
+  padding: var(--space-1);
   border-radius: var(--radius-5);
   // See-through, but blurred enough to read over any image.
   background-color: color-mix(
