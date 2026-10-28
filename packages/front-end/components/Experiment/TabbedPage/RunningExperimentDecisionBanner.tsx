@@ -14,12 +14,15 @@ import {
 } from "shared/enterprise";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
 import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import ExperimentDecisionExplanation from "./ExperimentDecisionExplanation";
 import ExperimentBanner from "./ExperimentBanner";
+import { useEditsBlockedReason } from "./ExperimentEdits";
 
 const DECISIONS = {
   "ship-now": { label: "Ship now", color: "green", variant: "solid" },
@@ -57,6 +60,8 @@ type Props = {
   runningExperimentStatus: ExperimentResultStatusData;
   decisionCriteria: DecisionCriteriaData;
   showDecisionCriteriaLink?: boolean;
+  // Opens the form that stops it with a result.
+  makeDecision?: () => void;
 } & MarginProps;
 
 export default function RunningExperimentDecisionBanner({
@@ -64,9 +69,11 @@ export default function RunningExperimentDecisionBanner({
   runningExperimentStatus,
   decisionCriteria,
   showDecisionCriteriaLink = true,
+  makeDecision,
   ...margin
 }: Props) {
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
+  const blockedReason = useEditsBlockedReason();
   const { snapshot, analysis } = useSnapshot();
   const { getExperimentMetricById } = useDefinitions();
 
@@ -159,6 +166,20 @@ export default function RunningExperimentDecisionBanner({
           showDecisionCriteria={showDecisionCriteria}
           setShowDecisionCriteria={setShowDecisionCriteria}
           showDecisionCriteriaLink={showDecisionCriteriaLink}
+          action={
+            makeDecision ? (
+              <Tooltip content={blockedReason} enabled={!!blockedReason}>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={makeDecision}
+                  disabled={!!blockedReason}
+                >
+                  Make decision
+                </Button>
+              </Tooltip>
+            ) : null
+          }
           reasonColor={decision.color}
         />
       }

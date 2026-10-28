@@ -19,6 +19,8 @@ interface Props {
   showDecisionCriteria: boolean;
   setShowDecisionCriteria: (show: boolean) => void;
   showDecisionCriteriaLink?: boolean;
+  // Beside the criteria link.
+  action?: ReactNode;
   // The decision's colour, for each reason's icon.
   reasonColor: ReasonColor;
 }
@@ -48,6 +50,7 @@ export default function ExperimentDecisionExplanation({
   showDecisionCriteria,
   setShowDecisionCriteria,
   showDecisionCriteriaLink,
+  action,
   reasonColor,
 }: Props) {
   // If the experiment is not in a decision state, don't show anything
@@ -169,12 +172,17 @@ export default function ExperimentDecisionExplanation({
           </Flex>
         </Fragment>
       ))}
-      {showDecisionCriteriaLink ? (
-        <Box mt="3" mb="1">
-          <Link onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}>
-            View decision criteria
-          </Link>
-        </Box>
+      {action || showDecisionCriteriaLink ? (
+        <Flex mt="3" mb="1" align="center" gap="4">
+          {action}
+          {showDecisionCriteriaLink ? (
+            <Link
+              onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}
+            >
+              View decision criteria
+            </Link>
+          ) : null}
+        </Flex>
       ) : null}
     </Box>
   );

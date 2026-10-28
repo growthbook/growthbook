@@ -816,6 +816,7 @@ function TabbedPageContents({
                   experiment={experiment}
                   runningExperimentStatus={runningExperimentStatus}
                   decisionCriteria={decisionCriteria}
+                  makeDecision={editResult || undefined}
                   {...bannerMargin}
                 />
               ) : null}
