@@ -46,7 +46,7 @@ export function OfficialBadge({
   ...marginProps
 }: {
   type: string;
-  managedBy?: "" | "config" | "api" | "admin";
+  managedBy?: "" | "config" | "api" | "admin" | "dbt";
   disableTooltip?: boolean;
   // Replaces the default "managed by the API" copy.
   tooltip?: React.ReactNode;
@@ -105,6 +105,11 @@ export function OfficialBadge({
                 </>
               ) : managedBy === "admin" ? (
                 <>admins.</>
+              ) : managedBy === "dbt" ? (
+                <>
+                  dbt. It is read-only and cannot be modified from within
+                  GrowthBook.
+                </>
               ) : (
                 <>
                   the API. It is read-only and cannot be modified from within

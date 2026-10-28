@@ -1,3 +1,4 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
@@ -86,7 +87,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
 
   const isOrgMember =
     (!!userId && experiment?.organization === userOrganization.id) ||
-    !!superAdmin;
+    hasSuperAdminPermission(superAdmin, "impersonate");
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
 

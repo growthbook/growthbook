@@ -5,8 +5,10 @@ import {
   ApiErrorCode,
   ConfirmAction,
   type ConfirmationNotice,
+  SuperAdminPermission,
 } from "shared/validators";
 import { routeConfirmation } from "shared/util";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -526,10 +528,13 @@ export function createApiRequestHandler<
 
 export const statusCodeReturn = z.strictObject({ status: z.number() });
 
-export async function validateIsSuperUserRequest(req: {
-  user?: UserInterface;
-  organization: OrganizationInterface;
-}) {
+export async function validateIsSuperUserRequest(
+  req: {
+    user?: UserInterface;
+    organization: OrganizationInterface;
+  },
+  permission: SuperAdminPermission,
+) {
   if (!IS_MULTI_ORG) {
     throw new Error("This endpoint requires multi-org mode.");
   }
@@ -546,9 +551,9 @@ export async function validateIsSuperUserRequest(req: {
     );
   }
 
-  if (!req.user.superAdmin) {
+  if (!hasSuperAdminPermission(req.user.superAdmin, permission)) {
     throw new Error(
-      "This endpoint requires the Personal Access Token of a super admin.",
+      `This endpoint requires the Personal Access Token of a super admin with the ${permission} permission.`,
     );
   }
 
