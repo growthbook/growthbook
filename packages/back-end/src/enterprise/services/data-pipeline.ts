@@ -140,12 +140,22 @@ type HashExposureQuery = Pick<
   "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
 
-// The assignment query columns an incremental units table is built from
+// The assignment query columns an incremental units table is built from.
+// Cluster experiments key the table on the sub-unit, so its column counts too.
 const getUnitsTableColumns = (
   query: Pick<ExposureQuery, "columnMapping">,
   identifierType: string,
+  subUnitIdentifierType?: string,
 ) => ({
   identifier: getExposureQueryIdentifierColumn(query, identifierType),
+  ...(subUnitIdentifierType
+    ? {
+        subUnitIdentifier: getExposureQueryIdentifierColumn(
+          query,
+          subUnitIdentifierType,
+        ),
+      }
+    : {}),
   timestamp: getExposureQueryTimestampColumn(query),
   experimentId: getExposureQueryExperimentIdColumn(query),
   variationId: getExposureQueryVariationIdColumn(query),
@@ -184,12 +194,19 @@ export function getExperimentSettingsHashForIncrementalRefresh(
       exposureQuery,
       snapshotSettings.exposureQueryIdentifierType,
     );
+    const subUnitIdentifierType = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? undefined)
+      : undefined;
     const unitsColumns = getUnitsTableColumns(
       exposureQuery,
       analysisIdentifierType,
+      subUnitIdentifierType,
     );
     if (
-      !isEqual(unitsColumns, getUnitsTableColumns({}, analysisIdentifierType))
+      !isEqual(
+        unitsColumns,
+        getUnitsTableColumns({}, analysisIdentifierType, subUnitIdentifierType),
+      )
     ) {
       settingsForHash.unitsColumns = unitsColumns;
     }

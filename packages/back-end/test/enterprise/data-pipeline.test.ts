@@ -710,6 +710,21 @@ describe("getExperimentSettingsHashForIncrementalRefresh — output hash", () =>
     );
     expect(changed).not.toBe(base);
   });
+
+  it("changes a cluster experiment's hash when its sub-unit column is remapped", () => {
+    const hash = (columnMapping?: ExposureQueryColumnMapping) =>
+      getExperimentSettingsHashForIncrementalRefresh(
+        {
+          ...GOLDEN_INPUT,
+          exposureQueryIdentifierType: "anonymous_id",
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: "user_id",
+        },
+        [{ ...EXPOSURE_QUERIES[0], columnMapping }],
+      );
+    expect(hash({ userIdColumns: { user_id: "user_id" } })).toBe(hash());
+    expect(hash({ userIdColumns: { user_id: "uid" } })).not.toBe(hash());
+  });
 });
 
 describe("legacyDocDescribesPhase", () => {
