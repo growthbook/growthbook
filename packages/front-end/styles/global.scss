@@ -787,12 +787,6 @@ pre {
         font-weight: var(--font-weight-bold);
         padding-bottom: 5px;
         line-height: 16px;
-
-        // Badges, carets and sort buttons sit on the text's baseline rather
-        // than centring it against their own height.
-        .rt-Flex {
-          align-items: baseline;
-        }
       }
     }
   }
