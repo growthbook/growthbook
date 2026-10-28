@@ -94,6 +94,11 @@ const ScrollArea = forwardRef<
   }, [edgeCue, direction, skipped]);
 
   const shadowed = edgeCue === "shadow";
+  const scrollbarRoom = alwaysShow
+    ? ({
+        "--scrollbar-room": `calc(var(--space-${size}) + var(--space-1))`,
+      } as CSSProperties)
+    : undefined;
   const scrollArea = (
     <RadixScrollArea
       ref={viewport}
@@ -101,12 +106,13 @@ const ScrollArea = forwardRef<
       size={size}
       scrollbars={direction}
       onScroll={onScroll}
-      className={
-        shadowed
-          ? styles.isolated
-          : clsx(edgeCue === "fade" && styles.fades, className)
-      }
-      style={shadowed ? undefined : style}
+      className={clsx(
+        styles.root,
+        alwaysShow && styles.reservesScrollbar,
+        edgeCue === "fade" && styles.fades,
+        shadowed ? styles.fillsWrapper : className,
+      )}
+      style={shadowed ? scrollbarRoom : { ...scrollbarRoom, ...style }}
       // Lands on the viewport, the element that scrolls.
       data-more={more.join(" ") || undefined}
     >

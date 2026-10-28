@@ -36,14 +36,31 @@
   }
 }
 
+// What scrolls stacks inside the viewport, so the scrollbars and edge
+// shadows draw over all of it, sticky cells included.
+.root > :global(.rt-ScrollAreaViewport) {
+  isolation: isolate;
+}
+
+// Always shown, a scrollbar takes room of its own instead of covering content.
+.reservesScrollbar {
+  &:has(> :global(.rt-ScrollAreaScrollbar[data-orientation="horizontal"]))
+    > :global(.rt-ScrollAreaViewport) {
+    padding-bottom: var(--scrollbar-room);
+  }
+
+  &:has(> :global(.rt-ScrollAreaScrollbar[data-orientation="vertical"]))
+    > :global(.rt-ScrollAreaViewport) {
+    padding-right: var(--scrollbar-room);
+  }
+}
+
 .shadowed {
   position: relative;
 }
 
-// Its content stacks inside it, so the shadows fall over even a sticky cell.
-.isolated {
+.fillsWrapper {
   height: 100%;
-  isolation: isolate;
 }
 
 // A narrow shadow over an edge with more past it, as beside a pinned column.
