@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentTargetingData,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -20,10 +19,7 @@ import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
-import {
-  stagedEditsScope,
-  useStagedState,
-} from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useStagedTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
@@ -54,12 +50,11 @@ const ExperimentPage = (): ReactElement => {
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${eid}`);
-  const [targetingDraft, setTargetingDraft] =
-    useStagedState<ExperimentTargetingData | null>(
-      "targeting",
-      null,
-      data ? stagedEditsScope(data.experiment) : null,
-    );
+  const {
+    draft: targetingDraft,
+    setDraft: setTargetingDraft,
+    stage: stageTargeting,
+  } = useStagedTargeting(data?.experiment);
 
   const { getDecisionCriteria, getRunningExperimentResultStatus } =
     useRunningExperimentStatus();
@@ -187,7 +182,7 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
-          stageChanges={setTargetingDraft}
+          stageChanges={stageTargeting}
           draft={targetingDraft}
         />
       )}

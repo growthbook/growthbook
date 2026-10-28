@@ -13,7 +13,10 @@ import {
   useSyncExternalStore,
 } from "react";
 import isEqual from "lodash/isEqual";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentInterfaceStringDates,
+  ExperimentTargetingData,
+} from "shared/types/experiment";
 import { conflictingFields, experimentFieldValue } from "shared/experiments";
 import {
   apiErrorRegistry,
@@ -648,6 +651,44 @@ export function useRegisterExperimentEdit(
   }, [register, id]);
 }
 
+const editBaseSlot = (slot: string) => `base:${slot}`;
+
+export type TargetingBase = {
+  experiment: ExperimentInterfaceStringDates;
+  targeting: ExperimentTargetingData;
+};
+
+/**
+ * The page's staged targeting. A modal stages it with what it opened against
+ * as the edit's base, unless an earlier base is staged, so a save made while
+ * it was open conflicts instead of being overwritten.
+ */
+export function useStagedTargeting(
+  experiment: Pick<ExperimentInterfaceStringDates, "id"> | undefined,
+) {
+  const scope = experiment ? stagedEditsScope(experiment) : null;
+  const [draft, setDraft] = useStagedState<ExperimentTargetingData | null>(
+    "targeting",
+    null,
+    scope,
+  );
+  const [base, setBase] = useStagedState<TargetingBase | null>(
+    editBaseSlot("targeting"),
+    null,
+    scope,
+  );
+  const stage = useCallback(
+    (value: ExperimentTargetingData, opened: TargetingBase) => {
+      // The draft first: a base staged alone reads as nothing staged, and
+      // the edit drops it.
+      setDraft(value);
+      if (!base) setBase(opened);
+    },
+    [base, setBase, setDraft],
+  );
+  return { draft, setDraft, stage };
+}
+
 /**
  * What an edit was made against: taken when it's first staged and kept,
  * reloads included, so a save compares against it rather than a later refetch.
@@ -657,7 +698,7 @@ export function useEditBase<B>(
   dirty: boolean,
   snapshot: () => B,
 ): [B | null, () => void] {
-  const [base, setBase] = useStagedState<B | null>(`base:${slot}`, null);
+  const [base, setBase] = useStagedState<B | null>(editBaseSlot(slot), null);
   const latest = useRef(snapshot);
   latest.current = snapshot;
   useEffect(() => {

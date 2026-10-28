@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentTargetingData,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -19,10 +18,7 @@ import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
-import {
-  stagedEditsScope,
-  useStagedState,
-} from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import { useStagedTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -46,12 +42,11 @@ const BanditExperimentPage = (): ReactElement => {
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${bid}`);
-  const [targetingDraft, setTargetingDraft] =
-    useStagedState<ExperimentTargetingData | null>(
-      "targeting",
-      null,
-      data ? stagedEditsScope(data.experiment) : null,
-    );
+  const {
+    draft: targetingDraft,
+    setDraft: setTargetingDraft,
+    stage: stageTargeting,
+  } = useStagedTargeting(data?.experiment);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
@@ -160,7 +155,7 @@ const BanditExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
-          stageChanges={setTargetingDraft}
+          stageChanges={stageTargeting}
           draft={targetingDraft}
           // source="bid"
         />
