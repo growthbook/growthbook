@@ -226,6 +226,7 @@
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-width: thin;
   // As the docked GrowthBot panel's conversation: a mask, so it fades to
   // whatever is behind it, in either theme.
   mask-image: linear-gradient(
@@ -243,6 +244,13 @@
 
 .sections.fadeBottom {
   --rail-fade-bottom: 0;
+}
+
+// Expanded, the scrollbar's space is kept whether or not the sections scroll,
+// so opening one that starts them scrolling doesn't shift the rows sideways
+// under the pointer. Collapsed, the icons fill the width, so there's none.
+.rail:not(.collapsed) .sections {
+  scrollbar-gutter: stable;
 }
 
 // Registered, so the fade can ease in and out: 1 is no fade.
