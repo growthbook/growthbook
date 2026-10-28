@@ -32,6 +32,7 @@ class AnalysisSettingsForStatsEngine:
     one_sided_intervals: bool = False
     use_covariate_as_response: bool = False
     post_stratification_enabled: bool = False
+    is_cluster_experiment: bool = False
 
 
 @dataclass

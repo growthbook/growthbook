@@ -2,6 +2,7 @@ import { isEqual } from "lodash";
 import {
   expandDerivedMetricsInMap,
   isDimensionPrecomputed,
+  isIsolatedDimension,
 } from "shared/experiments";
 import { isDefined } from "shared/util";
 import {
@@ -106,9 +107,10 @@ export async function getOrCreatePrecomputedDimensionTimeSeriesAnalyses(
     !isDimensionPrecomputed(
       dimensionId,
       snapshot.settings.precomputedUnitDimensionIds ?? [],
-    )
+    ) &&
+    !isIsolatedDimension(snapshot.settings, dimensionId)
   ) {
-    throw new Error("Dimension is not precomputed");
+    throw new Error("Dimension is not precomputed or isolated");
   }
 
   const baseAnalysis = getTimeSeriesBaseAnalysis({

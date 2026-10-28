@@ -72,6 +72,7 @@ import {
   isCappableFactMetric,
 } from "../validators/fact-table";
 import { parseAggregateFilter } from "../aggregate-filters";
+import { parseDimensionId } from "./dimension-ids";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -3366,6 +3367,44 @@ export function isDimensionPrecomputed(
   }
 
   return !!dimension && snapshotUnitDimensionIds.includes(dimension);
+}
+
+type IsolatedDimensionSettings = Pick<
+  ExperimentSnapshotSettings,
+  | "dimensions"
+  | "precomputedUnitDimensionIds"
+  | "isClusterExperiment"
+  | "clusterSubUnitIdentifier"
+>;
+
+/**
+ * Single source of truth for the dimensions that must be computed in their own
+ * isolated query and analyzed per-dimension, instead of being folded into the
+ * parent snapshot query and re-aggregated by gbstats.
+ */
+export function getIsolatedDimensionIds(
+  settings: IsolatedDimensionSettings,
+): string[] {
+  const ids = new Set<string>(settings.precomputedUnitDimensionIds ?? []);
+
+  if (getClusterSubUnit(settings) !== null) {
+    for (const dimension of settings.dimensions) {
+      if (parseDimensionId(dimension.id).kind === "experiment") {
+        ids.add(dimension.id);
+      }
+    }
+  }
+
+  return Array.from(ids);
+}
+
+/** True when `dimensionId` must be isolated for this snapshot. */
+export function isIsolatedDimension(
+  settings: IsolatedDimensionSettings,
+  dimensionId: string | undefined,
+): boolean {
+  if (!dimensionId) return false;
+  return getIsolatedDimensionIds(settings).includes(dimensionId);
 }
 
 /**

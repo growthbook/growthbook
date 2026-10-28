@@ -17,6 +17,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  MAX_CLUSTER_SUBUNIT_DIMENSIONS,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
@@ -59,6 +60,7 @@ import {
   getClusterSubUnit,
   getClusterMetricAnalysisLevel,
   ClusterMetricAnalysisLevel,
+  isIsolatedDimension,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -821,6 +823,21 @@ export function getSnapshotSettings({
         id: "precomputed:" + d.id,
         slices: d.specifiedSlices,
       })) ?? [];
+  }
+
+  if (
+    clusterSubUnitIdentifier &&
+    dimensions.length > MAX_CLUSTER_SUBUNIT_DIMENSIONS
+  ) {
+    logger.info(
+      {
+        experimentId: experiment.id,
+        requested: dimensions.length,
+        max: MAX_CLUSTER_SUBUNIT_DIMENSIONS,
+      },
+      "Trimming cluster sub-unit breakdown dimensions to the max allowed",
+    );
+    dimensions = dimensions.slice(0, MAX_CLUSTER_SUBUNIT_DIMENSIONS);
   }
 
   // Configured unit dimensions are carried on a dedicated settings field, NOT
@@ -3290,18 +3307,19 @@ async function getQueryMapForAnalysis(
 ): Promise<QueryMap> {
   const queryMap = await getQueryMap(context, snapshot.queries);
   const dimensionId = analysisSettingsList[0]?.dimensions[0];
-  if (
-    dimensionId &&
-    snapshot.settings.precomputedUnitDimensionIds?.includes(dimensionId)
-  ) {
+  // Isolated dimensions (precomputed unit dimensions, plus cluster-experiment
+  // sub-unit dimensions) are stored as their own `unitdim:<id>:` queries rather
+  // than folded into the parent query, so they are analyzed from a filtered
+  // sub-map keyed on the dimension id.
+  if (dimensionId && isIsolatedDimension(snapshot.settings, dimensionId)) {
     const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
     if (unitDimQueryMap.size === 0) {
-      // The parent snapshot lists this unit dimension in its settings but
+      // The parent snapshot lists this isolated dimension in its settings but
       // has no `unitdim:<id>:` query results — either the snapshot predates
-      // this feature or its unit-dim queries were pruned/failed. Refreshing
-      // the snapshot will repopulate them.
+      // this feature or its isolated-dimension queries were pruned/failed.
+      // Refreshing the snapshot will repopulate them.
       throw new Error(
-        `Snapshot is missing query results for unit dimension "${dimensionId}". Refresh the experiment results to recompute.`,
+        `Snapshot is missing query results for dimension "${dimensionId}". Refresh the experiment results to recompute.`,
       );
     }
     return unitDimQueryMap;

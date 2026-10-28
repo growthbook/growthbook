@@ -1,5 +1,8 @@
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { isDimensionPrecomputed } from "shared/experiments";
+import {
+  getIsolatedDimensionIds,
+  isDimensionPrecomputed,
+} from "shared/experiments";
 import { ExperimentInterface } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
@@ -44,8 +47,15 @@ export async function runEagerExperimentAndUnitDimensionsAnalyses({
       experimentSnapshot.settings.precomputedUnitDimensionIds ?? [];
     const precomputedDimensionIds = new Set<string>();
 
+    const isolatedDimensionIds = new Set(
+      getIsolatedDimensionIds(experimentSnapshot.settings),
+    );
+
     (experimentSnapshot.settings.dimensions ?? []).forEach((dimension) => {
-      if (isDimensionPrecomputed(dimension.id, precomputedUnitDimensionIds)) {
+      if (
+        isDimensionPrecomputed(dimension.id, precomputedUnitDimensionIds) ||
+        isolatedDimensionIds.has(dimension.id)
+      ) {
         precomputedDimensionIds.add(dimension.id);
       }
     });

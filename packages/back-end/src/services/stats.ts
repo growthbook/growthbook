@@ -128,6 +128,7 @@ export function getAnalysisSettingsForStatsEngine(
     use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled:
       !isClusterExperiment && !!settings.postStratificationEnabled,
+    is_cluster_experiment: isClusterExperiment,
   };
 
   return analysisData;
