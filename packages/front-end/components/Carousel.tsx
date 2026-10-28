@@ -7,7 +7,7 @@ import {
   ReactNode,
   ReactElement,
 } from "react";
-import { Flex, IconButton } from "@radix-ui/themes";
+import { Flex, IconButton, Theme } from "@radix-ui/themes";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
 import Text from "@/ui/Text";
@@ -58,41 +58,44 @@ const Carousel: FC<{
       </div>
       {num > 1 ? (
         // Pinned to the top, so it stays put whatever each image's height;
-        // the count's fixed width spaces it from the arrows.
-        <Flex align="center" className={styles.ribbon}>
-          <IconButton
-            type="button"
-            variant="ghost"
-            color="gray"
-            radius="full"
-            size="2"
-            aria-label="Previous image"
-            // Radix ghost buttons carry a negative margin.
-            style={{ margin: 0 }}
-            disabled={current === 0}
-            onClick={() => setActive(current - 1)}
-          >
-            <PiCaretLeft size={16} />
-          </IconButton>
-          <span className={styles.count}>
-            <Text size="sm" color="text-mid" whiteSpace="nowrap">
-              {current + 1} of {num}
-            </Text>
-          </span>
-          <IconButton
-            type="button"
-            variant="ghost"
-            color="gray"
-            radius="full"
-            size="2"
-            aria-label="Next image"
-            style={{ margin: 0 }}
-            disabled={current === num - 1}
-            onClick={() => setActive(current + 1)}
-          >
-            <PiCaretRight size={16} />
-          </IconButton>
-        </Flex>
+        // the count's fixed width spaces it from the arrows. Dark in either
+        // theme, as an overlay on an image reads best.
+        <Theme appearance="dark" hasBackground={false} asChild>
+          <Flex align="center" className={styles.ribbon}>
+            <IconButton
+              type="button"
+              variant="ghost"
+              color="gray"
+              radius="full"
+              size="2"
+              aria-label="Previous image"
+              // Radix ghost buttons carry a negative margin.
+              style={{ margin: 0 }}
+              disabled={current === 0}
+              onClick={() => setActive(current - 1)}
+            >
+              <PiCaretLeft size={16} />
+            </IconButton>
+            <span className={styles.count}>
+              <Text size="sm" color="text-mid" whiteSpace="nowrap">
+                {current + 1} of {num}
+              </Text>
+            </span>
+            <IconButton
+              type="button"
+              variant="ghost"
+              color="gray"
+              radius="full"
+              size="2"
+              aria-label="Next image"
+              style={{ margin: 0 }}
+              disabled={current === num - 1}
+              onClick={() => setActive(current + 1)}
+            >
+              <PiCaretRight size={16} />
+            </IconButton>
+          </Flex>
+        </Theme>
       ) : null}
     </div>
   );
