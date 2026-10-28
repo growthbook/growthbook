@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/router";
 import { IconButton, VisuallyHidden } from "@radix-ui/themes";
@@ -128,6 +128,7 @@ export default function ProfileMenu({
     "Profile",
     name,
     email,
+    showOrgPicker ? orgName : null,
     pendingReviewCount > 0
       ? `${pendingReviewCount} pending review${pendingReviewCount === 1 ? "" : "s"}`
       : null,
@@ -298,9 +299,31 @@ export default function ProfileMenu({
     ),
   ];
 
+  // In the side nav with several organizations, the current one is a second
+  // line under the name; its full name shows in a tooltip once it's cut off.
+  const railOrgName = inRail && showOrgPicker && orgName ? orgName : null;
+  const orgRef = useRef<HTMLSpanElement>(null);
+  const [orgTruncated, setOrgTruncated] = useState(false);
+  useEffect(() => {
+    const el = orgRef.current;
+    if (!el) {
+      setOrgTruncated(false);
+      return;
+    }
+    const check = () => setOrgTruncated(el.scrollWidth > el.clientWidth);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [railOrgName, railCollapsed]);
+
   const tooltip = useMenuTriggerTooltip({
-    label: "Profile",
-    enabled: !!railCollapsed && !inPlace,
+    label: railCollapsed
+      ? railOrgName
+        ? `Profile · ${railOrgName}`
+        : "Profile"
+      : (railOrgName ?? ""),
+    enabled: !inPlace && (!!railCollapsed || (!!railOrgName && orgTruncated)),
     menuOpen: open,
   });
 
@@ -335,7 +358,14 @@ export default function ProfileMenu({
         />
         {reviewDot}
       </span>
-      {railCollapsed ? null : (
+      {railCollapsed ? null : railOrgName ? (
+        <span className={clsx(railLabelClassName, styles.railLabelStack)}>
+          <span className={styles.railName}>{name || email || "Account"}</span>
+          <span ref={orgRef} className={styles.railOrg}>
+            {railOrgName}
+          </span>
+        </span>
+      ) : (
         <span className={railLabelClassName}>{name || email || "Account"}</span>
       )}
       {tooltip.anchor}
