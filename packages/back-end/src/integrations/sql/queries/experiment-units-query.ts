@@ -72,6 +72,12 @@ export function getExperimentUnitsQuery(
   const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
   const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
 
+  const isClusterKeyedUnitDimension = (
+    d: (typeof unitDimensions)[number],
+  ): boolean =>
+    clusterIdColumn !== null &&
+    (d.dimension.userIdType || "user_id") === clusterIdColumn;
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
@@ -79,7 +85,9 @@ export function getExperimentUnitsQuery(
       objects: [
         [effectiveBaseIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+        ...unitDimensions
+          .filter((d) => !isClusterKeyedUnitDimension(d))
+          .map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       from: unitsSettings.startDate,
@@ -88,6 +96,13 @@ export function getExperimentUnitsQuery(
       experimentId: unitsSettings.experimentId,
     },
   );
+
+  const getUnitDimensionJoinIdType = (
+    d: (typeof unitDimensions)[number],
+  ): string =>
+    isClusterKeyedUnitDimension(d) && clusterIdColumn !== null
+      ? clusterIdColumn
+      : baseIdType;
 
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
@@ -178,7 +193,14 @@ export function getExperimentUnitsQuery(
           `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
         )} as variation
         , ${dialect.castUserDateCol(rawTimestampColumn)} as timestamp
-        ${clusterIdColumn ? `, e.${clusterIdColumn} as ${clusterIdColumn}` : ""}
+        ${
+          clusterIdColumn
+            ? `, e.${getExposureQueryIdentifierColumn(
+                exposureQuery,
+                clusterIdColumn,
+              )} as ${clusterIdColumn}`
+            : ""
+        }
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -258,7 +280,7 @@ export function getExperimentUnitsQuery(
         (d) =>
           `, __dim_unit_${d.dimension.id} as (${getDimensionCTE(
             d.dimension,
-            baseIdType,
+            getUnitDimensionJoinIdType(d),
             idJoinMap,
           )})`,
       )
@@ -312,13 +334,14 @@ export function getExperimentUnitsQuery(
             : ""
         }
         ${unitDimensions
-          .map(
-            (d) => `
+          .map((d) => {
+            const joinIdType = getUnitDimensionJoinIdType(d);
+            return `
             LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+              __dim_unit_${d.dimension.id}.${joinIdType} = e.${joinIdType}
             )
-          `,
-          )
+          `;
+          })
           .join("\n")}
         ${
           activationMetric

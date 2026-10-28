@@ -1967,7 +1967,12 @@ export default abstract class SqlIntegration
             ${this.getSqlDialect().castToString(newExpIdentifierCol)} AS ${baseIdType}
             ${
               clusterIdColumn
-                ? `, ${this.getSqlDialect().castToString(`e.${clusterIdColumn}`)} AS ${clusterIdColumn}`
+                ? `, ${this.getSqlDialect().castToString(
+                    `e.${getExposureQueryIdentifierColumn(
+                      exposureQuery,
+                      clusterIdColumn,
+                    )}`,
+                  )} AS ${clusterIdColumn}`
                 : ""
             }
             , ${this.getSqlDialect().castToString(newExpVariationCol)} AS variation
