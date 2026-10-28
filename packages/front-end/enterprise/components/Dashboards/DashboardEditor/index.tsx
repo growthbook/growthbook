@@ -79,9 +79,9 @@ export function getGridKeyForBlock(
 
 // Build the RGL LayoutItem[] from blocks. Blocks without an existing layout
 // get stacked full-width below the highest occupied y so they don't collide.
-// minW/minH come from the shared per-type defaults; maxW is the absolute grid
-// cap. Height is intentionally uncapped. None of these constraints are
-// persisted.
+// minW/minH come from the shared per-type defaults, and a block saved shorter
+// than its minH is shown at it; maxW is the absolute grid cap. Height is
+// intentionally uncapped. None of these constraints are persisted.
 export function buildRGLLayout(
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   cols: number = DASHBOARD_GRID_COLS,
@@ -102,7 +102,7 @@ export function buildRGLLayout(
         x: block.layout.x,
         y: block.layout.y,
         w: Math.min(block.layout.w, maxW),
-        h: Math.max(1, block.layout.h),
+        h: Math.max(bounds.minH, block.layout.h),
         minW: bounds.minW,
         minH: bounds.minH,
         maxW,
