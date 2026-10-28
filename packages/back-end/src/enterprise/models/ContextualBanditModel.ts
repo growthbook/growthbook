@@ -658,7 +658,8 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     // check; other edits only need the update permission.
     if (
       ((updated?.status !== undefined && updated.status !== existing.status) ||
-        (updated?.archived !== undefined &&
+        (existing.status === "running" &&
+          updated?.archived !== undefined &&
           updated.archived !== existing.archived)) &&
       !this.context.permissions.canRunContextualBandit(
         existing,

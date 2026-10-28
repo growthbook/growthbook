@@ -102,6 +102,7 @@ export default function ContextualBanditDetailPage({
   cb,
   mutate,
   canRun = false,
+  canStop = false,
   canArchive = false,
   canDelete = false,
   editOverview,
@@ -126,6 +127,7 @@ export default function ContextualBanditDetailPage({
   cb: ApiContextualBanditInterface;
   mutate: () => void;
   canRun?: boolean;
+  canStop?: boolean;
   canArchive?: boolean;
   canDelete?: boolean;
   editOverview?: () => void;
@@ -387,7 +389,7 @@ export default function ContextualBanditDetailPage({
               Start Contextual Bandit
             </Button>
           ) : null}
-          {canRun && cb.status === "running" ? (
+          {canStop && cb.status === "running" ? (
             <Button
               variant="outline"
               color="red"
@@ -465,6 +467,12 @@ export default function ContextualBanditDetailPage({
                 {canDelete ? (
                   <DropdownMenuItem
                     color="red"
+                    disabled={cb.status === "running"}
+                    tooltip={
+                      cb.status === "running"
+                        ? "Stop this Contextual Bandit before deleting it"
+                        : undefined
+                    }
                     onClick={() => {
                       setDropdownOpen(false);
                       setConfirmDelete(true);
@@ -913,7 +921,7 @@ export default function ContextualBanditDetailPage({
                   : "It will move to the Archived tab and can't be edited until it is unarchived."}
               </Text>
               {cb.status === "running" ? (
-                <Callout status={cb.archived ? "info" : "warning"}>
+                <Callout status="warning">
                   {cb.archived
                     ? "This Contextual Bandit is still running and will resume serving to its linked Feature Flags."
                     : "This will immediately stop all linked Feature Flags from serving this Contextual Bandit."}
@@ -933,7 +941,21 @@ export default function ContextualBanditDetailPage({
       {confirmDelete ? (
         <ConfirmDialog
           title="Delete this Contextual Bandit?"
-          content="Its results history will be deleted. This can't be undone."
+          content={
+            <>
+              <Text as="p">
+                Its results history will be deleted. This can&apos;t be undone.
+              </Text>
+              {linkedFeatures.length > 0 ? (
+                <Callout status="warning">
+                  {linkedFeatures.length} linked Feature Flag
+                  {linkedFeatures.length === 1 ? "" : "s"} will keep a rule
+                  pointing to this Contextual Bandit. Remove the rule from each
+                  flag if it is no longer needed.
+                </Callout>
+              ) : null}
+            </>
+          }
           yesText="Delete"
           color="red"
           onConfirm={deleteContextualBandit}

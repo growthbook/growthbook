@@ -204,4 +204,22 @@ describe("contextualBanditChangeActions", () => {
       contextualBanditChangeActions(bandit("draft"), { maxLeaves: 6 }),
     ).toEqual(["experiment.draft"]);
   });
+
+  it("holds archiving a running bandit as a stop and unarchiving it as a start", () => {
+    expect(
+      contextualBanditChangeActions(bandit("running"), { archived: true }),
+    ).toEqual(["experiment.stop"]);
+    expect(
+      contextualBanditChangeActions(
+        { ...bandit("running"), archived: true },
+        { archived: false },
+      ),
+    ).toEqual(["experiment.start"]);
+    expect(
+      contextualBanditChangeActions(bandit("stopped"), { archived: true }),
+    ).toEqual(["experiment.other"]);
+    expect(
+      contextualBanditChangeActions(bandit("draft"), { archived: true }),
+    ).toEqual(["experiment.draft"]);
+  });
 });
