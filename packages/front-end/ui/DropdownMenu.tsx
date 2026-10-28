@@ -61,6 +61,8 @@ type DropdownProps = {
   menuSideOffset?: number;
   // Shifts the menu along its trigger's edge, as Radix's alignOffset.
   menuAlignOffset?: number;
+  // A class on the menu's content, for styles inside it.
+  menuClassName?: string;
 } & MarginProps;
 
 export function DropdownMenu({
@@ -82,6 +84,7 @@ export function DropdownMenu({
   onCloseAutoFocus,
   menuSideOffset,
   menuAlignOffset,
+  menuClassName,
   ...props
 }: DropdownProps) {
   const triggerComponent =
@@ -179,7 +182,12 @@ export function DropdownMenu({
           variant={variant}
           onCloseAutoFocus={onCloseAutoFocus}
           className={
-            menuWidth === "full" ? "dropdown-content-width-full" : undefined
+            [
+              menuWidth === "full" ? "dropdown-content-width-full" : null,
+              menuClassName,
+            ]
+              .filter(Boolean)
+              .join(" ") || undefined
           }
           style={{
             width: typeof menuWidth === "number" ? menuWidth : undefined,
@@ -227,6 +235,8 @@ type DropdownItemProps = {
   shortcut?: RadixDropdownMenu.ItemProps["shortcut"];
   tooltip?: string;
   tooltipStyle?: React.CSSProperties;
+  // What typing jumps to (Radix's textValue); its text content otherwise.
+  textValue?: string;
   confirmation?: {
     submit: () => Promise<void> | void;
     getConfirmationContent?: (
