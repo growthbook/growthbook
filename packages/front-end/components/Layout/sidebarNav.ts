@@ -1,4 +1,5 @@
-import { BsFlag, BsCodeSlash, BsHouse, BsShieldLock } from "react-icons/bs";
+import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
+import { PiShieldCheck } from "react-icons/pi";
 import {
   GBDatabase,
   GBExperiment,
@@ -360,7 +361,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Admin",
     href: "/admin",
-    Icon: BsShieldLock,
+    Icon: PiShieldCheck,
     path: /^admin/,
     filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
   },
