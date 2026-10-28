@@ -447,6 +447,13 @@ export default function AISettings({
                         form.setValue(key, "", { shouldDirty: true });
                       }
                     });
+                    Object.entries(promptForm.getValues()).forEach(
+                      ([key, value]) => {
+                        if (key.endsWith("-model") && value === removedKey) {
+                          promptForm.setValue(key, "", { shouldDirty: true });
+                        }
+                      },
+                    );
                   }}
                 />
               )}
