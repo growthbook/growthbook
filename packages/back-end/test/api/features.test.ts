@@ -725,6 +725,70 @@ describe("features API", () => {
       expect(details.pre.version).toBe(10);
       expect(details.post.version).toBe(11);
     });
+
+    it("snapshots the audit pre-image before the revision flow mutates it (issue #6421)", async () => {
+      defaultContext();
+
+      const existingFeature = makeFeature({
+        version: 5,
+        rules: [
+          {
+            id: "rul_1",
+            type: "force",
+            description: "",
+            enabled: true,
+            allEnvironments: true,
+            value: "old-value",
+          },
+        ],
+      });
+      (getFeature as jest.Mock).mockResolvedValue(existingFeature);
+
+      // Faithful simulation of the real revision flow: computeRevisionMergeChanges
+      // → addIdsToFlatRules mutates the very rule objects the handler threads
+      // through revisionChanges.rules, which alias feature.rules — and the
+      // publish lands the rule change plus a fresh dateUpdated.
+      (createAndPublishRevision as jest.Mock).mockImplementation(
+        ({ feature }) => {
+          for (const r of feature.rules ?? []) {
+            r.value = "new-value";
+            r.seed = r.id;
+          }
+          return Promise.resolve({
+            revision: makeRevisionDoc(6, feature.id),
+            updatedFeature: {
+              ...feature,
+              version: 6,
+              dateUpdated: new Date("2026-09-28T00:00:01.000Z"),
+            },
+          });
+        },
+      );
+
+      const response = await request(app)
+        .post(`/api/v1/features/${existingFeature.id}`)
+        .send({ defaultValue: "true" });
+
+      expect(response.status).toBe(200);
+      expect(createAndPublishRevision).toHaveBeenCalled();
+      const details = JSON.parse(
+        auditMock.mock.calls.find(
+          ([entry]) => entry.event === "feature.update",
+        )[0].details,
+      );
+      // The pre-image must show the rules as they were BEFORE the revision
+      // flow mutated them in place — pre/post must differ in rules, not just
+      // dateUpdated.
+      expect(details.pre.rules).toEqual([
+        expect.objectContaining({ id: "rul_1", value: "old-value" }),
+      ]);
+      expect(details.pre.rules[0]).not.toHaveProperty("seed");
+      expect(details.post.rules).toEqual([
+        expect.objectContaining({ id: "rul_1", value: "new-value" }),
+      ]);
+      expect(details.pre.version).toBe(5);
+      expect(details.post.version).toBe(6);
+    });
   });
 
   // ---------------------------------------------------------------------------
