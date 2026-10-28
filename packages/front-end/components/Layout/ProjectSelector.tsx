@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import { PiFolder, PiMagnifyingGlassBold } from "react-icons/pi";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -10,13 +10,14 @@ import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import { TextField } from "@/ui/TextField";
+import LetterAvatar from "./LetterAvatar";
 import styles from "./HeaderBreadcrumb.module.scss";
 
 const DEMO_BADGE_TITLE = "This is a demo project with sample data";
 // main's Demo badge color.
 const DEMO_BADGE_COLOR = "#EB8045";
 
-function DemoBadge() {
+export function DemoBadge() {
   return (
     <Badge
       label="Demo"
@@ -29,12 +30,52 @@ function DemoBadge() {
   );
 }
 
-export default function ProjectSelector() {
+// What the header's and the side nav's selectors share: the projects, the
+// current one, and whether the user is held to one (no menu, then).
+export function useProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
   const permissions = usePermissions();
   const current = getProjectById(project);
-  const [open, setOpen] = useState(false);
+
+  const heldToOneProject =
+    projects.length === 1 && !permissions.check("readData", "");
+  useEffect(() => {
+    if (heldToOneProject) setProject(projects[0].id);
+  }, [heldToOneProject, projects, setProject]);
+
+  const isDemo = (id: string) =>
+    isDemoDatasourceProject({ projectId: id, organizationId: orgId || "" });
+
+  return {
+    projects,
+    project,
+    current,
+    heldToOneProject,
+    isDemo,
+    name: current?.name || "All Projects",
+  };
+}
+
+// The project menu: a search field over All Projects and each project. With
+// `avatars`, each has main's avatar beside its name ("ALL" for All Projects).
+export function ProjectMenu({
+  open,
+  onOpenChange,
+  trigger,
+  avatars = false,
+  menuSide,
+  menuSideOffset,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  trigger: ReactNode;
+  avatars?: boolean;
+  menuSide?: "bottom" | "right";
+  menuSideOffset?: number;
+}) {
+  const { projects, project, setProject } = useDefinitions();
+  const { isDemo } = useProjectSelector();
   const searchRef = useRef<HTMLInputElement>(null);
 
   const { items, searchInputProps } = useSearch({
@@ -44,12 +85,6 @@ export default function ProjectSelector() {
     searchFields: ["name^3", "description"],
   });
 
-  const heldToOneProject =
-    projects.length === 1 && !permissions.check("readData", "");
-  useEffect(() => {
-    if (heldToOneProject) setProject(projects[0].id);
-  }, [heldToOneProject, projects, setProject]);
-
   // Typing goes straight to the search field as the menu opens.
   useEffect(() => {
     if (!open) return;
@@ -57,30 +92,6 @@ export default function ProjectSelector() {
     return () => window.clearTimeout(t);
   }, [open]);
 
-  // No projects to pick from: the button's label alone, as plain text.
-  if (!projects.length) {
-    return (
-      <span className={styles.projectPlain}>
-        <PiFolder size={14} aria-hidden="true" />
-        <span className={styles.projectName}>All Projects</span>
-      </span>
-    );
-  }
-
-  const isDemo = (id: string) =>
-    isDemoDatasourceProject({ projectId: id, organizationId: orgId || "" });
-
-  if (heldToOneProject) {
-    return (
-      <span className={styles.projectStatic}>
-        <PiFolder size={14} className={styles.projectIcon} />
-        <span className={styles.projectName}>{projects[0].name}</span>
-        {isDemo(projects[0].id) ? <DemoBadge /> : null}
-      </span>
-    );
-  }
-
-  const name = current?.name || "All Projects";
   // Keeps focus in the search field: the menu would move it to the item
   // under the pointer unless pointermove's default is prevented.
   const keepSearchFocus = (e: React.PointerEvent) => {
@@ -93,6 +104,15 @@ export default function ProjectSelector() {
       onClick={() => setProject(id)}
     >
       <span className={styles.projectOption}>
+        {avatars ? (
+          <span className={styles.projectOptionAvatar} aria-hidden="true">
+            <LetterAvatar
+              name={id ? label : ""}
+              defaultInitials="ALL"
+              size="small"
+            />
+          </span>
+        ) : null}
         <Text weight={id === project ? "semibold" : "regular"} truncate>
           {label}
         </Text>
@@ -104,29 +124,13 @@ export default function ProjectSelector() {
   return (
     <DropdownMenu
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={onOpenChange}
       menuPlacement="start"
-      menuWidth={220}
+      menuSide={menuSide}
+      menuSideOffset={menuSideOffset}
+      menuWidth={avatars ? 240 : 220}
       variant="soft"
-      trigger={
-        <Button
-          variant="ghost"
-          color="gray"
-          size="sm"
-          // So the click reaches the menu's trigger.
-          preventDefault={false}
-          className={`${styles.headerButton} ${styles.projectButton}`}
-          icon={<PiFolder size={14} />}
-          aria-label={`Project: ${name}`}
-        >
-          <span className={styles.projectName}>{name}</span>
-          {current && isDemo(current.id) ? (
-            <span className={styles.demoBadgeSelected}>
-              <DemoBadge />
-            </span>
-          ) : null}
-        </Button>
-      }
+      trigger={trigger}
     >
       <div className={styles.projectSearch}>
         <TextField
@@ -161,5 +165,59 @@ export default function ProjectSelector() {
         {items.map((p) => option(p.id, p.name))}
       </div>
     </DropdownMenu>
+  );
+}
+
+// The header breadcrumb's selector, below 1180px (the side nav has its own
+// above it, RailProjectSelector.tsx).
+export default function ProjectSelector() {
+  const { projects, current, heldToOneProject, isDemo, name } =
+    useProjectSelector();
+  const [open, setOpen] = useState(false);
+
+  // No projects to pick from: the button's label alone, as plain text.
+  if (!projects.length) {
+    return (
+      <span className={styles.projectPlain}>
+        <PiFolder size={14} aria-hidden="true" />
+        <span className={styles.projectName}>All Projects</span>
+      </span>
+    );
+  }
+
+  if (heldToOneProject) {
+    return (
+      <span className={styles.projectStatic}>
+        <PiFolder size={14} className={styles.projectIcon} />
+        <span className={styles.projectName}>{projects[0].name}</span>
+        {isDemo(projects[0].id) ? <DemoBadge /> : null}
+      </span>
+    );
+  }
+
+  return (
+    <ProjectMenu
+      open={open}
+      onOpenChange={setOpen}
+      trigger={
+        <Button
+          variant="ghost"
+          color="gray"
+          size="sm"
+          // So the click reaches the menu's trigger.
+          preventDefault={false}
+          className={`${styles.headerButton} ${styles.projectButton}`}
+          icon={<PiFolder size={14} />}
+          aria-label={`Project: ${name}`}
+        >
+          <span className={styles.projectName}>{name}</span>
+          {current && isDemo(current.id) ? (
+            <span className={styles.demoBadgeSelected}>
+              <DemoBadge />
+            </span>
+          ) : null}
+        </Button>
+      }
+    />
   );
 }

@@ -42,6 +42,7 @@ import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
 import GrowthBookLogo from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
+import RailProjectSelector from "./RailProjectSelector";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
@@ -915,6 +916,10 @@ export default function AppRail() {
         {/* Kept mounted while a menu is open in its place: the menus are drawn by
           their rows here. */}
         <div className={drawerMenu ? styles.navHidden : styles.navBody}>
+          {/* In the drawer, the project selector stays in the header. */}
+          {isNarrow ? null : (
+            <RailProjectSelector collapsed={contentCollapsed} />
+          )}
           <RailItem
             collapsed={contentCollapsed}
             Icon={SearchIcon}

@@ -588,29 +588,58 @@
   line-height: var(--line-height-1);
 }
 
-// @/ui Button's outline variant (Radix's .rt-variant-outline) on a rail row.
+// The project selector (RailProjectSelector.tsx). Its 26px avatar on the
+// icon column: centred where the 18px icons are (16px in), so expanded its
+// box starts 3px in, and the name starts where the other rows' labels do.
+.row.projectItem {
+  padding-left: 3px;
+
+  .projectAvatar {
+    // Its own 8px margin and 4px more, so the name sits 6px after it.
+    margin-right: -12px;
+  }
+}
+
+// The avatar's own 8px right margin (LetterAvatar) taken back, so it
+// centres in the collapsed icon's box.
+.projectAvatar {
+  display: flex;
+  flex-shrink: 0;
+  margin-right: -8px;
+}
+
+.projectChevrons {
+  flex-shrink: 0;
+  color: var(--rail-chevron);
+}
+
+// Held to one project: nothing to open.
+.projectStatic.projectStatic {
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+    color: var(--rail-text);
+  }
+}
+
+// Violet text and icon, with no border, expanded and collapsed; the rows'
+// hover fill and focus ring.
 .upgrade.upgrade {
   margin-top: var(--space-2);
-  border-radius: var(--radius-2);
-  box-shadow: inset 0 0 0 1px var(--violet-a8);
   color: var(--violet-a11);
+  font-weight: var(--font-weight-medium);
 
   .rowIcon {
     color: var(--violet-a11);
   }
 
   &:hover {
-    background: var(--violet-a2);
     color: var(--violet-a11);
-  }
 
-  &:active {
-    background: var(--violet-a3);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--focus-8);
-    outline-offset: -1px;
+    .rowIcon {
+      color: var(--violet-a11);
+    }
   }
 }
 
