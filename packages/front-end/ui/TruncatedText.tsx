@@ -1,41 +1,50 @@
 import { useRef } from "react";
+import { Text as RadixText } from "@radix-ui/themes";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
+import { radixSize } from "@/ui/sizes";
+import { radixWeightMap, TextColors, TextSizes, TextWeights } from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
 /**
  * Text cut off with an ellipsis where it runs out of room, with all of it in a
- * tooltip once it is. Focusable then, so a keyboard can open it too.
+ * tooltip once it is. Focusable then, so a keyboard can open it too. Styled
+ * as `Text` is, on Radix's own so the tooltip can hold it.
  */
 export default function TruncatedText({
   text,
   maxWidth,
-  strong = false,
+  size = "inherit",
+  weight = "regular",
+  color,
 }: {
   text: string;
   /** Inline, up to this width; without it, as wide as its container. */
   maxWidth?: number | string;
-  strong?: boolean;
+  size?: TextSizes;
+  weight?: TextWeights;
+  color?: TextColors;
 }) {
-  const ref = useRef<HTMLElement>(null);
+  const ref = useRef<HTMLSpanElement>(null);
   const truncated = useIsOverflowingX(ref, true, text);
-  const Tag = strong ? "strong" : "span";
   return (
     <Tooltip content={text} enabled={truncated}>
-      <Tag
+      <RadixText
         ref={ref}
+        as="span"
+        truncate
+        size={size === "inherit" ? undefined : radixSize(size)}
+        weight={radixWeightMap[weight]}
         tabIndex={truncated ? 0 : undefined}
         style={{
           display: maxWidth === undefined ? "block" : "inline-block",
           maxWidth,
           minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
           verticalAlign: "bottom",
+          color: color && `var(--color-${color})`,
         }}
       >
         {text}
-      </Tag>
+      </RadixText>
     </Tooltip>
   );
 }

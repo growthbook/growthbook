@@ -13,7 +13,7 @@ export default function TruncatedTextStories() {
       <div>
         Inline, up to a width:{" "}
         <TruncatedText
-          strong
+          weight="semibold"
           maxWidth={160}
           text="a-very-long-feature-flag-key"
         />

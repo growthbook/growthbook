@@ -78,7 +78,11 @@ export default function MakeChangesFlow({
       ? [
           <Fragment key="flag">
             the linked Feature Flag{" "}
-            <TruncatedText strong maxWidth={240} text={linkedFlags[0]} />
+            <TruncatedText
+              weight="semibold"
+              maxWidth={240}
+              text={linkedFlags[0]}
+            />
           </Fragment>,
         ]
       : linkedFlags.length
