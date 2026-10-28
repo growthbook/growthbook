@@ -23,7 +23,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
         with:
@@ -36,7 +36,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
         with:
@@ -50,7 +50,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER_LARGE || 'depot-ubuntu-24.04-4' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # No eslint cache here on purpose. ESLint keys its cache on file content
       # plus the serialized config, neither of which changes when a type in
@@ -72,7 +72,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Before poetry exists, so the root postinstall skips its stats install and
       # the explicit step below is the only one.
@@ -124,7 +124,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
@@ -142,7 +142,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
         with:
@@ -184,7 +184,7 @@ jobs:
         shard: [1, 2, 3, 4]
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
@@ -225,7 +225,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
@@ -238,7 +238,7 @@ jobs:
     runs-on: ${{ vars.CI_RUNNER || 'depot-ubuntu-24.04' }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/setup-workspace
 
