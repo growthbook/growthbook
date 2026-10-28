@@ -89,6 +89,7 @@ import {
   ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
+  FeatureMetadata,
   InterleavingDefinitions,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
@@ -468,11 +469,15 @@ export function generateInterleavingsPayload({
   environment,
   projects,
   savedGroupStrategy,
+  metadataOptions,
+  projectsMap,
 }: {
   interleavings: InterleavingInterface[];
   environment: string;
   projects: string[];
   savedGroupStrategy: SavedGroupPayloadStrategy;
+  metadataOptions?: Parameters<typeof buildPayloadMetadata>[1];
+  projectsMap?: Map<string, ProjectInterface>;
 }): {
   features: Record<string, FeatureDefinition>;
   interleavings?: InterleavingDefinitions;
@@ -535,6 +540,17 @@ export function generateInterleavingsPayload({
       defaultValue: il.variations[0].key,
       rules: [rule],
     };
+
+    // Without it reducePayload's project and tag filters drop the flag, which
+    // takes the interleaving's definition down with it
+    if (metadataOptions) {
+      const metadata = buildPayloadMetadata<FeatureMetadata>(
+        { project: il.project, tags: il.tags },
+        metadataOptions,
+        projectsMap,
+      );
+      if (metadata) features[id].metadata = metadata;
+    }
   });
 
   return {
@@ -2294,6 +2310,11 @@ export async function buildSDKPayloadForConnection(
         environment,
         projects: projectList,
         savedGroupStrategy,
+        metadataOptions: {
+          includeProjectIdInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
       })
     : undefined;
 

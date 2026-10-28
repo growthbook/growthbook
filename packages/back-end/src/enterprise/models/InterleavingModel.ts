@@ -536,9 +536,4 @@ export class InterleavingModel extends BaseClass {
   ): Promise<InterleavingInterface[]> {
     return this._find({ interleavingQueryId });
   }
-
-  /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
-  public getByKey(key: string): Promise<InterleavingInterface | null> {
-    return this._findOne({ key });
-  }
 }

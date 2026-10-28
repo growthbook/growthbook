@@ -20,7 +20,7 @@ const terserSettings = terser({
       regex: /^_/,
       reserved: [
         "_experimentsDisabled",
-        "_getEffectiveAttributes",
+        "_hasEventConsumer",
         "_subscribeCustomEvents",
         "_subscribeExperimentViewed",
         "_subscribeFeatureUsage",

@@ -3,6 +3,7 @@ import {
   EvalContext,
   ContextualBanditDefinition,
   FeatureDefinition,
+  FeatureDefinitions,
   FeatureResult,
   Experiment,
   FeatureResultSource,
@@ -23,6 +24,7 @@ import {
   ReducePayloadOptions,
   PayloadMetadata,
   SavedGroupPayloadEntry,
+  InterleavingDefinitions,
 } from "./types/growthbook";
 import {
   evalCondition,
@@ -1658,6 +1660,22 @@ export function reducePayload(
     // props reject.
     ...(ctx.global.contextualBandits ? { contextualBandits } : {}),
   };
+}
+
+// Interleavings whose `$interleave:` flag survived a reduction. The definitions
+// aren't features, so the filters never see them; keeping one whose flag was
+// dropped would serve every user the first ranker and log no exposure.
+export function reduceInterleavings(
+  interleavings: InterleavingDefinitions,
+  features: FeatureDefinitions | undefined,
+): InterleavingDefinitions {
+  const kept = features || {};
+  // Object.fromEntries keeps a `__proto__` key as a plain key
+  return Object.fromEntries(
+    Object.entries(interleavings).filter(([key]) =>
+      hasOwn(kept, "$interleave:" + key),
+    ),
+  );
 }
 
 export function getApiHosts(options: Options | ClientOptions): {

@@ -43,6 +43,7 @@ import {
   getAllStickyBucketAssignmentDocs,
   getApiHosts,
   getTrackingUserContext,
+  reduceInterleavings,
   reducePayload,
   runExperiment,
 } from "./core";
@@ -199,12 +200,24 @@ export class GrowthBookClient<
   }
   public reducePayload(options?: ReducePayloadOptions): FeatureApiResponse {
     options = options || {};
+    const payload = this.getDecryptedPayload();
+    const reduced = reducePayload(
+      this._getEvalContext(options.userContext || {}),
+      options,
+    );
     return {
-      ...this.getDecryptedPayload(),
-      ...reducePayload(
-        this._getEvalContext(options.userContext || {}),
-        options,
-      ),
+      ...payload,
+      ...reduced,
+      // Interleavings aren't features, so reducePayload can't filter them.
+      // They follow their flag instead of outliving it.
+      ...(payload.interleavings
+        ? {
+            interleavings: reduceInterleavings(
+              payload.interleavings,
+              reduced.features,
+            ),
+          }
+        : {}),
     };
   }
 
@@ -285,15 +298,25 @@ export class GrowthBookClient<
     if (this._options.eventLogger) {
       const ctx = this._getEvalContext(userContext);
       try {
-        this._options.eventLogger(
-          eventName,
-          properties,
-          getTrackingUserContext(ctx.user),
-        );
+        // Wrapped, not awaited: this method is sync, so a rejection from an
+        // async logger would otherwise escape the catch unhandled
+        Promise.resolve(
+          this._options.eventLogger(
+            eventName,
+            properties,
+            getTrackingUserContext(ctx.user),
+          ),
+        ).catch(console.error);
       } catch (e) {
         console.error(e);
       }
     }
+  }
+
+  // Internal — first-party plugin use only.
+  // Whether logEvent would reach anything, for plugins that log per impression.
+  public _hasEventConsumer(): boolean {
+    return !!this._options.eventLogger;
   }
 
   public runInlineExperiment<T>(
@@ -572,11 +595,10 @@ export class UserScopedGrowthBook<
     subs.add(cb);
     return () => subs.delete(cb);
   }
-  // Internal — first-party plugin use only.
   // The attributes feature evaluation sees: the client's globalAttributes under
-  // this user's own, then attributeOverrides on top. getUserContext() omits the
-  // global ones, so reading that directly disagrees with evalFeature.
-  public _getEffectiveAttributes(): Attributes {
+  // this user's own, then attributeOverrides on top. Same merge evalFeature
+  // applies, which getUserContext() does not.
+  public getAttributes(): Attributes {
     return {
       ...this._gb.getGlobalAttributes(),
       ...this._userContext.attributes,
@@ -588,6 +610,11 @@ export class UserScopedGrowthBook<
   // this user's.
   public _experimentsDisabled(): boolean {
     return this._gb._experimentsDisabled(this._userContext);
+  }
+  // Internal — first-party plugin use only.
+  // Scoped dev logs also consume events without a client-level event logger.
+  public _hasEventConsumer(): boolean {
+    return this._gb._hasEventConsumer() || !!this._userContext.enableDevMode;
   }
   public getApiInfo(): [ApiHost, ClientKey] {
     return this._gb.getApiInfo();

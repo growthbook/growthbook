@@ -81,14 +81,19 @@ function setup(
 }
 
 describe("teamDraft", () => {
-  const draft = (a: string[], b: string[], first = 0, maxItems?: number) =>
+  const draft = (
+    a: string[],
+    b: string[],
+    first: 0 | 1 = 0,
+    maxItems?: number,
+  ) =>
     teamDraft(
       [
         { variation: "A", items: a },
         { variation: "B", items: b },
       ],
       (id) => id,
-      (_, ranker) => (ranker === first ? 0 : 1),
+      () => first,
       maxItems,
     );
 
@@ -120,8 +125,19 @@ describe("teamDraft", () => {
     expect(meta.map((m) => m.competitive)).toEqual([true, true, false, false]);
   });
 
-  it("stops at maxItems without splitting a competitive round", () => {
-    expect(draft(["a", "b"], ["c", "d"], 0, 3).items).toEqual(["a", "c"]);
+  it("fills a leftover maxItems slot non-competitively", () => {
+    const { items, meta } = draft(["a", "b"], ["c", "d"], 0, 3);
+    expect(items).toEqual(["a", "c", "b"]);
+    expect(meta.map((m) => m.competitive)).toEqual([true, true, false]);
+  });
+
+  it("returns exactly maxItems when a tie makes the parity odd", () => {
+    const a = ["x", "a1", "a2", "a3"];
+    const b = ["x", "b1", "b2", "b3"];
+    expect(draft(a, b, 0, 4).items).toEqual(["x", "a1", "b1", "a2"]);
+  });
+
+  it("stops at maxItems when not even one more item fits", () => {
     expect(draft(["x", "a"], ["x", "b"], 0, 1).items).toEqual(["x"]);
   });
 });
@@ -211,6 +227,96 @@ describe("interleave", () => {
     expect(res.result.map((item) => item.name)).toEqual(rankedLists.popular);
     expect(onExposure).not.toHaveBeenCalled();
     expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+    gb.destroy();
+  });
+
+  it("serves the first ranker and logs when the second one throws", async () => {
+    const { gb, onExposure } = setup();
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const res = await interleave(gb, {
+      key: "search",
+      getList: (config) => {
+        if (config.algorithm === "buyers-pick") throw new Error("boom");
+        return getList(config);
+      },
+      fallbackConfig,
+    });
+    expect(res).toMatchObject({
+      inExperiment: false,
+      variation: "popular",
+      trackingProps: {},
+    });
+    expect(res.result).toEqual(rankedLists.popular);
+    expect(onExposure).not.toHaveBeenCalled();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
+    gb.destroy();
+  });
+
+  it("rethrows when the first ranker throws, since nothing is left to serve", async () => {
+    const { gb, onExposure } = setup();
+    await expect(
+      interleave(gb, {
+        key: "search",
+        getList: (config) => {
+          if (config.algorithm === "popular") throw new Error("boom");
+          return getList(config);
+        },
+        fallbackConfig,
+      }),
+    ).rejects.toThrow("boom");
+    expect(onExposure).not.toHaveBeenCalled();
+    gb.destroy();
+  });
+
+  it("doesn't log an error per impression when only onExposure is configured", async () => {
+    const onExposure = jest.fn();
+    const gb = new GrowthBook({
+      attributes: { id: "u1" },
+      plugins: [interleavePlugin({ onExposure })],
+    });
+    gb.initSync({ payload: payload() });
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await interleave(gb, { key: "search", getList, fallbackConfig });
+    expect(onExposure).toHaveBeenCalledTimes(1);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+    gb.destroy();
+  });
+
+  it("logs exposures in dev mode without requiring an eventLogger", async () => {
+    const gb = new GrowthBook({
+      attributes: { id: "u1" },
+      enableDevMode: true,
+      plugins: [interleavePlugin()],
+    });
+    gb.initSync({ payload: payload() });
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await interleave(gb, { key: "search", getList, fallbackConfig });
+    expect(gb.logs).toContainEqual(
+      expect.objectContaining({ eventName: EVENT_INTERLEAVE_EXPOSURE }),
+    );
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+    gb.destroy();
+  });
+
+  it("notifies custom event subscribers without requiring an eventLogger", async () => {
+    const gb = new GrowthBook({
+      attributes: { id: "u1" },
+      plugins: [interleavePlugin()],
+    });
+    gb.initSync({ payload: payload() });
+    const subscriber = jest.fn();
+    gb._subscribeCustomEvents(subscriber);
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    await interleave(gb, { key: "search", getList, fallbackConfig });
+    expect(subscriber).toHaveBeenCalledWith(
+      EVENT_INTERLEAVE_EXPOSURE,
+      expect.any(Object),
+    );
+    expect(spy).not.toHaveBeenCalled();
     spy.mockRestore();
     gb.destroy();
   });
@@ -355,6 +461,22 @@ describe("interleave", () => {
     client.destroy();
   });
 
+  it("logs scoped exposures in user dev mode without an eventLogger", async () => {
+    const client = new GrowthBookClient({
+      plugins: [interleavePlugin()],
+    });
+    client.initSync({ payload: payload() });
+    const user = client.createScopedInstance({
+      attributes: { id: "u2" },
+      enableDevMode: true,
+    });
+    await interleave(user, { key: "search", getList, fallbackConfig });
+    expect(user.logs).toContainEqual(
+      expect.objectContaining({ eventName: EVENT_INTERLEAVE_EXPOSURE }),
+    );
+    client.destroy();
+  });
+
   it("hashes with an attribute that only globalAttributes supplies", async () => {
     const onExposure = jest.fn();
     const client = new GrowthBookClient({
@@ -370,6 +492,27 @@ describe("interleave", () => {
     });
     expect(res.inExperiment).toBe(true);
     expect(onExposure.mock.calls[0][0].hashValue).toBe("global-user");
+    client.destroy();
+  });
+
+  it("still serves the list when a scoped eventLogger rejects", async () => {
+    const spy = jest.spyOn(console, "error").mockImplementation(() => {});
+    const client = new GrowthBookClient({
+      eventLogger: () => Promise.reject(new Error("analytics down")),
+      plugins: [interleavePlugin()],
+    });
+    client.initSync({ payload: payload() });
+    const user = client.createScopedInstance({ attributes: { id: "u2" } });
+    const res = await interleave(user, {
+      key: "search",
+      getList,
+      fallbackConfig,
+    });
+    expect(res.inExperiment).toBe(true);
+    // The rejection is handled on a later tick, so let it settle
+    await Promise.resolve();
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
     client.destroy();
   });
 
@@ -660,5 +803,44 @@ describe("decryptPayload", () => {
     );
     expect(data.interleavings).toEqual(interleavings);
     expect(data.encryptedInterleavings).toBeUndefined();
+  });
+});
+
+describe("reducePayload with interleavings", () => {
+  const scoped = (metadata?: Record<string, unknown>): FeatureApiResponse => {
+    const base = payload();
+    return {
+      ...base,
+      features: {
+        "$interleave:search": {
+          ...base.features!["$interleave:search"],
+          ...(metadata ? { metadata } : {}),
+        },
+      },
+    };
+  };
+
+  it("drops a definition whose flag the project filter removed", () => {
+    const client = new GrowthBookClient();
+    client.initSync({ payload: scoped({ projects: ["proj-a"] }) });
+    const reduced = client.reducePayload({
+      userContext: { attributes: { id: "u1" } },
+      include: { projects: ["proj-b"] },
+    });
+    expect(reduced.features?.["$interleave:search"]).toBeUndefined();
+    expect(reduced.interleavings).toEqual({});
+    client.destroy();
+  });
+
+  it("keeps a definition whose flag survived", () => {
+    const client = new GrowthBookClient();
+    client.initSync({ payload: scoped({ projects: ["proj-a"] }) });
+    const reduced = client.reducePayload({
+      userContext: { attributes: { id: "u1" } },
+      include: { projects: ["proj-a"] },
+    });
+    expect(reduced.features?.["$interleave:search"]).toBeDefined();
+    expect(Object.keys(reduced.interleavings || {})).toEqual(["search"]);
+    client.destroy();
   });
 });

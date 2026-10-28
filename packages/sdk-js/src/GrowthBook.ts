@@ -600,6 +600,17 @@ export class GrowthBook<
     return this._options.enabled === false || !!this._options.qaMode;
   }
 
+  // Internal — first-party plugin use only.
+  // Whether logEvent would reach anything. Without it logEvent logs an error of
+  // its own, which a plugin logging per impression would repeat endlessly.
+  public _hasEventConsumer(): boolean {
+    return (
+      !!this._options.eventLogger ||
+      this._customEventSubs.size > 0 ||
+      !!this._options.enableDevMode
+    );
+  }
+
   private async _refreshForRemoteEval() {
     if (!this._options.remoteEval) return;
     if (!this._initialized) return;
@@ -1106,7 +1117,7 @@ export class GrowthBook<
       } catch (e) {
         console.error(e);
       }
-    } else {
+    } else if (!this._options.enableDevMode && !this._customEventSubs.size) {
       console.error("No event logger configured");
     }
   }

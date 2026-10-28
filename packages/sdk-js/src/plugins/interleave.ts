@@ -1,23 +1,21 @@
 import type { GrowthBook } from "../GrowthBook";
 import type { UserScopedGrowthBook } from "../GrowthBookClient";
-import type { Attributes } from "../types/growthbook";
 import { genUUID, hash } from "../util";
-import {
-  AnyGrowthBook,
-  isFullGrowthBook,
-  isGrowthBookClient,
-} from "./utils/instance";
+import { AnyGrowthBook, isGrowthBookClient } from "./utils/instance";
 
 export const EVENT_INTERLEAVE_EXPOSURE = "Interleave Exposure";
 
+// A ranker's config, authored in GrowthBook and handed straight to getList.
+// Opaque to the SDK — only getList knows its shape.
 export type InterleaveConfig = Record<string, unknown>;
 
 export type InterleavedItem = {
   itemId: string;
-  // Key of the ranker that drafted the item
+  // The ranker that drafted the item. Arbitrary for a tie, since both rankers
+  // picked it; the supplying ranker for a leftover or a maxItems fill.
   variation: string;
   position: number;
-  // False for ties and leftovers; analysis only counts competitive items
+  // False for ties, leftovers and fills; analysis only counts competitive items
   competitive: boolean;
 };
 
@@ -35,12 +33,17 @@ export type InterleavePluginOptions = {
   onExposure?: (exposure: InterleaveExposure) => void | Promise<void>;
 };
 
-export type InterleaveOptions<T> = {
+// `C` is the ranker config's shape. TypeScript has no partial type-argument
+// inference, so pass both type arguments or neither.
+export type InterleaveOptions<
+  T,
+  C extends InterleaveConfig = InterleaveConfig,
+> = {
   // The interleaving experiment's key
   key: string;
-  getList: (config: InterleaveConfig) => T[] | Promise<T[]>;
+  getList: (config: C) => T[] | Promise<T[]>;
   // Used when the interleaving isn't in the payload
-  fallbackConfig: InterleaveConfig;
+  fallbackConfig: C;
   // One id per query or impression. Seeds the draft, so reusing it replays the
   // same list. Defaults to a uuid
   rankingId?: string;
@@ -86,20 +89,13 @@ function defaultItemId(item: unknown): string {
   return id === undefined || id === null ? "" : String(id);
 }
 
-function getAttributes(gb: InterleaveInstance): Attributes {
-  // Scoped instances must go through _getEffectiveAttributes: the client's
-  // globalAttributes are merged in by evalFeature but not by getUserContext.
-  return isFullGrowthBook(gb)
-    ? gb.getAttributes()
-    : gb._getEffectiveAttributes();
-}
-
 type RankerList<T> = { variation: string; items: T[] };
 
 export function teamDraft<T>(
   lists: [RankerList<T>, RankerList<T>],
   getItemId: (item: T) => string,
-  rng: (round: number, ranker: number) => number,
+  // Which ranker picks first in a round. The caller owns the seeding
+  firstPicker: (round: number) => 0 | 1,
   maxItems?: number,
 ): { items: T[]; meta: InterleavedItem[] } {
   const items: T[] = [];
@@ -127,12 +123,12 @@ export function teamDraft<T>(
     });
   };
 
-  // Never split a round: stop before placing if the round wouldn't fit
+  // A round places two items, so it can't be run with one slot left
   const capped = (picks: number) =>
     maxItems !== undefined && items.length + picks > maxItems;
 
   for (let round = 0; ; round++) {
-    const first = rng(round, 0) <= rng(round, 1) ? 0 : 1;
+    const first = firstPicker(round);
     const second = first === 0 ? 1 : 0;
     const firstItem = next(first);
     const secondItem = next(second);
@@ -145,7 +141,12 @@ export function teamDraft<T>(
         place(firstItem, first, false);
         continue;
       }
-      if (capped(2)) break;
+      if (capped(2)) {
+        // An earlier tie can leave a single slot. Filling it beats returning a
+        // short list, and non-competitive keeps the fill out of analysis
+        if (!capped(1)) place(firstItem, first, false);
+        break;
+      }
       place(firstItem, first, true);
       place(secondItem, second, true);
       continue;
@@ -161,9 +162,12 @@ export function teamDraft<T>(
   return { items, meta };
 }
 
-export async function interleave<T>(
+export async function interleave<
+  T,
+  C extends InterleaveConfig = InterleaveConfig,
+>(
   gb: InterleaveInstance,
-  options: InterleaveOptions<T>,
+  options: InterleaveOptions<T, C>,
 ): Promise<InterleaveResult<T>> {
   const { key, getList, fallbackConfig, maxItems } = options;
   const getItemId = options.getItemId || defaultItemId;
@@ -185,7 +189,9 @@ export async function interleave<T>(
   ): Promise<InterleaveResult<T>> => {
     const match = variations.find((v) => v.key === variation);
     return {
-      result: capItems(await getList(match ? match.config : fallbackConfig)),
+      result: capItems(
+        await getList(match ? (match.config as C) : fallbackConfig),
+      ),
       inExperiment: false,
       variation: match?.key,
       rankingId,
@@ -212,18 +218,46 @@ export async function interleave<T>(
   }
 
   const hashAttribute = definition.hashAttribute;
-  const hashValue = getAttributes(gb)[hashAttribute];
+  const hashValue = gb.getAttributes()[hashAttribute];
   if (!hashValue) {
     return notInterleaved(variations[0].key);
   }
 
-  const [itemsA, itemsB] = await Promise.all([
-    getList(variations[0].config),
-    getList(variations[1].config),
+  // Settled by hand rather than with Promise.allSettled, which is ES2020 and
+  // isn't polyfilled by the browser builds
+  const settle = async (
+    config: C,
+  ): Promise<{ items: T[] } | { error: unknown }> => {
+    try {
+      return { items: await getList(config) };
+    } catch (error) {
+      return { error };
+    }
+  };
+  const [a, b] = await Promise.all([
+    settle(variations[0].config as C),
+    settle(variations[1].config as C),
   ]);
+  // A broken ranker shouldn't take the other one's results down with it. The
+  // first ranker is the default, so if that one threw there is nothing left to
+  // serve and the error belongs to the caller
+  if ("error" in a) throw a.error;
+  if ("error" in b) {
+    console.error(
+      `interleave: ranker "${variations[1].key}" of "${key}" threw, serving "${variations[0].key}"`,
+      b.error,
+    );
+    return {
+      result: capItems(a.items),
+      inExperiment: false,
+      variation: variations[0].key,
+      rankingId,
+      trackingProps: {},
+    };
+  }
   const lists: [RankerList<T>, RankerList<T>] = [
-    { variation: variations[0].key, items: itemsA },
-    { variation: variations[1].key, items: itemsB },
+    { variation: variations[0].key, items: a.items },
+    { variation: variations[1].key, items: b.items },
   ];
   if (lists.some((l) => l.items.some((item) => !getItemId(item)))) {
     console.error(
@@ -241,8 +275,10 @@ export async function interleave<T>(
   const { items, meta } = teamDraft(
     lists,
     getItemId,
-    (round, index) =>
-      hash(definition.seed, rankingId + ":" + round + ":" + index, 2) || 0,
+    // One hash per round, split at the midpoint: hash() buckets into 10000, so
+    // this is an even coin flip
+    (round) =>
+      (hash(definition.seed, rankingId + ":" + round, 2) || 0) < 0.5 ? 0 : 1,
     maxItems,
   );
 
@@ -263,7 +299,11 @@ export async function interleave<T>(
       console.error(e);
     }
   }
-  gb.logEvent(EVENT_INTERLEAVE_EXPOSURE, { ...exposure });
+  // Skipped when nothing consumes it: logEvent logs an error of its own when
+  // no logger is configured, and this fires once per impression
+  if (gb._hasEventConsumer()) {
+    gb.logEvent(EVENT_INTERLEAVE_EXPOSURE, { ...exposure });
+  }
 
   return {
     result: items,
