@@ -50,8 +50,8 @@ import {
 } from "@/components/SyntaxHighlighting/Snippets/TargetingAttributeCodeSnippet";
 import { languageMapping } from "@/components/Features/SDKConnections/SDKLanguageLogo";
 
-const ADD_COLUMNS = "24px minmax(0, 1fr) 160px";
-const EDIT_COLUMNS = "24px minmax(0, 1fr) 200px 140px";
+const ADD_COLUMNS = "minmax(0, 1fr) 160px";
+const EDIT_COLUMNS = "minmax(0, 1fr) 200px 140px";
 const ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
 const PLACEHOLDER_NAME = "newIdentifier";
 const PANEL_WIDTH = 380;
@@ -364,10 +364,12 @@ export default function IdentifierModal({
             options={projectOptions}
             onChange={setProjects}
           />
-          <Flex direction="column" gap="2">
-            <Text weight="medium">Tags</Text>
-            <TagsInput value={tags} onChange={setTags} />
-          </Flex>
+          <TagsInput
+            label="Tags"
+            value={tags}
+            onChange={setTags}
+            autoFocus={false}
+          />
           {availableCustomFields.length > 0 && (
             <CustomFieldInput
               fields={availableCustomFields}
@@ -409,10 +411,11 @@ export default function IdentifierModal({
                     py="2"
                     style={{ background: "var(--gray-a2)" }}
                   >
-                    <span />
-                    <Text size="sm" color="text-mid">
-                      Data Source
-                    </Text>
+                    <Box pl="5">
+                      <Text size="sm" color="text-mid">
+                        Data Source
+                      </Text>
+                    </Box>
                     {isEdit && (
                       <Text size="sm" color="text-mid">
                         Identifier type
@@ -442,6 +445,21 @@ export default function IdentifierModal({
                         style={ROW_BORDER}
                       >
                         <Checkbox
+                          label={
+                            <Flex align="center" gap="2">
+                              <PiDatabase />
+                              <Text color={isChecked ? undefined : "text-low"}>
+                                {d.name}
+                              </Text>
+                            </Flex>
+                          }
+                          weight="medium"
+                          align="center"
+                          description={
+                            !isEdit && userIdTypeNames(d).includes(defaultType)
+                              ? `Already has ${defaultType}`
+                              : undefined
+                          }
                           value={isChecked}
                           disabled={!!linked || !editable}
                           disabledMessage={
@@ -466,23 +484,6 @@ export default function IdentifierModal({
                             }
                           }}
                         />
-                        <Flex direction="column" style={{ minWidth: 0 }}>
-                          <Flex align="center" gap="2">
-                            <PiDatabase />
-                            <Text
-                              weight="medium"
-                              color={isChecked ? undefined : "text-low"}
-                            >
-                              {d.name}
-                            </Text>
-                          </Flex>
-                          {!isEdit &&
-                            userIdTypeNames(d).includes(defaultType) && (
-                              <Text size="sm" color="text-low">
-                                Already has {defaultType}
-                              </Text>
-                            )}
-                        </Flex>
                         {isEdit &&
                           (linked ? (
                             <Text size="sm" color="text-mid">
@@ -530,7 +531,9 @@ export default function IdentifierModal({
                 <Flex align="center" gap="2">
                   <PiLockSimple color="var(--gray-11)" />
                   <HelperText status="info">
-                    {automatic.map((d) => d.name).join(", ")}{" "}
+                    {new Intl.ListFormat("en").format(
+                      automatic.map((d) => d.name),
+                    )}{" "}
                     {automatic.length === 1
                       ? "updates its identifiers automatically."
                       : "update their identifiers automatically."}
@@ -584,6 +587,7 @@ export default function IdentifierModal({
                 </Flex>
                 <Select
                   size="sm"
+                  aria-label="SDK language"
                   value={language}
                   setValue={(v) =>
                     setPickedLanguage(
@@ -601,17 +605,23 @@ export default function IdentifierModal({
                           </SelectItem>
                         ))}
                       </SelectGroup>
-                      <SelectSeparator />
+                      {otherLanguages.length > 0 && <SelectSeparator />}
                     </>
                   )}
-                  <SelectGroup>
-                    <SelectLabel>All languages</SelectLabel>
-                    {otherLanguages.map((l) => (
-                      <SelectItem key={l} value={l}>
-                        {languageMapping[l].label}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
+                  {otherLanguages.length > 0 && (
+                    <SelectGroup>
+                      <SelectLabel>
+                        {connectedLanguages.length > 0
+                          ? "Other languages"
+                          : "All languages"}
+                      </SelectLabel>
+                      {otherLanguages.map((l) => (
+                        <SelectItem key={l} value={l}>
+                          {languageMapping[l].label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  )}
                 </Select>
               </Flex>
               {sdkCode && (
