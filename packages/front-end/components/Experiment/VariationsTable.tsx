@@ -219,12 +219,13 @@ export function VariationBox({
   const showsPlaceholder =
     allowImages && v.screenshots.length === 0 && showNoImage;
   const descriptionBelow = !!descriptionSnippet && !showsPlaceholder;
+  const split =
+    shouldShowSplit && percent !== undefined ? `${percent.toFixed(0)}%` : null;
 
   return (
     <Box
       key={i}
       p="4"
-      pb="3"
       className={clsx(
         "appbox mb-0 position-relative variation",
         revealsQuickEdit,
@@ -301,27 +302,13 @@ export function VariationBox({
             )}
           </Box>
         )}
-        <Box mt="2">
-          {descriptionBelow ? <Box mb="2">{descriptionSnippet}</Box> : null}
-          {showIds ? <code className="small">ID: {v.key}</code> : null}
-          <Flex align="center" justify="between">
-            <Box>
-              {shouldShowSplit && percent !== undefined ? (
-                <Metadata label="Split" value={`${percent.toFixed(0)}%`} />
-              ) : null}
-            </Box>
-            {allowImages && (
-              <Flex align="center" justify="end" gap="2">
-                {v.screenshots.length > 0 ? (
-                  <Text color="text-mid" size="sm" whiteSpace="nowrap">
-                    {v.screenshots.length} image
-                    {v.screenshots.length > 1 ? "s" : ""}
-                  </Text>
-                ) : null}
-              </Flex>
-            )}
+        {descriptionBelow || showIds || split ? (
+          <Flex direction="column" gap="2" mt="2">
+            {descriptionBelow ? <Box>{descriptionSnippet}</Box> : null}
+            {showIds ? <code className="small">ID: {v.key}</code> : null}
+            {split ? <Metadata label="Split" value={split} /> : null}
           </Flex>
-        </Box>
+        ) : null}
       </Flex>
     </Box>
   );
