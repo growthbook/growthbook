@@ -1,4 +1,5 @@
-import React from "react";
+import React, { useState } from "react";
+import isEqual from "lodash/isEqual";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
@@ -13,13 +14,40 @@ import Frame from "@/ui/Frame";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { GBInfo } from "@/components/Icons";
-import { useSettingsForm } from "./SettingsFormProvider";
 import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
-export default function FeatureSettings() {
-  const { codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr } =
-    useSettingsForm();
+const parseBranches = (text: string) =>
+  text
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
 
+// Keeps the typed text (e.g. a trailing comma) and re-syncs only when the array changes elsewhere.
+function BranchesField() {
+  const form = useFormContext();
+  const branches: string[] = form.watch("codeRefsBranchesToFilter") ?? [];
+  const [text, setText] = useState(branches.join(", "));
+  if (!isEqual(parseBranches(text), branches)) setText(branches.join(", "));
+  return (
+    <Field
+      id="settings-branches"
+      size="md"
+      type="text"
+      containerClassName="mb-0"
+      placeholder="main, qa, dev"
+      value={text}
+      onChange={(e) => {
+        setText(e.currentTarget.value);
+        form.setValue(
+          "codeRefsBranchesToFilter",
+          parseBranches(e.currentTarget.value),
+        );
+      }}
+    />
+  );
+}
+
+export default function FeatureSettings() {
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
@@ -375,17 +403,7 @@ export default function FeatureSettings() {
               label="Branches"
               help="Only show references from these branches. Comma-separated."
             >
-              <Field
-                id="settings-branches"
-                size="md"
-                type="text"
-                containerClassName="mb-0"
-                placeholder="main, qa, dev"
-                value={codeRefsBranchesToFilterStr}
-                onChange={(v) =>
-                  setCodeRefsBranchesToFilterStr(v.currentTarget.value)
-                }
-              />
+              <BranchesField />
             </SettingsField>
 
             <SettingsField

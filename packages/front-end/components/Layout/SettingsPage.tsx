@@ -4,7 +4,6 @@ import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
-import UnsavedChangesBar from "@/components/GeneralSettings/UnsavedChangesBar";
 import PageHead from "./PageHead";
 
 export function SettingsPageHeader({
@@ -98,7 +97,6 @@ export default function SettingsPage({
         )}
         <Box className={contentClassName} pb="5">
           {children}
-          <UnsavedChangesBar />
         </Box>
       </Box>
     </>

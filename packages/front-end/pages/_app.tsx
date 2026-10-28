@@ -7,7 +7,7 @@ import "@/styles/global.scss";
 import { AppProps } from "next/app";
 import Head from "next/head";
 import clsx from "clsx";
-import React, { useEffect, useState } from "react";
+import React, { Fragment, useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
@@ -100,6 +100,9 @@ function App({
   const progressiveAuthTopNav = Component.progressiveAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
   const noLoadingOverlay = Component.noLoadingOverlay || false;
+  const inSettings = isSettingsRoute(router.route);
+  // The Settings draft only exists while inside Settings; leaving unmounts it.
+  const SettingsForm = inSettings ? SettingsFormProvider : Fragment;
 
   const { orgId } = useAuth();
 
@@ -216,7 +219,7 @@ function App({
                                 <FeatureHealthStatesProvider>
                                   <AgentPanelProvider>
                                     <SettingsNavProvider>
-                                      <SettingsFormProvider>
+                                      <SettingsForm>
                                         {liteLayout ? (
                                           <LayoutLite />
                                         ) : (
@@ -226,9 +229,7 @@ function App({
                                         <AgentLauncher />
                                         <main
                                           className={clsx("main", parts[0], {
-                                            "settings-layout": isSettingsRoute(
-                                              router.route,
-                                            ),
+                                            "settings-layout": inSettings,
                                           })}
                                         >
                                           <OrgSuspendedBannerContainer />
@@ -247,7 +248,7 @@ function App({
                                             </DefinitionsGuard>
                                           </OrgPageContent>
                                         </main>
-                                      </SettingsFormProvider>
+                                      </SettingsForm>
                                     </SettingsNavProvider>
                                   </AgentPanelProvider>
                                 </FeatureHealthStatesProvider>

@@ -26,6 +26,7 @@ import {
 } from "@/components/GeneralSettings/settingsSections";
 import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import SettingsSection from "@/components/GeneralSettings/SettingsSection";
+import UnsavedChangesBar from "@/components/GeneralSettings/UnsavedChangesBar";
 import CustomMarkdownSettings from "@/components/GeneralSettings/CustomMarkdownSettings";
 import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
 import SettingsPage from "@/components/Layout/SettingsPage";
@@ -278,6 +279,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
 
           <div className={sectionStyles.spacer} />
         </div>
+        <UnsavedChangesBar />
       </SettingsPage>
     </>
   );

@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { useRouter } from "next/router";
 import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -58,7 +57,6 @@ function UnsavedChange({ change }: { change: SettingsChange }) {
 
 // Only on General; Organization pages save as you go.
 export default function UnsavedChangesBar() {
-  const router = useRouter();
   const {
     dirtyCount,
     dirtySectionIds,
@@ -76,8 +74,6 @@ export default function UnsavedChangesBar() {
     const timer = setTimeout(() => setSavedCount(0), TOAST_MS);
     return () => clearTimeout(timer);
   }, [savedCount, setSavedCount]);
-
-  if (router.route !== "/settings") return null;
 
   const saved = savedCount
     ? `Saved ${savedCount} change${savedCount === 1 ? "" : "s"}`

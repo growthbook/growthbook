@@ -16,7 +16,6 @@ import {
 } from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import get from "lodash/get";
-import isEqual from "lodash/isEqual";
 import set from "lodash/set";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
@@ -44,6 +43,7 @@ import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
 import {
   AI_PROMPT_DEFAULTS,
   AIPromptInterface,
+  AIPromptType,
   CUSTOMIZABLE_PROMPT_TYPES,
   getProviderForAIModel,
 } from "shared/ai";
@@ -77,6 +77,11 @@ import {
 const knownTextModel = <T extends string>(model: T | undefined) =>
   model && getProviderForAIModel("text", model) ? model : undefined;
 
+// Each customizable prompt's text and its model override.
+export type PromptFormValues = Partial<
+  Record<AIPromptType | `${AIPromptType}-model`, string>
+>;
+
 type OrgDetailsForm = {
   name: string;
   ownerEmail: string;
@@ -93,10 +98,8 @@ export type SettingsChange = {
 
 type SettingsFormContextValue = {
   form: UseFormReturn<OrganizationSettingsWithMetricDefaults>;
-  promptForm: UseFormReturn;
+  promptForm: UseFormReturn<PromptFormValues>;
   orgForm: UseFormReturn<OrgDetailsForm>;
-  codeRefsBranchesToFilterStr: string;
-  setCodeRefsBranchesToFilterStr: (value: string) => void;
   dirtyCount: number;
   dirtySectionIds: string[];
   // Paths into the settings form, or "org.<field>" and "prompt.<field>".
@@ -123,10 +126,9 @@ export function useSettingsForm() {
   return ctx;
 }
 
-// Holds the General settings draft above the pages so it survives Organization page visits.
+// Mounted on Settings routes only, so the draft survives moving between Settings pages and ends on leaving.
 export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
-  const active = isSettingsRoute(router.route);
   const {
     refreshOrganization,
     settings,
@@ -138,27 +140,25 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const { setOrgName } = useAuth();
   // Shares the composer's cache key, so revalidating here updates its `/` menu.
   const { mutate: mutateAgentSkills } = useApi("/agent/skills", {
-    shouldRun: () => active && !!settings.aiEnabled,
+    shouldRun: () => !!settings.aiEnabled,
   });
   const [savedCount, setSavedCount] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const originalRef = useRef<OrganizationSettings>({});
-  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
-    useState<string>("");
   const displayCurrency = useCurrency();
 
   const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
   const hasRequireApprovals = hasCommercialFeature("require-approvals");
 
-  const promptForm = useForm();
+  const promptForm = useForm<PromptFormValues>();
   // Prompts live here too, so an AI section remount cannot reset a draft.
   const { data: promptData, mutate: mutatePrompts } = useApi<{
     prompts: AIPromptInterface[];
-  }>("/ai/prompts", { shouldRun: () => active });
+  }>("/ai/prompts");
   const savedPrompts = useMemo(() => {
     if (!promptData) return null;
-    const values: Record<string, string | undefined> = {};
+    const values: PromptFormValues = {};
     CUSTOMIZABLE_PROMPT_TYPES.forEach((type) => {
       const p = promptData.prompts.find((x) => x.type === type);
       values[type] = p?.prompt || AI_PROMPT_DEFAULTS[type];
@@ -341,7 +341,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     .filter(
       (path) => !sameSetting(get(values, path), get(originalValue, path)),
     );
-  const dirtyPromptFields = Object.keys(promptForm.formState.dirtyFields);
+  const dirtyPromptFields = Object.keys(
+    promptForm.formState.dirtyFields,
+  ) as (keyof PromptFormValues)[];
   const orgValues = orgForm.watch();
   const dirtyOrgFields = (
     Object.keys(orgDetails) as (keyof OrgDetailsForm)[]
@@ -361,7 +363,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       return (orgValues[k] ?? "") !== orgDetails[k];
     }
     if (path.startsWith("prompt.")) {
-      return dirtyPromptFields.includes(path.slice(7));
+      return dirtyPromptFields.includes(
+        path.slice(7) as keyof PromptFormValues,
+      );
     }
     return !sameSetting(get(values, path), get(originalValue, path));
   };
@@ -443,34 +447,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       form.reset(draft as OrganizationSettingsWithMetricDefaults);
       originalRef.current = newVal;
       setOriginalValue(newVal);
-      if (
-        !isEqual(newVal.codeRefsBranchesToFilter, prev.codeRefsBranchesToFilter)
-      ) {
-        setCodeRefsBranchesToFilterStr(
-          (newVal.codeRefsBranchesToFilter ?? []).join(", "),
-        );
-      }
     }
   }, [settings, hasRequireApprovals, form, hasStickyBucketFeature]);
-
-  const updateCodeRefsBranches = (value: string) => {
-    setCodeRefsBranchesToFilterStr(value);
-    form.setValue(
-      "codeRefsBranchesToFilter",
-      value
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-  };
 
   const discardChanges = () => {
     form.reset(originalValue as OrganizationSettingsWithMetricDefaults);
     promptForm.reset();
     orgForm.reset(orgDetails);
-    setCodeRefsBranchesToFilterStr(
-      (originalValue.codeRefsBranchesToFilter ?? []).join(", "),
-    );
     setSubmitError(null);
   };
 
@@ -501,11 +484,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         const next = cloneDeep(form.getValues());
         keys.forEach((k) => set(next, k, cloneDeep(get(originalValue, k))));
         form.reset(next);
-        if (keys.includes("codeRefsBranchesToFilter")) {
-          setCodeRefsBranchesToFilterStr(
-            (originalValue.codeRefsBranchesToFilter ?? []).join(", "),
-          );
-        }
         if (id === "organization") orgForm.reset(orgDetails);
         if (id === "ai") promptForm.reset();
       },
@@ -688,7 +666,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       // What was sent is now saved; anything typed during the save stays unsaved.
       const now = promptForm.getValues();
       promptForm.reset(sent);
-      Object.keys(now).forEach((k) => {
+      (Object.keys(now) as (keyof PromptFormValues)[]).forEach((k) => {
         if (now[k] !== sent[k]) {
           promptForm.setValue(k, now[k], { shouldDirty: true });
         }
@@ -698,18 +676,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     setSavedCount(count);
   };
 
-  // Discards only on leaving Settings, not while the form hydrates elsewhere.
-  const wasActive = useRef(active);
-  useEffect(() => {
-    const left = wasActive.current && !active;
-    wasActive.current = active;
-    if (left && dirtyCount > 0) discardChanges();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active]);
-
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   useEffect(() => {
-    if (!active || !dirtyCount) return;
+    if (!dirtyCount) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
@@ -725,7 +694,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("beforeunload", onBeforeUnload);
       stopIntercepting();
     };
-  }, [active, dirtyCount, router.events]);
+  }, [dirtyCount, router.events]);
 
   return (
     <SettingsFormContext.Provider
@@ -733,8 +702,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         form,
         promptForm,
         orgForm,
-        codeRefsBranchesToFilterStr,
-        setCodeRefsBranchesToFilterStr: updateCodeRefsBranches,
         dirtyCount,
         dirtySectionIds,
         isFieldDirty,

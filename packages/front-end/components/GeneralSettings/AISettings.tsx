@@ -8,6 +8,7 @@ import {
   CLOUD_MANAGED_AI_MODEL,
   AIPromptInterface,
   AIModel,
+  AIPromptType,
   AIProvider,
   AUTOCOMPLETE_AI_MODEL,
   formatAIRateLimitRetryMessage,
@@ -43,9 +44,10 @@ import Link from "@/ui/Link";
 import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
 import AgentSkillsSettings from "./AgentSkillsSettings";
+import type { PromptFormValues } from "./SettingsFormProvider";
 
 const PROMPTS: {
-  promptType: string;
+  promptType: AIPromptType;
   promptName: string;
   promptDefaultValue: string;
   promptDescription: string;
@@ -184,7 +186,7 @@ const modelOptionLabel = (
 export default function AISettings({
   promptForm,
 }: {
-  promptForm: UseFormReturn;
+  promptForm: UseFormReturn<PromptFormValues>;
 }) {
   const form = useFormContext();
   const { apiCall } = useAuth();
