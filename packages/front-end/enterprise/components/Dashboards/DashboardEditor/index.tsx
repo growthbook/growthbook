@@ -1,6 +1,7 @@
 import React, {
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -28,7 +29,6 @@ import { withErrorBoundary } from "@sentry/nextjs";
 import {
   LayoutItem,
   ResponsiveGridLayout,
-  useContainerWidth,
   verticalCompactor,
 } from "react-grid-layout";
 import Heading from "@/ui/Heading";
@@ -743,6 +743,34 @@ interface DashboardGridProps {
   ) => React.ReactNode;
 }
 
+// The container's width, in whole pixels, once it has held for a frame: while
+// a panel slides beside the grid, its blocks wait and lay out once, where the
+// slide ends. Hidden with its tab the container measures 0, which is ignored,
+// so the grid waits for a real width and keeps its last one meanwhile.
+function useSettledWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let frame = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      cancelAnimationFrame(frame);
+      const next = Math.round(entry.contentRect.width);
+      if (next === 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => setWidth(next));
+      });
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+  return [ref, width] as const;
+}
+
 // Wraps blocks in react-grid-layout so users can drag, drop, and resize.
 // Drag/resize are disabled outside edit mode and while a new block is being
 // added. We only persist layout changes from the canonical (lg)
@@ -758,18 +786,7 @@ function DashboardGrid({
   isGeneralDashboard,
   renderBlock,
 }: DashboardGridProps) {
-  const {
-    width: measuredWidth,
-    containerRef,
-    mounted,
-  } = useContainerWidth({
-    initialWidth: 1280,
-  });
-  // Hidden with its tab, the container measures 0; holding the last real
-  // width keeps every block from collapsing and growing back when it shows.
-  const lastWidth = useRef(measuredWidth);
-  if (measuredWidth > 0) lastWidth.current = measuredWidth;
-  const width = lastWidth.current;
+  const [containerRef, width] = useSettledWidth();
   const [openGapKey, setOpenGapKey] = useState<string | null>(null);
   const [isGridInteracting, setIsGridInteracting] = useState(false);
 
@@ -840,13 +857,10 @@ function DashboardGrid({
 
   return (
     <div
-      // useContainerWidth gives back React 19's `RefObject<T | null>` but the
-      // codebase is still on React 18 types - cast to satisfy the older
-      // LegacyRef signature without changing runtime behaviour.
-      ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
+      ref={containerRef}
       className={clsx("dashboard-grid-container", { "is-editing": isEditing })}
     >
-      {mounted && (
+      {width > 0 && (
         <ResponsiveGridLayout
           width={width}
           className={clsx("dashboard-grid", {
@@ -922,7 +936,7 @@ function DashboardGrid({
           })}
         </ResponsiveGridLayout>
       )}
-      {mounted &&
+      {width > 0 &&
         addBlockType &&
         gaps.map((gap) => {
           const gapKey = `${gap.x}-${gap.y}-${gap.w}-${gap.h}`;

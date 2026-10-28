@@ -172,7 +172,11 @@ export default function CollapsiblePanelLayout({
   // Only the toggle animates; a drag tracks the pointer.
   const resizing = dragWidth !== null;
 
-  const currentWidth = expanded ? panelWidth : 0;
+  // A close starts sliding with the render that closes it, so the content
+  // beside it never holds still at the old width; an open waits for the zero
+  // width to paint.
+  const shown = expanded && showPanel;
+  const currentWidth = shown ? panelWidth : 0;
 
   // Overlaid, the panel gives back its space and floats over the content.
   const overlaid = overlay
@@ -225,7 +229,7 @@ export default function CollapsiblePanelLayout({
             height: `calc(100vh - ${top + footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
-            borderLeft: expanded ? "1px solid var(--gray-a5)" : "none",
+            borderLeft: shown ? "1px solid var(--gray-a5)" : "none",
             transition: resizing
               ? "none"
               : `width ${SLIDE_MS}ms ease, margin-left ${SLIDE_MS}ms ease`,
