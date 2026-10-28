@@ -25,8 +25,9 @@ import styles from "./VariationsTable.module.scss";
 
 // A small marker, so an empty variation doesn't reserve screenshot-sized space.
 const NO_IMAGE_SIZE = 42;
-const MAX_IMAGE_HEIGHT = 150;
-const MIN_IMAGE_HEIGHT = 100;
+// Roughly a landscape screenshot at a card's width: the least a carousel
+// takes, and where its arrows centre, whatever the image's own height.
+const IMAGE_FRAME_HEIGHT = 150;
 
 // Narrower than this and a card has no room for a name beside its controls.
 const MIN_VARIATION_WIDTH = 220;
@@ -56,31 +57,28 @@ const ScreenshotCarousel: FC<{
   // its carousel still opens it.
   const failedPaths = useRef(new Set<string>());
 
-  const handleError = useCallback(
-    (path: string, msg: string) => {
-      failedPaths.current.add(path);
-      return (
-        <Flex
-          title={msg}
-          align="center"
-          justify="center"
-          className="appbox mb-0"
-          width="100%"
-          style={{
-            backgroundColor: "var(--slate-a3)",
-            height: maxChildHeight + "px",
-            width: "100%",
-            color: "var(--slate-a9)",
-          }}
-        >
-          <Box>
-            <PiCameraLight />
-          </Box>
-        </Flex>
-      );
-    },
-    [maxChildHeight],
-  );
+  const handleError = useCallback((path: string, msg: string) => {
+    failedPaths.current.add(path);
+    return (
+      <Flex
+        title={msg}
+        align="center"
+        justify="center"
+        className="appbox mb-0"
+        width="100%"
+        style={{
+          backgroundColor: "var(--slate-a3)",
+          height: IMAGE_FRAME_HEIGHT + "px",
+          width: "100%",
+          color: "var(--slate-a9)",
+        }}
+      >
+        <Box>
+          <PiCameraLight />
+        </Box>
+      </Flex>
+    );
+  }, []);
 
   return (
     <Carousel
@@ -89,7 +87,7 @@ const ScreenshotCarousel: FC<{
         if (onClick && path && !failedPaths.current.has(path)) onClick(i);
       }}
       maxChildHeight={maxChildHeight}
-      minHeight={MIN_IMAGE_HEIGHT}
+      minHeight={IMAGE_FRAME_HEIGHT}
     >
       {variation.screenshots.map((s) => (
         <AuthorizedImage
@@ -101,6 +99,7 @@ const ScreenshotCarousel: FC<{
             width: "100%",
             height: "100%",
             objectFit: "contain",
+            objectPosition: "top",
           }}
           onErrorMsg={(msg) => handleError(s.path, msg)}
           isPublic={isPublic}
@@ -175,7 +174,7 @@ export function VariationBox({
   showDescription = true,
   showIds,
   showNoImage = true,
-  height = 200,
+  height,
   canEdit,
   allowImages = true,
   openCarousel,
@@ -195,6 +194,7 @@ export function VariationBox({
   showDescription?: boolean;
   showIds?: boolean;
   showNoImage?: boolean;
+  // A cap on an image's height; without one it shows at its own.
   height?: number;
   canEdit?: boolean;
   allowImages?: boolean;
@@ -390,7 +390,6 @@ const VariationsTable: FC<Props> = ({
                 v={v}
                 experiment={experiment}
                 showIds={hasUniqueIDs}
-                height={MAX_IMAGE_HEIGHT}
                 canEdit={canEditExperiment}
                 allowImages={allowImages}
                 openCarousel={(variationId, index) => {

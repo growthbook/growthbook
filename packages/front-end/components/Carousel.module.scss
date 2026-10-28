@@ -4,10 +4,11 @@
   display: grid;
 }
 
+// From the top, where the arrows sit, however tall the image runs.
 .slide {
   grid-area: 1 / 1;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
   visibility: hidden;
 }
