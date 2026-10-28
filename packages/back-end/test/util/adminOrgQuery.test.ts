@@ -11,33 +11,58 @@ describe("buildAdminOrgQuery", () => {
 
   it("includes legacy enterprise orgs in the Enterprise plan", () => {
     expect(
-      buildAdminOrgQuery({ plan: "enterprise" }, { plan: ["org_a"] }),
+      buildAdminOrgQuery(
+        { plan: "enterprise" },
+        { plan: { orgIds: ["org_a"], licenseKeys: ["license_a"] } },
+      ),
     ).toEqual({
-      $and: [{ $or: [{ enterprise: true }, { id: { $in: ["org_a"] } }] }],
+      $and: [
+        {
+          $or: [
+            { enterprise: true },
+            { id: { $in: ["org_a"] }, licenseKey: { $in: ["license_a"] } },
+          ],
+        },
+      ],
     });
   });
 
-  it("excludes paid and legacy enterprise orgs from Starter", () => {
+  it("treats Starter as not referencing any paid license", () => {
     expect(
-      buildAdminOrgQuery({ plan: "starter" }, { plan: ["org_b"] }),
+      buildAdminOrgQuery(
+        { plan: "starter" },
+        { plan: { orgIds: ["org_b"], licenseKeys: ["license_b"] } },
+      ),
     ).toEqual({
-      $and: [{ enterprise: { $ne: true }, id: { $nin: ["org_b"] } }],
+      $and: [
+        { enterprise: { $ne: true }, licenseKey: { $nin: ["license_b"] } },
+      ],
     });
   });
 
   it("matches no orgs when a license-based filter finds no licenses", () => {
     expect(buildAdminOrgQuery({ plan: "pro" }, {})).toEqual({
-      $and: [{ enterprise: { $ne: true }, id: { $in: [] } }],
+      $and: [
+        {
+          enterprise: { $ne: true },
+          id: { $in: [] },
+          licenseKey: { $in: [] },
+        },
+      ],
     });
   });
 
   it("keeps suspended and disabled orgs out of subscription statuses", () => {
     expect(
-      buildAdminOrgQuery({ status: "past_due" }, { status: ["org_c"] }),
+      buildAdminOrgQuery(
+        { status: "past_due" },
+        { status: { orgIds: ["org_c"], licenseKeys: ["license_c"] } },
+      ),
     ).toEqual({
       $and: [
         {
           id: { $in: ["org_c"] },
+          licenseKey: { $in: ["license_c"] },
           suspended: { $ne: true },
           disabled: { $ne: true },
         },
@@ -53,7 +78,7 @@ describe("buildAdminOrgQuery", () => {
     expect(
       buildAdminOrgQuery(
         { minMembers: 10, maxMembers: 49, createdAfter, loginMethod: "none" },
-        { sso: ["org_d"] },
+        { ssoOrgIds: ["org_d"] },
       ),
     ).toEqual({
       $and: [

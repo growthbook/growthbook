@@ -98,7 +98,10 @@ export default function AdminOrganizationPage() {
     return <LoadingOverlay />;
   }
 
-  return <OrganizationDetail {...data} mutate={mutate} />;
+  // Keyed so open forms reset if history jumps to another cached organization
+  return (
+    <OrganizationDetail key={data.organization.id} {...data} mutate={mutate} />
+  );
 }
 
 function OrganizationDetail({
@@ -127,7 +130,11 @@ function OrganizationDetail({
     (ds) => ds.type === "growthbook_clickhouse",
   );
 
-  const { data: membersData, mutate: mutateMembers } = useApi<{
+  const {
+    data: membersData,
+    error: membersError,
+    mutate: mutateMembers,
+  } = useApi<{
     members: UserInterface[];
   }>(`/admin/organization/${org.id}/members`);
   const { data: licenseData, error: licenseError } = useApi<{
@@ -146,6 +153,7 @@ function OrganizationDetail({
   const [editMember, setEditMember] = useState<AdminMember | null>(null);
   const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
   const [warehouseOpen, setWarehouseOpen] = useState(false);
+  const [bannerError, setBannerError] = useState<string | null>(null);
   const [recreateOpen, setRecreateOpen] = useState(false);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
@@ -446,6 +454,11 @@ function OrganizationDetail({
         </Callout>
       )}
 
+      {bannerError && (
+        <Callout status="error" mb="3">
+          {bannerError}
+        </Callout>
+      )}
       {messages.map((m, i) => (
         <Frame key={i} py="3" px="4" mb="3">
           <Flex align="center" gap="3">
@@ -474,6 +487,7 @@ function OrganizationDetail({
                 <Button
                   size="sm"
                   variant="outline"
+                  setError={setBannerError}
                   onClick={async () => {
                     await apiCall("/admin/organization", {
                       method: "PUT",
@@ -539,29 +553,40 @@ function OrganizationDetail({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredMembers.map((m) => (
-                  <TableRow key={m.id} style={{ whiteSpace: "nowrap" }}>
-                    <TableCell>{m.name || "-"}</TableCell>
-                    <TableCell>{m.email || "-"}</TableCell>
-                    <TableCell>{m.role}</TableCell>
-                    <TableCell>
-                      {m.lastLoginDate ? date(m.lastLoginDate) : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        label={m.verified ? "Verified" : "Unverified"}
-                        color={m.verified ? "green" : "amber"}
-                      />
-                    </TableCell>
-                    <TableCell style={{ textAlign: "right" }}>
-                      {(can("users") || can("grant")) &&
-                        membersData &&
-                        editIcon(`Edit ${m.name || m.email}`, () =>
-                          setEditMember(m),
-                        )}
+                {!membersData ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <Text color="text-mid">
+                        {membersError
+                          ? `Couldn't load members: ${membersError.message}`
+                          : "Loading members..."}
+                      </Text>
                     </TableCell>
                   </TableRow>
-                ))}
+                ) : (
+                  filteredMembers.map((m) => (
+                    <TableRow key={m.id} style={{ whiteSpace: "nowrap" }}>
+                      <TableCell>{m.name || "-"}</TableCell>
+                      <TableCell>{m.email || "-"}</TableCell>
+                      <TableCell>{m.role}</TableCell>
+                      <TableCell>
+                        {m.lastLoginDate ? date(m.lastLoginDate) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          label={m.verified ? "Verified" : "Unverified"}
+                          color={m.verified ? "green" : "amber"}
+                        />
+                      </TableCell>
+                      <TableCell style={{ textAlign: "right" }}>
+                        {(can("users") || can("grant")) &&
+                          editIcon(`Edit ${m.name || m.email}`, () =>
+                            setEditMember(m),
+                          )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </Frame>
@@ -638,7 +663,7 @@ function OrganizationDetail({
                   },
                   { label: "Saved Groups", value: counts.savedGroups },
                   {
-                    label: "Code References",
+                    label: "Code references",
                     value: onOff(settings.codeReferencesEnabled),
                   },
                   {

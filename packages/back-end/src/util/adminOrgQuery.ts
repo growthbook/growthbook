@@ -31,26 +31,37 @@ export function isSubscriptionStatusFilter(
   );
 }
 
+export type LicenseRefs = { orgIds: string[]; licenseKeys: string[] };
+const NO_LICENSES: LicenseRefs = { orgIds: [], licenseKeys: [] };
+
+// The org ID uses the index; the license key skips stale cached licenses an
+// org no longer references, so filters agree with the row's summary.
+function referencesLicense({ orgIds, licenseKeys }: LicenseRefs) {
+  return { id: { $in: orgIds }, licenseKey: { $in: licenseKeys } };
+}
+
 // Plan, subscription status, and SSO live in other collections, so the caller
-// resolves them to org IDs first.
+// resolves them first.
 export function buildAdminOrgQuery(
   filters: AdminOrgFilters,
-  orgIds: {
-    plan?: string[];
-    status?: string[];
-    sso?: string[];
+  resolved: {
+    plan?: LicenseRefs;
+    status?: LicenseRefs;
+    ssoOrgIds?: string[];
   },
 ): FilterQuery<OrganizationInterface> {
   const and: FilterQuery<OrganizationInterface>[] = [];
+  const plan = resolved.plan ?? NO_LICENSES;
 
   if (filters.plan === "enterprise") {
-    and.push({
-      $or: [{ enterprise: true }, { id: { $in: orgIds.plan ?? [] } }],
-    });
+    and.push({ $or: [{ enterprise: true }, referencesLicense(plan)] });
   } else if (filters.plan === "pro") {
-    and.push({ enterprise: { $ne: true }, id: { $in: orgIds.plan ?? [] } });
+    and.push({ enterprise: { $ne: true }, ...referencesLicense(plan) });
   } else if (filters.plan === "starter") {
-    and.push({ enterprise: { $ne: true }, id: { $nin: orgIds.plan ?? [] } });
+    and.push({
+      enterprise: { $ne: true },
+      licenseKey: { $nin: plan.licenseKeys },
+    });
   }
 
   if (filters.status === "disabled") {
@@ -60,7 +71,7 @@ export function buildAdminOrgQuery(
   } else if (filters.status) {
     // Disabled and suspended outrank the subscription in getAdminOrgSummary
     and.push({
-      id: { $in: orgIds.status ?? [] },
+      ...referencesLicense(resolved.status ?? NO_LICENSES),
       suspended: { $ne: true },
       disabled: { $ne: true },
     });
@@ -81,9 +92,9 @@ export function buildAdminOrgQuery(
   if (filters.loginMethod === "sso_required") {
     and.push({ restrictLoginMethod: { $nin: [null, ""] } });
   } else if (filters.loginMethod === "sso") {
-    and.push({ id: { $in: orgIds.sso ?? [] } });
+    and.push({ id: { $in: resolved.ssoOrgIds ?? [] } });
   } else if (filters.loginMethod === "none") {
-    and.push({ id: { $nin: orgIds.sso ?? [] } });
+    and.push({ id: { $nin: resolved.ssoOrgIds ?? [] } });
   }
 
   return and.length ? { $and: and } : {};

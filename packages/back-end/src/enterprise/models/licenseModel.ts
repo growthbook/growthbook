@@ -1,6 +1,7 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
 import { LicenseInterface } from "shared/enterprise";
+import type { LicenseRefs } from "back-end/src/util/adminOrgQuery";
 
 const licenseSchema = new mongoose.Schema({
   id: String, // Unique ID for the license key
@@ -81,19 +82,28 @@ export async function getLicensesByKeys(
   return docs.map(toInterface);
 }
 
-// Keys issued before 12/2022 have no organizationId, so they're never matched
-export async function _dangerousGetOrgIdsByLicensePlans(
-  plans: string[],
-): Promise<string[]> {
-  return LicenseModel.distinct("organizationId", {
-    plan: { $in: plans },
-    archived: { $ne: true },
-  });
+async function getLicenseRefs(
+  query: FilterQuery<LicenseDocument>,
+): Promise<LicenseRefs> {
+  const docs = await LicenseModel.find(
+    { ...query, archived: { $ne: true } },
+    { id: 1, organizationId: 1 },
+  ).lean<Pick<LicenseInterface, "id" | "organizationId">[]>();
+  return {
+    orgIds: docs.flatMap((d) => (d.organizationId ? [d.organizationId] : [])),
+    licenseKeys: docs.map((d) => d.id),
+  };
 }
 
-export async function _dangerousGetOrgIdsBySubscriptionStatus(
+export async function _dangerousGetLicenseRefsByPlans(
+  plans: string[],
+): Promise<LicenseRefs> {
+  return getLicenseRefs({ plan: { $in: plans } });
+}
+
+export async function _dangerousGetLicenseRefsBySubscriptionStatus(
   status: "trialing" | "past_due" | "canceled",
-): Promise<string[]> {
+): Promise<LicenseRefs> {
   // Same precedence as getSubscriptionFromLicense: Orb first, then Stripe
   const subscriptionMatches = [
     {
@@ -106,8 +116,7 @@ export async function _dangerousGetOrgIdsBySubscriptionStatus(
       "stripeSubscription.status": status,
     },
   ];
-  return LicenseModel.distinct("organizationId", {
-    archived: { $ne: true },
+  return getLicenseRefs({
     $or:
       status === "trialing"
         ? [...subscriptionMatches, { isTrial: true }]

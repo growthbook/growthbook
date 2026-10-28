@@ -48,8 +48,8 @@ import {
 import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
 import { licenseInit } from "back-end/src/enterprise";
 import {
-  _dangerousGetOrgIdsByLicensePlans,
-  _dangerousGetOrgIdsBySubscriptionStatus,
+  _dangerousGetLicenseRefsByPlans,
+  _dangerousGetLicenseRefsBySubscriptionStatus,
   getLicensesByKeys,
 } from "back-end/src/enterprise/models/licenseModel";
 import {
@@ -108,14 +108,12 @@ export async function _dangerousAdminGetOrganizations(
   }
   const filters = parsed.data;
 
-  const [planOrgIds, statusOrgIds, ssoOrgIds] = await Promise.all([
+  const [planLicenses, statusLicenses, ssoOrgIds] = await Promise.all([
     filters.plan
-      ? _dangerousGetOrgIdsByLicensePlans(
-          getLicensePlansForFilter(filters.plan),
-        )
+      ? _dangerousGetLicenseRefsByPlans(getLicensePlansForFilter(filters.plan))
       : undefined,
     isSubscriptionStatusFilter(filters.status)
-      ? _dangerousGetOrgIdsBySubscriptionStatus(filters.status)
+      ? _dangerousGetLicenseRefsBySubscriptionStatus(filters.status)
       : undefined,
     filters.loginMethod === "sso" || filters.loginMethod === "none"
       ? _dangerousGetAllSSOConnections().then((connections) =>
@@ -131,9 +129,9 @@ export async function _dangerousAdminGetOrganizations(
     search || "",
     50,
     buildAdminOrgQuery(filters, {
-      plan: planOrgIds,
-      status: statusOrgIds,
-      sso: ssoOrgIds,
+      plan: planLicenses,
+      status: statusLicenses,
+      ssoOrgIds,
     }),
   );
 

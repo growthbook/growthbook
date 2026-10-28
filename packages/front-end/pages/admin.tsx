@@ -1,7 +1,8 @@
 import { FormEvent, useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiMagnifyingGlass } from "react-icons/pi";
+import { useRouter } from "next/router";
+import { PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
 import { date } from "shared/dates";
 import { SuperAdmin } from "shared/validators";
 import {
@@ -59,16 +60,44 @@ function formatSuperAdmin(superAdmin: SuperAdmin | undefined) {
   return normalized ? normalized.join(", ") : "-";
 }
 
-function OrganizationList() {
+type OrgFilters = {
+  page: number;
+  search: string;
+  plan: string;
+  status: string;
+  members: string;
+  createdDays: string;
+  loginMethod: string;
+};
+const DEFAULT_ORG_FILTERS: OrgFilters = {
+  page: 1,
+  search: "",
+  plan: "all",
+  status: "all",
+  members: "all",
+  createdDays: "all",
+  loginMethod: "all",
+};
+
+type MemberFilters = { page: number; search: string; superAdminsOnly: boolean };
+const DEFAULT_MEMBER_FILTERS: MemberFilters = {
+  page: 1,
+  search: "",
+  superAdminsOnly: false,
+};
+
+function OrganizationList({
+  filters,
+  setFilters,
+}: {
+  filters: OrgFilters;
+  setFilters: (filters: OrgFilters) => void;
+}) {
+  const router = useRouter();
   const { superAdmin } = useUser();
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [plan, setPlan] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [members, setMembers] = useState("all");
-  const [createdDays, setCreatedDays] = useState("all");
-  const [loginMethod, setLoginMethod] = useState("all");
+  const { page, search, plan, status, members, createdDays, loginMethod } =
+    filters;
+  const [searchInput, setSearchInput] = useState(search);
   const [orgModalOpen, setOrgModalOpen] = useState(false);
 
   const params = new URLSearchParams({ page: String(page), search });
@@ -93,10 +122,9 @@ function OrganizationList() {
   }>(`/admin/organizations?${params.toString()}`);
 
   // Every filter change starts back on the first page
-  const filterSetter = (set: (value: string) => void) => (value: string) => {
-    set(value);
-    setPage(1);
-  };
+  const filterSetter =
+    (key: keyof Omit<OrgFilters, "page">) => (value: string) =>
+      setFilters({ ...filters, [key]: value, page: 1 });
 
   return (
     <>
@@ -121,8 +149,7 @@ function OrganizationList() {
         <form
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
-            setSearch(searchInput.trim());
-            setPage(1);
+            setFilters({ ...filters, search: searchInput.trim(), page: 1 });
           }}
           style={{ flex: "0 1 360px", minWidth: 240 }}
         >
@@ -135,14 +162,14 @@ function OrganizationList() {
           />
         </form>
         {isCloud() && (
-          <Select value={plan} setValue={filterSetter(setPlan)}>
+          <Select value={plan} setValue={filterSetter("plan")}>
             <SelectItem value="all">All plans</SelectItem>
             <SelectItem value="starter">Starter</SelectItem>
             <SelectItem value="pro">Pro</SelectItem>
             <SelectItem value="enterprise">Enterprise</SelectItem>
           </Select>
         )}
-        <Select value={status} setValue={filterSetter(setStatus)}>
+        <Select value={status} setValue={filterSetter("status")}>
           <SelectItem value="all">All statuses</SelectItem>
           {isCloud() && <SelectItem value="trialing">Trial</SelectItem>}
           {isCloud() && <SelectItem value="past_due">Past due</SelectItem>}
@@ -150,13 +177,13 @@ function OrganizationList() {
           <SelectItem value="suspended">Suspended</SelectItem>
           <SelectItem value="disabled">Disabled</SelectItem>
         </Select>
-        <Select value={members} setValue={filterSetter(setMembers)}>
+        <Select value={members} setValue={filterSetter("members")}>
           <SelectItem value="all">Any number of members</SelectItem>
           <SelectItem value="1-9">1–9 members</SelectItem>
           <SelectItem value="10-49">10–49 members</SelectItem>
           <SelectItem value="50+">50+ members</SelectItem>
         </Select>
-        <Select value={createdDays} setValue={filterSetter(setCreatedDays)}>
+        <Select value={createdDays} setValue={filterSetter("createdDays")}>
           <SelectItem value="all">Created any time</SelectItem>
           <SelectItem value="7">Created in the last 7 days</SelectItem>
           <SelectItem value="30">Created in the last 30 days</SelectItem>
@@ -164,7 +191,7 @@ function OrganizationList() {
           <SelectItem value="365">Created in the last year</SelectItem>
         </Select>
         {isCloud() && (
-          <Select value={loginMethod} setValue={filterSetter(setLoginMethod)}>
+          <Select value={loginMethod} setValue={filterSetter("loginMethod")}>
             <SelectItem value="all">Any login method</SelectItem>
             <SelectItem value="sso">SSO</SelectItem>
             <SelectItem value="sso_required">SSO required</SelectItem>
@@ -196,17 +223,20 @@ function OrganizationList() {
               <TableColumnHeader>Created</TableColumnHeader>
               <TableColumnHeader>Owner</TableColumnHeader>
               {!isCloud() && <TableColumnHeader>External ID</TableColumnHeader>}
+              <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
             {data?.organizations.map((o) => {
               const summary = data.summaries[o.id];
               return (
-                <TableRow key={o.id} style={{ whiteSpace: "nowrap" }}>
+                <TableRow
+                  key={o.id}
+                  onClick={() => router.push(`/admin/${o.id}`)}
+                  style={{ whiteSpace: "nowrap", cursor: "pointer" }}
+                >
                   <TableCell>
-                    <Link href={`/admin/${o.id}`} weight="bold">
-                      {o.name}
-                    </Link>
+                    <Text weight="semibold">{o.name}</Text>
                   </TableCell>
                   <TableCell>
                     <code>{o.id}</code>
@@ -226,12 +256,21 @@ function OrganizationList() {
                   <TableCell>{date(o.dateCreated)}</TableCell>
                   <TableCell>{o.ownerEmail}</TableCell>
                   {!isCloud() && <TableCell>{o.externalId}</TableCell>}
+                  <TableCell style={{ textAlign: "right" }}>
+                    <Link
+                      href={`/admin/${o.id}`}
+                      color="gray"
+                      aria-label={`Open ${o.name}`}
+                    >
+                      <PiCaretRight />
+                    </Link>
+                  </TableCell>
                 </TableRow>
               );
             })}
             {data?.organizations.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={8}>
                   <Text color="text-mid">No organizations found</Text>
                 </TableCell>
               </TableRow>
@@ -244,7 +283,7 @@ function OrganizationList() {
           currentPage={page}
           numItemsTotal={data.total}
           perPage={50}
-          onPageChange={setPage}
+          onPageChange={(p) => setFilters({ ...filters, page: p })}
         />
       )}
       {!isCloud() &&
@@ -262,15 +301,19 @@ function OrganizationList() {
   );
 }
 
-function MemberList() {
+function MemberList({
+  filters,
+  setFilters,
+}: {
+  filters: MemberFilters;
+  setFilters: (filters: MemberFilters) => void;
+}) {
   const { superAdmin } = useUser();
   const canEdit =
     hasSuperAdminPermission(superAdmin, "users") ||
     hasSuperAdminPermission(superAdmin, "grant");
-  const [page, setPage] = useState(1);
-  const [searchInput, setSearchInput] = useState("");
-  const [search, setSearch] = useState("");
-  const [superAdminsOnly, setSuperAdminsOnly] = useState(false);
+  const { page, search, superAdminsOnly } = filters;
+  const [searchInput, setSearchInput] = useState(search);
   const [editMember, setEditMember] = useState<AdminMember | null>(null);
 
   const params = new URLSearchParams({ page: String(page), search });
@@ -295,8 +338,7 @@ function MemberList() {
         <form
           onSubmit={(e: FormEvent) => {
             e.preventDefault();
-            setSearch(searchInput.trim());
-            setPage(1);
+            setFilters({ ...filters, search: searchInput.trim(), page: 1 });
           }}
           style={{ flex: "0 1 360px", minWidth: 240 }}
         >
@@ -312,10 +354,9 @@ function MemberList() {
           id="super-admins-only"
           label="Super admins only"
           value={superAdminsOnly}
-          setValue={(v) => {
-            setSuperAdminsOnly(v);
-            setPage(1);
-          }}
+          setValue={(v) =>
+            setFilters({ ...filters, superAdminsOnly: v, page: 1 })
+          }
         />
         {data && (
           <Text color="text-mid" ml="auto">
@@ -401,7 +442,7 @@ function MemberList() {
           currentPage={page}
           numItemsTotal={data.total}
           perPage={50}
-          onPageChange={setPage}
+          onPageChange={(p) => setFilters({ ...filters, page: p })}
         />
       )}
     </>
@@ -410,6 +451,9 @@ function MemberList() {
 
 export default function Admin() {
   const { license, superAdmin } = useUser();
+  // Kept here so filters survive switching tabs, which unmounts each list
+  const [orgFilters, setOrgFilters] = useState(DEFAULT_ORG_FILTERS);
+  const [memberFilters, setMemberFilters] = useState(DEFAULT_MEMBER_FILTERS);
   const canView = hasSuperAdminPermission(superAdmin, "view");
 
   if (!canView) {
@@ -443,10 +487,10 @@ export default function Admin() {
           </TabsList>
         </Box>
         <TabsContent value="organizations">
-          <OrganizationList />
+          <OrganizationList filters={orgFilters} setFilters={setOrgFilters} />
         </TabsContent>
         <TabsContent value="members">
-          <MemberList />
+          <MemberList filters={memberFilters} setFilters={setMemberFilters} />
         </TabsContent>
       </Tabs>
     </Box>
