@@ -34,6 +34,7 @@ import {
 } from "back-end/src/queryRunners/QueryRunner";
 import {
   getCancelledRunQueryStatuses,
+  releaseConcludedRefresh,
   planInterruptedRunCleanup,
   releaseInterruptedRefresh,
   stopInterruptedRefresh,
@@ -62,6 +63,10 @@ jest.mock(
     })),
   }),
 );
+
+// Each sweep replays hundreds of refreshes. They take a few seconds locally;
+// CI runners can be several times slower.
+jest.setTimeout(60_000);
 
 const ORG = "org_1";
 const BASE = Date.UTC(2024, 0, 1);
@@ -437,10 +442,15 @@ class SimRun {
     return { name: params.name, query: id, status: "queued" };
   };
 
-  private step() {
+  // Another snapshot takes the lock once this many steps have run.
+  stealLockAfter: number | null = null;
+  stealLock: () => Promise<void> = async () => undefined;
+
+  private async step() {
     if (this.stopAfter !== null && this.steps >= this.stopAfter) {
       throw new Interrupted();
     }
+    if (this.steps === this.stealLockAfter) await this.stealLock();
     this.steps++;
   }
 
@@ -473,7 +483,7 @@ class SimRun {
   }
 
   private async start(q: SimQuery) {
-    this.step();
+    await this.step();
     if (this.queries.indexOf(q) === this.failQueryIndex) {
       this.fail(q);
       return;
@@ -495,27 +505,28 @@ class SimRun {
   }
 
   async apply(q: SimQuery, countStep = true) {
-    if (countStep) this.step();
+    if (countStep) await this.step();
     const gate = this.sim.gates.get(q.id);
     if (!gate || !q.promise) throw new Error(`No gate for ${q.name}`);
     try {
       gate.resolve(this.warehouse.apply(gate.op));
+      // The run can still fail after the warehouse, e.g. saving its state.
+      q.rows = (await q.promise).rows;
     } catch (e) {
       this.fail(q);
       return;
     }
-    q.rows = (await q.promise).rows;
     q.phase = "applied";
   }
 
   async succeed(q: SimQuery, countStep = true) {
-    if (countStep) this.step();
+    if (countStep) await this.step();
     q.status = "succeeded";
     q.phase = "succeeded";
   }
 
   async callback(q: SimQuery, countStep = true) {
-    if (countStep) this.step();
+    if (countStep) await this.step();
     this.beforeCallback(q, this.queries);
     const done = q.params.onSuccess?.(q.rows ?? []);
     if (
@@ -794,6 +805,7 @@ class Experiment {
     schedule = "serial",
     detachCovariateCallbacks = false,
     beforeCallback,
+    stealLockAfter = null,
   }: {
     now: number;
     fullRefresh: boolean;
@@ -802,6 +814,7 @@ class Experiment {
     schedule?: Schedule;
     detachCovariateCallbacks?: boolean;
     beforeCallback?: (q: SimQuery, queries: SimQuery[]) => void;
+    stealLockAfter?: number | null;
   }) {
     const snapshotId = `snp_${++snapshotCounter}`;
     const locked = await model.acquireLock({
@@ -822,6 +835,12 @@ class Experiment {
     );
     run.detachCovariateCallbacks = detachCovariateCallbacks;
     if (beforeCallback) run.beforeCallback = beforeCallback;
+    run.stealLockAfter = stealLockAfter;
+    run.stealLock = async () => {
+      await model.updateByExperimentIdIfCurrentExecution(this.id, snapshotId, {
+        currentExecutionSnapshotId: THIEF_SNAPSHOT_ID,
+      });
+    };
     const { factTableMap, metrics, settings } = this.built;
     await startExperimentIncrementalRefreshQueries(
       context(),
@@ -859,16 +878,20 @@ class Experiment {
     return run;
   }
 
+  // Releases a finished run as the runner does. Returns true when only a full
+  // refresh is safe next.
   async release(run: SimRun) {
     await run.writer.flush();
-    if (!run.failures.length) {
+    const status = finishedStatus(run);
+    if (status !== "failed") {
       await model.updateByExperimentIdIfCurrentExecution(
         this.id,
         run.snapshotId,
         { materializedBySnapshotId: run.snapshotId },
       );
     }
-    await model.releaseLock(this.id, run.snapshotId);
+    mockQueryStore(run);
+    return releaseConcludedRefresh(context(), snapshotOf(this.id, run), status);
   }
 
   // What the cache tables hold, as the statistics queries read them.
@@ -955,6 +978,36 @@ function expectedContents(config: Config, now: number) {
 
 type CleanupPath = "reaper" | "timedOut" | "cancel";
 
+const THIEF_SNAPSHOT_ID = "snp_thief";
+
+// Query doc reads and writes go to the run's simulated queries.
+function mockQueryStore(run: SimRun) {
+  const byId = new Map(run.queries.map((q) => [q.id, q]));
+  jest.mocked(getQueryStatusesByIds).mockImplementation(async (_, ids) =>
+    ids.flatMap((id) => {
+      const q = byId.get(id);
+      return q ? [{ id, status: q.status, createdAt: new Date() }] : [];
+    }),
+  );
+  jest.mocked(failQueuedQueries).mockImplementation(async (_, ids) =>
+    ids.filter((id) => {
+      const q = byId.get(id);
+      if (q?.status !== "queued") return false;
+      q.status = "failed";
+      return true;
+    }),
+  );
+}
+
+function finishedStatus(run: SimRun) {
+  const status = rollupQueryStatus(
+    run.queries.map((q) => ({ name: q.name, query: q.id, status: q.status })),
+  );
+  return status === "failed" || status === "partially-succeeded"
+    ? status
+    : "succeeded";
+}
+
 const snapshotOf = (experimentId: string, run: SimRun) => ({
   id: run.snapshotId,
   experiment: experimentId,
@@ -975,7 +1028,6 @@ async function cleanUp(
   run: SimRun,
 ): Promise<boolean> {
   const snapshot = snapshotOf(experimentId, run);
-  const byId = new Map(run.queries.map((q) => [q.id, q]));
   switch (path) {
     case "reaper":
       return releaseInterruptedRefresh(
@@ -984,20 +1036,7 @@ async function cleanUp(
         new Map(run.queries.map((q) => [q.id, q.status])),
       );
     case "timedOut": {
-      jest.mocked(getQueryStatusesByIds).mockImplementation(async (_, ids) =>
-        ids.flatMap((id) => {
-          const q = byId.get(id);
-          return q ? [{ id, status: q.status, createdAt: new Date() }] : [];
-        }),
-      );
-      jest.mocked(failQueuedQueries).mockImplementation(async (_, ids) =>
-        ids.filter((id) => {
-          const q = byId.get(id);
-          if (q?.status !== "queued") return false;
-          q.status = "failed";
-          return true;
-        }),
-      );
+      mockQueryStore(run);
       const { needsFullRefresh } = await stopInterruptedRefresh(
         context(),
         snapshot,
@@ -1131,9 +1170,8 @@ async function sweep(
   return failures;
 }
 
-// Fails each query in turn and lets the rest of the run finish, then releases
-// the run the way the runner does: as an interrupted run when its status rolls
-// up to failed, otherwise with a plain release.
+// Fails each query in turn, lets the rest of the run finish, then releases it
+// the way the runner does.
 async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
   const failures: string[] = [];
   const count = (
@@ -1149,27 +1187,11 @@ async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
       failQueryIndex,
     });
     expect(finished).toBe(true);
-    const status = rollupQueryStatus(
-      run.queries.map((q) => ({ name: q.name, query: q.id, status: q.status })),
-    );
-    const needsFullRefresh =
-      status === "failed"
-        ? await run.writer.flush().then(() => cleanUp("timedOut", exp.id, run))
-        : (await exp.release(run), false);
+    const status = finishedStatus(run);
+    const needsFullRefresh = await exp.release(run);
     const where = `${run.queries[failQueryIndex].name} failed (run ${status})`;
     try {
-      const doc = await getDoc(exp.id);
-      const next = await exp.completeRun(
-        NEXT_AT,
-        needsFullRefresh || !doc?.unitsTableFullName,
-      );
-      if (next.failures.length) {
-        // A partially failed run releases its lock as is, so the next Update
-        // may fail on a table it left missing. It must fail loudly and a
-        // full refresh must then recover.
-        expect(status).not.toBe("failed");
-        await exp.completeRun(NEXT_AT, true);
-      }
+      await nextRefresh(exp, needsFullRefresh);
       expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
@@ -1232,8 +1254,10 @@ async function slowCovariateWriteThenFailedSource(config: Config) {
   expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
 }
 
-async function expectFencedCleanupChangesNothing(fullRefresh: boolean) {
-  const config = { groups: 2, covariates: true };
+async function expectFencedCleanupChangesNothing(
+  fullRefresh: boolean,
+  config: Config = { groups: 2, covariates: true },
+) {
   const total = await countSteps(config, fullRefresh, "serial");
   for (let stopAfter = 0; stopAfter < total; stopAfter++) {
     for (const path of ["reaper", "timedOut", "cancel"] as const) {
@@ -1266,6 +1290,72 @@ async function expectFencedCleanupChangesNothing(fullRefresh: boolean) {
       }
     }
   }
+}
+
+// Another snapshot takes the lock after each step in turn, so every fenced
+// write from then on misses. A query that saves state must not count as
+// succeeded unless its state was saved, and the run's release must say when
+// only a full refresh is safe next.
+async function expectLostLockNeverCountsAsSaved(
+  config: Config,
+  fullRefresh: boolean,
+) {
+  const failures: string[] = [];
+  const total = await countSteps(config, fullRefresh, "serial");
+  for (let stealLockAfter = 0; stealLockAfter < total; stealLockAfter++) {
+    const exp = await setUpExperiment(config);
+    const { run, finished } = await exp.startRun({
+      now: INTERRUPTED_AT,
+      fullRefresh,
+      stealLockAfter,
+    });
+    expect(finished).toBe(true);
+    const where = `lock lost after step ${stealLockAfter}`;
+    const doc = await getDoc(exp.id);
+    const tableMax = (name: string | null | undefined) => {
+      const table = name ? exp.warehouse.tables.get(name) : undefined;
+      if (!table || table.kind === "covariate") return undefined;
+      return maxOf(table.rows.map((r) => r.maxTs));
+    };
+    const savedMinute = (date: Date | null | undefined) =>
+      date ? toMinute(date) : null;
+    run.queries
+      .filter((q) => q.status === "succeeded")
+      .forEach((q) => {
+        if (q.name === `max_timestamp_${run.snapshotId}`) {
+          if (
+            doc?.unitsTableFullName !==
+              q.query.match(/"table":"([^"]+)"/)?.[1] ||
+            savedMinute(doc?.unitsMaxTimestamp) !==
+              tableMax(doc?.unitsTableFullName)
+          ) {
+            failures.push(`${where}: ${q.name} succeeded without its save`);
+          }
+        }
+        if (q.name.startsWith("max_timestamp_metrics_source_")) {
+          const groupId = q.name.replace("max_timestamp_metrics_source_", "");
+          const source = doc?.metricSources.find((x) => x.groupId === groupId);
+          if (
+            !source ||
+            savedMinute(source.maxTimestamp) !== tableMax(source.tableFullName)
+          ) {
+            failures.push(`${where}: ${q.name} succeeded without its save`);
+          }
+        }
+      });
+
+    // The thief never runs; once it lets go, the next refresh must be right.
+    const needsFullRefresh = await exp.release(run);
+    await model.releaseLock(exp.id, THIEF_SNAPSHOT_ID);
+    try {
+      await nextRefresh(exp, needsFullRefresh);
+      expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      failures.push(`${where}: ${message.split("\n").slice(0, 12).join(" ")}`);
+    }
+  }
+  return failures;
 }
 
 describe("incremental refresh interruption (in-memory lock state)", () => {
@@ -1323,6 +1413,17 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
 
   describe.each(modes)("$mode", ({ fullRefresh }) => {
     it.each(configs.map((c) => [label(c), c] as const))(
+      "never counts a save that missed a lost lock as done: %s",
+      async (_, config) => {
+        expect(
+          await expectLostLockNeverCountsAsSaved(config, fullRefresh),
+        ).toEqual([]);
+      },
+    );
+  });
+
+  describe.each(modes)("$mode", ({ fullRefresh }) => {
+    it.each(configs.map((c) => [label(c), c] as const))(
       "recovers from any one query failing: %s",
       async (_, config) => {
         expect(await sweepQueryFailures(config, fullRefresh)).toEqual([]);
@@ -1338,10 +1439,13 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
           config.groups > 1 ? ["serial", "waves"] : ["serial"];
         expect(await sweep(config, fullRefresh, schedules)).toEqual([]);
       },
-      120_000,
     );
   });
 });
+
+// One source with covariates still exercises every write against Mongo; the
+// wider matrix runs on the in-memory lock state above.
+const MONGO_CONFIG: Config = { groups: 1, covariates: true };
 
 describe("incremental refresh interruption (Mongo lock state)", () => {
   beforeAll(async () => {
@@ -1356,7 +1460,8 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
 
   it.each(modes)(
     "changes nothing when another snapshot holds the lock: $mode",
-    ({ fullRefresh }) => expectFencedCleanupChangesNothing(fullRefresh),
+    ({ fullRefresh }) =>
+      expectFencedCleanupChangesNothing(fullRefresh, MONGO_CONFIG),
   );
 
   it("drops the sources to rebuild and releases the lock in one write", async () => {
@@ -1439,9 +1544,16 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
   it.each(modes)(
     "recovers from an interruption at every step: $mode",
     async ({ fullRefresh }) => {
-      const config = { groups: 2, covariates: true };
-      expect(await sweep(config, fullRefresh, ["serial"])).toEqual([]);
+      expect(await sweep(MONGO_CONFIG, fullRefresh, ["serial"])).toEqual([]);
     },
-    120_000,
+  );
+
+  it.each(modes)(
+    "never counts a save that missed a lost lock as done: $mode",
+    async ({ fullRefresh }) => {
+      expect(
+        await expectLostLockNeverCountsAsSaved(MONGO_CONFIG, fullRefresh),
+      ).toEqual([]);
+    },
   );
 });

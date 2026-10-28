@@ -40,10 +40,14 @@ export function planInterruptedRunCleanup({
   snapshotId,
   fullRefresh,
   queries,
+  runFinished = false,
 }: {
   snapshotId: string;
   fullRefresh: boolean;
   queries: InterruptedRunQuery[];
+  // Every query ended and the run's own source-list writes landed, so a full
+  // refresh's old sources can no longer be left in place.
+  runFinished?: boolean;
 }): InterruptedRunCleanup {
   const statusByName = new Map(queries.map((q) => [q.name, q.status]));
   // A query we can't read may have run, so only a known "queued" is unstarted.
@@ -72,6 +76,7 @@ export function planInterruptedRunCleanup({
 
   const unfinishedFullRefresh =
     fullRefresh &&
+    !runFinished &&
     (!succeeded(
       incrementalRefreshQueryNames.maxTimestampUnitsTable(snapshotId),
     ) ||
@@ -100,6 +105,7 @@ export async function releaseInterruptedRefresh(
     "id" | "experiment" | "runnerKind" | "queries"
   >,
   statusByQueryId: Map<string, QueryStatus>,
+  { runFinished = false }: { runFinished?: boolean } = {},
 ): Promise<boolean> {
   const plan = planInterruptedRunCleanup({
     snapshotId: snapshot.id,
@@ -108,6 +114,7 @@ export async function releaseInterruptedRefresh(
       name: q.name,
       status: statusByQueryId.get(q.query) ?? null,
     })),
+    runFinished,
   });
   const needsCleanup =
     plan.forceFullRefresh || plan.metricGroupIdsToRebuild.length > 0;
@@ -221,4 +228,28 @@ export async function stopInterruptedRefreshOrRelease(
     await releaseLockWithoutCleanup(context, snapshot);
     return { notRunQueryIds: [], needsFullRefresh: true };
   }
+}
+
+/**
+ * Releases a run that reached a terminal status, in the same write dropping
+ * any cache state its own writes could not: a source whose timestamp query
+ * failed, or a units table it dropped but never renamed. Returns true when
+ * that state needed dropping but the run no longer held the lock.
+ */
+export async function releaseConcludedRefresh(
+  context: ReqContext | ApiReqContext,
+  snapshot: Parameters<typeof stopInterruptedRefresh>[1],
+  status: "succeeded" | "partially-succeeded" | "failed",
+): Promise<boolean> {
+  // A failed run can still have queries running.
+  if (status === "failed") {
+    return (await stopInterruptedRefreshOrRelease(context, snapshot))
+      .needsFullRefresh;
+  }
+  return releaseInterruptedRefresh(
+    context,
+    snapshot,
+    new Map(snapshot.queries.map((q) => [q.query, q.status])),
+    { runFinished: true },
+  );
 }

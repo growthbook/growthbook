@@ -198,9 +198,7 @@ describe("ExperimentIncrementalRefreshQueryRunner failing with queries still pen
         order.push("source removal");
       });
       const release = jest.mocked(
-        status === "failed"
-          ? context.models.incrementalRefresh.releaseLockAfterInterruptedRun
-          : context.models.incrementalRefresh.releaseLock,
+        context.models.incrementalRefresh.releaseLockAfterInterruptedRun,
       );
       release.mockImplementationOnce(async () => {
         order.push("release");

@@ -60,11 +60,15 @@ function runQueries({
   }));
 }
 
-function plan(args: Parameters<typeof runQueries>[0] = {}) {
+function plan(
+  args: Parameters<typeof runQueries>[0] = {},
+  runFinished = false,
+) {
   return planInterruptedRunCleanup({
     snapshotId: SNAPSHOT_ID,
     fullRefresh: !!args.fullRefresh,
     queries: runQueries(args),
+    runFinished,
   });
 }
 
@@ -133,6 +137,37 @@ describe("planInterruptedRunCleanup", () => {
         },
       }).metricGroupIdsToRebuild,
     ).toEqual(["ft2_def0"]);
+  });
+
+  describe("for a run that finished", () => {
+    it("rebuilds only the source whose timestamp query failed in a full refresh", () => {
+      expect(
+        plan(
+          {
+            fullRefresh: true,
+            statuses: { max_timestamp_metrics_source_ft1_abc0: "failed" },
+          },
+          true,
+        ),
+      ).toEqual({
+        metricGroupIdsToRebuild: ["ft1_abc0"],
+        forceFullRefresh: false,
+      });
+    });
+
+    it("forces a full refresh when the units table was dropped and never renamed", () => {
+      expect(
+        plan(
+          {
+            statuses: {
+              [`alter_${SNAPSHOT_ID}`]: "failed",
+              [`max_timestamp_${SNAPSHOT_ID}`]: "failed",
+            },
+          },
+          true,
+        ).forceFullRefresh,
+      ).toBe(true);
+    });
   });
 
   it("counts an insert whose status cannot be read as started", () => {
