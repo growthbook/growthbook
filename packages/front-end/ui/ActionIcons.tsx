@@ -4,10 +4,11 @@ import {
   PiCornersInBold,
   PiCornersOutBold,
   PiMagicWandFill,
+  PiPencilSimple,
 } from "react-icons/pi";
 import { Size } from "@/ui/sizes";
 
-// Icons for small copy, fullscreen and format buttons, scaled up since they read faint
+// Icons for small copy, fullscreen, edit and format buttons, scaled up since they read faint
 // at these sizes; the thin fullscreen corners are bold too. Scaling keeps each
 // button its size.
 const SCALED = { transform: "scale(1.15)" };
@@ -39,4 +40,8 @@ export function FullscreenIcon({
 
 export function FormatJsonIcon({ size }: { size?: IconSize }) {
   return <PiMagicWandFill size={size && ICON_SIZES[size]} style={SCALED} />;
+}
+
+export function EditIcon({ size }: { size?: IconSize }) {
+  return <PiPencilSimple size={size && ICON_SIZES[size]} style={SCALED} />;
 }

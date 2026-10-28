@@ -5,6 +5,7 @@ import {
 } from "shared/types/feature";
 import React, {
   CSSProperties,
+  ReactNode,
   useContext,
   useEffect,
   useMemo,
@@ -25,6 +26,7 @@ import VirtualizedCode, {
 import { useConstantLinkify } from "@/components/Constants/useConstantLinkify";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
@@ -70,6 +72,7 @@ export default function ValueDisplay({
   linkify,
   lineHeight,
   monochrome,
+  extraActions,
 }: {
   value: string;
   type: FeatureValueType;
@@ -98,6 +101,8 @@ export default function ValueDisplay({
   // Override the rendered code line height (passed through to InlineCode).
   lineHeight?: number;
   monochrome?: boolean;
+  // More buttons in the same row as copy and fullscreen, after them.
+  extraActions?: ReactNode;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -242,9 +247,8 @@ export default function ValueDisplay({
           isFullscreen ? null : (
             <>
               {showCopyButton && (type === "json" || type === "string") ? (
-                <Tooltip
-                  body={copySuccess ? "Copied" : "Copy to clipboard"}
-                  usePortal={true}
+                <UITooltip
+                  content={copySuccess ? "Copied" : "Copy to clipboard"}
                 >
                   <IconButton
                     type="button"
@@ -261,10 +265,10 @@ export default function ValueDisplay({
                   >
                     <CopyIcon copied={copySuccess} size="sm" />
                   </IconButton>
-                </Tooltip>
+                </UITooltip>
               ) : null}
               {showFullscreenButton && (
-                <Tooltip body="View in full screen" usePortal={true}>
+                <UITooltip content="View in full screen">
                   <IconButton
                     type="button"
                     radius="full"
@@ -277,8 +281,9 @@ export default function ValueDisplay({
                   >
                     <FullscreenIcon size="sm" />
                   </IconButton>
-                </Tooltip>
+                </UITooltip>
               )}
+              {extraActions}
             </>
           )
         }

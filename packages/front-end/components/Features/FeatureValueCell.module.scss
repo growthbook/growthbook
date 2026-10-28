@@ -62,9 +62,11 @@
   }
 }
 
-// Inset like the copy and expand buttons, clear of the scrollbar.
+// A tall value's edit button, at its top; copy and fullscreen stay along the
+// bottom.
 .openEditor {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-3);
+  // 4px inside the cell, net of the ghost button's negative margin.
+  top: 10px;
+  right: 10px;
 }

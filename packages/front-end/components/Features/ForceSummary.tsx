@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
@@ -18,6 +19,8 @@ export default function ForceSummary({
   lineHeight,
   actionsOverlay,
   monochrome,
+  fullWidth = false,
+  extraActions,
 }: {
   value: string;
   feature: FeatureInterface;
@@ -34,6 +37,11 @@ export default function ForceSummary({
   // matching env flavor. Absent (e.g. all-environments view) = the base value.
   environment?: string;
   monochrome?: boolean;
+  // Spans its container, so the copy and fullscreen buttons sit at its edge
+  // rather than just past a short value.
+  fullWidth?: boolean;
+  // More buttons beside the value's copy and fullscreen.
+  extraActions?: ReactNode;
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
@@ -62,7 +70,7 @@ export default function ForceSummary({
 
   return (
     <>
-      <Flex direction="row" gap="2">
+      <Flex direction="row" gap="2" width={fullWidth ? "100%" : undefined}>
         {label !== null && <Text weight="medium">{label}</Text>}
         <Box width="100%">
           <ValueDisplay
@@ -74,6 +82,7 @@ export default function ForceSummary({
             lineHeight={lineHeight}
             monochrome={monochrome}
             actionsOverlay={actionsOverlay}
+            extraActions={extraActions}
             fullStyle={{
               maxHeight: maxHeight ?? 150,
               overflowY: "auto",
