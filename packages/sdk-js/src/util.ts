@@ -6,6 +6,7 @@ import {
   UrlTargetType,
   VariationRange,
 } from "./types/growthbook";
+import { TestedObj } from "./types/mongrule";
 
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
@@ -307,6 +308,22 @@ export async function decrypt(
 // Own keys only, since keys like `toString` are inherited by every object
 export function hasOwn(obj: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key);
+}
+
+// Return value at dot-separated path of an object
+export function getPath(obj: TestedObj, path: string) {
+  const parts = path.split(".");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let current: any = obj;
+  for (let i = 0; i < parts.length; i++) {
+    // Own keys only, so a missing `constructor` isn't the inherited one
+    if (current && typeof current === "object" && hasOwn(current, parts[i])) {
+      current = current[parts[i]];
+    } else {
+      return null;
+    }
+  }
+  return current;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
