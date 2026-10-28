@@ -19,6 +19,12 @@ const factTable: FactTableInterface = {
   sql: "SELECT secret_api_key FROM prod.internal_revenue",
   timestampColumn: "event_ts",
   eventName: "purchase",
+  columnsError: "Column hidden_ts not found",
+  aggregatedFactTableSettings: {
+    idTypes: ["internal_idtype"],
+    updateTime: { time: "00:00", timezone: "UTC" },
+    lookbackWindow: 7,
+  },
   columns: [
     {
       dateCreated: date,
@@ -34,6 +40,7 @@ const factTable: FactTableInterface = {
       topValues: ["ACME"],
       topValuesDate: date,
       jsonFields: { secret: { datatype: "string" } },
+      conditionalInlineFilters: { paid: "billing_tier" },
       isAutoSliceColumn: true,
       autoSlices: ["US"],
     },
@@ -62,6 +69,9 @@ describe("redactFactTableForSSR", () => {
     expect(json).not.toContain("event_ts");
     expect(json).not.toContain("ACME");
     expect(json).not.toContain("secret");
+    expect(json).not.toContain("hidden_ts");
+    expect(json).not.toContain("billing_tier");
+    expect(json).not.toContain("internal_idtype");
     expect(redacted.eventName).toBe("");
   });
 

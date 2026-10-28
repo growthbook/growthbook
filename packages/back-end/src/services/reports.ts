@@ -743,16 +743,39 @@ export function getReportSnapshotSettings({
   };
 }
 
-// SSR data is served on public share pages, which only need column formats and slices
+// Allowlist: SSR data is served on public share pages, which only need column formats and slices
 export function redactFactTableForSSR(
   factTable: FactTableInterface,
 ): FactTableDefinition {
   return {
-    ...omit(factTable, ["sql", "userIdColumns", "timestampColumn"]),
+    ...pick(factTable, [
+      "organization",
+      "id",
+      "dateCreated",
+      "dateUpdated",
+      "name",
+      "description",
+      "owner",
+      "projects",
+      "tags",
+      "datasource",
+      "userIdTypes",
+    ]),
     eventName: "",
     filters: [],
     columns: factTable.columns.map((column) =>
-      omit(column, ["sql", "jsonFields", "topValues", "topValuesDate"]),
+      pick(column, [
+        "dateCreated",
+        "dateUpdated",
+        "name",
+        "description",
+        "column",
+        "datatype",
+        "numberFormat",
+        "deleted",
+        "isAutoSliceColumn",
+        "autoSlices",
+      ]),
     ),
   };
 }
@@ -820,6 +843,9 @@ export async function generateExperimentReportSSRData({
           "timestampColumn",
           "conditions",
           "queryFormat",
+          "sql",
+          "templateVariables",
+          "userIdColumns",
         ]),
       }),
     {},
