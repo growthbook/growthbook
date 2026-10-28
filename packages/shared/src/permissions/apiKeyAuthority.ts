@@ -134,6 +134,7 @@ export function changesApiKeyAuthority(
 // grant itself or other keys more. Global ones are only read from org-wide
 // roles, so Project rules may carry them; manageProjects is refused anywhere.
 const ORG_WIDE_REFUSED: [Permission, string][] = [
+  ["manageCustomRoles", "manage custom roles"],
   ["manageTeam", "manage members"],
   ["createApiKeys", "manage API keys"],
   ["editApiKeys", "manage API keys"],

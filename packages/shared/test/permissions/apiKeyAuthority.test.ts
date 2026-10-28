@@ -321,6 +321,7 @@ describe("apiKeyRolesRefusal", () => {
       customRole("keyManager", ["ReadData", "APIKeysEdit"]),
       customRole("settingsEditor", ["GeneralSettingsFullAccess"]),
       customRole("teamAdmin", ["TeamManagementFullAccess"]),
+      customRole("roleEditor", ["CustomRolesFullAccess"]),
     ],
   };
   const base = {
@@ -379,6 +380,7 @@ describe("apiKeyRolesRefusal", () => {
 
   it.each([
     ["teamAdmin", "manage members"],
+    ["roleEditor", "manage custom roles"],
     ["keyManager", "manage API keys"],
     ["settingsEditor", "change organization settings"],
     ["gbDefault_projectAdmin", "manage Projects"],

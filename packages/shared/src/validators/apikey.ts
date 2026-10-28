@@ -279,7 +279,7 @@ export const putApiKeyRolesValidator = {
   operationId: "putApiKeyRoles",
   summary: "Replace an API key's roles",
   description:
-    "Replaces an organization API key's roles and environment limits with the body. The key's value, description, expiry and disabled state are left alone. Needs permission to edit and create API keys. A key can't change its own roles, and can't grant `admin`, or a role that can manage members, API keys, organization settings or Projects. These refusals are checked before comparing with the key, so a body naming one is refused even when the key already has it (for example, an existing admin key).",
+    "Replaces an organization API key's roles and environment limits with the body. The key's value, description, expiry and disabled state are left alone. Needs permission to edit and create API keys. A personal access token id is a 400, or a 404 when it's another member's token the caller can't read. A key can't change its own roles, and can't grant `admin`, or a role that can manage members, custom roles, API keys, organization settings or Projects. These refusals are checked before comparing with the key, so a body naming one is refused even when the key already has it (for example, an existing admin key).",
   tags: ["api-keys"],
   confirmation: ["access.apiKeys"] as const,
   confirmationInHandler: true,
