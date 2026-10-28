@@ -265,7 +265,7 @@ export default function HealthPage() {
             links={[
               {
                 label: "Review quality checks",
-                href: "/settings/experimentation-health",
+                href: "/settings/experiment-quality",
               },
               ...attentionLink,
             ]}
@@ -319,7 +319,7 @@ export default function HealthPage() {
         ? ({
             state: "off",
             action: (
-              <Link href="/settings/experimentation-health" size="sm">
+              <Link href="/settings/experiment-quality" size="sm">
                 Turn on
               </Link>
             ),
