@@ -1,5 +1,8 @@
 import { FeatureInterface } from "shared/types/feature";
-import { buildHookInputFeatureFacts } from "back-end/src/enterprise/sandbox/inputFeatureFacts";
+import {
+  buildHookInputFeatureFacts,
+  buildInputFeatureFactsById,
+} from "back-end/src/enterprise/sandbox/inputFeatureFacts";
 
 const envs = ["dev", "production"];
 
@@ -273,5 +276,50 @@ describe("buildHookInputFeatureFacts", () => {
         buildHookInputFeatureFacts(feature({ project: 42 }), envs).project,
       ).toBe("");
     });
+  });
+});
+
+describe("buildInputFeatureFactsById", () => {
+  it("builds facts keyed by flag id", () => {
+    const facts = buildInputFeatureFactsById(
+      [feature({ id: "a" }), feature({ id: "b", archived: true })],
+      null,
+      envs,
+    );
+    expect([...facts.keys()]).toEqual(["a", "b"]);
+    expect(facts.get("b")?.archived).toBe(true);
+  });
+
+  it("prefers a bulk publish's proposed state over the saved one", () => {
+    const saved = feature({
+      id: "kill",
+      environmentSettings: {
+        dev: { enabled: true },
+        production: { enabled: true },
+      },
+    });
+    const proposed = feature({
+      id: "kill",
+      environmentSettings: {
+        dev: { enabled: true },
+        production: { enabled: false },
+      },
+    });
+    const facts = buildInputFeatureFactsById(
+      [saved, feature({ id: "other" })],
+      new Map([["kill", proposed]]),
+      envs,
+    );
+    expect(facts.get("kill")?.environments.production.enabled).toBe(false);
+    expect(facts.get("other")?.environments.dev.enabled).toBe(true);
+  });
+
+  it("includes a flag that only exists in the overlay", () => {
+    const facts = buildInputFeatureFactsById(
+      [],
+      new Map([["new", feature({ id: "new", project: "prj_1" })]]),
+      envs,
+    );
+    expect(facts.get("new")?.project).toBe("prj_1");
   });
 });

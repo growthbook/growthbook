@@ -30395,9 +30395,9 @@ paths:
                   type: boolean
                 inputFeatures:
                   description: >-
-                    Flag ids whose facts the hook receives as
-                    `inputFeatureFacts` (at most 10). Not allowed on feature- or
-                    experiment-scoped hooks.
+                    Feature Flag ids whose facts the hook receives as
+                    `inputFeatureFacts` (at most 10). Not allowed on hooks
+                    scoped to one Feature Flag or experiment.
                   type: array
                   items:
                     type: string
@@ -30601,7 +30601,7 @@ paths:
                   type: boolean
                 inputFeatures:
                   description: >-
-                    Flag ids whose facts the hook receives as
+                    Feature Flag ids whose facts the hook receives as
                     `inputFeatureFacts` (at most 10). Send [] to clear the list;
                     omit to leave it unchanged.
                   type: array
@@ -74619,8 +74619,9 @@ components:
           type: boolean
         inputFeatures:
           description: >-
-            Flag ids whose facts the hook receives as `inputFeatureFacts` (at
-            most 10). Not allowed on feature- or experiment-scoped hooks.
+            Feature Flag ids whose facts the hook receives as
+            `inputFeatureFacts` (at most 10). Not allowed on hooks scoped to one
+            Feature Flag or experiment.
           type: array
           items:
             type: string

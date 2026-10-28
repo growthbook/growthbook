@@ -1,6 +1,7 @@
 import { featureValueType } from "shared/validators";
 import { valueHasConfigExtends } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
+import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
 
 export type HookInputFeatureFacts = {
   project: string;
@@ -98,4 +99,19 @@ export function buildHookInputFeatureFacts(
     hasHoldout,
     environments,
   };
+}
+
+// A bulk publish's proposed flag states win over saved ones, so a hook never
+// approves a change against an input flag the same publish is changing.
+export function buildInputFeatureFactsById(
+  saved: FeatureInterface[],
+  overlay: Map<string, FeatureInterface> | null | undefined,
+  environmentIds: string[],
+): Map<string, HookInputFeatureFacts> {
+  return new Map(
+    overlayDocsById(saved, overlay).map((feature) => [
+      feature.id,
+      buildHookInputFeatureFacts(feature, environmentIds),
+    ]),
+  );
 }

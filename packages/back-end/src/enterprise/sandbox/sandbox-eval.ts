@@ -42,7 +42,7 @@ import {
 import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";
 import {
-  buildHookInputFeatureFacts,
+  buildInputFeatureFactsById,
   HookInputFeatureFacts,
 } from "./inputFeatureFacts";
 
@@ -689,7 +689,10 @@ export async function collectCustomHookResults(
     configBases,
   );
 
-  const facts = await loadInputFeatureFacts(adminContext, hooks);
+  const facts = await loadInputFeatureFacts(
+    context.scanContextOverride ?? adminContext,
+    hooks,
+  );
 
   const hardErrors: CustomHookErrorDetail[] = [];
   const warnings: string[] = [];
@@ -708,20 +711,19 @@ export async function collectCustomHookResults(
   return { hardErrors, warnings };
 }
 
-// One read per batch, under the hook execution context (all projects), so the
+// One read per batch, under an org-wide scan context (all projects), so the
 // facts don't depend on who made the change. A failed read fails the change.
 async function loadInputFeatureFacts(
-  context: Context,
+  scanContext: Context,
   hooks: CustomHookInterface[],
 ): Promise<Map<string, HookInputFeatureFacts>> {
   const ids = [...new Set(hooks.flatMap((h) => h.inputFeatures ?? []))];
-  const facts = new Map<string, HookInputFeatureFacts>();
-  if (!ids.length) return facts;
-  const environmentIds = getEnvironmentIdsFromOrg(context.org);
-  for (const feature of await getFeaturesByIds(context, ids)) {
-    facts.set(feature.id, buildHookInputFeatureFacts(feature, environmentIds));
-  }
-  return facts;
+  if (!ids.length) return new Map();
+  return buildInputFeatureFactsById(
+    await getFeaturesByIds(scanContext, ids),
+    scanContext.featureScanOverlay,
+    getEnvironmentIdsFromOrg(scanContext.org),
+  );
 }
 
 // Hooks without a list get exactly their old arguments.

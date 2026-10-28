@@ -198,13 +198,13 @@ export class CustomHookModel extends BaseClass {
 
     if (inputFeatures.length > MAX_CUSTOM_HOOK_INPUT_FEATURES) {
       throw new BadRequestError(
-        `A custom hook can list at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES} input features`,
+        `A custom hook can list at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES} input Feature Flags`,
       );
     }
 
     if (entityType === "feature" || entityType === "experiment") {
       throw new BadRequestError(
-        "This hook is attached to one feature or experiment, so it cannot have input features. Clear its inputFeatures field, or remove its feature or experiment scope.",
+        "This hook is attached to one Feature Flag or experiment, so it cannot have input Feature Flags. Clear its inputFeatures field, or remove its Feature Flag or experiment scope.",
       );
     }
 
@@ -221,7 +221,7 @@ export class CustomHookModel extends BaseClass {
     );
     if (missing.length) {
       throw new BadRequestError(
-        `Input features not found, or you do not have access to them: ${missing.join(", ")}`,
+        `Input Feature Flags not found, or you do not have access to them: ${missing.join(", ")}`,
       );
     }
   }

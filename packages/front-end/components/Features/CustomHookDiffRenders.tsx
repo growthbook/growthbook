@@ -82,7 +82,7 @@ export function renderCustomHookSettingsSection(
     onOff(pre?.incrementalChangesOnly),
     onOff(post.incrementalChangesOnly),
   );
-  add("Input features", inputFeaturesStr(pre), inputFeaturesStr(post));
+  add("Input Feature Flags", inputFeaturesStr(pre), inputFeaturesStr(post));
 
   if (!rows.length) return null;
   return (
@@ -119,7 +119,7 @@ export function getCustomHookSettingsBadges(
     });
   }
   if (inputFeaturesStr(pre) !== inputFeaturesStr(post)) {
-    badges.push({ label: "Input features changed", action: "update" });
+    badges.push({ label: "Input Feature Flags changed", action: "update" });
   }
   return badges;
 }

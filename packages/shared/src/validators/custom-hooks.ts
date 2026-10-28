@@ -60,7 +60,7 @@ export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
 const inputFeaturesField = z
   .array(z.string())
   .describe(
-    `Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Not allowed on feature- or experiment-scoped hooks.`,
+    `Feature Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Not allowed on hooks scoped to one Feature Flag or experiment.`,
   );
 
 // External REST API. Validators carry the OpenAPI route metadata.
@@ -154,7 +154,7 @@ const updateCustomHookApiBody = z
     incrementalChangesOnly: z.boolean().optional(),
     inputFeatures: inputFeaturesField
       .describe(
-        `Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Send [] to clear the list; omit to leave it unchanged.`,
+        `Feature Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Send [] to clear the list; omit to leave it unchanged.`,
       )
       .optional(),
   })
