@@ -201,8 +201,8 @@ export default function ExperimentMetricBlock({
       variationFilter={variationFilter}
     >
       <div style={{ display: "flex", flexDirection: "column", gap: 30 }}>
-        {Object.entries(rowGroups).map(([resultGroup, rows]) =>
-          !rows.length ? null : (
+        {Object.entries(rowGroups).map(([resultGroup, groupRows]) =>
+          !groupRows.length ? null : (
             <ResultsTable
               noStickyHeader
               key={resultGroup}
@@ -220,7 +220,7 @@ export default function ExperimentMetricBlock({
               isLatestPhase={true}
               startDate={latestPhase?.dateStarted || ""}
               endDate={latestPhase?.dateEnded || ""}
-              rows={rows}
+              rows={groupRows}
               tableRowAxis="metric"
               resultGroup={resultGroup as "goal" | "secondary" | "guardrail"}
               labelHeader={`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}

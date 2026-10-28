@@ -143,13 +143,13 @@ export default function ExperimentTimeSeriesBlock({
 
   return (
     <>
-      {Object.entries(rowGroups).map(([resultGroup, rows]) =>
-        !rows.length ? null : (
+      {Object.entries(rowGroups).map(([resultGroup, groupRows]) =>
+        !groupRows.length ? null : (
           <div key={resultGroup} className="mb-4">
             <h4 className="mb-3">
               {`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
             </h4>
-            {rows.map((row) => {
+            {groupRows.map((row) => {
               // Only render parent rows (not slice rows) for time series
               if (row.isSliceRow) return null;
 
