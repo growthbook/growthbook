@@ -1,13 +1,11 @@
 // 48px short of the title box (TopNav.module.scss's .pagetitle), so a
-// truncated crumb's ellipsis stays clear of the box's 32px fade. Nudged 1px
-// right, so its text lines up optically with the page title's below it.
+// truncated crumb's ellipsis stays clear of the box's 32px fade.
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
   padding-right: var(--space-8);
-  translate: 1px 0;
 }
 
 // A first crumb in a button's box (from 1180px up, where the project
@@ -133,10 +131,34 @@
 }
 
 // Contained, so a long name truncates instead of scrolling the menu
-// sideways (its scroll area grows to its widest content).
+// sideways (its scroll area grows to its widest content). Pinned at the top
+// while the list scrolls under it: pulled up over the menu's top padding and
+// padded by as much, so it sits where it would and stays there, on the
+// menu's own background.
 .projectSearch {
-  padding: var(--space-1) var(--space-1) var(--space-2);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin-top: calc(-1 * var(--base-menu-content-padding));
+  padding: calc(var(--base-menu-content-padding) + var(--space-1))
+    var(--space-1) var(--space-2);
+  background: var(--color-panel-solid);
   contain: inline-size;
+}
+
+// Items scrolled to from the keyboard or on opening stop below the pinned
+// search row (its padding and the 32px field), not under it.
+// The menu's inner viewport would otherwise be the search row's scroll
+// container (Radix sets overflow on it), so it never pinned.
+.projectMenuWithSearch :global(.rt-BaseMenuViewport) {
+  overflow: visible;
+}
+
+.projectMenuWithSearch :global(.rt-ScrollAreaViewport) {
+  scroll-padding-top: calc(
+    var(--base-menu-content-padding) + var(--space-1) + var(--space-6) +
+      var(--space-2)
+  );
 }
 
 .projectList {
@@ -152,6 +174,11 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+.projectOptionName {
+  display: flex;
   min-width: 0;
 }
 
