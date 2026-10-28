@@ -1012,45 +1012,48 @@ export default function AppRail() {
 
           <div className={styles.spacer} />
 
-          {showUpgrade ? (
+          {/* 4px apart, closer than the sections' 8px. */}
+          <div className={styles.bottomGroup}>
+            {showUpgrade ? (
+              <RailItem
+                collapsed={contentCollapsed}
+                Icon={PiArrowCircleUp}
+                label="Upgrade"
+                onClick={() => {
+                  // The drawer's Tab trap would pull focus out of the window.
+                  setDrawerOpen(false);
+                  setUpgradeModal(true);
+                }}
+                className={styles.upgrade}
+              />
+            ) : null}
             <RailItem
               collapsed={contentCollapsed}
-              Icon={PiArrowCircleUp}
-              label="Upgrade"
-              onClick={() => {
-                // The drawer's Tab trap would pull focus out of the window.
-                setDrawerOpen(false);
-                setUpgradeModal(true);
-              }}
-              className={styles.upgrade}
+              Icon={SettingsIcon}
+              label="Settings"
+              href="/settings"
+              active={settingsActive}
+              tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
             />
-          ) : null}
-          <RailItem
-            collapsed={contentCollapsed}
-            Icon={SettingsIcon}
-            label="Settings"
-            href="/settings"
-            active={settingsActive}
-            tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
-          />
-          <ProfileMenu
-            inPlace={menuInPlace("profile")}
-            railCollapsed={contentCollapsed}
-            railClassName={contentCollapsed ? styles.iconItem : styles.row}
-            railOpenClassName={styles.menuOpen}
-            railLabelClassName={styles.rowLabel}
-            railIconSize={ICON_SIZE}
-            railIconClassName={contentCollapsed ? undefined : styles.rowIcon}
-          />
-          <HelpMenu
-            inPlace={menuInPlace("help")}
-            collapsed={contentCollapsed}
-            iconSize={ICON_SIZE}
-            triggerClassName={contentCollapsed ? styles.iconItem : styles.row}
-            openClassName={styles.menuOpen}
-            iconClassName={contentCollapsed ? undefined : styles.rowIcon}
-            labelClassName={styles.rowLabel}
-          />
+            <ProfileMenu
+              inPlace={menuInPlace("profile")}
+              railCollapsed={contentCollapsed}
+              railClassName={contentCollapsed ? styles.iconItem : styles.row}
+              railOpenClassName={styles.menuOpen}
+              railLabelClassName={styles.rowLabel}
+              railIconSize={ICON_SIZE}
+              railIconClassName={contentCollapsed ? undefined : styles.rowIcon}
+            />
+            <HelpMenu
+              inPlace={menuInPlace("help")}
+              collapsed={contentCollapsed}
+              iconSize={ICON_SIZE}
+              triggerClassName={contentCollapsed ? styles.iconItem : styles.row}
+              openClassName={styles.menuOpen}
+              iconClassName={contentCollapsed ? undefined : styles.rowIcon}
+              labelClassName={styles.rowLabel}
+            />
+          </div>
           {!isNarrow ? (
             <>
               <div
