@@ -614,9 +614,16 @@ describe("sdk-connections API", () => {
       const existing = existingConnection();
       findSDKConnectionById.mockReturnValue(existing);
 
-      const response = await request(app)
+      const refused = await request(app)
         .put(`/api/v1/sdk-connections/${existing.id}`)
         .send({ name: "my-new-connection" })
+        .set("Authorization", "Bearer foo");
+      expect(refused.status).toBe(400);
+      expect(refused.body.message).toContain("bypassApproval");
+
+      const response = await request(app)
+        .put(`/api/v1/sdk-connections/${existing.id}`)
+        .send({ name: "my-new-connection", bypassApproval: true })
         .set("Authorization", "Bearer foo");
 
       expect(response.status).toBe(200);

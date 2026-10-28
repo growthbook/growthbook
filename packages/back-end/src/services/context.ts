@@ -1,3 +1,4 @@
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   Permissions,
   getRolePermissions,
@@ -303,6 +304,9 @@ export class ReqContextClass {
   // would have. Cleared before the flush itself refreshes.
   public sdkPayloadRefreshBuffer?: {
     keys: SDKPayloadKey[];
+    // Connections refreshed by identity rather than by key (a connection's own
+    // settings changed), so they can't be folded into `keys`.
+    sdkConnections?: SDKConnectionInterface[];
     treatEmptyProjectAsGlobal: boolean;
     // Set when the flush drains the buffer. Fire-and-forget producers that
     // captured the buffer reference before the flush (e.g. a model

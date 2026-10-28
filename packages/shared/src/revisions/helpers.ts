@@ -388,6 +388,17 @@ const isSelfApprovalBlockedForEntity = (
   if (entityType === "constant" || entityType === "config") {
     return constantBlockSelfApproval({ project: snapshot.project }, settings);
   }
+  // Rules are scoped by environment too, so only the ones governing this
+  // change count.
+  if (entityType === "sdk-connection") {
+    return getSdkConnectionReviewRules(
+      settings?.approvalFlows,
+      revision.target.snapshot as {
+        sdkConnection?: SdkConnectionApprovalScope;
+      },
+      revision.target.proposedChanges,
+    ).some((r) => !!r.blockSelfApproval);
+  }
   return !!getApprovalFlowSettings(
     settings?.approvalFlows,
     entityType,
@@ -427,9 +438,19 @@ export const isAutopublishOnApprovalEnabled = (
   entityType: RevisionTargetType,
   // Both families match their rules on this.
   projects: string[] = [],
+  // SDK connection rules are scoped by environment, read from the snapshot.
+  snapshot?: unknown,
 ): boolean => {
   if (entityType === "constant" || entityType === "config") {
     return constantAutopublishOnApproval({ project: projects[0] }, settings);
+  }
+  if (entityType === "sdk-connection" && snapshot) {
+    const rules = getSdkConnectionGoverningRules(
+      settings?.approvalFlows,
+      (snapshot as { sdkConnection?: SdkConnectionApprovalScope })
+        .sdkConnection ?? {},
+    );
+    return rules.length > 0 && rules.every((r) => !!r.autopublishOnApproval);
   }
   return !!getApprovalFlowSettings(
     settings?.approvalFlows,
@@ -1027,49 +1048,89 @@ export type SdkConnectionApprovalScope = {
   environment?: string;
 };
 
-// Empty or omitted `projects`/`environments` on the rule means "all".
-export const sdkConnectionMatchesApprovalScope = (
-  rule: Pick<ApprovalFlowConfiguration, "projects" | "environments">,
-  scope: SdkConnectionApprovalScope,
-): boolean => {
-  const ruleProjects = rule.projects ?? [];
-  const connProjects = scope.projects ?? [];
-  const projectMatch =
-    ruleProjects.length === 0 ||
-    connProjects.some((p) => ruleProjects.includes(p));
+const ruleCoversEnvironment = (
+  rule: Pick<ApprovalFlowConfiguration, "environments">,
+  environment: string | undefined,
+): boolean =>
+  !rule.environments?.length ||
+  (!!environment && rule.environments.includes(environment));
 
-  const ruleEnvironments = rule.environments ?? [];
-  const envMatch =
-    ruleEnvironments.length === 0 ||
-    (!!scope.environment && ruleEnvironments.includes(scope.environment));
-
-  return projectMatch && envMatch;
-};
-
-// Rules naming one of the connection's projects replace the all-projects
-// rules, so an override can switch approval off for its projects.
+// Each of the connection's projects resolves on its own, so an override that
+// switches approval off for one project leaves the others gated. A project's
+// override replaces the All Projects rule wholesale, environments included,
+// and only rules covering the connection's environment are folded together.
 export const getSdkConnectionGoverningRules = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
   scope: SdkConnectionApprovalScope,
 ): ApprovalFlowConfiguration[] => {
   const rules = approvalFlows?.sdkConnections ?? [];
-  const connProjects = scope.projects ?? [];
-  const specific = rules.filter((rule) =>
-    (rule.projects ?? []).some((p) => connProjects.includes(p)),
-  );
-  const layer = specific.length
-    ? specific
-    : rules.filter((rule) => !(rule.projects ?? []).length);
-  return layer.filter(
-    (rule) => rule.required && sdkConnectionMatchesApprovalScope(rule, scope),
-  );
+  if (!rules.length) return [];
+  const projects: (string | undefined)[] = scope.projects?.length
+    ? scope.projects
+    : [undefined];
+  const seen = new Set<string>();
+  const governing: ApprovalFlowConfiguration[] = [];
+  for (const project of projects) {
+    const specific = project
+      ? rules.filter((r) => (r.projects ?? []).includes(project))
+      : [];
+    const base = rules.filter((r) => !r.projects?.length);
+    const covers = (r: ApprovalFlowConfiguration) =>
+      ruleCoversEnvironment(r, scope.environment);
+    if (specific.length && !specific.some(covers)) continue;
+    const rule = resolveProjectScopedRule(
+      [...specific.filter(covers), ...base.filter(covers)],
+      project,
+      APPROVAL_FLOW_INHERITABLE,
+      APPROVAL_FLOW_COMBINERS,
+      (r) => !!r.required,
+    );
+    if (!rule?.required) continue;
+    const key = JSON.stringify(rule);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    governing.push(rule);
+  }
+  return governing;
 };
 
-export const getSdkConnectionApprovalRule = (
+export const sdkConnectionSettingsAfter = (
+  snapshot: { sdkConnection?: SdkConnectionApprovalScope },
+  proposedChanges: JsonPatchOperation[] | unknown,
+): SdkConnectionApprovalScope => {
+  const proposed = applyTopLevelPatchOps(
+    snapshot as Record<string, unknown>,
+    proposedChanges,
+  ) as { sdkConnection?: SdkConnectionApprovalScope };
+  return proposed.sdkConnection ?? snapshot.sdkConnection ?? {};
+};
+
+// The rules a change to a connection must satisfy: those governing its scope
+// before or after the change (so moves are reviewed), minus exemptions. Empty
+// means no review is needed. Callers check the `require-approvals` plan.
+export const getSdkConnectionReviewRules = (
   approvalFlows: ApprovalFlowConfigurations | undefined,
-  scope: SdkConnectionApprovalScope,
-): ApprovalFlowConfiguration | undefined =>
-  getSdkConnectionGoverningRules(approvalFlows, scope)[0];
+  snapshot: { sdkConnection?: SdkConnectionApprovalScope },
+  proposedChanges: JsonPatchOperation[] | unknown,
+): ApprovalFlowConfiguration[] => {
+  const baseline = snapshot as Record<string, unknown>;
+  if (isSdkConnectionRevisionReviewExempt(proposedChanges, baseline)) return [];
+  const rules = [
+    ...new Set([
+      ...getSdkConnectionGoverningRules(
+        approvalFlows,
+        snapshot.sdkConnection ?? {},
+      ),
+      ...getSdkConnectionGoverningRules(
+        approvalFlows,
+        sdkConnectionSettingsAfter(snapshot, proposedChanges),
+      ),
+    ]),
+  ];
+  return isSdkConnectionRevisionMetadataOnly(proposedChanges, baseline)
+    ? rules.filter((r) => r.requireMetadataReview !== false)
+    : rules;
+};
 
 export const orgHasAnySdkConnectionApproval = (
   approvalFlows: ApprovalFlowConfigurations | undefined,

@@ -16,9 +16,9 @@ import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   Revision,
   applyTopLevelPatchOps,
-  getSdkConnectionApprovalRule,
-  isSdkConnectionRevisionMetadataOnly,
-  isSdkConnectionRevisionReviewExempt,
+  getSdkConnectionGoverningRules,
+  getSdkConnectionReviewRules,
+  sdkConnectionSettingsAfter,
 } from "shared/enterprise";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { useAuth } from "@/services/auth";
@@ -220,15 +220,17 @@ export default function SDKConnectionPage() {
 
   const hasApprovalsFeature = hasCommercialFeature("require-approvals");
 
-  const matchedRule =
+  const liveRules =
     hasApprovalsFeature && connection
-      ? getSdkConnectionApprovalRule(settings.approvalFlows, {
+      ? getSdkConnectionGoverningRules(settings.approvalFlows, {
           projects: connection.projects,
           environment: connection.environment,
         })
-      : undefined;
-  const approvalRequired = !!matchedRule;
-  const metadataReviewRequired = matchedRule?.requireMetadataReview ?? true;
+      : [];
+  const approvalRequired = liveRules.length > 0;
+  const metadataReviewRequired = liveRules.some(
+    (r) => r.requireMetadataReview !== false,
+  );
 
   // Publishing lands webhook changes too, so revalidate webhooks with it.
   const mutateLive = () => {
@@ -256,49 +258,21 @@ export default function SDKConnectionPage() {
 
   const hasRevisions = allRevisions.length > 0;
 
-  // A draft that moves the connection into a gated scope needs review even when
-  // the live connection doesn't, so match against baseline OR effective scope.
-  const selectedRevisionScopes = useMemo(() => {
-    if (!selectedRevision) return null;
-    const baseline = selectedRevision.target.snapshot as
-      | SDKConnectionRevisionSnapshot
-      | undefined;
-    const effective = applyTopLevelPatchOps(
-      (baseline ?? {}) as Record<string, unknown>,
-      selectedRevision.target.proposedChanges,
-    ) as SDKConnectionRevisionSnapshot;
-    return {
-      baseline: baseline?.sdkConnection ?? {},
-      effective: effective.sdkConnection ?? {},
-    };
-  }, [selectedRevision]);
-
-  const selectedRevisionRequiresApproval = useMemo(() => {
-    if (!selectedRevision || !selectedRevisionScopes || !hasApprovalsFeature)
-      return false;
-    const rule =
-      getSdkConnectionApprovalRule(
-        settings.approvalFlows,
-        selectedRevisionScopes.baseline,
-      ) ??
-      getSdkConnectionApprovalRule(
-        settings.approvalFlows,
-        selectedRevisionScopes.effective,
-      );
-    if (!rule) return false;
-    const { proposedChanges, snapshot } = selectedRevision.target;
-    const baseline = snapshot as Record<string, unknown>;
-    if (isSdkConnectionRevisionReviewExempt(proposedChanges, baseline)) {
-      return false;
-    }
-    if (rule.requireMetadataReview ?? true) return true;
-    return !isSdkConnectionRevisionMetadataOnly(proposedChanges, baseline);
-  }, [
-    selectedRevision,
-    selectedRevisionScopes,
-    hasApprovalsFeature,
-    settings.approvalFlows,
-  ]);
+  // Same rules the server checks: the live and destination scopes, minus
+  // exemptions.
+  const selectedRevisionReviewRules = useMemo(
+    () =>
+      selectedRevision && hasApprovalsFeature
+        ? getSdkConnectionReviewRules(
+            settings.approvalFlows,
+            selectedRevision.target.snapshot as SDKConnectionRevisionSnapshot,
+            selectedRevision.target.proposedChanges,
+          )
+        : [],
+    [selectedRevision, hasApprovalsFeature, settings.approvalFlows],
+  );
+  const selectedRevisionRequiresApproval =
+    selectedRevisionReviewRules.length > 0;
 
   const canAdminPublish =
     approvalRequired &&
@@ -323,7 +297,12 @@ export default function SDKConnectionPage() {
       canBypassSdkConnectionApproval(
         permissionsUtil,
         user?.role,
-        selectedRevisionScopes?.effective.projects ?? [],
+        selectedRevision
+          ? (sdkConnectionSettingsAfter(
+              selectedRevision.target.snapshot as SDKConnectionRevisionSnapshot,
+              selectedRevision.target.proposedChanges,
+            ).projects ?? [])
+          : [],
       ));
 
   const displayRevision = useMemo(() => {
@@ -687,6 +666,7 @@ export default function SDKConnectionPage() {
                 entityName={displayedName}
                 entityNoun="SDK Connection"
                 requiresApproval={selectedRevisionRequiresApproval}
+                reviewRules={selectedRevisionReviewRules}
                 canEditEntity={canUpdate}
                 canBypassApproval={canBypassSelectedRevision}
                 selectRevision={selectFlow}

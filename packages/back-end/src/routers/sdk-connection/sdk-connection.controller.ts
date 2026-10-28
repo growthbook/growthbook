@@ -23,9 +23,7 @@ import {
 import {
   Revision,
   JsonPatchOperation,
-  getSdkConnectionApprovalRule,
-  isSdkConnectionRevisionMetadataOnly,
-  isSdkConnectionRevisionReviewExempt,
+  getSdkConnectionReviewRules,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
@@ -183,19 +181,16 @@ type PutSDKConnectionResponse =
 function isApprovalRequiredForChange(
   context: ReqContext,
   baseline: SDKConnectionRevisionSnapshot,
-  proposedSettings: SDKConnectionSettingsRevisionSnapshot,
   patchOps: JsonPatchOperation[],
 ): boolean {
   if (!context.hasPremiumFeature("require-approvals")) return false;
-  const approvalFlows = context.org.settings?.approvalFlows;
-  const rule =
-    getSdkConnectionApprovalRule(approvalFlows, baseline.sdkConnection) ??
-    getSdkConnectionApprovalRule(approvalFlows, proposedSettings);
-  if (!rule) return false;
-  const snapshot = baseline as unknown as Record<string, unknown>;
-  if (isSdkConnectionRevisionReviewExempt(patchOps, snapshot)) return false;
-  if (rule.requireMetadataReview ?? true) return true;
-  return !isSdkConnectionRevisionMetadataOnly(patchOps, snapshot);
+  return (
+    getSdkConnectionReviewRules(
+      context.org.settings?.approvalFlows,
+      baseline,
+      patchOps,
+    ).length > 0
+  );
 }
 
 export const putSDKConnection = async (
@@ -404,7 +399,6 @@ export const putSDKConnection = async (
   const needsApproval = isApprovalRequiredForChange(
     context,
     baselineSnapshot,
-    proposedSettingsSnapshot,
     patchOps,
   );
   // A move needs bypass authority in the destination scope too.

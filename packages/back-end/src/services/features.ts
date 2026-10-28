@@ -1170,11 +1170,18 @@ export function queueSDKPayloadRefresh(data: QueueSDKPayloadRefreshData) {
   // collect the affected keys instead of refreshing per write — the publisher
   // flushes one deduped refresh (at most one rebuild per SDK connection) after
   // the whole commit lands, or none if it compensated. Buffered calls drop the
-  // narrowing options (skipRefreshForProject, explicit sdkConnections) but
-  // carry treatEmptyProjectAsGlobal so global-entity keys keep their reach.
+  // narrowing skipRefreshForProject but keep explicit sdkConnections (a
+  // connection's own settings change has no keys) and carry
+  // treatEmptyProjectAsGlobal so global-entity keys keep their reach.
   const buffer = data.context.sdkPayloadRefreshBuffer;
   if (buffer && !buffer.closed) {
     buffer.keys.push(...data.payloadKeys);
+    if (data.sdkConnections?.length) {
+      buffer.sdkConnections = [
+        ...(buffer.sdkConnections ?? []),
+        ...data.sdkConnections,
+      ];
+    }
     buffer.treatEmptyProjectAsGlobal ||= !!data.treatEmptyProjectAsGlobal;
     return;
   }

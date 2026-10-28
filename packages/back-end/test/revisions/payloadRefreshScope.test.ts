@@ -13,6 +13,7 @@ import {
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { Context } from "back-end/src/models/BaseModel";
 import { advancedGuardStamp } from "back-end/src/models/BaseModel";
 
@@ -101,6 +102,21 @@ describe("flushPayloadRefreshBuffer", () => {
 
     expect(detached.closed).toBe(true);
     expect(context.sdkPayloadRefreshBuffer).toBeNull();
+  });
+
+  it("refreshes connections buffered by identity even with no keys", () => {
+    const context = makeContext();
+    const connection = { key: "sdk-1" } as SDKConnectionInterface;
+    context.sdkPayloadRefreshBuffer = {
+      keys: [],
+      sdkConnections: [connection, connection],
+      treatEmptyProjectAsGlobal: false,
+    };
+
+    flushPayloadRefreshBuffer(context, "test");
+
+    expect(queueRefresh).toHaveBeenCalledTimes(1);
+    expect(queueRefresh.mock.calls[0][0].sdkConnections).toEqual([connection]);
   });
 });
 

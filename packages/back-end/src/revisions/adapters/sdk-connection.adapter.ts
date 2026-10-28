@@ -10,12 +10,10 @@ import type { ApprovalFlowConfiguration } from "shared/types/organization";
 import {
   PublishFootprint,
   Revision,
-  SdkConnectionApprovalScope,
-  applyTopLevelPatchOps,
-  isSdkConnectionRevisionMetadataOnly,
-  isSdkConnectionRevisionReviewExempt,
   orgHasAnySdkConnectionApproval,
   getSdkConnectionGoverningRules,
+  getSdkConnectionReviewRules,
+  sdkConnectionPublishFootprint,
 } from "shared/enterprise";
 import {
   SDKConnectionRevisionSnapshot,
@@ -142,17 +140,6 @@ function toLiveSnapshot(
   };
 }
 
-function settingsAfter(
-  snapshot: SDKConnectionRevisionSnapshot,
-  proposedChanges: unknown,
-): SDKConnectionSettingsRevisionSnapshot {
-  const proposed = applyTopLevelPatchOps(
-    snapshot as unknown as Record<string, unknown>,
-    proposedChanges,
-  ) as Partial<SDKConnectionRevisionSnapshot>;
-  return proposed.sdkConnection ?? snapshot.sdkConnection;
-}
-
 // Requires bypass in EVERY project the connection belongs to ("" when none).
 function canBypassAcrossProjects(
   context: Context,
@@ -180,22 +167,6 @@ function isSdkConnectionApprovalRequired(context: Context): boolean {
   );
 }
 
-// Not `getApprovalFlowRules`: that resolves by project alone and would fold an
-// environment-scoped rule onto every environment.
-function rulesMatchingScopes(
-  context: Context,
-  scopes: SdkConnectionApprovalScope[],
-): ApprovalFlowConfiguration[] {
-  const approvalFlows = context.org.settings?.approvalFlows;
-  return [
-    ...new Set(
-      scopes.flatMap((scope) =>
-        getSdkConnectionGoverningRules(approvalFlows, scope),
-      ),
-    ),
-  ];
-}
-
 // Narrower than `ReviewRequirement` so the per-rule toggles stay visible.
 type SdkConnectionReviewRequirement = {
   required: boolean;
@@ -209,38 +180,17 @@ function sdkConnectionReviewRequirement(
   if (!context.hasPremiumFeature("require-approvals")) {
     return { required: false, rules: [] };
   }
-  const baseline = revision.target.snapshot as SDKConnectionRevisionSnapshot;
-  if (
-    isSdkConnectionRevisionReviewExempt(
-      revision.target.proposedChanges,
-      baseline as unknown as Record<string, unknown>,
-    )
-  ) {
-    return { required: false, rules: [] };
-  }
-  // Both scopes, so moving a connection into or out of a gated scope is reviewed.
-  const rules = rulesMatchingScopes(context, [
-    baseline.sdkConnection,
-    settingsAfter(baseline, revision.target.proposedChanges),
-  ]);
-  const governing = isSdkConnectionRevisionMetadataOnly(
+  const rules = getSdkConnectionReviewRules(
+    context.org.settings?.approvalFlows,
+    revision.target.snapshot as SDKConnectionRevisionSnapshot,
     revision.target.proposedChanges,
-    baseline as unknown as Record<string, unknown>,
-  )
-    ? rules.filter((r) => r.requireMetadataReview !== false)
-    : rules;
-  return { required: governing.length > 0, rules: governing };
+  );
+  return { required: rules.length > 0, rules };
 }
 
-function environmentsOf(
-  snapshot: SDKConnectionRevisionSnapshot,
-  proposedChanges?: unknown,
-): string[] {
-  const environments = new Set([snapshot.sdkConnection.environment]);
-  if (proposedChanges !== undefined) {
-    environments.add(settingsAfter(snapshot, proposedChanges).environment);
-  }
-  return [...environments].filter((env) => !!env);
+function environmentsOf(snapshot: SDKConnectionRevisionSnapshot): string[] {
+  const footprint = sdkConnectionPublishFootprint(snapshot);
+  return footprint.scope === "environments" ? footprint.environments : [];
 }
 
 export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSnapshot> =
@@ -338,10 +288,7 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       snapshot: SDKConnectionRevisionSnapshot,
       proposedChanges: unknown,
     ): PublishFootprint {
-      return {
-        scope: "environments",
-        environments: environmentsOf(snapshot, proposedChanges),
-      };
+      return sdkConnectionPublishFootprint(snapshot, proposedChanges);
     },
 
     isApprovalRequired(context: Context): boolean {
@@ -383,7 +330,10 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       snapshot: SDKConnectionRevisionSnapshot,
     ): boolean {
       if (!context.hasPremiumFeature("require-approvals")) return false;
-      const rules = rulesMatchingScopes(context, [snapshot.sdkConnection]);
+      const rules = getSdkConnectionGoverningRules(
+        context.org.settings?.approvalFlows,
+        snapshot.sdkConnection,
+      );
       return rules.length > 0 && rules.every((r) => !!r.autopublishOnApproval);
     },
 

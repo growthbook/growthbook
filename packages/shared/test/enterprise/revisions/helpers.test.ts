@@ -12,15 +12,17 @@ import {
   applyTopLevelPatchOps,
   patchOpsToPartial,
   getApprovalFlowSettings,
-  isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
   isConstantRevisionMetadataOnly,
   isSdkConnectionRevisionMetadataOnly,
   isSdkConnectionRevisionReviewExempt,
   getSdkConnectionGoverningRules,
+  getSdkConnectionReviewRules,
+  isUserBlockedFromApproving,
   mergeNestedBranch,
 } from "../../../src/revisions/helpers";
+import { entityPublishFootprint } from "../../../src/revisions/entityPublishFootprint";
 import type {
   RevisionTargetType,
   Revision,
@@ -1089,6 +1091,31 @@ describe("revisions helpers", () => {
       ).toEqual([]);
     });
 
+    it("keeps other projects gated when one project's override is off", () => {
+      const off = { required: false, projects: ["p1"] };
+      expect(
+        getSdkConnectionGoverningRules(flows([base, off]), {
+          projects: ["p1", "p2"],
+          environment: "production",
+        }),
+      ).toEqual([base]);
+    });
+
+    it("folds toggles only from rules covering the connection's environment", () => {
+      const prod = { required: true, environments: ["production"] };
+      const staging = {
+        required: true,
+        environments: ["staging"],
+        blockSelfApproval: true,
+      };
+      const rules = getSdkConnectionGoverningRules(flows([prod, staging]), {
+        projects: [],
+        environment: "production",
+      });
+      expect(rules).toHaveLength(1);
+      expect(rules[0].blockSelfApproval).toBeFalsy();
+    });
+
     it("treats a connection with no projects as all-projects only", () => {
       const p1 = { required: true, projects: ["p1"] };
       expect(
@@ -1359,5 +1386,79 @@ describe("SDK connection nested merges", () => {
 
   it("ignores fields that aren't nested branches", () => {
     expect(mergeNestedBranch("values", [], [], [], "proposed")).toBeNull();
+  });
+});
+
+describe("SDK connection review rules", () => {
+  const flows = (
+    sdkConnections: Record<string, unknown>[],
+  ): ApprovalFlowConfigurations =>
+    ({ savedGroups: [], sdkConnections }) as ApprovalFlowConfigurations;
+  const snapshot = {
+    sdkConnection: {
+      name: "A",
+      projects: [],
+      environment: "production",
+      includeRuleIds: false,
+    },
+    sdkWebhooks: [],
+  };
+  const rename = [
+    {
+      op: "replace" as const,
+      path: "/sdkConnection",
+      value: { ...snapshot.sdkConnection, name: "B" },
+    },
+  ];
+
+  it("drops rules that skip metadata review for a rename", () => {
+    const rule = { required: true, requireMetadataReview: false };
+    expect(
+      getSdkConnectionReviewRules(flows([rule]), snapshot, rename),
+    ).toEqual([]);
+  });
+
+  it("blocks self-approval only from the rule governing the environment", () => {
+    const settings = {
+      approvalFlows: flows([
+        { required: true, environments: ["production"] },
+        {
+          required: true,
+          environments: ["staging"],
+          blockSelfApproval: true,
+        },
+      ]),
+    } as OrganizationSettings;
+    expect(
+      isUserBlockedFromApproving({
+        settings,
+        entityType: "sdk-connection",
+        revision: {
+          authorId: "u1",
+          contributors: ["u1"],
+          target: {
+            type: "sdk-connection",
+            id: "sdk-1",
+            snapshot,
+            proposedChanges: rename,
+          },
+        } as unknown as Revision,
+        userId: "u1",
+      }),
+    ).toBe(false);
+  });
+
+  it("scopes the publish footprint to the connection's environments", () => {
+    const move = [
+      {
+        op: "replace" as const,
+        path: "/sdkConnection",
+        value: { ...snapshot.sdkConnection, environment: "staging" },
+      },
+    ];
+    expect(entityPublishFootprint("sdk-connection", snapshot, move)).toEqual({
+      scope: "environments",
+      environments: ["production", "staging"],
+    });
   });
 });

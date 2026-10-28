@@ -95,9 +95,14 @@ export const putSdkConnection = createApiRequestHandler(
           'or pass `{ "bypassApproval": true }` if you have the `bypassApprovalSDKConnections` permission.',
       );
     }
+    // A move needs bypass authority in the destination scope too.
     const canBypass =
       canUseRestApiBypassSetting(req) ||
-      adapter.canBypassApproval(req.context, baseline);
+      (adapter.canBypassApproval(req.context, baseline) &&
+        adapter.canBypassApproval(req.context, {
+          sdkConnection: proposedSettings,
+          sdkWebhooks: [],
+        }));
     if (!canBypass) {
       req.context.permissions.throwPermissionError();
     }

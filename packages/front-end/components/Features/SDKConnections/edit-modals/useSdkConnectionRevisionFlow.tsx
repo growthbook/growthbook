@@ -1,5 +1,5 @@
 import { ReactNode, useState } from "react";
-import { Revision, getSdkConnectionApprovalRule } from "shared/enterprise";
+import { Revision, getSdkConnectionGoverningRules } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { draftValuesEqual } from "shared/util";
 import { DraftMode } from "@/components/DraftSelector";
@@ -95,19 +95,20 @@ export function useSdkConnectionRevisionFlow({
     ? selectedRevision
     : null;
 
-  const proposedRule =
+  const proposedRules =
     revisionAware && proposedScope && hasCommercialFeature("require-approvals")
-      ? getSdkConnectionApprovalRule(settings.approvalFlows, proposedScope)
-      : undefined;
-  const effectiveApprovalRequired = !!approvalRequired || !!proposedRule;
-  // Same precedence as the server: the live rule wins over the proposed one.
-  const effectiveMetadataReviewRequired = approvalRequired
-    ? (metadataReviewRequired ?? true)
-    : (proposedRule?.requireMetadataReview ?? true);
+      ? getSdkConnectionGoverningRules(settings.approvalFlows, proposedScope)
+      : [];
+  const effectiveApprovalRequired =
+    !!approvalRequired || proposedRules.length > 0;
+  // As on the server, any governing rule (live or proposed) can require it.
+  const effectiveMetadataReviewRequired =
+    (!!approvalRequired && (metadataReviewRequired ?? true)) ||
+    proposedRules.some((r) => r.requireMetadataReview !== false);
   const effectiveCanAutoPublish =
     !effectiveApprovalRequired ||
     ((canAutoPublish ?? true) &&
-      (!proposedRule ||
+      (!proposedRules.length ||
         canBypassSdkConnectionApproval(
           permissionsUtil,
           user?.role,

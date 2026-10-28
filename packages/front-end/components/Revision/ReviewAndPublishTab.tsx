@@ -610,6 +610,7 @@ function ReviewAndPublishRevision<T>({
       organization?.settings,
       revision.target.type,
       projects,
+      revision.target.snapshot,
     ) && hasCommercialFeature("require-approvals");
   const revisionAutoPublishArmed = !!revision.autoPublishOnApproval;
 

@@ -1,4 +1,4 @@
-import { Revision, getSdkConnectionApprovalRule } from "shared/enterprise";
+import { Revision, getSdkConnectionGoverningRules } from "shared/enterprise";
 import { SDKConnectionInterface } from "shared/types/sdk-connection";
 import {
   canLandArchiveToggle,
@@ -46,10 +46,10 @@ export default function SDKConnectionArchiveModal({
 
   const approvalRequired =
     hasCommercialFeature("require-approvals") &&
-    !!getSdkConnectionApprovalRule(settings.approvalFlows, {
+    getSdkConnectionGoverningRules(settings.approvalFlows, {
       projects: connection.projects,
       environment: connection.environment,
-    });
+    }).length > 0;
 
   return (
     <ArchiveModal
