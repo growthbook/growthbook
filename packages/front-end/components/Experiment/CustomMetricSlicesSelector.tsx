@@ -2,6 +2,7 @@ import React, { ReactNode, useState, useMemo } from "react";
 import {
   PiPencilSimple,
   PiPlus,
+  PiX,
   PiXBold,
   PiStackBold,
   PiArrowSquareOut,
@@ -749,27 +750,37 @@ function EditingInterface({
               {/* A chip, as a multi-select's values are. */}
               <Flex
                 align="center"
-                gap="2"
                 py="1"
                 pl="2"
-                pr="1"
+                pr="0"
                 style={{
                   background: "var(--form-multivalue-background-color)",
                   borderRadius: "var(--radius-2)",
                 }}
               >
-                <Text weight="medium">{name}</Text>
+                <Text weight="medium" mr="2">
+                  {name}
+                </Text>
                 {valueInput}
-                <IconButton
+                {/* A multi-select value's remove control. */}
+                <button
                   type="button"
-                  variant="ghost"
-                  color="gray"
-                  size="1"
                   aria-label={`Remove ${name}`}
+                  className="gb-multi-select__multi-value__remove"
                   onClick={() => removeSliceLevel(levelIndex)}
+                  style={{
+                    alignSelf: "stretch",
+                    display: "flex",
+                    alignItems: "center",
+                    padding: "0 4px",
+                    border: 0,
+                    borderRadius: 2,
+                    background: "none",
+                    color: "var(--slate-12)",
+                  }}
                 >
-                  <PiXBold />
-                </IconButton>
+                  <PiX size={14} />
+                </button>
               </Flex>
             </Flex>
           );
