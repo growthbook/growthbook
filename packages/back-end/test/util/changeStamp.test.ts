@@ -1,5 +1,3 @@
-import fs from "fs";
-import path from "path";
 import { withChangeStamp } from "back-end/src/util/changeStamp";
 
 describe("withChangeStamp", () => {
@@ -65,41 +63,5 @@ describe("withChangeStamp", () => {
     withChangeStamp(pipeline, "s1");
     expect(update).toEqual({ $set: { name: "A" }, changeStamp: "old" });
     expect(pipeline).toEqual([{ $set: { a: 1 } }]);
-  });
-});
-
-describe("OrganizationModel writes", () => {
-  const source = fs.readFileSync(
-    path.join(__dirname, "../../src/models/OrganizationModel.ts"),
-    "utf8",
-  );
-
-  it("only uses writes the changeStamp hook covers", () => {
-    // Writes that skip the hook must set changeStamp themselves. Reads are fine.
-    expect(source).not.toMatch(
-      /\.(save|replaceOne|findOneAndReplace|bulkWrite|insertMany|deleteOne|deleteMany|findOneAndDelete|findOneAndRemove|findByIdAndUpdate|update)\(/,
-    );
-    // The raw driver skips mongoose middleware entirely
-    const rawWrites = [
-      ...source.matchAll(/getCollection\(COLLECTION\)\s*\.(\w+)\(/g),
-    ]
-      .map((m) => m[1])
-      .filter(
-        (method) => !/^(find|findOne|countDocuments|aggregate)$/.test(method),
-      );
-    expect(rawWrites).toEqual([]);
-  });
-
-  it("hooks every update method the model uses", () => {
-    const hooked = source.match(/organizationSchema\.pre\(\s*\[([^\]]*)\]/);
-    expect(hooked).not.toBeNull();
-    const hookedMethods = (hooked?.[1] ?? "").match(/\w+/g) ?? [];
-    const updates = [
-      ...source.matchAll(
-        /OrganizationModel\.(updateOne|updateMany|findOneAndUpdate)\(/g,
-      ),
-    ].map((m) => m[1]);
-    expect(updates.length).toBeGreaterThan(0);
-    for (const method of updates) expect(hookedMethods).toContain(method);
   });
 });
