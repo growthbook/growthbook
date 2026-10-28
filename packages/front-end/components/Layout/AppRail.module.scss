@@ -617,11 +617,6 @@
   }
 }
 
-.projectChevrons {
-  flex-shrink: 0;
-  color: var(--rail-chevron);
-}
-
 // Held to one project: nothing to open.
 .projectStatic.projectStatic {
   cursor: default;
