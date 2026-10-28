@@ -64,7 +64,6 @@ export function ExperimentDataFields({
   fieldAction = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  // Its stored Data Source was deleted, rather than hidden from this viewer.
   datasourceMissing?: boolean;
   // A staged holdout ("" to leave), shown in place of the stored one.
   stagedHoldoutId?: string | null;

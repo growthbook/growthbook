@@ -81,7 +81,7 @@ import { TargetingDraft } from "./TrafficAllocationFunnel";
 import {
   AddedFlag,
   addedFlagChanges,
-  addedFlagEditId,
+  linkEditId,
   useAddedFlags,
 } from "./addedFlags";
 import ResultsTab from "./ResultsTab";
@@ -238,7 +238,7 @@ function TabbedPageContents({
   const [, setAddedFlags] = useAddedFlags();
   const stageFlag = async (added: AddedFlag) => {
     const id = added.feature.id;
-    await edits?.checkChanges(addedFlagEditId(id), addedFlagChanges(added));
+    await edits?.checkChanges(linkEditId(id), addedFlagChanges(added));
     setAddedFlags((prev) => [
       ...prev.filter((a) => a.feature.id !== id),
       added,

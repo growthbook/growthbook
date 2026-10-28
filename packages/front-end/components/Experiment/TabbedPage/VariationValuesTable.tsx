@@ -45,8 +45,6 @@ import {
 } from "@/components/Reviews/RevisionStatusBadge";
 import StatusDot from "@/components/Experiment/StatusDot";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { useWatching } from "@/services/WatchProvider";
-import track from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import {
   DropdownMenu,
@@ -80,6 +78,7 @@ import {
   ColumnFooter,
   ColumnHeader,
   ColumnLayout,
+  ColumnProblem,
   HeaderKind,
   HeaderText,
   ImplementationColumn,
@@ -114,7 +113,9 @@ import {
   AddedFlag,
   addedFlagChanges,
   addedFlagInfo,
+  linkEditId,
   useAddedFlags,
+  useFlagCreated,
 } from "./addedFlags";
 
 const TABLE_MIN_WIDTH = 692;
@@ -202,20 +203,16 @@ export default function VariationValuesTable({
   const [addedFlags, setAddedFlags] = useAddedFlags();
   const removeAdded = (featureId: string) =>
     setAddedFlags((prev) => prev.filter((a) => a.feature.id !== featureId));
+  const addedIds = new Set(addedFlags.map((a) => a.feature.id));
   // A flag staged for removal leaves the table; discarding brings it back.
   // Added again, the add owns its link until it's undone.
   const removedFlags = linkedFeatures
     .map((info) => info.feature.id)
-    .filter(
-      (id) =>
-        linkActions[id] === "remove" &&
-        !addedFlags.some((a) => a.feature.id === id),
-    );
+    .filter((id) => linkActions[id] === "remove" && !addedIds.has(id));
   // An added flag's column stands in for any it already has.
   const shownFlags = linkedFeatures.filter(
     (info) =>
-      !removedFlags.includes(info.feature.id) &&
-      !addedFlags.some((a) => a.feature.id === info.feature.id),
+      !removedFlags.includes(info.feature.id) && !addedIds.has(info.feature.id),
   );
   const flagColumns = [
     ...shownFlags.flatMap((info): FlagColumnSource[] =>
@@ -562,7 +559,7 @@ function StagedUnlink({
   featureId: string;
   discard: () => void;
 }) {
-  useRegisterExperimentEdit(`link:${featureId}`, true, {
+  useRegisterExperimentEdit(linkEditId(featureId), true, {
     label: `Remove ${featureId}`,
     statusBound: true,
     changes: () => ({ unlinkFeatures: [featureId] }),
@@ -600,8 +597,8 @@ function FlagColumn({
 }) {
   const permissionsUtil = usePermissionsUtil();
   const [editEnvironments, setEditEnvironments] = useState(false);
-  const { configs, refreshTags } = useDefinitions();
-  const { refreshWatching } = useWatching();
+  const { configs } = useDefinitions();
+  const flagCreated = useFlagCreated();
   const { variations } = layout;
   // Past a draft, a flag's values and environments edit on its own page.
   const showingLive = experiment.status !== "draft";
@@ -840,7 +837,7 @@ function FlagColumn({
     clearStaged();
   };
   useRegisterExperimentEdit(
-    `link:${feature.id}`,
+    linkEditId(feature.id),
     !!linkAction && (!group || group.first),
     {
       label:
@@ -872,15 +869,7 @@ function FlagColumn({
               },
       discard: clearLinkAction,
       onSaved: () => {
-        if (added?.newFlag) {
-          track("Feature Created", {
-            valueType: feature.valueType,
-            hasDescription: !!feature.description,
-            initialRule: "experiment-ref",
-          });
-          refreshTags(feature.tags || []);
-          refreshWatching();
-        }
+        if (added?.newFlag) flagCreated(feature);
         clearLinkAction();
       },
     },
@@ -908,24 +897,20 @@ function FlagColumn({
   };
 
   const shownDraft = showsDraft ? pendingDraft : null;
-  const problem: { text: string; status: "error" | "warning" | "info" } | null =
-    shownDraft?.hasMergeConflict
-      ? { text: "Merge conflict", status: "error" }
-      : shownDraft?.rebaseRequired
-        ? { text: "Needs rebase", status: "warning" }
-        : draftLaunches && shownDraft?.hasUnrelatedDraftChanges
-          ? { text: "Changes beyond this experiment", status: "error" }
-          : orphaned
-            ? { text: "Rule missing", status: "warning" }
-            : info.state === "archived"
-              ? {
-                  text: "Archived",
-                  status:
-                    experiment.status === "running" || launches
-                      ? "warning"
-                      : "info",
-                }
-              : null;
+  // Archived, it matters while it should be serving.
+  const archivedServing =
+    info.state === "archived" && (experiment.status === "running" || launches);
+  const problem: ColumnProblem | null = shownDraft?.hasMergeConflict
+    ? { text: "Merge conflict", status: "error" }
+    : shownDraft?.rebaseRequired
+      ? { text: "Needs rebase", status: "warning" }
+      : draftLaunches && shownDraft?.hasUnrelatedDraftChanges
+        ? { text: "Changes beyond this experiment", status: "error" }
+        : orphaned
+          ? { text: "Rule missing", status: "warning" }
+          : info.state === "archived"
+            ? { text: "Archived", status: archivedServing ? "warning" : "info" }
+            : null;
   const needsApproval =
     !!shownDraft?.pendingApproval && !pendingDraftApproved(shownDraft);
   const approvalBypassed =
@@ -949,10 +934,7 @@ function FlagColumn({
   }[] = [];
   const draftNotes: string[] = [];
   // Otherwise the header's mark says it.
-  if (
-    info.state === "archived" &&
-    (experiment.status === "running" || launches)
-  ) {
+  if (archivedServing) {
     notices.push({
       status: "warning",
       text:

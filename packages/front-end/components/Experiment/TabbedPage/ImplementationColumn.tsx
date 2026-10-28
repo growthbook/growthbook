@@ -72,6 +72,12 @@ export function HeaderKind({ children }: { children: ReactNode }) {
   );
 }
 
+// As severe as the column's note about it.
+export type ColumnProblem = {
+  text: string;
+  status: "error" | "warning" | "info";
+};
+
 export function ColumnHeader({
   layout,
   icon = null,
@@ -84,8 +90,7 @@ export function ColumnHeader({
   layout: ColumnLayout;
   icon?: ReactNode;
   title?: ReactNode;
-  // As severe as the column's note about it.
-  problem?: { text: string; status: "error" | "warning" | "info" } | null;
+  problem?: ColumnProblem | null;
   kind?: ReactNode;
   menu?: ReactNode[];
   menuLabel: string;

@@ -84,7 +84,6 @@ export const DATASOURCE_CHANGE_NOTE =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  // Its stored Data Source was deleted, rather than hidden from this viewer.
   datasourceMissing?: boolean;
   canEdit: boolean;
   // The start checklist points at a field here; no field means the advanced

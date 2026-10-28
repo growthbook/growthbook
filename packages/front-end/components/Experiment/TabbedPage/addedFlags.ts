@@ -5,6 +5,9 @@ import type {
   ExperimentRefVariation,
   ExperimentRuleEnvironments,
 } from "shared/validators";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useWatching } from "@/services/WatchProvider";
+import track from "@/services/track";
 import { useStagedState } from "./ExperimentEdits";
 
 type NewFlag = NonNullable<
@@ -26,7 +29,25 @@ export function useAddedFlags() {
   return useStagedState<AddedFlag[]>("added-flags", []);
 }
 
-export const addedFlagEditId = (featureId: string) => `link:${featureId}`;
+// A flag's link, added, linked again, removed or kept, is one edit.
+export const linkEditId = (featureId: string) => `link:${featureId}`;
+
+// For a flag created from an experiment, once it's saved.
+export function useFlagCreated() {
+  const { refreshTags } = useDefinitions();
+  const { refreshWatching } = useWatching();
+  return (
+    feature: Pick<FeatureInterface, "valueType" | "description" | "tags">,
+  ) => {
+    track("Feature Created", {
+      valueType: feature.valueType,
+      hasDescription: !!feature.description,
+      initialRule: "experiment-ref",
+    });
+    refreshTags(feature.tags || []);
+    refreshWatching();
+  };
+}
 
 export function addedFlagChanges(
   added: AddedFlag,

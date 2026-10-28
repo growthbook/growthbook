@@ -32,6 +32,7 @@ import type { SaveRefusal } from "@/components/Experiment/TabbedPage/ExperimentE
 import {
   AddedFlag,
   addedFlagChanges,
+  useFlagCreated,
 } from "@/components/Experiment/TabbedPage/addedFlags";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -43,7 +44,6 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
 import {
   getDefaultValue,
   useEnvironments,
@@ -53,7 +53,6 @@ import {
 } from "@/services/features";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
-import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
@@ -175,7 +174,8 @@ export default function FeatureFromExperimentModal({
 }: Props) {
   // Staged or saved with staged changes, an existing flag gets a new draft.
   const withStagedChanges = !!(stage || saveWithStagedChanges);
-  const { project, refreshTags } = useDefinitions();
+  const { project } = useDefinitions();
+  const flagCreated = useFlagCreated();
   const selectedProject = experiment.project ?? project;
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
@@ -183,7 +183,6 @@ export default function FeatureFromExperimentModal({
     experiment,
   );
   const permissionsUtil = usePermissionsUtil();
-  const { refreshWatching } = useWatching();
   const settings = useOrgSettings();
   const { holdoutsMap } = useHoldouts();
 
@@ -623,16 +622,6 @@ export default function FeatureFromExperimentModal({
 
         checkUnscopedRule();
         if (holdoutWarning) throw new Error("Holdout configuration mismatch.");
-        const trackCreated = () => {
-          track("Feature Created", {
-            valueType: featureToCreate.valueType,
-            hasDescription: !!featureToCreate.description,
-            initialRule: "experiment-ref",
-          });
-          refreshTags(featureToCreate.tags || []);
-          refreshWatching();
-        };
-
         if (withStagedChanges) {
           const added: AddedFlag = {
             feature: featureToCreate as FeatureInterface,
@@ -671,7 +660,7 @@ export default function FeatureFromExperimentModal({
                 : refusal.message,
             );
           }
-          if (!existing) trackCreated();
+          if (!existing) flagCreated(featureToCreate);
           return;
         }
 
@@ -691,7 +680,7 @@ export default function FeatureFromExperimentModal({
             throw new Error("Feature creation failed");
           }
           targetFeatureId = created.feature.id;
-          trackCreated();
+          flagCreated(featureToCreate);
         }
 
         const autoPublish = existing && draftMode === "publish";
