@@ -276,7 +276,10 @@ export default function CustomMetricSlicesSelector({
                 editState === "editing" && editingIndex === levelsIndex;
 
               return (
-                <div key={levelsIndex} className="appbox px-3 py-2 mb-2">
+                <div
+                  key={levelsIndex}
+                  className={isEditing ? "appbox px-3 py-2 mb-2" : "mb-2"}
+                >
                   {isEditing ? (
                     <EditingInterface
                       editingSliceLevels={editingSliceLevels}
@@ -290,7 +293,19 @@ export default function CustomMetricSlicesSelector({
                       metricsWithSlices={metricsWithStringColumns}
                     />
                   ) : (
-                    <Flex align="center" gap="3">
+                    // Framed as a multi-select is, around values that read
+                    // as its values do.
+                    <Flex
+                      align="center"
+                      gap="3"
+                      style={{
+                        minHeight: 36,
+                        padding: "2px 8px",
+                        border: "1px solid var(--gray-a7)",
+                        borderRadius: "var(--radius-2)",
+                        background: "var(--color-surface)",
+                      }}
+                    >
                       <Flex gap="2" align="center" wrap="wrap" flexGrow="1">
                         {levels.slices.map((combo, comboIndex) => {
                           const columnMetadata = metricsWithStringColumns
