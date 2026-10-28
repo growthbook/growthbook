@@ -91,7 +91,7 @@ import {
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
 import { incrementalRefreshQueryNames } from "./incrementalRefreshQueryNames";
-import { createOrderedWriter } from "./orderedWriter";
+import { createOrderedWriter, OrderedWriter } from "./orderedWriter";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
@@ -262,6 +262,9 @@ export const startExperimentIncrementalRefreshQueries = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ) => Promise<QueryPointer>,
   experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null,
+  // Each write through it replaces a whole list, so they must land in order.
+  // The runner drains it before releasing the lock.
+  writeSourceLists: OrderedWriter,
 ): Promise<Queries> => {
   const { snapshotSettings, queryParentId, experimentId, metricMap } = params;
 
@@ -628,8 +631,6 @@ export const startExperimentIncrementalRefreshQueries = async (
   });
   let runningSourceData = existingSources ?? [];
   let runningCovariateSourceData = existingCovariateSources ?? [];
-  // Each write below replaces a whole list, so they must land in order.
-  const writeSourceLists = createOrderedWriter();
 
   // Track per-group state we need from the per-FT pass for the cross-FT
   // pair pass below: each pipeline's cache table name (so the stats query
@@ -1262,6 +1263,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 > {
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
+  private writeSourceLists = createOrderedWriter();
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1340,6 +1342,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.integration,
       this.startQuery.bind(this),
       this.experimentUpdateExecutionLogger,
+      this.writeSourceLists,
     );
   }
 
@@ -1475,6 +1478,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.experimentUpdateExecutionLogger,
     );
     if (wrote) {
+      // Queued source-list writes must land while the run holds the lock.
+      await this.writeSourceLists.flush();
       // Queries may still be running, so clean up as for an interrupted run.
       await stopInterruptedRefreshOrRelease(this.context, this.model);
     }
@@ -1529,6 +1534,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     // Release the incremental refresh lock on any terminal status
     // TODO: Properly handle partially-succeeded status that also becomes terminal??
     if (snapshotStatus !== "running") {
+      // Queued source-list writes, such as a failed source's removal behind
+      // a slow covariate write, must land while the run holds the lock.
+      await this.writeSourceLists.flush();
       if (snapshotStatus === "success") {
         await this.context.models.incrementalRefresh
           .updateByExperimentIdIfCurrentExecution(
