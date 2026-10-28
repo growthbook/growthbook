@@ -123,7 +123,7 @@ function getChecklistItems(
     ...(noLinkedChange ? [noLinkedChange] : []),
     ...mergeConflictRows(linkedFeatures),
     ...awaitingApproval,
-    ...unrelatedDraftChangeRows(linkedFeatures, "Contextual Bandit"),
+    ...unrelatedDraftChangeRows(linkedFeatures),
     ...missingVariationValueRows(linkedFeatures, cb.variations),
   ];
 }

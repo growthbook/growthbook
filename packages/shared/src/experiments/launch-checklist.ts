@@ -21,8 +21,8 @@ import { getLatestPhaseVariations } from "./variations";
 export type LaunchChecklistItem = {
   // A built-in key, `<kind>:<featureId>` for a linked flag, or a custom task.
   key: string;
+  // One action that resolves it.
   label: string;
-  description?: string;
   status: "complete" | "incomplete";
   required: boolean;
   // Blocks a start outright: only the approval rows can be waived, by bypass.
@@ -85,7 +85,6 @@ export function mergeConflictItems(
 // The draft being published is exempt: its own publish takes the extra edits.
 export function unrelatedDraftChangeItems(
   linkedFeatures: LinkedFeatureInfo[],
-  entity: "experiment" | "Contextual Bandit",
   publishingFeatureId?: string,
 ): LaunchChecklistItem[] {
   return linkedFeatures
@@ -100,11 +99,7 @@ export function unrelatedDraftChangeItems(
       flagItem(
         f,
         "unrelatedDraftChanges:",
-        `The ${f.feature.id} draft has changes unrelated to this ${entity}`,
-        {
-          description:
-            "Remove them from the draft to auto-publish the Feature Flag, or publish the draft manually.",
-        },
+        `Publish the ${f.feature.id} draft, or remove its unrelated changes`,
       ),
     );
 }
@@ -260,11 +255,8 @@ export function getLaunchChecklistItems({
             flagItem(
               f,
               "pendingRemoval:",
-              `Publish Revision ${f.pendingRemoval.version} of ${f.feature.id}, which removes this experiment's rule`,
-              {
-                description: "Or keep the Feature Flag.",
-                revision: f.pendingRemoval.version,
-              },
+              `Publish Revision ${f.pendingRemoval.version} of ${f.feature.id} to remove it, or keep it`,
+              { revision: f.pendingRemoval.version },
             ),
           ]
         : [],
@@ -276,14 +268,8 @@ export function getLaunchChecklistItems({
           f,
           "publishPermission:",
           armed
-            ? `Whoever scheduled this start can no longer publish ${f.feature.id}`
-            : `You need permission to publish ${f.feature.id} before this experiment can start`,
-          armed
-            ? {
-                description:
-                  "Reschedule or unschedule the start, then approve it again from an account that can.",
-              }
-            : {},
+            ? `Reschedule the start as someone who can publish ${f.feature.id}`
+            : `Have someone who can publish ${f.feature.id} start this experiment`,
         ),
       ),
     // Publishing a flag's own draft is what approves it.
@@ -302,11 +288,7 @@ export function getLaunchChecklistItems({
         ),
         status: complete(linkedDraftApproved(f)),
       })),
-    ...unrelatedDraftChangeItems(
-      linkedFeatures,
-      "experiment",
-      publishingFeatureId,
-    ),
+    ...unrelatedDraftChangeItems(linkedFeatures, publishingFeatureId),
     ...missingVariationValueItems(
       linkedFeatures,
       getLatestPhaseVariations(experiment),

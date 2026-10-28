@@ -79,7 +79,6 @@ function toRow(
       ? `custom:${item.customTask.index}:${item.key}`
       : item.key,
     display: item.label,
-    description: item.description,
     status: item.status,
     type: item.manual ? "manual" : "auto",
     required: item.required,
@@ -106,14 +105,11 @@ export function mergeConflictRows(
 
 export function unrelatedDraftChangeRows(
   linkedFeatures: LinkedFeatureInfo[],
-  entity: "experiment" | "Contextual Bandit",
   publishingFeatureId?: string,
 ): CheckListItem[] {
-  return unrelatedDraftChangeItems(
-    linkedFeatures,
-    entity,
-    publishingFeatureId,
-  ).map((item) => toRow(item, linkedFeatures));
+  return unrelatedDraftChangeItems(linkedFeatures, publishingFeatureId).map(
+    (item) => toRow(item, linkedFeatures),
+  );
 }
 
 export function missingVariationValueRows(
