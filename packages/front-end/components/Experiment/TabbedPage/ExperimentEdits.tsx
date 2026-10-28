@@ -293,10 +293,6 @@ export function ExperimentEditsProvider({
   const [saving, setSaving] = useState(false);
   // Read by discards, which mid-save would drop a value the save still writes.
   const savingNow = useRef(false);
-  // Discarding everything mid-save, as leaving does, waits for the save: what
-  // it saved stays saved, and the rest goes. Kept as the edits were asked for,
-  // since the page may be gone by then.
-  const discardAfterSave = useRef<PendingEdit[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
@@ -431,9 +427,6 @@ export function ExperimentEditsProvider({
       if (rebaseOnRender.current.length) setRefetched((n) => n + 1);
       savingNow.current = false;
       setSaving(false);
-      const deferred = discardAfterSave.current;
-      discardAfterSave.current = null;
-      deferred?.forEach((edit) => edit.discard());
     }
   }, [postChanges, mutate]);
 
@@ -451,10 +444,7 @@ export function ExperimentEditsProvider({
   }, []);
 
   const discardAll = useCallback(() => {
-    if (savingNow.current) {
-      discardAfterSave.current = [...edits.current.values()];
-      return;
-    }
+    if (savingNow.current) return;
     [...edits.current.values()].forEach((edit) => edit.discard());
     setError(null);
     setConflicts([]);
@@ -522,6 +512,14 @@ export function ExperimentEditsProvider({
   const navigationGuard = useUnsavedChangesGuard(staged.length > 0, discardAll);
 
   const { allowUnload } = navigationGuard;
+  // Leaving mid-save waits for it: saved through, it goes; left with
+  // something unsaved, it asks as usual.
+  const leaveAfterSave =
+    !!navigationGuard.pendingHref && !saving && !staged.length;
+  const { confirmNavigation } = navigationGuard;
+  useEffect(() => {
+    if (leaveAfterSave) confirmNavigation();
+  }, [leaveAfterSave, confirmNavigation]);
   const unscopedRule = useMemo(
     () =>
       unscopedRefusal
@@ -589,7 +587,7 @@ export function ExperimentEditsProvider({
       <form id={formId} ref={form} hidden>
         <button type="submit" disabled />
       </form>
-      {navigationGuard.pendingHref ? (
+      {navigationGuard.pendingHref && !saving ? (
         <ConfirmDialog
           title="Leave without saving?"
           content="You have unsaved changes to this experiment. Leaving this page discards them."
