@@ -32,12 +32,17 @@ function UnsavedChange({ change }: { change: SettingsChange }) {
             <Text color="text-high">{change.label}</Text>
           </Flex>
         </Link>
-        <Link size="sm" color="gray" onClick={change.discard}>
+        <Link
+          size="sm"
+          color="gray"
+          aria-label={`Discard ${change.label} changes`}
+          onClick={change.discard}
+        >
           Discard
         </Link>
       </Flex>
       {open && (
-        <Box mt="1" style={{ maxHeight: 240, overflowY: "auto" }}>
+        <Box mt="1" maxHeight="240px" overflowY="auto">
           <LazyDiffViewer
             oldValue={JSON.stringify(change.before, null, 2)}
             newValue={JSON.stringify(change.after, null, 2)}

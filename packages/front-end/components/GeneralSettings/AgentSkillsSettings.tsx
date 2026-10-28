@@ -64,9 +64,15 @@ function Instructions({
   const [open, setOpen] = useState(false);
   const textRef = useRef<HTMLSpanElement>(null);
   const [clamped, setClamped] = useState(false);
+  // Re-measures when the width changes, since narrower cards wrap the text further.
   useLayoutEffect(() => {
     const el = textRef.current;
-    if (el) setClamped(el.scrollHeight > el.clientHeight + 1);
+    if (!el) return;
+    const measure = () => setClamped(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [text]);
   const hasMore = clamped || examples.length > 0;
   return (

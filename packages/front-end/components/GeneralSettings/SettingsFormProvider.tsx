@@ -10,7 +10,12 @@ import {
   useState,
 } from "react";
 import { useRouter } from "next/router";
-import { FormProvider, useForm, UseFormReturn } from "react-hook-form";
+import {
+  FieldErrors,
+  FormProvider,
+  useForm,
+  UseFormReturn,
+} from "react-hook-form";
 import cloneDeep from "lodash/cloneDeep";
 import get from "lodash/get";
 import isEqual from "lodash/isEqual";
@@ -551,7 +556,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   });
 
   // handleSubmit resolves without saving when a field is invalid, so callers pass onInvalid.
-  const saveSettings = (onInvalid: () => void) =>
+  const saveSettings = (onInvalid: (errors: FieldErrors) => void) =>
     form.handleSubmit(async (value) => {
       const transformedOrgSettings = {
         ...value,
@@ -651,8 +656,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
 
       // Only changed settings are sent, so limited roles aren't rejected for untouched fields.
       const changed = Object.fromEntries(
+        // Split settings report child paths, e.g. "metricDefaults.targetMDE".
         Object.entries(transformedOrgSettings).filter(([k]) =>
-          dirtyFields.includes(k),
+          dirtyFields.some((path) => path === k || path.startsWith(`${k}.`)),
         ),
       );
       if (Object.keys(changed).length) {
@@ -680,12 +686,24 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     const count = dirtyCount;
     setSubmitError(null);
     setSavedCount(0);
-    let invalid = false;
-    await saveSettings(() => {
-      invalid = true;
+    let invalidSections: string[] | null = null;
+    await saveSettings((errors) => {
+      const paths = Object.entries(errors).flatMap(([k, v]) =>
+        SPLIT_SETTINGS.includes(k) && v && typeof v === "object"
+          ? Object.keys(v).map((child) => `${k}.${child}`)
+          : [k],
+      );
+      invalidSections = [...new Set(paths.map(sectionForField))]
+        .map((id) => SETTINGS_SECTIONS.find((s) => s.id === id)?.title)
+        .filter((t): t is string => !!t);
     });
-    if (invalid) {
-      setSubmitError("Some settings aren't valid. Fix them, then save again.");
+    if (invalidSections !== null) {
+      const where = (invalidSections as string[]).join(" and ");
+      setSubmitError(
+        where
+          ? `Fix the invalid settings in ${where}, then save again.`
+          : "Some settings aren't valid. Fix them, then save again.",
+      );
       return;
     }
     // Only save prompts if the prompt form has changes
