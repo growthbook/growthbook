@@ -227,14 +227,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/CustomMetricSlicesSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/Experiment/DifferenceTypeChooserChangeColumnLabel.tsx": {
     "no-restricted-imports": {
       "count": 1
