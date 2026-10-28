@@ -80,7 +80,7 @@ const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   metadata: "Edit organization details",
   suspend: "Suspend and disable organizations",
   create: "Create organizations",
-  users: "Edit users",
+  users: "Edit user names and verified status",
   grant: "Grant super admin access",
 };
 
@@ -1064,7 +1064,7 @@ const EditMember: FC<{
             className="form-control"
             value={email}
             required
-            disabled={!canEditDetails}
+            disabled={superAdmin !== true}
             onChange={(e) => setEmail(e.target.value)}
           />
         </div>

@@ -518,8 +518,14 @@ export async function _dangerousAdminPutMember(
   ) {
     updates.verified = verified;
   }
-  // Editing a more privileged admin's email would let you reset their
-  // password and take over their access
+  // Changing anyone's email lets you reset their password and take over the
+  // account, so only full super admins can do it
+  if (updates.email !== undefined && req.superAdmin !== true) {
+    return res.status(403).json({
+      status: 403,
+      message: "Only full super admins can change a user's email",
+    });
+  }
   if (
     Object.keys(updates).length &&
     !(
