@@ -16,6 +16,7 @@ import QueryModal from "@/components/Experiment/QueryModal";
 import { floatRound } from "@/services/utils";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import ScrollArea from "@/ui/ScrollArea";
 import {
   flattenHeaderStructureForCsv,
   type HeaderStructure,
@@ -388,10 +389,10 @@ export function TestQueryResultsTable({
               {closeButton}
             </Flex>
           </div>
-          <div
-            style={{ width: "100%", overflow: "auto", flexGrow: 1 }}
-            className={compact ? undefined : "mb-3"}
+          <ScrollArea
             ref={tableBodyScrollRef}
+            direction="both"
+            style={{ width: "100%", flexGrow: 1, minHeight: 0 }}
           >
             <table
               className={`table table-bordered appbox gbtable table-hover mb-0${compact ? " table-sm" : ""}`}
@@ -456,7 +457,7 @@ export function TestQueryResultsTable({
                   ))}
               </tbody>
             </table>
-          </div>
+          </ScrollArea>
         </>
       )}
     </Flex>

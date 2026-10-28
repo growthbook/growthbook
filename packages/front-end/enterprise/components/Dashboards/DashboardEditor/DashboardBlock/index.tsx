@@ -153,6 +153,8 @@ const BLOCK_COMPONENTS: {
   "funnel-exploration": ProductAnalyticsExplorerBlock,
 };
 
+const FILL_MIN_HEIGHT = "240px";
+
 export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
   block,
@@ -741,9 +743,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       {/* The title and its menu stay put while the content scrolls, unless
           the block's own content does. */}
       {fills ? (
-        <Flex direction="column" flexGrow="1" minHeight="0" overflow="hidden">
+        // Sized to the block, down to a few rows; a block saved smaller
+        // scrolls.
+        <ScrollArea
+          fill
+          fillMinHeight={FILL_MIN_HEIGHT}
+          edgeCue="fade"
+          style={{ flex: 1, minHeight: 0 }}
+        >
           {content}
-        </Flex>
+        </ScrollArea>
       ) : (
         <ScrollArea
           fill

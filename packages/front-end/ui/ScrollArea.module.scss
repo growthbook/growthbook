@@ -56,6 +56,11 @@
   width: 100%;
 }
 
+// The viewport's own child is the area's height, not its content's.
+.bounded > :global(.rt-ScrollAreaViewport) > * {
+  min-height: 0;
+}
+
 // A narrow shadow over an edge with more past it, as beside a pinned column.
 .shadow {
   position: absolute;

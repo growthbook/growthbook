@@ -32,6 +32,11 @@ const ScrollArea = forwardRef<
     gutter?: boolean;
     /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
     fill?: boolean;
+    /**
+     * With `fill`, the content is held to the area's height, down to this
+     * one, so a child can scroll itself; shorter than it, the area scrolls.
+     */
+    fillMinHeight?: string;
     direction?: "vertical" | "horizontal" | "both";
     /** The scrollbar's thickness: 4, 8 or 12px. */
     size?: Size<"sm" | "md" | "lg">;
@@ -58,6 +63,7 @@ const ScrollArea = forwardRef<
     children,
     gutter = false,
     fill = false,
+    fillMinHeight,
     direction = "vertical",
     size = "sm",
     alwaysShow = false,
@@ -178,6 +184,7 @@ const ScrollArea = forwardRef<
       className={clsx(
         styles.root,
         fill && styles.fullWidth,
+        fill && fillMinHeight !== undefined && styles.bounded,
         edgeCue === "fade" && styles.fades,
         shadowed ? styles.fillsWrapper : className,
       )}
@@ -197,6 +204,7 @@ const ScrollArea = forwardRef<
             display: "flex",
             flexDirection: "column",
             height: "100%",
+            minHeight: fillMinHeight,
           }),
         }}
       >
