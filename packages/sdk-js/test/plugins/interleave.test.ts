@@ -538,10 +538,14 @@ describe("interleave", () => {
   });
 
   it.each([
-    ["interleaved", { id: "u1" }, undefined],
-    ["a targeting miss", { id: "u1" }, { condition: { country: "US" } }],
-    ["no hash attribute", {}, undefined],
-  ])("caps the list at maxItems on %s", async (_label, attributes, rule) => {
+    { label: "interleaved", attributes: { id: "u1" }, rule: undefined },
+    {
+      label: "a targeting miss",
+      attributes: { id: "u1" },
+      rule: { condition: { country: "US" } },
+    },
+    { label: "no hash attribute", attributes: {}, rule: undefined },
+  ])("caps the list at maxItems on $label", async ({ attributes, rule }) => {
     const { gb } = setup(attributes, rule);
     const res = await interleave(gb, {
       key: "search",
@@ -686,9 +690,9 @@ describe("interleave", () => {
   // forced rule never reaches — a QA user drafted here would emit a real
   // exposure and be counted in the analysis denominators.
   it.each([
-    ["qaMode", { qaMode: true }],
-    ["enabled false", { enabled: false }],
-  ])("does not interleave or track under %s", async (_label, opts) => {
+    { label: "qaMode", opts: { qaMode: true } },
+    { label: "enabled false", opts: { enabled: false } },
+  ])("does not interleave or track under $label", async ({ opts }) => {
     const onExposure = jest.fn();
     const eventLogger = jest.fn();
     const gb = new GrowthBook({
@@ -717,11 +721,11 @@ describe("interleave", () => {
   });
 
   it.each([
-    ["the client", { qaMode: true }, {}],
-    ["the user context", {}, { qaMode: true }],
+    { label: "the client", clientOpts: { qaMode: true }, userOpts: {} },
+    { label: "the user context", clientOpts: {}, userOpts: { qaMode: true } },
   ])(
-    "does not interleave when %s sets qaMode on a scoped instance",
-    async (_label, clientOpts, userOpts) => {
+    "does not interleave when $label sets qaMode on a scoped instance",
+    async ({ clientOpts, userOpts }) => {
       const onExposure = jest.fn();
       const client = new GrowthBookClient({
         plugins: [interleavePlugin({ onExposure })],

@@ -181,15 +181,18 @@ describe("generateInterleavingsPayload", () => {
   });
 
   it.each([
-    ["draft", { status: "draft" as const }],
-    ["stopped", { status: "stopped" as const }],
-    ["archived", { archived: true }],
-    [
-      "disabled in the environment",
-      { environmentSettings: { production: { enabled: false } } },
-    ],
-    ["missing the environment", { environmentSettings: {} }],
-  ])("omits an interleaving that is %s", (_, overrides) => {
+    { label: "draft", overrides: { status: "draft" as const } },
+    { label: "stopped", overrides: { status: "stopped" as const } },
+    { label: "archived", overrides: { archived: true } },
+    {
+      label: "disabled in the environment",
+      overrides: { environmentSettings: { production: { enabled: false } } },
+    },
+    {
+      label: "missing the environment",
+      overrides: { environmentSettings: {} },
+    },
+  ])("omits an interleaving that is $label", ({ overrides }) => {
     const out = generate([interleaving(overrides)]);
     expect(out.features).toEqual({});
     expect(out.interleavings).toBeUndefined();
