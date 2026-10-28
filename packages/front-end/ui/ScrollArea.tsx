@@ -14,6 +14,8 @@ import styles from "./ScrollArea.module.scss";
 
 type Edge = "top" | "bottom" | "left" | "right";
 
+const WHEEL_DEADSPACE_PX = 100;
+
 /**
  * A scroll box whose scrollbars overlay the content, shown while hovered or
  * scrolled. The ref is the element that scrolls.
@@ -32,8 +34,8 @@ const ScrollArea = forwardRef<
     /** Shows the scrollbars whenever the content overflows, not just on hover. */
     alwaysShow?: boolean;
     /**
-     * A vertical wheel over a sideways-only scroll moves it sideways, until an
-     * end, where the page takes over.
+     * A vertical wheel over a sideways-only scroll moves it sideways; a little
+     * past the end it reaches, the page takes over.
      */
     wheelScrollsSideways?: boolean;
     /**
@@ -102,21 +104,34 @@ const ScrollArea = forwardRef<
   useEffect(() => {
     const el = viewport.current;
     if (!wheelScrollsSideways || !el) return;
+    // Wheel left to absorb at the end a wheel just reached, so finishing the
+    // sideways scroll doesn't carry straight on into the page.
+    let deadspace = 0;
     const onWheel = (e: WheelEvent) => {
       // A sideways swipe or shift-wheel already scrolls sideways.
       if (e.shiftKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
       const max = el.scrollWidth - el.clientWidth;
-      const atEnd =
-        e.deltaY < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
-      if (max <= 0 || atEnd) return;
-      e.preventDefault();
+      if (max <= 0) return;
       const unit =
         e.deltaMode === WheelEvent.DOM_DELTA_LINE
           ? 16
           : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
             ? el.clientWidth
             : 1;
-      el.scrollLeft += e.deltaY * unit;
+      const delta = e.deltaY * unit;
+      const atEnd = delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
+      if (atEnd) {
+        if (deadspace <= 0) return;
+        e.preventDefault();
+        deadspace -= Math.abs(delta);
+        return;
+      }
+      e.preventDefault();
+      const before = el.scrollLeft;
+      el.scrollLeft += delta;
+      const reached = delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
+      const overshoot = Math.abs(delta) - Math.abs(el.scrollLeft - before);
+      deadspace = reached ? WHEEL_DEADSPACE_PX - overshoot : 0;
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
