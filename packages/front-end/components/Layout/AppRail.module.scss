@@ -572,6 +572,41 @@
   line-height: var(--line-height-1);
 }
 
+// The project selector (RailProjectSelector.tsx). Its 26px avatar on the
+// icon column: centred where the 18px icons are (16px in), so expanded its
+// box starts 3px in, and the name starts where the other rows' labels do.
+.row.projectItem {
+  padding-left: 3px;
+
+  .projectAvatar {
+    // Its own 8px margin and 4px more, so the name sits 6px after it.
+    margin-right: -12px;
+  }
+}
+
+// The avatar's own 8px right margin (LetterAvatar) taken back, so it
+// centres in the collapsed icon's box.
+.projectAvatar {
+  display: flex;
+  flex-shrink: 0;
+  margin-right: -8px;
+}
+
+.projectChevrons {
+  flex-shrink: 0;
+  color: var(--rail-chevron);
+}
+
+// Held to one project: nothing to open.
+.projectStatic.projectStatic {
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+    color: var(--rail-text);
+  }
+}
+
 // @/ui Button's outline variant (Radix's .rt-variant-outline) on a rail row.
 .upgrade.upgrade {
   margin-top: var(--space-2);

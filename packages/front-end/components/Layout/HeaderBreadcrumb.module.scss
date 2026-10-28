@@ -8,6 +8,13 @@
   padding-right: var(--space-8);
 }
 
+// A first crumb in a button's box (from 1180px up, where the project
+// selector isn't first) shifts left by its padding, so its text starts on
+// the page's left content edge, as the selector's icon does below 1180px.
+.leadingButton > :first-child {
+  margin-left: calc(-1 * var(--space-2));
+}
+
 .separator {
   flex-shrink: 0;
   display: flex;
@@ -144,6 +151,14 @@
   align-items: center;
   gap: var(--space-2);
   min-width: 0;
+}
+
+// 10px from the avatar to the name: the option's 8px gap, plus 2px of the
+// avatar's own 8px margin (LetterAvatar).
+.projectOptionAvatar {
+  display: flex;
+  flex-shrink: 0;
+  margin-right: -6px;
 }
 
 // On its own row below 1180px (TopNav.module.scss), a breadcrumb that's still
