@@ -86,10 +86,10 @@ export default function ExperimentSplitVisual({
       ) : null}
       <Flex align="center" gap="4">
         <Box flexGrow="1">
-          <Text size="md" weight="medium">
+          <Text size="md" weight="semibold">
             {label}
           </Text>{" "}
-          <Text as="span" size="md" color="text-low">
+          <Text as="span" size="md" color="text-mid">
             ({percentFormatter.format(coverageVal)} included)
           </Text>
         </Box>

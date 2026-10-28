@@ -496,7 +496,7 @@ function CoverageField({
         className: "bg-highlight rounded",
       })}
     >
-      <Text as="label" mb="0">
+      <Text as="label" weight="semibold" mb="0">
         {label}{" "}
         <Tooltip content={tooltip} side="top">
           <Box
