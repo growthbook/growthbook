@@ -782,11 +782,7 @@ export default function AgentPanel({
             role="status"
           >
             <Box style={{ width: "min(320px, 100%)" }}>
-              <GrowthBotStateNotice
-                state="limit"
-                resetsAt={resetsAt}
-                centered
-              />
+              <GrowthBotStateNotice resetsAt={resetsAt} centered />
             </Box>
           </Flex>
         ) : null}
@@ -973,7 +969,7 @@ export default function AgentPanel({
             background: "var(--color-panel-solid)",
           }}
         >
-          <GrowthBotStateNotice state="limit" resetsAt={resetsAt} />
+          <GrowthBotStateNotice resetsAt={resetsAt} />
         </Box>
       ) : (
         <ChatComposer
