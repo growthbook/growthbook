@@ -291,6 +291,7 @@ const EditMetricsForm: FC<{
                 <SetupFieldRow
                   label="Metric overrides"
                   tooltip="Override metric behaviors within this experiment."
+                  stacked
                 >
                   <MetricsOverridesSelector
                     experiment={experiment}

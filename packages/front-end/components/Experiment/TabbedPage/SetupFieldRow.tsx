@@ -23,6 +23,7 @@ export default function SetupFieldRow({
   tooltip,
   content = "control",
   labelAlign = "top",
+  stacked = false,
   children,
 }: {
   /** For pointing at the field from elsewhere on the page. */
@@ -38,6 +39,8 @@ export default function SetupFieldRow({
   content?: "control" | "text" | "panel";
   /** `center` for a row whose control is a single line, such as a select. */
   labelAlign?: "top" | "center";
+  /** Label above, for a control that needs the row's full width. */
+  stacked?: boolean;
   children: ReactNode;
 }) {
   return (
@@ -52,16 +55,16 @@ export default function SetupFieldRow({
             ? "baseline"
             : "start"
       }
-      gap="4"
+      gap={stacked ? "2" : "4"}
       py="2"
       wrap="wrap"
     >
       <Box
         flexShrink="0"
-        width={LABEL_WIDTH}
+        width={stacked ? "100%" : LABEL_WIDTH}
         style={{
           paddingTop:
-            content === "text" || labelAlign === "center"
+            stacked || content === "text" || labelAlign === "center"
               ? "0"
               : content === "panel"
                 ? PANEL_PADDING
