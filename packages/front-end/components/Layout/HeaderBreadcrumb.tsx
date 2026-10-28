@@ -20,6 +20,11 @@ import styles from "./HeaderBreadcrumb.module.scss";
 // a page that isn't in it.
 function sideNavPageName(route: string): string | null {
   for (const link of navlinks) {
+    // The Settings page takes the side nav item's name (AppRail.tsx shows
+    // Settings as one item), not its first page's, General.
+    if (link.name === "Settings" && route === link.href.substring(1)) {
+      return link.name;
+    }
     const page = (link.subLinks || []).find((l) => l.path.test(route));
     if (page) return page.name;
   }
