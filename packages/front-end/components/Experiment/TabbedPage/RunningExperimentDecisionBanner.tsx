@@ -6,7 +6,7 @@ import {
   ExperimentResultStatusData,
   VariationWithIndex,
 } from "shared/types/experiment";
-import { Fragment, useState } from "react";
+import { useState } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import {
   buildTiebreakerLiftMap,
@@ -122,19 +122,20 @@ export default function RunningExperimentDecisionBanner({
             variant={decision.variant}
             radius="full"
           />
-          <Flex align="center" gap="1" wrap="wrap">
+          {/* Beside the badge, in the room left; a long name ends in an
+              ellipsis rather than wrapping the row. */}
+          <Flex align="center" gap="2" minWidth="0" flexGrow="1" flexBasis="0">
             {decided.map((v, i) => (
-              <Fragment key={v.id}>
+              <Flex key={v.id} align="center" minWidth="0">
                 <VariationLabel
                   number={v.index}
                   name={v.name}
                   maxWidth="240px"
-                  size="lg"
                 />
                 {i !== decided.length - 1 ? (
                   <Text color="text-mid">,</Text>
                 ) : null}
-              </Fragment>
+              </Flex>
             ))}
           </Flex>
           {isShipTie ? (

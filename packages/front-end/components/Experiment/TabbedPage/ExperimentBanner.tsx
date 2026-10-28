@@ -35,7 +35,7 @@ export default function ExperimentBanner({
         style={{ paddingBlock: "var(--space-2)" }}
       >
         <Flex align="center" justify="between" gap="3" minHeight="28px">
-          <Flex align="center" gap="2" wrap="wrap">
+          <Flex align="center" gap="2" wrap="wrap" minWidth="0">
             {headline}
           </Flex>
           {hoverAction ? (
