@@ -291,10 +291,6 @@ export function ExperimentEditsProvider({
 
   const [staged, setStaged] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
-  const content = useRef<HTMLDivElement>(null);
-  useEffect(() => {
-    if (content.current) content.current.inert = saving;
-  }, [saving]);
   const [error, setError] = useState<string | null>(null);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
@@ -570,11 +566,7 @@ export function ExperimentEditsProvider({
 
   return (
     <ExperimentEditsContext.Provider value={value}>
-      {/* Nothing edits while it saves and refetches, so what the save judges
-          as saved is what it sent. */}
-      <div ref={content} style={{ display: "contents" }}>
-        {children}
-      </div>
+      {children}
       {/* Never submitted: Save checks it. The disabled default button keeps
           Enter in a field from submitting it. */}
       <form id={formId} ref={form} hidden>

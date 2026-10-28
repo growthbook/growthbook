@@ -178,6 +178,9 @@ export default function AnalysisPlanAdvanced({
   const tuningError =
     parseFloat(tuningText) > 0 ? null : "Enter a number above 0.";
   const tuningInput = useRef<HTMLInputElement>(null);
+  // Shown once typing stops, since "0." is on its way to a valid value.
+  const [tuningFocused, setTuningFocused] = useState(false);
+  const shownTuningError = tuningFocused ? null : tuningError;
   useEffect(() => {
     tuningInput.current?.setCustomValidity(tuningError ?? "");
   }, [tuningError, sequentialEnabled]);
@@ -306,34 +309,45 @@ export default function AnalysisPlanAdvanced({
                     disabled={disabled || !hasSequential}
                   />
                   {sequentialEnabled ? (
-                    <Flex align="center" gap="3" pl="5">
-                      <Text>Tuning parameter</Text>
-                      <Box width="120px">
-                        <Field
-                          ref={tuningInput}
-                          type="number"
-                          min="0"
-                          step="any"
-                          required
-                          // On the page's form, so a value it can't take
-                          // stops the save rather than saving the last one.
-                          form={edits?.formId}
-                          error={tuningError ?? undefined}
-                          containerClassName="mb-0"
-                          value={tuningText}
-                          onChange={(e) => {
-                            setTuningText(e.target.value);
-                            const value = parseFloat(e.target.value);
-                            if (value > 0) {
-                              stage({
-                                sequentialTestingTuningParameter: value,
-                              });
+                    <Box pl="5">
+                      <Flex align="center" gap="3">
+                        <Text>Tuning parameter</Text>
+                        <Box width="120px">
+                          <Field
+                            ref={tuningInput}
+                            type="number"
+                            min="0"
+                            step="any"
+                            required
+                            // On the page's form, so a value it can't take
+                            // stops the save rather than saving the last one.
+                            form={edits?.formId}
+                            outlineStyle={
+                              shownTuningError ? "error" : undefined
                             }
-                          }}
-                          disabled={disabled || !hasSequential}
-                        />
-                      </Box>
-                    </Flex>
+                            onFocus={() => setTuningFocused(true)}
+                            onBlur={() => setTuningFocused(false)}
+                            containerClassName="mb-0"
+                            value={tuningText}
+                            onChange={(e) => {
+                              setTuningText(e.target.value);
+                              const value = parseFloat(e.target.value);
+                              if (value > 0) {
+                                stage({
+                                  sequentialTestingTuningParameter: value,
+                                });
+                              }
+                            }}
+                            disabled={disabled || !hasSequential}
+                          />
+                        </Box>
+                      </Flex>
+                      {shownTuningError ? (
+                        <HelperText status="error" size="sm" mt="1">
+                          {shownTuningError}
+                        </HelperText>
+                      ) : null}
+                    </Box>
                   ) : null}
                 </Flex>
               </SetupFieldRow>

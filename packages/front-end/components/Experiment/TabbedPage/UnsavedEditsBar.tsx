@@ -40,7 +40,7 @@ export default function UnsavedEditsBar() {
           ) : null}
           {edits.incompatible.length ? (
             <HelperText status="warning" size="sm">
-              {incompatibleNote(edits.incompatible, edits.staged)}
+              {incompatibleNote(edits.incompatible)}
             </HelperText>
           ) : edits.conflicts.length ? (
             <HelperText status="warning" size="sm">

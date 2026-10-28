@@ -33,6 +33,8 @@ export interface Props {
   onWidthChange: (width: number) => void;
   // A drag well past the minimum width closes the panel.
   onCollapse: () => void;
+  // Takes no input in the content, while the footer stays usable.
+  busy?: boolean;
 }
 
 // A right panel that sticks beside the content at full screen height. Wide, it
@@ -46,6 +48,7 @@ export default function CollapsiblePanelLayout({
   width = PANEL_WIDTH_PX,
   onWidthChange,
   onCollapse,
+  busy = false,
 }: Props) {
   const overlay = useMediaQuery(
     `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
@@ -54,6 +57,10 @@ export default function CollapsiblePanelLayout({
   const layout = useRef<HTMLDivElement>(null);
   const panelBox = useRef<HTMLDivElement>(null);
   const footerBox = useRef<HTMLDivElement>(null);
+  const contentBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (contentBox.current) contentBox.current.inert = busy;
+  }, [busy]);
   const [layoutWidth, setLayoutWidth] = useState(0);
   const [footerHeight, setFooterHeight] = useState(0);
   useEffect(() => {
@@ -199,7 +206,9 @@ export default function CollapsiblePanelLayout({
         flexGrow="1"
         style={{ minWidth: 0, alignSelf: "stretch" }}
       >
-        <Box flexGrow="1">{children}</Box>
+        <Box ref={contentBox} flexGrow="1" aria-busy={busy}>
+          {children}
+        </Box>
         <div ref={footerBox} className={styles.footer}>
           {footer}
         </div>
