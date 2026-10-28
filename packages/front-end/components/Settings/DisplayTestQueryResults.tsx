@@ -2,6 +2,7 @@ import { PiCaretLeft, PiCaretRight, PiTimer, PiX } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Flex, IconButton } from "@radix-ui/themes";
 import { useRef, useState } from "react";
+import clsx from "clsx";
 import type { CSSProperties, ReactNode } from "react";
 import { isManagedWarehousePendingQueryError } from "shared/util";
 import { SQL_ROW_LIMIT } from "shared/sql";
@@ -16,11 +17,12 @@ import QueryModal from "@/components/Experiment/QueryModal";
 import { floatRound } from "@/services/utils";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
-import ScrollArea from "@/ui/ScrollArea";
+import ScrollArea, { pinnedTo } from "@/ui/ScrollArea";
 import {
   flattenHeaderStructureForCsv,
   type HeaderStructure,
 } from "@/components/Settings/flattenHeaderStructureForCsv";
+import styles from "./DisplayTestQueryResults.module.scss";
 
 export type { HeaderStructure };
 
@@ -265,7 +267,7 @@ export function TestQueryResultsTable({
         emptyResultsContent
       ) : (
         <>
-          <div className="rounded p-2 bg-light">
+          <div className={styles.toolbar}>
             {downloadError ? (
               <div className="mb-2">
                 <Callout status="error" size={compact ? "sm" : "md"}>
@@ -392,19 +394,18 @@ export function TestQueryResultsTable({
           <ScrollArea
             ref={tableBodyScrollRef}
             direction="both"
+            edgeCue="shadow"
+            skipEdges={["top"]}
             style={{ width: "100%", flexGrow: 1, minHeight: 0 }}
           >
             <table
-              className={`table table-bordered appbox gbtable table-hover mb-0${compact ? " table-sm" : ""}`}
+              className={clsx(
+                "table table-bordered gbtable table-hover mb-0",
+                compact && "table-sm",
+                styles.table,
+              )}
             >
-              <thead
-                style={{
-                  position: "sticky",
-                  top: -1,
-                  zIndex: 2,
-                  backgroundColor: "var(--color-panel-solid)",
-                }}
-              >
+              <thead className={pinnedTo.top}>
                 {useTwoRowHeader && headerStructure ? (
                   <>
                     <tr>

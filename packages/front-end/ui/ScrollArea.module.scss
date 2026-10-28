@@ -61,6 +61,33 @@
   min-height: 0;
 }
 
+// Past content pinned to an edge, the shadow the edge itself would have.
+.root > :global(.rt-ScrollAreaViewport) {
+  &[data-under-pinned~="top"] .pinnedTop::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 6px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--gray-a2), transparent);
+  }
+
+  // Over its own bottom border too, so pinned cells stacked in a column
+  // join up.
+  &[data-under-pinned~="left"] .pinnedLeft::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: -1px;
+    right: -6px;
+    width: 6px;
+    pointer-events: none;
+    background: linear-gradient(to right, var(--gray-a2), transparent);
+  }
+}
+
 // A narrow shadow over an edge with more past it, as beside a pinned column.
 .shadow {
   position: absolute;

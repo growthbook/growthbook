@@ -34,7 +34,7 @@ export default function SegmentedControlStories() {
           ))}
         </Flex>
       </Flex>
-      <Flex direction="column" gap="2">
+      <Flex direction="column" gap="2" align="start">
         &rarr; Icons
         <SegmentedControl
           aria-label="Chart type"

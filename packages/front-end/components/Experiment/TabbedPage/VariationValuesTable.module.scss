@@ -175,14 +175,3 @@ $menu-trigger-size: 24px;
   font-size: var(--font-size-2);
   line-height: var(--line-height-2);
 }
-
-.scrolled .pinnedStart::after {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: -1px;
-  right: -6px;
-  width: 6px;
-  pointer-events: none;
-  background: linear-gradient(to right, var(--gray-a2), transparent);
-}

@@ -58,7 +58,7 @@ import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
-import ScrollArea from "@/ui/ScrollArea";
+import ScrollArea, { pinnedTo } from "@/ui/ScrollArea";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
@@ -262,7 +262,6 @@ export default function VariationValuesTable({
     variations,
     tableNote: i === 0 ? duplicateNote : null,
   });
-  const [scrolled, setScrolled] = useState(false);
 
   // What each flag column serves, as it reports it, staged values included.
   const [flagServed, setFlagServed] = useState<
@@ -318,7 +317,6 @@ export default function VariationValuesTable({
         <Box pt="3" pb="2" minHeight="22px" />
       </Box>
       <Box className="appbox" mb="0" style={{ overflow: "hidden" }}>
-        {/* The pinned column shadows the left edge itself. */}
         <ScrollArea
           direction="horizontal"
           size="md"
@@ -326,10 +324,9 @@ export default function VariationValuesTable({
           wheelScrollsSideways
           edgeCue="shadow"
           skipEdges={["left"]}
-          onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
         >
           <div
-            className={clsx(styles.grid, scrolled && styles.scrolled)}
+            className={styles.grid}
             style={{
               gridTemplateColumns: columns,
               width: "100%",
@@ -337,7 +334,11 @@ export default function VariationValuesTable({
             }}
           >
             <div
-              className={clsx(styles.headerCell, styles.pinnedStart)}
+              className={clsx(
+                styles.headerCell,
+                styles.pinnedStart,
+                pinnedTo.left,
+              )}
               style={{ gridRow: 1, gridColumn: 1 }}
             >
               <Heading as="h4" size="sm" color="text-high" mb="0">
@@ -385,7 +386,7 @@ export default function VariationValuesTable({
             {variations.map((v, i) => (
               <div
                 key={v.id}
-                className={clsx(styles.cell, styles.pinnedStart)}
+                className={clsx(styles.cell, styles.pinnedStart, pinnedTo.left)}
                 style={{ gridRow: firstValueRow + i, gridColumn: 1 }}
               >
                 <div className={styles.fieldLine}>
@@ -394,7 +395,11 @@ export default function VariationValuesTable({
               </div>
             ))}
             <div
-              className={clsx(styles.detailsCell, styles.pinnedStart)}
+              className={clsx(
+                styles.detailsCell,
+                styles.pinnedStart,
+                pinnedTo.left,
+              )}
               style={{ gridRow: detailsRow, gridColumn: 1 }}
             >
               {onAddVariation ? (

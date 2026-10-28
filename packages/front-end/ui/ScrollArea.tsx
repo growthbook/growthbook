@@ -52,7 +52,10 @@ const ScrollArea = forwardRef<
      * or a shadow falls over it.
      */
     edgeCue?: "fade" | "shadow";
-    /** Edges left unmarked, such as one a pinned column marks itself. */
+    /**
+     * Edges marked instead by content pinned (sticky) to them, given
+     * `pinnedTo`'s class: the shadow falls past it.
+     */
     skipEdges?: Edge[];
     onScroll?: UIEventHandler<HTMLDivElement>;
     className?: string;
@@ -82,7 +85,6 @@ const ScrollArea = forwardRef<
   const vertical = direction !== "horizontal";
   const sideways = direction !== "vertical";
   const sidewaysGutter = gutter && sideways;
-  const skipped = skipEdges.join(" ");
   const [more, setMore] = useState<Edge[]>([]);
   const [overflowsSideways, setOverflowsSideways] = useState(false);
   useEffect(() => {
@@ -98,9 +100,7 @@ const ScrollArea = forwardRef<
         left: sideways && el.scrollLeft > 0,
         right: sideways && el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
       };
-      const next = (Object.keys(past) as Edge[]).filter(
-        (edge) => past[edge] && !skipped.split(" ").includes(edge),
-      );
+      const next = (Object.keys(past) as Edge[]).filter((edge) => past[edge]);
       setMore((prev) => (prev.join() === next.join() ? prev : next));
     };
     update();
@@ -113,7 +113,7 @@ const ScrollArea = forwardRef<
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [edgeCue, sidewaysGutter, vertical, sideways, skipped]);
+  }, [edgeCue, sidewaysGutter, vertical, sideways]);
 
   useEffect(() => {
     const el = viewport.current;
@@ -174,6 +174,8 @@ const ScrollArea = forwardRef<
   }, [wheelScrollsSideways]);
 
   const shadowed = edgeCue === "shadow";
+  const marked = more.filter((edge) => !skipEdges.includes(edge));
+  const underPinned = more.filter((edge) => skipEdges.includes(edge));
   const scrollArea = (
     <RadixScrollArea
       ref={viewport}
@@ -190,7 +192,8 @@ const ScrollArea = forwardRef<
       )}
       style={shadowed ? undefined : style}
       // Lands on the viewport, the element that scrolls.
-      data-more={more.join(" ") || undefined}
+      data-more={marked.join(" ") || undefined}
+      data-under-pinned={underPinned.join(" ") || undefined}
     >
       <div
         style={{
@@ -217,11 +220,18 @@ const ScrollArea = forwardRef<
   return (
     <div className={clsx(styles.shadowed, className)} style={style}>
       {scrollArea}
-      {more.map((edge) => (
+      {marked.map((edge) => (
         <span key={edge} className={styles.shadow} data-edge={edge} />
       ))}
     </div>
   );
 });
+
+/**
+ * For content pinned (sticky) to the area's top or left edge, which then
+ * shadows that edge past itself while more scrolls under it. The area skips
+ * that edge (`skipEdges`).
+ */
+export const pinnedTo = { top: styles.pinnedTop, left: styles.pinnedLeft };
 
 export default ScrollArea;
