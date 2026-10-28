@@ -1,9 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ReportInterface } from "shared/types/report";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date, datetime } from "shared/dates";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
@@ -11,14 +10,14 @@ import { useUser } from "@/services/UserContext";
 import { useSearch } from "@/services/search";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import ShareStatusBadge from "@/components/Report/ShareStatusBadge";
-import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
-import Pagination from "@/ui/Pagination";
+import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import {
   DropdownMenu,
   DropdownMenuGroup,
   DropdownMenuItem,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Table, {
   TableBody,
@@ -27,8 +26,6 @@ import Table, {
   TableHeader,
   TableRow,
 } from "@/ui/Table";
-
-const PER_PAGE = 10;
 
 type ReportRow = {
   id: string;
@@ -95,30 +92,27 @@ export default function ExperimentReportsList({
     [data, userId, users, isAdmin],
   );
 
-  const { items, searchInputProps, SortableTableColumnHeader } = useSearch({
-    items: rows,
-    searchFields: ["title^3", "description", "owner"],
-    localStorageKey: "experiment-reports",
-    defaultSortField: "dateUpdated",
-    defaultSortDir: -1,
-    // The page's own search owns the URL.
-    disableUrlSearchTerm: true,
-  });
-
-  const [page, setPage] = useState(1);
-  // Back to the first page whenever the search narrows the list.
-  useEffect(() => setPage(1), [items.length]);
-  const shown = items.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const { items, searchInputProps, SortableTableColumnHeader, pagination } =
+    useSearch({
+      items: rows,
+      searchFields: ["title^3", "description", "owner"],
+      localStorageKey: "experiment-reports",
+      defaultSortField: "dateUpdated",
+      defaultSortDir: -1,
+      // The page's own search owns the URL.
+      disableUrlSearchTerm: true,
+      pageSize: 10,
+    });
 
   if (!experiment.datasource || !rows.length) return null;
 
   return (
     <Box px="4" pb="4">
       <Box mb="3" style={{ maxWidth: 320 }}>
-        <Field
-          placeholder="Search..."
+        <TextField
           type="search"
-          containerClassName="mb-0"
+          placeholder="Search..."
+          aria-label="Search Custom Reports"
           {...searchInputProps}
         />
       </Box>
@@ -133,7 +127,7 @@ export default function ExperimentReportsList({
               Status
             </SortableTableColumnHeader>
             <SortableTableColumnHeader field="dateUpdated">
-              Last Updated
+              Last updated
             </SortableTableColumnHeader>
             <SortableTableColumnHeader field="owner">
               By
@@ -142,7 +136,7 @@ export default function ExperimentReportsList({
           </TableRow>
         </TableHeader>
         <TableBody>
-          {shown.map((row) => (
+          {items.map((row) => (
             <TableRow key={row.id}>
               <TableCell style={{ padding: "var(--space-0)" }}>
                 <Link
@@ -152,7 +146,11 @@ export default function ExperimentReportsList({
                   <Flex align="center" gap="2">
                     {row.report.type === "experiment" && row.report.error ? (
                       <Tooltip content={row.report.error}>
-                        <Flex style={{ color: "var(--red-11)" }}>
+                        <Flex
+                          role="img"
+                          aria-label={`Failed: ${row.report.error}`}
+                          style={{ color: "var(--red-11)" }}
+                        >
                           <PiWarningFill />
                         </Flex>
                       </Tooltip>
@@ -198,14 +196,7 @@ export default function ExperimentReportsList({
           ) : null}
         </TableBody>
       </Table>
-      {items.length > PER_PAGE ? (
-        <Pagination
-          numItemsTotal={items.length}
-          currentPage={page}
-          perPage={PER_PAGE}
-          onPageChange={setPage}
-        />
-      ) : null}
+      {pagination}
     </Box>
   );
 }
@@ -214,18 +205,7 @@ function ReportActions({ onDelete }: { onDelete: () => Promise<void> }) {
   const [open, setOpen] = useState(false);
   return (
     <DropdownMenu
-      trigger={
-        <IconButton
-          variant="ghost"
-          color="gray"
-          radius="full"
-          size="2"
-          highContrast
-          aria-label="Custom Report actions"
-        >
-          <BsThreeDotsVertical size={16} />
-        </IconButton>
-      }
+      trigger={<MoreMenuTrigger label="Custom Report actions" />}
       open={open}
       onOpenChange={setOpen}
       menuPlacement="end"
