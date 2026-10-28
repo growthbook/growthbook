@@ -462,8 +462,10 @@ export default function AIProviderKeys({
               : undefined
           }
           onChanged={async () => {
-            setAddingProvider("");
+            // Refetch first: clearing addingProvider while the list is stale
+            // unmounts the new row and drops its save warning.
             await Promise.all([mutate(), refreshOrganization()]);
+            setAddingProvider("");
           }}
         />
       ))}

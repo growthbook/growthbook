@@ -130,7 +130,7 @@ export default function CustomAIModels({
             value={id}
             onChange={(e) => setId(e.target.value)}
             placeholder="my-gateway-model"
-            helpText="Sent exactly as written."
+            helpText="Sent exactly as written. We can't check that your provider serves this model, so try an AI feature after saving."
             error={duplicate ? "This model is already listed." : undefined}
           />
           {provider === "openai" && (

@@ -275,5 +275,14 @@ export async function verifyAIKey(
     };
   }
 
+  // Many gateways answer this check without looking at the key.
+  if (baseUrl) {
+    return {
+      valid: true,
+      message:
+        "Saved, but keys sent through a custom endpoint can't be fully verified. Try an AI feature to confirm it works.",
+    };
+  }
+
   return { valid: true };
 }
