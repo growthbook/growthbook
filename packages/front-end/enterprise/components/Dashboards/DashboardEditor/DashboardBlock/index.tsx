@@ -675,7 +675,12 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
         ) : null}
       </Flex>
       {/* The title and its menu stay put while the content scrolls. */}
-      <ScrollArea fill horizontal style={{ flex: 1, minHeight: 0 }}>
+      <ScrollArea
+        fill
+        direction="both"
+        edgeFades
+        style={{ flex: 1, minHeight: 0 }}
+      >
         <Flex direction="column" flexGrow="1" px="4" pb="3">
           <Text>{block.description}</Text>
           {/* Check for possible error states to ensure block component has all necessary data */}

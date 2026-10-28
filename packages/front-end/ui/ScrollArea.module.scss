@@ -1,0 +1,37 @@
+// An edge with more past it fades the content out over 40px, a hint that it
+// continues; the scrollbars, outside the viewport, stay whole.
+.edgeFades :global(.rt-ScrollAreaViewport)[data-fade] {
+  --fade-top: 1;
+  --fade-bottom: 1;
+  --fade-left: 1;
+  --fade-right: 1;
+  mask-image:
+    linear-gradient(
+      to bottom,
+      rgb(0 0 0 / var(--fade-top)) 0,
+      #000 var(--space-7),
+      #000 calc(100% - var(--space-7)),
+      rgb(0 0 0 / var(--fade-bottom)) 100%
+    ),
+    linear-gradient(
+      to right,
+      rgb(0 0 0 / var(--fade-left)) 0,
+      #000 var(--space-7),
+      #000 calc(100% - var(--space-7)),
+      rgb(0 0 0 / var(--fade-right)) 100%
+    );
+  mask-composite: intersect;
+
+  &[data-fade~="top"] {
+    --fade-top: 0;
+  }
+  &[data-fade~="bottom"] {
+    --fade-bottom: 0;
+  }
+  &[data-fade~="left"] {
+    --fade-left: 0;
+  }
+  &[data-fade~="right"] {
+    --fade-right: 0;
+  }
+}

@@ -773,7 +773,8 @@ pre {
         z-index: 801;
       }
 
-      // Header labels share one baseline, whatever control sits beside them.
+      // Header labels share one baseline, whatever control sits beside them;
+      // AlignedGraph's axis tick `y` is set to land on it too.
       &.header-label {
         padding-bottom: 7px;
         font-size: 16px;

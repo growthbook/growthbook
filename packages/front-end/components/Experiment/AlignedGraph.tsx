@@ -244,7 +244,8 @@ const AlignedGraph: FC<Props> = ({
             return {
               fill: axisColor,
               fontSize: 12,
-              // On the header row's label baseline.
+              // On the header row's label baseline, set by th.axis-col's
+              // header-label padding in global.scss.
               y: -9,
               x: currentX + 3,
               fontFamily: "sans-serif",

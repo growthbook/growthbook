@@ -1,5 +1,15 @@
-import { CSSProperties, forwardRef, ReactNode } from "react";
+import {
+  CSSProperties,
+  forwardRef,
+  ReactNode,
+  useEffect,
+  useImperativeHandle,
+  useRef,
+  useState,
+} from "react";
 import { ScrollArea as RadixScrollArea } from "@radix-ui/themes";
+import clsx from "clsx";
+import styles from "./ScrollArea.module.scss";
 
 /**
  * A scroll box whose scrollbars overlay the content, shown only while hovered
@@ -13,8 +23,9 @@ const ScrollArea = forwardRef<
     gutter?: boolean;
     /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
     fill?: boolean;
-    /** Scrolls sideways too; otherwise only vertically. */
-    horizontal?: boolean;
+    direction?: "vertical" | "horizontal" | "both";
+    /** Fades the content out at each edge with more past it. */
+    edgeFades?: boolean;
     className?: string;
     style?: CSSProperties;
   }
@@ -23,19 +34,56 @@ const ScrollArea = forwardRef<
     children,
     gutter = false,
     fill = false,
-    horizontal = false,
+    direction = "vertical",
+    edgeFades = false,
     className,
     style,
   },
   ref,
 ) {
+  const viewport = useRef<HTMLDivElement>(null);
+  useImperativeHandle(ref, () => viewport.current as HTMLDivElement, []);
+
+  const [faded, setFaded] = useState("");
+  useEffect(() => {
+    const el = viewport.current;
+    if (!edgeFades || !el) return;
+    const vertical = direction !== "horizontal";
+    const sideways = direction !== "vertical";
+    const update = () => {
+      const more = [
+        vertical && el.scrollTop > 0 && "top",
+        vertical &&
+          el.scrollTop + el.clientHeight < el.scrollHeight - 1 &&
+          "bottom",
+        sideways && el.scrollLeft > 0 && "left",
+        sideways &&
+          el.scrollLeft + el.clientWidth < el.scrollWidth - 1 &&
+          "right",
+      ];
+      setFaded(more.filter(Boolean).join(" "));
+    };
+    update();
+    el.addEventListener("scroll", update, { passive: true });
+    // The viewport's own child grows with the content.
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => {
+      el.removeEventListener("scroll", update);
+      observer.disconnect();
+    };
+  }, [edgeFades, direction]);
+
   return (
     <RadixScrollArea
-      ref={ref}
+      ref={viewport}
       type="hover"
-      scrollbars={horizontal ? "both" : "vertical"}
-      className={className}
+      scrollbars={direction}
+      className={clsx(edgeFades && styles.edgeFades, className)}
       style={style}
+      // Lands on the viewport, the element that scrolls.
+      data-fade={faded || undefined}
     >
       <div
         style={{

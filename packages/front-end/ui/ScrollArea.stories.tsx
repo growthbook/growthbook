@@ -26,6 +26,28 @@ export default function ScrollAreaStories() {
           </Box>
         </Flex>
       ))}
+      <Flex direction="column" gap="2">
+        <Text size="2" weight="bold">
+          Both directions, with edge fades
+        </Text>
+        <Box
+          width="200px"
+          height="160px"
+          style={{ border: "1px solid var(--gray-a5)" }}
+        >
+          <ScrollArea direction="both" edgeFades style={{ height: "100%" }}>
+            {rows.map((row) => (
+              <Text
+                as="div"
+                key={row}
+                style={{ padding: "4px 8px", whiteSpace: "nowrap" }}
+              >
+                {row}, with a label wider than the box
+              </Text>
+            ))}
+          </ScrollArea>
+        </Box>
+      </Flex>
     </Flex>
   );
 }
