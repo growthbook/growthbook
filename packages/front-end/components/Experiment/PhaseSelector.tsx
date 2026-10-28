@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { date } from "shared/dates";
 import { parseIntWithDefault } from "shared/util";
 import { ExperimentPhaseStringDates } from "shared/types/experiment";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/components/Tooltip/Tooltip";
@@ -55,16 +55,21 @@ export default function PhaseSelector({
         <Tooltip
           body={
             <>
-              <div className="font-weight-bold">
-                {!isHoldout && `Phase ${phaseIndex + 1}: `} {phase.name}
-              </div>
-              {!isHoldout && (
-                <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
+              {/* A Bandit's phases read as one run, so only its dates. */}
+              {!isBandit && (
+                <>
+                  <div className="font-weight-bold">
+                    {!isHoldout && `Phase ${phaseIndex + 1}: `} {phase.name}
+                  </div>
+                  {!isHoldout && (
+                    <div className="mt-1">{phaseSummary(phase, isBandit)}</div>
+                  )}
+                </>
               )}
-              {details ? <div className="mt-2">{details}</div> : null}
+              {details ? <Box mt={isBandit ? "0" : "2"}>{details}</Box> : null}
             </>
           }
-          shouldDisplay={!isBandit}
+          shouldDisplay={!isBandit || !!details}
           tipPosition="top"
         >
           <>

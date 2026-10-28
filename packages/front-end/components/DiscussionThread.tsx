@@ -24,12 +24,6 @@ import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
 import Markdown from "./Markdown/Markdown";
 
-// A compact card's body, at the size of the rest of the card.
-const SMALL_TEXT = {
-  fontSize: "var(--font-size-1)",
-  lineHeight: "var(--line-height-1)",
-};
-
 const DiscussionThread: FC<{
   type: DiscussionParentType;
   id: string;
@@ -156,12 +150,11 @@ const DiscussionThread: FC<{
                         onCancel={() => setEdit(null)}
                       />
                     ) : (
-                      <Markdown
-                        className="speech-bubble"
-                        style={compact ? SMALL_TEXT : undefined}
-                      >
-                        {comment.content || ""}
-                      </Markdown>
+                      <Text as="div" size={compact ? "sm" : "md"}>
+                        <Markdown className="speech-bubble">
+                          {comment.content || ""}
+                        </Markdown>
+                      </Text>
                     )
                   }
                 />

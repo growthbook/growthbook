@@ -203,9 +203,14 @@ export default function VariationValuesTable({
   const removeAdded = (featureId: string) =>
     setAddedFlags((prev) => prev.filter((a) => a.feature.id !== featureId));
   // A flag staged for removal leaves the table; discarding brings it back.
+  // Added again, the add owns its link until it's undone.
   const removedFlags = linkedFeatures
     .map((info) => info.feature.id)
-    .filter((id) => linkActions[id] === "remove");
+    .filter(
+      (id) =>
+        linkActions[id] === "remove" &&
+        !addedFlags.some((a) => a.feature.id === id),
+    );
   // An added flag's column stands in for any it already has.
   const shownFlags = linkedFeatures.filter(
     (info) =>

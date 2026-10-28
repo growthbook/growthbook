@@ -99,21 +99,14 @@ export default function CommentCard({
               gapX="2"
               gapY={compact ? "0" : "2"}
               wrap="wrap"
-              // Compact, the name is as small as the rest of the card.
-              style={
-                compact
-                  ? {
-                      fontSize: "var(--font-size-1)",
-                      lineHeight: "var(--line-height-1)",
-                    }
-                  : undefined
-              }
             >
-              <EventUser
-                user={user}
-                display={compact ? "name" : "name-email"}
-                size="sm"
-              />
+              <Text as="div" size={compact ? "sm" : "md"}>
+                <EventUser
+                  user={user}
+                  display={compact ? "name" : "name-email"}
+                  size="sm"
+                />
+              </Text>
               <Text color="text-low" size="sm">
                 {metadata}
               </Text>
