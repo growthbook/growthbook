@@ -442,5 +442,15 @@ describe("custom models", () => {
         { provider: "openai", id: "x", vision: false, extra: 1 },
       ]).success,
     ).toBe(false);
+    expect(
+      aiCustomModelsValidator.safeParse([
+        { provider: "openai", id: "x", vision: false },
+      ]).success,
+    ).toBe(false);
+    expect(
+      aiCustomModelsValidator.safeParse([
+        { provider: "anthropic", id: "x", apiFormat: "chat", vision: false },
+      ]).success,
+    ).toBe(false);
   });
 });

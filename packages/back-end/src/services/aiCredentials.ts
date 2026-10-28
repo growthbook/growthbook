@@ -21,6 +21,7 @@ import { fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
 import {
   getAIEndpointFetch,
+  isNonPublicAIEndpointError,
   normalizeAIBaseUrl,
 } from "back-end/src/services/aiEndpoint";
 
@@ -70,7 +71,7 @@ function getEnvKey(provider: AIProvider): string {
   }
 }
 
-function getEnvBaseUrl(provider: AIProvider): string {
+export function getEnvBaseUrl(provider: AIProvider): string {
   const raw = {
     openai: OPENAI_BASE_URL,
     anthropic: ANTHROPIC_BASE_URL,
@@ -248,6 +249,12 @@ export async function verifyAIKey(
       ({ status, ok } = res);
     }
   } catch (e) {
+    if (isNonPublicAIEndpointError(e)) {
+      return {
+        valid: false,
+        message: "The base URL must point to a publicly reachable host.",
+      };
+    }
     logger.warn(
       e,
       `aiCredentials: could not reach ${label} to verify the API key`,

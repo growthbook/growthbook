@@ -182,16 +182,15 @@ function ProviderRow({
             {credential && !envIsAuthoritative ? (
               <>
                 Key ending in <code>{credential.last4 || "••••"}</code>
-                {credential.baseUrl ? (
-                  <>
-                    {" "}
-                    via <code>{credential.baseUrl}</code>
-                  </>
-                ) : null}
                 {credential.updatedByEmail
                   ? ` · set by ${credential.updatedByEmail}`
                   : ""}{" "}
                 on {date(credential.dateUpdated)}
+                {credential.baseUrl ? (
+                  <Box>
+                    Endpoint: <code>{credential.baseUrl}</code>
+                  </Box>
+                ) : null}
               </>
             ) : managedByGrowthBook ? (
               <>
@@ -264,7 +263,11 @@ function ProviderRow({
             placeholder={keyPlaceholder}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            helpText={`Verified against ${baseUrl.trim() ? "your endpoint" : label} before saving. Stored encrypted — it is never shown again.`}
+            helpText={
+              baseUrl.trim()
+                ? "Checked with your endpoint where possible, but many gateways don't validate keys, so try an AI feature after saving. Stored encrypted — it is never shown again."
+                : `Verified against ${label} before saving. Stored encrypted — it is never shown again.`
+            }
           />
           <Field
             label="Base URL (optional)"

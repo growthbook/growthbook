@@ -86,20 +86,34 @@ export function normalizeAIBaseUrl(
   return { baseUrl: trimTrailingSlashes(url.toString()) };
 }
 
+export class NonPublicAIEndpointError extends Error {
+  code = "EAI_NONPUBLIC";
+}
+
+// undici wraps connect errors in a generic "fetch failed", so walk the causes.
+export function isNonPublicAIEndpointError(err: unknown): boolean {
+  for (let e = err, depth = 0; e && depth < 5; depth++) {
+    if (e instanceof NonPublicAIEndpointError) return true;
+    e = e instanceof Error ? (e as { cause?: unknown }).cause : undefined;
+  }
+  return false;
+}
+
 // Resolve normally, then refuse to connect if any answer is a non-public
 // address. Checking at connect time also covers DNS rebinding.
-const publicOnlyLookup: LookupFunction = (hostname, options, callback) => {
+export const publicOnlyLookup: LookupFunction = (
+  hostname,
+  options,
+  callback,
+) => {
   dnsLookup(hostname, { ...options, all: true }, (err, addresses) => {
     if (err) return callback(err, "", 0);
     const list = addresses as LookupAddress[];
     const blocked = list.find((a) => !isPublicAddress(a.address));
     if (blocked || !list.length) {
       return callback(
-        Object.assign(
-          new Error(
-            `Refusing to connect to non-public address for ${hostname}`,
-          ),
-          { code: "EAI_NONPUBLIC" },
+        new NonPublicAIEndpointError(
+          `Refusing to connect to non-public address for ${hostname}`,
         ),
         "",
         0,
@@ -128,7 +142,9 @@ export const guardedAIFetch: typeof globalThis.fetch = async (input, init) => {
   );
   const host = stripBrackets(url.hostname);
   if (url.protocol !== "https:" || (isIP(host) && !isPublicAddress(host))) {
-    throw new Error("AI endpoints must use https and a public address.");
+    throw new NonPublicAIEndpointError(
+      "AI endpoints must use https and a public address.",
+    );
   }
   const res = await undiciFetch(url, {
     ...(init as Parameters<typeof undiciFetch>[1]),

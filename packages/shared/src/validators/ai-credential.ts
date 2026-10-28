@@ -23,7 +23,11 @@ export const aiCustomModelSchema = z
     apiFormat: z.enum(["responses", "chat"]).optional(),
     vision: z.boolean(),
   })
-  .strict();
+  .strict()
+  .refine((m) => (m.provider === "openai") === !!m.apiFormat, {
+    message:
+      "OpenAI models need an API format, and other providers can't have one.",
+  });
 
 export type AICustomModel = z.infer<typeof aiCustomModelSchema>;
 

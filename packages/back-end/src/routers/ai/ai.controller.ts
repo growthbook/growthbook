@@ -19,6 +19,7 @@ import { ReqContext } from "back-end/types/request";
 import {
   clearResolvedAIKeysCache,
   encryptAIKey,
+  getEnvBaseUrl,
   getKeyLast4,
   verifyAIKey,
 } from "back-end/src/services/aiCredentials";
@@ -135,7 +136,12 @@ export async function putAICredential(
     });
   }
 
-  const { valid, message } = await verifyAIKey(provider, apiKey, baseUrl);
+  // Self-hosted: a blank base URL inherits the env var, so verify against that.
+  const { valid, message } = await verifyAIKey(
+    provider,
+    apiKey,
+    baseUrl || (IS_CLOUD ? "" : getEnvBaseUrl(provider)),
+  );
   if (!valid) {
     return res.status(400).json({
       status: 400,

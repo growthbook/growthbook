@@ -117,7 +117,8 @@ export default function CustomAIModels({
             size="medium"
             value={provider}
             onChange={(v) => setProvider(v as AIProvider)}
-            placeholder="Select the provider whose API format it uses"
+            placeholder="Select a provider"
+            helpText="The provider whose API format this model uses, which may differ from where it's hosted."
             options={providers.map((p) => ({
               value: p,
               label: AI_PROVIDER_META[p].label,
@@ -136,7 +137,7 @@ export default function CustomAIModels({
           {provider === "openai" && (
             <Box mb="3">
               <Text size="md" weight="semibold" as="div" mb="2">
-                API
+                API format
               </Text>
               <RadioGroup
                 value={apiFormat}
@@ -174,14 +175,21 @@ export default function CustomAIModels({
         </Frame>
       )}
 
-      {canEdit && !adding && providers.length > 0 && (
-        <Button
-          variant="outline"
-          icon={<PiPlusBold />}
-          onClick={() => setAdding(true)}
-        >
-          Custom model
-        </Button>
+      {providers.length === 0 ? (
+        <Text size="sm" color="text-mid" as="div">
+          Add a provider key above to add custom models.
+        </Text>
+      ) : (
+        canEdit &&
+        !adding && (
+          <Button
+            variant="solid"
+            icon={<PiPlusBold />}
+            onClick={() => setAdding(true)}
+          >
+            New custom model
+          </Button>
+        )
       )}
     </Box>
   );
