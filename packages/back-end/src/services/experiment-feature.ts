@@ -50,6 +50,7 @@ import {
   getFeatureRevisionsByStatus,
   getLinkageSyncRevisionSummaries,
   getRevision,
+  initialRevision,
   prepareFeatureRevision,
   prevalidateRevisionUpdate,
   RevisionContentChangedError,
@@ -212,17 +213,19 @@ export async function assertFlagLinkable({
   return { scopedRule, ruleEnvFootprint, targetVersion, target };
 }
 
-// For a save that writes other things first: the org's validation hooks judge
-// the draft this link writes before anything lands, and linking runs them
-// again. `unsavedLive` stands in for a flag the same save creates.
+// Runs the validation hooks on the draft this link would write, before the
+// save writes anything; linking runs them again. `unsaved`: a flag the same
+// save creates.
 export async function prevalidateFlagLink(
   check: ExperimentFeatureLinkCheck,
-  unsavedLive?: FeatureRevisionInterface,
+  { unsaved = false }: { unsaved?: boolean } = {},
 ): Promise<void> {
   const { scopedRule, ruleEnvFootprint, target } =
     await assertFlagLinkable(check);
   const { context, feature } = check;
   if (!customHooksActive(context)) return;
+  const user = context.auditUser;
+  const environments = getEnvironmentIdsFromOrg(context.org);
   // Cut from live as getDraftRevision cuts one, so by whoever is saving.
   const draft =
     target ??
@@ -230,10 +233,12 @@ export async function prevalidateFlagLink(
       await prepareFeatureRevision({
         context,
         feature,
-        user: context.auditUser,
-        environments: getEnvironmentIdsFromOrg(context.org),
+        user,
+        environments,
         baseVersion: feature.version,
-        unsavedLive,
+        ...(unsaved && {
+          unsavedLive: initialRevision(feature, user, environments),
+        }),
       })
     ).revision;
   await prevalidateRevisionUpdate(
@@ -1564,34 +1569,34 @@ export async function keepFlagInExperiment({
     eventAudit,
     "restore experiment rule",
   );
+  const withLiveRules = (draftRules: FeatureRule[]) => {
+    const rules = [...draftRules];
+    live.forEach((rule, i) => {
+      if (!refersToExperiment(rule) || rules.some((r) => r.id === rule.id)) {
+        return;
+      }
+      // After the nearest live rule before it that the draft still has, else
+      // before the nearest after it.
+      const ids = new Set(rules.map((r) => r.id));
+      const prev = live
+        .slice(0, i)
+        .reverse()
+        .find((r) => ids.has(r.id));
+      const next = live.slice(i + 1).find((r) => ids.has(r.id));
+      const at = prev
+        ? rules.findIndex((r) => r.id === prev.id) + 1
+        : next
+          ? rules.findIndex((r) => r.id === next.id)
+          : Math.min(i, rules.length);
+      rules.splice(at, 0, rule);
+    });
+    return rules;
+  };
   for (const draft of await draftsTakingRuleOut(
     context,
     feature,
     refersToExperiment,
   )) {
-    const withLiveRules = (draftRules: FeatureRule[]) => {
-      const rules = [...draftRules];
-      live.forEach((rule, i) => {
-        if (!refersToExperiment(rule) || rules.some((r) => r.id === rule.id)) {
-          return;
-        }
-        // After the nearest live rule before it that the draft still has, else
-        // before the nearest after it.
-        const ids = new Set(rules.map((r) => r.id));
-        const prev = live
-          .slice(0, i)
-          .reverse()
-          .find((r) => ids.has(r.id));
-        const next = live.slice(i + 1).find((r) => ids.has(r.id));
-        const at = prev
-          ? rules.findIndex((r) => r.id === prev.id) + 1
-          : next
-            ? rules.findIndex((r) => r.id === next.id)
-            : Math.min(i, rules.length);
-        rules.splice(at, 0, rule);
-      });
-      return rules;
-    };
     const startedByRemoval = draft.title === removalTitle(experiment);
     const restored = await updateDraftRules(
       context,

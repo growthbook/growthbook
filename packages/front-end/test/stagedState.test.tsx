@@ -11,6 +11,11 @@ import {
 import { StopSubmit } from "@/ui/Modal/StopSubmit";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
+vi.mock("@/services/auth", () => ({ useAuth: () => ({ apiCall: vi.fn() }) }));
+vi.mock("@/hooks/useUnsavedChangesGuard", () => ({
+  default: () => ({ pendingHref: null, allowUnload: () => undefined }),
+}));
+
 describe("useStagedState", () => {
   beforeEach(() => sessionStorage.clear());
 
@@ -41,11 +46,6 @@ describe("useStagedState", () => {
     expect(result.current[0]).toBe("d");
   });
 });
-
-vi.mock("@/services/auth", () => ({ useAuth: () => ({ apiCall: vi.fn() }) }));
-vi.mock("@/hooks/useUnsavedChangesGuard", () => ({
-  default: () => ({ pendingHref: null, allowUnload: () => undefined }),
-}));
 
 describe("useEditBase", () => {
   beforeEach(() => sessionStorage.clear());

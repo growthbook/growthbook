@@ -614,11 +614,18 @@ export default function FeatureFromExperimentModal({
         }
 
         checkUnscopedRule();
+        if (holdoutWarning) throw new Error("Holdout configuration mismatch.");
+        const trackCreated = () => {
+          track("Feature Created", {
+            valueType: featureToCreate.valueType,
+            hasDescription: !!featureToCreate.description,
+            initialRule: "experiment-ref",
+          });
+          refreshTags(featureToCreate.tags || []);
+          refreshWatching();
+        };
 
         if (saveWithStagedChanges) {
-          if (existing && holdoutWarning) {
-            throw new Error("Holdout configuration mismatch.");
-          }
           const link = {
             variations,
             ...(rule.sparse && { sparse: true }),
@@ -660,24 +667,13 @@ export default function FeatureFromExperimentModal({
                 : refusal.message,
             );
           }
-          if (!existing) {
-            track("Feature Created", {
-              valueType: featureToCreate.valueType,
-              hasDescription: !!featureToCreate.description,
-              initialRule: "experiment-ref",
-            });
-            refreshTags(featureToCreate.tags || []);
-            refreshWatching();
-          }
+          if (!existing) trackCreated();
           return;
         }
 
         let targetFeatureId: string;
 
         if (existing) {
-          if (holdoutWarning)
-            throw new Error("Holdout configuration mismatch.");
-
           targetFeatureId = featureToCreate.id;
         } else {
           const created = await apiCall<{ feature: FeatureInterface }>(
@@ -691,16 +687,7 @@ export default function FeatureFromExperimentModal({
             throw new Error("Feature creation failed");
           }
           targetFeatureId = created.feature.id;
-
-          track("Feature Created", {
-            valueType: featureToCreate.valueType,
-            hasDescription: featureToCreate.description
-              ? featureToCreate.description.length > 0
-              : false,
-            initialRule: "experiment-ref",
-          });
-          refreshTags(featureToCreate.tags || []);
-          refreshWatching();
+          trackCreated();
         }
 
         const autoPublish = existing && draftMode === "publish";

@@ -141,8 +141,9 @@ const ScrollArea = forwardRef<
             ? el.clientWidth
             : 1;
       const delta = e.deltaY * unit;
-      const atEnd = delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
-      if (atEnd) {
+      const atEnd = () =>
+        delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
+      if (atEnd()) {
         if (deadspace <= 0) return;
         e.preventDefault();
         deadspace -= Math.abs(delta);
@@ -151,9 +152,8 @@ const ScrollArea = forwardRef<
       e.preventDefault();
       const before = el.scrollLeft;
       el.scrollLeft += delta;
-      const reached = delta < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
       const overshoot = Math.abs(delta) - Math.abs(el.scrollLeft - before);
-      deadspace = reached ? WHEEL_DEADSPACE_PX - overshoot : 0;
+      deadspace = atEnd() ? WHEEL_DEADSPACE_PX - overshoot : 0;
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);

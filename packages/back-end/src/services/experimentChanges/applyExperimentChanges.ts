@@ -17,7 +17,6 @@ import {
   deleteRevisionForFailedLanding,
   getRevision,
   getRevisionSnapshot,
-  initialRevision,
   prevalidateRevisionUpdate,
   restoreRevisionSnapshot,
   RevisionSnapshot,
@@ -58,7 +57,6 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
-import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   insertNewFeature,
@@ -535,13 +533,9 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, link.featureId);
     if (!feature)
       throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
-    await prevalidateFlagLink({
-      context,
-      experiment: plannedExperiment,
-      feature,
-      rule: linkRule(experiment.id, link),
-      forceNewDraft: true,
-    });
+    await prevalidateFlagLink(
+      linkCheck(context, plannedExperiment, feature, link),
+    );
   }
   const creates = await planCreates(context, plannedExperiment, body, {
     runHooks: true,
@@ -656,10 +650,8 @@ export async function applyExperimentChanges({
   }
 }
 
-// A variation this save adds needs a value on every flag serving the
-// experiment, or that flag serves it null. The flags this save writes values
-// to, links, creates or unlinks are covered; a kept flag's restored rule
-// predates the new variations.
+// Every flag serving the experiment needs a value for a variation this save
+// adds, or serves it null; a kept flag's restored rule predates the new ones.
 async function assertNewVariationsCovered(
   context: ReqContext,
   experiment: ExperimentInterface,
@@ -713,23 +705,10 @@ async function planCreates(
   for (const entry of entries) {
     assertScopedRules(context, [{ id: "", ...linkRuleScope(entry) }], []);
     const feature = await prepareNewFeature(context, entry.feature);
-    const check = {
-      context,
-      experiment: planned,
-      feature,
-      rule: linkRule(planned.id, entry),
-      forceNewDraft: true,
-    };
+    const check = linkCheck(context, planned, feature, entry);
     if (runHooks) {
       await runValidateFeatureHooks({ context, feature, original: null });
-      await prevalidateFlagLink(
-        check,
-        initialRevision(
-          feature,
-          context.auditUser,
-          getEnvironmentIdsFromOrg(context.org),
-        ),
-      );
+      await prevalidateFlagLink(check, { unsaved: true });
     } else {
       await assertFlagLinkable(check);
     }
@@ -761,8 +740,24 @@ function linkRule(
   };
 }
 
-// Once the values and experiment have landed: flags linked again or unlinked,
-// then Visual Editor changes and URL Redirects.
+// A flag's link always lands on a new draft.
+function linkCheck(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  feature: FeatureInterface,
+  link: LinkFeatureEntry | CreateFeatureEntry,
+) {
+  return {
+    context,
+    experiment,
+    feature,
+    rule: linkRule(experiment.id, link),
+    forceNewDraft: true,
+  };
+}
+
+// Once the values and experiment have landed: flags created, linked again,
+// unlinked or kept, then Visual Editor changes and URL Redirects.
 async function finishFlags({
   context,
   experiment,
@@ -783,13 +778,9 @@ async function finishFlags({
   for (const { feature, entry } of creates) {
     await insertNewFeature(context, feature, audit);
     await linkFeatureToExperiment({
-      context,
-      experiment,
-      feature,
-      rule: linkRule(experiment.id, entry),
+      ...linkCheck(context, experiment, feature, entry),
       eventAudit,
       audit,
-      forceNewDraft: true,
     });
   }
   for (const link of body.linkFeatures ?? []) {
@@ -797,13 +788,9 @@ async function finishFlags({
     if (!feature)
       throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
     await linkFeatureToExperiment({
-      context,
-      experiment,
-      feature,
-      rule: linkRule(experiment.id, link),
+      ...linkCheck(context, experiment, feature, link),
       eventAudit,
       audit,
-      forceNewDraft: true,
     });
     // Linked again, so a removal it was waiting on no longer applies.
     await setPendingFeatureUnlink(

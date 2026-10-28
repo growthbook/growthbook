@@ -57,12 +57,12 @@ export default function ExperimentReportsList({
     () =>
       (data?.reports ?? []).flatMap((report) => {
         const isOwner = userId === report.userId || !report.userId;
-        const shown = isOwner
-          ? true
-          : report.type === "experiment"
+        const shown =
+          isOwner ||
+          (report.type === "experiment"
             ? report.status === "published"
             : report.shareLevel === "public" ||
-              report.shareLevel === "organization";
+              report.shareLevel === "organization");
         if (!shown) return [];
         const status =
           report.type === "experiment"
@@ -171,8 +171,10 @@ export default function ExperimentReportsList({
                   isOwner={row.isOwner}
                 />
               </TableCell>
-              <TableCell title={datetime(row.dateUpdated)}>
-                {date(row.dateUpdated)}
+              <TableCell>
+                <Tooltip content={datetime(row.dateUpdated)}>
+                  <span>{date(row.dateUpdated)}</span>
+                </Tooltip>
               </TableCell>
               <TableCell>{row.owner}</TableCell>
               <TableCell>

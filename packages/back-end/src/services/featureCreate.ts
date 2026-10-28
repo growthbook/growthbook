@@ -218,7 +218,6 @@ export async function prepareNewFeature(
   return feature;
 }
 
-// Writes a prepared flag, its creator's watch, the audit and its Holdout.
 export async function insertNewFeature(
   context: ReqContext,
   feature: FeatureInterface,

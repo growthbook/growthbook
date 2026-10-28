@@ -137,7 +137,7 @@ async function seed({ withDraft }: { withDraft: boolean }) {
   }
 }
 
-// The sandbox mock answers for it; removed with `customhooks` cleared.
+// The sandbox mock answers for it.
 const seedRevisionHook = () =>
   collection("customhooks").insertOne({
     id: "hook_revisions",
@@ -209,6 +209,18 @@ describe("applyExperimentChanges", () => {
       audit,
       eventAudit: { type: "api_key", apiKey: "key" },
     });
+
+  const removeForDeletedExperiment = async () => {
+    const feature = await getFeature(context, FLAG);
+    if (!feature) throw new Error("missing feature");
+    return removeRulesForDeletedExperiment({
+      context,
+      experiment: await storedExperiment(),
+      features: [feature],
+      eventAudit: { type: "api_key", apiKey: "key" },
+      audit: async () => undefined,
+    });
+  };
 
   const hypothesisChange = (base: string) => ({
     changes: { hypothesis: "new" },
@@ -518,16 +530,11 @@ describe("applyExperimentChanges", () => {
       { $set: { createdBy: { type: "api_key", apiKey: "someone_else" } } },
     );
     await seedRevisionHook();
-    jest.mocked(runInSandbox).mockClear();
     jest.mocked(runInSandbox).mockResolvedValue({ ok: true, warnings: [] });
-    try {
-      await run({
-        experiment: hypothesisChange("old"),
-        linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
-      });
-    } finally {
-      await collection("customhooks").deleteMany({});
-    }
+    await run({
+      experiment: hypothesisChange("old"),
+      linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+    });
     const authors = jest
       .mocked(runInSandbox)
       .mock.calls.map(
@@ -763,38 +770,6 @@ describe("applyExperimentChanges", () => {
     ).toBeUndefined();
   });
 
-  it("adds a variation and its flag value in one save", async () => {
-    await seed({ withDraft: false });
-    const stored = await storedExperiment();
-    const variations = [...stored.variations, variation("v2", 2)];
-
-    const result = await run({
-      experiment: {
-        changes: { variations, variationWeights: [0.34, 0.33, 0.33] },
-        base: { variations: stored.variations, variationWeights: [0.5, 0.5] },
-      },
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: [...arms("a", "b"), { variationId: "v2", value: "c" }],
-          revision: { version: 1, dateUpdated: null },
-        },
-      ],
-    });
-    expect((await storedExperiment()).variations.map((v) => v.id)).toEqual([
-      "v0",
-      "v1",
-      "v2",
-    ]);
-    // Loaded from live, so the values start a new draft and live is untouched.
-    expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
-    expect(await revisionRules(1)).toEqual(arms("a", "b"));
-    expect(await revisionRules(2)).toEqual([
-      ...arms("a", "b"),
-      { variationId: "v2", value: "c" },
-    ]);
-  });
-
   describe("a save adding a variation", () => {
     const addV2 = (stored: {
       variations: ReturnType<typeof seededVariations>;
@@ -805,6 +780,10 @@ describe("applyExperimentChanges", () => {
       },
       base: { variations: stored.variations, variationWeights: [0.5, 0.5] },
     });
+    const armsWithV2 = () => [
+      ...arms("a", "b"),
+      { variationId: "v2", value: "c" },
+    ];
     const newFlag = (id: string) => ({
       feature: {
         id,
@@ -812,7 +791,30 @@ describe("applyExperimentChanges", () => {
         defaultValue: "a",
         environmentSettings: {},
       },
-      variations: [...arms("a", "b"), { variationId: "v2", value: "c" }],
+      variations: armsWithV2(),
+    });
+
+    it("saves with each linked flag's value for it", async () => {
+      await seed({ withDraft: false });
+      const result = await run({
+        experiment: addV2(await storedExperiment()),
+        flagValues: [
+          {
+            featureId: FLAG,
+            variations: armsWithV2(),
+            revision: { version: 1, dateUpdated: null },
+          },
+        ],
+      });
+      expect((await storedExperiment()).variations.map((v) => v.id)).toEqual([
+        "v0",
+        "v1",
+        "v2",
+      ]);
+      // Loaded from live, so the values start a new draft and live is untouched.
+      expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
+      expect(await revisionRules(1)).toEqual(arms("a", "b"));
+      expect(await revisionRules(2)).toEqual(armsWithV2());
     });
 
     it("refuses while a linked flag has no value for it", async () => {
@@ -841,10 +843,7 @@ describe("applyExperimentChanges", () => {
         featureId: "flag_created",
         status: "draft",
       });
-      expect(draft?.rules?.[0]?.variations).toEqual([
-        ...arms("a", "b"),
-        { variationId: "v2", value: "c" },
-      ]);
+      expect(draft?.rules?.[0]?.variations).toEqual(armsWithV2());
     });
 
     it("refuses a new flag's draft a validation hook rejects, before saving anything", async () => {
@@ -857,16 +856,12 @@ describe("applyExperimentChanges", () => {
         error: "Rejected by hook",
         warnings: [],
       });
-      try {
-        await expect(
-          run({
-            experiment: addV2(await storedExperiment()),
-            createFeatures: [newFlag("flag_created")],
-          }),
-        ).rejects.toThrow("Rejected by hook");
-      } finally {
-        await collection("customhooks").deleteMany({});
-      }
+      await expect(
+        run({
+          experiment: addV2(await storedExperiment()),
+          createFeatures: [newFlag("flag_created")],
+        }),
+      ).rejects.toThrow("Rejected by hook");
       expect((await storedExperiment()).variations).toHaveLength(2);
       expect(await getFeature(context, "flag_created")).toBeNull();
     });
@@ -944,18 +939,9 @@ describe("applyExperimentChanges", () => {
         ],
       } as unknown as OrganizationInterface["settings"],
     });
-    const experiment = await getExperimentById(context, EXP);
-    const feature = await getFeature(context, FLAG);
-    if (!experiment || !feature) throw new Error("missing fixtures");
-    await expect(
-      removeRulesForDeletedExperiment({
-        context,
-        experiment,
-        features: [feature],
-        eventAudit: { type: "api_key", apiKey: "key" },
-        audit: async () => undefined,
-      }),
-    ).rejects.toThrow("no authority to publish the change");
+    await expect(removeForDeletedExperiment()).rejects.toThrow(
+      "no authority to publish the change",
+    );
     expect((await getFeature(context, FLAG))?.rules).toEqual([
       expect.objectContaining({ experimentId: EXP }),
     ]);
@@ -972,18 +958,9 @@ describe("applyExperimentChanges", () => {
       { $set: { rules: [] } },
     );
     context = makeContext({ role: "readonly" });
-    const experiment = await getExperimentById(context, EXP);
-    const feature = await getFeature(context, FLAG);
-    if (!experiment || !feature) throw new Error("missing fixtures");
-    await expect(
-      removeRulesForDeletedExperiment({
-        context,
-        experiment,
-        features: [feature],
-        eventAudit: { type: "api_key", apiKey: "key" },
-        audit: async () => undefined,
-      }),
-    ).rejects.toThrow("no authority to edit its drafts");
+    await expect(removeForDeletedExperiment()).rejects.toThrow(
+      "no authority to edit its drafts",
+    );
     expect(await refRules("draft")).toEqual([
       expect.objectContaining({ experimentId: EXP }),
     ]);

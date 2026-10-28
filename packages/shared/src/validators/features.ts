@@ -2280,6 +2280,13 @@ const experimentChangesFields = experimentAnalysisSettingsDraft
   .strict();
 export type ExperimentChangesFields = z.infer<typeof experimentChangesFields>;
 
+// A flag's rule on the experiment, as linking one gives it.
+const experimentLinkFields = {
+  variations: z.array(experimentRefVariation),
+  sparse: z.boolean().optional(),
+  environments: experimentRuleEnvironments.optional(),
+};
+
 export const experimentChangesBody = z
   .object({
     experiment: z
@@ -2322,16 +2329,13 @@ export const experimentChangesBody = z
         z
           .object({
             featureId: z.string(),
-            variations: z.array(experimentRefVariation),
-            sparse: z.boolean().optional(),
-            environments: experimentRuleEnvironments.optional(),
+            ...experimentLinkFields,
           })
           .strict(),
       )
       .optional(),
-    // Flags to create, each checked as POST /feature checks a new one and
-    // given the experiment's rule in a new draft, after the experiment's own
-    // changes land, so its values can name variations this save adds.
+    // Flags to create, then link as linkFeatures links one once the experiment
+    // lands, so their values can name variations this save adds.
     createFeatures: z
       .array(
         z
@@ -2356,9 +2360,7 @@ export const experimentChangesBody = z
                 customFields: z.record(z.string(), z.unknown()).optional(),
               })
               .strict(),
-            variations: z.array(experimentRefVariation),
-            sparse: z.boolean().optional(),
-            environments: experimentRuleEnvironments.optional(),
+            ...experimentLinkFields,
           })
           .strict(),
       )

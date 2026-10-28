@@ -19,6 +19,7 @@ import HelperText from "@/ui/HelperText";
 import {
   followAssignmentAttribute,
   getExposureQueriesInScope,
+  getExposureQuery,
   getHashAttributeIdentifierTypeMap,
 } from "@/services/datasources";
 import track from "@/services/track";
@@ -225,8 +226,9 @@ export default function EditTargetingModal({
               {followed.exposureQueryId !== experiment.exposureQueryId ? (
                 <>
                   The experiment assignment table changes to{" "}
-                  {datasource?.settings?.queries?.exposure?.find(
-                    (q) => q.id === followed.exposureQueryId,
+                  {getExposureQuery(
+                    datasource?.settings,
+                    followed.exposureQueryId,
                   )?.name ?? followed.exposureQueryId}{" "}
                   and the identifier type to{" "}
                 </>

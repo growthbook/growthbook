@@ -389,15 +389,16 @@ export default function Implementation({
     getLatestPhaseVariations(experiment)
       .map((v) => v.id)
       .join();
-  const [addAfterSave, setAddAfterSave] = useState<(() => void) | null>(null);
-  const savingFirst = (open: () => void) => () =>
-    variationsUnsaved ? setAddAfterSave(() => open) : open();
+  const [saveBeforeVisual, setSaveBeforeVisual] = useState(false);
   const addImplementation = canAddAny ? (
     <AddImplementationMenu
       experiment={experiment}
       onAdd={{
         feature: () => setFeatureModal(true),
-        visual: savingFirst(() => setVisualEditorModal(true)),
+        visual: () =>
+          variationsUnsaved
+            ? setSaveBeforeVisual(true)
+            : setVisualEditorModal(true),
         urlredirect: () => setRedirectModal({ target: null }),
       }}
       // In priority order, the first kind it already has.
@@ -473,17 +474,17 @@ export default function Implementation({
           }
         />
       ) : null}
-      {addAfterSave ? (
+      {saveBeforeVisual ? (
         <ConfirmDialog
           title="Save changes first?"
           content="Visual changes are added to the saved experiment, so its new variations need saving first. This saves all your staged changes."
           yesText="Save and continue"
           onConfirm={async () => {
-            setAddAfterSave(null);
+            setSaveBeforeVisual(false);
             // A refused save shows why on the save bar.
-            if ((await edits?.saveAll()) === null) addAfterSave();
+            if ((await edits?.saveAll()) === null) setVisualEditorModal(true);
           }}
-          onCancel={() => setAddAfterSave(null)}
+          onCancel={() => setSaveBeforeVisual(false)}
         />
       ) : null}
       {editingKeys && canEditExperiment && (

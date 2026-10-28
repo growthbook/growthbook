@@ -62,11 +62,9 @@
   }
 }
 
-// A tall value's edit button, at its top; copy and fullscreen stay along the
-// bottom.
+// The edit button on its own: at a tall value's top, or beside "No value set".
 .openEditor {
   position: absolute;
-  // 4px inside the cell, net of the ghost button's negative margin.
   top: 10px;
   right: 10px;
 }
