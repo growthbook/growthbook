@@ -588,14 +588,28 @@ export function ExperimentEditsProvider({
         <button type="submit" disabled />
       </form>
       {navigationGuard.pendingHref && !saving ? (
-        <ConfirmDialog
-          title="Leave without saving?"
-          content="You have unsaved changes to this experiment. Leaving this page discards them."
-          yesText="Leave page"
-          noText="Keep editing"
-          onConfirm={navigationGuard.confirmNavigation}
-          onCancel={navigationGuard.cancelNavigation}
-        />
+        // Refused on the way out, it says why rather than calling them unsaved.
+        error || shownConflicts.length ? (
+          <ConfirmDialog
+            title="Your changes weren't saved"
+            content={`${
+              error ?? "Someone else saved changes to what you edited."
+            } Leaving this page discards your changes.`}
+            yesText="Leave page"
+            noText="Stay and fix"
+            onConfirm={navigationGuard.confirmNavigation}
+            onCancel={navigationGuard.cancelNavigation}
+          />
+        ) : (
+          <ConfirmDialog
+            title="Leave without saving?"
+            content="You have unsaved changes to this experiment. Leaving this page discards them."
+            yesText="Leave page"
+            noText="Keep editing"
+            onConfirm={navigationGuard.confirmNavigation}
+            onCancel={navigationGuard.cancelNavigation}
+          />
+        )
       ) : null}
     </ExperimentEditsContext.Provider>
   );
