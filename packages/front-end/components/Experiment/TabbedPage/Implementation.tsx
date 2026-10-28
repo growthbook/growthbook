@@ -95,6 +95,7 @@ import {
   undoVisual,
   VisualTargeting,
 } from "./linkedChangesDraft";
+import { useAddedFlags } from "./addedFlags";
 
 const LINKED_CHANGES_EDIT_ID = "linked-changes";
 
@@ -335,7 +336,8 @@ export default function Implementation({
       : null;
   const shownRedirects = shownUrlRedirects(stagedLinked, urlRedirects);
   const shownChangesets = shownVisualChangesets(stagedLinked, visualChangesets);
-  const hasFlags = linkedFeatures.length > 0;
+  const [addedFlags] = useAddedFlags();
+  const hasFlags = linkedFeatures.length > 0 || addedFlags.length > 0;
   const hasVisual = shownChangesets.length > 0;
   const hasRedirects = shownRedirects.length > 0;
   const shownKinds = ADDABLE_KINDS.filter(

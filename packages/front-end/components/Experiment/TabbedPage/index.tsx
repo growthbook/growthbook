@@ -78,6 +78,12 @@ import Implementation, {
   withStagedVariations,
 } from "./Implementation";
 import { TargetingDraft } from "./TrafficAllocationFunnel";
+import {
+  AddedFlag,
+  addedFlagChanges,
+  addedFlagEditId,
+  useAddedFlags,
+} from "./addedFlags";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
 import RunningExperimentDecisionBanner from "./RunningExperimentDecisionBanner";
@@ -224,6 +230,17 @@ function TabbedPageContents({
     !!variationsDraft &&
     variationsDraft.map((v) => v.id).join() !==
       experiment.variations.map((v) => v.id).join();
+  // On a draft, an added flag waits for the page's Save like everything else;
+  // every check the save runs happens first, so a refusal shows in the modal.
+  const [, setAddedFlags] = useAddedFlags();
+  const stageFlag = async (added: AddedFlag) => {
+    const id = added.feature.id;
+    await edits?.checkChanges(addedFlagEditId(id), addedFlagChanges(added));
+    setAddedFlags((prev) => [
+      ...prev.filter((a) => a.feature.id !== id),
+      added,
+    ]);
+  };
   // Joining, changing or leaving a holdout waits for the page's Save too.
   const [stagedHoldout, setStagedHoldout] = useStagedState<
     HoldoutDraft["value"]
@@ -670,6 +687,7 @@ function TabbedPageContents({
       {featureModal && (
         <FeatureFromExperimentModal
           experiment={withStagedVariations(experiment, variationsDraft)}
+          stage={experiment.status === "draft" && edits ? stageFlag : undefined}
           saveWithStagedChanges={
             variationsStaged && edits ? edits.saveAll : undefined
           }

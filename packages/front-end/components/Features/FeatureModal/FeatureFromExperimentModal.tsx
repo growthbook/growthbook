@@ -29,6 +29,10 @@ import {
 import { getLatestPhaseVariations } from "shared/experiments";
 import type { ExperimentChangesBody } from "shared/validators";
 import type { SaveRefusal } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import {
+  AddedFlag,
+  addedFlagChanges,
+} from "@/components/Experiment/TabbedPage/addedFlags";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -80,6 +84,8 @@ export type Props = {
   source?: string;
   // Feature IDs in "discarded" state that can be re-added.
   reAddableFeatureIds?: string[];
+  // Adds the flag to the page's staged changes instead of saving it.
+  stage?: (added: AddedFlag) => Promise<void>;
   // With variations staged: the flag saves with the staged changes, in one
   // request, so its values can name variations not saved yet.
   saveWithStagedChanges?: (
@@ -164,8 +170,11 @@ export default function FeatureFromExperimentModal({
   mutate,
   source,
   reAddableFeatureIds = [],
+  stage,
   saveWithStagedChanges,
 }: Props) {
+  // Staged or saved with staged changes, an existing flag gets a new draft.
+  const withStagedChanges = !!(stage || saveWithStagedChanges);
   const { project, refreshTags } = useDefinitions();
   const selectedProject = experiment.project ?? project;
   const allEnvironments = useEnvironments();
@@ -531,8 +540,7 @@ export default function FeatureFromExperimentModal({
       size="lg"
       header="Add Feature Flag to Experiment"
       headerAction={
-        // Saved with staged changes, an existing flag gets a new draft.
-        existing && existingFeature && !saveWithStagedChanges ? (
+        existing && existingFeature && !withStagedChanges ? (
           <DraftSelectorDropdown
             feature={existingFeature}
             revisionList={existingRevisionList}
@@ -625,41 +633,37 @@ export default function FeatureFromExperimentModal({
           refreshWatching();
         };
 
-        if (saveWithStagedChanges) {
-          const link = {
-            variations,
-            ...(rule.sparse && { sparse: true }),
+        if (withStagedChanges) {
+          const added: AddedFlag = {
+            feature: featureToCreate as FeatureInterface,
+            newFlag: existing
+              ? null
+              : {
+                  id: featureToCreate.id,
+                  valueType: featureToCreate.valueType,
+                  defaultValue: featureToCreate.defaultValue,
+                  description: featureToCreate.description,
+                  owner: featureToCreate.owner,
+                  project: featureToCreate.project,
+                  tags: featureToCreate.tags,
+                  environmentSettings: newFeatureEnvSettings,
+                  ...(featureToCreate.holdout && {
+                    holdout: featureToCreate.holdout,
+                  }),
+                  customFields: featureToCreate.customFields,
+                },
+            values: variations,
+            sparse: !!rule.sparse,
             environments: {
               allEnvironments: ruleAllEnvironments,
               environments: ruleAllEnvironments ? [] : ruleSelectedEnvironments,
             },
+            allowUnscopedRules,
           };
-          const refusal = await saveWithStagedChanges({
-            ...(allowUnscopedRules && { allowUnscopedRules: true }),
-            ...(existing
-              ? { linkFeatures: [{ featureId: featureToCreate.id, ...link }] }
-              : {
-                  createFeatures: [
-                    {
-                      feature: {
-                        id: featureToCreate.id,
-                        valueType: featureToCreate.valueType,
-                        defaultValue: featureToCreate.defaultValue,
-                        description: featureToCreate.description,
-                        owner: featureToCreate.owner,
-                        project: featureToCreate.project,
-                        tags: featureToCreate.tags,
-                        environmentSettings: newFeatureEnvSettings,
-                        ...(featureToCreate.holdout && {
-                          holdout: featureToCreate.holdout,
-                        }),
-                        customFields: featureToCreate.customFields,
-                      },
-                      ...link,
-                    },
-                  ],
-                }),
-          });
+          if (stage) return stage(added);
+          const refusal = await saveWithStagedChanges?.(
+            addedFlagChanges(added),
+          );
           if (refusal) {
             throw new Error(
               refusal.onPage
@@ -907,8 +911,8 @@ export default function FeatureFromExperimentModal({
           <HelperText status="info">
             <Box>
               A rule will be added to the bottom of the rule list
-              {saveWithStagedChanges ? ", in a new draft" : ""}. For more
-              control over placement, add Experiment rules directly from the{" "}
+              {withStagedChanges ? ", in a new draft" : ""}. For more control
+              over placement, add Experiment rules directly from the{" "}
               <Link href={`/features/${existing}`} target="_blank">
                 Feature page
                 <PiArrowSquareOut className="ml-1" />
