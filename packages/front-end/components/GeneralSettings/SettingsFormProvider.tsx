@@ -546,135 +546,156 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     });
   });
 
-  const saveSettings = form.handleSubmit(async (value) => {
-    const transformedOrgSettings = {
-      ...value,
-      metricDefaults: {
-        ...value.metricDefaults,
-        maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
-        minPercentageChange: value.metricDefaults.minPercentageChange / 100,
-        targetMDE: value.metricDefaults.targetMDE / 100,
-      },
-      confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
-      multipleExposureMinPercent:
-        (value.multipleExposureMinPercent ?? 0.01) / 100,
-      preferredEnvironment: value.preferredEnvironment || null,
-      // A cleared number input yields NaN — normalize to 0 (cap disabled)
-      maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
-      approvalFlows: applyApprovalFlowEntitlements(
-        value.approvalFlows,
-        hasRequireApprovals,
-      ),
-    };
+  // handleSubmit resolves without saving when a field is invalid, so callers pass onInvalid.
+  const saveSettings = (onInvalid: () => void) =>
+    form.handleSubmit(async (value) => {
+      const transformedOrgSettings = {
+        ...value,
+        metricDefaults: {
+          ...value.metricDefaults,
+          maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
+          minPercentageChange: value.metricDefaults.minPercentageChange / 100,
+          targetMDE: value.metricDefaults.targetMDE / 100,
+        },
+        confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
+        multipleExposureMinPercent:
+          (value.multipleExposureMinPercent ?? 0.01) / 100,
+        preferredEnvironment: value.preferredEnvironment || null,
+        // A cleared number input yields NaN — normalize to 0 (cap disabled)
+        maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
+        approvalFlows: applyApprovalFlowEntitlements(
+          value.approvalFlows,
+          hasRequireApprovals,
+        ),
+      };
 
-    // Make sure the feature key example is valid
-    if (
-      transformedOrgSettings.featureKeyExample &&
-      !new RegExp(FEATURE_KEY_PATTERN).test(
-        transformedOrgSettings.featureKeyExample,
-      )
-    ) {
-      throw new Error(
-        "Feature key examples can only include letters, numbers, and the characters _, -, ., :, and |.",
-      );
-    }
-
-    // If the regex validator exists, then the feature key example must match the regex and be valid.
-    if (transformedOrgSettings.featureRegexValidator) {
+      // Make sure the feature key example is valid
       if (
-        !transformedOrgSettings.featureKeyExample ||
-        !transformedOrgSettings.featureRegexValidator
-      ) {
-        throw new Error(
-          "Feature key example must not be empty when a regex validator is defined.",
-        );
-      }
-
-      const regexValidator = transformedOrgSettings.featureRegexValidator;
-      if (
-        !new RegExp(regexValidator).test(
+        transformedOrgSettings.featureKeyExample &&
+        !new RegExp(FEATURE_KEY_PATTERN).test(
           transformedOrgSettings.featureKeyExample,
         )
       ) {
         throw new Error(
-          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
+          "Feature key examples can only include letters, numbers, and the characters _, -, ., :, and |.",
         );
       }
-    }
 
-    const { experimentKeyExample, experimentKeyRegexValidator } =
-      transformedOrgSettings;
-    if (experimentKeyRegexValidator && !experimentKeyExample) {
-      throw new Error(
-        "Experiment key example must not be empty when a regex validator is defined.",
-      );
-    }
-    if (
-      experimentKeyRegexValidator &&
-      !new RegExp(experimentKeyRegexValidator).test(experimentKeyExample ?? "")
-    ) {
-      throw new Error(
-        `Experiment key example must match the regex validator. '${experimentKeyRegexValidator}' Example: '${experimentKeyExample ?? ""}'`,
-      );
-    }
+      // If the regex validator exists, then the feature key example must match the regex and be valid.
+      if (transformedOrgSettings.featureRegexValidator) {
+        if (
+          !transformedOrgSettings.featureKeyExample ||
+          !transformedOrgSettings.featureRegexValidator
+        ) {
+          throw new Error(
+            "Feature key example must not be empty when a regex validator is defined.",
+          );
+        }
 
-    // Organization details ride along only when edited, since they need their own permission.
-    const org = orgForm.getValues();
-    const orgPatch: Partial<OrgDetailsForm> = {};
-    if (dirtyOrgFields.length) {
-      if (!org.name.trim())
-        throw new Error("Organization name cannot be empty");
-      if (!org.ownerEmail.trim())
-        throw new Error("Owner email cannot be empty");
-      const emails = Array.from(users).map(([, u]) => u.email);
-      if (!emails.includes(org.ownerEmail.trim())) {
+        const regexValidator = transformedOrgSettings.featureRegexValidator;
+        if (
+          !new RegExp(regexValidator).test(
+            transformedOrgSettings.featureKeyExample,
+          )
+        ) {
+          throw new Error(
+            `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
+          );
+        }
+      }
+
+      const { experimentKeyExample, experimentKeyRegexValidator } =
+        transformedOrgSettings;
+      if (experimentKeyRegexValidator && !experimentKeyExample) {
         throw new Error(
-          "This email is not associated with any user in your organization",
+          "Experiment key example must not be empty when a regex validator is defined.",
         );
       }
-      orgPatch.name = org.name.trim();
-      orgPatch.ownerEmail = org.ownerEmail.trim();
-      if (dirtyOrgFields.includes("installationName")) {
-        orgPatch.installationName = org.installationName.trim();
+      if (
+        experimentKeyRegexValidator &&
+        !new RegExp(experimentKeyRegexValidator).test(
+          experimentKeyExample ?? "",
+        )
+      ) {
+        throw new Error(
+          `Experiment key example must match the regex validator. '${experimentKeyRegexValidator}' Example: '${experimentKeyExample ?? ""}'`,
+        );
       }
-    }
 
-    // Only changed settings are sent, so limited roles aren't rejected for untouched fields.
-    const changed = Object.fromEntries(
-      Object.entries(transformedOrgSettings).filter(([k]) =>
-        dirtyFields.includes(k),
-      ),
-    );
-    if (Object.keys(changed).length) {
-      await apiCall(`/organization`, {
-        method: "PUT",
-        body: JSON.stringify({ settings: changed }),
-      });
-    }
-    if (Object.keys(orgPatch).length) {
-      await apiCall(`/organization`, {
-        method: "PUT",
-        body: JSON.stringify(orgPatch),
-      });
-      // Update org name in global context (e.g. top nav)
-      if (orgPatch.name && setOrgName) setOrgName(orgPatch.name);
-      // Refreshes the license cached by installation name; needs billing access, so it may fail.
-      if (orgPatch.installationName !== undefined) {
-        await apiCall(`/license`).catch(() => undefined);
+      // Organization details ride along only when edited, since they need their own permission.
+      const org = orgForm.getValues();
+      const orgPatch: Partial<OrgDetailsForm> = {};
+      if (dirtyOrgFields.length) {
+        if (!org.name.trim())
+          throw new Error("Organization name cannot be empty");
+        if (!org.ownerEmail.trim())
+          throw new Error("Owner email cannot be empty");
+        const emails = Array.from(users).map(([, u]) => u.email);
+        if (!emails.includes(org.ownerEmail.trim())) {
+          throw new Error(
+            "This email is not associated with any user in your organization",
+          );
+        }
+        orgPatch.name = org.name.trim();
+        orgPatch.ownerEmail = org.ownerEmail.trim();
+        if (dirtyOrgFields.includes("installationName")) {
+          if (!org.installationName.trim())
+            throw new Error("Installation name cannot be empty");
+          orgPatch.installationName = org.installationName.trim();
+        }
       }
-    }
-    await Promise.all([refreshOrganization(), mutateAgentSkills()]);
-  });
+
+      // Only changed settings are sent, so limited roles aren't rejected for untouched fields.
+      const changed = Object.fromEntries(
+        Object.entries(transformedOrgSettings).filter(([k]) =>
+          dirtyFields.includes(k),
+        ),
+      );
+      if (Object.keys(changed).length) {
+        await apiCall(`/organization`, {
+          method: "PUT",
+          body: JSON.stringify({ settings: changed }),
+        });
+      }
+      if (Object.keys(orgPatch).length) {
+        await apiCall(`/organization`, {
+          method: "PUT",
+          body: JSON.stringify(orgPatch),
+        });
+        // Update org name in global context (e.g. top nav)
+        if (orgPatch.name && setOrgName) setOrgName(orgPatch.name);
+        // Refreshes the license cached by installation name; needs billing access, so it may fail.
+        if (orgPatch.installationName !== undefined) {
+          await apiCall(`/license`).catch(() => undefined);
+        }
+      }
+      await Promise.all([refreshOrganization(), mutateAgentSkills()]);
+    }, onInvalid)();
 
   const save = async () => {
     const count = dirtyCount;
     setSubmitError(null);
     setSavedCount(0);
-    await saveSettings();
+    let invalid = false;
+    await saveSettings(() => {
+      invalid = true;
+    });
+    if (invalid) {
+      setSubmitError("Some settings aren't valid. Fix them, then save again.");
+      return;
+    }
     // Only save prompts if the prompt form has changes
     if (dirtyPromptFields.length) {
+      const sent = promptForm.getValues();
       await savePrompts();
-      promptForm.reset(promptForm.getValues());
+      // What was sent is now saved; anything typed during the save stays unsaved.
+      const now = promptForm.getValues();
+      promptForm.reset(sent);
+      Object.keys(now).forEach((k) => {
+        if (now[k] !== sent[k]) {
+          promptForm.setValue(k, now[k], { shouldDirty: true });
+        }
+      });
       await mutatePrompts();
     }
     setSavedCount(count);
