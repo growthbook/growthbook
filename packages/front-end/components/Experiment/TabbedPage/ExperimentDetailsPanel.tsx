@@ -3,6 +3,7 @@ import { hasPendingScheduledStart } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { HoldoutInterfaceStringDates } from "shared/validators";
+import { DiscussionInterface } from "shared/types/discussion";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import ScrollArea from "@/ui/ScrollArea";
@@ -19,6 +20,8 @@ import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
+import useApi from "@/hooks/useApi";
 import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
@@ -59,6 +62,11 @@ export default function ExperimentDetailsPanel({
   const [infoSection, setInfoSection] = useState<InfoSection | null>(null);
   const [customFieldId, setCustomFieldId] = useState<string | null>(null);
   const [editingHoldout, setEditingHoldout] = useState(false);
+  // The thread's own request, so a new comment updates the count too.
+  const { data: discussionData } = useApi<{
+    discussion: DiscussionInterface;
+  }>(`/discussion/experiment/${experiment.id}`);
+  const commentCount = discussionData?.discussion?.comments?.length ?? 0;
   const editSection = (section: InfoSection, fieldId: string | null = null) => {
     setInfoSection(section);
     setCustomFieldId(fieldId);
@@ -160,7 +168,19 @@ export default function ExperimentDetailsPanel({
             }}
           >
             <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="comments">Comments</TabsTrigger>
+            <TabsTrigger value="comments">
+              Comments
+              {commentCount > 0 && (
+                <Badge
+                  label={commentCount.toString()}
+                  size="xs"
+                  color="gray"
+                  variant="soft"
+                  radius="full"
+                  ml="1"
+                />
+              )}
+            </TabsTrigger>
           </TabsList>
         </Flex>
         <ScrollArea fill style={{ flex: 1, minHeight: 0 }}>
