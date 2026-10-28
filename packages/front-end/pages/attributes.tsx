@@ -1,4 +1,5 @@
 import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
+import { SDKAttribute } from "shared/types/organization";
 import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
@@ -6,7 +7,7 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import RadixTooltip from "@/ui/Tooltip";
 import { useAttributeSchema } from "@/services/features";
 import AttributeModal from "@/components/Features/AttributeModal";
-import AddIdentifierModal from "@/components/Features/AddIdentifierModal";
+import IdentifierModal from "@/components/Features/IdentifierModal";
 import AttributeRowMenu from "@/components/Features/AttributeRowMenu";
 import ProjectBadges from "@/components/ProjectBadges";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -131,7 +132,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
 
   const [modalData, setModalData] = useState<null | string>(null);
-  const [addIdentifierOpen, setAddIdentifierOpen] = useState(false);
+  const [identifierModal, setIdentifierModal] = useState<{
+    existing?: SDKAttribute;
+  } | null>(null);
 
   // Column ids are namespaced `custom:<fieldId>`. Those ids are org-unique, so a
   // saved layout carried into another org just resolves away instead of breaking.
@@ -447,7 +450,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
           <Flex justify="center">
             <AttributeRowMenu
               attribute={v}
-              onEdit={() => setModalData(v.property)}
+              onEdit={() =>
+                v.hashAttribute
+                  ? setIdentifierModal({ existing: v })
+                  : setModalData(v.property)
+              }
             />
           </Flex>
         ),
@@ -539,7 +546,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 <Flex gap="3">
                   <Button
                     variant="outline"
-                    onClick={() => setAddIdentifierOpen(true)}
+                    onClick={() => setIdentifierModal({})}
                   >
                     Add Identifier
                   </Button>
@@ -675,10 +682,19 @@ const FeatureAttributesPage = (): React.ReactElement => {
           attribute={modalData}
         />
       )}
-      {addIdentifierOpen && (
-        <AddIdentifierModal
+      {identifierModal && (
+        <IdentifierModal
           source="attributes-page"
-          close={() => setAddIdentifierOpen(false)}
+          existing={identifierModal.existing}
+          close={() => setIdentifierModal(null)}
+          onOpenAttributeSettings={
+            identifierModal.existing
+              ? () => {
+                  setModalData(identifierModal.existing?.property ?? null);
+                  setIdentifierModal(null);
+                }
+              : undefined
+          }
         />
       )}
     </>

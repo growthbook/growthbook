@@ -36,22 +36,30 @@ router.post(
   AttributeController.postAttribute,
 );
 
+const identifierBody = z.strictObject({
+  property: z.string().min(1, "Attribute property cannot be empty"),
+  datatype: z.enum(["string", "number", "secureString"]),
+  description: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  customFields: z.record(z.string(), z.string()).optional(),
+  projects: z.array(z.string()),
+  datasources: z.array(
+    z.strictObject({ id: z.string(), userIdType: z.string() }),
+  ),
+});
+
 router.post(
   "/identifier",
-  validateRequestMiddleware({
-    body: z.strictObject({
-      property: z.string().min(1, "Attribute property cannot be empty"),
-      datatype: z.enum(["string", "number", "secureString"]),
-      description: z.string().optional(),
-      tags: z.array(z.string()).optional(),
-      customFields: z.record(z.string(), z.string()).optional(),
-      projects: z.array(z.string()),
-      datasources: z.array(
-        z.strictObject({ id: z.string(), column: z.string() }),
-      ),
-    }),
-  }),
+  validateRequestMiddleware({ body: identifierBody }),
   AttributeController.postIdentifier,
+);
+
+router.put(
+  "/identifier",
+  validateRequestMiddleware({
+    body: identifierBody.extend({ previousName: z.string().optional() }),
+  }),
+  AttributeController.putIdentifier,
 );
 
 router.put(

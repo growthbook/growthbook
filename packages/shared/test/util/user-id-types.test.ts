@@ -2,6 +2,7 @@ import {
   addAttributeToUserIdTypes,
   attributeToUserIdTypeName,
   isValidUserIdTypeName,
+  renameAttributeInUserIdTypes,
 } from "../../src/util/user-id-types";
 
 describe("isValidUserIdTypeName", () => {
@@ -109,5 +110,35 @@ describe("addAttributeToUserIdTypes", () => {
     expect(addAttributeToUserIdTypes(types, "team_id", "team_id")).toEqual(
       types,
     );
+  });
+});
+
+describe("renameAttributeInUserIdTypes", () => {
+  it("renames the attribute in every type that links it", () => {
+    expect(
+      renameAttributeInUserIdTypes(
+        [
+          { userIdType: "user_id", attributes: ["id", "teamId"] },
+          { userIdType: "team_id", attributes: ["teamId"] },
+          { userIdType: "device_id", attributes: ["deviceId"] },
+        ],
+        "teamId",
+        "orgTeamId",
+      ),
+    ).toEqual([
+      { userIdType: "user_id", attributes: ["id", "orgTeamId"] },
+      { userIdType: "team_id", attributes: ["orgTeamId"] },
+      { userIdType: "device_id", attributes: ["deviceId"] },
+    ]);
+  });
+
+  it("doesn't duplicate a name the type already links", () => {
+    expect(
+      renameAttributeInUserIdTypes(
+        [{ userIdType: "team_id", attributes: ["teamId", "orgTeamId"] }],
+        "teamId",
+        "orgTeamId",
+      ),
+    ).toEqual([{ userIdType: "team_id", attributes: ["orgTeamId"] }]);
   });
 });

@@ -44,6 +44,7 @@ export {
   addAttributeToUserIdTypes,
   attributeToUserIdTypeName,
   isValidUserIdTypeName,
+  renameAttributeInUserIdTypes,
 } from "./user-id-types";
 
 export type { DataRegion } from "./data-regions";

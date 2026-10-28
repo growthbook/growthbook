@@ -28,26 +28,43 @@ export function attributeToUserIdTypeName(attribute: string): string {
   return name || "id";
 }
 
-// Attributes that share a column share one identifier type.
+// Links the attribute to the identifier type, creating the type if it's new.
 export function addAttributeToUserIdTypes(
   userIdTypes: UserIdType[],
-  column: string,
+  userIdType: string,
   attribute: string,
   description?: string,
 ): UserIdType[] {
-  if (!userIdTypes.some((type) => type.userIdType === column)) {
+  if (!userIdTypes.some((type) => type.userIdType === userIdType)) {
     return [
       ...userIdTypes,
       {
-        userIdType: column,
+        userIdType,
         ...(description && { description }),
         attributes: [attribute],
       },
     ];
   }
   return userIdTypes.map((type) =>
-    type.userIdType !== column || type.attributes?.includes(attribute)
+    type.userIdType !== userIdType || type.attributes?.includes(attribute)
       ? type
       : { ...type, attributes: [...(type.attributes ?? []), attribute] },
+  );
+}
+
+export function renameAttributeInUserIdTypes(
+  userIdTypes: UserIdType[],
+  from: string,
+  to: string,
+): UserIdType[] {
+  return userIdTypes.map((type) =>
+    type.attributes?.includes(from)
+      ? {
+          ...type,
+          attributes: [
+            ...new Set(type.attributes.map((a) => (a === from ? to : a))),
+          ],
+        }
+      : type,
   );
 }
