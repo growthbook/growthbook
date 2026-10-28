@@ -533,6 +533,16 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, link.featureId);
     if (!feature)
       throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
+    // Linked again only once its rule is gone, or leaving: a second rule would
+    // serve the experiment twice.
+    if (
+      !experiment.pendingFeatureUnlinks?.includes(link.featureId) &&
+      (await flagHoldsExperimentRule(context, feature, experiment.id))
+    ) {
+      throw new BadRequestError(
+        `${link.featureId} is already linked to this experiment.`,
+      );
+    }
     await prevalidateFlagLink(
       linkCheck(context, plannedExperiment, feature, link),
     );

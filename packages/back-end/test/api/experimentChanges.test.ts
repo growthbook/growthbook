@@ -80,6 +80,14 @@ const seededPhases = (dateStarted: Date) => [
   },
 ];
 const collection = (name: string) => mongoose.connection.collection(name);
+// The flag with this experiment's rule gone, live and in every revision.
+const dropRule = async () => {
+  await collection("features").updateOne({ id: FLAG }, { $set: { rules: [] } });
+  await collection("featurerevisions").updateMany(
+    { featureId: FLAG },
+    { $set: { rules: [] } },
+  );
+};
 const setExperiment = (fields: Record<string, unknown>) =>
   collection("experiments").updateOne({ id: EXP }, { $set: fields });
 const arms = (a: string, b: string) => [
@@ -514,17 +522,23 @@ describe("applyExperimentChanges", () => {
     });
   });
 
-  it("links a flag again with the values sent", async () => {
+  it("links a flag again with the values sent, once its rule is gone", async () => {
     await seed({ withDraft: false });
-    await run({
+    const body: ExperimentChangesBody = {
       linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
-    });
+    };
+    await expect(run(body)).rejects.toThrow(
+      `${FLAG} is already linked to this experiment.`,
+    );
+    await dropRule();
+    await run(body);
     const added = await refRules("draft");
     expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
   });
 
   it("shows validation hooks the person saving as the author of a flag's new draft", async () => {
     await seed({ withDraft: false });
+    await dropRule();
     await collection("featurerevisions").updateOne(
       { featureId: FLAG, version: 1 },
       { $set: { createdBy: { type: "api_key", apiKey: "someone_else" } } },
@@ -597,6 +611,7 @@ describe("applyExperimentChanges", () => {
 
     it("refuses linking a flag again everywhere before writing anything, unless the save allows it", async () => {
       await seed({ withDraft: false });
+      await dropRule();
       const body: ExperimentChangesBody = {
         experiment: hypothesisChange("old"),
         linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
