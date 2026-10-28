@@ -1,4 +1,10 @@
-import React, { useCallback, useContext, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { PiCaretDownFill, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -752,9 +758,18 @@ function DashboardGrid({
   isGeneralDashboard,
   renderBlock,
 }: DashboardGridProps) {
-  const { width, containerRef, mounted } = useContainerWidth({
+  const {
+    width: measuredWidth,
+    containerRef,
+    mounted,
+  } = useContainerWidth({
     initialWidth: 1280,
   });
+  // Hidden with its tab, the container measures 0; holding the last real
+  // width keeps every block from collapsing and growing back when it shows.
+  const lastWidth = useRef(measuredWidth);
+  if (measuredWidth > 0) lastWidth.current = measuredWidth;
+  const width = lastWidth.current;
   const [openGapKey, setOpenGapKey] = useState<string | null>(null);
   const [isGridInteracting, setIsGridInteracting] = useState(false);
 

@@ -3787,6 +3787,12 @@ input:disabled {
 .dashboard-grid {
   position: relative;
 
+  // Blocks glide only while being arranged; otherwise a width change (the
+  // window, a side panel) would redraw every chart through each frame.
+  &:not(.is-editing) .react-grid-item {
+    transition: none;
+  }
+
   // Make sure each grid item is a clean stacking context so the inner
   // .appbox shadow/border don't get clipped by RGL's positioning. Also need
   // position:relative so the disabled-resize tooltip overlay can absolutely
