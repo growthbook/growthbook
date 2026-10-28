@@ -418,6 +418,25 @@
   }
 }
 
+// Those grays run the wrong way on a dark background, brightening as they
+// fade; there they start faded and brighten on hover.
+.dark-theme {
+  .gb-select__clear-indicator,
+  .gb-multi-select__clear-indicator,
+  .gb-select__raw-text-mode-indicator,
+  .gb-select__copy-button,
+  .gb-multi-select__copy-button,
+  .gb-multi-select__tag-button,
+  .gb-select__scope-toggle,
+  .gb-field-indicator {
+    color: var(--gray-a9) !important;
+
+    &:hover {
+      color: var(--gray-12) !important;
+    }
+  }
+}
+
 .gb-field-indicator:hover .gb-field-indicator__accent,
 .gb-field-indicator[data-state="open"] .gb-field-indicator__accent {
   color: var(--ruby-11);
