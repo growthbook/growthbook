@@ -1,13 +1,14 @@
 import { Fragment, ReactNode } from "react";
 import clsx from "clsx";
 import { PiCaretRightBold } from "react-icons/pi";
+import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import LinkButton from "@/ui/LinkButton";
 import ProjectSelector from "./ProjectSelector";
 import { usePageHead } from "./PageHead";
 import styles from "./HeaderBreadcrumb.module.scss";
 
 // From <PageHead breadcrumb>: the first crumb is the section, the last the
-// object.
+// object; any between them, such as a report's experiment, sit in between.
 
 function Separator({
   afterButton,
@@ -35,6 +36,7 @@ export default function HeaderBreadcrumb() {
 
   const section =
     breadcrumb.length >= 2 || breadcrumb[0]?.href ? breadcrumb[0] : null;
+  const middle = breadcrumb.slice(1, -1);
   const object =
     breadcrumb.length >= 2 ? breadcrumb[breadcrumb.length - 1] : null;
 
@@ -49,20 +51,22 @@ export default function HeaderBreadcrumb() {
     size: "sm",
     className: styles.headerButton,
   } as const;
-  if (section) {
-    if (section.href) buttonParts.add(parts.length);
+  const pushCrumb = (crumb: BreadcrumbItem, key: string) => {
+    if (crumb.href) buttonParts.add(parts.length);
     parts.push(
-      section.href ? (
-        <LinkButton key="section" href={section.href} {...crumbButtonProps}>
-          <span className={styles.projectName}>{section.display}</span>
+      crumb.href ? (
+        <LinkButton key={key} href={crumb.href} {...crumbButtonProps}>
+          <span className={styles.projectName}>{crumb.display}</span>
         </LinkButton>
       ) : (
-        <span key="section" className={styles.sectionText}>
-          {section.display}
+        <span key={key} className={styles.sectionText}>
+          {crumb.display}
         </span>
       ),
     );
-  }
+  };
+  if (section) pushCrumb(section, "section");
+  middle.forEach((crumb, i) => pushCrumb(crumb, `middle-${i}`));
   if (object) {
     // Not a button: it isn't an action.
     buttonParts.add(parts.length);

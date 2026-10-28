@@ -96,6 +96,9 @@ const BREAKPOINT_SWITCH_CLASS = "app-breakpoint-switch";
 const BREAKPOINT_SWITCH_MS = 150;
 // Below this width, opening the docked GrowthBot panel collapses the side nav.
 const AUTO_COLLAPSE_MAX_WIDTH = "(max-width: 1599px)";
+// While a saved collapsed rail is restored on load: no transition runs, so
+// it's drawn collapsed from the start instead of sliding shut (global.scss).
+const RAIL_RESTORE_CLASS = "app-rail-restore";
 // Matches .rail's width transition (AppRail.module.scss).
 const RAIL_WIDTH_TRANSITION_MS = 200;
 const ICON_SIZE = 18;
@@ -126,7 +129,25 @@ function useRailCollapsed(): [boolean, () => void] {
     } catch (e) {
       // Storage blocked: start expanded.
     }
-    setCollapsed(saved);
+    if (!saved) {
+      setCollapsed(false);
+      return;
+    }
+    // Something earlier in the load may already have measured the rail open,
+    // so without this its width would ease from there. Two frames: the next
+    // render applies the collapsed width, the one after paints it.
+    const root = document.documentElement;
+    root.classList.add(RAIL_RESTORE_CLASS);
+    let frame = requestAnimationFrame(() => {
+      frame = requestAnimationFrame(() =>
+        root.classList.remove(RAIL_RESTORE_CLASS),
+      );
+    });
+    setCollapsed(true);
+    return () => {
+      cancelAnimationFrame(frame);
+      root.classList.remove(RAIL_RESTORE_CLASS);
+    };
   }, [key]);
 
   const toggle = () => {

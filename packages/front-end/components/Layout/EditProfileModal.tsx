@@ -38,7 +38,7 @@ export default function EditProfileModal({ close }: { close: () => void }) {
       submit={() => onSubmit()}
       trackingEventModalType=""
     >
-      <TextField label="Name" {...form.register("name")} />
+      <TextField label="Name" mb="4" {...form.register("name")} />
       <Checkbox
         id="allowCelebration"
         label="Allow celebration"

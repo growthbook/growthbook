@@ -52,7 +52,7 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Experiments",
         href: "/experiments",
-        path: /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
+        path: /^(experiments(\/(?!template|explore)|$)|experiment\/)/,
       },
       {
         name: "Bandits",
@@ -76,7 +76,8 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Templates",
         href: "/experiments/templates",
-        path: /^experiments\/templates/,
+        // The list and a template's page (experiments/template/[tid]).
+        path: /^experiments\/templates?($|\/)/,
       },
       {
         name: "Power Calculator",
