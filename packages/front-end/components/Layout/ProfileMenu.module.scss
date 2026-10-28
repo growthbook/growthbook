@@ -71,32 +71,6 @@
   }
 }
 
-// With several organizations: the name and, under it, the current
-// organization, muted, both within the row's 32px.
-.railLabelStack {
-  display: flex;
-  flex-direction: column;
-}
-
-.railName,
-.railOrg {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.railName {
-  line-height: 17px;
-}
-
-.railOrg {
-  color: var(--rail-muted);
-  font-size: var(--font-size-1);
-  font-weight: var(--font-weight-regular);
-  line-height: 15px;
-}
-
 .reviewDot {
   position: absolute;
   top: -5px;
