@@ -108,6 +108,9 @@ interface ExperimentEditsValue {
   checkChanges: CheckChanges;
   checkAll: () => Promise<void>;
   allowUnload: () => void;
+  // A dialog that stages is open: clean edits keep what it opened against.
+  holdingBases: boolean;
+  holdBases: () => () => void;
 }
 
 // Runs the save's checks with `part` standing in for edit `id`'s share,
@@ -298,6 +301,11 @@ export function ExperimentEditsProvider({
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
+  const [holds, setHolds] = useState(0);
+  const holdBases = useCallback(() => {
+    setHolds((n) => n + 1);
+    return () => setHolds((n) => n - 1);
+  }, []);
   const [drifted, setDrifted] = useState<string[]>([]);
   const formId = useId();
   const form = useRef<HTMLFormElement>(null);
@@ -565,8 +573,12 @@ export function ExperimentEditsProvider({
       checkChanges,
       checkAll,
       allowUnload,
+      holdingBases: holds > 0,
+      holdBases,
     }),
     [
+      holds,
+      holdBases,
       scope,
       experiment,
       staged,
@@ -753,12 +765,28 @@ export function useEditBase<B>(
   const [base, setBase] = useStagedState<B | null>(editBaseSlot(slot), null);
   const latest = useRef(snapshot);
   latest.current = snapshot;
+  // Taken when a dialog opens over a clean edit, so what the dialog stages is
+  // judged against what it showed, not a refresh while it was open.
+  const held = useRef<{ base: B } | null>(null);
+  const holding = useContext(ExperimentEditsContext)?.holdingBases ?? false;
   useEffect(() => {
-    if (dirty && base === null) setBase(latest.current());
-    if (!dirty && base !== null) setBase(null);
-  }, [dirty, base, setBase]);
+    if (dirty) {
+      if (base === null) setBase(held.current?.base ?? latest.current());
+      held.current = null;
+      return;
+    }
+    if (base !== null) setBase(null);
+    if (!holding) held.current = null;
+    else if (!held.current) held.current = { base: latest.current() };
+  }, [dirty, base, setBase, holding]);
   const rebase = useCallback(() => setBase(latest.current()), [setBase]);
   return [base, rebase];
+}
+
+/** While a dialog that stages is open, clean edits keep what it opened against. */
+export function useHoldEditBases(open: boolean) {
+  const hold = useContext(ExperimentEditsContext)?.holdBases;
+  useEffect(() => (open ? hold?.() : undefined), [hold, open]);
 }
 
 /** What saving these fields would change against the experiment as it is now. */

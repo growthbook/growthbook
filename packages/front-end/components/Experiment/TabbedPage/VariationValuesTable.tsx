@@ -86,6 +86,7 @@ import {
   FlagEnvironmentsDraft,
   useExperimentEdits,
   useEditBase,
+  useHoldEditBases,
   useRegisterExperimentEdit,
   useStagedState,
 } from "./ExperimentEdits";
@@ -639,6 +640,7 @@ function FlagColumn({
     if (!group) flagEnvironments.set(feature.id, null);
   };
   const [editingValues, setEditingValues] = useState<string | null>(null);
+  useHoldEditBases(editingValues !== null || editEnvironments);
   const storedValue = (variationId: string) =>
     values.find((v) => v.variationId === variationId)?.value;
   const valueFor = (variationId: string) =>

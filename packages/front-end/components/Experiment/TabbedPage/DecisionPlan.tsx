@@ -13,7 +13,11 @@ import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useDecisionMakingSummary } from "./DecisionMakingSettings";
-import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
+import {
+  useExperimentFieldEdit,
+  useHoldEditBases,
+  useStagedState,
+} from "./ExperimentEdits";
 import { QuickEditRow } from "./QuickEditButton";
 import SetupFieldRow, { InfoTip } from "./SetupFieldRow";
 import { scheduledEnd, scheduleTimes } from "./statusSchedule";
@@ -105,6 +109,7 @@ export default function DecisionPlan({
   const [editing, setEditing] = useState<
     "schedule" | "endPlan" | "criteria" | "rules" | null
   >(null);
+  useHoldEditBases(editing !== null);
 
   const scheduleEditable =
     canEditSchedule && permissionsUtil.canUpdateExperiment(experiment, {});

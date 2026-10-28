@@ -1,6 +1,13 @@
+import { ReactNode } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { useForm } from "react-hook-form";
-import { useStagedState } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import {
+  ExperimentEditsProvider,
+  useEditBase,
+  useHoldEditBases,
+  useStagedState,
+} from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import { StopSubmit } from "@/ui/Modal/StopSubmit";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
@@ -32,6 +39,42 @@ describe("useStagedState", () => {
     act(() => result.current[1]("c"));
     rerender({ stored: "d" });
     expect(result.current[0]).toBe("d");
+  });
+});
+
+vi.mock("@/services/auth", () => ({ useAuth: () => ({ apiCall: vi.fn() }) }));
+vi.mock("@/hooks/useUnsavedChangesGuard", () => ({
+  default: () => ({ pendingHref: null, allowUnload: () => undefined }),
+}));
+
+describe("useEditBase", () => {
+  beforeEach(() => sessionStorage.clear());
+
+  const wrapper = ({ children }: { children: ReactNode }) => (
+    <ExperimentEditsProvider
+      experiment={{ id: "exp_1" } as ExperimentInterfaceStringDates}
+      mutate={() => undefined}
+    >
+      {children}
+    </ExperimentEditsProvider>
+  );
+
+  it("judges what a dialog stages against what it opened on, not a refresh", () => {
+    const { result, rerender } = renderHook(
+      ({ open, dirty, loaded }) => {
+        useHoldEditBases(open);
+        return useEditBase("field", dirty, () => loaded)[0];
+      },
+      { initialProps: { open: false, dirty: false, loaded: "a" }, wrapper },
+    );
+    rerender({ open: true, dirty: false, loaded: "a" });
+    rerender({ open: true, dirty: false, loaded: "refreshed" });
+    rerender({ open: false, dirty: true, loaded: "refreshed" });
+    expect(result.current).toBe("a");
+    // Without a dialog, the base is what's loaded when the edit starts.
+    rerender({ open: false, dirty: false, loaded: "b" });
+    rerender({ open: false, dirty: true, loaded: "b" });
+    expect(result.current).toBe("b");
   });
 });
 

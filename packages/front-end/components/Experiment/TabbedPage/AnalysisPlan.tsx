@@ -52,7 +52,11 @@ import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
-import { useExperimentFieldEdit, useStagedState } from "./ExperimentEdits";
+import {
+  useExperimentFieldEdit,
+  useHoldEditBases,
+  useStagedState,
+} from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
 import { RestrictedValue } from "./ProjectTagBar";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
@@ -489,6 +493,7 @@ export default function AnalysisPlan({
     .map((d) => ({ value: d.id, label: d.name }));
 
   const [editingDatasource, setEditingDatasource] = useState(false);
+  useHoldEditBases(overridesFor !== null || editingDatasource);
   const editDatasource =
     canEdit && !hiddenDatasource ? () => setEditingDatasource(true) : null;
 
