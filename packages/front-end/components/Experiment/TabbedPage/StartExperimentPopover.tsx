@@ -146,7 +146,7 @@ function StartContent({
   return (
     <Flex direction="column" gap="4">
       <Heading as="h4" size="sm" mb="0">
-        {getStartTitle(experiment, new Date())}
+        {getStartTitle(experiment, new Date(), true)}
       </Heading>
 
       <StartFailures failures={start.pendingDraftFailures} />

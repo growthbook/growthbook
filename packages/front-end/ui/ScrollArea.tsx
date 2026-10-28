@@ -10,6 +10,7 @@ import {
 } from "react";
 import { ScrollArea as RadixScrollArea } from "@radix-ui/themes";
 import clsx from "clsx";
+import { radixSize, Size } from "@/ui/sizes";
 import styles from "./ScrollArea.module.scss";
 
 type Edge = "top" | "bottom" | "left" | "right";
@@ -33,7 +34,7 @@ const ScrollArea = forwardRef<
     fill?: boolean;
     direction?: "vertical" | "horizontal" | "both";
     /** The scrollbar's thickness: 4, 8 or 12px. */
-    size?: "1" | "2" | "3";
+    size?: Size<"sm" | "md" | "lg">;
     /** Shows the scrollbars whenever the content overflows, not just on hover. */
     alwaysShow?: boolean;
     /**
@@ -58,7 +59,7 @@ const ScrollArea = forwardRef<
     gutter = false,
     fill = false,
     direction = "vertical",
-    size = "1",
+    size = "sm",
     alwaysShow = false,
     wheelScrollsSideways = false,
     edgeCue,
@@ -117,6 +118,20 @@ const ScrollArea = forwardRef<
     const onWheel = (e: WheelEvent) => {
       // A sideways swipe or shift-wheel already scrolls sideways.
       if (e.shiftKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      // A box inside that scrolls up and down keeps the wheel while it can.
+      for (
+        let node = e.target instanceof Element ? e.target : null;
+        node && node !== el;
+        node = node.parentElement
+      ) {
+        const room =
+          e.deltaY < 0
+            ? node.scrollTop > 0
+            : node.scrollTop + node.clientHeight < node.scrollHeight - 1;
+        if (room && /auto|scroll/.test(getComputedStyle(node).overflowY)) {
+          return;
+        }
+      }
       const max = el.scrollWidth - el.clientWidth;
       if (max <= 0) return;
       const unit =
@@ -149,7 +164,7 @@ const ScrollArea = forwardRef<
     <RadixScrollArea
       ref={viewport}
       type={alwaysShow ? "auto" : "hover"}
-      size={size}
+      size={radixSize(size)}
       scrollbars={direction}
       onScroll={onScroll}
       className={clsx(
@@ -167,7 +182,7 @@ const ScrollArea = forwardRef<
           ...(gutter && vertical && { paddingRight: "var(--space-3)" }),
           ...(sidewaysGutter &&
             overflowsSideways && {
-              paddingBottom: `calc(var(--space-${size}) + var(--space-1))`,
+              paddingBottom: `calc(var(--space-${radixSize(size)}) + var(--space-1))`,
             }),
           ...(fill && {
             display: "flex",

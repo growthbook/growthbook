@@ -292,7 +292,7 @@ export default function VariationValuesTable({
         {/* The pinned column shadows the left edge itself. */}
         <ScrollArea
           direction="horizontal"
-          size="2"
+          size="md"
           gutter
           wheelScrollsSideways
           edgeCue="shadow"

@@ -216,24 +216,28 @@ describe("getStartTitle", () => {
       startAt: null,
       next: null,
       expected: "Start Bandit",
+      heading: "Start Bandit",
     },
     {
       name: "a draft awaiting its schedule's approval",
       startAt: future,
       next: null,
-      expected: "Schedule Start",
+      expected: "Schedule start",
+      heading: "Schedule Start",
     },
     {
       name: "a draft whose schedule is approved",
       startAt: future,
       next: approvedStart,
-      expected: "Start Experiment",
+      expected: "Start experiment",
+      heading: "Start Experiment",
     },
     {
       name: "a draft whose schedule has passed",
       startAt: past,
       next: null,
-      expected: "Start Experiment",
+      expected: "Start experiment",
+      heading: "Start Experiment",
     },
   ] as {
     name: string;
@@ -241,21 +245,19 @@ describe("getStartTitle", () => {
     startAt: Date | null;
     next: TitleInput["nextScheduledStatusUpdate"];
     expected: string;
+    heading: string;
   }[])(
     "titles $name $expected",
-    ({ type = "standard", startAt, next, expected }) => {
-      expect(
-        getStartTitle(
-          {
-            type,
-            statusUpdateSchedule: startAt
-              ? { startAt: startAt.toISOString() }
-              : null,
-            nextScheduledStatusUpdate: next,
-          },
-          now,
-        ),
-      ).toBe(expected);
+    ({ type = "standard", startAt, next, expected, heading }) => {
+      const input: TitleInput = {
+        type,
+        statusUpdateSchedule: startAt
+          ? { startAt: startAt.toISOString() }
+          : null,
+        nextScheduledStatusUpdate: next,
+      };
+      expect(getStartTitle(input, now)).toBe(expected);
+      expect(getStartTitle(input, now, true)).toBe(heading);
     },
   );
 });

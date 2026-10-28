@@ -14,13 +14,17 @@ export function getStartSchedule(
   return scheduledStartAt > now ? "future" : "past";
 }
 
-/** The start popover's title: starting now, or approving a future start. */
+/**
+ * What starting does: start now, or approve a future start. A button label in
+ * sentence case, or with `heading`, the popover's Title Case heading.
+ */
 export function getStartTitle(
   experiment: Pick<
     ExperimentInterfaceStringDates,
     "type" | "statusUpdateSchedule" | "nextScheduledStatusUpdate"
   >,
   now: Date,
+  heading = false,
 ): string {
   const startAt = experiment.statusUpdateSchedule?.startAt;
   const startApproved = hasPendingScheduledStart(experiment);
@@ -28,12 +32,11 @@ export function getStartTitle(
     !startApproved &&
     getStartSchedule(startAt ? new Date(startAt) : null, now) === "future"
   ) {
-    return "Schedule Start";
+    return heading ? "Schedule Start" : "Schedule start";
   }
-  // The popover's heading, so Title Case.
-  return experiment.type === "multi-armed-bandit"
-    ? "Start Bandit"
-    : "Start Experiment";
+  // Bandit is a named resource; experiment is a common noun.
+  if (experiment.type === "multi-armed-bandit") return "Start Bandit";
+  return heading ? "Start Experiment" : "Start experiment";
 }
 
 type StartChecklist = {
