@@ -2165,6 +2165,7 @@ export async function buildSDKPayloadForConnection(
                 )
               : []),
           ],
+          environment,
         )
       : { features: scopedFeatures, carried: new Set<string>() };
 
@@ -2365,12 +2366,16 @@ async function loadMissingPrerequisites(
   context: ReqContext | ApiReqContext,
   features: FeatureInterface[],
   seedIds: string[] = [],
+  environment?: string,
 ): Promise<FeatureInterface[]> {
   const present = new Set(features.map((f) => f.id));
   const out = [...features];
 
   let wanted = [
-    ...new Set([...getPrerequisiteIdsInFeatures(features), ...seedIds]),
+    ...new Set([
+      ...getPrerequisiteIdsInFeatures(features, undefined, environment),
+      ...seedIds,
+    ]),
   ].filter((id) => !present.has(id));
 
   for (
@@ -2384,9 +2389,11 @@ async function loadMissingPrerequisites(
       present.add(f.id);
       out.push(f);
     });
-    wanted = getPrerequisiteIdsInFeatures(loaded).filter(
-      (id) => !present.has(id),
-    );
+    wanted = getPrerequisiteIdsInFeatures(
+      loaded,
+      undefined,
+      environment,
+    ).filter((id) => !present.has(id));
   }
 
   return out;
@@ -2410,6 +2417,7 @@ export async function getFeatureDefinitions(
       context,
       allFeatures,
       interleavingPrerequisiteIds(interleavings, environment, projectFilter),
+      environment,
     );
   }
   let experimentMap = await getAllPayloadExperiments(
@@ -2425,13 +2433,22 @@ export async function getFeatureDefinitions(
       args.capabilities,
     );
     for (let round = 0; round < MAX_PREREQUISITE_LOAD_ROUNDS; round++) {
-      const expanded = await loadMissingPrerequisites(context, allFeatures, [
-        ...getPrerequisiteIdsInFeatures(allFeatures, experimentMap),
-        ...getVisualExperimentPrerequisiteIds(
-          servedAutoExperiments(experimentMap.values(), args),
-        ),
-        ...cbSeeds,
-      ]);
+      const expanded = await loadMissingPrerequisites(
+        context,
+        allFeatures,
+        [
+          ...getPrerequisiteIdsInFeatures(
+            allFeatures,
+            experimentMap,
+            environment,
+          ),
+          ...getVisualExperimentPrerequisiteIds(
+            servedAutoExperiments(experimentMap.values(), args),
+          ),
+          ...cbSeeds,
+        ],
+        environment,
+      );
       if (expanded.length === allFeatures.length) break;
       allFeatures = expanded;
       const referenced = getReferenceIdsInFeatures(
