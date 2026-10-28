@@ -73,9 +73,11 @@ const Carousel: FC<{
           >
             <PiCaretLeft size={16} />
           </IconButton>
-          <Text color="text-mid" whiteSpace="nowrap">
-            {current + 1} of {num}
-          </Text>
+          <span className={styles.count}>
+            <Text color="text-mid" whiteSpace="nowrap">
+              {current + 1} of {num}
+            </Text>
+          </span>
           <IconButton
             type="button"
             variant="ghost"

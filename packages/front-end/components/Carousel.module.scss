@@ -27,6 +27,13 @@
   transition: opacity 100ms ease;
 }
 
+// Wide enough for "35 of 35", so paging never changes the ribbon's width.
+.count {
+  width: 7ch;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
 .carousel:hover .ribbon,
 .carousel:focus-within .ribbon {
   opacity: 1;
