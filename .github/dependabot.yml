@@ -9,3 +9,5 @@ updates:
     groups:
       github-actions:
         patterns: ["*"]
+        # Majors get their own PRs so breaking changes aren't approved as routine.
+        update-types: ["minor", "patch"]
