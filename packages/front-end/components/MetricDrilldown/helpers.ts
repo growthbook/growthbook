@@ -1,3 +1,4 @@
+import { omit } from "lodash";
 import {
   getMetricResultStatus,
   setAdjustedPValuesOnResults,
@@ -14,6 +15,25 @@ import {
 import { ExperimentReportResultDimension } from "shared/types/report";
 import { MetricDefaults } from "shared/types/organization";
 import { ExperimentTableRow } from "@/services/experiments";
+
+export function getMetricDrilldownDebugVariations(
+  variations: SnapshotMetric[],
+  supplementalField?: keyof NonNullable<SnapshotMetric["supplementalResults"]>,
+): SnapshotMetric[] {
+  return variations.map((variation) =>
+    // Corrections on the main result do not apply to its supplemental analyses.
+    omit(
+      {
+        ...variation,
+        ...(supplementalField
+          ? variation.supplementalResults?.[supplementalField]
+          : null),
+      },
+      "pValueAdjusted",
+      "ciAdjusted",
+    ),
+  );
+}
 
 export function filterRowsForMetricDrilldown(
   rows: ExperimentTableRow[],
