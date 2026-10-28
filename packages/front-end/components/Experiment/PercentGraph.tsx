@@ -122,6 +122,7 @@ export default function PercentGraph({
   const { Trigger } = useResultPopover({
     enabled: !!showPopover,
     positioning: "element",
+    pointsAtMean: true,
     data: {
       stats,
       metric,
