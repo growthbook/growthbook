@@ -808,6 +808,34 @@ describe("applyExperimentChanges", () => {
     ]);
   });
 
+  it("refuses rewriting a rule only drafts hold for someone who can't edit them", async () => {
+    await seed({ withDraft: true });
+    await collection("features").updateOne(
+      { id: FLAG },
+      { $set: { rules: [] } },
+    );
+    await collection("featurerevisions").updateOne(
+      { featureId: FLAG, version: 1 },
+      { $set: { rules: [] } },
+    );
+    context = makeContext({ role: "readonly" });
+    const experiment = await getExperimentById(context, EXP);
+    const feature = await getFeature(context, FLAG);
+    if (!experiment || !feature) throw new Error("missing fixtures");
+    await expect(
+      removeRulesForDeletedExperiment({
+        context,
+        experiment,
+        features: [feature],
+        eventAudit: { type: "api_key", apiKey: "key" },
+        audit: async () => undefined,
+      }),
+    ).rejects.toThrow("no authority to edit its drafts");
+    expect(await refRules("draft")).toEqual([
+      expect.objectContaining({ experimentId: EXP }),
+    ]);
+  });
+
   describe("targeting", () => {
     const US = '{"country":"US"}';
 

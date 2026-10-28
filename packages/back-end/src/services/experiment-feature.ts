@@ -1307,15 +1307,18 @@ function assertDraftsEditable(drafts: FeatureRevisionInterface[]) {
   }
 }
 
+// Returns the open drafts holding the rule.
 async function assertDraftsWithRuleEditable(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   refersToExperiment: (r: FeatureRule) => boolean,
-): Promise<void> {
+): Promise<FeatureRevisionInterface[]> {
   const hasRule = holdsRule(refersToExperiment);
-  assertDraftsEditable(
-    (await openDraftsOf(context, feature)).filter((d) => hasRule(d.rules)),
+  const drafts = (await openDraftsOf(context, feature)).filter((d) =>
+    hasRule(d.rules),
   );
+  assertDraftsEditable(drafts);
+  return drafts;
 }
 
 const removalLog =
@@ -1606,8 +1609,20 @@ async function resolveRulesForExperiment({
   const bypassFor = new Map<string, boolean>();
   for (const feature of features) {
     // A locked draft would refuse its rewrite after live has landed.
-    await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
-    if (!(feature.rules ?? []).some(refersToExperiment)) continue;
+    const draftsWithRule = await assertDraftsWithRuleEditable(
+      context,
+      feature,
+      refersToExperiment,
+    );
+    const liveHasRule = (feature.rules ?? []).some(refersToExperiment);
+    // The cleanup rewrites the drafts of every flag holding the rule.
+    if (
+      (liveHasRule || draftsWithRule.length) &&
+      !context.permissions.canEditFeatureDrafts(feature)
+    ) {
+      throw refuse(feature, "no authority to edit its drafts");
+    }
+    if (!liveHasRule) continue;
     const envs = Array.from(
       getEnabledEnvironments(feature, context.environments),
     );
