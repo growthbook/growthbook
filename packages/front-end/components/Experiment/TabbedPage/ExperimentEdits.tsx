@@ -401,11 +401,16 @@ export function ExperimentEditsProvider({
         }
       }
     } finally {
+      // One changed while it saved stays staged, over what it saved. Judged
+      // before the refetch, which moves a saved edit's share by itself.
+      const settled = saved.map(({ edit, sent }) => ({
+        edit,
+        unchanged: isEqual(dryRunShare(edit), sent),
+      }));
       // Cleared once the refetch lands, so the page never shows the old values.
       if (posted) await mutate();
-      // One changed while it saved stays staged, over what it saved.
-      saved.forEach(({ edit, sent }) => {
-        if (isEqual(dryRunShare(edit), sent)) edit.onSaved?.();
+      settled.forEach(({ edit, unchanged }) => {
+        if (unchanged) edit.onSaved?.();
         else rebaseOnRender.current.push(edit);
       });
       if (rebaseOnRender.current.length) setRefetched((n) => n + 1);

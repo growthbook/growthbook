@@ -38,6 +38,7 @@ import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
 import SetupFieldRow from "./SetupFieldRow";
 import { QuickEditRow } from "./QuickEditButton";
+import { useExperimentEdits } from "./ExperimentEdits";
 
 /** One boxed group of advanced analysis settings. */
 export function SettingsCard({
@@ -169,6 +170,7 @@ export default function AnalysisPlanAdvanced({
   const tuningParameter =
     settled.sequentialTestingTuningParameter ??
     DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
+  const edits = useExperimentEdits();
   // Typed as text, so "0." can be on its way to a valid value.
   const [tuningText, setTuningText] = useState(String(tuningParameter));
   useEffect(() => {
@@ -302,11 +304,19 @@ export default function AnalysisPlanAdvanced({
                         <Field
                           type="number"
                           min="0"
+                          step="any"
+                          required
+                          // On the page's form, so a value it can't take
+                          // stops the save rather than saving the last one.
+                          form={edits?.formId}
                           containerClassName="mb-0"
                           value={tuningText}
                           onChange={(e) => {
                             setTuningText(e.target.value);
                             const value = parseFloat(e.target.value);
+                            e.target.setCustomValidity(
+                              value > 0 ? "" : "Enter a number above 0.",
+                            );
                             if (value > 0) {
                               stage({
                                 sequentialTestingTuningParameter: value,
