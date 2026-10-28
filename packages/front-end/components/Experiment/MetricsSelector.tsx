@@ -450,17 +450,25 @@ const MetricsSelector: FC<{
       // Official metrics first within each analysis level, then by name.
       const byLevel = (clusterLevel: boolean) =>
         filteredOptions
-          .filter((option) => !!option.clusterLevel === clusterLevel)
+          .filter(
+            (option) =>
+              !option.isGroup && !!option.clusterLevel === clusterLevel,
+          )
           .sort(
             (a, b) =>
               Number(!a.managedBy) - Number(!b.managedBy) ||
               a.name.localeCompare(b.name),
           )
           .map(toSingleValue);
-      // Labels are the identifiers; formatClusterGroupLabel renders the heading.
+      // A metric group can mix levels, so groups get their own heading.
+      const metricGroupOptions = filteredOptions
+        .filter((option) => option.isGroup)
+        .map(toSingleValue);
+      // Level labels are the identifiers; formatClusterGroupLabel renders them.
       return [
         { label: userIdType, options: byLevel(false) },
         { label: clusterIdType, options: byLevel(true) },
+        { label: "Metric groups", options: metricGroupOptions },
       ].filter((group) => group.options.length > 0);
     }
     if (groupOptions) {
@@ -524,12 +532,15 @@ const MetricsSelector: FC<{
   }, [filteredOptions, groupOptions, clusterIdType, userIdType]);
 
   const formatClusterGroupLabel = useCallback(
-    ({ label }: GroupedValue) => (
-      <>
-        Analyzed per <IdentifierCode>{label}</IdentifierCode>
-      </>
-    ),
-    [],
+    ({ label }: GroupedValue) =>
+      label === userIdType || label === clusterIdType ? (
+        <>
+          Analyzed per <IdentifierCode>{label}</IdentifierCode>
+        </>
+      ) : (
+        label
+      ),
+    [userIdType, clusterIdType],
   );
 
   const multiFormatOptionLabel = useCallback(
