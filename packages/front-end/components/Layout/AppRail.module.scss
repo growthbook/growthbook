@@ -246,6 +246,10 @@
   --rail-fade-bottom: 0;
 }
 
+.sections.sectionsOverflow {
+  padding-bottom: var(--space-6);
+}
+
 // Expanded, the scrollbar's space is kept whether or not the sections scroll,
 // so opening one that starts them scrolling doesn't shift the rows sideways
 // under the pointer. Collapsed, the icons fill the width, so there's none.
