@@ -11,7 +11,10 @@ import {
 } from "shared/types/experiment-snapshot";
 import { MetricInterface, MetricType } from "shared/types/metric";
 import { QueryStatistics } from "shared/types/query";
-import type { ExposureQuery } from "shared/types/datasource";
+import type {
+  ExposureQuery,
+  ExposureQueryColumnMapping,
+} from "shared/types/datasource";
 import {
   FactTableMap,
   ColumnInterface,
@@ -331,7 +334,10 @@ export type TestQueryParams = {
 };
 
 export type ColumnTopValuesParams = {
-  factTable: Pick<FactTableInterface, "sql" | "eventName" | "timestampColumn">;
+  factTable: Pick<
+    FactTableInterface,
+    "sql" | "eventName" | "timestampColumn" | "columns"
+  >;
   columns: ColumnInterface[];
   limit?: number;
   lookbackDays: number;
@@ -350,6 +356,7 @@ export interface ExperimentUnitsQuerySettings {
   exposureQuery: ResolvedExposureQuery;
   startDate: Date;
   endDate: Date;
+  endDateIsCutoff?: boolean;
   skipPartialData: boolean;
   attributionModel: AttributionModel;
   queryFilter: string;
@@ -455,8 +462,9 @@ export interface InsertMetricSourceDataQueryParams {
   metrics: FactMetricInterface[];
   lastMaxTimestamp: Date | null;
   lastMaxTimestampRaw?: string | null;
-  // Wall-clock start of the refresh. The fact table scan never runs past it,
-  // so a row stamped ahead of the refresh can't become the cache watermark.
+  // Latest timestamp the fact table scan may load: the refresh's start time
+  // for an ended phase, the analysis end date for a running one. A row past it
+  // can't become the cache watermark.
   incrementalRefreshStartTime: Date;
 }
 
@@ -587,7 +595,11 @@ type UnitsSource = "exposureQuery" | "exposureTable" | "otherQuery";
  * Deliberately not shaped like `ExposureQuery`, so an unresolved query can't
  * be passed where a resolved one is expected.
  */
-export type ResolvedExposureQuery = { query: string; identifierType: string };
+export type ResolvedExposureQuery = {
+  query: string;
+  identifierType: string;
+  columnMapping?: ExposureQueryColumnMapping;
+};
 
 export interface ExperimentMetricQueryParams extends ExperimentBaseQueryParams {
   metric: MetricInterface;
@@ -867,16 +879,19 @@ export type DimensionSlicesQueryResponseRows = {
 
 export type ContextualBanditSrmQueryResponseRows = {
   /**
-   * Chi-square statistic: SUM((observed - expected)^2 / expected) over the
-   * usable cells (expected >= 5) of the kept (leaf_id, bandit_version)
-   * groups (those with at least 2 usable cells).
+   * "summary" carries the overall statistic + degrees_of_freedom (across all
+   * bandit periods). "cell" rows carry raw observed/expected per leaf &
+   * variation for the most recent bandit period only.
    */
+  row_type: "summary" | "cell";
   statistic: number;
-  /**
-   * Degrees of freedom computed in SQL as
-   * (sum of usable cells across kept groups) - (number of kept groups).
-   */
   degrees_of_freedom: number;
+  bandit_version: string;
+  leaf_id: string;
+  variation: string;
+  observed: number;
+  expected: number;
+  multiple_exposures: number;
 }[];
 
 export type MaxTimestampQueryResponseRow = {

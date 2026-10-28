@@ -43,6 +43,7 @@ import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import useApi from "@/hooks/useApi";
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import Metadata from "@/ui/Metadata";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import ChanceToWinThresholdField from "@/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField";
 import PValueThresholdField from "@/components/GeneralSettings/ExperimentSettings/PValueThresholdField";
 import Callout from "@/ui/Callout";
@@ -221,15 +222,11 @@ const ProjectPage: FC = () => {
               ) : null}
             </Flex>
             <Flex gap="6" mb="4">
-              <Metadata label="ID" value={<Text mono>{p.id}</Text>} />
+              <Metadata label="ID" value={<CopyableCode value={p.id} />} />
               {p.publicId && (
                 <Metadata
                   label="Public ID (SDK payloads)"
-                  value={
-                    <Text color="text-low" mono>
-                      {p.publicId}
-                    </Text>
-                  }
+                  value={<CopyableCode value={p.publicId} muted />}
                 />
               )}
             </Flex>

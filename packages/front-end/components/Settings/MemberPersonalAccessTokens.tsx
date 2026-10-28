@@ -190,14 +190,14 @@ const MemberPersonalAccessTokens: FC = () => {
               />
             )}
           </Flex>
-          <Table variant="surface">
+          <Table variant="surface" minTableWidth={720}>
             <TableHeader>
-              <TableRow>
+              <TableRow style={{ whiteSpace: "nowrap" }}>
                 <SortableTableColumnHeader field="memberName">
                   Member
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="description">
-                  Description
+                  Name
                 </SortableTableColumnHeader>
                 <SortableTableColumnHeader field="lastUsedSort">
                   Last used

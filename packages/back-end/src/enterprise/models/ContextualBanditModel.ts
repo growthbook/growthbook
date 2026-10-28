@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from "uuid";
 import {
   apiContextualBanditCancelReturn,
   apiContextualBanditLifecycleReturn,
+  apiContextualBanditListVisualChangesetsReturn,
+  apiContextualBanditPostVisualChangesetsReturn,
   apiContextualBanditRefreshReturn,
   apiContextualBanditVariationsReturn,
   apiCreateContextualBanditBody,
@@ -12,11 +14,14 @@ import {
   assertContextualAttributesValid,
   cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
+  ContextualBanditAnalysisSummary,
   contextualBanditApiSpec,
   ContextualBanditInterface,
   ContextualBanditVariation,
   contextualBanditValidator,
   LeafWeight,
+  listContextualBanditVisualChangesetsEndpoint,
+  postContextualBanditVisualChangesetsEndpoint,
   refreshContextualBanditEndpoint,
   startContextualBanditEndpoint,
   stopContextualBanditEndpoint,
@@ -30,14 +35,28 @@ import {
   getContextualBanditIdsFromRules,
 } from "shared/util";
 import type { FeatureInterface } from "shared/types/feature";
-import { isFactMetricId } from "shared/experiments";
-import { NotFoundError } from "back-end/src/util/errors";
+import {
+  contextualBanditHasServableVisualChanges,
+  isFactMetricId,
+} from "shared/experiments";
+import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
+import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
+import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  createVisualChangeset,
+  deleteVisualChangesetsByContextualBandit,
+  findVisualChangesetsByContextualBandit,
+  toVisualChangesetApiInterface,
+} from "back-end/src/models/VisualChangesetModel";
+import { ContextualBanditChangesetOwner } from "back-end/src/services/changesetOwner";
 import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
 import { assertRegisteredAttributes } from "back-end/src/services/attributes";
 import {
+  contextualBanditUpdateAffectsPayload,
   executeContextualBanditStart,
   executeContextualBanditStop,
   refreshLinkedFeaturePayloads,
@@ -54,7 +73,6 @@ import {
   MakeModelClass,
 } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { VisualChangesetModel } from "back-end/src/models/VisualChangesetModel";
 import {
   contextualBanditChangeActions,
   pinnedFields,
@@ -69,13 +87,25 @@ type LinkageChanges = Partial<
   Pick<ContextualBanditInterface, "linkedFeatures" | "pendingFeatureDrafts">
 >;
 
+type WriteOptions = {
+  skipSDKRefresh?: boolean;
+};
+
 const BaseClass = MakeModelClass({
   schema: contextualBanditValidator,
   collectionName: "contextualbandits",
   idPrefix: "cb_",
   globallyUniquePrimaryKeys: true,
-  skipAuditLogFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
-  skipDateUpdatedFields: ["nextSnapshotAttempt", "lastSnapshotAttempt"],
+  skipAuditLogFields: [
+    "nextSnapshotAttempt",
+    "lastSnapshotAttempt",
+    "analysisSummary",
+  ],
+  skipDateUpdatedFields: [
+    "nextSnapshotAttempt",
+    "lastSnapshotAttempt",
+    "analysisSummary",
+  ],
   defaultValues: {
     holdoutPercent: 0,
     archived: false,
@@ -124,9 +154,15 @@ const BaseClass = MakeModelClass({
             cb,
           );
           if (linkedFeatures.length === 0) {
-            throw new Error(
-              "Link at least one Feature Flag before starting this contextual bandit",
+            const changesets = await findVisualChangesetsByContextualBandit(
+              cb.id,
+              req.context.org.id,
             );
+            if (!contextualBanditHasServableVisualChanges(cb, changesets)) {
+              throw new Error(
+                "Link at least one Feature Flag or save an AI Visual Editor change before starting this Contextual Bandit",
+              );
+            }
           }
           const queued = await queuedDraftsHold(
             req.context,
@@ -259,6 +295,81 @@ const BaseClass = MakeModelClass({
           return { status: 200 };
         },
       }),
+      defineCustomApiHandler({
+        ...postContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditPostVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const owner = new ContextualBanditChangesetOwner(req.context, cb);
+          if (!owner.canCreateChangeset()) {
+            req.context.permissions.throwPermissionError();
+          }
+          owner.assertCanCreateChangeset();
+          const connections = await findSDKConnectionsByOrganization(
+            req.context,
+          );
+          if (
+            !someConnectionSupportsCapabilities({
+              connections,
+              capabilities: ["visualEditor", "contextualBanditsAuto"],
+              project: cb.project ?? "",
+            })
+          ) {
+            throw new BadRequestError(
+              "None of the SDK Connections in this Contextual Bandit's Project support Contextual Bandit visual changes. Upgrade an SDK Connection to a supported version first.",
+            );
+          }
+          const urlPatterns: VisualChangesetURLPattern[] =
+            req.body.urlPatterns.map((p) => ({
+              type: p.type,
+              pattern: p.pattern,
+              include: p.include ?? true,
+            }));
+
+          const visualChangeset = await createVisualChangeset({
+            owner,
+            urlPatterns,
+            editorUrl: req.body.editorUrl,
+            context: req.context,
+          });
+
+          return {
+            visualChangeset: toVisualChangesetApiInterface(visualChangeset),
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...listContextualBanditVisualChangesetsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<
+          z.infer<typeof apiContextualBanditListVisualChangesetsReturn>
+        > => {
+          const cb = await req.context.models.contextualBandits.getById(
+            req.params.id,
+          );
+          if (!cb) {
+            return req.context.throwNotFoundError();
+          }
+          const changesets = await findVisualChangesetsByContextualBandit(
+            cb.id,
+            req.context.org.id,
+          );
+          return {
+            visualChangesets: changesets.map((vc) =>
+              toVisualChangesetApiInterface(vc),
+            ),
+          };
+        },
+      }),
     ],
   },
 });
@@ -316,12 +427,14 @@ export function toApiContextualBandit(
     conversionWindowUnit: doc.conversionWindowUnit,
     stage: doc.stage,
     stageDateStarted: doc.stageDateStarted?.toISOString(),
+    analysisSummary: doc.analysisSummary,
     autoSnapshots: doc.autoSnapshots,
     nextSnapshotAttempt: doc.nextSnapshotAttempt?.toISOString(),
+    hasVisualChangesets: doc.hasVisualChangesets,
   };
 }
 
-export class ContextualBanditModel extends BaseClass {
+export class ContextualBanditModel extends BaseClass<WriteOptions> {
   protected migrate(legacyDoc: unknown): ContextualBanditInterface {
     const doc = legacyDoc as ContextualBanditInterface;
     return {
@@ -338,6 +451,13 @@ export class ContextualBanditModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("contextual-bandits");
+  }
+
+  public getUnarchivedByIds(
+    ids: string[],
+  ): Promise<ContextualBanditInterface[]> {
+    if (!ids.length) return Promise.resolve([]);
+    return this._find({ id: { $in: ids }, archived: { $ne: true } });
   }
 
   public findVisualByName(
@@ -410,8 +530,6 @@ export class ContextualBanditModel extends BaseClass {
       );
     }
 
-    // Targeting reaches the SDK payload through the linked feature's rule, so it
-    // gets the rule write checks. Changed fields only, as on feature rules.
     await validateChangedRuleReferences(
       [doc],
       previousDoc ? [previousDoc] : [],
@@ -561,13 +679,22 @@ export class ContextualBanditModel extends BaseClass {
 
   protected async afterUpdate(
     existing: ContextualBanditInterface,
-    _updates: Partial<ContextualBanditInterface>,
+    updates: Partial<ContextualBanditInterface>,
     newDoc: ContextualBanditInterface,
+    writeOptions?: WriteOptions,
   ) {
-    if (existing.archived !== newDoc.archived) {
+    if (writeOptions?.skipSDKRefresh) return;
+    if (!contextualBanditUpdateAffectsPayload(existing, updates, newDoc))
+      return;
+    await refreshLinkedFeaturePayloads(
+      this.context,
+      newDoc,
+      "contextualBandit.refresh",
+    );
+    if ((existing.project || "") !== (newDoc.project || "")) {
       await refreshLinkedFeaturePayloads(
         this.context,
-        newDoc,
+        existing,
         "contextualBandit.refresh",
       );
     }
@@ -586,14 +713,12 @@ export class ContextualBanditModel extends BaseClass {
     await this.context.models.contextualBanditEvents.deleteForContextualBandit(
       doc.id,
     );
-    await VisualChangesetModel.deleteMany({
-      contextualBandit: doc.id,
-      organization: this.context.org.id,
-    });
+    await deleteVisualChangesetsByContextualBandit(doc.id, this.context.org.id);
+    if (doc.status === "draft") return;
     await refreshLinkedFeaturePayloads(
       this.context,
       doc,
-      "contextualBandit.delete",
+      "contextualBandit.refresh",
     );
   }
 
@@ -666,6 +791,17 @@ export class ContextualBanditModel extends BaseClass {
     return refreshed;
   }
 
+  public async patchAnalysisSummary(
+    cbId: string,
+    analysisSummary: ContextualBanditAnalysisSummary,
+  ): Promise<void> {
+    const existingCB = await this.getById(cbId);
+    if (!existingCB) {
+      throw new Error(`ContextualBandit not found: ${cbId}`);
+    }
+    await this.update(existingCB, { analysisSummary });
+  }
+
   public async activatePendingVariationsForFeature(
     feature: FeatureInterface,
   ): Promise<void> {
@@ -717,9 +853,7 @@ export class ContextualBanditModel extends BaseClass {
   }
 
   /**
-   * Every bandit relevant to planning one feature's linkage, in a single query:
-   * those still holding an entry for it (however stale) union those its rules
-   * currently reference (which may not hold an entry yet).
+   * Every bandit relevant to planning one feature's linkage, in a single query.
    */
   public getLinkageCandidates(
     featureId: string,

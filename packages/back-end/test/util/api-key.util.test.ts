@@ -168,6 +168,32 @@ describe("api key utils", () => {
       expect(migrated.role).toEqual("readonly");
     });
 
+    it("should let a key saved as rejecting Requested-By accept it", () => {
+      const migrated = migrateApiKey({
+        role: "admin",
+        secret: true,
+        requesterHeader: "rejected",
+        dateCreated: new Date(),
+      });
+
+      expect(migrated.actAs).toBeUndefined();
+      expect(migrated).not.toHaveProperty("requesterHeader");
+    });
+
+    it("should make a key saved as requiring Requested-By a User key", () => {
+      const migrated = migrateApiKey({
+        role: "admin",
+        secret: true,
+        requesterHeader: "required",
+        requesterPermissions: "key",
+        dateCreated: new Date(),
+      });
+
+      expect(migrated.actAs).toEqual("user");
+      expect(migrated).not.toHaveProperty("requesterHeader");
+      expect(migrated).not.toHaveProperty("requesterPermissions");
+    });
+
     it("should still default a roleless org secret key to admin", () => {
       const migrated = migrateApiKey({
         role: undefined,
@@ -233,6 +259,7 @@ describe("arming API key ids", () => {
     expect(decodeArmingApiKeyId("key_abc")).toEqual({
       apiKeyId: "key_abc",
       requesterId: null,
+      oauth: null,
     });
   });
 
@@ -242,7 +269,19 @@ describe("arming API key ids", () => {
     expect(decodeArmingApiKeyId(id)).toEqual({
       apiKeyId: "key_abc",
       requesterId: "u_123",
+      oauth: null,
     });
+  });
+
+  it("round-trips an OAuth sign-in, whatever its client id holds", () => {
+    const oauth = {
+      clientId: "https://agent.example/c:1@x",
+      userId: "u_123",
+      armedAt: 1767225600000,
+    };
+    expect(
+      decodeArmingApiKeyId(encodeArmingApiKeyId("key_abc", undefined, oauth)),
+    ).toEqual({ apiKeyId: "key_abc", requesterId: null, oauth });
   });
 });
 
@@ -251,12 +290,8 @@ describe("apiKeyEventUser", () => {
   const key = { description: "CI key" };
 
   it.each([
-    ["assumes their role", key, true],
-    [
-      "keeps its own role",
-      { ...key, requesterPermissions: "key" as const },
-      false,
-    ],
+    ["acts as them, as a User key", { ...key, actAs: "user" as const }, true],
+    ["keeps its own role, as a System key", key, false],
   ])("records an org key naming a member that %s", (_, apiKey, assumed) => {
     expect(
       apiKeyEventUser({

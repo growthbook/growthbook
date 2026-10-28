@@ -157,6 +157,18 @@ export function getSnapshotAnalysis(
   );
 }
 
+/**
+ * The latest timestamp a snapshot reads any data through: its end date when
+ * that is a cutoff, otherwise null (conversion windows may run past it).
+ */
+export function getSnapshotCutoffDate(
+  settings: Partial<
+    Pick<ExperimentSnapshotSettings, "endDate" | "endDateIsCutoff">
+  >,
+): Date | null {
+  return settings.endDateIsCutoff ? (settings.endDate ?? null) : null;
+}
+
 export function findAnalysisComputeFailure(
   analysis: ExperimentSnapshotAnalysis | SafeRolloutSnapshotAnalysis | null,
 ): { metricId: string; errorMessage: string | null } | null {
@@ -488,6 +500,35 @@ export function ruleProjectScope(rule: {
   return Array.isArray(rule.projects) ? rule.projects : [];
 }
 
+export type FeatureRuleScope = {
+  allEnvironments?: boolean;
+  environments?: string[];
+  allProjects?: boolean;
+  projects?: string[];
+};
+
+// Applies in every environment and every project.
+export function isUnscopedRule(rule: FeatureRuleScope): boolean {
+  if (!rule || typeof rule !== "object") return false;
+  const allEnvironments =
+    !!rule.allEnvironments || rule.environments === undefined;
+  return allEnvironments && ruleProjectScope(rule) === null;
+}
+
+// Unscoped rules a write adds, or ones it widens from a narrower scope.
+export function getNewlyUnscopedRules<
+  T extends FeatureRuleScope & { id: string },
+>(rules: T[], previousRules: T[]): T[] {
+  const previous = new Map(
+    previousRules.filter((rule) => rule.id).map((rule) => [rule.id, rule]),
+  );
+  return rules.filter((rule) => {
+    if (!isUnscopedRule(rule)) return false;
+    const before = previous.get(rule.id);
+    return !before || !isUnscopedRule(before);
+  });
+}
+
 // Effective delivery Projects for a rule. Unlike attribute discovery, an
 // empty primary Project remains its own delivery scope, represented by "".
 export function getRuleTargetingProjectIds(
@@ -803,6 +844,8 @@ export function ratioVarianceFromSums({
 // Targeting names a saved group in its condition, its saved-group list, or a
 // prerequisite's condition; all three reach the SDK payload. Conditions hold
 // the id as a JSON string, so match it quoted and not as a bare substring.
+// A derived remote group ID such as "grp_vip:parent_id" also uses "grp_vip";
+// group IDs never contain ":", so the `"<id>:` prefix only matches those.
 export function targetingReferencesSavedGroup(
   targeting: {
     condition?: string | null;
@@ -812,10 +855,14 @@ export function targetingReferencesSavedGroup(
   savedGroupId: string,
 ): boolean {
   const quoted = `"${savedGroupId}"`;
+  const derivedPrefix = `"${savedGroupId}:`;
+  const conditionReferences = (condition?: string | null) =>
+    !!condition &&
+    (condition.includes(quoted) || condition.includes(derivedPrefix));
   return (
-    !!targeting.condition?.includes(quoted) ||
+    conditionReferences(targeting.condition) ||
     !!targeting.savedGroups?.some((g) => g.ids.includes(savedGroupId)) ||
-    !!targeting.prerequisites?.some((p) => p.condition?.includes(quoted))
+    !!targeting.prerequisites?.some((p) => conditionReferences(p.condition))
   );
 }
 

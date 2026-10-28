@@ -1,0 +1,13 @@
+version: 2
+updates:
+  # Actions are pinned to commit SHAs; this keeps the pins and their
+  # version comments current, as one grouped PR a month.
+  - package-ecosystem: github-actions
+    directories: ["/", "/.github/actions/*"]
+    schedule:
+      interval: monthly
+    groups:
+      github-actions:
+        patterns: ["*"]
+        # Majors get their own PRs so breaking changes aren't approved as routine.
+        update-types: ["minor", "patch"]

@@ -61,6 +61,14 @@ describe("getContextualBanditSrmQuery", () => {
     );
     expect(c).toContain("__rn=1");
 
+    expect(c).toContain(
+      "MIN(variation)OVER(PARTITIONBYuid,leaf_id,bandit_version)AS__min_variation",
+    );
+    expect(c).toContain(
+      "MAX(variation)OVER(PARTITIONBYuid,leaf_id,bandit_version)AS__max_variation",
+    );
+    expect(c).toContain("__min_variation=__max_variation");
+
     expect(c).toContain("variation='0'");
     expect(c).toContain("variation='1'");
     expect(c).not.toContain("var_control");
@@ -85,6 +93,30 @@ describe("getContextualBanditSrmQuery", () => {
       "COALESCE(SUM(num_valid_cells),0)-COUNT(*)ASdegrees_of_freedom",
     );
     expect(c).toContain("ASdegrees_of_freedom");
+
+    // Latest-period breakdown: a summary row plus one cell row per leaf/variation
+    // for the most recent bandit_version, discriminated by row_type. The latest
+    // period is chosen by most-recent exposure timestamp, not by ordering the
+    // free-form bandit_version column (which could sort '9' after '10').
+    expect(c).toContain("MAX(timestamp)ASlatest_ts");
+    expect(c).toContain("ROW_NUMBER()OVER(ORDERBYMAX(latest_ts)DESC)AS__vrn");
+    expect(c).toContain("__cbLatestVersion");
+    expect(c).toContain("__cbLatestBreakdown");
+    expect(c).toContain("ASrow_type");
+    expect(c).toContain("'summary'");
+    expect(c).toContain("'cell'");
+    expect(c).toContain(
+      "JOIN__cbLatestVersionvON(a.bandit_version=v.bandit_version)",
+    );
+
+    // Multiple-exposure users: distinct users who saw >1 variation within a
+    // single (leaf_id, bandit_version) cell are counted (period-scoped so
+    // legitimate cross-period reassignment is not flagged) and attached to the
+    // summary row via a CROSS JOIN.
+    expect(c).toContain("__cbMultipleExposures");
+    expect(c).toContain("COUNT(DISTINCTuid)ASmultiple_exposures");
+    expect(c).toContain("__min_variation<>__max_variation");
+    expect(c).toContain("CROSSJOIN__cbMultipleExposures");
   });
 
   it("emits one observed/expected pair and array index per variation", () => {
@@ -107,7 +139,9 @@ describe("getContextualBanditSrmQuery", () => {
     expect(c).toContain("ASobserved_2");
     expect(c).toContain("ASexpected_2");
     expect(c).not.toContain("num_variations");
-    expect(sql.match(/UNION ALL/gi)?.length).toBe(2);
+    // __cbCells (3 SELECTs => 2) + __cbLatestBreakdown (3 SELECTs => 2) +
+    // the summary/breakdown union (1) = 5.
+    expect(sql.match(/UNION ALL/gi)?.length).toBe(5);
   });
 
   it("omits the upper time bound when endDate is not set", () => {
@@ -122,6 +156,23 @@ describe("getContextualBanditSrmQuery", () => {
 
     expect(c).toContain("e.timestamp>=");
     expect(c).not.toContain("e.timestamp<=");
+  });
+
+  it("applies the units queryFilter so it matches the traffic query's population", () => {
+    const sql = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams(
+        { var_control: "0", var_treatment: "1" },
+        { queryFilter: "e.country = 'US'" },
+      ),
+    );
+    expect(compact(sql)).toContain("AND(e.country='US')");
+
+    const withoutFilter = getContextualBanditSrmQuery(
+      postgresDialect,
+      makeParams({ var_control: "0", var_treatment: "1" }),
+    );
+    expect(compact(withoutFilter)).not.toContain("e.country");
   });
 
   it("throws when there are no variations", () => {
