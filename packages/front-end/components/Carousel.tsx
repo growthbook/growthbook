@@ -7,18 +7,17 @@ import {
   ReactNode,
   ReactElement,
 } from "react";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
+import Text from "@/ui/Text";
 import styles from "./Carousel.module.scss";
 
 const Carousel: FC<{
   children: ReactNode;
   maxChildHeight?: number;
-  // The arrows centre on this much of the top, so whichever image shows, and
-  // however tall, they stay put.
-  minHeight?: number;
   onClick?: (i: number) => void;
-}> = ({ children, maxChildHeight, minHeight, onClick }) => {
+}> = ({ children, maxChildHeight, onClick }) => {
   const [active, setActive] = useState(0);
 
   const num = Children.count(children);
@@ -34,16 +33,10 @@ const Carousel: FC<{
   }
 
   const current = active >= num ? num - 1 : active;
-  const controlPosition = minHeight
-    ? { bottom: "auto", height: minHeight }
-    : undefined;
 
   return (
-    <div className="carousel slide">
-      <div
-        className={clsx("carousel-inner", styles.slides)}
-        style={{ minHeight }}
-      >
+    <div className={clsx("carousel", styles.carousel)}>
+      <div className="carousel-inner">
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;
           return (
@@ -63,42 +56,38 @@ const Carousel: FC<{
           );
         })}
       </div>
-      {current > 0 ? (
-        <a
-          className="carousel-control-prev"
-          style={controlPosition}
-          role="button"
-          onClick={(e) => {
-            e.preventDefault();
-            setActive((current + num - 1) % num);
-          }}
-        >
-          <span className="carousel-control-prev-icon" aria-hidden="true">
-            <PiCaretLeft />
-          </span>
-          <span className="sr-only">Previous</span>
-        </a>
-      ) : (
-        ""
-      )}
-      {current < num - 1 ? (
-        <a
-          className="carousel-control-next"
-          style={controlPosition}
-          role="button"
-          onClick={(e) => {
-            e.preventDefault();
-            setActive((current + 1) % num);
-          }}
-        >
-          <span className="carousel-control-next-icon" aria-hidden="true">
-            <PiCaretRight />
-          </span>
-          <span className="sr-only">Next</span>
-        </a>
-      ) : (
-        ""
-      )}
+      {num > 1 ? (
+        // Pinned to the top, so it stays put whatever each image's height.
+        <Flex align="center" gap="1" className={styles.ribbon}>
+          <IconButton
+            type="button"
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="2"
+            aria-label="Previous image"
+            disabled={current === 0}
+            onClick={() => setActive(current - 1)}
+          >
+            <PiCaretLeft size={16} />
+          </IconButton>
+          <Text size="sm" color="text-mid" whiteSpace="nowrap">
+            {current + 1} of {num}
+          </Text>
+          <IconButton
+            type="button"
+            variant="ghost"
+            color="gray"
+            radius="full"
+            size="2"
+            aria-label="Next image"
+            disabled={current === num - 1}
+            onClick={() => setActive(current + 1)}
+          >
+            <PiCaretRight size={16} />
+          </IconButton>
+        </Flex>
+      ) : null}
     </div>
   );
 };

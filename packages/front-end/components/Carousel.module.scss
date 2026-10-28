@@ -1,18 +1,34 @@
-// Every slide shares one cell, so the carousel keeps its tallest image's
-// height: paging moves neither its controls nor what's below it.
-.slides {
-  display: grid;
-}
-
-// From the top, where the arrows sit, however tall the image runs.
 .slide {
-  grid-area: 1 / 1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: center;
-  visibility: hidden;
+  display: none;
 }
 
 .active {
-  visibility: visible;
+  display: block;
+}
+
+// Out of the way until the carousel is pointed at or tabbed into.
+.ribbon {
+  position: absolute;
+  top: var(--space-1);
+  left: 50%;
+  z-index: 1;
+  transform: translateX(-50%);
+  padding: 2px var(--space-1);
+  border-radius: var(--radius-5);
+  background-color: var(--color-panel-solid);
+  box-shadow: var(--shadow-2);
+  opacity: 0;
+  transition: opacity 100ms ease;
+}
+
+.carousel:hover .ribbon,
+.carousel:focus-within .ribbon {
+  opacity: 1;
+}
+
+// Nothing to hover on a touch screen, so it simply shows.
+@media (hover: none) {
+  .ribbon {
+    opacity: 1;
+  }
 }

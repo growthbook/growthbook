@@ -25,9 +25,8 @@ import styles from "./VariationsTable.module.scss";
 
 // A small marker, so an empty variation doesn't reserve screenshot-sized space.
 const NO_IMAGE_SIZE = 42;
-// Roughly a landscape screenshot at a card's width: the least a carousel
-// takes, and where its arrows centre, whatever the image's own height.
-const IMAGE_FRAME_HEIGHT = 150;
+// The stand-in for a screenshot that won't load.
+const UNAVAILABLE_IMAGE_HEIGHT = 150;
 
 // Narrower than this and a card has no room for a name beside its controls.
 const MIN_VARIATION_WIDTH = 220;
@@ -68,7 +67,7 @@ const ScreenshotCarousel: FC<{
         width="100%"
         style={{
           backgroundColor: "var(--slate-a3)",
-          height: IMAGE_FRAME_HEIGHT + "px",
+          height: UNAVAILABLE_IMAGE_HEIGHT + "px",
           width: "100%",
           color: "var(--slate-a9)",
         }}
@@ -87,7 +86,6 @@ const ScreenshotCarousel: FC<{
         if (onClick && path && !failedPaths.current.has(path)) onClick(i);
       }}
       maxChildHeight={maxChildHeight}
-      minHeight={IMAGE_FRAME_HEIGHT}
     >
       {variation.screenshots.map((s) => (
         <AuthorizedImage
@@ -99,7 +97,6 @@ const ScreenshotCarousel: FC<{
             width: "100%",
             height: "100%",
             objectFit: "contain",
-            objectPosition: "top",
           }}
           onErrorMsg={(msg) => handleError(s.path, msg)}
           isPublic={isPublic}
