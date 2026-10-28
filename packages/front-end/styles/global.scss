@@ -71,12 +71,17 @@ html.app-rail-collapsed {
     --app-rail-width: 240px;
   }
 }
-// Crossing 1180px by resizing (AppRail.tsx): no transition runs, and one under
-// way ends, so the layout switches at once.
+// Crossing 1180px by resizing, or restoring a saved collapsed side nav on load
+// (AppRail.tsx): no transition runs, and one under way ends, so the layout
+// switches at once.
 html.app-breakpoint-switch,
 html.app-breakpoint-switch *,
 html.app-breakpoint-switch *::before,
-html.app-breakpoint-switch *::after {
+html.app-breakpoint-switch *::after,
+html.app-rail-restore,
+html.app-rail-restore *,
+html.app-rail-restore *::before,
+html.app-rail-restore *::after {
   transition: none !important;
 }
 // While the side nav's drawer is open, the page behind it doesn't scroll.
