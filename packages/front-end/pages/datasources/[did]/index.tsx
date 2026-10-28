@@ -212,16 +212,20 @@ const DataSourcePage: FC = () => {
   ] = useState(false);
   const router = useRouter();
   const [tab, setTab] = useURLHash(DATA_SOURCE_TABS);
-  // Deep links from before tabs existed point at an anchor inside Queries,
-  // not a DATA_SOURCE_TABS id, so useURLHash leaves the anchor stranded in
-  // the URL. Open Queries and scroll to it once.
+  // A full page load renders on the server, where the shared hook cannot see
+  // the hash, so read it once here. Legacy anchors are not tab ids; open
+  // Queries and scroll to them.
   const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
   useEffect(() => {
-    const legacyHash = window.location.hash.slice(1);
-    const legacyTab = LEGACY_ANCHOR_TABS[legacyHash];
+    const hash = window.location.hash.slice(1);
+    const legacyTab = LEGACY_ANCHOR_TABS[hash];
     if (legacyTab) {
-      setPendingAnchor(legacyHash);
+      setPendingAnchor(hash);
       setTab(legacyTab);
+      return;
+    }
+    if ((DATA_SOURCE_TABS as readonly string[]).includes(hash)) {
+      setTab(hash as (typeof DATA_SOURCE_TABS)[number]);
     }
     // Only ever relevant for the hash the page loaded with.
     // eslint-disable-next-line react-hooks/exhaustive-deps

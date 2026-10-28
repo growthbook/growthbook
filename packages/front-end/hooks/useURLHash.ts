@@ -23,20 +23,20 @@ import { useCallback, useEffect, useState } from "react";
  * );
  * ```
  */
-function readHash<Id extends string>(
-  validIds: readonly Id[] | undefined,
-): Id | undefined {
-  const urlHash = globalThis?.window ? window.location.hash.slice(1) || "" : "";
-  if (validIds === undefined) {
-    return urlHash === "" ? undefined : (urlHash as Id);
-  }
-  return validIds.includes(urlHash as Id) ? (urlHash as Id) : validIds[0];
-}
-
 export default function useURLHash<Id extends string>(
   validIds: readonly Id[] | undefined = undefined,
 ) {
-  const [hash, setHashState] = useState(() => readHash(validIds));
+  const [hash, setHashState] = useState(() => {
+    // Get initial hash from URL
+    const urlHash = globalThis?.window
+      ? window.location.hash.slice(1) || ""
+      : "";
+    if (validIds === undefined) {
+      return urlHash === "" ? undefined : urlHash;
+    } else {
+      return validIds.includes(urlHash as Id) ? urlHash : validIds[0];
+    }
+  });
 
   const setHashAndURL = useCallback(
     (newHash: Id) => {
@@ -57,18 +57,12 @@ export default function useURLHash<Id extends string>(
     [validIds],
   );
 
-  // The initializer runs during server render, where there is no hash.
-  // Read it again after mount so a full load of #settings opens that tab.
-  useEffect(() => {
-    setHashState(readHash(validIds));
-  }, [validIds]);
-
-  // Listen for URL changes. replaceState does not fire this.
+  // Listen for URL changes
   useEffect(() => {
     const handler = () => {
       const newHash = window.location.hash.slice(1) || "";
       if (validIds === undefined || validIds.includes(newHash as Id)) {
-        setHashState(newHash === "" ? undefined : (newHash as Id));
+        setHashState(newHash === "" ? undefined : newHash);
       }
     };
 
