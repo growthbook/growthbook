@@ -10,14 +10,9 @@ import {
   hasActualChanges,
   toDataSourceApiInterface,
   removeProjectFromDatasources,
-  getDataSourcesByIds,
 } from "back-end/src/models/DataSourceModel";
 import { testQueryValidity } from "back-end/src/services/datasource";
-import {
-  getConfigDatasourcesWithoutUpgrade,
-  usingFileConfig,
-} from "back-end/src/init/config";
-import { logger } from "back-end/src/util/logger";
+import { usingFileConfig } from "back-end/src/init/config";
 import { ReqContext } from "back-end/types/request";
 import { getCollection } from "back-end/src/util/mongo.util";
 import {
@@ -677,66 +672,5 @@ describe("removeProjectFromDatasources", () => {
       (await datasources().findOne({ id: "ds_other_org" }))?.projects,
     ).toEqual(["prj_a"]);
     expect(await queryProjects("ds_other_org")).toEqual([["prj_a"]]);
-  });
-});
-
-describe("getDataSourcesByIds with config.yml", () => {
-  const context = { org: { id: "org_1" } } as unknown as ReqContext;
-  const configDatasource = (
-    id: string,
-    settings: unknown = {},
-  ): DataSourceInterface =>
-    ({
-      id,
-      name: id,
-      description: "",
-      organization: "org_1",
-      type: "mixpanel",
-      params: "",
-      settings,
-      dateCreated: null,
-      dateUpdated: null,
-    }) as DataSourceInterface;
-  const malformed = { queries: { exposure: "not-an-array" } };
-
-  beforeEach(() => {
-    mockedUsingFileConfig.mockReturnValue(true);
-  });
-  afterEach(() => {
-    mockedUsingFileConfig.mockReset();
-    jest.restoreAllMocks();
-  });
-
-  it("ignores a malformed data source that wasn't requested", async () => {
-    jest
-      .mocked(getConfigDatasourcesWithoutUpgrade)
-      .mockReturnValue([
-        configDatasource("ds_a"),
-        configDatasource("ds_bad", malformed),
-      ]);
-    const errorSpy = jest.spyOn(logger, "error").mockImplementation();
-
-    const result = await getDataSourcesByIds(context, ["ds_a"]);
-
-    expect(result.map((ds) => ds.id)).toEqual(["ds_a"]);
-    expect(errorSpy).not.toHaveBeenCalled();
-  });
-
-  it("skips and logs a requested malformed data source", async () => {
-    jest
-      .mocked(getConfigDatasourcesWithoutUpgrade)
-      .mockReturnValue([
-        configDatasource("ds_a"),
-        configDatasource("ds_bad", malformed),
-      ]);
-    const errorSpy = jest.spyOn(logger, "error").mockImplementation();
-
-    const result = await getDataSourcesByIds(context, ["ds_a", "ds_bad"]);
-
-    expect(result.map((ds) => ds.id)).toEqual(["ds_a"]);
-    expect(errorSpy).toHaveBeenCalledWith(
-      expect.any(Error),
-      "Data Source ds_bad has malformed stored settings and was treated as missing",
-    );
   });
 });

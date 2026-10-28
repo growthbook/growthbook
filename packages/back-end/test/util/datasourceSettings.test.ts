@@ -2,6 +2,7 @@ import { DataSourceInterface } from "shared/types/datasource";
 import {
   assertDatasourceSettingsReadable,
   upgradeReadableDatasources,
+  upgradeReadableDatasourcesByIds,
 } from "back-end/src/util/datasourceSettings";
 import { logger } from "back-end/src/util/logger";
 
@@ -84,5 +85,34 @@ describe("upgradeReadableDatasources", () => {
       1,
     );
     expect(logger.error).not.toHaveBeenCalled();
+  });
+});
+
+describe("upgradeReadableDatasourcesByIds", () => {
+  beforeEach(() => {
+    jest.mocked(logger.error).mockClear();
+  });
+
+  it("ignores a malformed data source that wasn't requested", () => {
+    const result = upgradeReadableDatasourcesByIds(
+      [makeDatasource("ds_a"), makeDatasource("ds_bad", malformedSettings)],
+      ["ds_a"],
+    );
+
+    expect(result.map((ds) => ds.id)).toEqual(["ds_a"]);
+    expect(logger.error).not.toHaveBeenCalled();
+  });
+
+  it("skips and logs a requested malformed data source", () => {
+    const result = upgradeReadableDatasourcesByIds(
+      [makeDatasource("ds_a"), makeDatasource("ds_bad", malformedSettings)],
+      ["ds_a", "ds_bad"],
+    );
+
+    expect(result.map((ds) => ds.id)).toEqual(["ds_a"]);
+    expect(logger.error).toHaveBeenCalledWith(
+      expect.any(Error),
+      "Data Source ds_bad has malformed stored settings and was treated as missing",
+    );
   });
 });

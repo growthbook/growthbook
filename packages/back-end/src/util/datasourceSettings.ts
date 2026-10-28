@@ -36,3 +36,12 @@ export function upgradeReadableDatasources(
     }
   });
 }
+
+export function upgradeReadableDatasourcesByIds(
+  datasources: DataSourceInterface[],
+  ids: string[],
+): DataSourceInterface[] {
+  return upgradeReadableDatasources(
+    datasources.filter((d) => ids.includes(d.id)),
+  );
+}

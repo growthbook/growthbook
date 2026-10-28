@@ -42,6 +42,7 @@ import { upgradeDatasourceObject } from "back-end/src/util/migrations";
 import {
   assertDatasourceSettingsReadable,
   upgradeReadableDatasources,
+  upgradeReadableDatasourcesByIds,
 } from "back-end/src/util/datasourceSettings";
 import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
@@ -285,10 +286,9 @@ export async function getDataSourcesByIds(
   ids: string[],
 ) {
   if (usingFileConfig()) {
-    return upgradeReadableDatasources(
-      getConfigDatasourcesWithoutUpgrade(context.org.id).filter((d) =>
-        ids.includes(d.id),
-      ),
+    return upgradeReadableDatasourcesByIds(
+      getConfigDatasourcesWithoutUpgrade(context.org.id),
+      ids,
     );
   }
 
