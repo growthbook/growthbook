@@ -1,14 +1,18 @@
 import React, { FC, useCallback, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowRight, PiPlus } from "react-icons/pi";
 import { EventWebHookInterface } from "shared/types/event-webhook";
 import useApi from "@/hooks/useApi";
 import { useAuth } from "@/services/auth";
 import { EventWebHookEditParams } from "@/components/EventWebHooks/utils";
 import { EventWebHookAddEditModal } from "@/components/EventWebHooks/EventWebHookAddEditModal/EventWebHookAddEditModal";
-import { docUrl, DocLink } from "@/components/DocLink";
+import { DocLink } from "@/components/DocLink";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import { EventWebHookListItem } from "./EventWebHookListItem/EventWebHookListItem";
 
@@ -47,14 +51,13 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       ) : null}
 
       <SettingsPageHeader
+        as="h2"
         title="Webhooks"
-        description={
-          <>
-            Monitor specific events globally across features and experiments.{" "}
-            <DocLink docSection="eventWebhooks">View docs</DocLink>
-          </>
+        actions={
+          <Button icon={<PiPlus />} onClick={onCreateModalOpen}>
+            Add webhook
+          </Button>
         }
-        actions={<Button onClick={onCreateModalOpen}>New event webhook</Button>}
       />
 
       {/* Feedback messages */}
@@ -66,27 +69,23 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
 
       {/* Empty state*/}
       {eventWebHooks.length === 0 && (
-        <div className="row">
-          <div className="col" />
-          <div className="col-4 d-flex flex-column justify-content-center text-center">
-            <h2>Monitor Specific Events</h2>
-            <p>
-              Send targeted notifications to popular apps like Discord and
-              Slack. Apply globally for all features and experiments, or filter
-              by environment, project, or tags.
-            </p>
-            <Flex justify="center" gap="2">
-              <Button
-                variant="outline"
-                onClick={() => window.open(docUrl("eventWebhooks"), "_blank")}
-              >
-                Setup instructions
-              </Button>
-              <Button onClick={onCreateModalOpen}>New event webhook</Button>
-            </Flex>
-          </div>
-          <div className="col" />
-        </div>
+        <Frame py="7">
+          <Flex direction="column" align="center" gap="2">
+            <Heading as="h3" size="lg">
+              Monitor Specific Events
+            </Heading>
+            <Box maxWidth="560px">
+              <Text as="p" align="center" color="text-mid" mb="2">
+                Send targeted notifications to popular apps like Discord and
+                Slack. Apply globally for all features and experiments, or
+                filter by environment, project, or tags.
+              </Text>
+            </Box>
+            <DocLink docSection="eventWebhooks">
+              Setup instructions <PiArrowRight />
+            </DocLink>
+          </Flex>
+        </Frame>
       )}
 
       {eventWebHooks.length > 0 && (
