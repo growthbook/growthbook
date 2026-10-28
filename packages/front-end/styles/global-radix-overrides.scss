@@ -63,7 +63,9 @@
   }
   .rt-SplitButtonLeft.outline,
   .rt-SplitButtonMiddle.outline {
-    overflow: hidden;
+    // Trims the overlap below sideways only, so the top and bottom edges and
+    // the focus ring aren't cut.
+    overflow-x: clip;
     & > * {
       margin-right: -1px;
     }
