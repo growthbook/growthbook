@@ -5,7 +5,7 @@ import { ExperimentPhaseStringDates } from "shared/types/experiment";
 import { Box, Flex } from "@radix-ui/themes";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { phaseSummary } from "@/services/utils";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
 
@@ -52,8 +52,9 @@ export default function PhaseSelector({
     if (isValueContext) {
       // Collapsed/selected value mode - show tooltip version
       return (
+        // Closes once pressed, so it stays out of the way of the menu.
         <Tooltip
-          body={
+          content={
             <>
               {/* A Bandit's phases read as one run, so only its dates. */}
               {!isBandit && (
@@ -69,10 +70,10 @@ export default function PhaseSelector({
               {details ? <Box mt={isBandit ? "0" : "2"}>{details}</Box> : null}
             </>
           }
-          shouldDisplay={!isBandit || !!details}
-          tipPosition="top"
+          enabled={!isBandit || !!details}
+          side="top"
         >
-          <>
+          <span>
             <span className="font-weight-bold">
               {!isHoldout
                 ? "Phase "
@@ -92,7 +93,7 @@ export default function PhaseSelector({
                 : date(phase.dateStarted ?? "", "UTC")}{" "}
               - {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
             </span>
-          </>
+          </span>
         </Tooltip>
       );
     }
