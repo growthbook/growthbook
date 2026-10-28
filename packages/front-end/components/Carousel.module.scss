@@ -13,8 +13,8 @@
   left: 50%;
   z-index: 1;
   transform: translateX(-50%);
-  padding: var(--space-1);
-  border-radius: var(--radius-5);
+  // Hugs its round buttons.
+  border-radius: 9999px;
   // See-through, but blurred enough to read over any image.
   background-color: color-mix(
     in srgb,

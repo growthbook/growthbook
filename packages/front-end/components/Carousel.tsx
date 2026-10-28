@@ -66,6 +66,8 @@ const Carousel: FC<{
             radius="full"
             size="2"
             aria-label="Previous image"
+            // Radix ghost buttons carry a negative margin.
+            style={{ margin: 0 }}
             disabled={current === 0}
             onClick={() => setActive(current - 1)}
           >
@@ -81,6 +83,7 @@ const Carousel: FC<{
             radius="full"
             size="2"
             aria-label="Next image"
+            style={{ margin: 0 }}
             disabled={current === num - 1}
             onClick={() => setActive(current + 1)}
           >
