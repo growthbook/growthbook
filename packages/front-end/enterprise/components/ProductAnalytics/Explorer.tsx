@@ -58,6 +58,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   sql: "SQL",
   funnel: "Funnel",
   journey: "User Journey",
+  population: "Population",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({

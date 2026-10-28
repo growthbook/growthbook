@@ -535,6 +535,50 @@ export default defineConfig([
     },
   },
   {
+    // Published standalone: no workspace packages at runtime (tests may use shared).
+    files: ["./packages/dbt/src/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["shared", "shared/*", "*back-end*", "*front-end*"],
+              message:
+                "@growthbook/dbt is published on its own and cannot import workspace packages.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["./packages/dbt/src/cli.ts"],
+
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
+    files: ["./packages/remote-saved-groups-csv-parser/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*back-end*", "*front-end*", "**/shared*", "**/sdk-*"],
+              message:
+                "remote-saved-groups-csv-parser has no dependencies: GrowthBook and its loaders both use it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["./packages/sdk-{js,react}/**/*"],
 
     rules: {
@@ -644,6 +688,8 @@ export default defineConfig([
       "./packages/sdk-js/src/**/*.{ts,tsx}",
       "./packages/sdk-react/src/**/*.{ts,tsx}",
       "./packages/stats-ts/src/**/*.{ts,tsx}",
+      "./packages/dbt/src/**/*.{ts,tsx}",
+      "./packages/remote-saved-groups-csv-parser/src/**/*.{ts,tsx}",
     ],
 
     // Exclude test dirs everywhere: shared/test and back-end/test are outside
