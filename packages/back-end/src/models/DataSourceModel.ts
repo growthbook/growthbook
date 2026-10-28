@@ -36,6 +36,7 @@ import {
 import {
   usingFileConfig,
   getConfigDatasources,
+  getConfigDatasourcesWithoutUpgrade,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
 import {
@@ -284,8 +285,10 @@ export async function getDataSourcesByIds(
   ids: string[],
 ) {
   if (usingFileConfig()) {
-    return getConfigDatasources(context.org.id).filter((d) =>
-      ids.includes(d.id),
+    return upgradeReadableDatasources(
+      getConfigDatasourcesWithoutUpgrade(context.org.id).filter((d) =>
+        ids.includes(d.id),
+      ),
     );
   }
 
