@@ -170,3 +170,75 @@ describe("generateRowsForMetric funnel under a slice-tag filter", () => {
     ).toBe(true);
   });
 });
+
+// The drilldown builds a funnel's slice rows from these, so a row the back end
+// never computed shows up there as "no data".
+describe("generateRowsForMetric funnel slice rows across step tables", () => {
+  const makeFactTable = (
+    id: string,
+    overrides: Record<string, unknown> = {},
+  ): FactTableDefinition =>
+    ({
+      id,
+      columns: [
+        {
+          column: "browser",
+          datatype: "string",
+          deleted: false,
+          isAutoSliceColumn: true,
+          autoSlices: ["Chrome", "Safari"],
+          ...overrides,
+        },
+      ],
+      userIdTypes: [],
+      userIdColumns: {},
+    }) as unknown as FactTableDefinition;
+
+  const crossTableFunnel = {
+    ...funnelMetric,
+    metricAutoSlices: ["browser"],
+    funnelSettings: {
+      steps: STEP_NAMES.map((name, i) => ({
+        name,
+        factTableId: i === 0 ? "ft_a" : "ft_b",
+        rowFilters: [],
+        optional: false,
+      })),
+    },
+  } as unknown as FunnelFactMetricInterface;
+
+  const sliceRowIds = (secondTableOverrides: Record<string, unknown>) => {
+    const factTables = new Map([
+      ["ft_a", makeFactTable("ft_a")],
+      ["ft_b", makeFactTable("ft_b", secondTableOverrides)],
+    ]);
+    return generateRowsForMetric({
+      metricId: crossTableFunnel.id,
+      resultGroup: "goal",
+      results,
+      metricOverrides: [],
+      shouldShowMetricSlices: true,
+      getExperimentMetricById: (id) =>
+        id === crossTableFunnel.id ? crossTableFunnel : null,
+      getFactTableById: (id) => factTables.get(id) ?? null,
+      expandedMetrics: { [`${crossTableFunnel.id}:goal`]: true },
+    })
+      .filter((row) => row.isSliceRow)
+      .map((row) => row.sliceId);
+  };
+
+  it("emits a row per level when every step supports the column", () => {
+    expect(sliceRowIds({})).toEqual([
+      `${FUNNEL_METRIC_ID}?dim:browser=Chrome`,
+      `${FUNNEL_METRIC_ID}?dim:browser=Safari`,
+    ]);
+  });
+
+  it("emits nothing when a later step disables the Auto Slice column", () => {
+    expect(sliceRowIds({ isAutoSliceColumn: false })).toEqual([]);
+  });
+
+  it("emits nothing when a later step retypes the column", () => {
+    expect(sliceRowIds({ datatype: "boolean" })).toEqual([]);
+  });
+});

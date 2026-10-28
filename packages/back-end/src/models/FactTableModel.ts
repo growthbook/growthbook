@@ -15,6 +15,7 @@ import {
   ColumnRef,
   FactFilterInterface,
   FactMetricInterface,
+  FactTableColumnType,
   FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
@@ -557,17 +558,16 @@ export async function dangerouslySyncManagedWarehouseFactTable(
 }
 
 // Detect columns that were removed or had auto slice disabled
+type AutoSliceColumnState = {
+  column: string;
+  deleted?: boolean;
+  isAutoSliceColumn?: boolean;
+  datatype?: FactTableColumnType;
+};
+
 export function detectRemovedColumns(
-  originalColumns: Array<{
-    column: string;
-    deleted?: boolean;
-    isAutoSliceColumn?: boolean;
-  }>,
-  newColumns: Array<{
-    column: string;
-    deleted?: boolean;
-    isAutoSliceColumn?: boolean;
-  }>,
+  originalColumns: AutoSliceColumnState[],
+  newColumns: AutoSliceColumnState[],
 ): string[] {
   // Find columns that were deleted (existed before but don't exist now)
   const deletedColumns = originalColumns
@@ -589,7 +589,25 @@ export function detectRemovedColumns(
       return newCol && !newCol.isAutoSliceColumn;
     });
 
-  return [...deletedColumns, ...disabledAutoSliceColumns];
+  // A column that changes datatype no longer means what the metric's slices
+  // were built against - string levels against a number column, say - so treat
+  // it the same as the column going away.
+  const retypedColumns = originalColumns
+    .filter((col) => col.isAutoSliceColumn && !col.deleted && col.datatype)
+    .map((col) => col.column)
+    .filter((columnName) => {
+      const newCol = newColumns.find((newCol) => newCol.column === columnName);
+      const original = originalColumns.find((c) => c.column === columnName);
+      return !!newCol?.datatype && newCol.datatype !== original?.datatype;
+    });
+
+  return [
+    ...new Set([
+      ...deletedColumns,
+      ...disabledAutoSliceColumns,
+      ...retypedColumns,
+    ]),
+  ];
 }
 
 // Cascade from a fact-table column change: drop metric auto slices that
@@ -693,11 +711,11 @@ export async function updateColumn({
     definitionsScope(factTable.projects),
   );
 
-  // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
+  // Clean up auto slices from metrics when the column can no longer back them:
+  // deleted, no longer an Auto Slice column, or retyped.
   if (
     context &&
-    (updatedColumn.deleted ||
-      (!updatedColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn))
+    detectRemovedColumns([originalColumn], [updatedColumn]).length > 0
   ) {
     await cleanupMetricAutoSlices({
       context,
@@ -1031,10 +1049,7 @@ export function mergeUpsertColumns(
     });
 
     columns[index] = nextColumn;
-    if (
-      nextColumn.deleted ||
-      (!nextColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn)
-    ) {
+    if (detectRemovedColumns([originalColumn], [nextColumn]).length > 0) {
       removedAutoSliceColumns.push(incomingColumn.column);
     }
   }

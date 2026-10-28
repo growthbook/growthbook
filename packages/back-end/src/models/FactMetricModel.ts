@@ -607,19 +607,41 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       return factTable;
     });
 
-    const compatibleAutoSliceColumns = new Set(
-      getCompatibleFunnelAutoSliceColumns({
-        steps,
-        getFactTable: (id) => factTableMap.get(id),
-      }).map((column) => column.column),
+    // Only reject columns this write adds, the same way row filters are
+    // validated against the previous version below. A fact table change can
+    // invalidate a column that was fine when it was saved, and rejecting that
+    // here would block every later write to the metric, a rename included.
+    // Readers intersect against the fact tables anyway, so a stale column
+    // simply produces no slices until the cascade or the next edit drops it.
+    const previousStepFactTableIds =
+      existingMetric && isFactFunnelMetric(existingMetric)
+        ? existingMetric.funnelSettings.steps.map((step) => step.factTableId)
+        : null;
+    // Changing which tables the funnel reads from re-opens every column.
+    const validateAllAutoSliceColumns =
+      !previousStepFactTableIds ||
+      previousStepFactTableIds.length !== steps.length ||
+      steps.some((step, i) => step.factTableId !== previousStepFactTableIds[i]);
+    const previousAutoSliceColumns = new Set(existingMetric?.metricAutoSlices);
+    const newAutoSliceColumns = (data.metricAutoSlices ?? []).filter(
+      (column) =>
+        validateAllAutoSliceColumns || !previousAutoSliceColumns.has(column),
     );
-    const invalidAutoSliceColumns = (data.metricAutoSlices ?? []).filter(
-      (column) => !compatibleAutoSliceColumns.has(column),
-    );
-    if (invalidAutoSliceColumns.length) {
-      throw new Error(
-        `Invalid funnel Auto Slice columns: ${invalidAutoSliceColumns.join(", ")}. Configure matching Auto Slice columns on every step's Fact Table.`,
+    if (newAutoSliceColumns.length) {
+      const compatibleAutoSliceColumns = new Set(
+        getCompatibleFunnelAutoSliceColumns({
+          steps,
+          getFactTable: (id) => factTableMap.get(id),
+        }).map(({ column }) => column.column),
       );
+      const invalidAutoSliceColumns = newAutoSliceColumns.filter(
+        (column) => !compatibleAutoSliceColumns.has(column),
+      );
+      if (invalidAutoSliceColumns.length) {
+        throw new Error(
+          `Invalid funnel Auto Slice columns: ${invalidAutoSliceColumns.join(", ")}. Configure matching Auto Slice columns on every step's Fact Table.`,
+        );
+      }
     }
 
     steps.forEach((step, i) => {

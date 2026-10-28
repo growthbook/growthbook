@@ -65,6 +65,12 @@ export async function getUpdateFactMetricPropsFromBody(
     updates.numerator = null;
     updates.denominator = null;
     updates.quantileSettings = null;
+    // Slices configured against the old numerator's fact table mean nothing to
+    // a funnel, which needs the column on every step's table. Clear them on
+    // conversion unless the caller sent a new set.
+    if (factMetric.metricType !== "funnel") {
+      updates.metricAutoSlices = body.metricAutoSlices ?? [];
+    }
   } else {
     if (numerator === null) {
       throw new Error("Numerator required for non-funnel metrics");

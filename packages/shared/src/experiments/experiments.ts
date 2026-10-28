@@ -18,6 +18,7 @@ import {
   ColumnInterface,
   ColumnRef,
   FactMetricInterface,
+  FactTableColumnDefinition,
   FactTableColumnType,
   FactTableDefinition,
   FactTableDefinitionMap,
@@ -2519,139 +2520,246 @@ export interface SliceDataForMetric {
   allSliceLevels: string[];
 }
 
-export function getCompatibleFunnelAutoSliceColumns({
-  steps,
+// A fact table as slice logic needs to see it: the columns plus the unit-id
+// metadata that disqualifies a column from being sliced on.
+type SliceFactTable = Pick<
+  FactTableDefinition,
+  "columns" | "userIdTypes" | "userIdColumns"
+>;
+type GetSliceFactTable = (id: string) => SliceFactTable | null | undefined;
+
+export interface MetricAutoSliceColumn {
+  column: FactTableColumnDefinition;
+  // Levels only have to agree across tables for the "other" bucket, which
+  // means "not one of these levels" and would filter each of a funnel's steps
+  // differently when the lists diverge.
+  levelsMatchAllTables: boolean;
+}
+
+function isSliceableColumn(
+  factTable: SliceFactTable,
+  column: FactTableColumnDefinition | undefined,
+): column is FactTableColumnDefinition {
+  return (
+    !!column &&
+    !column.deleted &&
+    (column.datatype === "string" || column.datatype === "boolean") &&
+    !getFactTableIdColumns(factTable).includes(column.column)
+  );
+}
+
+function getAutoSliceColumnsForFactTables({
+  factTableIds,
   getFactTable,
 }: {
-  steps: FunnelStep[];
-  getFactTable: (
-    id: string,
-  ) => Pick<FactTableInterface, "columns"> | null | undefined;
-}): ColumnInterface[] {
-  const factTables = steps.map((step) => getFactTable(step.factTableId));
+  factTableIds: string[];
+  getFactTable: GetSliceFactTable;
+}): MetricAutoSliceColumn[] {
+  const factTables = factTableIds.map(getFactTable);
   const primaryFactTable = factTables[0];
   if (!primaryFactTable || factTables.some((factTable) => !factTable)) {
     return [];
   }
 
-  return primaryFactTable.columns.filter((primaryColumn) => {
-    if (
-      primaryColumn.deleted ||
-      !primaryColumn.isAutoSliceColumn ||
-      !primaryColumn.autoSlices?.length ||
-      (primaryColumn.datatype !== "string" &&
-        primaryColumn.datatype !== "boolean")
-    ) {
-      return false;
-    }
+  return primaryFactTable.columns
+    .filter(
+      (column) =>
+        isSliceableColumn(primaryFactTable, column) &&
+        column.isAutoSliceColumn &&
+        !!column.autoSlices?.length,
+    )
+    .map((primaryColumn): MetricAutoSliceColumn | null => {
+      const primaryLevels = [...(primaryColumn.autoSlices ?? [])].sort();
+      let levelsMatchAllTables = true;
 
-    const primaryAutoSlices = [...primaryColumn.autoSlices].sort();
-    return factTables.every((factTable) => {
-      const column = factTable?.columns.find(
-        (candidate) => candidate.column === primaryColumn.column,
-      );
-      if (
-        !column ||
-        column.deleted ||
-        !column.isAutoSliceColumn ||
-        column.datatype !== primaryColumn.datatype
-      ) {
-        return false;
-      }
+      const usableOnEveryTable = factTables.every((factTable) => {
+        if (!factTable) return false;
+        const column = factTable.columns.find(
+          (candidate) => candidate.column === primaryColumn.column,
+        );
+        if (
+          !isSliceableColumn(factTable, column) ||
+          !column.isAutoSliceColumn ||
+          column.datatype !== primaryColumn.datatype
+        ) {
+          return false;
+        }
+        const levels = [...(column.autoSlices ?? [])].sort();
+        if (
+          levels.length !== primaryLevels.length ||
+          levels.some((level, i) => level !== primaryLevels[i])
+        ) {
+          levelsMatchAllTables = false;
+        }
+        return true;
+      });
 
-      const autoSlices = [...(column.autoSlices ?? [])].sort();
-      return (
-        autoSlices.length === primaryAutoSlices.length &&
-        autoSlices.every((value, index) => value === primaryAutoSlices[index])
-      );
-    });
+      return usableOnEveryTable
+        ? { column: primaryColumn, levelsMatchAllTables }
+        : null;
+    })
+    .filter((column): column is MetricAutoSliceColumn => !!column);
+}
+
+// Columns a metric can auto-slice on. A funnel applies the same slice to every
+// step, so every step's fact table has to support the column; everything else
+// slices on its numerator's table alone.
+export function getMetricAutoSliceColumns({
+  metric,
+  getFactTable,
+}: {
+  metric: FactMetricInterface;
+  getFactTable: GetSliceFactTable;
+}): MetricAutoSliceColumn[] {
+  return getAutoSliceColumnsForFactTables({
+    factTableIds: getMetricAutoSliceFactTableIds(metric),
+    getFactTable,
   });
 }
 
-// Creates auto slice data for a fact metric based on the metric's metricAutoSlices
-// Used for FE: row generation, slice filtering/expansion
+// Same rule, for callers holding draft funnel settings rather than a saved
+// metric (the metric modal, create/update validation).
+export function getCompatibleFunnelAutoSliceColumns({
+  steps,
+  getFactTable,
+}: {
+  steps: FunnelStep[];
+  getFactTable: GetSliceFactTable;
+}): MetricAutoSliceColumn[] {
+  return getAutoSliceColumnsForFactTables({
+    factTableIds: Array.from(
+      new Set(steps.map((step) => step.factTableId).filter((id) => !!id)),
+    ),
+    getFactTable,
+  });
+}
+
+// The column a custom slice resolves to, or null when the metric can't slice
+// on it. A column has to mean the same thing on every fact table the metric
+// reads from: the SQL layer picks each funnel step's predicate from that
+// step's own column metadata, so a column that is a string here and a boolean
+// there would filter two different ways.
+export function getMetricSliceColumn({
+  metric,
+  column,
+  getFactTable,
+}: {
+  metric: FactMetricInterface;
+  column: string;
+  getFactTable: GetSliceFactTable;
+}): FactTableColumnDefinition | null {
+  const factTableIds = getMetricAutoSliceFactTableIds(metric);
+  const primaryFactTable = getFactTable(factTableIds[0]);
+  if (!primaryFactTable) return null;
+
+  const primaryColumn = primaryFactTable.columns.find(
+    (candidate) => candidate.column === column,
+  );
+  if (!isSliceableColumn(primaryFactTable, primaryColumn)) return null;
+
+  const validOnEveryTable = factTableIds.every((factTableId) => {
+    const factTable = getFactTable(factTableId);
+    if (!factTable) return false;
+    const candidate = factTable.columns.find((c) => c.column === column);
+    return (
+      isSliceableColumn(factTable, candidate) &&
+      candidate.datatype === primaryColumn.datatype
+    );
+  });
+
+  return validOnEveryTable ? primaryColumn : null;
+}
+
+function sliceMetricFromData<T extends ExperimentMetricDefinition>(
+  metric: T,
+  slice: SliceDataForMetric,
+): T {
+  return {
+    ...metric,
+    id: slice.id,
+    name: slice.name,
+    description: slice.description,
+  };
+}
+
+// Auto slice descriptors for a fact metric: the intersection of its
+// metricAutoSlices with the columns its fact tables actually support.
 export function createAutoSliceDataForMetric({
   parentMetric,
-  factTable,
+  getFactTable,
   includeOther = true,
 }: {
   parentMetric: ExperimentMetricDefinition | null | undefined;
-  factTable: FactTableDefinition | null | undefined;
+  getFactTable: GetSliceFactTable;
   includeOther?: boolean;
 }): SliceDataForMetric[] {
-  // Sanity checks
   if (!parentMetric || !isFactMetric(parentMetric)) return [];
-  if (!factTable) return [];
+  if (!parentMetric.metricAutoSlices?.length) return [];
 
-  // Cast to FactMetricInterface after type check
-  const factMetric = parentMetric as FactMetricInterface;
-  if (!factMetric.metricAutoSlices?.length) return [];
-
+  const factMetric = parentMetric;
   const sliceData: SliceDataForMetric[] = [];
 
-  // Get the intersection of metricAutoSlices with fact table auto slice columns
-  const factTableAutoSliceColumns = factTable.columns.filter(
-    (col) =>
-      col.isAutoSliceColumn &&
-      !col.deleted &&
-      (col.autoSlices?.length || 0) > 0,
-  );
+  getMetricAutoSliceColumns({ metric: factMetric, getFactTable })
+    .filter(({ column }) =>
+      factMetric.metricAutoSlices?.includes(column.column),
+    )
+    .forEach(({ column: col, levelsMatchAllTables }) => {
+      const autoSlices = col.autoSlices || [];
+      const columnName = col.name || col.column;
 
-  const autoSliceColumns = factTableAutoSliceColumns.filter((col) =>
-    factMetric.metricAutoSlices?.includes(col.column),
-  );
+      // For boolean columns, generate true/false slices, "null" will be handled as "other" below
+      const sliceValues =
+        col.datatype === "boolean" ? ["true", "false"] : autoSlices;
 
-  autoSliceColumns.forEach((col) => {
-    const autoSlices = col.autoSlices || [];
-    const columnName = col.name || col.column;
-
-    // For boolean columns, generate true/false slices, "null" will be handled as "other" below
-    const sliceValues =
-      col.datatype === "boolean" ? ["true", "false"] : autoSlices;
-
-    // Create slice data for each slice value
-    sliceValues.forEach((value) => {
-      const sliceString = generateSliceString({ [col.column]: value });
-      sliceData.push({
-        id: `${factMetric.id}?${sliceString}`,
-        name: `${factMetric.name} (${columnName}: ${value})`,
-        description: `Slice analysis of ${factMetric.name} for ${columnName} = ${value}`,
-        sliceLevels: [
-          {
-            column: col.column,
-            datatype: col.datatype as "string" | "boolean",
-            levels: [value],
-          },
-        ],
-        allSliceLevels: autoSlices,
+      sliceValues.forEach((value) => {
+        const sliceString = generateSliceString({ [col.column]: value });
+        sliceData.push({
+          id: `${factMetric.id}?${sliceString}`,
+          name: `${factMetric.name} (${columnName}: ${value})`,
+          description: `Slice analysis of ${factMetric.name} for ${columnName} = ${value}`,
+          sliceLevels: [
+            {
+              column: col.column,
+              datatype: col.datatype as "string" | "boolean",
+              levels: [value],
+            },
+          ],
+          allSliceLevels: autoSlices,
+        });
       });
+
+      // An "other" bucket for values not in autoSlices (includes NULL for
+      // boolean). It means "not one of these levels", so it can only be
+      // computed when every one of the metric's tables agrees on the list.
+      if (
+        includeOther &&
+        levelsMatchAllTables &&
+        (autoSlices.length > 0 || col.datatype === "boolean")
+      ) {
+        const sliceString = generateSliceString({ [col.column]: "" });
+        sliceData.push({
+          id: `${factMetric.id}?${sliceString}`,
+          name: `${factMetric.name} (${columnName}: other)`,
+          description: `Slice analysis of ${factMetric.name} for ${columnName} (other)`,
+          sliceLevels: [
+            {
+              column: col.column,
+              datatype: col.datatype as "string" | "boolean",
+              levels: [],
+            },
+          ],
+          allSliceLevels: autoSlices,
+        });
+      }
     });
-
-    // Create an "other" slice data for values not in autoSlices (includes NULL for boolean)
-    if (includeOther && (autoSlices.length > 0 || col.datatype === "boolean")) {
-      const sliceString = generateSliceString({ [col.column]: "" });
-      sliceData.push({
-        id: `${factMetric.id}?${sliceString}`,
-        name: `${factMetric.name} (${columnName}: other)`,
-        description: `Slice analysis of ${factMetric.name} for ${columnName} (other)`,
-        sliceLevels: [
-          {
-            column: col.column,
-            datatype: col.datatype as "string" | "boolean",
-            levels: [],
-          },
-        ],
-        allSliceLevels: autoSlices,
-      });
-    }
-  });
 
   return sliceData;
 }
 
 // Auto-slice metric variants of a base fact metric (clones with slice-encoded
-// ids `<baseId>?dim:col=value`, plus an "other" bucket). Experiment-independent
-// so it can be reused outside `expandDerivedMetricsInMap`.
+// ids `<baseId>?dim:col=value`, plus an "other" bucket). Single fact table
+// only — a funnel slices across every step's table, so it goes through
+// getSliceDataForMetric instead.
 export function getAutoSliceMetrics({
   metric,
   factTable,
@@ -2659,116 +2767,95 @@ export function getAutoSliceMetrics({
   metric: FactMetricInterface;
   factTable: FactTableDefinition;
 }): FactMetricInterface[] {
-  if (!metric.metricAutoSlices?.length) return [];
+  if (isFactFunnelMetric(metric)) return [];
 
-  const autoSliceColumns = factTable.columns.filter(
-    (col) =>
-      col.isAutoSliceColumn &&
-      !col.deleted &&
-      (col.autoSlices?.length || 0) > 0 &&
-      metric.metricAutoSlices?.includes(col.column),
-  );
-
-  const sliceMetrics: FactMetricInterface[] = [];
-
-  autoSliceColumns.forEach((col) => {
-    const autoSlices = col.autoSlices || [];
-
-    // One metric per configured auto slice value.
-    autoSlices.forEach((value: string) => {
-      const sliceString = generateSliceString({ [col.column]: value });
-      sliceMetrics.push({
-        ...metric,
-        id: `${metric.id}?${sliceString}`,
-        name: `${metric.name} (${col.name || col.column}: ${value})`,
-        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = ${value}`,
-      });
-    });
-
-    // An "other" bucket for values not in autoSlices (includes NULL for boolean).
-    if (autoSlices.length > 0 || col.datatype === "boolean") {
-      const sliceString = generateSliceString({ [col.column]: "" });
-      sliceMetrics.push({
-        ...metric,
-        id: `${metric.id}?${sliceString}`,
-        name: `${metric.name} (${col.name || col.column}: other)`,
-        description: `Slice analysis of ${metric.name} for ${col.name || col.column} = other`,
-      });
-    }
-  });
-
-  return sliceMetrics;
+  return createAutoSliceDataForMetric({
+    parentMetric: metric,
+    getFactTable: () => factTable,
+  }).map((slice) => sliceMetricFromData(metric, slice));
 }
 
-// Creates custom slice data for a fact metric by using the experiment's customMetricSlices
+// Custom slice descriptors from the experiment's customMetricSlices. Groups
+// naming a column the metric can't slice on are skipped, so the front end
+// never shows a slice row the back end didn't compute.
 export function createCustomSliceDataForMetric({
-  metricId,
+  metric,
   metricName,
   customMetricSlices,
-  factTable,
+  getFactTable,
 }: {
-  metricId: string;
+  metric: FactMetricInterface;
   metricName: string;
   customMetricSlices?: CustomMetricSlice[];
-  factTable?: FactTableDefinition | null;
+  getFactTable: GetSliceFactTable;
 }): SliceDataForMetric[] {
-  // Sanity checks
   if (!customMetricSlices?.length) return [];
 
   const customSliceData: SliceDataForMetric[] = [];
 
   customMetricSlices.forEach((group) => {
-    // Sort slices alphabetically for consistent ID generation
-    const sortedSlices = group.slices.sort((a, b) =>
+    // Sorted for consistent id generation; copied so the caller's array is
+    // left alone.
+    const sortedSlices = [...group.slices].sort((a, b) =>
       a.column.localeCompare(b.column),
     );
 
-    // Create slice levels with proper handling for boolean "null" values
-    const sliceLevelsForString = sortedSlices.map((d) => {
-      const column = factTable?.columns.find((col) => col.column === d.column);
+    const columns = sortedSlices.map((slice) =>
+      getMetricSliceColumn({ metric, column: slice.column, getFactTable }),
+    );
+    if (columns.some((column) => !column)) return;
+
+    const sliceLevels: SliceLevelsData[] = sortedSlices.map((d, i) => {
+      const datatype =
+        columns[i]?.datatype === "boolean" ? "boolean" : "string";
       // For boolean "null" slices, use empty array to generate ?dim:col= format
       const levels =
-        d.levels[0] === "null" && column?.datatype === "boolean"
-          ? []
-          : d.levels;
-      return {
-        column: d.column,
-        datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
-          | "string"
-          | "boolean",
-        levels,
-      };
+        datatype === "boolean" && d.levels[0] === "null" ? [] : d.levels;
+      return { column: d.column, datatype, levels };
     });
 
-    const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
-
-    const customSliceMetric = {
-      id: `${metricId}?${sliceString}`,
+    customSliceData.push({
+      id: `${metric.id}?${generateSliceStringFromLevels(sliceLevels)}`,
       name: `${metricName} (${sortedSlices.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
       description: `Slice analysis of ${metricName} for ${sortedSlices.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-      sliceLevels: sortedSlices.map((d) => {
-        const column = factTable?.columns.find(
-          (col) => col.column === d.column,
-        );
-        // For boolean "null" slices, use empty array to match "other" slice format
-        const levels =
-          d.levels[0] === "null" && column?.datatype === "boolean"
-            ? []
-            : d.levels;
-        return {
-          column: d.column,
-          datatype: (column?.datatype === "boolean" ? "boolean" : "string") as
-            | "string"
-            | "boolean",
-          levels,
-        };
-      }),
+      sliceLevels,
       allSliceLevels: sortedSlices.flatMap((slice) => slice.levels),
-    };
-    customSliceData.push(customSliceMetric);
+    });
   });
 
   return customSliceData;
+}
+
+// Every slice a fact metric actually has, auto plus custom. The single source
+// of truth: the front end builds its slice rows from this and the back end
+// builds the slice metrics it computes from the same call, so the two can't
+// disagree about which slices exist.
+export function getSliceDataForMetric({
+  metric,
+  metricName,
+  customMetricSlices,
+  getFactTable,
+}: {
+  metric: ExperimentMetricDefinition;
+  metricName: string;
+  customMetricSlices?: CustomMetricSlice[];
+  getFactTable: GetSliceFactTable;
+}): SliceDataForMetric[] {
+  if (!isFactMetric(metric)) return [];
+
+  return dedupeSliceMetrics([
+    ...createAutoSliceDataForMetric({
+      parentMetric: metric,
+      getFactTable,
+      includeOther: true,
+    }),
+    ...createCustomSliceDataForMetric({
+      metric,
+      metricName,
+      customMetricSlices,
+      getFactTable,
+    }),
+  ]);
 }
 
 export function generateSelectAllSliceString(column: string): string {
@@ -3198,175 +3285,29 @@ export function expandDerivedMetricsInMap({
   for (const metric of baseMetrics) {
     if (!metric) continue;
     if (!isFactMetric(metric)) continue;
+
+    const sliceMetrics = getSliceDataForMetric({
+      metric,
+      metricName: metric.name,
+      customMetricSlices: experiment.customMetricSlices,
+      getFactTable: (id) => factTableMap.get(id),
+    }).map((slice) => sliceMetricFromData(metric, slice));
+
+    // A funnel reports per step, so the funnel itself and each of its slices
+    // expand into step metrics on top of the slice metrics below.
     if (isFactFunnelMetric(metric)) {
-      // Unsliced step metrics (existing behavior)
-      getFunnelStepMetrics(metric).forEach((stepMetric) => {
-        metricMap.set(stepMetric.id, stepMetric);
-      });
-
-      // A slice column has to mean the same thing on every step's fact table.
-      // The SQL layer picks each step's predicate from that step's own column
-      // metadata, so a column that is a string here and a boolean there would
-      // filter two different ways — or, for an "other" level, not filter that
-      // step at all.
-      const sliceColumnValidForAllSteps = (
-        column: string,
-        datatype: ColumnInterface["datatype"],
-      ): boolean =>
-        metric.funnelSettings.steps.every((step) => {
-          const ft = factTableMap.get(step.factTableId);
-          if (!ft) return false;
-          const col = ft.columns.find((c) => c.column === column && !c.deleted);
-          return (
-            !!col &&
-            col.datatype === datatype &&
-            !getFactTableIdColumns(ft).includes(column)
-          );
-        });
-
-      const primaryFactTable = factTableMap.get(
-        getFactMetricPrimaryFactTableId(metric),
-      );
-      const compatibleAutoSliceColumns = new Set(
-        getCompatibleFunnelAutoSliceColumns({
-          steps: metric.funnelSettings.steps,
-          getFactTable: (id) => factTableMap.get(id),
-        }).map((column) => column.column),
-      );
-
-      const addSlicedFunnel = (slicedFunnel: FactMetricInterface): void => {
-        metricMap.set(slicedFunnel.id, slicedFunnel);
-        getFunnelStepMetrics(slicedFunnel as FunnelFactMetricInterface).forEach(
+      [metric, ...sliceMetrics].forEach((funnel) => {
+        getFunnelStepMetrics(funnel as FunnelFactMetricInterface).forEach(
           (stepMetric) => {
             metricMap.set(stepMetric.id, stepMetric);
           },
         );
-      };
-
-      // 1. Auto-slice funnel metrics
-      if (primaryFactTable) {
-        getAutoSliceMetrics({ metric, factTable: primaryFactTable })
-          .filter((sliced) => {
-            const sliceInfo = parseSliceMetricId(sliced.id);
-            return sliceInfo.sliceLevels.every((sl) =>
-              compatibleAutoSliceColumns.has(sl.column),
-            );
-          })
-          .forEach(addSlicedFunnel);
-      }
-
-      // 2. Custom-slice funnel metrics
-      if (experiment.customMetricSlices && primaryFactTable) {
-        experiment.customMetricSlices.forEach((customSliceGroup) => {
-          const sortedSliceGroups = customSliceGroup.slices.sort((a, b) =>
-            a.column.localeCompare(b.column),
-          );
-
-          const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
-            const column = primaryFactTable.columns.find(
-              (col) => col.column === slice.column,
-            );
-            return (
-              column &&
-              !column.deleted &&
-              (column.datatype === "string" || column.datatype === "boolean") &&
-              sliceColumnValidForAllSteps(slice.column, column.datatype)
-            );
-          });
-
-          if (!hasAllRequiredColumns) return;
-
-          const sliceLevelsForString = sortedSliceGroups.map((d) => {
-            const column = primaryFactTable.columns.find(
-              (col) => col.column === d.column,
-            );
-            const levels =
-              column?.datatype === "boolean" && d.levels[0] === "null"
-                ? []
-                : d.levels;
-            return {
-              column: d.column,
-              datatype: (column?.datatype === "boolean"
-                ? "boolean"
-                : "string") as "string" | "boolean",
-              levels,
-            };
-          });
-
-          const sliceString =
-            generateSliceStringFromLevels(sliceLevelsForString);
-          addSlicedFunnel({
-            ...metric,
-            id: `${metric.id}?${sliceString}`,
-            name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
-            description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-          });
-        });
-      }
-      continue;
-    }
-
-    const factTable = factTableMap.get(metric.numerator.factTableId);
-    if (!factTable) continue;
-
-    // 1. Add auto slice metrics
-    getAutoSliceMetrics({ metric, factTable }).forEach((sliceMetric) => {
-      metricMap.set(sliceMetric.id, sliceMetric);
-    });
-
-    // 2. Add custom slice metrics
-    if (experiment.customMetricSlices) {
-      experiment.customMetricSlices.forEach((customSliceGroup) => {
-        // Sort slices alphabetically for consistent ID generation
-        const sortedSliceGroups = customSliceGroup.slices.sort((a, b) =>
-          a.column.localeCompare(b.column),
-        );
-
-        // Verify all custom slice columns exist and are string or boolean type
-        const hasAllRequiredColumns = sortedSliceGroups.every((slice) => {
-          const column = factTable.columns.find(
-            (col) => col.column === slice.column,
-          );
-          return (
-            column &&
-            !column.deleted &&
-            (column.datatype === "string" || column.datatype === "boolean") &&
-            !getFactTableIdColumns(factTable).includes(column.column)
-          );
-        });
-
-        if (!hasAllRequiredColumns) return;
-
-        // Create slice levels
-        const sliceLevelsForString = sortedSliceGroups.map((d) => {
-          const column = factTable.columns.find(
-            (col) => col.column === d.column,
-          );
-          // For boolean "null" slices, use empty array to generate ?dim:col= format
-          const levels =
-            column?.datatype === "boolean" && d.levels[0] === "null"
-              ? []
-              : d.levels;
-          return {
-            column: d.column,
-            datatype: (column?.datatype === "boolean"
-              ? "boolean"
-              : "string") as "string" | "boolean",
-            levels,
-          };
-        });
-
-        const sliceString = generateSliceStringFromLevels(sliceLevelsForString);
-
-        const customSliceMetric: ExperimentMetricDefinition = {
-          ...metric,
-          id: `${metric.id}?${sliceString}`,
-          name: `${metric.name} (${sortedSliceGroups.map((combo) => `${combo.column}: ${combo.levels[0] || ""}`).join(", ")})`,
-          description: `Slice analysis of ${metric.name} for ${sortedSliceGroups.map((combo) => `${combo.column} = ${combo.levels[0] || ""}`).join(" and ")}`,
-        };
-        metricMap.set(customSliceMetric.id, customSliceMetric);
       });
     }
+
+    sliceMetrics.forEach((sliceMetric) => {
+      metricMap.set(sliceMetric.id, sliceMetric);
+    });
   }
 }
 

@@ -1332,9 +1332,15 @@ function StandardFactMetricModal({
     return getCompatibleFunnelAutoSliceColumns({
       steps: funnelSettings.steps,
       getFactTable: (id) => factTables.find((factTable) => factTable.id === id),
-    });
+    }).map(({ column }) => column);
   }, [type, numeratorFactTable, funnelSettings, factTables]);
 
+  // A fact table change can leave a saved funnel holding a column its steps no
+  // longer share. Drop those on open so the form matches what would actually
+  // be computed, and tell the user rather than wiping the selection silently.
+  const [droppedAutoSliceColumns, setDroppedAutoSliceColumns] = useState<
+    string[]
+  >([]);
   useEffect(() => {
     if (type !== "funnel") return;
     const compatibleColumns = new Set(
@@ -1345,6 +1351,9 @@ function StandardFactMetricModal({
       compatibleColumns.has(column),
     );
     if (nextColumns.length !== currentColumns.length) {
+      setDroppedAutoSliceColumns(
+        currentColumns.filter((column) => !compatibleColumns.has(column)),
+      );
       form.setValue("metricAutoSlices", nextColumns);
     }
   }, [type, availableAutoSliceColumns, form]);
@@ -2171,12 +2180,17 @@ function StandardFactMetricModal({
                         Choose metric breakdowns to automatically analyze in
                         your experiments.{" "}
                         {type === "funnel"
-                          ? "A funnel slices every step at once, so only columns enabled as Auto Slices with the same levels on every step's Fact Table can be used. "
+                          ? "A funnel slices every step at once, so only columns enabled as Auto Slices on every step's Fact Table can be used. "
                           : ""}
                         <DocLink useRadix={false} docSection="autoSlices">
                           Learn More <PiArrowSquareOut />
                         </DocLink>
                       </Text>
+                      {droppedAutoSliceColumns.length > 0 && (
+                        <Callout status="warning" mb="2">
+                          {`Removed ${droppedAutoSliceColumns.join(", ")} from this funnel's Auto Slices — the column is no longer enabled as an Auto Slice on every step's Fact Table.`}
+                        </Callout>
+                      )}
                       {hasMetricSlicesFeature && (
                         <div className="mt-2">
                           {availableSlices.length > 0 ? (
@@ -2205,7 +2219,7 @@ function StandardFactMetricModal({
                               size="1"
                             >
                               {type === "funnel"
-                                ? "No slices available. Enable the same Auto Slice columns, with the same levels, on every step's Fact Table."
+                                ? "No slices available. Enable the same Auto Slice column on every step's Fact Table."
                                 : "No slices available. Configure your fact table to enable auto slices."}
                             </Text>
                           )}

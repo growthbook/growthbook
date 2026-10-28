@@ -257,12 +257,31 @@ describe("getCompatibleFunnelAutoSliceColumns", () => {
       autoSlices: ["US", "CA"],
       ...overrides,
     }) as ColumnInterface;
+  type TestFactTable = Pick<
+    FactTableInterface,
+    "columns" | "userIdTypes" | "userIdColumns"
+  >;
   const getColumns = (
     secondColumn: ColumnInterface | null,
-  ): ((id: string) => Pick<FactTableInterface, "columns"> | null) => {
-    const factTables = new Map<string, Pick<FactTableInterface, "columns">>([
-      ["ft_views", { columns: [makeColumn()] }],
-      ["ft_signups", { columns: secondColumn ? [secondColumn] : [] }],
+    secondUserIdTypes: string[] = ["user_id"],
+  ): ((id: string) => TestFactTable | null) => {
+    const factTables = new Map<string, TestFactTable>([
+      [
+        "ft_views",
+        {
+          columns: [makeColumn()],
+          userIdTypes: ["user_id"],
+          userIdColumns: {},
+        },
+      ],
+      [
+        "ft_signups",
+        {
+          columns: secondColumn ? [secondColumn] : [],
+          userIdTypes: secondUserIdTypes,
+          userIdColumns: {},
+        },
+      ],
     ]);
     return (id) => factTables.get(id) ?? null;
   };
@@ -273,19 +292,41 @@ describe("getCompatibleFunnelAutoSliceColumns", () => {
       getFactTable: getColumns(makeColumn({ autoSlices: ["CA", "US"] })),
     });
 
-    expect(columns.map((column) => column.column)).toEqual(["country"]);
+    expect(columns.map(({ column }) => column.column)).toEqual(["country"]);
+    expect(columns[0].levelsMatchAllTables).toBe(true);
+  });
+
+  // Levels are refreshed per fact table, so they drift apart on their own. An
+  // explicit value filters the same way on every table; only the "other"
+  // bucket needs the lists to agree.
+  it('keeps a column whose levels differ, without an "other" bucket', () => {
+    const columns = getCompatibleFunnelAutoSliceColumns({
+      steps,
+      getFactTable: getColumns(makeColumn({ autoSlices: ["US", "GB"] })),
+    });
+
+    expect(columns.map(({ column }) => column.column)).toEqual(["country"]);
+    expect(columns[0].levelsMatchAllTables).toBe(false);
   });
 
   it.each<[string, ColumnInterface | null]>([
     ["missing", null],
     ["deleted", makeColumn({ deleted: true })],
     ["different datatype", makeColumn({ datatype: "boolean" })],
-    ["different levels", makeColumn({ autoSlices: ["US", "GB"] })],
     ["not an Auto Slice", makeColumn({ isAutoSliceColumn: false })],
   ])("excludes a column when another step is %s", (_, secondColumn) => {
     const columns = getCompatibleFunnelAutoSliceColumns({
       steps,
       getFactTable: getColumns(secondColumn),
+    });
+
+    expect(columns).toEqual([]);
+  });
+
+  it("excludes a column that identifies units on another step", () => {
+    const columns = getCompatibleFunnelAutoSliceColumns({
+      steps,
+      getFactTable: getColumns(makeColumn(), ["country"]),
     });
 
     expect(columns).toEqual([]);
@@ -393,14 +434,14 @@ describe("expandDerivedMetricsInMap funnel expansion", () => {
     expect(expandFunnelMetric().get(funnelMetric.id)).toBe(funnelMetric);
   });
 
-  it("only expands Auto Slices configured consistently across every step", () => {
+  describe("Auto Slices across steps", () => {
     const slicedFunnel = {
       ...funnelMetric,
       metricAutoSlices: ["country"],
     };
     const makeFactTable = (
       id: string,
-      autoSlices: string[],
+      column: Partial<ColumnInterface>,
     ): FactTableDefinition =>
       ({
         id,
@@ -410,31 +451,56 @@ describe("expandDerivedMetricsInMap funnel expansion", () => {
             datatype: "string",
             deleted: false,
             isAutoSliceColumn: true,
-            autoSlices,
+            autoSlices: ["US", "CA"],
+            ...column,
           },
         ],
+        userIdTypes: ["user_id"],
+        userIdColumns: {},
       }) as unknown as FactTableDefinition;
-    const expand = (signupAutoSlices: string[]) => {
+    const expand = (signupColumn: Partial<ColumnInterface>) => {
       const metricMap = new Map<string, ExperimentMetricInterface>([
         [slicedFunnel.id, slicedFunnel],
       ]);
       expandDerivedMetricsInMap({
         metricMap,
         factTableMap: new Map([
-          ["ft_views", makeFactTable("ft_views", ["US", "CA"])],
-          ["ft_events", makeFactTable("ft_events", signupAutoSlices)],
+          ["ft_views", makeFactTable("ft_views", {})],
+          ["ft_events", makeFactTable("ft_events", signupColumn)],
         ]),
         experiment: { goalMetrics: [slicedFunnel.id] },
       });
       return metricMap;
     };
 
-    expect(expand(["CA", "US"]).has(`${funnelMetric.id}?dim:country=US`)).toBe(
-      true,
-    );
-    expect(expand(["US", "GB"]).has(`${funnelMetric.id}?dim:country=US`)).toBe(
-      false,
-    );
+    it("expands a column configured the same way on every step", () => {
+      const metricMap = expand({ autoSlices: ["CA", "US"] });
+      expect(metricMap.has(`${funnelMetric.id}?dim:country=US`)).toBe(true);
+      expect(metricMap.has(`${funnelMetric.id}?dim:country=`)).toBe(true);
+    });
+
+    it('expands the levels but not "other" when the lists differ', () => {
+      const metricMap = expand({ autoSlices: ["US", "GB"] });
+      expect(metricMap.has(`${funnelMetric.id}?dim:country=US`)).toBe(true);
+      // "other" means "not one of these levels", which would filter each step
+      // differently when the lists disagree.
+      expect(metricMap.has(`${funnelMetric.id}?dim:country=`)).toBe(false);
+    });
+
+    it("expands nothing when a step disables the Auto Slice column", () => {
+      expect(
+        expand({ isAutoSliceColumn: false }).has(
+          `${funnelMetric.id}?dim:country=US`,
+        ),
+      ).toBe(false);
+    });
+
+    it("expands each surviving slice into its own step metrics", () => {
+      const metricMap = expand({ autoSlices: ["CA", "US"] });
+      const sliceId = `${funnelMetric.id}?dim:country=US`;
+      expect(metricMap.has(funnelStepMetricId(sliceId, 0))).toBe(true);
+      expect(metricMap.has(funnelStepMetricId(sliceId, 1))).toBe(true);
+    });
   });
 
   // A custom slice compiles to a per-step predicate built from that step's own
