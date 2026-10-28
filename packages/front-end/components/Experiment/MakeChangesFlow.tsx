@@ -25,7 +25,7 @@ const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 // Cut off past a width, with the whole key on hover once it is.
 function FlagKey({ id }: { id: string }) {
   const ref = useRef<HTMLElement>(null);
-  const truncated = useIsOverflowingX(ref);
+  const truncated = useIsOverflowingX(ref, true, id);
   return (
     <Tooltip content={id} enabled={truncated}>
       <strong
