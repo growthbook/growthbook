@@ -34,13 +34,13 @@ export function useFallbackAttributeOptions({
   attributeSchema: SDKAttribute[];
   hashAttribute: string | undefined;
   fallbackAttribute: string | undefined;
-  setFallbackAttribute: (v: string) => void;
+  setFallbackAttribute?: (v: string) => void;
 }) {
   const allAttributeSchema = useAttributeSchema(true);
 
   useEffect(() => {
     if (hashAttribute && hashAttribute === fallbackAttribute) {
-      setFallbackAttribute("");
+      setFallbackAttribute?.("");
     }
   }, [hashAttribute, fallbackAttribute, setFallbackAttribute]);
 
@@ -171,9 +171,7 @@ export default function FallbackAttributeSelector({
             ? form.watch("fallbackAttribute") || ""
             : ""
         }
-        onChange={(v) => {
-          form.setValue("fallbackAttribute", v);
-        }}
+        onChange={setFallbackAttribute}
         disabled={!orgStickyBucketing || disableStickyBucketing}
         helpText={
           <>

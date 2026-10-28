@@ -115,8 +115,8 @@ export async function validateExperimentChange({
   });
 }
 
-// Every check marking manual checklist items complete can refuse on, and the
-// change it makes, so a caller can hold for confirmation in between.
+// Runs every check that can refuse and returns the change without writing it,
+// so a caller can hold for confirmation first.
 export async function planChecklistCompletion({
   context,
   experiment,
@@ -531,10 +531,9 @@ export async function armedStartBypassStands(
   }
   return (await launchDraftRevisions(armer, experiment)).every(
     ({ featureId, revisionVersion, revision }) =>
-      !!revision &&
       startBypassCovers(experiment, featureId, {
         version: revisionVersion,
-        dateUpdated: revision.dateUpdated,
+        dateUpdated: revision?.dateUpdated,
       }),
   );
 }

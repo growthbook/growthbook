@@ -278,17 +278,16 @@ function withId(ids: string[], id: string, on: boolean): string[] {
 // Collects the page's in-place edits so one Save writes them together.
 export function ExperimentEditsProvider({
   experiment,
-  scope,
   mutate,
   children,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  scope: string;
   mutate: () => unknown;
   children: ReactNode;
 }) {
   const { apiCall } = useAuth();
   const experimentId = experiment.id;
+  const scope = stagedEditsScope(experiment);
   const edits = useRef(new Map<string, PendingEdit>());
 
   const [staged, setStaged] = useState<{ id: string; label: string }[]>([]);
@@ -333,25 +332,28 @@ export function ExperimentEditsProvider({
     [conflicts, drifted],
   );
 
-  const register = useCallback((id: string, edit: PendingEdit | null) => {
-    if (edit) {
-      edits.current.set(id, edit);
-    } else {
-      edits.current.delete(id);
-      setDrifted((prev) => withId(prev, id, false));
-      setIncompatible((prev) => prev.filter((e) => e.id !== id));
-    }
-    setStaged((prev) => {
-      const i = prev.findIndex((entry) => entry.id === id);
-      if (!edit)
-        return i === -1 ? prev : prev.filter((entry) => entry.id !== id);
-      if (i === -1) return [...prev, { id, label: edit.label }];
-      if (prev[i].label === edit.label) return prev;
-      return prev.map((entry, j) =>
-        j === i ? { id, label: edit.label } : entry,
-      );
-    });
-  }, []);
+  const register = useCallback(
+    (id: string, edit: PendingEdit | null) => {
+      if (edit) {
+        edits.current.set(id, edit);
+      } else {
+        edits.current.delete(id);
+        setDrifted((prev) => withId(prev, id, false));
+        markIncompatible(id, null);
+      }
+      setStaged((prev) => {
+        const i = prev.findIndex((entry) => entry.id === id);
+        if (!edit)
+          return i === -1 ? prev : prev.filter((entry) => entry.id !== id);
+        if (i === -1) return [...prev, { id, label: edit.label }];
+        if (prev[i].label === edit.label) return prev;
+        return prev.map((entry, j) =>
+          j === i ? { id, label: edit.label } : entry,
+        );
+      });
+    },
+    [markIncompatible],
+  );
 
   const postChanges = useCallback(
     (parts: ExperimentChangesBody[], dryRun: boolean) =>
@@ -598,30 +600,25 @@ export function ExperimentEditsProvider({
       </form>
       {navigationGuard.pendingHref && !saving ? (
         // Refused on the way out, it says why rather than calling them unsaved.
-        refusal ? (
-          <ConfirmDialog
-            title="Your changes weren't saved"
-            content={
+        <ConfirmDialog
+          title={
+            refusal ? "Your changes weren't saved" : "Leave without saving?"
+          }
+          content={
+            refusal ? (
               <Flex direction="column" gap="2">
                 <Text>{refusal}</Text>
                 <Text>Leaving this page discards your changes.</Text>
               </Flex>
-            }
-            yesText="Leave page"
-            noText="Stay and fix"
-            onConfirm={navigationGuard.confirmNavigation}
-            onCancel={navigationGuard.cancelNavigation}
-          />
-        ) : (
-          <ConfirmDialog
-            title="Leave without saving?"
-            content="You have unsaved changes to this experiment. Leaving this page discards them."
-            yesText="Leave page"
-            noText="Keep editing"
-            onConfirm={navigationGuard.confirmNavigation}
-            onCancel={navigationGuard.cancelNavigation}
-          />
-        )
+            ) : (
+              "You have unsaved changes to this experiment. Leaving this page discards them."
+            )
+          }
+          yesText="Leave page"
+          noText={refusal ? "Stay and fix" : "Keep editing"}
+          onConfirm={navigationGuard.confirmNavigation}
+          onCancel={navigationGuard.cancelNavigation}
+        />
       ) : null}
     </ExperimentEditsContext.Provider>
   );
@@ -649,15 +646,11 @@ export function useRegisterExperimentEdit(
   // The status it was staged under, kept across reloads like the edit.
   const status = ctx?.experiment.status ?? null;
   const statusBound = !!edit.statusBound;
-  const [stagedIn, setStagedIn] = useStagedState<string | null>(
+  const [stagedIn] = useEditBase(
     `status:${id}`,
-    null,
+    statusBound && dirty,
+    () => status,
   );
-  useEffect(() => {
-    if (!statusBound) return;
-    if (dirty && stagedIn === null && status) setStagedIn(status);
-    if (!dirty && stagedIn !== null) setStagedIn(null);
-  }, [statusBound, dirty, stagedIn, status, setStagedIn]);
   const incompatible =
     statusBound && dirty && stagedIn !== null && stagedIn !== status;
   useEffect(() => {
@@ -712,6 +705,11 @@ export type TargetingBase = {
   targeting: ExperimentTargetingData;
 };
 
+export type StageTargeting = (
+  value: ExperimentTargetingData,
+  opened: TargetingBase,
+) => void;
+
 /**
  * The page's staged targeting. A modal stages it with what it opened against
  * as the edit's base, unless an earlier base is staged, so a save made while
@@ -731,8 +729,8 @@ export function useStagedTargeting(
     null,
     scope,
   );
-  const stage = useCallback(
-    (value: ExperimentTargetingData, opened: TargetingBase) => {
+  const stage = useCallback<StageTargeting>(
+    (value, opened) => {
       // The draft first: a base staged alone reads as nothing staged, and
       // the edit drops it.
       setDraft(value);
@@ -740,7 +738,7 @@ export function useStagedTargeting(
     },
     [base, setBase, setDraft],
   );
-  return { draft, setDraft, stage };
+  return { value: draft, set: setDraft, stage };
 }
 
 /**

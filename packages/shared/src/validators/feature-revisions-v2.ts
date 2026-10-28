@@ -37,6 +37,7 @@ import {
   REVISION_COMMENT_DESCRIPTION,
   REVISION_TITLE_DESCRIPTION,
   RULE_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
 } from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
@@ -213,9 +214,7 @@ const targetingRuleCreateInputV2 = namedSchema(
       fallbackAttribute: z
         .string()
         .optional()
-        .describe(
-          "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
-        ),
+        .describe(FALLBACK_ATTRIBUTE_DESCRIPTION),
       seed: z.string().optional(),
       hashVersion: z
         .union([z.literal(1), z.literal(2)])

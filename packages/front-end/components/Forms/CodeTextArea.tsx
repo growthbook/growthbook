@@ -310,8 +310,6 @@ function hasLongLine(text: string): boolean {
   return false;
 }
 
-// Every corner button's icon, fullscreen or not, so the row stays even.
-
 // An icon button in the editor's corner, beside copy and fullscreen.
 export function EditorAction({
   label,

@@ -105,47 +105,43 @@ const audience = (r: FeatureDefinitionRule) => ({
 });
 
 describe("keptExperimentRule", () => {
-  it.each<[string, (e: ExperimentInterface) => void]>([
-    ["a partial rollout with a fallback attribute", () => {}],
-    [
-      "sticky bucketing off",
-      (e) => {
+  it.each<{ name: string; change: (e: ExperimentInterface) => void }>([
+    { name: "a partial rollout with a fallback attribute", change: () => {} },
+    {
+      name: "sticky bucketing off",
+      change: (e) => {
         e.disableStickyBucketing = true;
       },
-    ],
-    [
-      "no phase seed",
-      (e) => {
+    },
+    {
+      name: "no phase seed",
+      change: (e) => {
         e.phases[0].seed = "";
       },
-    ],
-    [
-      "no hash version",
-      (e) => {
+    },
+    {
+      name: "no hash version",
+      change: (e) => {
         delete e.hashVersion;
       },
-    ],
-    [
-      "full coverage",
-      (e) => {
-        e.phases[0].coverage = 1;
-        delete e.fallbackAttribute;
-      },
-    ],
-  ])("serves the temporary rollout's users: %s", (_, change) => {
+    },
+  ])("serves the temporary rollout's users: $name", ({ change }) => {
     const exp = cloneDeep(experiment);
     change(exp);
     const kept = keptExperimentRule(exp, refRule, "feature");
     expect(kept).not.toBeNull();
-    const temporary = audience(payloadRule(refRule, exp));
-    const permanent = audience(payloadRule(kept!, exp));
-    // A 100% release serves everyone, not only users with the attribute.
-    if (exp.phases[0].coverage === 1) {
-      expect(kept!.type).toBe("force");
-      expect(permanent.force).toBe(temporary.force);
-      return;
-    }
-    expect(permanent).toEqual(temporary);
+    expect(audience(payloadRule(kept!, exp))).toEqual(
+      audience(payloadRule(refRule, exp)),
+    );
+  });
+
+  // A 100% release serves everyone, not only users with the attribute.
+  it("forces the released value at full coverage", () => {
+    const exp = cloneDeep(experiment);
+    exp.phases[0].coverage = 1;
+    const kept = keptExperimentRule(exp, refRule, "feature");
+    expect(kept?.type).toBe("force");
+    expect(payloadRule(kept!, exp).force).toBe(payloadRule(refRule, exp).force);
   });
 
   it("drops a rule whose released arm has no value", () => {

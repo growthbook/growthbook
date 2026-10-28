@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { getValidDate } from "shared/dates";
@@ -11,6 +11,7 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { ExposureQuery } from "shared/types/datasource";
 import { ExperimentAnalysisSettingsDraft } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getOverriddenMetricIds } from "@/services/metricOverrides";
@@ -39,6 +40,96 @@ import Tooltip from "@/ui/Tooltip";
 import SetupFieldRow from "./SetupFieldRow";
 import { QuickEditRow } from "./QuickEditButton";
 import { useExperimentEdits } from "./ExperimentEdits";
+
+/** The Custom SQL filter's note: what it is and which columns it can use. */
+export function QueryFilterHelp({
+  exposureQuery,
+}: {
+  exposureQuery?: ExposureQuery;
+}) {
+  return (
+    <HelperText status="info" size="sm" mt="1">
+      A WHERE clause added to the experiment query. Columns:{" "}
+      {["timestamp", "variation_id"]
+        .concat(
+          exposureQuery ? getExposureQueryIdentifierTypes(exposureQuery) : [],
+        )
+        .concat(exposureQuery?.dimensions || [])
+        .map((column, i) => (
+          <span key={column}>
+            {i > 0 ? ", " : null}
+            <code>{column}</code>
+          </span>
+        ))}
+      .
+    </HelperText>
+  );
+}
+
+export function ConversionWindowsRow({
+  strict,
+  setStrict,
+  incrementalRefresh,
+  disabled = false,
+}: {
+  strict: boolean;
+  setStrict: (strict: boolean) => void;
+  incrementalRefresh: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <SetupFieldRow
+      label="Conversion windows"
+      tooltip="How to treat users not enrolled long enough to complete a conversion window."
+    >
+      <Tooltip
+        content="In-progress conversions can't be excluded with Incremental Refresh while in beta."
+        enabled={incrementalRefresh}
+      >
+        <Box>
+          <SelectField
+            value={strict ? "strict" : "loose"}
+            onChange={(value) => setStrict(value === "strict")}
+            options={[
+              { label: "Include in-progress conversions", value: "loose" },
+              { label: "Exclude in-progress conversions", value: "strict" },
+            ]}
+            isOptionDisabled={(option) =>
+              incrementalRefresh &&
+              "value" in option &&
+              option.value === "strict"
+            }
+            disabled={disabled}
+          />
+        </Box>
+      </Tooltip>
+    </SetupFieldRow>
+  );
+}
+
+/** The collapsed "Advanced" section under a form's main fields. */
+export function AdvancedSection({
+  open,
+  setOpen,
+  children,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <>
+      <CollapseTrigger open={open} onOpenChange={setOpen} caret="start">
+        <Text weight="medium" color="text-high">
+          Advanced
+        </Text>
+      </CollapseTrigger>
+      <Collapse open={open}>
+        <Box pt="3">{children}</Box>
+      </Collapse>
+    </>
+  );
+}
 
 /** One boxed group of advanced analysis settings. */
 export function SettingsCard({
@@ -173,18 +264,12 @@ export default function AnalysisPlanAdvanced({
   const edits = useExperimentEdits();
   // Typed as text, so "0." can be on its way to a valid value.
   const [tuningText, setTuningText] = useState(String(tuningParameter));
-  // Derived from the text, however it changed, so the field and the page's
-  // form agree on whether Save can take it.
   const tuningError =
     parseFloat(tuningText) > 0 ? null : "Enter a number above 0.";
-  const tuningInput = useRef<HTMLInputElement>(null);
   // Shown from the first time the field is left, since "0." is on its way to
   // a valid value until then.
   const [tuningTouched, setTuningTouched] = useState(false);
   const shownTuningError = tuningTouched ? tuningError : null;
-  useEffect(() => {
-    tuningInput.current?.setCustomValidity(tuningError ?? "");
-  }, [tuningError, sequentialEnabled]);
   useEffect(() => {
     setTuningText((text) =>
       parseFloat(text) === tuningParameter ? text : String(tuningParameter),
@@ -233,318 +318,264 @@ export default function AnalysisPlanAdvanced({
   return (
     <Box id="analysis-plan-advanced" mt="3">
       <Separator size="4" mb="4" />
-      <CollapseTrigger open={open} onOpenChange={setOpen} caret="start">
-        <Text weight="medium" color="text-high">
-          Advanced
-        </Text>
-      </CollapseTrigger>
-      <Collapse open={open}>
-        <Box pt="3">
-          <SettingsCard title="Statistics" reset={resetStatistics}>
-            <SetupFieldRow label="Stats engine">
-              <Box maxWidth="300px">
-                <StatsEngineSelect
-                  label={null}
-                  labelClassName=""
-                  containerClassName="mb-0"
-                  className=""
-                  value={settled.statsEngine}
-                  onChange={(statsEngine) => stage({ statsEngine })}
-                  allowUndefined={false}
-                  disabled={disabled}
-                />
-              </Box>
-            </SetupFieldRow>
-            <SetupFieldRow label="Variance reduction" content="text">
-              <Flex direction="column" gap="2">
+      <AdvancedSection open={open} setOpen={setOpen}>
+        <SettingsCard title="Statistics" reset={resetStatistics}>
+          <SetupFieldRow label="Stats engine">
+            <Box maxWidth="300px">
+              <StatsEngineSelect
+                label={null}
+                labelClassName=""
+                containerClassName="mb-0"
+                className=""
+                value={settled.statsEngine}
+                onChange={(statsEngine) => stage({ statsEngine })}
+                allowUndefined={false}
+                disabled={disabled}
+              />
+            </Box>
+          </SetupFieldRow>
+          <SetupFieldRow label="Variance reduction" content="text">
+            <Flex direction="column" gap="2">
+              <Checkbox
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    CUPED
+                  </PremiumTooltip>
+                }
+                weight="regular"
+                value={hasCuped && !!settled.regressionAdjustmentEnabled}
+                setValue={(value) =>
+                  stage({ regressionAdjustmentEnabled: value })
+                }
+                disabled={disabled || !hasCuped}
+              />
+              {!orgSettings.disablePrecomputedDimensions ? (
                 <Checkbox
                   label={
-                    <PremiumTooltip commercialFeature="regression-adjustment">
-                      CUPED
+                    <PremiumTooltip commercialFeature="post-stratification">
+                      Post-stratification
                     </PremiumTooltip>
                   }
                   weight="regular"
-                  value={hasCuped && !!settled.regressionAdjustmentEnabled}
-                  setValue={(value) =>
-                    stage({ regressionAdjustmentEnabled: value })
+                  value={
+                    hasPostStratification && !!settled.postStratificationEnabled
                   }
-                  disabled={disabled || !hasCuped}
+                  setValue={(value) =>
+                    stage({ postStratificationEnabled: value })
+                  }
+                  disabled={disabled || !hasPostStratification}
                 />
-                {!orgSettings.disablePrecomputedDimensions ? (
-                  <Checkbox
-                    label={
-                      <PremiumTooltip commercialFeature="post-stratification">
-                        Post-stratification
-                      </PremiumTooltip>
-                    }
-                    weight="regular"
-                    value={
-                      hasPostStratification &&
-                      !!settled.postStratificationEnabled
-                    }
-                    setValue={(value) =>
-                      stage({ postStratificationEnabled: value })
-                    }
-                    disabled={disabled || !hasPostStratification}
-                  />
+              ) : null}
+            </Flex>
+          </SetupFieldRow>
+          {settled.statsEngine === "frequentist" ? (
+            <SetupFieldRow label="Corrections" content="text">
+              <Flex direction="column" gap="2">
+                <Checkbox
+                  label={
+                    <PremiumTooltip commercialFeature="sequential-testing">
+                      Sequential testing
+                    </PremiumTooltip>
+                  }
+                  weight="regular"
+                  value={hasSequential && sequentialEnabled}
+                  setValue={(value) =>
+                    stage({
+                      sequentialTestingEnabled: value,
+                      sequentialTestingTuningParameter: tuningParameter,
+                    })
+                  }
+                  disabled={disabled || !hasSequential}
+                />
+                {sequentialEnabled ? (
+                  <Box pl="5">
+                    <Flex align="center" gap="3">
+                      <Text>Tuning parameter</Text>
+                      <Box width="120px">
+                        <Field
+                          // Invalid to the page's form whenever it's shown.
+                          ref={(input: HTMLInputElement | null) =>
+                            input?.setCustomValidity(tuningError ?? "")
+                          }
+                          type="number"
+                          min="0"
+                          step="any"
+                          required
+                          // On the page's form, so a value it can't take
+                          // stops the save rather than saving the last one.
+                          form={edits?.formId}
+                          outlineStyle={shownTuningError ? "error" : undefined}
+                          onBlur={() => setTuningTouched(true)}
+                          containerClassName="mb-0"
+                          value={tuningText}
+                          onChange={(e) => {
+                            setTuningText(e.target.value);
+                            const value = parseFloat(e.target.value);
+                            if (value > 0) {
+                              stage({
+                                sequentialTestingTuningParameter: value,
+                              });
+                            }
+                          }}
+                          disabled={disabled || !hasSequential}
+                        />
+                      </Box>
+                    </Flex>
+                    {shownTuningError ? (
+                      <HelperText status="error" size="sm" mt="1">
+                        {shownTuningError}
+                      </HelperText>
+                    ) : null}
+                  </Box>
                 ) : null}
               </Flex>
             </SetupFieldRow>
-            {settled.statsEngine === "frequentist" ? (
-              <SetupFieldRow label="Corrections" content="text">
-                <Flex direction="column" gap="2">
-                  <Checkbox
-                    label={
-                      <PremiumTooltip commercialFeature="sequential-testing">
-                        Sequential testing
-                      </PremiumTooltip>
-                    }
-                    weight="regular"
-                    value={hasSequential && sequentialEnabled}
-                    setValue={(value) =>
-                      stage({
-                        sequentialTestingEnabled: value,
-                        sequentialTestingTuningParameter: tuningParameter,
-                      })
-                    }
-                    disabled={disabled || !hasSequential}
-                  />
-                  {sequentialEnabled ? (
-                    <Box pl="5">
-                      <Flex align="center" gap="3">
-                        <Text>Tuning parameter</Text>
-                        <Box width="120px">
-                          <Field
-                            ref={tuningInput}
-                            type="number"
-                            min="0"
-                            step="any"
-                            required
-                            // On the page's form, so a value it can't take
-                            // stops the save rather than saving the last one.
-                            form={edits?.formId}
-                            outlineStyle={
-                              shownTuningError ? "error" : undefined
-                            }
-                            onBlur={() => setTuningTouched(true)}
-                            containerClassName="mb-0"
-                            value={tuningText}
-                            onChange={(e) => {
-                              setTuningText(e.target.value);
-                              const value = parseFloat(e.target.value);
-                              if (value > 0) {
-                                stage({
-                                  sequentialTestingTuningParameter: value,
-                                });
-                              }
-                            }}
-                            disabled={disabled || !hasSequential}
-                          />
-                        </Box>
-                      </Flex>
-                      {shownTuningError ? (
-                        <HelperText status="error" size="sm" mt="1">
-                          {shownTuningError}
-                        </HelperText>
-                      ) : null}
-                    </Box>
-                  ) : null}
-                </Flex>
+          ) : null}
+        </SettingsCard>
+
+        {datasource ? (
+          <SettingsCard title="Exposures" reset={resetExposures}>
+            <ActivationMetricRow
+              datasource={datasourceId}
+              exposureQueryId={exposureQueryId}
+              exposureQueryIdentifierType={identifierType ?? undefined}
+              project={experiment.project}
+              value={experiment.activationMetric || ""}
+              onChange={(metric) => stage({ activationMetric: metric })}
+              disabled={disabled}
+              incrementalRefresh={incrementalRefresh}
+            />
+            {properties?.experimentSegments && datasourceSegments.length > 0 ? (
+              <SetupFieldRow
+                label="Segment"
+                tooltip="Only users in this segment will be included."
+              >
+                <SelectField
+                  value={experiment.segment || ""}
+                  onChange={(value) => stage({ segment: value || "" })}
+                  initialOption="None (all users)"
+                  options={datasourceSegments.map((s) => ({
+                    label: s.name,
+                    value: s.id,
+                  }))}
+                  disabled={disabled}
+                />
+              </SetupFieldRow>
+            ) : null}
+            {properties?.queryLanguage === "sql" ? (
+              <SetupFieldRow label="Custom SQL filter">
+                <Field
+                  textarea
+                  value={experiment.queryFilter || ""}
+                  onChange={(e) => stage({ queryFilter: e.target.value })}
+                  placeholder="e.g. user_id NOT IN ('123', '456')"
+                  containerClassName="mb-0"
+                  disabled={disabled}
+                />
+                <QueryFilterHelp exposureQuery={exposureQuery} />
               </SetupFieldRow>
             ) : null}
           </SettingsCard>
+        ) : null}
 
-          {datasource ? (
-            <SettingsCard title="Exposures" reset={resetExposures}>
-              <ActivationMetricRow
-                datasource={datasourceId}
-                exposureQueryId={exposureQueryId}
-                exposureQueryIdentifierType={identifierType ?? undefined}
-                project={experiment.project}
-                value={experiment.activationMetric || ""}
-                onChange={(metric) => stage({ activationMetric: metric })}
-                disabled={disabled}
-                incrementalRefresh={incrementalRefresh}
-              />
-              {properties?.experimentSegments &&
-              datasourceSegments.length > 0 ? (
+        {datasource ? (
+          <SettingsCard title="Metrics" reset={resetMetrics}>
+            {properties?.separateExperimentResultQueries ? (
+              <>
+                <ConversionWindowsRow
+                  strict={!!experiment.skipPartialData}
+                  setStrict={(strict) => stage({ skipPartialData: strict })}
+                  incrementalRefresh={incrementalRefresh}
+                  disabled={disabled}
+                />
                 <SetupFieldRow
-                  label="Segment"
-                  tooltip="Only users in this segment will be included."
+                  label="Metric windows"
+                  tooltip="Apply custom metric window behavior in this experiment."
                 >
-                  <SelectField
-                    value={experiment.segment || ""}
-                    onChange={(value) => stage({ segment: value || "" })}
-                    initialOption="None (all users)"
-                    options={datasourceSegments.map((s) => ({
-                      label: s.name,
-                      value: s.id,
-                    }))}
-                    disabled={disabled}
-                  />
-                </SetupFieldRow>
-              ) : null}
-              {properties?.queryLanguage === "sql" ? (
-                <SetupFieldRow label="Custom SQL filter">
-                  <Field
-                    textarea
-                    value={experiment.queryFilter || ""}
-                    onChange={(e) => stage({ queryFilter: e.target.value })}
-                    placeholder="e.g. user_id NOT IN ('123', '456')"
-                    containerClassName="mb-0"
-                    disabled={disabled}
-                  />
-                  <HelperText status="info" size="sm" mt="1">
-                    A WHERE clause added to the experiment query. Columns:{" "}
-                    {["timestamp", "variation_id"]
-                      .concat(
-                        exposureQuery
-                          ? getExposureQueryIdentifierTypes(exposureQuery)
-                          : [],
-                      )
-                      .concat(exposureQuery?.dimensions || [])
-                      .map((column, i) => (
-                        <span key={column}>
-                          {i > 0 ? ", " : null}
-                          <code>{column}</code>
-                        </span>
-                      ))}
-                    .
-                  </HelperText>
-                </SetupFieldRow>
-              ) : null}
-            </SettingsCard>
-          ) : null}
-
-          {datasource ? (
-            <SettingsCard title="Metrics" reset={resetMetrics}>
-              {properties?.separateExperimentResultQueries ? (
-                <>
-                  <SetupFieldRow
-                    label="Conversion windows"
-                    tooltip="How to treat users not enrolled long enough to complete a conversion window."
-                  >
-                    <Tooltip
-                      content="In-progress conversions can't be excluded with Incremental Refresh while in beta."
-                      enabled={incrementalRefresh}
-                    >
-                      <Box>
-                        <SelectField
-                          value={
-                            experiment.skipPartialData ? "strict" : "loose"
-                          }
-                          onChange={(value) =>
-                            stage({ skipPartialData: value === "strict" })
-                          }
-                          options={[
-                            {
-                              label: "Include in-progress conversions",
-                              value: "loose",
-                            },
-                            {
-                              label: "Exclude in-progress conversions",
-                              value: "strict",
-                            },
-                          ]}
-                          isOptionDisabled={(option) =>
-                            incrementalRefresh &&
-                            "value" in option &&
-                            option.value === "strict"
-                          }
-                          disabled={disabled}
-                        />
-                      </Box>
-                    </Tooltip>
-                  </SetupFieldRow>
-                  <SetupFieldRow
-                    label="Metric windows"
-                    tooltip="Apply custom metric window behavior in this experiment."
-                  >
-                    <MetricAnalysisWindowSelector
-                      bare
-                      attributionModel={
-                        experiment.attributionModel || defaultAttributionModel
-                      }
-                      lookbackOverride={experiment.lookbackOverride}
-                      onAttributionModelChange={(value) =>
-                        stage({ attributionModel: value })
-                      }
-                      onLookbackOverrideChange={(value) =>
-                        stage({ lookbackOverride: value })
-                      }
-                      phaseEndDate={
-                        experiment.status === "stopped"
-                          ? getValidDate(
-                              experiment.phases.at(-1)?.dateEnded ?? "",
-                            )
-                          : new Date()
-                      }
-                      disabled={disabled || incrementalRefresh}
-                    />
-                  </SetupFieldRow>
-                </>
-              ) : null}
-              {unitDimensionOptions.length > 0 ? (
-                <SetupFieldRow
-                  label="Unit dimensions"
-                  tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
-                >
-                  <MultiSelectField
-                    value={unitDimensionIds}
-                    options={unitDimensionOptions}
-                    isOptionDisabled={(option) =>
-                      "value" in option &&
-                      unitDimensionIds.length >=
-                        MAX_PRECOMPUTED_UNIT_DIMENSIONS &&
-                      !unitDimensionIds.includes(option.value)
+                  <MetricAnalysisWindowSelector
+                    bare
+                    attributionModel={
+                      experiment.attributionModel || defaultAttributionModel
                     }
-                    onChange={(value) =>
-                      stage({
-                        precomputedUnitDimensionIds: value.slice(
-                          0,
-                          MAX_PRECOMPUTED_UNIT_DIMENSIONS,
-                        ),
-                      })
+                    lookbackOverride={experiment.lookbackOverride}
+                    onAttributionModelChange={(value) =>
+                      stage({ attributionModel: value })
                     }
-                    disabled={disabled}
+                    onLookbackOverrideChange={(value) =>
+                      stage({ lookbackOverride: value })
+                    }
+                    phaseEndDate={
+                      experiment.status === "stopped"
+                        ? getValidDate(
+                            experiment.phases.at(-1)?.dateEnded ?? "",
+                          )
+                        : new Date()
+                    }
+                    disabled={disabled || incrementalRefresh}
                   />
                 </SetupFieldRow>
-              ) : null}
-              <CustomMetricSlicesSelector
-                asRow
-                disabled={disabled}
-                goalMetrics={metrics.goalMetrics}
-                secondaryMetrics={metrics.secondaryMetrics}
-                guardrailMetrics={metrics.guardrailMetrics}
-                customMetricSlices={experiment.customMetricSlices || []}
-                setCustomMetricSlices={(slices) =>
-                  stage({ customMetricSlices: slices })
-                }
-              />
-              {hasMetrics ? (
-                <SetupFieldRow
-                  label="Metric overrides"
-                  tooltip="Override metric behaviors within this experiment."
-                  content="text"
+              </>
+            ) : null}
+            {unitDimensionOptions.length > 0 ? (
+              <SetupFieldRow
+                label="Unit dimensions"
+                tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+              >
+                <MultiSelectField
+                  value={unitDimensionIds}
+                  options={unitDimensionOptions}
+                  isOptionDisabled={(option) =>
+                    "value" in option &&
+                    unitDimensionIds.length >=
+                      MAX_PRECOMPUTED_UNIT_DIMENSIONS &&
+                    !unitDimensionIds.includes(option.value)
+                  }
+                  onChange={(value) =>
+                    stage({
+                      precomputedUnitDimensionIds: value.slice(
+                        0,
+                        MAX_PRECOMPUTED_UNIT_DIMENSIONS,
+                      ),
+                    })
+                  }
+                  disabled={disabled}
+                />
+              </SetupFieldRow>
+            ) : null}
+            <CustomMetricSlicesSelector
+              asRow
+              disabled={disabled}
+              goalMetrics={metrics.goalMetrics}
+              secondaryMetrics={metrics.secondaryMetrics}
+              guardrailMetrics={metrics.guardrailMetrics}
+              customMetricSlices={experiment.customMetricSlices || []}
+              setCustomMetricSlices={(slices) =>
+                stage({ customMetricSlices: slices })
+              }
+            />
+            {hasMetrics ? (
+              <SetupFieldRow
+                label="Metric overrides"
+                tooltip="Override metric behaviors within this experiment."
+                content="text"
+              >
+                <QuickEditRow
+                  label="Edit metric overrides"
+                  onEdit={manageOverrides}
                 >
-                  <QuickEditRow
-                    label="Edit metric overrides"
-                    onEdit={manageOverrides}
+                  <Text
+                    color={overriddenNames.length ? "text-high" : "text-mid"}
                   >
-                    <Text
-                      color={overriddenNames.length ? "text-high" : "text-mid"}
-                    >
-                      {overriddenNames.length
-                        ? overriddenNames.join(", ")
-                        : "None"}
-                    </Text>
-                  </QuickEditRow>
-                </SetupFieldRow>
-              ) : null}
-            </SettingsCard>
-          ) : null}
-        </Box>
-      </Collapse>
+                    {overriddenNames.length
+                      ? overriddenNames.join(", ")
+                      : "None"}
+                  </Text>
+                </QuickEditRow>
+              </SetupFieldRow>
+            ) : null}
+          </SettingsCard>
+        ) : null}
+      </AdvancedSection>
     </Box>
   );
 }

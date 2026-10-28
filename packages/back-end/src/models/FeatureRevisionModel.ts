@@ -3490,10 +3490,9 @@ export async function getActiveDraftStates(
  * published history. Keyed by exact identity; only called by the flow that just
  * created the revision. Its log rows go with it — a later revision REUSES the
  * freed version number and would otherwise adopt this landing's history.
+ * With `writtenDateUpdated`, deletes only an unpublished revision nothing but
+ * the caller has written since; false means someone else's write landed.
  */
-// With `writtenDateUpdated`, deletes only an unpublished revision nothing but
-// the caller has written since. False = someone else's write landed, so it
-// stays.
 export async function deleteRevisionForFailedLanding(
   context: ReqContext | ApiReqContext,
   organization: string,

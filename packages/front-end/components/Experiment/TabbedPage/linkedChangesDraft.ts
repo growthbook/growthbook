@@ -110,15 +110,13 @@ export const visualServedValues = (
   Object.fromEntries(
     variationIds.map((id) => {
       const change = changeset.visualChanges.find((c) => c.variation === id);
-      const changes = change && {
-        css: change.css.trim(),
-        js: (change.js ?? "").trim(),
-        domMutations: change.domMutations,
-      };
+      if (!change) return [id, ""];
+      const { css, js, domMutations } = editablePartsOf(change);
+      const parts = { css: css.trim(), js: js.trim(), domMutations };
       return [
         id,
-        changes && (changes.css || changes.js || changes.domMutations.length)
-          ? JSON.stringify(sortObjectKeys(changes))
+        parts.css || parts.js || domMutations.length
+          ? JSON.stringify(sortObjectKeys(parts))
           : "",
       ];
     }),

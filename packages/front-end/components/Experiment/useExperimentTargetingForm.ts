@@ -22,7 +22,7 @@ import { allConnectionsSupportBucketingV2 } from "./HashVersionSelector";
 import { ChangeType } from "./MakeChangesFlow";
 import {
   experimentFieldChanges,
-  TargetingBase,
+  StageTargeting,
 } from "./TabbedPage/ExperimentEdits";
 
 export interface UseExperimentTargetingFormResult {
@@ -39,7 +39,7 @@ export interface UseExperimentTargetingFormResult {
   onSubmit: (
     mutate: () => void,
     scope?: ChangeType,
-    stage?: (value: ExperimentTargetingData, opened: TargetingBase) => void,
+    stage?: StageTargeting,
   ) => () => Promise<void>;
 }
 
@@ -88,7 +88,7 @@ export function useExperimentTargetingForm(
   const onSubmit = (
     mutate: () => void,
     scope: ChangeType = "advanced",
-    stage?: (value: ExperimentTargetingData, opened: TargetingBase) => void,
+    stage?: StageTargeting,
   ) =>
     form.handleSubmit(async (value) => {
       // Targeting fields (saved groups, condition, prerequisites) are only

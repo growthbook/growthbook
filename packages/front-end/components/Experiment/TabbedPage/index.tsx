@@ -64,7 +64,6 @@ import ExperimentDetailsPanel, {
 import {
   ExperimentEditsProvider,
   HoldoutDraft,
-  stagedEditsScope,
   useExperimentEdits,
   useExperimentFieldEdit,
   useStagedState,
@@ -127,7 +126,6 @@ export default function TabbedPage(props: Props) {
   return (
     <ExperimentEditsProvider
       experiment={props.experiment}
-      scope={stagedEditsScope(props.experiment)}
       mutate={props.mutate}
     >
       <TabbedPageContents {...props} />

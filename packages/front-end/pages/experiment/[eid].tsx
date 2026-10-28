@@ -50,11 +50,7 @@ const ExperimentPage = (): ReactElement => {
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${eid}`);
-  const {
-    draft: targetingDraft,
-    setDraft: setTargetingDraft,
-    stage: stageTargeting,
-  } = useStagedTargeting(data?.experiment);
+  const targeting = useStagedTargeting(data?.experiment);
 
   const { getDecisionCriteria, getRunningExperimentResultStatus } =
     useRunningExperimentStatus();
@@ -182,8 +178,8 @@ const ExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
-          stageChanges={stageTargeting}
-          draft={targetingDraft}
+          stageChanges={targeting.stage}
+          draft={targeting.value}
         />
       )}
       {editScheduleModalOpen && (
@@ -218,7 +214,7 @@ const ExperimentPage = (): ReactElement => {
           editPhases={editPhases}
           envs={envs}
           editTargeting={editTargeting}
-          targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}
+          targetingDraft={targeting}
           canAddVariation={canRunExperiment}
           editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}

@@ -27,7 +27,10 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SelectField from "@/components/Forms/SelectField";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import { useMetricDisabledInfo } from "@/components/Experiment/ExperimentMetricsSelector";
+import {
+  METRIC_ROWS,
+  useMetricDisabledInfo,
+} from "@/components/Experiment/ExperimentMetricsSelector";
 import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
@@ -517,16 +520,14 @@ export default function AnalysisPlan({
     experiment.type,
   );
   const metricRow = (
-    label: string,
-    tooltip: string,
     field: MetricField,
     selected: string[],
     onChange: (ids: string[]) => void,
   ) => (
     <SetupFieldRow
       id={`analysis-plan-${field}`}
-      label={label}
-      tooltip={tooltip}
+      label={METRIC_ROWS[field].label}
+      tooltip={METRIC_ROWS[field].tooltip}
     >
       <MetricsSelector
         selected={selected}
@@ -667,27 +668,9 @@ export default function AnalysisPlan({
           ) : null}
         </SetupFieldRow>
 
-        {metricRow(
-          "Goal metrics",
-          "What this experiment is trying to improve.",
-          "goalMetrics",
-          goalMetrics,
-          setGoalMetrics,
-        )}
-        {metricRow(
-          "Secondary metrics",
-          "Extra metrics to learn from, but not the objective.",
-          "secondaryMetrics",
-          secondaryMetrics,
-          setSecondaryMetrics,
-        )}
-        {metricRow(
-          "Guardrail metrics",
-          "Metrics to watch for harm, not to improve.",
-          "guardrailMetrics",
-          guardrailMetrics,
-          setGuardrailMetrics,
-        )}
+        {metricRow("goalMetrics", goalMetrics, setGoalMetrics)}
+        {metricRow("secondaryMetrics", secondaryMetrics, setSecondaryMetrics)}
+        {metricRow("guardrailMetrics", guardrailMetrics, setGuardrailMetrics)}
 
         <DecisionPlan
           experiment={effective}

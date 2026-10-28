@@ -94,8 +94,6 @@ export interface Props {
   showFullscreenButton?: boolean;
   codeInputDefaultHeight?: number;
   hideCopyButton?: boolean;
-  // Boolean, string and number: the field's border state, with no message.
-  outlineStyle?: "default" | "error" | "warning";
   // Number fields fill their container rather than sitting at a fixed width.
   fullWidth?: boolean;
   // Renders the "Insert constant" picker as a compact square IconButton beside
@@ -146,7 +144,6 @@ export default function FeatureValueField({
   showFullscreenButton = false,
   codeInputDefaultHeight,
   hideCopyButton = false,
-  outlineStyle,
   fullWidth = false,
   inlineConstantButton = false,
   multilineTextField = false,
@@ -331,7 +328,6 @@ export default function FeatureValueField({
           { label: "FALSE", value: "false" },
         ]}
         isSearchable={false}
-        outlineStyle={outlineStyle}
         value={value}
         onChange={(v) => {
           setValue(v);
@@ -903,9 +899,6 @@ export default function FeatureValueField({
         setValue(e.target.value);
       }}
       helpText={combinedHelpTextForString}
-      inputClassName={
-        outlineStyle && outlineStyle !== "default" ? outlineStyle : undefined
-      }
       append={
         stringInsertButton || !copyHidden ? (
           <Flex align="center" style={{ margin: "0 -6px 0 -4px" }}>
@@ -920,7 +913,6 @@ export default function FeatureValueField({
     <Field
       size={size}
       ref={stringInputRef}
-      outlineStyle={outlineStyle}
       label={stringLabelRow ? undefined : label}
       value={value}
       placeholder={placeholder}

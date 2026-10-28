@@ -19,7 +19,7 @@ import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import NamespaceSelector from "@/components/Features/NamespaceSelector";
-import type { TargetingBase } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import type { StageTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -39,10 +39,7 @@ export interface Props {
   mutate: () => void;
   safeToEdit: boolean;
   /** Stages the confirmed change instead of writing it. */
-  stageChanges?: (
-    value: ExperimentTargetingData,
-    opened: TargetingBase,
-  ) => void;
+  stageChanges?: StageTargeting;
   /** Targeting already staged, which the form opens on. */
   draft?: ExperimentTargetingData | null;
 }

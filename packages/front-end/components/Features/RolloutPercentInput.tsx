@@ -22,8 +22,6 @@ import {
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
-const noop = () => {};
-
 export interface RolloutHashingOptionsProps {
   // Collapsible open state
   open: boolean;
@@ -76,7 +74,7 @@ export function RolloutHashingOptions({
     attributeSchema: attributeSchema ?? [],
     hashAttribute,
     fallbackAttribute,
-    setFallbackAttribute: setFallbackAttribute ?? noop,
+    setFallbackAttribute,
   });
 
   const { data: sdkConnectionsData } = useSDKConnections();

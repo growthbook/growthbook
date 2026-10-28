@@ -148,8 +148,6 @@ import useURLHash from "@/hooks/useURLHash";
 // Sub-views of the review surface: "overview" is the conversation-first view
 // (notes, human-readable changes, review activity), "changes" is the diff-first
 // view (JSON diffs, full edit timeline, inline diff comments).
-const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
-
 type ReviewSubTab = "overview" | "changes";
 import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
@@ -179,6 +177,8 @@ import {
 import ReviewHeader, {
   ReviewHeaderOtherDraft,
 } from "@/components/Reviews/ReviewHeader";
+
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 export interface Props {
   // The base (live) feature.

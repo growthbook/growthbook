@@ -5,6 +5,7 @@ import {
   FEATURE_KEY_DESCRIPTION,
   RULE_DESCRIPTION,
   TAGS_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
 } from "./api-field-descriptions";
 import { apiEventUser, REQUIRES_PERSON_NOTE } from "./event-user";
 import {
@@ -608,9 +609,7 @@ const v2RuleRolloutBase = z
     hashAttribute: z.string(),
     fallbackAttribute: z
       .string()
-      .describe(
-        "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
-      )
+      .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
       .optional(),
     seed: z
       .string()

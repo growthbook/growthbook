@@ -10,9 +10,7 @@ import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
-import Markdown from "@/components/Markdown/Markdown";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
-import Text from "@/ui/Text";
 import {
   useExperimentFieldEdit,
   useStagedState,
@@ -21,22 +19,14 @@ import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import QuickEditButton, {
   revealsQuickEdit,
 } from "@/components/Experiment/TabbedPage/QuickEditButton";
-import ExpandableBlock from "./ExpandableBlock";
-
-const FIELDS = {
-  hypothesis: {
-    label: "Hypothesis",
-    placeholder: "What do you expect to happen, and why?",
-  },
-  description: {
-    label: "Description",
-    placeholder: "What is this experiment about?",
-  },
-};
+import ExperimentTextValue, {
+  EXPERIMENT_TEXT_FIELDS,
+  ExperimentTextFieldKey,
+} from "./ExperimentTextValue";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  field: keyof typeof FIELDS;
+  field: ExperimentTextFieldKey;
   // Show the editor rather than the rendered markdown.
   editable: boolean;
   // Where not editable, it still opens for editing from its pencil.
@@ -52,7 +42,7 @@ export default function ExperimentTextField({
   const { apiCall } = useAuth();
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
-  const { label, placeholder } = FIELDS[field];
+  const { label, placeholder } = EXPERIMENT_TEXT_FIELDS[field];
   const isHypothesis = field === "hypothesis";
   const slot = `inline:${field}`;
 
@@ -130,19 +120,8 @@ export default function ExperimentTextField({
       trackingSource="experiment-setup-tab"
       collapsibleToolbar
     />
-  ) : savedValue ? (
-    isHypothesis ? (
-      <Markdown>{savedValue}</Markdown>
-    ) : (
-      // Clamped, so a long one doesn't push the rest of the page away.
-      <ExpandableBlock>
-        <Markdown>{savedValue}</Markdown>
-      </ExpandableBlock>
-    )
   ) : (
-    <Text weight="regular" color="text-mid" size="md" fontStyle="italic">
-      No {field}
-    </Text>
+    <ExperimentTextValue field={field} value={savedValue} />
   );
 
   return (

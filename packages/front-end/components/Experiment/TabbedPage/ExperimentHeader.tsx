@@ -614,7 +614,7 @@ export default function ExperimentHeader({
                         return variations
                           .map((_, i) =>
                             i < 3
-                              ? formatPercent(1 / (variations.length ?? 2))
+                              ? formatPercent(1 / variations.length)
                               : i === 3
                                 ? "..."
                                 : null,

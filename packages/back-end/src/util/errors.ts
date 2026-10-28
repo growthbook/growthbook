@@ -4,6 +4,7 @@ import {
   apiErrorRegistry,
 } from "shared/validators";
 import { experimentFieldLabels } from "shared/experiments";
+import { capitalizeFirstCharacter } from "shared/util";
 import type { PublishGate } from "back-end/src/revisions/publishGates";
 
 export abstract class ApiError<C extends ApiErrorCode> extends Error {
@@ -91,10 +92,9 @@ export class ChangesConflictError extends ApiError<"changes_conflict"> {
         (id) => `AI Visual Editor change ${id}`,
       ),
     ];
-    const list = joinList(names);
     super(
       "changes_conflict",
-      `${list.charAt(0).toUpperCase()}${list.slice(1)} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
+      `${capitalizeFirstCharacter(joinList(names))} changed since you loaded ${names.length === 1 ? "it" : "them"}. Reload to see the latest, then make your changes again.`,
       details,
     );
     this.name = "ChangesConflictError";

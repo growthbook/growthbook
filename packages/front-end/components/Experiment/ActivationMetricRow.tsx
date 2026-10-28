@@ -1,6 +1,7 @@
-import { ReactNode } from "react";
 import { Box } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
+import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import MetricSelector from "./MetricSelector";
 
@@ -14,7 +15,6 @@ export default function ActivationMetricRow({
   onChange,
   disabled = false,
   incrementalRefresh = false,
-  children,
 }: {
   datasource?: string;
   exposureQueryId?: string;
@@ -25,8 +25,6 @@ export default function ActivationMetricRow({
   disabled?: boolean;
   // Activation metrics can't be used with it, so the selector locks.
   incrementalRefresh?: boolean;
-  // Under the selector.
-  children?: ReactNode;
 }) {
   return (
     <SetupFieldRow
@@ -48,12 +46,21 @@ export default function ActivationMetricRow({
             onlyBinomial
             filterFactFunnelMetrics
             value={value}
-            onChange={(metric) => onChange(metric || "")}
+            onChange={onChange}
             disabled={disabled || incrementalRefresh}
           />
         </Box>
       </Tooltip>
-      {children}
+      {incrementalRefresh && value !== "" && !disabled ? (
+        <Callout status="warning" mb="2">
+          Activation metrics are not yet supported with Incremental Refresh.
+          Please{" "}
+          <Link style={{ display: "inline" }} onClick={() => onChange("")}>
+            click to remove it
+          </Link>
+          .
+        </Callout>
+      ) : null}
     </SetupFieldRow>
   );
 }

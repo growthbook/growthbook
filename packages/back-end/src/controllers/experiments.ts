@@ -3199,11 +3199,10 @@ export async function deleteVisualChangeset(
     ) {
       context.permissions.throwPermissionError();
     }
+  } else if (owner instanceof ExperimentChangesetOwner) {
+    assertVisualChangesEditable(context, owner.experiment);
   } else {
-    const experiment =
-      owner instanceof ExperimentChangesetOwner ? owner.experiment : null;
-    if (experiment) assertVisualChangesEditable(context, experiment);
-    else assertCanRunLinkedChanges(context, {});
+    assertCanRunLinkedChanges(context, {});
   }
 
   await deleteVisualChangesetById({

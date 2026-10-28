@@ -42,11 +42,7 @@ const BanditExperimentPage = (): ReactElement => {
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
   }>(`/experiment/${bid}`);
-  const {
-    draft: targetingDraft,
-    setDraft: setTargetingDraft,
-    stage: stageTargeting,
-  } = useStagedTargeting(data?.experiment);
+  const targeting = useStagedTargeting(data?.experiment);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
@@ -155,8 +151,8 @@ const BanditExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
-          stageChanges={stageTargeting}
-          draft={targetingDraft}
+          stageChanges={targeting.stage}
+          draft={targeting.value}
           // source="bid"
         />
       )}
@@ -183,7 +179,7 @@ const BanditExperimentPage = (): ReactElement => {
           duplicate={duplicate}
           envs={data.envs}
           editTargeting={editTargeting}
-          targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}
+          targetingDraft={targeting}
           canAddVariation={canRunExperiment}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}

@@ -42,7 +42,8 @@ export type CheckListItem = {
   featureId?: string;
 };
 
-// Opens the flag in a new tab, at its draft unless `draft` is false.
+// Opens the flag in a new tab at `version`: its draft by default, null for
+// the flag itself.
 export function linkedFeatureAction(
   f: LinkedFeatureInfo,
   version = f.draftRevisionVersion ?? null,

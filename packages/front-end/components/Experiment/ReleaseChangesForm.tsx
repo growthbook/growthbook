@@ -84,7 +84,6 @@ export default function ReleaseChangesForm({
   useEffect(() => {
     if (releasePlan === "same-phase-sticky") {
       form.setValue("newPhase", false);
-      // Only a new phase takes a new seed.
       form.setValue("reseed", false);
       form.setValue("bucketVersion", experiment.bucketVersion);
       form.setValue("minBucketVersion", experiment.minBucketVersion);
@@ -196,7 +195,7 @@ export default function ReleaseChangesForm({
             return variations
               .map((_, i) =>
                 i < 3
-                  ? formatPercent(1 / (variations.length ?? 2))
+                  ? formatPercent(1 / variations.length)
                   : i === 3
                     ? "..."
                     : null,

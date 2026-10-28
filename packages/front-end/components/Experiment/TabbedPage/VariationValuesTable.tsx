@@ -1,5 +1,4 @@
 import clsx from "clsx";
-import isEqual from "lodash/isEqual";
 import {
   forwardRef,
   HTMLAttributes,
@@ -241,7 +240,6 @@ export default function VariationValuesTable({
   const reportServed = useCallback(
     (column: string, served: Record<string, string> | null) =>
       setFlagServed((prev) => {
-        if (isEqual(prev[column] ?? null, served)) return prev;
         const next = { ...prev };
         if (served) next[column] = served;
         else delete next[column];

@@ -9,15 +9,18 @@ import { format } from "date-fns-tz";
 export const scheduledTime = (value: string | Date) =>
   format(new Date(value), "MMM d, yyyy 'at' h:mm a (z)");
 
+const day = (value: string | Date) => date(value, "UTC");
+
 const stopAfterSpan = ({ value, unit }: { value: number; unit: string }) =>
   `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
 
 /** When a schedule ends: a date, or a span after the start. */
 export const scheduledEnd = (
   schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"],
+  formatAt: (value: string | Date) => string = scheduledTime,
 ) =>
   schedule?.stopAt
-    ? scheduledTime(schedule.stopAt)
+    ? formatAt(schedule.stopAt)
     : schedule?.stopAfter
       ? `${stopAfterSpan(schedule.stopAfter)} after start`
       : null;
@@ -59,15 +62,11 @@ export const headerDates = (
   const schedule = experiment.statusUpdateSchedule;
   // Archived, its schedule never fires.
   const ends =
-    status === "stopped" || experiment.archived
+    status === "stopped" ||
+    experiment.archived ||
+    (schedule?.stopAt && new Date(schedule.stopAt) <= now)
       ? null
-      : schedule?.stopAt
-        ? new Date(schedule.stopAt) > now
-          ? date(schedule.stopAt)
-          : null
-        : schedule?.stopAfter
-          ? `${stopAfterSpan(schedule.stopAfter)} after start`
-          : null;
+      : scheduledEnd(schedule, date);
   return [
     started
       ? {
@@ -75,10 +74,10 @@ export const headerDates = (
             phases.length > 1 && !isHoldout
               ? "Latest phase started"
               : "Started",
-          value: date(started, "UTC"),
+          value: day(started),
         }
-      : { label: "Created", value: date(experiment.dateCreated, "UTC") },
-    ...(ended ? [{ label: "Ended", value: date(ended, "UTC") }] : []),
+      : { label: "Created", value: day(experiment.dateCreated) },
+    ...(ended ? [{ label: "Ended", value: day(ended) }] : []),
     ...(ends ? [{ label: "Ends", value: ends }] : []),
   ];
 };
@@ -88,7 +87,6 @@ export const allDates = (experiment: DatedExperiment): LabeledDate[] => {
   const { phases, status } = experiment;
   const isHoldout = experiment.type === "holdout";
   const schedule = experiment.statusUpdateSchedule;
-  const day = (value: string | Date) => date(value, "UTC");
   const dates = [{ label: "Created", value: day(experiment.dateCreated) }];
   if (status === "draft") {
     if (schedule?.startAt) {

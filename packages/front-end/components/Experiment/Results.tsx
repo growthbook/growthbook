@@ -501,8 +501,8 @@ const Results: FC<{
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
               isLatestPhase={phase === experiment.phases.length - 1}
-              // Only where the page's banner takes their place and links
-              // to the details on the Health tab.
+              // Hidden where the page's banner takes their place and links
+              // to the Health tab.
               showHealthWarnings={
                 phase !== experiment.phases.length - 1 ||
                 !hasHealthData(datasource) ||

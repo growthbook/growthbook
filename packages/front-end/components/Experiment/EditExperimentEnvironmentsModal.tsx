@@ -67,9 +67,8 @@ export default function EditExperimentEnvironmentsModal({
       header="Edit Environments"
       open={true}
       close={close}
-      // A rule in no environment serves nothing and drops off this page; the
-      // field says to pick one.
       cta="Apply"
+      // A rule in no environment serves nothing and drops off this page.
       ctaEnabled={allEnvironments || selectedEnvironments.length > 0}
       submit={() => {
         const next = {

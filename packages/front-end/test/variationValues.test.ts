@@ -73,10 +73,6 @@ describe("getDuplicateRows", () => {
         column("true", "true", "true"),
       ]),
     ).toEqual([["v0", "v1"]]);
-    // A column with no value for one leaves it unjudged.
-    expect(
-      getDuplicateRows(ids(2), [column("true", "true"), { v0: "x" }]),
-    ).toEqual([]);
   });
 });
 

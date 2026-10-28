@@ -21,7 +21,7 @@ export type ColumnLayout = {
   detailsRow: number;
   variations: ShownVariation[];
   // A warning about the whole table, given to one column to show.
-  tableNote?: string | null;
+  tableNote: string | null;
 };
 
 export type ImplementationColumn = {

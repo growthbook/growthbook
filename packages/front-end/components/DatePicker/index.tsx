@@ -226,7 +226,6 @@ export default function DatePicker({
     startOfMonth(date ? clock.toCalendar(date) : new Date()),
   );
   const [open, setOpen] = useState(false);
-  const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
   const [fieldFocused, setFieldFocused] = useState(false);
   const fieldClickedTime = useRef(new Date());
 
@@ -298,13 +297,7 @@ export default function DatePicker({
   const fieldLabel = isRange ? (label ?? label2) : label;
 
   const rangeFieldValue = useMemo(() => {
-    if (
-      isRange &&
-      precision === "date" &&
-      !rangeFieldFocused &&
-      date &&
-      date2
-    ) {
+    if (isRange && precision === "date" && !fieldFocused && date && date2) {
       return formatCompactDateRange(
         clock.toCalendar(date),
         clock.toCalendar(date2),
@@ -323,7 +316,7 @@ export default function DatePicker({
     isRange,
     clock,
     precision,
-    rangeFieldFocused,
+    fieldFocused,
   ]);
 
   const clampParsedDate = useCallback(
@@ -496,9 +489,7 @@ export default function DatePicker({
                     }}
                     onFocus={() => {
                       setFieldFocused(true);
-                      if (!isRange) return;
-                      setRangeFieldFocused(true);
-                      if (date && date2) {
+                      if (isRange && date && date2) {
                         setBufferedDate(clock.toText(date));
                         setBufferedDate2(clock.toText(date2));
                       }
@@ -507,9 +498,6 @@ export default function DatePicker({
                       setFieldFocused(false);
                       debouncedSetDate.flush();
                       debouncedApplyRange.flush();
-                      if (isRange) {
-                        setRangeFieldFocused(false);
-                      }
                     }}
                     onClick={(e) => {
                       e.preventDefault();

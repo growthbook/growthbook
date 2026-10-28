@@ -54,6 +54,7 @@ import {
   FEATURE_KEY_DESCRIPTION,
   RULE_DESCRIPTION,
   TAGS_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
 } from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
@@ -1003,9 +1004,7 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
       hashAttribute: z.string(),
       fallbackAttribute: z
         .string()
-        .describe(
-          "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
-        )
+        .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
         .optional(),
       seed: z
         .string()
@@ -1535,9 +1534,7 @@ const postFeatureRolloutRule = z
     hashAttribute: z.string(),
     fallbackAttribute: z
       .string()
-      .describe(
-        "Used in place of `hashAttribute` when a user lacks it. Only SDKs with Sticky Bucketing enabled use it.",
-      )
+      .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
       .optional(),
     seed: z.string().optional(),
     hashVersion: z

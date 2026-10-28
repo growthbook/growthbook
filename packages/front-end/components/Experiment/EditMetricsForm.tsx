@@ -25,13 +25,14 @@ import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
-import Collapse, { CollapseTrigger } from "@/ui/Collapse";
-import Text from "@/ui/Text";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import ActivationMetricRow from "./ActivationMetricRow";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
-import { SettingsCard } from "./TabbedPage/AnalysisPlanAdvanced";
+import {
+  AdvancedSection,
+  SettingsCard,
+} from "./TabbedPage/AnalysisPlanAdvanced";
 import SetupFieldRow from "./TabbedPage/SetupFieldRow";
 
 export interface EditMetricsFormInterface {
@@ -216,7 +217,6 @@ const EditMetricsForm: FC<{
     >
       <ExperimentMetricsSelector
         asRows
-        noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         exposureQueryIdentifierType={experiment.exposureQueryIdentifierType}
@@ -265,6 +265,7 @@ const EditMetricsForm: FC<{
             project={experiment.project}
             value={form.watch("activationMetric")}
             onChange={(metric) => form.setValue("activationMetric", metric)}
+            incrementalRefresh={isExperimentIncludedInIncrementalRefresh}
           />
 
           <CustomMetricSlicesSelector
@@ -285,42 +286,31 @@ const EditMetricsForm: FC<{
 
           <Box>
             <Separator size="4" my="5" />
-            <CollapseTrigger
-              open={advancedOpen}
-              onOpenChange={setAdvancedOpen}
-              caret="start"
-            >
-              <Text weight="medium" color="text-high">
-                Advanced
-              </Text>
-            </CollapseTrigger>
-            <Collapse open={advancedOpen}>
-              <Box pt="3">
-                <SettingsCard title="Metrics">
-                  <SetupFieldRow
-                    label="Metric overrides"
-                    tooltip="Override metric behaviors within this experiment."
-                  >
-                    <MetricsOverridesSelector
-                      experiment={experiment}
-                      form={form}
-                      statsEngine={statsEngine}
-                      disabled={
-                        !hasOverrideMetricsFeature ||
-                        isExperimentIncludedInIncrementalRefresh
-                      }
+            <AdvancedSection open={advancedOpen} setOpen={setAdvancedOpen}>
+              <SettingsCard title="Metrics">
+                <SetupFieldRow
+                  label="Metric overrides"
+                  tooltip="Override metric behaviors within this experiment."
+                >
+                  <MetricsOverridesSelector
+                    experiment={experiment}
+                    form={form}
+                    statsEngine={statsEngine}
+                    disabled={
+                      !hasOverrideMetricsFeature ||
+                      isExperimentIncludedInIncrementalRefresh
+                    }
+                  />
+                  {!hasOverrideMetricsFeature && (
+                    <UpgradeMessage
+                      showUpgradeModal={() => setUpgradeModal(true)}
+                      commercialFeature="override-metrics"
+                      upgradeMessage="override metrics"
                     />
-                    {!hasOverrideMetricsFeature && (
-                      <UpgradeMessage
-                        showUpgradeModal={() => setUpgradeModal(true)}
-                        commercialFeature="override-metrics"
-                        upgradeMessage="override metrics"
-                      />
-                    )}
-                  </SetupFieldRow>
-                </SettingsCard>
-              </Box>
-            </Collapse>
+                  )}
+                </SetupFieldRow>
+              </SettingsCard>
+            </AdvancedSection>
           </Box>
         </>
       ) : null}

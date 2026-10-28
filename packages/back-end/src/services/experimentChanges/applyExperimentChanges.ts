@@ -403,7 +403,7 @@ async function writeFlagValues({
           {
             user: eventAudit,
             action: "update experiment environments",
-            subject: `to ${scope.scopedEnvironments.join(", ") || "no environments"}`,
+            subject: `to ${scope.scopedEnvironments.join(", ")}`,
             value: JSON.stringify(update.environments),
           },
           { guardDateUpdated: true },
@@ -422,22 +422,16 @@ async function compensate(
   const failed: string[] = [];
   for (const c of [...compensations].reverse()) {
     try {
-      if (c.snapshot) {
-        const restored = await restoreRevisionSnapshot(
-          c.snapshot,
-          c.writtenDateUpdated,
-        );
-        if (!restored) failed.push(`${c.featureId} (draft v${c.version})`);
-      } else {
-        const deleted = await deleteRevisionForFailedLanding(
-          context,
-          context.org.id,
-          c.featureId,
-          c.version,
-          c.writtenDateUpdated,
-        );
-        if (!deleted) failed.push(`${c.featureId} (draft v${c.version})`);
-      }
+      const undone = c.snapshot
+        ? await restoreRevisionSnapshot(c.snapshot, c.writtenDateUpdated)
+        : await deleteRevisionForFailedLanding(
+            context,
+            context.org.id,
+            c.featureId,
+            c.version,
+            c.writtenDateUpdated,
+          );
+      if (!undone) failed.push(`${c.featureId} (draft v${c.version})`);
     } catch (e) {
       logger.error(e, `Could not roll back ${c.featureId} v${c.version}`);
       failed.push(`${c.featureId} (draft v${c.version})`);

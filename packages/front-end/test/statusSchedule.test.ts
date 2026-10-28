@@ -105,21 +105,22 @@ describe("scheduleTimes", () => {
   });
 });
 
+const base = {
+  type: "standard" as const,
+  archived: false,
+  dateCreated: "2025-09-19T12:00:00Z",
+};
+const running = {
+  ...base,
+  status: "running" as const,
+  phases: [{ dateStarted: "2026-01-14T12:00:00Z" }],
+};
+const created = { label: "Created", value: "Sep 19, 2025" };
+
 describe("headerDates", () => {
   const now = new Date("2026-10-27T12:00:00Z");
-  const base = {
-    type: "standard" as const,
-    archived: false,
-    dateCreated: "2025-09-19T12:00:00Z",
-  };
   const draft = { ...base, status: "draft" as const, phases: [] };
-  const running = {
-    ...base,
-    status: "running" as const,
-    phases: [{ dateStarted: "2026-01-14T12:00:00Z" }],
-  };
   const futureEnd = { stopAt: "2026-11-30T12:00:00Z" };
-  const created = { label: "Created", value: "Sep 19, 2025" };
   const started = { label: "Started", value: "Jan 14, 2026" };
   it.each([
     ["a draft", draft, [created]],
@@ -185,17 +186,6 @@ describe("headerDates", () => {
 });
 
 describe("allDates", () => {
-  const base = {
-    type: "standard" as const,
-    archived: false,
-    dateCreated: "2025-09-19T12:00:00Z",
-  };
-  const created = { label: "Created", value: "Sep 19, 2025" };
-  const running = {
-    ...base,
-    status: "running" as const,
-    phases: [{ dateStarted: "2026-01-14T12:00:00Z" }],
-  };
   // Scheduled times read in the viewer's zone.
   const at = (value: string) => expect.stringMatching(new RegExp(`^${value}`));
   it.each([

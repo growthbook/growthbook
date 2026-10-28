@@ -12,7 +12,6 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
-  getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
@@ -45,9 +44,6 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
-import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import {
   datasourceHasWritableEphemeralPipeline,
@@ -56,7 +52,6 @@ import {
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
-import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Checkbox from "@/ui/Checkbox";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
@@ -68,7 +63,12 @@ import {
 } from "./EditMetricsForm";
 import ActivationMetricRow from "./ActivationMetricRow";
 import { DATASOURCE_CHANGE_NOTE } from "./TabbedPage/AnalysisPlan";
-import { SettingsCard } from "./TabbedPage/AnalysisPlanAdvanced";
+import {
+  AdvancedSection,
+  ConversionWindowsRow,
+  QueryFilterHelp,
+  SettingsCard,
+} from "./TabbedPage/AnalysisPlanAdvanced";
 import SetupFieldRow, { SetupFieldGroup } from "./TabbedPage/SetupFieldRow";
 import { QuickEditRow } from "./TabbedPage/QuickEditButton";
 import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
@@ -891,7 +891,6 @@ const AnalysisForm: FC<{
             )}
             <ExperimentMetricsSelector
               asRows
-              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
               autoFocus={focus === "goalMetrics"}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
@@ -931,22 +930,7 @@ const AnalysisForm: FC<{
                 value={form.watch("activationMetric")}
                 onChange={(metric) => form.setValue("activationMetric", metric)}
                 incrementalRefresh={isExperimentIncludedInIncrementalRefresh}
-              >
-                {isExperimentIncludedInIncrementalRefresh &&
-                  form.watch("activationMetric") !== "" && (
-                    <Callout status="warning" mb="2">
-                      Activation metrics are not yet supported with Incremental
-                      Refresh. Please{" "}
-                      <Link
-                        style={{ display: "inline" }}
-                        onClick={() => form.setValue("activationMetric", "")}
-                      >
-                        click to remove it
-                      </Link>
-                      .
-                    </Callout>
-                  )}
-              </ActivationMetricRow>
+              />
             )}
 
             <CustomMetricSlicesSelector
@@ -963,198 +947,145 @@ const AnalysisForm: FC<{
             {hasAdvancedSettings && (
               <Box>
                 <Separator size="4" my="5" />
-                <CollapseTrigger
-                  open={advancedOpen}
-                  onOpenChange={setAdvancedOpen}
-                  caret="start"
-                >
-                  <Text weight="medium" color="text-high">
-                    Advanced
-                  </Text>
-                </CollapseTrigger>
-                <Collapse open={advancedOpen}>
-                  <Box pt="3">
-                    {hasExposureSettings && (
-                      <SettingsCard title="Exposures">
-                        {showSegments && (
+                <AdvancedSection open={advancedOpen} setOpen={setAdvancedOpen}>
+                  {hasExposureSettings && (
+                    <SettingsCard title="Exposures">
+                      {showSegments && (
+                        <SetupFieldRow
+                          label="Segment"
+                          tooltip="Only users in this segment will be included."
+                        >
+                          <SelectField
+                            value={form.watch("segment")}
+                            onChange={(value) =>
+                              form.setValue("segment", value || "")
+                            }
+                            initialOption="None (all users)"
+                            options={filteredSegments.map((s) => ({
+                              label: s.name,
+                              value: s.id,
+                            }))}
+                          />
+                        </SetupFieldRow>
+                      )}
+                      {datasourceProperties?.queryLanguage === "sql" && (
+                        <SetupFieldRow label="Custom SQL filter">
+                          <Field
+                            textarea
+                            {...form.register("queryFilter")}
+                            placeholder="e.g. user_id NOT IN ('123', '456')"
+                            containerClassName="mb-0"
+                          />
+                          <QueryFilterHelp exposureQuery={exposureQuery} />
+                        </SetupFieldRow>
+                      )}
+                    </SettingsCard>
+                  )}
+                  {hasMetricSettings && (
+                    <SettingsCard title="Metrics">
+                      {datasourceProperties?.separateExperimentResultQueries && (
+                        <>
+                          <ConversionWindowsRow
+                            strict={form.watch("skipPartialData") === "strict"}
+                            setStrict={(strict) =>
+                              form.setValue(
+                                "skipPartialData",
+                                strict ? "strict" : "loose",
+                              )
+                            }
+                            incrementalRefresh={
+                              isExperimentIncludedInIncrementalRefresh
+                            }
+                          />
                           <SetupFieldRow
-                            label="Segment"
-                            tooltip="Only users in this segment will be included."
+                            label="Metric windows"
+                            tooltip="Apply custom metric window behavior in this experiment."
                           >
-                            <SelectField
-                              value={form.watch("segment")}
-                              onChange={(value) =>
-                                form.setValue("segment", value || "")
+                            <MetricAnalysisWindowSelector
+                              bare
+                              attributionModel={
+                                form.watch("attributionModel") ||
+                                orgSettings.attributionModel ||
+                                "firstExposure"
                               }
-                              initialOption="None (all users)"
-                              options={filteredSegments.map((s) => ({
-                                label: s.name,
-                                value: s.id,
-                              }))}
-                            />
-                          </SetupFieldRow>
-                        )}
-                        {datasourceProperties?.queryLanguage === "sql" && (
-                          <SetupFieldRow label="Custom SQL filter">
-                            <Field
-                              textarea
-                              {...form.register("queryFilter")}
-                              placeholder="e.g. user_id NOT IN ('123', '456')"
-                              containerClassName="mb-0"
-                            />
-                            <HelperText status="info" size="sm" mt="1">
-                              A WHERE clause added to the experiment query.
-                              Columns:{" "}
-                              {["timestamp", "variation_id"]
-                                .concat(
-                                  exposureQuery
-                                    ? getExposureQueryIdentifierTypes(
-                                        exposureQuery,
-                                      )
-                                    : [],
-                                )
-                                .concat(exposureQuery?.dimensions || [])
-                                .map((column, i) => (
-                                  <span key={column}>
-                                    {i > 0 ? ", " : null}
-                                    <code>{column}</code>
-                                  </span>
-                                ))}
-                              .
-                            </HelperText>
-                          </SetupFieldRow>
-                        )}
-                      </SettingsCard>
-                    )}
-                    {hasMetricSettings && (
-                      <SettingsCard title="Metrics">
-                        {datasourceProperties?.separateExperimentResultQueries && (
-                          <>
-                            <SetupFieldRow
-                              label="Conversion windows"
-                              tooltip="How to treat users not enrolled long enough to complete a conversion window."
-                            >
-                              <Tooltip
-                                shouldDisplay={
-                                  isExperimentIncludedInIncrementalRefresh
-                                }
-                                body="In-progress conversions can't be excluded with Incremental Refresh while in beta."
-                              >
-                                <SelectField
-                                  value={form.watch("skipPartialData")}
-                                  onChange={(value) =>
-                                    form.setValue("skipPartialData", value)
-                                  }
-                                  options={[
-                                    {
-                                      label: "Include in-progress conversions",
-                                      value: "loose",
-                                    },
-                                    {
-                                      label: "Exclude in-progress conversions",
-                                      value: "strict",
-                                    },
-                                  ]}
-                                  isOptionDisabled={(option) =>
-                                    isExperimentIncludedInIncrementalRefresh &&
-                                    "value" in option &&
-                                    option.value === "strict"
-                                  }
-                                />
-                              </Tooltip>
-                            </SetupFieldRow>
-                            <SetupFieldRow
-                              label="Metric windows"
-                              tooltip="Apply custom metric window behavior in this experiment."
-                            >
-                              <MetricAnalysisWindowSelector
-                                bare
-                                attributionModel={
-                                  form.watch("attributionModel") ||
-                                  orgSettings.attributionModel ||
-                                  "firstExposure"
-                                }
-                                lookbackOverride={form.watch(
-                                  "lookbackOverride",
-                                )}
-                                onAttributionModelChange={(v) =>
-                                  form.setValue("attributionModel", v)
-                                }
-                                onLookbackOverrideChange={(v) =>
-                                  form.setValue("lookbackOverride", v)
-                                }
-                                phaseEndDate={
-                                  experiment.status === "stopped" && phaseObj
-                                    ? getValidDate(phaseObj.dateEnded ?? "")
-                                    : new Date()
-                                }
-                                disabled={
-                                  isExperimentIncludedInIncrementalRefresh
-                                }
-                              />
-                            </SetupFieldRow>
-                          </>
-                        )}
-                        {hasEligiblePrecomputedUnitDimensions && (
-                          <SetupFieldRow
-                            label="Unit dimensions"
-                            tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
-                          >
-                            <MultiSelectField
-                              value={selectedPrecomputedUnitDimensionIds}
-                              options={
-                                precomputedUnitDimensionOptionsWithTooltips
+                              lookbackOverride={form.watch("lookbackOverride")}
+                              onAttributionModelChange={(v) =>
+                                form.setValue("attributionModel", v)
                               }
-                              isOptionDisabled={(option) =>
-                                "value" in option &&
-                                precomputedUnitDimensionLimitReached &&
-                                !selectedPrecomputedUnitDimensionIds.includes(
-                                  option.value,
-                                )
+                              onLookbackOverrideChange={(v) =>
+                                form.setValue("lookbackOverride", v)
                               }
-                              onChange={(v) =>
-                                form.setValue(
-                                  "precomputedUnitDimensionIds",
-                                  v.slice(0, MAX_PRECOMPUTED_UNIT_DIMENSIONS),
-                                )
-                              }
-                            />
-                          </SetupFieldRow>
-                        )}
-                        {hasMetrics && (
-                          <SetupFieldRow
-                            label="Metric overrides"
-                            tooltip="Override metric behaviors within this experiment."
-                          >
-                            <MetricsOverridesSelector
-                              experiment={experiment}
-                              // The source being edited here, not the stored one.
-                              datasource={form.watch("datasource")}
-                              statsEngine={
-                                form.watch("statsEngine") ||
-                                scopedSettings.statsEngine.value
-                              }
-                              form={
-                                form as unknown as UseFormReturn<EditMetricsFormInterface>
+                              phaseEndDate={
+                                experiment.status === "stopped" && phaseObj
+                                  ? getValidDate(phaseObj.dateEnded ?? "")
+                                  : new Date()
                               }
                               disabled={
-                                !hasOverrideMetricsFeature ||
                                 isExperimentIncludedInIncrementalRefresh
                               }
                             />
-                            {!hasOverrideMetricsFeature && (
-                              <UpgradeMessage
-                                showUpgradeModal={() => setUpgradeModal(true)}
-                                commercialFeature="override-metrics"
-                                upgradeMessage="override metrics"
-                              />
-                            )}
                           </SetupFieldRow>
-                        )}
-                      </SettingsCard>
-                    )}
-                  </Box>
-                </Collapse>
+                        </>
+                      )}
+                      {hasEligiblePrecomputedUnitDimensions && (
+                        <SetupFieldRow
+                          label="Unit dimensions"
+                          tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+                        >
+                          <MultiSelectField
+                            value={selectedPrecomputedUnitDimensionIds}
+                            options={
+                              precomputedUnitDimensionOptionsWithTooltips
+                            }
+                            isOptionDisabled={(option) =>
+                              "value" in option &&
+                              precomputedUnitDimensionLimitReached &&
+                              !selectedPrecomputedUnitDimensionIds.includes(
+                                option.value,
+                              )
+                            }
+                            onChange={(v) =>
+                              form.setValue(
+                                "precomputedUnitDimensionIds",
+                                v.slice(0, MAX_PRECOMPUTED_UNIT_DIMENSIONS),
+                              )
+                            }
+                          />
+                        </SetupFieldRow>
+                      )}
+                      {hasMetrics && (
+                        <SetupFieldRow
+                          label="Metric overrides"
+                          tooltip="Override metric behaviors within this experiment."
+                        >
+                          <MetricsOverridesSelector
+                            experiment={experiment}
+                            // The source being edited here, not the stored one.
+                            datasource={form.watch("datasource")}
+                            statsEngine={
+                              form.watch("statsEngine") ||
+                              scopedSettings.statsEngine.value
+                            }
+                            form={
+                              form as unknown as UseFormReturn<EditMetricsFormInterface>
+                            }
+                            disabled={
+                              !hasOverrideMetricsFeature ||
+                              isExperimentIncludedInIncrementalRefresh
+                            }
+                          />
+                          {!hasOverrideMetricsFeature && (
+                            <UpgradeMessage
+                              showUpgradeModal={() => setUpgradeModal(true)}
+                              commercialFeature="override-metrics"
+                              upgradeMessage="override metrics"
+                            />
+                          )}
+                        </SetupFieldRow>
+                      )}
+                    </SettingsCard>
+                  )}
+                </AdvancedSection>
               </Box>
             )}
           </>

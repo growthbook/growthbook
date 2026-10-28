@@ -78,14 +78,14 @@ function StagedChange({
   );
   const title = (
     <Flex align="center" gap="1">
-      {incompatible ? (
-        <Tooltip content="Made before the experiment's status changed.">
-          <Flex as="span" style={{ color: "var(--amber-11)" }}>
-            <RadixStatusIcon status="warning" size="sm" />
-          </Flex>
-        </Tooltip>
-      ) : keepMine ? (
-        <Tooltip content="Someone else saved a change to this since you made yours.">
+      {incompatible || keepMine ? (
+        <Tooltip
+          content={
+            incompatible
+              ? "Made before the experiment's status changed."
+              : "Someone else saved a change to this since you made yours."
+          }
+        >
           <Flex as="span" style={{ color: "var(--amber-11)" }}>
             <RadixStatusIcon status="warning" size="sm" />
           </Flex>
@@ -150,13 +150,10 @@ export default function StagedChanges() {
   const checkAll = useRef(edits?.checkAll);
   checkAll.current = edits?.checkAll;
   useEffect(() => {
-    // Not while edits left behind still block the save.
-    if (!open || !checkAll.current || incompatible?.length) {
-      setCheck(null);
-      return;
-    }
-    let current = true;
     setCheck(null);
+    // Not while edits left behind still block the save.
+    if (!open || !checkAll.current || incompatible?.length) return;
+    let current = true;
     checkAll
       .current()
       .then(() => {

@@ -52,6 +52,22 @@ export interface Props {
 }
 
 /** Which metrics an experiment can't use, and why. */
+/** Each metric list as a setup row reads it. */
+export const METRIC_ROWS = {
+  goalMetrics: {
+    label: "Goal metrics",
+    tooltip: "What this experiment is trying to improve.",
+  },
+  secondaryMetrics: {
+    label: "Secondary metrics",
+    tooltip: "Extra metrics to learn from, but not the objective.",
+  },
+  guardrailMetrics: {
+    label: "Guardrail metrics",
+    tooltip: "Metrics to watch for harm, not to improve.",
+  },
+};
+
 export function useMetricDisabledInfo(
   datasource: string | undefined,
   experimentId: string | undefined,
@@ -291,7 +307,7 @@ export default function ExperimentMetricsSelector({
         section(
           asRows
             ? !forceSingleGoalMetric
-              ? "Goal metrics"
+              ? METRIC_ROWS.goalMetrics.label
               : "Decision metric"
             : !forceSingleGoalMetric
               ? "Goal Metrics"
@@ -300,7 +316,7 @@ export default function ExperimentMetricsSelector({
             ? goalMetricsDescription
             : !forceSingleGoalMetric
               ? asRows
-                ? "What this experiment is trying to improve."
+                ? METRIC_ROWS.goalMetrics.tooltip
                 : "The primary metrics you are trying to improve with this experiment. "
               : "Choose the goal metric that will be used to update variation weights. ",
           <>
@@ -347,9 +363,9 @@ export default function ExperimentMetricsSelector({
           </div>
         ) : (
           section(
-            asRows ? "Secondary metrics" : "Secondary Metrics",
+            asRows ? METRIC_ROWS.secondaryMetrics.label : "Secondary Metrics",
             asRows
-              ? "Extra metrics to learn from, but not the objective."
+              ? METRIC_ROWS.secondaryMetrics.tooltip
               : !forceSingleGoalMetric
                 ? "Additional metrics to learn about experiment impacts, but not primary objectives."
                 : "Additional metrics to learn about experiment impacts. ",
@@ -384,9 +400,9 @@ export default function ExperimentMetricsSelector({
           </div>
         ) : (
           section(
-            asRows ? "Guardrail metrics" : "Guardrail Metrics",
+            asRows ? METRIC_ROWS.guardrailMetrics.label : "Guardrail Metrics",
             asRows
-              ? "Metrics to watch for harm, not to improve."
+              ? METRIC_ROWS.guardrailMetrics.tooltip
               : "Metrics you want to monitor, but are NOT specifically trying to improve.",
             <MetricsSelector
               selected={guardrailMetrics}

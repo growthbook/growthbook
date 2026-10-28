@@ -373,12 +373,11 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const currentHashAttribute = form.watch("hashAttribute");
   const hashAttributeHoldoutMismatch =
-    !!holdoutHashAttribute &&
-    form.watch("hashAttribute") !== holdoutHashAttribute;
+    !!holdoutHashAttribute && currentHashAttribute !== holdoutHashAttribute;
   // The holdout's attribute may not be flagged for hashing, and the field
   // reads as empty unless its value is an option.
-  const currentHashAttribute = form.watch("hashAttribute");
   const hashAttributeOptions =
     !currentHashAttribute ||
     selectableAttributes.some((a) => a.property === currentHashAttribute)
@@ -727,7 +726,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
             </>
           }
           className={hashAttributeHoldoutMismatch ? "warning" : undefined}
-          value={form.watch("hashAttribute") ?? ""}
+          value={currentHashAttribute ?? ""}
           onChange={(v) => form.setValue("hashAttribute", v)}
           options={hashAttributeOptions.map(toAttributeOption)}
           formatOptionLabel={formatAttributeOptionLabel}
