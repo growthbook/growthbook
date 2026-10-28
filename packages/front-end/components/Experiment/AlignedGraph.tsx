@@ -252,7 +252,17 @@ const AlignedGraph: FC<Props> = ({
             } as const;
           };
           return (
-            <svg width={graphWidth} height={height} className="d-block">
+            <svg
+              width={graphWidth}
+              height={height}
+              className="d-block"
+              // Where the mean sits, for a result popover to point at.
+              data-mean-x={
+                !axisOnly && Number.isFinite(expected)
+                  ? xScale(expected ?? 0)
+                  : undefined
+              }
+            >
               <defs>
                 {gradient.length > 0 && (
                   <linearGradient
