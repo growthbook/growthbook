@@ -57,6 +57,7 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
+import ScrollArea from "@/ui/ScrollArea";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
@@ -287,8 +288,11 @@ export default function VariationValuesTable({
         <Box pt="3" pb="2" minHeight="22px" />
       </Box>
       <Box className="appbox" mb="0" style={{ overflow: "hidden" }}>
-        <Box
-          style={{ overflowX: "auto", overflowY: "hidden" }}
+        {/* The pinned column shadows the left edge itself. */}
+        <ScrollArea
+          direction="horizontal"
+          edgeCue="shadow"
+          skipEdges={["left"]}
           onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
         >
           <div
@@ -415,7 +419,7 @@ export default function VariationValuesTable({
               />
             ))}
           </div>
-        </Box>
+        </ScrollArea>
       </Box>
       {addImplementation ? (
         <Flex justify="end" mt="4">

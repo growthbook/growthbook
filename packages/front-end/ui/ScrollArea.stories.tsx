@@ -28,14 +28,18 @@ export default function ScrollAreaStories() {
       ))}
       <Flex direction="column" gap="2">
         <Text size="2" weight="bold">
-          Both directions, with edge fades
+          Both directions, edges fading
         </Text>
         <Box
           width="200px"
           height="160px"
           style={{ border: "1px solid var(--gray-a5)" }}
         >
-          <ScrollArea direction="both" edgeFades style={{ height: "100%" }}>
+          <ScrollArea
+            direction="both"
+            edgeCue="fade"
+            style={{ height: "100%" }}
+          >
             {rows.map((row) => (
               <Text
                 as="div"

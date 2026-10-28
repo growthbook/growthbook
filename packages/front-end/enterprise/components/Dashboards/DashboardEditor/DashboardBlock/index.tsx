@@ -678,7 +678,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       <ScrollArea
         fill
         direction="both"
-        edgeFades
+        edgeCue="fade"
         style={{ flex: 1, minHeight: 0 }}
       >
         <Flex direction="column" flexGrow="1" px="4" pb="3">

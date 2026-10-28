@@ -2,6 +2,7 @@ import {
   CSSProperties,
   forwardRef,
   ReactNode,
+  UIEventHandler,
   useEffect,
   useImperativeHandle,
   useRef,
@@ -10,6 +11,8 @@ import {
 import { ScrollArea as RadixScrollArea } from "@radix-ui/themes";
 import clsx from "clsx";
 import styles from "./ScrollArea.module.scss";
+
+type Edge = "top" | "bottom" | "left" | "right";
 
 /**
  * A scroll box whose scrollbars overlay the content, shown only while hovered
@@ -24,8 +27,14 @@ const ScrollArea = forwardRef<
     /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
     fill?: boolean;
     direction?: "vertical" | "horizontal" | "both";
-    /** Fades the content out at each edge with more past it. */
-    edgeFades?: boolean;
+    /**
+     * Marks each edge with more content past it: the content fades out there,
+     * or a shadow falls over it.
+     */
+    edgeCue?: "fade" | "shadow";
+    /** Edges left unmarked, such as one a pinned column marks itself. */
+    skipEdges?: Edge[];
+    onScroll?: UIEventHandler<HTMLDivElement>;
     className?: string;
     style?: CSSProperties;
   }
@@ -35,7 +44,9 @@ const ScrollArea = forwardRef<
     gutter = false,
     fill = false,
     direction = "vertical",
-    edgeFades = false,
+    edgeCue,
+    skipEdges = [],
+    onScroll,
     className,
     style,
   },
@@ -44,24 +55,25 @@ const ScrollArea = forwardRef<
   const viewport = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => viewport.current as HTMLDivElement, []);
 
-  const [faded, setFaded] = useState("");
+  const skipped = skipEdges.join(" ");
+  const [more, setMore] = useState<Edge[]>([]);
   useEffect(() => {
     const el = viewport.current;
-    if (!edgeFades || !el) return;
+    if (!edgeCue || !el) return;
     const vertical = direction !== "horizontal";
     const sideways = direction !== "vertical";
     const update = () => {
-      const more = [
-        vertical && el.scrollTop > 0 && "top",
-        vertical &&
-          el.scrollTop + el.clientHeight < el.scrollHeight - 1 &&
-          "bottom",
-        sideways && el.scrollLeft > 0 && "left",
-        sideways &&
-          el.scrollLeft + el.clientWidth < el.scrollWidth - 1 &&
-          "right",
-      ];
-      setFaded(more.filter(Boolean).join(" "));
+      const past: Record<Edge, boolean> = {
+        top: vertical && el.scrollTop > 0,
+        bottom:
+          vertical && el.scrollTop + el.clientHeight < el.scrollHeight - 1,
+        left: sideways && el.scrollLeft > 0,
+        right: sideways && el.scrollLeft + el.clientWidth < el.scrollWidth - 1,
+      };
+      const next = (Object.keys(past) as Edge[]).filter(
+        (edge) => past[edge] && !skipped.split(" ").includes(edge),
+      );
+      setMore((prev) => (prev.join() === next.join() ? prev : next));
     };
     update();
     el.addEventListener("scroll", update, { passive: true });
@@ -73,17 +85,23 @@ const ScrollArea = forwardRef<
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [edgeFades, direction]);
+  }, [edgeCue, direction, skipped]);
 
-  return (
+  const shadowed = edgeCue === "shadow";
+  const scrollArea = (
     <RadixScrollArea
       ref={viewport}
       type="hover"
       scrollbars={direction}
-      className={clsx(edgeFades && styles.edgeFades, className)}
-      style={style}
+      onScroll={onScroll}
+      className={
+        shadowed
+          ? styles.isolated
+          : clsx(edgeCue === "fade" && styles.fades, className)
+      }
+      style={shadowed ? undefined : style}
       // Lands on the viewport, the element that scrolls.
-      data-fade={faded || undefined}
+      data-more={more.join(" ") || undefined}
     >
       <div
         style={{
@@ -99,6 +117,16 @@ const ScrollArea = forwardRef<
         {children}
       </div>
     </RadixScrollArea>
+  );
+  if (!shadowed) return scrollArea;
+
+  return (
+    <div className={clsx(styles.shadowed, className)} style={style}>
+      {scrollArea}
+      {more.map((edge) => (
+        <span key={edge} className={styles.shadow} data-edge={edge} />
+      ))}
+    </div>
   );
 });
 

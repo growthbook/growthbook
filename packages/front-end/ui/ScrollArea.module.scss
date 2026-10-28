@@ -1,6 +1,6 @@
 // An edge with more past it fades the content out over 40px, a hint that it
 // continues; the scrollbars, outside the viewport, stay whole.
-.edgeFades :global(.rt-ScrollAreaViewport)[data-fade] {
+.fades :global(.rt-ScrollAreaViewport)[data-more] {
   --fade-top: 1;
   --fade-bottom: 1;
   --fade-left: 1;
@@ -22,16 +22,67 @@
     );
   mask-composite: intersect;
 
-  &[data-fade~="top"] {
+  &[data-more~="top"] {
     --fade-top: 0;
   }
-  &[data-fade~="bottom"] {
+  &[data-more~="bottom"] {
     --fade-bottom: 0;
   }
-  &[data-fade~="left"] {
+  &[data-more~="left"] {
     --fade-left: 0;
   }
-  &[data-fade~="right"] {
+  &[data-more~="right"] {
     --fade-right: 0;
+  }
+}
+
+.shadowed {
+  position: relative;
+}
+
+// Its content stacks inside it, so the shadows fall over even a sticky cell.
+.isolated {
+  height: 100%;
+  isolation: isolate;
+}
+
+// A narrow shadow over an edge with more past it, as beside a pinned column.
+.shadow {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+
+  &[data-edge="top"],
+  &[data-edge="bottom"] {
+    left: 0;
+    right: 0;
+    height: 6px;
+  }
+
+  &[data-edge="left"],
+  &[data-edge="right"] {
+    top: 0;
+    bottom: 0;
+    width: 6px;
+  }
+
+  &[data-edge="top"] {
+    top: 0;
+    background: linear-gradient(to bottom, var(--gray-a2), transparent);
+  }
+
+  &[data-edge="bottom"] {
+    bottom: 0;
+    background: linear-gradient(to top, var(--gray-a2), transparent);
+  }
+
+  &[data-edge="left"] {
+    left: 0;
+    background: linear-gradient(to right, var(--gray-a2), transparent);
+  }
+
+  &[data-edge="right"] {
+    right: 0;
+    background: linear-gradient(to left, var(--gray-a2), transparent);
   }
 }
