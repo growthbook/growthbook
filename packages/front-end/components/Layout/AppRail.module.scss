@@ -267,6 +267,19 @@
   margin: -6px 0;
 }
 
+// Upgrade, Settings, Profile and Help.
+.bottomGroup {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  .collapsed & {
+    align-items: flex-start;
+  }
+}
+
 .iconItem {
   position: relative;
   flex-shrink: 0;
