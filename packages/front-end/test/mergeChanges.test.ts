@@ -9,10 +9,9 @@ const redirect = {
 };
 
 // Required, so a key added to the body doesn't compile until it's here.
-const part: Required<
-  Omit<ExperimentChangesBody, "dryRun" | "allowUnscopedRules" | "release">
-> = {
+const part: Required<Omit<ExperimentChangesBody, "dryRun" | "release">> = {
   experiment: { changes: { name: "New" }, base: { name: "Old" } },
+  allowUnscopedRules: true,
   flagValues: [
     {
       featureId: "flag",

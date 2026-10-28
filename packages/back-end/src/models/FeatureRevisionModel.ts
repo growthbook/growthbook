@@ -1034,14 +1034,14 @@ export function normalizeRulesInputToV2(
   return deduped;
 }
 
-export async function createInitialRevision(
-  context: ReqContext | ApiReqContext,
+// The published revision a new flag starts on, unsaved.
+export function initialRevision(
   feature: FeatureInterface,
   user: EventUser | null,
   environments: string[],
-  date?: Date,
+  date: Date = new Date(),
   comment?: string,
-) {
+): FeatureRevisionInterface {
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
     .map((r) => upgradeFeatureRule(r));
@@ -1051,9 +1051,7 @@ export async function createInitialRevision(
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
 
-  date = date || new Date();
-
-  const doc = await FeatureRevisionModel.create({
+  return {
     organization: feature.organization,
     featureId: feature.id,
     version: 1,
@@ -1074,8 +1072,20 @@ export async function createInitialRevision(
     // left revision 1 disagreeing with the feature document.
     holdout: feature.holdout ?? null,
     metadata: featureMetadataEnvelope(feature),
-  });
+  };
+}
 
+export async function createInitialRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  user: EventUser | null,
+  environments: string[],
+  date?: Date,
+  comment?: string,
+) {
+  const doc = await FeatureRevisionModel.create(
+    initialRevision(feature, user, environments, date, comment),
+  );
   return toInterface(doc, context, feature);
 }
 

@@ -1,7 +1,7 @@
 import type { ExperimentChangesBody } from "shared/validators";
 
-// Experiment fields merge and lists concatenate; the caller adds `dryRun`,
-// `allowUnscopedRules` and `release`.
+// Experiment fields merge, lists concatenate, and an acknowledgment of
+// all-environment rules covers the save; the caller adds `dryRun` and `release`.
 export function mergeChanges(
   parts: ExperimentChangesBody[],
 ): ExperimentChangesBody {
@@ -14,6 +14,7 @@ export function mergeChanges(
         base: { ...body.experiment?.base, ...part.experiment.base },
       };
     }
+    if (part.allowUnscopedRules) body.allowUnscopedRules = true;
     for (const [key, value] of Object.entries(part)) {
       if (!Array.isArray(value)) continue;
       const prev = lists[key];

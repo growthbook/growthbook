@@ -17,6 +17,7 @@ import {
   deleteRevisionForFailedLanding,
   getRevision,
   getRevisionSnapshot,
+  initialRevision,
   prevalidateRevisionUpdate,
   restoreRevisionSnapshot,
   RevisionSnapshot,
@@ -35,6 +36,7 @@ import {
   validateExperimentFeatureVariations,
   linkFeatureToExperiment,
   assertFlagLinkable,
+  prevalidateFlagLink,
   flagHoldsExperimentRule,
   assertFlagKeepable,
   assertFlagRemovable,
@@ -56,6 +58,8 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   insertNewFeature,
   prepareNewFeature,
@@ -531,7 +535,7 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, link.featureId);
     if (!feature)
       throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
-    await assertFlagLinkable({
+    await prevalidateFlagLink({
       context,
       experiment: plannedExperiment,
       feature,
@@ -539,7 +543,9 @@ export async function applyExperimentChanges({
       forceNewDraft: true,
     });
   }
-  const creates = await planCreates(context, plannedExperiment, body);
+  const creates = await planCreates(context, plannedExperiment, body, {
+    runHooks: true,
+  });
   const linkedPlan = await planLinkedChanges(
     context,
     experiment,
@@ -599,7 +605,7 @@ export async function applyExperimentChanges({
     if (linkedPlan) {
       await planLinkedChanges(context, experiment, experimentPlan, body);
     }
-    await planCreates(context, plannedExperiment, body);
+    await planCreates(context, plannedExperiment, body, { runHooks: false });
     // Pins the short window since the re-read; the field check above covers the rest.
     written = {
       experiment: fresh,
@@ -696,6 +702,7 @@ async function planCreates(
   context: ReqContext,
   planned: ExperimentInterface,
   body: ExperimentChangesBody,
+  { runHooks }: { runHooks: boolean },
 ): Promise<PlannedCreate[]> {
   const entries = body.createFeatures ?? [];
   const ids = entries.map((entry) => entry.feature.id);
@@ -706,13 +713,26 @@ async function planCreates(
   for (const entry of entries) {
     assertScopedRules(context, [{ id: "", ...linkRuleScope(entry) }], []);
     const feature = await prepareNewFeature(context, entry.feature);
-    await assertFlagLinkable({
+    const check = {
       context,
       experiment: planned,
       feature,
       rule: linkRule(planned.id, entry),
       forceNewDraft: true,
-    });
+    };
+    if (runHooks) {
+      await runValidateFeatureHooks({ context, feature, original: null });
+      await prevalidateFlagLink(
+        check,
+        initialRevision(
+          feature,
+          context.auditUser,
+          getEnvironmentIdsFromOrg(context.org),
+        ),
+      );
+    } else {
+      await assertFlagLinkable(check);
+    }
     creates.push({ feature, entry });
   }
   return creates;

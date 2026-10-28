@@ -18,8 +18,13 @@ import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/feature
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { removeRulesForDeletedExperiment } from "back-end/src/services/experiment-feature";
 import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
+import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import { planExperimentUpdate } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { setupApp } from "./api.setup";
+
+jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
+  runInSandbox: jest.fn(),
+}));
 
 // Stands in for the experiment write; `write` runs the real one.
 let mockWriteExperiment:
@@ -798,6 +803,40 @@ describe("applyExperimentChanges", () => {
         ...arms("a", "b"),
         { variationId: "v2", value: "c" },
       ]);
+    });
+
+    it("refuses a new flag's draft a validation hook rejects, before saving anything", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [] });
+      await collection("customhooks").insertOne({
+        id: "hook_rejects",
+        organization: ORG_ID,
+        dateCreated: new Date(),
+        dateUpdated: new Date(),
+        enabled: true,
+        projects: [],
+        name: "Rejects drafts",
+        hook: "validateFeatureRevision",
+        code: "",
+      });
+      jest.mocked(runInSandbox).mockResolvedValue({
+        ok: false,
+        rejected: true,
+        error: "Rejected by hook",
+        warnings: [],
+      });
+      try {
+        await expect(
+          run({
+            experiment: addV2(await storedExperiment()),
+            createFeatures: [newFlag("flag_created")],
+          }),
+        ).rejects.toThrow("Rejected by hook");
+      } finally {
+        await collection("customhooks").deleteMany({});
+      }
+      expect((await storedExperiment()).variations).toHaveLength(2);
+      expect(await getFeature(context, "flag_created")).toBeNull();
     });
 
     it("checks a new flag's key in a dry run, writing nothing", async () => {

@@ -624,8 +624,9 @@ export default function FeatureFromExperimentModal({
               environments: ruleAllEnvironments ? [] : ruleSelectedEnvironments,
             },
           };
-          const saved = await saveWithStagedChanges(
-            existing
+          const saved = await saveWithStagedChanges({
+            ...(allowUnscopedRules && { allowUnscopedRules: true }),
+            ...(existing
               ? { linkFeatures: [{ featureId: featureToCreate.id, ...link }] }
               : {
                   createFeatures: [
@@ -647,8 +648,8 @@ export default function FeatureFromExperimentModal({
                       ...link,
                     },
                   ],
-                },
-          );
+                }),
+          });
           if (!saved) {
             throw new Error(
               "Nothing was saved. The save bar at the bottom of the page says why.",

@@ -47,9 +47,11 @@ import {
   getFeatureRevisionsByStatus,
   getLinkageSyncRevisionSummaries,
   getRevision,
+  prevalidateRevisionUpdate,
   RevisionContentChangedError,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { customHooksActive } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   draftTakesRuleOut,
   getLaunchDraftVersion,
@@ -125,6 +127,7 @@ export async function assertFlagLinkable({
   scopedRule: FeatureRule;
   ruleEnvFootprint: string[];
   targetVersion: number;
+  target: FeatureRevisionInterface | null;
 }> {
   const { environments } = context;
 
@@ -202,7 +205,55 @@ export async function assertFlagLinkable({
     effectiveHoldout: getEffectiveRevisionHoldout(target ?? {}, feature),
   });
 
-  return { scopedRule, ruleEnvFootprint, targetVersion };
+  return { scopedRule, ruleEnvFootprint, targetVersion, target };
+}
+
+// For a save that writes other things first: the org's validation hooks judge
+// the draft this link writes before anything lands, and linking runs them
+// again. `live` stands in for a flag the same save creates.
+export async function prevalidateFlagLink(
+  check: ExperimentFeatureLinkCheck,
+  live?: FeatureRevisionInterface,
+): Promise<void> {
+  const { scopedRule, ruleEnvFootprint, target } =
+    await assertFlagLinkable(check);
+  const { context, feature } = check;
+  if (!customHooksActive(context)) return;
+  const draft = target ?? {
+    ...(live ?? (await getLiveRevisionForFeature(context, feature))),
+    status: "draft" as const,
+  };
+  await prevalidateRevisionUpdate(
+    context,
+    feature,
+    draft,
+    linkDraftChanges(
+      context.environments,
+      feature,
+      draft,
+      scopedRule,
+      ruleEnvFootprint,
+    ),
+  );
+}
+
+function linkDraftChanges(
+  environments: string[],
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  scopedRule: FeatureRule,
+  footprint: string[],
+): Partial<FeatureRevisionInterface> {
+  const environmentsEnabled = enableFootprintEnvironments(
+    feature,
+    revision,
+    environments,
+    footprint,
+  );
+  return {
+    rules: [...cloneDeep(revision.rules ?? []), scopedRule],
+    ...(environmentsEnabled && { environmentsEnabled }),
+  };
 }
 
 // Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
@@ -233,16 +284,13 @@ export async function linkFeatureToExperiment({
   const created = targetVersion === feature.version;
   const revision = await getDraftRevision(context, feature, targetVersion);
 
-  const environmentsEnabled = enableFootprintEnvironments(
+  const combinedChanges = linkDraftChanges(
+    environments,
     feature,
     revision,
-    environments,
+    scopedRule,
     ruleEnvFootprint,
   );
-  const combinedChanges: Partial<FeatureRevisionInterface> = {
-    rules: [...cloneDeep(revision.rules ?? []), scopedRule],
-    ...(environmentsEnabled && { environmentsEnabled }),
-  };
   // Title fresh drafts only — don't clobber a user's title on an existing draft.
   const bundlingIntoExistingDraft =
     !!draftVersion && !forceNewDraft && !autoPublish;
