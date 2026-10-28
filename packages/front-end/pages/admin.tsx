@@ -246,7 +246,11 @@ function OrganizationList({
               return (
                 <TableRow
                   key={o.id}
-                  onClick={() => router.push(`/admin/${o.id}`)}
+                  onClick={(e) => {
+                    // The caret link handles its own clicks, including Cmd/Ctrl-click
+                    if ((e.target as HTMLElement).closest("a")) return;
+                    router.push(`/admin/${o.id}`);
+                  }}
                   style={{ whiteSpace: "nowrap", cursor: "pointer" }}
                 >
                   <TableCell>
