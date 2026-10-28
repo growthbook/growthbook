@@ -4,6 +4,7 @@ import {
   ANCHORED_RAMP_SCHEDULE_STATUSES,
   ApiRampScheduleInterface,
   RampScheduleInterface,
+  RampScheduleStatus,
   RampStartAction,
   RampStepAction,
   RampTarget,
@@ -977,6 +978,19 @@ export class RampScheduleModel extends BaseClass {
     return this._find({
       entityType: "feature",
       entityId: { $in: featureIds },
+    });
+  }
+
+  public async getByStatuses(
+    statuses: RampScheduleStatus[],
+  ): Promise<RampScheduleInterface[]> {
+    // Older docs still store `pending-approval`, which reads back as running.
+    return this._find({
+      status: {
+        $in: statuses.includes("running")
+          ? [...statuses, "pending-approval"]
+          : statuses,
+      },
     });
   }
 

@@ -34,6 +34,32 @@ export const npsResponseBodyValidator = z
 
 export type NpsResponseBody = z.infer<typeof npsResponseBodyValidator>;
 
+export const SUPER_ADMIN_PERMISSIONS = [
+  "view",
+  "impersonate",
+  "sso",
+  "billing",
+  "messages",
+  "provision",
+  "metadata",
+  "suspend",
+  "create",
+  "users",
+  "grant",
+] as const;
+
+export const superAdminPermissionValidator = z.enum(SUPER_ADMIN_PERMISSIONS);
+export type SuperAdminPermission = z.infer<
+  typeof superAdminPermissionValidator
+>;
+
+// `true` is full access; an array grants only the listed permissions
+export const superAdminValidator = z.union([
+  z.boolean(),
+  z.array(superAdminPermissionValidator),
+]);
+export type SuperAdmin = z.infer<typeof superAdminValidator>;
+
 export const userInterface = z
   .object({
     id: z.string(),
@@ -41,7 +67,7 @@ export const userInterface = z
     email: z.string(),
     verified: z.boolean(),
     passwordHash: z.string().optional(),
-    superAdmin: z.boolean(),
+    superAdmin: superAdminValidator,
     minTokenDate: z.date().optional(),
     agreedToTerms: z.boolean().optional(),
     npsSurveyStatus: npsSurveyStatusValidator.optional(),

@@ -33,6 +33,7 @@ export const apiVisualChangeValidator = namedSchema(
   "VisualChange",
   z
     .object({
+      id: z.string().optional(),
       description: z.string().optional(),
       css: z.string().optional(),
       js: z.string().optional(),
@@ -71,6 +72,7 @@ export const apiVisualChangesetValidator = namedSchema(
       contextualBandit: z.string().optional(),
       visualChanges: z.array(
         z.object({
+          id: z.string().optional(),
           description: z.string().optional(),
           css: z.string().optional(),
           js: z.string().optional(),

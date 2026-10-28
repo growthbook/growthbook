@@ -25,13 +25,15 @@ export interface ChartData {
   exploration: ProductAnalyticsExploration | null;
 }
 
-const EXPLORER_PATHS: Record<ExplorationConfig["type"], string> = {
+// Null until that type has an Explorer page.
+const EXPLORER_PATHS: Record<ExplorationConfig["type"], string | null> = {
   metric: "/product-analytics/explore/metrics",
   fact_table: "/product-analytics/explore/fact-table",
   data_source: "/product-analytics/explore/data-source",
   sql: "/product-analytics/explore/sql",
   funnel: "/product-analytics/explore/funnel",
   journey: "/product-analytics/explore/journey",
+  population: null,
 };
 
 export function chartDataFromToolResult(result: unknown): ChartData | null {
@@ -68,7 +70,10 @@ export default function ExplorationBubble({
   showSaveAction = true,
 }: ExplorationBubbleProps) {
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const explorerUrl = `${EXPLORER_PATHS[chartData.config.type]}?config=${encodeExplorationConfig(chartData.config)}`;
+  const explorerPath = EXPLORER_PATHS[chartData.config.type];
+  const explorerUrl = explorerPath
+    ? `${explorerPath}?config=${encodeExplorationConfig(chartData.config)}`
+    : null;
   const isTable = isTableChartType(chartData.config.chartType);
 
   return (
@@ -99,14 +104,16 @@ export default function ExplorationBubble({
                 Save to Dashboard
               </Button>
             )}
-          <LinkButton
-            href={explorerUrl}
-            variant="ghost"
-            size="sm"
-            color="violet"
-          >
-            Open in Explorer
-          </LinkButton>
+          {explorerUrl && (
+            <LinkButton
+              href={explorerUrl}
+              variant="ghost"
+              size="sm"
+              color="violet"
+            >
+              Open in Explorer
+            </LinkButton>
+          )}
         </Flex>
       </Flex>
       {chartData.config.chartType === "rawTable" ? (

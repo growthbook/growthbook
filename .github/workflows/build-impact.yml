@@ -6,6 +6,10 @@ on:
 
 # No path filters: a required check has to report on every PR.
 
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   note:
     runs-on: ubuntu-latest
@@ -13,7 +17,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           # The merge commit and its first parent, the base branch
           fetch-depth: 2

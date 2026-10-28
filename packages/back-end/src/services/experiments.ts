@@ -34,6 +34,7 @@ import {
   getNamespaceRanges,
   getReviewSetting,
   getSnapshotAnalysis,
+  getSnapshotCutoffDate,
   isAnalysisAllowed,
   isDefined,
   liveRevisionFromFeature,
@@ -252,6 +253,7 @@ import {
   ExperimentUpdateExecutionLogger,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
+import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -617,6 +619,7 @@ export function getSnapshotSettings({
   datasource,
   useStickyBucketing,
   eligiblePrecomputedUnitDimensionIds = [],
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -635,6 +638,7 @@ export function getSnapshotSettings({
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
   eligiblePrecomputedUnitDimensionIds?: string[];
+  cutoff?: Date | null;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -756,8 +760,13 @@ export function getSnapshotSettings({
     guardrailMetrics = [];
   }
 
-  // Set currentDate in a const to use the same date for all metric settings
+  // Lookback windows are counted back from the analysis end date, so they are
+  // sized from it too.
   const currentDate = new Date();
+  const analysisEndDate = phase.dateEnded || cutoff || currentDate;
+  // A stopped holdout still sizes its window from now. Sizing it from its end
+  // date changes results for every org, so that fix ships on its own.
+  const holdoutWindowEndDate = phase.dateEnded ? currentDate : analysisEndDate;
 
   // Expand all derived metrics (slices and funnel steps) into the metricMap
   expandDerivedMetricsInMap({
@@ -767,7 +776,6 @@ export function getSnapshotSettings({
     metricGroups,
   });
 
-  const phaseEndDate = phase.dateEnded || currentDate;
   const lookbackOverride = getEffectiveLookbackOverride(
     experiment.attributionModel,
     experiment.lookbackOverride,
@@ -783,7 +791,7 @@ export function getSnapshotSettings({
         ? {
             value: Math.max(
               0,
-              differenceInMinutes(phaseEndDate, lookbackOverride.value, {
+              differenceInMinutes(analysisEndDate, lookbackOverride.value, {
                 roundingMethod: "ceil",
               }),
             ),
@@ -791,11 +799,15 @@ export function getSnapshotSettings({
           }
         : experiment.type === "holdout" &&
             phase.lookbackStartDate &&
-            phase.lookbackStartDate < currentDate
+            phase.lookbackStartDate < holdoutWindowEndDate
           ? {
-              value: differenceInMinutes(currentDate, phase.lookbackStartDate, {
-                roundingMethod: "ceil",
-              }),
+              value: differenceInMinutes(
+                holdoutWindowEndDate,
+                phase.lookbackStartDate,
+                {
+                  roundingMethod: "ceil",
+                },
+              ),
               unit: "minutes" as const,
             }
           : undefined;
@@ -903,7 +915,7 @@ export function getSnapshotSettings({
     dimensions: dimensions,
     precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
-    endDate: phase.dateEnded || new Date(),
+    endDate: analysisEndDate,
     experimentId: experiment.trackingKey || experiment.id,
     phase: {
       index: phaseIndex + "",
@@ -923,6 +935,7 @@ export function getSnapshotSettings({
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,
+    ...(cutoff && !phase.dateEnded ? { endDateIsCutoff: true } : {}),
   };
 }
 
@@ -1014,6 +1027,21 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   if (hours < 1) hours = 1;
   if (hours > 168) hours = 168;
   return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+/**
+ * Latest fact timestamp an incremental refresh may load into its metric
+ * sources. The scan's MAX(timestamp) becomes the source watermark, so a running
+ * phase must stop at its analysis end date: rows past a lagged cutoff belong to
+ * units that aren't in the units table yet, and the next refresh would skip
+ * them. An ended phase scans to now so conversion windows can close.
+ */
+export function getIncrementalMetricScanEnd(
+  phase: Pick<ExperimentPhase, "dateEnded"> | undefined,
+  settings: Pick<ExperimentSnapshotSettings, "endDate">,
+  now: Date = new Date(),
+): Date {
+  return phase?.dateEnded ? now : settings.endDate;
 }
 
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
@@ -1852,6 +1880,7 @@ export async function planSnapshot({
   factTableMap,
   reweight,
   throwIfRequiresFullRefresh,
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1866,6 +1895,7 @@ export async function planSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
+  cutoff?: Date | null;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1888,6 +1918,15 @@ export async function planSnapshot({
         })
       : [];
 
+  const phase = experiment.phases[phaseIndex];
+  const scheduledCutoff =
+    triggeredBy === "schedule" &&
+    type === "standard" &&
+    experiment.type !== "multi-armed-bandit"
+      ? getScheduledAnalysisEndDate(
+          organization.settings?.updateSchedule ?? null,
+        )
+      : null;
   const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
@@ -1907,6 +1946,17 @@ export async function planSnapshot({
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
+    // `null` is a decided "no cutoff"; only an omitted one is derived here, so
+    // the scheduled job's own cutoff and clock are kept. The job skips a cutoff
+    // before the phase started; a REST call analyzes through now instead.
+    cutoff:
+      cutoff !== undefined
+        ? cutoff
+        : scheduledCutoff &&
+            phase &&
+            scheduledCutoff > (phase.lookbackStartDate ?? phase.dateStarted)
+          ? scheduledCutoff
+          : null,
   };
 
   const incrementalRefresh = useCache
@@ -2043,6 +2093,18 @@ export async function planSnapshot({
     if (sourceSnapshot) {
       data.sourceSnapshotId = sourceSnapshot.id;
       data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
+      // The source's data ends at its cutoff, otherwise at its run time.
+      const sourceCutoff = getSnapshotCutoffDate(sourceSnapshot.settings);
+      data.sourceSnapshotEndDate = sourceCutoff ?? sourceSnapshot.dateCreated;
+      // The tables hold nothing past the source's cutoff, so daily rates and
+      // lookback windows must be sized from it too, not from now.
+      if (sourceCutoff && !snapshotSettingsArgs.cutoff) {
+        data.settings = getSnapshotSettings({
+          ...snapshotSettingsArgs,
+          incrementalRefreshModel,
+          cutoff: sourceCutoff,
+        });
+      }
     } else if (materializedBySnapshotId) {
       logger.error(
         { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },
@@ -2233,7 +2295,10 @@ export async function createSnapshotFromPlan({
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
-        incrementalRefreshStartTime: new Date(),
+        incrementalRefreshStartTime: getIncrementalMetricScanEnd(
+          experiment.phases[plan.snapshot.phase],
+          plan.snapshot.settings,
+        ),
         fullRefresh: runnerKind === "incremental-full",
       });
     } else if (runnerKind === "incremental-exploratory") {
@@ -2320,6 +2385,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2333,6 +2399,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  cutoff?: Date | null;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const plan = await planSnapshot({
     experiment,
@@ -2347,6 +2414,7 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
     reweight,
+    cutoff,
   });
 
   return createSnapshotFromPlan({

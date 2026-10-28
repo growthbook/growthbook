@@ -1,3 +1,5 @@
+import { z } from "zod";
+import type { exposureQueryColumnMappingValidator } from "shared/validators";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -11,7 +13,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
-import { FactTableColumnType } from "./fact-table";
+import { DetectedColumn, FactTableColumnType } from "./fact-table";
 import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
@@ -93,7 +95,7 @@ type GetExperimentSqlOptions = {
 export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
-    userId: string,
+    userIdTypes: string[],
     options?: GetExperimentSqlOptions,
   ): string;
   getIdentitySQL(
@@ -197,7 +199,21 @@ export interface ExposureQuery {
   managedBy?: "" | "api";
   /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
   projects?: string[];
+  columnMapping?: ExposureQueryColumnMapping;
+  /**
+   * Columns the query returned when it was last tested in the editor, so the
+   * column mapping can be edited without re-running the query.
+   */
+  columns?: Pick<DetectedColumn, "column" | "datatype">[];
 }
+
+/**
+ * The columns an assignment query's roles read from, for SQL that doesn't alias
+ * them to the canonical names.
+ */
+export type ExposureQueryColumnMapping = z.infer<
+  typeof exposureQueryColumnMappingValidator
+>;
 
 export interface FeatureUsageQuery {
   id: string;
