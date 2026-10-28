@@ -20,7 +20,7 @@ MONGO_PORT=${MONGO_PORT:-27091}
 API_PORT=${API_PORT:-3191}
 MAX_AGE_MS=${MAX_AGE_MS:-15000}
 CONTAINER=gb-org-cache-e2e-$$
-LOG=$(mktemp -t org-cache-e2e)
+LOG=$(mktemp -t org-cache-e2e.XXXXXX)
 BASE=http://localhost:$API_PORT
 SERVER_PID=""
 
@@ -38,9 +38,12 @@ fail() {
 }
 
 docker run -d --rm --name "$CONTAINER" -p "$MONGO_PORT:27017" mongo:7 >/dev/null
-until docker exec "$CONTAINER" mongosh --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1; do
+for _ in $(seq 1 120); do
+  docker exec "$CONTAINER" mongosh --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1 && break
+  [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" = true ] || fail "mongo container exited"
   sleep 0.5
 done
+docker exec "$CONTAINER" mongosh --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1 || fail "mongo never became ready"
 
 mongo() {
   docker exec "$CONTAINER" mongosh --quiet gb_org_cache_e2e --eval "$1"
@@ -60,7 +63,7 @@ MONGODB_URI="mongodb://localhost:$MONGO_PORT/gb_org_cache_e2e" \
   ENCRYPTION_KEY=org-cache-e2e-encryption \
   DISABLE_PYTHON_MONITOR=true \
   GB_STATS_ENGINE_MIN_POOL_SIZE=0 \
-  CRON_ENABLED=0 \
+  CRON_DISABLED=true \
   node --no-node-snapshot dist/server.js >"$LOG" 2>&1 &
 SERVER_PID=$!
 

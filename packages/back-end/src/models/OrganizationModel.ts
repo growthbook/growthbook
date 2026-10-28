@@ -18,6 +18,7 @@ import {
 import { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
+import { withChangeStamp } from "back-end/src/util/changeStamp";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
@@ -182,13 +183,7 @@ organizationSchema.index({ "members.id": 1 });
 organizationSchema.pre(
   ["updateOne", "updateMany", "findOneAndUpdate"],
   function () {
-    const changeStamp = randomUUID();
-    const update = this.getUpdate();
-    if (Array.isArray(update)) {
-      this.setUpdate([...update, { $set: { changeStamp } }]);
-    } else {
-      this.set("changeStamp", changeStamp);
-    }
+    this.setUpdate(withChangeStamp(this.getUpdate(), randomUUID()));
   },
 );
 
