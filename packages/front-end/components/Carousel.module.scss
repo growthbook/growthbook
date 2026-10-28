@@ -18,7 +18,7 @@
   // See-through, but blurred enough to read over any image.
   background-color: color-mix(
     in srgb,
-    var(--color-panel-solid) 55%,
+    var(--color-panel-solid) 35%,
     transparent
   );
   backdrop-filter: blur(8px);
