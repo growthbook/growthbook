@@ -15,6 +15,12 @@ import SelectField from "@/components/Forms/SelectField";
 import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import HelperText from "@/ui/HelperText";
+import {
+  followAssignmentAttribute,
+  getExposureQueriesInScope,
+  getHashAttributeIdentifierTypeMap,
+} from "@/services/datasources";
 import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
@@ -120,6 +126,22 @@ export default function EditTargetingModal({
     ? getDatasourceById(experiment.datasource)
     : null;
 
+  // Staged, a new assignment attribute brings the analysis the assignment
+  // table and identifier type it's linked to, as the Data Source modal says.
+  const hashAttribute = form.watch("hashAttribute");
+  const followed =
+    stageChanges && datasource && hashAttribute !== experiment.hashAttribute
+      ? followAssignmentAttribute({
+          queries: getExposureQueriesInScope(datasource, experiment.project),
+          hashAttribute,
+          hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+            datasource.settings?.userIdTypes,
+          ),
+          exposureQueryId: experiment.exposureQueryId ?? "",
+          identifierType: experiment.exposureQueryIdentifierType ?? "",
+        })
+      : null;
+
   const settings = useOrgSettings();
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
@@ -198,6 +220,22 @@ export default function EditTargetingModal({
               "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
           />
+          {followed ? (
+            <HelperText status="warning" size="sm" mt="2">
+              {followed.exposureQueryId !== experiment.exposureQueryId ? (
+                <>
+                  The Experiment Assignment Table changes to{" "}
+                  {datasource?.settings?.queries?.exposure?.find(
+                    (q) => q.id === followed.exposureQueryId,
+                  )?.name ?? followed.exposureQueryId}{" "}
+                  and the identifier type to{" "}
+                </>
+              ) : (
+                "The identifier type changes to "
+              )}
+              <code>{followed.identifierType}</code> to match.
+            </HelperText>
+          ) : null}
           <LinkHashAttributeCallout
             experimentId={experiment.id}
             datasource={datasource}
