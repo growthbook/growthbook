@@ -122,9 +122,8 @@ export default function RunningExperimentDecisionBanner({
             variant={decision.variant}
             radius="full"
           />
-          {/* Beside the badge, in the room left; a long name ends in an
-              ellipsis rather than wrapping the row. */}
-          <Flex align="center" gap="2" minWidth="0" flexGrow="1" flexBasis="0">
+          {/* A long name ends in an ellipsis rather than wrapping the row. */}
+          <Flex align="center" gap="2" minWidth="0">
             {decided.map((v, i) => (
               <Flex key={v.id} align="center" minWidth="0">
                 <VariationLabel

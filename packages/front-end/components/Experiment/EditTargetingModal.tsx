@@ -224,7 +224,7 @@ export default function EditTargetingModal({
             <HelperText status="warning" size="sm" mt="2">
               {followed.exposureQueryId !== experiment.exposureQueryId ? (
                 <>
-                  The Experiment Assignment Table changes to{" "}
+                  The experiment assignment table changes to{" "}
                   {datasource?.settings?.queries?.exposure?.find(
                     (q) => q.id === followed.exposureQueryId,
                   )?.name ?? followed.exposureQueryId}{" "}

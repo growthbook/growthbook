@@ -143,8 +143,9 @@ export default function FeatureValueCell({
             />
           )}
           {editButton && (tall || value === undefined) ? (
+            // With no value, the cell asks for one, so the button always shows.
             <Box
-              className={clsx(styles.openEditor, cornerStyles.actions)}
+              className={clsx(styles.openEditor, tall && cornerStyles.actions)}
               style={tall ? undefined : ONE_LINE_ACTIONS.style}
             >
               {editButton}
