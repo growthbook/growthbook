@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import {
-  createNavigationCancellation,
+  interceptRouteChanges,
   isNavigationConfirmed,
   runConfirmedNavigation,
 } from "@/components/FactTables/MetricEditor/navigationCancellation";
@@ -68,25 +68,19 @@ export default function useSlackNavigationGuard() {
     };
 
     // Catches navigation made in code, e.g. the Settings nav and its search.
-    const cancellation = createNavigationCancellation();
-    const onRouteChangeStart = (url: string) => {
-      if (isNavigationConfirmed()) return;
+    const stopIntercepting = interceptRouteChanges(router.events, (url) => {
       if (new URL(url, window.location.origin).pathname === router.pathname)
-        return;
+        return false;
       setPendingHref(url);
-      router.events.emit("routeChangeError", cancellation.error, url);
-      // Next's pages router only cancels a route change when a handler throws.
-      throw cancellation.error;
-    };
+      return true;
+    });
 
     window.addEventListener("beforeunload", onBeforeUnload);
     document.addEventListener("click", onClick, true);
-    router.events.on("routeChangeStart", onRouteChangeStart);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
-      router.events.off("routeChangeStart", onRouteChangeStart);
-      cancellation.dispose();
+      stopIntercepting();
     };
   }, [hasUnsavedChanges, router]);
 

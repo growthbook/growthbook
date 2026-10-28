@@ -252,6 +252,11 @@ export function scrollToSettingsSection(id: string) {
 const isAbsent = (v: unknown) =>
   v === undefined || v === null || v === "" || Number.isNaN(v);
 
+// Rounds away float noise, so 0.07 loads as 7 rather than 7.000000000000001.
+export function toPercent(fraction: number): number {
+  return Math.round(fraction * 1e8) / 1e6;
+}
+
 // Treats unset values alike at any depth, since saving drops undefined keys.
 export function sameSetting(a: unknown, b: unknown): boolean {
   return isEqualWith(a, b, (x: unknown, y: unknown) => {

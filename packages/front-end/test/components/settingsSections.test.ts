@@ -6,6 +6,7 @@ import {
   sectionForField,
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
+  toPercent,
 } from "@/components/GeneralSettings/settingsSections";
 
 describe("resolveSettingsHash", () => {
@@ -92,6 +93,46 @@ describe("sameSetting", () => {
     expect(sameSetting({ hours: 6 }, { hours: 12 })).toBe(false);
     expect(sameSetting({ hours: 6, lag: 2 }, { hours: 6 })).toBe(false);
     expect(sameSetting(["a"], ["a", "b"])).toBe(false);
+  });
+
+  it("treats empty and missing values alike", () => {
+    expect(sameSetting("", undefined)).toBe(true);
+    expect(sameSetting(null, "")).toBe(true);
+    expect(sameSetting({ a: "" }, {})).toBe(true);
+  });
+
+  it("counts false and 0 as real values", () => {
+    expect(sameSetting(true, undefined)).toBe(false);
+    expect(sameSetting(false, undefined)).toBe(false);
+    expect(sameSetting(0, undefined)).toBe(false);
+    expect(sameSetting({ on: false }, {})).toBe(false);
+  });
+
+  it("detects nested metric default edits", () => {
+    const saved = { targetMDE: 10, priorSettings: { mean: 0, stddev: 0.3 } };
+    expect(sameSetting({ ...saved }, saved)).toBe(true);
+    expect(sameSetting({ ...saved, targetMDE: 11 }, saved)).toBe(false);
+    expect(
+      sameSetting(
+        { ...saved, priorSettings: { mean: 0.1, stddev: 0.3 } },
+        saved,
+      ),
+    ).toBe(false);
+  });
+
+  it("compares arrays in order, including objects inside them", () => {
+    expect(sameSetting(["a", "b"], ["b", "a"])).toBe(false);
+    expect(sameSetting([{ id: 1, note: "" }], [{ id: 1 }])).toBe(true);
+    expect(sameSetting([{ id: 1, on: true }], [{ id: 1 }])).toBe(false);
+  });
+});
+
+describe("toPercent", () => {
+  it("drops float noise from fraction to percent", () => {
+    expect(toPercent(0.07)).toBe(7);
+    expect(toPercent(0.29)).toBe(29);
+    expect(toPercent(0.955)).toBe(95.5);
+    expect(toPercent(0.0001)).toBe(0.01);
   });
 });
 

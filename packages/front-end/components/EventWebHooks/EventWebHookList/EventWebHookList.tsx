@@ -22,12 +22,14 @@ type EventWebHookListProps = {
   isModalOpen: boolean;
   onAdd: (data: EventWebHookEditParams) => Promise<void>;
   eventWebHooks: EventWebHookInterface[];
+  isLoaded: boolean;
   errorMessage: string | null;
   createError: string | null;
 };
 
 export const EventWebHookList: FC<EventWebHookListProps> = ({
   eventWebHooks,
+  isLoaded,
   isModalOpen,
   onAdd,
   onModalClose,
@@ -68,7 +70,7 @@ export const EventWebHookList: FC<EventWebHookListProps> = ({
       )}
 
       {/* Empty state*/}
-      {eventWebHooks.length === 0 && (
+      {isLoaded && !errorMessage && eventWebHooks.length === 0 && (
         <Frame py="7">
           <Flex direction="column" align="center" gap="2">
             <Heading as="h3" size="lg">
@@ -155,6 +157,7 @@ export const EventWebHookListContainer = () => {
       onModalClose={() => setIsModalOpen(false)}
       onCreateModalOpen={handleCreateModalOpen}
       eventWebHooks={data?.eventWebHooks || []}
+      isLoaded={!!data}
       onAdd={handleAdd}
       errorMessage={error?.message || null}
       createError={null}

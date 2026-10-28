@@ -1,14 +1,13 @@
 import React, { FC, useState } from "react";
 import { datetime } from "shared/dates";
-import { Box } from "@radix-ui/themes";
-import { PiArrowUpRight, PiPlus } from "react-icons/pi";
+import { Box, IconButton } from "@radix-ui/themes";
+import { PiArrowUpRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { EventWebHookListContainer } from "@/components/EventWebHooks/EventWebHookList/EventWebHookList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Button from "@/ui/Button";
 import ClickToCopy from "@/components/Settings/ClickToCopy";
-import MoreMenu from "@/components/Dropdown/MoreMenu";
-import DeleteButton from "@/components/DeleteButton/DeleteButton";
+import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import { useAuth } from "@/services/auth";
 import WebhookSecretModal from "@/components/EventWebHooks/WebhookSecretModal";
 import SettingsPage, {
@@ -112,30 +111,41 @@ const WebhooksPage: FC = () => {
                 <TableCell>{datetime(secret.dateCreated)}</TableCell>
                 <TableCell>{datetime(secret.dateUpdated)}</TableCell>
                 <TableCell>
-                  <MoreMenu useRadix={false}>
-                    <a
-                      href="#"
-                      className="dropdown-item"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setEditSecretId(secret.id);
-                      }}
+                  <DropdownMenu
+                    trigger={
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        radius="full"
+                        aria-label="Webhook secret actions"
+                      >
+                        <PiDotsThreeVertical size={18} />
+                      </IconButton>
+                    }
+                    menuPlacement="end"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => setEditSecretId(secret.id)}
                     >
                       Edit
-                    </a>
-                    <DeleteButton
-                      useRadix={false}
-                      onClick={async () => {
-                        await apiCall<void>(`/webhook-secrets/${secret.id}`, {
-                          method: "DELETE",
-                        });
-                        await mutateDefinitions();
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      color="red"
+                      confirmation={{
+                        confirmationTitle: "Delete Webhook Secret",
+                        cta: "Delete secret",
+                        ctaColor: "red",
+                        submit: async () => {
+                          await apiCall<void>(`/webhook-secrets/${secret.id}`, {
+                            method: "DELETE",
+                          });
+                          await mutateDefinitions();
+                        },
                       }}
-                      className="dropdown-item"
-                      displayName="Webhook Secret"
-                      text="Delete Secret"
-                    />
-                  </MoreMenu>
+                    >
+                      Delete secret
+                    </DropdownMenuItem>
+                  </DropdownMenu>
                 </TableCell>
               </TableRow>
             ))}

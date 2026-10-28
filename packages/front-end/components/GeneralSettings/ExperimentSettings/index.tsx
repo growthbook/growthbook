@@ -1,3 +1,4 @@
+import cronstrue from "cronstrue";
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
@@ -21,15 +22,13 @@ import {
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
-export default function ExperimentSettings({
-  cronString,
-  updateCronString,
-}: {
-  cronString: string;
-  updateCronString: (value: string) => void;
-}) {
+export default function ExperimentSettings() {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+  const cron = form.watch("updateSchedule.cron") || "";
+  const cronString = cron
+    ? `${cronstrue.toString(cron, { throwExceptionOnParseError: false, verbose: true })} (UTC time)`
+    : "";
 
   const queryParams = new URLSearchParams(window.location.search);
 
@@ -205,12 +204,6 @@ export default function ExperimentSettings({
                       }
                       {...form.register("updateSchedule.cron")}
                       placeholder="0 */6 * * *"
-                      onFocus={(e) => {
-                        updateCronString(e.target.value);
-                      }}
-                      onBlur={(e) => {
-                        updateCronString(e.target.value);
-                      }}
                       helpText={<span className="ml-2">{cronString}</span>}
                     />
                   </>

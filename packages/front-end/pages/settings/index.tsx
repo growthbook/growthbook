@@ -55,7 +55,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     counts,
   } = useSettingsNav();
   const { settings, organization, refreshOrganization } = useUser();
-  const { promptForm, cronString, updateCronString } = useSettingsForm();
+  const { promptForm } = useSettingsForm();
   const pageRef = useRef<HTMLDivElement>(null);
   // Re-applies the hash scroll while cards above load, until the user takes over.
   useEffect(() => {
@@ -208,10 +208,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
           </SettingsSection>
 
           <SettingsSection id="experiments">
-            <ExperimentSettings
-              cronString={cronString}
-              updateCronString={updateCronString}
-            />
+            <ExperimentSettings />
           </SettingsSection>
 
           <SettingsSection id="statistics">

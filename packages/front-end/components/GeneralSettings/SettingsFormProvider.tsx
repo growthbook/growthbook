@@ -1,8 +1,6 @@
-import cronstrue from "cronstrue";
 import {
   createContext,
   ReactNode,
-  useCallback,
   useContext,
   useEffect,
   useMemo,
@@ -62,8 +60,7 @@ import {
 } from "@/hooks/useOrganizationMetricDefaults";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
 import {
-  createNavigationCancellation,
-  isNavigationConfirmed,
+  interceptRouteChanges,
   runConfirmedNavigation,
 } from "@/components/FactTables/MetricEditor/navigationCancellation";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -73,6 +70,7 @@ import {
   sectionForField,
   SETTINGS_SECTIONS,
   SPLIT_SETTINGS,
+  toPercent,
 } from "./settingsSections";
 
 /** A saved model dropped from the registry reads as unset, so it falls back to the default. */
@@ -97,8 +95,6 @@ type SettingsFormContextValue = {
   form: UseFormReturn<OrganizationSettingsWithMetricDefaults>;
   promptForm: UseFormReturn;
   orgForm: UseFormReturn<OrgDetailsForm>;
-  cronString: string;
-  updateCronString: (cron?: string) => void;
   codeRefsBranchesToFilterStr: string;
   setCodeRefsBranchesToFilterStr: (value: string) => void;
   dirtyCount: number;
@@ -148,7 +144,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
   const originalRef = useRef<OrganizationSettings>({});
-  const [cronString, setCronString] = useState("");
   const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
     useState<string>("");
   const displayCurrency = useCurrency();
@@ -207,9 +202,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       metricDefaults: {
         priorSettings: metricDefaults.priorSettings,
         minimumSampleSize: metricDefaults.minimumSampleSize,
-        maxPercentageChange: metricDefaults.maxPercentageChange * 100,
-        minPercentageChange: metricDefaults.minPercentageChange * 100,
-        targetMDE: metricDefaults.targetMDE * 100,
+        maxPercentageChange: toPercent(metricDefaults.maxPercentageChange),
+        minPercentageChange: toPercent(metricDefaults.minPercentageChange),
+        targetMDE: toPercent(metricDefaults.targetMDE),
       },
       updateSchedule: {
         type: "stale",
@@ -370,23 +365,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     }
     return !sameSetting(get(values, path), get(originalValue, path));
   };
-  const updateCronString = useCallback(
-    (cron?: string) => {
-      cron = cron || form.getValues("updateSchedule")?.cron || "";
-
-      if (!cron) {
-        setCronString("");
-      }
-      setCronString(
-        `${cronstrue.toString(cron, {
-          throwExceptionOnParseError: false,
-          verbose: true,
-        })} (UTC time)`,
-      );
-    },
-    [form],
-  );
-
   useEffect(() => {
     if (settings) {
       // Start from the defaults; the live form would make an unsaved edit look saved.
@@ -405,17 +383,17 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             // Transform these values from the UI format
             ...(existingMaxChange !== undefined
               ? {
-                  maxPercentageChange: existingMaxChange * 100,
+                  maxPercentageChange: toPercent(existingMaxChange),
                 }
               : {}),
             ...(existingMinChange !== undefined
               ? {
-                  minPercentageChange: existingMinChange * 100,
+                  minPercentageChange: toPercent(existingMinChange),
                 }
               : {}),
             ...(existingTargetMDE !== undefined
               ? {
-                  targetMDE: existingTargetMDE * 100,
+                  targetMDE: toPercent(existingTargetMDE),
                 }
               : {}),
           };
@@ -426,27 +404,27 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             getRequireRegisteredAttributesSettings(
               settings?.requireRegisteredAttributes,
             );
-        } else if (k === "enforceSavedGroupProjectScope") {
-          newVal.enforceSavedGroupProjectScope =
-            settings.enforceSavedGroupProjectScope ?? false;
         } else if (k === "approvalFlows") {
           newVal.approvalFlows = applyApprovalFlowEntitlements(
             settings?.approvalFlows,
             hasRequireApprovals,
           );
         } else {
-          newVal[k] = settings?.[k] || newVal[k];
+          // A saved false or 0 wins; an empty string still falls back to the default.
+          const saved = settings?.[k];
+          newVal[k] = (saved ?? "") === "" ? newVal[k] : saved;
         }
 
         if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
-          newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
+          newVal.confidenceLevel = toPercent(newVal.confidenceLevel ?? 0.95);
         }
         if (
           k === "multipleExposureMinPercent" &&
           (newVal?.multipleExposureMinPercent ?? 0.01) <= 1
         ) {
-          newVal.multipleExposureMinPercent =
-            (newVal.multipleExposureMinPercent ?? 0.01) * 100;
+          newVal.multipleExposureMinPercent = toPercent(
+            newVal.multipleExposureMinPercent ?? 0.01,
+          );
         }
 
         if (k === "useStickyBucketing") {
@@ -465,7 +443,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       form.reset(draft as OrganizationSettingsWithMetricDefaults);
       originalRef.current = newVal;
       setOriginalValue(newVal);
-      updateCronString(newVal.updateSchedule?.cron || "");
       if (
         !isEqual(newVal.codeRefsBranchesToFilter, prev.codeRefsBranchesToFilter)
       ) {
@@ -474,13 +451,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         );
       }
     }
-  }, [
-    settings,
-    hasRequireApprovals,
-    form,
-    hasStickyBucketFeature,
-    updateCronString,
-  ]);
+  }, [settings, hasRequireApprovals, form, hasStickyBucketFeature]);
 
   const updateCodeRefsBranches = (value: string) => {
     setCodeRefsBranchesToFilterStr(value);
@@ -497,7 +468,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     form.reset(originalValue as OrganizationSettingsWithMetricDefaults);
     promptForm.reset();
     orgForm.reset(orgDetails);
-    updateCronString(originalValue.updateSchedule?.cron || "");
     setCodeRefsBranchesToFilterStr(
       (originalValue.codeRefsBranchesToFilter ?? []).join(", "),
     );
@@ -531,9 +501,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         const next = cloneDeep(form.getValues());
         keys.forEach((k) => set(next, k, cloneDeep(get(originalValue, k))));
         form.reset(next);
-        if (keys.includes("updateSchedule")) {
-          updateCronString(originalValue.updateSchedule?.cron || "");
-        }
         if (keys.includes("codeRefsBranchesToFilter")) {
           setCodeRefsBranchesToFilterStr(
             (originalValue.codeRefsBranchesToFilter ?? []).join(", "),
@@ -743,26 +710,20 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const [pendingHref, setPendingHref] = useState<string | null>(null);
   useEffect(() => {
     if (!active || !dirtyCount) return;
-    const cancellation = createNavigationCancellation();
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       e.preventDefault();
       e.returnValue = "";
     };
-    const onRouteChangeStart = (url: string) => {
-      if (isNavigationConfirmed()) return;
+    const stopIntercepting = interceptRouteChanges(router.events, (url) => {
       if (isSettingsRoute(new URL(url, window.location.origin).pathname))
-        return;
+        return false;
       setPendingHref(url);
-      router.events.emit("routeChangeError", cancellation.error, url);
-      // Next's pages router only cancels a route change when a handler throws.
-      throw cancellation.error;
-    };
+      return true;
+    });
     window.addEventListener("beforeunload", onBeforeUnload);
-    router.events.on("routeChangeStart", onRouteChangeStart);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
-      router.events.off("routeChangeStart", onRouteChangeStart);
-      cancellation.dispose();
+      stopIntercepting();
     };
   }, [active, dirtyCount, router.events]);
 
@@ -772,8 +733,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         form,
         promptForm,
         orgForm,
-        cronString,
-        updateCronString,
         codeRefsBranchesToFilterStr,
         setCodeRefsBranchesToFilterStr: updateCodeRefsBranches,
         dirtyCount,
