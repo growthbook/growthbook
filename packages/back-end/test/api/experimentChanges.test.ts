@@ -137,6 +137,20 @@ async function seed({ withDraft }: { withDraft: boolean }) {
   }
 }
 
+// The sandbox mock answers for it; removed with `customhooks` cleared.
+const seedRevisionHook = () =>
+  collection("customhooks").insertOne({
+    id: "hook_revisions",
+    organization: ORG_ID,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    enabled: true,
+    projects: [],
+    name: "Judges drafts",
+    hook: "validateFeatureRevision",
+    code: "",
+  });
+
 function revisionDoc(version: number, date: Date) {
   return {
     id: `frev_${version}`,
@@ -497,6 +511,34 @@ describe("applyExperimentChanges", () => {
     expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
   });
 
+  it("shows validation hooks the person saving as the author of a flag's new draft", async () => {
+    await seed({ withDraft: false });
+    await collection("featurerevisions").updateOne(
+      { featureId: FLAG, version: 1 },
+      { $set: { createdBy: { type: "api_key", apiKey: "someone_else" } } },
+    );
+    await seedRevisionHook();
+    jest.mocked(runInSandbox).mockClear();
+    jest.mocked(runInSandbox).mockResolvedValue({ ok: true, warnings: [] });
+    try {
+      await run({
+        experiment: hypothesisChange("old"),
+        linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+      });
+    } finally {
+      await collection("customhooks").deleteMany({});
+    }
+    const authors = jest
+      .mocked(runInSandbox)
+      .mock.calls.map(
+        ([, args]) => (args.revision as { createdBy?: unknown }).createdBy,
+      );
+    expect(authors.length).toBeGreaterThan(0);
+    expect(authors).toEqual(
+      authors.map(() => ({ type: "api_key", apiKey: "key" })),
+    );
+  });
+
   describe("when the organization requires scoped rules", () => {
     const requireScoped = (body: Record<string, unknown> = {}) => {
       context = makeContext({
@@ -808,17 +850,7 @@ describe("applyExperimentChanges", () => {
     it("refuses a new flag's draft a validation hook rejects, before saving anything", async () => {
       await seed({ withDraft: false });
       await setExperiment({ linkedFeatures: [] });
-      await collection("customhooks").insertOne({
-        id: "hook_rejects",
-        organization: ORG_ID,
-        dateCreated: new Date(),
-        dateUpdated: new Date(),
-        enabled: true,
-        projects: [],
-        name: "Rejects drafts",
-        hook: "validateFeatureRevision",
-        code: "",
-      });
+      await seedRevisionHook();
       jest.mocked(runInSandbox).mockResolvedValue({
         ok: false,
         rejected: true,

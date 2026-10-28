@@ -27,7 +27,10 @@ import {
 } from "shared/validators";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
-import { getEnvironments } from "back-end/src/util/organization.util";
+import {
+  getEnvironmentIdsFromOrg,
+  getEnvironments,
+} from "back-end/src/util/organization.util";
 import {
   assessRevisionApproval,
   flagBypass,
@@ -47,6 +50,7 @@ import {
   getFeatureRevisionsByStatus,
   getLinkageSyncRevisionSummaries,
   getRevision,
+  prepareFeatureRevision,
   prevalidateRevisionUpdate,
   RevisionContentChangedError,
   updateRevision,
@@ -210,19 +214,28 @@ export async function assertFlagLinkable({
 
 // For a save that writes other things first: the org's validation hooks judge
 // the draft this link writes before anything lands, and linking runs them
-// again. `live` stands in for a flag the same save creates.
+// again. `unsavedLive` stands in for a flag the same save creates.
 export async function prevalidateFlagLink(
   check: ExperimentFeatureLinkCheck,
-  live?: FeatureRevisionInterface,
+  unsavedLive?: FeatureRevisionInterface,
 ): Promise<void> {
   const { scopedRule, ruleEnvFootprint, target } =
     await assertFlagLinkable(check);
   const { context, feature } = check;
   if (!customHooksActive(context)) return;
-  const draft = target ?? {
-    ...(live ?? (await getLiveRevisionForFeature(context, feature))),
-    status: "draft" as const,
-  };
+  // Cut from live as getDraftRevision cuts one, so by whoever is saving.
+  const draft =
+    target ??
+    (
+      await prepareFeatureRevision({
+        context,
+        feature,
+        user: context.auditUser,
+        environments: getEnvironmentIdsFromOrg(context.org),
+        baseVersion: feature.version,
+        unsavedLive,
+      })
+    ).revision;
   await prevalidateRevisionUpdate(
     context,
     feature,

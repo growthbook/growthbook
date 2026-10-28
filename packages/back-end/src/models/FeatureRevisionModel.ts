@@ -1137,13 +1137,17 @@ export async function prepareFeatureRevision({
   revertedFrom,
   comment,
   title,
-}: PrepareFeatureRevisionParams): Promise<{
+  unsavedLive,
+}: PrepareFeatureRevisionParams & {
+  // A flag not saved yet: the revision it will start on.
+  unsavedLive?: FeatureRevisionInterface;
+}): Promise<{
   revision: FeatureRevisionInterface;
   baseRevision: FeatureRevisionInterface;
   baseVersion: number;
 }> {
   // createRevision may reassign this initial version if a concurrent insert wins.
-  const lastRevision = await getLastRevision(context, feature);
+  const lastRevision = unsavedLive ?? (await getLastRevision(context, feature));
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
   const defaultValue =
