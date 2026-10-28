@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -21,6 +21,7 @@ import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import useApi from "@/hooks/useApi";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
@@ -86,18 +87,36 @@ const DEFAULT_MEMBER_FILTERS: MemberFilters = {
   superAdminsOnly: false,
 };
 
+// Searches as you type; the delay keeps each keystroke from hitting the API
+function useDebouncedSearch<T extends { search: string; page: number }>(
+  search: string,
+  setFilters: Dispatch<SetStateAction<T>>,
+) {
+  const [input, setInput] = useState(search);
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      const next = input.trim();
+      setFilters((f) =>
+        f.search === next ? f : { ...f, search: next, page: 1 },
+      );
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [input, setFilters]);
+  return [input, setInput] as const;
+}
+
 function OrganizationList({
   filters,
   setFilters,
 }: {
   filters: OrgFilters;
-  setFilters: (filters: OrgFilters) => void;
+  setFilters: Dispatch<SetStateAction<OrgFilters>>;
 }) {
   const router = useRouter();
   const { superAdmin } = useUser();
   const { page, search, plan, status, members, createdDays, loginMethod } =
     filters;
-  const [searchInput, setSearchInput] = useState(search);
+  const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
   const [orgModalOpen, setOrgModalOpen] = useState(false);
 
   const params = new URLSearchParams({ page: String(page), search });
@@ -146,21 +165,16 @@ function OrganizationList({
         )}
       </Flex>
       <Flex gap="2" wrap="wrap" align="center" mb="3">
-        <form
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            setFilters({ ...filters, search: searchInput.trim(), page: 1 });
-          }}
-          style={{ flex: "0 1 360px", minWidth: 240 }}
-        >
+        <Box flexGrow="0" flexShrink="1" flexBasis="360px" minWidth="240px">
           <TextField
             type="search"
+            aria-label="Search organizations"
             placeholder="Name, ID, domain, or owner email"
             prepend={<PiMagnifyingGlass aria-hidden />}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
-        </form>
+        </Box>
         {isCloud() && (
           <Select value={plan} setValue={filterSetter("plan")}>
             <SelectItem value="all">All plans</SelectItem>
@@ -306,14 +320,14 @@ function MemberList({
   setFilters,
 }: {
   filters: MemberFilters;
-  setFilters: (filters: MemberFilters) => void;
+  setFilters: Dispatch<SetStateAction<MemberFilters>>;
 }) {
   const { superAdmin } = useUser();
   const canEdit =
     hasSuperAdminPermission(superAdmin, "users") ||
     hasSuperAdminPermission(superAdmin, "grant");
   const { page, search, superAdminsOnly } = filters;
-  const [searchInput, setSearchInput] = useState(search);
+  const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
   const [editMember, setEditMember] = useState<AdminMember | null>(null);
 
   const params = new URLSearchParams({ page: String(page), search });
@@ -335,21 +349,16 @@ function MemberList({
         />
       )}
       <Flex gap="4" wrap="wrap" align="center" mb="3">
-        <form
-          onSubmit={(e: FormEvent) => {
-            e.preventDefault();
-            setFilters({ ...filters, search: searchInput.trim(), page: 1 });
-          }}
-          style={{ flex: "0 1 360px", minWidth: 240 }}
-        >
+        <Box flexGrow="0" flexShrink="1" flexBasis="360px" minWidth="240px">
           <TextField
             type="search"
+            aria-label="Search members"
             placeholder="Name, email, or user ID"
             prepend={<PiMagnifyingGlass aria-hidden />}
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
           />
-        </form>
+        </Box>
         <Checkbox
           id="super-admins-only"
           label="Super admins only"
@@ -398,7 +407,12 @@ function MemberList({
                   <TableCell>
                     {m.dateCreated ? date(m.dateCreated) : "-"}
                   </TableCell>
-                  <TableCell>{m.verified ? "Yes" : "No"}</TableCell>
+                  <TableCell>
+                    <Badge
+                      label={m.verified ? "Verified" : "Unverified"}
+                      color={m.verified ? "green" : "amber"}
+                    />
+                  </TableCell>
                   <TableCell>{formatSuperAdmin(m.superAdmin)}</TableCell>
                   <TableCell>
                     {orgs.length

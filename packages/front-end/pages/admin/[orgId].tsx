@@ -1,9 +1,11 @@
 import { Fragment, ReactNode, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiCopy } from "react-icons/pi";
 import stringify from "json-stringify-pretty-compact";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  OrganizationMessage,
+} from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { DataSourceInterface } from "shared/types/datasource";
@@ -13,7 +15,6 @@ import { getAdminOrgSummary, LicenseInterface } from "shared/enterprise";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
@@ -27,6 +28,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Markdown from "@/components/Markdown/Markdown";
 import Code from "@/components/SyntaxHighlighting/Code";
 import { GBEdit } from "@/components/Icons";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import EditOrganization from "@/components/Admin/EditOrganization";
 import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
@@ -65,6 +67,17 @@ type OrgDetailResponse = {
 };
 
 type DangerAction = "suspend" | "unsuspend" | "disable" | "enable";
+
+const BANNER_LEVELS: Record<
+  OrganizationMessage["level"],
+  { label: string; color: "blue" | "amber" | "red" }
+> = {
+  info: { label: "Info", color: "blue" },
+  warning: { label: "Warning", color: "amber" },
+  danger: { label: "Danger", color: "red" },
+};
+
+const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 
 const onOff = (value: boolean | undefined) => (value ? "On" : "Off");
 
@@ -114,7 +127,6 @@ function OrganizationDetail({
   const router = useRouter();
   const { superAdmin, userId } = useUser();
   const { orgId: currentOrgId, setOrgId, setSpecialOrg, apiCall } = useAuth();
-  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 1500 });
   const dataRegionOptions = useDataRegionOptions();
   const can = (p: SuperAdminPermission) =>
     hasSuperAdminPermission(superAdmin, p);
@@ -153,7 +165,9 @@ function OrganizationDetail({
   const [editMember, setEditMember] = useState<AdminMember | null>(null);
   const [dangerAction, setDangerAction] = useState<DangerAction | null>(null);
   const [warehouseOpen, setWarehouseOpen] = useState(false);
-  const [bannerError, setBannerError] = useState<string | null>(null);
+  const [removeBannerIndex, setRemoveBannerIndex] = useState<number | null>(
+    null,
+  );
   const [recreateOpen, setRecreateOpen] = useState(false);
   const [region, setRegion] = useState<DataRegion>(DEFAULT_DATA_REGION);
 
@@ -315,6 +329,26 @@ function OrganizationDetail({
           onCancel={() => setDangerAction(null)}
         />
       )}
+      {removeBannerIndex !== null && (
+        <ConfirmDialog
+          title="Remove Banner"
+          content="Members will stop seeing this banner."
+          yesText="Remove"
+          color="red"
+          onConfirm={async () => {
+            await apiCall("/admin/organization", {
+              method: "PUT",
+              body: JSON.stringify({
+                orgId: org.id,
+                messages: messages.filter((_, i) => i !== removeBannerIndex),
+              }),
+            });
+            await mutate();
+            setRemoveBannerIndex(null);
+          }}
+          onCancel={() => setRemoveBannerIndex(null)}
+        />
+      )}
       {warehouseOpen && (
         <ModalStandard
           open
@@ -409,20 +443,7 @@ function OrganizationDetail({
             <StatusBadge status={summary.status} />
           </Flex>
           <Flex gap="4" wrap="wrap" align="center">
-            <Flex align="center" gap="1">
-              <Text color="text-mid" size="sm">
-                <code>{org.id}</code>
-              </Text>
-              <Link
-                aria-label="Copy organization ID"
-                onClick={(e) => {
-                  e.preventDefault();
-                  performCopy(org.id);
-                }}
-              >
-                {copySuccess ? "Copied" : <PiCopy />}
-              </Link>
-            </Flex>
+            <CopyableCode value={org.id} muted />
             {org.verifiedDomain && (
               <Text color="text-mid" size="sm">
                 {org.verifiedDomain}
@@ -454,23 +475,12 @@ function OrganizationDetail({
         </Callout>
       )}
 
-      {bannerError && (
-        <Callout status="error" mb="3">
-          {bannerError}
-        </Callout>
-      )}
       {messages.map((m, i) => (
         <Frame key={i} py="3" px="4" mb="3">
           <Flex align="center" gap="3">
             <Badge
-              label={`Banner · ${m.level}`}
-              color={
-                m.level === "danger"
-                  ? "red"
-                  : m.level === "warning"
-                    ? "amber"
-                    : "blue"
-              }
+              label={`Banner · ${BANNER_LEVELS[m.level].label}`}
+              color={BANNER_LEVELS[m.level].color}
             />
             <Box flexGrow="1" minWidth="0">
               <Markdown>{m.message}</Markdown>
@@ -487,17 +497,7 @@ function OrganizationDetail({
                 <Button
                   size="sm"
                   variant="outline"
-                  setError={setBannerError}
-                  onClick={async () => {
-                    await apiCall("/admin/organization", {
-                      method: "PUT",
-                      body: JSON.stringify({
-                        orgId: org.id,
-                        messages: messages.filter((_, j) => j !== i),
-                      }),
-                    });
-                    await mutate();
-                  }}
+                  onClick={() => setRemoveBannerIndex(i)}
                 >
                   Remove
                 </Button>
@@ -528,14 +528,15 @@ function OrganizationDetail({
                 Members
               </Heading>
               <Text color="text-mid">
-                {org.members.length} members, {org.invites.length} pending
-                invites
+                {plural(org.members.length, "member")},{" "}
+                {plural(org.invites.length, "pending invite")}
               </Text>
               <Box ml="auto">
                 <TextField
                   size="sm"
                   type="search"
                   placeholder="Search members"
+                  aria-label="Search members"
                   value={memberSearch}
                   onChange={(e) => setMemberSearch(e.target.value)}
                 />
@@ -560,6 +561,16 @@ function OrganizationDetail({
                         {membersError
                           ? `Couldn't load members: ${membersError.message}`
                           : "Loading members..."}
+                      </Text>
+                    </TableCell>
+                  </TableRow>
+                ) : filteredMembers.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6}>
+                      <Text color="text-mid">
+                        {memberSearch
+                          ? `No members match "${memberSearch}"`
+                          : "No members"}
                       </Text>
                     </TableCell>
                   </TableRow>
@@ -821,13 +832,24 @@ function OrganizationDetail({
               {cardHeading("Danger Zone")}
               <Flex direction="column" gap="3">
                 <Flex align="center" justify="between" gap="3">
-                  <Text>
-                    {org.suspended ? "Unsuspend" : "Suspend"} organization
-                  </Text>
+                  <Flex direction="column">
+                    <Text>
+                      {org.suspended ? "Unsuspend" : "Suspend"} organization
+                    </Text>
+                    {isCurrent ? (
+                      <Text size="sm" color="text-mid">
+                        Switch to another organization first.
+                      </Text>
+                    ) : org.disabled ? (
+                      <Text size="sm" color="text-mid">
+                        Enable this organization first.
+                      </Text>
+                    ) : null}
+                  </Flex>
                   <Button
                     size="sm"
                     variant="outline"
-                    color="red"
+                    color={org.suspended ? "violet" : "red"}
                     disabled={isCurrent || !!org.disabled}
                     onClick={() =>
                       setDangerAction(org.suspended ? "unsuspend" : "suspend")
@@ -837,13 +859,20 @@ function OrganizationDetail({
                   </Button>
                 </Flex>
                 <Flex align="center" justify="between" gap="3">
-                  <Text>
-                    {org.disabled ? "Enable" : "Disable"} organization
-                  </Text>
+                  <Flex direction="column">
+                    <Text>
+                      {org.disabled ? "Enable" : "Disable"} organization
+                    </Text>
+                    {isCurrent && (
+                      <Text size="sm" color="text-mid">
+                        Switch to another organization first.
+                      </Text>
+                    )}
+                  </Flex>
                   <Button
                     size="sm"
                     variant="outline"
-                    color="red"
+                    color={org.disabled ? "violet" : "red"}
                     disabled={isCurrent}
                     onClick={() =>
                       setDangerAction(org.disabled ? "enable" : "disable")

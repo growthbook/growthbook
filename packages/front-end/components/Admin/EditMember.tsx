@@ -15,7 +15,6 @@ import {
 } from "shared/permissions";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
-import Switch from "@/ui/Switch";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
@@ -108,12 +107,12 @@ const EditMember: FC<{
           disabled={superAdmin !== true}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <Switch
-          label="Verified email"
+        <Checkbox
           id="verified"
+          label="Verified email"
           value={verified}
+          setValue={setVerified}
           disabled={!canEditDetails}
-          onChange={(e) => setVerified(e)}
         />
         {canGrant && (
           <Flex direction="column" gap="3" mt="2">
