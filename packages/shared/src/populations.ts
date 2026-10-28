@@ -40,9 +40,6 @@ export function getPopulationRuleViolations({
 }: PopulationRuleInput): string[] {
   const violations: string[] = [];
 
-  if (steps[0]?.windowSettings.type === "conversion") {
-    violations.push("The first step cannot use a conversion window.");
-  }
   const halfAggregateSteps = steps
     .map((step, i) =>
       !!step.aggregateFilter !== !!step.aggregateFilterColumn ? i + 1 : null,
