@@ -235,6 +235,7 @@ function TabbedPageContents({
       experiment.variations.map((v) => v.id).join();
   // On a draft, an added flag waits for the page's Save like everything else;
   // every check the save runs happens first, so a refusal shows in the modal.
+  const stagesFlags = experiment.status === "draft" && !!edits;
   const [, setAddedFlags] = useAddedFlags();
   const stageFlag = async (added: AddedFlag) => {
     const id = added.feature.id;
@@ -690,9 +691,11 @@ function TabbedPageContents({
       {featureModal && (
         <FeatureFromExperimentModal
           experiment={withStagedVariations(experiment, variationsDraft)}
-          stage={experiment.status === "draft" && edits ? stageFlag : undefined}
+          stage={stagesFlags ? stageFlag : undefined}
           saveWithStagedChanges={
-            variationsStaged && edits ? edits.saveAll : undefined
+            !stagesFlags && variationsStaged && edits
+              ? edits.saveAll
+              : undefined
           }
           close={() => setFeatureModal(false)}
           mutate={mutate}
@@ -720,6 +723,7 @@ function TabbedPageContents({
       ) : null}
       <ExperimentHeader
         experiment={experiment}
+        datasourceMissing={datasourceMissing}
         holdout={holdout}
         tab={tab}
         setTab={setTabAndScroll}

@@ -116,6 +116,9 @@ export function ColumnHeader({
           <Tooltip content={problem.text}>
             <Flex
               flexShrink="0"
+              tabIndex={0}
+              role="img"
+              aria-label={problem.text}
               style={{
                 color: `var(--${getRadixColor(problem.status)}-11)`,
               }}

@@ -269,7 +269,7 @@ export function getLaunchChecklistItems({
           "publishPermission:",
           armed
             ? `Reschedule the start as someone who can publish ${f.feature.id}`
-            : `Have someone who can publish ${f.feature.id} start this experiment`,
+            : `Have someone who can publish ${f.feature.id} start this ${isBandit ? "Bandit" : "experiment"}`,
         ),
       ),
     // Publishing a flag's own draft is what approves it.

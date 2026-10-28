@@ -14,7 +14,14 @@ import {
   getExperimentLinkageBlocker,
   type LinkedChangesResolution,
 } from "shared/util";
-import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
+import {
+  CSSProperties,
+  Fragment,
+  ReactNode,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import clsx from "clsx";
 import Collapsible from "react-collapsible";
 import {
@@ -95,6 +102,7 @@ import { getStartTitle } from "./startActions";
 import { ExperimentTab } from ".";
 
 export interface Props {
+  datasourceMissing?: boolean;
   tab: ExperimentTab;
   setTab: (tab: ExperimentTab, scrollToId?: string) => void;
   detailsOpen: boolean;
@@ -129,6 +137,13 @@ const HOLDOUT_SCHEDULED_UPDATE_TYPE_MAP = {
   stop: "Analysis ends ",
 };
 
+// Beside the title, centred on its line.
+const titleInline: CSSProperties = {
+  verticalAlign: "top",
+  height: "var(--heading-line-height-7)",
+  lineHeight: 0,
+};
+
 const HEALTH_TAB_DISABLED_REASONS = {
   NO_DATASOURCE:
     "Choose a Data Source on the Setup tab to see Experiment Health.",
@@ -136,6 +151,8 @@ const HEALTH_TAB_DISABLED_REASONS = {
     "Experiment Health isn't available for Mixpanel or legacy Google Analytics Data Sources.",
   RESTRICTED_DATASOURCE:
     "This experiment's Data Source is in a Project you don't have access to.",
+  DELETED_DATASOURCE:
+    "This experiment's Data Source was deleted. Choose another on the Setup tab.",
 };
 
 const DisabledHealthTabTooltip = ({
@@ -178,6 +195,7 @@ type ShareLevel = "public" | "organization";
 const SAVE_SETTING_TIMEOUT_MS = 3000;
 
 export default function ExperimentHeader({
+  datasourceMissing = false,
   tab,
   setTab,
   detailsOpen,
@@ -510,15 +528,15 @@ export default function ExperimentHeader({
       ))}
     </Flex>
   );
-  // Breaks only between dates, never inside one. The rest of its dates are in
-  // the tooltip, when it has any.
-  const datesLine = (
+  // Breaks only between dates, never inside one, or keeps to one line. The
+  // rest of its dates are in the tooltip, when it has any.
+  const datesLine = (oneLine: boolean) => (
     <UITooltip enabled={everyDate.length > 1} content={everyDateList}>
       <span
         tabIndex={everyDate.length > 1 ? 0 : undefined}
         style={{ textAlign: "right" }}
       >
-        <Text color="text-mid">
+        <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
           {headerDates(experiment, new Date()).map(({ label, value }, i) => (
             <Fragment key={label}>
               {i > 0 ? " · " : null}
@@ -920,25 +938,31 @@ export default function ExperimentHeader({
               weight="medium"
             >
               {experiment.name}
-              {/* Inline, so they follow the name's last word when it wraps,
-                  centred on that line. */}
+              {/* Inline and centred on the name's last line. The word joiner
+                  keeps the pencil on that line; the status wraps on its own. */}
+              {canEditExperiment && !isHoldout ? (
+                <>
+                  {"\u2060"}
+                  <Flex
+                    as="span"
+                    display="inline-flex"
+                    align="center"
+                    style={titleInline}
+                  >
+                    <QuickEditButton
+                      label="Edit name"
+                      onClick={() => setEditingName(true)}
+                      blockedReason={editsBlocked}
+                    />
+                  </Flex>
+                </>
+              ) : null}
               <Flex
                 as="span"
                 display="inline-flex"
                 align="center"
-                style={{
-                  verticalAlign: "top",
-                  height: "var(--heading-line-height-7)",
-                  lineHeight: 0,
-                }}
+                style={titleInline}
               >
-                {canEditExperiment && !isHoldout ? (
-                  <QuickEditButton
-                    label="Edit name"
-                    onClick={() => setEditingName(true)}
-                    blockedReason={editsBlocked}
-                  />
-                ) : null}
                 {/* Lowered so its text shares the buttons' baseline. */}
                 <Box
                   as="span"
@@ -1075,7 +1099,7 @@ export default function ExperimentHeader({
                 )}
               </Flex>
               {/* Without the tab row, the dates sit under the actions. */}
-              {showDashboardView ? datesLine : null}
+              {showDashboardView ? datesLine(false) : null}
             </Flex>
             <Flex align="center" height="var(--space-6)">
               <DropdownMenu
@@ -1384,7 +1408,7 @@ export default function ExperimentHeader({
                   style={{ flex: 1, minWidth: 0 }}
                 >
                   <TabsList size="lg">
-                    <Flex align="center" className="flex-1">
+                    <Flex align="center" className="flex-1" minWidth="0">
                       <TabsTrigger value="overview">Setup</TabsTrigger>
                       <TabsTrigger value="results">Results</TabsTrigger>
                       {isBandit ? (
@@ -1400,7 +1424,9 @@ export default function ExperimentHeader({
                               ? "NO_DATASOURCE"
                               : dataSource
                                 ? "UNSUPPORTED_DATASOURCE"
-                                : "RESTRICTED_DATASOURCE"
+                                : datasourceMissing
+                                  ? "DELETED_DATASOURCE"
+                                  : "RESTRICTED_DATASOURCE"
                           }
                         >
                           <TabsTrigger disabled value="health">
@@ -1436,7 +1462,18 @@ export default function ExperimentHeader({
                           />
                         </Text>
                       ) : (
-                        datesLine
+                        // Short of room, it ends in an ellipsis; its tooltip
+                        // has every date.
+                        <Box
+                          minWidth="0"
+                          style={{
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
+                          {datesLine(true)}
+                        </Box>
                       )}
                     </Flex>
                   </TabsList>

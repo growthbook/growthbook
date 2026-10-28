@@ -125,12 +125,12 @@ const VariationIdWarning: FC<{
                 size="sm"
                 onClick={() => setIdModal(true)}
               >
-                Update IDs
+                Update keys
               </Button>
             ) : null
           }
         >
-          Expected {variations.length} variation IDs (
+          Expected {variations.length} variation keys (
           <CommaList vals={definedVariations} />
           ), but the database returned{" "}
           {returnedVariations.length === definedVariations.length
@@ -147,7 +147,7 @@ const VariationIdWarning: FC<{
   if (definedVariations.length > returnedVariations.length) {
     return (
       <Callout status="warning" contentAlign="center" mx="3" mb="3">
-        Missing data for variation IDs:{" "}
+        Missing data for variation keys:{" "}
         <CommaList
           vals={definedVariations.filter(
             (v) => !returnedVariations.includes(v),

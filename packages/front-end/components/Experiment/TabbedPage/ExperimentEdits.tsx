@@ -124,6 +124,16 @@ const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 // `onPage` when it's resolved on the page, by its fields or the save bar.
 export type SaveRefusal = { message: string; onPage: boolean };
 
+export function incompatibleNote(incompatible: IncompatibleEdit[]): string {
+  const one = incompatible.length === 1;
+  const why = incompatible.every((e) => e.stagedIn === "draft")
+    ? "This experiment is no longer a draft"
+    : `This experiment's status changed since ${one ? "it was" : "they were"} made`;
+  return `${why}, so ${
+    one ? "1 change" : `${incompatible.length} changes`
+  } can't be saved. Discard ${one ? "it" : "them"} to save the rest.`;
+}
+
 const INVALID_FIELDS = "Fill in the highlighted fields to save.";
 const CONFLICTED = "Someone else saved changes to what you edited.";
 
@@ -389,6 +399,10 @@ export function ExperimentEditsProvider({
         setError(INVALID_FIELDS);
         return { message: INVALID_FIELDS, onPage: true };
       }
+      // Whatever asks for the save, not only the bar's disabled button.
+      if (incompatible.length) {
+        return { message: incompatibleNote(incompatible), onPage: true };
+      }
       let refusal: SaveRefusal | null = null;
       setSaving(true);
       savingNow.current = true;
@@ -456,7 +470,7 @@ export function ExperimentEditsProvider({
       }
       return refusal;
     },
-    [postChanges, mutate],
+    [postChanges, mutate, incompatible],
   );
 
   // Its fields' input doesn't bubble to it, since they aren't inside it.

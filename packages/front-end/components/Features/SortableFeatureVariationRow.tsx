@@ -33,7 +33,6 @@ import FeatureValueField from "./FeatureValueField";
 import { reorderVariations } from "./SortableVariationsList";
 import styles from "./VariationsInput.module.scss";
 
-// The column template the header row and every variation row share.
 // Cut off to fit its column, with all of it on hover once it is.
 function TruncatedText({ text }: { text: string }) {
   const ref = useRef<HTMLElement>(null);
@@ -50,6 +49,7 @@ function TruncatedText({ text }: { text: string }) {
   );
 }
 
+// The column template the header row and every variation row share.
 export function gridColumns({
   hideVariationIds,
   hideValueField,

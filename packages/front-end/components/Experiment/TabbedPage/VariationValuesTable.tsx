@@ -441,6 +441,11 @@ export default function VariationValuesTable({
                       ? () => removeAdded(info.feature.id)
                       : (action) => setLinkAction(info.feature.id, action)
                   }
+                  // Saved, an add settles the flag; undone, what it stood in
+                  // for comes back.
+                  onLinkSaved={
+                    added ? () => setLinkAction(info.feature.id, null) : null
+                  }
                 />
               </div>
             ))}
@@ -581,6 +586,7 @@ function FlagColumn({
   draftPicks,
   linkAction,
   setLinkAction,
+  onLinkSaved,
 }: {
   layout: ColumnLayout;
   columnKey: string;
@@ -594,6 +600,7 @@ function FlagColumn({
   draftPicks: FlagDraftPicks;
   linkAction: LinkAction | null;
   setLinkAction: (action: LinkAction | null) => void;
+  onLinkSaved: (() => void) | null;
 }) {
   const permissionsUtil = usePermissionsUtil();
   const [editEnvironments, setEditEnvironments] = useState(false);
@@ -829,7 +836,11 @@ function FlagColumn({
         },
       ],
     }),
-    discard: clearStaged,
+    // Still dirty with a new variation's prefill, it takes what's saved now.
+    discard: () => {
+      clearStaged();
+      rebaseRevision();
+    },
   });
 
   const clearLinkAction = () => {
@@ -870,6 +881,7 @@ function FlagColumn({
       discard: clearLinkAction,
       onSaved: () => {
         if (added?.newFlag) flagCreated(feature);
+        onLinkSaved?.();
         clearLinkAction();
       },
     },

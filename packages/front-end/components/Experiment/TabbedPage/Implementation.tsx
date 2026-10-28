@@ -481,7 +481,7 @@ export default function Implementation({
       {saveBeforeVisual ? (
         <ConfirmDialog
           title="Save changes first?"
-          content="Visual changes are added to the saved experiment, so its new variations need saving first. This saves all your staged changes."
+          content="Visual changes are added to the saved experiment, so its variation changes need saving first. This saves all your staged changes."
           yesText="Save and continue"
           onConfirm={async () => {
             setSaveBeforeVisual(false);

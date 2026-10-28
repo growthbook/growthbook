@@ -2,8 +2,8 @@ import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
-import { useExperimentEdits } from "./ExperimentEdits";
-import StagedChanges, { incompatibleNote } from "./StagedChanges";
+import { incompatibleNote, useExperimentEdits } from "./ExperimentEdits";
+import StagedChanges from "./StagedChanges";
 import styles from "./UnsavedEditsBar.module.scss";
 
 /** Appears once something on the page is edited, and is the only way to write it. */

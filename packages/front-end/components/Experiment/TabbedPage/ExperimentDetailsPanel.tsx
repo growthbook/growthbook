@@ -31,7 +31,9 @@ import {
   PreLaunchChecklistPanel,
   todoTitle,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import Metadata from "@/ui/Metadata";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import { headerDates } from "./statusSchedule";
 import ExpandableBlock from "./ExpandableBlock";
 
 const DETAILS_PANEL_TABS = ["details", "comments"] as const;
@@ -217,6 +219,19 @@ export default function ExperimentDetailsPanel({
                     holdout={holdout}
                     fieldAction={rowAction}
                   />
+                  {/* The header's dates, which a phase selector stands in for
+                      there. */}
+                  {headerDates(experiment, new Date()).map(
+                    ({ label, value }) => (
+                      <Metadata
+                        key={label}
+                        size="sm"
+                        stacked
+                        label={label}
+                        value={value}
+                      />
+                    ),
+                  )}
                   {customFieldRows}
                 </Flex>
               </PanelSection>

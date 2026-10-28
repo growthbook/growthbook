@@ -14,7 +14,7 @@ import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { ApiCallError } from "@/services/apiCallError";
 import {
-  IncompatibleEdit,
+  incompatibleNote,
   StagedReview,
   useExperimentEdits,
 } from "./ExperimentEdits";
@@ -22,16 +22,6 @@ import {
 type SaveCheck = { status: "ready" } | { status: "refused"; reason: string };
 
 // Why the marked changes can't be saved, in the terms of where they were made.
-export function incompatibleNote(incompatible: IncompatibleEdit[]): string {
-  const one = incompatible.length === 1;
-  const why = incompatible.every((e) => e.stagedIn === "draft")
-    ? "This experiment is no longer a draft"
-    : `This experiment's status changed since ${one ? "it was" : "they were"} made`;
-  return `${why}, so ${
-    one ? "1 change" : `${incompatible.length} changes`
-  } can't be saved. Discard ${one ? "it" : "them"} to save the rest.`;
-}
-
 function StagedChange({
   label,
   review,
