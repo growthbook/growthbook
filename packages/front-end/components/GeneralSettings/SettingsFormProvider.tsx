@@ -332,6 +332,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
     },
   });
+  const initialValues = useRef(form.getValues());
   const { apiCall } = useAuth();
   const values = form.watch();
   // Compared against the loaded settings, since many setValue calls skip shouldDirty.
@@ -388,7 +389,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (settings) {
-      const newVal = { ...form.getValues() };
+      // Start from the defaults; the live form would make an unsaved edit look saved.
+      const newVal = cloneDeep(initialValues.current);
       Object.keys(newVal).forEach((k) => {
         if (k === "metricDefaults") {
           // Metric defaults are nested, so take existing metric defaults only if
