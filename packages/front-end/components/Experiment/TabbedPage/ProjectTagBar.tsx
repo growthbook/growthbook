@@ -115,7 +115,7 @@ export function ExperimentDataFields({
         value={
           datasourceId ? (
             datasource?.name ||
-            (deletedDatasource ? <em>Not found</em> : <RestrictedValue />)
+            (deletedDatasource ? <em>Deleted</em> : <RestrictedValue />)
           ) : (
             <EmptyValue />
           )

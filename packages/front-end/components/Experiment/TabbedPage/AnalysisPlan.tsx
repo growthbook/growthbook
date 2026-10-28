@@ -634,7 +634,7 @@ export default function AnalysisPlan({
                 <RestrictedValue />
               ) : (
                 (selectedDatasource?.name ??
-                (deletedDatasource ? <em>Not found</em> : <em>None</em>))
+                (deletedDatasource ? <em>Deleted</em> : <em>None</em>))
               )}
             </Text>
           </QuickEditRow>

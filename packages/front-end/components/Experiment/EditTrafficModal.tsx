@@ -50,7 +50,7 @@ export default function EditTrafficModal({
         <FeatureVariationsInput
           label={null}
           coverageLabel="Rollout percentage"
-          coverageTooltip="The share of targeted users in this experiment. The rest aren't assigned a variation."
+          coverageTooltip={`The share of targeted users in this ${isBandit ? "Bandit" : "experiment"}. The rest aren't assigned a variation.`}
           valueAsId
           hideSplits={isBandit}
           startEditingSplits
