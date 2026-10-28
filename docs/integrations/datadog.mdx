@@ -1,30 +1,62 @@
 ---
 title: Datadog Integration
-description: "Send GrowthBook feature flag evaluations to Datadog, then automatically roll back flags when Datadog detects a regression: a monitor that rolls back a ramp-up, a monitor that turns a flag off, or a warehouse sync with Safe Rollouts."
+description: "Let a Datadog monitor roll back GrowthBook ramp-ups or turn a feature flag off, through a Datadog webhook that calls the GrowthBook REST API."
 ---
 
-## Datadog with Feature Flag Data
+When a Datadog monitor alerts, a Datadog webhook can call the GrowthBook REST API to undo a release. There are two ways to set it up, depending on how the feature is released:
 
-Sending GrowthBook feature flag evaluations to Datadog lets you see which experience each user got next to the errors, latency, and sessions Datadog already records. Once flags are visible in Datadog, you can alert on them and roll flags back automatically when something goes wrong.
+- **[Roll back ramp-ups](#roll-back-ramp-ups)**: for features released with [ramp-ups](/features/ramp-schedules). Any monitor you already have works, and Datadog needs no flag data.
+- **[Turn a flag off](#turn-a-flag-off)**: for a flag without a ramp-up. Each flag gets a monitor on the errors of users who have it on, which needs your GrowthBook SDK to send flag evaluations to Datadog.
 
-This guide covers the initial setup, then three ways to automate rollbacks:
+Both need a GrowthBook [API key](/app/api) whose role can publish the features in the affected environments. A key with **Require confirmation** turned on holds each request until someone confirms it, so use one without it ([API Keys for Agents](/integrations/ai-agents/api-keys)). The examples use `https://api.growthbook.io`. If you self-host, use your API host.
 
-1. [A monitor that rolls back ramp-ups](#option-1-roll-back-ramp-ups-from-a-datadog-monitor), with no code to host
-2. [A monitor that turns a flag off](#option-2-turn-a-flag-off-from-a-datadog-monitor), for flags without a ramp-up
-3. [A warehouse sync](#option-3-warehouse-sync-with-safe-rollouts) that lets GrowthBook's Safe Rollouts make the call
+## Roll back ramp-ups
 
-### Setup
+A ramp-up adds traffic to a feature in steps. If a service's error rate, an SLO, or a RUM error count alerts during a step, the step that just went out is the likely cause, so the monitor doesn't need to know which flag it was.
 
-#### Browser: Datadog RUM
+One webhook calls [Roll back matching ramp schedules](/api/ramp-schedules/operation/rollbackMatchingRampSchedules), which rolls back every running or paused ramp-up that matches its filters. That includes ramp-ups started after you set it up, so there is nothing to change for each release.
 
-<Info>
-**Older Datadog RUM browser SDK versions**
+### 1. Create the webhook
 
-If your Datadog RUM browser SDK version is below v5.17.0, [enable feature flags during RUM SDK initialization](https://docs.datadoghq.com/real_user_monitoring/guide/setup-feature-flag-data-collection/?tab=browser#setup).
+In Datadog, create a [webhook](https://docs.datadoghq.com/integrations/webhooks/), for example `growthbook-rollback-checkout`:
 
-</Info>
+- URL: `https://api.growthbook.io/api/v1/ramp-schedules/actions/rollback?environment=production&tag=checkout`
+- Custom headers: `{"Authorization": "Bearer <GrowthBook API key>"}`
+- Payload: `{"reason": "Datadog: $ALERT_TITLE $LINK"}`
 
-Report every feature flag evaluation to Datadog RUM using GrowthBook's SDK `onFeatureUsage` callback:
+The query string picks the ramp-ups. Each filter takes comma-separated values and matches any of them. Different filters must all match, and a rollback needs at least one.
+
+| Filter                | Matches ramp-ups on features...                    |
+| --------------------- | -------------------------------------------------- |
+| `environment`         | whose rule runs in one of these environments       |
+| `project`             | in one of these project ids                        |
+| `tag`                 | with one of these tags                             |
+| `feature`             | with one of these feature ids                      |
+| `customFields[<key>]` | whose custom field `<key>` has one of these values |
+
+Adding a matching tag or custom field value to a feature puts its future ramp-ups under the webhook.
+
+To pause instead, so someone decides whether to resume, use `/api/v1/ramp-schedules/actions/pause`. A pause works with no filters too, which pauses every running ramp-up during a site-wide outage.
+
+### 2. Add it to your monitors
+
+Mention the webhook in each monitor that should roll the ramp-ups back, inside `{{#is_alert}}` so warnings and recoveries don't call it:
+
+```text
+{{#is_alert}} @webhook-growthbook-rollback-checkout {{/is_alert}}
+```
+
+Each rolled-back ramp-up records the `reason`, so its history links to the alert. The response lists every ramp-up the call matched, marked `applied` or `skipped` with the reason, for example because the API key can't publish that feature.
+
+## Turn a flag off
+
+A flag that is on for a few percent of traffic barely moves a service's error rate, so its monitor has to watch errors from just the users who have the flag on. When it alerts, the webhook [toggles the flag off](/api/features-v2/operation/toggleFeatureV2) in one environment, and users get the fallback value in your code. It's a kill switch rather than a rollback.
+
+### 1. Send flag evaluations to Datadog
+
+Report each evaluation with the SDK's `onFeatureUsage` callback. This also lets you filter and group errors, sessions, and traces by flag value while investigating.
+
+**Browser (Datadog RUM)**: RUM records evaluations on the user's views and errors as `@feature_flags.<key>`.
 
 ```javascript
 const gb = new GrowthBook({
@@ -34,9 +66,9 @@ const gb = new GrowthBook({
 });
 ```
 
-#### Server: Datadog APM
+If your Datadog RUM browser SDK is older than v5.17.0, [enable feature flags during RUM SDK initialization](https://docs.datadoghq.com/real_user_monitoring/guide/setup-feature-flag-data-collection/?tab=browser#setup).
 
-Tag the request span, the service-entry span that monitors and metrics aggregate on, rather than whatever span is active when a flag is evaluated. With Express, collect each request's flag values in a scoped GrowthBook instance and write them in dd-trace's `request` hook, which runs just before the request span finishes:
+**Server (Datadog APM)**: tag the request span, which monitors aggregate on, rather than whichever span is active when a flag is evaluated. With Express, collect each request's flag values in a scoped GrowthBook instance and write them in dd-trace's `request` hook, which runs just before the request span finishes:
 
 ```javascript
 tracer.use("express", {
@@ -61,163 +93,35 @@ app.use((req, res, next) => {
 });
 ```
 
-With that in place you can filter or group error spans by `@feature_flag.<key>` in Datadog.
-
 <Warning>
-Trace-analytics monitors [only evaluate spans kept by custom retention filters](https://docs.datadoghq.com/monitors/types/apm/). Before alerting on these tags, add a retention filter for the spans the monitor queries (Datadog bills retained spans as indexed spans), or alert on RUM errors instead, which carry flag evaluations by default.
+APM monitors on span tags [only evaluate spans kept by custom retention filters](https://docs.datadoghq.com/monitors/types/apm/). Add a retention filter for the spans the monitor queries (Datadog bills them as indexed spans), or monitor RUM errors, which need no filter.
 </Warning>
 
-## Automatically rolling back flags
+### 2. Create a monitor for the flag
 
-The options differ in who decides to roll back: Datadog, through a webhook to the GrowthBook REST API, or GrowthBook itself, from warehouse data.
+Create a monitor on errors from users with the flag on, for example the RUM search `@type:error @feature_flags.new-checkout:true`, or `@feature_flag.new-checkout:true` on APM spans. To alert on the flag rather than on errors you already had, compare it with the same search for the flag off.
 
-### Option 1: Roll back ramp-ups from a Datadog monitor
+### 3. Create the webhook
 
-If features are released with [ramp-ups](/features/ramp-schedules), a Datadog monitor can roll them back directly, with no code to host. One webhook calls [Roll back matching ramp schedules](/api/ramp-schedules/operation/rollbackMatchingRampSchedules), which rolls back every running or paused ramp-up that matches its filters, including ramp-ups started after you set it up.
+In Datadog, create a webhook, for example `growthbook-off-new-checkout`:
 
-1. Create a GrowthBook [API key](/app/api) whose role can publish the features in the ramps' environments. If the key has **Require confirmation** turned on, GrowthBook holds each rollback until someone confirms it, so use a key without it ([API Keys for Agents](/integrations/ai-agents/api-keys)).
-2. In Datadog, create a [Webhook](https://docs.datadoghq.com/integrations/webhooks/), for example `growthbook-rollback-checkout`:
-   - URL: `https://api.growthbook.io/api/v1/ramp-schedules/actions/rollback?environment=production&tag=checkout` (self-hosted: your API host)
-   - Custom headers: `{"Authorization": "Bearer <GrowthBook API key>"}`
-   - Payload: `{"reason": "Datadog: $ALERT_TITLE $LINK"}`
-3. Add the webhook to each monitor that should stop the ramp-ups, inside `{{#is_alert}}` so warnings and recoveries do not call it:
+- URL: `https://api.growthbook.io/api/v2/features/new-checkout/toggle`
+- Custom headers: `{"Authorization": "Bearer <GrowthBook API key>"}`
+- Payload: `{"environments": {"production": false}, "comment": "Datadog: $ALERT_TITLE $LINK"}`
+
+The `comment` is recorded on the revision the toggle publishes. If the feature's project requires approval to publish, the API key also has to be able to bypass approvals.
+
+### 4. Add it to the monitor
+
+Mention the webhook in the flag's monitor, inside `{{#is_alert}}`:
 
 ```text
-{{#is_alert}} @webhook-growthbook-rollback-checkout {{/is_alert}}
+{{#is_alert}} @webhook-growthbook-off-new-checkout {{/is_alert}}
 ```
 
-The query string picks the ramp-ups. Each filter takes comma-separated values and matches any of them, and different filters must all match. A rollback needs at least one filter.
-
-| Filter                | Matches ramp-ups on features...                    |
-| --------------------- | -------------------------------------------------- |
-| `environment`         | whose rule runs in one of these environments       |
-| `project`             | in one of these project ids                        |
-| `tag`                 | with one of these tags                             |
-| `feature`             | with one of these feature ids                      |
-| `customFields[<key>]` | whose custom field `<key>` has one of these values |
-
-To pause instead, so someone decides whether to resume, point the webhook at `/api/v1/ramp-schedules/actions/pause`. A pause also works with no filters, which pauses every running ramp-up during a site-wide outage.
-
-The monitor can be anything Datadog alerts on, such as a service's error rate, an SLO, or a RUM error count. It does not need flag tags: the ramp just added traffic and the monitor fired, so timing does the attribution. The ramp's rollback reason shows the alert title and link, and each call returns the ramp-ups it matched and whether each one was rolled back, which Datadog shows in its webhook log.
+## Before you rely on it
 
 <Warning>
-- Webhooks only fire when an alert changes state, so a monitor that is already alerting when a ramp-up starts never calls GrowthBook.
-- Datadog's **Test Notifications** sends a real request, which rolls back every matching ramp-up.
-- Adding a matching tag or custom field value to a feature puts its future ramp-ups under the monitor.
+- Datadog calls webhooks only when an alert changes state, so a monitor that is already alerting when a release starts never calls GrowthBook.
+- Datadog's **Test Notifications** sends a real request, which rolls back every matching ramp-up or turns the flag off.
 </Warning>
-
-### Option 2: Turn a flag off from a Datadog monitor
-
-For a flag without a ramp-up, a monitor can [toggle the feature off](/api/features-v2/operation/toggleFeatureV2) in the affected environment. Users then get the SDK's fallback value, so this is a kill switch rather than a rollback. Each flag you want to protect gets its own monitor on the error rate of users who have the flag on.
-
-#### 1. Create a Datadog monitor
-
-The Feature Flag Tracking feature allows you to see error rates between the various feature flag states.
-
-<Frame>![Screenshot showing error rates between feature flag variations in Datadog RUM interface](/static/images/integrations/datadog/1-view-feature-flags-error-rates-in-data-dog.png)</Frame>
-
-You can then save the Error rate view to a Dashboard.
-
-<Frame>![Screenshot adding feature flags errors per view to a Datadog dashboard](/static/images/integrations/datadog/2-add-feature-flags-to-dashboard-data-dog.png)</Frame>
-
-And from the Dashboard, there is a handy “Create Monitor” option that can seed much of the monitor's search query for you.
-
-<Frame>![Screenshot showing the "Create Monitor" option in a Datadog dashboard](/static/images/integrations/datadog/3-create-data-dog-monitor-from-dashboard.png)</Frame>
-
-This is the out-of-the-box search query created from the Create Monitor link above. You could take it a step further and calculate the difference in error rates between the Feature Flag variations (e.g. error rate when the Feature Flag is enabled vs disabled) and use that value as your alert threshold.
-
-<Frame>![Screenshot customizing a monitor query in Datadog](/static/images/integrations/datadog/4-customize-monitor-query-in-data-dog.png)</Frame>
-
-#### 2. Create a Datadog webhook
-
-Once you've defined a monitor's search query, you can then build an alert that uses Datadog's Webhooks to make a request to the GrowthBook API.
-
-Before you can call a [Webhook](https://docs.datadoghq.com/integrations/webhooks/) via a monitor alert, you'll need to build the Webhook within Datadog.
-
-You can do that via the Integrations tab.
-
-<Frame>![Screenshot showing a Datadog tile integration to create a webhook](/static/images/integrations/datadog/5-create-datadog-webhook.png)</Frame>
-
-Once installed, you can build the Webhook that will turn the feature flag off for the desired environments.
-
-Remember to update the Webhook URL with your feature flag ID [as described here](/api/features-v2/operation/toggleFeatureV2).
-
-<Frame>![Screenshot customizing a webhook in Datadog to make a request to GrowthBook feature toggle endpoint](/static/images/integrations/datadog/6-customize-webhook-to-hit-api-url.png)</Frame>
-
-#### 3. Update the monitor to trigger the webhook
-
-Now that you've built the Webhook, you can go back to the monitor alert and instead of emailing a team member, you can configure the alert to call the Webhook. Reference it inside `{{#is_alert}} ... {{/is_alert}}` so warnings and recoveries do not call it.
-
-Use this option when a warehouse export is not practical and you need to protect small rollouts (a few percent of traffic) that a service-level monitor can't see.
-
-### Option 3: Warehouse sync with Safe Rollouts
-
-GrowthBook decides. Datadog data lands in your warehouse as a guardrail metric, and [Safe Rollouts](/features/safe-rollouts) revert the flag automatically when a guardrail regresses. Datadog becomes a data source rather than the decision maker. On a ramp-up, the same guardrails run on [monitored steps](/features/ramp-schedules#monitored-steps-and-guardrails), and Option 1 can watch the same ramp at the same time.
-
-1. Datadog APM or RUM data gets synced into your warehouse.
-2. You define a guardrail metric in GrowthBook with SQL on that data.
-3. Feature rollouts query the warehouse on a schedule and run GrowthBook's stats engine.
-4. If significant regressions are detected, GrowthBook rolls back automatically.
-
-If Datadog's native log forwarding is not an option, a scheduled job can export per-user request and error counts through the spans aggregation API. This one (Node.js 18 or newer, saved as `.mjs` so its top-level `await` runs) reads `DD_API_KEY` and `DD_APP_KEY` from the environment and prints a CSV to load with your warehouse's bulk loader (`COPY INTO`, `bq load`, and so on):
-
-```javascript export-errors.mjs
-// Export per-user request and error counts from Datadog for the last 5 minutes, as CSV.
-// Run on a schedule and load the output into your warehouse (COPY INTO, bq load, etc).
-const DD_API = process.env.DD_API_HOST ?? "https://api.datadoghq.com";
-
-const to = new Date();
-const from = new Date(to.getTime() - 5 * 60 * 1000);
-
-const res = await fetch(`${DD_API}/api/v2/spans/analytics/aggregate`, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json",
-    "DD-API-KEY": process.env.DD_API_KEY,
-    "DD-APPLICATION-KEY": process.env.DD_APP_KEY,
-  },
-  body: JSON.stringify({
-    data: {
-      type: "aggregate_request",
-      attributes: {
-        filter: { query: "env:production @usr.id:*", from: from.toISOString(), to: to.toISOString() },
-        compute: [{ aggregation: "count" }],
-        group_by: [{ facet: "@usr.id", limit: 10000 }, { facet: "status" }],
-      },
-    },
-  }),
-});
-if (!res.ok) throw new Error(`Datadog ${res.status}: ${await res.text()}`);
-const { data } = await res.json();
-
-const rows = new Map(); // user id → { requests, errors }
-for (const bucket of data.buckets) {
-  const { "@usr.id": userId, status } = bucket.by;
-  const row = rows.get(userId) ?? { requests: 0, errors: 0 };
-  row.requests += bucket.computes.c0;
-  if (status === "error") row.errors += bucket.computes.c0;
-  rows.set(userId, row);
-}
-
-console.log("window_start,user_id,requests,errors");
-for (const [userId, { requests, errors }] of rows) {
-  console.log(`${from.toISOString()},${userId},${requests},${errors}`);
-}
-```
-
-The rows need a user identifier that matches the one in your SDK's tracking callback, so errors can be joined to flag exposures. Tagging spans with the user id (`usr.id` above) alongside the flags is what makes that possible.
-
-In GrowthBook, create a [Fact Table](/app/metrics#fact-tables) over the loaded table and a ratio metric on it, then add the metric as a guardrail on each Safe Rollout:
-
-```sql
-SELECT
-  window_start AS timestamp,
-  user_id,
-  requests,
-  errors
-FROM datadog_requests
-```
-
-The guardrail metric is `SUM(errors) / SUM(requests)` with "lower is better".
-
-Use this option if you have a warehouse and are OK owning the ETL. It gives statistical rigor and avoids false positives, at the cost of a slower reaction time than a Datadog monitor.
