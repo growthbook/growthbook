@@ -2280,6 +2280,75 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       erroredMetrics: ["metric-1"],
     });
   });
+
+  describe("contextual bandit measurement arm", () => {
+    const winningSummary: ExperimentDataForStatus["analysisSummary"] = {
+      snapshotId: "snap-1",
+      health: {
+        srm: 0.5,
+        multipleExposures: 0,
+        totalUsers: 1000,
+        power: {
+          type: "success",
+          isLowPowered: false,
+          additionalDaysNeeded: 10,
+        },
+      },
+      resultsStatus: {
+        variations: [
+          {
+            variationId: "1",
+            goalMetrics: {
+              "metric-1": { status: "won", superStatSigStatus: "won" },
+            },
+            guardrailMetrics: {},
+          },
+        ],
+        settings: { sequentialTesting: false },
+      },
+    };
+
+    it("still makes a ship-now recommendation for a standard experiment", () => {
+      const result = getExperimentResultStatus({
+        experimentData: makeExperimentData({ analysisSummary: winningSummary }),
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      });
+      expect(result?.status).toBe("ship-now");
+    });
+
+    it("makes no recommendation or countdown for a measurement arm", () => {
+      const result = getExperimentResultStatus({
+        experimentData: {
+          ...makeExperimentData({ analysisSummary: winningSummary }),
+          type: "contextualBanditMeasurementArm",
+        },
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      });
+      expect(result).toBeUndefined();
+    });
+
+    it("keeps health checks for a measurement arm", () => {
+      const result = getExperimentResultStatus({
+        experimentData: {
+          ...makeExperimentData({
+            analysisSummary: {
+              ...winningSummary,
+              health: { srm: 0.0001, multipleExposures: 0, totalUsers: 1000 },
+            },
+          }),
+          type: "contextualBanditMeasurementArm",
+        },
+        healthSettings: baseHealthSettings,
+        decisionCriteria: PRESET_DECISION_CRITERIA,
+        metricGroups: [],
+      });
+      expect(result?.status).toBe("unhealthy");
+    });
+  });
 });
 
 describe("getStatusIndicatorData for contextual Bandits", () => {

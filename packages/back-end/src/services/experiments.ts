@@ -74,6 +74,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
+  isContextualBanditMeasurementArm,
   isVariationWeightsSumValid,
   scheduleWriteNeedsRunPermission,
   withScheduledBy,
@@ -916,10 +917,9 @@ export function getSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
-    contextualBanditId:
-      experiment.type === "contextualBanditMeasurementArm"
-        ? experiment.contextualBanditId
-        : undefined,
+    contextualBanditId: isContextualBanditMeasurementArm(experiment)
+      ? experiment.contextualBanditId
+      : undefined,
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
       id: v.key || i + "",
@@ -3376,7 +3376,7 @@ export async function toExperimentApiInterface(
     trackingKey: experiment.trackingKey,
     name: experiment.name || "",
     type: experimentType,
-    ...(experimentType === "contextualBanditMeasurementArm" &&
+    ...(isContextualBanditMeasurementArm(experiment) &&
     experiment.contextualBanditId
       ? { contextualBanditId: experiment.contextualBanditId }
       : {}),

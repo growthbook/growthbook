@@ -1,3 +1,8 @@
+import type {
+  ContextualBanditInterface,
+  ContextualBanditMeasurementArm,
+} from "shared/validators";
+
 export const CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE =
   "contextualBanditMeasurementArm" as const;
 
@@ -11,6 +16,31 @@ export function isContextualBanditMeasurementArm(exp: {
   type?: string | null;
 }): boolean {
   return exp.type === CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE;
+}
+
+export const MANAGED_EXPERIMENT_TYPES = [
+  "holdout",
+  CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE,
+] as const;
+
+export function isManagedExperiment(exp: { type?: string | null }): boolean {
+  return (MANAGED_EXPERIMENT_TYPES as readonly string[]).includes(
+    exp.type ?? "",
+  );
+}
+
+export type ActiveMeasurementArm = ContextualBanditMeasurementArm & {
+  experimentId: string;
+};
+
+export function getActiveMeasurementArm(
+  cb: Pick<ContextualBanditInterface, "status" | "measurementArm">,
+): ActiveMeasurementArm | null {
+  const arm = cb.measurementArm;
+  if (cb.status !== "running" || !arm?.enabled || !arm.experimentId) {
+    return null;
+  }
+  return { ...arm, experimentId: arm.experimentId };
 }
 
 export function getContextualBanditMeasurementArmFeatureDefId(
@@ -30,34 +60,7 @@ export function measurementArmWeights(percent: number): [number, number] {
   return [p, Math.round((1 - p) * 10000) / 10000];
 }
 
-/** The only experiment fields editable on a measurement-arm experiment. */
 export const MEASUREMENT_ARM_EDITABLE_FIELDS = [
   "secondaryMetrics",
   "guardrailMetrics",
-] as const;
-
-/** Experiment fields the contextual bandit owns on its measurement-arm experiment. */
-export const MEASUREMENT_ARM_CB_GOVERNED_FIELDS = [
-  "name",
-  "description",
-  "tags",
-  "project",
-  "owner",
-  "hashAttribute",
-  "fallbackAttribute",
-  "hashVersion",
-  "disableStickyBucketing",
-  "trackingKey",
-  "datasource",
-  "goalMetrics",
-  "variations",
-  "phases",
-  "status",
-  "archived",
-  "excludeFromPayload",
-  "type",
-  "contextualBanditId",
-  "exposureQueryId",
-  "hasVisualChangesets",
-  "hasURLRedirects",
 ] as const;

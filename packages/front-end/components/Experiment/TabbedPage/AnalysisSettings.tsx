@@ -5,12 +5,14 @@ import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
   getMetricLink,
+  isContextualBanditMeasurementArm,
   isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import MeasurementArmMetricsForm from "@/components/ContextualBandit/MeasurementArmMetricsForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
@@ -58,7 +60,7 @@ export default function AnalysisSettings({
 
   const [analysisModal, setAnalysisModal] = useState(false);
 
-  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
   const { contextualBandit } = useContextualBandit(
     isMeasurementArm ? experiment.contextualBanditId : undefined,
   );
@@ -167,13 +169,20 @@ export default function AnalysisSettings({
 
   return (
     <>
-      {analysisModal && mutate ? (
+      {analysisModal && mutate && isMeasurementArm ? (
+        <MeasurementArmMetricsForm
+          cancel={() => setAnalysisModal(false)}
+          experiment={experiment}
+          mutate={mutate}
+          source="analysis-settings"
+        />
+      ) : analysisModal && mutate ? (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
           experiment={experiment}
           mutate={mutate}
           phase={experiment.phases.length - 1}
-          editDates={experiment.type !== "contextualBanditMeasurementArm"}
+          editDates={true}
           editVariationIds={false}
           editMetrics={true}
           source={"analysis-settings"}

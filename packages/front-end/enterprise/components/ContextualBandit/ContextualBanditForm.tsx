@@ -24,7 +24,9 @@ import {
 import { kebabCase } from "lodash";
 import { Separator } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
-import MeasurementArmSizeField from "@/components/ContextualBandit/MeasurementArmSizeField";
+import MeasurementArmSizeField, {
+  MeasurementArmSizeValue,
+} from "@/components/ContextualBandit/MeasurementArmSizeField";
 import { useWatching } from "@/services/WatchProvider";
 import { useRestApiCall } from "@/services/restApi";
 import track from "@/services/track";
@@ -72,8 +74,7 @@ type ContextualBanditFormValues = Partial<ExperimentInterfaceStringDates> &
   > & {
     decisionMetric?: string;
     contextualAttributes?: string[];
-    measurementArmEnabled?: boolean;
-    measurementArmPercent?: number;
+    measurementArm?: MeasurementArmSizeValue;
   };
 
 export type ContextualBanditFormProps = {
@@ -151,9 +152,10 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
   // TODO(holdout-v1.5): wire up holdout configuration UI when back-end is ready.
   const form = useForm<ContextualBanditFormValues>({
     defaultValues: {
-      measurementArmEnabled: initialValue?.measurementArmEnabled ?? true,
-      measurementArmPercent:
-        initialValue?.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+      measurementArm: initialValue?.measurementArm ?? {
+        enabled: true,
+        percent: DEFAULT_MEASUREMENT_ARM_PERCENT,
+      },
       project: initialValue?.project || project || "",
       trackingKey: initialValue?.trackingKey || "",
       ...getNewExperimentDatasourceDefaults({
@@ -438,15 +440,7 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
       contextualAttributes: submitContextualAttributes,
 
-      measurementArm: {
-        enabled: !!data.measurementArmEnabled,
-        ...(data.measurementArmEnabled
-          ? {
-              percent:
-                data.measurementArmPercent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
-            }
-          : {}),
-      },
+      measurementArm: data.measurementArm,
     };
 
     const res = await restApiCall(
@@ -595,16 +589,13 @@ const ContextualBanditForm: FC<ContextualBanditFormProps> = ({
 
                 <Separator size="4" my="5" />
                 <MeasurementArmSizeField
-                  value={{
-                    enabled: !!form.watch("measurementArmEnabled"),
-                    percent:
-                      form.watch("measurementArmPercent") ??
-                      DEFAULT_MEASUREMENT_ARM_PERCENT,
-                  }}
-                  onChange={({ enabled, percent }) => {
-                    form.setValue("measurementArmEnabled", enabled);
-                    form.setValue("measurementArmPercent", percent);
-                  }}
+                  value={
+                    form.watch("measurementArm") ?? {
+                      enabled: true,
+                      percent: DEFAULT_MEASUREMENT_ARM_PERCENT,
+                    }
+                  }
+                  onChange={(value) => form.setValue("measurementArm", value)}
                 />
               </>
             )}

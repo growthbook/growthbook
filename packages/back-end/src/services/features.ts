@@ -70,6 +70,7 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
+  getActiveMeasurementArm,
   getContextualBanditMeasurementArmFeatureDefId,
   measurementArmWeights,
   CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX,
@@ -482,8 +483,8 @@ export function generateContextualBanditMeasurementArmsPayload({
   const defs: Record<string, FeatureDefinition> = {};
   if (!cbMap) return defs;
   cbMap.forEach((cb) => {
-    const arm = cb.measurementArm;
-    if (cb.status !== "running" || !arm?.enabled || !arm.experimentId) return;
+    const arm = getActiveMeasurementArm(cb);
+    if (!arm) return;
 
     const id = getContextualBanditMeasurementArmFeatureDefId(cb.id);
     const rule: FeatureDefinitionRule = {
@@ -495,7 +496,7 @@ export function generateContextualBanditMeasurementArmsPayload({
       disableStickyBucketing: true,
       variations: [MEASUREMENT_ARM_CONTROL_VALUE, MEASUREMENT_ARM_BANDIT_VALUE],
       weights: measurementArmWeights(arm.percent),
-      key: arm.trackingKey ?? `${cb.trackingKey}__measurement_arm`,
+      key: arm.trackingKey,
       phase: "0",
       meta: [{ key: "0" }, { key: "1" }],
     };
@@ -892,21 +893,14 @@ function generateCbVisualExperimentsPayload({
       savedGroupStrategy,
     );
 
-    if (
-      capabilities &&
-      !capabilities.includes("prerequisites") &&
-      parsedPrerequisites.length
-    ) {
-      return null;
-    }
+    const hasPrerequisites =
+      capabilities === undefined || capabilities.includes("prerequisites");
+    if (!hasPrerequisites && parsedPrerequisites.length) return null;
 
+    const cbCapable =
+      capabilities === undefined || capabilities.includes("contextualBandits");
     const measurementArm =
-      (capabilities === undefined || capabilities.includes("prerequisites")) &&
-      cb.status === "running" &&
-      cb.measurementArm?.enabled &&
-      cb.measurementArm.experimentId
-        ? cb.measurementArm
-        : null;
+      hasPrerequisites && cbCapable ? getActiveMeasurementArm(cb) : null;
 
     const condition = measurementArm
       ? undefined

@@ -149,6 +149,14 @@ describe("assertMeasurementArmExperimentEditable", () => {
     ).not.toThrow();
   });
 
+  it("rejects a CUPED toggle", () => {
+    expect(() =>
+      assertMeasurementArmExperimentEditable(experiment, {
+        regressionAdjustmentEnabled: true,
+      }),
+    ).toThrow(/regressionAdjustmentEnabled/);
+  });
+
   it("allows unchanged governed fields to be re-sent", () => {
     expect(() =>
       assertMeasurementArmExperimentEditable(experiment, {

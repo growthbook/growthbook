@@ -13,11 +13,9 @@ export type MeasurementArmSizeValue = {
 export default function MeasurementArmSizeField({
   value,
   onChange,
-  disabled,
 }: {
   value: MeasurementArmSizeValue;
   onChange: (value: MeasurementArmSizeValue) => void;
-  disabled?: boolean;
 }) {
   return (
     <TextField
@@ -29,7 +27,6 @@ export default function MeasurementArmSizeField({
       min={0}
       max={decimalToPercent(MAX_MEASUREMENT_ARM_PERCENT)}
       step={1}
-      disabled={disabled}
       value={value.enabled ? decimalToPercent(value.percent) : 0}
       onChange={(e) => {
         const pct = percentToDecimal(e.target.value);

@@ -21,6 +21,7 @@ import {
   getAllVariations,
   getActivePhase,
   canEditContextualBanditVisualChanges,
+  CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
@@ -1276,7 +1277,7 @@ export async function postExperiments(
   }
 
   const experimentType = data.type ?? "standard";
-  if (experimentType === "contextualBanditMeasurementArm") {
+  if (experimentType === CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE) {
     res.status(400).json({
       status: 400,
       message:

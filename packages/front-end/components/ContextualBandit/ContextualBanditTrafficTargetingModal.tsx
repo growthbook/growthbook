@@ -12,7 +12,9 @@ import { useRestApiCall } from "@/services/restApi";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
-import MeasurementArmSizeField from "@/components/ContextualBandit/MeasurementArmSizeField";
+import MeasurementArmSizeField, {
+  MeasurementArmSizeValue,
+} from "@/components/ContextualBandit/MeasurementArmSizeField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
@@ -23,8 +25,7 @@ type FormValues = {
   condition: string;
   savedGroups: SavedGroupTargeting[];
   prerequisites: FeaturePrerequisite[];
-  measurementArmEnabled: boolean;
-  measurementArmPercent: number;
+  measurementArm: MeasurementArmSizeValue;
   variationWeights: number[];
 };
 
@@ -58,9 +59,10 @@ export default function ContextualBanditTrafficTargetingModal({
       condition: cb.condition ?? "",
       savedGroups: cb.savedGroups ?? [],
       prerequisites: cb.prerequisites ?? [],
-      measurementArmEnabled: cb.measurementArm?.enabled ?? false,
-      measurementArmPercent:
-        cb.measurementArm?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+      measurementArm: {
+        enabled: cb.measurementArm?.enabled ?? false,
+        percent: cb.measurementArm?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+      },
       variationWeights: cb.variations.map(
         (v) =>
           cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ??
@@ -98,14 +100,7 @@ export default function ContextualBanditTrafficTargetingModal({
               savedGroups: data.savedGroups,
               prerequisites: data.prerequisites,
               ...(cb.status === "draft"
-                ? {
-                    measurementArm: {
-                      enabled: data.measurementArmEnabled,
-                      ...(data.measurementArmEnabled
-                        ? { percent: data.measurementArmPercent }
-                        : {}),
-                    },
-                  }
+                ? { measurementArm: data.measurementArm }
                 : {}),
             },
           });
@@ -136,14 +131,8 @@ export default function ContextualBanditTrafficTargetingModal({
 
         {cb.status === "draft" ? (
           <MeasurementArmSizeField
-            value={{
-              enabled: form.watch("measurementArmEnabled"),
-              percent: form.watch("measurementArmPercent"),
-            }}
-            onChange={({ enabled, percent }) => {
-              form.setValue("measurementArmEnabled", enabled);
-              form.setValue("measurementArmPercent", percent);
-            }}
+            value={form.watch("measurementArm")}
+            onChange={(value) => form.setValue("measurementArm", value)}
           />
         ) : (
           <div>

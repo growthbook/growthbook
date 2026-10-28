@@ -11,6 +11,7 @@ import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
+  ApiUpdateContextualBanditBody,
   assertContextualAttributesValid,
   cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
@@ -629,8 +630,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     };
   }
 
-  protected async processApiUpdateBody(rawBody: unknown) {
-    const body = apiUpdateContextualBanditBody.parse(rawBody);
+  private pickApiUpdateFields(body: ApiUpdateContextualBanditBody) {
     const out: Partial<ContextualBanditInterface> = {};
     for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {
       if (body[field] !== undefined) {
@@ -638,6 +638,12 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       }
     }
     return out as Parameters<typeof this.updateById>[1];
+  }
+
+  protected async processApiUpdateBody(rawBody: unknown) {
+    return this.pickApiUpdateFields(
+      apiUpdateContextualBanditBody.parse(rawBody),
+    );
   }
 
   public override async handleApiCreate(
@@ -698,27 +704,21 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       );
     }
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const { measurementArm: armInput } =
-      apiUpdateContextualBanditBody.parse(body);
-    const toUpdate = (await this.processApiUpdateBody(body)) as Record<
-      string,
-      unknown
-    >;
-    const nextTrackingKey = toUpdate.trackingKey as string | undefined;
+    const parsed = apiUpdateContextualBanditBody.parse(body);
+    const changes = this.pickApiUpdateFields(parsed);
+    const armInput = parsed.measurementArm;
     const trackingKeyChanged =
-      nextTrackingKey !== undefined && nextTrackingKey !== existing.trackingKey;
+      changes.trackingKey !== undefined &&
+      changes.trackingKey !== existing.trackingKey;
     if (armInput || (trackingKeyChanged && existing.measurementArm)) {
-      const measurementArm = buildMeasurementArmSubdoc({
+      changes.measurementArm = buildMeasurementArmSubdoc({
         enabled: armInput?.enabled,
         percent: armInput?.percent,
         existing: existing.measurementArm,
-        cbTrackingKey: nextTrackingKey ?? existing.trackingKey,
+        cbTrackingKey: changes.trackingKey ?? existing.trackingKey,
         rederiveTrackingKey: trackingKeyChanged && existing.status === "draft",
       });
-      assertMeasurementArmChangeAllowed(existing, { measurementArm });
-      toUpdate.measurementArm = measurementArm;
     }
-    const changes = toUpdate as Parameters<typeof this.update>[1];
     await requireConfirmation(req.context, {
       actions: contextualBanditChangeActions(existing, changes),
       project: existing.project,
@@ -733,7 +733,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       links: [],
       pin: [existing.status, pinnedFields(existing, changes)],
     });
-    let updated = toUpdate.measurementArm
+    let updated = changes.measurementArm
       ? await this._updateOne(existing, changes, {
           guard: this.measurementArmGuard(existing),
         })

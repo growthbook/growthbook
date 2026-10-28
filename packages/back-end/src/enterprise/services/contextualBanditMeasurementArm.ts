@@ -4,6 +4,7 @@ import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
   CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE,
   MEASUREMENT_ARM_EDITABLE_FIELDS,
+  getActiveMeasurementArm,
   getContextualBanditMeasurementArmTrackingKey,
   isContextualBanditMeasurementArm,
   measurementArmWeights,
@@ -34,6 +35,8 @@ import {
   getLatestSnapshotStatus,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import { createExperimentSnapshot } from "back-end/src/services/experiments";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
@@ -102,16 +105,6 @@ export function measurementArmSyncFieldsChanged(
 ): boolean {
   return MEASUREMENT_ARM_SYNC_CB_FIELDS.some(
     (field) => !isEqual(before[field], after[field]),
-  );
-}
-
-export function measurementArmIsActive(
-  cb: Pick<ContextualBanditInterface, "measurementArm" | "status">,
-): boolean {
-  return !!(
-    cb.measurementArm?.enabled &&
-    cb.measurementArm.experimentId &&
-    cb.status === "running"
   );
 }
 
@@ -200,9 +193,7 @@ function cbGovernedChanges(
     fallbackAttribute: "",
     hashVersion: 2,
     disableStickyBucketing: true,
-    trackingKey:
-      arm.trackingKey ??
-      getContextualBanditMeasurementArmTrackingKey(cb.trackingKey),
+    trackingKey: arm.trackingKey,
     datasource: cb.datasource,
     exposureQueryId: "",
     goalMetrics: cb.decisionMetric ? [cb.decisionMetric] : [],
@@ -254,7 +245,6 @@ export async function createMeasurementArmExperiment(
     sequentialTestingTuningParameter:
       org?.settings?.sequentialTestingTuningParameter ??
       DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    regressionAdjustmentEnabled: false,
     customFields: {},
     shareLevel: "organization",
     decisionFrameworkSettings: {},
@@ -320,11 +310,7 @@ export async function reconcileMeasurementArmExperiment(
   if (arm.enabled && !arm.experimentId) {
     const experiment = await createMeasurementArmExperiment(context, cb, arm);
     return {
-      measurementArm: {
-        ...arm,
-        experimentId: experiment.id,
-        trackingKey: experiment.trackingKey,
-      },
+      measurementArm: { ...arm, experimentId: experiment.id },
     };
   }
 
@@ -340,7 +326,6 @@ export async function reconcileMeasurementArmExperiment(
 
 const EDITABLE = new Set<string>(MEASUREMENT_ARM_EDITABLE_FIELDS);
 
-/** Only secondary and guardrail metrics may change on a measurement-arm experiment. */
 export function assertMeasurementArmExperimentEditable(
   experiment: ExperimentInterface,
   changes: Record<string, unknown>,
@@ -377,14 +362,52 @@ export function assertNotMeasurementArmExperiment(
   }
 }
 
-export type MeasurementArmResultsSummary =
-  ContextualBanditMeasurementArmSummary;
+export async function refreshMeasurementArmAfterBanditRun(
+  context: Context,
+  cb: ContextualBanditInterface,
+  triggeredBy: "manual" | "schedule" = "schedule",
+): Promise<void> {
+  const arm = getActiveMeasurementArm(cb);
+  if (!arm) return;
+  const { experimentId } = arm;
+  try {
+    const experiment = await getExperimentById(context, experimentId);
+    if (!experiment || experiment.status !== "running") return;
+    const phase = Math.max(0, experiment.phases.length - 1);
+
+    const latest = await getLatestSnapshotStatus({
+      context,
+      experiment: experimentId,
+      phase,
+      type: "standard",
+    });
+    if (latest?.status === "running") return;
+
+    const datasource = await getDataSourceById(context, experiment.datasource);
+    if (!datasource) return;
+
+    await createExperimentSnapshot({
+      context,
+      experiment,
+      datasource,
+      dimension: undefined,
+      phase,
+      type: "standard",
+      triggeredBy,
+    });
+  } catch (e) {
+    logger.warn(
+      { err: e, cbId: cb.id, experimentId },
+      "Failed to refresh the measurement arm after a bandit run",
+    );
+  }
+}
 
 /** The one-line comparison the CB Results tab shows; full results live on the experiment. */
 export async function getMeasurementArmResultsSummary(
   context: Context,
   cb: ContextualBanditInterface,
-): Promise<MeasurementArmResultsSummary | null> {
+): Promise<ContextualBanditMeasurementArmSummary | null> {
   const arm = cb.measurementArm;
   if (!arm?.enabled || !arm.experimentId) return null;
   const experiment = await getExperimentById(context, arm.experimentId);

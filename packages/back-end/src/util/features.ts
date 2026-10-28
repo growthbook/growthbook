@@ -33,6 +33,7 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
+  getActiveMeasurementArm,
   getContextualBanditMeasurementArmFeatureDefId,
   MEASUREMENT_ARM_BANDIT_VALUE,
   MEASUREMENT_ARM_CONTROL_VALUE,
@@ -1503,19 +1504,11 @@ export function getFeatureDefinition({
 
           if (!hasPrerequisites && cb.prerequisites?.length) return null;
 
-          // A running measurement arm wraps this rule: the wrapper carries the
-          // CB's targeting and coverage, and the CB rule only sees users the
-          // wrapper bucketed into "bandit". Requires the prerequisites
-          // capability; without it the CB rule ships un-wrapped.
+          const cbCapable =
+            capabilities === undefined ||
+            capabilities.includes("contextualBandits");
           const measurementArm =
-            hasPrerequisites &&
-            (capabilities === undefined ||
-              capabilities.includes("contextualBandits")) &&
-            cb.status === "running" &&
-            cb.measurementArm?.enabled &&
-            cb.measurementArm.experimentId
-              ? cb.measurementArm
-              : null;
+            hasPrerequisites && cbCapable ? getActiveMeasurementArm(cb) : null;
 
           if (measurementArm) {
             rule.parentConditions = [
@@ -1585,9 +1578,6 @@ export function getFeatureDefinition({
             ? pairedWeightsToPositional(cb.variationWeights, cbActiveVariations)
             : undefined;
 
-          const cbCapable =
-            capabilities === undefined ||
-            capabilities.includes("contextualBandits");
           if (cbCapable) {
             // Presence of contextualBanditRef is what marks this as a CB rule.
             rule.contextualBanditRef = cb.id;

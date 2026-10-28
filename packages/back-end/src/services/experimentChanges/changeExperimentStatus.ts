@@ -2,7 +2,7 @@ import {
   getLatestPhaseVariations,
   getAllVariations,
   withScheduledBy,
-  isContextualBanditMeasurementArm,
+  isManagedExperiment,
 } from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import {
@@ -78,12 +78,7 @@ export async function validateExperimentChange({
   experiment: ExperimentInterface;
   changes: Changeset;
 }): Promise<void> {
-  if (
-    !customHooksActive(context) ||
-    isContextualBanditMeasurementArm(experiment) ||
-    experiment.type === "holdout"
-  )
-    return;
+  if (!customHooksActive(context) || isManagedExperiment(experiment)) return;
 
   const merged = { ...experiment, ...changes };
   const willRun =

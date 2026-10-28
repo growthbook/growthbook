@@ -1,4 +1,5 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { useEffect } from "react";
 import { ago } from "shared/dates";
 import { getMetricLink } from "shared/experiments";
 import { ApiContextualBanditInterface } from "shared/validators";
@@ -10,6 +11,7 @@ import {
   getExperimentMetricFormatter,
 } from "@/services/metrics";
 import { useContextualBanditMeasurementArm } from "@/hooks/useContextualBandits";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -28,9 +30,18 @@ export default function ContextualBanditMeasurementArmSummary({
 }) {
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
   const displayCurrency = useCurrency();
-  const { measurementArm, loading, error } = useContextualBanditMeasurementArm(
-    cb.measurementArm?.enabled && cb.status !== "draft" ? cb.id : undefined,
-  );
+  const { measurementArm, loading, error, mutate } =
+    useContextualBanditMeasurementArm(
+      cb.measurementArm?.enabled && cb.status !== "draft" ? cb.id : undefined,
+    );
+
+  const { latest: banditLatest } = useContextualBanditSnapshot();
+  const banditLatestId = banditLatest?.id;
+  const banditLatestStatus = banditLatest?.status;
+  useEffect(() => {
+    if (!banditLatestId) return;
+    void mutate();
+  }, [banditLatestId, banditLatestStatus, mutate]);
 
   if (!cb.measurementArm?.enabled) return null;
 

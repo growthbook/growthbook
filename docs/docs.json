@@ -996,6 +996,7 @@
                   "api/ContextualBandits/operation/getContextualBanditEvent",
                   "api/ContextualBandits/operation/getContextualBanditResults",
                   "api/ContextualBandits/operation/getContextualBanditStatus",
+                  "api/ContextualBandits/operation/getContextualBanditMeasurementArm",
                   "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
                   "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",

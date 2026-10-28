@@ -7,6 +7,7 @@ import {
   setAdjustedCIs,
   setAdjustedPValuesOnResults,
   getLatestPhaseVariations,
+  isManagedExperiment,
   resolveSnapshotVariation,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
@@ -57,8 +58,7 @@ import { isEmailEnabled, sendExperimentChangesEmail } from "./email";
 // Holdout backing experiments announce themselves through the holdout.*
 // events, so every experiment alert skips them here.
 const isNotifiableExperiment = (experiment: ExperimentInterface): boolean =>
-  experiment.type !== "holdout" &&
-  experiment.type !== "contextualBanditMeasurementArm";
+  !isManagedExperiment(experiment);
 
 // This ensures that the two types remain equal.
 const dispatchEvent = async <T extends ResourceEvents<"experiment">>({

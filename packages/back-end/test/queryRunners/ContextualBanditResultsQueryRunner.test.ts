@@ -33,6 +33,12 @@ jest.mock("back-end/src/enterprise/services/contextualBandits", () => {
     persistContextualBanditEvent: jest.fn(),
   };
 });
+jest.mock(
+  "back-end/src/enterprise/services/contextualBanditMeasurementArm",
+  () => ({
+    refreshMeasurementArmAfterBanditRun: jest.fn(),
+  }),
+);
 jest.mock("back-end/src/models/MetricModel", () => ({
   getMetricMap: jest.fn().mockResolvedValue(
     new Map([
@@ -54,6 +60,7 @@ jest.mock("back-end/src/models/FactTableModel", () => ({
 }));
 
 import { persistContextualBanditEvent } from "back-end/src/enterprise/services/contextualBandits";
+import { refreshMeasurementArmAfterBanditRun } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 
 const runContextualStatsEngineMock =
   runContextualStatsEngine as jest.MockedFunction<
@@ -62,6 +69,10 @@ const runContextualStatsEngineMock =
 const persistContextualBanditEventMock =
   persistContextualBanditEvent as jest.MockedFunction<
     typeof persistContextualBanditEvent
+  >;
+const refreshMeasurementArmMock =
+  refreshMeasurementArmAfterBanditRun as jest.MockedFunction<
+    typeof refreshMeasurementArmAfterBanditRun
   >;
 
 function makeSnapshotSettings(
@@ -633,6 +644,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const runner = newRunner(context);
+      primeRunner(runner);
 
       persistContextualBanditEventMock.mockResolvedValueOnce({
         id: "cbe_42",
@@ -683,12 +695,25 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(updated.status).toBe("success");
       expect(updated.contextualBanditEventId).toBe("cbe_42");
       expect(updated.weightsWereUpdated).toBe(true);
+      expect(refreshMeasurementArmMock).toHaveBeenCalledTimes(1);
+      expect(refreshMeasurementArmMock).toHaveBeenCalledWith(
+        context,
+        cb,
+        expect.stringMatching(/^(manual|schedule)$/),
+      );
+      expect(
+        refreshMeasurementArmMock.mock.invocationCallOrder[0],
+      ).toBeLessThan(
+        (context.models.contextualBanditSnapshots.updateById as jest.Mock).mock
+          .invocationCallOrder[0],
+      );
     });
 
     it("on a repeat `succeeded` call, does NOT re-persist when the CBS already has a CBE", async () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const runner = newRunner(context);
+      primeRunner(runner);
 
       (
         context.models.contextualBanditSnapshots
@@ -720,6 +745,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       });
 
       expect(persistContextualBanditEventMock).not.toHaveBeenCalled();
+      expect(refreshMeasurementArmMock).not.toHaveBeenCalled();
       expect(
         context.models.contextualBanditSnapshots.updateById,
       ).toHaveBeenCalledWith(
@@ -745,6 +771,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const runner = newRunner(context);
+      primeRunner(runner);
       persistContextualBanditEventMock.mockResolvedValue({
         id: "cbe_43",
         contextualBandit: cb.id,
@@ -815,6 +842,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const runner = newRunner(context);
+      primeRunner(runner);
       persistContextualBanditEventMock.mockResolvedValue({
         id: "cbe_44",
         contextualBandit: cb.id,
@@ -866,6 +894,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       const cb = makeCb();
       const context = makeContext(cb);
       const runner = newRunner(context);
+      primeRunner(runner);
 
       const updated = await runner.updateModel({
         status: "failed",
@@ -875,6 +904,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       });
 
       expect(persistContextualBanditEventMock).not.toHaveBeenCalled();
+      expect(refreshMeasurementArmMock).not.toHaveBeenCalled();
       expect(
         context.models.contextualBanditSnapshots.updateById,
       ).toHaveBeenCalledWith(

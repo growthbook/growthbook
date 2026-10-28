@@ -5,6 +5,7 @@ import {
   expandMetricGroups,
   ExperimentMetricDefinition,
   isFactMetric,
+  isManagedExperiment,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { Box, Flex, Grid } from "@radix-ui/themes";
@@ -109,11 +110,9 @@ export default function DecisionMakingSettings({
   });
 
   const isBandit = experiment.type === "multi-armed-bandit";
-  const isHoldout =
-    experiment.type === "holdout" ||
-    experiment.type === "contextualBanditMeasurementArm";
+  const isManaged = isManagedExperiment(experiment);
 
-  if (!hasDecisionFramework || isBandit || isHoldout) {
+  if (!hasDecisionFramework || isBandit || isManaged) {
     return null;
   }
 

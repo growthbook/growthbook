@@ -1,4 +1,8 @@
-import { getAllVariations } from "shared/experiments";
+import {
+  getAllVariations,
+  isContextualBanditMeasurementArm,
+  isManagedExperiment,
+} from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -36,9 +40,7 @@ export default function StoppedExperimentBanner({
     linkedFeatures.map((f) => f.feature),
   );
 
-  const isHoldout =
-    experiment.type === "holdout" ||
-    experiment.type === "contextualBanditMeasurementArm";
+  const isManaged = isManagedExperiment(experiment);
 
   if (experiment.status !== "stopped") return null;
 
@@ -65,7 +67,7 @@ export default function StoppedExperimentBanner({
           <h3 className="mb-0">
             {experiment.type === "holdout"
               ? "Holdout Stopped"
-              : experiment.type === "contextualBanditMeasurementArm"
+              : isContextualBanditMeasurementArm(experiment)
                 ? "Measurement Arm Stopped"
                 : "Experiment Stopped"}
           </h3>
@@ -77,7 +79,7 @@ export default function StoppedExperimentBanner({
         {releasedVariation &&
           experimentHasLinkedChanges(experiment) &&
           hasLiveLinkedChanges &&
-          !isHoldout && (
+          !isManaged && (
             <div className="ml-3">
               {(result === "won" || result === "lost") &&
               winningVariation !== releasedVariation ? (
@@ -98,7 +100,7 @@ export default function StoppedExperimentBanner({
               was rolled out to 100%
             </div>
           )}
-        {editResult && !isHoldout && (
+        {editResult && !isManaged && (
           <div>
             <a
               href="#"
@@ -114,7 +116,7 @@ export default function StoppedExperimentBanner({
         )}
       </div>
 
-      {hasLiveLinkedChanges && !isHoldout && (
+      {hasLiveLinkedChanges && !isManaged && (
         <Callout status="warning" m="3" icon={<PiClock />}>
           <div className="d-flex align-items-center">
             <div>

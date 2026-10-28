@@ -1,4 +1,7 @@
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  isContextualBanditMeasurementArm,
+} from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -251,10 +254,7 @@ export default function ExperimentHeader({
   const hasUpdatePermissions = !holdout
     ? permissionsUtil.canUpdateExperiment(experiment, {})
     : permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
-  // A measurement-arm experiment is managed from its contextual bandit: no
-  // info/status/phase/duplicate/archive/delete here (secondary and guardrail
-  // metrics stay editable on the Overview tab).
-  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
   const canDeleteExperiment =
     !isMeasurementArm &&
     (!holdout
@@ -493,7 +493,10 @@ export default function ExperimentHeader({
   const checklistReady = checklistItemsRemaining === 0;
 
   const runningExperimentDecisionBanner =
-    experiment.status === "running" && !isHoldout && runningExperimentStatus ? (
+    experiment.status === "running" &&
+    !isHoldout &&
+    !isMeasurementArm &&
+    runningExperimentStatus ? (
       <RunningExperimentDecisionBanner
         experiment={experiment}
         runningExperimentStatus={runningExperimentStatus}
@@ -879,6 +882,11 @@ export default function ExperimentHeader({
                     isBandit={isBandit}
                     runningExperimentStatus={runningExperimentStatus}
                     holdoutStage={holdoutStage}
+                    disabledReason={
+                      isMeasurementArm
+                        ? "This experiment is the Contextual Bandit's measurement arm. Traffic, targeting and status are managed from the Bandit."
+                        : undefined
+                    }
                   />
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
                   <Button

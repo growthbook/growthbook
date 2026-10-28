@@ -366,10 +366,6 @@ const AnalysisForm: FC<{
   const type = form.watch("type");
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
-  const isMeasurementArm = type === "contextualBanditMeasurementArm";
-  // Data source, tracking key and the goal metric are owned by the contextual
-  // bandit on a measurement-arm experiment.
-  const lockCbGovernedFields = isMeasurementArm;
 
   const isExperimentIncludedInIncrementalRefresh =
     getIsExperimentIncludedInIncrementalRefresh(
@@ -422,7 +418,7 @@ const AnalysisForm: FC<{
   const hasEligiblePrecomputedUnitDimensions =
     precomputedUnitDimensionOptions.length > 0 &&
     datasourceHasWritableEphemeralPipelineEnabled;
-  const hasAdvancedSettings = !isBandit && !isHoldout && !isMeasurementArm;
+  const hasAdvancedSettings = !isBandit && !isHoldout;
   const selectedPrecomputedUnitDimensionIds =
     form.watch("precomputedUnitDimensionIds") || [];
   const precomputedUnitDimensionLimitReached =
@@ -470,17 +466,6 @@ const AnalysisForm: FC<{
       close={cancel}
       size="lg"
       submit={form.handleSubmit(async (value) => {
-        if (isMeasurementArm) {
-          await apiCall(`/experiment/${experiment.id}`, {
-            method: "POST",
-            body: JSON.stringify({
-              secondaryMetrics: value.secondaryMetrics,
-              guardrailMetrics: value.guardrailMetrics,
-            }),
-          });
-          mutate();
-          return;
-        }
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
@@ -564,470 +549,451 @@ const AnalysisForm: FC<{
       cta="Save"
     >
       <Box>
-        {!isMeasurementArm && (
-          <>
-            {isBandit && (
-              <FormProvider {...form}>
-                <BanditSettings
-                  page="experiment-settings"
-                  settings={scopedSettings}
-                  lockExploratoryStage={experiment.banditStage === "exploit"}
-                />
-                <hr className="my-3" />
-                {experiment.status === "running" && (
-                  <HelperText status="info" mb="4">
-                    The following settings cannot be modified because the Bandit
-                    is already live
-                  </HelperText>
-                )}
-              </FormProvider>
+        {isBandit && (
+          <FormProvider {...form}>
+            <BanditSettings
+              page="experiment-settings"
+              settings={scopedSettings}
+              lockExploratoryStage={experiment.banditStage === "exploit"}
+            />
+            <hr className="my-3" />
+            {experiment.status === "running" && (
+              <HelperText status="info" mb="4">
+                The following settings cannot be modified because the Bandit is
+                already live
+              </HelperText>
             )}
+          </FormProvider>
+        )}
 
-            {!editingDataSource && datasource?.properties?.exposureQueries && (
-              <AssignmentQueryDriftWarning
-                selection={assignmentQuerySelection}
-              />
-            )}
-            {!editingDataSource ? (
-              <Box className="rounded mb-3 px-3 py-2 bg-highlight">
-                <Flex justify="between" align="start" gap="3">
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <Box mb="1">
-                      <Text size="sm" color="text-mid">
-                        Data Source:
-                      </Text>{" "}
-                      <Text size="sm" weight="medium">
-                        {datasource?.name || (
-                          <Text color="text-mid" fontStyle="italic">
-                            None
-                          </Text>
-                        )}
+        {!editingDataSource && datasource?.properties?.exposureQueries && (
+          <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />
+        )}
+        {!editingDataSource ? (
+          <Box className="rounded mb-3 px-3 py-2 bg-highlight">
+            <Flex justify="between" align="start" gap="3">
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <Box mb="1">
+                  <Text size="sm" color="text-mid">
+                    Data Source:
+                  </Text>{" "}
+                  <Text size="sm" weight="medium">
+                    {datasource?.name || (
+                      <Text color="text-mid" fontStyle="italic">
+                        None
                       </Text>
-                    </Box>
-                    {datasource?.properties?.exposureQueries && (
-                      <Box mb="1">
-                        <Text size="sm" color="text-mid">
-                          Identifier Type:
-                        </Text>{" "}
-                        <Text size="sm" weight="medium">
-                          {exposureQueryIdentifierType || (
-                            <Text color="text-mid" fontStyle="italic">
-                              Choose...
-                            </Text>
-                          )}
-                        </Text>
-                      </Box>
                     )}
-                    {datasource?.properties?.exposureQueries && (
-                      <Box mb="1">
-                        <Text size="sm" color="text-mid">
-                          Experiment Assignment Table:
-                        </Text>{" "}
-                        <Text size="sm" weight="medium">
-                          {exposureQuery?.name || (
-                            <Text color="text-mid" fontStyle="italic">
-                              Choose...
-                            </Text>
-                          )}
-                        </Text>
-                      </Box>
-                    )}
-                    {datasource && !isHoldout && (
-                      <Box>
-                        <Text size="sm" color="text-mid">
-                          Tracking Key:
-                        </Text>{" "}
-                        <Text size="sm" weight="medium">
-                          {form.watch("trackingKey") || "—"}
-                        </Text>
-                      </Box>
-                    )}
-                  </Box>
-                  {!isBandit && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => setEditingDataSource(true)}
-                    >
-                      Edit
-                    </Button>
-                  )}
-                </Flex>
-              </Box>
-            ) : (
-              <>
-                <SelectField
-                  label="Data Source"
-                  value={datasource?.id || ""}
-                  disabled={
-                    (isBandit && experiment.status !== "draft") ||
-                    lockCbGovernedFields
-                  }
-                  onChange={(newDatasource) => {
-                    form.setValue("datasource", newDatasource);
-
-                    // If unsetting the datasource, leave all the other settings alone
-                    // That way, it will be restored if the user switches back to the previous value
-                    if (!newDatasource) {
-                      return;
-                    }
-
-                    // If the exposure query is now invalid
-                    const ds = getDatasourceById(newDatasource);
-                    if (
-                      !getExposureQuery(
-                        ds?.settings,
-                        form.watch("exposureQueryId"),
-                      )
-                    ) {
-                      form.setValue("exposureQueryId", "");
-                      form.setValue(
-                        "exposureQueryIdentifierType",
-                        getDefaultIdentifierType({
-                          identifierTypes: getSelectableIdentifierTypes(
-                            ds
-                              ? getExposureQueriesInScope(
-                                  ds,
-                                  experiment.project,
-                                  holdoutProjects,
-                                )
-                              : [],
-                          ),
-                          hashAttributeIdentifierTypeMap:
-                            getHashAttributeIdentifierTypeMap(
-                              ds?.settings?.userIdTypes,
-                            ),
-                          hashAttribute: experiment.hashAttribute,
-                        }),
-                      );
-                    }
-
-                    // If the segment is now invalid
-                    const segment = form.watch("segment");
-                    if (
-                      segment &&
-                      getSegmentById(segment)?.datasource !== newDatasource
-                    ) {
-                      form.setValue("segment", "");
-                    }
-
-                    const isValidMetric = (id: string) =>
-                      getExperimentMetricById(id)?.datasource === newDatasource;
-
-                    // If the activationMetric is now invalid
-                    const activationMetric = form.watch("activationMetric");
-                    if (activationMetric && !isValidMetric(activationMetric)) {
-                      form.setValue("activationMetric", "");
-                    }
-
-                    // Filter the selected metrics to only valid ones
-                    const goals = form.watch("goalMetrics");
-                    form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-                    const secondaryMetrics = form.watch("secondaryMetrics");
-                    form.setValue(
-                      "secondaryMetrics",
-                      secondaryMetrics.filter(isValidMetric),
-                    );
-
-                    const guardrails = form.watch("guardrailMetrics");
-                    form.setValue(
-                      "guardrailMetrics",
-                      guardrails.filter(isValidMetric),
-                    );
-
-                    removeInvalidPrecomputedUnitDimensionIds({
-                      datasourceId: newDatasource,
-                    });
-                  }}
-                  options={datasources
-                    .filter(
-                      (ds) =>
-                        ds.id === experiment.datasource ||
-                        isProjectListValidForProject(
-                          ds.projects,
-                          experiment.project,
-                        ),
-                    )
-                    .map((d) => ({
-                      value: d.id,
-                      label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-                    }))}
-                  className="portal-overflow-ellipsis"
-                  helpText={
-                    experiment.datasource ? (
-                      <>
-                        <strong className="text-danger">Warning:</strong>{" "}
-                        Changing this will remove all metrics and segments from
-                        the experiment.
-                      </>
-                    ) : undefined
-                  }
-                />
+                  </Text>
+                </Box>
                 {datasource?.properties?.exposureQueries && (
-                  <AssignmentQueryFields
-                    selection={assignmentQuerySelection}
-                    placeholder="Choose..."
-                    disabled={isBandit && experiment.status !== "draft"}
-                  />
+                  <Box mb="1">
+                    <Text size="sm" color="text-mid">
+                      Identifier Type:
+                    </Text>{" "}
+                    <Text size="sm" weight="medium">
+                      {exposureQueryIdentifierType || (
+                        <Text color="text-mid" fontStyle="italic">
+                          Choose...
+                        </Text>
+                      )}
+                    </Text>
+                  </Box>
+                )}
+                {datasource?.properties?.exposureQueries && (
+                  <Box mb="1">
+                    <Text size="sm" color="text-mid">
+                      Experiment Assignment Table:
+                    </Text>{" "}
+                    <Text size="sm" weight="medium">
+                      {exposureQuery?.name || (
+                        <Text color="text-mid" fontStyle="italic">
+                          Choose...
+                        </Text>
+                      )}
+                    </Text>
+                  </Box>
                 )}
                 {datasource && !isHoldout && (
-                  <Field
-                    label="Tracking Key"
-                    {...form.register("trackingKey")}
-                    helpText={
-                      <>
-                        Unique identifier for this experiment, used to track
-                        impressions and analyze results. Will match against the{" "}
-                        <code>experiment_id</code> column in your data source.
-                      </>
-                    }
-                    disabled={
-                      !canRunExperiment ||
-                      (isBandit && experiment.status !== "draft") ||
-                      lockCbGovernedFields
-                    }
-                  />
-                )}
-              </>
-            )}
-            {editVariationIds && (
-              <div className="form-group">
-                <label className="font-weight-bold">Variation Ids</label>
-                <div className="row align-items-top">
-                  {variations.fields.map((v, i) => (
-                    <div
-                      className={`col-${Math.max(
-                        Math.round(12 / variations.fields.length),
-                        3,
-                      )} mb-2`}
-                      key={i}
-                    >
-                      <Field
-                        label={v.name}
-                        labelClassName="mb-0"
-                        containerClassName="mb-1"
-                        {...form.register(`variations.${i}.key`)}
-                        placeholder={i + ""}
-                      />
-                    </div>
-                  ))}
-                </div>
-                <small className="form-text text-muted">
-                  Will match against the variation_id column in your data source
-                </small>
-              </div>
-            )}
-            {!!phaseObj &&
-              editDates &&
-              !isBandit &&
-              !isHoldout &&
-              experiment.status !== "draft" && (
-                <div className="row">
-                  <div className="col">
-                    <DatePicker
-                      label="Start time"
-                      timeZone="utc"
-                      helpText="Only include users who entered the experiment on or after this date"
-                      date={form.watch("dateStarted")}
-                      setDate={(v) => {
-                        form.setValue("dateStarted", v ? v.toISOString() : "");
-                      }}
-                      scheduleEndDate={form.watch("dateEnded")}
-                      disableAfter={form.watch("dateEnded") || undefined}
-                    />
-                  </div>
-                  {experiment.status === "stopped" && (
-                    <div className="col">
-                      <DatePicker
-                        label="End time"
-                        timeZone="utc"
-                        helpText="Only include users who entered the experiment on or before this date"
-                        date={form.watch("dateEnded")}
-                        setDate={(v) => {
-                          form.setValue("dateEnded", v ? v.toISOString() : "");
-                        }}
-                        scheduleStartDate={form.watch("dateStarted")}
-                        disableBefore={form.watch("dateStarted") || undefined}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-            <Flex gap="3" align="start" wrap="wrap">
-              <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                <StatsEngineSelect
-                  value={form.watch("statsEngine")}
-                  onChange={(v) => {
-                    form.setValue("statsEngine", v);
-                  }}
-                  parentSettings={parentScopedSettings}
-                  allowUndefined={!isBandit}
-                  disabled={isBandit}
-                  className=""
-                />
-              </Box>
-              {!isHoldout && (
-                <>
-                  <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                    <SelectField
-                      label={
-                        <PremiumTooltip commercialFeature="regression-adjustment">
-                          CUPED
-                        </PremiumTooltip>
-                      }
-                      value={
-                        hasRegressionAdjustmentFeature &&
-                        form.watch("regressionAdjustmentEnabled")
-                          ? "on"
-                          : "off"
-                      }
-                      onChange={(v) => {
-                        form.setValue(
-                          "regressionAdjustmentEnabled",
-                          v === "on",
-                        );
-                      }}
-                      options={[
-                        { label: "On", value: "on" },
-                        { label: "Off", value: "off" },
-                      ]}
-                      disabled={
-                        !hasRegressionAdjustmentFeature ||
-                        (isBandit && experiment.status !== "draft")
-                      }
-                    />
+                  <Box>
+                    <Text size="sm" color="text-mid">
+                      Tracking Key:
+                    </Text>{" "}
+                    <Text size="sm" weight="medium">
+                      {form.watch("trackingKey") || "—"}
+                    </Text>
                   </Box>
-                  {!orgSettings.disablePrecomputedDimensions ? (
-                    <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                      <SelectField
-                        label={
-                          <PremiumTooltip commercialFeature="post-stratification">
-                            Post-Stratification
-                          </PremiumTooltip>
-                        }
-                        value={
-                          !hasPostStratificationFeature ||
-                          form.watch("postStratificationEnabled") == null
-                            ? ""
-                            : form.watch("postStratificationEnabled")
-                              ? "on"
-                              : "off"
-                        }
-                        onChange={(v) => {
-                          form.setValue(
-                            "postStratificationEnabled",
-                            v === "" ? null : v === "on",
-                          );
-                        }}
-                        options={[
-                          {
-                            label: `Default (${
-                              hasPostStratificationFeature &&
-                              parentScopedSettings.postStratificationEnabled
-                                .value
-                                ? "On"
-                                : "Off"
-                            })`,
-                            value: "",
-                          },
-                          { label: "On", value: "on" },
-                          { label: "Off", value: "off" },
-                        ]}
-                        formatOptionLabel={({ value, label }) => {
-                          if (value === "") {
-                            return <em className="text-muted">{label}</em>;
-                          }
-                          return label;
-                        }}
-                        sort={false}
-                        disabled={
-                          !hasPostStratificationFeature ||
-                          (isBandit && experiment.status !== "draft")
-                        }
-                      />
-                    </Box>
-                  ) : null}
-                </>
+                )}
+              </Box>
+              {!isBandit && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => setEditingDataSource(true)}
+                >
+                  Edit
+                </Button>
               )}
             </Flex>
-            {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
-              "frequentist" &&
-              !isBandit &&
-              !isHoldout && (
-                <Flex gap="3" align="start">
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    <SelectField
-                      label={
-                        <PremiumTooltip commercialFeature="sequential-testing">
-                          Sequential Testing
-                        </PremiumTooltip>
-                      }
-                      value={
-                        usingSequentialTestingDefault
-                          ? ""
-                          : form.watch("sequentialTestingEnabled")
-                            ? "on"
-                            : "off"
-                      }
-                      onChange={(v) => {
-                        if (v === "") {
-                          setSequentialTestingToDefault(true);
-                        } else {
-                          setSequentialTestingToDefault(false);
-                          form.setValue("sequentialTestingEnabled", v === "on");
-                        }
-                      }}
-                      options={[
-                        {
-                          label: `Default (${
-                            orgSettings.sequentialTestingEnabled ? "On" : "Off"
-                          })`,
-                          value: "",
-                        },
-                        { label: "On", value: "on" },
-                        { label: "Off", value: "off" },
-                      ]}
-                      formatOptionLabel={({ value, label }) => {
-                        if (value === "") {
-                          return <em className="text-muted">{label}</em>;
-                        }
-                        return label;
-                      }}
-                      sort={false}
-                      disabled={!hasSequentialTestingFeature}
-                    />
-                  </Box>
-                  <Box style={{ flex: 1, minWidth: 0 }}>
-                    {(usingSequentialTestingDefault &&
-                      !!orgSettings.sequentialTestingEnabled) ||
-                    (!usingSequentialTestingDefault &&
-                      form.watch("sequentialTestingEnabled")) ? (
-                      <Field
-                        label="Tuning parameter"
-                        type="number"
-                        containerClassName="mb-0"
-                        min="0"
-                        readOnly={usingSequentialTestingDefault}
-                        disabled={
-                          !hasSequentialTestingFeature || hasFileConfig()
-                        }
-                        {...form.register("sequentialTestingTuningParameter", {
-                          valueAsNumber: true,
-                          validate: (v) => {
-                            return !((v ?? 0) <= 0);
-                          },
-                        })}
-                      />
-                    ) : null}
-                  </Box>
-                  <Box style={{ flex: 1, minWidth: 0 }} />
-                </Flex>
-              )}
+          </Box>
+        ) : (
+          <>
+            <SelectField
+              label="Data Source"
+              value={datasource?.id || ""}
+              disabled={isBandit && experiment.status !== "draft"}
+              onChange={(newDatasource) => {
+                form.setValue("datasource", newDatasource);
 
-            <hr className="mt-2" />
+                // If unsetting the datasource, leave all the other settings alone
+                // That way, it will be restored if the user switches back to the previous value
+                if (!newDatasource) {
+                  return;
+                }
+
+                // If the exposure query is now invalid
+                const ds = getDatasourceById(newDatasource);
+                if (
+                  !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
+                ) {
+                  form.setValue("exposureQueryId", "");
+                  form.setValue(
+                    "exposureQueryIdentifierType",
+                    getDefaultIdentifierType({
+                      identifierTypes: getSelectableIdentifierTypes(
+                        ds
+                          ? getExposureQueriesInScope(
+                              ds,
+                              experiment.project,
+                              holdoutProjects,
+                            )
+                          : [],
+                      ),
+                      hashAttributeIdentifierTypeMap:
+                        getHashAttributeIdentifierTypeMap(
+                          ds?.settings?.userIdTypes,
+                        ),
+                      hashAttribute: experiment.hashAttribute,
+                    }),
+                  );
+                }
+
+                // If the segment is now invalid
+                const segment = form.watch("segment");
+                if (
+                  segment &&
+                  getSegmentById(segment)?.datasource !== newDatasource
+                ) {
+                  form.setValue("segment", "");
+                }
+
+                const isValidMetric = (id: string) =>
+                  getExperimentMetricById(id)?.datasource === newDatasource;
+
+                // If the activationMetric is now invalid
+                const activationMetric = form.watch("activationMetric");
+                if (activationMetric && !isValidMetric(activationMetric)) {
+                  form.setValue("activationMetric", "");
+                }
+
+                // Filter the selected metrics to only valid ones
+                const goals = form.watch("goalMetrics");
+                form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+                const secondaryMetrics = form.watch("secondaryMetrics");
+                form.setValue(
+                  "secondaryMetrics",
+                  secondaryMetrics.filter(isValidMetric),
+                );
+
+                const guardrails = form.watch("guardrailMetrics");
+                form.setValue(
+                  "guardrailMetrics",
+                  guardrails.filter(isValidMetric),
+                );
+
+                removeInvalidPrecomputedUnitDimensionIds({
+                  datasourceId: newDatasource,
+                });
+              }}
+              options={datasources
+                .filter(
+                  (ds) =>
+                    ds.id === experiment.datasource ||
+                    isProjectListValidForProject(
+                      ds.projects,
+                      experiment.project,
+                    ),
+                )
+                .map((d) => ({
+                  value: d.id,
+                  label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+                }))}
+              className="portal-overflow-ellipsis"
+              helpText={
+                experiment.datasource ? (
+                  <>
+                    <strong className="text-danger">Warning:</strong> Changing
+                    this will remove all metrics and segments from the
+                    experiment.
+                  </>
+                ) : undefined
+              }
+            />
+            {datasource?.properties?.exposureQueries && (
+              <AssignmentQueryFields
+                selection={assignmentQuerySelection}
+                placeholder="Choose..."
+                disabled={isBandit && experiment.status !== "draft"}
+              />
+            )}
+            {datasource && !isHoldout && (
+              <Field
+                label="Tracking Key"
+                {...form.register("trackingKey")}
+                helpText={
+                  <>
+                    Unique identifier for this experiment, used to track
+                    impressions and analyze results. Will match against the{" "}
+                    <code>experiment_id</code> column in your data source.
+                  </>
+                }
+                disabled={
+                  !canRunExperiment ||
+                  (isBandit && experiment.status !== "draft")
+                }
+              />
+            )}
           </>
         )}
+        {editVariationIds && (
+          <div className="form-group">
+            <label className="font-weight-bold">Variation Ids</label>
+            <div className="row align-items-top">
+              {variations.fields.map((v, i) => (
+                <div
+                  className={`col-${Math.max(
+                    Math.round(12 / variations.fields.length),
+                    3,
+                  )} mb-2`}
+                  key={i}
+                >
+                  <Field
+                    label={v.name}
+                    labelClassName="mb-0"
+                    containerClassName="mb-1"
+                    {...form.register(`variations.${i}.key`)}
+                    placeholder={i + ""}
+                  />
+                </div>
+              ))}
+            </div>
+            <small className="form-text text-muted">
+              Will match against the variation_id column in your data source
+            </small>
+          </div>
+        )}
+        {!!phaseObj &&
+          editDates &&
+          !isBandit &&
+          !isHoldout &&
+          experiment.status !== "draft" && (
+            <div className="row">
+              <div className="col">
+                <DatePicker
+                  label="Start time"
+                  timeZone="utc"
+                  helpText="Only include users who entered the experiment on or after this date"
+                  date={form.watch("dateStarted")}
+                  setDate={(v) => {
+                    form.setValue("dateStarted", v ? v.toISOString() : "");
+                  }}
+                  scheduleEndDate={form.watch("dateEnded")}
+                  disableAfter={form.watch("dateEnded") || undefined}
+                />
+              </div>
+              {experiment.status === "stopped" && (
+                <div className="col">
+                  <DatePicker
+                    label="End time"
+                    timeZone="utc"
+                    helpText="Only include users who entered the experiment on or before this date"
+                    date={form.watch("dateEnded")}
+                    setDate={(v) => {
+                      form.setValue("dateEnded", v ? v.toISOString() : "");
+                    }}
+                    scheduleStartDate={form.watch("dateStarted")}
+                    disableBefore={form.watch("dateStarted") || undefined}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+        <Flex gap="3" align="start" wrap="wrap">
+          <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
+            <StatsEngineSelect
+              value={form.watch("statsEngine")}
+              onChange={(v) => {
+                form.setValue("statsEngine", v);
+              }}
+              parentSettings={parentScopedSettings}
+              allowUndefined={!isBandit}
+              disabled={isBandit}
+              className=""
+            />
+          </Box>
+          {!isHoldout && (
+            <>
+              <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
+                <SelectField
+                  label={
+                    <PremiumTooltip commercialFeature="regression-adjustment">
+                      CUPED
+                    </PremiumTooltip>
+                  }
+                  value={
+                    hasRegressionAdjustmentFeature &&
+                    form.watch("regressionAdjustmentEnabled")
+                      ? "on"
+                      : "off"
+                  }
+                  onChange={(v) => {
+                    form.setValue("regressionAdjustmentEnabled", v === "on");
+                  }}
+                  options={[
+                    { label: "On", value: "on" },
+                    { label: "Off", value: "off" },
+                  ]}
+                  disabled={
+                    !hasRegressionAdjustmentFeature ||
+                    (isBandit && experiment.status !== "draft")
+                  }
+                />
+              </Box>
+              {!orgSettings.disablePrecomputedDimensions ? (
+                <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
+                  <SelectField
+                    label={
+                      <PremiumTooltip commercialFeature="post-stratification">
+                        Post-Stratification
+                      </PremiumTooltip>
+                    }
+                    value={
+                      !hasPostStratificationFeature ||
+                      form.watch("postStratificationEnabled") == null
+                        ? ""
+                        : form.watch("postStratificationEnabled")
+                          ? "on"
+                          : "off"
+                    }
+                    onChange={(v) => {
+                      form.setValue(
+                        "postStratificationEnabled",
+                        v === "" ? null : v === "on",
+                      );
+                    }}
+                    options={[
+                      {
+                        label: `Default (${
+                          hasPostStratificationFeature &&
+                          parentScopedSettings.postStratificationEnabled.value
+                            ? "On"
+                            : "Off"
+                        })`,
+                        value: "",
+                      },
+                      { label: "On", value: "on" },
+                      { label: "Off", value: "off" },
+                    ]}
+                    formatOptionLabel={({ value, label }) => {
+                      if (value === "") {
+                        return <em className="text-muted">{label}</em>;
+                      }
+                      return label;
+                    }}
+                    sort={false}
+                    disabled={
+                      !hasPostStratificationFeature ||
+                      (isBandit && experiment.status !== "draft")
+                    }
+                  />
+                </Box>
+              ) : null}
+            </>
+          )}
+        </Flex>
+        {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
+          "frequentist" &&
+          !isBandit &&
+          !isHoldout && (
+            <Flex gap="3" align="start">
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                <SelectField
+                  label={
+                    <PremiumTooltip commercialFeature="sequential-testing">
+                      Sequential Testing
+                    </PremiumTooltip>
+                  }
+                  value={
+                    usingSequentialTestingDefault
+                      ? ""
+                      : form.watch("sequentialTestingEnabled")
+                        ? "on"
+                        : "off"
+                  }
+                  onChange={(v) => {
+                    if (v === "") {
+                      setSequentialTestingToDefault(true);
+                    } else {
+                      setSequentialTestingToDefault(false);
+                      form.setValue("sequentialTestingEnabled", v === "on");
+                    }
+                  }}
+                  options={[
+                    {
+                      label: `Default (${
+                        orgSettings.sequentialTestingEnabled ? "On" : "Off"
+                      })`,
+                      value: "",
+                    },
+                    { label: "On", value: "on" },
+                    { label: "Off", value: "off" },
+                  ]}
+                  formatOptionLabel={({ value, label }) => {
+                    if (value === "") {
+                      return <em className="text-muted">{label}</em>;
+                    }
+                    return label;
+                  }}
+                  sort={false}
+                  disabled={!hasSequentialTestingFeature}
+                />
+              </Box>
+              <Box style={{ flex: 1, minWidth: 0 }}>
+                {(usingSequentialTestingDefault &&
+                  !!orgSettings.sequentialTestingEnabled) ||
+                (!usingSequentialTestingDefault &&
+                  form.watch("sequentialTestingEnabled")) ? (
+                  <Field
+                    label="Tuning parameter"
+                    type="number"
+                    containerClassName="mb-0"
+                    min="0"
+                    readOnly={usingSequentialTestingDefault}
+                    disabled={!hasSequentialTestingFeature || hasFileConfig()}
+                    {...form.register("sequentialTestingTuningParameter", {
+                      valueAsNumber: true,
+                      validate: (v) => {
+                        return !((v ?? 0) <= 0);
+                      },
+                    })}
+                  />
+                ) : null}
+              </Box>
+              <Box style={{ flex: 1, minWidth: 0 }} />
+            </Flex>
+          )}
+
+        <hr className="mt-2" />
 
         {editMetrics && (
           <>
@@ -1046,12 +1012,6 @@ const AnalysisForm: FC<{
                 </FormProvider>
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
               </>
-            )}
-            {isMeasurementArm && (
-              <HelperText status="info" mb="4">
-                The goal metric follows the Contextual Bandit. Only secondary
-                and guardrail metrics can be changed here.
-              </HelperText>
             )}
             <ExperimentMetricsSelector
               noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
@@ -1079,15 +1039,12 @@ const AnalysisForm: FC<{
               forceSingleGoalMetric={isBandit}
               noQuantileGoalMetrics={isBandit}
               filterConversionWindowMetrics={isHoldout}
-              goalDisabled={
-                (isBandit && experiment.status !== "draft") ||
-                lockCbGovernedFields
-              }
+              goalDisabled={isBandit && experiment.status !== "draft"}
               experimentId={experiment.id}
               experimentType={experiment.type}
             />
 
-            {!!datasource && !isBandit && !isHoldout && !isMeasurementArm && (
+            {!!datasource && !isBandit && !isHoldout && (
               <>
                 <Tooltip
                   shouldDisplay={
@@ -1145,18 +1102,16 @@ const AnalysisForm: FC<{
               </>
             )}
 
-            {!isMeasurementArm && (
-              <CustomMetricSlicesSelector
-                className="mt-4 pt-4 border-top"
-                goalMetrics={form.watch("goalMetrics")}
-                secondaryMetrics={form.watch("secondaryMetrics")}
-                guardrailMetrics={form.watch("guardrailMetrics")}
-                customMetricSlices={form.watch("customMetricSlices") || []}
-                setCustomMetricSlices={(slices) =>
-                  form.setValue("customMetricSlices", slices)
-                }
-              />
-            )}
+            <CustomMetricSlicesSelector
+              className="mt-4 pt-4 border-top"
+              goalMetrics={form.watch("goalMetrics")}
+              secondaryMetrics={form.watch("secondaryMetrics")}
+              guardrailMetrics={form.watch("guardrailMetrics")}
+              customMetricSlices={form.watch("customMetricSlices") || []}
+              setCustomMetricSlices={(slices) =>
+                form.setValue("customMetricSlices", slices)
+              }
+            />
 
             {hasAdvancedSettings && (
               <>

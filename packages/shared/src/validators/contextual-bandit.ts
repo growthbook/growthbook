@@ -97,7 +97,7 @@ export const contextualBanditMeasurementArmValidator = z
       .min(MIN_MEASUREMENT_ARM_PERCENT)
       .max(MAX_MEASUREMENT_ARM_PERCENT),
     experimentId: z.string().optional(),
-    trackingKey: z.string().optional(),
+    trackingKey: z.string(),
     seed: z.string(),
   })
   .strict();
@@ -119,7 +119,7 @@ const apiContextualBanditMeasurementArm = z
       .describe(
         "The experiment that compares held-back users against users in the Bandit.",
       ),
-    trackingKey: z.string().optional(),
+    trackingKey: z.string(),
   })
   .describe(
     "Measurement arm: holds back a share of eligible traffic on the default experience and compares it against the Bandit in a linked experiment. Only changeable while the Contextual Bandit is a draft.",

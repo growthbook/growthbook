@@ -10,6 +10,9 @@ import {
 import {
   generateTrackingKey,
   getLatestPhaseVariations,
+  isContextualBanditMeasurementArm,
+  isManagedExperiment,
+  MANAGED_EXPERIMENT_TYPES,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
 import {
@@ -97,19 +100,6 @@ import {
 import { getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION = "experiments";
-
-// Experiment types that never appear in the experiments list by default and
-// are created/managed by another object (a holdout or a contextual bandit).
-const NON_STANDARD_EXPERIMENT_TYPES = [
-  "holdout",
-  "contextualBanditMeasurementArm",
-] as const;
-
-function isCbOwnedExperiment(exp: { type?: string | null }): boolean {
-  return (
-    exp.type === "holdout" || exp.type === "contextualBanditMeasurementArm"
-  );
-}
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -601,7 +591,7 @@ export async function getAllExperiments(
   } else if (type === "contextualBanditMeasurementArm") {
     query.type = "contextualBanditMeasurementArm";
   } else if (!type) {
-    query.type = { $nin: NON_STANDARD_EXPERIMENT_TYPES };
+    query.type = { $nin: MANAGED_EXPERIMENT_TYPES };
   }
 
   return await findExperiments(context, query, limit, sortBy);
@@ -638,7 +628,7 @@ export async function countActiveExperimentsUsingNamespace(
       {
         organization: context.org.id,
         archived: { $ne: true },
-        type: { $nin: NON_STANDARD_EXPERIMENT_TYPES },
+        type: { $nin: MANAGED_EXPERIMENT_TYPES },
         "phases.namespace.name": namespaceId,
       },
       {
@@ -716,7 +706,7 @@ export async function getAllExperimentsForStaleGraph(
   if (ids && !ids.length) return [];
   const query: FilterQuery<ExperimentDocument> = {
     organization: context.org.id,
-    type: { $nin: NON_STANDARD_EXPERIMENT_TYPES },
+    type: { $nin: MANAGED_EXPERIMENT_TYPES },
   };
   if (!includeArchived) {
     query.archived = { $ne: true };
@@ -898,7 +888,7 @@ export async function createExperiment({
     nextSnapshotAttempt: nextUpdate ?? undefined,
   } satisfies Partial<ExperimentInterface> as ExperimentInterface;
 
-  if (!isCbOwnedExperiment(experimentToCreate)) {
+  if (!isManagedExperiment(experimentToCreate)) {
     await runValidateExperimentHooks({
       context,
       experiment: experimentToCreate,
@@ -1172,7 +1162,7 @@ export async function* dangerousGetExperimentsForLifecycleReminders(): AsyncGene
       status: "running",
       archived: { $ne: true },
       // Holdouts have their own lifecycle notifications.
-      type: { $nin: NON_STANDARD_EXPERIMENT_TYPES },
+      type: { $nin: MANAGED_EXPERIMENT_TYPES },
     })
     .project<Pick<ExperimentInterface, "id" | "organization">>({
       id: 1,
@@ -1501,7 +1491,7 @@ export const logExperimentCreated = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  if (isCbOwnedExperiment(experiment)) return;
+  if (isManagedExperiment(experiment)) return;
 
   const apiExperiment = await toExperimentEventPayload(context, experiment);
 
@@ -1540,7 +1530,7 @@ export const logExperimentUpdated = async ({
   current: ExperimentInterface;
   previous: ExperimentInterface;
 }) => {
-  if (isCbOwnedExperiment(current)) return;
+  if (isManagedExperiment(current)) return;
 
   const [previousApiExperiment, currentApiExperiment] = await Promise.all([
     toExperimentEventPayload(context, previous),
@@ -2078,7 +2068,7 @@ export const logExperimentDeleted = async (
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) => {
-  if (experiment.type === "contextualBanditMeasurementArm") return;
+  if (isContextualBanditMeasurementArm(experiment)) return;
 
   const apiExperiment = await toExperimentEventPayload(context, experiment);
 

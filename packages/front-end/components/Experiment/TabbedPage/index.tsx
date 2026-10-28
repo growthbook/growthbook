@@ -5,6 +5,7 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined, experimentHasLiveLinkedChanges } from "shared/util";
+import { isContextualBanditMeasurementArm } from "shared/experiments";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -546,13 +547,13 @@ export default function TabbedPage({
           showDashboardView && "pt-0",
         )}
       >
-        {experiment.type === "contextualBanditMeasurementArm" && (
+        {isContextualBanditMeasurementArm(experiment) && (
           <div className="pt-3">
             <MeasurementArmBanner experiment={experiment} />
           </div>
         )}
         {experiment.type !== "holdout" &&
-          experiment.type !== "contextualBanditMeasurementArm" &&
+          !isContextualBanditMeasurementArm(experiment) &&
           tab !== "dashboards" &&
           !showDashboardView && (
             <CustomMarkdown page={"experiment"} variables={variables} />
@@ -603,7 +604,7 @@ export default function TabbedPage({
               : "d-none d-print-block",
           )}
         >
-          {experiment.type !== "contextualBanditMeasurementArm" ? (
+          {!isContextualBanditMeasurementArm(experiment) ? (
             <SetupTabOverview
               experiment={experiment}
               holdout={holdout}

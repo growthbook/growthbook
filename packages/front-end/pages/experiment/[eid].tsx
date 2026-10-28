@@ -9,10 +9,12 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
 import { includeExperimentInPayload } from "shared/util";
+import { isContextualBanditMeasurementArm } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
+import MeasurementArmMetricsForm from "@/components/ContextualBandit/MeasurementArmMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
@@ -105,7 +107,8 @@ const ExperimentPage = ({
     }
     if (
       !experimentId &&
-      data?.experiment?.type === "contextualBanditMeasurementArm" &&
+      data?.experiment &&
+      isContextualBanditMeasurementArm(data.experiment) &&
       data.experiment.contextualBanditId
     ) {
       router.replace(
@@ -138,7 +141,7 @@ const ExperimentPage = ({
   // A measurement-arm experiment is owned by its contextual bandit: only the
   // secondary and guardrail metrics are editable here; everything else is
   // managed from the CB.
-  const isMeasurementArm = experiment.type === "contextualBanditMeasurementArm";
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
 
   const canEditAnalysisSettings =
     permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
@@ -199,7 +202,15 @@ const ExperimentPage = ({
 
   return (
     <>
-      {metricsModalOpen && (
+      {metricsModalOpen && isMeasurementArm && (
+        <MeasurementArmMetricsForm
+          experiment={experiment}
+          cancel={() => setMetricsModalOpen(false)}
+          mutate={mutate}
+          source="eid"
+        />
+      )}
+      {metricsModalOpen && !isMeasurementArm && (
         <EditMetricsForm
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}

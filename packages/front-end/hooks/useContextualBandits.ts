@@ -1,7 +1,4 @@
-import {
-  ApiContextualBanditInterface,
-  ContextualBanditMeasurementArmSummary,
-} from "shared/validators";
+import { ApiContextualBanditInterface } from "shared/validators";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { getActiveVariations } from "shared/experiments";
 import { useMemo } from "react";
@@ -69,9 +66,6 @@ export function useContextualBandit(cbId: string | undefined) {
     mutate,
   };
 }
-
-export type ContextualBanditMeasurementArmResults =
-  ContextualBanditMeasurementArmSummary;
 
 export function useContextualBanditMeasurementArm(cbId: string | undefined) {
   const { data, error, mutate } = useRestApi(
