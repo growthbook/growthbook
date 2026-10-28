@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
-import { PiCaretUpDown } from "react-icons/pi";
 import { VisuallyHidden } from "@radix-ui/themes";
 import LetterAvatar from "./LetterAvatar";
 import { DemoBadge, ProjectMenu, useProjectSelector } from "./ProjectSelector";
@@ -8,8 +7,8 @@ import { useMenuTriggerTooltip } from "./railTooltips";
 import styles from "./AppRail.module.scss";
 
 // The project selector in the side nav, from 1180px up: a row under the logo
-// with the project's avatar (main's, "ALL" for All Projects), its name and
-// up/down chevrons, opening the project menu to the side nav's right.
+// with the project's avatar (main's, "ALL" for All Projects) and its name,
+// opening the project menu to the side nav's right.
 // Collapsed, the avatar alone in the same place, its name in a tooltip.
 // Below 1180px it's in the header breadcrumb instead (ProjectSelector).
 export default function RailProjectSelector({
@@ -54,13 +53,6 @@ export default function RailProjectSelector({
       {avatar}
       <span className={styles.rowLabel}>{name}</span>
       {current && isDemo(current.id) ? <DemoBadge /> : null}
-      {heldToOneProject ? null : (
-        <PiCaretUpDown
-          size={14}
-          className={styles.projectChevrons}
-          aria-hidden="true"
-        />
-      )}
     </>
   );
   const className = clsx(
