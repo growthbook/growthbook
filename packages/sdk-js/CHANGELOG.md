@@ -8,7 +8,15 @@
 - In debug mode, log every type mismatch seen while evaluating a condition
 - **Breaking:** `evalCondition(obj, condition, options)` takes an options object, `{ savedGroups, onTypeMismatch }`, instead of positional `savedGroups` and `visited` arguments. Passing saved groups as the third argument no longer works
 - Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Add remote saved groups, whose IDs are looked up outside the payload: the `remoteGroupIds` option, `setRemoteGroupIds`, `GrowthBookClient.addRemoteSavedGroups`, `redisResolver`, and the `savedGroupReferencesRemote` capability
 - Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
+- Fix a percentage rollout (`coverage`) including one extra hash bucket, e.g. a 0.01% rollout turning on for 0.02% of users
+- **Breaking:** A condition that depends on an operator or saved group type the SDK
+  doesn't support now always fails, even under `$not` or `$nor`
+- `$elemMatch` now supports `$or`, `$and`, `$nor`, and `$savedGroup` operators
+- Fix bug with attributes named like built-in properties (e.g. `constructor`, `toString`)
+- Added `reducePayload` method to shrink SSR-bootstrapped payloads to just the features, rules, and experiments relevant to each user.
+- Add `interleavePlugin` and `interleave()` for interleaving experiments
 
 ## **1.8.0** - Sep 29, 2026
 

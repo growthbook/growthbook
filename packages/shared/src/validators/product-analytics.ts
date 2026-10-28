@@ -25,7 +25,6 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
 });
 
 export const metricPopulationValidator = populationStepValidator
-  .omit({ windowSettings: true })
   .extend({
     rowFilters: z
       .array(rowFilterValidator)
@@ -239,8 +238,7 @@ const journeyDatasetValidator = z
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
-// Populations: one single-step population definition per value. Step windows
-// aren't supported, so they're not part of the value.
+// Populations: one single-step population definition per value.
 const populationValueValidator = metricPopulationValidator.extend({
   name: z.string(),
   type: z.literal("population"),

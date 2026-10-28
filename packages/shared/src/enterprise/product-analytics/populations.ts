@@ -46,18 +46,7 @@ export function validatePopulationMetricCompatibility(
   const violations = getPopulationRuleViolations({
     datasource: config.datasource,
     userIdTypes: [metricValue.unit],
-    steps: [
-      {
-        ...population,
-        windowSettings: {
-          type: "",
-          delayValue: 0,
-          delayUnit: "days",
-          windowValue: 0,
-          windowUnit: "days",
-        },
-      },
-    ],
+    steps: [population],
     factTables: [factTable],
   });
   if (violations.length) throw new Error(violations.join(" "));
