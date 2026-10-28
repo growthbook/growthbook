@@ -24,7 +24,10 @@ const ScrollArea = forwardRef<
   HTMLDivElement,
   {
     children: ReactNode;
-    /** Keeps the content clear of the scrollbar drawn over it. */
+    /**
+     * Keeps the content clear of the scrollbars drawn over it: a strip at the
+     * right, and one at the bottom while it overflows sideways.
+     */
     gutter?: boolean;
     /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
     fill?: boolean;
@@ -69,14 +72,18 @@ const ScrollArea = forwardRef<
   const viewport = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => viewport.current as HTMLDivElement, []);
 
+  const vertical = direction !== "horizontal";
+  const sideways = direction !== "vertical";
+  const sidewaysGutter = gutter && sideways;
   const skipped = skipEdges.join(" ");
   const [more, setMore] = useState<Edge[]>([]);
+  const [overflowsSideways, setOverflowsSideways] = useState(false);
   useEffect(() => {
     const el = viewport.current;
-    if (!edgeCue || !el) return;
-    const vertical = direction !== "horizontal";
-    const sideways = direction !== "vertical";
+    if ((!edgeCue && !sidewaysGutter) || !el) return;
     const update = () => {
+      setOverflowsSideways(el.scrollWidth - el.clientWidth > 1);
+      if (!edgeCue) return;
       const past: Record<Edge, boolean> = {
         top: vertical && el.scrollTop > 0,
         bottom:
@@ -99,7 +106,7 @@ const ScrollArea = forwardRef<
       el.removeEventListener("scroll", update);
       observer.disconnect();
     };
-  }, [edgeCue, direction, skipped]);
+  }, [edgeCue, sidewaysGutter, vertical, sideways, skipped]);
 
   useEffect(() => {
     const el = viewport.current;
@@ -138,11 +145,6 @@ const ScrollArea = forwardRef<
   }, [wheelScrollsSideways]);
 
   const shadowed = edgeCue === "shadow";
-  const scrollbarRoom = alwaysShow
-    ? ({
-        "--scrollbar-room": `calc(var(--space-${size}) + var(--space-1))`,
-      } as CSSProperties)
-    : undefined;
   const scrollArea = (
     <RadixScrollArea
       ref={viewport}
@@ -152,18 +154,21 @@ const ScrollArea = forwardRef<
       onScroll={onScroll}
       className={clsx(
         styles.root,
-        alwaysShow && styles.reservesScrollbar,
         edgeCue === "fade" && styles.fades,
         shadowed ? styles.fillsWrapper : className,
       )}
-      style={shadowed ? scrollbarRoom : { ...scrollbarRoom, ...style }}
+      style={shadowed ? undefined : style}
       // Lands on the viewport, the element that scrolls.
       data-more={more.join(" ") || undefined}
     >
       <div
         style={{
           width: "100%",
-          ...(gutter && { paddingRight: "var(--space-3)" }),
+          ...(gutter && vertical && { paddingRight: "var(--space-3)" }),
+          ...(sidewaysGutter &&
+            overflowsSideways && {
+              paddingBottom: `calc(var(--space-${size}) + var(--space-1))`,
+            }),
           ...(fill && {
             display: "flex",
             flexDirection: "column",

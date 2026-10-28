@@ -42,19 +42,6 @@
   isolation: isolate;
 }
 
-// Always shown, a scrollbar takes room of its own instead of covering content.
-.reservesScrollbar {
-  &:has(> :global(.rt-ScrollAreaScrollbar[data-orientation="horizontal"]))
-    > :global(.rt-ScrollAreaViewport) {
-    padding-bottom: var(--scrollbar-room);
-  }
-
-  &:has(> :global(.rt-ScrollAreaScrollbar[data-orientation="vertical"]))
-    > :global(.rt-ScrollAreaViewport) {
-    padding-right: var(--scrollbar-room);
-  }
-}
-
 .shadowed {
   position: relative;
 }

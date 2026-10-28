@@ -292,7 +292,7 @@ export default function VariationValuesTable({
         <ScrollArea
           direction="horizontal"
           size="2"
-          alwaysShow
+          gutter
           wheelScrollsSideways
           edgeCue="shadow"
           skipEdges={["left"]}
