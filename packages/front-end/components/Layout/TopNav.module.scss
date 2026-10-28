@@ -77,7 +77,7 @@ $sidebarwidth: var(--app-rail-width, 240px);
   top: var(--page-top-offset);
   left: $sidebarwidth;
   right: var(--agent-rail-width, 0px);
-  height: 16px;
+  height: 12px;
   z-index: 1;
   pointer-events: none;
   background: linear-gradient(to bottom, var(--color-background), transparent);
