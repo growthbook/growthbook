@@ -96,58 +96,62 @@ export default function UnsavedChangesBar() {
         </Flex>
       )}
       {(dirtyCount > 0 || submitError) && (
-        <Box
-          className={styles.unsavedBar}
-          role="region"
-          aria-label="Unsaved changes"
-        >
-          <Flex align="center" gap="3" wrap="wrap">
-            <Box flexGrow="1" aria-live="polite">
+        <>
+          <div className={styles.unsavedBarSpacer} />
+          <Box
+            className={styles.unsavedBar}
+            role="region"
+            aria-label="Unsaved changes"
+          >
+            <Flex align="center" gap="3" wrap="wrap">
+              {dirtyCount > 0 && <span className={styles.unsavedDot} />}
+              <Box flexGrow="1" aria-live="polite">
+                {dirtyCount > 0 && (
+                  <Popover
+                    side="top"
+                    align="start"
+                    sideOffset={8}
+                    contentStyle={{
+                      width: 640,
+                      maxWidth: "90vw",
+                      padding: "var(--space-3) var(--space-4)",
+                    }}
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        color="gray"
+                        icon={<PiCaretUp />}
+                        iconPosition="right"
+                      >
+                        {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
+                      </Button>
+                    }
+                    content={
+                      <Flex direction="column" gap="2">
+                        {changes.map((c) => (
+                          <UnsavedChange key={c.id} change={c} />
+                        ))}
+                      </Flex>
+                    }
+                  />
+                )}
+                {submitError && (
+                  <HelperText status="error">{submitError}</HelperText>
+                )}
+              </Box>
               {dirtyCount > 0 && (
-                <Popover
-                  side="top"
-                  align="start"
-                  sideOffset={8}
-                  contentStyle={{
-                    width: 640,
-                    maxWidth: "90vw",
-                    padding: "var(--space-3) var(--space-4)",
-                  }}
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      color="gray"
-                      icon={<PiCaretUp />}
-                      iconPosition="right"
-                    >
-                      {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
-                    </Button>
-                  }
-                  content={
-                    <Flex direction="column" gap="2">
-                      {changes.map((c) => (
-                        <UnsavedChange key={c.id} change={c} />
-                      ))}
-                    </Flex>
-                  }
-                />
+                <>
+                  <Button variant="ghost" onClick={discard}>
+                    Discard
+                  </Button>
+                  <Button onClick={save} setError={setSubmitError}>
+                    Save changes
+                  </Button>
+                </>
               )}
-              {submitError && (
-                <HelperText status="error">{submitError}</HelperText>
-              )}
-            </Box>
-            {dirtyCount > 0 && (
-              <>
-                <Button variant="ghost" onClick={discard}>
-                  Discard
-                </Button>
-                <Button onClick={save} setError={setSubmitError}>
-                  Save changes
-                </Button>
-              </>
-            )}
-          </Flex>
-        </Box>
+            </Flex>
+          </Box>
+        </>
       )}
     </>
   );

@@ -27,23 +27,40 @@
   height: 45vh;
 }
 
-.unsavedBar,
+// Spans from the main sidebar to the window edge, over the sub nav.
+.unsavedBar {
+  position: fixed;
+  left: var(--settings-sidebar-width);
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  // Lines the count up with the sub nav's content.
+  padding: var(--space-3) var(--space-3) var(--space-3)
+    calc(var(--settings-nav-inset) + var(--space-3));
+  // Ends Save at the cards' right edge: 40px page padding plus the 920px column.
+  padding-right: max(40px, calc(100% - var(--settings-layout-left) - 960px));
+  background: var(--color-panel-solid);
+  border-top: 1px solid var(--gray-a5);
+  box-shadow:
+    0 -1px 2px rgba(0, 0, 0, 0.1),
+    0 -4px 4px rgba(0, 0, 0, 0.025);
+
+  // Without the sub nav, the count lines up with the page content instead.
+  @media (max-width: 1399px) {
+    padding-left: 40px;
+  }
+}
+
+// Keeps the last card clear of the fixed bar.
+.unsavedBarSpacer {
+  height: 64px;
+}
+
 .savedToastSlot {
   position: sticky;
-  bottom: 16px;
+  bottom: var(--space-4);
   z-index: 30;
-  margin-top: 16px;
-}
-
-.unsavedBar {
-  padding: 12px 16px;
-  background: var(--color-panel-solid);
-  border: 1px solid var(--slate-a4);
-  border-radius: 8px;
-  box-shadow: var(--shadow-5);
-}
-
-.savedToastSlot {
+  margin-top: var(--space-4);
   pointer-events: none;
 }
 
