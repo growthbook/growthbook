@@ -534,7 +534,7 @@ export default function TrafficAllocationFunnel({
           )}
 
           <FunnelCard
-            title="Population"
+            title="Traffic"
             onEdit={
               editDeliveryInline ? () => setEditingTraffic(true) : editTargeting
             }

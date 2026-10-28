@@ -34,7 +34,7 @@ export default function EditTrafficModal({
       trackingEventModalType="edit-traffic-modal"
       open={true}
       close={close}
-      header="Edit Population & Split"
+      header="Edit Traffic"
       cta="Apply"
       submit={() =>
         stage({
@@ -49,6 +49,8 @@ export default function EditTrafficModal({
       <div className="pt-2">
         <FeatureVariationsInput
           label={null}
+          coverageLabel="Rollout percentage"
+          coverageTooltip="The share of targeted users in this experiment. The rest aren't assigned a variation."
           valueAsId
           hideSplits={isBandit}
           startEditingSplits
