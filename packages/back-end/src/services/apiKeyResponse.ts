@@ -1,22 +1,13 @@
 import { ApiKeyInterface } from "shared/types/apikey";
 import { ApiApiKey } from "shared/validators";
 import { getUsersByIds } from "back-end/src/models/UserModel";
-import { ApiReqContext } from "back-end/types/api";
-
-// A 403 rather than an empty list, so a caller can tell "no keys" from "no
-// permission". Other members' PATs stay hidden by the model's canRead.
-export function assertCanViewApiKeys(context: ApiReqContext) {
-  if (!context.permissions.canViewApiKeys()) {
-    context.permissions.throwPermissionError(
-      "You do not have permission to read API keys. This needs permission to view API keys.",
-    );
-  }
-}
+import { ReqContext } from "back-end/types/request";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
 
-// Never includes the key's value or encryption key.
-function toApiKey(key: ApiKeyInterface, userEmail?: string): ApiApiKey {
+// Never includes the key's value or encryption key, so it's safe on a doc read
+// without sanitization.
+export function toApiKey(key: ApiKeyInterface, userEmail?: string): ApiApiKey {
   return {
     id: key.id ?? "",
     type: key.userId ? "personal" : "organization",
@@ -52,8 +43,23 @@ function toApiKey(key: ApiKeyInterface, userEmail?: string): ApiApiKey {
 }
 
 // A token's owner email is only shown while they're still a member.
-export async function toApiKeys(
-  context: ApiReqContext,
+export function toApiKeys(
+  keys: ApiKeyInterface[],
+  memberIds: Set<string>,
+  emails: Map<string, string>,
+): ApiApiKey[] {
+  return keys.map((key) =>
+    toApiKey(
+      key,
+      key.userId && memberIds.has(key.userId)
+        ? emails.get(key.userId)
+        : undefined,
+    ),
+  );
+}
+
+export async function loadApiKeys(
+  context: ReqContext,
   keys: ApiKeyInterface[],
 ): Promise<ApiApiKey[]> {
   const memberIds = new Set(context.org.members.map((m) => m.id));
@@ -65,7 +71,5 @@ export async function toApiKeys(
       ? (await getUsersByIds(ownerIds)).map((u) => [u.id, u.email])
       : [],
   );
-  return keys.map((key) =>
-    toApiKey(key, key.userId ? emails.get(key.userId) : undefined),
-  );
+  return toApiKeys(keys, memberIds, emails);
 }

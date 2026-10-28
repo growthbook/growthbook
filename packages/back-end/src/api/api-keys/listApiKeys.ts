@@ -3,14 +3,13 @@ import {
   applyPagination,
   createApiRequestHandler,
 } from "back-end/src/util/handler";
-import { assertCanViewApiKeys, toApiKeys } from "./toApiKey";
+import { loadApiKeys } from "back-end/src/services/apiKeyResponse";
 
 export const listApiKeys = createApiRequestHandler(listApiKeysValidator)(async (
   req,
 ) => {
-  assertCanViewApiKeys(req.context);
   const { type, userId } = req.query;
-  const keys = (await req.context.models.apiKeys.getSecretApiKeys())
+  const keys = (await req.context.models.apiKeys.getApiKeysForApi())
     .filter(
       (key) =>
         (!type || (type === "personal") === !!key.userId) &&
@@ -20,7 +19,7 @@ export const listApiKeys = createApiRequestHandler(listApiKeysValidator)(async (
 
   const { filtered, returnFields } = applyPagination(keys, req.query);
   return {
-    apiKeys: await toApiKeys(req.context, filtered),
+    apiKeys: await loadApiKeys(req.context, filtered),
     ...returnFields,
   };
 });

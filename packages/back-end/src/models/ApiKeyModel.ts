@@ -8,6 +8,7 @@ import {
   OAuthTokenPermissions,
 } from "shared/validators";
 import {
+  apiKeyRolesRefusal,
   apiKeyToggleRequiresAdmin,
   canManageApiKeySecret,
   canSetApiKeyDisabled,
@@ -37,6 +38,8 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { requireConfirmation } from "back-end/src/services/confirmations";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -655,7 +658,7 @@ export class ApiKeyModel extends BaseClass {
       return await this.saveSecretApiKeyPermissions(
         doc,
         {
-          description,
+          ...(description !== undefined && { description }),
           role: scopedRole || "user",
           scoped: scopedRole ? true : undefined,
           limitAccessByEnvironment: !!scopedRole && !!limitAccessByEnvironment,
@@ -712,7 +715,7 @@ export class ApiKeyModel extends BaseClass {
       doc,
       {
         ...authority,
-        description,
+        ...(description !== undefined && { description }),
         ...(expiresAt !== undefined && { expiresAt }),
       },
       dryRun,
@@ -1028,23 +1031,125 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
-  // Secret keys and PATs the caller can read. Legacy SDK keys and OAuth access
-  // tokens aren't credentials a person manages.
-  public async getSecretApiKeys(): Promise<ApiKeyInterface[]> {
+  // A 403 rather than an empty list, so a caller can tell "no keys" from "no
+  // permission". Other members' PATs stay hidden by canRead.
+  private assertCanViewApiKeys() {
+    if (!this.context.permissions.canViewApiKeys()) {
+      this.context.permissions.throwPermissionError(
+        "You do not have permission to read API keys. This needs permission to view API keys.",
+      );
+    }
+  }
+
+  // Legacy SDK keys and OAuth access tokens aren't credentials a person
+  // manages, so the REST API leaves them out.
+  private async findSecretApiKey(id: string) {
+    return await this._findOne({
+      id,
+      secret: true,
+      oauthClientId: { $exists: false },
+    });
+  }
+
+  public async getApiKeysForApi(): Promise<ApiKeyInterface[]> {
+    this.assertCanViewApiKeys();
     return await this._find({
       secret: true,
       oauthClientId: { $exists: false },
     });
   }
 
-  public async getSecretApiKeyById(
+  public async getApiKeyForApi(id: string): Promise<ApiKeyInterface> {
+    this.assertCanViewApiKeys();
+    const key = await this.findSecretApiKey(id);
+    if (!key) {
+      this.context.throwNotFoundError(
+        "Could not find an API key or personal access token with that id",
+      );
+    }
+    return key;
+  }
+
+  // Replaces an org key's whole role set from the REST API. Refuses roles that
+  // would let a key grant itself or other keys more.
+  public async replaceRolesForApi(
     id: string,
-  ): Promise<ApiKeyInterface | null> {
-    return await this._findOne({
-      id,
-      secret: true,
-      oauthClientId: { $exists: false },
+    {
+      actAs,
+      ...roles
+    }: Pick<
+      ApiKeyInterface,
+      "role" | "limitAccessByEnvironment" | "environments" | "actAs"
+    > &
+      Required<Pick<ApiKeyInterface, "additionalRoles" | "projectRoles">>,
+    dryRun: boolean,
+  ): Promise<{ key: ApiKeyInterface; changed: boolean }> {
+    // Changing a key's roles changes its authority, which also takes create.
+    if (
+      !this.context.permissions.canUpdateApiKey() ||
+      !this.context.permissions.canCreateApiKey()
+    ) {
+      this.context.permissions.throwPermissionError(
+        "You do not have permission to change API keys' roles. This needs permission to edit and create API keys.",
+      );
+    }
+    const key = await this.findSecretApiKey(id);
+    if (!key) {
+      this.context.throwNotFoundError(
+        "Could not find an organization API key with that id",
+      );
+    }
+    if (key.userId) {
+      this.context.throwBadRequestError(
+        "That id is a personal access token. Only organization API keys' roles can be changed here.",
+      );
+    }
+    if (key.id === this.context.apiKeyData?.id) {
+      this.context.permissions.throwPermissionError(
+        "An API key can't change its own roles. Use a different key or the GrowthBook dashboard.",
+      );
+    }
+    const refusal = apiKeyRolesRefusal(roles, this.context.org);
+    if (refusal) this.context.throwBadRequestError(refusal);
+
+    const updates = { ...roles, ...(actAs !== undefined && { actAs }) };
+    // The body is the key's whole role set, so its environment list is synced
+    // even while the limit is off, when it grants nothing.
+    if (
+      isEqual(
+        [...key.environments].sort(),
+        [...(roles.environments ?? [])].sort(),
+      ) &&
+      !changesApiKeyAuthority(key, { ...key, ...updates })
+    ) {
+      return { key, changed: false };
+    }
+
+    // Checked before anyone is asked to confirm a change that can't be saved.
+    const preview = await this.updateSecretApiKeyPermissions(id, updates, {
+      dryRun: true,
     });
+    if (dryRun) return { key: preview.after, changed: true };
+
+    await requireConfirmation(this.context, {
+      actions: ["access.apiKeys"],
+      summary: `Change the roles of API key ${key.description || id}`,
+      links: [],
+      pin: key.dateUpdated,
+    });
+    const { before, after } = await this.updateSecretApiKeyPermissions(
+      id,
+      updates,
+    );
+    await this.context.auditLog({
+      event: "apiKey.update",
+      entity: { object: "apiKey", id, name: after.description },
+      details: auditDetailsUpdate(
+        ApiKeyModel.toAuditDetails(before),
+        ApiKeyModel.toAuditDetails(after),
+      ),
+    });
+    return { key: after, changed: true };
   }
 
   public async dangerousGetAllApiKeysInOrg() {
