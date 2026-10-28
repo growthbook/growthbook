@@ -57770,9 +57770,19 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          denominatorType:
-                                            type: string
-                                            const: population
+                                          populationCount:
+                                            description: >-
+                                              **Beta** — this field is new and may
+                                              change in backwards-incompatible ways.
+                                              Number of units in the dataset's
+                                              population for this row. Only present
+                                              when the request has a population;
+                                              numerator and denominator keep their
+                                              usual meaning, limited to population
+                                              members.
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
                                         required:
                                           - metricId
                                           - numerator
@@ -58619,9 +58629,19 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          denominatorType:
-                                            type: string
-                                            const: population
+                                          populationCount:
+                                            description: >-
+                                              **Beta** — this field is new and may
+                                              change in backwards-incompatible ways.
+                                              Number of units in the dataset's
+                                              population for this row. Only present
+                                              when the request has a population;
+                                              numerator and denominator keep their
+                                              usual meaning, limited to population
+                                              members.
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
                                         required:
                                           - metricId
                                           - numerator
@@ -59413,9 +59433,19 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          denominatorType:
-                                            type: string
-                                            const: population
+                                          populationCount:
+                                            description: >-
+                                              **Beta** — this field is new and may
+                                              change in backwards-incompatible ways.
+                                              Number of units in the dataset's
+                                              population for this row. Only present
+                                              when the request has a population;
+                                              numerator and denominator keep their
+                                              usual meaning, limited to population
+                                              members.
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
                                         required:
                                           - metricId
                                           - numerator
@@ -60227,9 +60257,19 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          denominatorType:
-                                            type: string
-                                            const: population
+                                          populationCount:
+                                            description: >-
+                                              **Beta** — this field is new and may
+                                              change in backwards-incompatible ways.
+                                              Number of units in the dataset's
+                                              population for this row. Only present
+                                              when the request has a population;
+                                              numerator and denominator keep their
+                                              usual meaning, limited to population
+                                              members.
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
                                         required:
                                           - metricId
                                           - numerator
@@ -61037,9 +61077,19 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          denominatorType:
-                                            type: string
-                                            const: population
+                                          populationCount:
+                                            description: >-
+                                              **Beta** — this field is new and may
+                                              change in backwards-incompatible ways.
+                                              Number of units in the dataset's
+                                              population for this row. Only present
+                                              when the request has a population;
+                                              numerator and denominator keep their
+                                              usual meaning, limited to population
+                                              members.
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
                                         required:
                                           - metricId
                                           - numerator
@@ -61862,9 +61912,19 @@ paths:
                                             anyOf:
                                               - type: number
                                               - type: 'null'
-                                          denominatorType:
-                                            type: string
-                                            const: population
+                                          populationCount:
+                                            description: >-
+                                              **Beta** — this field is new and may
+                                              change in backwards-incompatible ways.
+                                              Number of units in the dataset's
+                                              population for this row. Only present
+                                              when the request has a population;
+                                              numerator and denominator keep their
+                                              usual meaning, limited to population
+                                              members.
+                                            anyOf:
+                                              - type: number
+                                              - type: 'null'
                                         required:
                                           - metricId
                                           - numerator
@@ -83173,9 +83233,17 @@ components:
                           anyOf:
                             - type: number
                             - type: 'null'
-                        denominatorType:
-                          type: string
-                          const: population
+                        populationCount:
+                          description: >-
+                            **Beta** — this field is new and may change in
+                            backwards-incompatible ways. Number of units in the
+                            dataset's population for this row. Only present when
+                            the request has a population; numerator and
+                            denominator keep their usual meaning, limited to
+                            population members.
+                          anyOf:
+                            - type: number
+                            - type: 'null'
                       required:
                         - metricId
                         - numerator

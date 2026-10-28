@@ -162,6 +162,8 @@ interface MetricData {
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
   rollupCountExpr: string | null;
+  // Population members in the bucket; set only for population-backed metrics.
+  rollupPopulationCountExpr: string | null;
   presenceExpr: string | null;
 }
 interface DimensionData {
@@ -186,6 +188,7 @@ function getMetricAliases(index: number) {
     base: `m${index}`,
     numerator: `m${index}_numerator`,
     denominator: `m${index}_denominator`,
+    populationCount: `m${index}_population_count`,
   };
 }
 
@@ -1080,6 +1083,7 @@ function getMetricData(
   let unitAggregationExpr: string | null;
   let rollupAggregationExpr: string;
   let rollupCountExpr: string | null = null;
+  let rollupPopulationCountExpr: string | null = null;
 
   if (factTableGroup.population) {
     const unitIndex = selectedUnit ? units.indexOf(selectedUnit) : -1;
@@ -1087,9 +1091,27 @@ function getMetricData(
       throw new Error(`Unit ${selectedUnit} not found in fact table group`);
     }
     unitAggregationExpr = getUnitAggregationExpr(columnRef, alias, helpers);
+    // Numerator and denominator keep their usual meaning, limited to
+    // population members; the population size is reported separately.
     const eligible = `${POPULATION_ALIAS} = 1 AND unit${unitIndex} IS NOT NULL`;
-    rollupAggregationExpr = `SUM(CASE WHEN ${eligible} AND ${alias} = 1 THEN 1 ELSE 0 END)`;
-    rollupCountExpr = `SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`;
+    const memberValue = `CASE WHEN ${eligible} THEN ${alias} ELSE NULL END`;
+    const memberAggregationExpr = getRollupAggregationExpr(
+      metric,
+      columnRef,
+      memberValue,
+      helpers,
+      true,
+    );
+    // Members without matching activity still count toward the population,
+    // so an empty sum is 0 rather than unknown. Quantiles stay NULL.
+    rollupAggregationExpr =
+      metric.metricType === "quantile"
+        ? memberAggregationExpr
+        : `COALESCE(${memberAggregationExpr}, 0)`;
+    if (metric.metricType !== "ratio" && metric.metricType !== "quantile") {
+      rollupCountExpr = getRollupCountExpr(metric, memberValue);
+    }
+    rollupPopulationCountExpr = `SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`;
   } else {
     unitAggregationExpr = selectedUnit
       ? getUnitAggregationExpr(columnRef, alias, helpers)
@@ -1167,6 +1189,7 @@ function getMetricData(
     unitAggregationExpr,
     rollupAggregationExpr,
     rollupCountExpr,
+    rollupPopulationCountExpr,
   };
 }
 
@@ -1468,6 +1491,7 @@ function generateUnitAggregationRollupCTE(
   includedMetrics: MetricData[],
   allMetrics: string[],
   aliasesWithDenominator: Set<string>,
+  aliasesWithPopulationCount: Set<string>,
   dialect: SqlDialect,
 ): CTE {
   const selects: string[] = [];
@@ -1495,10 +1519,20 @@ function generateUnitAggregationRollupCTE(
           `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
+      if (aliasesWithPopulationCount.has(alias)) {
+        selects.push(
+          `${dialect.castToFloat(metricData.rollupPopulationCountExpr ?? "NULL")} AS ${alias}_population_count`,
+        );
+      }
     } else {
       selects.push(`${dialect.castToFloat("NULL")} AS ${valueAlias}`);
       if (aliasesWithDenominator.has(alias)) {
         selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
+      }
+      if (aliasesWithPopulationCount.has(alias)) {
+        selects.push(
+          `${dialect.castToFloat("NULL")} AS ${alias}_population_count`,
+        );
       }
     }
   });
@@ -1521,6 +1555,7 @@ function generateEventRollupCTE(
   includedMetrics: MetricData[],
   allMetrics: string[],
   aliasesWithDenominator: Set<string>,
+  aliasesWithPopulationCount: Set<string>,
   dialect: SqlDialect,
 ): CTE {
   const selects: string[] = [];
@@ -1547,10 +1582,20 @@ function generateEventRollupCTE(
           `${dialect.castToFloat(metricData.rollupCountExpr ?? "NULL")} AS ${alias}_denominator`,
         );
       }
+      if (aliasesWithPopulationCount.has(alias)) {
+        selects.push(
+          `${dialect.castToFloat(metricData.rollupPopulationCountExpr ?? "NULL")} AS ${alias}_population_count`,
+        );
+      }
     } else {
       selects.push(`${dialect.castToFloat("NULL")} AS ${valueAlias}`);
       if (aliasesWithDenominator.has(alias)) {
         selects.push(`${dialect.castToFloat("NULL")} AS ${alias}_denominator`);
+      }
+      if (aliasesWithPopulationCount.has(alias)) {
+        selects.push(
+          `${dialect.castToFloat("NULL")} AS ${alias}_population_count`,
+        );
       }
     }
   });
@@ -1601,6 +1646,13 @@ function generateFinalSelect(
         needsReaggregation
           ? `MAX(${m.alias}_denominator) AS ${m.alias}_denominator`
           : `${m.alias}_denominator AS ${m.alias}_denominator`,
+      );
+    }
+    if (m.rollupPopulationCountExpr) {
+      selects.push(
+        needsReaggregation
+          ? `MAX(${m.alias}_population_count) AS ${m.alias}_population_count`
+          : `${m.alias}_population_count AS ${m.alias}_population_count`,
       );
     }
   });
@@ -2131,6 +2183,9 @@ export function generateProductAnalyticsSQL(
   const aliasesWithDenominator: Set<string> = new Set(
     allMetrics.filter((m) => m.rollupCountExpr).map((m) => m.alias),
   );
+  const aliasesWithPopulationCount: Set<string> = new Set(
+    allMetrics.filter((m) => m.rollupPopulationCountExpr).map((m) => m.alias),
+  );
 
   // Only `.alias` is used from this for the final SELECT (below); each
   // group computes its own `.valueExpr` in `groupDimensions` instead.
@@ -2270,6 +2325,7 @@ export function generateProductAnalyticsSQL(
         metrics,
         allMetricsAliases,
         aliasesWithDenominator,
+        aliasesWithPopulationCount,
         dialect,
       );
       ctes.push(unitRollupCTE);
@@ -2285,6 +2341,7 @@ export function generateProductAnalyticsSQL(
         eventMetrics,
         allMetricsAliases,
         aliasesWithDenominator,
+        aliasesWithPopulationCount,
         dialect,
       );
       ctes.push(eventRollupCTE);
@@ -2399,11 +2456,13 @@ export function transformProductAnalyticsRowsToResult(
       const aliases = getMetricAliases(index);
       resultRow.values?.push({
         metricId,
-        ...(config.dataset.type === "metric" && config.dataset.population
-          ? { denominatorType: "population" as const }
-          : {}),
         numerator: parseNumberValue(row[aliases.numerator]),
         denominator: parseNumberValue(row[aliases.denominator]),
+        ...(config.dataset.type === "metric" && config.dataset.population
+          ? {
+              populationCount: parseNumberValue(row[aliases.populationCount]),
+            }
+          : {}),
       });
     });
   }

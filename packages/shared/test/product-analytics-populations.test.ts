@@ -253,24 +253,9 @@ describe("population-backed proportions", () => {
     const rows = execute();
     const dailyPopulationResults = rows.map((row) => row.values?.[0]);
     expect(dailyPopulationResults).toEqual([
-      {
-        metricId: metric.id,
-        numerator: 1,
-        denominator: 2,
-        denominatorType: "population" as const,
-      },
-      {
-        metricId: metric.id,
-        numerator: 0,
-        denominator: 1,
-        denominatorType: "population" as const,
-      },
-      {
-        metricId: metric.id,
-        numerator: 0,
-        denominator: 0,
-        denominatorType: "population" as const,
-      },
+      { metricId: metric.id, numerator: 1, denominator: 1, populationCount: 2 },
+      { metricId: metric.id, numerator: 0, denominator: 0, populationCount: 1 },
+      { metricId: metric.id, numerator: 0, denominator: 0, populationCount: 0 },
     ]);
   });
 
@@ -279,7 +264,8 @@ describe("population-backed proportions", () => {
     const overallPopulationResult = rows[0].values?.[0];
     expect(overallPopulationResult).toMatchObject({
       numerator: 1,
-      denominator: 2,
+      denominator: 1,
+      populationCount: 2,
     });
   });
 
@@ -318,11 +304,11 @@ describe("population-backed proportions", () => {
     ])[0].values?.map((value) => [
       value.numerator,
       value.denominator,
-      value.denominatorType,
+      value.populationCount,
     ]);
     expect(septemberFirstCounts).toEqual([
-      [1, 2, "population"],
-      [2, 2, "population"],
+      [1, 1, 2],
+      [2, 2, 2],
     ]);
   });
 
@@ -376,6 +362,7 @@ describe("population-backed proportions", () => {
         numerator: grouping === "daily" ? 4 : 5,
         denominator: 4,
       });
+      expect(together[0].values?.[0]).not.toHaveProperty("populationCount");
       expect(
         together.map((row) => ({ ...row, values: row.values?.slice(0, 1) })),
       ).toEqual(alone);
@@ -471,7 +458,8 @@ describe("population-backed proportions", () => {
     const septemberThirdPopulationResult = rows[2].values?.[0];
     expect(septemberThirdPopulationResult).toMatchObject({
       numerator: 0,
-      denominator: 1,
+      denominator: 0,
+      populationCount: 1,
     });
   });
 
@@ -482,7 +470,8 @@ describe("population-backed proportions", () => {
     const septemberFirstPopulationResult = execute(config, p)[0].values?.[0];
     expect(septemberFirstPopulationResult).toMatchObject({
       numerator: 2,
-      denominator: 3,
+      denominator: 2,
+      populationCount: 3,
     });
   });
 
@@ -494,6 +483,7 @@ describe("population-backed proportions", () => {
     expect(septemberFirstPopulationResult).toMatchObject({
       numerator: 1,
       denominator: 1,
+      populationCount: 1,
     });
   });
 
@@ -509,11 +499,12 @@ describe("population-backed proportions", () => {
     )[0].values?.[0];
     expect(septemberFirstRepeatPurchaserResult).toMatchObject({
       numerator: 1,
-      denominator: 2,
+      denominator: 1,
+      populationCount: 2,
     });
   });
 
-  it("returns an empty population denominator when no events match the date range", () => {
+  it("returns an empty population count when no events match the date range", () => {
     const c = {
       ...config,
       dimensions: [],
@@ -524,8 +515,8 @@ describe("population-backed proportions", () => {
       },
     };
     const emptyPopulationResult = execute(c)[0].values![0];
-    expect(emptyPopulationResult.denominator ?? 0).toBe(0);
-    expect(emptyPopulationResult.denominatorType).toBe("population");
+    expect(emptyPopulationResult).toHaveProperty("populationCount");
+    expect(emptyPopulationResult.populationCount ?? 0).toBe(0);
   });
 
   it("includes only requested metrics in orderedMetricIds", () => {

@@ -69,15 +69,26 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
     SELECT
       dimension0,
       CAST(
-        SUM(
-          CASE
-            WHEN pop = 1
-            AND unit0 IS NOT NULL
-            AND m0 = 1 THEN 1
-            ELSE 0
-          END
+        COALESCE(
+          SUM(
+            CASE
+              WHEN pop = 1
+              AND unit0 IS NOT NULL THEN m0
+              ELSE NULL
+            END
+          ),
+          0
         ) AS REAL
       ) AS m0_numerator,
+      CAST(
+        COUNT(
+          CASE
+            WHEN pop = 1
+            AND unit0 IS NOT NULL THEN m0
+            ELSE NULL
+          END
+        ) AS REAL
+      ) AS m0_denominator,
       CAST(
         SUM(
           CASE
@@ -86,7 +97,7 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
             ELSE 0
           END
         ) AS REAL
-      ) AS m0_denominator
+      ) AS m0_population_count
     FROM
       _factTable0_unit0
     GROUP BY
@@ -95,7 +106,8 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
 SELECT
   dimension0,
   m0_numerator AS m0_numerator,
-  m0_denominator AS m0_denominator
+  m0_denominator AS m0_denominator,
+  m0_population_count AS m0_population_count
 FROM
   _factTable0_unit0_rollup"
 `;
