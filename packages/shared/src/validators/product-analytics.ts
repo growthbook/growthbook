@@ -42,12 +42,6 @@ const metricValueValidator = baseValueValidator.extend({
   metricId: z.string(),
   unit: z.string().nullable(),
   denominatorUnit: z.string().nullable(),
-  population: metricPopulationValidator
-    .nullable()
-    .optional()
-    .describe(
-      "**Beta** — this field is new and may change in backwards-incompatible ways.",
-    ),
 });
 // Internal only (metric editor live preview): an unsaved metric definition to
 // run in place of a saved one. Kept out of the public validators so the REST
@@ -70,6 +64,12 @@ const metricDatasetValidator = z
   .object({
     type: z.literal("metric"),
     values: z.array(metricValueValidator),
+    population: metricPopulationValidator
+      .nullable()
+      .optional()
+      .describe(
+        "**Beta** — this field is new and may change in backwards-incompatible ways. A population applied to every metric in the request. Only proportion metrics on the population's Fact Table are supported; the request is rejected if any metric is incompatible.",
+      ),
   })
   .strict();
 const internalMetricDatasetValidator = metricDatasetValidator.extend({

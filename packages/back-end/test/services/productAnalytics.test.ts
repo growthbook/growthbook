@@ -247,7 +247,7 @@ describe("draft metric explorations", () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric");
-    testConfig.dataset.values[0].population = {
+    testConfig.dataset.population = {
       source: { type: "factTable", factTableId: "ft_1" },
       rowFilters: [],
     };
@@ -361,9 +361,9 @@ describe("inline population validation before exploration cache lookup", () => {
           rowFilters: [],
           unit: "user_id",
           denominatorUnit: null,
-          population,
         },
       ],
+      population,
     },
   };
   const findLatestByConfig = jest.fn();
@@ -392,7 +392,7 @@ describe("inline population validation before exploration cache lookup", () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
-    testConfig.dataset.values[0].population = {
+    testConfig.dataset.population = {
       ...population,
       aggregateFilter: ">2",
       aggregateFilterColumn: "$$count",
@@ -405,11 +405,37 @@ describe("inline population validation before exploration cache lookup", () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
-    testConfig.dataset.values[0].population = {
+    testConfig.dataset.population = {
       ...population,
       source: { type: "factTable", factTableId: "other" },
     };
     await expect(run(testConfig)).rejects.toThrow("same Fact Table");
+    expect(findLatestByConfig).not.toHaveBeenCalled();
+  });
+  it("rejects the request when any metric is incompatible with the population", async () => {
+    const mean = {
+      ...metric,
+      id: "fact_2",
+      name: "Revenue",
+      metricType: "mean",
+      numerator: { factTableId: "ft_1", column: "revenue" },
+    };
+    const getByIds = context.models.factMetrics.getByIds as jest.Mock;
+    getByIds.mockResolvedValueOnce([metric, mean]);
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
+      throw new Error("Expected metric dataset");
+    testConfig.dataset.values.push({
+      ...testConfig.dataset.values[0],
+      metricId: mean.id,
+      name: "Revenue",
+    });
+    const result = run(testConfig);
+    await expect(result).rejects.toThrow(BadRequestError);
+    await expect(result).rejects.toThrow(
+      'Metric "Revenue" can\'t be combined with a Population.',
+    );
+    expect(getByIds).toHaveBeenCalledWith(["fact_1", "fact_2"]);
     expect(findLatestByConfig).not.toHaveBeenCalled();
   });
   it("checks datasource query permission even for cache-only requests", async () => {

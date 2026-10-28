@@ -137,13 +137,20 @@ interface MetricWithMetadata {
   unit?: string;
   index: number;
   useDenominator?: boolean;
-  population?: MetricPopulation;
 }
 interface FactTableGroup {
   index: number;
   factTable: MinimalFactTable;
   metrics: MetricWithMetadata[];
   units: string[];
+  // Shared by every metric in the group; set only on metric datasets.
+  population?: MetricPopulation;
+}
+interface PopulationData {
+  alias: string;
+  eventValueExpr: string;
+  presenceExpr: string;
+  unitAggregationExpr: string;
 }
 interface MetricData {
   unit: string | null;
@@ -155,12 +162,6 @@ interface MetricData {
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
   rollupCountExpr: string | null;
-  population?: {
-    alias: string;
-    eventValueExpr: string;
-    presenceExpr: string;
-    unitAggregationExpr: string;
-  };
   presenceExpr: string | null;
 }
 interface DimensionData {
@@ -355,6 +356,7 @@ function getFactTableGroups({
     case "metric":
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
+        const population = config.dataset.population ?? undefined;
         let metricIndex = 0;
         for (const value of config.dataset.values) {
           const originalMetric = metricMap.get(value.metricId);
@@ -398,15 +400,6 @@ function getFactTableGroups({
               `Fact table ${metric.numerator.factTableId} not found`,
             );
           }
-          if (!groups[factTable.id]) {
-            groups[factTable.id] = {
-              index: Object.keys(groups).length,
-              factTable: toMinimalFactTable(factTable),
-              metrics: [],
-              units: [],
-            };
-          }
-          const population = value.population ?? undefined;
           if (population) {
             validatePopulationMetricCompatibility(
               config,
@@ -416,9 +409,17 @@ function getFactTableGroups({
               factTable,
             );
           }
+          if (!groups[factTable.id]) {
+            groups[factTable.id] = {
+              index: Object.keys(groups).length,
+              factTable: toMinimalFactTable(factTable),
+              metrics: [],
+              units: [],
+              population,
+            };
+          }
           const group = groups[factTable.id];
           group.metrics.push({
-            population,
             index: metricIndex,
             metric,
             unit: value.unit || undefined,
@@ -988,6 +989,46 @@ function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
   return `COUNT(${alias})`;
 }
 
+const POPULATION_ALIAS = "pop";
+
+// The group's population membership columns. Computed once per group and
+// shared by every metric in it.
+function getPopulationData(
+  factTableGroup: FactTableGroup,
+  helpers: SqlDialect,
+): PopulationData | null {
+  const { factTable, population } = factTableGroup;
+  if (!population) return null;
+  const alias = POPULATION_ALIAS;
+  const populationColumn: ColumnRef = {
+    factTableId: population.source.factTableId,
+    column: "$$distinctUsers",
+    rowFilters: population.rowFilters,
+    aggregateFilter: population.aggregateFilter,
+    aggregateFilterColumn: population.aggregateFilterColumn,
+  };
+  return {
+    alias,
+    eventValueExpr: getEventValueExpr(
+      populationColumn,
+      factTable,
+      helpers,
+      alias,
+      null,
+    ),
+    presenceExpr: getEventValueExpr(
+      { ...populationColumn, column: "$$count" },
+      factTable,
+      helpers,
+      alias,
+      null,
+    ),
+    // Presence matters for conditions such as <= 0: rows belonging only to
+    // a metric must never qualify as population members.
+    unitAggregationExpr: `CASE WHEN COUNT(${alias}_rows) > 0 THEN ${getUnitAggregationExpr(populationColumn, alias, helpers)} ELSE NULL END`,
+  };
+}
+
 // Generate metric value expression from metric with metadata
 function getMetricData(
   metricWithMetadata: MetricWithMetadata,
@@ -1036,47 +1077,17 @@ function getMetricData(
     }
   }
 
-  let populationData: MetricData["population"];
   let unitAggregationExpr: string | null;
   let rollupAggregationExpr: string;
   let rollupCountExpr: string | null = null;
 
-  if (metricWithMetadata.population) {
-    const population = metricWithMetadata.population;
-    const populationAlias = `pop${metricIndex}`;
-    const populationColumn: ColumnRef = {
-      factTableId: population.source.factTableId,
-      column: "$$distinctUsers",
-      rowFilters: population.rowFilters,
-      aggregateFilter: population.aggregateFilter,
-      aggregateFilterColumn: population.aggregateFilterColumn,
-    };
-    populationData = {
-      alias: populationAlias,
-      eventValueExpr: getEventValueExpr(
-        populationColumn,
-        factTable,
-        helpers,
-        populationAlias,
-        null,
-      ),
-      presenceExpr: getEventValueExpr(
-        { ...populationColumn, column: "$$count" },
-        factTable,
-        helpers,
-        populationAlias,
-        null,
-      ),
-      // Presence matters for conditions such as <= 0: rows belonging only to
-      // another metric must never qualify as population members.
-      unitAggregationExpr: `CASE WHEN COUNT(${populationAlias}_rows) > 0 THEN ${getUnitAggregationExpr(populationColumn, populationAlias, helpers)} ELSE NULL END`,
-    };
+  if (factTableGroup.population) {
     const unitIndex = selectedUnit ? units.indexOf(selectedUnit) : -1;
     if (unitIndex === -1) {
       throw new Error(`Unit ${selectedUnit} not found in fact table group`);
     }
     unitAggregationExpr = getUnitAggregationExpr(columnRef, alias, helpers);
-    const eligible = `${populationAlias} = 1 AND unit${unitIndex} IS NOT NULL`;
+    const eligible = `${POPULATION_ALIAS} = 1 AND unit${unitIndex} IS NOT NULL`;
     rollupAggregationExpr = `SUM(CASE WHEN ${eligible} AND ${alias} = 1 THEN 1 ELSE 0 END)`;
     rollupCountExpr = `SUM(CASE WHEN ${eligible} THEN 1 ELSE 0 END)`;
   } else {
@@ -1118,7 +1129,7 @@ function getMetricData(
     (columnRef.aggregation === "count distinct" ||
       columnRef.aggregation === "hll merge" ||
       columnRef.column === "$$distinctDates" ||
-      factTableGroup.metrics.some((m) => m.population));
+      !!factTableGroup.population);
   const presenceExpr = requiresMetricPresence
     ? getEventValueExpr(
         { ...columnRef, column: "$$count" },
@@ -1152,7 +1163,6 @@ function getMetricData(
       alias,
       cappingSettings,
     ),
-    population: populationData,
     presenceExpr,
     unitAggregationExpr,
     rollupAggregationExpr,
@@ -1308,12 +1318,16 @@ function generateFactTableCTE(
     );
 
     allMetricFilters.push(filterParts);
-    if (m.population) {
-      allMetricFilters.push(
-        generateRowFilterSQL(m.population.rowFilters, factTable, helpers),
-      );
-    }
   });
+  if (factTableGroup.population) {
+    allMetricFilters.push(
+      generateRowFilterSQL(
+        factTableGroup.population.rowFilters,
+        factTable,
+        helpers,
+      ),
+    );
+  }
 
   const whereClauses: string[] = [];
 
@@ -1379,14 +1393,14 @@ function generateFactTableRowsCTE(
     if (metricData.presenceExpr !== null) {
       selectCols.push(`${metricData.presenceExpr} AS ${metricData.alias}_rows`);
     }
-    if (metricData.population) {
-      const p = metricData.population;
-      selectCols.push(
-        `${p.eventValueExpr} AS ${p.alias}`,
-        `${p.presenceExpr} AS ${p.alias}_rows`,
-      );
-    }
   });
+  const populationData = getPopulationData(factTableGroup, helpers);
+  if (populationData) {
+    selectCols.push(
+      `${populationData.eventValueExpr} AS ${populationData.alias}`,
+      `${populationData.presenceExpr} AS ${populationData.alias}_rows`,
+    );
+  }
 
   return {
     name: `_factTable${factTableGroup.index}_rows`,
@@ -1405,6 +1419,7 @@ function generateUnitAggregationCTE(
   dimensions: DimensionData[],
   unitIndex: number,
   includedMetrics: MetricData[],
+  populationData: PopulationData | null,
 ): CTE {
   const selects: string[] = [];
   const groupBys: string[] = [];
@@ -1427,12 +1442,12 @@ function generateUnitAggregationCTE(
         ? `CASE WHEN COUNT(${metricData.alias}_rows) > 0 THEN ${expr} ELSE NULL END`
         : expr;
     selects.push(`${guardedExpr} AS ${metricData.alias}`);
-    if (metricData.population) {
-      selects.push(
-        `${metricData.population.unitAggregationExpr} AS ${metricData.population.alias}`,
-      );
-    }
   });
+  if (populationData) {
+    selects.push(
+      `${populationData.unitAggregationExpr} AS ${populationData.alias}`,
+    );
+  }
 
   return {
     name: `_factTable${factTableGroup.index}_unit${unitIndex}`,
@@ -2242,6 +2257,7 @@ export function generateProductAnalyticsSQL(
         groupDimensions,
         unitIndex,
         metrics,
+        getPopulationData(factTableGroup, dialect),
       );
       ctes.push(unitAggregationCTE);
 
@@ -2383,8 +2399,7 @@ export function transformProductAnalyticsRowsToResult(
       const aliases = getMetricAliases(index);
       resultRow.values?.push({
         metricId,
-        ...(config.dataset.type === "metric" &&
-        config.dataset.values[index]?.population
+        ...(config.dataset.type === "metric" && config.dataset.population
           ? { denominatorType: "population" as const }
           : {}),
         numerator: parseNumberValue(row[aliases.numerator]),

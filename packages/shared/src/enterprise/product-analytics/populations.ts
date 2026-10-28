@@ -9,6 +9,8 @@ import type {
   FactTableInterface,
 } from "shared/types/fact-table";
 
+// A dataset-level population applies to every metric in the request, so each
+// metric must be compatible with it; one unsupported metric rejects the request.
 export function validatePopulationMetricCompatibility(
   config: Pick<ExplorationConfig, "datasource" | "dimensions">,
   metricValue: MetricValue,
@@ -20,7 +22,9 @@ export function validatePopulationMetricCompatibility(
     metric.metricType !== "proportion" ||
     metric.numerator.column !== "$$distinctUsers"
   ) {
-    throw new Error("Populations currently support only proportion metrics.");
+    throw new Error(
+      `Metric "${metric.name}" can't be combined with a Population. Populations currently support only proportion metrics, and the Population applies to every metric in the request.`,
+    );
   }
   if (config.dimensions.some((d) => d.dimensionType !== "date")) {
     throw new Error("Metrics with populations can only be grouped by date.");

@@ -13,6 +13,7 @@ import {
   metricPopulationValidator,
   metricTypeValidator,
   explorationConfigValidator,
+  productAnalyticsExplorationValidator,
   populationExplorationConfigValidator,
 } from "shared/validators";
 import {
@@ -76,9 +77,9 @@ const config: MetricExplorationConfig = {
         unit: "user_id",
         denominatorUnit: null,
         rowFilters: [],
-        population,
       },
     ],
+    population,
   },
 };
 const dialect: SqlDialect = {
@@ -122,9 +123,7 @@ function query(
       ...c,
       dataset: {
         ...c.dataset,
-        values: c.dataset.values.map((v, i) =>
-          i === 0 && v.population ? { ...v, population: p } : v,
-        ),
+        population: c.dataset.population ? p : c.dataset.population,
       },
     },
     new Map([[table.id, table]]),
@@ -170,7 +169,7 @@ function execute(
 
 describe("population-backed proportions", () => {
   it.each(["daily", "overall"])(
-    "averages eight purchases over two purchasers independently of companion series (%s)",
+    "averages eight purchases over two purchasers independently of companion series without a population (%s)",
     (grouping) => {
       const purchase: FactMetricInterface = {
         ...metric,
@@ -192,11 +191,7 @@ describe("population-backed proportions", () => {
           ],
         },
       };
-      const value = {
-        ...config.dataset.values[0],
-        metricId: purchase.id,
-        population: null,
-      };
+      const value = { ...config.dataset.values[0], metricId: purchase.id };
       const loginValue = { ...value, metricId: login.id };
       const db = new DatabaseSync(":memory:");
       try {
@@ -211,11 +206,7 @@ describe("population-backed proportions", () => {
           ('Dylan','2026-09-01',4,'mobile','Purchase'),
           ('Dylan','2026-09-01',5,'mobile','Purchase'),
           ('Dylan','2026-09-01',6,'mobile','Purchase');`);
-        for (const values of [
-          [value],
-          [value, loginValue],
-          [value, loginValue, config.dataset.values[0]],
-        ]) {
+        for (const values of [[value], [value, loginValue]]) {
           const c: MetricExplorationConfig = {
             ...config,
             dimensions: grouping === "daily" ? config.dimensions : [],
@@ -224,7 +215,6 @@ describe("population-backed proportions", () => {
           };
           const { sql, orderedMetricIds } = query(c, population, purchase, [
             login,
-            metric,
           ]);
           const result = transformProductAnalyticsRowsToResult(
             c,
@@ -252,12 +242,7 @@ describe("population-backed proportions", () => {
     ])("matches the query $name", ({ selectedPopulation }) => {
       const dailyConfig: MetricExplorationConfig = {
         ...config,
-        dataset: {
-          ...config.dataset,
-          values: [
-            { ...config.dataset.values[0], population: selectedPopulation },
-          ],
-        },
+        dataset: { ...config.dataset, population: selectedPopulation },
       };
       const { sql } = query(dailyConfig);
       expect(sql).toMatchSnapshot();
@@ -298,121 +283,47 @@ describe("population-backed proportions", () => {
     });
   });
 
-  it("keeps ordinary and population-backed series independent", () => {
-    const c: MetricExplorationConfig = {
-      ...config,
-      dataset: {
-        type: "metric",
-        values: [
-          config.dataset.values[0],
-          { ...config.dataset.values[0], population: null },
+  it("applies the population to every metric in the request", () => {
+    const renewal: FactMetricInterface = {
+      ...metric,
+      id: "renewal",
+      numerator: {
+        ...metric.numerator!,
+        rowFilters: [
+          {
+            column: "event_name",
+            operator: "=",
+            values: ["Subscription Renewal"],
+          },
         ],
       },
     };
-    const rows = execute(c);
-    const septemberFirstPopulationResult = rows[0].values?.[0];
-    const septemberFirstOrdinaryResult = rows[0].values?.[1];
-    expect(septemberFirstPopulationResult).toMatchObject({
-      numerator: 1,
-      denominator: 2,
-    });
-    // The existing no-population SQL includes the null-identifier group; do not change it here.
-    expect(septemberFirstOrdinaryResult).toEqual({
-      metricId: metric.id,
-      numerator: 4,
-      denominator: 4,
-    });
-  });
-
-  describe.each([
-    {
-      name: "proportion",
-      ordinaryMetric: { ...metric, id: "ordinary" },
-    },
-    {
-      name: "sum-based mean",
-      ordinaryMetric: {
-        ...metric,
-        id: "ordinary",
-        metricType: "mean",
-        numerator: {
-          ...metric.numerator!,
-          column: "revenue",
-          aggregation: "sum",
-        },
+    const c: MetricExplorationConfig = {
+      ...config,
+      dataset: {
+        ...config.dataset,
+        values: [
+          config.dataset.values[0],
+          { ...config.dataset.values[0], metricId: renewal.id },
+        ],
       },
-    },
-    {
-      name: "distinct-count mean",
-      ordinaryMetric: {
-        ...metric,
-        id: "ordinary",
-        metricType: "mean",
-        numerator: {
-          ...metric.numerator!,
-          column: "revenue",
-          aggregation: "count distinct",
-        },
-      },
-    },
-    {
-      name: "ratio",
-      ordinaryMetric: {
-        ...metric,
-        id: "ordinary",
-        metricType: "ratio",
-        numerator: {
-          ...metric.numerator!,
-          column: "revenue",
-          aggregation: "sum",
-        },
-        denominator: {
-          ...metric.numerator!,
-          column: "$$count",
-          aggregation: "sum",
-        },
-      },
-    },
-  ])("ordinary $name independence", ({ ordinaryMetric }) => {
-    it.each(["daily", "overall"])(
-      "preserves the complete %s result when a population-backed series is added",
-      (grouping) => {
-        const ordinary = ordinaryMetric as FactMetricInterface;
-        const value = {
-          ...config.dataset.values[0],
-          metricId: ordinary.id,
-          population: null,
-          denominatorUnit: ordinary.metricType === "ratio" ? "user_id" : null,
-        };
-        const standalone: MetricExplorationConfig = {
-          ...config,
-          dimensions: grouping === "daily" ? config.dimensions : [],
-          chartType: grouping === "daily" ? "line" : "bigNumber",
-          dataset: { type: "metric", values: [value] },
-        };
-        const combined: MetricExplorationConfig = {
-          ...standalone,
-          dataset: {
-            type: "metric",
-            values: [config.dataset.values[0], value],
-          },
-        };
-        const alone = execute(standalone, population, ordinary);
-        const together = execute(combined, population, metric, [ordinary]);
-        expect(alone).toHaveLength(grouping === "daily" ? 3 : 1);
-        const ordinaryResultsAlongsidePopulation = together.map((row) => ({
-          dimensions: row.dimensions,
-          value: row.values?.[1],
-        }));
-        const ordinaryResultsAlone = alone.map((row) => ({
-          dimensions: row.dimensions,
-          value: row.values?.[0],
-        }));
-        expect(ordinaryResultsAlongsidePopulation).toEqual(
-          ordinaryResultsAlone,
-        );
-      },
-    );
+    };
+    const { sql, orderedMetricIds } = query(c, population, metric, [renewal]);
+    expect(orderedMetricIds).toEqual([metric.id, renewal.id]);
+    // Membership is computed once and shared, not once per metric.
+    expect(sql.match(/ AS pop_rows\b/g)).toHaveLength(1);
+    expect(sql).not.toContain("JOIN");
+    const septemberFirstCounts = execute(c, population, metric, [
+      renewal,
+    ])[0].values?.map((value) => [
+      value.numerator,
+      value.denominator,
+      value.denominatorType,
+    ]);
+    expect(septemberFirstCounts).toEqual([
+      [1, 2, "population"],
+      [2, 2, "population"],
+    ]);
   });
 
   it.each(["daily", "overall"])(
@@ -452,15 +363,7 @@ describe("population-backed proportions", () => {
           values: [purchase, renewal].map((m) => ({
             ...config.dataset.values[0],
             metricId: m.id,
-            population: null,
           })),
-        },
-      };
-      const combined: MetricExplorationConfig = {
-        ...ordinary,
-        dataset: {
-          type: "metric",
-          values: [...ordinary.dataset.values, config.dataset.values[0]],
         },
       };
       const standalone: MetricExplorationConfig = {
@@ -468,52 +371,97 @@ describe("population-backed proportions", () => {
         dataset: { type: "metric", values: [ordinary.dataset.values[0]] },
       };
       const alone = execute(standalone, population, purchase);
-      const before = execute(ordinary, population, purchase, [renewal]);
-      const after = execute(combined, population, purchase, [renewal, metric]);
-      expect(before[0].values?.[0]).toMatchObject({
+      const together = execute(ordinary, population, purchase, [renewal]);
+      expect(together[0].values?.[0]).toMatchObject({
         numerator: grouping === "daily" ? 4 : 5,
         denominator: 4,
       });
       expect(
-        before.map((row) => ({ ...row, values: row.values?.slice(0, 1) })),
+        together.map((row) => ({ ...row, values: row.values?.slice(0, 1) })),
       ).toEqual(alone);
-      expect(
-        after.map((row) => ({ ...row, values: row.values?.slice(0, 2) })),
-      ).toEqual(before);
     },
   );
 
-  it("does not add population-only users to a neighboring distinct-count mean", () => {
-    const other: FactMetricInterface = {
-      ...metric,
-      id: "distinct",
-      metricType: "mean",
-      numerator: {
-        ...metric.numerator!,
-        column: "revenue",
-        aggregation: "count distinct",
+  describe.each([
+    {
+      name: "sum-based mean",
+      otherMetric: {
+        ...metric,
+        id: "other",
+        name: "Revenue",
+        metricType: "mean",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "sum",
+        },
       },
-    } as FactMetricInterface;
-    const c: MetricExplorationConfig = {
-      ...config,
-      dataset: {
-        type: "metric",
-        values: [
-          config.dataset.values[0],
-          {
-            ...config.dataset.values[0],
-            metricId: other.id,
-            population: null,
-          },
-        ],
+    },
+    {
+      name: "distinct-count mean",
+      otherMetric: {
+        ...metric,
+        id: "other",
+        name: "Revenue",
+        metricType: "mean",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "count distinct",
+        },
       },
-    };
-    const rows = execute(c, population, metric, [other]);
-    const septemberFirstDistinctCountResult = rows[0].values?.[1];
-    expect(septemberFirstDistinctCountResult).toMatchObject({
-      numerator: 4,
-      denominator: 4,
-    });
+    },
+    {
+      name: "ratio",
+      otherMetric: {
+        ...metric,
+        id: "other",
+        name: "Revenue",
+        metricType: "ratio",
+        numerator: {
+          ...metric.numerator!,
+          column: "revenue",
+          aggregation: "sum",
+        },
+        denominator: {
+          ...metric.numerator!,
+          column: "$$count",
+          aggregation: "sum",
+        },
+      },
+    },
+  ])("population with a proportion and a $name", ({ otherMetric }) => {
+    it.each(["first", "last"])(
+      "rejects the request when the unsupported metric is %s",
+      (position) => {
+        const other = otherMetric as FactMetricInterface;
+        const otherValue = {
+          ...config.dataset.values[0],
+          metricId: other.id,
+          denominatorUnit: other.metricType === "ratio" ? "user_id" : null,
+        };
+        const values =
+          position === "first"
+            ? [otherValue, config.dataset.values[0]]
+            : [config.dataset.values[0], otherValue];
+        const c: MetricExplorationConfig = {
+          ...config,
+          dataset: { ...config.dataset, values },
+        };
+        expect(() => query(c, population, metric, [other])).toThrow(
+          'Metric "Revenue" can\'t be combined with a Population.',
+        );
+        // The same metrics are valid together without a population.
+        expect(() =>
+          query(
+            { ...c, dataset: { ...c.dataset, population: null } },
+            population,
+            metric,
+            [other],
+          ),
+        ).not.toThrow();
+      },
+    );
   });
 
   it("excludes users with no population-matching activity even when the threshold accepts zero", () => {
@@ -584,66 +532,23 @@ describe("population-backed proportions", () => {
     expect(query().orderedMetricIds).toEqual([metric.id]);
   });
 
-  it("keeps two population selections independent in the same scan", () => {
-    const other = structuredClone(population);
-    other.name = "Everyone";
-    other.rowFilters = [];
-    delete other.aggregateFilter;
-    delete other.aggregateFilterColumn;
-    const c = {
-      ...config,
-      dataset: {
-        ...config.dataset,
-        values: [
-          config.dataset.values[0],
-          { ...config.dataset.values[0], population: other },
-        ],
-      },
-    };
-    const { sql, orderedMetricIds } = generateProductAnalyticsSQL(
-      c,
-      new Map([[table.id, table]]),
-      new Map([[metric.id, metric]]),
-      dialect,
-      {},
-    );
-    expect(orderedMetricIds).toEqual([metric.id, metric.id]);
-    expect(sql).toContain("pop0");
-    expect(sql).toContain("pop1");
-    expect(sql).not.toContain("JOIN");
-    const rows = execute(c);
-    const septemberFirstPopulationCounts = rows[0].values?.map((value) => [
-      value.numerator,
-      value.denominator,
-    ]);
-    expect(septemberFirstPopulationCounts).toEqual([
-      [1, 2],
-      [3, 4],
-    ]);
-  });
-
-  it("preserves the population in serialized URLs and config schemas", () => {
+  it("preserves the population in serialized URLs, public configs, and stored explorations", () => {
     const parsed = explorationConfigValidator.parse(
       decodeExplorationConfigJson(encodeExplorationConfig(config)),
     );
     expect(parsed).toEqual(config);
+    expect(
+      productAnalyticsExplorationValidator.shape.config.parse(config),
+    ).toEqual(config);
   });
 
   it("normalizes omitted population filters to an empty array", () => {
     const input = {
       ...config,
-      dataset: {
-        ...config.dataset,
-        values: [
-          {
-            ...config.dataset.values[0],
-            population: { source: population.source },
-          },
-        ],
-      },
+      dataset: { ...config.dataset, population: { source: population.source } },
     };
     const explicit = structuredClone(config);
-    explicit.dataset.values[0].population = {
+    explicit.dataset.population = {
       source: population.source,
       rowFilters: [],
     };
@@ -658,7 +563,7 @@ describe("population-backed proportions", () => {
   it("rejects names on attached populations but requires them on standalone series", () => {
     expect(metricPopulationValidator.parse(population)).toEqual(population);
     const c = structuredClone(config);
-    c.dataset.values[0].population = {
+    c.dataset.population = {
       ...population,
       name: "Mobile users",
     } as MetricPopulation;
@@ -701,7 +606,7 @@ describe("population-backed proportions", () => {
           population,
           table,
         ),
-      ).toThrow("Populations currently support only proportion metrics.");
+      ).toThrow("Populations currently support only proportion metrics");
     },
   );
 
@@ -718,7 +623,7 @@ describe("population-backed proportions", () => {
         population,
         table,
       ),
-    ).toThrow("Populations currently support only proportion metrics.");
+    ).toThrow("Populations currently support only proportion metrics");
   });
 
   it("rejects unsupported inline population configurations", () => {

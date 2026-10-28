@@ -128,51 +128,45 @@ export async function runProductAnalyticsExploration(
 
   let metricsWithPopulations: FactMetricInterface[] = [];
   let metricsWithPopulationsFactTables: FactTableInterface[] = [];
-  if (dataset.type === "metric") {
-    // Validate metrics with populations before cache lookup
-    const metricsWithPopulationsValues = dataset.values.filter(
-      (v) => v.population,
-    );
-    if (metricsWithPopulationsValues.length) {
-      if (metricsWithPopulationsValues.some((value) => value.draftMetric)) {
-        throw new BadRequestError(
-          "Metrics with populations require a saved metric.",
-        );
-      }
-      metricsWithPopulations = await context.models.factMetrics.getByIds(
-        metricsWithPopulationsValues.map((v) => v.metricId),
+  if (dataset.type === "metric" && dataset.population) {
+    // The population applies to every metric, so validate them all before
+    // cache lookup and reject the request if any one is incompatible.
+    const population = dataset.population;
+    if (dataset.values.some((value) => value.draftMetric)) {
+      throw new BadRequestError(
+        "Metrics with populations require a saved metric.",
       );
-      metricsWithPopulationsFactTables = await getFactTablesByIds(context, [
-        ...new Set(
-          metricsWithPopulations.flatMap((m) =>
-            m.numerator ? [m.numerator.factTableId] : [],
-          ),
+    }
+    metricsWithPopulations = await context.models.factMetrics.getByIds(
+      dataset.values.map((v) => v.metricId),
+    );
+    metricsWithPopulationsFactTables = await getFactTablesByIds(context, [
+      ...new Set(
+        metricsWithPopulations.flatMap((m) =>
+          m.numerator ? [m.numerator.factTableId] : [],
         ),
-      ]);
-      for (const value of metricsWithPopulationsValues) {
-        const population = value.population;
-        const metric = metricsWithPopulations.find(
-          (m) => m.id === value.metricId,
+      ),
+    ]);
+    for (const value of dataset.values) {
+      const metric = metricsWithPopulations.find(
+        (m) => m.id === value.metricId,
+      );
+      const table = metricsWithPopulationsFactTables.find(
+        (t) => t.id === metric?.numerator?.factTableId,
+      );
+      if (!metric || !table) {
+        throw new NotFoundError("Metric or Fact Table not found");
+      }
+      try {
+        validatePopulationMetricCompatibility(
+          config,
+          value,
+          metric,
+          population,
+          table,
         );
-        const table = metricsWithPopulationsFactTables.find(
-          (t) => t.id === metric?.numerator?.factTableId,
-        );
-        if (!population || !metric || !table) {
-          throw new NotFoundError(
-            "Population, metric, or Fact Table not found",
-          );
-        }
-        try {
-          validatePopulationMetricCompatibility(
-            config,
-            value,
-            metric,
-            population,
-            table,
-          );
-        } catch (e) {
-          throw new BadRequestError(e instanceof Error ? e.message : String(e));
-        }
+      } catch (e) {
+        throw new BadRequestError(e instanceof Error ? e.message : String(e));
       }
     }
   }

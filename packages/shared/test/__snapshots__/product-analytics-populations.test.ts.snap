@@ -36,11 +36,11 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
       CASE
         WHEN ((device_type = 'mobile')) THEN revenue
         ELSE NULL
-      END AS pop0,
+      END AS pop,
       CASE
         WHEN ((device_type = 'mobile')) THEN 1
         ELSE NULL
-      END AS pop0_rows
+      END AS pop_rows
     FROM
       _factTable0
   ),
@@ -53,12 +53,12 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
         ELSE NULL
       END AS m0,
       CASE
-        WHEN COUNT(pop0_rows) > 0 THEN CASE
-          WHEN (SUM(pop0) > 10) THEN 1
+        WHEN COUNT(pop_rows) > 0 THEN CASE
+          WHEN (SUM(pop) > 10) THEN 1
           ELSE NULL
         END
         ELSE NULL
-      END AS pop0
+      END AS pop
     FROM
       _factTable0_rows
     GROUP BY
@@ -71,7 +71,7 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
       CAST(
         SUM(
           CASE
-            WHEN pop0 = 1
+            WHEN pop = 1
             AND unit0 IS NOT NULL
             AND m0 = 1 THEN 1
             ELSE 0
@@ -81,7 +81,7 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
       CAST(
         SUM(
           CASE
-            WHEN pop0 = 1
+            WHEN pop = 1
             AND unit0 IS NOT NULL THEN 1
             ELSE 0
           END

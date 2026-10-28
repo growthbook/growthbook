@@ -41,29 +41,31 @@ function factTableConfig(
 describe("explorationConfigReferencesColumn", () => {
   const filters = [{ id: "flt_1", value: "margin_vc > 0" }];
 
-  describe("inline metric populations", () => {
+  describe("metric dataset population", () => {
     const population: MetricPopulation = {
       source: { type: "factTable", factTableId: "ft1" },
       rowFilters: [],
     };
 
     function metricConfig(
-      populations: Array<MetricPopulation | null | undefined>,
+      population: MetricPopulation | null | undefined,
     ): ExplorationConfig {
       return {
         ...baseConfig,
         type: "metric",
         dataset: {
           type: "metric",
-          values: populations.map((population) => ({
-            type: "metric",
-            name: "Metric",
-            metricId: "metric1",
-            unit: "user_id",
-            denominatorUnit: null,
-            rowFilters: [],
-            population,
-          })),
+          values: [
+            {
+              type: "metric",
+              name: "Metric",
+              metricId: "metric1",
+              unit: "user_id",
+              denominatorUnit: null,
+              rowFilters: [],
+            },
+          ],
+          population,
         },
       };
     }
@@ -74,7 +76,7 @@ describe("explorationConfigReferencesColumn", () => {
       { rowFilters: [{ operator: "sql_expr", values: ["margin_vc > 0"] }] },
       { rowFilters: [{ operator: "saved_filter", values: ["flt_1"] }] },
     ])("detects population column references: %j", (references) => {
-      const config = metricConfig([null, { ...population, ...references }]);
+      const config = metricConfig({ ...population, ...references });
       expect(
         explorationConfigReferencesColumn(
           config,
@@ -104,17 +106,20 @@ describe("explorationConfigReferencesColumn", () => {
       ).toBe(false);
     });
 
-    it("ignores absent populations and populations without column references", () => {
-      expect(
-        explorationConfigReferencesColumn(
-          metricConfig([undefined, null, population]),
-          "ft1",
-          "margin_vc",
-          '"',
-          filters,
-        ),
-      ).toBe(false);
-    });
+    it.each([undefined, null, population])(
+      "ignores an absent population or one without column references: %j",
+      (p) => {
+        expect(
+          explorationConfigReferencesColumn(
+            metricConfig(p),
+            "ft1",
+            "margin_vc",
+            '"',
+            filters,
+          ),
+        ).toBe(false);
+      },
+    );
   });
 
   it("detects a direct valueColumn reference", () => {

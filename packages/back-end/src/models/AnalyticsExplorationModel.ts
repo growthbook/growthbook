@@ -222,11 +222,16 @@ export class AnalyticsExplorationModel extends BaseClass {
         path: dataset.type === "data_source" ? dataset.path : null,
         sql: dataset.type === "sql" ? dataset.sql : null,
         rawTable: config.chartType === "rawTable",
-        // Population membership thresholds depend on the selected window; don't reuse
-        // results from an approximately matching but different date range.
-        ...(dataset.type === "metric" &&
-        dataset.values.some((v) => v.population)
-          ? { populationDateRange: config.dateRange }
+        // The population changes every metric's results, so it's part of the
+        // general settings rather than any one value. Membership thresholds
+        // also depend on the selected window; don't reuse results from an
+        // approximately matching but different date range. Omitted (not null)
+        // without a population so pre-existing cache hashes stay valid.
+        ...(dataset.type === "metric" && dataset.population
+          ? {
+              population: dataset.population,
+              populationDateRange: config.dateRange,
+            }
           : {}),
         timestampColumn:
           dataset.type === "data_source" || dataset.type === "sql"
