@@ -228,7 +228,11 @@ describe("cancelExperimentSnapshot", () => {
         },
       },
       models: {
-        incrementalRefresh: { releaseLock, releaseLockAfterInterruptedRun },
+        incrementalRefresh: {
+          releaseLock,
+          releaseLockAfterInterruptedRun,
+          requireFullRefresh: jest.fn().mockResolvedValue(undefined),
+        },
       },
       logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
     } as unknown as ReqContext;

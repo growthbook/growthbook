@@ -2,12 +2,15 @@ import type { QueryStatus } from "shared/types/query";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   getCancelledRunQueryStatuses,
+  INTERRUPTED_RUN_FULL_REFRESH_REASON,
   InterruptedRunQuery,
   isIncrementalRefreshRun,
+  isUpdateInvalidatedByInterruptedRun,
   NOT_RUN_QUERY_ERROR,
   planInterruptedRunCleanup,
   releaseInterruptedRefresh,
   stopInterruptedRefresh,
+  stopInterruptedRefreshOrRelease,
 } from "back-end/src/jobs/interruptedRefresh";
 import {
   failQueuedQueries,
@@ -21,7 +24,12 @@ jest.mock("back-end/src/models/QueryModel", () => ({
 }));
 
 jest.mock("back-end/src/util/logger", () => ({
-  logger: { debug: jest.fn(), info: jest.fn(), warn: jest.fn() },
+  logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
 const SNAPSHOT_ID = "snp_1";
@@ -289,10 +297,15 @@ describe("isIncrementalRefreshRun", () => {
 describe("releasing an interrupted refresh", () => {
   const releaseLockAfterInterruptedRun = jest.fn();
   const releaseLock = jest.fn();
+  const requireFullRefresh = jest.fn();
   const context = {
     org: { id: "org_1" },
     models: {
-      incrementalRefresh: { releaseLockAfterInterruptedRun, releaseLock },
+      incrementalRefresh: {
+        releaseLockAfterInterruptedRun,
+        releaseLock,
+        requireFullRefresh,
+      },
     },
   } as unknown as ApiReqContext;
 
@@ -324,7 +337,13 @@ describe("releasing an interrupted refresh", () => {
     jest.clearAllMocks();
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
     releaseLock.mockResolvedValue(undefined);
+    requireFullRefresh.mockResolvedValue(undefined);
   });
+
+  const flagged = {
+    reason: INTERRUPTED_RUN_FULL_REFRESH_REASON,
+    snapshotId: SNAPSHOT_ID,
+  };
 
   describe("releaseInterruptedRefresh", () => {
     it("releases the lock with nothing to drop when the run was clean", async () => {
@@ -387,8 +406,24 @@ describe("releasing an interrupted refresh", () => {
       );
     });
 
-    it("reports a full refresh is needed when the lock was already gone", async () => {
+    it("flags a full refresh when the lock was already gone", async () => {
       releaseLockAfterInterruptedRun.mockResolvedValue(false);
+      await expect(
+        releaseInterruptedRefresh(
+          context,
+          snapshot(),
+          statusMap(
+            { max_timestamp_metrics_source_ft1_abc0: "failed" },
+            "succeeded",
+          ),
+        ),
+      ).resolves.toBe(true);
+      expect(requireFullRefresh).toHaveBeenCalledWith("exp_1", flagged);
+    });
+
+    it("still reports a full refresh when flagging it fails", async () => {
+      releaseLockAfterInterruptedRun.mockResolvedValue(false);
+      requireFullRefresh.mockRejectedValue(new Error("mongo down"));
       await expect(
         releaseInterruptedRefresh(
           context,
@@ -401,6 +436,18 @@ describe("releasing an interrupted refresh", () => {
       ).resolves.toBe(true);
     });
 
+    it("does not flag a full refresh when the cleanup was applied", async () => {
+      await releaseInterruptedRefresh(
+        context,
+        snapshot(),
+        statusMap(
+          { max_timestamp_metrics_source_ft1_abc0: "failed" },
+          "succeeded",
+        ),
+      );
+      expect(requireFullRefresh).not.toHaveBeenCalled();
+    });
+
     it("does not report a full refresh when the lock was gone but nothing needed dropping", async () => {
       releaseLockAfterInterruptedRun.mockResolvedValue(false);
       await expect(
@@ -410,6 +457,7 @@ describe("releasing an interrupted refresh", () => {
           statusMap({}, "succeeded"),
         ),
       ).resolves.toBe(false);
+      expect(requireFullRefresh).not.toHaveBeenCalled();
     });
 
     it("reports a full refresh is needed when the write fails", async () => {
@@ -425,6 +473,7 @@ describe("releasing an interrupted refresh", () => {
         ),
       ).resolves.toBe(true);
       expect(releaseLock).toHaveBeenCalledWith("exp_1", SNAPSHOT_ID);
+      expect(requireFullRefresh).toHaveBeenCalledWith("exp_1", flagged);
     });
 
     it("still resolves when the fallback release fails too", async () => {
@@ -603,6 +652,48 @@ describe("releasing an interrupted refresh", () => {
         notRunQueryIds: [],
         needsFullRefresh: true,
       });
+      expect(requireFullRefresh).toHaveBeenCalledWith("exp_1", flagged);
     });
+  });
+
+  describe("stopInterruptedRefreshOrRelease", () => {
+    it("releases the lock and flags a full refresh when the run cannot be stopped", async () => {
+      (getQueryStatusesByIds as jest.Mock).mockRejectedValue(
+        new Error("mongo down"),
+      );
+
+      await expect(
+        stopInterruptedRefreshOrRelease(context, snapshot()),
+      ).resolves.toEqual({ notRunQueryIds: [], needsFullRefresh: true });
+      expect(releaseLock).toHaveBeenCalledWith("exp_1", SNAPSHOT_ID);
+      expect(requireFullRefresh).toHaveBeenCalledWith("exp_1", flagged);
+    });
+  });
+});
+
+describe("isUpdateInvalidatedByInterruptedRun", () => {
+  const flag = {
+    fullRefreshRequired: {
+      reason: INTERRUPTED_RUN_FULL_REFRESH_REASON,
+      snapshotId: "snp_old",
+      date: new Date(),
+    },
+  };
+
+  it.each([
+    ["an Update with the state flagged", "incremental-update", flag, true],
+    ["an Update with no flag", "incremental-update", {}, false],
+    [
+      "an Update with the flag cleared",
+      "incremental-update",
+      { fullRefreshRequired: null },
+      false,
+    ],
+    ["an Update that lost its state", "incremental-update", null, false],
+    ["a full refresh with the state flagged", "incremental-full", flag, false],
+  ] as const)("%s", (_, runnerKind, state, expected) => {
+    expect(isUpdateInvalidatedByInterruptedRun({ runnerKind }, state)).toBe(
+      expected,
+    );
   });
 });

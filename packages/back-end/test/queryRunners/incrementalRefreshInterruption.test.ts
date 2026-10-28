@@ -33,6 +33,7 @@ import {
 } from "back-end/src/queryRunners/QueryRunner";
 import {
   getCancelledRunQueryStatuses,
+  isUpdateInvalidatedByInterruptedRun,
   planInterruptedRunCleanup,
   releaseInterruptedRefresh,
   stopInterruptedRefresh,
@@ -706,6 +707,28 @@ class InMemoryIncrementalRefreshModel {
     doc.metricCovariateSources = doc.metricCovariateSources.filter(keep);
     return true;
   }
+
+  async requireFullRefresh(
+    experimentId: string,
+    { reason, snapshotId }: { reason: string; snapshotId: string },
+  ) {
+    const doc = this.docs.get(experimentId);
+    if (doc) {
+      doc.fullRefreshRequired = { reason, snapshotId, date: new Date() };
+    }
+  }
+
+  async clearFullRefreshRequired(
+    experimentId: string,
+    snapshotId: string,
+    refreshStartedAt: Date,
+  ) {
+    const doc = this.locked(experimentId, snapshotId);
+    if (!doc?.fullRefreshRequired) return false;
+    if (doc.fullRefreshRequired.date >= refreshStartedAt) return false;
+    doc.fullRefreshRequired = null;
+    return true;
+  }
 }
 
 async function drainWrites() {
@@ -756,6 +779,7 @@ class Experiment {
   warehouse = new Warehouse();
   sim = createIntegration(this.warehouse, exposureQuery);
   built: ReturnType<typeof buildMetrics>;
+  startedAt = new Map<string, Date>();
 
   constructor(
     readonly id: string,
@@ -778,6 +802,7 @@ class Experiment {
     schedule?: Schedule;
   }) {
     const snapshotId = `snp_${++snapshotCounter}`;
+    this.startedAt.set(snapshotId, new Date());
     const locked = await model.acquireLock({
       experimentId: this.id,
       phase: 0,
@@ -837,6 +862,13 @@ class Experiment {
         run.snapshotId,
         { materializedBySnapshotId: run.snapshotId },
       );
+      if (run.fullRefresh) {
+        await model.clearFullRefreshRequired(
+          this.id,
+          run.snapshotId,
+          this.startedAt.get(run.snapshotId) ?? new Date(),
+        );
+      }
     }
     await model.releaseLock(this.id, run.snapshotId);
   }
@@ -1005,10 +1037,12 @@ async function setUpExperiment(config: Config) {
 }
 
 // Refreshes as the app would next: a full refresh when the cleanup asked
-// for one or the units table is gone, otherwise an Update.
+// for one, the units table is gone or the state is flagged, otherwise an
+// Update.
 async function nextRefresh(exp: Experiment, needsFullRefresh: boolean) {
   const doc = await getDoc(exp.id);
-  const fullRefresh = needsFullRefresh || !doc?.unitsTableFullName;
+  const fullRefresh =
+    needsFullRefresh || !doc?.unitsTableFullName || !!doc?.fullRefreshRequired;
   const run = await exp.completeRun(NEXT_AT, fullRefresh);
   expect(run.failures).toEqual([]);
 }
@@ -1191,7 +1225,7 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
   );
 
   it.each(modes)(
-    "changes nothing when another snapshot holds the lock: $mode",
+    "only flags a full refresh when another snapshot holds the lock: $mode",
     async ({ fullRefresh }) => {
       const config = { groups: 2, covariates: true };
       const total = await countSteps(config, fullRefresh, "serial");
@@ -1218,7 +1252,15 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
             })),
           });
           const needsFullRefresh = await cleanUp(path, exp.id, run);
-          expect(await getDoc(exp.id)).toEqual(before);
+          expect(await getDoc(exp.id)).toEqual({
+            ...before,
+            fullRefreshRequired: needsFullRefresh
+              ? expect.objectContaining({
+                  reason: expect.any(String),
+                  snapshotId: run.snapshotId,
+                })
+              : before?.fullRefreshRequired,
+          });
           if (path === "reaper") {
             expect(needsFullRefresh).toBe(
               plan.forceFullRefresh || plan.metricGroupIdsToRebuild.length > 0,
@@ -1228,6 +1270,63 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       }
     },
   );
+
+  describe.each(modes)("$mode whose lock went stale", ({ fullRefresh }) => {
+    it.each(modes)(
+      "is recovered by the full refresh the flag forces after a $mode took the lock",
+      async ({ fullRefresh: thiefFullRefresh }) => {
+        const config = { groups: 2, covariates: true };
+        const total = await countSteps(config, fullRefresh, "serial");
+        let flagged = 0;
+        for (let stopAfter = 0; stopAfter < total; stopAfter++) {
+          for (const path of ["reaper", "timedOut", "cancel"] as const) {
+            const exp = await setUpExperiment(config);
+            const { run } = await exp.startRun({
+              now: INTERRUPTED_AT,
+              fullRefresh,
+              stopAfter,
+            });
+            await model.releaseLock(exp.id, run.snapshotId);
+            const { run: thief } = await exp.startRun({
+              now: INTERRUPTED_AT + 50,
+              fullRefresh: thiefFullRefresh,
+            });
+
+            const needsFullRefresh = await cleanUp(path, exp.id, run);
+            const state = await model.getLockedBySnapshotId(
+              exp.id,
+              thief.snapshotId,
+            );
+            expect(!!state?.fullRefreshRequired).toBe(needsFullRefresh);
+            expect(
+              isUpdateInvalidatedByInterruptedRun(
+                snapshotOf(exp.id, thief),
+                state,
+              ),
+            ).toBe(needsFullRefresh && !thiefFullRefresh);
+            if (needsFullRefresh) flagged++;
+
+            // Started before the flag, so even a full refresh keeps it.
+            await exp.release(thief);
+            expect(!!(await getDoc(exp.id))?.fullRefreshRequired).toBe(
+              needsFullRefresh,
+            );
+
+            await new Promise((resolve) => setTimeout(resolve, 2));
+            await nextRefresh(exp, false);
+            expect(await exp.contents()).toEqual(
+              expectedContents(config, NEXT_AT),
+            );
+            expect((await getDoc(exp.id))?.fullRefreshRequired ?? null).toBe(
+              null,
+            );
+          }
+        }
+        expect(flagged).toBeGreaterThan(0);
+      },
+      120_000,
+    );
+  });
 
   describe.each(modes)("$mode", ({ fullRefresh }) => {
     it.each(configs.map((c) => [label(c), c] as const))(

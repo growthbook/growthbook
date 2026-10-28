@@ -408,4 +408,78 @@ describe("IncrementalRefreshModel", () => {
       expect(doc?.metricSources).toHaveLength(2);
     });
   });
+
+  describe("fullRefreshRequired", () => {
+    const flag = { reason: "Interrupted", snapshotId: "snap_0" };
+    const before = (date: Date) => new Date(date.getTime() - 1);
+    const after = (date: Date) => new Date(date.getTime() + 1);
+    const flaggedAt = async () => {
+      const doc = await model.getByExperimentIdAndPhase("exp_1", 0);
+      if (!doc?.fullRefreshRequired) throw new Error("Not flagged");
+      return doc.fullRefreshRequired.date;
+    };
+
+    it("flags every phase of the experiment whoever holds the lock", async () => {
+      await acquireLock("exp_1", 0, "snap_1");
+      await acquireLock("exp_1", 1, "snap_2");
+      await acquireLock("exp_2", 0, "snap_3");
+
+      await model.requireFullRefresh("exp_1", flag);
+
+      for (const phase of [0, 1]) {
+        const doc = await model.getByExperimentIdAndPhase("exp_1", phase);
+        expect(doc?.fullRefreshRequired).toEqual({
+          ...flag,
+          date: expect.any(Date),
+        });
+      }
+      expect(
+        (await model.getByExperimentIdAndPhase("exp_2", 0))
+          ?.fullRefreshRequired ?? null,
+      ).toBeNull();
+    });
+
+    it("is cleared by a full refresh started after it was set", async () => {
+      await acquireLock("exp_1", 0, "snap_1");
+      await model.requireFullRefresh("exp_1", flag);
+
+      expect(
+        await model.clearFullRefreshRequired(
+          "exp_1",
+          "snap_1",
+          after(await flaggedAt()),
+        ),
+      ).toBe(true);
+      expect(
+        (await model.getByExperimentIdAndPhase("exp_1", 0))
+          ?.fullRefreshRequired,
+      ).toBeNull();
+    });
+
+    it("is kept by a full refresh started before it was set", async () => {
+      await acquireLock("exp_1", 0, "snap_1");
+      await model.requireFullRefresh("exp_1", flag);
+      const date = await flaggedAt();
+
+      expect(
+        await model.clearFullRefreshRequired("exp_1", "snap_1", before(date)),
+      ).toBe(false);
+      expect(await flaggedAt()).toEqual(date);
+    });
+
+    it("is kept by a full refresh that no longer holds the lock", async () => {
+      await acquireLock("exp_1", 0, "snap_1");
+      await model.requireFullRefresh("exp_1", flag);
+      await model.releaseLock("exp_1", "snap_1");
+
+      expect(
+        await model.clearFullRefreshRequired(
+          "exp_1",
+          "snap_1",
+          after(await flaggedAt()),
+        ),
+      ).toBe(false);
+      await flaggedAt();
+    });
+  });
 });

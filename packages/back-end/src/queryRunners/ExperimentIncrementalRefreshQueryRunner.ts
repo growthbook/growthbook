@@ -77,7 +77,11 @@ import { rawWatermark } from "back-end/src/integrations/sql/primitives/watermark
 import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
-import { stopInterruptedRefreshOrRelease } from "back-end/src/jobs/interruptedRefresh";
+import {
+  isUpdateInvalidatedByInterruptedRun,
+  stopInterruptedRefreshOrRelease,
+  UPDATE_INVALIDATED_ERROR,
+} from "back-end/src/jobs/interruptedRefresh";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -1345,6 +1349,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   // largely copied from ExperimentResultsQueryRunner
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
+    const state =
+      await this.context.models.incrementalRefresh.getLockedBySnapshotId(
+        this.model.experiment,
+        this.model.id,
+      );
+    if (isUpdateInvalidatedByInterruptedRun(this.model, state)) {
+      throw new Error(UPDATE_INVALIDATED_ERROR);
+    }
+
     const { results: analysesResults, banditResult } =
       await analyzeExperimentResults({
         queryData: queryMap,
@@ -1540,6 +1553,24 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
             this.context.logger.warn(
               e,
               "Failed to record pipeline tables snapshot id on success",
+            ),
+          );
+      }
+
+      if (
+        status === "succeeded" &&
+        this.model.runnerKind === "incremental-full"
+      ) {
+        await this.context.models.incrementalRefresh
+          .clearFullRefreshRequired(
+            this.model.experiment,
+            this.model.id,
+            this.model.dateCreated,
+          )
+          .catch((e) =>
+            this.context.logger.warn(
+              e,
+              "Failed to clear the full refresh flag after a full refresh",
             ),
           );
       }

@@ -324,6 +324,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
   const releaseLock = jest.fn().mockResolvedValue(undefined);
   const hasFreshLockHeartbeat = jest.fn();
   const releaseLockAfterInterruptedRun = jest.fn();
+  const requireFullRefresh = jest.fn().mockResolvedValue(undefined);
   const context = {
     org: { id: "org_1" },
     models: {
@@ -331,6 +332,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         releaseLock,
         hasFreshLockHeartbeat,
         releaseLockAfterInterruptedRun,
+        requireFullRefresh,
       },
       metricAnalysis: { update: jest.fn() },
     },
@@ -880,6 +882,10 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         expect.objectContaining({ error: INTERRUPTED_REFRESH_ERROR }),
         "query",
         { concludedBy: "reaper", reason: "orphaned" },
+      );
+      expect(requireFullRefresh).toHaveBeenCalledWith(
+        "exp_1",
+        expect.objectContaining({ snapshotId: "snp_1" }),
       );
     });
 

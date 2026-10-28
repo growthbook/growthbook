@@ -1534,6 +1534,7 @@ function getSnapshotQueryRunnerKind({
  * - There is no prior incremental state for this experiment.
  * - The state document exists but has no `unitsTableFullName`, meaning
  *   the warehouse units table was never created (e.g., the initial attempt failed).
+ * - An interrupted run flagged the state with `fullRefreshRequired`.
  */
 function resolveFullRefresh(
   useCache: boolean,
@@ -1558,6 +1559,13 @@ function resolveFullRefresh(
     return {
       fullRefresh: true,
       fullRefreshReason: "Units table was never materialized by a prior run.",
+    };
+  }
+
+  if (incrementalRefreshModel.fullRefreshRequired) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason: incrementalRefreshModel.fullRefreshRequired.reason,
     };
   }
 

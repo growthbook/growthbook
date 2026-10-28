@@ -260,6 +260,46 @@ export class IncrementalRefreshModel extends BaseClass {
     return result.matchedCount > 0;
   }
 
+  /**
+   * Flags every phase document of the experiment so its next refresh is a
+   * full one. Unfenced: used when the lock has already moved on.
+   */
+  public async requireFullRefresh(
+    experimentId: string,
+    { reason, snapshotId }: { reason: string; snapshotId: string },
+  ) {
+    await this._dangerousGetCollection().updateMany(
+      { organization: this.context.org.id, experimentId },
+      {
+        $set: {
+          fullRefreshRequired: { reason, snapshotId, date: new Date() },
+          dateUpdated: new Date(),
+        },
+      },
+    );
+  }
+
+  /**
+   * Clears the flag for a full refresh that still holds the lock, unless the
+   * flag was set after that refresh started.
+   */
+  public async clearFullRefreshRequired(
+    experimentId: string,
+    snapshotId: string,
+    refreshStartedAt: Date,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        currentExecutionSnapshotId: snapshotId,
+        "fullRefreshRequired.date": { $lt: refreshStartedAt },
+      },
+      { $set: { fullRefreshRequired: null, dateUpdated: new Date() } },
+    );
+    return result.modifiedCount > 0;
+  }
+
   public async touchLockHeartbeat(experimentId: string, snapshotId: string) {
     await this._dangerousGetCollection().updateOne(
       {
