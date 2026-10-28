@@ -1,8 +1,10 @@
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { CONTACT_SALES_URL } from "./GrowthBotStateNotice";
 import { formatResetsIn } from "./growthBotState";
+
+// As the upgrade modal's Enterprise path.
+const CONTACT_SALES_URL = "https://www.growthbook.io/demo";
 
 export default function GrowthBotLimitCallout({
   id,

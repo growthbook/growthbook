@@ -51,7 +51,7 @@ const TopNav: FC<{
     return (
       <div className={styles.pagetitle}>
         {toggleLeftMenu ? (
-          <HeaderBreadcrumb />
+          <HeaderBreadcrumb pageTitle={pageTitle} />
         ) : (
           <Breadcrumbs items={breadcrumbItems} />
         )}

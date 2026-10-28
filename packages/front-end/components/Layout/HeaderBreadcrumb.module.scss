@@ -115,9 +115,18 @@
   }
 }
 
-.projectIcon {
+// LetterAvatar's small (26px) avatar at 20px: its box is the 20px, and the
+// avatar scales into it from its corner, its own 8px margin outside.
+.headerProjectAvatar {
   flex-shrink: 0;
-  color: var(--slate-11);
+  display: flex;
+  width: 20px;
+  height: 20px;
+
+  > * {
+    transform: scale(calc(20 / 26));
+    transform-origin: 0 0;
+  }
 }
 
 .projectName {
