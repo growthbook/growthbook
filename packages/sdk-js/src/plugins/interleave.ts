@@ -33,12 +33,11 @@ export type InterleavePluginOptions = {
   onExposure?: (exposure: InterleaveExposure) => void | Promise<void>;
 };
 
-// `C` is the ranker config's shape. TypeScript has no partial type-argument
-// inference, so pass both type arguments or neither.
-export type InterleaveOptions<
-  T,
-  C extends InterleaveConfig = InterleaveConfig,
-> = {
+// `C` is the ranker config's shape. Constrained to `object`, not InterleaveConfig:
+// an interface has no implicit index signature, so Record<string, unknown> would
+// reject one. TypeScript has no partial type-argument inference, so pass both
+// type arguments or neither.
+export type InterleaveOptions<T, C extends object = InterleaveConfig> = {
   // The interleaving experiment's key
   key: string;
   getList: (config: C) => T[] | Promise<T[]>;
@@ -162,10 +161,7 @@ export function teamDraft<T>(
   return { items, meta };
 }
 
-export async function interleave<
-  T,
-  C extends InterleaveConfig = InterleaveConfig,
->(
+export async function interleave<T, C extends object = InterleaveConfig>(
   gb: InterleaveInstance,
   options: InterleaveOptions<T, C>,
 ): Promise<InterleaveResult<T>> {
