@@ -71,9 +71,10 @@ export default function ExperimentationHealthPage() {
   const [saveMsg, setSaveMsg] = useState(false);
   const [saveError, setSaveError] = useState("");
 
-  const { data: statusData } = useApi<{ experiments: number }>(
-    "/experiment-quality-score/status",
-  );
+  const { data: statusData } = useApi<{
+    experiments: number;
+    decisionModelAvailable?: boolean;
+  }>("/experiment-quality-score/status");
   // The org's definition of a good hypothesis seeds the Hypothesis quality
   // check's context
   const { data: promptsData } = useApi<{ prompts: AIPromptInterface[] }>(
@@ -292,6 +293,7 @@ export default function ExperimentationHealthPage() {
           aiAvailable={aiEnabled}
           hypothesisDefinition={hypothesisDefinition}
           experimentCount={statusData?.experiments}
+          decisionModelAvailable={!!statusData?.decisionModelAvailable}
         />
       </Box>
 

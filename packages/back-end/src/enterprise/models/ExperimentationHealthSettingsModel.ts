@@ -57,7 +57,7 @@ export class ExperimentationHealthSettingsModel extends BaseClass {
     return this.context.hasPremiumFeature("experiment-quality-score");
   }
 
-  private canWriteScope(project: string): boolean {
+  public canWriteScope(project: string): boolean {
     return project === ORG_DEFAULT_SCOPE
       ? this.context.permissions.canManageOrgSettings()
       : this.context.permissions.canUpdateProject(project);

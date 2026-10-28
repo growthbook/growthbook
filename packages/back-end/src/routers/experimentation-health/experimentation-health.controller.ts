@@ -1,14 +1,20 @@
 import type { Response } from "express";
+import { omit } from "lodash";
 import {
+  CustomQualityCheck,
   ExperimentationHealthQualitySettings,
   ORG_DEFAULT_SCOPE,
 } from "shared/validators";
 import { countHealthOverrides } from "shared/enterprise";
-import { getContextFromReq } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextFromReq,
+} from "back-end/src/services/organizations";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ReqContext } from "back-end/types/request";
 import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { logger } from "back-end/src/util/logger";
+import { classifyCustomCheckJudge } from "back-end/src/enterprise/services/decisionModel";
 
 function requireQualityScoreFeature(context: ReqContext) {
   if (!context.hasPremiumFeature("experiment-quality-score")) {
@@ -26,6 +32,34 @@ function recheckScope(context: ReqContext, project: string) {
   }).catch((e) => logger.error(e, "Failed to queue a quality recheck"));
 }
 
+// Picks a judge for each custom rule that's new or changed, unless an admin
+// chose one; unchanged rules keep the judge they were saved with. Rule text
+// is only sent for classification while the organization has AI turned on.
+async function classifyCustomChecks(
+  checks: CustomQualityCheck[],
+  saved: CustomQualityCheck[],
+  aiEnabled: boolean,
+): Promise<CustomQualityCheck[]> {
+  return Promise.all(
+    checks.map(async (check) => {
+      if (check.judgeChosenBy === "admin" && check.judge) return check;
+      const before = saved.find(
+        (c) => c.id === check.id && c.rule === check.rule,
+      );
+      const judge =
+        before?.judgeChosenBy !== "admin" && before?.judge
+          ? before.judge
+          : aiEnabled
+            ? await classifyCustomCheckJudge(check.rule)
+            : null;
+      // Unclassified rules use the chat model until a later save
+      return judge
+        ? { ...check, judge, judgeChosenBy: "auto" as const }
+        : omit(check, ["judge", "judgeChosenBy"]);
+    }),
+  );
+}
+
 // Saves one scope's settings (the organization default or a Project), replacing
 // what it customized before. A Project record left with nothing customized
 // is deleted, so it inherits everything.
@@ -38,7 +72,11 @@ export async function putExperimentationHealthSettings(
 ) {
   const context = getContextFromReq(req);
   requireQualityScoreFeature(context);
-  const { project, quality } = req.body;
+  const { project } = req.body;
+  let { quality } = req.body;
+  if (!context.models.experimentationHealthSettings.canWriteScope(project)) {
+    context.permissions.throwPermissionError();
+  }
 
   if (project !== ORG_DEFAULT_SCOPE) {
     const projectDoc = await context.models.projects.getById(project);
@@ -58,6 +96,29 @@ export async function putExperimentationHealthSettings(
       recheckScope(context, project);
       return res.status(200).json({ status: 200, settings: null });
     }
+  }
+
+  if (quality.config?.customAiChecks?.length) {
+    // A Project copying the organization's rules reuses their judges
+    const records = await Promise.all(
+      [project, ORG_DEFAULT_SCOPE].map((scope) =>
+        context.models.experimentationHealthSettings.getForScope(scope),
+      ),
+    );
+    const aiEnabled =
+      !!context.org.settings?.aiEnabled &&
+      (await getAISettingsForOrg(context)).aiEnabled;
+    quality = {
+      ...quality,
+      config: {
+        ...quality.config,
+        customAiChecks: await classifyCustomChecks(
+          quality.config.customAiChecks,
+          records.flatMap((r) => r?.quality?.config?.customAiChecks ?? []),
+          aiEnabled,
+        ),
+      },
+    };
   }
 
   const settings =

@@ -9,6 +9,7 @@ import {
 import { queueExperimentQualityRecheck } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { ReqContext } from "back-end/types/request";
+import { isDecisionModelConfigured } from "back-end/src/enterprise/services/decisionModel";
 
 function requireQualityScoreFeature(context: ReqContext) {
   if (!context.hasPremiumFeature("experiment-quality-score")) {
@@ -46,7 +47,12 @@ export async function getExperimentQualityScoreStatus(
   const experiments = await countUnarchivedExperimentsByOrganization(
     context.org.id,
   );
-  return res.status(200).json({ status: 200, experiments });
+  return res.status(200).json({
+    status: 200,
+    experiments,
+    // Whether custom checks can be routed to the decision model
+    decisionModelAvailable: isDecisionModelConfigured(),
+  });
 }
 
 // Set or clear the manual quality-score override for an experiment.

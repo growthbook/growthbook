@@ -73,12 +73,20 @@ export const MAX_CUSTOM_QUALITY_CHECKS = 5;
 
 // User-defined AI rule, scored 0-1 by the AI judge against a trimmed JSON
 // projection of the experiment. Counts the same as any other AI check.
+export const customQualityCheckJudges = ["decision", "llm"] as const;
+export type CustomQualityCheckJudge = (typeof customQualityCheckJudges)[number];
+
 export const customQualityCheckValidator = z
   .object({
     id: z.string().min(1).max(64),
     name: z.string().min(1).max(100),
     rule: z.string().min(1).max(1000),
     enabled: z.boolean().optional(),
+    // Who scores the rule: a decision model (Jev) or the chat model. Unset
+    // is the chat model, until a save classifies the rule.
+    judge: z.enum(customQualityCheckJudges).optional(),
+    // "admin" keeps an admin's choice from being re-classified on save
+    judgeChosenBy: z.enum(["auto", "admin"]).optional(),
   })
   .strict();
 export type CustomQualityCheck = z.infer<typeof customQualityCheckValidator>;

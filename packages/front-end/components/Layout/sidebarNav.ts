@@ -302,8 +302,8 @@ export const navlinks: SidebarLinkProps[] = [
       },
       {
         name: "Experiment Quality",
-        href: "/settings/experimentation-health",
-        path: /^settings\/experimentation-health/,
+        href: "/settings/experiment-quality",
+        path: /^settings\/experiment-quality/,
         // Project admins customize their own Projects
         filter: ({ permissionsUtils }) =>
           permissionsUtils.canManageOrgSettings() ||
