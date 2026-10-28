@@ -2,53 +2,96 @@ import {
   interleavingEndpoints,
   interleavingExposureQueryEndpoints,
 } from "shared/api-endpoints";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { useRestApi, useRestApiCall } from "@/services/restApi";
+import {
+  useCoherentLatest,
+  useRefetchHeavyOnStatusSuccess,
+} from "@/hooks/useCoherentSnapshotStatus";
 
-export function useInterleavings(project?: string) {
+export function useInterleavings(
+  project?: string,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const { data, error, mutate } = useRestApi(
     interleavingEndpoints.listInterleavings,
-    { query: { projectId: project || undefined } },
+    enabled ? { query: { projectId: project || undefined } } : null,
   );
   return {
-    loading: !error && !data,
+    loading: enabled && !error && !data,
     interleavings: data?.interleavings ?? [],
     error,
     mutate,
   };
 }
 
-export function useInterleaving(id: string | undefined) {
+export function useInterleaving(
+  id: string | undefined,
+  { enabled = true }: { enabled?: boolean } = {},
+) {
   const { data, error, mutate } = useRestApi(
     interleavingEndpoints.getInterleaving,
-    id ? { params: { id } } : null,
+    id && enabled ? { params: { id } } : null,
   );
   return {
-    loading: !!id && !error && !data,
+    loading: !!id && enabled && !error && !data,
     interleaving: data?.interleaving,
     error,
     mutate,
   };
 }
 
-/** Latest results snapshot; polls while its queries are running. */
 export function useInterleavingResults(id: string | undefined) {
   const restApiCall = useRestApiCall();
   const [refreshing, setRefreshing] = useState(false);
   const [refreshError, setRefreshError] = useState("");
 
-  const { data, error, mutate } = useRestApi(
+  const {
+    data: heavyData,
+    error,
+    isValidating,
+    mutate: mutateHeavy,
+  } = useRestApi(
     interleavingEndpoints.getInterleavingResults,
     id ? { params: { id } } : null,
+    { revalidateOnFocus: false, revalidateOnReconnect: false },
   );
-  const snapshot = data?.snapshot ?? null;
-  const isRunning = snapshot?.status === "running";
 
-  useEffect(() => {
-    if (!isRunning) return;
-    const timer = setInterval(() => void mutate(), 2000);
-    return () => clearInterval(timer);
-  }, [isRunning, mutate]);
+  const {
+    data: statusData,
+    error: statusError,
+    mutate: mutateStatus,
+  } = useRestApi(
+    interleavingEndpoints.getInterleavingStatus,
+    id ? { params: { id } } : null,
+    {
+      refreshInterval: (d) =>
+        d?.latest?.status === "running" || d?.latest?.status === "pending"
+          ? 2000
+          : 0,
+    },
+  );
+
+  const snapshot = heavyData?.snapshot ?? null;
+  const statusLatest = statusData?.latest ?? null;
+  const heavyLatest = heavyData?.latest ?? null;
+  const heavyCaughtUp =
+    statusLatest?.status === "success" &&
+    heavyLatest?.id === statusLatest.id &&
+    heavyLatest?.status === "success";
+
+  useRefetchHeavyOnStatusSuccess(
+    statusLatest,
+    heavyCaughtUp,
+    isValidating,
+    mutateHeavy,
+  );
+  const latest = useCoherentLatest(statusLatest, heavyCaughtUp) ?? null;
+
+  const mutate = useCallback(
+    () => Promise.all([mutateStatus(), mutateHeavy()]),
+    [mutateStatus, mutateHeavy],
+  );
 
   const refresh = useCallback(async () => {
     if (!id) return;
@@ -58,18 +101,22 @@ export function useInterleavingResults(id: string | undefined) {
       await restApiCall(interleavingEndpoints.refreshInterleaving, {
         params: { id },
       });
-      await mutate();
+      await mutateStatus();
     } catch (e) {
       setRefreshError(e instanceof Error ? e.message : String(e));
     } finally {
       setRefreshing(false);
     }
-  }, [restApiCall, id, mutate]);
+  }, [restApiCall, id, mutateStatus]);
 
   return {
-    loading: !!id && !error && !data,
+    loading: !!id && !error && !heavyData,
     snapshot,
+    latest,
+    running: latest?.status === "running" || latest?.status === "pending",
     error,
+    statusError,
+    mutate,
     refresh,
     refreshing,
     refreshError,
@@ -77,7 +124,7 @@ export function useInterleavingResults(id: string | undefined) {
 }
 
 export function useInterleavingExposureQueries(datasourceId: string) {
-  const { data, error } = useRestApi(
+  const { data, error, mutate } = useRestApi(
     interleavingExposureQueryEndpoints.listInterleavingExposureQueries,
     datasourceId ? { query: { datasourceId } } : null,
   );
@@ -85,5 +132,6 @@ export function useInterleavingExposureQueries(datasourceId: string) {
     loading: !!datasourceId && !error && !data,
     exposureQueries: data?.interleavingExposureQueries ?? [],
     error,
+    mutate,
   };
 }

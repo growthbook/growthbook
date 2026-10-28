@@ -7,10 +7,12 @@ import {
   apiInterleavingResultsReturn,
   apiInterleavingSnapshotReturn,
   apiInterleavingSnapshotsReturn,
+  apiInterleavingStatusReturn,
   apiUpdateInterleavingBody,
   ApiInterleavingInterface,
   getInterleavingResultsEndpoint,
   getInterleavingSnapshotEndpoint,
+  getInterleavingStatusEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
   InterleavingInterface,
   interleavingApiSpec,
@@ -55,6 +57,7 @@ import {
 import {
   toApiInterleaving,
   toApiInterleavingSnapshot,
+  toApiInterleavingSnapshotStatus,
 } from "back-end/src/enterprise/services/interleavingApi";
 import {
   resolveInterleavingExposureQuery,
@@ -192,12 +195,39 @@ const BaseClass = MakeModelClass({
               `Interleaving experiment ${req.params.id} not found or not accessible`,
             );
           }
-          const snapshot =
+          const [snapshot, latest] = await Promise.all([
+            req.context.models.interleavingSnapshots.getLatestSuccessfulForInterleaving(
+              interleaving.id,
+            ),
+            req.context.models.interleavingSnapshots.getLatestForInterleaving(
+              interleaving.id,
+            ),
+          ]);
+          return {
+            snapshot: snapshot ? toApiInterleavingSnapshot(snapshot) : null,
+            latest: latest ? toApiInterleavingSnapshotStatus(latest) : null,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingStatusEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingStatusReturn>> => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const latest =
             await req.context.models.interleavingSnapshots.getLatestForInterleaving(
               interleaving.id,
             );
           return {
-            snapshot: snapshot ? toApiInterleavingSnapshot(snapshot) : null,
+            latest: latest ? toApiInterleavingSnapshotStatus(latest) : null,
           };
         },
       }),
@@ -345,11 +375,6 @@ export class InterleavingModel extends BaseClass {
     if (!existing) return req.context.throwNotFoundError();
     const body = (req.body ?? {}) as Record<string, unknown>;
     const changes = await this.apiUpdateChanges(existing, body);
-    if (changes.archived && existing.status === "running") {
-      req.context.throwBadRequestError(
-        "Stop this interleaving experiment before archiving it.",
-      );
-    }
     await requireConfirmation(req.context, {
       actions: interleavingChangeActions(existing, changes),
       project: existing.project,
@@ -550,8 +575,19 @@ export class InterleavingModel extends BaseClass {
     this.refreshSDKPayload([existing, newDoc], "updated");
   }
 
+  protected async beforeDelete(doc: InterleavingInterface) {
+    if (interleavingInSDKPayload(doc)) {
+      throw new Error(
+        "Stop or archive this interleaving experiment before deleting it.",
+      );
+    }
+  }
+
   protected async afterDelete(doc: InterleavingInterface) {
     this.refreshSDKPayload([doc], "deleted");
+    await this.context.models.interleavingSnapshots.deleteAllForInterleaving(
+      doc.id,
+    );
   }
 
   private refreshSDKPayload(docs: InterleavingInterface[], event: string) {
@@ -594,9 +630,7 @@ export class InterleavingModel extends BaseClass {
     const envsChanged =
       updated?.environmentSettings !== undefined &&
       !isEqual(updated.environmentSettings, existing.environmentSettings);
-    // Editing a running interleaving's targeting, traffic or bucketing changes
-    // what SDKs serve right away, the same as starting it, so it answers to the
-    // same run permission. Drafts don't serve, so they stay on createAnalyses.
+    // Live payload changes require the same permission as starting.
     const servesNow =
       interleavingInSDKPayload(existing) &&
       payloadAffectingChanges(existing, updated).length > 0;

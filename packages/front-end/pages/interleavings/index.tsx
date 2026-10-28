@@ -1,9 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useGrowthBook } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
+import { AppFeatures } from "shared/types/app-features";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { date, datetime } from "shared/dates";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PageHead from "@/components/Layout/PageHead";
+import { docUrl } from "@/components/DocLink";
+import Heading from "@/ui/Heading";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { tagFilterOnClick, useSearch } from "@/services/search";
@@ -28,6 +33,9 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 import InterleavingForm from "@/enterprise/components/Interleaving/InterleavingForm";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import { interleavingStatusIndicatorData } from "@/services/interleaving";
+import Custom404 from "@/pages/404";
 
 const LIST_TABS = ["all", "running", "drafts", "stopped", "archived"] as const;
 type ListTab = (typeof LIST_TABS)[number];
@@ -51,7 +59,11 @@ const InterleavingsPage = (): React.ReactElement => {
     useDefinitions();
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
   const permissionsUtil = usePermissionsUtil();
-  const { interleavings, loading, error } = useInterleavings(project);
+  const gb = useGrowthBook<AppFeatures>();
+  const interleavingEnabled = !!gb?.isOn("interleave-exp");
+  const { interleavings, loading, error } = useInterleavings(project, {
+    enabled: interleavingEnabled,
+  });
   const [openNewModal, setOpenNewModal] = useState(false);
   const [urlTab, setTab] = useURLHash<ListTab>([...LIST_TABS]);
   const activeTab: ListTab = LIST_TABS.find((t) => t === urlTab) ?? "all";
@@ -117,6 +129,9 @@ const InterleavingsPage = (): React.ReactElement => {
     setCurrentPage(1);
   }, [filtered.length]);
 
+  if (!interleavingEnabled) {
+    return <Custom404 />;
+  }
   if (!hasCommercialFeature("interleaving")) {
     return (
       <Box className="contents container-fluid pagecontents">
@@ -125,7 +140,7 @@ const InterleavingsPage = (): React.ReactElement => {
           title="Compare two rankers head-to-head with Interleaving"
           description="Interleaving merges two ranked lists for each user and measures which ranker's items get engagement, detecting ranking differences with far less traffic than an A/B test."
           commercialFeature="interleaving"
-          learnMoreLink="https://docs.growthbook.io"
+          learnMoreLink={docUrl("interleaving")}
         />
       </Box>
     );
@@ -145,31 +160,26 @@ const InterleavingsPage = (): React.ReactElement => {
 
   return (
     <>
+      <PageHead breadcrumb={[{ display: "Interleaving" }]} />
       <div className="contents experiments container-fluid pagecontents">
         <div className="my-3">
-          <div className="filters md-form row align-items-center">
-            <div className="col-auto">
-              <h1>Interleaving Experiments</h1>
-            </div>
-            <div style={{ flex: 1 }} />
+          <Flex align="center" justify="between" gap="3" mb="3" wrap="wrap">
+            <Heading as="h1" size="xl" mb="0">
+              Interleaving Experiments
+            </Heading>
             {hasInterleavings && (
-              <div className="col-auto">
-                <Button
-                  onClick={() => setOpenNewModal(true)}
-                  disabled={!canAdd}
-                >
-                  Add Interleaving Experiment
-                </Button>
-              </div>
+              <Button onClick={() => setOpenNewModal(true)} disabled={!canAdd}>
+                Add interleaving experiment
+              </Button>
             )}
-          </div>
+          </Flex>
           {!hasInterleavings ? (
             <EmptyState
               title="Create Your First Interleaving Experiment"
               description="Compare two rankers by interleaving their lists for each user and measuring which ranker's items get engagement."
               leftButton={
                 <LinkButton
-                  href="https://docs.growthbook.io"
+                  href={docUrl("interleaving")}
                   variant="outline"
                   external
                 >
@@ -185,7 +195,7 @@ const InterleavingsPage = (): React.ReactElement => {
                     disabled={!canAdd}
                     onClick={() => setOpenNewModal(true)}
                   >
-                    Create Interleaving Experiment
+                    Create interleaving experiment
                   </Button>
                 </Tooltip>
               }
@@ -317,16 +327,18 @@ const InterleavingsPage = (): React.ReactElement => {
                         {DATE_LABELS[il.tab]} {date(il.date)}
                       </TableCell>
                       <TableCell>
-                        {il.tab === "archived"
-                          ? "Archived"
-                          : il.status.slice(0, 1).toUpperCase() +
-                            il.status.slice(1)}
+                        <ExperimentStatusIndicator
+                          experimentData={interleavingStatusIndicatorData(il)}
+                        />
                       </TableCell>
                     </TableRow>
                   ))}
                   {filtered.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={colSpan} className="text-center">
+                      <TableCell
+                        colSpan={colSpan}
+                        style={{ textAlign: "center" }}
+                      >
                         {isFiltered
                           ? "No interleaving experiments match the current filter."
                           : "No interleaving experiments found."}

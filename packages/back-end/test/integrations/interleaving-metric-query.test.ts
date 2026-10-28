@@ -113,10 +113,13 @@ describe("getInterleavingMetricQuery", () => {
     expect(preference).toContain(
       "MIN(e.exposure_timestamp) AS first_exposure_timestamp",
     );
+    expect(preference).toContain("__preferenceEventRows");
     expect(preference).toMatch(
       /INNER JOIN __share s ON \(\s*s\.user_id = m\.user_id\s+AND s\.item_id = cast\(m\.item_id as varchar\)\s*\)/,
     );
-    expect(preference).toContain("m.timestamp >= s.first_exposure_timestamp");
+    expect(preference).toContain(
+      "m.timestamp >= m.__gb_first_exposure_timestamp",
+    );
     expect(preference).toMatch(
       /GROUP BY\s+m\.user_id,\s+cast\(m\.item_id as varchar\)/,
     );
@@ -135,7 +138,7 @@ describe("getInterleavingMetricQuery", () => {
         .slice(sql.indexOf(`${name} AS`), sql.indexOf(`${nextName} AS`))
         .trim()
         .replace(/,$/, "");
-    expect(cteBefore(both, "__events", "__preferenceEvents")).toBe(
+    expect(cteBefore(both, "__events", "__preferenceEventRows")).toBe(
       cteBefore(paired, "__events", "__credited"),
     );
     expect(both).toMatch(
@@ -205,7 +208,7 @@ describe("getInterleavingMetricQuery", () => {
       /__eventRows AS \([\s\S]*WHERE\s+m\.timestamp >= '2020-01-01 00:00:00'\s*\)/,
     );
     expect(sql).toMatch(
-      /__preferenceEvents AS \([\s\S]*m\.timestamp >= s\.first_exposure_timestamp[\s\S]*GROUP BY\s+m\.user_id,\s+cast\(m\.item_id as varchar\)/,
+      /__preferenceEvents AS \([\s\S]*m\.timestamp >= m\.__gb_first_exposure_timestamp[\s\S]*GROUP BY\s+m\.user_id,\s+cast\(m\.item_id as varchar\)/,
     );
   });
 
@@ -442,5 +445,57 @@ describe("getInterleavingMetricQuery dialects", () => {
     expect(() =>
       getInterleavingMetricQuery(redshiftDialect, { ...baseParams, metrics }),
     ).toThrow("not supported");
+  });
+
+  it("evaluates preference row filters against a single relation", () => {
+    const filteredTable = factTableFactory.build({
+      id: "ft_cart",
+      sql: "SELECT user_id, timestamp, item_id, ranking_id, value FROM events",
+      columns: [],
+      filters: [
+        {
+          id: "flt_item",
+          name: "one item",
+          value: "item_id = 'a'",
+          description: "",
+          dateCreated: new Date(),
+          dateUpdated: new Date(),
+          managedBy: "",
+        },
+      ],
+    });
+    const withFilter = (id: string, filterId: string) =>
+      factMetricFactory.build({
+        id,
+        metricType: "proportion",
+        numerator: {
+          factTableId: "ft_cart",
+          column: "$$count",
+          rowFilters: [
+            { operator: "saved_filter", values: [filterId], column: "" },
+          ],
+        },
+      });
+
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      factTable: filteredTable,
+      // Multiple metrics force filters to remain metric-specific.
+      metrics: [
+        { metric: withFilter("fact__a", "flt_item"), analyses: [PREFERENCE] },
+        { metric: withFilter("fact__b", "flt_item"), analyses: [PREFERENCE] },
+      ],
+    });
+
+    expect(sql.replace(/\s+/g, " ")).toContain("item_id = 'a'");
+
+    const preferenceEvents = sql.slice(
+      sql.indexOf("__preferenceEvents AS ("),
+      sql.indexOf("__preferenceUser AS ("),
+    );
+    expect(preferenceEvents).toContain("item_id = 'a'");
+    expect(preferenceEvents).toContain("__preferenceEventRows");
+    expect(preferenceEvents).not.toContain("__share");
+    expect(preferenceEvents).not.toMatch(/\bJOIN\b/);
   });
 });

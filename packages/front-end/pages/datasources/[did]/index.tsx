@@ -9,7 +9,8 @@ import { isSampleDatasource } from "shared/demo-datasource";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical, PiLinkBold } from "react-icons/pi";
 import { datetime } from "shared/dates";
-import { useFeatureValue } from "@growthbook/growthbook-react";
+import { useFeatureIsOn, useFeatureValue } from "@growthbook/growthbook-react";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/ManagedWarehouseNoEventsCallout";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
@@ -24,6 +25,7 @@ import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditD
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
 import { ExperimentAssignmentQueries } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries";
 import { ContextualBanditAssignmentQueries } from "@/components/Settings/EditDataSource/ContextualBanditAssignmentQueries/ContextualBanditAssignmentQueries";
+import { InterleavingExposureQueries } from "@/components/Settings/EditDataSource/InterleavingExposureQueries/InterleavingExposureQueries";
 import { DataSourceViewEditExperimentProperties } from "@/components/Settings/EditDataSource/DataSourceExperimentProperties/DataSourceViewEditExperimentProperties";
 import { DataSourceJupyterNotebookQuery } from "@/components/Settings/EditDataSource/DataSourceJupypterQuery/DataSourceJupyterNotebookQuery";
 import DataSourceForm from "@/components/Settings/DataSourceForm";
@@ -74,6 +76,7 @@ function quotePropertyName(name: string) {
 
 export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
+export const IEQ_ANCHOR_ID = "interleaving-exposure-queries";
 
 const DataSourcePage: FC = () => {
   const permissionsUtil = usePermissionsUtil();
@@ -122,6 +125,7 @@ const DataSourcePage: FC = () => {
   const { hasCommercialFeature, settings: orgSettings } = useUser();
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
+  const interleavingEnabled = useFeatureIsOn("interleave-exp");
 
   const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   // Only the never-provisioned state replaces the settings UI with the onboarding
@@ -168,6 +172,14 @@ const DataSourcePage: FC = () => {
     getAddableEventTrackers(d).length > 0 &&
     canUpdateDataSourceSettings &&
     permissionsUtil.canCreateFactTable({ projects: d.projects || [] });
+
+  // Interleaving analysis unnests a JSON array of ranked items, so only
+  // dialects that can do that are offered the section.
+  const showInterleavingQueries =
+    !!d &&
+    interleavingEnabled &&
+    hasCommercialFeature("interleaving") &&
+    !!getDataSourceSqlDialect(d.type)?.jsonArray;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
   const eventsForwarderFlag = useFeatureValue(
@@ -570,6 +582,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                         />
                       </Frame>
                     )}
+
+                  {showInterleavingQueries && (
+                    <Frame id={IEQ_ANCHOR_ID}>
+                      <InterleavingExposureQueries
+                        dataSource={d}
+                        canEdit={canUpdateDataSourceSettings}
+                      />
+                    </Frame>
+                  )}
                 </>
               )
             ) : (
@@ -642,6 +663,15 @@ mixpanel.init('YOUR PROJECT TOKEN', {
                       />
                     </Frame>
                   )}
+
+                {showInterleavingQueries && (
+                  <Frame id={IEQ_ANCHOR_ID}>
+                    <InterleavingExposureQueries
+                      dataSource={d}
+                      canEdit={canUpdateDataSourceSettings}
+                    />
+                  </Frame>
+                )}
 
                 {d.settings?.userIdTypes &&
                 d.settings.userIdTypes.length > 1 ? (

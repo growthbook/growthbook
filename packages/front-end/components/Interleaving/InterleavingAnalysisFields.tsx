@@ -5,6 +5,7 @@ import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import InterleavingMetricsInput from "./InterleavingMetricsInput";
 
 export type InterleavingAnalysisValue = Pick<
@@ -26,11 +27,13 @@ export default function InterleavingAnalysisFields({
   setValue,
   project,
   disabled,
+  onAddExposureQuery,
 }: {
   value: InterleavingAnalysisValue;
   setValue: (value: InterleavingAnalysisValue) => void;
   project?: string;
   disabled?: boolean;
+  onAddExposureQuery?: () => void;
 }) {
   const { datasources } = useDefinitions();
   const { exposureQueries, loading } = useInterleavingExposureQueries(
@@ -71,13 +74,26 @@ export default function InterleavingAnalysisFields({
       />
       {value.datasource && !loading && exposureQueries.length === 0 ? (
         <Callout status="warning" mb="3">
-          This data source has no interleaving exposure queries. Create one with
-          the REST API (<code>POST /api/v1/interleaving-exposure-queries</code>
-          ), then come back to select it.
+          No Interleaving Exposure Queries exist for this Data Source yet.{" "}
+          {onAddExposureQuery ? (
+            <>
+              <Link
+                href="#"
+                className="underline"
+                onClick={(e) => {
+                  e.preventDefault();
+                  onAddExposureQuery();
+                }}
+              >
+                Add one
+              </Link>
+              .
+            </>
+          ) : null}
         </Callout>
       ) : (
         <SelectField
-          label="Exposure Query"
+          label="Interleaving Exposure Query"
           required
           value={value.interleavingExposureQueryId}
           onChange={(interleavingExposureQueryId) => {
@@ -97,7 +113,7 @@ export default function InterleavingAnalysisFields({
         />
       )}
       <SelectField
-        label="Identifier Type"
+        label="Identifier type"
         required
         value={value.userIdType}
         onChange={(userIdType) =>

@@ -5,7 +5,9 @@ import type { ApiInterleavingInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
+import { interleavingStatusIndicatorData } from "@/services/interleaving";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Heading from "@/ui/Heading";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -13,9 +15,18 @@ import ConfirmDialog from "@/ui/ConfirmDialog";
 import Metadata from "@/ui/Metadata";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SortedTags from "@/components/Tags/SortedTags";
-import InterleavingStatusBadge from "./InterleavingStatusBadge";
+import Owner from "@/components/Avatar/Owner";
 import InterleavingOverview from "./InterleavingOverview";
 import InterleavingResults from "./InterleavingResults";
+import InterleavingMoreMenu from "./InterleavingMoreMenu";
+import EditInterleavingInfoModal from "./EditInterleavingInfoModal";
+import EditInterleavingStatusModal from "./EditInterleavingStatusModal";
+import EditInterleavingRankersModal from "./EditInterleavingRankersModal";
+import EditInterleavingTargetingModal from "./EditInterleavingTargetingModal";
+import EditInterleavingAnalysisModal from "./EditInterleavingAnalysisModal";
+import EditInterleavingEnvironmentsModal from "./EditInterleavingEnvironmentsModal";
+import CompareInterleavingEventsModal from "./CompareInterleavingEventsModal";
+import EditInterleavingDescriptionModal from "./EditInterleavingDescriptionModal";
 
 export default function InterleavingDetailPage({
   interleaving: il,
@@ -31,16 +42,24 @@ export default function InterleavingDetailPage({
   const [confirmStop, setConfirmStop] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [infoModal, setInfoModal] = useState(false);
+  const [statusModal, setStatusModal] = useState(false);
+  const [rankersModal, setRankersModal] = useState(false);
+  const [targetingModal, setTargetingModal] = useState(false);
+  const [analysisModal, setAnalysisModal] = useState(false);
+  const [environmentsModal, setEnvironmentsModal] = useState(false);
+  const [auditModal, setAuditModal] = useState(false);
+  const [descriptionModal, setDescriptionModal] = useState(false);
+
   const canRun =
     !il.archived &&
     permissionsUtil.canRunInterleaving(
       { project: il.project },
       environments.map((e) => e.id),
     );
-  const canEdit = permissionsUtil.canUpdateInterleaving(
-    { project: il.project },
-    {},
-  );
+  const canEdit =
+    permissionsUtil.canUpdateInterleaving({ project: il.project }, {}) &&
+    !il.archived;
 
   const start = async () => {
     await restApiCall(interleavingEndpoints.startInterleaving, {
@@ -54,13 +73,6 @@ export default function InterleavingDetailPage({
     });
     await mutate();
   };
-  const setArchived = async (archived: boolean) => {
-    await restApiCall(interleavingEndpoints.updateInterleaving, {
-      params: { id: il.id },
-      body: { archived },
-    });
-    await mutate();
-  };
 
   return (
     <Box>
@@ -69,7 +81,11 @@ export default function InterleavingDetailPage({
           <Heading as="h1" size="xl" weight="semibold" mb="0">
             {il.name}
           </Heading>
-          <InterleavingStatusBadge interleaving={il} />
+          <Box style={{ userSelect: "none" }}>
+            <ExperimentStatusIndicator
+              experimentData={interleavingStatusIndicatorData(il)}
+            />
+          </Box>
         </Flex>
         <Flex align="center" gap="2" flexShrink="0">
           {canRun && il.status === "draft" && (
@@ -86,15 +102,13 @@ export default function InterleavingDetailPage({
               Stop
             </Button>
           )}
-          {canEdit && il.status !== "running" && (
-            <Button
-              variant="ghost"
-              onClick={() => setArchived(!il.archived)}
-              setError={setError}
-            >
-              {il.archived ? "Unarchive" : "Archive"}
-            </Button>
-          )}
+          <InterleavingMoreMenu
+            interleaving={il}
+            mutate={mutate}
+            onEditInfo={() => setInfoModal(true)}
+            onEditStatus={() => setStatusModal(true)}
+            onAuditLog={() => setAuditModal(true)}
+          />
         </Flex>
       </Flex>
       {error && (
@@ -111,6 +125,7 @@ export default function InterleavingDetailPage({
               : "None"
           }
         />
+        <Metadata label="Owner" value={<Owner ownerId={il.owner} />} />
         <Metadata
           label="Data Source"
           value={getDatasourceById(il.datasource)?.name ?? il.datasource}
@@ -137,19 +152,90 @@ export default function InterleavingDetailPage({
           <Box pt="4">
             <InterleavingOverview
               interleaving={il}
-              mutate={mutate}
-              canEdit={canEdit && !il.archived}
+              canEdit={canEdit}
+              editDescription={
+                canEdit ? () => setDescriptionModal(true) : undefined
+              }
+              editEnvironments={
+                canEdit ? () => setEnvironmentsModal(true) : undefined
+              }
+              editRankers={canEdit ? () => setRankersModal(true) : undefined}
+              editTargeting={
+                canEdit ? () => setTargetingModal(true) : undefined
+              }
+              editAnalysis={canEdit ? () => setAnalysisModal(true) : undefined}
             />
           </Box>
         </TabsContent>
         {il.status !== "draft" && (
           <TabsContent value="results">
             <Box pt="4">
-              <InterleavingResults interleaving={il} />
+              <InterleavingResults
+                interleaving={il}
+                editAnalysis={
+                  canEdit ? () => setAnalysisModal(true) : undefined
+                }
+              />
             </Box>
           </TabsContent>
         )}
       </Tabs>
+
+      {infoModal && (
+        <EditInterleavingInfoModal
+          interleaving={il}
+          mutate={mutate}
+          close={() => setInfoModal(false)}
+        />
+      )}
+      {statusModal && (
+        <EditInterleavingStatusModal
+          interleaving={il}
+          mutate={mutate}
+          close={() => setStatusModal(false)}
+        />
+      )}
+      {rankersModal && (
+        <EditInterleavingRankersModal
+          interleaving={il}
+          mutate={mutate}
+          close={() => setRankersModal(false)}
+        />
+      )}
+      {targetingModal && (
+        <EditInterleavingTargetingModal
+          interleaving={il}
+          mutate={mutate}
+          close={() => setTargetingModal(false)}
+        />
+      )}
+      {analysisModal && (
+        <EditInterleavingAnalysisModal
+          interleaving={il}
+          mutate={mutate}
+          close={() => setAnalysisModal(false)}
+        />
+      )}
+      {environmentsModal && (
+        <EditInterleavingEnvironmentsModal
+          interleaving={il}
+          mutate={mutate}
+          close={() => setEnvironmentsModal(false)}
+        />
+      )}
+      {descriptionModal && (
+        <EditInterleavingDescriptionModal
+          interleaving={il}
+          mutate={mutate}
+          close={() => setDescriptionModal(false)}
+        />
+      )}
+      {auditModal && (
+        <CompareInterleavingEventsModal
+          interleavingId={il.id}
+          onClose={() => setAuditModal(false)}
+        />
+      )}
 
       {confirmStop && (
         <ConfirmDialog

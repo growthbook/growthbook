@@ -81,6 +81,9 @@ export function interleavingMetricColumn(metricId: string, stat: string) {
  * independent.
  */
 
+// Avoid collisions with warehouse columns copied through `m.*`.
+const PREFERENCE_EXPOSURE_TS_COLUMN = "__gb_first_exposure_timestamp";
+
 // One metric with the SQL fragments its CTEs need
 type PlanEntry = {
   // Index within the query, used for intermediate CTE columns
@@ -337,6 +340,20 @@ export function getInterleavingMetricQuery(
       GROUP BY ${eventUserId}, ${eventRankingId}, ${eventItemId}
     )`;
 
+  // Saved row filters can contain unqualified columns, so evaluate them with
+  // only one relation in scope.
+  const preferenceEventRowsCTE = `
+    __preferenceEventRows AS (
+      SELECT
+        m.*,
+        s.first_exposure_timestamp AS ${PREFERENCE_EXPOSURE_TS_COLUMN}
+      FROM __eventRows m
+      INNER JOIN __share s ON (
+        s.user_id = ${eventUserId}
+        AND s.item_id = ${eventItemId}
+      )
+    )`;
+
   const preferenceEventsCTE = `
     __preferenceEvents AS (
       SELECT
@@ -345,12 +362,8 @@ export function getInterleavingMetricQuery(
           `${eventItemId} AS item_id`,
           ...plan.preference.map((e) => `${e.value} AS value_${e.i}`),
         ])}
-      FROM __eventRows m
-      INNER JOIN __share s ON (
-        s.user_id = ${eventUserId}
-        AND s.item_id = ${eventItemId}
-      )
-      WHERE ${eventTs} >= s.first_exposure_timestamp
+      FROM __preferenceEventRows m
+      WHERE ${eventTs} >= m.${PREFERENCE_EXPOSURE_TS_COLUMN}
       GROUP BY ${eventUserId}, ${eventItemId}
     )`;
 
@@ -476,7 +489,7 @@ export function getInterleavingMetricQuery(
     ...(includePreference ? [shareCTE] : []),
     eventRowsCTE,
     ...(includePaired ? [eventsCTE] : []),
-    ...(includePreference ? [preferenceEventsCTE] : []),
+    ...(includePreference ? [preferenceEventRowsCTE, preferenceEventsCTE] : []),
     ...(includePaired ? [creditedCTE, impressionCTE, pairedUserCTE] : []),
     ...(includePreference ? [preferenceUserCTE] : []),
   ].filter(Boolean);

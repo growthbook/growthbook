@@ -222,7 +222,8 @@
                       "statistics/aggregation",
                       "statistics/contextual-bandit-technical",
                       "app/sticky-bucketing",
-                      "experimentation-analysis/cluster-experiments"
+                      "experimentation-analysis/cluster-experiments",
+                      "experimentation-analysis/interleaving"
                     ]
                   },
                   {
@@ -1051,12 +1052,14 @@
                 "pages": [
                   "api/Interleavings/operation/getInterleaving",
                   "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/deleteInterleaving",
                   "api/Interleavings/operation/listInterleavings",
                   "api/Interleavings/operation/createInterleaving",
                   "api/Interleavings/operation/startInterleaving",
                   "api/Interleavings/operation/stopInterleaving",
                   "api/Interleavings/operation/refreshInterleaving",
                   "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/getInterleavingStatus",
                   "api/Interleavings/operation/listInterleavingSnapshots",
                   "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
@@ -1253,6 +1256,7 @@
               "api/Interleaving_model",
               "api/InterleavingExposureQuery_model",
               "api/InterleavingSnapshot_model",
+              "api/InterleavingSnapshotStatus_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

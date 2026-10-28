@@ -1,0 +1,76 @@
+---
+title: Interleaving Experiments
+description: Compare two rankers head-to-head by merging their lists for each user, detecting ranking differences with far less traffic than an A/B test.
+sidebarTitle: Interleaving
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="interleaving" />
+
+Interleaving experiments are in beta for enterprise customers and will evolve with customer feedback.
+
+## What interleaving does
+
+A standard A/B test splits **users** between two rankers: each user sees one ranker's list, and you compare engagement across the two groups. Because the comparison is between people, it needs a lot of traffic before the difference between two similar rankers clears the noise.
+
+Interleaving splits **the list instead of the audience**. For every impression, GrowthBook merges the two rankers' lists into one, drafting items from each in turn, and shows the merged list to the user. Both rankers are then measured on the same user, in the same session, against the same intent — so the comparison is paired, and far less traffic is needed to tell two rankers apart.
+
+Interleaving is best at answering "which ranker orders items better?" It does not replace an A/B test for measuring the downstream business impact of shipping a ranker, because every user is exposed to both.
+
+## How it works
+
+1. Your code calls `interleave()` with the experiment's key and the two rankers' lists.
+2. The SDK drafts items from each ranker into a single merged list, records which ranker contributed each item, and whether that item was _competitive_ — present in both rankers' lists at a comparable position.
+3. Your application logs one impression row per merged list, including the per-item detail.
+4. GrowthBook reads those rows through an [Interleaving Exposure Query](#interleaving-exposure-queries) and credits engagement back to whichever ranker supplied the engaged item.
+
+The `ranking_id` that the SDK emits ties each impression to the draft that produced it, which is what makes the paired comparison possible.
+
+## Interleaving Exposure Queries
+
+An interleaving experiment reads its exposures from an Interleaving Exposure Query rather than from an Experiment Assignment Query, because the shape is different: **one row per impression**, with the item-level detail in a JSON array.
+
+Add one from **Data Sources → your Data Source → Interleaving Exposure Queries**.
+
+The query must return these columns:
+
+| Column          | Description                                                  |
+| --------------- | ------------------------------------------------------------ |
+| `timestamp`     | When the merged list was shown.                              |
+| `experiment_id` | Matched against the experiment's tracking key.               |
+| `ranking_id`    | Identifies one merged list, emitted by the SDK.              |
+| `items`         | JSON array of the ranked items (see below).                  |
+| your identifier | The identifier column the analysis joins on, e.g. `user_id`. |
+
+Each element of `items` carries:
+
+| Field         | Description                                                                     |
+| ------------- | ------------------------------------------------------------------------------- |
+| `itemId`      | The item's id, joined against `item_id` on your metric's Fact Table.            |
+| `variation`   | Which ranker contributed this item, matched against the ranker's key.           |
+| `competitive` | Whether both rankers offered this item comparably, so the draft was a fair one. |
+
+Only warehouses whose SQL dialect can unnest a JSON array support interleaving, so the section appears on those Data Sources only.
+
+## Metrics
+
+Interleaving analyzes mean and proportion Fact Metrics. The metric's Fact Table needs an `item_id` column so engagement can be attributed to a specific ranked item. Paired analysis additionally needs a `ranking_id` column, so engagement can be tied back to the draft it came from.
+
+## Analyses
+
+Each metric can be analyzed two ways, and you pick per metric when configuring the experiment.
+
+**Paired** compares the two rankers _within the same ranked list_, counting the metric credited to each ranker's items per engaged impression. It is the more sensitive of the two and the reason interleaving needs less traffic, but it requires the `ranking_id` column.
+
+**Preference** works per exposed user: each user is credited to whichever ranker's items they engaged with more. It is coarser but needs only `item_id`.
+
+## Rankers
+
+An interleaving experiment always has exactly two rankers, control first. Each carries a key, a display name, and a JSON config that is handed to `getList()` in the SDK — so you can vary a model name, a weighting, or any other parameter your ranking code reads.
+
+Users who are not interleaved — because targeting excluded them, or the experiment is off in their environment — get the first ranker's list.
+
+## Lifecycle
+
+An interleaving experiment is a draft until you start it and runs until you stop it. You can archive it at any time; archiving a running experiment immediately removes it from SDK payloads. Results are refreshed on demand from the Results tab, and the previous results stay on screen while a new analysis runs.

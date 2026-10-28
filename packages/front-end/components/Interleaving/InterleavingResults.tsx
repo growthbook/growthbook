@@ -1,9 +1,10 @@
 import { Box, Flex } from "@radix-ui/themes";
+import { PiArrowClockwise } from "react-icons/pi";
 import type {
   ApiInterleavingInterface,
   InterleavingAnalysis,
 } from "shared/validators";
-import { datetime } from "shared/dates";
+import { ago, getValidDate } from "shared/dates";
 import { useInterleavingResults } from "@/hooks/useInterleavings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -11,10 +12,16 @@ import { interleavingResultToSnapshotMetrics } from "@/services/interleaving";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import ResultsTable from "@/components/Experiment/ResultsTable";
+import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import QueriesLastRun from "@/components/Queries/QueriesLastRun";
+import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
+import StatusErrorCallout from "@/components/ContextualBandit/StatusErrorCallout";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 
@@ -39,18 +46,32 @@ const SECTIONS: {
 
 export default function InterleavingResults({
   interleaving: il,
+  editAnalysis,
 }: {
   interleaving: ApiInterleavingInterface;
+  editAnalysis?: () => void;
 }) {
-  const { getExperimentMetricById } = useDefinitions();
+  const { getExperimentMetricById, getDatasourceById } = useDefinitions();
+  const permissionsUtil = usePermissionsUtil();
   const pValueThreshold = usePValueThreshold(il.project);
   const bayesianConfidenceLevels = useConfidenceLevels(il.project);
-  const { snapshot, loading, error, refresh, refreshing, refreshError } =
-    useInterleavingResults(il.id);
+  const {
+    snapshot,
+    latest,
+    running,
+    loading,
+    error,
+    statusError,
+    mutate,
+    refresh,
+    refreshing,
+    refreshError,
+  } = useInterleavingResults(il.id);
+  const datasource = getDatasourceById(il.datasource);
+  const canRefresh =
+    !!datasource && permissionsUtil.canRunExperimentQueries(datasource);
 
   if (loading) return <LoadingOverlay />;
-
-  const running = snapshot?.status === "running";
   const variations = il.variations.map((v, index) => ({
     id: v.id,
     name: v.name || v.key,
@@ -74,29 +95,84 @@ export default function InterleavingResults({
       ];
     });
 
+  const { status: queryStatus } = getQueryStatus(
+    latest?.queries ?? [],
+    latest?.error,
+  );
+
+  const justStarted =
+    !!il.dateStarted &&
+    (Date.now() - getValidDate(il.dateStarted).getTime()) / (1000 * 60) < 120;
+  const emptyStateMessage = !snapshot
+    ? 'Click the "Update" button above.'
+    : justStarted && il.dateStarted
+      ? `It was just started ${ago(il.dateStarted)}. Give it a little longer and click the "Update" button above to check again.`
+      : "Make sure your Interleaving Experiment is tracking properly.";
+
   return (
     <Box>
-      <Flex align="center" justify="between" mb="3">
-        <Text color="text-mid">
-          {snapshot
-            ? `Last updated ${datetime(snapshot.dateCreated)}`
-            : "No results yet."}
-        </Text>
-        <Button onClick={refresh} loading={refreshing || running}>
-          {running ? "Running..." : "Update Results"}
-        </Button>
-      </Flex>
-      {(error || refreshError) && (
-        <Callout status="error" mb="3">
-          {refreshError || error?.message}
-        </Callout>
-      )}
-      {snapshot?.status === "error" && (
-        <Callout status="error" mb="3">
-          {snapshot.error || "The last analysis failed."}
-        </Callout>
-      )}
-      {snapshot?.status === "success" &&
+      <Frame px="0" py="0" style={{ overflow: "hidden" }}>
+        <Box px="3" pt="3" pb="1">
+          <Flex align="center" justify="between" gapX="6" gapY="2" wrap="wrap">
+            <Box style={{ flex: "1 0 auto", order: -1 }}>
+              <QueriesLastRun
+                status={queryStatus}
+                dateCreated={
+                  snapshot ? new Date(snapshot.dateCreated) : undefined
+                }
+              />
+            </Box>
+            <Flex align="center" gap="2">
+              <Button
+                onClick={refresh}
+                loading={refreshing || running}
+                disabled={!canRefresh}
+                variant="outline"
+                icon={<PiArrowClockwise />}
+              >
+                Update
+              </Button>
+              <ResultMoreMenu
+                datasource={datasource}
+                project={il.project}
+                hasData={!!snapshot?.results?.length}
+                legacyQueries={latest?.queries ?? []}
+                legacyQueryError={latest?.error}
+                editMetrics={editAnalysis}
+                canEditMetrics={!!editAnalysis}
+                editMetricsLabel="Edit analysis settings"
+                forceRefresh={canRefresh ? refresh : undefined}
+                notebookUrl=""
+                notebookFilename={il.trackingKey}
+                supportsNotebooks={false}
+              />
+            </Flex>
+          </Flex>
+        </Box>
+        {(error || refreshError) && (
+          <Callout status="error" mx="3" mb="3">
+            {refreshError || error?.message}
+          </Callout>
+        )}
+        {statusError && (
+          <Box mx="3" mb="3">
+            <StatusErrorCallout error={statusError} onRetry={() => mutate()} />
+          </Box>
+        )}
+        {latest?.status === "error" && (
+          <Callout status="error" mx="3" mb="3">
+            {latest.error || "The most recent update failed."}
+          </Callout>
+        )}
+        {!snapshot?.results?.length &&
+          !running &&
+          latest?.status !== "error" && (
+            <Callout status="info" mx="3" mb="3">
+              No data yet. {emptyStateMessage}
+            </Callout>
+          )}
+      </Frame>
+      {snapshot &&
         SECTIONS.map(({ type, title, description }) => {
           const rows = rowsFor(type);
           if (!rows.length) return null;

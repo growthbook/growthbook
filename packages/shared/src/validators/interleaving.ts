@@ -257,7 +257,9 @@ export const apiUpdateInterleavingBody = z.strictObject({
   archived: z
     .boolean()
     .optional()
-    .describe("Stop a running interleaving experiment before archiving it."),
+    .describe(
+      "Archiving removes a running interleaving experiment from the SDK payload, so its rankers stop serving immediately.",
+    ),
 
   trackingKey: z.string().optional(),
   hashAttribute: z.string().optional(),

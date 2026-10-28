@@ -1,15 +1,21 @@
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/router";
+import { useForm } from "react-hook-form";
+import { Box } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { useInterleavingExposureQueries } from "@/hooks/useInterleavings";
+import { useUser } from "@/services/UserContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
+import SelectOwner from "@/components/Owner/SelectOwner";
 import TagsInput from "@/components/Tags/TagsInput";
+import Text from "@/ui/Text";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import type { InterleavingRankers } from "@/components/Interleaving/InterleavingVariationsInput";
 import InterleavingAnalysisFields, {
@@ -17,6 +23,7 @@ import InterleavingAnalysisFields, {
   InterleavingAnalysisValue,
 } from "@/components/Interleaving/InterleavingAnalysisFields";
 import { getMetricsError } from "@/components/Interleaving/InterleavingMetricsInput";
+import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
 
 const DEFAULT_RANKERS: InterleavingRankers = [
   { key: "control", name: "Control", config: "{}" },
@@ -35,18 +42,30 @@ function assertNoError(error: string | null) {
   if (error) throw new Error(error);
 }
 
+type InterleavingFormValues = {
+  project: string;
+  name: string;
+  key: string;
+  owner: string;
+  tags: string[];
+  hashAttribute: string;
+};
+
 export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
-  const { project: currentProject, projects, refreshTags } = useDefinitions();
+  const {
+    project: currentProject,
+    projects,
+    refreshTags,
+    getDatasourceById,
+  } = useDefinitions();
+  const { userId } = useUser();
 
   const [step, setStep] = useState(0);
-  const [project, setProject] = useState(currentProject);
-  const [name, setName] = useState("");
-  const [key, setKey] = useState("");
   const [keyEdited, setKeyEdited] = useState(false);
-  const [tags, setTags] = useState<string[]>([]);
+  const [addingQuery, setAddingQuery] = useState(false);
   const [analysis, setAnalysis] = useState<InterleavingAnalysisValue>({
     datasource: "",
     interleavingExposureQueryId: "",
@@ -54,12 +73,35 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
     metrics: [],
   });
 
-  const hashAttributes = useAttributeSchema(false, project)
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
-  const [hashAttribute, setHashAttribute] = useState(
-    hashAttributes.includes("id") ? "id" : (hashAttributes[0] ?? "id"),
+  const form = useForm<InterleavingFormValues>({
+    defaultValues: {
+      project: currentProject,
+      name: "",
+      key: "",
+      owner: userId || "",
+      tags: [],
+      hashAttribute: "id",
+    },
+  });
+  const project = form.watch("project");
+  const attributeSchema = useAttributeSchema(false, project);
+  const hashAttributes = useMemo(
+    () =>
+      attributeSchema
+        .filter((attribute) => attribute.hashAttribute)
+        .map((attribute) => attribute.property),
+    [attributeSchema],
   );
+  const previousProject = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (previousProject.current === project) return;
+    previousProject.current = project;
+    form.setValue(
+      "hashAttribute",
+      hashAttributes.includes("id") ? "id" : (hashAttributes[0] ?? "id"),
+    );
+  }, [form, hashAttributes, project]);
 
   const canCreate = permissionsUtil.canCreateInterleaving({ project });
 
@@ -76,21 +118,21 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
   );
 
   const validateOverview = async () => {
-    if (!name.trim()) throw new Error("Name is required");
-    if (!key) throw new Error("Key is required");
+    if (!form.watch("name").trim()) throw new Error("Name is required");
+    if (!form.watch("key")) throw new Error("Key is required");
   };
 
-  const submit = async () => {
-    await validateOverview();
+  const submit = form.handleSubmit(async (data) => {
     assertNoError(getAnalysisError(analysis));
     assertNoError(getMetricsError(analysis.metrics));
     const res = await restApiCall(interleavingEndpoints.createInterleaving, {
       body: {
-        name: name.trim(),
-        key,
-        project: project || undefined,
-        tags,
-        hashAttribute,
+        name: data.name.trim(),
+        key: data.key,
+        project: data.project || undefined,
+        owner: data.owner || undefined,
+        tags: data.tags,
+        hashAttribute: data.hashAttribute,
         variations: DEFAULT_RANKERS,
         environmentSettings: Object.fromEntries(
           Object.entries(environmentSettings).map(([id, s]) => [
@@ -101,9 +143,37 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
         ...analysis,
       },
     });
-    if (tags.length) await refreshTags(tags);
+    if (data.tags.length) await refreshTags(data.tags);
     router.push(`/interleaving/${res.interleaving.id}`);
-  };
+  });
+
+  const { mutate: mutateQueries } = useInterleavingExposureQueries(
+    analysis.datasource,
+  );
+  const analysisDatasource = analysis.datasource
+    ? getDatasourceById(analysis.datasource)
+    : null;
+
+  // Swap modals because Radix renders beneath the legacy PagedModal portal.
+  if (addingQuery && analysisDatasource) {
+    return (
+      <AddEditInterleavingExposureQueryModal
+        dataSource={analysisDatasource}
+        mode="add"
+        onSave={async (q) => {
+          await mutateQueries();
+          setAnalysis((prev) => ({
+            ...prev,
+            interleavingExposureQueryId: q.id,
+            userIdType: q.userIdTypes[0] ?? "",
+            metrics: [],
+          }));
+          setAddingQuery(false);
+        }}
+        onCancel={() => setAddingQuery(false)}
+      />
+    );
+  }
 
   return (
     <PagedModal
@@ -126,7 +196,7 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
             <SelectField
               label="Project"
               value={project}
-              onChange={setProject}
+              onChange={(v) => form.setValue("project", v)}
               options={projects
                 .filter((p) =>
                   permissionsUtil.canCreateInterleaving({ project: p.id }),
@@ -138,30 +208,41 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
           <Field
             label="Name"
             required
-            value={name}
+            value={form.watch("name")}
             onChange={(e) => {
-              setName(e.target.value);
-              if (!keyEdited) setKey(keyFromName(e.target.value));
+              form.setValue("name", e.target.value);
+              if (!keyEdited) {
+                form.setValue("key", keyFromName(e.target.value));
+              }
             }}
           />
           <Field
             label="Key"
             required
-            value={key}
+            value={form.watch("key")}
             onChange={(e) => {
-              setKey(e.target.value);
+              form.setValue("key", e.target.value);
               setKeyEdited(true);
             }}
             helpText="Passed to interleave() in your code. Can't be changed later."
           />
-          <div className="form-group">
-            <label>Tags</label>
-            <TagsInput value={tags} onChange={setTags} />
-          </div>
+          <SelectOwner
+            value={form.watch("owner")}
+            onChange={(v) => form.setValue("owner", v)}
+          />
+          <Box mb="2">
+            <Text weight="semibold">Tags</Text>
+          </Box>
+          <Box mb="3">
+            <TagsInput
+              value={form.watch("tags")}
+              onChange={(tags) => form.setValue("tags", tags)}
+            />
+          </Box>
           <SelectField
-            label="Hash Attribute"
-            value={hashAttribute}
-            onChange={setHashAttribute}
+            label="Hash attribute"
+            value={form.watch("hashAttribute")}
+            onChange={(v) => form.setValue("hashAttribute", v)}
             options={hashAttributes.map((a) => ({ value: a, label: a }))}
             createable
             helpText="Decides which users are interleaved."
@@ -186,6 +267,7 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
             value={analysis}
             setValue={setAnalysis}
             project={project}
+            onAddExposureQuery={() => setAddingQuery(true)}
           />
         </div>
       </Page>

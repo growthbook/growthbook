@@ -21,25 +21,17 @@ const BaseClass = MakeModelClass({
 });
 
 export class InterleavingSnapshotModel extends BaseClass {
-  // Snapshots have no project of their own: the parent Interleaving's current
-  // project is what authorizes them, and a snapshot is only ever reached
-  // through a parent already loaded via `models.interleavings`. A frozen copy
-  // of the project would go stale the moment the experiment moved.
+  // Callers authorize access through the parent interleaving.
   protected canRead(): boolean {
     return true;
   }
 
-  // The datasource id is nested in frozenSettings, so BaseModel wouldn't
-  // detect it on its own.
   protected override getForeignKeys(doc: InterleavingSnapshotInterface) {
     const keys = super.getForeignKeys(doc);
     const datasource = doc.frozenSettings?.datasourceId;
     return datasource ? { ...keys, datasource } : keys;
   }
 
-  // Refreshing results is a query, not an analysis edit. canCreateExperimentSnapshot
-  // is just canRunExperimentQueries, and that is what the service and the query
-  // runner check, so a RunQueries-only member has to pass here too.
   private canRunQueries(doc: InterleavingSnapshotInterface): boolean {
     const { datasource } = this.getForeignRefs(doc, false);
     return (
@@ -71,7 +63,6 @@ export class InterleavingSnapshotModel extends BaseClass {
     return snapshots[0] || null;
   }
 
-  // Capped at 100 regardless of what the caller asks for.
   public listForInterleaving(
     interleavingId: string,
     limit: number = 20,
@@ -80,5 +71,23 @@ export class InterleavingSnapshotModel extends BaseClass {
       { interleavingId },
       { sort: { dateCreated: -1 }, limit: Math.min(limit, 100) },
     );
+  }
+
+  public async getLatestSuccessfulForInterleaving(
+    interleavingId: string,
+  ): Promise<InterleavingSnapshotInterface | null> {
+    const snapshots = await this._find(
+      { interleavingId, status: "success" },
+      { sort: { dateCreated: -1 }, limit: 1 },
+    );
+    return snapshots[0] || null;
+  }
+
+  // Parent deletion has already been authorized.
+  public async deleteAllForInterleaving(interleavingId: string) {
+    await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      interleavingId,
+    });
   }
 }
