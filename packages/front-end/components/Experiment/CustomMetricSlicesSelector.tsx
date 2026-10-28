@@ -314,7 +314,6 @@ export default function CustomMetricSlicesSelector({
                           return (
                             <React.Fragment key={comboIndex}>
                               {comboIndex > 0 && <Text size="sm">AND</Text>}
-                              {/* As a multi-select's values read. */}
                               <Flex
                                 align="center"
                                 px="2"
@@ -766,7 +765,6 @@ function EditingInterface({
           return (
             <Flex key={levelIndex} align="center" gap="3">
               {levelIndex > 0 ? <Text size="sm">AND</Text> : null}
-              {/* A chip, as a multi-select's values are. */}
               <Flex
                 align="center"
                 py="1"
@@ -781,7 +779,6 @@ function EditingInterface({
                   {name}
                 </Text>
                 {valueInput}
-                {/* A multi-select value's remove control. */}
                 <button
                   type="button"
                   aria-label={`Remove ${name}`}
