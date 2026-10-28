@@ -45,6 +45,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import Badge from "@/ui/Badge";
+import ScrollArea from "@/ui/ScrollArea";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import { DashboardBlockTypeMenuItems } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlockTypeMenu";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
@@ -435,14 +436,11 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
   return (
     <Flex
       ref={scrollRef}
-      className={clsx(
-        "appbox dashboard-block px-4 py-3 mb-0 position-relative",
-        {
-          "border-violet": editingBlock || isFocused,
-          "dashboard-disabled": disableBlock === "full",
-        },
-      )}
-      style={{ overflow: "auto", height: "100%", width: "100%" }}
+      className={clsx("appbox dashboard-block mb-0 position-relative", {
+        "border-violet": editingBlock || isFocused,
+        "dashboard-disabled": disableBlock === "full",
+      })}
+      style={{ overflow: "hidden", height: "100%", width: "100%" }}
       direction="column"
     >
       {isEditing && !editingBlock && disableBlock === "none" && (
@@ -469,7 +467,7 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           }}
         ></div>
       )}
-      <Flex align="center" mb="2">
+      <Flex align="center" mb="2" px="4" pt="3">
         {isEditing && canMoveBlock && disableBlock !== "full" && (
           <IconButton
             className="dashboard-block-drag-handle"
@@ -676,56 +674,61 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </div>
         ) : null}
       </Flex>
-      <Text>{block.description}</Text>
-      {/* Check for possible error states to ensure block component has all necessary data */}
-      {!definitionsReady ||
-      experimentsLoading ||
-      dashboardSnapshotLoading ||
-      metricAnalysisLoading ||
-      dashboardContextLoading ||
-      (blockHasSavedQuery && savedQueryLoading) ||
-      (blockHasMetricAnalysis && metricAnalysisLoading) ? (
-        <BlockLoadingSnapshot />
-      ) : blockNeedsConfiguration ? (
-        <BlockNeedsConfiguration block={block} />
-      ) : requiresSnapshot &&
-        (!snapshot || !analysis || !analysis.results[0]) ? (
-        <BlockMissingData />
-      ) : blockMissingHealthCheck ? (
-        <BlockMissingHealthCheck />
-      ) : Object.keys(objectProps).some(
-          (key) =>
-            !isDefined(objectProps[key]) ||
-            (Array.isArray(objectProps[key]) &&
-              objectProps[key].some((el) => !isDefined(el))),
-        ) ? (
-        <BlockObjectMissing block={block} />
-      ) : (
-        <ErrorBoundary fallback={<BlockRenderError block={block} />}>
-          <BlockComponent
-            isTabActive={isTabActive}
-            block={block}
-            dashboardGlobalControls={dashboardGlobalControls}
-            dashboardComparison={dashboardComparison}
-            blockIndex={blockIndex}
-            setBlock={setBlock}
-            isEditing={isEditing}
-            snapshot={
-              requiresSnapshot
-                ? (snapshot as ExperimentSnapshotInterface)
-                : ({} as ExperimentSnapshotInterface)
-            }
-            analysis={
-              requiresSnapshot
-                ? (analysis as ExperimentSnapshotAnalysis)
-                : ({} as ExperimentSnapshotAnalysis)
-            }
-            mutate={mutate}
-            // objectProps should be validated above to actually contain all the keys and not be Partial
-            {...(objectProps as unknown as ObjectProps<T>)}
-          />
-        </ErrorBoundary>
-      )}
+      {/* The title and its menu stay put while the content scrolls. */}
+      <ScrollArea fill horizontal style={{ flex: 1, minHeight: 0 }}>
+        <Flex direction="column" flexGrow="1" px="4" pb="3">
+          <Text>{block.description}</Text>
+          {/* Check for possible error states to ensure block component has all necessary data */}
+          {!definitionsReady ||
+          experimentsLoading ||
+          dashboardSnapshotLoading ||
+          metricAnalysisLoading ||
+          dashboardContextLoading ||
+          (blockHasSavedQuery && savedQueryLoading) ||
+          (blockHasMetricAnalysis && metricAnalysisLoading) ? (
+            <BlockLoadingSnapshot />
+          ) : blockNeedsConfiguration ? (
+            <BlockNeedsConfiguration block={block} />
+          ) : requiresSnapshot &&
+            (!snapshot || !analysis || !analysis.results[0]) ? (
+            <BlockMissingData />
+          ) : blockMissingHealthCheck ? (
+            <BlockMissingHealthCheck />
+          ) : Object.keys(objectProps).some(
+              (key) =>
+                !isDefined(objectProps[key]) ||
+                (Array.isArray(objectProps[key]) &&
+                  objectProps[key].some((el) => !isDefined(el))),
+            ) ? (
+            <BlockObjectMissing block={block} />
+          ) : (
+            <ErrorBoundary fallback={<BlockRenderError block={block} />}>
+              <BlockComponent
+                isTabActive={isTabActive}
+                block={block}
+                dashboardGlobalControls={dashboardGlobalControls}
+                dashboardComparison={dashboardComparison}
+                blockIndex={blockIndex}
+                setBlock={setBlock}
+                isEditing={isEditing}
+                snapshot={
+                  requiresSnapshot
+                    ? (snapshot as ExperimentSnapshotInterface)
+                    : ({} as ExperimentSnapshotInterface)
+                }
+                analysis={
+                  requiresSnapshot
+                    ? (analysis as ExperimentSnapshotAnalysis)
+                    : ({} as ExperimentSnapshotAnalysis)
+                }
+                mutate={mutate}
+                // objectProps should be validated above to actually contain all the keys and not be Partial
+                {...(objectProps as unknown as ObjectProps<T>)}
+              />
+            </ErrorBoundary>
+          )}
+        </Flex>
+      </ScrollArea>
     </Flex>
   );
 }

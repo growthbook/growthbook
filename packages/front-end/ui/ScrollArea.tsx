@@ -2,8 +2,8 @@ import { CSSProperties, forwardRef, ReactNode } from "react";
 import { ScrollArea as RadixScrollArea } from "@radix-ui/themes";
 
 /**
- * A vertical scroll box whose scrollbar overlays the content, shown only while
- * hovered or scrolled. The ref is the element that scrolls.
+ * A scroll box whose scrollbars overlay the content, shown only while hovered
+ * or scrolled. The ref is the element that scrolls.
  */
 const ScrollArea = forwardRef<
   HTMLDivElement,
@@ -13,18 +13,27 @@ const ScrollArea = forwardRef<
     gutter?: boolean;
     /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
     fill?: boolean;
+    /** Scrolls sideways too; otherwise only vertically. */
+    horizontal?: boolean;
     className?: string;
     style?: CSSProperties;
   }
 >(function ScrollArea(
-  { children, gutter = false, fill = false, className, style },
+  {
+    children,
+    gutter = false,
+    fill = false,
+    horizontal = false,
+    className,
+    style,
+  },
   ref,
 ) {
   return (
     <RadixScrollArea
       ref={ref}
       type="hover"
-      scrollbars="vertical"
+      scrollbars={horizontal ? "both" : "vertical"}
       className={className}
       style={style}
     >
