@@ -25,10 +25,12 @@ import {
   type ExperimentChangesFields,
   type ExperimentRuleEnvironments,
 } from "shared/validators";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { ApiCallError } from "@/services/apiCallError";
 import useUnsavedChangesGuard from "@/hooks/useUnsavedChangesGuard";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import Text from "@/ui/Text";
 import { mergeChanges } from "./mergeChanges";
 
 type PendingEdit = {
@@ -512,6 +514,13 @@ export function ExperimentEditsProvider({
   const navigationGuard = useUnsavedChangesGuard(staged.length > 0, discardAll);
 
   const { allowUnload } = navigationGuard;
+  // Why the last save didn't go through, if it didn't.
+  const refusal =
+    error ??
+    unscopedRefusal ??
+    (shownConflicts.length
+      ? "Someone else saved changes to what you edited."
+      : null);
   // Leaving mid-save waits for it: saved through, it goes; left with
   // something unsaved, it asks as usual.
   const leaveAfterSave =
@@ -589,12 +598,15 @@ export function ExperimentEditsProvider({
       </form>
       {navigationGuard.pendingHref && !saving ? (
         // Refused on the way out, it says why rather than calling them unsaved.
-        error || shownConflicts.length ? (
+        refusal ? (
           <ConfirmDialog
             title="Your changes weren't saved"
-            content={`${
-              error ?? "Someone else saved changes to what you edited."
-            } Leaving this page discards your changes.`}
+            content={
+              <Flex direction="column" gap="2">
+                <Text>{refusal}</Text>
+                <Text>Leaving this page discards your changes.</Text>
+              </Flex>
+            }
             yesText="Leave page"
             noText="Stay and fix"
             onConfirm={navigationGuard.confirmNavigation}
