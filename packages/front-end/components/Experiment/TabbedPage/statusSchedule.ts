@@ -42,6 +42,23 @@ type DatedExperiment = Pick<
 
 type LabeledDate = { label: string; value: string };
 
+/** When it's set to end, while that's still ahead. */
+export const upcomingEnd = (
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "status" | "archived" | "statusUpdateSchedule"
+  >,
+  now: Date,
+) => {
+  const schedule = experiment.statusUpdateSchedule;
+  // Archived, its schedule never fires.
+  return experiment.status === "stopped" ||
+    experiment.archived ||
+    (schedule?.stopAt && new Date(schedule.stopAt) <= now)
+    ? null
+    : scheduledEnd(schedule, date);
+};
+
 /**
  * The dates the header reads: created until it starts, then started; and when
  * it ended, or will. A passed end that kept it running is its banner's to say.
@@ -59,14 +76,7 @@ export const headerDates = (
       ? (isHoldout ? phases[0] : latest)?.dateStarted
       : undefined;
   const ended = status === "stopped" ? latest?.dateEnded : undefined;
-  const schedule = experiment.statusUpdateSchedule;
-  // Archived, its schedule never fires.
-  const ends =
-    status === "stopped" ||
-    experiment.archived ||
-    (schedule?.stopAt && new Date(schedule.stopAt) <= now)
-      ? null
-      : scheduledEnd(schedule, date);
+  const ends = upcomingEnd(experiment, now);
   return [
     started
       ? {

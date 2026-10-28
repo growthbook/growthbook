@@ -8,6 +8,7 @@ import { phaseSummary } from "@/services/utils";
 import Tooltip from "@/ui/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import { useSnapshot } from "./SnapshotProvider";
+import { upcomingEnd } from "./TabbedPage/statusSchedule";
 
 export interface Props {
   phase?: number;
@@ -38,6 +39,15 @@ export default function PhaseSelector({
       label: i + "",
       value: i + "",
     })) || [];
+
+  // Running, the latest phase ends when it's scheduled to, or open-ended.
+  const ends = (index: number, phase: ExperimentPhaseStringDates) =>
+    phase.dateEnded
+      ? date(phase.dateEnded, "UTC")
+      : (index === phaseOptions.length - 1 &&
+          experiment?.status === "running" &&
+          upcomingEnd(experiment, new Date())) ||
+        "now";
 
   function formatPhase(
     { value }: { value: string },
@@ -91,7 +101,7 @@ export default function PhaseSelector({
                     "UTC",
                   )
                 : date(phase.dateStarted ?? "", "UTC")}{" "}
-              - {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+              – {ends(phaseIndex, phase)}
             </span>
           </span>
         </Tooltip>
@@ -108,7 +118,7 @@ export default function PhaseSelector({
           {phase.lookbackStartDate && isHoldout
             ? date(phase.lookbackStartDate, "UTC")
             : date(phase.dateStarted ?? "", "UTC")}{" "}
-          — {phase.dateEnded ? date(phase.dateEnded, "UTC") : "now"}
+          – {ends(phaseIndex, phase)}
         </span>
         {!isHoldout && (
           <div className="small">{phaseSummary(phase, isBandit)}</div>
