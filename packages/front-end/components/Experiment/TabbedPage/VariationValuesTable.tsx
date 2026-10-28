@@ -58,6 +58,7 @@ import {
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
+import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ScrollArea from "@/ui/ScrollArea";
 import { Popover } from "@/ui/Popover";
@@ -940,34 +941,32 @@ function FlagColumn({
       experiment.status === "running"
         ? {
             status: "warning",
-            text: "This Feature Flag is archived and isn't serving. Unarchive it to serve again.",
+            text: "Archived, so it isn't serving.",
           }
         : launches
           ? {
               status: "warning",
-              text: "This Feature Flag is archived and won't serve when the experiment starts. Unarchive it first.",
+              text: "Archived, so it won't serve when the experiment starts.",
             }
-          : { status: "info", text: "This Feature Flag is archived." },
+          : { status: "info", text: "Archived." },
     );
   }
   if (shownDraft?.hasMergeConflict) {
     notices.push({
       status: "error",
-      text: draftLaunches
-        ? "Draft conflicts with live. Resolve before starting."
-        : "Draft conflicts with live. Resolve before publishing.",
+      text: "Draft conflicts with live.",
       action: draftLink("Fix conflicts"),
     });
   } else if (shownDraft?.rebaseRequired) {
     notices.push({
       status: "warning",
-      text: "Draft is behind live. Update it to publish.",
+      text: "Draft is behind live.",
       action: draftLink("Review draft"),
     });
   } else if (draftLaunches && shownDraft?.hasUnrelatedDraftChanges) {
     notices.push({
       status: "error",
-      text: "Draft has changes unrelated to this experiment, which blocks start. Manually publish or remove unrelated changes.",
+      text: "Draft has unrelated changes, which block experiment start.",
       action: draftLink("Review draft"),
     });
   } else if (shownDraft && !lockedBySchedule && !cannotPublishLaunch) {
@@ -985,8 +984,8 @@ function FlagColumn({
     notices.push({
       status: "error",
       text: hasPendingScheduledStart(experiment)
-        ? "Whoever scheduled the experiment's start can no longer publish this draft. Reschedule as an authorized user."
-        : "You don't have permission to publish this draft, so it won't publish at experiment start.",
+        ? "Whoever scheduled the start can't publish this draft. Reschedule it."
+        : "You can't publish this draft, so starting won't publish it.",
       action: draftLink("Review draft"),
     });
   }
@@ -999,7 +998,7 @@ function FlagColumn({
   if (!group && onFlag && describesShown && info.inconsistentValues) {
     notices.push({
       status: "warning",
-      text: `This experiment is on the Feature Flag more than once with different values. Showing the first, from ${info.valuesFrom}.`,
+      text: `This experiment's rules disagree. Showing the values from ${info.valuesFrom}.`,
     });
   }
   if (onFlag && describesShown && info.rulesAbove) {
@@ -1374,14 +1373,20 @@ function FlagColumn({
         ) : noValues ? (
           orphanNote
         ) : null}
-        {notices.map((n, i) => (
-          <Flex key={i} align="baseline" gap="2" wrap="wrap">
-            <HelperText status={n.status} size="sm">
+        {/* An error is a callout, with the fix under it; anything else is a
+            note, its link following the sentence. */}
+        {notices.map((n, i) =>
+          n.status === "error" ? (
+            <Callout key={i} status="error" size="sm">
               {n.text}
+              {n.action ? <Box mt="1">{n.action}</Box> : null}
+            </Callout>
+          ) : (
+            <HelperText key={i} status={n.status} size="sm">
+              {n.text} {n.action}
             </HelperText>
-            {n.action ? <Text size="sm">{n.action}</Text> : null}
-          </Flex>
-        ))}
+          ),
+        )}
         {pendingRemoval && !linkAction && canEditFlagLinks && !showingLive ? (
           <Flex justify="end">
             <Button
