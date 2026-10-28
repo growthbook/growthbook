@@ -49,7 +49,7 @@ curl -X POST 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123
   -d '{"items": ["user_42", "user_77"]}'
 ```
 
-For an atomic full replacement, use `PUT .../values`. For condition saved groups, use `PUT .../condition`. Metadata edits (name, owner, description, projects) go through `PUT .../metadata`. Archive or unarchive with `PUT .../archive`.
+For an atomic full replacement, use `PUT .../values`. For condition saved groups, use `PUT .../condition`. Metadata edits (name, owner, description, projects) go through `PUT .../metadata`. Archive or unarchive with `PUT .../archive`. For remote saved groups, choose the upload the group uses with `PUT .../upload-version`.
 
 Publish to apply the draft to the live saved group:
 
@@ -64,7 +64,7 @@ After publish, the revision status becomes `merged` and the proposed changes are
 
 ### Auto-creating a draft on edit
 
-Every field-edit endpoint (`PUT .../metadata`, `PUT .../condition`, `PUT .../values`, `PUT .../archive`, `POST .../items/add`, `POST .../items/remove`) accepts the literal `"new"` in place of a version number. This opens a fresh draft, applies the edit, and returns the revision in one round trip. Pass `revisionTitle` / `revisionComment` to label the auto-created draft:
+Every field-edit endpoint (`PUT .../metadata`, `PUT .../condition`, `PUT .../values`, `PUT .../archive`, `PUT .../upload-version`, `POST .../items/add`, `POST .../items/remove`) accepts the literal `"new"` in place of a version number. This opens a fresh draft, applies the edit, and returns the revision in one round trip. Pass `revisionTitle` / `revisionComment` to label the auto-created draft:
 
 ```bash
 curl -X PUT 'https://api.growthbook.io/api/v1/saved-groups-revisions/grp_abc123/new/metadata' \

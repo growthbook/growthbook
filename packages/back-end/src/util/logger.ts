@@ -1,4 +1,5 @@
 import { format } from "util";
+import { hasSuperAdminPermission } from "shared/permissions";
 import pinoHttp from "pino-http";
 import * as Sentry from "@sentry/node";
 import { Request } from "express";
@@ -61,7 +62,7 @@ export function getCustomLogProps(req: Request) {
   if (typedReq.userId) {
     data.userId = typedReq.userId;
   }
-  if (typedReq.superAdmin) {
+  if (hasSuperAdminPermission(typedReq.superAdmin, "view")) {
     data.superAdmin = true;
   }
   return data;
