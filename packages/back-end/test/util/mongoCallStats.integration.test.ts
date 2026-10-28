@@ -119,7 +119,9 @@ it("returns the same results and errors with the wrapper installed", async () =>
   expect(unwrapped.commit).toEqual({ ok: 2 });
   expect(unwrapped.abort).toEqual({ ok: 0 });
 
-  await expect(installMongoCallCounter()).resolves.toBe(true);
+  await expect(installMongoCallCounter()).resolves.toMatchObject({
+    installed: true,
+  });
 
   const req = {} as Request;
   let run: Promise<Record<string, unknown>> | undefined;

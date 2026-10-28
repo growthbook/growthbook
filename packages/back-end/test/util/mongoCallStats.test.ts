@@ -106,7 +106,7 @@ describe("wrapServerCommand", () => {
 
   it("counts calls made inside a request", () => {
     const server = fakeServer();
-    expect(wrapServerCommand(server)).toBe(true);
+    expect(wrapServerCommand(server, "4.17.2")).toBe(true);
     const callback = jest.fn();
     const summary = inRequest(() => {
       server.command("ns", {}, {}, callback);
@@ -118,34 +118,65 @@ describe("wrapServerCommand", () => {
 
   it("is a no-op when wrapped twice", () => {
     const server = fakeServer();
-    wrapServerCommand(server);
+    wrapServerCommand(server, "4.17.2");
     const once = server.command;
-    expect(wrapServerCommand(server)).toBe(true);
+    expect(wrapServerCommand(server, "4.17.2")).toBe(true);
     expect(server.command).toBe(once);
   });
 
+  it("leaves the 6.x async command alone", () => {
+    // mongodb 6.10: async command(ns, cmd, options, responseType)
+    class Server {
+      async command(
+        ns: unknown,
+        cmd: unknown,
+        options: unknown,
+        responseType: unknown,
+      ) {
+        return [ns, cmd, options, responseType];
+      }
+    }
+    const original = Server.prototype.command;
+    expect(original.length).toBe(4);
+    expect(wrapServerCommand(Server.prototype, "4.17.2")).toBe(false);
+    expect(wrapServerCommand(Server.prototype, "6.10.0")).toBe(false);
+    expect(Server.prototype.command).toBe(original);
+  });
+
+  it("only wraps a 4.x driver", () => {
+    const server = fakeServer();
+    const original = server.command;
+    expect(wrapServerCommand(server, "6.10.0")).toBe(false);
+    expect(wrapServerCommand(server, "5.9.2")).toBe(false);
+    expect(wrapServerCommand(server, "")).toBe(false);
+    expect(server.command).toBe(original);
+  });
+
   it("leaves a driver with another command signature alone", () => {
-    const asyncCommand = async (
-      ns: unknown,
-      cmd: unknown,
-      options: unknown,
-    ) => [ns, cmd, options];
-    const changed = { command: asyncCommand };
-    expect(wrapServerCommand(changed)).toBe(false);
-    expect(changed.command).toBe(asyncCommand);
+    const threeArgs = (ns: unknown, cmd: unknown, options: unknown) => [
+      ns,
+      cmd,
+      options,
+    ];
+    const changed = { command: threeArgs };
+    expect(wrapServerCommand(changed, "4.17.2")).toBe(false);
+    expect(changed.command).toBe(threeArgs);
 
     const missing: { command?: unknown } = {};
-    expect(wrapServerCommand(missing)).toBe(false);
+    expect(wrapServerCommand(missing, "4.17.2")).toBe(false);
     expect(missing.command).toBeUndefined();
   });
 
-  it("wraps the installed driver", async () => {
-    await expect(installMongoCallCounter()).resolves.toBe(true);
+  it("wraps the driver mongoose uses", async () => {
+    await expect(installMongoCallCounter()).resolves.toEqual({
+      installed: true,
+      driverVersion: expect.stringMatching(/^4\./),
+    });
   });
 
   it("passes calls outside a request straight through", () => {
     const server = fakeServer();
-    wrapServerCommand(server);
+    wrapServerCommand(server, "4.17.2");
     const callback = jest.fn();
     server.command("ns", {}, {}, callback);
     expect(callback).toHaveBeenCalledWith(null, "ok");
@@ -159,7 +190,7 @@ describe("wrapServerCommand", () => {
       throw new Error("start");
     });
     const server = fakeServer();
-    wrapServerCommand(server);
+    wrapServerCommand(server, "4.17.2");
     const callback = jest.fn();
     inRequest(() => server.command("ns", {}, {}, callback));
     expect(callback).toHaveBeenCalledWith(null, "ok");
@@ -179,7 +210,7 @@ describe("wrapServerCommand", () => {
       callback(err);
       throw err;
     });
-    wrapServerCommand(server);
+    wrapServerCommand(server, "4.17.2");
     const callback = jest.fn();
     const summary = inRequest(() => {
       expect(() => server.command("ns", {}, {}, callback)).toThrow(err);

@@ -68,19 +68,25 @@ export function getCustomLogProps(req: Request) {
   return data;
 }
 
-// Only on the request completed/errored lines
-function getRequestCompletionProps(req: Request, res: Response) {
+// Only on the request completed/errored lines. Runs in pino-http's response
+// finish handler, where a throw would be an uncaught exception.
+export function getRequestCompletionProps(req: Request, res: Response) {
   const data: {
     route?: string;
+    routePath?: string;
     mongo?: ReturnType<typeof getMongoCallSummary>;
   } = {};
-  // An error that leaves a mounted router resets req.baseUrl
-  if (res.statusCode < 400 && typeof req.route?.path === "string") {
-    data.route = req.baseUrl + req.route.path;
-  }
-  const mongo = getMongoCallSummary(req);
-  if (mongo) {
-    data.mongo = mongo;
+  try {
+    const path = req.route?.path;
+    if (typeof path === "string") {
+      data.routePath = path;
+      // An error that leaves a mounted router resets req.baseUrl
+      if (res.statusCode < 400) data.route = req.baseUrl + path;
+    }
+    const mongo = getMongoCallSummary(req);
+    if (mongo) data.mongo = mongo;
+  } catch {
+    return {};
   }
   return data;
 }

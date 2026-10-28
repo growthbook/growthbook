@@ -20,10 +20,14 @@ export default async (): Promise<void> => {
     autoIndex: true,
   };
 
-  if (MONGO_CALL_STATS && !(await installMongoCallCounter())) {
-    logger.warn(
-      "Unsupported MongoDB driver internals, not counting MongoDB calls per request",
-    );
+  if (MONGO_CALL_STATS) {
+    const { installed, driverVersion } = await installMongoCallCounter();
+    if (!installed) {
+      logger.error(
+        { driverVersion },
+        "Unsupported MongoDB driver internals, not counting MongoDB calls per request",
+      );
+    }
   }
 
   // Connect to MongoDB

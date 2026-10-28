@@ -1,4 +1,6 @@
 import { AsyncLocalStorage } from "async_hooks";
+import { readFileSync } from "fs";
+import { dirname } from "path";
 import { IncomingMessage } from "http";
 import { performance } from "perf_hooks";
 import type { NextFunction, Request, Response } from "express";
@@ -67,13 +69,25 @@ type ServerCommand = (
 // checked out of the pool, from whichever async context drained the pool's
 // wait queue, so they can't be attributed to the request that issued them.
 // Server#command is still called synchronously from the caller's context.
-// Returns false, leaving the prototype untouched, when the driver's internal
-// method doesn't have the 4.x callback signature this wraps.
+// It is a private API: 4.x takes a callback, while 6.x is an async function
+// whose 4th argument is a response class, so anything but 4.x is left alone.
+// In load-balanced mode, pinnable commands re-enter Server#command after a
+// connection checkout and are counted twice.
 const wrapped = new WeakSet<object>();
-export function wrapServerCommand(proto: { command?: unknown }): boolean {
+export function wrapServerCommand(
+  proto: { command?: unknown },
+  driverVersion: string,
+): boolean {
   if (wrapped.has(proto)) return true;
   const original = proto.command;
-  if (typeof original !== "function" || original.length !== 4) return false;
+  if (
+    driverVersion.split(".")[0] !== "4" ||
+    typeof original !== "function" ||
+    original.length !== 4 ||
+    original.constructor.name === "AsyncFunction"
+  ) {
+    return false;
+  }
   const command = original as ServerCommand;
   wrapped.add(proto);
   proto.command = function (
@@ -116,11 +130,30 @@ export function wrapServerCommand(proto: { command?: unknown }): boolean {
   return true;
 }
 
-export async function installMongoCallCounter(): Promise<boolean> {
+// Patches the driver copy mongoose loads, which can differ from our own
+export async function installMongoCallCounter(): Promise<{
+  installed: boolean;
+  driverVersion?: string;
+}> {
+  let driverVersion: string | undefined;
   try {
-    const { Server } = await import("mongodb/lib/sdam/server");
-    return wrapServerCommand(Server.prototype);
+    const paths = [dirname(require.resolve("mongoose"))];
+    const pkg: unknown = JSON.parse(
+      readFileSync(require.resolve("mongodb/package.json", { paths }), "utf8"),
+    );
+    if (pkg && typeof pkg === "object" && "version" in pkg) {
+      driverVersion = String(pkg.version);
+    }
+    const mod: unknown = await import(
+      require.resolve("mongodb/lib/sdam/server", { paths })
+    );
+    const proto = (mod as { Server?: { prototype?: { command?: unknown } } })
+      .Server?.prototype;
+    return {
+      installed: !!proto && wrapServerCommand(proto, driverVersion ?? ""),
+      driverVersion,
+    };
   } catch {
-    return false;
+    return { installed: false, driverVersion };
   }
 }
