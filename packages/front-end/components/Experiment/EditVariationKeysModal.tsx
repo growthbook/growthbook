@@ -28,7 +28,7 @@ export default function EditVariationKeysModal({
   return (
     <ModalStandard
       trackingEventModalType="edit-variation-keys"
-      header="Change variation IDs"
+      header="Change variation keys"
       open={true}
       close={close}
       cta="Apply"
@@ -38,9 +38,9 @@ export default function EditVariationKeysModal({
     >
       <Flex direction="column" gap="3">
         <Callout status="warning">
-          A variation ID is how SDKs report a variation and how analysis finds
+          A variation key is how SDKs report a variation and how analysis finds
           it. Change one only to match values already in your data: anything
-          tracked under the old ID stops counting toward that variation.
+          tracked under the old key stops counting toward that variation.
         </Callout>
         {variations.map((v, i) => (
           <Flex key={v.id} align="center" justify="between" gap="4">
@@ -48,14 +48,14 @@ export default function EditVariationKeysModal({
             <Field
               required
               containerClassName="mb-0"
-              aria-label={`${v.name || `Variation ${i}`} ID`}
+              aria-label={`${v.name || `Variation ${i}`} key`}
               {...form.register(`keys.${i}`, {
                 validate: (key) =>
                   form
                     .getValues("keys")
                     .every(
                       (other, j) => j === i || other.trim() !== key.trim(),
-                    ) || "Another variation already uses this ID.",
+                    ) || "Another variation already uses this key.",
               })}
               error={form.formState.errors.keys?.[i]?.message}
             />

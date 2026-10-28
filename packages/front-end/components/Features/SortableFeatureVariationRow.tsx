@@ -35,6 +35,7 @@ import styles from "./VariationsInput.module.scss";
 export function gridColumns({
   hideVariationIds,
   hideValueField,
+  valueWidth = null,
   showDescription,
   hideSplit,
   isJson,
@@ -42,6 +43,8 @@ export function gridColumns({
 }: {
   hideVariationIds?: boolean;
   hideValueField?: boolean;
+  // A fixed width for plain-text values, the same in every row.
+  valueWidth?: string | null;
   showDescription?: boolean;
   hideSplit?: boolean;
   isJson?: boolean;
@@ -49,12 +52,13 @@ export function gridColumns({
 }): string {
   return [
     showDragHandle ? "16px" : undefined,
-    hideVariationIds ? undefined : "16px",
+    // Alone, the numbers are headed "Key": room for that word.
+    hideVariationIds ? undefined : hideValueField ? "32px" : "16px",
     hideValueField
       ? undefined
       : isJson
         ? "minmax(300px, 2fr)"
-        : "minmax(120px, 1fr)",
+        : (valueWidth ?? "minmax(120px, 1fr)"),
     "minmax(160px, 1fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
     hideSplit ? undefined : "100px",
@@ -88,6 +92,7 @@ interface SortableProps {
   valueType?: FeatureValueType;
   hideVariationIds?: boolean;
   hideValueField?: boolean;
+  valueWidth?: string | null;
   setVariations?: (value: ExperimentValue[]) => void;
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
@@ -123,6 +128,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       valueType,
       hideVariationIds,
       hideValueField,
+      valueWidth = null,
       onlySafeToEditVariationMetadata,
       customSplit,
       hideSplit,
@@ -191,6 +197,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
           columns={gridColumns({
             hideVariationIds,
             hideValueField,
+            valueWidth,
             showDescription,
             hideSplit,
             isJson: valueType === "json",
@@ -214,7 +221,11 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
             </Box>
           )}
 
-          {!hideVariationIds && <VariationNumber number={i} />}
+          {!hideVariationIds && (
+            <Flex justify="center">
+              <VariationNumber number={i} />
+            </Flex>
+          )}
 
           {!hideValueField &&
             (setVariations && !onlySafeToEditVariationMetadata ? (
@@ -244,7 +255,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 </div>
               )
             ) : (
-              <>{variation.value}</>
+              <Text truncate>{variation.value}</Text>
             ))}
 
           {setVariations ? (
@@ -258,7 +269,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
               onChange={(e) => update({ name: e.target.value })}
             />
           ) : (
-            <strong>{variation.name || ""}</strong>
+            <Text truncate>{variation.name || ""}</Text>
           )}
 
           {showDescription &&

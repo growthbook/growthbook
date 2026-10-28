@@ -122,6 +122,14 @@ export default function FeatureVariationsInput({
     setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
   };
 
+  // Plain text when it can't be edited: every row's column fits the longest,
+  // up to a point, so the names sit beside them.
+  const valueWidth =
+    (!setVariations || disableVariations || onlySafeToEditVariationMetadata) &&
+    valueType !== "json"
+      ? `${Math.min(24, Math.max(3, ...(variations ?? []).map((v) => v.value.length))) + 1}ch`
+      : null;
+
   const showDragHandle =
     !!setVariations &&
     !disableVariations &&
@@ -269,6 +277,7 @@ export default function FeatureVariationsInput({
                 columns={gridColumns({
                   hideVariationIds,
                   hideValueField: !editingIds,
+                  valueWidth,
                   showDescription: showDescriptions,
                   hideSplit: hideSplits,
                   isJson: valueType === "json",
@@ -283,8 +292,9 @@ export default function FeatureVariationsInput({
               >
                 {showDragHandle && <span />}
                 {!hideVariationIds && (
-                  <Text size="md" weight="semibold">
-                    {!valueAsId && editingIds ? "#" : "Key"}
+                  // Centered over the variation numbers.
+                  <Text size="md" weight="semibold" align="center">
+                    {editingIds ? "#" : "Key"}
                   </Text>
                 )}
                 {editingIds && (
@@ -408,6 +418,7 @@ export default function FeatureVariationsInput({
                         renumberKeysOnReorder={renumberKeysOnReorder}
                         hideVariationIds={hideVariationIds}
                         hideValueField={!editingIds}
+                        valueWidth={valueWidth}
                         hideSplit={hideSplits}
                         feature={feature}
                         showDescription={showDescriptions}
