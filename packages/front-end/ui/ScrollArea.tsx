@@ -116,8 +116,16 @@ const ScrollArea = forwardRef<
     // sideways scroll doesn't carry straight on into the page.
     let deadspace = 0;
     const onWheel = (e: WheelEvent) => {
-      // A sideways swipe or shift-wheel already scrolls sideways.
-      if (e.shiftKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      // A sideways swipe or shift-wheel already scrolls sideways; a pinch or
+      // modified wheel zooms.
+      if (
+        e.shiftKey ||
+        e.ctrlKey ||
+        e.metaKey ||
+        Math.abs(e.deltaY) <= Math.abs(e.deltaX)
+      ) {
+        return;
+      }
       // A box inside that scrolls up and down keeps the wheel while it can.
       for (
         let node = e.target instanceof Element ? e.target : null;
@@ -169,6 +177,7 @@ const ScrollArea = forwardRef<
       onScroll={onScroll}
       className={clsx(
         styles.root,
+        fill && styles.fullWidth,
         edgeCue === "fade" && styles.fades,
         shadowed ? styles.fillsWrapper : className,
       )}

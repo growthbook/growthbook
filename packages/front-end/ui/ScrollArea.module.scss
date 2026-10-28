@@ -50,6 +50,12 @@
   height: 100%;
 }
 
+// As wide as the area rather than its own content, so what sizes itself to
+// its container can shrink with it; wider content still scrolls sideways.
+.fullWidth > :global(.rt-ScrollAreaViewport) > * {
+  width: 100%;
+}
+
 // A narrow shadow over an edge with more past it, as beside a pinned column.
 .shadow {
   position: absolute;
