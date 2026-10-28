@@ -15,13 +15,13 @@
   transform: translateX(-50%);
   // Hugs its round buttons.
   border-radius: 9999px;
-  // See-through, but blurred enough to read over any image.
   background-color: color-mix(
     in srgb,
     var(--color-panel-solid) 35%,
     transparent
   );
-  backdrop-filter: blur(8px);
+  // A touch of blur, so the count holds up over a busy image.
+  backdrop-filter: blur(2px);
   box-shadow: var(--shadow-2);
   opacity: 0;
   transition: opacity 100ms ease;
