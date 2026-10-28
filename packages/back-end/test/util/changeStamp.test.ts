@@ -69,32 +69,37 @@ describe("withChangeStamp", () => {
 });
 
 describe("OrganizationModel writes", () => {
-  // Only updateOne/updateMany/findOneAndUpdate run the stamp hook. A new kind
-  // of write has to set changeStamp itself before it is added here.
   const source = fs.readFileSync(
     path.join(__dirname, "../../src/models/OrganizationModel.ts"),
     "utf8",
   );
 
   it("only uses writes the changeStamp hook covers", () => {
-    const modelCalls = new Set(
-      [...source.matchAll(/OrganizationModel\.(\w+)\(/g)].map((m) => m[1]),
-    );
-    expect([...modelCalls].sort()).toEqual([
-      "create",
-      "find",
-      "findOne",
-      "findOneAndUpdate",
-      "updateOne",
-    ]);
-    const rawCalls = new Set(
-      [...source.matchAll(/getCollection\(COLLECTION\)\s*\.(\w+)\(/g)].map(
-        (m) => m[1],
-      ),
-    );
-    expect([...rawCalls].sort()).toEqual(["find", "findOne"]);
+    // Writes that skip the hook must set changeStamp themselves. Reads are fine.
     expect(source).not.toMatch(
-      /\.(save|bulkWrite|replaceOne|insertMany|deleteOne|deleteMany)\(/,
+      /\.(save|replaceOne|findOneAndReplace|bulkWrite|insertMany|deleteOne|deleteMany|findOneAndDelete|findOneAndRemove|findByIdAndUpdate|update)\(/,
     );
+    // The raw driver skips mongoose middleware entirely
+    const rawWrites = [
+      ...source.matchAll(/getCollection\(COLLECTION\)\s*\.(\w+)\(/g),
+    ]
+      .map((m) => m[1])
+      .filter(
+        (method) => !/^(find|findOne|countDocuments|aggregate)$/.test(method),
+      );
+    expect(rawWrites).toEqual([]);
+  });
+
+  it("hooks every update method the model uses", () => {
+    const hooked = source.match(/organizationSchema\.pre\(\s*\[([^\]]*)\]/);
+    expect(hooked).not.toBeNull();
+    const hookedMethods = (hooked?.[1] ?? "").match(/\w+/g) ?? [];
+    const updates = [
+      ...source.matchAll(
+        /OrganizationModel\.(updateOne|updateMany|findOneAndUpdate)\(/g,
+      ),
+    ].map((m) => m[1]);
+    expect(updates.length).toBeGreaterThan(0);
+    for (const method of updates) expect(hookedMethods).toContain(method);
   });
 });

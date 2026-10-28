@@ -23,16 +23,22 @@ CONTAINER=gb-org-cache-e2e-$$
 LOG=$(mktemp -t org-cache-e2e.XXXXXX)
 BASE=http://localhost:$API_PORT
 SERVER_PID=""
+PASSED=""
 
 cleanup() {
   [ -n "$SERVER_PID" ] && kill "$SERVER_PID" 2>/dev/null || true
   docker rm -f "$CONTAINER" >/dev/null 2>&1 || true
+  if [ -n "$PASSED" ]; then
+    rm -f "$LOG"
+  else
+    echo "server log kept at $LOG" >&2
+  fi
 }
 trap cleanup EXIT
 
 fail() {
   echo "FAIL: $*"
-  echo "--- server log: $LOG"
+  echo "--- end of server log:"
   tail -30 "$LOG"
   exit 1
 }
@@ -49,7 +55,7 @@ mongo() {
   docker exec "$CONTAINER" mongosh --quiet gb_org_cache_e2e --eval "$1"
 }
 
-# Set explicitly so a local .env.local can't point the server elsewhere
+# These keys are pinned so a local .env.local can't override them
 MONGODB_URI="mongodb://localhost:$MONGO_PORT/gb_org_cache_e2e" \
   LICENSE_KEY='' \
   IS_CLOUD=false \
@@ -90,10 +96,22 @@ KEY_RES=$(internal POST /keys '{"type":"admin","description":"e2e"}')
 SECRET=$(echo "$KEY_RES" | jq -r .key.key)
 [[ "$SECRET" == secret_* ]] || fail "no API key: $KEY_RES"
 
+# Prints the body; on an error status, says which request failed and returns 1
 rest() {
-  local method=$1 path=$2 body=${3:-}
-  curl -sf -X "$method" "$BASE/api/v1$path" -H "Authorization: Bearer $SECRET" \
-    -H 'Content-Type: application/json' ${body:+-d "$body"}
+  local method=$1 path=$2 body=${3:-} out code
+  out=$(curl -sS -w '\n%{http_code}' -X "$method" "$BASE/api/v1$path" \
+    -H "Authorization: Bearer $SECRET" \
+    -H 'Content-Type: application/json' ${body:+-d "$body"}) || {
+    echo "request failed: $method /api/v1$path" >&2
+    return 1
+  }
+  code=${out##*$'\n'}
+  out=${out%$'\n'*}
+  if [ "$code" -ge 400 ]; then
+    echo "$method /api/v1$path returned $code: $out" >&2
+    return 1
+  fi
+  printf '%s\n' "$out"
 }
 attrs() { rest GET /attributes | jq -r '[.attributes[].property] | sort | join(",")'; }
 has_attr() {
@@ -121,6 +139,7 @@ echo "3. direct DB edit is stale until max age, then fresh"
 STAMP_BEFORE=$(mongo 'db.organizations.findOne({}, {changeStamp: 1}).changeStamp')
 START=$(date +%s)
 attrs >/dev/null # cache a copy now; it may be reused for MAX_AGE_MS
+# shellcheck disable=SC2016 # $push is a Mongo operator, not a shell variable
 mongo 'db.organizations.updateOne({}, {$push: {"settings.attributeSchema": {property: "viaDb", datatype: "string"}}})' >/dev/null
 STAMP_AFTER=$(mongo 'db.organizations.findOne({}, {changeStamp: 1}).changeStamp')
 [ "$STAMP_BEFORE" = "$STAMP_AFTER" ] || fail "raw edit changed the stamp"
@@ -139,4 +158,5 @@ done
 [ -n "$SEEN" ] || fail "direct DB edit never became visible"
 echo "   visible after ~${SEEN}s (max age ${MAX_AGE_MS}ms)"
 
+PASSED=1
 echo "PASS"
