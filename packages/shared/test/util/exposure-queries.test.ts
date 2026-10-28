@@ -1,4 +1,5 @@
 import {
+  assignServerIdsToAddedExposureQueries,
   getChangedExposureQueries,
   getDataSourceSaveChanges,
   getSavedQueriesSharingId,
@@ -902,6 +903,60 @@ describe("getChangedExposureQueries", () => {
     expect(getChangedExposureQueries([a, a2], [a])).toEqual([
       { previous: a2, next: null },
     ]);
+  });
+});
+
+describe("assignServerIdsToAddedExposureQueries", () => {
+  const a = { id: "eq_a", query: "SELECT 1" };
+  const b = { id: "eq_b", query: "SELECT 2" };
+  const newId = () => {
+    let n = 0;
+    return () => `exq_${++n}`;
+  };
+
+  it("gives a restricted member's added queries new ids", () => {
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a],
+        [a, { id: "eq_mine", query: "SELECT 3" }, { query: "SELECT 4" }],
+        false,
+        newId(),
+      ),
+    ).toEqual([
+      a,
+      { id: "exq_1", query: "SELECT 3" },
+      { id: "exq_2", query: "SELECT 4" },
+    ]);
+  });
+
+  it("keeps the ids a full editor sends", () => {
+    const next = [a, { id: "eq_mine", query: "SELECT 3" }];
+    expect(
+      assignServerIdsToAddedExposureQueries([a], next, true, newId()),
+    ).toBe(next);
+  });
+
+  it("keeps saved queries' ids, edited or not", () => {
+    const edited = { ...b, query: "SELECT 5" };
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a, b],
+        [a, edited],
+        false,
+        newId(),
+      ),
+    ).toEqual([a, edited]);
+  });
+
+  it("gives an addition repeating a saved id a new id", () => {
+    expect(
+      assignServerIdsToAddedExposureQueries(
+        [a],
+        [a, { id: "eq_a", query: "SELECT 3" }],
+        false,
+        newId(),
+      ),
+    ).toEqual([a, { id: "exq_1", query: "SELECT 3" }]);
   });
 });
 

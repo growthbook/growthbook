@@ -544,6 +544,30 @@ export function getChangedExposureQueries<
 }
 
 /**
+ * A member who can't edit the whole data source gets server ids for the
+ * assignment queries they add, so an added query can't take over the id of a
+ * saved one in Projects they can't edit.
+ */
+export function assignServerIdsToAddedExposureQueries<
+  Q extends { id?: string; error?: unknown },
+>(
+  saved: Q[],
+  next: Q[],
+  canUpdateDataSourceSettings: boolean,
+  generateId: () => string,
+): Q[] {
+  if (canUpdateDataSourceSettings) return next;
+  const added = new Set(
+    getChangedExposureQueries(saved, next)
+      .filter((change) => !change.previous)
+      .map((change) => change.next),
+  );
+  return next.map((query) =>
+    added.has(query) ? { ...query, id: generateId() } : query,
+  );
+}
+
+/**
  * Saved assignment queries with the given id. Ids are meant to be unique, but
  * older saves could repeat one, and analysis looks queries up by id, so a
  * change to one of them affects them all.

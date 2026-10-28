@@ -8,7 +8,7 @@ import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
-  getChangedExposureQueries,
+  assignServerIdsToAddedExposureQueries,
   getDataSourceSaveChanges,
   getSavedQueriesSharingId,
 } from "shared/util";
@@ -425,41 +425,24 @@ function assertCanUpdateDataSource(
   }
 }
 
-/**
- * A member who can't edit the whole data source gets server ids for the
- * assignment queries they add, so an added query can't take over the id of a
- * saved one in Projects they can't edit.
- */
-function assignServerIdsToAddedExposureQueries(
+function withServerExposureQueryIds(
   context: ReqContext,
   datasource: DataSourceInterface,
   body: PutDataSourceBody,
 ): PutDataSourceBody {
   const { settings } = body;
-  const exposure = settings?.queries?.exposure;
-  if (
-    !settings ||
-    !exposure ||
-    context.permissions.canUpdateDataSourceSettings(datasource)
-  ) {
-    return body;
-  }
-  const added = new Set(
-    getChangedExposureQueries(
-      datasource.settings?.queries?.exposure ?? [],
-      exposure,
-    )
-      .filter((change) => !change.previous)
-      .map((change) => change.next),
-  );
+  if (!settings?.queries?.exposure) return body;
   return {
     ...body,
     settings: {
       ...settings,
       queries: {
         ...settings.queries,
-        exposure: exposure.map((query) =>
-          added.has(query) ? { ...query, id: uniqid("exq_") } : query,
+        exposure: assignServerIdsToAddedExposureQueries(
+          datasource.settings?.queries?.exposure ?? [],
+          settings.queries.exposure,
+          context.permissions.canUpdateDataSourceSettings(datasource),
+          () => uniqid("exq_"),
         ),
       },
     },
@@ -597,11 +580,7 @@ export async function putDataSource(
     return;
   }
 
-  const body = assignServerIdsToAddedExposureQueries(
-    context,
-    datasource,
-    req.body,
-  );
+  const body = withServerExposureQueryIds(context, datasource, req.body);
   const { settings } = body;
   assertCanUpdateDataSource(context, datasource, body);
 
