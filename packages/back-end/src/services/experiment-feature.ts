@@ -1187,6 +1187,17 @@ const openDraftsOf = (
     skipPagination: true,
   });
 
+// Whether the flag serves the experiment, or will once a draft publishes.
+export async function flagHoldsExperimentRule(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  experimentId: string,
+): Promise<boolean> {
+  const hasRule = holdsRule(experimentRuleFor(experimentId));
+  if (hasRule(feature.rules)) return true;
+  return (await openDraftsOf(context, feature)).some((d) => hasRule(d.rules));
+}
+
 // Guarded, and retried from a fresh read, so an edit landing in between is
 // kept; a draft published or discarded meanwhile is never written.
 async function updateDraftRules(

@@ -643,8 +643,18 @@ function FlagColumn({
   useHoldEditBases(editingValues !== null || editEnvironments);
   const storedValue = (variationId: string) =>
     values.find((v) => v.variationId === variationId)?.value;
+  // A variation added on the page starts from the flag's value for a new arm,
+  // and the column saves it with the variation, so no arm serves nothing.
+  const savedExperiment = useExperimentEdits()?.experiment;
+  const addedValue = (variationId: string) =>
+    savedExperiment &&
+    !savedExperiment.variations.some((v) => v.id === variationId)
+      ? getDefaultVariationValue(feature.defaultValue)
+      : undefined;
   const valueFor = (variationId: string) =>
-    staged?.values[variationId] ?? storedValue(variationId);
+    staged?.values[variationId] ??
+    storedValue(variationId) ??
+    addedValue(variationId);
   const sparse = staged?.sparse ?? storedSparse;
 
   const configKey = getFeatureBaseConfigKey(feature);
@@ -701,7 +711,13 @@ function FlagColumn({
       (sparse !== storedSparse ||
         Object.entries(staged.values).some(
           ([id, value]) => value !== storedValue(id),
-        )));
+        ))) ||
+    (editable &&
+      onFlag &&
+      variations.some(
+        (v) =>
+          storedValue(v.id) === undefined && addedValue(v.id) !== undefined,
+      ));
 
   // Per variation, JSON parsed so a review diffs it field by field.
   const reviewValues = (valueOf: (variationId: string) => string | undefined) =>

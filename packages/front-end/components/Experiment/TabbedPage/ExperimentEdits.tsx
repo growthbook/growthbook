@@ -87,7 +87,9 @@ interface ExperimentEditsValue {
     acknowledged: boolean;
     acknowledge: (acknowledged: boolean) => void;
   } | null;
-  saveAll: () => Promise<void>;
+  // Resolves true once every staged edit saved; `with` saves alongside them,
+  // in the same request.
+  saveAll: (with_?: ExperimentChangesBody) => Promise<boolean>;
   // Staged fields join this form through their `form` attribute, so a value
   // their own constraints refuse stops the save.
   formId: string;
@@ -376,71 +378,81 @@ export function ExperimentEditsProvider({
     [apiCall, experimentId, allowUnscopedRules],
   );
 
-  const saveAll = useCallback(async () => {
-    // The browser says which field and why, and takes the writer there.
-    if (form.current && !form.current.reportValidity()) {
-      setError(INVALID_FIELDS);
-      return;
-    }
-    setSaving(true);
-    savingNow.current = true;
-    setError(null);
-    setConflicts([]);
-    const pending = [...edits.current.entries()];
-    // A refused save keeps each edit's base, so a retry can't quietly
-    // overwrite the change that refused it.
-    const saved: { edit: PendingEdit; sent: ExperimentChangesBody }[] = [];
-    // Even when refused: some refusals come after part of the save landed.
-    let posted = false;
-    try {
-      if (pending.length) {
-        const sent = pending.map(([, edit]) => edit.changes({ dryRun: false }));
-        posted = true;
-        try {
-          await postChanges(sent, false);
-        } catch (e) {
-          const conflict = changesConflict(e);
-          if (!conflict) throw e;
-          // Refetched, so keeping an edit takes what was saved as its base.
-          setConflicts(
-            pending
-              .filter(([, edit]) => touches(dryRunShare(edit), conflict))
-              .map(([id]) => id),
+  const saveAll = useCallback(
+    async (with_?: ExperimentChangesBody) => {
+      // The browser says which field and why, and takes the writer there.
+      if (form.current && !form.current.reportValidity()) {
+        setError(INVALID_FIELDS);
+        return false;
+      }
+      let ok = false;
+      setSaving(true);
+      savingNow.current = true;
+      setError(null);
+      setConflicts([]);
+      const pending = [...edits.current.entries()];
+      // A refused save keeps each edit's base, so a retry can't quietly
+      // overwrite the change that refused it.
+      const saved: { edit: PendingEdit; sent: ExperimentChangesBody }[] = [];
+      // Even when refused: some refusals come after part of the save landed.
+      let posted = false;
+      try {
+        if (pending.length || with_) {
+          const sent = pending.map(([, edit]) =>
+            edit.changes({ dryRun: false }),
           );
-          throw new ConflictFlagged();
+          posted = true;
+          try {
+            await postChanges(with_ ? [...sent, with_] : sent, false);
+          } catch (e) {
+            const conflict = changesConflict(e);
+            if (!conflict) throw e;
+            // Refetched, so keeping an edit takes what was saved as its base.
+            setConflicts(
+              pending
+                .filter(([, edit]) => touches(dryRunShare(edit), conflict))
+                .map(([id]) => id),
+            );
+            throw new ConflictFlagged();
+          }
+          saved.push(
+            ...pending.map(([, edit], i) => ({ edit, sent: sent[i] })),
+          );
         }
-        saved.push(...pending.map(([, edit], i) => ({ edit, sent: sent[i] })));
-      }
-      setUnscopedRefusal(null);
-      setAllowUnscopedRules(false);
-    } catch (e) {
-      // A conflict shows on the bar and its rows, not as an error.
-      if (!(e instanceof ConflictFlagged)) {
-        const message = e.message || "Could not save your changes";
-        if (e instanceof ApiCallError && e.code === "unscoped_rule") {
-          setUnscopedRefusal(message);
-        } else {
-          setError(message);
+        setUnscopedRefusal(null);
+        setAllowUnscopedRules(false);
+        ok = true;
+      } catch (e) {
+        // A conflict shows on the bar and its rows, not as an error.
+        if (!(e instanceof ConflictFlagged)) {
+          const message = e.message || "Could not save your changes";
+          if (e instanceof ApiCallError && e.code === "unscoped_rule") {
+            setUnscopedRefusal(message);
+          } else {
+            setError(message);
+          }
         }
+      } finally {
+        // One changed while it saved stays staged, over what it saved. Judged
+        // before the refetch, which moves a saved edit's share by itself.
+        const settled = saved.map(({ edit, sent }) => ({
+          edit,
+          unchanged: isEqual(dryRunShare(edit), sent),
+        }));
+        // Cleared once the refetch lands, so the page never shows the old values.
+        if (posted) await mutate();
+        settled.forEach(({ edit, unchanged }) => {
+          if (unchanged) edit.onSaved?.();
+          else rebaseOnRender.current.push(edit);
+        });
+        if (rebaseOnRender.current.length) setRefetched((n) => n + 1);
+        savingNow.current = false;
+        setSaving(false);
       }
-    } finally {
-      // One changed while it saved stays staged, over what it saved. Judged
-      // before the refetch, which moves a saved edit's share by itself.
-      const settled = saved.map(({ edit, sent }) => ({
-        edit,
-        unchanged: isEqual(dryRunShare(edit), sent),
-      }));
-      // Cleared once the refetch lands, so the page never shows the old values.
-      if (posted) await mutate();
-      settled.forEach(({ edit, unchanged }) => {
-        if (unchanged) edit.onSaved?.();
-        else rebaseOnRender.current.push(edit);
-      });
-      if (rebaseOnRender.current.length) setRefetched((n) => n + 1);
-      savingNow.current = false;
-      setSaving(false);
-    }
-  }, [postChanges, mutate]);
+      return ok;
+    },
+    [postChanges, mutate],
+  );
 
   // Its fields' input doesn't bubble to it, since they aren't inside it.
   useEffect(() => {

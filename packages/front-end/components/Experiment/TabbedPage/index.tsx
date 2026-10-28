@@ -2,6 +2,7 @@ import {
   ExperimentInterfaceStringDates,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
+  Variation,
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined } from "shared/util";
@@ -72,7 +73,10 @@ import UnsavedEditsBar from "./UnsavedEditsBar";
 import SetupTabOverview from "./SetupTabOverview";
 import DraftReviewCallouts from "./DraftReviewCallouts";
 import ScheduledUpdateFailureCallout from "./ScheduledUpdateFailureCallout";
-import Implementation, { IMPLEMENTATION_ID } from "./Implementation";
+import Implementation, {
+  IMPLEMENTATION_ID,
+  withStagedVariations,
+} from "./Implementation";
 import { TargetingDraft } from "./TrafficAllocationFunnel";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
@@ -210,6 +214,16 @@ function TabbedPageContents({
   const [watchersModal, setWatchersModal] = useState(false);
   const [visualEditorModal, setVisualEditorModal] = useState(false);
   const [featureModal, setFeatureModal] = useState(false);
+  // A flag added over staged variations has values for them, and saves with
+  // them in one request.
+  const [variationsDraft] = useStagedState<Variation[] | null>(
+    "variations",
+    null,
+  );
+  const variationsStaged =
+    !!variationsDraft &&
+    variationsDraft.map((v) => v.id).join() !==
+      experiment.variations.map((v) => v.id).join();
   // Joining, changing or leaving a holdout waits for the page's Save too.
   const [stagedHoldout, setStagedHoldout] = useStagedState<
     HoldoutDraft["value"]
@@ -655,7 +669,10 @@ function TabbedPageContents({
       )}
       {featureModal && (
         <FeatureFromExperimentModal
-          experiment={experiment}
+          experiment={withStagedVariations(experiment, variationsDraft)}
+          saveWithStagedChanges={
+            variationsStaged && edits ? edits.saveAll : undefined
+          }
           close={() => setFeatureModal(false)}
           mutate={mutate}
           source={trackSource}

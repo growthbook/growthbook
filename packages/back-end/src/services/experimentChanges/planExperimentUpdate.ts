@@ -694,15 +694,14 @@ export async function planExperimentUpdate(
   } else {
     const phases = [...(changes.phases || experiment.phases)];
     const last = phases.length - 1;
-    // The phase's variations follow the experiment's, in their order.
-    if (data.variations && last >= 0) {
-      phases[last] = {
-        ...phases[last],
-        variations: data.variations.map((v) => ({
-          id: v.id,
-          status: "active" as const,
-        })),
-      };
+    // The phase's variations follow the experiment's, in their order; a new
+    // phase takes them, and the one it ends keeps those it ran with.
+    const phaseVariations = data.variations?.map((v) => ({
+      id: v.id,
+      status: "active" as const,
+    }));
+    if (phaseVariations && last >= 0 && !release?.newPhase) {
+      phases[last] = { ...phases[last], variations: phaseVariations };
     }
     if (release?.newPhase || (last < 0 && Object.keys(phaseChanges).length)) {
       const previous = last >= 0 ? phases[last] : null;
@@ -713,7 +712,7 @@ export async function planExperimentUpdate(
       phases.push({
         coverage: from.coverage,
         variationWeights: from.variationWeights,
-        variations: from.variations,
+        variations: phaseVariations ?? from.variations,
         condition: from.condition,
         savedGroups: from.savedGroups,
         prerequisites: from.prerequisites,

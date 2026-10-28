@@ -27,6 +27,7 @@ import {
   getHoldoutLinkBlocker,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
+import type { ExperimentChangesBody } from "shared/validators";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -78,6 +79,9 @@ export type Props = {
   source?: string;
   // Feature IDs in "discarded" state that can be re-added.
   reAddableFeatureIds?: string[];
+  // With variations staged: the flag saves with the staged changes, in one
+  // request, so its values can name variations not saved yet.
+  saveWithStagedChanges?: (part: ExperimentChangesBody) => Promise<boolean>;
 };
 
 const genEnvironmentSettings = ({
@@ -157,6 +161,7 @@ export default function FeatureFromExperimentModal({
   mutate,
   source,
   reAddableFeatureIds = [],
+  saveWithStagedChanges,
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const selectedProject = experiment.project ?? project;
@@ -523,7 +528,8 @@ export default function FeatureFromExperimentModal({
       size="lg"
       header="Add Feature Flag to Experiment"
       headerAction={
-        existing && existingFeature ? (
+        // Saved with staged changes, an existing flag gets a new draft.
+        existing && existingFeature && !saveWithStagedChanges ? (
           <DraftSelectorDropdown
             feature={existingFeature}
             revisionList={existingRevisionList}
@@ -536,7 +542,7 @@ export default function FeatureFromExperimentModal({
           />
         ) : null
       }
-      cta={cta}
+      cta={saveWithStagedChanges ? "Save and add" : cta}
       close={close}
       ctaEnabled={ctaEnabled}
       aboveFooterContent={unscopedRuleBanner}
@@ -605,6 +611,60 @@ export default function FeatureFromExperimentModal({
         }
 
         checkUnscopedRule();
+
+        if (saveWithStagedChanges) {
+          if (existing && holdoutWarning) {
+            throw new Error("Holdout configuration mismatch.");
+          }
+          const link = {
+            variations,
+            ...(rule.sparse && { sparse: true }),
+            environments: {
+              allEnvironments: ruleAllEnvironments,
+              environments: ruleAllEnvironments ? [] : ruleSelectedEnvironments,
+            },
+          };
+          const saved = await saveWithStagedChanges(
+            existing
+              ? { linkFeatures: [{ featureId: featureToCreate.id, ...link }] }
+              : {
+                  createFeatures: [
+                    {
+                      feature: {
+                        id: featureToCreate.id,
+                        valueType: featureToCreate.valueType,
+                        defaultValue: featureToCreate.defaultValue,
+                        description: featureToCreate.description,
+                        owner: featureToCreate.owner,
+                        project: featureToCreate.project,
+                        tags: featureToCreate.tags,
+                        environmentSettings: newFeatureEnvSettings,
+                        ...(featureToCreate.holdout && {
+                          holdout: featureToCreate.holdout,
+                        }),
+                        customFields: featureToCreate.customFields,
+                      },
+                      ...link,
+                    },
+                  ],
+                },
+          );
+          if (!saved) {
+            throw new Error(
+              "Nothing was saved. The save bar at the bottom of the page says why.",
+            );
+          }
+          if (!existing) {
+            track("Feature Created", {
+              valueType: featureToCreate.valueType,
+              hasDescription: !!featureToCreate.description,
+              initialRule: "experiment-ref",
+            });
+            refreshTags(featureToCreate.tags || []);
+            refreshWatching();
+          }
+          return;
+        }
 
         let targetFeatureId: string;
 

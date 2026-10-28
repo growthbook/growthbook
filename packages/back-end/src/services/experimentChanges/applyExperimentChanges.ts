@@ -6,6 +6,7 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "shared/types/events/event-types";
 import { ExperimentChangesBody, ExperimentRefRule } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
@@ -34,6 +35,7 @@ import {
   validateExperimentFeatureVariations,
   linkFeatureToExperiment,
   assertFlagLinkable,
+  flagHoldsExperimentRule,
   assertFlagKeepable,
   assertFlagRemovable,
   keepFlagInExperiment,
@@ -54,6 +56,10 @@ import {
   NotFoundError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import {
+  insertNewFeature,
+  prepareNewFeature,
+} from "back-end/src/services/featureCreate";
 import {
   ExperimentUpdatePlan,
   finishExperimentUpdate,
@@ -97,6 +103,10 @@ type FlagValuesEntry = NonNullable<ExperimentChangesBody["flagValues"]>[number];
 type LinkFeatureEntry = NonNullable<
   ExperimentChangesBody["linkFeatures"]
 >[number];
+type CreateFeatureEntry = NonNullable<
+  ExperimentChangesBody["createFeatures"]
+>[number];
+type PlannedCreate = { feature: FeatureInterface; entry: CreateFeatureEntry };
 
 function assertFlagValuesEntries(
   featureId: string,
@@ -506,9 +516,16 @@ export async function applyExperimentChanges({
       ...new Set([
         ...(experiment.linkedFeatures ?? []),
         ...(body.linkFeatures ?? []).map((link) => link.featureId),
+        ...(body.createFeatures ?? []).map((c) => c.feature.id),
       ]),
     ],
   };
+  await assertNewVariationsCovered(
+    context,
+    experiment,
+    plannedExperiment,
+    body,
+  );
   for (const link of body.linkFeatures ?? []) {
     assertScopedRules(context, [{ id: "", ...linkRuleScope(link) }], []);
     const feature = await getFeature(context, link.featureId);
@@ -522,6 +539,7 @@ export async function applyExperimentChanges({
       forceNewDraft: true,
     });
   }
+  const creates = await planCreates(context, plannedExperiment, body);
   const linkedPlan = await planLinkedChanges(
     context,
     experiment,
@@ -569,6 +587,7 @@ export async function applyExperimentChanges({
           experiment,
           body,
           linkedPlan,
+          creates,
           eventAudit,
           audit,
         }),
@@ -576,10 +595,11 @@ export async function applyExperimentChanges({
       };
     }
     // Nothing rolls back once the experiment lands, so the linked changes'
-    // bases are checked again first.
+    // bases and the new flags are checked again first.
     if (linkedPlan) {
       await planLinkedChanges(context, experiment, experimentPlan, body);
     }
+    await planCreates(context, plannedExperiment, body);
     // Pins the short window since the re-read; the field check above covers the rest.
     written = {
       experiment: fresh,
@@ -614,6 +634,7 @@ export async function applyExperimentChanges({
         experiment: written.updated,
         body,
         linkedPlan,
+        creates,
         eventAudit,
         audit,
       }),
@@ -629,8 +650,76 @@ export async function applyExperimentChanges({
   }
 }
 
+// A variation this save adds needs a value on every flag serving the
+// experiment, or that flag serves it null. The flags this save writes values
+// to, links, creates or unlinks are covered; a kept flag's restored rule
+// predates the new variations.
+async function assertNewVariationsCovered(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  planned: ExperimentInterface,
+  body: ExperimentChangesBody,
+) {
+  const before = new Set(experiment.variations.map((v) => v.id));
+  if (planned.variations.every((v) => before.has(v.id))) return;
+  if (body.keepFeatures?.length) {
+    throw new BadRequestError(
+      "Keep a Feature Flag in a save of its own, before adding variations.",
+    );
+  }
+  const covered = new Set([
+    ...(body.flagValues ?? []).map((f) => f.featureId),
+    ...(body.linkFeatures ?? []).map((f) => f.featureId),
+    ...(body.unlinkFeatures ?? []),
+  ]);
+  const missing: string[] = [];
+  for (const id of experiment.linkedFeatures ?? []) {
+    if (covered.has(id)) continue;
+    const feature = await getFeature(context, id);
+    if (
+      feature &&
+      (await flagHoldsExperimentRule(context, feature, experiment.id))
+    ) {
+      missing.push(id);
+    }
+  }
+  if (missing.length) {
+    throw new BadRequestError(
+      `Give each linked Feature Flag a value for the new variations: ${missing.join(", ")}.`,
+    );
+  }
+}
+
+// Each new flag checked as POST /feature checks one, with its values checked
+// against the experiment this save leaves. Writes nothing.
+async function planCreates(
+  context: ReqContext,
+  planned: ExperimentInterface,
+  body: ExperimentChangesBody,
+): Promise<PlannedCreate[]> {
+  const entries = body.createFeatures ?? [];
+  const ids = entries.map((entry) => entry.feature.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new BadRequestError("Each new Feature Flag needs its own key.");
+  }
+  const creates: PlannedCreate[] = [];
+  for (const entry of entries) {
+    assertScopedRules(context, [{ id: "", ...linkRuleScope(entry) }], []);
+    const feature = await prepareNewFeature(context, entry.feature);
+    await assertFlagLinkable({
+      context,
+      experiment: planned,
+      feature,
+      rule: linkRule(planned.id, entry),
+      forceNewDraft: true,
+    });
+    creates.push({ feature, entry });
+  }
+  return creates;
+}
+
 // Where a flag linked again runs: every environment unless the link names some.
-function linkRuleScope(link: LinkFeatureEntry) {
+function linkRuleScope(link: LinkFeatureEntry | CreateFeatureEntry) {
   return link.environments && !link.environments.allEnvironments
     ? { allEnvironments: false, environments: link.environments.environments }
     : { allEnvironments: true };
@@ -638,7 +727,7 @@ function linkRuleScope(link: LinkFeatureEntry) {
 
 function linkRule(
   experimentId: string,
-  link: LinkFeatureEntry,
+  link: LinkFeatureEntry | CreateFeatureEntry,
 ): ExperimentRefRule {
   return {
     type: "experiment-ref",
@@ -659,6 +748,7 @@ async function finishFlags({
   experiment,
   body,
   linkedPlan,
+  creates,
   eventAudit,
   audit,
 }: {
@@ -666,9 +756,22 @@ async function finishFlags({
   experiment: ExperimentInterface;
   body: ExperimentChangesBody;
   linkedPlan: LinkedChangesPlan | null;
+  creates: PlannedCreate[];
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<ExperimentInterface> {
+  for (const { feature, entry } of creates) {
+    await insertNewFeature(context, feature, audit);
+    await linkFeatureToExperiment({
+      context,
+      experiment,
+      feature,
+      rule: linkRule(experiment.id, entry),
+      eventAudit,
+      audit,
+      forceNewDraft: true,
+    });
+  }
   for (const link of body.linkFeatures ?? []) {
     const feature = await getFeature(context, link.featureId);
     if (!feature)
@@ -709,7 +812,8 @@ async function finishFlags({
       audit,
     });
   }
-  return body.linkFeatures?.length ||
+  return creates.length ||
+    body.linkFeatures?.length ||
     body.unlinkFeatures?.length ||
     body.keepFeatures?.length ||
     linkedPlan

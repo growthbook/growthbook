@@ -748,6 +748,88 @@ describe("applyExperimentChanges", () => {
     ]);
   });
 
+  describe("a save adding a variation", () => {
+    const addV2 = (stored: {
+      variations: ReturnType<typeof seededVariations>;
+    }) => ({
+      changes: {
+        variations: [...stored.variations, variation("v2", 2)],
+        variationWeights: [0.34, 0.33, 0.33],
+      },
+      base: { variations: stored.variations, variationWeights: [0.5, 0.5] },
+    });
+    const newFlag = (id: string) => ({
+      feature: {
+        id,
+        valueType: "string" as const,
+        defaultValue: "a",
+        environmentSettings: {},
+      },
+      variations: [...arms("a", "b"), { variationId: "v2", value: "c" }],
+    });
+
+    it("refuses while a linked flag has no value for it", async () => {
+      await seed({ withDraft: false });
+      await expect(
+        run({ experiment: addV2(await storedExperiment()) }),
+      ).rejects.toThrow(
+        `Give each linked Feature Flag a value for the new variations: ${FLAG}.`,
+      );
+      expect((await storedExperiment()).variations).toHaveLength(2);
+    });
+
+    it("creates a flag whose values name the variation it adds", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [] });
+
+      await run({
+        experiment: addV2(await storedExperiment()),
+        createFeatures: [newFlag("flag_created")],
+      });
+      expect((await storedExperiment()).linkedFeatures).toEqual([
+        "flag_created",
+      ]);
+      // A new flag's rule lands in a draft, as adding one from the page does.
+      const draft = await collection("featurerevisions").findOne({
+        featureId: "flag_created",
+        status: "draft",
+      });
+      expect(draft?.rules?.[0]?.variations).toEqual([
+        ...arms("a", "b"),
+        { variationId: "v2", value: "c" },
+      ]);
+    });
+
+    it("checks a new flag's key in a dry run, writing nothing", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [] });
+      await expect(
+        run({
+          experiment: addV2(await storedExperiment()),
+          createFeatures: [newFlag(FLAG)],
+          dryRun: true,
+        }),
+      ).rejects.toThrow("This feature key already exists");
+      expect((await storedExperiment()).variations).toHaveLength(2);
+    });
+
+    it("starts a draft's first phase with the variations it saves", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [], phases: [] });
+      const added = addV2(await storedExperiment());
+      // No phase, so no split was loaded.
+      await run({
+        experiment: {
+          ...added,
+          base: { ...added.base, variationWeights: null },
+        },
+      });
+      expect(
+        (await storedExperiment()).phases[0]?.variations.map((v) => v.id),
+      ).toEqual(["v0", "v1", "v2"]);
+    });
+  });
+
   it("changes a running bandit's coverage without restarting it, and refuses coverage that moved", async () => {
     await seed({ withDraft: false });
     await setExperiment({

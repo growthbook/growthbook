@@ -21,6 +21,17 @@ const part: Required<
     },
   ],
   linkFeatures: [{ featureId: "flag", variations: [] }],
+  createFeatures: [
+    {
+      feature: {
+        id: "new-flag",
+        valueType: "boolean",
+        defaultValue: "false",
+        environmentSettings: {},
+      },
+      variations: [],
+    },
+  ],
   unlinkFeatures: ["flag"],
   keepFeatures: ["flag"],
   addUrlRedirects: [redirect],

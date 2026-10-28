@@ -2329,6 +2329,40 @@ export const experimentChangesBody = z
           .strict(),
       )
       .optional(),
+    // Flags to create, each checked as POST /feature checks a new one and
+    // given the experiment's rule in a new draft, after the experiment's own
+    // changes land, so its values can name variations this save adds.
+    createFeatures: z
+      .array(
+        z
+          .object({
+            feature: z
+              .object({
+                id: z.string(),
+                valueType: z.enum(featureValueType),
+                defaultValue: z.string(),
+                description: z.string().optional(),
+                owner: ownerField.optional(),
+                project: z.string().optional(),
+                tags: z.array(z.string()).optional(),
+                environmentSettings: z.record(
+                  z.string(),
+                  z.object({ enabled: z.boolean() }).strict(),
+                ),
+                holdout: z
+                  .object({ id: z.string(), value: z.string() })
+                  .strict()
+                  .optional(),
+                customFields: z.record(z.string(), z.unknown()).optional(),
+              })
+              .strict(),
+            variations: z.array(experimentRefVariation),
+            sparse: z.boolean().optional(),
+            environments: experimentRuleEnvironments.optional(),
+          })
+          .strict(),
+      )
+      .optional(),
     // Flags to take off the experiment, along with its rule on each: out of
     // open drafts now, and out of live through a draft, unlinking on publish.
     unlinkFeatures: z.array(z.string()).optional(),

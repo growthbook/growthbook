@@ -41,6 +41,7 @@ import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
 import EditVariationMetadataModal from "@/components/Experiment/EditVariationMetadataModal";
 import EditVariationKeysModal from "@/components/Experiment/EditVariationKeysModal";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import HoldoutTrafficAndTargeting from "@/components/Holdout/HoldoutTrafficAndTargeting";
 import TrafficAllocationFunnel, {
   changesVariationList,
@@ -260,7 +261,8 @@ export default function Implementation({
       setLinkedDraft((d) => stageVisualChange(d, stored, change)),
     [setLinkedDraft],
   );
-  const checkChanges = useExperimentEdits()?.checkChanges;
+  const edits = useExperimentEdits();
+  const checkChanges = edits?.checkChanges;
   const [redirectModal, setRedirectModal] = useState<{
     // Null to add one.
     target: ShownRedirect | null;
@@ -380,12 +382,22 @@ export default function Implementation({
       ),
     })),
   ];
+  // A visual change is written as it's added, against the saved variations;
+  // a flag or redirect saves with the staged variations instead.
+  const variationsUnsaved =
+    shownVariationIds.join() !==
+    getLatestPhaseVariations(experiment)
+      .map((v) => v.id)
+      .join();
+  const [addAfterSave, setAddAfterSave] = useState<(() => void) | null>(null);
+  const savingFirst = (open: () => void) => () =>
+    variationsUnsaved ? setAddAfterSave(() => open) : open();
   const addImplementation = canAddAny ? (
     <AddImplementationMenu
       experiment={experiment}
       onAdd={{
         feature: () => setFeatureModal(true),
-        visual: () => setVisualEditorModal(true),
+        visual: savingFirst(() => setVisualEditorModal(true)),
         urlredirect: () => setRedirectModal({ target: null }),
       }}
       // In priority order, the first kind it already has.
@@ -459,6 +471,19 @@ export default function Implementation({
           source={
             redirectModal.target ? "redirect-linked-changes" : "tabbed-page"
           }
+        />
+      ) : null}
+      {addAfterSave ? (
+        <ConfirmDialog
+          title="Save changes first?"
+          content="Visual changes are added to the saved experiment, so its new variations need saving first. This saves all your staged changes."
+          yesText="Save and continue"
+          onConfirm={async () => {
+            setAddAfterSave(null);
+            // A refused save shows why on the save bar.
+            if (await edits?.saveAll()) addAfterSave();
+          }}
+          onCancel={() => setAddAfterSave(null)}
         />
       ) : null}
       {editingKeys && canEditExperiment && (
@@ -672,7 +697,7 @@ export default function Implementation({
   );
 }
 
-function withStagedVariations(
+export function withStagedVariations(
   experiment: ExperimentInterfaceStringDates,
   variations: Variation[] | null,
 ): ExperimentInterfaceStringDates {
