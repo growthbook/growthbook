@@ -100,9 +100,12 @@ const ExperimentCarouselModal: FC<{
       dismissible
       showCloseButton
       hasDescription={false}
-      // Nothing to type into, and the arrows and Escape work from anywhere,
-      // so opening doesn't land on the close button.
-      onOpenAutoFocus={(e) => e.preventDefault()}
+      // Focus the viewer itself rather than its close button: nothing to type
+      // into, and the arrows and Escape work from anywhere.
+      onOpenAutoFocus={(e) => {
+        e.preventDefault();
+        (e.currentTarget as HTMLElement | null)?.focus();
+      }}
       trackingEventModalType=""
     >
       {/* Radix labels the dialog by its title; this viewer shows none. */}

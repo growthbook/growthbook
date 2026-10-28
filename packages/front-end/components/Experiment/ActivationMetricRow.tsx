@@ -1,7 +1,7 @@
 import { Box } from "@radix-ui/themes";
 import Tooltip from "@/ui/Tooltip";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
+import Button from "@/ui/Button";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import MetricSelector from "./MetricSelector";
 
@@ -52,13 +52,17 @@ export default function ActivationMetricRow({
         </Box>
       </Tooltip>
       {incrementalRefresh && value !== "" && !disabled ? (
-        <Callout status="warning" mb="2">
+        <Callout
+          status="warning"
+          contentAlign="center"
+          mt="2"
+          action={
+            <Button variant="outline" size="sm" onClick={() => onChange("")}>
+              Remove
+            </Button>
+          }
+        >
           Activation metrics are not yet supported with Incremental Refresh.
-          Please{" "}
-          <Link style={{ display: "inline" }} onClick={() => onChange("")}>
-            click to remove it
-          </Link>
-          .
         </Callout>
       ) : null}
     </SetupFieldRow>

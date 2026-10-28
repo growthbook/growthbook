@@ -297,11 +297,16 @@ export default function CustomMetricSlicesSelector({
                           ? undefined
                           : clsx(revealsQuickEdit, editsOnClick)
                       }
-                      style={{
-                        ...MULTI_SELECT_FRAME,
-                        minHeight: 36,
-                        padding: "2px 2px 2px 8px",
-                      }}
+                      // Framed as a field only where it opens for editing.
+                      style={
+                        disabled
+                          ? undefined
+                          : {
+                              ...MULTI_SELECT_FRAME,
+                              minHeight: 36,
+                              padding: "2px 2px 2px 8px",
+                            }
+                      }
                     >
                       <Flex gap="2" align="center" wrap="wrap" flexGrow="1">
                         {levels.slices.map((combo, comboIndex) => {

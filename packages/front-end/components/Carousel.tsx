@@ -6,6 +6,9 @@ import {
   cloneElement,
   ReactNode,
   ReactElement,
+  KeyboardEvent,
+  useEffect,
+  useRef,
 } from "react";
 import { Flex, IconButton, Theme } from "@radix-ui/themes";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
@@ -33,6 +36,20 @@ const Carousel: FC<{
   }
 
   const current = active >= num ? num - 1 : active;
+  const prevButton = useRef<HTMLButtonElement>(null);
+  const nextButton = useRef<HTMLButtonElement>(null);
+  // An arrow disables at the end it reaches; once it has, focus moves to the
+  // other one rather than dropping out of the ribbon.
+  const refocus = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    refocus.current?.focus();
+    refocus.current = null;
+  }, [current]);
+  const page = (to: number) => {
+    setActive(to);
+    if (to === 0) refocus.current = nextButton.current;
+    else if (to === num - 1) refocus.current = prevButton.current;
+  };
 
   return (
     <div className={clsx("carousel", styles.carousel)}>
@@ -42,14 +59,24 @@ const Carousel: FC<{
           return (
             <div
               className={clsx(
-                "cursor-pointer",
+                onClick && "cursor-pointer",
                 styles.slide,
                 i === current && styles.active,
               )}
-              onClick={() => {
-                if (onClick) onClick(i);
-              }}
               key={i}
+              {...(onClick
+                ? {
+                    role: "button",
+                    tabIndex: 0,
+                    "aria-label": `Open image ${i + 1} of ${num}`,
+                    onClick: () => onClick(i),
+                    onKeyDown: (e: KeyboardEvent<HTMLDivElement>) => {
+                      if (e.key !== "Enter" && e.key !== " ") return;
+                      e.preventDefault();
+                      onClick(i);
+                    },
+                  }
+                : {})}
             >
               {child}
             </div>
@@ -71,12 +98,17 @@ const Carousel: FC<{
               aria-label="Previous image"
               // Radix ghost buttons carry a negative margin.
               style={{ margin: 0 }}
+              ref={prevButton}
               disabled={current === 0}
-              onClick={() => setActive(current - 1)}
+              onClick={() => page(current - 1)}
             >
               <PiCaretLeft size={16} />
             </IconButton>
-            <span className={styles.count}>
+            <span
+              className={styles.count}
+              aria-live="polite"
+              aria-atomic="true"
+            >
               <Text size="sm" color="text-mid" whiteSpace="nowrap">
                 {current + 1} of {num}
               </Text>
@@ -89,8 +121,9 @@ const Carousel: FC<{
               size="2"
               aria-label="Next image"
               style={{ margin: 0 }}
+              ref={nextButton}
               disabled={current === num - 1}
-              onClick={() => setActive(current + 1)}
+              onClick={() => page(current + 1)}
             >
               <PiCaretRight size={16} />
             </IconButton>

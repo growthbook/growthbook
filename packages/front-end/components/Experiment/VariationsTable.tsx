@@ -70,6 +70,8 @@ const ScreenshotCarousel: FC<{
           height: UNAVAILABLE_IMAGE_HEIGHT + "px",
           width: "100%",
           color: "var(--slate-a9)",
+          // Kept out of the lightbox, so not clickable either.
+          cursor: "default",
         }}
       >
         <Box>
