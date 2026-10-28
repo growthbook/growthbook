@@ -95,6 +95,15 @@ export type ExperimentTab =
   | ExperimentTabName
   | `${ExperimentTabName}/${string}`;
 
+// The tab a URL hash names, and the path within it.
+const parseTabHash = (hash: string) => {
+  const [tab, ...path] = hash.replace(/^#/, "").split("/") as [
+    ExperimentTabName,
+    ...string[],
+  ];
+  return experimentTabs.includes(tab) ? { tab, path: path.join("/") } : null;
+};
+
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout?: HoldoutInterfaceStringDates;
@@ -157,15 +166,17 @@ function TabbedPageContents({
   visualChangesetEnvStates,
   urlRedirectEnvStates,
 }: Props) {
+  // A tab named in the URL wins over the one viewed last, from the first
+  // render, so the last one's content never acts on the URL meanwhile.
+  const fromUrl = parseTabHash(window.location.hash);
   const [tab, setTab] = useLocalStorage<ExperimentTab>(
     `tabbedPageTab__${experiment.id}`,
     "overview",
+    fromUrl?.tab ?? null,
   );
   const tabRef = useRef(tab);
   tabRef.current = tab;
-  const [tabPath, setTabPath] = useState(
-    window.location.hash.replace(/^#/, "").split("/").slice(1).join("/"),
-  );
+  const [tabPath, setTabPath] = useState(fromUrl?.path ?? "");
 
   const router = useRouter();
 
@@ -297,15 +308,11 @@ function TabbedPageContents({
     };
 
     const handler = () => {
-      const hash = getHash() as ExperimentTab;
-      const [tabName, ...tabPathSegments] = hash.split("/") as [
-        ExperimentTabName,
-        ...string[],
-      ];
-      if (experimentTabs.includes(tabName)) {
-        const tabPath = tabPathSegments.join("/");
-        setTab(tabName);
-        setTabPath(tabPath);
+      const hash = getHash();
+      const fromHash = parseTabHash(hash);
+      if (fromHash) {
+        setTab(fromHash.tab);
+        setTabPath(fromHash.path);
       } else if (!hash) {
         // If no hash in URL, add the current tab from state to the URL
         const newUrl =
