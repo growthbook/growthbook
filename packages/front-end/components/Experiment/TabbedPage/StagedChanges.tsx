@@ -13,16 +13,31 @@ import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import { ApiCallError } from "@/services/apiCallError";
-import { StagedReview, useExperimentEdits } from "./ExperimentEdits";
+import {
+  IncompatibleEdit,
+  StagedReview,
+  useExperimentEdits,
+} from "./ExperimentEdits";
 
 type SaveCheck = { status: "ready" } | { status: "refused"; reason: string };
 
-export const incompatibleNote = (status: string) =>
-  `${
-    status === "draft"
-      ? "This experiment's status changed"
-      : "This experiment is no longer a draft"
-  }, so some changes can't be saved. Discard them to save the rest.`;
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
+
+// Names what can't be saved, and why, in the terms of where it was made.
+export function incompatibleNote(
+  incompatible: IncompatibleEdit[],
+  staged: { id: string; label: string }[],
+): string {
+  const labels = staged
+    .filter(({ id }) => incompatible.some((e) => e.id === id))
+    .map(({ label }) => label);
+  const why = incompatible.every((e) => e.stagedIn === "draft")
+    ? "This experiment is no longer a draft"
+    : "This experiment's status changed since these were made";
+  return `${why}, so ${listFormat.format(labels)} can't be saved. Discard ${
+    labels.length === 1 ? "it" : "them"
+  } to save the rest.`;
+}
 
 function StagedChange({
   label,
@@ -195,7 +210,7 @@ export default function StagedChanges() {
         <Flex direction="column" gap="2">
           {edits.incompatible.length ? (
             <HelperText status="warning" size="sm" mb="1">
-              {incompatibleNote(edits.experiment.status)}
+              {incompatibleNote(edits.incompatible, edits.staged)}
             </HelperText>
           ) : null}
           {staged.map(({ id, label }) => (
@@ -207,7 +222,7 @@ export default function StagedChanges() {
               keepMine={
                 edits.conflicts.includes(id) ? () => edits.keepMine(id) : null
               }
-              incompatible={edits.incompatible.includes(id)}
+              incompatible={edits.incompatible.some((e) => e.id === id)}
             />
           ))}
           {check?.status === "ready" ? (

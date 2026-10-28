@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getExposureQueryIdentifierTypes } from "shared/util";
 import { getValidDate } from "shared/dates";
@@ -173,6 +173,14 @@ export default function AnalysisPlanAdvanced({
   const edits = useExperimentEdits();
   // Typed as text, so "0." can be on its way to a valid value.
   const [tuningText, setTuningText] = useState(String(tuningParameter));
+  // Derived from the text, however it changed, so the field and the page's
+  // form agree on whether Save can take it.
+  const tuningError =
+    parseFloat(tuningText) > 0 ? null : "Enter a number above 0.";
+  const tuningInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    tuningInput.current?.setCustomValidity(tuningError ?? "");
+  }, [tuningError, sequentialEnabled]);
   useEffect(() => {
     setTuningText((text) =>
       parseFloat(text) === tuningParameter ? text : String(tuningParameter),
@@ -302,6 +310,7 @@ export default function AnalysisPlanAdvanced({
                       <Text>Tuning parameter</Text>
                       <Box width="120px">
                         <Field
+                          ref={tuningInput}
                           type="number"
                           min="0"
                           step="any"
@@ -309,14 +318,12 @@ export default function AnalysisPlanAdvanced({
                           // On the page's form, so a value it can't take
                           // stops the save rather than saving the last one.
                           form={edits?.formId}
+                          error={tuningError ?? undefined}
                           containerClassName="mb-0"
                           value={tuningText}
                           onChange={(e) => {
                             setTuningText(e.target.value);
                             const value = parseFloat(e.target.value);
-                            e.target.setCustomValidity(
-                              value > 0 ? "" : "Enter a number above 0.",
-                            );
                             if (value > 0) {
                               stage({
                                 sequentialTestingTuningParameter: value,

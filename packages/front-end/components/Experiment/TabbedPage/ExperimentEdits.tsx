@@ -69,6 +69,8 @@ function dryRunShare(edit: PendingEdit): ExperimentChangesBody | null {
   }
 }
 
+export type IncompatibleEdit = { id: string; stagedIn: string };
+
 interface ExperimentEditsValue {
   scope: string;
   // As last fetched: staged edits are checked against it as it refreshes.
@@ -92,9 +94,10 @@ interface ExperimentEditsValue {
   // Staged edits whose fields someone else saved since they were made.
   conflicts: string[];
   markDrifted: (id: string, drifted: boolean) => void;
-  // Status-bound edits made before the experiment's status changed.
-  incompatible: string[];
-  markIncompatible: (id: string, incompatible: boolean) => void;
+  // Status-bound edits made before the experiment's status changed, with the
+  // status each was made under.
+  incompatible: IncompatibleEdit[];
+  markIncompatible: (id: string, stagedIn: string | null) => void;
   // Saves this edit over the other change next time.
   keepMine: (id: string) => void;
   discard: (id: string) => void;
@@ -288,6 +291,10 @@ export function ExperimentEditsProvider({
 
   const [staged, setStaged] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  const content = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (content.current) content.current.inert = saving;
+  }, [saving]);
   const [error, setError] = useState<string | null>(null);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
@@ -308,10 +315,15 @@ export function ExperimentEditsProvider({
       setDrifted((prev) => withId(prev, id, isDrifted)),
     [],
   );
-  const [incompatible, setIncompatible] = useState<string[]>([]);
+  const [incompatible, setIncompatible] = useState<IncompatibleEdit[]>([]);
   const markIncompatible = useCallback(
-    (id: string, isIncompatible: boolean) =>
-      setIncompatible((prev) => withId(prev, id, isIncompatible)),
+    (id: string, stagedIn: string | null) =>
+      setIncompatible((prev) => {
+        const entry = prev.find((e) => e.id === id);
+        if ((entry?.stagedIn ?? null) === stagedIn) return prev;
+        const rest = prev.filter((e) => e.id !== id);
+        return stagedIn ? [...rest, { id, stagedIn }] : rest;
+      }),
     [],
   );
   // Refused by a save, or already shown by a refetch: either way, resolved the
@@ -327,7 +339,7 @@ export function ExperimentEditsProvider({
     } else {
       edits.current.delete(id);
       setDrifted((prev) => withId(prev, id, false));
-      setIncompatible((prev) => withId(prev, id, false));
+      setIncompatible((prev) => prev.filter((e) => e.id !== id));
     }
     setStaged((prev) => {
       const i = prev.findIndex((entry) => entry.id === id);
@@ -558,7 +570,11 @@ export function ExperimentEditsProvider({
 
   return (
     <ExperimentEditsContext.Provider value={value}>
-      {children}
+      {/* Nothing edits while it saves and refetches, so what the save judges
+          as saved is what it sent. */}
+      <div ref={content} style={{ display: "contents" }}>
+        {children}
+      </div>
       {/* Never submitted: Save checks it. The disabled default button keeps
           Enter in a field from submitting it. */}
       <form id={formId} ref={form} hidden>
@@ -612,8 +628,8 @@ export function useRegisterExperimentEdit(
   const incompatible =
     statusBound && dirty && stagedIn !== null && stagedIn !== status;
   useEffect(() => {
-    markIncompatible?.(id, incompatible);
-  }, [markIncompatible, id, incompatible]);
+    markIncompatible?.(id, incompatible ? stagedIn : null);
+  }, [markIncompatible, id, incompatible, stagedIn]);
 
   // A refetched save by someone else over this edit's fields is flagged now,
   // not when Save is refused.

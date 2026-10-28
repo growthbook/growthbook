@@ -1,8 +1,5 @@
-import { PiMagicWandFill } from "react-icons/pi";
-import {
-  EDITOR_ACTION_ICON_SIZE,
-  EditorAction,
-} from "@/components/Forms/CodeTextArea";
+import { EditorAction } from "@/components/Forms/CodeTextArea";
+import { FormatJsonIcon } from "@/ui/ActionIcons";
 import { formatJSON } from "@/services/features";
 
 // The editor corner's Format JSON button. Formats only when clicked:
@@ -17,14 +14,7 @@ export default function FormatJsonAction({
   return (
     <EditorAction
       label="Format JSON"
-      icon={
-        <PiMagicWandFill
-          size={EDITOR_ACTION_ICON_SIZE}
-          // It reads small beside the other icons; scaled, the button keeps
-          // its size.
-          style={{ transform: "scale(1.15)" }}
-        />
-      }
+      icon={<FormatJsonIcon size="sm" />}
       onClick={() => {
         const formatted = formatJSON(value);
         if (formatted && formatted !== value) setValue(formatted);
