@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import clsx from "clsx";
 import { VisuallyHidden } from "@radix-ui/themes";
 import LetterAvatar from "./LetterAvatar";
@@ -23,9 +23,27 @@ export default function RailProjectSelector({
     setOpen(false);
   }, [collapsed]);
 
+  // Expanded, a name cut off by the row shows in full in its tooltip, as it
+  // always does collapsed.
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const labelRef = useRef<HTMLSpanElement>(null);
+  const [truncated, setTruncated] = useState(false);
+  useEffect(() => {
+    const el = labelRef.current;
+    if (!el) {
+      setTruncated(false);
+      return;
+    }
+    const check = () => setTruncated(el.scrollWidth > el.clientWidth);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [collapsed, name]);
+
   const tooltip = useMenuTriggerTooltip({
     label: name,
-    enabled: collapsed,
+    enabled: collapsed || truncated,
     menuOpen: open,
   });
 
@@ -51,8 +69,11 @@ export default function RailProjectSelector({
   ) : (
     <>
       {avatar}
-      <span className={styles.rowLabel}>{name}</span>
+      <span ref={labelRef} className={styles.rowLabel}>
+        {name}
+      </span>
       {current && isDemo(current.id) ? <DemoBadge /> : null}
+      {tooltip.anchor}
     </>
   );
   const className = clsx(
@@ -80,8 +101,10 @@ export default function RailProjectSelector({
       // Clear of the side nav's edge (the item sits 8px inside it).
       menuSideOffset={16}
       alignFirstRow
+      anchorRef={triggerRef}
       trigger={
         <button
+          ref={triggerRef}
           type="button"
           className={clsx(className, open && styles.menuShowing)}
           aria-label={`Project: ${name}`}

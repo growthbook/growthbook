@@ -1,4 +1,4 @@
-import { ReactNode, useEffect, useRef, useState } from "react";
+import { ReactNode, RefObject, useEffect, useRef, useState } from "react";
 import { PiFolder, PiMagnifyingGlassBold } from "react-icons/pi";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -10,11 +10,20 @@ import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import { TextField } from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
 import LetterAvatar from "./LetterAvatar";
 import styles from "./HeaderBreadcrumb.module.scss";
 
 // Up to this many projects fit the menu at a glance, without a search field.
 const PROJECT_SEARCH_THRESHOLD = 15;
+// The menu's distance from the window's edge (Radix Themes' collision
+// padding).
+const MENU_EDGE_MARGIN = 10;
+// The menu's 8px padding, and the search row's 4px above the field.
+const MENU_FIRST_ROW_OFFSET = 8;
+const MENU_SEARCH_ROW_OFFSET = 12;
+// Truncated names' tooltips show after a brief pause, as the side nav's.
+const NAME_TOOLTIP_DELAY_MS = 300;
 
 const DEMO_BADGE_TITLE = "This is a demo project with sample data";
 // main's Demo badge color.
@@ -60,6 +69,31 @@ export function useProjectSelector() {
   };
 }
 
+// A project's name in the menu, its full name in a tooltip once it's cut off.
+function TruncatedName({ name, current }: { name: string; current: boolean }) {
+  // The text itself truncates; the span around it is the tooltip's trigger.
+  const ref = useRef<HTMLSpanElement>(null);
+  const [open, setOpen] = useState(false);
+  return (
+    <Tooltip
+      content={name}
+      side="right"
+      delayDuration={NAME_TOOLTIP_DELAY_MS}
+      open={open}
+      onOpenChange={(next) => {
+        const el = ref.current;
+        setOpen(next && !!el && el.scrollWidth > el.clientWidth);
+      }}
+    >
+      <span className={styles.projectOptionName}>
+        <Text ref={ref} weight={current ? "semibold" : "regular"} truncate>
+          {name}
+        </Text>
+      </span>
+    </Tooltip>
+  );
+}
+
 // The project menu: All Projects and each project, under a search field once
 // there are more than 15. With
 // `avatars`, each has main's avatar beside its name ("ALL" for All Projects).
@@ -71,6 +105,7 @@ export function ProjectMenu({
   menuSide,
   menuSideOffset,
   alignFirstRow = false,
+  anchorRef,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -81,6 +116,9 @@ export function ProjectMenu({
   // Opening to the trigger's side: raised so its first row (the search
   // field, or All Projects) lines up with the trigger.
   alignFirstRow?: boolean;
+  // With alignFirstRow, the trigger: the menu is capped to the space below
+  // it, so a long list scrolls inside the menu rather than pushing it up.
+  anchorRef?: RefObject<HTMLElement>;
 }) {
   const { projects, project, setProject } = useDefinitions();
   const { isDemo } = useProjectSelector();
@@ -94,10 +132,35 @@ export function ProjectMenu({
     searchFields: ["name^3", "description"],
   });
 
-  // Typing goes straight to the search field as the menu opens.
+  const alignOffset = alignFirstRow
+    ? -(showSearch ? MENU_SEARCH_ROW_OFFSET : MENU_FIRST_ROW_OFFSET)
+    : undefined;
+  const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
   useEffect(() => {
-    if (!open || !showSearch) return;
-    const t = window.setTimeout(() => searchRef.current?.focus(), 0);
+    if (!open || !alignFirstRow || !anchorRef?.current) return;
+    const anchor = anchorRef.current;
+    const update = () => {
+      const menuTop = anchor.getBoundingClientRect().top + (alignOffset ?? 0);
+      setMaxHeight(
+        Math.max(0, window.innerHeight - MENU_EDGE_MARGIN - menuTop),
+      );
+    };
+    update();
+    window.addEventListener("resize", update);
+    return () => window.removeEventListener("resize", update);
+  }, [open, alignFirstRow, anchorRef, alignOffset]);
+
+  // As the menu opens, typing goes straight to the search field, and the
+  // selected project scrolls into view.
+  const currentRef = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const t = window.setTimeout(() => {
+      if (showSearch) searchRef.current?.focus({ preventScroll: true });
+      currentRef.current
+        ?.closest("[role=menuitem]")
+        ?.scrollIntoView({ block: "nearest" });
+    }, 0);
     return () => window.clearTimeout(t);
   }, [open, showSearch]);
 
@@ -111,8 +174,13 @@ export function ProjectMenu({
       key={id || "all"}
       className={styles.projectItem}
       onClick={() => setProject(id)}
+      // Typing jumps by the name, not the avatar's initials before it.
+      textValue={label}
     >
-      <span className={styles.projectOption}>
+      <span
+        className={styles.projectOption}
+        ref={id === project ? currentRef : undefined}
+      >
         {avatars ? (
           <span className={styles.projectOptionAvatar} aria-hidden="true">
             <LetterAvatar
@@ -122,9 +190,7 @@ export function ProjectMenu({
             />
           </span>
         ) : null}
-        <Text weight={id === project ? "semibold" : "regular"} truncate>
-          {label}
-        </Text>
+        <TruncatedName name={label} current={id === project} />
         {id && isDemo(id) ? <DemoBadge /> : null}
       </span>
     </DropdownMenuItem>
@@ -137,8 +203,9 @@ export function ProjectMenu({
       menuPlacement="start"
       menuSide={menuSide}
       menuSideOffset={menuSideOffset}
-      // The menu's 8px padding, and the search row's 4px above the field.
-      menuAlignOffset={alignFirstRow ? (showSearch ? -12 : -8) : undefined}
+      menuAlignOffset={alignOffset}
+      menuMaxHeight={alignFirstRow ? maxHeight : undefined}
+      menuClassName={showSearch ? styles.projectMenuWithSearch : undefined}
       menuWidth={avatars ? 240 : 220}
       variant="soft"
       trigger={trigger}
