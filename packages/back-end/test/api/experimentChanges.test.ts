@@ -536,6 +536,30 @@ describe("applyExperimentChanges", () => {
     expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
   });
 
+  it("links a flag again past a draft that only carries its old rule", async () => {
+    await seed({ withDraft: true });
+    const date = new Date("2026-01-01T00:00:00Z");
+    // v3 took the rule out and published; v2 still has it, as its base did.
+    await collection("featurerevisions").updateOne(
+      { featureId: FLAG, version: 2 },
+      { $set: { rules: [expRule(arms("a", "b"))] } },
+    );
+    await collection("featurerevisions").insertOne({
+      ...revisionDoc(3, date),
+      baseVersion: 1,
+      status: "published",
+      rules: [],
+      datePublished: date,
+    });
+    await collection("features").updateOne(
+      { id: FLAG },
+      { $set: { rules: [], version: 3 } },
+    );
+    await run({
+      linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+    });
+  });
+
   it("shows validation hooks the person saving as the author of a flag's new draft", async () => {
     await seed({ withDraft: false });
     await dropRule();

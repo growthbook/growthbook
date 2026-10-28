@@ -1253,15 +1253,19 @@ const openDraftsOf = (
     skipPagination: true,
   });
 
-// Whether the flag serves the experiment, or will once a draft publishes.
+// Whether the flag serves the experiment, or will once its launch draft
+// publishes; a draft carrying the rule unchanged from its base doesn't add it.
 export async function flagHoldsExperimentRule(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   experimentId: string,
 ): Promise<boolean> {
-  const hasRule = holdsRule(experimentRuleFor(experimentId));
-  if (hasRule(feature.rules)) return true;
-  return (await openDraftsOf(context, feature)).some((d) => hasRule(d.rules));
+  if (holdsRule(experimentRuleFor(experimentId))(feature.rules)) return true;
+  const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
+    context.org.id,
+    feature.id,
+  );
+  return getLaunchDraftVersion(experimentId, openDrafts, liveRevision) !== null;
 }
 
 // Guarded, and retried from a fresh read, so an edit landing in between is
