@@ -27,6 +27,7 @@ import {
   ENVIRONMENT,
   EXPRESS_TRUST_PROXY_OPTS,
   IS_CLOUD,
+  MONGO_CALL_STATS,
   OAUTH_AS_ENABLED,
   SENTRY_DSN,
 } from "./util/secrets";
@@ -317,7 +318,7 @@ app.use(async (req, res, next) => {
   }
 });
 
-app.use(countMongoCalls);
+if (MONGO_CALL_STATS) app.use(countMongoCalls);
 
 // Visual Designer js file (does not require JWT or cors)
 app.get("/js/:key.js", getExperimentsScript);

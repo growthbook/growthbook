@@ -1,7 +1,7 @@
 import { performance } from "perf_hooks";
 import mongoose, { ConnectOptions } from "mongoose";
 import bluebird from "bluebird";
-import { MONGODB_URI } from "back-end/src/util/secrets";
+import { MONGO_CALL_STATS, MONGODB_URI } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getConnectionStringWithDeprecatedKeysMigratedForV3to4 } from "back-end/src/util/mongo.util";
 import { installMongoCallCounter } from "back-end/src/util/mongoCallStats";
@@ -20,7 +20,11 @@ export default async (): Promise<void> => {
     autoIndex: true,
   };
 
-  installMongoCallCounter();
+  if (MONGO_CALL_STATS && !(await installMongoCallCounter())) {
+    logger.warn(
+      "Unsupported MongoDB driver internals, not counting MongoDB calls per request",
+    );
+  }
 
   // Connect to MongoDB
   try {
@@ -60,7 +64,7 @@ export default async (): Promise<void> => {
     }
   }
 
-  scheduleMongoRoundTripLog();
+  if (MONGO_CALL_STATS) scheduleMongoRoundTripLog();
 };
 
 const ROUND_TRIP_LOG_INTERVAL_MS = 60_000;

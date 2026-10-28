@@ -2,7 +2,6 @@ import { AsyncLocalStorage } from "async_hooks";
 import { IncomingMessage } from "http";
 import { performance } from "perf_hooks";
 import type { NextFunction, Request, Response } from "express";
-import { Server } from "mongodb/lib/sdam/server";
 
 export class MongoCallStats {
   private calls = 0;
@@ -55,29 +54,73 @@ export function getMongoCallSummary(req: IncomingMessage) {
   return statsByRequest.get(req)?.summary(performance.now());
 }
 
+type CommandCallback = (...args: unknown[]) => void;
+type ServerCommand = (
+  this: unknown,
+  ns: unknown,
+  cmd: unknown,
+  options: unknown,
+  callback?: CommandCallback,
+) => unknown;
+
 // The driver's public command monitoring events fire after a connection is
 // checked out of the pool, from whichever async context drained the pool's
 // wait queue, so they can't be attributed to the request that issued them.
 // Server#command is still called synchronously from the caller's context.
-let installed = false;
-export function installMongoCallCounter() {
-  if (installed) return;
-  installed = true;
-  const original = Server.prototype.command;
-  Server.prototype.command = function (ns, cmd, options, callback) {
+// Returns false, leaving the prototype untouched, when the driver's internal
+// method doesn't have the 4.x callback signature this wraps.
+const wrapped = new WeakSet<object>();
+export function wrapServerCommand(proto: { command?: unknown }): boolean {
+  if (wrapped.has(proto)) return true;
+  const original = proto.command;
+  if (typeof original !== "function" || original.length !== 4) return false;
+  const command = original as ServerCommand;
+  wrapped.add(proto);
+  proto.command = function (
+    this: unknown,
+    ns: unknown,
+    cmd: unknown,
+    options: unknown,
+    callback?: CommandCallback,
+  ) {
     const stats = storage.getStore();
-    if (!stats || !callback) {
-      return original.call(this, ns, cmd, options, callback);
+    if (!stats || typeof callback !== "function") {
+      return command.call(this, ns, cmd, options, callback);
     }
-    const chain = stats.start(performance.now());
+    let chain: number;
     try {
-      return original.call(this, ns, cmd, options, (...args) => {
+      chain = stats.start(performance.now());
+    } catch {
+      return command.call(this, ns, cmd, options, callback);
+    }
+    let ended = false;
+    const end = () => {
+      if (ended) return;
+      ended = true;
+      try {
         stats.end(chain, performance.now());
+      } catch {
+        // Stats must never break a database call
+      }
+    };
+    try {
+      return command.call(this, ns, cmd, options, (...args: unknown[]) => {
+        end();
         callback(...args);
       });
     } catch (e) {
-      stats.end(chain, performance.now());
+      end();
       throw e;
     }
   };
+  return true;
+}
+
+export async function installMongoCallCounter(): Promise<boolean> {
+  try {
+    const { Server } = await import("mongodb/lib/sdam/server");
+    return wrapServerCommand(Server.prototype);
+  } catch {
+    return false;
+  }
 }

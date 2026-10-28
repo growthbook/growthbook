@@ -323,6 +323,11 @@ export const REMOTE_EVAL_EDGE_API_TOKEN =
 
 export const CRON_ENABLED = !stringToBoolean(process.env.CRON_DISABLED);
 
+export const MONGO_CALL_STATS = stringToBoolean(
+  process.env.MONGO_CALL_STATS,
+  true,
+);
+
 export const SENTRY_DSN = process.env.SENTRY_DSN || "";
 
 export const STORE_SEGMENTS_IN_MONGO = stringToBoolean(

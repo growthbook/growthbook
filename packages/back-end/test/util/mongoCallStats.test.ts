@@ -1,4 +1,11 @@
-import { MongoCallStats } from "back-end/src/util/mongoCallStats";
+import type { Request, Response } from "express";
+import {
+  countMongoCalls,
+  getMongoCallSummary,
+  installMongoCallCounter,
+  MongoCallStats,
+  wrapServerCommand,
+} from "back-end/src/util/mongoCallStats";
 
 describe("MongoCallStats", () => {
   it("reports zeros when nothing ran", () => {
@@ -70,5 +77,114 @@ describe("MongoCallStats", () => {
       sequential: 2,
       wallMs: 8,
     });
+  });
+});
+
+type Callback = (...args: unknown[]) => void;
+
+function fakeServer(
+  impl: (callback: Callback) => unknown = (callback) => callback(null, "ok"),
+) {
+  return {
+    command(ns: unknown, cmd: unknown, options: unknown, callback?: Callback) {
+      if (!callback) throw new Error("Callback must be provided");
+      return impl(callback);
+    },
+  };
+}
+
+function inRequest(fn: () => void) {
+  const req = {} as Request;
+  countMongoCalls(req, {} as Response, fn);
+  return () => getMongoCallSummary(req);
+}
+
+describe("wrapServerCommand", () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it("counts calls made inside a request", () => {
+    const server = fakeServer();
+    expect(wrapServerCommand(server)).toBe(true);
+    const callback = jest.fn();
+    const summary = inRequest(() => {
+      server.command("ns", {}, {}, callback);
+      server.command("ns", {}, {}, callback);
+    });
+    expect(callback).toHaveBeenNthCalledWith(1, null, "ok");
+    expect(summary()).toMatchObject({ calls: 2, sequential: 2 });
+  });
+
+  it("is a no-op when wrapped twice", () => {
+    const server = fakeServer();
+    wrapServerCommand(server);
+    const once = server.command;
+    expect(wrapServerCommand(server)).toBe(true);
+    expect(server.command).toBe(once);
+  });
+
+  it("leaves a driver with another command signature alone", () => {
+    const asyncCommand = async (
+      ns: unknown,
+      cmd: unknown,
+      options: unknown,
+    ) => [ns, cmd, options];
+    const changed = { command: asyncCommand };
+    expect(wrapServerCommand(changed)).toBe(false);
+    expect(changed.command).toBe(asyncCommand);
+
+    const missing: { command?: unknown } = {};
+    expect(wrapServerCommand(missing)).toBe(false);
+    expect(missing.command).toBeUndefined();
+  });
+
+  it("wraps the installed driver", async () => {
+    await expect(installMongoCallCounter()).resolves.toBe(true);
+  });
+
+  it("passes calls outside a request straight through", () => {
+    const server = fakeServer();
+    wrapServerCommand(server);
+    const callback = jest.fn();
+    server.command("ns", {}, {}, callback);
+    expect(callback).toHaveBeenCalledWith(null, "ok");
+    expect(() => server.command("ns", {}, {})).toThrow(
+      "Callback must be provided",
+    );
+  });
+
+  it("never lets a stats failure reach the database call", () => {
+    jest.spyOn(MongoCallStats.prototype, "start").mockImplementation(() => {
+      throw new Error("start");
+    });
+    const server = fakeServer();
+    wrapServerCommand(server);
+    const callback = jest.fn();
+    inRequest(() => server.command("ns", {}, {}, callback));
+    expect(callback).toHaveBeenCalledWith(null, "ok");
+
+    jest.restoreAllMocks();
+    jest.spyOn(MongoCallStats.prototype, "end").mockImplementation(() => {
+      throw new Error("end");
+    });
+    const after = jest.fn();
+    inRequest(() => server.command("ns", {}, {}, after));
+    expect(after).toHaveBeenCalledWith(null, "ok");
+  });
+
+  it("rethrows driver errors and closes the call once", () => {
+    const err = new Error("boom");
+    const server = fakeServer((callback) => {
+      callback(err);
+      throw err;
+    });
+    wrapServerCommand(server);
+    const callback = jest.fn();
+    const summary = inRequest(() => {
+      expect(() => server.command("ns", {}, {}, callback)).toThrow(err);
+    });
+    expect(callback).toHaveBeenCalledTimes(1);
+    expect(summary()).toMatchObject({ calls: 1, sequential: 1 });
   });
 });
