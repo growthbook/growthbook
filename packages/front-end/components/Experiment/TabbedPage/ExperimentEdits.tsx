@@ -87,9 +87,9 @@ interface ExperimentEditsValue {
     acknowledged: boolean;
     acknowledge: (acknowledged: boolean) => void;
   } | null;
-  // Resolves true once every staged edit saved; `with` saves alongside them,
-  // in the same request.
-  saveAll: (with_?: ExperimentChangesBody) => Promise<boolean>;
+  // Resolves to why the save didn't go through, or null once every staged
+  // edit saved; `with` saves alongside them, in the same request.
+  saveAll: (with_?: ExperimentChangesBody) => Promise<string | null>;
   // Staged fields join this form through their `form` attribute, so a value
   // their own constraints refuse stops the save.
   formId: string;
@@ -122,6 +122,7 @@ type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
 
 const INVALID_FIELDS = "Fill in the highlighted fields to save.";
+const CONFLICTED = "Someone else saved changes to what you edited.";
 
 type ChangesConflict = ApiErrorDetails<"changes_conflict">;
 
@@ -383,9 +384,9 @@ export function ExperimentEditsProvider({
       // The browser says which field and why, and takes the writer there.
       if (form.current && !form.current.reportValidity()) {
         setError(INVALID_FIELDS);
-        return false;
+        return INVALID_FIELDS;
       }
-      let ok = false;
+      let refusal: string | null = null;
       setSaving(true);
       savingNow.current = true;
       setError(null);
@@ -421,15 +422,16 @@ export function ExperimentEditsProvider({
         }
         setUnscopedRefusal(null);
         setAllowUnscopedRules(false);
-        ok = true;
       } catch (e) {
         // A conflict shows on the bar and its rows, not as an error.
-        if (!(e instanceof ConflictFlagged)) {
-          const message = e.message || "Could not save your changes";
+        if (e instanceof ConflictFlagged) {
+          refusal = CONFLICTED;
+        } else {
+          refusal = e.message || "Could not save your changes";
           if (e instanceof ApiCallError && e.code === "unscoped_rule") {
-            setUnscopedRefusal(message);
+            setUnscopedRefusal(refusal);
           } else {
-            setError(message);
+            setError(refusal);
           }
         }
       } finally {
@@ -449,7 +451,7 @@ export function ExperimentEditsProvider({
         savingNow.current = false;
         setSaving(false);
       }
-      return ok;
+      return refusal;
     },
     [postChanges, mutate],
   );
@@ -538,11 +540,7 @@ export function ExperimentEditsProvider({
   const { allowUnload } = navigationGuard;
   // Why the last save didn't go through, if it didn't.
   const refusal =
-    error ??
-    unscopedRefusal ??
-    (shownConflicts.length
-      ? "Someone else saved changes to what you edited."
-      : null);
+    error ?? unscopedRefusal ?? (shownConflicts.length ? CONFLICTED : null);
   // Leaving mid-save waits for it: saved through, it goes; left with
   // something unsaved, it asks as usual.
   const leaveAfterSave =

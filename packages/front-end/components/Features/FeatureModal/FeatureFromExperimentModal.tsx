@@ -81,7 +81,9 @@ export type Props = {
   reAddableFeatureIds?: string[];
   // With variations staged: the flag saves with the staged changes, in one
   // request, so its values can name variations not saved yet.
-  saveWithStagedChanges?: (part: ExperimentChangesBody) => Promise<boolean>;
+  saveWithStagedChanges?: (
+    part: ExperimentChangesBody,
+  ) => Promise<string | null>;
 };
 
 const genEnvironmentSettings = ({
@@ -624,7 +626,7 @@ export default function FeatureFromExperimentModal({
               environments: ruleAllEnvironments ? [] : ruleSelectedEnvironments,
             },
           };
-          const saved = await saveWithStagedChanges({
+          const refusal = await saveWithStagedChanges({
             ...(allowUnscopedRules && { allowUnscopedRules: true }),
             ...(existing
               ? { linkFeatures: [{ featureId: featureToCreate.id, ...link }] }
@@ -650,11 +652,7 @@ export default function FeatureFromExperimentModal({
                   ],
                 }),
           });
-          if (!saved) {
-            throw new Error(
-              "Nothing was saved. The save bar at the bottom of the page says why.",
-            );
-          }
+          if (refusal !== null) throw new Error(refusal);
           if (!existing) {
             track("Feature Created", {
               valueType: featureToCreate.valueType,
@@ -914,7 +912,8 @@ export default function FeatureFromExperimentModal({
         <>
           <HelperText status="info">
             <Box>
-              A rule will be added to the bottom of the rule list. For more
+              A rule will be added to the bottom of the rule list
+              {saveWithStagedChanges ? ", in a new draft" : ""}. For more
               control over placement, add Experiment rules directly from the{" "}
               <Link href={`/features/${existing}`} target="_blank">
                 Feature page

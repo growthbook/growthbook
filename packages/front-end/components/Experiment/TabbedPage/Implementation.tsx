@@ -481,7 +481,7 @@ export default function Implementation({
           onConfirm={async () => {
             setAddAfterSave(null);
             // A refused save shows why on the save bar.
-            if (await edits?.saveAll()) addAfterSave();
+            if ((await edits?.saveAll()) === null) addAfterSave();
           }}
           onCancel={() => setAddAfterSave(null)}
         />
