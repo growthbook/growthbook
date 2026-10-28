@@ -5,17 +5,20 @@ import {
   RefObject,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
 } from "react";
+import { useRouter } from "next/router";
+import { isSettingsRoute } from "./sidebarNav";
 
 type SettingsNavContextValue = {
   query: string;
   setQuery: (query: string) => void;
   activeSection: string;
   setActiveSection: (id: string) => void;
-  /** Section a click is scrolling to; the scroll spy shows only it until the scroll settles. */
+  /** Section a click or link jumped to; the scroll spy shows it until the user scrolls. */
   pinnedSection: MutableRefObject<string | null>;
   pinSection: (id: string) => void;
   counts: Record<string, number>;
@@ -27,6 +30,11 @@ const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
 
 export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
+  // Clears on leaving Settings, not when the nav hides below 1400px.
+  const inSettings = isSettingsRoute(useRouter().route);
+  useEffect(() => {
+    if (!inSettings) setQuery("");
+  }, [inSettings]);
   const [activeSection, setActiveSection] = useState("");
   const [counts, setCounts] = useState<Record<string, number>>({});
   const searchRef = useRef<HTMLInputElement>(null);
@@ -34,10 +42,6 @@ export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const pinSection = useCallback((id: string) => {
     pinnedSection.current = id;
     setActiveSection(id);
-    // Safety net when the target is already in view and nothing scrolls.
-    window.setTimeout(() => {
-      if (pinnedSection.current === id) pinnedSection.current = null;
-    }, 1500);
   }, []);
 
   const setCount = useCallback((id: string, count: number | null) => {

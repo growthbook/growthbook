@@ -10,7 +10,7 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import { useUser } from "@/services/UserContext";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import { SettingsField, SettingsGroup } from "./SettingsGroup";
+import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function MetricsSettings() {
   const form = useFormContext();
@@ -61,6 +61,7 @@ export default function MetricsSettings() {
         keywords="lookback window history"
       >
         <SettingsField
+          name="metricAnalysisDays"
           label="Lookback window"
           help="Historical data used on the metric analysis page."
         >
@@ -80,12 +81,14 @@ export default function MetricsSettings() {
         keywords="minimum total sample size threshold suspicious outlier draw mde minimum detectable effect currency revenue"
       >
         <SettingsField
+          name="metricDefaults.minimumSampleSize"
           label="Minimum metric total"
           help="Total a variation needs before results are shown."
         >
           {numberField("metricDefaults.minimumSampleSize", { min: 0 })}
         </SettingsField>
         <SettingsField
+          name="metricDefaults.maxPercentageChange"
           label="Maximum percentage change"
           help="Larger changes are flagged as suspicious."
         >
@@ -95,6 +98,7 @@ export default function MetricsSettings() {
           })}
         </SettingsField>
         <SettingsField
+          name="metricDefaults.minPercentageChange"
           label="Minimum percentage change"
           help="Smaller changes are treated as a draw."
         >
@@ -104,12 +108,14 @@ export default function MetricsSettings() {
           })}
         </SettingsField>
         <SettingsField
+          name="metricDefaults.targetMDE"
           label="Target minimum detectable effect"
           help="The change you want to reliably detect. Used to estimate days left. Lower values need more data."
         >
           {numberField("metricDefaults.targetMDE", { min: 0, append: "%" })}
         </SettingsField>
         <SettingsField
+          name="displayCurrency"
           htmlFor="settings-displayCurrency"
           label="Display currency"
           help="Should match the currency stored in your Data Source."
@@ -134,16 +140,19 @@ export default function MetricsSettings() {
         description="Which metric types can be created, and limits for Auto Slices."
         keywords="fact metrics legacy metric creation auto slice levels dimensions"
       >
-        <Checkbox
-          id="toggle-disableLegacyMetricCreation"
-          label="Require Fact Metrics"
-          description="Turns off legacy metric creation."
-          value={!!form.watch("disableLegacyMetricCreation")}
-          setValue={(value) => {
-            form.setValue("disableLegacyMetricCreation", value);
-          }}
-        />
+        <UnsavedMark name="disableLegacyMetricCreation">
+          <Checkbox
+            id="toggle-disableLegacyMetricCreation"
+            label="Require Fact Metrics"
+            description="Turns off legacy metric creation."
+            value={!!form.watch("disableLegacyMetricCreation")}
+            setValue={(value) => {
+              form.setValue("disableLegacyMetricCreation", value);
+            }}
+          />
+        </UnsavedMark>
         <SettingsField
+          name="maxMetricSliceLevels"
           htmlFor="settings-maxMetricSliceLevels"
           label={
             <>

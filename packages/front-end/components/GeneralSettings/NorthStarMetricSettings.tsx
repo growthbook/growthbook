@@ -1,6 +1,6 @@
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import { ConnectSettingsForm } from "@/pages/settings";
+import { ConnectSettingsForm } from "@/components/GeneralSettings/ConnectSettingsForm";
 import { SettingsField, SettingsGroup } from "./SettingsGroup";
 
 export default function NorthStarMetricSettings() {
@@ -13,7 +13,7 @@ export default function NorthStarMetricSettings() {
           description="Shown on the home page alongside experiments that use these metrics as goals."
           keywords="north star home page kpi goals"
         >
-          <SettingsField label="Metrics">
+          <SettingsField name="northStar.metricIds" label="Metrics">
             <MetricsSelector
               selected={watch("northStar.metricIds") ?? []}
               onChange={(metricIds) =>
@@ -25,7 +25,11 @@ export default function NorthStarMetricSettings() {
               noManual={true}
             />
           </SettingsField>
-          <SettingsField htmlFor="settings-northStar-title" label="Title">
+          <SettingsField
+            name="northStar.title"
+            htmlFor="settings-northStar-title"
+            label="Title"
+          >
             <Field
               id="settings-northStar-title"
               size="md"

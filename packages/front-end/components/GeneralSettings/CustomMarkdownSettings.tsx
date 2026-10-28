@@ -99,7 +99,7 @@ export default function CustomMarkdownSettings() {
           keywords="custom markdown guidance documentation help"
         >
           {group.fields.map(([key, label]) => (
-            <SettingsField key={key} label={label}>
+            <SettingsField name={key} key={key} label={label}>
               <MarkdownInput
                 value={form.watch(key) || ""}
                 setValue={(value) =>

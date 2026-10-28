@@ -26,6 +26,7 @@ import {
   SettingsField,
   SettingsGroup,
   SettingsSubheading,
+  UnsavedMark,
 } from "@/components/GeneralSettings/SettingsGroup";
 import { getConfidenceLevelHighlight } from "./ChanceToWinThresholdField";
 import { getPValueThresholdHighlight } from "./PValueThresholdField";
@@ -94,6 +95,7 @@ export default function StatsEngineSettings() {
         keywords="bayesian frequentist statistics engine chance to win priors p-value significance multiple comparisons correction sequential testing"
       >
         <SettingsField
+          name="statsEngine"
           htmlFor="settings-statsEngine"
           label="Default stats engine"
         >
@@ -114,6 +116,7 @@ export default function StatsEngineSettings() {
 
         <SettingsSubheading>Bayesian</SettingsSubheading>
         <SettingsField
+          name="confidenceLevel"
           htmlFor="settings-confidenceLevel"
           label="Chance to win threshold"
           help={`A variation is a winner above this probability. Default is ${Math.round(DEFAULT_CONFIDENCE_LEVEL * 100)}%.`}
@@ -144,19 +147,22 @@ export default function StatsEngineSettings() {
           )}
         </SettingsField>
         <Box>
-          <Checkbox
-            id="toggle-properPrior"
-            label="Use proper priors"
-            description="Can be overridden per metric."
-            disabled={locked}
-            value={!!properPriors}
-            setValue={(v) =>
-              form.setValue("metricDefaults.priorSettings.proper", v)
-            }
-          />
+          <UnsavedMark name="metricDefaults.priorSettings.proper">
+            <Checkbox
+              id="toggle-properPrior"
+              label="Use proper priors"
+              description="Can be overridden per metric."
+              disabled={locked}
+              value={!!properPriors}
+              setValue={(v) =>
+                form.setValue("metricDefaults.priorSettings.proper", v)
+              }
+            />
+          </UnsavedMark>
           {properPriors && (
             <Flex direction="column" gap="3" pl="5" mt="3">
               <SettingsField
+                name="metricDefaults.priorSettings.mean"
                 htmlFor="settings-metricDefaults-priorSettings-mean"
                 label="Prior mean"
                 help="Default is 0."
@@ -177,6 +183,7 @@ export default function StatsEngineSettings() {
                 </Box>
               </SettingsField>
               <SettingsField
+                name="metricDefaults.priorSettings.stddev"
                 htmlFor="settings-metricDefaults-priorSettings-stddev"
                 label="Prior standard deviation"
                 help={`Default is ${DEFAULT_PROPER_PRIOR_STDDEV}.`}
@@ -213,6 +220,7 @@ export default function StatsEngineSettings() {
 
         <SettingsSubheading>Frequentist</SettingsSubheading>
         <SettingsField
+          name="pValueThreshold"
           htmlFor="settings-pValueThreshold"
           label="P-value threshold"
           help={`A result is significant below this p-value. Default is ${DEFAULT_P_VALUE_THRESHOLD}.`}
@@ -241,6 +249,7 @@ export default function StatsEngineSettings() {
           )}
         </SettingsField>
         <SettingsField
+          name="pValueCorrection"
           htmlFor="settings-pValueCorrection"
           label="Multiple comparisons correction"
           help="Applied to experiments with several goal metrics or variations."
@@ -269,20 +278,22 @@ export default function StatsEngineSettings() {
           </Box>
         </SettingsField>
         <Box>
-          <Checkbox
-            id="toggle-sequentialTestingEnabled"
-            label={
-              <PremiumTooltip commercialFeature="sequential-testing">
-                <GBSequential /> Use sequential testing by default
-              </PremiumTooltip>
-            }
-            description="Check results while an experiment runs without raising the false positive rate."
-            value={!!sequentialEnabled}
-            setValue={(value) => {
-              form.setValue("sequentialTestingEnabled", value);
-            }}
-            disabled={!hasCommercialFeature("sequential-testing") || locked}
-          />
+          <UnsavedMark name="sequentialTestingEnabled">
+            <Checkbox
+              id="toggle-sequentialTestingEnabled"
+              label={
+                <PremiumTooltip commercialFeature="sequential-testing">
+                  <GBSequential /> Use sequential testing by default
+                </PremiumTooltip>
+              }
+              description="Check results while an experiment runs without raising the false positive rate."
+              value={!!sequentialEnabled}
+              setValue={(value) => {
+                form.setValue("sequentialTestingEnabled", value);
+              }}
+              disabled={!hasCommercialFeature("sequential-testing") || locked}
+            />
+          </UnsavedMark>
           {sequentialEnabled && form.watch("statsEngine") === "bayesian" && (
             <HelperText status="warning" size="sm" mt="1">
               Your organization uses Bayesian statistics by default and
@@ -293,6 +304,7 @@ export default function StatsEngineSettings() {
           {sequentialEnabled && (
             <Box pl="5" mt="3">
               <SettingsField
+                name="sequentialTestingTuningParameter"
                 htmlFor="settings-sequentialTestingTuningParameter"
                 label="Sequential testing tuning parameter"
                 help={`Default is ${DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER}.`}
@@ -332,19 +344,24 @@ export default function StatsEngineSettings() {
         keywords="cuped variance reduction regression adjustment lookback post-stratification"
       >
         <Box>
-          <Checkbox
-            id="toggle-regressionAdjustmentEnabled"
-            label="Use CUPED by default"
-            description="Applies to all new experiments."
-            value={form.watch("regressionAdjustmentEnabled")}
-            setValue={(v) => {
-              form.setValue("regressionAdjustmentEnabled", v);
-            }}
-            disabled={!hasCommercialFeature("regression-adjustment") || locked}
-          />
+          <UnsavedMark name="regressionAdjustmentEnabled">
+            <Checkbox
+              id="toggle-regressionAdjustmentEnabled"
+              label="Use CUPED by default"
+              description="Applies to all new experiments."
+              value={form.watch("regressionAdjustmentEnabled")}
+              setValue={(v) => {
+                form.setValue("regressionAdjustmentEnabled", v);
+              }}
+              disabled={
+                !hasCommercialFeature("regression-adjustment") || locked
+              }
+            />
+          </UnsavedMark>
           {form.watch("regressionAdjustmentEnabled") && (
             <Box pl="5" mt="3">
               <SettingsField
+                name="regressionAdjustmentDays"
                 htmlFor="settings-regressionAdjustmentDays"
                 label="CUPED lookback window"
                 help={`Pre-exposure data used for CUPED. Default is ${DEFAULT_REGRESSION_ADJUSTMENT_DAYS}.`}
@@ -378,25 +395,27 @@ export default function StatsEngineSettings() {
             </Box>
           )}
         </Box>
-        <Checkbox
-          id="toggle-postStratification"
-          label="Use post-stratification by default"
-          description={
-            <>
-              Used whenever{" "}
-              <Link href="#exp-results">pre-computed dimensions</Link> are
-              available.
-            </>
-          }
-          value={
-            form.watch("postStratificationEnabled") ??
-            DEFAULT_POST_STRATIFICATION_ENABLED
-          }
-          setValue={(v) => {
-            form.setValue("postStratificationEnabled", v);
-          }}
-          disabled={locked}
-        />
+        <UnsavedMark name="postStratificationEnabled">
+          <Checkbox
+            id="toggle-postStratification"
+            label="Use post-stratification by default"
+            description={
+              <>
+                Used whenever{" "}
+                <Link href="#exp-results">pre-computed dimensions</Link> are
+                available.
+              </>
+            }
+            value={
+              form.watch("postStratificationEnabled") ??
+              DEFAULT_POST_STRATIFICATION_ENABLED
+            }
+            setValue={(v) => {
+              form.setValue("postStratificationEnabled", v);
+            }}
+            disabled={locked}
+          />
+        </UnsavedMark>
       </SettingsGroup>
     </>
   );

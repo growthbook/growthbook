@@ -5,12 +5,16 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import { useRouter } from "next/router";
 import { FormProvider, useForm, UseFormReturn } from "react-hook-form";
+import cloneDeep from "lodash/cloneDeep";
+import get from "lodash/get";
 import isEqual from "lodash/isEqual";
+import set from "lodash/set";
 import {
   DEFAULT_P_VALUE_THRESHOLD,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
@@ -58,6 +62,8 @@ import {
   describeUnsavedChanges,
   sameSetting,
   sectionForField,
+  SETTINGS_SECTIONS,
+  SPLIT_SETTINGS,
 } from "./settingsSections";
 
 /** A saved model dropped from the registry reads as unset, so it falls back to the default. */
@@ -70,6 +76,14 @@ type OrgDetailsForm = {
   installationName: string;
 };
 
+export type SettingsChange = {
+  id: string;
+  label: string;
+  before: Record<string, unknown>;
+  after: Record<string, unknown>;
+  discard: () => void;
+};
+
 type SettingsFormContextValue = {
   form: UseFormReturn<OrganizationSettingsWithMetricDefaults>;
   promptForm: UseFormReturn;
@@ -80,6 +94,10 @@ type SettingsFormContextValue = {
   setCodeRefsBranchesToFilterStr: (value: string) => void;
   dirtyCount: number;
   dirtySectionIds: string[];
+  // Paths into the settings form, or "org.<field>" and "prompt.<field>".
+  isFieldDirty: (path: string) => boolean;
+  savedSettings: OrganizationSettings;
+  changes: SettingsChange[];
   savedCount: number;
   setSavedCount: (value: number) => void;
   submitError: string | null;
@@ -115,7 +133,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const { setOrgName } = useAuth();
   // Shares the composer's cache key, so revalidating here updates its `/` menu.
   const { mutate: mutateAgentSkills } = useApi("/agent/skills", {
-    shouldRun: () => !!settings.aiEnabled,
+    shouldRun: () => active && !!settings.aiEnabled,
   });
   const [savedCount, setSavedCount] = useState(0);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -133,18 +151,21 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   // Prompts live here too, so an AI section remount cannot reset a draft.
   const { data: promptData, mutate: mutatePrompts } = useApi<{
     prompts: AIPromptInterface[];
-  }>("/ai/prompts");
-  useEffect(() => {
-    if (!promptData) return;
+  }>("/ai/prompts", { shouldRun: () => active });
+  const savedPrompts = useMemo(() => {
+    if (!promptData) return null;
     const values: Record<string, string | undefined> = {};
     CUSTOMIZABLE_PROMPT_TYPES.forEach((type) => {
       const p = promptData.prompts.find((x) => x.type === type);
       values[type] = p?.prompt || AI_PROMPT_DEFAULTS[type];
       values[`${type}-model`] = knownTextModel(p?.overrideModel) ?? "";
     });
+    return values;
+  }, [promptData]);
+  useEffect(() => {
     // Saved values become the defaults; edited fields keep their draft.
-    promptForm.reset(values, { keepDirtyValues: true });
-  }, [promptData, promptForm]);
+    if (savedPrompts) promptForm.reset(savedPrompts, { keepDirtyValues: true });
+  }, [savedPrompts, promptForm]);
   const orgForm = useForm<OrgDetailsForm>({
     defaultValues: { name: "", ownerEmail: "", installationName: "" },
   });
@@ -155,7 +176,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   };
   const orgKey = JSON.stringify(orgDetails);
   useEffect(() => {
-    orgForm.reset(JSON.parse(orgKey));
+    // Server values become the defaults; fields being edited keep their draft.
+    orgForm.reset(JSON.parse(orgKey), { keepDirtyValues: true });
   }, [orgKey, orgForm]);
 
   const { metricDefaults } = useOrganizationMetricDefaults();
@@ -304,12 +326,16 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const { apiCall } = useAuth();
   const values = form.watch();
   // Compared against the loaded settings, since many setValue calls skip shouldDirty.
-  const dirtyFields = Object.keys(originalValue).filter((k) => {
-    const current = (values as Record<string, unknown>)[k];
-    const original = (originalValue as Record<string, unknown>)[k];
+  const dirtyFields = Object.entries(originalValue)
+    .flatMap(([k, v]) =>
+      SPLIT_SETTINGS.includes(k) && v && typeof v === "object"
+        ? Object.keys(v).map((child) => `${k}.${child}`)
+        : [k],
+    )
     // A remounted empty number input reads NaN or "" where the saved value is undefined.
-    return !sameSetting(current, original);
-  });
+    .filter(
+      (path) => !sameSetting(get(values, path), get(originalValue, path)),
+    );
   const dirtyPromptFields = Object.keys(promptForm.formState.dirtyFields);
   const orgValues = orgForm.watch();
   const dirtyOrgFields = (
@@ -324,6 +350,16 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       ...(dirtyPromptFields.length ? ["ai"] : []),
     ]),
   ].filter((id): id is string => !!id);
+  const isFieldDirty = (path: string) => {
+    if (path.startsWith("org.")) {
+      const k = path.slice(4) as keyof OrgDetailsForm;
+      return (orgValues[k] ?? "") !== orgDetails[k];
+    }
+    if (path.startsWith("prompt.")) {
+      return dirtyPromptFields.includes(path.slice(7));
+    }
+    return !sameSetting(get(values, path), get(originalValue, path));
+  };
   const updateCronString = useCallback(
     (cron?: string) => {
       cron = cron || form.getValues("updateSchedule")?.cron || "";
@@ -456,6 +492,47 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     );
     setSubmitError(null);
   };
+
+  const changes: SettingsChange[] = dirtySectionIds.map((id) => {
+    const keys = dirtyFields.filter((k) => sectionForField(k) === id);
+    const before = Object.fromEntries(
+      keys.map((k) => [k, get(originalValue, k)]),
+    );
+    const after = Object.fromEntries(keys.map((k) => [k, get(values, k)]));
+    if (id === "organization") {
+      dirtyOrgFields.forEach((k) => {
+        before[k] = orgDetails[k];
+        after[k] = orgValues[k];
+      });
+    }
+    if (id === "ai") {
+      dirtyPromptFields.forEach((k) => {
+        before[k] = savedPrompts?.[k];
+        after[k] = promptForm.getValues(k);
+      });
+    }
+    return {
+      id,
+      label: SETTINGS_SECTIONS.find((s) => s.id === id)?.title ?? id,
+      before,
+      after,
+      discard: () => {
+        const next = cloneDeep(form.getValues());
+        keys.forEach((k) => set(next, k, cloneDeep(get(originalValue, k))));
+        form.reset(next);
+        if (keys.includes("updateSchedule")) {
+          updateCronString(originalValue.updateSchedule?.cron || "");
+        }
+        if (keys.includes("codeRefsBranchesToFilter")) {
+          setCodeRefsBranchesToFilterStr(
+            (originalValue.codeRefsBranchesToFilter ?? []).join(", "),
+          );
+        }
+        if (id === "organization") orgForm.reset(orgDetails);
+        if (id === "ai") promptForm.reset();
+      },
+    };
+  });
 
   const savePrompts = promptForm.handleSubmit(async (promptValues) => {
     const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
@@ -651,6 +728,9 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         setCodeRefsBranchesToFilterStr: updateCodeRefsBranches,
         dirtyCount,
         dirtySectionIds,
+        isFieldDirty,
+        savedSettings: originalValue,
+        changes,
         savedCount,
         setSavedCount,
         submitError,

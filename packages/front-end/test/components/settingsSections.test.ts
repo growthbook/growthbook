@@ -94,3 +94,11 @@ describe("sameSetting", () => {
     expect(sameSetting(["a"], ["a", "b"])).toBe(false);
   });
 });
+
+describe("sectionForField paths", () => {
+  it("maps prior settings to Statistics and other metric defaults to Metrics", () => {
+    expect(sectionForField("metricDefaults.priorSettings")).toBe("statistics");
+    expect(sectionForField("metricDefaults.targetMDE")).toBe("metrics");
+    expect(sectionForField("displayCurrency")).toBe("metrics");
+  });
+});

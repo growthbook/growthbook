@@ -36,7 +36,11 @@ export default function OrganizationAndLicenseSettings({
         description="Shown to members across the app."
         keywords="organization name owner email id installation support"
       >
-        <SettingsField htmlFor="org-name" label="Organization name">
+        <SettingsField
+          name="org.name"
+          htmlFor="org-name"
+          label="Organization name"
+        >
           <Field
             id="org-name"
             containerClassName="mb-0"
@@ -45,6 +49,7 @@ export default function OrganizationAndLicenseSettings({
           />
         </SettingsField>
         <SettingsField
+          name="org.ownerEmail"
           htmlFor="org-owner"
           label="Owner"
           help="Email of the person who owns this organization."
@@ -79,7 +84,11 @@ export default function OrganizationAndLicenseSettings({
           )}
         </SettingsField>
         {showInstallationName && (
-          <SettingsField htmlFor="org-installation" label="Installation name">
+          <SettingsField
+            name="org.installationName"
+            htmlFor="org-installation"
+            label="Installation name"
+          >
             <Field
               id="org-installation"
               containerClassName="mb-0"

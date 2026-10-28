@@ -91,8 +91,6 @@ export default function SettingsNav() {
     return () => document.removeEventListener("keydown", onKey);
   }, [searchRef]);
 
-  useEffect(() => () => setQuery(""), [setQuery]);
-
   const onQueryChange = (q: string) => {
     setQuery(q);
     // Matches live on the General page, so typing elsewhere goes there.
@@ -172,7 +170,7 @@ export default function SettingsNav() {
                     }
                     pinSection(s.id);
                     scrollToSettingsSection(s.id);
-                    // Keeps the hash shareable; scroll: false leaves the smooth scroll alone.
+                    // Keeps the hash shareable; scroll: false leaves the jump alone.
                     router.replace(`/settings#${s.id}`, undefined, {
                       shallow: true,
                       scroll: false,

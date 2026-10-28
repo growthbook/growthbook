@@ -1,7 +1,7 @@
 import { useUser } from "@/services/UserContext";
-import { ConnectSettingsForm } from "@/pages/settings";
+import { ConnectSettingsForm } from "@/components/GeneralSettings/ConnectSettingsForm";
 import Checkbox from "@/ui/Checkbox";
-import { SettingsGroup } from "./SettingsGroup";
+import { SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function SDKConnectionSettings() {
   const { hasCommercialFeature } = useUser();
@@ -19,17 +19,19 @@ export default function SDKConnectionSettings() {
           description="Rules for new SDK Connections."
           keywords="sdk connection require project"
         >
-          <Checkbox
-            id="toggle-requireProjectForSdkConnections"
-            label="Require a Project for new SDK Connections"
-            description="Existing Connections without a Project can still be edited until one is set."
-            value={!!watch("requireProjectForSdkConnections")}
-            setValue={(value) =>
-              setValue("requireProjectForSdkConnections", value, {
-                shouldDirty: true,
-              })
-            }
-          />
+          <UnsavedMark name="requireProjectForSdkConnections">
+            <Checkbox
+              id="toggle-requireProjectForSdkConnections"
+              label="Require a Project for new SDK Connections"
+              description="Existing Connections without a Project can still be edited until one is set."
+              value={!!watch("requireProjectForSdkConnections")}
+              setValue={(value) =>
+                setValue("requireProjectForSdkConnections", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </UnsavedMark>
         </SettingsGroup>
       )}
     </ConnectSettingsForm>

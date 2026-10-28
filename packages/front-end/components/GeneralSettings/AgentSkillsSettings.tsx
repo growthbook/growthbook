@@ -10,6 +10,8 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { skillDisplayName } from "@/enterprise/components/AIChat/Composer/extensions/skillCommand";
+import { useSettingsForm } from "./SettingsFormProvider";
+import styles from "./SettingsSection.module.scss";
 
 const SKILL_COPY: Record<
   string,
@@ -117,6 +119,7 @@ function Instructions({
 
 export default function AgentSkillsSettings({ canEdit }: { canEdit: boolean }) {
   const form = useFormContext();
+  const { savedSettings } = useSettingsForm();
   const { data, error } = useApi<{ skills: OrgSkillSummary[] }>(
     "/agent/skills",
   );
@@ -124,6 +127,9 @@ export default function AgentSkillsSettings({ canEdit }: { canEdit: boolean }) {
   if (!error && !domains.length) return null;
 
   const disabled: string[] = form.watch("disabledAgentSkills") ?? [];
+  const skillDirty = (name: string) =>
+    (savedSettings.disabledAgentSkills ?? []).includes(name) !==
+    disabled.includes(name);
 
   if (error) {
     return (
@@ -158,6 +164,13 @@ export default function AgentSkillsSettings({ canEdit }: { canEdit: boolean }) {
                 <Flex as="span" gap="2" align="center">
                   {copy?.label ?? skillDisplayName(skill.name)}
                   {skill.custom && <Badge label="Custom" color="violet" />}
+                  {skillDirty(skill.name) && (
+                    <span
+                      className={styles.unsavedDot}
+                      role="img"
+                      aria-label="Unsaved"
+                    />
+                  )}
                 </Flex>
               }
               description={copy?.description}

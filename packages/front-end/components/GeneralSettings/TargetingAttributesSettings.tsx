@@ -1,8 +1,8 @@
 import { Box } from "@radix-ui/themes";
 import { getRequireRegisteredAttributesSettings } from "shared/util";
-import { ConnectSettingsForm } from "@/pages/settings";
+import { ConnectSettingsForm } from "@/components/GeneralSettings/ConnectSettingsForm";
 import Checkbox from "@/ui/Checkbox";
-import { SettingsGroup } from "./SettingsGroup";
+import { SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 // The form always works with the canonical object shape
 // ({ isOn, requireProjectScoping }). Legacy boolean values from older orgs
@@ -33,26 +33,30 @@ export default function TargetingAttributesSettings() {
             description="Validation for attributes used in rules and experiments."
             keywords="targeting attributes registered schema project match"
           >
-            <Checkbox
-              id="toggle-requireRegisteredAttributes"
-              label="Require registered attributes"
-              description="Block rules and experiments that use attribute keys not listed under Targeting attributes."
-              value={isOn}
-              setValue={(value) =>
-                update({ isOn: !!value, requireProjectScoping })
-              }
-            />
+            <UnsavedMark name="requireRegisteredAttributes.isOn">
+              <Checkbox
+                id="toggle-requireRegisteredAttributes"
+                label="Require registered attributes"
+                description="Block rules and experiments that use attribute keys not listed under Targeting attributes."
+                value={isOn}
+                setValue={(value) =>
+                  update({ isOn: !!value, requireProjectScoping })
+                }
+              />
+            </UnsavedMark>
             {isOn && (
               <Box pl="5">
-                <Checkbox
-                  id="toggle-requireProjectScoping"
-                  label="Require Project match"
-                  description="Also block attributes that aren't scoped to the Projects the Feature Flag or experiment targets."
-                  value={requireProjectScoping}
-                  setValue={(value) =>
-                    update({ isOn, requireProjectScoping: !!value })
-                  }
-                />
+                <UnsavedMark name="requireRegisteredAttributes.requireProjectScoping">
+                  <Checkbox
+                    id="toggle-requireProjectScoping"
+                    label="Require Project match"
+                    description="Also block attributes that aren't scoped to the Projects the Feature Flag or experiment targets."
+                    value={requireProjectScoping}
+                    setValue={(value) =>
+                      update({ isOn, requireProjectScoping: !!value })
+                    }
+                  />
+                </UnsavedMark>
               </Box>
             )}
           </SettingsGroup>

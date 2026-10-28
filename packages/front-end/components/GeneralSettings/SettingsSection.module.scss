@@ -75,6 +75,24 @@
   flex-shrink: 0;
 }
 
+// Sits left of a changed field's label without shifting it.
+.fieldDot {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 6px);
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--amber-9);
+}
+
+// Centered on a checkbox's first line.
+.checkDot {
+  composes: fieldDot;
+  top: 10px;
+}
+
 .generalContent {
   max-width: 920px;
   padding-top: var(--space-3);

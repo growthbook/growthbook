@@ -1,15 +1,55 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, VisuallyHidden } from "@radix-ui/themes";
-import { PiCheckBold } from "react-icons/pi";
+import {
+  PiCaretDown,
+  PiCaretRight,
+  PiCaretUp,
+  PiCheckBold,
+} from "react-icons/pi";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
+import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
+import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import { describeUnsavedChanges } from "./settingsSections";
-import { useSettingsForm } from "./SettingsFormProvider";
+import { SettingsChange, useSettingsForm } from "./SettingsFormProvider";
 import styles from "./SettingsSection.module.scss";
 
 const TOAST_MS = 3000;
+
+// Mirrors the experiment page's staged changes list.
+function UnsavedChange({ change }: { change: SettingsChange }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Box>
+      <Flex align="center" justify="between" gap="4">
+        <Link color="gray" aria-expanded={open} onClick={() => setOpen(!open)}>
+          <Flex as="span" align="center" gap="1">
+            {open ? <PiCaretDown /> : <PiCaretRight />}
+            <Text color="text-high">{change.label}</Text>
+          </Flex>
+        </Link>
+        <Link size="sm" color="gray" onClick={change.discard}>
+          Discard
+        </Link>
+      </Flex>
+      {open && (
+        <Box mt="1" style={{ maxHeight: 240, overflowY: "auto" }}>
+          <LazyDiffViewer
+            oldValue={JSON.stringify(change.before, null, 2)}
+            newValue={JSON.stringify(change.after, null, 2)}
+            hideLineNumbers
+            extraLinesSurroundingDiff={1}
+            styles={COMPACT_DIFF_STYLES}
+          />
+        </Box>
+      )}
+    </Box>
+  );
+}
 
 // Only on General; Organization pages save as you go.
 export default function UnsavedChangesBar() {
@@ -17,6 +57,7 @@ export default function UnsavedChangesBar() {
   const {
     dirtyCount,
     dirtySectionIds,
+    changes,
     savedCount,
     setSavedCount,
     submitError,
@@ -56,12 +97,35 @@ export default function UnsavedChangesBar() {
           aria-label="Unsaved changes"
         >
           <Flex align="center" gap="3" wrap="wrap">
-            {dirtyCount > 0 && <span className={styles.unsavedDot} />}
             <Box flexGrow="1" aria-live="polite">
               {dirtyCount > 0 && (
-                <Text weight="medium">
-                  {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
-                </Text>
+                <Popover
+                  side="top"
+                  align="start"
+                  sideOffset={8}
+                  contentStyle={{
+                    width: 640,
+                    maxWidth: "90vw",
+                    padding: "var(--space-3) var(--space-4)",
+                  }}
+                  trigger={
+                    <Button
+                      variant="ghost"
+                      color="gray"
+                      icon={<PiCaretUp />}
+                      iconPosition="right"
+                    >
+                      {describeUnsavedChanges(dirtyCount, dirtySectionIds)}
+                    </Button>
+                  }
+                  content={
+                    <Flex direction="column" gap="2">
+                      {changes.map((c) => (
+                        <UnsavedChange key={c.id} change={c} />
+                      ))}
+                    </Flex>
+                  }
+                />
               )}
               {submitError && (
                 <HelperText status="error">{submitError}</HelperText>

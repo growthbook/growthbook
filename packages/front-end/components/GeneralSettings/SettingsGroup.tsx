@@ -5,6 +5,8 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { SettingsCard } from "./SettingsSection";
+import { useSettingsForm } from "./SettingsFormProvider";
+import styles from "./SettingsSection.module.scss";
 
 export function SettingsGroup({
   id,
@@ -55,30 +57,66 @@ export function SettingsField({
   label,
   help,
   htmlFor,
+  name,
+  action,
   children,
 }: {
   label: ReactNode;
   help?: ReactNode;
   htmlFor?: string;
+  // Form paths this field edits, to mark it while unsaved.
+  name?: string | string[];
+  // Shown at the right of the label row.
+  action?: ReactNode;
   children: ReactNode;
 }) {
+  const { isFieldDirty } = useSettingsForm();
+  const dirty = [name ?? []].flat().some(isFieldDirty);
   return (
     <Box>
       {/* Bootstrap gives labels a 0.5rem bottom margin; the design wants 2px. */}
-      <Box mb="2px">
-        <Text
-          as={htmlFor ? "label" : "div"}
-          htmlFor={htmlFor}
-          weight="medium"
-          m="0"
-        >
-          {label}
-        </Text>
+      <Box mb="2px" position="relative">
+        {dirty && (
+          <span className={styles.fieldDot} role="img" aria-label="Unsaved" />
+        )}
+        <Flex align="center" justify="between" gap="3">
+          <Text
+            as={htmlFor ? "label" : "div"}
+            htmlFor={htmlFor}
+            weight="medium"
+            m="0"
+          >
+            {label}
+          </Text>
+          {action}
+        </Flex>
       </Box>
       {help && (
         <Text as="p" size="sm" color="text-mid" mb="2">
           {help}
         </Text>
+      )}
+      {children}
+    </Box>
+  );
+}
+
+// Marks a checkbox or other control whose setting has an unsaved change.
+export function UnsavedMark({
+  name,
+  dirty,
+  children,
+}: {
+  name?: string | string[];
+  dirty?: boolean;
+  children: ReactNode;
+}) {
+  const { isFieldDirty } = useSettingsForm();
+  const show = dirty ?? [name ?? []].flat().some(isFieldDirty);
+  return (
+    <Box position="relative">
+      {show && (
+        <span className={styles.checkDot} role="img" aria-label="Unsaved" />
       )}
       {children}
     </Box>

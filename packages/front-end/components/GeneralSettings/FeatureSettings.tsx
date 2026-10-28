@@ -14,7 +14,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { GBInfo } from "@/components/Icons";
 import { useSettingsForm } from "./SettingsFormProvider";
-import { SettingsField, SettingsGroup } from "./SettingsGroup";
+import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function FeatureSettings() {
   const { codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr } =
@@ -39,6 +39,7 @@ export default function FeatureSettings() {
         keywords="feature key example regex naming validation salt secure attributes hash"
       >
         <SettingsField
+          name="secureAttributeSalt"
           htmlFor="settings-secureAttributeSalt"
           label={
             <PremiumTooltip
@@ -88,6 +89,7 @@ export default function FeatureSettings() {
         </SettingsField>
 
         <SettingsField
+          name="featureKeyExample"
           htmlFor="featureKeyExample"
           label="Feature key example"
           help="Shown when creating a flag. Letters, numbers, and _ - . : | only. No spaces."
@@ -102,6 +104,7 @@ export default function FeatureSettings() {
         </SettingsField>
 
         <SettingsField
+          name="featureRegexValidator"
           htmlFor="featureRegexValidator"
           label="Feature key format (regex)"
           help="Checked when creating a flag in the app. Doesn't block flags created through the API."
@@ -123,44 +126,51 @@ export default function FeatureSettings() {
         keywords="require project environment rules json sparse patch preferred environment"
       >
         {hasCommercialFeature("require-project-for-features-setting") && (
+          <UnsavedMark name="requireProjectForFeatures">
+            <Checkbox
+              id="toggle-requireProjectForFeatures"
+              label="Require a Project for new Feature Flags"
+              description="Users must pick a Project when creating a flag."
+              value={!!form.watch("requireProjectForFeatures")}
+              setValue={(value) =>
+                form.setValue("requireProjectForFeatures", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </UnsavedMark>
+        )}
+
+        <UnsavedMark name="requireScopedFeatureRules">
           <Checkbox
-            id="toggle-requireProjectForFeatures"
-            label="Require a Project for new Feature Flags"
-            description="Users must pick a Project when creating a flag."
-            value={!!form.watch("requireProjectForFeatures")}
+            id="toggle-requireScopedFeatureRules"
+            label="Require rules to target specific environments or Projects"
+            description="Rules for All Environments and All Projects need an extra confirmation."
+            value={!!form.watch("requireScopedFeatureRules")}
             setValue={(value) =>
-              form.setValue("requireProjectForFeatures", value, {
+              form.setValue("requireScopedFeatureRules", value, {
                 shouldDirty: true,
               })
             }
           />
-        )}
+        </UnsavedMark>
 
-        <Checkbox
-          id="toggle-requireScopedFeatureRules"
-          label="Require rules to target specific environments or Projects"
-          description="Rules for All Environments and All Projects need an extra confirmation."
-          value={!!form.watch("requireScopedFeatureRules")}
-          setValue={(value) =>
-            form.setValue("requireScopedFeatureRules", value, {
-              shouldDirty: true,
-            })
-          }
-        />
-
-        <Checkbox
-          id="toggle-sparseJSONRulesByDefault"
-          label="Default JSON rules to sparse patch mode"
-          description="New rules on JSON flags only edit the keys that differ from the default value."
-          value={!!form.watch("sparseJSONRulesByDefault")}
-          setValue={(value) =>
-            form.setValue("sparseJSONRulesByDefault", value, {
-              shouldDirty: true,
-            })
-          }
-        />
+        <UnsavedMark name="sparseJSONRulesByDefault">
+          <Checkbox
+            id="toggle-sparseJSONRulesByDefault"
+            label="Default JSON rules to sparse patch mode"
+            description="New rules on JSON flags only edit the keys that differ from the default value."
+            value={!!form.watch("sparseJSONRulesByDefault")}
+            setValue={(value) =>
+              form.setValue("sparseJSONRulesByDefault", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
 
         <SettingsField
+          name="preferredEnvironment"
           htmlFor="preferredEnvironment"
           label="Environment shown on flag pages"
         >
@@ -202,28 +212,32 @@ export default function FeatureSettings() {
         description="Defaults for new base Configs. Each Config can override these."
         keywords="configs schema extend experiment guard"
       >
-        <Checkbox
-          id="toggle-configsExtensibleByDefault"
-          label="Allow Configs to be extended"
-          description="Child Configs and flag rules can add keys beyond the declared schema."
-          value={!!form.watch("configsExtensibleByDefault")}
-          setValue={(value) =>
-            form.setValue("configsExtensibleByDefault", value, {
-              shouldDirty: true,
-            })
-          }
-        />
-        <Checkbox
-          id="toggle-configExperimentGuardDefault"
-          label="Guard Configs used by running experiments"
-          description="Publishing a change served to a running experiment is blocked until someone acknowledges it."
-          value={!!form.watch("configExperimentGuardDefault")}
-          setValue={(value) =>
-            form.setValue("configExperimentGuardDefault", value, {
-              shouldDirty: true,
-            })
-          }
-        />
+        <UnsavedMark name="configsExtensibleByDefault">
+          <Checkbox
+            id="toggle-configsExtensibleByDefault"
+            label="Allow Configs to be extended"
+            description="Child Configs and flag rules can add keys beyond the declared schema."
+            value={!!form.watch("configsExtensibleByDefault")}
+            setValue={(value) =>
+              form.setValue("configsExtensibleByDefault", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
+        <UnsavedMark name="configExperimentGuardDefault">
+          <Checkbox
+            id="toggle-configExperimentGuardDefault"
+            label="Guard Configs used by running experiments"
+            description="Publishing a change served to a running experiment is blocked until someone acknowledges it."
+            value={!!form.watch("configExperimentGuardDefault")}
+            setValue={(value) =>
+              form.setValue("configExperimentGuardDefault", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
       </SettingsGroup>
 
       <SettingsGroup
@@ -232,31 +246,35 @@ export default function FeatureSettings() {
         description="Checks applied when a revision is published."
         keywords="publish json schema validation drafts cap revision limit"
       >
-        <Checkbox
-          id="toggle-blockPublishOnSchemaError"
-          label="Block publishing on JSON schema errors"
-          description="Re-validate flag and Config values on publish. When off, errors show as a warning that can be bypassed. API edits are always validated unless skipSchemaValidation is true."
-          value={form.watch("blockPublishOnSchemaError") ?? true}
-          setValue={(value) =>
-            form.setValue("blockPublishOnSchemaError", value, {
-              shouldDirty: true,
-            })
-          }
-        />
-        <Box>
-          {/* TODO(UI): move to a neutral org-level "Revisions" section once
-              saved groups & others enforce this cap (it's not feature-only). */}
+        <UnsavedMark name="blockPublishOnSchemaError">
           <Checkbox
-            id="toggle-maxConcurrentDrafts"
-            label="Cap drafts per flag"
-            description="Warn and ask for confirmation before creating drafts past the cap. API calls and automated processes are exempt."
-            value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
+            id="toggle-blockPublishOnSchemaError"
+            label="Block publishing on JSON schema errors"
+            description="Re-validate flag and Config values on publish. When off, errors show as a warning that can be bypassed. API edits are always validated unless skipSchemaValidation is true."
+            value={form.watch("blockPublishOnSchemaError") ?? true}
             setValue={(value) =>
-              form.setValue("maxConcurrentDrafts", value ? 3 : 0, {
+              form.setValue("blockPublishOnSchemaError", value, {
                 shouldDirty: true,
               })
             }
           />
+        </UnsavedMark>
+        <Box>
+          {/* TODO(UI): move to a neutral org-level "Revisions" section once
+              saved groups & others enforce this cap (it's not feature-only). */}
+          <UnsavedMark name="maxConcurrentDrafts">
+            <Checkbox
+              id="toggle-maxConcurrentDrafts"
+              label="Cap drafts per flag"
+              description="Warn and ask for confirmation before creating drafts past the cap. API calls and automated processes are exempt."
+              value={(form.watch("maxConcurrentDrafts") ?? 0) !== 0}
+              setValue={(value) =>
+                form.setValue("maxConcurrentDrafts", value ? 3 : 0, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </UnsavedMark>
           {(form.watch("maxConcurrentDrafts") ?? 0) !== 0 && (
             <Box ml="5" mt="2" width="150px">
               <Field
@@ -280,14 +298,16 @@ export default function FeatureSettings() {
         description="Show where each flag is used in your codebase."
         keywords="code references github gitlab bitbucket branches ci action cli"
       >
-        <Checkbox
-          id="toggle-codeReferences"
-          label="Enable code references"
-          description="Show code references on flag pages."
-          value={!!form.watch("codeReferencesEnabled")}
-          setValue={(value) => form.setValue("codeReferencesEnabled", value)}
-          disabled={!hasCodeReferencesFeature}
-        />
+        <UnsavedMark name="codeReferencesEnabled">
+          <Checkbox
+            id="toggle-codeReferences"
+            label="Enable code references"
+            description="Show code references on flag pages."
+            value={!!form.watch("codeReferencesEnabled")}
+            setValue={(value) => form.setValue("codeReferencesEnabled", value)}
+            disabled={!hasCodeReferencesFeature}
+          />
+        </UnsavedMark>
 
         {form.watch("codeReferencesEnabled") && (
           <>
@@ -350,6 +370,7 @@ export default function FeatureSettings() {
             </SettingsField>
 
             <SettingsField
+              name="codeRefsBranchesToFilter"
               htmlFor="settings-branches"
               label="Branches"
               help="Only show references from these branches. Comma-separated."
@@ -368,6 +389,7 @@ export default function FeatureSettings() {
             </SettingsField>
 
             <SettingsField
+              name="codeRefsPlatformUrl"
               htmlFor="settings-codeRefsPlatformUrl"
               label="Code host"
               help="Used to link directly to the source."

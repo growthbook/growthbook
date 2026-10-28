@@ -135,6 +135,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "defaultDecisionCriteriaId",
   ],
   statistics: [
+    "metricDefaults.priorSettings",
     "statsEngine",
     "confidenceLevel",
     "pValueThreshold",
@@ -153,6 +154,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
   metrics: [
     "metricAnalysisDays",
     "metricDefaults",
+    "displayCurrency",
     "disableLegacyMetricCreation",
     "maxMetricSliceLevels",
     "defaultDataSource",
@@ -220,9 +222,13 @@ const FIELD_SECTION: Record<string, string> = Object.fromEntries(
   ),
 );
 
+// A path such as "metricDefaults.targetMDE" falls back to its top-level setting.
 export function sectionForField(field: string): string | null {
-  return FIELD_SECTION[field] ?? null;
+  return FIELD_SECTION[field] ?? FIELD_SECTION[field.split(".")[0]] ?? null;
 }
+
+// Settings whose parts are edited in different sections, so they're tracked part by part.
+export const SPLIT_SETTINGS = ["metricDefaults"];
 
 // "2 unsaved changes in AI and Custom Markdown", or "… in 3 sections".
 export function describeUnsavedChanges(

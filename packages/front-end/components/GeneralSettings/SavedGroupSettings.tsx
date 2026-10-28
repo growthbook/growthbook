@@ -1,9 +1,9 @@
 import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
-import { ConnectSettingsForm } from "@/pages/settings";
+import { ConnectSettingsForm } from "@/components/GeneralSettings/ConnectSettingsForm";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
-import { SettingsField, SettingsGroup } from "./SettingsGroup";
+import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function SavedGroupSettings() {
   return (
@@ -15,19 +15,22 @@ export default function SavedGroupSettings() {
           description="Scope and size limits for Saved Groups."
           keywords="saved groups project scope id list size limit payload"
         >
-          <Checkbox
-            id="enforceSavedGroupProjectScope"
-            label="Enforce Saved Group Project scope"
-            description="Block new references, including nested groups, that fall outside a group's Projects. Existing references keep working."
-            disabled={hasFileConfig()}
-            value={watch("enforceSavedGroupProjectScope") ?? false}
-            setValue={(value) =>
-              setValue("enforceSavedGroupProjectScope", value, {
-                shouldDirty: true,
-              })
-            }
-          />
+          <UnsavedMark name="enforceSavedGroupProjectScope">
+            <Checkbox
+              id="enforceSavedGroupProjectScope"
+              label="Enforce Saved Group Project scope"
+              description="Block new references, including nested groups, that fall outside a group's Projects. Existing references keep working."
+              disabled={hasFileConfig()}
+              value={watch("enforceSavedGroupProjectScope") ?? false}
+              setValue={(value) =>
+                setValue("enforceSavedGroupProjectScope", value, {
+                  shouldDirty: true,
+                })
+              }
+            />
+          </UnsavedMark>
           <SettingsField
+            name="savedGroupSizeLimit"
             htmlFor="settings-savedGroupSizeLimit"
             label="ID list size limit"
             help="Keeps SDK payloads small. Roles with Saved Groups Bypass Size Limit can exceed it."

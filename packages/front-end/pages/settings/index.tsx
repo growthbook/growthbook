@@ -1,5 +1,4 @@
 import React, { useEffect, useRef } from "react";
-import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
 import { hasFileConfig, isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -40,12 +39,8 @@ import SDKConnectionSettings from "@/components/GeneralSettings/SDKConnectionSet
 const SEARCH_HIGHLIGHT_CSS =
   "::highlight(settings-search){background-color:var(--amber-a5)}";
 
-export const ConnectSettingsForm = ({ children }) => {
-  const methods = useFormContext();
-  return children({ ...methods });
-};
-
-const USER_EVENTS = ["wheel", "touchmove", "keydown"] as const;
+// The user taking over the scroll, including dragging the scrollbar.
+const USER_EVENTS = ["wheel", "touchmove", "keydown", "pointerdown"] as const;
 
 const GeneralSettingsPage = (): React.ReactElement => {
   const [urlHash] = useURLHash();
@@ -61,7 +56,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
   const { settings, organization, refreshOrganization } = useUser();
   const { promptForm, cronString, updateCronString } = useSettingsForm();
   const pageRef = useRef<HTMLDivElement>(null);
-  // Re-applies the hash scroll while cards above load, until the user scrolls or 2s pass.
+  // Re-applies the hash scroll while cards above load, until the user takes over.
   useEffect(() => {
     const id = resolveSettingsHash(urlHash);
     const root = pageRef.current;
@@ -74,12 +69,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
     const observer = new ResizeObserver(() => scrollToSettingsSection(id));
     observer.observe(root);
     const stop = () => observer.disconnect();
-    const timer = window.setTimeout(stop, 2000);
     USER_EVENTS.forEach((e) =>
       window.addEventListener(e, stop, { once: true }),
     );
     return () => {
-      window.clearTimeout(timer);
       stop();
       USER_EVENTS.forEach((e) => window.removeEventListener(e, stop));
     };
@@ -88,10 +81,9 @@ const GeneralSettingsPage = (): React.ReactElement => {
   // Scroll spy: the last visible section whose top has passed the sticky header is active.
   useEffect(() => {
     let frame = 0;
-    let settle = 0;
     const update = () => {
       frame = 0;
-      // A click-triggered scroll shows only its destination, not every section on the way.
+      // A clicked or linked section stays active until the user scrolls themselves.
       if (pinnedSection.current) {
         setActiveSection(pinnedSection.current);
         return;
@@ -114,12 +106,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
     };
     const onScroll = () => {
       if (!frame) frame = window.requestAnimationFrame(update);
-      window.clearTimeout(settle);
-      settle = window.setTimeout(() => {
-        if (!pinnedSection.current) return;
-        unpin();
-        update();
-      }, 150);
     };
     update();
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -132,7 +118,6 @@ const GeneralSettingsPage = (): React.ReactElement => {
       window.removeEventListener("resize", onScroll);
       USER_EVENTS.forEach((e) => window.removeEventListener(e, unpin));
       window.cancelAnimationFrame(frame);
-      window.clearTimeout(settle);
     };
   }, [query, counts, setActiveSection, pinnedSection]);
 

@@ -16,6 +16,7 @@ import Text from "@/ui/Text";
 import {
   SettingsField,
   SettingsGroup,
+  UnsavedMark,
 } from "@/components/GeneralSettings/SettingsGroup";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
@@ -79,29 +80,34 @@ export default function ExperimentSettings({
           </Button>
         </SettingsField>
 
-        <Checkbox
-          id="toggle-requireExperimentTemplates"
-          label="Require experiment templates"
-          description="New experiments must start from a template."
-          disabled={!hasCommercialFeature("templates")}
-          value={
-            hasCommercialFeature("templates") &&
-            form.watch("requireExperimentTemplates")
-          }
-          setValue={(v) => form.setValue("requireExperimentTemplates", v)}
-        />
+        <UnsavedMark name="requireExperimentTemplates">
+          <Checkbox
+            id="toggle-requireExperimentTemplates"
+            label="Require experiment templates"
+            description="New experiments must start from a template."
+            disabled={!hasCommercialFeature("templates")}
+            value={
+              hasCommercialFeature("templates") &&
+              form.watch("requireExperimentTemplates")
+            }
+            setValue={(v) => form.setValue("requireExperimentTemplates", v)}
+          />
+        </UnsavedMark>
 
-        <Checkbox
-          id="toggle-requireUniqueExperimentTrackingKeys"
-          label="Require unique experiment keys"
-          description="Block tracking keys that are already used by another experiment."
-          value={form.watch("requireUniqueExperimentTrackingKeys")}
-          setValue={(v) =>
-            form.setValue("requireUniqueExperimentTrackingKeys", v)
-          }
-        />
+        <UnsavedMark name="requireUniqueExperimentTrackingKeys">
+          <Checkbox
+            id="toggle-requireUniqueExperimentTrackingKeys"
+            label="Require unique experiment keys"
+            description="Block tracking keys that are already used by another experiment."
+            value={form.watch("requireUniqueExperimentTrackingKeys")}
+            setValue={(v) =>
+              form.setValue("requireUniqueExperimentTrackingKeys", v)
+            }
+          />
+        </UnsavedMark>
 
         <SettingsField
+          name="experimentKeyRegexValidator"
           htmlFor="experimentKeyRegexValidator"
           label="Experiment key format (regex)"
           help="Tracking keys set in the app or API must match this pattern. Holdout keys and keys discovered in a Data Source are exempt."
@@ -115,6 +121,7 @@ export default function ExperimentSettings({
         </SettingsField>
 
         <SettingsField
+          name="experimentKeyExample"
           htmlFor="experimentKeyExample"
           label={
             <>
@@ -144,7 +151,14 @@ export default function ExperimentSettings({
         description="How often results update and how they're computed."
         keywords="auto-update refresh schedule cron data cutoff lag conversion window attribution dimensions slices import past experiments"
       >
-        <SettingsField label="Auto-update frequency">
+        <SettingsField
+          name={[
+            "updateSchedule.type",
+            "updateSchedule.hours",
+            "updateSchedule.cron",
+          ]}
+          label="Auto-update frequency"
+        >
           <RadioGroup
             disabled={hasFileConfig()}
             options={[
@@ -226,6 +240,11 @@ export default function ExperimentSettings({
 
         {form.watch("updateSchedule.type") !== "never" && (
           <SettingsField
+            name={[
+              "updateSchedule.analysisEndDateMode",
+              "updateSchedule.analysisEndDateLagHours",
+              "updateSchedule.analysisEndDateTime",
+            ]}
             label="Data cutoff for scheduled updates"
             help="If your data takes time to land in your Data Source, use these options so scheduled updates only include complete data. Manual updates always include all data."
           >
@@ -304,6 +323,7 @@ export default function ExperimentSettings({
         )}
 
         <SettingsField
+          name="attributionModel"
           label={
             <AttributionModelTooltip>
               Conversion windows <GBInfo />
@@ -335,38 +355,41 @@ export default function ExperimentSettings({
           />
         </SettingsField>
 
-        <Checkbox
-          id="toggle-precomputed-dimensions"
-          label={
-            <PremiumTooltip
-              commercialFeature="precomputed-dimensions"
-              body={
-                <>
-                  <p>
-                    If your exposure queries have dimension columns, this will
-                    pre-compute the breakdowns for those dimensions for faster
-                    slicing-and-dicing in experiments.
-                  </p>
-                  <p>
-                    This setting will also enable post-stratification, a
-                    forthcoming variance reduction technique.
-                  </p>
-                </>
-              }
-            >
-              Pre-compute dimension breakdowns <GBInfo />
-            </PremiumTooltip>
-          }
-          description="Compute dimension slices in the main analysis query for faster breakdowns. Costs more aggregation in each query. Doesn't apply to standalone unit dimensions."
-          disabled={!hasCommercialFeature("precomputed-dimensions")}
-          value={
-            hasCommercialFeature("precomputed-dimensions") &&
-            !form.watch("disablePrecomputedDimensions")
-          }
-          setValue={(v) => form.setValue("disablePrecomputedDimensions", !v)}
-        />
+        <UnsavedMark name="disablePrecomputedDimensions">
+          <Checkbox
+            id="toggle-precomputed-dimensions"
+            label={
+              <PremiumTooltip
+                commercialFeature="precomputed-dimensions"
+                body={
+                  <>
+                    <p>
+                      If your exposure queries have dimension columns, this will
+                      pre-compute the breakdowns for those dimensions for faster
+                      slicing-and-dicing in experiments.
+                    </p>
+                    <p>
+                      This setting will also enable post-stratification, a
+                      forthcoming variance reduction technique.
+                    </p>
+                  </>
+                }
+              >
+                Pre-compute dimension breakdowns <GBInfo />
+              </PremiumTooltip>
+            }
+            description="Compute dimension slices in the main analysis query for faster breakdowns. Costs more aggregation in each query. Doesn't apply to standalone unit dimensions."
+            disabled={!hasCommercialFeature("precomputed-dimensions")}
+            value={
+              hasCommercialFeature("precomputed-dimensions") &&
+              !form.watch("disablePrecomputedDimensions")
+            }
+            setValue={(v) => form.setValue("disablePrecomputedDimensions", !v)}
+          />
+        </UnsavedMark>
 
         <SettingsField
+          name="pastExperimentsMinLength"
           htmlFor="settings-pastExperimentsMinLength"
           label="Minimum length for imported experiments"
           help="Past experiments from a Data Source that ran for fewer days are skipped on import."
@@ -407,15 +430,18 @@ export default function ExperimentSettings({
         description="Checks that flag problems with traffic and assignment."
         keywords="health traffic query srm sample ratio mismatch multiple exposures"
       >
-        <Checkbox
-          id="toggle-runHealthTrafficQuery"
-          label="Run traffic query by default"
-          description="Check traffic splits and health on every new analysis."
-          value={form.watch("runHealthTrafficQuery")}
-          setValue={(v) => form.setValue("runHealthTrafficQuery", v)}
-        />
+        <UnsavedMark name="runHealthTrafficQuery">
+          <Checkbox
+            id="toggle-runHealthTrafficQuery"
+            label="Run traffic query by default"
+            description="Check traffic splits and health on every new analysis."
+            value={form.watch("runHealthTrafficQuery")}
+            setValue={(v) => form.setValue("runHealthTrafficQuery", v)}
+          />
+        </UnsavedMark>
 
         <SettingsField
+          name="srmThreshold"
           htmlFor="settings-srmThreshold"
           label="SRM p-value threshold"
           help="Flag sample ratio mismatch below this p-value. Default is 0.001."
@@ -451,6 +477,7 @@ export default function ExperimentSettings({
         </SettingsField>
 
         <SettingsField
+          name="multipleExposureMinPercent"
           htmlFor="settings-multipleExposureMinPercent"
           label="Multiple exposures warning"
           help="Warn when at least this share of users saw more than one variation."

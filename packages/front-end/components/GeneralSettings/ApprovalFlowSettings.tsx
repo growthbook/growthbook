@@ -24,7 +24,7 @@ import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
-import { SettingsGroup } from "./SettingsGroup";
+import { SettingsGroup, UnsavedMark } from "./SettingsGroup";
 import {
   ALL_PROJECTS_SCOPE,
   overrideScopes,
@@ -356,34 +356,42 @@ export default function ApprovalFlowSettings() {
         keywords="targeting projects rest api bypass rebase reverts"
       >
         <Flex direction="column" gap="3" align="start">
-          <Checkbox
-            id="toggle-targeting-review-mode"
-            label="Apply approval rules from Targeting Projects"
-            description="Flags delivered into Targeting Projects must also meet those Projects' approval rules, with approval from a reviewer in each. When off, only the primary Project's rules apply."
-            value={targetingStrict(form)}
-            setValue={(v) => setTargetingMode(form, v)}
-          />
-          <Checkbox
-            id="toggle-restApiBypassesReviews"
-            label="REST API bypasses approvals"
-            description="Applies to Feature Flags, Configs, Constants, and Saved Groups. When off, API calls are blocked unless the caller's role grants FlagsBypassApprovals or SavedGroupsBypassApprovals in that Project."
-            value={form.watch("restApiBypassesReviews") !== false}
-            setValue={(v) => form.setValue("restApiBypassesReviews", v)}
-          />
-          <Checkbox
-            id="toggle-requireRebaseBeforePublish"
-            label="Require drafts to be rebased before publishing"
-            description="Drafts based on an older version, or with a stale approval, must be rebased on the live version first."
-            value={form.watch("requireRebaseBeforePublish") === true}
-            setValue={(v) => form.setValue("requireRebaseBeforePublish", v)}
-          />
-          <Checkbox
-            id="toggle-reverts-bypass-approval"
-            label="Allow reverts without approval"
-            description="People with revert permission can restore and publish a past revision immediately, even when approvals are required."
-            value={!!form.watch("revertsBypassApproval")}
-            setValue={(v) => form.setValue("revertsBypassApproval", v)}
-          />
+          <UnsavedMark name="targetingReviewMode">
+            <Checkbox
+              id="toggle-targeting-review-mode"
+              label="Apply approval rules from Targeting Projects"
+              description="Flags delivered into Targeting Projects must also meet those Projects' approval rules, with approval from a reviewer in each. When off, only the primary Project's rules apply."
+              value={targetingStrict(form)}
+              setValue={(v) => setTargetingMode(form, v)}
+            />
+          </UnsavedMark>
+          <UnsavedMark name="restApiBypassesReviews">
+            <Checkbox
+              id="toggle-restApiBypassesReviews"
+              label="REST API bypasses approvals"
+              description="Applies to Feature Flags, Configs, Constants, and Saved Groups. When off, API calls are blocked unless the caller's role grants FlagsBypassApprovals or SavedGroupsBypassApprovals in that Project."
+              value={form.watch("restApiBypassesReviews") !== false}
+              setValue={(v) => form.setValue("restApiBypassesReviews", v)}
+            />
+          </UnsavedMark>
+          <UnsavedMark name="requireRebaseBeforePublish">
+            <Checkbox
+              id="toggle-requireRebaseBeforePublish"
+              label="Require drafts to be rebased before publishing"
+              description="Drafts based on an older version, or with a stale approval, must be rebased on the live version first."
+              value={form.watch("requireRebaseBeforePublish") === true}
+              setValue={(v) => form.setValue("requireRebaseBeforePublish", v)}
+            />
+          </UnsavedMark>
+          <UnsavedMark name="revertsBypassApproval">
+            <Checkbox
+              id="toggle-reverts-bypass-approval"
+              label="Allow reverts without approval"
+              description="People with revert permission can restore and publish a past revision immediately, even when approvals are required."
+              value={!!form.watch("revertsBypassApproval")}
+              setValue={(v) => form.setValue("revertsBypassApproval", v)}
+            />
+          </UnsavedMark>
         </Flex>
       </SettingsGroup>
     </>

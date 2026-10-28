@@ -39,59 +39,60 @@ import OptInModal from "@/components/License/OptInModal";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import Callout from "@/ui/Callout";
-import { SettingsField, SettingsGroup } from "./SettingsGroup";
+import Link from "@/ui/Link";
+import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 import AIProviderKeys, { useAIProviderKeys } from "./AIProviderKeys";
 import AgentSkillsSettings from "./AgentSkillsSettings";
 
 const PROMPTS: {
   promptType: string;
   promptName: string;
-  promptDescription: string;
   promptDefaultValue: string;
+  promptDescription: string;
   promptHelpText: string;
   overrideModelHelpText?: string;
 }[] = [
   {
     promptType: "experiment-analysis",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-analysis"],
     promptName: "Experiment analysis",
     promptDescription:
       "Writes an analysis of results when an experiment stops. Describe the format you want.",
-    promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-analysis"],
     promptHelpText:
       "Make sure to explain the format of the results you would like to see.",
   },
   {
     promptType: "find-learnings-context",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["find-learnings-context"],
     promptName: "Find Learnings context",
     promptDescription:
       "Optional. Added to the prompt for finding cross-experiment Learnings: your product, audience, or what counts as a meaningful insight.",
-    promptDefaultValue: AI_PROMPT_DEFAULTS["find-learnings-context"],
     promptHelpText:
       "Optional. Leave blank to use only the built-in instructions. When set, this text is appended to the system prompt for find-learnings runs.",
   },
   {
     promptType: "experiment-hypothesis",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
     promptName: "Hypothesis format",
     promptDescription:
       "A style for hypotheses so they're consistent across experiments.",
-    promptDefaultValue: AI_PROMPT_DEFAULTS["experiment-hypothesis"],
     promptHelpText: "",
   },
   {
     promptType: "metric-description",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["metric-description"],
     promptName: "Metric description",
     promptDescription:
       "Writes a description when a metric is created. Describe the format you want.",
-    promptDefaultValue: AI_PROMPT_DEFAULTS["metric-description"],
     promptHelpText:
       "Make sure to explain the format of the results you would like to see.",
   },
   {
     promptType: "generate-sql-query",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["generate-sql-query"],
     promptName: "Text to SQL",
     promptDescription:
       "Extra guidance for generated SQL. Database type, names, and table structures are included automatically.",
-    promptDefaultValue: AI_PROMPT_DEFAULTS["generate-sql-query"],
     overrideModelHelpText:
       "Some prompts are better than others at generating SQL.",
     promptHelpText:
@@ -99,10 +100,10 @@ const PROMPTS: {
   },
   {
     promptType: "product-analytics-chat",
+    promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
     promptName: "Product Analytics AI analyst",
     promptDescription:
       "Optional. Your tone, naming, and policies for the Product Analytics assistant. Data Source context is included automatically.",
-    promptDefaultValue: AI_PROMPT_DEFAULTS["product-analytics-chat"],
     promptHelpText:
       "Leave blank to use only the built-in assistant instructions. When set, this text is appended to the system prompt.",
     overrideModelHelpText:
@@ -333,10 +334,32 @@ export default function AISettings({
 
   const renderPrompt = (prompt: (typeof prompts)[number]) => (
     <SettingsField
+      name={[
+        `prompt.${prompt.promptType}`,
+        `prompt.${prompt.promptType}-model`,
+      ]}
       key={prompt.promptType}
       htmlFor={`prompt-${prompt.promptType}`}
       label={prompt.promptName}
       help={prompt.promptDescription}
+      action={
+        canEdit &&
+        prompt.promptDefaultValue !== promptForm.watch(prompt.promptType) ? (
+          <Link
+            size="sm"
+            title="Reset to the default AI prompt"
+            onClick={() =>
+              promptForm.setValue(
+                prompt.promptType,
+                prompt.promptDefaultValue,
+                { shouldDirty: true },
+              )
+            }
+          >
+            Reset to default
+          </Link>
+        ) : null
+      }
     >
       {canChooseModels && (
         <Box mb="2">
@@ -379,25 +402,6 @@ export default function AISettings({
         helpText={prompt.promptHelpText}
         {...promptForm.register(prompt.promptType)}
       />
-      {canEdit &&
-        prompt.promptDefaultValue !== promptForm.watch(prompt.promptType) && (
-          <Flex justify="end" mt="1">
-            <a
-              href="#"
-              title="Reset to the default AI prompt"
-              onClick={(e) => {
-                e.preventDefault();
-                promptForm.setValue(
-                  prompt.promptType,
-                  prompt.promptDefaultValue,
-                  { shouldDirty: true },
-                );
-              }}
-            >
-              Reset to default
-            </a>
-          </Flex>
-        )}
     </SettingsField>
   );
 
@@ -417,21 +421,23 @@ export default function AISettings({
           <Text color="text-mid">AI features are available on paid plans.</Text>
         ) : (
           <>
-            <Checkbox
-              id="toggle-aiEnabled"
-              align="start"
-              weight="medium"
-              label="Enable AI features"
-              value={form.watch("aiEnabled") && aiAgreedTo}
-              setValue={(v) => {
-                if (v && !aiAgreedTo) {
-                  setOptInModal(true);
-                  return;
-                }
-                form.setValue("aiEnabled", v);
-              }}
-              disabled={!canEdit}
-            />
+            <UnsavedMark name="aiEnabled">
+              <Checkbox
+                id="toggle-aiEnabled"
+                align="start"
+                weight="medium"
+                label="Enable AI features"
+                value={form.watch("aiEnabled") && aiAgreedTo}
+                setValue={(v) => {
+                  if (v && !aiAgreedTo) {
+                    setOptInModal(true);
+                    return;
+                  }
+                  form.setValue("aiEnabled", v);
+                }}
+                disabled={!canEdit}
+              />
+            </UnsavedMark>
             {!canEdit && (
               <Callout status="info">
                 You need permission to manage organization settings to change AI
@@ -440,26 +446,30 @@ export default function AISettings({
             )}
             {aiOn && (
               <Flex direction="column" gap="4" pl="5">
-                <Checkbox
-                  id="toggle-aiAskDataEnabled"
-                  align="start"
-                  weight="medium"
-                  label="Ask your data"
-                  description="Ask questions about data in plain language. Schema, queries, and results are sent to the AI provider."
-                  value={form.watch("aiAskDataEnabled") ?? false}
-                  setValue={(v) => form.setValue("aiAskDataEnabled", v)}
-                  disabled={!canEdit}
-                />
-                <Checkbox
-                  id="toggle-aiAutocompleteEnabled"
-                  align="start"
-                  weight="medium"
-                  label="AI Assistant autocomplete"
-                  description="Suggest how to finish a message as users type in the AI Assistant. Each pause in typing is an AI call, so this adds to usage even when suggestions aren't accepted."
-                  value={form.watch("aiAutocompleteEnabled") ?? true}
-                  setValue={(v) => form.setValue("aiAutocompleteEnabled", v)}
-                  disabled={!canEdit}
-                />
+                <UnsavedMark name="aiAskDataEnabled">
+                  <Checkbox
+                    id="toggle-aiAskDataEnabled"
+                    align="start"
+                    weight="medium"
+                    label="Ask your data"
+                    description="Ask questions about data in plain language. Schema, queries, and results are sent to the AI provider."
+                    value={form.watch("aiAskDataEnabled") ?? false}
+                    setValue={(v) => form.setValue("aiAskDataEnabled", v)}
+                    disabled={!canEdit}
+                  />
+                </UnsavedMark>
+                <UnsavedMark name="aiAutocompleteEnabled">
+                  <Checkbox
+                    id="toggle-aiAutocompleteEnabled"
+                    align="start"
+                    weight="medium"
+                    label="AI Assistant autocomplete"
+                    description="Suggest how to finish a message as users type in the AI Assistant. Each pause in typing is an AI call, so this adds to usage even when suggestions aren't accepted."
+                    value={form.watch("aiAutocompleteEnabled") ?? true}
+                    setValue={(v) => form.setValue("aiAutocompleteEnabled", v)}
+                    disabled={!canEdit}
+                  />
+                </UnsavedMark>
               </Flex>
             )}
           </>
@@ -502,6 +512,7 @@ export default function AISettings({
           {hasAISuggestions && form.watch("aiEnabled") && canChooseModels && (
             <>
               <SettingsField
+                name="defaultAIModel"
                 htmlFor="defaultAIModel"
                 label="Default AI model"
                 help="Used by every AI feature that doesn't override it."
@@ -534,6 +545,7 @@ export default function AISettings({
                 />
               </SettingsField>
               <SettingsField
+                name="embeddingModel"
                 htmlFor="embeddingModel"
                 label="Embedding model"
                 help="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
@@ -566,6 +578,7 @@ export default function AISettings({
                 />
               </SettingsField>
               <SettingsField
+                name="sttModel"
                 htmlFor="sttModel"
                 label="Dictation model"
                 help="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral."
@@ -594,6 +607,7 @@ export default function AISettings({
               </SettingsField>
               {(form.watch("aiAutocompleteEnabled") ?? true) && (
                 <SettingsField
+                  name="aiAutocompleteModel"
                   htmlFor="aiAutocompleteModel"
                   label="Autocomplete model"
                   help="Used for AI Assistant suggestions as users type. A small, fast model keeps them cheap and quick."
@@ -661,6 +675,7 @@ export default function AISettings({
             keywords="visual editor brand guidelines context image model text model"
           >
             <SettingsField
+              name="visualEditorAIContext"
               htmlFor="visualEditorAIContext"
               label="Brand guidelines"
               help="Added to every Visual Editor AI prompt, for text edits and image generation."
@@ -680,6 +695,7 @@ export default function AISettings({
             {canChooseModels && (
               <>
                 <SettingsField
+                  name="visualEditorAIModel"
                   htmlFor="visualEditorAIModel"
                   label="Visual Editor text model"
                   help="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
@@ -708,6 +724,7 @@ export default function AISettings({
                   )}
                 </SettingsField>
                 <SettingsField
+                  name="visualEditorImageModel"
                   htmlFor="visualEditorImageModel"
                   label="Visual Editor image model"
                   help="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."

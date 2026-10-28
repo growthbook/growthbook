@@ -10,7 +10,10 @@ import {
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
-import { SettingsField } from "@/components/GeneralSettings/SettingsGroup";
+import {
+  SettingsField,
+  UnsavedMark,
+} from "@/components/GeneralSettings/SettingsGroup";
 import { DocLink } from "@/components/DocLink";
 import DecisionCriteriaTable from "@/components/DecisionCriteria/DecisionCriteriaTable";
 import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
@@ -99,21 +102,24 @@ const DecisionFrameworkSettings = () => {
           View docs
         </DocLink>
       </Box>
-      <Checkbox
-        id="toggle-decisionFrameworkEnabled"
-        label="Enable Experiment Decision Framework"
-        value={
-          !hasCommercialFeature("decision-framework")
-            ? false
-            : form.watch("decisionFrameworkEnabled")
-        }
-        setValue={(v) => form.setValue("decisionFrameworkEnabled", v)}
-        disabled={!hasCommercialFeature("decision-framework")}
-      />
+      <UnsavedMark name="decisionFrameworkEnabled">
+        <Checkbox
+          id="toggle-decisionFrameworkEnabled"
+          label="Enable Experiment Decision Framework"
+          value={
+            !hasCommercialFeature("decision-framework")
+              ? false
+              : form.watch("decisionFrameworkEnabled")
+          }
+          setValue={(v) => form.setValue("decisionFrameworkEnabled", v)}
+          disabled={!hasCommercialFeature("decision-framework")}
+        />
+      </UnsavedMark>
       {hasCommercialFeature("decision-framework") &&
         form.watch("decisionFrameworkEnabled") && (
           <Flex direction="column" gap="4" pl="5">
             <SettingsField
+              name="experimentMinLengthDays"
               htmlFor="settings-decisionFrameworkEnabled"
               label="Minimum runtime"
               help="Experiments won't get a shipping recommendation before this."
@@ -138,6 +144,7 @@ const DecisionFrameworkSettings = () => {
               </Box>
             </SettingsField>
             <SettingsField
+              name="defaultDecisionCriteriaId"
               label="Decision criteria"
               help="The org default is applied to new experiments."
             >

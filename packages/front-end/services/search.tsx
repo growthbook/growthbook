@@ -13,9 +13,11 @@ import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
 import { PiCaretDown, PiCaretUp, PiCaretUpDown } from "react-icons/pi";
 import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
+import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
 import { TableColumnHeader } from "@/ui/Table";
+import sortStyles from "./SortButton.module.scss";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -233,30 +235,14 @@ export function SortButton({
   children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      // Only the needed resets, so the browser's focus ring still shows.
-      style={{
-        background: "none",
-        border: 0,
-        padding: 0,
-        font: "inherit",
-        color: "inherit",
-        cursor: "pointer",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
-      }}
-    >
+    <button type="button" onClick={onClick} className={sortStyles.button}>
       {children}
       {subtle ? (
         <span
           aria-hidden="true"
-          style={{
-            display: "inline-flex",
-            color: active ? "var(--gray-11)" : "var(--gray-9)",
-          }}
+          className={clsx(sortStyles.subtleIcon, {
+            [sortStyles.subtleIconActive]: active,
+          })}
         >
           {active ? (
             dir < 0 ? (

@@ -23,6 +23,7 @@ export default function DatasourceSettings() {
       keywords="default data source warehouse test query lookback top values slices"
     >
       <SettingsField
+        name="defaultDataSource"
         htmlFor="settings-defaultDataSource"
         label="Default Data Source"
         help="Preselected when creating metrics and experiments."
@@ -43,6 +44,7 @@ export default function DatasourceSettings() {
       </SettingsField>
 
       <SettingsField
+        name="testQueryDays"
         htmlFor="settings-testQueryDays"
         label="Test query lookback"
         help={`Days of data for test queries with date filters and fact table SQL validation. Default is ${DEFAULT_TEST_QUERY_DAYS}.`}
@@ -64,6 +66,7 @@ export default function DatasourceSettings() {
 
       <Box id="top-values-lookback" style={{ scrollMarginTop: 100 }}>
         <SettingsField
+          name="topValuesLookbackValue"
           htmlFor="settings-topValuesLookbackValue"
           label={
             <>
