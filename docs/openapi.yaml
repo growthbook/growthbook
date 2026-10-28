@@ -55655,11 +55655,11 @@ paths:
                     type: string
                 key:
                   description: >-
-                    The key your code passes to `interleave()` as `ranker`.
-                    Can't be changed later. Several experiments may share a key
-                    so you can iterate without changing code, but only one of
-                    them can be running in a given environment, and each needs
-                    its own `trackingKey`.
+                    The key your code passes to `interleave()` as `key`. Can't
+                    be changed later. Several experiments may share a key so you
+                    can iterate without changing code, but only one of them can
+                    be running in a given environment, and each needs its own
+                    `trackingKey`.
                   type: string
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                 trackingKey:
@@ -82881,7 +82881,7 @@ components:
           type: string
           format: date-time
         key:
-          description: The key your code passes to `interleave()` as `ranker`
+          description: The key your code passes to `interleave()` as `key`
           type: string
         trackingKey:
           description: The `experiment_id` recorded in exposures
