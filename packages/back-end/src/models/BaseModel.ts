@@ -1608,21 +1608,26 @@ export abstract class BaseModel<
       (acc, k) => ({ ...acc, [String(k)]: 1 as const }),
       {},
     );
+    // Org first so org-scoped list queries can use it.
     const orgPKeyIndex: Record<string, 1> = {
+      organization: 1,
+      ...pKeyIndex,
+    };
+    const legacyOrgPKeyIndex: Record<string, 1> = {
       ...pKeyIndex,
       organization: 1,
     };
 
     // Always create a unique index for organization and primary key
     promises.push(
-      this._dangerousGetCollection()
-        .createIndex(orgPKeyIndex, { unique: true })
-        .catch((err) => {
+      this.migrateOrgPKeyIndex(orgPKeyIndex, legacyOrgPKeyIndex).catch(
+        (err) => {
           logger.error(
             err,
             `Error creating org/pKey unique index for ${this.config.collectionName}`,
           );
-        }),
+        },
+      ),
     );
 
     // If primary key is globally unique, create an index for that
@@ -1710,6 +1715,35 @@ export abstract class BaseModel<
   /***************
    * Private methods
    ***************/
+
+  private async migrateOrgPKeyIndex(
+    fields: Record<string, 1>,
+    legacyFields: Record<string, 1>,
+  ) {
+    const collection = this._dangerousGetCollection();
+    const indexName = (f: Record<string, 1>) =>
+      Object.entries(f)
+        .map(([k, v]) => `${k}_${v}`)
+        .join("_");
+    const name = indexName(fields);
+    const legacyName = indexName(legacyFields);
+
+    const existing: { name?: string; unique?: boolean }[] = await collection
+      .indexes()
+      .catch((err) => {
+        if (err.codeName === "NamespaceNotFound") return [];
+        throw err;
+      });
+    // Can't swap a non-unique index for a unique one without a gap, so the legacy index stays.
+    if (existing.some((i) => i.name === name && !i.unique)) return;
+    await collection.createIndex(fields, { unique: true });
+    // Drop the pKey-first index only once the org-first one enforces uniqueness.
+    if (legacyName !== name && existing.some((i) => i.name === legacyName)) {
+      await collection.dropIndex(legacyName).catch((err) => {
+        if (err.codeName !== "IndexNotFound") throw err;
+      });
+    }
+  }
 
   private _assertHasIdField(): void {
     if (!("id" in this.config.schema.shape)) {
