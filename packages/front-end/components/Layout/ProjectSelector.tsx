@@ -248,8 +248,19 @@ export function ProjectMenu({
   );
 }
 
+// The project's avatar in the header (main's small 26px one, shown at 20px
+// to fit the 24px button), "ALL" for All Projects.
+function HeaderProjectAvatar({ name }: { name: string }) {
+  return (
+    <span className={styles.headerProjectAvatar} aria-hidden="true">
+      <LetterAvatar name={name} defaultInitials="ALL" size="small" />
+    </span>
+  );
+}
+
 // The header breadcrumb's selector, below 1180px (the side nav has its own
-// above it, RailProjectSelector.tsx).
+// above it, RailProjectSelector.tsx). Its avatars and menu are the side
+// nav's, so the menu looks the same at every width.
 export default function ProjectSelector() {
   const { projects, current, heldToOneProject, isDemo, name } =
     useProjectSelector();
@@ -268,7 +279,7 @@ export default function ProjectSelector() {
   if (heldToOneProject) {
     return (
       <span className={styles.projectStatic}>
-        <PiFolder size={14} className={styles.projectIcon} />
+        <HeaderProjectAvatar name={projects[0].name} />
         <span className={styles.projectName}>{projects[0].name}</span>
         {isDemo(projects[0].id) ? <DemoBadge /> : null}
       </span>
@@ -279,6 +290,7 @@ export default function ProjectSelector() {
     <ProjectMenu
       open={open}
       onOpenChange={setOpen}
+      avatars
       trigger={
         <Button
           variant="ghost"
@@ -287,7 +299,7 @@ export default function ProjectSelector() {
           // So the click reaches the menu's trigger.
           preventDefault={false}
           className={`${styles.headerButton} ${styles.projectButton}`}
-          icon={<PiFolder size={14} />}
+          icon={<HeaderProjectAvatar name={current?.name ?? ""} />}
           aria-label={`Project: ${name}`}
         >
           <span className={styles.projectName}>{name}</span>
