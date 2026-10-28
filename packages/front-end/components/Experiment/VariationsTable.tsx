@@ -26,6 +26,7 @@ import styles from "./VariationsTable.module.scss";
 // A small marker, so an empty variation doesn't reserve screenshot-sized space.
 const NO_IMAGE_SIZE = 42;
 const MAX_IMAGE_HEIGHT = 150;
+const MIN_IMAGE_HEIGHT = 100;
 
 // Narrower than this and a card has no room for a name beside its controls.
 const MIN_VARIATION_WIDTH = 220;
@@ -88,6 +89,7 @@ const ScreenshotCarousel: FC<{
         if (onClick && path && !failedPaths.current.has(path)) onClick(i);
       }}
       maxChildHeight={maxChildHeight}
+      minHeight={MIN_IMAGE_HEIGHT}
     >
       {variation.screenshots.map((s) => (
         <AuthorizedImage

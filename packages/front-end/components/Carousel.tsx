@@ -9,12 +9,16 @@ import {
 } from "react";
 import { PiCaretLeft, PiCaretRight } from "react-icons/pi";
 import clsx from "clsx";
+import styles from "./Carousel.module.scss";
 
 const Carousel: FC<{
   children: ReactNode;
   maxChildHeight?: number;
+  // The arrows centre on this much of the top, so whichever image shows, and
+  // however tall, they stay put.
+  minHeight?: number;
   onClick?: (i: number) => void;
-}> = ({ children, maxChildHeight, onClick }) => {
+}> = ({ children, maxChildHeight, minHeight, onClick }) => {
   const [active, setActive] = useState(0);
 
   const num = Children.count(children);
@@ -30,17 +34,25 @@ const Carousel: FC<{
   }
 
   const current = active >= num ? num - 1 : active;
+  const controlPosition = minHeight
+    ? { bottom: "auto", height: minHeight }
+    : undefined;
 
   return (
     <div className="carousel slide">
-      <div className="carousel-inner">
+      <div
+        className={clsx("carousel-inner", styles.slides)}
+        style={{ minHeight }}
+      >
         {Children.map(children, (child, i) => {
           if (!isValidElement(child)) return null;
           return (
             <div
-              className={clsx("carousel-item cursor-pointer", {
-                active: i === current,
-              })}
+              className={clsx(
+                "cursor-pointer",
+                styles.slide,
+                i === current && styles.active,
+              )}
               onClick={() => {
                 if (onClick) onClick(i);
               }}
@@ -54,6 +66,7 @@ const Carousel: FC<{
       {current > 0 ? (
         <a
           className="carousel-control-prev"
+          style={controlPosition}
           role="button"
           onClick={(e) => {
             e.preventDefault();
@@ -71,6 +84,7 @@ const Carousel: FC<{
       {current < num - 1 ? (
         <a
           className="carousel-control-next"
+          style={controlPosition}
           role="button"
           onClick={(e) => {
             e.preventDefault();

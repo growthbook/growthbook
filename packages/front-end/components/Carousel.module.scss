@@ -1,0 +1,17 @@
+// Every slide shares one cell, so the carousel keeps its tallest image's
+// height: paging moves neither its controls nor what's below it.
+.slides {
+  display: grid;
+}
+
+.slide {
+  grid-area: 1 / 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  visibility: hidden;
+}
+
+.active {
+  visibility: visible;
+}
