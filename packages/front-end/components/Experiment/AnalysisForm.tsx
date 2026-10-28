@@ -821,7 +821,9 @@ const AnalysisForm: FC<{
                 disabled={isBandit && experiment.status !== "draft"}
               />
             )}
-            {datasource?.properties?.exposureQueries &&
+            {/* Kept while cluster is on so it can be turned off after the
+                data source changes. */}
+            {(datasource?.properties?.exposureQueries || isClusterExperiment) &&
               !isBandit &&
               !isHoldout && (
                 <ClusterExperimentFields

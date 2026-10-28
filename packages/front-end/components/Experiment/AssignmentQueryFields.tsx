@@ -523,8 +523,10 @@ export function ClusterExperimentFields({
                   <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever
                   they can be.
                 </>
+              ) : exposureQuery ? (
+                `${exposureQuery.name} doesn't declare another identifier type to analyze on.`
               ) : (
-                `${exposureQuery?.name ?? "This assignment query"} doesn't declare another identifier type to analyze on.`
+                "Choose an assignment query to pick a subunit."
               )
             }
           />
