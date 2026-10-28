@@ -178,9 +178,10 @@ export default function AnalysisPlanAdvanced({
   const tuningError =
     parseFloat(tuningText) > 0 ? null : "Enter a number above 0.";
   const tuningInput = useRef<HTMLInputElement>(null);
-  // Shown once typing stops, since "0." is on its way to a valid value.
-  const [tuningFocused, setTuningFocused] = useState(false);
-  const shownTuningError = tuningFocused ? null : tuningError;
+  // Shown from the first time the field is left, since "0." is on its way to
+  // a valid value until then.
+  const [tuningTouched, setTuningTouched] = useState(false);
+  const shownTuningError = tuningTouched ? tuningError : null;
   useEffect(() => {
     tuningInput.current?.setCustomValidity(tuningError ?? "");
   }, [tuningError, sequentialEnabled]);
@@ -325,8 +326,7 @@ export default function AnalysisPlanAdvanced({
                             outlineStyle={
                               shownTuningError ? "error" : undefined
                             }
-                            onFocus={() => setTuningFocused(true)}
-                            onBlur={() => setTuningFocused(false)}
+                            onBlur={() => setTuningTouched(true)}
                             containerClassName="mb-0"
                             value={tuningText}
                             onChange={(e) => {

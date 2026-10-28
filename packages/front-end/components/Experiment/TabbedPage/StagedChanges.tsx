@@ -38,6 +38,7 @@ function StagedChange({
   discard,
   keepMine,
   incompatible,
+  saving,
 }: {
   label: string;
   review: StagedReview | null;
@@ -46,6 +47,8 @@ function StagedChange({
   keepMine: (() => void) | null;
   // Made before the experiment's status changed: it can only be discarded.
   incompatible: boolean;
+  // Mid-save, nothing can be discarded: the save still writes it.
+  saving: boolean;
 }) {
   const [open, setOpen] = useState(false);
   // Shown as a change is judged, so key order and empty fields aren't diffs.
@@ -65,15 +68,14 @@ function StagedChange({
     </Link>
   );
   // Discarding a conflicted edit takes theirs, so it says so.
-  const actions =
-    keepMine && !incompatible ? (
-      <Flex gap="3">
-        {link("Use theirs", discard)}
-        {link("Keep mine", keepMine)}
-      </Flex>
-    ) : (
-      link("Discard", discard)
-    );
+  const actions = saving ? null : keepMine && !incompatible ? (
+    <Flex gap="3">
+      {link("Use theirs", discard)}
+      {link("Keep mine", keepMine)}
+    </Flex>
+  ) : (
+    link("Discard", discard)
+  );
   const title = (
     <Flex align="center" gap="1">
       {incompatible ? (
@@ -216,6 +218,7 @@ export default function StagedChanges() {
                 edits.conflicts.includes(id) ? () => edits.keepMine(id) : null
               }
               incompatible={edits.incompatible.some((e) => e.id === id)}
+              saving={edits.saving}
             />
           ))}
           {check?.status === "ready" ? (

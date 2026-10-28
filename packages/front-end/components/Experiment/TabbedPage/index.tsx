@@ -434,7 +434,13 @@ function TabbedPageContents({
     scrollToId?: string;
   } | null>(null);
   const setTabAndScroll = (tab: ExperimentTab, scrollToId?: string) => {
-    if (edits?.dirty && onSetup && tab.split("/")[0] !== "overview") {
+    // Mid-save, Setup stays mounted underneath, and what it saves lands.
+    if (
+      edits?.dirty &&
+      !edits.saving &&
+      onSetup &&
+      tab.split("/")[0] !== "overview"
+    ) {
       setPendingTab({ tab, scrollToId });
       return;
     }

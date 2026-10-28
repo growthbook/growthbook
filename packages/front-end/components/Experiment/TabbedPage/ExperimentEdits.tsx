@@ -291,6 +291,8 @@ export function ExperimentEditsProvider({
 
   const [staged, setStaged] = useState<{ id: string; label: string }[]>([]);
   const [saving, setSaving] = useState(false);
+  // Read by discards, which mid-save would drop a value the save still writes.
+  const savingNow = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
@@ -369,6 +371,7 @@ export function ExperimentEditsProvider({
       return;
     }
     setSaving(true);
+    savingNow.current = true;
     setError(null);
     setConflicts([]);
     const pending = [...edits.current.entries()];
@@ -422,6 +425,7 @@ export function ExperimentEditsProvider({
         else rebaseOnRender.current.push(edit);
       });
       if (rebaseOnRender.current.length) setRefetched((n) => n + 1);
+      savingNow.current = false;
       setSaving(false);
     }
   }, [postChanges, mutate]);
@@ -440,6 +444,7 @@ export function ExperimentEditsProvider({
   }, []);
 
   const discardAll = useCallback(() => {
+    if (savingNow.current) return;
     [...edits.current.values()].forEach((edit) => edit.discard());
     setError(null);
     setConflicts([]);
@@ -452,6 +457,7 @@ export function ExperimentEditsProvider({
   }, []);
   const discard = useCallback(
     (id: string) => {
+      if (savingNow.current) return;
       edits.current.get(id)?.discard();
       resolve(id);
     },
@@ -459,6 +465,7 @@ export function ExperimentEditsProvider({
   );
   const keepMine = useCallback(
     (id: string) => {
+      if (savingNow.current) return;
       edits.current.get(id)?.rebase?.();
       resolve(id);
     },
