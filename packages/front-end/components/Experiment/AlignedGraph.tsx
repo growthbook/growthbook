@@ -244,7 +244,8 @@ const AlignedGraph: FC<Props> = ({
             return {
               fill: axisColor,
               fontSize: 12,
-              y: -10,
+              // On the header row's label baseline.
+              y: -9,
               x: currentX + 3,
               fontFamily: "sans-serif",
               textAnchor: "middle",

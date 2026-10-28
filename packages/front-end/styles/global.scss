@@ -773,8 +773,9 @@ pre {
         z-index: 801;
       }
 
+      // Header labels share one baseline, whatever control sits beside them.
       &.header-label {
-        padding-bottom: 5px;
+        padding-bottom: 7px;
         font-size: 16px;
         font-weight: var(--font-weight-bold);
         color: var(--color-text-high);
@@ -786,6 +787,12 @@ pre {
         font-weight: var(--font-weight-bold);
         padding-bottom: 5px;
         line-height: 16px;
+
+        // Badges, carets and sort buttons sit on the text's baseline rather
+        // than centring it against their own height.
+        .rt-Flex {
+          align-items: baseline;
+        }
       }
     }
   }

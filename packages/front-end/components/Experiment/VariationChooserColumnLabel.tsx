@@ -191,7 +191,7 @@ export default function VariationChooserColumnLabel({
   } else {
     // Multiple selected or all selected - show plain "Variation" text
     triggerContent = (
-      <Text style={{ color: "var(--color-text-mid)", fontSize: "12px" }}>
+      <Text size="1" style={{ color: "var(--color-text-mid)" }}>
         Variation
       </Text>
     );
