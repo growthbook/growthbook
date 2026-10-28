@@ -39,6 +39,7 @@ export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  datasourceMissing?: boolean;
   holdout?: HoldoutInterfaceStringDates;
   stagedHoldoutId?: string | null;
   mutate: () => void;
@@ -49,6 +50,7 @@ export interface Props {
 
 export default function ExperimentDetailsPanel({
   experiment,
+  datasourceMissing = false,
   holdout,
   stagedHoldoutId = null,
   mutate,
@@ -222,6 +224,7 @@ export default function ExperimentDetailsPanel({
               <PanelSection title="Data">
                 <ExperimentDataFields
                   experiment={experiment}
+                  datasourceMissing={datasourceMissing}
                   stagedHoldoutId={stagedHoldoutId}
                   fieldAction={rowAction}
                 />

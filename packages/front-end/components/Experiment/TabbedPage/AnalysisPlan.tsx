@@ -84,6 +84,8 @@ export const DATASOURCE_CHANGE_NOTE =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  // Its stored Data Source was deleted, rather than hidden from this viewer.
+  datasourceMissing?: boolean;
   canEdit: boolean;
   // The start checklist points at a field here; no field means the advanced
   // settings.
@@ -100,6 +102,7 @@ export interface Props {
 
 export default function AnalysisPlan({
   experiment,
+  datasourceMissing = false,
   canEdit,
   settingsOpen,
   setSettingsOpen,
@@ -391,8 +394,11 @@ export default function AnalysisPlan({
   });
 
   const selectedDatasource = getDatasourceById(datasource);
+  const deletedDatasource =
+    datasourceMissing && datasource === experiment.datasource;
   // Set, but in a project the viewer can't see; so is its assignment query.
-  const hiddenDatasource = !!datasource && !selectedDatasource;
+  const hiddenDatasource =
+    !!datasource && !selectedDatasource && !deletedDatasource;
   const hashAttributeIdentifierTypeMap = useMemo(
     () =>
       getHashAttributeIdentifierTypeMap(
@@ -628,7 +634,8 @@ export default function AnalysisPlan({
               {hiddenDatasource ? (
                 <RestrictedValue />
               ) : (
-                (selectedDatasource?.name ?? <em>None</em>)
+                (selectedDatasource?.name ??
+                (deletedDatasource ? <em>Not found</em> : <em>None</em>))
               )}
             </Text>
           </QuickEditRow>

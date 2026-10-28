@@ -107,6 +107,7 @@ const LINKED_CHANGES_LOCKED_REASON =
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  datasourceMissing?: boolean;
   // Viewing an old phase: nothing staged here can change.
   disableEditing?: boolean;
   holdoutDraft?: HoldoutDraft;
@@ -134,6 +135,7 @@ export interface Props {
 
 export default function Implementation({
   experiment,
+  datasourceMissing = false,
   disableEditing,
   holdoutDraft,
   holdout,
@@ -673,6 +675,7 @@ export default function Implementation({
         {!isHoldout && !isBandit ? (
           <AnalysisPlan
             experiment={experiment}
+            datasourceMissing={datasourceMissing}
             canEdit={canEditExperiment}
             settingsOpen={analysisSettingsOpen}
             setSettingsOpen={setAnalysisSettingsOpen}

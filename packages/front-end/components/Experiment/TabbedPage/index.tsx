@@ -116,6 +116,8 @@ const parseTabHash = (hash: string) => {
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  // Its Data Source was deleted, rather than hidden from this viewer.
+  datasourceMissing?: boolean;
   holdout?: HoldoutInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   holdoutFeatures?: FeatureInterface[];
@@ -162,6 +164,7 @@ function TabbedPageContents({
   duplicate,
   visualChangesets,
   envs,
+  datasourceMissing = false,
   urlRedirects,
   editTargeting,
   targetingDraft,
@@ -761,6 +764,7 @@ function TabbedPageContents({
             showDetailsPanel ? (
               <ExperimentDetailsPanel
                 experiment={experiment}
+                datasourceMissing={datasourceMissing}
                 holdout={holdout}
                 mutate={mutate}
                 disableEditing={viewingOldPhase}
@@ -881,6 +885,7 @@ function TabbedPageContents({
                 />
                 <Implementation
                   experiment={experiment}
+                  datasourceMissing={datasourceMissing}
                   holdoutDraft={holdoutDraft}
                   disableEditing={viewingOldPhase}
                   holdout={holdout}

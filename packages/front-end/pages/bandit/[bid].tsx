@@ -41,6 +41,7 @@ const BanditExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
+    datasourceMissing?: boolean;
   }>(`/experiment/${bid}`);
   const targeting = useStagedTargeting(data?.experiment);
 
@@ -170,6 +171,7 @@ const BanditExperimentPage = (): ReactElement => {
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
           experiment={experiment}
+          datasourceMissing={!!data?.datasourceMissing}
           linkedFeatures={linkedFeatures}
           mutate={mutate}
           visualChangesets={visualChangesets}

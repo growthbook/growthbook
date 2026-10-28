@@ -129,7 +129,10 @@ import {
   updatePastExperiments,
 } from "back-end/src/models/PastExperimentsModel";
 import { IdeaModel } from "back-end/src/models/IdeasModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
+import {
+  dataSourceExists,
+  getDataSourceById,
+} from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
@@ -829,6 +832,10 @@ export async function getExperiment(
       ? await getLinkedChangeEnvironmentStates(context, experiment)
       : { visualChangesetEnvStates: {}, urlRedirectEnvStates: {} };
 
+  const datasourceMissing =
+    !!experiment.datasource &&
+    !(await dataSourceExists(context, experiment.datasource));
+
   res.status(200).json({
     status: 200,
     experiment,
@@ -839,6 +846,7 @@ export async function getExperiment(
     idea,
     visualChangesetEnvStates,
     urlRedirectEnvStates,
+    datasourceMissing,
   });
 }
 

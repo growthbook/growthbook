@@ -49,6 +49,7 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
+    datasourceMissing?: boolean;
   }>(`/experiment/${eid}`);
   const targeting = useStagedTargeting(data?.experiment);
 
@@ -204,6 +205,7 @@ const ExperimentPage = (): ReactElement => {
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
           experiment={experiment}
+          datasourceMissing={!!data?.datasourceMissing}
           linkedFeatures={linkedFeatures}
           mutate={mutate}
           visualChangesets={visualChangesets}

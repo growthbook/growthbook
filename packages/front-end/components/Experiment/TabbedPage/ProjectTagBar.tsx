@@ -59,10 +59,13 @@ export function RestrictedValue() {
 
 export function ExperimentDataFields({
   experiment,
+  datasourceMissing = false,
   stagedHoldoutId = null,
   fieldAction = null,
 }: {
   experiment: ExperimentInterfaceStringDates;
+  // Its stored Data Source was deleted, rather than hidden from this viewer.
+  datasourceMissing?: boolean;
   // A staged holdout ("" to leave), shown in place of the stored one.
   stagedHoldoutId?: string | null;
   fieldAction?: FieldAction;
@@ -88,6 +91,8 @@ export function ExperimentDataFields({
     experiment.exposureQueryIdentifierType || "",
   );
   const datasource = getDatasourceById(datasourceId);
+  const deletedDatasource =
+    datasourceMissing && datasourceId === experiment.datasource;
   const exposureQuery = datasource?.settings?.queries?.exposure?.find(
     (q) => q.id === exposureQueryId,
   );
@@ -110,7 +115,8 @@ export function ExperimentDataFields({
         label="Data Source"
         value={
           datasourceId ? (
-            datasource?.name || <RestrictedValue />
+            datasource?.name ||
+            (deletedDatasource ? <em>Not found</em> : <RestrictedValue />)
           ) : (
             <EmptyValue />
           )
@@ -124,7 +130,11 @@ export function ExperimentDataFields({
           value={
             exposureQueryId ? (
               (exposureQuery?.name ??
-              (datasource ? <em>Not found</em> : <RestrictedValue />))
+              (datasource || deletedDatasource ? (
+                <em>Not found</em>
+              ) : (
+                <RestrictedValue />
+              )))
             ) : (
               <EmptyValue />
             )
