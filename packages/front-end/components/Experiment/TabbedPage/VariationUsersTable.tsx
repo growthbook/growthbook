@@ -33,7 +33,7 @@ export default function VariationUsersTable({
     .reduce((sum, n) => sum + n, 0);
 
   return (
-    <Box px="2" overflowX="auto">
+    <Box px="2" overflowX="auto" width="100%">
       <table className="table mt-0 mb-2">
         <thead>
           <tr>
