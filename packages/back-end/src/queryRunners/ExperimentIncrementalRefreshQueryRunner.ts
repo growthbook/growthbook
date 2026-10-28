@@ -253,7 +253,7 @@ function parseMaxTimestampRow(row: Record<string, unknown> | undefined): {
   };
 }
 
-const startExperimentIncrementalRefreshQueries = async (
+export const startExperimentIncrementalRefreshQueries = async (
   context: ApiReqContext,
   params: ExperimentIncrementalRefreshQueryParams,
   integration: SourceIntegrationInterface,
@@ -961,6 +961,61 @@ const startExperimentIncrementalRefreshQueries = async (
       queries.push(insertMetricCovariateDataQuery);
     }
 
+    const saveMetricSourceWatermark = async (
+      rows: Record<string, unknown>[],
+    ) => {
+      // MAX() is NULL on an empty cache; persist null rather than skip
+      // the source so the table isn't rebuilt on the next refresh.
+      const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(rows[0]);
+      // TODO(incremental-refresh): Clean up metadata handling in query runner
+      const updatedSource: IncrementalRefreshMetricSourceInterface =
+        existingSource
+          ? { ...existingSource, maxTimestamp, maxTimestampRaw }
+          : {
+              groupId: group.groupId,
+              factTableId: group.factTableId,
+              maxTimestamp,
+              maxTimestampRaw,
+              // (factTableId, metricId) is the persisted key. Which side
+              // of the metric this cache materializes is derived at read
+              // time by comparing the metric's column refs to
+              // `factTableId` (see metric-source-table-schema.ts).
+              metrics: group.metrics.map((m) => ({
+                id: m.id,
+                settingsHash: getMetricSettingsHashForIncrementalRefresh({
+                  factMetric: m,
+                  factTableMap: params.factTableMap,
+                  metricSettings: insertParams.settings.metricSettings.find(
+                    (ms) => ms.id === m.id,
+                  ),
+                }),
+              })),
+              tableFullName: metricSourceTableFullName,
+            };
+      if (!existingSource) {
+        runningSourceData = runningSourceData.concat(updatedSource);
+      } else {
+        runningSourceData = runningSourceData.map((s) =>
+          s.groupId === group.groupId ? updatedSource : s,
+        );
+      }
+      const lockHeld = await writeSourceLists(() =>
+        context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+          experimentId,
+          executionId,
+          {
+            metricSources: runningSourceData,
+          },
+        ),
+      );
+      if (lockHeld !== true) {
+        context.logger.warn(
+          "Incremental refresh execution lock lost for experiment: " +
+            experimentId,
+        );
+      }
+    };
+
     const maxTimestampMetricsSourceQuery = await startQuery({
       name: incrementalRefreshQueryNames.maxTimestampMetricsSource(
         group.groupId,
@@ -971,8 +1026,17 @@ const startExperimentIncrementalRefreshQueries = async (
         lastMaxTimestamp: existingSource?.maxTimestamp || null,
       }),
       dependencies: [insertMetricsSourceDataQuery.query],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runMaxTimestampQuery(query, setExternalId, queryMetadata),
+      // Saves the watermark before the query counts as succeeded, so the
+      // interrupted-run cleanup never trusts a watermark that was not saved.
+      run: async (query, setExternalId, queryMetadata) => {
+        const result = await integration.runMaxTimestampQuery(
+          query,
+          setExternalId,
+          queryMetadata,
+        );
+        await saveMetricSourceWatermark(result.rows);
+        return result;
+      },
       onFailure: async () => {
         // Remove the source from the running data if max timestamp fails
         runningSourceData = runningSourceData.filter(
@@ -992,58 +1056,6 @@ const startExperimentIncrementalRefreshQueries = async (
             "Failed to update metric sources on query failure",
           ),
         );
-      },
-      onSuccess: async (rows) => {
-        // MAX() is NULL on an empty cache; persist null rather than skip
-        // the source so the table isn't rebuilt on the next refresh.
-        const { maxTimestamp, maxTimestampRaw } = parseMaxTimestampRow(rows[0]);
-        // TODO(incremental-refresh): Clean up metadata handling in query runner
-        const updatedSource: IncrementalRefreshMetricSourceInterface =
-          existingSource
-            ? { ...existingSource, maxTimestamp, maxTimestampRaw }
-            : {
-                groupId: group.groupId,
-                factTableId: group.factTableId,
-                maxTimestamp,
-                maxTimestampRaw,
-                // (factTableId, metricId) is the persisted key. Which side
-                // of the metric this cache materializes is derived at read
-                // time by comparing the metric's column refs to
-                // `factTableId` (see metric-source-table-schema.ts).
-                metrics: group.metrics.map((m) => ({
-                  id: m.id,
-                  settingsHash: getMetricSettingsHashForIncrementalRefresh({
-                    factMetric: m,
-                    factTableMap: params.factTableMap,
-                    metricSettings: insertParams.settings.metricSettings.find(
-                      (ms) => ms.id === m.id,
-                    ),
-                  }),
-                })),
-                tableFullName: metricSourceTableFullName,
-              };
-        if (!existingSource) {
-          runningSourceData = runningSourceData.concat(updatedSource);
-        } else {
-          runningSourceData = runningSourceData.map((s) =>
-            s.groupId === group.groupId ? updatedSource : s,
-          );
-        }
-        const lockHeld = await writeSourceLists(() =>
-          context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-            experimentId,
-            executionId,
-            {
-              metricSources: runningSourceData,
-            },
-          ),
-        );
-        if (lockHeld !== true) {
-          context.logger.warn(
-            "Incremental refresh execution lock lost for experiment: " +
-              experimentId,
-          );
-        }
       },
       metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
