@@ -13,6 +13,9 @@ import { TextField } from "@/ui/TextField";
 import LetterAvatar from "./LetterAvatar";
 import styles from "./HeaderBreadcrumb.module.scss";
 
+// Up to this many projects fit the menu at a glance, without a search field.
+const PROJECT_SEARCH_THRESHOLD = 15;
+
 const DEMO_BADGE_TITLE = "This is a demo project with sample data";
 // main's Demo badge color.
 const DEMO_BADGE_COLOR = "#EB8045";
@@ -57,7 +60,8 @@ export function useProjectSelector() {
   };
 }
 
-// The project menu: a search field over All Projects and each project. With
+// The project menu: All Projects and each project, under a search field once
+// there are more than 15. With
 // `avatars`, each has main's avatar beside its name ("ALL" for All Projects).
 export function ProjectMenu({
   open,
@@ -77,6 +81,7 @@ export function ProjectMenu({
   const { projects, project, setProject } = useDefinitions();
   const { isDemo } = useProjectSelector();
   const searchRef = useRef<HTMLInputElement>(null);
+  const showSearch = projects.length > PROJECT_SEARCH_THRESHOLD;
 
   const { items, searchInputProps } = useSearch({
     items: projects.slice().sort((a, b) => (a.name > b.name ? 1 : -1)),
@@ -87,10 +92,10 @@ export function ProjectMenu({
 
   // Typing goes straight to the search field as the menu opens.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !showSearch) return;
     const t = window.setTimeout(() => searchRef.current?.focus(), 0);
     return () => window.clearTimeout(t);
-  }, [open]);
+  }, [open, showSearch]);
 
   // Keeps focus in the search field: the menu would move it to the item
   // under the pointer unless pointermove's default is prevented.
@@ -132,30 +137,32 @@ export function ProjectMenu({
       variant="soft"
       trigger={trigger}
     >
-      <div className={styles.projectSearch}>
-        <TextField
-          ref={searchRef}
-          placeholder="Search"
-          type="search"
-          aria-label="Search projects"
-          prepend={<PiMagnifyingGlassBold size={14} />}
-          // Keys the menu would take for its own navigation stay with the
-          // field (typing, Space, Home and End); Down moves into the
-          // projects, and Esc still closes the menu.
-          onKeyDown={(e) => {
-            if (e.key.length === 1 || e.key === "Home" || e.key === "End") {
-              e.stopPropagation();
-            } else if (e.key === "ArrowDown") {
-              e.preventDefault();
-              e.currentTarget
-                .closest("[role=menu]")
-                ?.querySelector<HTMLElement>("[role=menuitem]")
-                ?.focus();
-            }
-          }}
-          {...searchInputProps}
-        />
-      </div>
+      {showSearch ? (
+        <div className={styles.projectSearch}>
+          <TextField
+            ref={searchRef}
+            placeholder="Search"
+            type="search"
+            aria-label="Search projects"
+            prepend={<PiMagnifyingGlassBold size={14} />}
+            // Keys the menu would take for its own navigation stay with the
+            // field (typing, Space, Home and End); Down moves into the
+            // projects, and Esc still closes the menu.
+            onKeyDown={(e) => {
+              if (e.key.length === 1 || e.key === "Home" || e.key === "End") {
+                e.stopPropagation();
+              } else if (e.key === "ArrowDown") {
+                e.preventDefault();
+                e.currentTarget
+                  .closest("[role=menu]")
+                  ?.querySelector<HTMLElement>("[role=menuitem]")
+                  ?.focus();
+              }
+            }}
+            {...searchInputProps}
+          />
+        </div>
+      ) : null}
       <div
         className={styles.projectList}
         onPointerMoveCapture={keepSearchFocus}
