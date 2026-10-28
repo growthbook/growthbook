@@ -115,7 +115,9 @@ export async function validateExperimentChange({
   });
 }
 
-export async function completeExperimentStartChecklistItems({
+// Every check marking manual checklist items complete can refuse on, and the
+// change it makes, so a caller can hold for confirmation in between.
+export async function planChecklistCompletion({
   context,
   experiment,
   keys,
@@ -123,7 +125,7 @@ export async function completeExperimentStartChecklistItems({
   context: ReqContext;
   experiment: ExperimentInterface;
   keys: string[];
-}): Promise<ExperimentInterface> {
+}): Promise<Changeset> {
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
@@ -166,11 +168,7 @@ export async function completeExperimentStartChecklistItems({
 
   const changes: Changeset = { manualLaunchChecklist };
   await validateExperimentChange({ context, experiment, changes });
-  return await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
+  return changes;
 }
 
 export type StopExperimentInput = {

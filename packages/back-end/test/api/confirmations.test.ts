@@ -1120,6 +1120,42 @@ describe("confirmations", () => {
     ]);
   });
 
+  it("holds ticking manual checklist items only for a key that opts in, naming them", async () => {
+    await seed("production");
+    await seedExperiment();
+    const checklists = mongoose.connection.collection(
+      "experimentlaunchchecklists",
+    );
+    await checklists.deleteMany({});
+    await checklists.insertOne({
+      id: "elc_1",
+      organizationId: ORG_ID,
+      projectId: "",
+      tasks: [{ task: "Legal reviewed", completionType: "manual" }],
+    });
+    const tick = () =>
+      auth(
+        request(app).post(
+          `/api/v1/experiments/${EXP}/start-checklist/manual/complete`,
+        ),
+      ).send({ keys: ["Legal reviewed"] });
+
+    setReqContext(
+      asKey({ ...bot, confirmRules: [{ actions: ["experiment.checklist"] }] }),
+    );
+    const held = await tick();
+    expect(held.status).toBe(202);
+    expect(held.body.confirmation.actions).toEqual([
+      { action: "experiment.checklist", environments: [] },
+    ]);
+    expect(held.body.confirmation.summary).toContain("Legal reviewed");
+
+    // Recommended leaves it to the key: generated items still gate a start.
+    setReqContext(asKey(recommended));
+    expect((await tick()).status).toBe(200);
+    await checklists.deleteMany({});
+  });
+
   it("holds unarchiving a draft with an armed start as the start it restores", async () => {
     await seed("production");
     await seedExperiment();

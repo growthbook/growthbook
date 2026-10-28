@@ -77806,6 +77806,7 @@ components:
                   - experiment.traffic
                   - experiment.phases
                   - experiment.visualEditor
+                  - experiment.checklist
                   - experiment.other
                   - savedGroup.create
                   - savedGroup.draft
@@ -86845,6 +86846,7 @@ components:
                       - experiment.traffic
                       - experiment.phases
                       - experiment.visualEditor
+                      - experiment.checklist
                       - experiment.other
                       - savedGroup.create
                       - savedGroup.draft
