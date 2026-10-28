@@ -276,10 +276,7 @@ export default function CustomMetricSlicesSelector({
                 editState === "editing" && editingIndex === levelsIndex;
 
               return (
-                <div
-                  key={levelsIndex}
-                  className={isEditing ? "appbox px-3 py-2 mb-2" : "mb-2"}
-                >
+                <div key={levelsIndex} className="mb-2">
                   {isEditing ? (
                     <EditingInterface
                       editingSliceLevels={editingSliceLevels}
@@ -293,17 +290,13 @@ export default function CustomMetricSlicesSelector({
                       metricsWithSlices={metricsWithStringColumns}
                     />
                   ) : (
-                    // Framed as a multi-select is, around values that read
-                    // as its values do.
                     <Flex
                       align="center"
                       gap="3"
                       style={{
+                        ...MULTI_SELECT_FRAME,
                         minHeight: 36,
                         padding: "2px 8px",
-                        border: "1px solid var(--gray-a7)",
-                        borderRadius: "var(--radius-2)",
-                        background: "var(--color-surface)",
                       }}
                     >
                       <Flex gap="2" align="center" wrap="wrap" flexGrow="1">
@@ -394,7 +387,7 @@ export default function CustomMetricSlicesSelector({
               </Box>
             ) : editState === "adding" ? (
               // Adding new entry
-              <div className="appbox px-3 py-2 mb-2">
+              <div className="mb-2">
                 <EditingInterface
                   editingSliceLevels={editingSliceLevels}
                   addingSlice={addingSlice}
@@ -430,6 +423,13 @@ function SlicesRow({
     <>{children}</>
   );
 }
+
+// A multi-select field's frame, around values that read as its values do.
+const MULTI_SELECT_FRAME = {
+  border: "1px solid var(--gray-a7)",
+  borderRadius: "var(--radius-2)",
+  background: "var(--color-surface)",
+};
 
 // A menu as wide as its options, not the narrower field it opens from.
 const FIT_MENU: StylesConfig<SingleValue, boolean> = {
@@ -644,7 +644,11 @@ function EditingInterface({
   metricsWithSlices: MetricWithStringColumns[];
 }) {
   return (
-    <Flex direction="column" gap="3">
+    <Flex
+      direction="column"
+      gap="3"
+      style={{ ...MULTI_SELECT_FRAME, padding: "8px" }}
+    >
       <Flex align="center" gap="3" wrap="wrap">
         {editingSliceLevels.map((sliceLevel, levelIndex) => {
           const sliceMap = new Map<
