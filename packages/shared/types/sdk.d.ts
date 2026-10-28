@@ -2,12 +2,15 @@ import { AutoExperiment, FeatureRule } from "@growthbook/growthbook";
 
 export type FeatureMetadata = {
   projects?: string[];
+  // Set instead of `projects` when it's delivered to every project
+  allProjects?: boolean;
   customFields?: Record<string, unknown>;
   tags?: string[];
 };
 
 export type ExperimentMetadata = {
   projects?: string[];
+  allProjects?: boolean;
   customFields?: Record<string, unknown>;
   tags?: string[];
   // ISO datetimes of the experiment's scheduled start/end, when the SDK
@@ -40,6 +43,13 @@ export type ContextualBanditDefinitions = Record<
   string,
   ContextualBanditDefinition
 >;
+
+export type InterleavingDefinition = {
+  trackingKey: string;
+  variations: { key: string; config: Record<string, unknown> }[];
+};
+
+export type InterleavingDefinitions = Record<string, InterleavingDefinition>;
 
 export type AutoExperimentWithMetadata = AutoExperiment & {
   metadata?: ExperimentMetadata;

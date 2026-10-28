@@ -307,6 +307,7 @@
                   "integrations/discord",
                   "integrations/datadog",
                   "integrations/github-metrics",
+                  "integrations/dbt",
                   "tools/chrome-extension",
                   "tools/vscode-extension",
                   "tools/cli",
@@ -617,6 +618,8 @@
                   "api/ramp-schedules/operation/updateRampScheduleLockdown",
                   "api/ramp-schedules/operation/updateRampScheduleSteps",
                   "api/ramp-schedules/operation/refreshMonitoringRampSchedule",
+                  "api/ramp-schedules/operation/rollbackMatchingRampSchedules",
+                  "api/ramp-schedules/operation/pauseMatchingRampSchedules",
                   "api/ramp-schedules/operation/getRampSchedule",
                   "api/ramp-schedules/operation/updateRampSchedule",
                   "api/ramp-schedules/operation/deleteRampSchedule"
@@ -783,7 +786,13 @@
                   "api/saved-groups/operation/deleteSavedGroup",
                   "api/saved-groups/operation/archiveSavedGroup",
                   "api/saved-groups/operation/unarchiveSavedGroup",
-                  "api/saved-groups/operation/getSavedGroupReferences"
+                  "api/saved-groups/operation/getSavedGroupReferences",
+                  "api/saved-groups/operation/listSavedGroupUploads",
+                  "api/saved-groups/operation/postSavedGroupUpload",
+                  "api/saved-groups/operation/postSavedGroupUploadUrl",
+                  "api/saved-groups/operation/postSavedGroupUploadLoad",
+                  "api/saved-groups/operation/getSavedGroupUpload",
+                  "api/saved-groups/operation/deleteSavedGroupUpload"
                 ]
               },
               {
@@ -797,6 +806,7 @@
                   "api/saved-group-revisions/operation/putSavedGroupRevisionMetadata",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionCondition",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionValues",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionUploadVersion",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionArchive",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsAdd",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsRemove",
@@ -995,6 +1005,7 @@
                   "api/ContextualBandits/operation/listContextualBanditEvents",
                   "api/ContextualBandits/operation/getContextualBanditEvent",
                   "api/ContextualBandits/operation/getContextualBanditResults",
+                  "api/ContextualBandits/operation/getContextualBanditStatus",
                   "api/ContextualBandits/operation/getContextualBanditLinkedFeatures",
                   "api/ContextualBandits/operation/addContextualBanditLinkedFeature",
                   "api/ContextualBandits/operation/updateContextualBanditLinkedFeature",
@@ -1007,7 +1018,9 @@
                   "api/ContextualBandits/operation/stopContextualBandit",
                   "api/ContextualBandits/operation/refreshContextualBandit",
                   "api/ContextualBandits/operation/updateContextualBanditVariations",
-                  "api/ContextualBandits/operation/cancelContextualBandit"
+                  "api/ContextualBandits/operation/cancelContextualBandit",
+                  "api/ContextualBandits/operation/listContextualBanditVisualChangesets",
+                  "api/ContextualBandits/operation/postContextualBanditVisualChangesets"
                 ]
               },
               {
@@ -1031,6 +1044,17 @@
                   "api/ContextualBanditQueries/operation/deleteContextualBanditQuery",
                   "api/ContextualBanditQueries/operation/listContextualBanditQueries",
                   "api/ContextualBanditQueries/operation/createContextualBanditQuery"
+                ]
+              },
+              {
+                "group": "Interleaving Experiments",
+                "pages": [
+                  "api/Interleavings/operation/getInterleaving",
+                  "api/Interleavings/operation/updateInterleaving",
+                  "api/Interleavings/operation/listInterleavings",
+                  "api/Interleavings/operation/createInterleaving",
+                  "api/Interleavings/operation/startInterleaving",
+                  "api/Interleavings/operation/stopInterleaving"
                 ]
               },
               {
@@ -1222,6 +1246,7 @@
               "api/Holdout_model",
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
+              "api/Interleaving_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",
@@ -1251,6 +1276,7 @@
               "api/SavedGroupRevisionActivityLogEntry_model",
               "api/SavedGroupRevisionRef_model",
               "api/SavedGroupRevisionReview_model",
+              "api/SavedGroupUpload_model",
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
@@ -1271,8 +1297,17 @@
       "anchors": []
     }
   },
+  "banner": {
+    "content": "**New:** See what we've shipped lately on our [Product Updates](https://growthbook.io/product-updates) page.",
+    "dismissible": true
+  },
   "navbar": {
     "links": [
+      {
+        "label": "Product Updates",
+        "icon": "bullhorn",
+        "href": "https://growthbook.io/product-updates"
+      },
       {
         "label": "Github",
         "type": "github",

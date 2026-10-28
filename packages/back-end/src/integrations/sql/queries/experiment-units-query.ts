@@ -3,6 +3,13 @@ import {
   getDelayWindowHours,
   getUserIdTypes,
 } from "shared/experiments";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getSnapshotCutoffDate,
+} from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -85,13 +92,28 @@ export function getExperimentUnitsQuery(
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
 
+  // __experimentExposures reads the mapped columns and aliases them to the
+  // standard names, so every CTE after it reads e.timestamp
+  const rawTimestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
   const timestampColumn = "e.timestamp";
-  const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
   const overrideConversionWindows =
     unitsSettings.attributionModel === "experimentDuration" ||
     unitsSettings.attributionModel === "lookbackOverride";
 
   const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
+
+  const isContextualBandit = !!unitsSettings.banditSettings?.contextualBandit;
+
+  // Contextual bandits attribute each user to their first exposure (one unit per
+  // user), so multi-variation users are never bucketed as '__multiple__'.
+  const variationValuePerUnit =
+    isContextualBandit || unitsSettings.banditSettings?.useFirstExposure
+      ? getFirstVariationValuePerUnit(dialect)
+      : dialect.ifElse(
+          "count(distinct e.variation) > 1",
+          "'__multiple__'",
+          "max(e.variation)",
+        );
 
   const {
     contextualExposureSelectCols,
@@ -151,9 +173,11 @@ export function getExperimentUnitsQuery(
     __experimentExposures AS (
       -- Viewed Experiment
       SELECT
-        e.${baseIdType} as ${baseIdType}
-        , ${dialect.castToString("e.variation_id")} as variation
-        , ${timestampDateTimeColumn} as timestamp
+        e.${getExposureQueryIdentifierColumn(exposureQuery, baseIdType)} as ${baseIdType}
+        , ${dialect.castToString(
+          `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
+        )} as variation
+        , ${dialect.castUserDateCol(rawTimestampColumn)} as timestamp
         ${clusterIdColumn ? `, e.${clusterIdColumn} as ${clusterIdColumn}` : ""}
         ${contextualExposureSelectCols}
         ${experimentDimensions
@@ -171,11 +195,13 @@ export function getExperimentUnitsQuery(
       FROM
           __rawExperiment e
       WHERE
-          e.experiment_id = '${unitsSettings.experimentId}'
-          AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
+          e.${getExposureQueryExperimentIdColumn(
+            exposureQuery,
+          )} = '${unitsSettings.experimentId}'
+          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
-              ? `AND ${timestampColumn} <= ${dialect.toTimestamp(endDate)}`
+              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
               : ""
           }
           ${
@@ -199,6 +225,7 @@ export function getExperimentUnitsQuery(
               [activationMetric],
               unitsSettings.endDate,
               overrideConversionWindows,
+              getSnapshotCutoffDate(unitsSettings),
             ),
             experimentId: unitsSettings.experimentId,
             phase: unitsSettings.phase,
@@ -240,16 +267,7 @@ export function getExperimentUnitsQuery(
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
-        , ${
-          !!unitsSettings.banditSettings?.useFirstExposure &&
-          unitsSettings.banditSettings
-            ? getFirstVariationValuePerUnit(dialect)
-            : dialect.ifElse(
-                "count(distinct e.variation) > 1",
-                "'__multiple__'",
-                "max(e.variation)",
-              )
-        } AS variation
+        , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${
           clusterIdColumn

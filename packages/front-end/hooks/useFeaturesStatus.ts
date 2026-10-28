@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import chunk from "lodash/chunk";
 import { useAuth } from "@/services/auth";
 
 type EnvStatusMap = Record<string, boolean>;
@@ -7,6 +8,8 @@ export type EnvironmentStatusMap = Record<string, EnvStatusMap>;
 // Matches usePrerequisiteStates refresh cadence.
 const REFRESH_INTERVAL_MS = 5 * 60 * 1000;
 const ERROR_RETRY_MS = 30_000;
+// The back-end rejects more than 500 ids per request; refreshes can exceed that.
+const IDS_PER_REQUEST = 100;
 
 export interface UseFeaturesStatusReturn {
   // Skips already-loaded IDs; no-op if fetchAll has already run.
@@ -39,23 +42,41 @@ export function useFeaturesStatus(): UseFeaturesStatusReturn {
       const key = ids === undefined ? "__all__" : [...ids].sort().join(",");
       if (inflightKey.current === key) return;
       inflightKey.current = key;
-      const url =
-        ids !== undefined
-          ? `/features/status?ids=${ids.join(",")}`
-          : "/features/status";
       setLoading(true);
       try {
-        const res = await apiCall<{ features: EnvironmentStatusMap }>(url);
-        const incoming = res.features ?? {};
+        const batches = ids !== undefined ? chunk(ids, IDS_PER_REQUEST) : [];
+        const urls =
+          ids !== undefined
+            ? batches.map((batch) => `/features/status?ids=${batch.join(",")}`)
+            : ["/features/status"];
+        // Keep the batches that succeeded so one failure doesn't discard the rest
+        const results = await Promise.allSettled(
+          urls.map((url) => apiCall<{ features: EnvironmentStatusMap }>(url)),
+        );
+        const rejected = results.find(
+          (r): r is PromiseRejectedResult => r.status === "rejected",
+        );
+        const incoming: EnvironmentStatusMap = Object.assign(
+          {},
+          ...results.map((r) =>
+            r.status === "fulfilled" ? (r.value.features ?? {}) : {},
+          ),
+        );
         if (ids === undefined) {
+          if (rejected) throw rejected.reason;
           hasFetchedAll.current = true;
           Object.keys(incoming).forEach((id) => loadedIds.current.add(id));
           setEnvironmentStatus(incoming);
         } else {
           // Mark ALL requested IDs as loaded, not just ones returned by the server.
           // IDs absent from the response are permission-filtered or don't exist.
-          ids.forEach((id) => loadedIds.current.add(id));
+          results.forEach((r, i) => {
+            if (r.status === "fulfilled") {
+              batches[i].forEach((id) => loadedIds.current.add(id));
+            }
+          });
           setEnvironmentStatus((prev) => ({ ...prev, ...incoming }));
+          if (rejected) throw rejected.reason;
         }
       } finally {
         setLoading(false);

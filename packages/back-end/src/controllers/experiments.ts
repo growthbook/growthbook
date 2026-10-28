@@ -1,5 +1,6 @@
 import { Response } from "express";
 import uniqid from "uniqid";
+import { z } from "zod";
 import format from "date-fns/format";
 import cloneDeep from "lodash/cloneDeep";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
@@ -167,7 +168,15 @@ import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { ReqContext } from "back-end/types/request";
 import { logger } from "back-end/src/util/logger";
 import { assumeUtc } from "back-end/src/util/dates";
+import {
+  errorStringFromZodResult,
+  parseArrayIndex,
+} from "back-end/src/util/validation";
 import { BadRequestError, SoftWarningError } from "back-end/src/util/errors";
+import {
+  parseOptionalQueryString,
+  parseSnapshotTypeQuery,
+} from "back-end/src/util/snapshotQueryParams";
 import { legacyDocDescribesPhase } from "back-end/src/enterprise/services/data-pipeline";
 import {
   getFeature,
@@ -1024,7 +1033,7 @@ export async function getSnapshotWithDimension(
 ) {
   const context = getContextFromReq(req);
   const { id, phase, dimension } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1059,7 +1068,7 @@ export async function getSnapshot(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const type = req.query?.type || undefined;
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const snapshot = await _getSuccessfulSnapshot({
     context,
@@ -1088,8 +1097,8 @@ export async function getSnapshotSummary(
 ) {
   const context = getContextFromReq(req);
   const { id, phase } = req.params;
-  const dimension = req.query?.dimension || undefined;
-  const type = req.query?.type || undefined;
+  const dimension = parseOptionalQueryString("dimension", req.query?.dimension);
+  const type = parseSnapshotTypeQuery(req.query?.type);
 
   const experimentObj = await getExperimentById(context, id);
   if (!experimentObj) {
@@ -2805,7 +2814,6 @@ export async function deleteExperimentPhase(
   const context = getContextFromReq(req);
   const { org } = context;
   const { id, phase } = req.params;
-  const phaseIndex = parseInt(phase);
 
   const experiment = await getExperimentById(context, id);
   const changes: Changeset = {};
@@ -2835,11 +2843,13 @@ export async function deleteExperimentPhase(
       status: 400,
       message: "Cannot delete the only phase",
     });
+    return;
   }
 
   await assertCanRunExperimentInAffectedEnvironments(context, experiment);
 
-  if (phaseIndex < 0 || phaseIndex >= experiment.phases?.length) {
+  const phaseIndex = parseArrayIndex(phase, experiment.phases.length);
+  if (phaseIndex === undefined) {
     throw new Error("Invalid phase id");
   }
 
@@ -3476,7 +3486,8 @@ export async function postSnapshot(
     return;
   }
 
-  if (!experiment.phases[phase]) {
+  const phaseIndex = parseArrayIndex(phase, experiment.phases.length);
+  if (phaseIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Phase not found",
@@ -3499,7 +3510,7 @@ export async function postSnapshot(
       datasource,
       dimension,
       organization: context.org.id,
-      phase,
+      phase: phaseIndex,
     });
   }
 
@@ -3525,7 +3536,7 @@ export async function postSnapshot(
     experiment,
     datasource,
     dimension,
-    phase,
+    phase: phaseIndex,
     useCache,
     type: experiment.type === "multi-armed-bandit" ? "exploratory" : undefined,
   });
@@ -3537,7 +3548,7 @@ export async function postSnapshot(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      phase,
+      phase: phaseIndex,
       dimension,
       useCache,
       manual: false,
@@ -3810,7 +3821,7 @@ export async function postSnapshotsWithScaledImpactAnalysis(
 }
 
 export async function deleteScreenshot(
-  req: AuthRequest<{ url: string }, { id: string; variation: number }>,
+  req: AuthRequest<{ url: string }, { id: string; variation: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -3841,7 +3852,11 @@ export async function deleteScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const variationIndex = parseArrayIndex(
+    variation,
+    experiment.variations.length,
+  );
+  if (variationIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3852,8 +3867,8 @@ export async function deleteScreenshot(
   changes.variations = cloneDeep(experiment.variations);
 
   // TODO: delete from s3 as well?
-  changes.variations[variation].screenshots = changes.variations[
-    variation
+  changes.variations[variationIndex].screenshots = changes.variations[
+    variationIndex
   ].screenshots.filter((s) => s.path !== url);
   await validateExperimentChange({ context, experiment, changes });
   const updated = await updateExperiment({
@@ -3869,9 +3884,9 @@ export async function deleteScreenshot(
       id: experiment.id,
     },
     details: auditDetailsUpdate(
-      experiment.variations[variation].screenshots,
-      updated?.variations[variation].screenshots,
-      { variation },
+      experiment.variations[variationIndex].screenshots,
+      updated?.variations[variationIndex].screenshots,
+      { variation: variationIndex },
     ),
   });
 
@@ -3885,7 +3900,7 @@ type AddScreenshotRequestBody = {
   description?: string;
 };
 export async function addScreenshot(
-  req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: number }>,
+  req: AuthRequest<AddScreenshotRequestBody, { id: string; variation: string }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -3916,7 +3931,11 @@ export async function addScreenshot(
     context.permissions.throwPermissionError();
   }
 
-  if (!experiment.variations[variation]) {
+  const variationIndex = parseArrayIndex(
+    variation,
+    experiment.variations.length,
+  );
+  if (variationIndex === undefined) {
     res.status(404).json({
       status: 404,
       message: "Unknown variation " + variation,
@@ -3924,12 +3943,12 @@ export async function addScreenshot(
     return;
   }
 
-  experiment.variations[variation].screenshots =
-    experiment.variations[variation].screenshots || [];
+  experiment.variations[variationIndex].screenshots =
+    experiment.variations[variationIndex].screenshots || [];
 
   changes.variations = cloneDeep(experiment.variations);
 
-  changes.variations[variation].screenshots.push({
+  changes.variations[variationIndex].screenshots.push({
     path: url,
     description: description,
   });
@@ -3948,7 +3967,7 @@ export async function addScreenshot(
       id: experiment.id,
     },
     details: auditDetailsCreate({
-      variation,
+      variation: variationIndex,
       url,
       description,
     }),
@@ -4314,21 +4333,33 @@ export async function findOrCreateVisualEditorToken(
   });
 }
 
+const experimentTimeSeriesQuerySchema = z.object({
+  phase: z.string(),
+  metricIds: z.array(z.string()).min(1),
+  dimensions: z
+    .array(z.object({ id: z.string(), value: z.string().optional() }))
+    .max(50)
+    .optional(),
+});
+
 export async function getExperimentTimeSeries(
   req: AuthRequest<
     null,
     { id: string },
-    {
-      phase: string;
-      metricIds: string[];
-      dimensions?: { id: string; value?: string }[];
-    }
+    z.infer<typeof experimentTimeSeriesQuerySchema>
   >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
   const { id } = req.params;
-  const { phase, metricIds, dimensions } = req.query;
+
+  // The query string is qs-parsed, so these can arrive as strings, arrays or
+  // nested objects regardless of what the types above claim.
+  const parsedQuery = experimentTimeSeriesQuerySchema.safeParse(req.query);
+  if (!parsedQuery.success) {
+    throw new BadRequestError(errorStringFromZodResult(parsedQuery));
+  }
+  const { phase, metricIds, dimensions } = parsedQuery.data;
   const phaseIndex = parseInt(phase, 10);
 
   const experiment = await getExperimentById(context, id);
@@ -4336,22 +4367,8 @@ export async function getExperimentTimeSeries(
     throw new Error("Experiment not found");
   }
 
-  if (metricIds.length === 0) {
-    throw new Error("metricIds is required");
-  }
-
   if (isNaN(phaseIndex)) {
     throw new Error("Invalid phase");
-  }
-
-  if (!!dimensions && !Array.isArray(dimensions)) {
-    throw new Error(
-      "dimensions must be an array containing id and optionally value objects",
-    );
-  }
-
-  if (!!dimensions && dimensions.length > 50) {
-    throw new Error("dimensions cannot contain more than 50 values");
   }
 
   const timeSeries =

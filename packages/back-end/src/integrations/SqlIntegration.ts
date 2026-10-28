@@ -1,5 +1,11 @@
 import { getValidDate } from "shared/dates";
-import { parseIntWithDefault } from "shared/util";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  parseIntWithDefault,
+} from "shared/util";
 import { format as formatDate, subDays } from "date-fns";
 import {
   ExperimentMetricInterface,
@@ -845,8 +851,16 @@ export default abstract class SqlIntegration
     );
     return {
       rows: rows.map((row) => ({
+        row_type: row.row_type === "cell" ? "cell" : "summary",
         statistic: parseFloat(row.statistic) || 0,
         degrees_of_freedom: parseInt(row.degrees_of_freedom, 10) || 0,
+        bandit_version:
+          (row.bandit_version ?? null) !== null ? `${row.bandit_version}` : "",
+        leaf_id: (row.leaf_id ?? null) !== null ? `${row.leaf_id}` : "",
+        variation: (row.variation ?? null) !== null ? `${row.variation}` : "",
+        observed: parseFloat(row.observed) || 0,
+        expected: parseFloat(row.expected) || 0,
+        multiple_exposures: parseInt(row.multiple_exposures, 10) || 0,
       })),
       statistics,
     };
@@ -1867,6 +1881,20 @@ export default abstract class SqlIntegration
       },
     );
 
+    const newExpIdentifierCol = `e.${getExposureQueryIdentifierColumn(
+      exposureQuery,
+      baseIdType,
+    )}`;
+    const newExpVariationCol = `e.${getExposureQueryVariationIdColumn(
+      exposureQuery,
+    )}`;
+    const newExpTimestampCol = `e.${getExposureQueryTimestampColumn(
+      exposureQuery,
+    )}`;
+    const newExpExperimentIdCol = `e.${getExposureQueryExperimentIdColumn(
+      exposureQuery,
+    )}`;
+
     // TODO(incremental-refresh): activation metric
     if (activationMetric) {
       throw new Error(
@@ -1935,15 +1963,15 @@ export default abstract class SqlIntegration
           )}
         )
         , __filteredNewExposures AS (
-          SELECT 
-            ${this.getSqlDialect().castToString(`e.${baseIdType}`)} AS ${baseIdType}
+          SELECT
+            ${this.getSqlDialect().castToString(newExpIdentifierCol)} AS ${baseIdType}
             ${
               clusterIdColumn
                 ? `, ${this.getSqlDialect().castToString(`e.${clusterIdColumn}`)} AS ${clusterIdColumn}`
                 : ""
             }
-            , ${this.getSqlDialect().castToString(`e.variation_id`)} AS variation
-            , e.timestamp AS timestamp
+            , ${this.getSqlDialect().castToString(newExpVariationCol)} AS variation
+            , ${newExpTimestampCol} AS timestamp
             ${activationMetric ? `, NULL AS activation_timestamp` : ""}
             ${experimentDimensions
               .map(
@@ -1953,13 +1981,13 @@ export default abstract class SqlIntegration
               .join("\n")}
           FROM __newExposures e
           WHERE
-            e.experiment_id = '${settings.experimentId}'
+            ${newExpExperimentIdCol} = '${settings.experimentId}'
             ${
               lastMaxTimestampBinds && params.lastMaxTimestamp
-                ? `AND ${afterWatermark(this.getSqlDialect(), "e.timestamp", params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`
-                : `AND e.timestamp >= ${toTimestampWithMs(settings.startDate)}`
+                ? `AND ${afterWatermark(this.getSqlDialect(), newExpTimestampCol, params.lastMaxTimestamp, params.lastMaxTimestampRaw)}`
+                : `AND ${newExpTimestampCol} >= ${toTimestampWithMs(settings.startDate)}`
             }
-            ${endDate ? `AND e.timestamp <= ${toTimestampWithMs(endDate)}` : ""}
+            ${endDate ? `AND ${newExpTimestampCol} <= ${toTimestampWithMs(endDate)}` : ""}
             ${settings.queryFilter ? `AND (\n${settings.queryFilter}\n)` : ""}
         )
         , __jointExposures AS (
@@ -2411,11 +2439,11 @@ export default abstract class SqlIntegration
       isRatioMetric(metric) &&
       metric.denominator?.factTableId === params.factTableId;
 
-    // A conversion window extends the scan past the phase end date, which for
-    // a running phase is the snapshot time, so it would admit rows stamped in
-    // the future. Those must not become the watermark (see
-    // InsertAggregatedFactTableDataQueryParams.windowEndDate), so never scan
-    // past the refresh's own clock.
+    // A conversion window extends the scan past the phase end date. For a
+    // running phase that would admit rows stamped in the future, or past a
+    // lagged analysis end date, and they must not become the watermark (see
+    // InsertAggregatedFactTableDataQueryParams.windowEndDate). The caller caps
+    // the scan (getIncrementalMetricScanEnd).
     const metricEnd =
       source.metricEnd > params.incrementalRefreshStartTime
         ? params.incrementalRefreshStartTime
