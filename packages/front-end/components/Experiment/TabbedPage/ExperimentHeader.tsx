@@ -1025,35 +1025,40 @@ export default function ExperimentHeader({
                         {startButton}
                       </UITooltip>
                     ) : experiment.status === "draft" && canRunExperiment ? (
-                      <Tooltip
-                        shouldDisplay={!!editsBlocked}
-                        body={editsBlocked}
+                      <UITooltip
+                        enabled={!!editsBlocked}
+                        content={editsBlocked}
+                        side="bottom"
                       >
-                        {isHoldout ? (
-                          startButton
-                        ) : startBlocked ? (
-                          <Popover
-                            openOnHover
-                            side="bottom"
-                            align="end"
-                            contentStyle={{ maxWidth: 360 }}
-                            content={
-                              <StartBlockers
-                                items={startGate.blockers}
-                                upgrade={startGate.upgrade}
-                              />
-                            }
-                            trigger={
-                              // Still opens on request, as the status modal does.
-                              <span style={{ display: "inline-flex" }}>
-                                {startPopover}
-                              </span>
-                            }
-                          />
-                        ) : (
-                          startPopover
-                        )}
-                      </Tooltip>
+                        <span style={{ display: "inline-flex" }}>
+                          {/* One reason at a time: unsaved edits come first,
+                            and saving them can change what blocks a start. */}
+                          {isHoldout ? (
+                            startButton
+                          ) : startBlocked && !editsBlocked ? (
+                            <Popover
+                              openOnHover
+                              side="bottom"
+                              align="end"
+                              contentStyle={{ maxWidth: 360 }}
+                              content={
+                                <StartBlockers
+                                  items={startGate.blockers}
+                                  upgrade={startGate.upgrade}
+                                />
+                              }
+                              trigger={
+                                // Still opens on request, as the status modal does.
+                                <span style={{ display: "inline-flex" }}>
+                                  {startPopover}
+                                </span>
+                              }
+                            />
+                          ) : (
+                            startPopover
+                          )}
+                        </span>
+                      </UITooltip>
                     ) : null}
                     {experiment.status === "stopped" && experiment.results ? (
                       <>
