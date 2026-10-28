@@ -288,9 +288,11 @@ export function DetailsPanelToggle({
         color="gray"
         style={{
           // Ghost sizes itself from its padding; pin the box so the toggle
-          // does not shift as it flips.
+          // does not shift as it flips. Nudged right to line up with the row's
+          // end; same footprint, so nothing beside it moves.
           margin: 0,
-          marginLeft: "var(--space-3)",
+          marginLeft: "calc(var(--space-3) + var(--space-1))",
+          marginRight: "calc(-1 * var(--space-1))",
           padding: 0,
           width: "var(--space-5)",
           height: "var(--space-5)",
