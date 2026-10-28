@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+} from "shared/constants";
 import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
@@ -17,10 +21,11 @@ import {
   buildFeatureRulesFromApiEnvSettings,
   createInterfaceEnvSettingsFromApiEnvSettings,
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { holdFeatureCreate } from "back-end/src/services/confirmations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
@@ -84,10 +89,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     throw new Error(`Feature id '${req.body.id}' already exists.`);
   }
 
-  if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(req.body.id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   const orgEnvs = getEnvironments(req.context.org);
@@ -201,6 +204,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
   // After the gate so an unreadable id cannot be probed for existence.
   await assertValidProjectIds(req.body.targetingProjects, req.context);
+  await holdFeatureCreate(
+    req.context,
+    feature,
+    getApiCreateEnabledEnvironments(orgEnvs, req.body.environments),
+  );
 
   // AFTER every authorization: tags are a persistent org-level side effect, and
   // writing them first meant a request that then 403'd had already mutated tag state.
@@ -212,6 +220,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   addIdsToFlatRules(feature.rules, feature.id);
 
   await createFeature(req.context, feature, { comment: req.body.comment });
+  if (req.context.actingUserId) {
+    await req.context.models.watch.upsertWatch({
+      userId: req.context.actingUserId,
+      item: feature.id,
+      type: "features",
+    });
+  }
 
   await req.audit({
     event: "feature.create",
@@ -222,14 +237,14 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     details: auditDetailsCreate(feature),
   });
 
-  const groupMap = await getSavedGroupMap(req.context);
-
   const experimentMap = await getExperimentMapForFeature(
     req.context,
     feature.id,
   );
-  const safeRolloutMap =
-    await req.context.models.safeRollout.getAllPayloadSafeRollouts();
+  const { groupMap, safeRolloutMap } = await getFeatureDefinitionLookups(
+    req.context,
+    { features: [feature], experiments: experimentMap.values() },
+  );
   const revision = await getRevision({
     context: req.context,
     organization: feature.organization,

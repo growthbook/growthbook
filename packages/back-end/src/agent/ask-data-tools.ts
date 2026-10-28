@@ -2,12 +2,12 @@ import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
 import type { ExplorationConfig } from "shared/validators";
 import { calculateProductAnalyticsDateRange } from "shared/enterprise";
+import { quoteIdentifier } from "shared/sql";
 import type { ReqContext } from "back-end/types/request";
 import { createCompletedQuery } from "back-end/src/models/QueryModel";
 import {
   getIntegrationIdentifierQuote,
   getSourceIntegrationObject,
-  quoteIdentifier,
   runFreeFormQuery,
 } from "back-end/src/services/datasource";
 import { getFactTablesForDatasource } from "back-end/src/models/FactTableModel";
@@ -102,8 +102,7 @@ export async function createSqlExploration(
 
   const dateRange = calculateProductAnalyticsDateRange(config.dateRange);
 
-  const queryRecord = await createCompletedQuery({
-    organization: ctx.org.id,
+  const queryRecord = await createCompletedQuery(ctx, {
     datasource: opts.datasourceId,
     language: "sql",
     query: opts.sql,

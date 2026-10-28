@@ -23,6 +23,7 @@ import {
   getLatestPhaseVariations,
   isDimensionPrecomputed,
   getExperimentOutdatedReasonLabel,
+  isAutoSnapshotScheduled,
 } from "shared/experiments";
 import {
   isNewerOverallResultsDataAvailable,
@@ -31,7 +32,11 @@ import {
   OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON,
   IncrementalFullRefreshComparable,
 } from "shared/enterprise";
-import { getSnapshotAnalysis } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  getSnapshotAnalysis,
+  getSnapshotCutoffDate,
+} from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
 import {
@@ -148,9 +153,12 @@ export default function AnalysisSettingsSummary({
   const datasourceSettings = experiment.datasource
     ? getDatasourceById(experiment.datasource)?.settings
     : undefined;
-  const userIdType = datasourceSettings?.queries?.exposure?.find(
-    (e) => e.id === experiment.exposureQueryId,
-  )?.userIdType;
+  const userIdType = resolveAnalysisIdentifierType(
+    datasourceSettings?.queries?.exposure?.find(
+      (e) => e.id === experiment.exposureQueryId,
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
 
   const orgSettings = useOrgSettings();
   const pValueThreshold = usePValueThreshold(experiment.project);
@@ -274,7 +282,7 @@ export default function AnalysisSettingsSummary({
   const { incrementalRefresh, mutate: mutateIncrementalRefresh } =
     useIncrementalRefresh(isIncremental ? experiment.id : "");
   useEffect(() => {
-    // If dimensionless snapshto changes, re-fecth incremental refresh data
+    // If dimensionless snapshot changes, re-fetch incremental refresh data
     if (!isIncremental) return;
     mutateIncrementalRefresh();
   }, [isIncremental, dimensionless?.id, mutateIncrementalRefresh]);
@@ -306,6 +314,7 @@ export default function AnalysisSettingsSummary({
       skipPartialData: experiment.skipPartialData ?? false,
       datasourceId: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId ?? "",
+      exposureQueryIdentifierType: userIdType,
       // Match isOutdated's commercial-feature gate for regression adjustment.
       regressionAdjustmentEnabled: hasRegressionAdjustmentFeature
         ? !!experiment.regressionAdjustmentEnabled
@@ -323,6 +332,12 @@ export default function AnalysisSettingsSummary({
       skipPartialData: dimensionless.settings.skipPartialData,
       datasourceId: dimensionless.settings.datasourceId,
       exposureQueryId: dimensionless.settings.exposureQueryId,
+      exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+        datasourceSettings?.queries?.exposure?.find(
+          (e) => e.id === dimensionless.settings.exposureQueryId,
+        ),
+        dimensionless.settings.exposureQueryIdentifierType,
+      ),
       regressionAdjustmentEnabled:
         dimensionless.settings.regressionAdjustmentEnabled,
       experimentId: dimensionless.settings.experimentId,
@@ -350,6 +365,8 @@ export default function AnalysisSettingsSummary({
     phase,
     hasRegressionAdjustmentFeature,
     incrementalRefresh,
+    userIdType,
+    datasourceSettings,
   ]);
 
   const overallNeedsFullRefresh =
@@ -706,6 +723,28 @@ export default function AnalysisSettingsSummary({
     if (isDifferent(exp.exposureQueryId, snapshotSettings.exposureQueryId)) {
       reasons.push(getExperimentOutdatedReasonLabel("exposureQueryId"));
     }
+    // Resolve both sides so a snapshot saved before identifiers were stored
+    // matches an experiment that analyzes on the same identifier.
+    if (
+      isDifferent(
+        resolveAnalysisIdentifierType(
+          datasourceSettings?.queries?.exposure?.find(
+            (e) => e.id === exp.exposureQueryId,
+          ),
+          exp.exposureQueryIdentifierType,
+        ),
+        resolveAnalysisIdentifierType(
+          datasourceSettings?.queries?.exposure?.find(
+            (e) => e.id === snapshotSettings.exposureQueryId,
+          ),
+          snapshotSettings.exposureQueryIdentifierType,
+        ),
+      )
+    ) {
+      reasons.push(
+        getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
+      );
+    }
     if (
       isDifferent(
         exp.attributionModel || "firstExposure",
@@ -750,9 +789,16 @@ export default function AnalysisSettingsSummary({
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
         getValidDate(snapshotSettings.startDate),
       ) ||
+      // A running phase analyzed through a lagged cutoff ends before the
+      // snapshot ran, so measure its staleness from the run time.
       isDifferentDate(
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
-        getValidDate(snapshotSettings.endDate),
+        getValidDate(
+          !exp.phases?.[currentPhase ?? 0]?.dateEnded &&
+            snapshotSettings.endDateIsCutoff
+            ? snap?.dateCreated
+            : snapshotSettings.endDate,
+        ),
       )
     ) {
       reasons.push("Analysis dates changed");
@@ -877,12 +923,13 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                cutoffDate={
+                  snapshot ? getSnapshotCutoffDate(snapshot.settings) : null
+                }
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
-                autoUpdateEnabled={
-                  experiment.autoSnapshots && !experiment.disableAutoSnapshots
-                }
+                autoUpdateEnabled={isAutoSnapshotScheduled(experiment)}
                 showAutoUpdateWidget={true}
                 failedString={
                   latest && !latest.queries.length && latest.error

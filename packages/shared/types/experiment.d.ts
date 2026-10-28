@@ -23,6 +23,7 @@ export {
   ExperimentType,
   ExperimentPhase,
   BanditStageType,
+  CustomMetricSlice,
   ExperimentDecisionFrameworkSettings,
   DecisionFrameworkMetricOverrides,
   ExperimentAnalysisSettings,
@@ -339,6 +340,11 @@ export interface LinkedFeatureInfo {
    * switches and metadata are excluded (auto-toggled / typically no SDK impact).
    */
   hasUnrelatedDraftChanges?: boolean;
+  /**
+   * The draft cannot be published by whoever a start would publish it as: the
+   * caller, or the recorded armer once a start is scheduled.
+   */
+  cannotPublish?: boolean;
   /**
    * Environments currently disabled on the live feature that will be enabled
    * when the pending draft is auto-published on experiment start. Only set for

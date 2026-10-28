@@ -9,7 +9,6 @@ import {
 import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
-import { datetime } from "shared/dates";
 import { Flex } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
@@ -139,7 +138,7 @@ const StopExperimentForm: FC<{
       excludeFromPayload: !!experiment.excludeFromPayload,
       analysis: experiment.analysis || "",
       results: experiment.results || recommendedResult,
-      dateEnded: new Date().toISOString().substr(0, 16),
+      dateEnded: new Date().toISOString(),
     },
   });
 
@@ -307,10 +306,11 @@ const StopExperimentForm: FC<{
         </Flex>
         {!isStopped && !hasLinkedChanges && (
           <DatePicker
-            label="End Time (UTC)"
+            label="End time"
+            timeZone="utc"
             date={form.watch("dateEnded")}
             setDate={(v) => {
-              form.setValue("dateEnded", v ? datetime(v) : "");
+              form.setValue("dateEnded", v ? v.toISOString() : "");
             }}
           />
         )}
@@ -345,7 +345,7 @@ const StopExperimentForm: FC<{
                 of traffic is directed at this experiment.
                 <br />
                 Upon rollout, <strong>100%</strong> of traffic will be directed
-                towards the releeased variation.
+                towards the released variation.
               </Callout>
             ) : null}
 

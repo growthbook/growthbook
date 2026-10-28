@@ -1,8 +1,33 @@
 # Changelog
 
-## **1.7.1** - Unreleased
+## **2.0.0** - Unreleased
 
-- Add an option to disable feature usage events in the GrowthBook tracking plugin
+- **Breaking:** targeting conditions are strict about types. An attribute only matches a condition of the same type, with no conversions between strings, numbers, booleans and null. Missing attributes no longer count as `0` in comparisons, and version operators no longer convert numbers or missing values. See [Updating to 2.0.0](https://docs.growthbook.io/lib/js#updating-to-200)
+- Negated operators (`$ne`, `$nin`, `$not`, `$vne`, `$notInGroup`) are always the exact opposite of their positive form
+- Booleans always fail `$gt`, `$gte`, `$lt` and `$lte`
+- In debug mode, log every type mismatch seen while evaluating a condition
+- **Breaking:** `evalCondition(obj, condition, options)` takes an options object, `{ savedGroups, onTypeMismatch }`, instead of positional `savedGroups` and `visited` arguments. Passing saved groups as the third argument no longer works
+- Run visual and URL redirect auto experiments as Contextual Bandits when they carry a `contextualBanditRef`
+- Add remote saved groups, whose IDs are looked up outside the payload: the `remoteGroupIds` option, `setRemoteGroupIds`, `GrowthBookClient.addRemoteSavedGroups`, `redisResolver`, and the `savedGroupReferencesRemote` capability
+- Fix a malformed prerequisite condition (e.g. `{"$not": null}`) throwing from `isOn`/`getFeatureValue`/`run`; it now never matches
+- Fix a percentage rollout (`coverage`) including one extra hash bucket, e.g. a 0.01% rollout turning on for 0.02% of users
+- **Breaking:** A condition that depends on an operator or saved group type the SDK
+  doesn't support now always fails, even under `$not` or `$nor`
+- `$elemMatch` now supports `$or`, `$and`, `$nor`, and `$savedGroup` operators
+- Fix bug with attributes named like built-in properties (e.g. `constructor`, `toString`)
+- Added `reducePayload` method to shrink SSR-bootstrapped payloads to just the features, rules, and experiments relevant to each user.
+
+## **1.8.0** - Sep 29, 2026
+
+- Add `$savedGroup` operator for referencing any kind of Saved Group, not just ID Lists
+- Fix Saved Groups being ignored in prerequisite conditions
+- Add built-in polling via the `pollingInterval` option
+- Fix a failed streaming setup discarding the features loaded by `init()`
+- Fix `$elemMatch` skipping falsy array elements (`0`, `""`, `false`)
+- Add `enableFeatureUsageEvents` option to the GrowthBook tracking plugin
+- GrowthBook tracking plugin now defaults to `us-east-1.gb-ingest.com`
+- Add `tracing` plugin that tags LLM traces with experiment assignments (`gb.exp:<experiment>=<variation>`)
+- Export more TypeScript types from the JS and React SDKs
 
 ## **1.7.0** - Aug 7, 2026
 
@@ -135,7 +160,7 @@
 ## **0.36.0** - Mar 21, 2024
 
 - Support for URL Redirect tests. New context options `navigate` (default `(url) => window.location.replace(url)`) and `navigateDelay` (default 100ms) for browsers. Plus, new method `getRedirectUrl()` for back-end/edge implementations.
-- Built-in anti-flicker snippet. Set context option `antiFlicker` to true to enable (defualt false). Control timeout with option `antiFlickerTimeout` (default 3500ms)
+- Built-in anti-flicker snippet. Set context option `antiFlicker` to true to enable (default false). Control timeout with option `antiFlickerTimeout` (default 3500ms)
 - New methods to deal with deferred tracking calls and server/client hydration
   - `setTrackingCallback` - Set or update the trackingCallback after initialization. Until a trackingCallback is set, all calls will be queued up.
   - `getDeferredTrackingCalls` - Get all queued tracking calls (in JSON format)
@@ -233,7 +258,7 @@
 - Experiment dependencies (e.g. only run this experiment if user is in Variation B of another experiment)
 - Ability to force re-randomization when making changes in the middle of an experiment
 - Make experiment name and variation name/id available to the tracking callback
-- More flexibile configuration of hashing and variation bucketing
+- More flexible configuration of hashing and variation bucketing
 - Fix bias in hashing algorithm when nested experiments have similar tracking keys
 
 ## **0.22.0** - Feb 27, 2023

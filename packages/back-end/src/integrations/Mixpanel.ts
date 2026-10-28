@@ -29,7 +29,7 @@ import {
   InsertMetricSourceDataQueryParams,
   IncrementalRefreshStatisticsQueryParams,
   DimensionSlicesQueryParams,
-  PastExperimentParams,
+  PastExperimentQueryParams,
   MetricAnalysisParams,
   ExperimentFactMetricsQueryResponse,
   UserExperimentExposuresQueryResponse,
@@ -287,7 +287,9 @@ export default class Mixpanel implements SourceIntegrationInterface {
     ${destVar} = !${destVar}.length ? 0 : (
       (values => ${this.getMetricAggregationExpression(metric)})(${destVar})
     );${
-      metric.cappingSettings.type === "absolute" && metric.cappingSettings.value
+      metric.cappingSettings.type === "absolute" &&
+      (metric.cappingSettings.value ?? null) !== null &&
+      metric.cappingSettings.value > 0
         ? `\n${destVar} = ${destVar} && Math.min(${destVar}, ${metric.cappingSettings.value});`
         : ""
     }
@@ -765,7 +767,7 @@ export default class Mixpanel implements SourceIntegrationInterface {
 
     return { rows: [overall, ...result] };
   }
-  getPastExperimentQuery(_: PastExperimentParams): string {
+  getPastExperimentQuery(_: PastExperimentQueryParams): string {
     throw new Error("Method not implemented.");
   }
   async runPastExperimentQuery(

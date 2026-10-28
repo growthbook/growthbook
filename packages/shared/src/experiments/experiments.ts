@@ -36,6 +36,7 @@ import {
 } from "shared/types/organization";
 import {
   AttributionModel,
+  CustomMetricSlice,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LookbackOverride,
@@ -64,6 +65,11 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import { stringToBoolean } from "../util";
+import {
+  getCappingTailState,
+  isCappableFactMetric,
+} from "../validators/fact-table";
+import { parseAggregateFilter } from "../aggregate-filters";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -249,6 +255,9 @@ function replaceSqlIdentifiers(
   names: string[],
   replacer: (name: string, quoted: boolean) => string,
   identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  // When `matchQualified` is true, identifiers preceded by `.` (e.g. `e.price`)
+  // are matched too.
+  { matchQualified = false }: { matchQualified?: boolean } = {},
 ): string {
   if (!names.length) return sql;
   const nameSet = new Set(names);
@@ -345,7 +354,11 @@ function replaceSqlIdentifiers(
     // Quoted identifier in the dialect's identifier quote.
     if (c === identifierQuote) {
       const { end, inner, closed } = readQuoted(identifierQuote);
-      if (closed && !isAlreadyQualified() && nameSet.has(inner)) {
+      if (
+        closed &&
+        (matchQualified || !isAlreadyQualified()) &&
+        nameSet.has(inner)
+      ) {
         out += replacer(inner, true);
       } else {
         out += sql.slice(i, end);
@@ -369,7 +382,11 @@ function replaceSqlIdentifiers(
       const token = sql.slice(i, j);
       // A run starting with a digit is a numeric literal, not an identifier.
       const startsWithDigit = c >= "0" && c <= "9";
-      if (!startsWithDigit && !isAlreadyQualified() && nameSet.has(token)) {
+      if (
+        !startsWithDigit &&
+        (matchQualified || !isAlreadyQualified()) &&
+        nameSet.has(token)
+      ) {
         out += replacer(token, false);
       } else {
         out += token;
@@ -589,6 +606,29 @@ export function sqlReferencesColumn(
       return name;
     },
     identifierQuote,
+  );
+  return found;
+}
+
+// Like `sqlReferencesColumn`, but also matches qualified references such as
+// `e.bandit_version`. Use this when detecting whether a SELECT exposes an
+// output column (which is typically table-aliased), rather than when deciding
+// whether a bare column from the current table is depended upon.
+export function sqlReferencesColumnAllowingQualified(
+  sql: string,
+  column: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): boolean {
+  let found = false;
+  replaceSqlIdentifiers(
+    sql,
+    [column],
+    (name) => {
+      found = true;
+      return name;
+    },
+    identifierQuote,
+    { matchQualified: true },
   );
   return found;
 }
@@ -1121,6 +1161,54 @@ export function getRowFilterSQL({
   }
 }
 
+export function buildRowFilterWhereClause({
+  rowFilters,
+  factTable,
+  dialect,
+}: {
+  rowFilters: RowFilter[];
+  factTable: Pick<FactTableInterface, "columns" | "filters" | "userIdTypes">;
+  dialect: Pick<
+    SqlDialect,
+    | "jsonExtract"
+    | "escapeStringLiteral"
+    | "stringMatch"
+    | "evalBoolean"
+    | "castToTimestamp"
+    | "identifierQuote"
+  >;
+}): string {
+  const where: string[] = [];
+  rowFilters.forEach((rowFilter) => {
+    const sql = getRowFilterSQL({
+      rowFilter,
+      factTable,
+      jsonExtract: dialect.jsonExtract,
+      escapeStringLiteral: dialect.escapeStringLiteral,
+      stringMatch: dialect.stringMatch,
+      evalBoolean: dialect.evalBoolean,
+      castToTimestamp: dialect.castToTimestamp,
+      identifierQuote: dialect.identifierQuote,
+    });
+
+    // Incomplete/deleted filters would silently widen the preview.
+    if (sql === null) {
+      if (rowFilter.operator === "saved_filter") {
+        throw new Error(
+          `Saved Filter "${rowFilter.values?.[0]}" no longer exists. Remove it from the row filters to preview rows.`,
+        );
+      }
+      throw new Error(
+        `The row filter on "${rowFilter.column || rowFilter.operator}" is incomplete and cannot be previewed.`,
+      );
+    }
+
+    where.push(sql);
+  });
+
+  return where.join("\n  AND ");
+}
+
 export function getAggregateFilters({
   columnRef,
   column,
@@ -1139,23 +1227,16 @@ export function getAggregateFilters({
   // Only support distinctUsers for now
   if (columnRef.column !== "$$distinctUsers") return [];
 
-  const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");
+  const { conditions, invalid } = parseAggregateFilter(
+    columnRef.aggregateFilter,
+  );
+  if (invalid.length && !ignoreInvalid) {
+    throw new Error(`Invalid user filter: ${invalid[0]}`);
+  }
 
-  const filters: string[] = [];
-  parts.forEach((part) => {
-    if (!part) return;
-
-    // i.e. ">10" or "!=5.1"
-    const match = part.match(/^(=|!=|<>|<|<=|>|>=)(\d+(\.\d+)?)$/);
-    if (match) {
-      const [, operator, value] = match;
-      filters.push(`${column} ${operator} ${value}`);
-    } else if (!ignoreInvalid) {
-      throw new Error(`Invalid user filter: ${part}`);
-    }
-  });
-
-  return filters;
+  return conditions.map(
+    ({ operator, value }) => `${column} ${operator} ${value}`,
+  );
 }
 
 export function getFactTableTemplateVariables(
@@ -1239,6 +1320,9 @@ export function getMetricTemplateVariables(
 }
 
 export function isCappableMetricType(m: ExperimentMetricDefinition) {
+  if (isFactMetric(m)) {
+    return isCappableFactMetric(m.metricType);
+  }
   return !quantileMetricType(m) && !isBinomialMetric(m);
 }
 
@@ -1276,6 +1360,13 @@ export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
           : []),
       ];
   return Array.from(new Set(ids.filter((id) => !!id)));
+}
+
+// Every fact table a group of fact metrics reads, e.g. for one combined query
+export function getFactTableIdsForMetrics(
+  metrics: FactMetricInterface[],
+): string[] {
+  return Array.from(new Set(metrics.flatMap(getFactMetricFactTableIds)));
 }
 
 /**
@@ -1367,20 +1458,77 @@ export function isRegressionAdjusted(
   );
 }
 
-export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * The optional independent lower-tail capping settings. Only fact metrics
+ * support a lower tail; legacy metrics never have this field.
+ */
+export function getLowerCappingSettings(metric: ExperimentMetricDefinition) {
+  return "lowerCappingSettings" in metric
+    ? metric.lowerCappingSettings
+    : undefined;
+}
+
+export function isUpperPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "percentile" &&
-    !!metric.cappingSettings.value &&
-    metric.cappingSettings.value < 1 &&
+    getCappingTailState(metric.cappingSettings).upperPercentileCapped &&
     isCappableMetricType(metric)
   );
 }
 
-function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+/**
+ * Legacy alias for upper-tail percentile capping. The legacy (non-fact)
+ * experiment SQL path only supports upper-tail capping, so this maps to the
+ * upper tail.
+ */
+export function isPercentileCappedMetric(metric: ExperimentMetricDefinition) {
+  return isUpperPercentileCappedMetric(metric);
+}
+
+/** Lower-tail percentile winsorization (e.g. 5th percentile floor). */
+export function isLowerPercentileCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
   return (
-    metric.cappingSettings.type === "absolute" &&
-    !!metric.cappingSettings.value &&
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerPercentileCapped && isCappableMetricType(metric)
+  );
+}
+
+/** True if SQL needs a percentile subquery (upper and/or lower tail). */
+export function needsPercentileCapSubquery(metric: ExperimentMetricInterface) {
+  const t = getCappingTailState(
+    metric.cappingSettings,
+    getLowerCappingSettings(metric),
+  );
+  return (
+    (t.upperPercentileCapped || t.lowerPercentileCapped) &&
     isCappableMetricType(metric)
+  );
+}
+
+export function isAbsoluteCappedMetric(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings).upperAbsoluteCapped &&
+    isCappableMetricType(metric)
+  );
+}
+
+export function isLowerAbsoluteCappedMetric(
+  metric: ExperimentMetricDefinition,
+) {
+  return (
+    getCappingTailState(undefined, getLowerCappingSettings(metric))
+      .lowerAbsoluteCapped && isCappableMetricType(metric)
+  );
+}
+
+/** Any upper or lower tail capping is active (SQL / experiment analysis). */
+export function hasActiveCappingTails(metric: ExperimentMetricDefinition) {
+  return (
+    getCappingTailState(metric.cappingSettings, getLowerCappingSettings(metric))
+      .anyCap && isCappableMetricType(metric)
   );
 }
 
@@ -1390,7 +1538,10 @@ export function isSliceMetric(metric: ExperimentMetricDefinition) {
 
 export function eligibleForUncappedMetric(metric: ExperimentMetricDefinition) {
   return (
-    (isPercentileCappedMetric(metric) || isAbsoluteCappedMetric(metric)) &&
+    (isUpperPercentileCappedMetric(metric) ||
+      isLowerPercentileCappedMetric(metric) ||
+      isAbsoluteCappedMetric(metric) ||
+      isLowerAbsoluteCappedMetric(metric)) &&
     !isSliceMetric(metric)
   );
 }
@@ -2558,7 +2709,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
+  customMetricSlices?: CustomMetricSlice[];
   factTable?: FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // Sanity checks
@@ -2691,6 +2842,19 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
       .map((v, i) => +(w + (i < numCorrections ? delta : 0)).toFixed(precision))
       // Put the larger weights first
       .sort((a, b) => b - a)
+  );
+}
+
+export function isAutoSnapshotScheduled(
+  experiment: Pick<
+    ExperimentInterface,
+    "autoSnapshots" | "disableAutoSnapshots" | "archived"
+  >,
+): boolean {
+  return (
+    !!experiment.autoSnapshots &&
+    !experiment.disableAutoSnapshots &&
+    !experiment.archived
   );
 }
 
@@ -3254,6 +3418,17 @@ export function scheduleStagesStatusChange(
   if (schedule.startAt) return true;
   if (!(schedule.stopAt || schedule.stopAfter)) return false;
   return (schedule.scheduledStopPlan?.mode ?? "notify") !== "notify";
+}
+
+// Stamps who staged a status update so the job can run it on their authority.
+export function withScheduledBy<T extends object>(
+  staged: T | null,
+  by?: { userId?: string; apiKey?: string },
+): (T & { scheduledBy?: string; scheduledByApiKey?: string }) | null {
+  if (!staged) return null;
+  if (by?.userId) return { ...staged, scheduledBy: by.userId };
+  if (by?.apiKey) return { ...staged, scheduledByApiKey: by.apiKey };
+  return staged;
 }
 
 // True when the incoming schedule stages a status change, or a staged one is

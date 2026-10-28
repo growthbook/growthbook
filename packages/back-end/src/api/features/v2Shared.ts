@@ -232,6 +232,23 @@ export function resolveScopeFromInput(
   return { allEnvironments: true, environments: undefined };
 }
 
+// A rule with a v2 scope patch applied. Sending only `environments` scopes the
+// rule to them, even if it applied to all environments before.
+export function withPatchedScope<
+  T extends { allEnvironments?: boolean; environments?: string[] },
+>(rule: T, patch: { allEnvironments?: boolean; environments?: string[] }): T {
+  if (patch.allEnvironments === undefined && patch.environments === undefined) {
+    return rule;
+  }
+  return {
+    ...rule,
+    ...resolveScopeFromInput(
+      patch.allEnvironments,
+      patch.environments ?? rule.environments,
+    ),
+  };
+}
+
 // Project-scope resolution mirroring resolveScopeFromInput. Default allProjects:true;
 // allProjects:false keeps an explicit projects list (empty = scoped to nothing, leak-safe).
 export function resolveProjectScopeFromInput(

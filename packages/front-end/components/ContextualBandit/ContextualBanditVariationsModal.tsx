@@ -1,9 +1,10 @@
+import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { FormProvider, useForm } from "react-hook-form";
 import { useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { ApiContextualBanditInterface } from "shared/validators";
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import { useAuth } from "@/services/auth";
+import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
@@ -41,7 +42,7 @@ export default function ContextualBanditVariationsModal({
   mutate: () => void;
   close: () => void;
 }) {
-  const { apiCall } = useAuth();
+  const restApiCall = useRestApiCall();
 
   const originalIds = new Set(cb.variations.map((v) => v.id));
   const originalById = new Map(cb.variations.map((v) => [v.id, v]));
@@ -182,14 +183,17 @@ export default function ContextualBanditVariationsModal({
             return;
           }
 
-          await apiCall(`/api/v1/contextual-bandits/${cb.id}/variations`, {
-            method: "POST",
-            body: JSON.stringify({
-              addVariations,
-              removeVariationIds,
-              updateVariations,
-            }),
-          });
+          await restApiCall(
+            contextualBanditEndpoints.updateContextualBanditVariations,
+            {
+              params: { id: cb.id },
+              body: {
+                addVariations,
+                removeVariationIds,
+                updateVariations,
+              },
+            },
+          );
           mutate();
         })}
       >

@@ -14,25 +14,52 @@ import Callout from "@/ui/Callout";
 
 const defaultType = "simple";
 
-const VisualChangesetModal: FC<{
-  mode: "add" | "edit";
-  experiment: ExperimentInterfaceStringDates;
-  visualChangeset?: VisualChangesetInterface;
-  mutate: () => void;
-  close: () => void;
-  onCreate?: (vc: VisualChangesetInterface) => void;
-  cta?: string;
-  source?: string;
-}> = ({
-  mode,
-  experiment,
-  visualChangeset,
-  mutate,
-  close,
-  onCreate,
-  cta,
-  source,
-}) => {
+type VisualChangesetCreatePayload = {
+  editorUrl: string;
+  urlPatterns: {
+    pattern: string;
+    type: "simple" | "regex";
+    include: boolean;
+  }[];
+};
+
+type CreatedVisualChangeset = Pick<
+  VisualChangesetInterface,
+  "id" | "editorUrl"
+>;
+
+type ModeTarget =
+  | {
+      mode: "add";
+      experiment: ExperimentInterfaceStringDates;
+      create?: never;
+      onCreate?: (vc: CreatedVisualChangeset) => void;
+      visualChangeset?: never;
+    }
+  | {
+      mode: "add";
+      experiment?: never;
+      create: (payload: VisualChangesetCreatePayload) => Promise<{
+        visualChangeset?: Partial<CreatedVisualChangeset>;
+      } | void>;
+      onCreate?: (vc: CreatedVisualChangeset) => void;
+      visualChangeset?: never;
+    }
+  | {
+      mode: "edit";
+      visualChangeset: VisualChangesetInterface;
+      onCreate?: never;
+    };
+
+const VisualChangesetModal: FC<
+  ModeTarget & {
+    mutate: () => void;
+    close: () => void;
+    cta?: string;
+    source?: string;
+  }
+> = (props) => {
+  const { mode, visualChangeset, mutate, close, onCreate, cta, source } = props;
   const { apiCall } = useAuth();
 
   let forceAdvancedMode = false;
@@ -75,9 +102,27 @@ const VisualChangesetModal: FC<{
         { pattern: value.editorUrl, type: defaultType, include: true },
       ];
     }
-    if (mode === "add") {
+    if (props.mode === "add") {
+      if ("create" in props && props.create) {
+        const res = await props.create({
+          editorUrl: payload.editorUrl,
+          urlPatterns: payload.urlPatterns.map(
+            ({ pattern, type, include }) => ({
+              pattern,
+              type: type === "regex" ? "regex" : "simple",
+              include,
+            }),
+          ),
+        });
+        mutate();
+        const vc = res?.visualChangeset;
+        if (vc?.id && vc.editorUrl) {
+          onCreate?.({ id: vc.id, editorUrl: vc.editorUrl });
+        }
+        return;
+      }
       const res = await apiCall<{ visualChangeset: VisualChangesetInterface }>(
-        `/experiments/${experiment.id}/visual-changeset`,
+        `/experiments/${props.experiment.id}/visual-changeset`,
         {
           method: "POST",
           body: JSON.stringify(payload),
@@ -96,10 +141,11 @@ const VisualChangesetModal: FC<{
 
   const editorUrlLabel = !showAdvanced
     ? "Target URL"
-    : "URL to edit with Visual Editor";
+    : "URL to edit with AI Visual Editor";
   const editorUrlHelpText = !showAdvanced ? undefined : (
     <>
-      Clicking the <strong>Open Visual Editor</strong> button will open this URL
+      Clicking the <strong>Open AI Visual Editor</strong> button will open this
+      URL
     </>
   );
 

@@ -89,6 +89,12 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   registerRevisionPublishedHook: jest.fn(),
 }));
 
+// These mock contexts have no request data source cache.
+jest.mock("back-end/src/services/assignmentQuerySelection", () => ({
+  ...jest.requireActual("back-end/src/services/assignmentQuerySelection"),
+  getExposureQueriesForDatasource: jest.fn().mockResolvedValue([]),
+}));
+
 jest.mock("back-end/src/models/EventModel", () => ({
   createEvent: jest.fn(),
 }));
@@ -374,7 +380,7 @@ describe("applyPatchToRule", () => {
     expect(result.enabled).toBe(true);
   });
 
-  it("does not overwrite unpatchd fields", () => {
+  it("does not overwrite unpatched fields", () => {
     const result = applyPatchToRule(base, { coverage: 0.9 });
     expect(result.condition).toBe(base.condition);
     expect(result.enabled).toBe(base.enabled);
@@ -414,6 +420,33 @@ describe("applyPatchToRule", () => {
     const result = applyPatchToRule(allEnvRule, patch);
     expect(result.allEnvironments).toBe(true);
     expect(result.environments).toBeUndefined();
+  });
+
+  it("a null environments patch leaves the rule's scope alone", () => {
+    const scoped: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["dev"],
+    };
+    const result = applyPatchToRule(scoped, { environments: null });
+    expect(result.allEnvironments).toBe(false);
+    expect(result.environments).toEqual(["dev"]);
+  });
+
+  it("an anchor taken from a rule with no list restores every environment", () => {
+    const everywhere = { ...base } as FeatureRule;
+    delete everywhere.environments;
+    delete everywhere.allEnvironments;
+    const anchor = getStartPatchForRule(everywhere);
+    expect(anchor.allEnvironments).toBe(true);
+    const narrowed: FeatureRule = {
+      ...base,
+      allEnvironments: false,
+      environments: ["production"],
+    };
+    const restored = applyPatchToRule(narrowed, anchor);
+    expect(restored.allEnvironments).toBe(true);
+    expect("environments" in restored).toBe(false);
   });
 
   it("environments patch correctly resets allEnvironments to false", () => {
@@ -791,6 +824,54 @@ describe("getStartPatchForRule", () => {
     ]);
     expect(restored.allEnvironments).toBe(false);
     expect(restored.environments).toEqual(["production"]);
+  });
+
+  it("a list-only step narrows an all-environments anchor; a later wildcard widens it back", () => {
+    const rule = {
+      id: RULE_ID,
+      type: "force" as const,
+      value: "x",
+      enabled: true,
+      allEnvironments: true,
+    } as FeatureRule;
+    const stepWith = (patch: Record<string, unknown>) => ({
+      interval: 300,
+      actions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...patch },
+        },
+      ],
+    });
+    const sched = {
+      startActions: [
+        {
+          targetType: "feature-rule" as const,
+          targetId: TARGET_ID,
+          patch: { ruleId: RULE_ID, ...getStartPatchForRule(rule) },
+        },
+      ],
+      steps: [
+        stepWith({ environments: ["dev"] }),
+        stepWith({ allEnvironments: true }),
+      ],
+      endActions: [],
+    };
+
+    const narrowed = applyPatchToRule(
+      rule,
+      computeEffectivePatch(sched, 0).get(TARGET_ID)!,
+    );
+    expect(narrowed.allEnvironments).toBe(false);
+    expect(narrowed.environments).toEqual(["dev"]);
+
+    const widened = applyPatchToRule(
+      narrowed,
+      computeEffectivePatch(sched, 1).get(TARGET_ID)!,
+    );
+    expect(widened.allEnvironments).toBe(true);
+    expect("environments" in widened).toBe(false);
   });
 });
 
@@ -4605,6 +4686,8 @@ describe("approveAndPublishStep", () => {
     return {
       ctx: {
         userId: USER_ID,
+        actingUserId: USER_ID,
+        actorId: USER_ID,
         org: { id: ORG_ID, settings: {} },
         auditUser: { type: "session" as const, userAgent: "", ip: "" },
         environments: [],
@@ -4638,6 +4721,7 @@ describe("approveAndPublishStep", () => {
     expect(updates.stepApproval).toMatchObject({
       stepIndex: 0,
       approvedBy: USER_ID,
+      approvedByUser: ctx.auditUser,
       context: "api",
     });
     expect(updates.stepApproval?.approvedAt).toBeInstanceOf(Date);
@@ -5773,6 +5857,8 @@ describe("applyRampBaseStateSync / restoreRampBaseStates", () => {
     const updateById = jest.fn().mockResolvedValue(doc);
     const ctx = {
       userId: "u1",
+      actingUserId: "u1",
+      actorId: "u1",
       models: {
         rampSchedules: {
           getById: jest.fn().mockResolvedValue(doc),

@@ -39,8 +39,9 @@ import {
   ProductAnalyticsResult,
   ProductAnalyticsResultRow,
   FunnelDataset,
+  PopulationDataset,
+  dateGranularity,
 } from "../../validators/product-analytics";
-import { FunnelStep } from "../../validators/fact-table";
 import {
   getRowFilterSQL,
   getColumnExpression,
@@ -49,8 +50,10 @@ import {
   getFactTableTimestampColumn,
   isFactFunnelMetric,
 } from "../../experiments/experiments";
+import { getCappingTailState, FunnelStep } from "../../validators/fact-table";
 import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
+import { factTableHasResolvableColumn } from "./columns";
 
 // Internal Type definitions
 type MinimalFactTable = Pick<
@@ -142,6 +145,8 @@ interface MetricData {
   unit: string | null;
   alias: string;
   percentileCapValueExpr: string | null;
+  /** Same column basis as `percentileCapValueExpr`; used for lower-tail percentile caps. */
+  percentileLowerCapValueExpr: string | null;
   eventValueExpr: string;
   unitAggregationExpr: string | null;
   rollupAggregationExpr: string;
@@ -155,7 +160,7 @@ interface CTE {
   name: string;
   sql: string;
 }
-interface DateRange {
+export interface DateRange {
   startDate: Date;
   endDate: Date;
 }
@@ -203,6 +208,58 @@ function getMetricsAndUnitsFromValues(
 
   return { metrics, units: Array.from(units) };
 }
+// Each population value is a distinct-units count with an optional aggregate
+// filter. The aggregate filter is applied per unit within each dimension
+// bucket (e.g. per day), not across the whole date range.
+function getPopulationFactTableGroups(
+  dataset: PopulationDataset,
+  factTableMap: FactTableMap,
+): FactTableGroup[] {
+  const groups: Record<string, FactTableGroup> = {};
+  dataset.values.forEach((value, index) => {
+    if (!value.unit) {
+      throw new Error("Population unit is required");
+    }
+    const factTable = factTableMap.get(value.source.factTableId);
+    if (!factTable) {
+      throw new Error(`Fact table ${value.source.factTableId} not found`);
+    }
+    const metric = createSimpleMetric(
+      "unit_count",
+      null,
+      value.rowFilters,
+      value.name,
+    );
+    groups[factTable.id] ??= {
+      index: Object.keys(groups).length,
+      factTable: toMinimalFactTable(factTable),
+      metrics: [],
+      units: [],
+    };
+    const group = groups[factTable.id];
+    group.metrics.push({
+      index,
+      unit: value.unit,
+      metric: {
+        ...metric,
+        id: `population_${index}`,
+        numerator: {
+          ...metric.numerator,
+          factTableId: factTable.id,
+          ...(value.aggregateFilter && value.aggregateFilterColumn
+            ? {
+                aggregateFilter: value.aggregateFilter,
+                aggregateFilterColumn: value.aggregateFilterColumn,
+              }
+            : {}),
+        },
+      },
+    });
+    if (!group.units.includes(value.unit)) group.units.push(value.unit);
+  });
+  return Object.values(groups);
+}
+
 function getFactTableGroups({
   config,
   factTableMap,
@@ -275,6 +332,8 @@ function getFactTableGroups({
           },
         ];
       })();
+    case "population":
+      return getPopulationFactTableGroups(config.dataset, factTableMap);
     case "funnel":
     case "journey":
       // Dispatched away from this code path in generateProductAnalyticsSQL;
@@ -419,6 +478,16 @@ function startOfUtcMonthsAgo(months: number): Date {
   return d;
 }
 
+export function isRollingDateRange(
+  dateRange: ExplorationConfig["dateRange"],
+): boolean {
+  return (
+    dateRange.predefined !== "yesterday" &&
+    dateRange.predefined !== "lastCalendarYear" &&
+    dateRange.predefined !== "customDateRange"
+  );
+}
+
 export function calculateProductAnalyticsDateRange(
   dateRange: ExplorationConfig["dateRange"],
 ): DateRange {
@@ -516,6 +585,17 @@ export function getDateGranularity(
   return "month";
 }
 
+/** Date granularities valid for a resolved date range (for filtering dropdown
+ * options and for `sanitizeDimensions`). A granularity is valid if
+ * `getDateGranularity` returns it unchanged (or, for "auto", always valid). */
+export function getValidDateGranularities(
+  dateRange: DateRange,
+): (typeof dateGranularity)[number][] {
+  return dateGranularity.filter(
+    (g) => g === "auto" || getDateGranularity(g, dateRange) === g,
+  );
+}
+
 // Generate row filter SQL
 export function generateRowFilterSQL(
   rowFilters: RowFilter[],
@@ -560,25 +640,6 @@ export function generatePushdownFilterSQL(
   );
 }
 
-// True if `column` resolves to a real underlying column on `factTable` —
-// either a top-level column, or (for a dotted path) a JSON field defined on
-// a JSON-typed top-level column. A ratio metric's denominator can live on a
-// different fact table than its numerator, and that table may not expose
-// the dimension's column at all; callers use this to skip applying a static
-// dimension's filter to a group whose table can't actually resolve it,
-// rather than injecting a WHERE clause that references a nonexistent
-// column and fails at the warehouse.
-function factTableHasResolvableColumn(
-  factTable: MinimalFactTable,
-  column: string,
-): boolean {
-  const [baseColumn, ...rest] = column.split(".");
-  const col = factTable.columns.find((c) => c.column === baseColumn);
-  if (!col) return false;
-  if (rest.length === 0) return true;
-  return col.datatype === "json" && !!col.jsonFields?.[rest.join(".")];
-}
-
 // Dimension values are compared against string literals — the 'other' fallback
 // and pinned values — so a non-string column has to be cast to match. String
 // columns are left alone so existing SQL, and the predicate pushdown a bare
@@ -613,14 +674,6 @@ function getStaticDimensionFilters(
       d.dimensionType === "static" && d.values.length > 0,
   );
 
-  // A ratio metric's denominator table may not expose a pinned column at
-  // all — exclude every row from this fact table rather than let them all
-  // through unfiltered on that dimension.
-  const hasUnresolvableDimension = staticDimensions.some(
-    (d) => !factTableHasResolvableColumn(factTable, d.column),
-  );
-  if (hasUnresolvableDimension) return ["1 = 0"];
-
   return staticDimensions.map((d) => {
     const columnExpr = getColumnExpression(
       d.column,
@@ -644,11 +697,11 @@ function getCappingSettings(
 ): MetricCappingSettings | null {
   if (metric.metricType === "proportion") return null;
 
-  if (
-    metric.cappingSettings?.type === "percentile" ||
-    metric.cappingSettings?.type === "absolute"
-  ) {
-    return metric.cappingSettings;
+  const cs = metric.cappingSettings;
+  if (!cs) return null;
+
+  if (getCappingTailState(cs).anyCap) {
+    return cs;
   }
 
   return null;
@@ -778,7 +831,11 @@ function getEventValueExpr(
 ): string {
   let rawValue: string;
   if (columnRef.column === "$$distinctUsers") {
-    if (columnRef.aggregateFilter && columnRef.aggregateFilterColumn) {
+    if (
+      columnRef.aggregateFilter &&
+      columnRef.aggregateFilterColumn &&
+      columnRef.aggregateFilterColumn !== "$$count"
+    ) {
       // Same expansion as an ordinary value column below, so a virtual column
       // inlines its expression instead of emitting a name the warehouse cannot
       // resolve. A plain column returns its own name, as before.
@@ -848,7 +905,7 @@ function getUnitAggregationExpr(
         ignoreInvalid: true,
       });
       if (filters.length > 0) {
-        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END as ${alias}`;
+        return `CASE WHEN (${filters.join(" AND ")}) THEN 1 ELSE NULL END`;
       }
     }
     return `MAX(${alias})`;
@@ -978,14 +1035,22 @@ function getMetricData(
   }
 
   const cappingSettings = getCappingSettings(metric);
+  const rawPercentileValueExpr = getEventValueExpr(
+    columnRef,
+    factTable,
+    helpers,
+    alias,
+    null,
+  );
 
   return {
     unit: selectedUnit,
     alias,
     percentileCapValueExpr:
       cappingSettings && cappingSettings.type === "percentile"
-        ? getEventValueExpr(columnRef, factTable, helpers, alias, null)
+        ? rawPercentileValueExpr
         : null,
+    percentileLowerCapValueExpr: null,
     eventValueExpr: getEventValueExpr(
       columnRef,
       factTable,
@@ -1103,16 +1168,19 @@ function generatePercentileCapsCTE(
   const selects: string[] = [];
   factTableGroup.metrics.forEach((m) => {
     const cappingSettings = getCappingSettings(m.metric);
-    if (!cappingSettings || cappingSettings.type !== "percentile") return;
+    if (!cappingSettings) return;
 
     const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const tails = getCappingTailState(cappingSettings);
 
-    selects.push(
-      `${helpers.percentileApprox(
-        metricData.percentileCapValueExpr || "NULL",
-        cappingSettings.value,
-      )} AS ${metricData.alias}_cap`,
-    );
+    if (tails.upperPercentileCapped) {
+      selects.push(
+        `${helpers.percentileApprox(
+          metricData.percentileCapValueExpr || "NULL",
+          cappingSettings.value!,
+        )} AS ${metricData.alias}_cap`,
+      );
+    }
   });
 
   if (!selects.length) return null;
@@ -1928,7 +1996,7 @@ export function generateProductAnalyticsSQL(
       const data = getMetricData(m, f.factTable, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
-      if (!m.useDenominator) orderedMetricIds.push(m.metric.id);
+      if (!m.useDenominator) orderedMetricIds[m.index] = m.metric.id;
     });
   });
 
@@ -1959,22 +2027,33 @@ export function generateProductAnalyticsSQL(
 
   factTableGroups.forEach((factTableGroup, i) => {
     // Recomputed against this group's own fact table — a ratio metric's
-    // denominator can resolve a column differently, or not at all (NULL;
-    // getStaticDimensionFilters excludes such a group's rows entirely).
-    const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => ({
-      alias: `dimension${di}`,
-      valueExpr:
-        d.dimensionType === "static" &&
+    // denominator can resolve a column differently, or not at all. A column
+    // this group can't resolve throws: filtering or bucketing only some
+    // groups' rows by it would split a ratio's numerator from its
+    // denominator and silently produce wrong ratios. getAvailableDimensionColumns
+    // keeps these out of the picker, so this only catches stale configs and
+    // API callers.
+    const groupDimensions: DimensionData[] = config.dimensions.map((d, di) => {
+      if (
+        (d.dimensionType === "dynamic" || d.dimensionType === "static") &&
+        d.column !== null &&
         !factTableHasResolvableColumn(factTableGroup.factTable, d.column)
-          ? "NULL"
-          : generateDimensionExpression(
-              d,
-              di,
-              factTableGroup,
-              dialect,
-              dateRange,
-            ),
-    }));
+      ) {
+        throw new Error(
+          `Can't break down by "${d.column}": not every fact table in this exploration has that column`,
+        );
+      }
+      return {
+        alias: `dimension${di}`,
+        valueExpr: generateDimensionExpression(
+          d,
+          di,
+          factTableGroup,
+          dialect,
+          dateRange,
+        ),
+      };
+    });
     const staticDimensionFilters = getStaticDimensionFilters(
       config.dimensions,
       factTableGroup.factTable,

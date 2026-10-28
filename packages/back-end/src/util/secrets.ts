@@ -1,11 +1,12 @@
 import Handlebars from "handlebars";
 import escapeRegExp from "lodash/escapeRegExp";
 import trimEnd from "lodash/trimEnd";
-import { parseEnvInt, stringToBoolean } from "shared/util";
+import { parseEnvInt, parseEnvIntMap, stringToBoolean } from "shared/util";
 import {
   GB_SDK_ID_DEV,
   GB_SDK_ID_PROD,
   DEFAULT_METRIC_WINDOW_HOURS,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
 } from "shared/constants";
 import { z } from "zod";
 
@@ -17,8 +18,11 @@ export const LOG_LEVEL = process.env.LOG_LEVEL;
 export const IS_CLOUD = stringToBoolean(process.env.IS_CLOUD);
 export const IS_MULTI_ORG = stringToBoolean(process.env.IS_MULTI_ORG);
 
-/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default off. */
-export const OAUTH_AS_ENABLED = stringToBoolean(process.env.OAUTH_AS_ENABLED);
+/** Enable GrowthBook OAuth 2.1 Authorization Server endpoints (MCP / CLI login). Default on. */
+export const OAUTH_AS_ENABLED = stringToBoolean(
+  process.env.OAUTH_AS_ENABLED,
+  true,
+);
 
 /**
  * Issuer identifier for the OAuth AS (RFC 8414). Falls back to API_HOST, then
@@ -86,6 +90,17 @@ export const UPLOAD_METHOD = (() => {
 
   return "local";
 })();
+
+/**
+ * The largest CSV a Remote Group upload can be, in MB. 100 MB is about 2.8
+ * million UUIDs or 4 million typical email addresses. It can go up to 5 GB
+ * (5120), S3's limit for one upload.
+ */
+export const REMOTE_SAVED_GROUP_MAX_UPLOAD_MB = parseEnvInt(
+  process.env.REMOTE_SAVED_GROUP_MAX_UPLOAD_MB,
+  100,
+  { min: 1, max: 5120, name: "REMOTE_SAVED_GROUP_MAX_UPLOAD_MB" },
+);
 
 let MONGODB_URI = process.env.MONGODB_URI || "";
 
@@ -233,6 +248,13 @@ export const JOB_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "JOB_TIMEOUT_MS" },
 ); // Defaults to 2 hours
 
+// Upper bound for the per-webhook request timeout users can configure
+export const MAX_WEBHOOK_TIMEOUT_SECONDS = parseEnvInt(
+  process.env.MAX_WEBHOOK_TIMEOUT_SECONDS,
+  DEFAULT_MAX_WEBHOOK_TIMEOUT_SECONDS,
+  { min: 1, name: "MAX_WEBHOOK_TIMEOUT_SECONDS" },
+);
+
 // Must exceed the idle timeout of any load balancer in front of us, or the LB
 // reuses connections we already closed and returns spurious 502s to clients.
 export const KEEP_ALIVE_TIMEOUT_MS = parseEnvInt(
@@ -332,6 +354,22 @@ export const API_ALLOW_SKIP_PAGINATION = stringToBoolean(
   process.env.API_ALLOW_SKIP_PAGINATION,
 );
 
+export const API_RATE_LIMIT_MAX = parseEnvInt(
+  process.env.API_RATE_LIMIT_MAX,
+  60,
+  { min: 1, name: "API_RATE_LIMIT_MAX" },
+);
+export const API_RATE_LIMIT_MAX_BY_KEY = parseEnvIntMap(
+  process.env.API_RATE_LIMIT_MAX_BY_KEY,
+  { min: 1, name: "API_RATE_LIMIT_MAX_BY_KEY" },
+);
+export const API_RATE_LIMIT_SEPARATE_WRITES = stringToBoolean(
+  process.env.API_RATE_LIMIT_SEPARATE_WRITES,
+);
+export const API_RATE_LIMIT_SEPARATE_REQUESTERS = stringToBoolean(
+  process.env.API_RATE_LIMIT_SEPARATE_REQUESTERS,
+);
+
 // Opt-in: the bulk experiment results export reads and hydrates every analysis
 // on every snapshot it returns, so it stays off unless a deployment enables it.
 export const EXPERIMENT_BULK_RESULTS_ENABLED = stringToBoolean(
@@ -376,6 +414,11 @@ export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =
   process.env.GEMINI_IMAGE_MODEL || "gemini-2.5-flash-image";
+
+// Self-hosted only: extra AI Assistant skills, layered over the built-ins.
+export const AGENT_SKILLS_DIR = IS_CLOUD
+  ? ""
+  : process.env.AGENT_SKILLS_DIR || "";
 // Kraken.io credentials — AI-generated images are resized + re-encoded to
 // WebP via the Kraken API instead of any in-process codec (sharp/wasm-vips),
 // which proved unreliable in production. When unset, optimization is skipped
@@ -439,6 +482,9 @@ try {
 }
 export const WEBHOOKS = webhooks;
 export const WEBHOOK_PROXY = process.env.WEBHOOK_PROXY || "";
+
+export const EPPO_API_BASE_URL =
+  process.env.EPPO_API_BASE_URL || "https://eppo.cloud/api/v1/";
 
 /**
  * Allows custom configuration of the trust proxy settings as

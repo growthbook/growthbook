@@ -8,6 +8,7 @@ import type {
 import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
+  resolveTemplateAssignment,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 
 // ---------------------------------------------------------------------------
@@ -326,5 +327,85 @@ describe("getAutoExposureQueryId", () => {
         hashAttribute: "some_non_identifier",
       }),
     ).toBe("");
+  });
+});
+
+describe("getAutoExposureQueryId project scope", () => {
+  const scoped = {
+    ...makeExposureQuery("eq_other", "user_id"),
+    projects: ["prj_other"],
+  };
+
+  it("does not auto-select the only query when it is scoped to another project", () => {
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(makeSettings([scoped])),
+        hashAttribute: "id",
+        project: "prj_1",
+      }),
+    ).toBe("");
+  });
+
+  it("ignores a template query scoped to another project", () => {
+    expect(
+      getAutoExposureQueryId({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([scoped, makeExposureQuery("eq_1", "user_id")]),
+        ),
+        hashAttribute: "id",
+        project: "prj_1",
+        templateExposureQueryId: "eq_other",
+      }),
+    ).toBe("eq_1");
+  });
+});
+
+describe("resolveTemplateAssignment", () => {
+  const dropped = {
+    ...makeExposureQuery("eq_dropped", "anonymous_id"),
+    userIdTypes: ["user_id"],
+  };
+  const other = makeExposureQuery("eq_other", "anonymous_id");
+
+  it("moves to another query declaring the template's identifier", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(makeSettings([dropped, other])),
+        templateExposureQueryId: "eq_dropped",
+      }),
+    ).toEqual({
+      kind: "selected",
+      exposureQueryId: "eq_other",
+      identifierType: "anonymous_id",
+    });
+  });
+
+  it("is unavailable when no query declares it, rather than picking another", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(makeSettings([dropped])),
+        templateExposureQueryId: "eq_dropped",
+      }),
+    ).toEqual({
+      kind: "unavailable",
+      identifierType: "anonymous_id",
+      outOfScope: false,
+    });
+  });
+
+  it("is unavailable as out of scope when only another Project's query declares it", () => {
+    expect(
+      resolveTemplateAssignment({
+        datasource: makeDatasourceWithSettings(
+          makeSettings([dropped, { ...other, projects: ["prj_other"] }]),
+        ),
+        project: "prj_1",
+        templateExposureQueryId: "eq_dropped",
+      }),
+    ).toEqual({
+      kind: "unavailable",
+      identifierType: "anonymous_id",
+      outOfScope: true,
+    });
   });
 });

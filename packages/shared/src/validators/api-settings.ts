@@ -104,6 +104,15 @@ export const apiSettingsValidator = namedSchema(
           type: z.enum(["cron", "never", "stale"]).optional(),
           cron: z.string().nullable().optional(),
           hours: z.coerce.number().nullable().optional(),
+          analysisEndDateMode: z
+            .enum(["runTime", "lag", "fixedTime"])
+            .optional(),
+          analysisEndDateLagHours: z.coerce.number().nullable().optional(),
+          analysisEndDateTime: z
+            .string()
+            .regex(/^([01]\d|2[0-3]):[0-5]\d$/)
+            .nullable()
+            .optional(),
         })
         .nullable(),
       multipleExposureMinPercent: z.coerce.number(),
@@ -189,8 +198,10 @@ export const putApprovalSettingsValidator = {
       targetingReviewMode: z.array(apiTargetingReviewRule),
     })
     .strict(),
-  summary:
+  summary: "Update approval settings",
+  description:
     "Replace the approval requirements for feature flags, configs and constants, for saved groups, and the Targeting Projects review mode. Each family is replaced wholesale when supplied; omit one to leave it unchanged.",
+  confirmation: ["settings.approvals"] as const,
   operationId: "putApprovalSettings",
   tags: ["settings"],
   method: "put" as const,

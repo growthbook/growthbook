@@ -31,6 +31,7 @@ import {
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { isDefined } from "shared/util";
+import { CustomMetricSlice } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 
 // Special metric selector IDs that should be filtered out of customMetricOrder
@@ -511,6 +512,58 @@ export function generateRowsForMetricGroup({
   });
 }
 
+// All auto and custom slices for a fact metric (deduped). Used to build slice
+// child rows in both the overall and dimension breakdown tables.
+export function getSliceDataForMetric({
+  metric,
+  metricName,
+  customMetricSlices,
+  getFactTableById,
+}: {
+  metric: ExperimentMetricDefinition;
+  metricName: string;
+  customMetricSlices?: CustomMetricSlice[];
+  getFactTableById: (id: string) => FactTableDefinition | null;
+}): SliceDataForMetric[] {
+  // TODO(funnel-metrics): Add support for slices on funnel metrics
+  if (!isFactMetric(metric) || isFactFunnelMetric(metric)) return [];
+  const factTable = getFactTableById(
+    getFactMetricPrimaryFactTableId(metric as FactMetricInterface),
+  );
+
+  const standardSliceData = createAutoSliceDataForMetric({
+    parentMetric: metric,
+    factTable,
+    includeOther: true,
+  });
+
+  const customSliceData = createCustomSliceDataForMetric({
+    metricId: metric.id,
+    metricName,
+    customMetricSlices: customMetricSlices || [],
+    factTable,
+  });
+
+  // Dedupe (auto and custom slices sometimes overlap)
+  return dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
+}
+
+export function getSliceRowLabel(slice: SliceDataForMetric): string {
+  return slice.sliceLevels
+    .map((dl) => {
+      if (dl.levels.length === 0) {
+        const emptyValue = dl.datatype === "string" ? "other" : "null";
+        return `${dl.column}: ${emptyValue}`;
+      }
+      const value = dl.levels[0];
+      if (dl.datatype === "boolean") {
+        return `${dl.column}: ${value}`;
+      }
+      return value;
+    })
+    .join(" + ");
+}
+
 export function generateRowsForMetric({
   metricId,
   resultGroup,
@@ -558,30 +611,14 @@ export function generateRowsForMetric({
   // Calculate slice count (will be computed from actual slice data below)
   let numSlices = 0;
 
-  let sliceData: SliceDataForMetric[] = [];
-
-  if (shouldShowMetricSlices && isFactMetric(metric)) {
-    const factTableId = getFactMetricPrimaryFactTableId(
-      metric as FactMetricInterface,
-    );
-    const factTable = getFactTableById(factTableId);
-
-    const standardSliceData = createAutoSliceDataForMetric({
-      parentMetric: getExperimentMetricById(metricId),
-      factTable,
-      includeOther: true,
-    });
-
-    const customSliceData = createCustomSliceDataForMetric({
-      metricId,
-      metricName: newMetric?.name || "",
-      customMetricSlices: customMetricSlices || [],
-      factTable,
-    });
-
-    // Dedupe (auto and custom slices sometimes overlap)
-    sliceData = dedupeSliceMetrics([...standardSliceData, ...customSliceData]);
-  }
+  const sliceData: SliceDataForMetric[] = shouldShowMetricSlices
+    ? getSliceDataForMetric({
+        metric,
+        metricName: newMetric?.name || "",
+        customMetricSlices,
+        getFactTableById,
+      })
+    : [];
 
   numSlices = sliceData.length;
 
@@ -697,19 +734,7 @@ export function generateRowsForMetric({
         ? isExpanded && sliceMatches
         : isExpanded;
 
-      const label = slice.sliceLevels
-        .map((dl, _index) => {
-          if (dl.levels.length === 0) {
-            const emptyValue = dl.datatype === "string" ? "other" : "null";
-            return `${dl.column}: ${emptyValue}`;
-          }
-          const value = dl.levels[0];
-          if (dl.datatype === "boolean") {
-            return `${dl.column}: ${value}`;
-          }
-          return value;
-        })
-        .join(" + ");
+      const label = getSliceRowLabel(slice);
 
       const sliceRow: ExperimentTableRow = {
         label,

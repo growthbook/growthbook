@@ -42,6 +42,9 @@ How to end a turn:
 - End with ONE short plain-text markdown message. Keep it to 1–4 sentences (or
   a short bulleted list), reference specific numbers from the API responses,
   and don't restate the question, recap steps, or paste raw JSON.
+- If that message ends with a list of options for the user to choose from,
+  append "(recommended)" to the one you would pick; the composer offers it as
+  a ready reply.
 - Calling `askUser` is the alternative way to end a turn (the question is the
   user-visible content — emit no plain text after it).
 
@@ -66,6 +69,10 @@ How to use skills:
   2. `loadSkill('<domain>/references/<leaf>')` — follow that leaf's detailed
      `callApi` workflow.
 - **Standalone domains** have no children — one `loadSkill` is enough.
+- A loaded skill may point to other files in its folder, such as
+  `examples/payload.json`. Load one with `loadSkill('<domain>/<path>')` when
+  the skill tells you to. A script loads as text only: read what it does and
+  carry that out with `callApi` instead.
 - Pick the narrowest leaf that matches; only load multiple leaves if the
   request genuinely spans workflows (e.g. create flag then target it).
 - If no domain fits, ask the user to clarify. Do not invent endpoints.

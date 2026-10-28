@@ -33,6 +33,7 @@ export default function ExperimentSettings({
     () => queryParams.get("editCheckListModal") || false,
   );
 
+  const requireKeyExample = !!form.watch("experimentKeyRegexValidator");
   const srmThreshold = form.watch("srmThreshold");
   const srmHighlightColor =
     srmThreshold && (srmThreshold > 0.01 || srmThreshold < 0.001)
@@ -137,6 +138,53 @@ export default function ExperimentSettings({
                   </Text>
                 </Flex>
               </Flex>
+            </Box>
+
+            {/* Experiment key format */}
+            <Box mb="6" width="100%">
+              <Text
+                as="label"
+                htmlFor="experimentKeyRegexValidator"
+                size="3"
+                className="font-weight-semibold"
+              >
+                Experiment key regex validator
+              </Text>
+              <Text as="p" mb="2" size="2">
+                When set, experimenters must enter a tracking key matching this
+                regex, in the app and via the API. Keys set automatically, like
+                holdouts, and keys discovered in a Data Source are exempt.
+              </Text>
+              <Field
+                id="experimentKeyRegexValidator"
+                {...form.register("experimentKeyRegexValidator")}
+                placeholder="^exp-\d{8}-.+$"
+              />
+            </Box>
+            <Box mb="6" width="100%">
+              <Text
+                as="label"
+                htmlFor="experimentKeyExample"
+                size="3"
+                className="font-weight-semibold"
+              >
+                Experiment key example
+                {requireKeyExample && (
+                  <Text color="red" ml="1">
+                    *
+                  </Text>
+                )}
+              </Text>
+              <Text as="p" mb="2" size="2">
+                Shown when creating a new experiment. Required when a regex
+                validator is set, and must match it.
+              </Text>
+              <Field
+                id="experimentKeyExample"
+                required={requireKeyExample}
+                {...form.register("experimentKeyExample")}
+                placeholder="exp-20260101-checkout-cta"
+              />
             </Box>
 
             {/* import length */}
@@ -344,8 +392,108 @@ export default function ExperimentSettings({
                   value={form.watch("updateSchedule.type")}
                   setValue={(v) => {
                     form.setValue("updateSchedule.type", v);
+                    if (
+                      v !== "cron" &&
+                      form.watch("updateSchedule.analysisEndDateMode") ===
+                        "fixedTime"
+                    ) {
+                      form.setValue(
+                        "updateSchedule.analysisEndDateMode",
+                        "runTime",
+                      );
+                    }
                   }}
                 />
+                {form.watch("updateSchedule.type") !== "never" && (
+                  <Box mt="4">
+                    <Text as="p" size="3" className="font-weight-semibold">
+                      Data cutoff for scheduled updates
+                    </Text>
+                    <Text as="p" mb="2">
+                      If your data takes time to land in your Data Source, use
+                      these options so scheduled updates only include complete
+                      data. Manual updates always include all data.
+                    </Text>
+                    <RadioGroup
+                      disabled={hasFileConfig()}
+                      options={[
+                        {
+                          label: "When the update runs",
+                          value: "runTime",
+                        },
+                        {
+                          label: "Hours before the update runs",
+                          value: "lag",
+                          description: (
+                            <Field
+                              append="hours"
+                              type="number"
+                              style={{ width: "180px" }}
+                              step={1}
+                              min={1}
+                              max={168}
+                              disabled={
+                                hasFileConfig() ||
+                                form.watch(
+                                  "updateSchedule.analysisEndDateMode",
+                                ) !== "lag"
+                              }
+                              {...form.register(
+                                "updateSchedule.analysisEndDateLagHours",
+                                { valueAsNumber: true },
+                              )}
+                            />
+                          ),
+                        },
+                        {
+                          label: "Most recent time of day",
+                          value: "fixedTime",
+                          disabled:
+                            form.watch("updateSchedule.type") !== "cron",
+                          description: (
+                            <>
+                              <Text mb="2" as="p">
+                                Requires a cron schedule.
+                              </Text>
+                              <Field
+                                append="UTC"
+                                type="time"
+                                style={{ width: "180px" }}
+                                disabled={
+                                  hasFileConfig() ||
+                                  form.watch(
+                                    "updateSchedule.analysisEndDateMode",
+                                  ) !== "fixedTime"
+                                }
+                                {...form.register(
+                                  "updateSchedule.analysisEndDateTime",
+                                )}
+                              />
+                            </>
+                          ),
+                        },
+                      ]}
+                      gap="2"
+                      descriptionSize="md"
+                      value={
+                        form.watch("updateSchedule.analysisEndDateMode") ??
+                        "runTime"
+                      }
+                      setValue={(v) => {
+                        form.setValue("updateSchedule.analysisEndDateMode", v);
+                        if (
+                          v === "fixedTime" &&
+                          !form.watch("updateSchedule.analysisEndDateTime")
+                        ) {
+                          form.setValue(
+                            "updateSchedule.analysisEndDateTime",
+                            "00:00",
+                          );
+                        }
+                      }}
+                    />
+                  </Box>
+                )}
               </Box>
             </Box>
 

@@ -41,13 +41,18 @@ import {
 } from "back-end/src/services/featureRevisionEvents";
 import {
   getApiFeatureObj,
-  getSavedGroupMap,
+  getFeatureDefinitionLookups,
 } from "back-end/src/services/features";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { getEnvironments } from "back-end/src/services/organizations";
 import { NotFoundError } from "back-end/src/util/errors";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { getEnabledEnvironments } from "back-end/src/util/features";
+import {
+  confirmationLink,
+  landingActions,
+  requireConfirmation,
+} from "back-end/src/services/confirmations";
 import { assertValidHoldout } from "./v2Shared";
 import { canUseRestApiBypassSetting } from "./reviewBypass";
 
@@ -365,6 +370,17 @@ export async function revertFeatureCore(
       : [];
 
   await assertRevertLandingGuards(context, feature, changes, revision);
+  await requireConfirmation(context, {
+    actions: landingActions(
+      "feature",
+      changes.archived === true && !feature.archived,
+    ),
+    bypassing: bypassedGates,
+    project: feature.project,
+    summary: `Revert ${feature.id} to revision ${version}`,
+    links: [confirmationLink("feature", feature.id)],
+    pin: feature.dateUpdated,
+  });
   const { revision: newRevision, updatedFeature } =
     await createAndPublishRevision({
       context,
@@ -388,7 +404,6 @@ export async function revertFeatureCore(
     }),
   });
 
-  const groupMap = await getSavedGroupMap(context);
   const experimentMap = await getExperimentMapForFeature(context, feature.id);
   // Re-read so events and the response carry the published status; falls back
   // to the in-memory revision instead of failing the already-committed revert.
@@ -414,16 +429,15 @@ export async function revertFeatureCore(
     {},
   );
 
-  const safeRolloutMap =
-    await context.models.safeRollout.getAllPayloadSafeRollouts();
-
   return {
     feature: updatedFeature,
     organization,
-    groupMap,
     experimentMap,
     revision: latestRevision,
-    safeRolloutMap,
+    ...(await getFeatureDefinitionLookups(context, {
+      features: [updatedFeature],
+      experiments: experimentMap.values(),
+    })),
     bypassedGates,
   };
 }

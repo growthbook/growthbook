@@ -18,6 +18,7 @@ import type {
   SubscriptionFunction,
   FeatureUsageSubCallback,
   CustomEventSubCallback,
+  ExperimentViewedSubCallback,
   TrackingCallback,
   TrackingData,
   WidenPrimitives,
@@ -51,6 +52,7 @@ import {
 import {
   runExperiment,
   evalFeature as _evalFeature,
+  buildContextualBanditExperiment,
   getExperimentResult,
   getAllStickyBucketAssignmentDocs,
   decryptPayload,
@@ -60,6 +62,10 @@ import {
   getTrackingUserContext,
 } from "./core";
 import { StickyBucketServiceSync } from "./sticky-bucket-service";
+import {
+  isMissingRemoteGroupIds,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "./remoteSavedGroups";
 
 const isBrowser =
   typeof window !== "undefined" && typeof document !== "undefined";
@@ -87,6 +93,7 @@ export class GrowthBook<
   private _subscriptions: Set<SubscriptionFunction>;
   private _featureUsageSubs: Set<FeatureUsageSubCallback>;
   private _customEventSubs: Set<CustomEventSubCallback>;
+  private _experimentViewedSubs: Set<ExperimentViewedSubCallback>;
   private _assigned: Map<
     string,
     {
@@ -128,6 +135,7 @@ export class GrowthBook<
     this._subscriptions = new Set();
     this._featureUsageSubs = new Set();
     this._customEventSubs = new Set();
+    this._experimentViewedSubs = new Set();
     this.ready = false;
     this._assigned = new Map();
     this._activeAutoExperiments = new Map();
@@ -233,6 +241,8 @@ export class GrowthBook<
     }
     if (data.experiments) {
       this._options.experiments = data.experiments;
+    }
+    if (data.experiments || data.contextualBandits) {
       this._updateAllAutoExperiments();
     }
     this.ready = true;
@@ -272,6 +282,8 @@ export class GrowthBook<
     }
     if (payload.experiments) {
       this._options.experiments = payload.experiments;
+    }
+    if (payload.experiments || payload.contextualBandits) {
       this._updateAllAutoExperiments();
     }
 
@@ -467,6 +479,17 @@ export class GrowthBook<
     this._updateAllAutoExperiments();
   }
 
+  /** The user's remote saved groups, for example from your back end's resolver. */
+  public async setRemoteGroupIds(remoteGroupIds: string[]) {
+    this._options.remoteGroupIds = remoteGroupIds;
+    if (this._options.remoteEval) {
+      await this._refreshForRemoteEval();
+      return;
+    }
+    this._render();
+    this._updateAllAutoExperiments();
+  }
+
   public async setForcedVariations(vars: Record<string, number>) {
     this._options.forcedVariations = vars || {};
     if (this._options.remoteEval) {
@@ -495,8 +518,15 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
-  public getAttributes() {
-    return { ...this._options.attributes, ...this._options.attributeOverrides };
+  public getAttributes(): Attributes {
+    // Remote evaluation sends these, so it includes remote group IDs.
+    return {
+      ...this._options.attributes,
+      ...this._options.attributeOverrides,
+      ...(this._options.remoteGroupIds && {
+        [REMOTE_GROUP_IDS_ATTRIBUTE]: this._options.remoteGroupIds,
+      }),
+    };
   }
 
   public getForcedVariations() {
@@ -539,10 +569,19 @@ export class GrowthBook<
   // Currently singleton-only. UserScopedGrowthBook could use the same signatures;
   // GrowthBookClient would need UserContext in callbacks to identify the user.
   // Fires on deduped feature value changes (not every evalFeature call). Overrides excluded.
-  // One of three plugin streams: feature usage, experiment assignments (subscribe), custom events.
+  // One of three plugin streams: feature usage, experiment assignments (_subscribeExperimentViewed), custom events.
   public _subscribeFeatureUsage(cb: FeatureUsageSubCallback): () => void {
     this._featureUsageSubs.add(cb);
     return () => this._featureUsageSubs.delete(cb);
+  }
+
+  // Internal — first-party plugin use only.
+  // Fires once per deduped experiment assignment, alongside (not instead of) trackingCallback.
+  public _subscribeExperimentViewed(
+    cb: ExperimentViewedSubCallback,
+  ): () => void {
+    this._experimentViewedSubs.add(cb);
+    return () => this._experimentViewedSubs.delete(cb);
   }
 
   // Internal — first-party plugin use only.
@@ -593,6 +632,7 @@ export class GrowthBook<
     this._subscriptions.clear();
     this._featureUsageSubs.clear();
     this._customEventSubs.clear();
+    this._experimentViewedSubs.clear();
     this._assigned.clear();
     this._trackedExperiments.clear();
     this._completedChangeIds.clear();
@@ -658,9 +698,22 @@ export class GrowthBook<
     this._updateAllAutoExperiments(true);
   }
 
+  private _warnedMissingRemoteGroupIds = false;
+
   private _getEvalContext(): EvalContext {
+    const user = this._getUserContext();
+    if (
+      !this._warnedMissingRemoteGroupIds &&
+      isMissingRemoteGroupIds(user, this._options.savedGroups)
+    ) {
+      this._warnedMissingRemoteGroupIds = true;
+      this.log(
+        "The payload has remote saved groups, but the user has no remote group IDs. Rules using them won't match. See setRemoteGroupIds.",
+        {},
+      );
+    }
     return {
-      user: this._getUserContext(),
+      user,
       global: this._getGlobalContext(),
       stack: {
         evaluatedFeatures: new Set(),
@@ -676,6 +729,7 @@ export class GrowthBook<
             ...this._options.attributes,
           }
         : this._options.attributes,
+      remoteGroupIds: this._options.remoteGroupIds,
       enableDevMode: this._options.enableDevMode,
       blockedChangeIds: this._options.blockedChangeIds,
       stickyBucketAssignmentDocs: this._options.stickyBucketAssignmentDocs,
@@ -688,6 +742,7 @@ export class GrowthBook<
       onFeatureUsage: this._options.onFeatureUsage,
       devLogs: this.logs,
       featureUsageSubs: this._featureUsageSubs,
+      experimentViewedSubs: this._experimentViewedSubs,
       trackedExperiments: this._trackedExperiments,
       trackedFeatureUsage: this._trackedFeatures,
     };
@@ -697,6 +752,7 @@ export class GrowthBook<
       features: this._options.features,
       experiments: this._options.experiments,
       log: this.log,
+      debug: this.debug,
       enabled: this._options.enabled,
       qaMode: this._options.qaMode,
       savedGroups: this._options.savedGroups,
@@ -741,11 +797,18 @@ export class GrowthBook<
         "",
       );
     } else {
-      ({ result, trackingCall } = runExperiment(
-        experiment,
-        null,
-        this._getEvalContext(),
-      ));
+      const ctx = this._getEvalContext();
+      let expToRun = experiment;
+      if (experiment.contextualBanditRef) {
+        expToRun = { ...experiment };
+        buildContextualBanditExperiment(
+          expToRun,
+          experiment.contextualBanditRef,
+          experiment.key,
+          ctx,
+        );
+      }
+      ({ result, trackingCall } = runExperiment(expToRun, null, ctx));
       this._onExperimentEval(experiment, result);
     }
 

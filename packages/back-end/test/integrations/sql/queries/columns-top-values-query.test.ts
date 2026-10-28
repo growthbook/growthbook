@@ -1,15 +1,17 @@
 import type { SqlDialect } from "shared/types/sql";
 import type { ColumnInterface } from "shared/types/fact-table";
+import {
+  bigQueryDialect,
+  snowflakeDialect,
+  databricksDialect,
+  prestoDialect,
+  athenaDialect,
+  clickHouseDialect,
+  postgresDialect,
+  redshiftDialect,
+  mysqlDialect,
+} from "shared/dialects";
 import { getColumnsTopValuesQuery } from "back-end/src/integrations/sql/queries/columns-top-values-query";
-import { bigQueryDialect } from "back-end/src/integrations/dialects/bigquery";
-import { snowflakeDialect } from "back-end/src/integrations/dialects/snowflake";
-import { databricksDialect } from "back-end/src/integrations/dialects/databricks";
-import { prestoDialect } from "back-end/src/integrations/dialects/presto";
-import { athenaDialect } from "back-end/src/integrations/dialects/athena";
-import { clickHouseDialect } from "back-end/src/integrations/dialects/clickhouse";
-import { postgresDialect } from "back-end/src/integrations/dialects/postgres";
-import { redshiftDialect } from "back-end/src/integrations/dialects/redshift";
-import { mysqlDialect } from "back-end/src/integrations/dialects/mysql";
 
 function makeColumn(column: string): ColumnInterface {
   return {
@@ -27,6 +29,19 @@ function makeColumn(column: string): ColumnInterface {
 const factTable = {
   sql: "SELECT country, plan, timestamp FROM events WHERE timestamp >= {{startDate}}",
   eventName: "",
+  columns: [],
+};
+
+const jsonFactTable = {
+  sql: "SELECT props, timestamp FROM events WHERE timestamp >= {{startDate}}",
+  eventName: "",
+  columns: [
+    {
+      ...makeColumn("props"),
+      datatype: "json" as const,
+      jsonFields: { plan: { datatype: "string" as const } },
+    },
+  ],
 };
 
 const columns = [makeColumn("country"), makeColumn("plan")];
@@ -72,6 +87,21 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     const sql7 = buildSql(dialect, { lookbackDays: 7 });
     expect(sql7).not.toEqual(sql);
     expect(sql7).toMatch(/timestamp\s*>=/i);
+  });
+
+  it("extracts dotted JSON paths instead of querying them as columns", () => {
+    const sql = buildSql(dialect, {
+      factTable: jsonFactTable,
+      columns: [makeColumn("props.plan")],
+    });
+    // The formatter re-spaces the SQL, so compare without whitespace.
+    const stripWhitespace = (s: string) => s.replace(/\s+/g, "");
+    expect(stripWhitespace(sql)).toContain(
+      stripWhitespace(
+        dialect.castToString(dialect.jsonExtract("props", "plan", false)),
+      ),
+    );
+    expect(sql).toContain("'props.plan'");
   });
 
   it("filters matching values before ranking them", () => {

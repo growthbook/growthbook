@@ -111,10 +111,14 @@ COPY packages/front-end/package.json ./packages/front-end/package.json
 COPY packages/back-end/package.json ./packages/back-end/package.json
 COPY packages/sdk-js/package.json ./packages/sdk-js/package.json
 COPY packages/sdk-react/package.json ./packages/sdk-react/package.json
+COPY packages/remote-saved-groups-csv-parser/package.json ./packages/remote-saved-groups-csv-parser/package.json
 COPY packages/shared/package.json ./packages/shared/package.json
 COPY packages/stats-ts/package.json ./packages/stats-ts/package.json
 # Install dependencies using cached store
-RUN pnpm install --frozen-lockfile --offline
+# GB_SKIP_PREPARE: sdk-js and remote-saved-groups-csv-parser build themselves in
+# "prepare" for Git dependency installs; here their sources aren't copied yet,
+# and `pnpm build` builds them below.
+RUN GB_SKIP_PREPARE=1 pnpm install --frozen-lockfile --offline
 
 # Compile kerberos from source (its prebuilt binary crashes at require time on
 # the distroless runtime); before COPY packages so the layer caches per-lockfile.
@@ -129,7 +133,7 @@ RUN \
   pnpm build \
   && test -f packages/back-end/dist/server.js || (echo "ERROR: packages/back-end/dist/server.js is missing after build!" && exit 1) \
   && rm -rf packages/front-end/.next/cache \
-  && CI=true pnpm install --frozen-lockfile --offline --prod --no-optional \
+  && CI=true GB_SKIP_PREPARE=1 pnpm install --frozen-lockfile --offline --prod --no-optional \
   && CI=true pnpm prune --prod --no-optional \
   && find node_modules \( -name "*.md" -o -name "*.map" -o -name "CHANGELOG*" -o -name "LICENSE*" -o -name "README*" -o \( -name "*.ts" ! -name "*.d.ts" \) \) -type f -delete \
   && find node_modules -type d -name benchmarks -prune -exec rm -rf {} + \
@@ -194,6 +198,9 @@ RUN mkdir -p /krb5deps && \
 # ----------------------------------------------------------------------------
 FROM dhi.io/node:${NODE_MAJOR}-debian12
 WORKDIR /usr/local/src/app
+
+# TEMP for CVE-2026-111497. Remove once dhi.io/node:24-debian12 ships >= 24.22.1.
+COPY --from=node:24.22.1-bookworm-slim /usr/local/bin/node /usr/local/bin/node
 
 # Hardened Python interpreter + gbstats venv + the system shared-lib closure they
 # need (staged in pybuild; absent from the node base).

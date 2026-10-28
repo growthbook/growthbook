@@ -1,12 +1,11 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
-import { useAuth } from "@/services/auth";
 import SelectField from "@/components/Forms/SelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const EditProjectForm: FC<{
-  apiEndpoint: string;
+  save: (project: string) => Promise<unknown>;
   label: ReactElement;
   permissionRequired: (projectId: string) => boolean;
   current?: string;
@@ -14,22 +13,18 @@ const EditProjectForm: FC<{
   ctaEnabled?: boolean;
   cancel: () => void;
   mutate: () => void;
-  method?: string;
   source?: string;
 }> = ({
   current,
-  apiEndpoint,
+  save,
   permissionRequired,
   cancel,
   mutate,
-  method = "POST",
   additionalMessage,
   ctaEnabled = true,
   label,
   source,
 }) => {
-  const { apiCall } = useAuth();
-
   const form = useForm({
     defaultValues: {
       project: current || "",
@@ -47,10 +42,7 @@ const EditProjectForm: FC<{
       open={true}
       close={cancel}
       submit={form.handleSubmit(async (data) => {
-        await apiCall(apiEndpoint, {
-          method,
-          body: JSON.stringify(data),
-        });
+        await save(data.project);
         mutate();
       })}
       cta="Save"

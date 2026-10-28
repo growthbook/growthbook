@@ -1,5 +1,7 @@
 // eslint-disable-next-line no-restricted-imports
 import "../../init/aliases";
+// Forked process, so the server's trust-store change doesn't carry over.
+import "back-end/src/init/distrustRoots";
 import {
   sandboxEval,
   SandboxEvalOptions,

@@ -14,17 +14,23 @@ import {
   REVIEW_CYCLE_STATUSES,
   reviewCycleOf,
   reviewCycleSupersededMessage,
+  standingReviews,
   statusFromStandingVerdicts,
 } from "shared/enterprise";
 import uniqid from "uniqid";
 import { ACTIVE_DRAFT_STATUSES, ActiveDraftStatus } from "shared/validators";
 import type { CreateProps, UpdateProps } from "shared/types/base-model";
 import {
+  DISARMED_BY_EDIT,
+  editDisarmsDraft,
+  REVISION_MODEL,
+} from "back-end/src/services/confirmations";
+import {
   assertCasAuthority,
   type CasAuthority,
 } from "back-end/src/models/casLoop";
 import { isRevisionAuthor } from "back-end/src/revisions/revisionAuthority";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { Context, MakeModelClass } from "back-end/src/models/BaseModel";
 import {
   ArmAcknowledgments,
   hasArmAcknowledgments,
@@ -233,12 +239,12 @@ const BaseClass = MakeModelClass({
 // speaks in the resulting statuses. One place to translate, so the precedence
 // itself is not restated.
 function standingVerdicts(
-  byReviewer: Map<string, ReviewDecision>,
+  reviews: Revision["reviews"],
 ): ("approved" | "changes-requested")[] {
-  return Array.from(byReviewer.values()).flatMap((d) =>
-    d === "approve"
+  return standingReviews(reviews).flatMap(({ decision }) =>
+    decision === "approve"
       ? (["approved"] as const)
-      : d === "request-changes"
+      : decision === "request-changes"
         ? (["changes-requested"] as const)
         : [],
   );
@@ -317,6 +323,7 @@ export class RevisionModel extends BaseClass {
       status: "pending-review",
       resetEntry: {
         id: uniqid("act_"),
+        user: this.context.auditUser,
         userId,
         action: "reopened",
         description:
@@ -368,25 +375,37 @@ export class RevisionModel extends BaseClass {
   ): boolean {
     if (existing.status === "merged") return false;
 
-    if (isRevisionAuthor(existing.authorId, this.context.userId)) return true;
-
-    return canTouchRevision(
-      existing.target.type,
-      this.context,
-      existing.target.snapshot as Record<string, unknown>,
-    );
+    const canTouch = (context: Context) =>
+      canTouchRevision(
+        existing.target.type,
+        context,
+        existing.target.snapshot as Record<string, unknown>,
+      );
+    if (
+      isRevisionAuthor(existing.authorId, this.context.actorId) &&
+      this.context.authorRightsAllow(canTouch)
+    ) {
+      return true;
+    }
+    return canTouch(this.context);
   }
 
   /**
    * Author can delete their own revision. Otherwise, delegate to the adapter.
    */
   protected canDelete(doc: Revision): boolean {
-    if (isRevisionAuthor(doc.authorId, this.context.userId)) return true;
-
-    return getAdapter(doc.target.type).canDelete(
-      this.context,
-      doc.target.snapshot as Record<string, unknown>,
-    );
+    const canDelete = (context: Context) =>
+      getAdapter(doc.target.type).canDelete(
+        context,
+        doc.target.snapshot as Record<string, unknown>,
+      );
+    if (
+      isRevisionAuthor(doc.authorId, this.context.actorId) &&
+      this.context.authorRightsAllow(canDelete)
+    ) {
+      return true;
+    }
+    return canDelete(this.context);
   }
 
   protected migrate(legacyDoc: unknown): Revision {
@@ -466,6 +485,11 @@ export class RevisionModel extends BaseClass {
       const activityLog: ActivityLogEntry[] = [
         {
           id: uniqid("act_"),
+          // A backfilled baseline is authored by the entity's owner, not by
+          // whoever's edit created it.
+          ...(doc.authorId === this.context.actorId && {
+            user: this.context.auditUser,
+          }),
           userId: doc.authorId,
           action: "created",
           description,
@@ -843,6 +867,22 @@ export class RevisionModel extends BaseClass {
    * `authorId` is supplied, restrict to revisions authored by that user — the
    * `?mine=true` query path. Used by the public `revisions/latest` endpoint.
    */
+  /** Every open revision of an entity, if the entity can be read. */
+  async getOpenByTarget(entityType: RevisionTargetType, entityId: string) {
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return [];
+    return this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        status: { $in: [...RevisionModel.OPEN_STATUSES] },
+      } as Record<string, unknown>,
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
   async getLatestOpenByTarget(
     entityType: RevisionTargetType,
     entityId: string,
@@ -867,6 +907,33 @@ export class RevisionModel extends BaseClass {
       limit: 1,
     });
     return results[0] ?? null;
+  }
+
+  // The entity version a draft is based on: its latest merge as of when the
+  // draft started or was last rebased, or 0 when none is found.
+  async getBaseVersion(revision: Revision): Promise<number> {
+    let rebasedAt: Date | undefined;
+    for (let i = revision.activityLog.length - 1; i >= 0; i--) {
+      if (revision.activityLog[i].targetSnapshot !== undefined) {
+        rebasedAt = revision.activityLog[i].dateCreated;
+        break;
+      }
+    }
+    const [base] = await this._find(
+      {
+        "target.type": revision.target.type,
+        "target.id": revision.target.id,
+        status: "merged",
+        id: { $ne: revision.id },
+        "resolution.dateCreated": { $lte: rebasedAt ?? revision.dateCreated },
+      } as Record<string, unknown>,
+      {
+        sort: { "resolution.dateCreated": -1, version: -1 },
+        limit: 1,
+        bypassReadPermissionChecks: true,
+      },
+    );
+    return base?.version ?? 0;
   }
 
   // Select the revision merged most recently; publish order can differ from creation order.
@@ -1018,12 +1085,9 @@ export class RevisionModel extends BaseClass {
               : armed
                 ? CLEARED_DATED_SCHEDULE
                 : {}),
-            // The auto-publish runs with the arming user's authority. A stale
-            // value from a previous cycle is harmless — `autoPublishOnApproval`
-            // gates everything. `userId` is empty for API-key actors; skip so the
-            // publish falls back to `authorId`.
+            // The auto-publish runs as the armer, a user or an org API key.
             // Replaced, not conditionally set — see setAutoPublishOnApproval.
-            autoPublishEnabledBy: armed && userId ? userId : null,
+            autoPublishEnabledBy: armed ? this.context.armerId : null,
             // Arm-time guard fingerprints: set the new acknowledgments, or clear a
             // stale set from a prior arm (to {}) so a re-arm with no current conflicts
             // can't be covered by an outdated fingerprint.
@@ -1036,6 +1100,7 @@ export class RevisionModel extends BaseClass {
               ...this.cleanActivityLog(existing.activityLog),
               {
                 id: uniqid("act_"),
+                user: this.context.auditUser,
                 userId,
                 // Timeline label and review-cycle start marker.
                 action: "review-requested",
@@ -1086,13 +1151,12 @@ export class RevisionModel extends BaseClass {
         );
       }
 
-      // Auto-publish runs with the arming user's authority, so the identity is
-      // REPLACED on every transition — left behind, an identityless arm (API
-      // key, system actor) inherits whoever armed last and the deferred publish
-      // runs as that user. `null` clears it.
+      // Auto-publish runs as the armer, so the identity is REPLACED on every
+      // transition — left behind, an identityless arm (system actor) inherits
+      // whoever armed last. `null` clears it.
       return {
         autoPublishOnApproval: enabled,
-        autoPublishEnabledBy: enabled && userId ? userId : null,
+        autoPublishEnabledBy: enabled ? this.context.armerId : null,
         // Arm-time guard fingerprints: set the new acknowledgments, or clear a
         // stale set from a prior arm (to {}) so a re-arm with no current
         // conflicts can't be covered by an outdated fingerprint.
@@ -1145,6 +1209,7 @@ export class RevisionModel extends BaseClass {
     // Build these once so CAS retries re-base the same entry, not a duplicate.
     const review: Revision["reviews"][number] = {
       id: uniqid("rev_"),
+      user: this.context.auditUser,
       userId,
       decision,
       ...(comment ? { comment } : {}),
@@ -1152,6 +1217,7 @@ export class RevisionModel extends BaseClass {
     };
     const activityEntry: ActivityLogEntry = {
       id: uniqid("act_"),
+      user: this.context.auditUser,
       userId,
       action: actionMap[decision],
       ...(comment ? { description: comment } : {}),
@@ -1227,21 +1293,14 @@ export class RevisionModel extends BaseClass {
           );
         }
 
-        // Latest active (non-stale) verdict per reviewer; comments carry none.
-        // Prior cycles' verdicts were demoted to stale at the reset (see
-        // staleVerdicts), so they're history, not active approvals/blocks.
-        const verdictByReviewer = new Map<string, ReviewDecision>();
-        for (const r of [...existing.reviews, review]) {
-          if (r.decision === "comment" || r.stale) continue;
-          verdictByReviewer.set(r.userId, r.decision);
-        }
         // Comments leave the status alone; otherwise the shared precedence rule
-        // decides, with the row's current status as the fallback.
+        // decides, with the row's current status as the fallback. Prior cycles'
+        // verdicts were demoted to stale at the reset (see staleVerdicts).
         const newStatus =
           decision === "comment"
             ? existing.status
             : statusFromStandingVerdicts(
-                standingVerdicts(verdictByReviewer),
+                standingVerdicts([...existing.reviews, review]),
                 existing.status,
               );
 
@@ -1307,6 +1366,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "recalled",
               description: "Recalled review request — returned to draft",
@@ -1387,6 +1447,7 @@ export class RevisionModel extends BaseClass {
         const retractedVerdict = retracted[retracted.length - 1];
         const activityEntry: ActivityLogEntry = {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "review-retracted",
           description: JSON.stringify({
@@ -1395,17 +1456,13 @@ export class RevisionModel extends BaseClass {
             ...(retractedVerdict?.comment
               ? { comment: retractedVerdict.comment }
               : {}),
+            ...(retractedVerdict?.user ? { user: retractedVerdict.user } : {}),
           }),
           dateCreated: new Date(),
         };
 
-        const verdictByReviewer = new Map<string, ReviewDecision>();
-        for (const r of newReviews) {
-          if (r.decision === "comment" || r.stale) continue;
-          verdictByReviewer.set(r.userId, r.decision);
-        }
         const newStatus = statusFromStandingVerdicts(
-          standingVerdicts(verdictByReviewer),
+          standingVerdicts(newReviews),
           "pending-review",
         );
 
@@ -1418,6 +1475,9 @@ export class RevisionModel extends BaseClass {
           ],
         } as UpdateProps<Revision>;
       },
+      // `authority` decides, rechecked above on every attempt: a reviewer may
+      // withdraw their own verdict without the update backstop's authority.
+      { dangerouslyBypassCanUpdate: true },
     );
     if (!updated) throw new Error("Revision not found");
     return updated;
@@ -1430,14 +1490,19 @@ export class RevisionModel extends BaseClass {
   // same document the write is conditioned on — a concurrent rebase that moves
   // the target's project can't slip between the check and the write.
   private assertCanWriteCommentOn(existing: Revision): void {
-    if (isRevisionAuthor(existing.authorId, this.context.userId)) return;
-    if (
-      !canCommentOnRevision(
+    const canComment = (context: Context) =>
+      canCommentOnRevision(
         existing.target.type,
-        this.context,
+        context,
         existing.target.snapshot as Record<string, unknown>,
-      )
+      );
+    if (
+      isRevisionAuthor(existing.authorId, this.context.actorId) &&
+      this.context.authorRightsAllow(canComment)
     ) {
+      return;
+    }
+    if (!canComment(this.context)) {
       this.context.permissions.throwPermissionError();
     }
   }
@@ -1579,6 +1644,7 @@ export class RevisionModel extends BaseClass {
         } as Revision["target"],
         entry: {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "updated",
           description: "Updated proposed changes",
@@ -1623,6 +1689,10 @@ export class RevisionModel extends BaseClass {
         // Read by the full advance proof: the pure-revert arm asks what this draft
         // reverts, so a concurrent change to it changes the authority answer.
         "revertedFrom",
+        // Read by the disarm backstop: arming between the read and the write must
+        // make this attempt lose.
+        "autoPublishOnApproval",
+        "scheduledPublishAt",
       ],
       async (existing) => {
         await assertCasAuthority(authority, existing);
@@ -1633,8 +1703,14 @@ export class RevisionModel extends BaseClass {
           { ...existing, target },
           userId,
         );
+        const disarm = editDisarmsDraft(
+          this.context,
+          REVISION_MODEL[existing.target.type],
+          { ...existing, target },
+        );
         return {
           target,
+          ...(disarm ? CLEARED_SCHEDULE : {}),
           // An approval reset starts a new cycle — demote the prior verdicts.
           ...(status
             ? {
@@ -1647,6 +1723,18 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             entry,
             ...(resetEntry ? [resetEntry] : []),
+            ...(disarm
+              ? [
+                  {
+                    id: uniqid("act_"),
+                    user: this.context.auditUser,
+                    userId,
+                    action: "scheduled-publish-canceled" as const,
+                    description: DISARMED_BY_EDIT,
+                    dateCreated: new Date(),
+                  },
+                ]
+              : []),
           ],
           contributors: this.withContributor(existing.contributors, userId),
         } as UpdateProps<Revision>;
@@ -1694,6 +1782,7 @@ export class RevisionModel extends BaseClass {
       } as Revision["target"],
       entry: {
         id: uniqid("act_"),
+        user: this.context.auditUser,
         userId,
         action: "updated" as const,
         description: "Rebased revision on current live state",
@@ -1793,6 +1882,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "merged",
               description,
@@ -1853,6 +1943,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "discarded",
               description: reason || "Discarded revision",
@@ -1934,6 +2025,7 @@ export class RevisionModel extends BaseClass {
       $push: {
         activityLog: {
           id: uniqid("act_"),
+          user: this.context.auditUser,
           userId,
           action: "reopened" as const,
           description: "Reopened revision — publish failed to apply",
@@ -1993,6 +2085,7 @@ export class RevisionModel extends BaseClass {
             ...this.cleanActivityLog(existing.activityLog),
             {
               id: uniqid("act_"),
+              user: this.context.auditUser,
               userId,
               action: "reopened",
               description: "Reopened revision",
@@ -2064,7 +2157,8 @@ export class RevisionModel extends BaseClass {
           $push: {
             activityLog: {
               id: uniqid("act_"),
-              userId: enabledBy ?? existing.authorId,
+              user: this.context.auditUser,
+              userId: this.context.actorId,
               action: "scheduled-publish-canceled",
               description: "Cancelled scheduled publish",
               dateCreated: now,
@@ -2087,7 +2181,8 @@ export class RevisionModel extends BaseClass {
 
     const armEntry: ActivityLogEntry = {
       id: uniqid("act_"),
-      userId: enabledBy ?? existing.authorId,
+      user: this.context.auditUser,
+      userId: this.context.actorId,
       action: existing.scheduledPublishAt
         ? "scheduled-publish-updated"
         : "scheduled-publish",
@@ -2447,7 +2542,7 @@ export class RevisionModel extends BaseClass {
         comment: target.comment,
         revertedFrom: target.revertedFrom,
         status: "draft",
-        authorId: this.context.userId,
+        authorId: this.context.actorId,
         reviews: [],
         activityLog: [],
         // CreateProps strips fields generated by BaseModel (id, version,
@@ -2526,7 +2621,7 @@ export class RevisionModel extends BaseClass {
     const cleanedSnapshot = getAdapter(params.type).buildSnapshot(
       params.snapshot,
     );
-    const userId = this.context.userId;
+    const userId = this.context.actorId;
     const now = new Date();
 
     return this.createWithVersionRetry(() =>
@@ -2550,6 +2645,7 @@ export class RevisionModel extends BaseClass {
         activityLog: [
           {
             id: uniqid("act_"),
+            user: this.context.auditUser,
             userId,
             action: "merged",
             description: params.bypass

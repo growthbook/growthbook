@@ -413,7 +413,7 @@ export default function TabbedPage({
       return false;
     }
 
-    // only show if there are atleast 2 metrics in any section
+    // only show if there are at least 2 metrics in any section
     if (
       experiment.goalMetrics.length > 2 ||
       experiment.secondaryMetrics.length > 2 ||
@@ -477,7 +477,7 @@ export default function TabbedPage({
               deviceType,
             });
           }}
-          cta="Open Visual Editor"
+          cta="Open AI Visual Editor"
           source={trackSource}
         />
       )}
@@ -680,6 +680,7 @@ export default function TabbedPage({
         <ResultsTab
           experiment={experiment}
           mutate={mutate}
+          holdoutProjects={holdout?.projects}
           editMetrics={editMetrics}
           editResult={editResult}
           newPhase={newPhase}
@@ -740,6 +741,7 @@ export default function TabbedPage({
               variationFilter: [],
             });
           }}
+          isTabActive={tab === "health"}
         />
       </div>
 

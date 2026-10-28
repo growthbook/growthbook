@@ -62,7 +62,7 @@ export async function putUpload(
     );
   }
 
-  // The user can upload images if they have permission to add comments globally, or in atleast 1 project
+  // The user can upload images if they have permission to add comments globally, or in at least 1 project
   if (!context.permissions.canAddComment([])) {
     context.permissions.throwPermissionError();
   }
@@ -207,13 +207,14 @@ export async function getSignedPublicImageToken(
   res: Response<SignedImageUrlResponse | { status: number; message: string }>,
 ) {
   // Get the shareUid and shareType from query parameters
-  const shareUid = req.query.shareUid as string | undefined;
+  const { shareUid } = req.query;
   const shareType = req.query.shareType as "experiment" | "report" | undefined;
 
-  if (!shareUid) {
+  // An object would reach the database filter and act as a query operator.
+  if (!shareUid || typeof shareUid !== "string") {
     res.status(400).json({
       status: 400,
-      message: "Missing shareUid query parameter",
+      message: "Invalid or missing shareUid query parameter",
     });
     return;
   }

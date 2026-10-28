@@ -1,3 +1,5 @@
+import { z } from "zod";
+import type { exposureQueryColumnMappingValidator } from "shared/validators";
 import { AthenaConnectionParams } from "./integrations/athena";
 import { BigQueryConnectionParams } from "./integrations/bigquery";
 import { ClickHouseConnectionParams } from "./integrations/clickhouse";
@@ -11,7 +13,7 @@ import { DatabricksConnectionParams } from "./integrations/databricks";
 import { AdobeExperiencePlatformQueryServiceConnectionParams } from "./integrations/adobe-experience-platform-query-service";
 import { MetricType } from "./metric";
 import { MssqlConnectionParams } from "./integrations/mssql";
-import { FactTableColumnType } from "./fact-table";
+import { DetectedColumn, FactTableColumnType } from "./fact-table";
 import { EventForwarderConfigWithMetadata } from "./event-forwarder";
 
 export type DataSourceType =
@@ -63,6 +65,8 @@ export type SchemaFormat =
   | "firebase"
   | "keen"
   | "clevertap"
+  | "langfuse"
+  | "phoenix"
   | "eventForwarder"
   | "custom";
 
@@ -81,6 +85,7 @@ type GetExperimentSqlOptions = {
   actionName?: string;
   eventType?: string;
   projectId?: string;
+  projectName?: string;
   tablePrefix?: string;
   actionPrefix?: string;
   siteId?: string | number;
@@ -90,7 +95,7 @@ type GetExperimentSqlOptions = {
 export interface SchemaInterface {
   getExperimentSQL(
     tablePrefix: string,
-    userId: string,
+    userIdTypes: string[],
     options?: GetExperimentSqlOptions,
   ): string;
   getIdentitySQL(
@@ -124,7 +129,8 @@ export interface SchemaFormatConfig {
     schema?: string;
   }) => string;
   getEventFilterWhereClause: (metricName: string) => string;
-  getDateLimitClause: (dates?: { start: Date; end: Date }) => string;
+  // Lower bound only: a day-precision upper bound drops the end date's rows
+  getDateLimitClause: (start?: Date) => string;
   displayNameColumn?: string;
 }
 
@@ -177,7 +183,12 @@ export interface ExposureQuery {
   id: string;
   name: string;
   description?: string;
+  /**
+   * Frozen legacy identifier: what records without a stored identifier analyze
+   * on. Set once when the query is created and never follows `userIdTypes`.
+   */
   userIdType: string;
+  userIdTypes: string[];
   query: string;
   hasNameCol?: boolean;
   dimensions: string[];
@@ -186,7 +197,23 @@ export interface ExposureQuery {
   error?: string;
   /** Set to "api" for queries auto-created by Event Forwarder. */
   managedBy?: "" | "api";
+  /** Projects this query is scoped to. Empty = all of the data source's projects; when set, a subset of them. */
+  projects?: string[];
+  columnMapping?: ExposureQueryColumnMapping;
+  /**
+   * Columns the query returned when it was last tested in the editor, so the
+   * column mapping can be edited without re-running the query.
+   */
+  columns?: Pick<DetectedColumn, "column" | "datatype">[];
 }
+
+/**
+ * The columns an assignment query's roles read from, for SQL that doesn't alias
+ * them to the canonical names.
+ */
+export type ExposureQueryColumnMapping = z.infer<
+  typeof exposureQueryColumnMappingValidator
+>;
 
 export interface FeatureUsageQuery {
   id: string;

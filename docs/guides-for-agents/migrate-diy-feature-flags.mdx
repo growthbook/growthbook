@@ -1,0 +1,2348 @@
+---
+title: "Migrate DIY Feature Flags"
+description: "Inventory environment-variable, hard-coded, JSON, and database feature flags, then migrate them to GrowthBook through typed adapters, shadow evaluation, measured cutover, and reversible cleanup."
+sidebarTitle: "Migrate DIY feature flags"
+last_verified: "2026-08-12"
+last_verified_growthbook_commit: "e44a15af063860c7118f52508746356d55e5a91d"
+tested_stack:
+  - "@growthbook/growthbook 1.7.0"
+  - "growthbook CLI 1.0.0"
+  - "Node.js 22"
+  - "TypeScript 5.7"
+  - "Jest 29.7"
+---
+
+## TL;DR
+
+This guide replaces scattered environment-variable, hard-coded, JSON, and database flags with GrowthBook without a big-bang cutover. The agent inventories the legacy system, writes its semantic contract, puts a typed provider boundary in front of every read, compares GrowthBook decisions in shadow mode, transfers authority one flag at a time, and deletes the old paths only after the observation window closes.
+
+The key safety property is reversibility. Legacy mode remains available during migration, per-key cutover is allowlisted, mismatches are observable without leaking identities, and original cohort behavior is preserved or consciously changed. The finished state is one authoritative provider, tested fallbacks, documented ownership, and no hidden legacy path serving traffic.
+
+_This guide is optimized for AI coding agents, and it is recommended that you hand it off to your agent of choice for implementation._
+
+## Guide map
+
+| Phase                              | What the agent does                                                                                 | Receipt to return                                                                |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| 0: Inventory and preserve behavior | Find every flag source, classify non-flags, snapshot legacy semantics, and add one typed boundary   | Inventory, migration manifest, parity fixtures, and legacy-mode tests            |
+| 1: Shadow and cut over             | Evaluate both providers, explain mismatches, and serve GrowthBook for one low-risk allowlisted key  | Shadow metrics, decision receipts, fallback tests, and rollback proof            |
+| 100: Retire the old system         | Move remaining flags, stop legacy mutations, remove fallback reads, and delete retained data safely | Zero unexplained mismatches, authoritative-provider evidence, and cleanup record |
+
+## Give this guide to your coding agent
+
+Copy this page's URL and the prompt below into a coding agent that can inspect your repository. Replace `REPLACE_WITH_REPOSITORY` with the repository path or name and `REPLACE_WITH_GUIDE_URL` with this page's public URL. Start in a branch, worktree, or disposable clone, and keep the legacy provider authoritative during the first pass.
+
+```text
+You are working in REPLACE_WITH_REPOSITORY.
+
+Your task is to migrate this application's DIY feature flags toward GrowthBook
+through an inventory, typed provider boundary, and shadow comparison without
+changing production behavior or deleting the legacy fallback.
+
+Read REPLACE_WITH_GUIDE_URL in full before editing. Also read the repository's
+local agent instructions. Treat the operator's instructions, repository truth,
+and current official product/framework documentation as authoritative when they
+conflict with the guide. Revalidate the guide's tested versions and volatile
+surfaces before copying an executable step.
+
+Inventory every current flag source and preserve its actual semantics. Do not
+reclassify authorization, entitlement, secrets, or permanent configuration as
+ordinary flags. Adapt the reference implementation to the repository; do not
+invent cohort behavior or silently accept mismatches. Complete phase 0 and the
+safe, non-production parts of phase 1. Do not serve GrowthBook decisions in
+production, stop legacy mutations, delete fallback reads or data, or make another
+external write unless I explicitly authorize that exact action.
+
+Return: your fit or reject decision; inventory and classification; assumptions;
+files changed; commands and tests run; parity, mismatch, serving-mode, failure,
+and rollback receipts; deviations from the guide; and the remaining cutover and
+cleanup steps. If you cannot fetch the guide URL, stop and ask me for its Markdown
+version. Do not proceed from the TL;DR alone.
+```
+
+## Task
+
+Replace an application-specific feature flag system with GrowthBook without changing production behavior in one large cutover. The legacy system may combine environment variables, hard-coded booleans, JSON files, a database table, account allowlists, or homegrown percentage rollouts.
+
+This guide performs the migration as observable, reversible changes. It inventories and classifies each switch, puts one typed interface in front of reads, compares GrowthBook in shadow mode, transfers control one flag at a time, and removes the old system only after it stops serving traffic.
+
+The reference Node.js/TypeScript service uses one `GrowthBookClient` for feature definitions and request-scoped evaluators for isolated user attributes. Browser applications should use the [JavaScript SDK](/lib/js) or their framework SDK.
+
+## Use this guide when
+
+- Your application already has feature-like conditions spread across environment variables, source files, configuration files, or database rows.
+- Changing a runtime flag currently requires a deployment, a database edit, or a custom admin endpoint.
+- You need targeting, gradual rollout, environment separation, a kill switch, an experiment, or a visible change history.
+- You cannot accept a big-bang provider replacement.
+- You can observe both legacy and GrowthBook decisions before GrowthBook serves them.
+- You have a stable user, device, or account identifier for any percentage-based rule.
+
+## Do not use this guide when
+
+- The value is a build-time constant that should change only when you build a new artifact.
+- The value is a secret, credential, connection string, or cryptographic key.
+- The condition grants authorization, enforces a billing entitlement, or protects data. A feature flag may hide a control or stage a feature, but the server must still enforce authorization and entitlement independently.
+- The value is permanent application configuration with no release lifecycle. Keep it in typed configuration unless runtime targeting is a real requirement.
+- A single static Boolean, owned by one developer, with no runtime changes or targeting, is genuinely the complete requirement. A small DIY switch may be the simpler system.
+- The old implementation cannot be read safely in parallel. First create a read-only snapshot or a test environment where comparison cannot mutate state.
+
+## Tested stack
+
+The complete TypeScript examples were checked against GrowthBook commit `e44a15af063860c7118f52508746356d55e5a91d`, including `@growthbook/growthbook` 1.7.0 evaluation behavior and the SDK's own feature, typed-feature, and multi-user tests. The reference commands assume Node.js 22, TypeScript 5.7, npm, and Jest 29.7.
+
+Pin the SDK and CLI versions in your lockfile. Re-run the contract tests in this guide before adopting a newer major version or changing GrowthBook rule semantics.
+
+## Required access
+
+You need:
+
+- Read access to the application repository, deployment configuration, and legacy flag table or configuration store.
+- Permission to create a GrowthBook project, feature flags, attributes, and SDK connections for the environments in scope.
+- A GrowthBook SDK client key for each deployed environment. SDK connection endpoints are read-only and intended for SDK delivery; do not confuse the client key with a REST API secret.
+- A Secret Key or Personal Access Token only if you enable CLI type generation in CI. Store it as `GBCLI_BEARER_AUTH`; never commit it or pass it to application code.
+- Access to production logs or metrics so you can measure shadow mismatches and fallback use.
+- An owner who can decide whether assignment changes are acceptable for existing percentage rollouts.
+
+## Files this guide creates
+
+Adapt the paths to your repository, but keep the provider boundary intact:
+
+```text
+scripts/
+  inventory-feature-flags.mjs
+src/
+  feature-flags/
+    app-features.ts
+    context.ts
+    provider.ts
+    legacy-loader.ts
+    legacy-provider.ts
+    feature-refresh.ts
+    growthbook-provider.ts
+    decision-telemetry.ts
+    migrating-provider.ts
+    bootstrap.ts
+tests/
+  feature-flags/
+    growthbook-provider.test.ts
+    migrating-provider.test.ts
+    parity-contract.test.ts
+.github/
+  workflows/
+    feature-flag-contract.yml
+```
+
+Do not create every file before you understand the old behavior. The inventory and semantic contract come first.
+
+## End state
+
+The migration is complete only when all of these statements are true:
+
+1. Every legacy switch has a recorded owner, type, source, purpose, safe fallback, environment scope, and removal decision.
+2. Authorization, billing entitlements, secrets, and permanent configuration remain outside the feature flag system.
+3. All application reads go through one typed provider interface.
+4. GrowthBook uses the same attribute names, types, rule order, environment mapping, and intended randomization unit as the accepted migration contract.
+5. Shadow telemetry shows no unexplained decision mismatch for the contexts that matter.
+6. A known assignment change in a percentage rollout is either prevented or explicitly accepted before cutover.
+7. Production can return to the legacy provider through a deployment-level switch during the cutover window.
+8. A GrowthBook fetch failure produces the documented code fallback or temporary legacy fallback. It does not produce an accidental truthy value.
+9. Unit, targeting, failure, and parity tests pass in CI.
+10. The legacy mutation path is disabled before its data and code are deleted.
+11. Code references, stale review, ownership, and cleanup dates are part of the ongoing flag lifecycle.
+
+## Rollback
+
+Keep `FLAG_PROVIDER_MODE=legacy` available until every migrated flag has completed its observation window. If a GrowthBook-served decision causes an incident:
+
+1. Set `FLAG_PROVIDER_MODE=legacy` in the deployment configuration.
+2. Restart or redeploy the affected service so the startup-only mode changes.
+3. Confirm the startup receipt reports `"mode":"legacy"`.
+4. Confirm decision telemetry reports `"servedBy":"legacy"` for the affected key.
+5. Revert the GrowthBook feature revision if the issue is a rule or value error.
+6. Preserve mismatch and incident evidence before editing either implementation.
+
+After the legacy code has been deleted, rollback means redeploying the last release that still contains it. Record that release or image digest before deletion. A GrowthBook flag cannot restore code that is no longer in the application.
+
+## Understand what you are replacing
+
+A DIY feature flag often starts as one line:
+
+```ts
+const checkoutV2 = process.env.FEATURE_CHECKOUT_V2 === "true";
+```
+
+That line may be the correct solution. The migration becomes worthwhile when the surrounding requirements have already appeared: runtime changes, environment separation, stable percentage assignment, user or account targeting, review, diagnostics, experiments, and cleanup.
+
+The decision is not “one Boolean versus a platform.” It is “the system you currently operate, including its undocumented behavior, versus a maintained control plane.” Do not erase working behavior just to make the architecture look cleaner.
+
+| Requirement      | Keep the DIY implementation when                  | A shared feature flag system becomes useful when                         |
+| ---------------- | ------------------------------------------------- | ------------------------------------------------------------------------ |
+| Change timing    | A deploy is the intended review and release event | An operator must change behavior without rebuilding the app              |
+| Scope            | One process and one environment                   | Multiple services, clients, or environments must agree                   |
+| Targeting        | One static condition in code                      | Rules depend on users, accounts, plans, geography, or saved groups       |
+| Rollout          | Everyone receives the same value                  | Exposure must expand gradually with stable assignment                    |
+| Measurement      | No exposure or outcome analysis is needed         | The same flag may become an experiment                                   |
+| Operations       | The code owner is always available                | Support, product, data, and engineering need a visible state and history |
+| Failure behavior | A deployment rollback is fast enough              | The application needs a remote kill switch plus a local fallback         |
+| Lifecycle        | The switch is permanent configuration             | Temporary flags require owners, references, stale review, and removal    |
+
+GrowthBook feature evaluation normally happens locally in the SDK after the feature payload has loaded. A flag check does not need a control-plane request every time. The migration still adds operational dependencies: payload delivery, SDK initialization, identity quality, and a publishing workflow. This guide makes those dependencies visible instead of treating them as magic.
+
+## Phase 0: Freeze unsafe changes
+
+Do not migrate while the old system is changing underneath you. Establish a short change freeze for the first flag or require every legacy change to be mirrored in GrowthBook during shadow mode.
+
+Before editing code:
+
+```bash
+git status --short
+git rev-parse HEAD
+git grep -n -E 'FEATURE_|FLAG_|feature[_-]?flag|isFeatureEnabled|rollout|kill[_-]?switch'
+```
+
+Record the commit and deployment revision that the inventory describes. If the worktree is dirty, determine which changes belong to the migration before proceeding. Do not overwrite unrelated edits.
+
+Create a migration issue or runbook with these global decisions:
+
+- **Cutover owner:** The person who can change `FLAG_PROVIDER_MODE` and redeploy.
+- **Observation window:** At least enough traffic to exercise the important targeting branches. Use time and traffic, not time alone.
+- **Mismatch budget:** Zero unexplained mismatches for kill switches and high-risk release flags. A documented cohort change may be acceptable for low-risk rollouts.
+- **Fallback policy:** The safe code value for each key and whether a temporary legacy fallback is allowed.
+- **Identity policy:** The canonical user, anonymous device, and account identifiers.
+- **Mutation freeze:** Who can change legacy values and how those changes are mirrored.
+- **Deletion gate:** The exact evidence required before legacy code, rows, or admin endpoints can be removed.
+
+## Inventory every possible flag source
+
+Start broad. Search results are candidates, not confirmed flags. Terms such as `enabled`, `beta`, or `rollout` also appear in tests, library code, and ordinary domain logic.
+
+If `rg` is installed, run these searches from the repository root:
+
+```bash
+rg -n --hidden \
+  --glob '!node_modules/**' \
+  --glob '!dist/**' \
+  --glob '!build/**' \
+  --glob '!.git/**' \
+  '(FEATURE_|FLAG_|FF_|KILL_SWITCH|ENABLE_[A-Z0-9_]+)'
+
+rg -n --hidden \
+  --glob '!node_modules/**' \
+  --glob '!dist/**' \
+  --glob '!build/**' \
+  --glob '!.git/**' \
+  '(isFeatureEnabled|featureFlags?|flagProvider|percentageRollout|rolloutPercent|variant|treatment)'
+
+rg -n --hidden \
+  --glob '*.{ts,tsx,js,jsx,json,yaml,yml,toml,env,sql}' \
+  '(process\.env\.|import\.meta\.env\.|getenv\(|config\.(get|has)\(|SELECT.+feature|feature_flags)'
+```
+
+Search deployment and infrastructure files too. A flag that does not appear in source may still enter through Kubernetes, Terraform, a CI variable, or a platform dashboard:
+
+```bash
+rg -n --hidden \
+  --glob '*.{yaml,yml,json,toml,tf,tfvars,Dockerfile}' \
+  '(FEATURE_|FLAG_|ENABLE_|KILL_SWITCH|feature.flag)'
+```
+
+### Add a repeatable inventory script
+
+The following dependency-free script emits JSON Lines so you can diff findings across commits. It does not claim that every match is a flag. It gives the agent and reviewer a bounded queue for classification.
+
+Create `scripts/inventory-feature-flags.mjs`:
+
+```js
+import { readdir, readFile, stat } from "node:fs/promises";
+import { relative, resolve } from "node:path";
+
+const root = resolve(process.argv[2] ?? process.cwd());
+const ignoredDirectories = new Set([
+  ".git",
+  ".next",
+  "build",
+  "coverage",
+  "dist",
+  "node_modules",
+  "vendor",
+]);
+
+const allowedExtensions = new Set([
+  ".cjs",
+  ".env",
+  ".js",
+  ".json",
+  ".jsx",
+  ".mjs",
+  ".sql",
+  ".tf",
+  ".toml",
+  ".ts",
+  ".tsx",
+  ".yaml",
+  ".yml",
+]);
+
+const patterns = [
+  ["environment-key", /\b(?:FEATURE|FLAG|FF|ENABLE|KILL_SWITCH)_[A-Z0-9_]+\b/g],
+  ["environment-read", /\b(?:process\.env|import\.meta\.env)\.[A-Z0-9_]+\b/g],
+  [
+    "flag-api",
+    /\b(?:isFeatureEnabled|featureFlags?|flagProvider|getFeatureValue|evalFeature)\b/g,
+  ],
+  [
+    "rollout",
+    /\b(?:percentageRollout|rolloutPercent|hashAttribute|variation|treatment)\b/g,
+  ],
+  ["flag-table", /\b(?:feature_flags?|flag_overrides?|account_flags?)\b/gi],
+];
+
+function extension(path) {
+  const name = path.split(/[\\/]/).at(-1) ?? "";
+  if (name.startsWith(".env")) return ".env";
+  const dot = name.lastIndexOf(".");
+  return dot === -1 ? "" : name.slice(dot).toLowerCase();
+}
+
+async function* walk(directory) {
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    if (entry.isDirectory() && ignoredDirectories.has(entry.name)) continue;
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) {
+      yield* walk(path);
+      continue;
+    }
+    if (!entry.isFile() || !allowedExtensions.has(extension(path))) continue;
+    const details = await stat(path);
+    if (details.size > 2_000_000) continue;
+    yield path;
+  }
+}
+
+for await (const path of walk(root)) {
+  const lines = (await readFile(path, "utf8")).split(/\r?\n/);
+  for (let index = 0; index < lines.length; index += 1) {
+    for (const [kind, pattern] of patterns) {
+      pattern.lastIndex = 0;
+      const matches = [...lines[index].matchAll(pattern)].map(
+        (match) => match[0],
+      );
+      if (matches.length === 0) continue;
+      process.stdout.write(
+        `${JSON.stringify({
+          kind,
+          path: relative(root, path).replaceAll("\\", "/"),
+          line: index + 1,
+          matches: [...new Set(matches)],
+          preview: lines[index].trim().slice(0, 240),
+        })}\n`,
+      );
+    }
+  }
+}
+```
+
+Run it and keep the result as a CI artifact or migration attachment, not as permanent application configuration:
+
+```bash
+node scripts/inventory-feature-flags.mjs . > feature-flag-inventory.jsonl
+wc -l feature-flag-inventory.jsonl
+```
+
+An expected receipt looks like this:
+
+```text
+47 feature-flag-inventory.jsonl
+```
+
+The number is only a search result count. Manually review every line, follow helper functions to their callers, inspect defaults in deployment configuration, and query any legacy table read-only.
+
+### Inventory the database without changing it
+
+Adapt this query to your schema. Select metadata and values only if your security policy allows them:
+
+```sql
+SELECT
+  flag_key,
+  value_type,
+  default_value,
+  environment,
+  rollout_percent,
+  updated_at,
+  updated_by
+FROM feature_flags
+ORDER BY flag_key, environment;
+```
+
+Also inspect override and assignment tables:
+
+```sql
+SELECT
+  flag_key,
+  scope_type,
+  COUNT(*) AS override_count,
+  MIN(updated_at) AS oldest_update,
+  MAX(updated_at) AS newest_update
+FROM feature_flag_overrides
+GROUP BY flag_key, scope_type
+ORDER BY flag_key, scope_type;
+```
+
+Counts expose complexity without copying user or account identifiers into the migration document. If the old system persists assignments, inventory that table separately. Persistent assignments require a different continuity plan from deterministic hashing.
+
+## Classify before you migrate
+
+Put each confirmed candidate into exactly one primary class. Record secondary concerns in notes rather than inventing overlapping categories.
+
+| Class                     | Examples                                                                    | Default action                                                                           |
+| ------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Release flag              | New checkout, redesigned search, new API implementation                     | Migrate if runtime rollout or rollback is useful; set a removal date                     |
+| Experiment flag           | Control versus treatment behavior with exposure tracking                    | Migrate only with an identity and measurement contract                                   |
+| Operational flag          | Disable an expensive worker, stop a risky integration, enter read-only mode | Migrate cautiously; choose a fail-safe value and an incident owner                       |
+| Permission or entitlement | Admin access, paid-plan capability, data export permission                  | Keep authoritative enforcement outside flags; a flag may only stage UI or implementation |
+| Permanent configuration   | Page size, timeout, provider allowlist, regional endpoint                   | Keep typed config unless runtime targeting and governance justify a feature value        |
+| Build-time configuration  | Tree-shaking, compile target, public asset prefix                           | Keep in the build system                                                                 |
+| Dead code                 | Fully shipped branch, disabled abandoned feature, unused row                | Delete through normal review; do not migrate it                                          |
+
+### Never migrate these as ordinary flags
+
+**Authorization:** A client-visible value such as `is-admin` must not grant server access. Check the authenticated principal and permission on every protected operation.
+
+**Billing entitlements:** A flag can control a rollout within the set of entitled accounts. It must not replace the billing or entitlement service. A user changing local attributes must not unlock a paid capability.
+
+**Secrets:** SDK feature payloads are configuration delivery. Do not put API tokens, database passwords, encryption keys, private prompts, or credentials into a flag value.
+
+**Unreviewed executable content:** Prefer a flag that selects a versioned implementation, such as `recommendation-v2`, over remotely editable JavaScript, SQL, or shell commands.
+
+**Safety invariants:** Validation, rate limits, data retention, and destructive-operation safeguards belong in code and policy. Do not make them removable through an ordinary release flag.
+
+### Create the migration manifest
+
+Use one row per flag. A spreadsheet, issue table, or version-controlled YAML file works during the migration. Do not include raw user or account IDs.
+
+```yaml
+- legacy_key: FEATURE_CHECKOUT_V2
+  growthbook_key: checkout-v2
+  class: release
+  owner: checkout-team
+  source: environment
+  value_type: boolean
+  code_fallback: false
+  legacy_default: false
+  environments: [dev, staging, production]
+  hash_attribute: null
+  update_latency: deployment
+  risk: high
+  migration_state: inventory
+  removal_condition: 100-percent-on-for-14-days-and-no-control-code-needed
+
+- legacy_key: invoice_preview_rollout
+  growthbook_key: invoice-preview
+  class: release
+  owner: billing-team
+  source: database
+  value_type: boolean
+  code_fallback: false
+  legacy_default: false
+  environments: [staging, production]
+  hash_attribute: account_id
+  update_latency: 60-second-cache
+  risk: medium
+  migration_state: inventory
+  removal_condition: rollout-complete-and-legacy-overrides-empty
+```
+
+The manifest is a work queue, not a source of runtime truth. Once GrowthBook is authoritative, remove or archive the migration-only fields so nobody operates 2 control planes indefinitely.
+
+## Write the semantic contract
+
+Two providers can both return `true` to a happy-path test while disagreeing for production users. Before creating GrowthBook rules, document how the legacy system makes a decision.
+
+For every key, answer these questions:
+
+1. **What is the exact value type?** Distinguish the Boolean `false`, string `"false"`, number `0`, empty string, `null`, and a missing key.
+2. **What is the code fallback?** This is the value compiled into the call site and used when no provider has a usable value.
+3. **What is the legacy default?** It may differ from the code fallback because a database or environment parser supplies another default.
+4. **Which source wins?** Write the precedence of hard-coded override, account override, environment variable, JSON file, database row, and default.
+5. **Which condition wins?** GrowthBook evaluates rules top to bottom and the first matching rule wins. Confirm whether the old system does the same.
+6. **What is the environment?** Use a deployment environment such as `dev`, `staging`, `test`, or `production`, not an ambiguous build mode.
+7. **What attributes are used?** Record exact names, types, casing, and missing-value behavior.
+8. **What is the randomization unit?** User, anonymous device, account, organization, session, or request are not interchangeable.
+9. **How is a rollout bucket calculated?** Record the seed, hash function, hash version, normalization, and range boundaries.
+10. **How fresh is the value?** Record cache duration, polling interval, or deployment requirement.
+11. **What happens when the source fails?** A timeout, malformed JSON, missing row, or database outage must have an observed behavior.
+12. **Does evaluation have side effects?** Some custom systems persist assignments or emit exposure events during reads.
+
+### Normalize truthiness before comparing
+
+Do not preserve accidental JavaScript truthiness. Decode each legacy source once at startup and reject ambiguous values:
+
+```ts
+export function parseBoolean(name: string, raw: string | undefined): boolean {
+  if (raw === undefined) return false;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  throw new Error(`${name} must be exactly "true" or "false"`);
+}
+```
+
+This prevents `Boolean("false")` from becoming `true`. Make parser changes in a separate commit if they alter current behavior. A migration is easier to review when cleanup and provider replacement are not hidden in the same diff.
+
+### Prove cohort continuity instead of assuming it
+
+A 10% legacy rollout and a 10% GrowthBook rollout usually include the same _amount_ of traffic, not the same _people_. Different seeds, algorithms, attribute names, string normalization, or range boundaries change membership.
+
+Use one of these strategies:
+
+- **Preserve a small explicit cohort:** Import the existing account or user IDs into a GrowthBook Saved Group and target that group during migration. Keep ID lists concise because they increase the SDK payload.
+- **Pass a temporary legacy-cohort attribute:** Continue calculating `legacy_invoice_preview=true` and target it in GrowthBook. Remove the attribute after the rollout completes. This preserves behavior but intentionally retains part of the legacy evaluator for a limited time.
+- **Preserve persisted assignments:** Export only the assignment data required by an approved migration design. Do not assume deterministic hashing can reproduce a stored assignment table.
+- **Accept re-bucketing:** Do this only for a low-risk release, outside an active experiment, with written approval. Tell support and analytics when assignment changes.
+- **Wait for 0% or 100%:** If the rollout can pause or finish safely, migrate after there is no partial cohort to preserve.
+
+Setting the same `hashAttribute` is necessary, but it is not proof of cohort parity. In GrowthBook, a percentage rule deterministically samples on the configured attribute. Missing the attribute causes the percentage rule to be skipped and evaluation falls through to the next rule or default. Test empty and missing identifiers explicitly.
+
+## Put one typed boundary in front of every read
+
+Do this before GrowthBook controls a single production decision. The boundary lets you switch providers without editing business logic again.
+
+Install the SDK and test dependencies. Use the versions already accepted by your repository if they differ:
+
+```bash
+npm install @growthbook/growthbook@1.7.0
+npm install --save-dev typescript@5.7.3 jest@29.7.0 ts-jest@29.4.11 @types/jest@29.5.14
+```
+
+### Define feature types and code fallbacks
+
+Create `src/feature-flags/app-features.ts`:
+
+```ts
+export interface RecommendationConfig {
+  algorithm: "baseline" | "hybrid-v2";
+  maxItems: number;
+}
+
+export interface AppFeatures {
+  "checkout-v2": boolean;
+  "invoice-preview": boolean;
+  "search-page-size": number;
+  "recommendation-config": RecommendationConfig;
+}
+
+export type FeatureKey = keyof AppFeatures & string;
+
+export const CODE_FALLBACKS = {
+  "checkout-v2": false,
+  "invoice-preview": false,
+  "search-page-size": 25,
+  "recommendation-config": {
+    algorithm: "baseline",
+    maxItems: 10,
+  },
+} satisfies { [K in FeatureKey]: AppFeatures[K] };
+
+export const FEATURE_KEYS = Object.freeze(
+  Object.keys(CODE_FALLBACKS) as FeatureKey[],
+);
+
+const FEATURE_VALIDATORS: {
+  [K in FeatureKey]: (value: unknown) => value is AppFeatures[K];
+} = {
+  "checkout-v2": (value): value is boolean => typeof value === "boolean",
+  "invoice-preview": (value): value is boolean => typeof value === "boolean",
+  "search-page-size": (value): value is number =>
+    value === 25 || value === 50 || value === 100,
+  "recommendation-config": (value): value is RecommendationConfig => {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const config = value as Record<string, unknown>;
+    return (
+      (config.algorithm === "baseline" || config.algorithm === "hybrid-v2") &&
+      typeof config.maxItems === "number" &&
+      Number.isSafeInteger(config.maxItems) &&
+      config.maxItems > 0
+    );
+  },
+};
+
+export function isFeatureValue<K extends FeatureKey>(
+  key: K,
+  value: unknown,
+): value is AppFeatures[K] {
+  return FEATURE_VALIDATORS[key](value);
+}
+```
+
+Every key has a compile-time fallback. For release flags, default to the known production path. For an operational flag, ask what state is safest during a control-plane and cache failure. “Off” is not universally safe: a flag named `disable-payments` has inverted semantics. Prefer positive names such as `payments-enabled` and document the fallback.
+
+Remote payloads also need runtime validation. These validators preserve the legacy page-size choices and recommendation schema below; adapt them to your accepted semantic contract. Never coerce the string `"false"` into a Boolean or use a TypeScript cast as validation. Keep the validators when generating SDK types with the CLI.
+
+During initial migration, maintain this interface manually. After all intended keys exist in GrowthBook, replace it with CLI-generated `AppFeatures` types and retain `CODE_FALLBACKS` as a checked application policy.
+
+### Define a request context
+
+Create `src/feature-flags/context.ts`:
+
+```ts
+import type { Attributes } from "@growthbook/growthbook";
+
+export interface FlagContext {
+  userId?: string;
+  anonymousId?: string;
+  accountId?: string;
+  plan?: "free" | "pro" | "enterprise";
+  country?: string;
+  roles?: string[];
+  requestId?: string;
+}
+
+export function toGrowthBookAttributes(context: FlagContext): Attributes {
+  const stablePersonId = context.userId ?? context.anonymousId;
+
+  return {
+    ...(stablePersonId ? { id: stablePersonId } : {}),
+    ...(context.userId ? { logged_in: true } : { logged_in: false }),
+    ...(context.accountId ? { account_id: context.accountId } : {}),
+    ...(context.plan ? { plan: context.plan } : {}),
+    ...(context.country ? { country: context.country } : {}),
+    ...(context.roles ? { roles: context.roles } : {}),
+  };
+}
+```
+
+Do not generate a random identifier inside this function. A request ID is useful for tracing but is usually wrong for rollout assignment. Persist an anonymous device ID before login if anonymous users require stable treatment. Decide whether a user should keep the anonymous assignment after login; do not switch silently halfway through a workflow.
+
+The actual attribute values remain local to normal SDK evaluation. GrowthBook receives feature definitions; the SDK evaluates them against the attributes in memory. If you use a sensitive attribute for targeting, follow the [secure attribute guidance](/features/targeting#attributes) and the relevant SDK instructions. Hashing an identifier for telemetry is a separate concern and does not automatically make it a GrowthBook secure attribute.
+
+### Define provider and decision receipts
+
+Create `src/feature-flags/provider.ts`:
+
+```ts
+import type { AppFeatures, FeatureKey } from "./app-features.js";
+import type { FlagContext } from "./context.js";
+
+export type ProviderName = "legacy" | "growthbook";
+export type ServedBy = ProviderName | "code-fallback";
+
+export interface ProviderDecision<K extends FeatureKey> {
+  key: K;
+  value: AppFeatures[K];
+  evaluatedBy: ProviderName;
+  reason: string;
+  ruleId?: string;
+  usable: boolean;
+  usedCodeFallback: boolean;
+}
+
+export interface ServedDecision<K extends FeatureKey> {
+  key: K;
+  value: AppFeatures[K];
+  mode: FlagProviderMode;
+  servedBy: ServedBy;
+  primary: ProviderDecision<K>;
+  comparison?: ProviderDecision<K>;
+  match?: boolean;
+}
+
+export interface FlagScope {
+  decide<K extends FeatureKey>(
+    key: K,
+    fallback: AppFeatures[K],
+  ): ServedDecision<K>;
+
+  get<K extends FeatureKey>(key: K, fallback: AppFeatures[K]): AppFeatures[K];
+}
+
+export interface FeatureProvider {
+  scope(context: FlagContext): ProviderScope;
+  close(): void;
+}
+
+export interface ProviderScope {
+  evaluate<K extends FeatureKey>(
+    key: K,
+    fallback: AppFeatures[K],
+  ): ProviderDecision<K>;
+}
+
+export type FlagProviderMode =
+  | "legacy"
+  | "shadow"
+  | "growthbook-preferred"
+  | "growthbook-only";
+```
+
+`FeatureProvider` creates a request scope. That matters on servers. A singleton `GrowthBookClient` reuses the loaded feature payload, while `createScopedInstance` keeps one request's attributes and evaluation de-duplication separate from another request.
+
+The 4 modes have deliberate meanings:
+
+```text
+legacy               evaluate and serve legacy only
+shadow               serve legacy; evaluate GrowthBook; compare
+growthbook-preferred serve GrowthBook when usable; otherwise serve legacy
+growthbook-only      serve GrowthBook; use the call-site fallback if unavailable
+```
+
+`growthbook-preferred` is transitional. Do not leave it forever. A missing GrowthBook key would silently keep legacy behavior and prevent the old system from being removed.
+
+## Snapshot the legacy system
+
+Do not perform a database query for every feature read just because the adapter is new. Load the old configuration using its established freshness contract, validate it, and expose a synchronous snapshot.
+
+Create `src/feature-flags/legacy-loader.ts`:
+
+```ts
+import { readFile } from "node:fs/promises";
+import type { RecommendationConfig } from "./app-features.js";
+
+export interface LegacyFlagRow {
+  flagKey: string;
+  accountId: string;
+  enabled: boolean;
+}
+
+export interface LegacySnapshot {
+  checkoutV2: boolean;
+  invoicePreviewAccounts: ReadonlySet<string>;
+  invoicePreviewRollout: number;
+  searchPageSize: number;
+  recommendationConfig: RecommendationConfig;
+}
+
+export interface LegacyLoadOptions {
+  env: NodeJS.ProcessEnv;
+  configPath: string;
+  loadRows: () => Promise<LegacyFlagRow[]>;
+}
+
+function exactBoolean(name: string, raw: string | undefined): boolean {
+  if (raw === undefined) return false;
+  if (raw === "true") return true;
+  if (raw === "false") return false;
+  throw new Error(`${name} must be exactly "true" or "false"`);
+}
+
+function percent(name: string, raw: string | undefined): number {
+  const value = raw === undefined ? 0 : Number(raw);
+  if (!Number.isFinite(value) || value < 0 || value > 100) {
+    throw new Error(`${name} must be between 0 and 100`);
+  }
+  return value;
+}
+
+function pageSize(raw: unknown): number {
+  if (raw === 25 || raw === 50 || raw === 100) return raw;
+  throw new Error("searchPageSize must be 25, 50, or 100");
+}
+
+function recommendationConfig(raw: unknown): RecommendationConfig {
+  if (!raw || typeof raw !== "object") {
+    throw new Error("recommendationConfig must be an object");
+  }
+  const value = raw as Record<string, unknown>;
+  if (value.algorithm !== "baseline" && value.algorithm !== "hybrid-v2") {
+    throw new Error("recommendationConfig.algorithm is invalid");
+  }
+  if (!Number.isInteger(value.maxItems) || Number(value.maxItems) < 1) {
+    throw new Error("recommendationConfig.maxItems must be a positive integer");
+  }
+  return {
+    algorithm: value.algorithm,
+    maxItems: Number(value.maxItems),
+  };
+}
+
+export async function loadLegacySnapshot(
+  options: LegacyLoadOptions,
+): Promise<LegacySnapshot> {
+  const file = JSON.parse(await readFile(options.configPath, "utf8")) as {
+    searchPageSize?: unknown;
+    recommendationConfig?: unknown;
+  };
+  const rows = await options.loadRows();
+
+  return Object.freeze({
+    checkoutV2: exactBoolean(
+      "FEATURE_CHECKOUT_V2",
+      options.env.FEATURE_CHECKOUT_V2,
+    ),
+    invoicePreviewAccounts: new Set(
+      rows
+        .filter((row) => row.flagKey === "invoice-preview" && row.enabled)
+        .map((row) => row.accountId),
+    ),
+    invoicePreviewRollout: percent(
+      "INVOICE_PREVIEW_ROLLOUT_PERCENT",
+      options.env.INVOICE_PREVIEW_ROLLOUT_PERCENT,
+    ),
+    searchPageSize: pageSize(file.searchPageSize),
+    recommendationConfig: recommendationConfig(file.recommendationConfig),
+  });
+}
+```
+
+Wire `loadRows` to a parameterized, read-only query in your own database layer. Do not put a database client or SQL dialect into the flag interface.
+
+If parsing fails, prefer failing application startup over silently changing a known production value. If the current application already tolerates malformed config, record that behavior and decide explicitly whether to preserve or fix it in a separate change.
+
+### Implement the legacy provider exactly once
+
+Create `src/feature-flags/legacy-provider.ts`:
+
+```ts
+import { createHash } from "node:crypto";
+import type { AppFeatures, FeatureKey } from "./app-features.js";
+import type { FlagContext } from "./context.js";
+import type {
+  FeatureProvider,
+  ProviderDecision,
+  ProviderScope,
+} from "./provider.js";
+import type { LegacySnapshot } from "./legacy-loader.js";
+
+function legacyBucket(seed: string, value: string): number {
+  const hex = createHash("sha256").update(`${seed}:${value}`).digest("hex");
+  const first48Bits = Number.parseInt(hex.slice(0, 12), 16);
+  return first48Bits / 0x1000000000000;
+}
+
+type Resolver<K extends FeatureKey> = (
+  snapshot: LegacySnapshot,
+  context: FlagContext,
+) => AppFeatures[K];
+
+type ResolverMap = { [K in FeatureKey]: Resolver<K> };
+
+const resolvers = {
+  "checkout-v2": (snapshot) => snapshot.checkoutV2,
+  "invoice-preview": (snapshot, context) => {
+    if (!context.accountId) return false;
+    if (snapshot.invoicePreviewAccounts.has(context.accountId)) return true;
+    return (
+      legacyBucket("invoice-preview-v1", context.accountId) <
+      snapshot.invoicePreviewRollout / 100
+    );
+  },
+  "search-page-size": (snapshot) => snapshot.searchPageSize,
+  "recommendation-config": (snapshot) => snapshot.recommendationConfig,
+} satisfies ResolverMap;
+
+export class LegacyFlagProvider implements FeatureProvider {
+  public constructor(private readonly snapshot: LegacySnapshot) {}
+
+  public scope(context: FlagContext): ProviderScope {
+    return {
+      evaluate: <K extends FeatureKey>(
+        key: K,
+        _fallback: AppFeatures[K],
+      ): ProviderDecision<K> => {
+        const resolver = resolvers[key] as Resolver<K>;
+        return {
+          key,
+          value: resolver(this.snapshot, context),
+          evaluatedBy: "legacy",
+          reason: "legacy-resolver",
+          usable: true,
+          usedCodeFallback: false,
+        };
+      },
+    };
+  }
+
+  public close(): void {}
+}
+```
+
+The hashing function represents the application's existing algorithm, not GrowthBook's algorithm. Keep the old implementation byte-for-byte if possible. The point of shadow mode is to expose differences, not make 2 unrelated algorithms look equivalent.
+
+At this stage, change call sites to use `LegacyFlagProvider` only. Deploy and verify that decisions are unchanged before adding GrowthBook. This isolates adapter mistakes from provider differences.
+
+## Create environment-scoped GrowthBook configuration
+
+Use GrowthBook [environments](/features/environments) for where the code runs. Use projects for ownership and organization, not as a substitute for deployment environments.
+
+For the reference service:
+
+1. Create or use the built-in `dev`, `test`, `staging`, and `production` environments.
+2. Create one SDK connection for each environment that the service uses.
+3. Put that environment's client key in `GROWTHBOOK_CLIENT_KEY` at deployment time.
+4. Set `GROWTHBOOK_API_HOST=https://cdn.growthbook.io` for GrowthBook Cloud, or the documented endpoint for your self-hosted deployment.
+5. Keep `DEPLOY_ENV` separate from `NODE_ENV`. A staging server commonly runs a production Node build.
+6. Do not place a production SDK client key in a local `.env` example.
+
+The GrowthBook SDK connection endpoint is scoped to one environment and may also be scoped to one project. A production service should receive only production feature definitions. Reusing a development key in production defeats that separation.
+
+Create the 4 reference features with the exact keys and types from `AppFeatures`. For the first shadow deployment:
+
+- Match the accepted legacy default in every environment.
+- Recreate deterministic targeting rules in the same top-to-bottom precedence.
+- Do not create an experiment rule yet. Shadow evaluation should compare release behavior without emitting experiment exposures or contaminating analysis.
+- Leave any partial rollout at 0% until the cohort-continuity strategy is resolved.
+- Add a description that links to the migration issue, owner, safe fallback, and expected cleanup condition.
+
+Feature keys cannot be renamed after creation. Review spelling and casing before publishing. A disabled feature is excluded from the SDK payload and evaluates as unknown, so shadow tests must distinguish “disabled intentionally” from “forgot to deliver the feature.” See [feature fundamentals](/features/basics), [rule order](/features/rules), and [targeting attributes](/features/targeting) before translating complex rules.
+
+### Map legacy semantics explicitly
+
+Use a table like this during review:
+
+| Legacy behavior            | GrowthBook configuration                                       | Verification context                                     |
+| -------------------------- | -------------------------------------------------------------- | -------------------------------------------------------- |
+| Global environment Boolean | Boolean feature default or forced rule in that environment     | User with no optional attributes                         |
+| Account allowlist          | `account_id` targeting rule or Saved Group above rollout rules | Included, excluded, and missing account IDs              |
+| Account percentage rollout | Percentage rule hashed on `account_id`                         | Repeated users in the same account and multiple accounts |
+| User percentage rollout    | Percentage rule hashed on `id`                                 | Same user across requests and after service restart      |
+| Ordered overrides          | Ordered GrowthBook rules; first match wins                     | Context matching 2 rules at once                         |
+| Missing row uses false     | Boolean default `false` plus code fallback `false`             | Missing feature and fetch-failure tests                  |
+| JSON file                  | JSON feature only if runtime change is justified               | Valid object, unexpected object, and fallback            |
+
+Case matters. If the legacy system stores `country="us"` and GrowthBook targets `"US"`, either normalize the application attribute or configure the intended comparison. Do not “fix” casing only for some services.
+
+## Implement the GrowthBook provider
+
+Create `src/feature-flags/feature-refresh.ts`. SDK `1.7.0` does not have the newer `init({ pollingInterval })` option, so this example uses its supported `refreshFeatures` method. Start one timer per long-lived client, not per request.
+
+```ts title="src/feature-flags/feature-refresh.ts"
+import type { GrowthBookClient } from "@growthbook/growthbook";
+
+export function startFeaturePolling(
+  client: Pick<GrowthBookClient, "refreshFeatures">,
+): () => void {
+  let refreshing = false;
+  const timer = setInterval(() => {
+    if (refreshing) return;
+    refreshing = true;
+    void client
+      .refreshFeatures({ skipCache: true, timeout: 2_000 })
+      .catch(() => {
+        console.error("Unexpected GrowthBook refresh error");
+      })
+      .finally(() => {
+        refreshing = false;
+      });
+  }, 60_000);
+  timer.unref();
+  return () => clearInterval(timer);
+}
+```
+
+The timer bypasses the cache, skips overlapping refresh calls, and does not keep Node running by itself. Call its stop function before destroying the client. In this SDK version, `refreshFeatures()` resolves without a success receipt on ordinary network failures and retains the last payload; promise resolution is not proof of freshness. Monitor delivery and use a staging publish-to-evaluation check to prove propagation. Expect up to the polling interval plus delivery time while the endpoint is healthy, not an instantaneous kill switch. Define an operational staleness limit and escalation policy before production cutover.
+
+Create `src/feature-flags/growthbook-provider.ts`:
+
+```ts
+import {
+  GrowthBookClient,
+  type FeatureApiResponse,
+} from "@growthbook/growthbook";
+import { isFeatureValue, type AppFeatures, type FeatureKey } from "./app-features.js";
+import { startFeaturePolling } from "./feature-refresh.js";
+import { toGrowthBookAttributes, type FlagContext } from "./context.js";
+import type {
+  FeatureProvider,
+  ProviderDecision,
+  ProviderScope,
+} from "./provider.js";
+
+export interface GrowthBookConnectOptions {
+  apiHost: string;
+  clientKey: string;
+  timeoutMs: number;
+}
+
+export interface GrowthBookStartupReceipt {
+  success: boolean;
+  source: "network" | "cache" | "init" | "error" | "timeout";
+  error?: string;
+}
+
+export class GrowthBookFlagProvider implements FeatureProvider {
+  private constructor(
+    private readonly client: GrowthBookClient<AppFeatures>,
+    private readonly stopPolling: () => void = () => {},
+  ) {}
+
+  public static async connect(options: GrowthBookConnectOptions): Promise<{
+    provider: GrowthBookFlagProvider;
+    receipt: GrowthBookStartupReceipt;
+  }> {
+    if (!options.clientKey) {
+      throw new Error("GROWTHBOOK_CLIENT_KEY is required");
+    }
+
+    const client = new GrowthBookClient<AppFeatures>({
+      apiHost: options.apiHost,
+      clientKey: options.clientKey,
+    });
+
+    const result = await client.init({ timeout: options.timeoutMs });
+    const receipt: GrowthBookStartupReceipt = {
+      success: result.success,
+      source: result.source,
+      ...(result.error ? { error: result.error.message } : {}),
+    };
+
+    return {
+      provider: new GrowthBookFlagProvider(client, startFeaturePolling(client)),
+      receipt,
+    };
+  }
+
+  public static fromPayload(
+    payload: FeatureApiResponse,
+  ): GrowthBookFlagProvider {
+    const client = new GrowthBookClient<AppFeatures>().initSync({ payload });
+    return new GrowthBookFlagProvider(client);
+  }
+
+  public scope(context: FlagContext): ProviderScope {
+    const scoped = this.client.createScopedInstance({
+      attributes: toGrowthBookAttributes(context),
+    });
+
+    return {
+      evaluate: <K extends FeatureKey>(
+        key: K,
+        fallback: AppFeatures[K],
+      ): ProviderDecision<K> => {
+        const result = scoped.evalFeature(key);
+        const usable = isFeatureValue(key, result.value);
+
+        return {
+          key,
+          value: usable ? (result.value as AppFeatures[K]) : fallback,
+          evaluatedBy: "growthbook",
+          reason: usable || result.value === null ? result.source : "invalid-value",
+          ...(result.ruleId ? { ruleId: result.ruleId } : {}),
+          usable,
+          usedCodeFallback: !usable,
+        };
+      },
+    };
+  }
+
+  public close(): void {
+    this.stopPolling();
+    this.client.destroy({ destroyAllStreams: true });
+  }
+}
+```
+
+The SDK's `init` method reports failures in its return value instead of throwing for normal network and timeout failures. Until a usable payload loads, feature evaluation returns `null`; this adapter converts that state to the explicit call-site fallback and marks it unusable. A non-null value that fails its runtime contract is also unusable, with `reason: "invalid-value"`. In `growthbook-preferred` mode that allows the legacy fallback; in `growthbook-only` mode it uses the code fallback.
+
+`fromPayload` is for deterministic tests. It uses the same payload shape as the SDK connection endpoint without making a network request.
+
+`connect` starts polling even if the first fetch fails, so later delivery can recover without restarting the service. `fromPayload` starts no timer. The [Node.js SDK documentation](/lib/node#refreshing-features) also covers streaming; if you need faster propagation, configure the required `EventSource` support and test it before replacing this polling implementation.
+
+## Emit comparison evidence without leaking identities
+
+Shadow mode can generate high-volume logs. Emit every mismatch, sample matches, and hash values before logging them. Do not send raw user IDs, account IDs, emails, feature JSON, or SDK payloads to ordinary logs.
+
+Create `src/feature-flags/decision-telemetry.ts`:
+
+```ts
+import { createHash } from "node:crypto";
+import type { FeatureKey } from "./app-features.js";
+import type { FlagContext } from "./context.js";
+import type { ServedDecision } from "./provider.js";
+
+function stableValue(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map(stableValue).join(",")}]`;
+  }
+  if (value && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    return `{${Object.keys(object)
+      .sort()
+      .map((key) => `${JSON.stringify(key)}:${stableValue(object[key])}`)
+      .join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "undefined";
+}
+
+function digest(salt: string, value: string): string {
+  return createHash("sha256")
+    .update(salt)
+    .update("\0")
+    .update(value)
+    .digest("hex")
+    .slice(0, 16);
+}
+
+export function decisionsMatch(a: unknown, b: unknown): boolean {
+  return stableValue(a) === stableValue(b);
+}
+
+export interface DecisionTelemetry {
+  record<K extends FeatureKey>(
+    context: FlagContext,
+    decision: ServedDecision<K>,
+  ): void;
+}
+
+export class NoopDecisionTelemetry implements DecisionTelemetry {
+  public record(): void {}
+}
+
+export class ConsoleDecisionTelemetry implements DecisionTelemetry {
+  public constructor(
+    private readonly salt: string,
+    private readonly matchingSampleRate = 0.01,
+  ) {
+    if (!salt) throw new Error("FLAG_TELEMETRY_SALT is required");
+  }
+
+  public record<K extends FeatureKey>(
+    context: FlagContext,
+    decision: ServedDecision<K>,
+  ): void {
+    const subject =
+      context.accountId ??
+      context.userId ??
+      context.anonymousId ??
+      "unidentified";
+    const sample =
+      Number.parseInt(
+        digest(this.salt, `${decision.key}:${subject}`).slice(0, 8),
+        16,
+      ) / 0xffffffff;
+
+    if (decision.match === true && sample > this.matchingSampleRate) return;
+
+    process.stdout.write(
+      `${JSON.stringify({
+        event: "feature_flag_decision",
+        timestamp: new Date().toISOString(),
+        key: decision.key,
+        mode: decision.mode,
+        servedBy: decision.servedBy,
+        match: decision.match,
+        primaryReason: decision.primary.reason,
+        comparisonReason: decision.comparison?.reason,
+        primaryValueDigest: digest(
+          this.salt,
+          stableValue(decision.primary.value),
+        ),
+        comparisonValueDigest: decision.comparison
+          ? digest(this.salt, stableValue(decision.comparison.value))
+          : undefined,
+        subjectHash: digest(this.salt, subject),
+        attributesPresent: [
+          context.userId ? "user_id" : null,
+          context.anonymousId ? "anonymous_id" : null,
+          context.accountId ? "account_id" : null,
+          context.plan ? "plan" : null,
+          context.country ? "country" : null,
+          context.roles ? "roles" : null,
+        ].filter(Boolean),
+      })}\n`,
+    );
+  }
+}
+```
+
+The stable serializer prevents object key order from producing a false JSON mismatch. It does not make arbitrary objects safe for feature flags. Keep GrowthBook JSON values JSON-compatible and validate their application shape before use.
+
+Use a telemetry salt from your secret manager. It is not a GrowthBook SDK decryption key. Rotate it according to your log-correlation policy; rotation intentionally breaks cross-period subject correlation.
+
+## Serve one provider and compare the other
+
+Create `src/feature-flags/migrating-provider.ts`:
+
+```ts
+import type { AppFeatures, FeatureKey } from "./app-features.js";
+import type { FlagContext } from "./context.js";
+import {
+  decisionsMatch,
+  type DecisionTelemetry,
+} from "./decision-telemetry.js";
+import type {
+  FeatureProvider,
+  FlagProviderMode,
+  FlagScope,
+  ProviderDecision,
+  ServedDecision,
+} from "./provider.js";
+
+export class MigratingFlagProvider {
+  public constructor(
+    private readonly legacy: FeatureProvider,
+    private readonly growthbook: FeatureProvider | undefined,
+    private readonly mode: FlagProviderMode,
+    private readonly telemetry: DecisionTelemetry,
+    private readonly growthbookServeKeys: ReadonlySet<FeatureKey> = new Set(),
+  ) {
+    if (mode !== "legacy" && !growthbook) {
+      throw new Error(`${mode} requires a GrowthBook provider`);
+    }
+  }
+
+  public scope(context: FlagContext): FlagScope {
+    const legacy = this.legacy.scope(context);
+    const growthbook = this.growthbook?.scope(context);
+
+    const decide = <K extends FeatureKey>(
+      key: K,
+      fallback: AppFeatures[K],
+    ): ServedDecision<K> => {
+      let decision: ServedDecision<K>;
+
+      if (this.mode === "legacy") {
+        const primary = legacy.evaluate(key, fallback);
+        decision = {
+          key,
+          value: primary.value,
+          mode: this.mode,
+          servedBy: "legacy",
+          primary,
+        };
+      } else if (this.mode === "shadow") {
+        const primary = legacy.evaluate(key, fallback);
+        const comparison = growthbook!.evaluate(key, fallback);
+        decision = {
+          key,
+          value: primary.value,
+          mode: this.mode,
+          servedBy: "legacy",
+          primary,
+          comparison,
+          match:
+            comparison.usable &&
+            decisionsMatch(primary.value, comparison.value),
+        };
+      } else if (this.mode === "growthbook-preferred") {
+        const growthbookDecision = growthbook!.evaluate(key, fallback);
+        const legacyDecision = legacy.evaluate(key, fallback);
+        const selected = this.growthbookServeKeys.has(key);
+        const primary = selected ? growthbookDecision : legacyDecision;
+        const comparison = selected ? legacyDecision : growthbookDecision;
+        const useGrowthBook = selected && growthbookDecision.usable;
+        decision = {
+          key,
+          value: useGrowthBook
+            ? growthbookDecision.value
+            : legacyDecision.value,
+          mode: this.mode,
+          servedBy: useGrowthBook ? "growthbook" : "legacy",
+          primary,
+          comparison,
+          match:
+            growthbookDecision.usable &&
+            decisionsMatch(growthbookDecision.value, legacyDecision.value),
+        };
+      } else {
+        const primary = growthbook!.evaluate(key, fallback);
+        decision = {
+          key,
+          value: primary.value,
+          mode: this.mode,
+          servedBy: primary.usable ? "growthbook" : "code-fallback",
+          primary,
+        };
+      }
+
+      this.telemetry.record(context, decision);
+      return decision;
+    };
+
+    return {
+      decide,
+      get: <K extends FeatureKey>(key: K, fallback: AppFeatures[K]) =>
+        decide(key, fallback).value,
+    };
+  }
+
+  public close(): void {
+    this.legacy.close();
+    this.growthbook?.close();
+  }
+}
+```
+
+Shadow evaluation must be side-effect free. Do not let the legacy provider persist a new assignment during comparison. Do not attach an experiment rule or exposure callback merely to compare release values. If either provider's evaluation has unavoidable side effects, create a pure comparison endpoint or snapshot first.
+
+## Bootstrap once at process startup
+
+Create `src/feature-flags/bootstrap.ts`:
+
+```ts
+import { CODE_FALLBACKS, type FeatureKey } from "./app-features.js";
+import {
+  ConsoleDecisionTelemetry,
+  NoopDecisionTelemetry,
+} from "./decision-telemetry.js";
+import { GrowthBookFlagProvider } from "./growthbook-provider.js";
+import { loadLegacySnapshot, type LegacyFlagRow } from "./legacy-loader.js";
+import { LegacyFlagProvider } from "./legacy-provider.js";
+import { MigratingFlagProvider } from "./migrating-provider.js";
+import type { FlagProviderMode } from "./provider.js";
+
+const modes = new Set<FlagProviderMode>([
+  "legacy",
+  "shadow",
+  "growthbook-preferred",
+  "growthbook-only",
+]);
+
+function providerMode(raw: string | undefined): FlagProviderMode {
+  const value = raw ?? "legacy";
+  if (!modes.has(value as FlagProviderMode)) {
+    throw new Error(`Invalid FLAG_PROVIDER_MODE: ${value}`);
+  }
+  return value as FlagProviderMode;
+}
+
+function serveKeys(raw: string | undefined): ReadonlySet<FeatureKey> {
+  if (!raw?.trim()) return new Set();
+  const known = new Set(Object.keys(CODE_FALLBACKS));
+  const requested = raw
+    .split(",")
+    .map((key) => key.trim())
+    .filter(Boolean);
+  const unknown = requested.filter((key) => !known.has(key));
+  if (unknown.length > 0) {
+    throw new Error(`Unknown GROWTHBOOK_SERVE_KEYS: ${unknown.join(",")}`);
+  }
+  return new Set(requested as FeatureKey[]);
+}
+
+export async function buildFeatureFlags(options: {
+  legacyConfigPath: string;
+  loadLegacyRows: () => Promise<LegacyFlagRow[]>;
+}): Promise<MigratingFlagProvider> {
+  const mode = providerMode(process.env.FLAG_PROVIDER_MODE);
+  const selectedKeys = serveKeys(process.env.GROWTHBOOK_SERVE_KEYS);
+  const snapshot = await loadLegacySnapshot({
+    env: process.env,
+    configPath: options.legacyConfigPath,
+    loadRows: options.loadLegacyRows,
+  });
+  const legacy = new LegacyFlagProvider(snapshot);
+
+  if (mode === "legacy") {
+    process.stdout.write(
+      `${JSON.stringify({
+        event: "feature_flag_startup",
+        mode,
+        growthbookLoaded: false,
+      })}\n`,
+    );
+    return new MigratingFlagProvider(
+      legacy,
+      undefined,
+      mode,
+      new NoopDecisionTelemetry(),
+      selectedKeys,
+    );
+  }
+
+  const { provider: growthbook, receipt } =
+    await GrowthBookFlagProvider.connect({
+      apiHost: process.env.GROWTHBOOK_API_HOST ?? "https://cdn.growthbook.io",
+      clientKey: process.env.GROWTHBOOK_CLIENT_KEY ?? "",
+      timeoutMs: Number(process.env.GROWTHBOOK_TIMEOUT_MS ?? 2000),
+    });
+
+  process.stdout.write(
+    `${JSON.stringify({
+      event: "feature_flag_startup",
+      mode,
+      growthbookLoaded: receipt.success,
+      source: receipt.source,
+      error: receipt.error,
+    })}\n`,
+  );
+
+  return new MigratingFlagProvider(
+    legacy,
+    growthbook,
+    mode,
+    new ConsoleDecisionTelemetry(process.env.FLAG_TELEMETRY_SALT ?? ""),
+    selectedKeys,
+  );
+}
+```
+
+This bootstrap intentionally loads the legacy snapshot in every mode until legacy removal. That guarantees `growthbook-preferred` can fall back. In `growthbook-only`, the snapshot is no longer needed for serving, so remove that dependency in a later cleanup commit after the observation window.
+
+The SDK receipt may report `source: "cache"` and still be usable. Alert on `success: false`, fallback use, and a prolonged absence of fresh payloads according to your refresh design. Do not log the client key or CLI bearer token.
+
+### Change call sites without changing behavior
+
+Before:
+
+```ts
+export function canUseCheckoutV2(): boolean {
+  return process.env.FEATURE_CHECKOUT_V2 === "true";
+}
+```
+
+After, while `FLAG_PROVIDER_MODE=legacy`:
+
+```ts
+import { CODE_FALLBACKS } from "./feature-flags/app-features.js";
+import type { FlagContext } from "./feature-flags/context.js";
+import type { MigratingFlagProvider } from "./feature-flags/migrating-provider.js";
+
+export function canUseCheckoutV2(
+  featureFlags: MigratingFlagProvider,
+  context: FlagContext,
+): boolean {
+  const flags = featureFlags.scope(context);
+  return flags.get("checkout-v2", CODE_FALLBACKS["checkout-v2"]);
+}
+```
+
+In a request handler, create one scope and reuse it:
+
+```ts
+app.get("/checkout", async (request, response) => {
+  const flags = featureFlags.scope({
+    userId: request.user?.id,
+    anonymousId: request.cookies.anonymous_id,
+    accountId: request.user?.accountId,
+    plan: request.user?.plan,
+    country: request.geo?.country,
+    roles: request.user?.roles,
+    requestId: request.id,
+  });
+
+  const checkoutV2 = flags.get("checkout-v2", CODE_FALLBACKS["checkout-v2"]);
+
+  response.render(checkoutV2 ? "checkout-v2" : "checkout-v1");
+});
+```
+
+Do not call `buildFeatureFlags` inside the handler. SDK initialization and legacy snapshot loading belong at application startup. The request scope is cheap and isolates attributes; the control-plane payload remains shared.
+
+## Cut over one flag at a time
+
+Use `GROWTHBOOK_SERVE_KEYS` as a comma-separated, startup-validated allowlist while the mode is `growthbook-preferred`. Selected keys prefer GrowthBook and temporarily fall back to legacy when the GrowthBook decision is unusable. Unselected keys continue serving legacy while comparison telemetry runs.
+
+The complete sequence is:
+
+```mermaid
+flowchart LR
+  A["Legacy calls through adapter"] --> B["GrowthBook shadow evaluation"]
+  B --> C["Explain every mismatch"]
+  C --> D["Serve 1 selected key from GrowthBook"]
+  D --> E["Expand selected keys"]
+  E --> F["GrowthBook only with code fallbacks"]
+  F --> G["Disable legacy mutations"]
+  G --> H["Delete legacy reads and data"]
+```
+
+### Stage 1: Legacy through the adapter
+
+Deploy:
+
+```text
+FLAG_PROVIDER_MODE=legacy
+GROWTHBOOK_SERVE_KEYS=
+```
+
+Verify application behavior and latency are unchanged. This stage should not require a GrowthBook client key. If behavior changes, fix the legacy adapter before adding another provider.
+
+### Stage 2: Shadow in development and staging
+
+Deploy the correct non-production SDK client key:
+
+```text
+FLAG_PROVIDER_MODE=shadow
+GROWTHBOOK_SERVE_KEYS=
+GROWTHBOOK_API_HOST=https://cdn.growthbook.io
+GROWTHBOOK_CLIENT_KEY=<ENVIRONMENT_SCOPED_SDK_CLIENT_KEY>
+GROWTHBOOK_TIMEOUT_MS=2000
+FLAG_TELEMETRY_SALT=<SECRET_RANDOM_VALUE>
+```
+
+Exercise a matrix of users and accounts. Use the GrowthBook **Simulation** page to test the same attributes and inspect which rule wins. For each flag, include:
+
+- No optional attributes.
+- An internal user.
+- A normal user.
+- An allowlisted account.
+- An excluded account.
+- A context matching 2 ordered rules.
+- Missing and empty hash attributes.
+- Every environment in which the flag is delivered.
+
+### Stage 3: Shadow in production
+
+Production shadow mode still serves legacy decisions. Roll it out like ordinary observability code and watch its resource cost. Do not log raw values or identities.
+
+An expected matching receipt is sampled:
+
+```json
+{
+  "event": "feature_flag_decision",
+  "key": "checkout-v2",
+  "mode": "shadow",
+  "servedBy": "legacy",
+  "match": true,
+  "primaryReason": "legacy-resolver",
+  "comparisonReason": "defaultValue",
+  "primaryValueDigest": "5df6e0e2761359d3",
+  "comparisonValueDigest": "5df6e0e2761359d3",
+  "subjectHash": "73ca8591bd4a1ab7",
+  "attributesPresent": ["user_id", "account_id", "plan"]
+}
+```
+
+An actionable mismatch looks like this:
+
+```json
+{
+  "event": "feature_flag_decision",
+  "key": "invoice-preview",
+  "mode": "shadow",
+  "servedBy": "legacy",
+  "match": false,
+  "primaryReason": "legacy-resolver",
+  "comparisonReason": "defaultValue",
+  "primaryValueDigest": "b5bea41b6c623f7c",
+  "comparisonValueDigest": "5df6e0e2761359d3",
+  "subjectHash": "d9011ad70dcac48b",
+  "attributesPresent": ["user_id", "account_id"]
+}
+```
+
+The digest tells you that values differ without exposing them. Reproduce the subject through an approved internal workflow using the known fixture or support context. Do not attempt to reverse the hash from logs.
+
+### Stage 4: Serve one low-risk key
+
+After the key's mismatch queue is empty or explained, deploy:
+
+```text
+FLAG_PROVIDER_MODE=growthbook-preferred
+GROWTHBOOK_SERVE_KEYS=search-page-size
+```
+
+Confirm telemetry reports `servedBy: "growthbook"` for `search-page-size` and `servedBy: "legacy"` for every unselected key. Change the GrowthBook value in a non-production environment, publish it, and verify the service receives the change within the documented refresh window.
+
+Then select the first production flag. Prefer a reversible, low-risk release flag with no partial cohort and no experiment attached. Observe:
+
+- Error rate and latency on both behavior paths.
+- GrowthBook startup and refresh success.
+- Count of `servedBy: "legacy"` fallbacks for a selected key.
+- Decision mismatch rate.
+- Missing identity and missing `account_id` rates.
+- Support or business symptoms specific to the feature.
+
+Add keys gradually:
+
+```text
+GROWTHBOOK_SERVE_KEYS=search-page-size,checkout-v2
+```
+
+An empty allowlist in `growthbook-preferred` serves no keys from GrowthBook. That is a safe configuration, not an instruction to migrate everything.
+
+### Stage 5: Remove the temporary legacy fallback
+
+When every key is selected and stable, deploy:
+
+```text
+FLAG_PROVIDER_MODE=growthbook-only
+GROWTHBOOK_SERVE_KEYS=
+```
+
+Now a missing or unavailable GrowthBook value uses `CODE_FALLBACKS`, not the legacy system. Run a controlled failure test in staging by using an invalid client key or blocking the SDK endpoint. Confirm startup reports failure and each flag takes its documented code fallback.
+
+Do not simulate this by disabling a production feature without understanding the result. A disabled feature is removed from the payload and therefore exercises the fallback path for every user.
+
+## Explain mismatches systematically
+
+Do not average all flags into one mismatch percentage. A 0.1% mismatch in a payment kill switch can matter more than a 20% documented re-bucketing in a cosmetic rollout.
+
+Classify every mismatch into one of these causes:
+
+- **Missing feature:** The GrowthBook SDK payload does not contain the key. Check feature state, environment, project delivery, SDK connection scope, and spelling.
+- **Wrong default:** The feature exists, but its default differs from the legacy value.
+- **Rule order:** A context matches multiple rules and the first match differs.
+- **Attribute name:** `accountId` and `account_id` are different keys.
+- **Attribute type:** The old system compares a number while the new attribute is a string.
+- **Normalization:** Casing, whitespace, Unicode, date formatting, or semantic version handling differs.
+- **Missing identity:** The percentage rule has no value for its hash attribute and falls through.
+- **Cohort re-bucketing:** Both providers include the intended percentage but assign different subjects.
+- **Staleness:** One provider has a newer value than the other because update and cache timing differ.
+- **JSON representation:** Object key order differs but values are equivalent, or a genuinely different nested value exists.
+- **Legacy side effect:** A read created or changed an assignment.
+- **Concurrent mutation:** Someone changed one control plane without mirroring the other.
+
+Use a key-level review record:
+
+```text
+Key: invoice-preview
+Window: 2026-08-13T00:00Z to 2026-08-15T00:00Z
+Total compared decisions: 183,240
+Unexplained mismatches: 0
+Expected mismatches: 2,941
+Expected cause: legacy SHA-256 cohort differs from GrowthBook cohort
+Resolution: preserve current 50-account allowlist; wait for legacy percentage to reach 100%
+Missing account_id: 18 requests, all health checks
+GrowthBook fallbacks: 0
+Approved by: <ENGINEERING_OWNER>, <PRODUCT_OWNER>
+```
+
+Do not put real account IDs in this record. Store sensitive reproduction details in the approved incident or support system.
+
+## Test the provider contract
+
+Tests should use explicit feature payloads. Do not make unit tests depend on the current state of a shared GrowthBook organization.
+
+### Test GrowthBook targeting and fallbacks
+
+Create `tests/feature-flags/growthbook-provider.test.ts`:
+
+```ts
+import { CODE_FALLBACKS } from "../../src/feature-flags/app-features.js";
+import { GrowthBookFlagProvider } from "../../src/feature-flags/growthbook-provider.js";
+
+describe("GrowthBookFlagProvider", () => {
+  test("uses a matching account rule and exposes its rule id", () => {
+    const provider = GrowthBookFlagProvider.fromPayload({
+      features: {
+        "invoice-preview": {
+          defaultValue: false,
+          rules: [
+            {
+              id: "allow-acme",
+              condition: { account_id: "acct-acme" },
+              force: true,
+            },
+          ],
+        },
+      },
+    });
+
+    const included = provider
+      .scope({ accountId: "acct-acme" })
+      .evaluate("invoice-preview", CODE_FALLBACKS["invoice-preview"]);
+    const excluded = provider
+      .scope({ accountId: "acct-other" })
+      .evaluate("invoice-preview", CODE_FALLBACKS["invoice-preview"]);
+
+    expect(included).toMatchObject({
+      value: true,
+      reason: "force",
+      ruleId: "allow-acme",
+      usable: true,
+    });
+    expect(excluded).toMatchObject({
+      value: false,
+      reason: "defaultValue",
+      usable: true,
+    });
+    provider.close();
+  });
+
+  test("uses the code fallback when a typed key is absent from the payload", () => {
+    const provider = GrowthBookFlagProvider.fromPayload({ features: {} });
+    const decision = provider
+      .scope({ userId: "user-1" })
+      .evaluate("checkout-v2", CODE_FALLBACKS["checkout-v2"]);
+
+    expect(decision).toMatchObject({
+      value: false,
+      reason: "unknownFeature",
+      usable: false,
+      usedCodeFallback: true,
+    });
+    provider.close();
+  });
+
+  test("keeps account targeting isolated between request scopes", () => {
+    const provider = GrowthBookFlagProvider.fromPayload({
+      features: {
+        "checkout-v2": {
+          defaultValue: false,
+          rules: [{ condition: { plan: "enterprise" }, force: true }],
+        },
+      },
+    });
+
+    expect(
+      provider.scope({ plan: "enterprise" }).evaluate("checkout-v2", false)
+        .value,
+    ).toBe(true);
+    expect(
+      provider.scope({ plan: "free" }).evaluate("checkout-v2", false).value,
+    ).toBe(false);
+    provider.close();
+  });
+
+  test.each(["false", 0, {}, undefined])(
+    "rejects a non-Boolean payload value: %p",
+    (value) => {
+      const provider = GrowthBookFlagProvider.fromPayload({
+        features: { "checkout-v2": { defaultValue: value } },
+      });
+      expect(provider.scope({}).evaluate("checkout-v2", false)).toMatchObject({
+        value: false,
+        usable: false,
+        usedCodeFallback: true,
+      });
+      provider.close();
+    },
+  );
+
+  test("rejects invalid numeric and JSON values", () => {
+    const provider = GrowthBookFlagProvider.fromPayload({
+      features: {
+        "search-page-size": { defaultValue: "50" },
+        "recommendation-config": {
+          defaultValue: { algorithm: "hybrid-v2", maxItems: -1 },
+        },
+      },
+    });
+    expect(provider.scope({}).evaluate("search-page-size", 25)).toMatchObject({
+      value: 25, usable: false, reason: "invalid-value",
+    });
+    expect(
+      provider.scope({}).evaluate("recommendation-config", CODE_FALLBACKS["recommendation-config"]),
+    ).toMatchObject({
+      value: CODE_FALLBACKS["recommendation-config"], usable: false,
+    });
+    provider.close();
+  });
+});
+```
+
+The last test protects against a server bug where one request mutates attributes shared by another request.
+
+### Test serving mode and the per-key allowlist
+
+Create `tests/feature-flags/migrating-provider.test.ts`:
+
+```ts
+import { CODE_FALLBACKS } from "../../src/feature-flags/app-features.js";
+import type { DecisionTelemetry } from "../../src/feature-flags/decision-telemetry.js";
+import { GrowthBookFlagProvider } from "../../src/feature-flags/growthbook-provider.js";
+import type { LegacySnapshot } from "../../src/feature-flags/legacy-loader.js";
+import { LegacyFlagProvider } from "../../src/feature-flags/legacy-provider.js";
+import { MigratingFlagProvider } from "../../src/feature-flags/migrating-provider.js";
+
+const snapshot: LegacySnapshot = {
+  checkoutV2: false,
+  invoicePreviewAccounts: new Set(),
+  invoicePreviewRollout: 0,
+  searchPageSize: 25,
+  recommendationConfig: { algorithm: "baseline", maxItems: 10 },
+};
+
+class MemoryTelemetry implements DecisionTelemetry {
+  public readonly decisions: unknown[] = [];
+  public record(_context: unknown, decision: unknown): void {
+    this.decisions.push(decision);
+  }
+}
+
+function providers() {
+  return {
+    legacy: new LegacyFlagProvider(snapshot),
+    growthbook: GrowthBookFlagProvider.fromPayload({
+      features: {
+        "checkout-v2": { defaultValue: true },
+        "search-page-size": { defaultValue: 50 },
+      },
+    }),
+  };
+}
+
+describe("MigratingFlagProvider", () => {
+  test("shadow compares GrowthBook but serves legacy", () => {
+    const { legacy, growthbook } = providers();
+    const telemetry = new MemoryTelemetry();
+    const provider = new MigratingFlagProvider(
+      legacy,
+      growthbook,
+      "shadow",
+      telemetry,
+    );
+
+    const decision = provider
+      .scope({ userId: "user-1" })
+      .decide("checkout-v2", CODE_FALLBACKS["checkout-v2"]);
+
+    expect(decision.value).toBe(false);
+    expect(decision.servedBy).toBe("legacy");
+    expect(decision.match).toBe(false);
+    expect(telemetry.decisions).toHaveLength(1);
+    provider.close();
+  });
+
+  test("growthbook-preferred serves only selected keys", () => {
+    const { legacy, growthbook } = providers();
+    const provider = new MigratingFlagProvider(
+      legacy,
+      growthbook,
+      "growthbook-preferred",
+      new MemoryTelemetry(),
+      new Set(["checkout-v2"]),
+    );
+    const scope = provider.scope({ userId: "user-1" });
+
+    expect(scope.decide("checkout-v2", false)).toMatchObject({
+      value: true,
+      servedBy: "growthbook",
+    });
+    expect(scope.decide("search-page-size", 25)).toMatchObject({
+      value: 25,
+      servedBy: "legacy",
+    });
+    provider.close();
+  });
+
+  test("selected missing keys temporarily fall back to legacy", () => {
+    const { legacy, growthbook } = providers();
+    const provider = new MigratingFlagProvider(
+      legacy,
+      growthbook,
+      "growthbook-preferred",
+      new MemoryTelemetry(),
+      new Set(["invoice-preview"]),
+    );
+
+    expect(
+      provider.scope({ accountId: "acct-1" }).decide("invoice-preview", false),
+    ).toMatchObject({ value: false, servedBy: "legacy" });
+    provider.close();
+  });
+});
+```
+
+### Add parity fixtures for real production shapes
+
+The previous tests prove adapter mechanics. A parity contract proves your rules. Build fixtures from synthetic examples that cover actual branches; do not copy production PII into the repository.
+
+Create `tests/feature-flags/parity-contract.test.ts`:
+
+```ts
+import { CODE_FALLBACKS } from "../../src/feature-flags/app-features.js";
+import { GrowthBookFlagProvider } from "../../src/feature-flags/growthbook-provider.js";
+import { LegacyFlagProvider } from "../../src/feature-flags/legacy-provider.js";
+
+const legacy = new LegacyFlagProvider({
+  checkoutV2: false,
+  invoicePreviewAccounts: new Set(["acct-beta"]),
+  invoicePreviewRollout: 0,
+  searchPageSize: 25,
+  recommendationConfig: { algorithm: "baseline", maxItems: 10 },
+});
+
+const growthbook = GrowthBookFlagProvider.fromPayload({
+  features: {
+    "checkout-v2": { defaultValue: false },
+    "invoice-preview": {
+      defaultValue: false,
+      rules: [
+        {
+          condition: { account_id: "acct-beta" },
+          force: true,
+        },
+      ],
+    },
+    "search-page-size": { defaultValue: 25 },
+    "recommendation-config": {
+      defaultValue: { algorithm: "baseline", maxItems: 10 },
+    },
+  },
+});
+
+describe("legacy and GrowthBook parity", () => {
+  test.each([
+    { name: "beta account", accountId: "acct-beta" },
+    { name: "normal account", accountId: "acct-normal" },
+    { name: "missing account", accountId: undefined },
+  ])("invoice-preview: $name", (context) => {
+    const oldDecision = legacy
+      .scope(context)
+      .evaluate("invoice-preview", CODE_FALLBACKS["invoice-preview"]);
+    const newDecision = growthbook
+      .scope(context)
+      .evaluate("invoice-preview", CODE_FALLBACKS["invoice-preview"]);
+    expect(newDecision.usable).toBe(true);
+    expect(newDecision.value).toEqual(oldDecision.value);
+  });
+
+  test("non-Boolean values preserve type and shape", () => {
+    const context = { userId: "synthetic-user" };
+    expect(
+      growthbook.scope(context).evaluate("search-page-size", 25).value,
+    ).toBe(legacy.scope(context).evaluate("search-page-size", 25).value);
+    expect(
+      growthbook
+        .scope(context)
+        .evaluate(
+          "recommendation-config",
+          CODE_FALLBACKS["recommendation-config"],
+        ).value,
+    ).toEqual(
+      legacy
+        .scope(context)
+        .evaluate(
+          "recommendation-config",
+          CODE_FALLBACKS["recommendation-config"],
+        ).value,
+    );
+  });
+});
+```
+
+Do not add a partial percentage rollout to this test and expect identical membership unless you have implemented one of the cohort-preservation strategies. Instead, test each provider's stability separately and record the accepted assignment difference.
+
+Run the suite:
+
+```bash
+npx jest tests/feature-flags --runInBand
+npx tsc --noEmit
+```
+
+Expected receipt:
+
+```text
+Test Suites: 3 passed, 3 total
+Tests:       8 passed, 8 total
+```
+
+Your exact count may differ. The acceptance signal is zero failed tests, a successful type check, and no network dependency in unit tests.
+
+## Generate strict feature types in CI
+
+Once the GrowthBook project contains the intended keys and value types, generate `AppFeatures` from GrowthBook instead of maintaining it twice. The current GrowthBook CLI is installed from the `growthbook` npm package and its `generate-types` command writes a TypeScript `AppFeatures` definition.
+
+Install and authenticate interactively on a workstation:
+
+```bash
+npm install --global growthbook
+growthbook --version
+growthbook auth login
+growthbook whoami
+growthbook generate-types --output ./src/feature-flags/generated --filename growthbook.ts
+```
+
+For a self-hosted instance, configure a profile whose server URL includes the documented `/api` suffix. In CI, use a narrowly scoped Secret Key or Personal Access Token in `GBCLI_BEARER_AUTH` and disable interactive prompts. Never use the public SDK client key as REST API authentication.
+
+After generation, make `app-features.ts` re-export the generated interface and keep fallbacks checked against it:
+
+```ts
+export type { AppFeatures } from "./generated/growthbook.js";
+import type { AppFeatures } from "./generated/growthbook.js";
+
+export type FeatureKey = keyof AppFeatures & string;
+
+export const CODE_FALLBACKS = {
+  "checkout-v2": false,
+  "invoice-preview": false,
+  "search-page-size": 25,
+  "recommendation-config": {
+    algorithm: "baseline",
+    maxItems: 10,
+  },
+} satisfies { [K in FeatureKey]: AppFeatures[K] };
+
+export const FEATURE_KEYS = Object.freeze(
+  Object.keys(CODE_FALLBACKS) as FeatureKey[],
+);
+```
+
+The `satisfies` constraint makes CI fail when GrowthBook adds a key without an application fallback, removes a key still used by the application, or changes a value type incompatibly.
+
+Create `.github/workflows/feature-flag-contract.yml`:
+
+```yaml
+name: Feature flag contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm install --global growthbook@1.0.0
+      - name: Generate GrowthBook feature types
+        run: >-
+          growthbook generate-types
+          --output ./src/feature-flags/generated
+          --filename growthbook.ts
+          --no-interactive
+        env:
+          GBCLI_BEARER_AUTH: ${{ secrets.GROWTHBOOK_TYPEGEN_TOKEN }}
+      - name: Fail on uncommitted type drift
+        run: git diff --exit-code -- src/feature-flags/generated/growthbook.ts
+      - run: npm run typecheck
+      - run: npm test -- --runInBand tests/feature-flags
+```
+
+Pin the CLI version to the one you have tested. Current CLI command groups follow the newest API version, and a command group can advance in a major CLI release. Review the changelog before upgrading the pin.
+
+If pull requests from forks cannot access secrets, split the job: run checked-in type compilation for every pull request and run authenticated regeneration on trusted branches or a scheduled workflow. Do not expose the token to untrusted code.
+
+## Add operational diagnostics
+
+Shadow telemetry answers “do the providers agree?” GrowthBook Feature Evaluation Diagnostics can answer “which values and rules are the live SDKs evaluating?” when you send evaluation events to your warehouse and configure a Feature Usage Query.
+
+The JavaScript/Node SDK supports `onFeatureUsage`. The callback includes the feature key, evaluation result, and, for the multi-user client, the user context. It is de-duplicated for repeated evaluation of the same value within a scoped context. That makes it useful for recent decision diagnostics, but it is not a request-count metric.
+
+Add a warehouse-bound callback when your privacy and event-volume policies permit it:
+
+```ts
+const client = new GrowthBookClient<AppFeatures>({
+  apiHost: options.apiHost,
+  clientKey: options.clientKey,
+  onFeatureUsage: (featureKey, result, userContext) => {
+    void analytics.track("Feature Evaluated", {
+      feature_key: featureKey,
+      timestamp: new Date().toISOString(),
+      value: result.value,
+      reason: result.source,
+      rule_id: result.ruleId,
+      unit_id: userContext.attributes.account_id ?? userContext.attributes.id,
+    });
+  },
+});
+```
+
+Treat `unit_id` according to your data policy. Do not send email, raw secure attributes, roles, or the entire user context by default. Partition a high-volume evaluation table by timestamp and, where supported, cluster by feature key so recent diagnostic queries do not scan unbounded history.
+
+Track these service-level metrics independently of warehouse diagnostics:
+
+- SDK initialization successes and failures by deployment environment.
+- Payload source: network, cache, timeout, or error.
+- Refresh age and refresh failures.
+- GrowthBook code-fallback count by key.
+- Transitional legacy-fallback count by selected key.
+- Shadow comparison count and mismatch count by key and reason.
+- Missing randomization-attribute count.
+- Decision latency around the provider call.
+
+Do not report “local evaluation adds no latency.” Measure your adapter. Normal SDK evaluation avoids a network request for each flag check, but serialization, logging, a slow legacy comparison, or remote evaluation can still add latency.
+
+## Handle failures deliberately
+
+| Failure                                       | Expected serving behavior                   | Required signal                                 | Immediate response                                          |
+| --------------------------------------------- | ------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------- |
+| SDK payload timeout in `shadow`               | Serve legacy                                | Startup failure and comparison unavailable      | Fix delivery; do not cut over                               |
+| SDK payload timeout in `growthbook-preferred` | Selected keys temporarily serve legacy      | `servedBy=legacy` for selected key              | Investigate and consider global rollback                    |
+| SDK payload timeout in `growthbook-only`      | Serve code fallback                         | `servedBy=code-fallback`                        | Confirm fallback safety; restore payload delivery           |
+| GrowthBook key absent                         | Treat result as unusable                    | `reason=unknownFeature`                         | Check state, environment, project scope, and spelling       |
+| Wrong SDK client key                          | Payload contains wrong or no features       | Startup/environment receipt and parity failures | Replace key; do not edit rules to compensate                |
+| Missing hash attribute                        | Percentage rule falls through               | Missing-attribute metric                        | Fix context; do not generate a request-time ID              |
+| Malformed legacy config                       | Fail startup during migration               | Startup exception                               | Restore the last valid snapshot or fix config               |
+| Legacy database unavailable                   | Existing startup/fallback policy applies    | Legacy load failure                             | Do not cut over in a partially initialized state            |
+| Rule publication error                        | Existing published revision remains live    | Publish failure and unchanged revision          | Fix draft; do not mutate the application fallback           |
+| Telemetry outage                              | Serving continues                           | Telemetry delivery alert                        | Pause cutover because parity evidence is incomplete         |
+| Value type drift                              | Type generation or runtime validation fails | CI failure or invalid-value metric              | Revert the feature revision or deploy compatible code first |
+
+The code fallback must be safe before the incident occurs. During an outage, nobody should debate whether `false` disables the new checkout or disables checkout entirely.
+
+## Govern the system you actually have
+
+GrowthBook supports drafts and published revisions for feature changes. Optional approval flows and some advanced governance features depend on plan and organization configuration. Build a minimum operational policy that works on your current plan, then add product-enforced controls where available.
+
+### Minimum policy on any plan
+
+- Give every flag an owner and a plain-language purpose.
+- Record the safe fallback and incident action.
+- Separate development, test, staging, and production SDK connections.
+- Require a change record or pull request for production rule changes, even when the product does not enforce an approval.
+- Use a second-person review for high-risk operational and release changes.
+- Put an expected cleanup condition and date on temporary flags.
+- Test the proposed attributes in Simulation before publishing.
+- Verify the published revision through application telemetry after change.
+- Keep permissions least-privileged.
+
+### Product-enforced controls when available
+
+Approval flows can require a different user to review a draft before publishing. Publishing creates immutable revisions, and a prior revision can be selected and reverted through a new change. Configure approval requirements for production environments according to your plan and risk model.
+
+Do not claim that every GrowthBook plan enforces the same workflow. If approvals, custom roles, custom environments, schedules, or another control is required, confirm its current availability before making it a migration dependency.
+
+### Naming and ownership
+
+Feature keys are durable API names. Use lowercase kebab case, avoid team names that may change, and encode the behavior rather than the implementation ticket:
+
+```text
+checkout-v2                 good: stable behavior name
+payments-provider           good: typed string selection
+JIRA-4312                   poor: no behavior or lifecycle meaning
+alice-test                  poor: owner and purpose will become stale
+disable-new-checkout        risky: inverted kill-switch semantics
+```
+
+Keep descriptions operational:
+
+```text
+Purpose: Gradually release the new checkout implementation.
+Owner: Checkout team.
+Safe fallback: false, which serves checkout-v1.
+Hash attribute: account_id.
+Cleanup: Remove checkout-v1 and this flag 14 days after 100% rollout.
+Incident: Set production value false and notify #checkout-oncall.
+Migration: <LINK_TO_MIGRATION_ISSUE>.
+```
+
+## Add code references and stale review
+
+[Code References](/features/code-references) scans a checked-out repository and sends the locations of feature keys to GrowthBook. Run the scanner in CI on the branch or branches your team uses for cleanup decisions. It lets reviewers see where a flag remains in code and improves the evidence available during stale review.
+
+The current `gb-find-code-refs` tool can run directly or through its Docker image. Its exact invocation and credentials depend on the integration you configure, so use the [official repository](https://github.com/growthbook/gb-find-code-refs) and pin a reviewed release or image digest rather than copying an unpinned `latest` command into production CI.
+
+Code references are evidence, not deletion authorization. Dynamic keys, aliases, generated clients, another repository, mobile releases, scheduled jobs, and old deployed versions may not appear in one scan.
+
+GrowthBook marks a feature stale after it has not been updated for 2 weeks and either has no active environment or has one-sided rules that send 100% of traffic to one variation. Use that as a review queue. It does not prove the flag can be deleted automatically.
+
+For each stale candidate:
+
+1. Confirm the production value and rule state.
+2. Check code references on the protected default branch.
+3. Search all repositories and clients that consume the SDK connection.
+4. Check support, mobile, worker, and backward-compatibility requirements.
+5. Decide which behavior becomes permanent.
+6. Remove the losing branch from code.
+7. Deploy and observe the cleanup.
+8. Remove the flag read.
+9. Re-run code references.
+10. Archive or delete the GrowthBook feature according to team policy.
+
+Never ask an agent to delete all flags marked stale. Ask it to prepare a cleanup plan with references, owners, deployed-version evidence, and rollback impact.
+
+## Remove the legacy system in the correct order
+
+The final cleanup is another migration, not housekeeping to squeeze into the cutover deployment.
+
+### 1. Stop legacy mutations
+
+Disable the old admin endpoint, UI, scheduled updater, and manual database write procedure. Return a clear error that points operators to GrowthBook. Keep reads intact temporarily.
+
+Verify no writes for the observation window:
+
+```sql
+SELECT
+  COUNT(*) AS writes,
+  MAX(updated_at) AS last_write
+FROM feature_flags
+WHERE updated_at >= CURRENT_TIMESTAMP - INTERVAL '7 days';
+```
+
+Adapt interval syntax to your warehouse or database. The expected result is zero writes after the mutation cutoff, except an explicitly documented rollback test.
+
+### 2. Remove legacy fallback reads
+
+Run `growthbook-only` long enough to exercise an SDK refresh and normal production traffic. Remove `growthbook-preferred`, `GROWTHBOOK_SERVE_KEYS`, and the legacy provider dependency. Simplify the runtime interface to GrowthBook plus code fallbacks.
+
+Search for old keys again:
+
+```bash
+rg -n --hidden \
+  --glob '!node_modules/**' \
+  --glob '!.git/**' \
+  '(FEATURE_CHECKOUT_V2|INVOICE_PREVIEW_ROLLOUT_PERCENT|feature_flag_overrides|LegacyFlagProvider)'
+```
+
+The only remaining matches should be migration history, tests you are deleting in the same reviewed change, or intentionally preserved documentation.
+
+### 3. Remove data after backup and retention review
+
+Export the legacy schema and row counts to the approved backup location. Do not place raw overrides in a pull request artifact. Verify restore access before dropping a table.
+
+Prefer this sequence:
+
+```text
+deny writes
+→ remove application reads
+→ deploy
+→ observe
+→ revoke old credentials
+→ archive or rename table
+→ retention window
+→ drop table
+```
+
+Renaming or restricting the table can catch unknown readers before deletion. Do not drop a shared table solely because one service no longer reads it.
+
+### 4. Delete migration-only telemetry
+
+Remove pairwise comparison logs and the telemetry salt after the migration window. Retain normal GrowthBook diagnostics and fallback alerts. High-volume shadow instrumentation is not the permanent operating model.
+
+### 5. Close the migration record
+
+Record:
+
+- Final application commit and deployment revision.
+- GrowthBook feature keys and owning project.
+- Date legacy writes stopped.
+- Date legacy reads stopped.
+- Backup and retention location.
+- Any accepted cohort discontinuity.
+- Rollback image or release expiration.
+- Remaining temporary flags and their cleanup dates.
+
+## Optional OpenFeature branch
+
+OpenFeature is useful when a team has already standardized on its vendor-neutral evaluation API across multiple services, or portability is a stated architecture requirement. Do not add it merely to make this migration look more abstract.
+
+At the commit verified for this guide, GrowthBook documents OpenFeature providers for Python, Go, .NET, and Java. The native GrowthBook SDKs expose capabilities outside the OpenFeature interface, and the documented provider list does not include an official JavaScript/TypeScript provider. Therefore, the reference Node implementation uses the native SDK behind an application-owned interface.
+
+Use an official GrowthBook OpenFeature provider in a supported language when all of these are true:
+
+- The service already uses OpenFeature or has an approved cross-language standardization plan.
+- The provider supports the GrowthBook capabilities you need.
+- Your evaluation context maps the stable `targetingKey` and additional attributes correctly.
+- Provider initialization, shutdown, cache, and failure behavior are covered by contract tests.
+- The team accepts that native-only capabilities may require an escape hatch.
+
+Do not write an ad hoc JavaScript OpenFeature provider during a feature flag migration unless maintaining that adapter is itself an explicit project goal. The application-owned `FeatureProvider` in this guide already limits vendor-specific code to one file without claiming standards compliance.
+
+## DIY versus GrowthBook: make the decision honestly
+
+Keep or improve DIY when all of these remain true:
+
+- The switch is static or deploy-time by design.
+- One application and one team own it.
+- No user, account, or percentage targeting is needed.
+- A deployment rollback meets the operational requirement.
+- No experiment exposure or outcome analysis is planned.
+- The switch will not multiply into a shared control plane.
+- A typed configuration parser and tests solve the actual problem.
+
+Migrate when the application is already rebuilding platform responsibilities:
+
+```text
+Boolean
+→ runtime storage
+→ authenticated mutation API
+→ environment isolation
+→ targeting language
+→ deterministic percentage assignment
+→ cache and invalidation
+→ change history and review
+→ exposure events and experiment analysis
+→ code references and cleanup workflow
+```
+
+GrowthBook reduces the amount of custom control-plane and evaluation machinery the team owns. It does not remove the need to choose safe fallbacks, model identity, protect authorization, validate behavior, monitor delivery, or delete temporary code.
+
+The strongest reason to migrate is not that GrowthBook can return a Boolean. It is that the team needs consistent behavior from creation through rollout, diagnosis, measurement, and removal, and no longer wants to maintain each of those systems independently.
+
+## Definition of done
+
+### Inventory and classification
+
+- [ ] Repository, deployment, configuration, and database searches are complete.
+- [ ] Every confirmed switch has a manifest row and owner.
+- [ ] Every candidate is classified as release, experiment, operational, permission/entitlement, permanent configuration, build-time configuration, or dead code.
+- [ ] Authorization, billing entitlements, secrets, executable content, and safety invariants remain outside ordinary flags.
+- [ ] Dead flags are deleted rather than migrated.
+
+### Semantic parity
+
+- [ ] Value type, code fallback, legacy default, precedence, rule order, environment, attributes, randomization unit, hashing, freshness, and failure behavior are documented per key.
+- [ ] Ambiguous string and Boolean coercion is removed or explicitly preserved.
+- [ ] Partial rollouts have a cohort-preservation or accepted re-bucketing decision.
+- [ ] Missing identity and missing account attributes are tested.
+- [ ] Synthetic parity fixtures cover every meaningful branch.
+
+### Runtime migration
+
+- [ ] Every call site uses the typed provider boundary.
+- [ ] Legacy-only adapter deployment preserved behavior.
+- [ ] Correct environment-scoped SDK client keys are installed.
+- [ ] Shadow evaluation has no side effects.
+- [ ] Every unexplained production mismatch is resolved.
+- [ ] GrowthBook serves only allowlisted keys during incremental cutover.
+- [ ] Selected-key legacy fallback count is zero in the acceptance window.
+- [ ] GrowthBook-only failure tests produce documented code fallbacks.
+- [ ] Application shutdown closes the SDK provider cleanly.
+
+### Tests and operations
+
+- [ ] Unit, multi-user isolation, targeting, mode, parity, and failure tests pass.
+- [ ] Generated feature types match the checked-in file.
+- [ ] CI uses a pinned CLI and least-privileged secret.
+- [ ] Startup, refresh, fallback, mismatch, missing-attribute, and latency signals exist.
+- [ ] Production change review matches the current plan's available controls.
+- [ ] Operators can revert a feature revision and can redeploy `FLAG_PROVIDER_MODE=legacy` during the rollback window.
+
+### Cleanup
+
+- [ ] Legacy mutation paths are disabled and observed unused.
+- [ ] GrowthBook-only mode runs before legacy reads are removed.
+- [ ] Legacy credentials are revoked.
+- [ ] Legacy data is backed up according to retention policy before deletion.
+- [ ] Code References run on protected branches.
+- [ ] Stale flags are reviewed with code and deployment evidence, never deleted automatically.
+- [ ] Migration-only telemetry and secrets are removed.
+- [ ] Every remaining temporary flag has a cleanup owner and condition.
+
+## Source map and freshness
+
+This guide was verified on 2026-08-12 against GrowthBook repository commit `e44a15af063860c7118f52508746356d55e5a91d` and these source areas:
+
+| Claim or artifact                                                                       | Primary source                                                                                                        | Recheck when                                 |
+| --------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
+| JavaScript SDK initialization, fallback, caching, strict typing, and evaluation results | [JavaScript SDK](/lib/js) and `packages/sdk-js/src`                                                                   | SDK major upgrade or payload-delivery change |
+| Multi-user server client and request-scoped evaluation                                  | [Node.js SDK](/lib/node) and `packages/sdk-js/test/multi-user.test.ts`                                                | Server runtime or SDK lifecycle change       |
+| Feature types, defaults, and disabled-feature behavior                                  | [Feature flag fundamentals](/features/basics)                                                                         | Feature model change                         |
+| Ordered rules, percentage rollout, and Simulation                                       | [Feature flag rules](/features/rules)                                                                                 | Rule editor or evaluation semantics change   |
+| Attribute types and secure targeting                                                    | [Targeting conditions](/features/targeting)                                                                           | Identity or privacy model change             |
+| Environment-to-SDK mapping and plan note                                                | [Environments](/features/environments)                                                                                | Plan or environment model change             |
+| Drafts, revisions, reverts, and optional approvals                                      | [Publishing and approval flows](/features/publishing-and-approval-flows)                                              | Governance or plan change                    |
+| Evaluation event diagnostics                                                            | [Feature Evaluation Diagnostics](/features/diagnostics)                                                               | Event schema or warehouse query change       |
+| CLI authentication and type generation                                                  | [GrowthBook CLI](/tools/cli) and [official CLI repository](https://github.com/growthbook/cli)                         | CLI upgrade; pin and review major releases   |
+| Code scanning                                                                           | [Code References](/features/code-references) and [gb-find-code-refs](https://github.com/growthbook/gb-find-code-refs) | Scanner release or CI integration change     |
+| Stale criteria                                                                          | [Stale Feature Flag Detection](/features/stale-detection)                                                             | Before automating or changing cleanup policy |
+| Optional standard provider coverage                                                     | [OpenFeature providers](/lib/openfeature)                                                                             | Before choosing a language/provider          |
+
+The highest-drift details are package versions, CLI commands, plan availability, environment limits, provider coverage, and stale-detection criteria. Recheck them before publishing this guide or using it as an automated migration instruction.
+
+The application-specific details drift faster than the product docs. Re-run the inventory, regenerate types, rebuild parity fixtures, and capture a new source commit whenever the legacy implementation or target GrowthBook configuration changes.
+
+## Final migration receipt
+
+End the migration with a machine-readable summary that another coding agent can verify:
+
+```json
+{
+  "migration": "diy-feature-flags-to-growthbook",
+  "applicationCommit": "<GIT_COMMIT>",
+  "deploymentRevision": "<DEPLOYMENT_REVISION>",
+  "growthbookVerifiedCommit": "e44a15af063860c7118f52508746356d55e5a91d",
+  "providerMode": "growthbook-only",
+  "featuresMigrated": 4,
+  "unexplainedMismatches": 0,
+  "growthbookFallbacksDuringWindow": 0,
+  "legacyWritesDisabledAt": "<ISO_8601_TIMESTAMP>",
+  "legacyReadsRemovedAt": "<ISO_8601_TIMESTAMP>",
+  "legacyBackup": "<APPROVED_BACKUP_REFERENCE>",
+  "codeReferencesVerified": true,
+  "typeGenerationVerified": true,
+  "tests": {
+    "typecheck": "passed",
+    "featureFlagSuites": "passed",
+    "failureDrill": "passed"
+  },
+  "remainingTemporaryFlags": [
+    {
+      "key": "checkout-v2",
+      "owner": "checkout-team",
+      "removalCondition": "14 days at 100% after checkout-v1 code removal"
+    }
+  ]
+}
+```
+
+Replace every placeholder with evidence. If a field is unknown, leave the migration open. The end state is not “GrowthBook returns the expected value once.” It is a single operational system, a tested fallback, an explainable assignment model, and a credible path to delete each temporary flag.

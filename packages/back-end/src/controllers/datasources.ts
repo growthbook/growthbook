@@ -1,11 +1,14 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import * as bq from "@google-cloud/bigquery";
+import pick from "lodash/pick";
+import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  getDataSourceSaveChanges,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -18,6 +21,8 @@ import { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
+  testQueryTypeValidator,
+  testDataSourceConnectionBodySchema,
 } from "shared/validators";
 import { AutoMetricToCreate } from "shared/types/integrations";
 import { AuditUserLoggedIn } from "shared/types/audit";
@@ -39,6 +44,7 @@ import type { ClickHouseConnectionParams } from "shared/types/integrations/click
 import { SDKAttributeSchema } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   mergeParams,
@@ -48,8 +54,10 @@ import {
   runFeatureEvalDiagnosticsQuery,
   runFreeFormQuery,
   runUserExposureQuery,
+  testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
+  assertNoEventForwarderInOrg,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
   syncEventForwarderConfigFromDatasource,
@@ -76,7 +84,6 @@ import {
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
-  getQueriesByDatasource,
   getQueriesByIds,
   getQueryById,
   updateQueryIfRunning,
@@ -101,6 +108,8 @@ import {
 } from "back-end/src/models/DimensionSlicesModel";
 import { DimensionSlicesQueryRunner } from "back-end/src/queryRunners/DimensionSlicesQueryRunner";
 import { logger } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
+import { errorStringFromZodResult } from "back-end/src/util/validation";
 import { cancelQueryAndConfirm } from "back-end/src/services/queryCancellation";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
@@ -111,6 +120,7 @@ import { dangerousRecreateClickhouseTables } from "back-end/src/services/license
 import { UNITS_TABLE_PREFIX } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { QUERY_CANCELLED_BY_USER_ERROR } from "back-end/src/queryRunners/QueryRunner";
 import { getExperimentsByTrackingKeys } from "back-end/src/models/ExperimentModel";
+import { createBigQueryClient } from "back-end/src/services/bigqueryClient";
 
 export async function deleteDataSource(
   req: AuthRequest<null, { id: string }>,
@@ -244,6 +254,9 @@ export async function postDataSources(
   }
 
   try {
+    // Before the save, so a refused forwarder leaves no orphan Data Source
+    if (eventForwarderConfig) await assertNoEventForwarderInOrg(context);
+
     // Set default event properties and queries
     settings.events = {
       experimentEvent: "$experiment_started",
@@ -319,7 +332,7 @@ export async function postManagedWarehouse(
   const context = getContextFromReq(req);
 
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canCreateDataSource({ type: "growthbook_clickhouse" })
   ) {
     context.permissions.throwPermissionError();
@@ -360,20 +373,124 @@ export async function postManagedWarehouse(
   });
 }
 
+type PutDataSourceBody = {
+  name?: string;
+  description?: string;
+  type?: DataSourceType;
+  params?: DataSourceParams;
+  settings?: DataSourceSettings;
+  projects?: string[];
+  metricsToCreate?: AutoMetricToCreate[];
+  eventForwarderConfig?: EventForwarderConfigDraft | null;
+};
+
+/**
+ * Assignment queries are scoped to projects, so editing one needs the
+ * permission in the projects it covers rather than in every project of the
+ * data source. Anything else still needs the data source-wide permission.
+ */
+function assertCanUpdateDataSource(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: PutDataSourceBody,
+) {
+  const { permissions } = context;
+  const { changesOtherFields, exposureQueryChanges } = getDataSourceSaveChanges(
+    datasource,
+    body,
+  );
+  if (
+    changesOtherFields &&
+    !permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    permissions.throwPermissionError();
+  }
+
+  const nextDatasource = { projects: body.projects ?? datasource.projects };
+  for (const change of exposureQueryChanges) {
+    if (
+      (change.previous &&
+        !permissions.canUpdateExposureQuery(change.previous, datasource)) ||
+      (change.next &&
+        !permissions.canUpdateExposureQuery(change.next, nextDatasource))
+    ) {
+      permissions.throwPermissionError();
+    }
+  }
+}
+
+// Tests credentials without saving anything. Connection failures come back as a
+// 400 with the driver's message, the same as a failed save.
+export async function postTestDataSourceConnection(
+  req: AuthRequest,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const parsed = testDataSourceConnectionBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, projects, datasourceId } = parsed.data;
+  const params = parsed.data.params as Partial<DataSourceParams>;
+
+  let datasource: DataSourceInterface;
+  if (datasourceId) {
+    const existing = await getDataSourceById(context, datasourceId);
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ status: 404, message: "Cannot find data source" });
+    }
+    if (!context.permissions.canUpdateDataSourceParams(existing)) {
+      context.permissions.throwPermissionError();
+    }
+    const integration = getSourceIntegrationObject(context, existing);
+    if (existing.type !== type) {
+      return res.status(400).json({
+        status: 400,
+        message: "Cannot change the type of an existing data source.",
+      });
+    }
+
+    // The browser never receives saved secrets, so blank fields keep them.
+    mergeParams(integration, params);
+    datasource = { ...existing, params: encryptParams(integration.params) };
+  } else {
+    if (!context.permissions.canCreateDataSource({ projects, type })) {
+      context.permissions.throwPermissionError();
+    }
+    datasource = {
+      id: "",
+      name: "",
+      description: "",
+      organization: context.org.id,
+      dateCreated: null,
+      dateUpdated: null,
+      type,
+      params: encryptParams(params as DataSourceParams),
+      projects,
+      settings: {},
+    } as DataSourceInterface;
+  }
+
+  try {
+    await testUnsavedDataSourceConnection(context, datasource);
+  } catch (e) {
+    return res.status(400).json({
+      status: 400,
+      message: e.message || "Unable to connect to the data source",
+    });
+  }
+
+  res.status(200).json({ status: 200 });
+}
+
 export async function putDataSource(
-  req: AuthRequest<
-    {
-      name?: string;
-      description?: string;
-      type?: DataSourceType;
-      params?: DataSourceParams;
-      settings?: DataSourceSettings;
-      projects?: string[];
-      metricsToCreate?: AutoMetricToCreate[];
-      eventForwarderConfig?: EventForwarderConfigDraft | null;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<PutDataSourceBody, { id: string }>,
   res: Response<
     | {
         status: 200;
@@ -434,9 +551,7 @@ export async function putDataSource(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanUpdateDataSource(context, datasource, req.body);
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -752,7 +867,7 @@ export async function deleteEventForwarderForDataSource(
   }
 
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canUpdateDataSourceSettings(datasource)
   ) {
     context.permissions.throwPermissionError();
@@ -769,7 +884,7 @@ export async function deleteEventForwarderForDataSource(
     });
   }
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
   ) {
     context.permissions.throwPermissionError();
@@ -1136,6 +1251,7 @@ export async function postValidatePipelineSettings(
       }),
       undefined,
       "pipelineValidation",
+      null,
     );
     results.create.result = "success";
   } catch (e) {
@@ -1161,6 +1277,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.insert = { result: "success" };
       } catch (e) {
@@ -1192,6 +1309,7 @@ export async function postValidatePipelineSettings(
           }),
           undefined,
           "pipelineValidation",
+          null,
         );
         results.drop = { result: "success" };
       } catch (e) {
@@ -1228,10 +1346,6 @@ export async function updateExposureQuery(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(dataSource)) {
-    context.permissions.throwPermissionError();
-  }
-
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
     (e) => e.id === exposureQueryId,
@@ -1248,9 +1362,14 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
+  if (!context.permissions.canUpdateExposureQuery(exposureQuery, dataSource)) {
+    context.permissions.throwPermissionError();
+  }
+  // Only dimension metadata; the rest of the query is edited through the data
+  // source save, which validates it.
   copy.settings.queries.exposure[exposureQueryIndex] = {
     ...exposureQuery,
-    ...updates,
+    ...pick(updates, ["dimensions", "dimensionSlicesId", "dimensionMetadata"]),
   };
 
   try {
@@ -1329,10 +1448,14 @@ export async function testLimitedQuery(
     timestampColumn?: string;
     limit?: number;
     detectColumns?: boolean;
+    queryType?: unknown;
   }>,
   res: Response,
 ) {
   const context = getContextFromReq(req);
+  const queryType = testQueryTypeValidator
+    .catch("testQuery")
+    .parse(req.body.queryType);
 
   const {
     query,
@@ -1367,6 +1490,7 @@ export async function testLimitedQuery(
     context,
     datasource,
     query,
+    queryType,
     templateVariables,
     maxLimit,
     timestampColumn,
@@ -1529,31 +1653,6 @@ export async function getDataSourceMetrics(
   });
 }
 
-export async function getDataSourceQueries(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const datasourceObj = await getDataSourceById(context, id);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-
-  req.checkPermissions(
-    "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : [],
-  );
-
-  const queries = await getQueriesByDatasource(context.org.id, id);
-
-  res.status(200).json({
-    status: 200,
-    queries,
-  });
-}
-
 export async function cancelDataSourceQuery(
   req: AuthRequest<null, { id: string; queryId: string }>,
   res: Response,
@@ -1700,29 +1799,48 @@ export async function cancelDimensionSlices(
   });
 }
 
+const bigQueryDatasetRequestSchema = z.object({
+  projectId: z.string().optional(),
+  apiEndpoint: z.string().optional(),
+  client_email: z.string().optional(),
+  private_key: z.string().optional(),
+  datasourceId: z.string().optional(),
+  projects: z.array(z.string()).optional(),
+});
+
 export async function fetchBigQueryDatasets(
-  req: AuthRequest<{
-    projectId: string;
-    client_email: string;
-    private_key: string;
-    datasourceId?: string;
-  }>,
+  req: AuthRequest<unknown>,
   res: Response,
 ) {
-  const { projectId, client_email, private_key, datasourceId } = req.body;
-  const submittedParams: Partial<BigQueryConnectionParams> = {
+  const parsed = bigQueryDatasetRequestSchema.safeParse(req.body);
+  if (!parsed.success) {
+    throw new BadRequestError(
+      `Invalid BigQuery connection parameter format: ${errorStringFromZodResult(parsed)}`,
+    );
+  }
+  const {
     projectId,
-    clientEmail: client_email,
-    privateKey: private_key,
+    apiEndpoint,
+    client_email,
+    private_key,
+    datasourceId,
+    projects: proposedProjects,
+  } = parsed.data;
+  const context = getContextFromReq(req);
+  const submittedParams: Partial<BigQueryConnectionParams> = {
+    ...(projectId !== undefined ? { projectId } : {}),
+    ...(apiEndpoint !== undefined ? { apiEndpoint } : {}),
+    ...(client_email !== undefined ? { clientEmail: client_email } : {}),
+    ...(private_key !== undefined ? { privateKey: private_key } : {}),
   };
 
-  let connectionParams = submittedParams;
+  let connectionParams: Partial<BigQueryConnectionParams>;
   if (datasourceId) {
-    const context = getContextFromReq(req);
     const datasource = await getDataSourceById(context, datasourceId);
     if (!datasource || datasource.type !== "bigquery") {
       throw new Error("Cannot find BigQuery data source");
     }
+    // Authorize against the stored projects before reusing saved credentials.
     if (
       !context.permissions.canUpdateDataSourceSettings(datasource) ||
       !context.permissions.canUpdateDataSourceParams(datasource)
@@ -1733,26 +1851,27 @@ export async function fetchBigQueryDatasets(
     const integration = getSourceIntegrationObject(context, datasource);
     mergeParams(integration, submittedParams);
     connectionParams = integration.params;
+  } else {
+    if (
+      !context.permissions.canCreateDataSource({
+        type: "bigquery",
+        projects: proposedProjects,
+      })
+    ) {
+      context.permissions.throwPermissionError();
+    }
+    connectionParams = submittedParams;
   }
 
-  try {
-    const client = new bq.BigQuery({
-      projectId: connectionParams.projectId,
-      credentials: {
-        client_email: connectionParams.clientEmail,
-        private_key: connectionParams.privateKey,
-      },
-    });
-
-    const [datasets] = await client.getDatasets();
-
-    res.status(200).json({
-      status: 200,
-      datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
-    });
-  } catch (e) {
-    throw new Error(e.message);
-  }
+  const client = createBigQueryClient({
+    ...connectionParams,
+    authType: "json",
+  });
+  const [datasets] = await client.getDatasets();
+  res.status(200).json({
+    status: 200,
+    datasets: datasets.map((dataset) => dataset.id).filter(Boolean),
+  });
 }
 
 export async function postRecreateManagedWarehouse(
@@ -1762,7 +1881,7 @@ export async function postRecreateManagedWarehouse(
   const context = getContextFromReq(req);
 
   // Escape hatch for super admins to re-generate the database and backfill data
-  if (!context.superAdmin) {
+  if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
     throw new Error(
       "You must be a super admin to recreate a Managed Warehouse datasource",
     );

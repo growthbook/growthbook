@@ -1,8 +1,9 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import ReactDiffViewer, { DiffMethod } from "react-diff-viewer-continued";
+import { DiffMethod } from "react-diff-viewer-continued";
 import { SavedGroupInterface } from "shared/types/saved-group";
 import { Box, Flex } from "@radix-ui/themes";
+import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
@@ -76,7 +77,7 @@ function ValuesBox({
 }
 
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
-// and an inline ReactDiffViewer for multi-line / JSON values.
+// and an inline diff viewer for multi-line / JSON values.
 function ValueChangedField({
   label,
   pre,
@@ -136,7 +137,7 @@ function ValueChangedField({
         className="diff-wrapper diff-wrapper-compact"
         style={{ maxHeight: 250, overflowY: "auto" }}
       >
-        <ReactDiffViewer
+        <LazyDiffViewer
           oldValue={pre ?? ""}
           newValue={post ?? ""}
           compareMethod={DiffMethod.LINES}
@@ -646,6 +647,31 @@ export function getSavedGroupValuesBadges(pre: Pre, post: Post): DiffBadge[] {
     else badges.push({ label: "Edit values", action: "edit values" });
   }
   return badges;
+}
+
+/** A remote group switching to another upload. */
+export function renderSavedGroupUploadVersion(
+  pre: Pre,
+  post: Post,
+): ReactNode | null {
+  const version = (v: number | undefined) =>
+    v === undefined ? undefined : `Version ${v}`;
+  return (
+    <ValueChangedField
+      label="Upload version"
+      pre={version(pre?.currentUploadVersion)}
+      post={version(post.currentUploadVersion)}
+    />
+  );
+}
+
+export function getSavedGroupUploadVersionBadges(
+  pre: Pre,
+  post: Post,
+): DiffBadge[] {
+  return isEqual(pre?.currentUploadVersion, post.currentUploadVersion)
+    ? []
+    : [{ label: "Edit upload version", action: "edit upload version" }];
 }
 
 export function getSavedGroupProjectsBadges(pre: Pre, post: Post): DiffBadge[] {

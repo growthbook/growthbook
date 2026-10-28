@@ -1,5 +1,6 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
+import { isAutoSnapshotScheduled } from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -9,11 +10,14 @@ import {
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
   createSnapshot,
+  determineNextDate,
   getAdditionalExperimentAnalysisSettings,
   getDefaultExperimentAnalysisSettings,
   getSettingsForSnapshotMetrics,
   updateExperimentBanditSettings,
 } from "back-end/src/services/experiments";
+import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
+import { findLatestSuccessfulSnapshotEndDate } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   ConcurrentIncrementalRefreshError,
   UnrecoverableSnapshotError,
@@ -77,7 +81,7 @@ export default async function (agenda: Agenda) {
   async function startUpdateJob() {
     const updateResultsJob = agenda.create(QUEUE_EXPERIMENT_UPDATES, {});
     updateResultsJob.unique({});
-    updateResultsJob.repeatEvery("10 minutes");
+    updateResultsJob.repeatEvery("5 minutes");
     await updateResultsJob.save();
   }
 
@@ -99,7 +103,7 @@ export default async function (agenda: Agenda) {
   }
 }
 
-const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
+export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const experimentId = job.attrs.data?.experimentId;
   const orgId = job.attrs.data?.organization;
 
@@ -110,7 +114,8 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
-  if (!experiment) return;
+  // Check if it is scheduled again because it might have changed between queued and now
+  if (!experiment || !isAutoSnapshotScheduled(experiment)) return;
 
   let project = null;
   if (experiment.project) {
@@ -136,6 +141,46 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     return;
   }
 
+  const phaseIndex = experiment.phases.length - 1;
+  const phase = experiment.phases[phaseIndex];
+  const updateSchedule = organization.settings?.updateSchedule ?? null;
+  const now = new Date();
+  const cutoff =
+    experiment.type !== "multi-armed-bandit" && phase && !phase.dateEnded
+      ? getScheduledAnalysisEndDate(updateSchedule, now)
+      : null;
+  if (phase && cutoff) {
+    const latestEndDate = await findLatestSuccessfulSnapshotEndDate(context, {
+      experiment: experiment.id,
+      phase: phaseIndex,
+    });
+    // A cutoff before the phase started leaves no data to analyze yet. A newer
+    // update (e.g. a manual one) may already cover a later cutoff; re-running
+    // would replace fresher results with older ones. An end date in the future
+    // (left by a phase end that was later cleared) must not hold off updates
+    // until that date.
+    const skipReason =
+      cutoff <= (phase.lookbackStartDate ?? phase.dateStarted)
+        ? "cutoff is before the phase started"
+        : latestEndDate && latestEndDate >= cutoff && latestEndDate <= now
+          ? "latest snapshot already covers"
+          : null;
+    if (skipReason) {
+      logger.info(
+        `Skipping scheduled update for experiment ${experimentId}: ${skipReason} ${cutoff.toISOString()}`,
+      );
+      const nextUpdate = determineNextDate(updateSchedule);
+      if (nextUpdate) {
+        await updateExperiment({
+          context,
+          experiment,
+          changes: { nextSnapshotAttempt: nextUpdate },
+        });
+      }
+      return;
+    }
+  }
+
   try {
     logger.info("Start Refreshing Results for experiment " + experimentId);
     const datasource = await getDataSourceById(
@@ -143,7 +188,9 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       experiment.datasource || "",
     );
     if (!datasource) {
-      throw new Error("Error refreshing experiment, could not find datasource");
+      throw new UnrecoverableSnapshotError(
+        "Error refreshing experiment, could not find datasource",
+      );
     }
 
     const { regressionAdjustmentEnabled, settingsForSnapshotMetrics } =
@@ -182,7 +229,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
     const queryRunner = await createSnapshot({
       experiment,
       context,
-      phaseIndex: experiment.phases.length - 1,
+      phaseIndex,
       defaultAnalysisSettings: analysisSettings,
       additionalAnalysisSettings:
         getAdditionalExperimentAnalysisSettings(analysisSettings),
@@ -193,6 +240,7 @@ const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       type: "standard",
       triggeredBy: "schedule",
       reweight,
+      cutoff,
     });
     await queryRunner.waitForResults();
     const currentSnapshot = queryRunner.model;

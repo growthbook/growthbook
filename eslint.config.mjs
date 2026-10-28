@@ -1,7 +1,11 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { defineConfig, globalIgnores } from "eslint/config";
-import { fixupConfigRules, fixupPluginRules } from "@eslint/compat";
+import { defineConfig } from "eslint/config";
+import {
+  fixupConfigRules,
+  fixupPluginRules,
+  includeIgnoreFile,
+} from "@eslint/compat";
 import react from "eslint-plugin-react";
 import typescriptEslint from "@typescript-eslint/eslint-plugin";
 import nextEslintPluginNext from "@next/eslint-plugin-next";
@@ -25,23 +29,7 @@ const { name: _nextName, ...nextRecommendedConfig } =
   nextEslintPluginNext.configs.recommended;
 
 export default defineConfig([
-  globalIgnores([
-    // Claude Code parks agent worktrees (full checkouts) here; linting them
-    // rewrites another branch's files.
-    ".claude/",
-    "**/.next",
-    "**/dist",
-    "**/coverage",
-    "**/.venv",
-    "**/node_modules",
-    "docs/.docusaurus",
-    "docs/docusaurus.config.js",
-    "docs/build",
-    "docs-archive/",
-    "packages/sdk-js/scripts",
-    "**/*.tsbuildinfo",
-    "packages/shared/types/*.js",
-  ]),
+  includeIgnoreFile(path.join(__dirname, ".gitignore")),
   nextRecommendedConfig,
   {
     extends: fixupConfigRules(
@@ -198,7 +186,12 @@ export default defineConfig([
   {
     // Standalone runtime/tooling scripts (no build step): require() is correct
     // and console is the intended logging channel.
-    files: ["./preview/idle-monitor.js", "./scripts/*.js", "./scripts/*.mjs"],
+    files: [
+      "./preview/idle-monitor.js",
+      "./scripts/*.js",
+      "./scripts/*.mjs",
+      "./packages/sdk-js/scripts/*.js",
+    ],
 
     rules: {
       "@typescript-eslint/no-require-imports": "off",
@@ -390,6 +383,7 @@ export default defineConfig([
 
     ignores: [
       "./packages/back-end/src/util/http.util.ts",
+      "./packages/back-end/src/services/bigqueryClient.ts",
       "./packages/back-end/**/*.test.{ts,tsx,js,jsx}",
     ],
 
@@ -403,6 +397,13 @@ export default defineConfig([
               message:
                 'Use `import { fetch } from "back-end/src/util/http.util";` instead.',
               importNames: ["default"],
+            },
+            {
+              name: "@google-cloud/bigquery",
+              message:
+                'Use `createBigQueryClient` from "back-end/src/services/bigqueryClient".',
+              importNames: ["BigQuery"],
+              allowTypeImports: true,
             },
           ],
 
@@ -534,6 +535,50 @@ export default defineConfig([
     },
   },
   {
+    // Published standalone: no workspace packages at runtime (tests may use shared).
+    files: ["./packages/dbt/src/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["shared", "shared/*", "*back-end*", "*front-end*"],
+              message:
+                "@growthbook/dbt is published on its own and cannot import workspace packages.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ["./packages/dbt/src/cli.ts"],
+
+    rules: {
+      "no-console": "off",
+    },
+  },
+  {
+    files: ["./packages/remote-saved-groups-csv-parser/**/*"],
+
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["*back-end*", "*front-end*", "**/shared*", "**/sdk-*"],
+              message:
+                "remote-saved-groups-csv-parser has no dependencies: GrowthBook and its loaders both use it.",
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
     files: ["./packages/sdk-{js,react}/**/*"],
 
     rules: {
@@ -643,6 +688,8 @@ export default defineConfig([
       "./packages/sdk-js/src/**/*.{ts,tsx}",
       "./packages/sdk-react/src/**/*.{ts,tsx}",
       "./packages/stats-ts/src/**/*.{ts,tsx}",
+      "./packages/dbt/src/**/*.{ts,tsx}",
+      "./packages/remote-saved-groups-csv-parser/src/**/*.{ts,tsx}",
     ],
 
     // Exclude test dirs everywhere: shared/test and back-end/test are outside

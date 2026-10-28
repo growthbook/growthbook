@@ -7,16 +7,36 @@ import {
 } from "shared/types/datasource";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
 import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
+import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { SDKAttribute, SDKAttributeSchema } from "shared/types/organization";
 
 export const EVENT_FORWARDER_SUPPORTED_DATASOURCE_TYPES: readonly DataSourceType[] =
-  ["bigquery", "snowflake"];
+  ["bigquery", "snowflake", "databricks"];
 
 export type EventForwarderDatasourceParams =
   | BigQueryConnectionParams
   | SnowflakeConnectionParams
+  | DatabricksConnectionParams
   | undefined;
+
+export const DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE =
+  "Databricks event forwarder requires Databricks OAuth (machine-to-machine) authentication. Personal access tokens are supported for Databricks queries, but Zerobus ingestion requires a Databricks-issued OAuth client ID and secret.";
+
+// Entra ID was briefly offered as a connection option; stored datasources may still carry it.
+export function getDatabricksEventForwarderAuthMessage(
+  params: Partial<Pick<DatabricksConnectionParams, "authType">> | undefined,
+): string {
+  return String(params?.authType) === "azure-entra"
+    ? "Azure Entra ID service principals are not supported for the Databricks Event Forwarder. Zerobus ingestion only accepts Databricks-issued OAuth tokens. Switch the connection to Databricks OAuth (machine-to-machine) with a client ID and secret generated in Databricks."
+    : DATABRICKS_EVENT_FORWARDER_AUTH_MESSAGE;
+}
+
+export function databricksParamsSupportEventForwarder(
+  params: Partial<Pick<DatabricksConnectionParams, "authType">> | undefined,
+): boolean {
+  return params?.authType === "oauth-m2m";
+}
 
 export const EVENT_FORWARDER_MANAGED_IDENTIFIER_TYPE_DESCRIPTION =
   "Managed by Event Forwarder.";
@@ -153,6 +173,8 @@ export function getEventForwarderSinkTypeForDatasource(datasource: {
       return "bigquery";
     case "snowflake":
       return "snowflake";
+    case "databricks":
+      return "databricks";
     case "growthbook_clickhouse":
     case "redshift":
     case "athena":
@@ -162,7 +184,6 @@ export function getEventForwarderSinkTypeForDatasource(datasource: {
     case "mssql":
     case "clickhouse":
     case "presto":
-    case "databricks":
     case "mixpanel":
     case "vertica":
     case "adobe_experience_platform_query_service":
@@ -187,6 +208,8 @@ export function getEventForwarderDatasourceParams(
       return params as BigQueryConnectionParams;
     case "snowflake":
       return params as SnowflakeConnectionParams;
+    case "databricks":
+      return params as DatabricksConnectionParams;
     case "growthbook_clickhouse":
     case "redshift":
     case "athena":
@@ -196,7 +219,6 @@ export function getEventForwarderDatasourceParams(
     case "mssql":
     case "clickhouse":
     case "presto":
-    case "databricks":
     case "mixpanel":
     case "vertica":
     case "adobe_experience_platform_query_service":

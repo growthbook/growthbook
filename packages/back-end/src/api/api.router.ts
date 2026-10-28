@@ -4,11 +4,11 @@ import { Router, Request, RequestHandler } from "express";
 import rateLimit from "express-rate-limit";
 import bodyParser from "body-parser";
 import * as Sentry from "@sentry/node";
-import { parseEnvInt } from "shared/util";
 import authenticateApiRequestMiddleware from "back-end/src/middleware/authenticateApiRequestMiddleware";
 import { DashboardModel } from "back-end/src/enterprise/models/DashboardModel";
 import { ContextualBanditModel } from "back-end/src/enterprise/models/ContextualBanditModel";
 import { ContextualBanditQueryModel } from "back-end/src/enterprise/models/ContextualBanditQueryModel";
+import { InterleavingModel } from "back-end/src/enterprise/models/InterleavingModel";
 import { CustomFieldModel } from "back-end/src/models/CustomFieldModel";
 import { MetricGroupModel } from "back-end/src/models/MetricGroupModel";
 import { TeamModel } from "back-end/src/models/TeamModel";
@@ -19,10 +19,24 @@ import { RampScheduleModel } from "back-end/src/models/RampScheduleModel";
 import { LearningModel } from "back-end/src/models/LearningModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
 import { AutoRunModel } from "back-end/src/models/AutoRunModel";
+import { PopulationModel } from "back-end/src/models/PopulationModel";
 import { ModelClass } from "back-end/src/services/context";
 import { getBuild } from "back-end/src/util/build";
 import { ApiRequestLocals } from "back-end/types/api";
-import { IS_CLOUD, SENTRY_DSN } from "back-end/src/util/secrets";
+import {
+  API_RATE_LIMIT_MAX,
+  API_RATE_LIMIT_MAX_BY_KEY,
+  API_RATE_LIMIT_SEPARATE_REQUESTERS,
+  API_RATE_LIMIT_SEPARATE_WRITES,
+  IS_CLOUD,
+  SENTRY_DSN,
+} from "back-end/src/util/secrets";
+import {
+  ApiRateLimitSettings,
+  getApiRateLimitBucket,
+} from "back-end/src/util/apiRateLimit";
+import { trackMcpRequestCompletion } from "back-end/src/services/growthbook";
+import { getSavedGroupUploadFile } from "./saved-groups/getSavedGroupUploadFile";
 import { featureRoutes } from "./features/features.router";
 import { featureV2Routes } from "./features/features.v2.router";
 import { experimentsRoutes } from "./experiments/experiments.router";
@@ -56,16 +70,18 @@ import { archetypesRoutes } from "./archetypes/archetypes.router";
 import { queriesRoutes } from "./queries/queries.router";
 import { settingsRoutes } from "./settings/settings.router";
 import { metaRoutes } from "./meta/meta.router";
+import { confirmationsRoutes } from "./confirmations/confirmations.router";
 import { informationSchemaTablesRoutes } from "./information-schema-tables/information-schema-tables.router";
 import { rampSchedulesRoutes } from "./ramp-schedules/ramp-schedules.router";
 import { reportRoutes } from "./reports/reports.router";
 import { namespacesRoutes } from "./namespaces/namespaces.router";
-import { getOpenApiRoutesForApiConfig } from "./ApiModel";
+import { getOpenApiRoutesForApiConfig } from "./apiModelHandlers";
 
 const API_MODELS: ModelClass[] = [
   DashboardModel,
   ContextualBanditModel,
   ContextualBanditQueryModel,
+  InterleavingModel,
   CustomFieldModel,
   MetricGroupModel,
   TeamModel,
@@ -76,6 +92,7 @@ const API_MODELS: ModelClass[] = [
   LearningModel,
   HoldoutModel,
   AutoRunModel,
+  PopulationModel,
 ];
 
 const router = Router();
@@ -105,6 +122,10 @@ router.get("/v1/openapi.yaml", (req, res) => {
 
 router.use(authenticateApiRequestMiddleware as RequestHandler);
 
+// Usage telemetry for calls from the GrowthBook MCP server. Mounted before the
+// rate limiter so rate-limited calls are counted too.
+router.use(trackMcpRequestCompletion as unknown as RequestHandler);
+
 // Add API user to Sentry if configured
 if (SENTRY_DSN) {
   router.use(((req: Request & ApiRequestLocals, res, next) => {
@@ -122,24 +143,37 @@ if (SENTRY_DSN) {
   }) as RequestHandler);
 }
 
-const API_RATE_LIMIT_MAX = parseEnvInt(process.env.API_RATE_LIMIT_MAX, 60, {
-  min: 1,
-  name: "API_RATE_LIMIT_MAX",
-});
-const overallRateLimit = IS_CLOUD ? 60 : API_RATE_LIMIT_MAX;
-// Rate limit API keys to 60 requests per minute. Skip for JWT requests
+const rateLimitSettings: ApiRateLimitSettings = {
+  max: API_RATE_LIMIT_MAX,
+  maxByKey: API_RATE_LIMIT_MAX_BY_KEY,
+  separateWrites: API_RATE_LIMIT_SEPARATE_WRITES,
+  separateRequesters: API_RATE_LIMIT_SEPARATE_REQUESTERS,
+};
+const rateLimitBucket = (req: Request) => {
+  const { apiKey, eventAudit } = req as Request & ApiRequestLocals;
+  return getApiRateLimitBucket(
+    { apiKey, method: req.method, eventAudit },
+    rateLimitSettings,
+  );
+};
+// Rate limit each API key per minute. Skip for JWT requests
 // (interactive UI traffic) — those are already authed as a logged-in user
 // and applying the per-key cap would break dashboards and bulk flows.
 router.use(
   rateLimit({
     windowMs: 60 * 1000,
-    max: API_RATE_LIMIT_MAX,
+    max: (req) => rateLimitBucket(req).max,
     standardHeaders: true,
     legacyHeaders: false,
     skip: (req) => !!(req as Request & ApiRequestLocals).isJwtAuth,
-    keyGenerator: (req) => (req as Request & ApiRequestLocals).apiKey,
-    message: {
-      message: `Too many requests, limit to ${overallRateLimit} per minute`,
+    keyGenerator: (req) => rateLimitBucket(req).key,
+    message: (req: Request) => {
+      const { max, writes } = rateLimitBucket(req);
+      // Cloud sets a lower per-server limit, so it states the overall one.
+      const limit = IS_CLOUD ? 60 : max;
+      return {
+        message: `Too many ${writes ? "write requests" : "requests"}, limit to ${limit} per minute`,
+      };
     },
   }),
 );
@@ -192,6 +226,7 @@ export const allRoutes = [
   ...queriesRoutes,
   ...settingsRoutes,
   ...metaRoutes,
+  ...confirmationsRoutes,
   ...informationSchemaTablesRoutes,
   ...rampSchedulesRoutes,
   ...reportRoutes,
@@ -220,6 +255,13 @@ API_MODELS.forEach((modelClass) => {
     description: spec.navDescription ?? "",
   };
 });
+
+// Not JSON, so it can't use createApiRequestHandler. Documented on
+// postSavedGroupUpload.
+router.get(
+  "/v1/saved-groups/:id/uploads/:version/file",
+  getSavedGroupUploadFile,
+);
 
 allRoutes.forEach((route) => {
   if (!route.method) {

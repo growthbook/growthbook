@@ -4,11 +4,17 @@ import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import {
+  factManagedByValidator,
   isValidRowFilterRangeLength,
   ROW_FILTER_RANGE_LENGTH_MESSAGE,
 } from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  MARKDOWN_DESCRIPTION,
+  METRIC_NAME_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // Shared sub-schemas for fact metric column references
 
@@ -148,6 +154,26 @@ const apiQuantileSettings = z
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
   );
 
+const apiLowerCappingSettings = z
+  .object({
+    type: z.enum(["none", "absolute", "percentile"]),
+    value: z.coerce
+      .number()
+      .describe(
+        "When type is absolute, this is the lower bound. When type is percentile, this is the lower percentile (from 0.0 to 1.0).",
+      )
+      .optional(),
+    ignoreZeros: z
+      .boolean()
+      .describe(
+        "If true and capping is `percentile`, zeros will be ignored when calculating the percentile.",
+      )
+      .optional(),
+  })
+  .describe(
+    "Independent lower-tail capping settings. Configured separately from the upper tail, so the type can differ.",
+  );
+
 const apiFunnelStep = z.object({
   name: z.string().describe("Display name for the funnel step"),
   factTableId: z
@@ -257,7 +283,7 @@ const apiRegressionAdjustmentSettings = z
     enabled: z
       .boolean()
       .describe(
-        "Controls whether or not regresion adjustment is applied to the metric",
+        "Controls whether or not regression adjustment is applied to the metric",
       )
       .optional(),
     days: z.coerce
@@ -332,6 +358,7 @@ export const apiFactMetricValidator = namedSchema(
       quantileSettings: apiQuantileSettings.optional(),
       funnelSettings: apiFunnelSettings.optional(),
       cappingSettings: apiCappingSettings,
+      lowerCappingSettings: apiLowerCappingSettings.nullable().optional(),
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
       regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
@@ -347,11 +374,9 @@ export const apiFactMetricValidator = namedSchema(
       maxPercentChange: z.coerce.number(),
       minSampleSize: z.coerce.number(),
       targetMDE: z.coerce.number(),
-      managedBy: z
-        .enum(["", "api", "admin"])
-        .describe(
-          "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
-        ),
+      managedBy: factManagedByValidator.describe(
+        "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
+      ),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean().optional(),
@@ -505,13 +530,13 @@ const postQuantileSettings = z
     'Controls the settings for quantile metrics (mandatory if metricType is "quantile")',
   );
 
-const postCappingSettings = z
+const postLowerCappingSettings = z
   .object({
     type: z.enum(["none", "absolute", "percentile"]),
     value: z
       .number()
       .describe(
-        "When type is absolute, this is the absolute value. When type is percentile, this is the percentile value (from 0.0 to 1.0).",
+        "When type is absolute, this is a finite lower bound, including zero or negative values. When type is percentile, this must be strictly between 0 and 1. Required when enabling capping or changing type; omitted values are preserved only for same-type updates.",
       )
       .optional(),
     ignoreZeros: z
@@ -521,6 +546,28 @@ const postCappingSettings = z
       )
       .optional(),
   })
+  .strict()
+  .describe(
+    "Independent lower-tail capping settings. Configured separately from the upper tail, so the type can differ.",
+  );
+
+const postCappingSettings = z
+  .object({
+    type: z.enum(["none", "absolute", "percentile"]),
+    value: z
+      .number()
+      .describe(
+        "When type is absolute, this must be a finite number greater than zero. When type is percentile, this must be strictly between 0 and 1. Required when enabling capping or changing type; omitted values are preserved only for same-type updates.",
+      )
+      .optional(),
+    ignoreZeros: z
+      .boolean()
+      .describe(
+        "If true and capping is `percentile`, zeros will be ignored when calculating the percentile.",
+      )
+      .optional(),
+  })
+  .strict()
   .describe("Controls how outliers are handled");
 
 const postWindowSettings = z
@@ -610,11 +657,15 @@ export const factMetricCreateArchivedField = z
 
 // Corresponds to payload-schemas/PostFactMetricPayload.yaml
 export const postFactMetricBodyFields = z.object({
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  name: z.string().describe(METRIC_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(MARKDOWN_DESCRIPTION)
+    .optional(),
   owner: ownerInputField.optional(),
   projects: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   metricType: apiMetricTypeEnum,
   numerator: postNumeratorRef.nullable().optional(),
   denominator: postDenominatorRef.optional(),
@@ -626,7 +677,17 @@ export const postFactMetricBodyFields = z.object({
     .optional(),
   quantileSettings: postQuantileSettings.optional(),
   funnelSettings: postFunnelSettings.optional(),
-  cappingSettings: postCappingSettings.optional(),
+  cappingSettings: postCappingSettings
+    .optional()
+    .describe(
+      "Upper cap. Omit on update to preserve it. Use type: none to disable it explicitly. Invalid values are rejected.",
+    ),
+  lowerCappingSettings: postLowerCappingSettings
+    .nullable()
+    .optional()
+    .describe(
+      "Independent lower cap. Omit on update to preserve it. Use null or type: none to disable it explicitly. Invalid values are rejected. For mixed cap types, the absolute bound takes precedence if thresholds cross.",
+    ),
   windowSettings: postWindowSettings.optional(),
   priorSettings: postPriorSettings.optional(),
   regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
@@ -674,9 +735,10 @@ export const postFactMetricBodyFields = z.object({
       'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.',
     )
     .optional(),
-  managedBy: z
-    .enum(["", "api", "admin"])
-    .describe('Set this to "api" to disable editing in the GrowthBook UI')
+  managedBy: factManagedByValidator
+    .describe(
+      'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+    )
     .optional(),
   metricAutoSlices: z
     .array(z.string())
@@ -873,6 +935,7 @@ export const postFactMetricValidator = {
     })
     .strict(),
   summary: "Create a single fact metric",
+  confirmation: ["metric.create"] as const,
   operationId: "postFactMetric",
   tags: ["fact-metrics"],
   method: "post" as const,
@@ -923,6 +986,7 @@ export const updateFactMetricValidator = {
     })
     .strict(),
   summary: "Update a single fact metric",
+  confirmation: ["metric.edit"] as const,
   operationId: "updateFactMetric",
   tags: ["fact-metrics"],
   method: "post" as const,
@@ -946,6 +1010,7 @@ export const deleteFactMetricValidator = {
     })
     .strict(),
   summary: "Deletes a single fact metric",
+  confirmation: ["metric.delete"] as const,
   operationId: "deleteFactMetric",
   tags: ["fact-metrics"],
   method: "delete" as const,
@@ -963,6 +1028,7 @@ export const postFactMetricAnalysisValidator = {
     })
     .strict(),
   summary: "Create a fact metric analysis",
+  confirmation: [],
   operationId: "postFactMetricAnalysis",
   tags: ["fact-metrics"],
   method: "post" as const,

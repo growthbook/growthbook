@@ -10,7 +10,10 @@ import { FactMetricInterface } from "shared/types/fact-table";
 import { isFactMetric } from "shared/experiments";
 import { ExperimentInterface, Variation } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { OrganizationInterface } from "shared/types/organization";
+import {
+  ExperimentUpdateSchedule,
+  OrganizationInterface,
+} from "shared/types/organization";
 import { addTags } from "back-end/src/models/TagModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
@@ -19,6 +22,7 @@ import {
 } from "back-end/src/services/experimentScheduling";
 import {
   applyVariationWeightsToLatestPhase,
+  assertValidBucketVersions,
   assertValidReleasedVariationId,
   createMetric,
   fillEmptyVariationKeys,
@@ -33,6 +37,10 @@ import {
   updateExperimentApiPayloadToInterface,
   validateVariationIds,
 } from "back-end/src/services/experiments";
+import {
+  getAnalysisEndDateSettingsError,
+  getScheduledAnalysisEndDate,
+} from "back-end/src/services/scheduledAnalysisEndDate";
 
 jest.mock("back-end/src/models/TagModel", () => ({ addTags: jest.fn() }));
 
@@ -2330,6 +2338,73 @@ describe("updateExperimentBanditSettings", () => {
   });
 });
 
+describe("assertValidBucketVersions", () => {
+  describe("on create (no existing experiment)", () => {
+    it("accepts missing versions and a minimum at or below the current version", () => {
+      expect(() => assertValidBucketVersions({})).not.toThrow();
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 2, minBucketVersion: 2 }),
+      ).not.toThrow();
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 3, minBucketVersion: 1 }),
+      ).not.toThrow();
+    });
+
+    it("rejects a minimum above the current version", () => {
+      expect(() =>
+        assertValidBucketVersions({ bucketVersion: 1, minBucketVersion: 2 }),
+      ).toThrow(/minBucketVersion cannot be greater than bucketVersion/);
+      expect(() => assertValidBucketVersions({ minBucketVersion: 1 })).toThrow(
+        /invalid_bucket_version/,
+      );
+    });
+
+    it.each([
+      [{ bucketVersion: 1.5 }, "bucketVersion"],
+      [{ bucketVersion: 2, minBucketVersion: -1 }, "minBucketVersion"],
+    ])("rejects a fractional or negative version %p", (fields, name) => {
+      expect(() => assertValidBucketVersions(fields)).toThrow(
+        new RegExp(`${name} must be a non-negative integer`),
+      );
+    });
+  });
+
+  describe("on update", () => {
+    const stored = { bucketVersion: 1, minBucketVersion: 0 };
+
+    it("accepts bumping both versions together", () => {
+      expect(() =>
+        assertValidBucketVersions(
+          { bucketVersion: 2, minBucketVersion: 2 },
+          stored,
+        ),
+      ).not.toThrow();
+    });
+
+    it("rejects raising only the minimum above the stored version", () => {
+      expect(() =>
+        assertValidBucketVersions({ ...stored, minBucketVersion: 3 }, stored),
+      ).toThrow(/minBucketVersion cannot be greater than bucketVersion/);
+    });
+
+    it("rejects lowering the version below the stored minimum", () => {
+      expect(() =>
+        assertValidBucketVersions(
+          { bucketVersion: 1, minBucketVersion: 2 },
+          { bucketVersion: 2, minBucketVersion: 2 },
+        ),
+      ).toThrow(/invalid_bucket_version/);
+    });
+
+    it("leaves an already-inconsistent experiment alone when neither field changes", () => {
+      const inconsistent = { bucketVersion: 1, minBucketVersion: 4 };
+      expect(() =>
+        assertValidBucketVersions({ ...inconsistent }, inconsistent),
+      ).not.toThrow();
+    });
+  });
+});
+
 describe("assertValidReleasedVariationId", () => {
   const variation = (id: string) => ({
     id,
@@ -2507,5 +2582,161 @@ describe("assertValidReleasedVariationId", () => {
         ).not.toThrow();
       });
     });
+  });
+});
+
+describe("getScheduledAnalysisEndDate", () => {
+  const now = new Date("2026-09-30T03:07:00Z");
+  const cron = { type: "cron" as const, cron: "0 3 * * *" };
+
+  it("has no cutoff when the update analyzes through its run time", () => {
+    expect(getScheduledAnalysisEndDate(null, now)).toBeNull();
+    expect(
+      getScheduledAnalysisEndDate({ type: "stale", hours: 6 }, now),
+    ).toBeNull();
+    expect(
+      getScheduledAnalysisEndDate(
+        { ...cron, analysisEndDateMode: "runTime" },
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it("subtracts the lag hours", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          type: "stale",
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 3,
+        },
+        now,
+      ),
+    ).toEqual(new Date("2026-09-30T00:07:00Z"));
+  });
+
+  it("has no cutoff for a zero lag", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          type: "stale",
+          analysisEndDateMode: "lag",
+          analysisEndDateLagHours: 0,
+        },
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it("uses today's fixed time when it has passed", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "00:00",
+        },
+        now,
+      ),
+    ).toEqual(new Date("2026-09-30T00:00:00Z"));
+  });
+
+  it("uses yesterday's fixed time when today's has not passed", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "23:00",
+        },
+        now,
+      ),
+    ).toEqual(new Date("2026-09-29T23:00:00Z"));
+  });
+
+  it("has no cutoff for a fixed time without a cron schedule", () => {
+    expect(
+      getScheduledAnalysisEndDate(
+        {
+          type: "stale",
+          hours: 6,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime: "00:00",
+        },
+        now,
+      ),
+    ).toBeNull();
+  });
+
+  it("has no cutoff for a fixed time that is not a string", () => {
+    // A config file import can store a YAML number here.
+    const schedule = {
+      ...cron,
+      analysisEndDateMode: "fixedTime",
+      analysisEndDateTime: 0,
+    } as unknown as ExperimentUpdateSchedule;
+    expect(getScheduledAnalysisEndDate(schedule, now)).toBeNull();
+  });
+});
+
+describe("getAnalysisEndDateSettingsError", () => {
+  const cron = { type: "cron" as const, cron: "0 3 * * *" };
+
+  it("accepts schedules that analyze through the run time", () => {
+    expect(getAnalysisEndDateSettingsError(null)).toBeNull();
+    expect(getAnalysisEndDateSettingsError({ type: "stale" })).toBeNull();
+    expect(
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDateMode: "runTime",
+        analysisEndDateLagHours: undefined,
+      }),
+    ).toBeNull();
+  });
+
+  it("requires a whole number of lag hours between 1 and 168", () => {
+    const lag = (analysisEndDateLagHours?: number) =>
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDateMode: "lag",
+        analysisEndDateLagHours,
+      });
+    expect(lag(1)).toBeNull();
+    expect(lag(168)).toBeNull();
+    for (const hours of [undefined, 0, -1, 1.5, 169, NaN]) {
+      expect(lag(hours)).toMatch(/between 1 and 168/);
+    }
+  });
+
+  it("requires a cron schedule and an HH:MM time for a fixed time", () => {
+    expect(
+      getAnalysisEndDateSettingsError({
+        ...cron,
+        analysisEndDateMode: "fixedTime",
+        analysisEndDateTime: "00:30",
+      }),
+    ).toBeNull();
+    expect(
+      getAnalysisEndDateSettingsError({
+        type: "stale",
+        analysisEndDateMode: "fixedTime",
+        analysisEndDateTime: "00:30",
+      }),
+    ).toMatch(/cron/);
+    for (const analysisEndDateTime of [
+      undefined,
+      "",
+      "24:00",
+      "3:30",
+      "03:60",
+    ]) {
+      expect(
+        getAnalysisEndDateSettingsError({
+          ...cron,
+          analysisEndDateMode: "fixedTime",
+          analysisEndDateTime,
+        }),
+      ).toMatch(/HH:MM/);
+    }
   });
 });

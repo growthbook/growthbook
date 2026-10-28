@@ -2,7 +2,6 @@
 title: Setting up Contextual Bandits
 description: "Checklist for running a contextual bandit: compatible SDK, tracking callback, and GrowthBook prerequisites."
 sidebarTitle: Setup
-slug: /bandits/contextual-config
 ---
 
 import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
@@ -18,7 +17,7 @@ This page is a checklist of everything you need in place before running your fir
 - **An Enterprise plan** — Contextual Bandits are an Enterprise-only beta feature.
 - **A supported SDK on a compatible version** — currently JavaScript, React, Node.js, Python, Go, Kotlin (Android), and Swift (iOS) (see below).
 - **A connected Data Source** with a warehouse the bandit can query, plus a dedicated Contextual Bandit Assignment Query that selects your user id, timestamp, and one or more context columns (see step 4).
-- **A Fact Metric to use as the Decision Metric** — legacy (non-fact) metrics are not supported as decision metrics..
+- **A Fact Metric to use as the Decision Metric** — legacy (non-fact) metrics are not supported as decision metrics.
 
 ## 1. Install or upgrade to a compatible SDK
 
@@ -90,7 +89,7 @@ const gb = new GrowthBook({
 });
 ```
 
-This change is optional only if you already track user attributes in your tracking callback. We strongly recommend passing the explicit `user.attributes` object and its fields to ensure the attributes being logged are the same as the ones being used to bucket users.
+This change is optional only if you already track user attributes in your tracking callback. We strongly recommend passing the values from the `user.attributes` object to ensure the attributes being logged are the same as the ones being used to bucket users.
 
 ## 4. Create a Contextual Bandit Assignment Query
 

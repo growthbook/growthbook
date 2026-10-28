@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -19,6 +20,7 @@ import {
   escapeSlackMrkdwn,
   truncateSlackText,
 } from "back-end/src/util/slack.util";
+import { postNpsResponseToLicenseServer } from "back-end/src/enterprise/licenseUtil";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { usingOpenId } from "back-end/src/services/auth";
 import { findOrganizationsByMemberId } from "back-end/src/models/OrganizationModel";
@@ -114,7 +116,7 @@ export async function getUser(req: AuthRequest, res: Response) {
 
   // If all of a user's orgs were filtered out, throw an error
   if (orgs.length && !validOrgs.length) {
-    throw new Error(lastError || "Must login with SSO");
+    throw new Error(lastError || "Must log in with SSO");
   }
 
   return res.status(200).json({
@@ -123,7 +125,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     pylonHmacHash: createPylonHmacHash(req.email),
-    superAdmin: !!req.superAdmin,
+    superAdmin: req.superAdmin ?? false,
     // Only the date is sent: the client uses it for the re-survey window, and
     // nothing reads the status, so it stays server-side.
     npsSurveyAt: req.currentUser?.npsSurveyAt?.toISOString(),
@@ -269,7 +271,8 @@ export async function postNpsResponse(
   // `preview` decides whether this response consumes the caller's re-survey
   // window, so it can't be trusted from the body — otherwise any caller could
   // set it and replay forever without recording state. Staff only.
-  const isPreview = preview === true && !!req.superAdmin;
+  const isPreview =
+    preview === true && hasSuperAdminPermission(req.superAdmin, "view");
 
   // A preview still forwards to Slack so the path stays testable, but must not
   // consume the previewer's own window.
@@ -291,6 +294,17 @@ export async function postNpsResponse(
       email: req.email,
       disposition,
       preview: isPreview,
+    });
+  }
+
+  if (IS_CLOUD && status === "responded" && score !== undefined && !isPreview) {
+    postNpsResponseToLicenseServer({
+      email: req.email,
+      score,
+      feedback: disposition === "submitted" ? (feedback ?? "").trim() : "",
+      respondedAt: new Date().toISOString(),
+    }).catch((e) => {
+      logger.error(e, "Failed to forward NPS response to license server");
     });
   }
 

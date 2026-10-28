@@ -1,5 +1,5 @@
 import type { SqlLanguage } from "sql-formatter";
-import type { DataType } from "./integrations";
+import type { DataType, FactMetricPercentileData } from "./integrations";
 
 export type StringMatchOperator =
   | "starts_with"
@@ -118,6 +118,8 @@ export interface SqlDialect {
   toTimestamp: (date: Date) => string;
   castToFloat: (column: string) => string;
   castToString: (column: string) => string;
+  castToFilterString?: (column: string) => string;
+  lowerString: (column: string) => string;
   castToDate: (column: string) => string;
   /**
    * Cast `column` to the dialect's TIMESTAMP type. Used by funnel SQL when
@@ -201,13 +203,7 @@ export interface SqlDialect {
   defaultSchema: string;
   formatDialect: FormatDialect;
   percentileCapSelectClause: (
-    values: {
-      valueCol: string;
-      outputCol: string;
-      percentile: number;
-      ignoreZeros: boolean;
-      sourceIndex: number;
-    }[],
+    values: FactMetricPercentileData[],
     metricTable: string,
     where?: string,
   ) => string;

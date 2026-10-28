@@ -16,10 +16,15 @@ import {
 import {
   DataSourceInterfaceWithParams,
   DataSourcePipelineSettings,
+  ExposureQuery,
 } from "shared/types/datasource";
 import cloneDeep from "lodash/cloneDeep";
 import { ago, getValidDate } from "shared/dates";
-import { getTempRolloutStaleReason, pValueFormatter } from "shared/util";
+import {
+  resolveAnalysisIdentifierType,
+  getTempRolloutStaleReason,
+  pValueFormatter,
+} from "shared/util";
 import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
@@ -1022,6 +1027,7 @@ export function convertTemplateToExperimentRule({
 
 export function convertExperimentToTemplate(
   experiment: ExperimentInterfaceStringDates,
+  exposureQuery: Pick<ExposureQuery, "userIdType" | "userIdTypes"> | undefined,
 ): Partial<ExperimentTemplateInterface> {
   const latestPhase = experiment.phases[experiment.phases.length - 1];
   const template = {
@@ -1035,6 +1041,11 @@ export function convertExperimentToTemplate(
     tags: experiment.tags,
     datasource: experiment.datasource,
     exposureQueryId: experiment.exposureQueryId,
+    /** Store what the experiment analyzes on, even a legacy default. */
+    exposureQueryIdentifierType: resolveAnalysisIdentifierType(
+      exposureQuery,
+      experiment.exposureQueryIdentifierType,
+    ),
     hashAttribute: experiment.hashAttribute,
     fallbackAttribute: experiment.fallbackAttribute,
     disableStickyBucketing: experiment.disableStickyBucketing,

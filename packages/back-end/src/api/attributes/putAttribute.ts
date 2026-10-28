@@ -16,7 +16,7 @@ export const putAttribute = createApiRequestHandler(putAttributeValidator)(
 
     const attribute = attributes.find((attr) => attr.property === property);
     if (!attribute) {
-      throw Error(`An attribute with property ${property} does not exists!`);
+      throw Error(`An attribute with property ${property} does not exist!`);
     }
 
     const rawUpdatedAttribute = { ...attribute, ...req.body };

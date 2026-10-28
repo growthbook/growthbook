@@ -41,7 +41,10 @@ import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
+import NoticeStack from "@/components/Notices/NoticeStack";
+import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
+import useKeyExpiryNotices from "@/components/Notices/useKeyExpiryNotices";
+import { usePayloadSizeNotices } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
@@ -61,6 +64,11 @@ const TopNav: FC<{
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
+  const notices = [
+    ...useAccountPlanNotices(),
+    ...usePayloadSizeNotices(),
+    ...useKeyExpiryNotices(),
+  ];
 
   const { updateUser, name, email, organization, hasCommercialFeature } =
     useUser();
@@ -316,8 +324,19 @@ const TopNav: FC<{
       </DropdownSubMenu>
     );
   };
+  const canAddOrganization =
+    !isCloud() &&
+    isMultiOrg() &&
+    (showMultiOrgSelfSelector() || allowSelfOrgCreation());
+
   const renderOrganizationDropDown = () => {
-    if (organizations && organizations.length === 1) {
+    if (!organizations || organizations.length === 0) {
+      return null;
+    }
+
+    const showOrgPicker = organizations.length > 1 || canAddOrganization;
+
+    if (!showOrgPicker) {
       return (
         <Flex direction="row" align="center" gap="1" mr="2">
           <PiBuildingFill className="text-muted" />
@@ -326,65 +345,61 @@ const TopNav: FC<{
       );
     }
 
-    if (organizations && organizations.length > 1) {
-      return (
-        <DropdownMenu
-          open={orgDropdownOpen}
-          onOpenChange={(open) => {
-            setOrgDropdownOpen(open);
-          }}
-          trigger={
-            <Flex direction="row" align="center" gap="1" mr="2">
-              <PiBuildingFill className="text-muted" />
-              <span className="d-none d-lg-inline">
-                <OverflowText maxWidth={200}>{orgName}</OverflowText>
-              </span>
-              <PiCaretDownFill />
-            </Flex>
-          }
-        >
-          <DropdownMenuLabel>Organization</DropdownMenuLabel>
-          {organizations.map((o) => (
-            <DropdownMenuItem
-              key={o.id}
-              onClick={() => {
-                if (setOrgId) {
-                  setOrgId(o.id);
+    return (
+      <DropdownMenu
+        open={orgDropdownOpen}
+        onOpenChange={(open) => {
+          setOrgDropdownOpen(open);
+        }}
+        trigger={
+          <Flex direction="row" align="center" gap="1" mr="2">
+            <PiBuildingFill className="text-muted" />
+            <span className="d-none d-lg-inline">
+              <OverflowText maxWidth={200}>{orgName}</OverflowText>
+            </span>
+            <PiCaretDownFill />
+          </Flex>
+        }
+      >
+        <DropdownMenuLabel>Organization</DropdownMenuLabel>
+        {organizations.map((o) => (
+          <DropdownMenuItem
+            key={o.id}
+            onClick={() => {
+              if (setOrgId) {
+                setOrgId(o.id);
 
-                  try {
-                    localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
-                  } catch (e) {
-                    console.warn("Unable to save last org in localStorage");
-                  }
+                try {
+                  localStorage.setItem("gb-last-picked-org", `"${o.id}"`);
+                } catch (e) {
+                  console.warn("Unable to save last org in localStorage");
                 }
+              }
 
+              setOrgDropdownOpen(false);
+            }}
+          >
+            {o.name}
+          </DropdownMenuItem>
+        ))}
+        {canAddOrganization && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={() => {
                 setOrgDropdownOpen(false);
+                router.push("/settings/organizations");
               }}
             >
-              {o.name}
+              <Flex align="center" gap="1">
+                <PiPlusBold />
+                Add organization
+              </Flex>
             </DropdownMenuItem>
-          ))}
-          {!isCloud() &&
-            isMultiOrg() &&
-            (showMultiOrgSelfSelector() || allowSelfOrgCreation()) && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOrgDropdownOpen(false);
-                    router.push("/settings/organizations");
-                  }}
-                >
-                  <Flex align="center" gap="1">
-                    <PiPlusBold />
-                    Add Organization
-                  </Flex>
-                </DropdownMenuItem>
-              </>
-            )}
-        </DropdownMenu>
-      );
-    }
+          </>
+        )}
+      </DropdownMenu>
+    );
   };
 
   const renderTitleOrBreadCrumb = () => {
@@ -472,7 +487,7 @@ const TopNav: FC<{
           {showNotices && (
             <>
               <div className="nav-link">
-                <AccountPlanNotices />
+                <NoticeStack notices={notices} />
               </div>
               <div className="nav-link">
                 <AccountPlanBadge />

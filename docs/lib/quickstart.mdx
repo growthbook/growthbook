@@ -2,7 +2,6 @@
 title: SDK Quickstart
 description: Get GrowthBook feature flags and experiments running in your app in a few lines of code, then pick a language-specific SDK.
 sidebarTitle: Quickstart
-slug: /lib/quickstart
 hide_table_of_contents: true
 ---
 
@@ -60,7 +59,7 @@ const gb = new GrowthBook({
   clientKey: "sdk-abc123", // Your SDK client key
   enableDevMode: true,
   plugins: [
-    thirdPartyTrackingPlugin(), // Optional, sends "Experiment Viewed" events via GrowthBook Managed Warehouse, Google Analytics, Google Tag Manager, and Segment.
+    thirdPartyTrackingPlugin(), // Optional, sends "Experiment Viewed" events to Google Analytics, Google Tag Manager, and Segment. For GrowthBook's warehouse, use growthbookTrackingPlugin() instead.
     autoAttributesPlugin(), // Optional, sets common attributes (browser, session_id, etc.)
   ],
 });
@@ -144,7 +143,7 @@ const gb = new GrowthBook({
   apiHost: "https://cdn.growthbook.io",
   clientKey: "sdk-abc123",
   plugins: [
-    thirdPartyTrackingPlugin(), // Optional, sends "Experiment Viewed" events via GrowthBook Managed Warehouse, Google Analytics, Google Tag Manager, and Segment.
+    thirdPartyTrackingPlugin(), // Optional, sends "Experiment Viewed" events to Google Analytics, Google Tag Manager, and Segment. For GrowthBook's warehouse, use growthbookTrackingPlugin() instead.
     autoAttributesPlugin(), // Optional, sets common attributes (browser, session_id, etc.)
   ],
 });
