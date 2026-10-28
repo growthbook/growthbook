@@ -38813,6 +38813,198 @@ paths:
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/refresh-monitoring'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/actions/rollback:
+    post:
+      operationId: rollbackMatchingRampSchedules
+      summary: Roll back matching ramp schedules
+      description: >
+        Rolls back every `running` or `paused` ramp schedule that matches the
+        query
+
+        filters. Built for an alerting tool's webhook, such as a Datadog
+        monitor.
+
+
+        Each filter takes comma-separated values and matches any of them;
+        different
+
+        filters must all match. At least one filter is required.
+
+
+        Returns each matched schedule and whether the rollback was applied or
+        skipped,
+
+        for example because the API key can't publish its Feature Flag. Unknown
+        body
+
+        fields are ignored, so a tool can send its own payload.
+      tags: &ref_0
+        - ramp-schedules
+      parameters:
+        - name: environment
+          in: query
+          description: >-
+            Comma-separated environments. Matches ramps whose rules run in any
+            of them.
+          schema:
+            description: >-
+              Comma-separated environments. Matches ramps whose rules run in any
+              of them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/project'
+        - name: tag
+          in: query
+          description: >-
+            Comma-separated tags. Matches ramps on Feature Flags with any of
+            them.
+          schema:
+            description: >-
+              Comma-separated tags. Matches ramps on Feature Flags with any of
+              them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/feature'
+        - $ref: '#/components/parameters/customFields'
+        - $ref: '#/components/parameters/reason'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  description: >-
+                    Recorded on each ramp, prefixed with `Alert: `. Use the
+                    alert title and link.
+                  type: string
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchedRampSchedule'
+                required:
+                  - rampSchedules
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/actions/rollback' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/actions/pause:
+    post:
+      operationId: pauseMatchingRampSchedules
+      summary: Pause matching ramp schedules
+      description: >
+        Pauses every `running` ramp schedule that matches the query filters.
+        Built
+
+        for an alerting tool's webhook, such as a Datadog monitor. Each schedule
+        stays
+
+        paused until someone calls `/actions/resume` on it.
+
+
+        Each filter takes comma-separated values and matches any of them;
+        different
+
+        filters must all match. With no filters, every running schedule is
+        paused,
+
+        for example during a site-wide outage.
+
+
+        Returns each matched schedule and whether the pause was applied or
+        skipped,
+
+        for example because the API key can't publish its Feature Flag. Unknown
+        body
+
+        fields are ignored, so a tool can send its own payload.
+      tags: *ref_0
+      parameters:
+        - name: environment
+          in: query
+          description: >-
+            Comma-separated environments. Matches ramps whose rules run in any
+            of them.
+          schema:
+            description: >-
+              Comma-separated environments. Matches ramps whose rules run in any
+              of them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/project'
+        - name: tag
+          in: query
+          description: >-
+            Comma-separated tags. Matches ramps on Feature Flags with any of
+            them.
+          schema:
+            description: >-
+              Comma-separated tags. Matches ramps on Feature Flags with any of
+              them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/feature'
+        - $ref: '#/components/parameters/customFields'
+        - $ref: '#/components/parameters/reason'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  description: >-
+                    Recorded on each ramp, prefixed with `Alert: `. Use the
+                    alert title and link.
+                  type: string
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchedRampSchedule'
+                required:
+                  - rampSchedules
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/actions/pause' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/reports:
     get:
       operationId: listReports
@@ -66645,6 +66837,60 @@ components:
       description: ''
       schema:
         type: string
+    project:
+      name: project
+      in: query
+      description: >-
+        Comma-separated Project ids. Matches ramps on Feature Flags in any of
+        them.
+      schema:
+        description: >-
+          Comma-separated Project ids. Matches ramps on Feature Flags in any of
+          them.
+        type: array
+        items:
+          type: string
+      explode: false
+    feature:
+      name: feature
+      in: query
+      description: Comma-separated Feature Flag ids.
+      schema:
+        description: Comma-separated Feature Flag ids.
+        type: array
+        items:
+          type: string
+      explode: false
+    customFields:
+      name: customFields
+      in: query
+      description: >-
+        Custom field values, as `customFields[<key>]=<value>`. Comma-separate
+        several values for one key.
+      schema:
+        description: >-
+          Custom field values, as `customFields[<key>]=<value>`. Comma-separate
+          several values for one key.
+        type: object
+        propertyNames:
+          type: string
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      style: deepObject
+      explode: true
+    reason:
+      name: reason
+      in: query
+      description: >-
+        Used when the body has no `reason`, for tools whose payload can't be
+        changed.
+      schema:
+        description: >-
+          Used when the body has no `reason`, for tools whose payload can't be
+          changed.
+        type: string
     index:
       name: index
       in: query
@@ -78223,6 +78469,25 @@ components:
         - currentStepIndex
         - nextStepAt
         - awaitingApproval
+      additionalProperties: false
+    MatchedRampSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+        featureId:
+          type: string
+        result:
+          type: string
+          enum:
+            - applied
+            - skipped
+        message:
+          type: string
+      required:
+        - id
+        - featureId
+        - result
       additionalProperties: false
     Report:
       type: object
