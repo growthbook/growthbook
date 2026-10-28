@@ -1,13 +1,11 @@
 // 48px short of the title box (TopNav.module.scss's .pagetitle), so a
-// truncated crumb's ellipsis stays clear of the box's 32px fade. Nudged 1px
-// right, so its text lines up optically with the page title's below it.
+// truncated crumb's ellipsis stays clear of the box's 32px fade.
 .breadcrumb {
   display: flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
   padding-right: var(--space-8);
-  translate: 1px 0;
 }
 
 // A first crumb in a button's box (from 1180px up, where the project
