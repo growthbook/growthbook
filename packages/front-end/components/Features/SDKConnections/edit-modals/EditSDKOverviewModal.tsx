@@ -89,7 +89,7 @@ export default function EditSDKOverviewModal({
       close={close}
       header="Edit SDK Connection"
       size="lg"
-      cta="Save Settings"
+      cta="Save"
       submit={async () => {
         if (!value.languages.length) {
           setLanguageError("Please select an SDK language");

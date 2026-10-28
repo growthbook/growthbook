@@ -976,7 +976,54 @@ describe("sdkConnectionAdapter", () => {
         projects: ["prj-1"],
         dateUpdated: new Date("2025-01-02"),
         sdkConnection: baseSnapshot.sdkConnection,
-        sdkWebhooks: proposed,
+        sdkWebhooks: [proposed[0], { ...proposed[1], id: "wh_sdk-1_3" }],
+      });
+    });
+
+    it("reports the webhooks actually live when a later write fails", async () => {
+      const ctx = makeContext({});
+      const model = webhooksModel(ctx);
+      model.getById.mockImplementation(async (id: string) =>
+        id.startsWith("wh_") ? null : { id },
+      );
+      model.update.mockRejectedValue(new Error("boom"));
+      const onPersisted = jest.fn();
+      await expect(
+        sdkConnectionAdapter.applyChanges(
+          ctx,
+          { ...liveEntity, sdkWebhooks: [baseWebhook] },
+          {
+            sdkWebhooks: [
+              { ...baseWebhook, name: "Renamed" },
+              { ...baseWebhook, id: "temp_4", name: "Four" },
+            ],
+          },
+          { onPersisted },
+        ),
+      ).rejects.toThrow("boom");
+      const last = onPersisted.mock.calls.at(-1)[0];
+      expect(last.persistedKeys).toEqual(["sdkWebhooks"]);
+      expect(last.written.sdkWebhooks.map((w: { id: string }) => w.id)).toEqual(
+        [baseWebhook.id, "wh_sdk-1_4"],
+      );
+    });
+
+    it("clears a webhook's failure state when its endpoint changes", async () => {
+      const ctx = makeContext({});
+      const model = webhooksModel(ctx);
+      model.getById.mockResolvedValue({
+        id: baseWebhook.id,
+        endpoint: baseWebhook.endpoint,
+      });
+      await sdkConnectionAdapter.applyChanges(
+        ctx,
+        { ...liveEntity, sdkWebhooks: [baseWebhook] },
+        { sdkWebhooks: [{ ...baseWebhook, endpoint: "https://new.example" }] },
+      );
+      expect(model.update.mock.calls[0][1]).toMatchObject({
+        endpoint: "https://new.example",
+        consecutiveFailures: 0,
+        disabled: false,
       });
     });
 
@@ -1011,7 +1058,6 @@ describe("sdkConnectionAdapter", () => {
         },
         { onPersisted },
       );
-      expect(onPersisted).toHaveBeenCalledTimes(2);
       expect(onPersisted.mock.calls[0][0].persistedKeys).toEqual([
         "sdkConnection",
       ]);

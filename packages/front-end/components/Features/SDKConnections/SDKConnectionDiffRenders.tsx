@@ -1,6 +1,5 @@
 import { ReactNode } from "react";
 import isEqual from "lodash/isEqual";
-import omit from "lodash/omit";
 import { Box } from "@radix-ui/themes";
 import {
   SDKConnectionRevisionSnapshot,
@@ -534,6 +533,45 @@ function webhookLabel(wh: SDKWebhookRevisionSnapshot): string {
   return wh.name || wh.endpoint || wh.id;
 }
 
+// Headers can carry secrets, so their change is shown without the values.
+const WEBHOOK_DIFF_FIELDS: {
+  key: keyof SDKWebhookRevisionSnapshot;
+  label: string;
+  display: (value: unknown) => ReactNode;
+}[] = [
+  { key: "name", label: "name", display: (v) => strDisplay(v as string) },
+  {
+    key: "endpoint",
+    label: "endpoint",
+    display: (v) => strDisplay(v as string),
+  },
+  {
+    key: "httpMethod",
+    label: "method",
+    display: (v) => strDisplay(v as string),
+  },
+  {
+    key: "payloadFormat",
+    label: "payload format",
+    display: (v) => strDisplay(v as string),
+  },
+  {
+    key: "payloadKey",
+    label: "payload key",
+    display: (v) => strDisplay(v as string),
+  },
+  {
+    key: "timeoutSeconds",
+    label: "timeout",
+    display: (v) => timeoutDisplay(v as number | undefined),
+  },
+  {
+    key: "headers",
+    label: "headers",
+    display: (v) => (v ? <em>hidden</em> : <em>none</em>),
+  },
+];
+
 export function renderSDKConnectionWebhooks(
   pre: Pre,
   post: Post,
@@ -563,34 +601,18 @@ export function renderSDKConnectionWebhooks(
 
   for (const wh of postWebhooks) {
     const old = preById.get(wh.id);
-    if (old && !isEqual(old, wh)) {
-      const timeoutChanged =
-        (old.timeoutSeconds ?? null) !== (wh.timeoutSeconds ?? null);
-      if (timeoutChanged) {
-        rows.push(
-          <ChangeField
-            key={`timeout-${wh.id}`}
-            label={`${webhookLabel(wh)} Timeout`}
-            changed
-            oldNode={timeoutDisplay(old.timeoutSeconds)}
-            newNode={timeoutDisplay(wh.timeoutSeconds)}
-          />,
-        );
-      }
-      if (
-        !timeoutChanged ||
-        !isEqual(omit(old, "timeoutSeconds"), omit(wh, "timeoutSeconds"))
-      ) {
-        rows.push(
-          <ChangeField
-            key={`edit-${wh.id}`}
-            label={webhookLabel(wh)}
-            changed
-            oldNode={strDisplay(old.endpoint)}
-            newNode={strDisplay(wh.endpoint)}
-          />,
-        );
-      }
+    if (!old || isEqual(old, wh)) continue;
+    for (const { key, label, display } of WEBHOOK_DIFF_FIELDS) {
+      if (isEqual(old[key] ?? null, wh[key] ?? null)) continue;
+      rows.push(
+        <ChangeField
+          key={`${key}-${wh.id}`}
+          label={`${webhookLabel(wh)} ${label}`}
+          changed
+          oldNode={display(old[key])}
+          newNode={display(wh[key])}
+        />,
+      );
     }
   }
 

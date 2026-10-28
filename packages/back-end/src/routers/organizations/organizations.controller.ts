@@ -42,6 +42,7 @@ import {
 } from "shared/types/organization";
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
+import { assertSdkWebhooksEditableDirectly } from "back-end/src/services/sdkConnectionApprovals";
 import { getApproverRoles } from "back-end/src/revisions/approverRoles";
 import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
@@ -162,7 +163,10 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  findSDKConnectionsByIds,
+  touchSDKConnections,
+} from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -2337,6 +2341,7 @@ export async function testSDKWebhook(
   if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
     context.permissions.throwPermissionError();
   }
+  assertSdkWebhooksEditableDirectly(context, conns);
 
   await fireSdkWebhook(context, webhook).catch(() => {
     // Do nothing, already being logged in Mongo
@@ -2366,6 +2371,7 @@ export async function putSDKWebhook(
   if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
     context.permissions.throwPermissionError();
   }
+  assertSdkWebhooksEditableDirectly(context, conns);
 
   const parsedUpdates = updateSdkWebhookValidator.parse(req.body);
 
@@ -2379,6 +2385,10 @@ export async function putSDKWebhook(
     ...parsedUpdates,
     ...resetFields,
   });
+  await touchSDKConnections(
+    context,
+    conns.map((c) => c.id),
+  );
 
   // Fire the webhook now that it has changed
   fireSdkWebhook(context, updatedWebhook).catch(() => {
@@ -2415,16 +2425,21 @@ export async function deleteSDKWebhook(
   const { id } = req.params;
 
   const webhook = await context.models.sdkWebhooks.getById(id);
-  if (webhook) {
-    // It's ok if conns is empty here
-    // We still want to allow deleting orphaned webhooks
-    const conns = await findSDKConnectionsByIds(context, webhook.sdks);
-    if (!conns.every((c) => context.permissions.canDeleteSDKWebhook(c))) {
-      context.permissions.throwPermissionError();
-    }
+  // It's ok if conns is empty here
+  // We still want to allow deleting orphaned webhooks
+  const conns = webhook
+    ? await findSDKConnectionsByIds(context, webhook.sdks)
+    : [];
+  if (!conns.every((c) => context.permissions.canDeleteSDKWebhook(c))) {
+    context.permissions.throwPermissionError();
   }
+  assertSdkWebhooksEditableDirectly(context, conns);
 
   await context.models.sdkWebhooks.deleteById(id);
+  await touchSDKConnections(
+    context,
+    conns.map((c) => c.id),
+  );
 
   res.status(200).json({
     status: 200,

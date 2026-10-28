@@ -23,6 +23,7 @@ import {
   sdkConnectionUpdatableFieldsSchema,
   parseSdkWebhookSnapshot,
   sdkWebhookSnapshotValidator,
+  sdkWebhookStableId,
 } from "shared/validators";
 import type { Context } from "back-end/src/models/BaseModel";
 import {
@@ -412,7 +413,11 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       const newWebhooks = (
         changes.sdkWebhooks as SDKWebhookRevisionSnapshot[] | undefined
       )?.map((wh) =>
-        parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+        parseSdkWebhookSnapshot({
+          ...wh,
+          id: sdkWebhookStableId(entity.sdkConnection.id, wh.id),
+          httpMethod: wh.httpMethod ?? "POST",
+        }),
       );
       const settingsChanges = newSettings
         ? filterUpdatableChanges(
@@ -469,6 +474,17 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         written = toLiveSnapshot(liveConnection, entity.sdkWebhooks);
         // Report before webhooks: a webhook failure still leaves this live.
         report();
+      } else if (webhooksChanged && options?.guarded) {
+        // Webhook rows carry no version of their own, so a webhook-only landing
+        // claims the connection's stamp; direct webhook edits advance it too.
+        liveConnection = await editSDKConnection(
+          context,
+          connection,
+          {},
+          {
+            casOnDateUpdated: baselineStamp ?? null,
+          },
+        );
       }
 
       if (webhooksChanged) {
@@ -489,19 +505,26 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
         const oldById = new Map(entity.sdkWebhooks.map((w) => [w.id, w]));
         const newById = new Map(newWebhooks.map((w) => [w.id, w]));
 
+        // Reported after every write, so a failure part-way leaves compensation
+        // the webhooks that are actually live.
+        let current = [...entity.sdkWebhooks];
+        const recordWebhooks = () => {
+          if (!persistedKeys.includes("sdkWebhooks")) {
+            persistedKeys.push("sdkWebhooks");
+          }
+          written = toLiveSnapshot(liveConnection, current);
+          report();
+        };
+
         for (const wh of newWebhooks) {
-          if (!oldById.has(wh.id)) {
-            // A stable id per draft webhook makes a retried landing skip the
-            // ones an earlier, failed attempt already created.
-            const id = wh.id.startsWith("temp_")
-              ? `wh_${entity.sdkConnection.id}_${wh.id.slice("temp_".length)}`
-              : wh.id;
-            if (await context.models.sdkWebhooks.getById(id)) continue;
+          if (oldById.has(wh.id)) continue;
+          // A retried landing skips webhooks an earlier attempt created.
+          if (!(await context.models.sdkWebhooks.getById(wh.id))) {
             await context.models.sdkWebhooks.create({
               ...context.models.sdkWebhooks.getDefaultCreateProps(
                 entity.sdkConnection.id,
               ),
-              id,
+              id: wh.id,
               name: wh.name,
               endpoint: wh.endpoint,
               httpMethod: wh.httpMethod,
@@ -515,42 +538,50 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
               }),
             });
           }
+          current = [...current, wh];
+          recordWebhooks();
         }
 
         for (const newWh of newWebhooks) {
           const oldWh = oldById.get(newWh.id);
-          if (oldWh && !isEqual(newWh, oldWh)) {
-            const liveWebhook = await context.models.sdkWebhooks.getById(
-              newWh.id,
-            );
-            if (liveWebhook) {
-              await context.models.sdkWebhooks.update(liveWebhook, {
-                name: newWh.name,
-                endpoint: newWh.endpoint,
-                httpMethod: newWh.httpMethod,
-                headers: newWh.headers,
-                payloadFormat: newWh.payloadFormat,
-                payloadKey: newWh.payloadKey,
-                timeoutSeconds: newWh.timeoutSeconds ?? null,
-              });
-            }
+          if (!oldWh || isEqual(newWh, oldWh)) continue;
+          const liveWebhook = await context.models.sdkWebhooks.getById(
+            newWh.id,
+          );
+          if (liveWebhook) {
+            await context.models.sdkWebhooks.update(liveWebhook, {
+              name: newWh.name,
+              endpoint: newWh.endpoint,
+              httpMethod: newWh.httpMethod,
+              headers: newWh.headers,
+              payloadFormat: newWh.payloadFormat,
+              payloadKey: newWh.payloadKey,
+              timeoutSeconds: newWh.timeoutSeconds ?? null,
+              // A new endpoint gets a fresh start, as on the direct edit path.
+              ...(newWh.endpoint !== liveWebhook.endpoint && {
+                consecutiveFailures: 0,
+                disabled: false,
+              }),
+            });
           }
+          current = current.map((w) => (w.id === newWh.id ? newWh : w));
+          recordWebhooks();
         }
 
         for (const oldWh of entity.sdkWebhooks) {
-          if (!newById.has(oldWh.id)) {
-            const liveWebhook = await context.models.sdkWebhooks.getById(
-              oldWh.id,
-            );
-            if (liveWebhook) {
-              await context.models.sdkWebhooks.delete(liveWebhook);
-            }
+          if (newById.has(oldWh.id)) continue;
+          const liveWebhook = await context.models.sdkWebhooks.getById(
+            oldWh.id,
+          );
+          if (liveWebhook) {
+            await context.models.sdkWebhooks.delete(liveWebhook);
           }
+          current = current.filter((w) => w.id !== oldWh.id);
+          recordWebhooks();
         }
 
-        persistedKeys.push("sdkWebhooks");
-        written = toLiveSnapshot(liveConnection, newWebhooks);
-        report();
+        current = newWebhooks;
+        recordWebhooks();
       }
 
       return { persistedKeys, written };

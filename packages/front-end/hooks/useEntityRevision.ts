@@ -75,13 +75,14 @@ export function useEntityRevision<T extends RevisableEntity>({
     let latest: { version: number; dateUpdated: number } | null = null;
     for (const r of data?.revisions ?? []) {
       if (r.status !== "merged") continue;
-      if (r.version == null) continue;
+      const version = r.version ?? null;
+      if (version === null) continue;
       const t = new Date(r.dateUpdated).getTime();
-      if (latest == null || t > latest.dateUpdated) {
-        latest = { version: r.version, dateUpdated: t };
+      if (latest === null || t > latest.dateUpdated) {
+        latest = { version, dateUpdated: t };
       }
     }
-    if (latest != null) return latest.version;
+    if (latest !== null) return latest.version;
     // No real merged revisions yet: the synthetic "Revision 1" stands in as live.
     if (entity && (data?.revisions?.length ?? 0) === 0) return 1;
     return null;
@@ -97,13 +98,13 @@ export function useEntityRevision<T extends RevisableEntity>({
   // treat it as the live view (no revision selected).
   const selectedRevision = useMemo(() => {
     const revisions = data?.revisions ?? [];
-    if (urlVersion == null) return null;
+    if ((urlVersion ?? null) === null) return null;
     if (urlVersion === liveVersion) return null;
     return revisions.find((f) => f.version === urlVersion) ?? null;
   }, [urlVersion, liveVersion, data?.revisions]);
 
   const selectedRevisionId = selectedRevision?.id ?? null;
-  const hasSelectionInUrl = urlVersion != null;
+  const hasSelectionInUrl = (urlVersion ?? null) !== null;
 
   // Single URL-update helper. Uses routerRef (empty deps) to guarantee stability
   // so effects that depend on it don't re-run every time the router refreshes.
@@ -127,7 +128,7 @@ export function useEntityRevision<T extends RevisableEntity>({
       };
       delete query.v;
       const versionToUse = revision?.version ?? liveVersionRef.current;
-      if (versionToUse != null) {
+      if ((versionToUse ?? null) !== null) {
         query.v = String(versionToUse);
       }
       const hash = new URL(r.asPath, "http://x").hash.slice(1) || undefined;

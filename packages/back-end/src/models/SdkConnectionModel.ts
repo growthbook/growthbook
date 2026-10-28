@@ -562,6 +562,16 @@ async function purgeArchivedConnectionCache(
   await purgeCDNCache(context.org.id, [connection.key]);
 }
 
+// Webhooks have no version of their own, so a direct webhook write advances its
+// connections' stamp and a publish computed against the older state loses.
+export async function touchSDKConnections(context: ReqContext, ids: string[]) {
+  if (!ids.length) return;
+  await SDKConnectionModel.updateMany(
+    { organization: context.org.id, id: { $in: ids } },
+    { $set: { dateUpdated: new Date() } },
+  );
+}
+
 export const updateSdkConnectionsRemoveManagedBy = async (
   context: ReqContext,
   managedBy: Partial<ManagedBy>,

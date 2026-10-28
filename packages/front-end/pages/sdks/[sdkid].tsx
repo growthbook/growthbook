@@ -25,6 +25,7 @@ import { useAuth } from "@/services/auth";
 import CreateSDKConnectionModal from "@/components/Features/SDKConnections/CreateSDKConnectionModal";
 import SDKConnectionArchiveModal from "@/components/Features/SDKConnections/SDKConnectionArchiveModal";
 import CompareRevisionsModal from "@/components/Revision/CompareRevisionsModal";
+import SDKConnectionRevertModal from "@/components/Features/SDKConnections/SDKConnectionRevertModal";
 import CodeSnippetModal from "@/components/Features/CodeSnippetModal";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import useApi from "@/hooks/useApi";
@@ -210,6 +211,9 @@ export default function SDKConnectionPage() {
   const [confirmNewDraft, setConfirmNewDraft] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
   const [showCompareModal, setShowCompareModal] = useState(false);
+  const [revisionToRevert, setRevisionToRevert] = useState<Revision | null>(
+    null,
+  );
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [editSection, setEditSection] = useState<
     SDKConnectionEditSection | "all" | "overview" | null
@@ -403,6 +407,26 @@ export default function SDKConnectionPage() {
           }}
           onRevisionCreated={onRevisionCreated}
           selectFlow={selectFlow}
+        />
+      )}
+
+      {revisionToRevert && liveSnapshot && (
+        <SDKConnectionRevertModal
+          liveSnapshot={{
+            ...(liveSnapshot as SDKConnectionRevisionSnapshot),
+            id: connection.id,
+          }}
+          revision={revisionToRevert}
+          allRevisions={allRevisions}
+          diffConfig={REVISION_SDK_CONNECTION_DIFF_CONFIG}
+          approvalRequired={approvalRequired}
+          canBypassApproval={canAdminPublish}
+          canRevert={canUpdate}
+          close={() => setRevisionToRevert(null)}
+          onRevisionCreated={(rev) => {
+            onRevisionCreated(rev);
+            setRevisionToRevert(null);
+          }}
         />
       )}
 
@@ -673,6 +697,7 @@ export default function SDKConnectionPage() {
                 onPublish={handlePublish}
                 onDiscard={handleDiscard}
                 onReopen={handleReopen}
+                onRevert={setRevisionToRevert}
                 onCompareRevisions={() => setShowCompareModal(true)}
                 mutate={async () => {
                   await Promise.all([

@@ -16,6 +16,7 @@ import {
   sdkConnectionSettingsSnapshotValidator,
   sdkConnectionUpdatableFieldsSchema,
   parseSdkWebhookSnapshot,
+  sdkWebhookStableId,
   SDKConnectionRevisionSnapshot,
   SDKConnectionSettingsRevisionSnapshot,
   SDKWebhookRevisionSnapshot,
@@ -35,6 +36,7 @@ import {
   createSDKConnection,
   deleteSDKConnectionModel,
   findSDKConnectionById,
+  touchSDKConnections,
   findSDKConnectionsByOrganization,
   testProxyConnection,
 } from "back-end/src/models/SdkConnectionModel";
@@ -42,6 +44,7 @@ import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-co
 import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import { assertSdkWebhooksEditableDirectly } from "back-end/src/services/sdkConnectionApprovals";
 import {
   createOrUpdateRevision,
   applyPatchToSnapshot,
@@ -260,6 +263,7 @@ export const putSDKConnection = async (
   // When updating a draft, diff against the draft's state, not the live connection.
   const revisionId = req.query.revisionId;
   let settingsComparisonBase = { ...currentState };
+  let draftWebhookSnapshots: SDKWebhookRevisionSnapshot[] | null = null;
   if (revisionId) {
     const targetRevision =
       await context.models.revisions.getByIdReadable(revisionId);
@@ -284,6 +288,9 @@ export const putSDKConnection = async (
       ...currentState,
       ...patchedSnapshot.sdkConnection,
     };
+    draftWebhookSnapshots = (patchedSnapshot.sdkWebhooks ?? []).map((wh) =>
+      parseSdkWebhookSnapshot({ ...wh, httpMethod: wh.httpMethod ?? "POST" }),
+    );
   }
 
   // An absent stored value equals false/""/[] (the modals seed absent fields
@@ -329,13 +336,17 @@ export const putSDKConnection = async (
     value: unknown,
   ): SDKWebhookRevisionSnapshot[] | null => {
     if (!Array.isArray(value)) return null;
-    return value.map((wh) => parseSdkWebhookSnapshot(wh));
+    return value.map((wh) => {
+      const parsed = parseSdkWebhookSnapshot(wh);
+      return { ...parsed, id: sdkWebhookStableId(connection.id, parsed.id) };
+    });
   };
 
   const incomingWebhooks = parseIncomingWebhooks(req.body.sdkWebhooks);
+  // Against the draft being edited, so setting a webhook back to live sticks.
   const hasWebhookChanges =
     incomingWebhooks !== null &&
-    !isEqual(incomingWebhooks, liveWebhookSnapshots);
+    !isEqual(incomingWebhooks, draftWebhookSnapshots ?? liveWebhookSnapshots);
 
   // The edit modals always send a publish flag, so an unchanged save is a no-op.
   if (
@@ -374,7 +385,13 @@ export const putSDKConnection = async (
   const patchOps: JsonPatchOperation[] = [];
   // What landing this request writes, keyed like the composite snapshot.
   const desiredChanges: Record<string, unknown> = {};
-  if (!isEqual(proposedSettingsSnapshot, currentSettingsSnapshot)) {
+  // Editing a draft replaces its op even when the result matches live, or a
+  // setting reset back to live would keep the draft's old value.
+  const editsExistingDraft = !!revisionId && !explicitPublish;
+  if (
+    !isEqual(proposedSettingsSnapshot, currentSettingsSnapshot) ||
+    (editsExistingDraft && Object.keys(fieldsToUpdate).length > 0)
+  ) {
     patchOps.push({
       op: "replace",
       path: "/sdkConnection",
@@ -422,6 +439,24 @@ export const putSDKConnection = async (
     if (!canBypass) {
       context.permissions.throwPermissionError();
     }
+  }
+
+  // The same checks the generic publish runs (premium settings, webhook
+  // limits), before anything is claimed.
+  if (wantsMerge) {
+    await adapter.assertPublishable?.(
+      context,
+      baselineSnapshot,
+      desiredChanges,
+      {
+        target: {
+          type: "sdk-connection",
+          id: connection.id,
+          snapshot: baselineSnapshot,
+          proposedChanges: patchOps,
+        },
+      } as unknown as Revision,
+    );
   }
 
   // Another draft's "lock other drafts" schedule blocks this landing unless the
@@ -666,6 +701,7 @@ export async function postSDKConnectionWebhook(
   if (!context.permissions.canCreateSDKWebhook(connection)) {
     context.permissions.throwPermissionError();
   }
+  assertSdkWebhooksEditableDirectly(context, [connection]);
 
   const webhookcount = await context.models.sdkWebhooks.countSdkWebhooksByOrg();
   const canAddMultipleSdkWebhooks = orgHasPremiumFeature(
@@ -680,6 +716,7 @@ export async function postSDKConnectionWebhook(
     ...context.models.sdkWebhooks.getDefaultCreateProps(id),
     ...createSdkWebhookValidator.parse(req.body),
   });
+  await touchSDKConnections(context, [id]);
   return res.status(200).json({
     status: 200,
     webhook,

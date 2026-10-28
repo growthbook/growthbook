@@ -155,6 +155,14 @@ export type SDKWebhookRevisionSnapshot = z.infer<
 
 // A null timeout means "use the default", same as an absent one; dropping it
 // keeps the two from diffing as a change.
+// Drafts mint `temp_` ids client-side; the landed webhook takes a stable id
+// derived from it, so history, retries and later diffs all agree.
+export function sdkWebhookStableId(connectionId: string, id: string): string {
+  return id.startsWith("temp_")
+    ? `wh_${connectionId}_${id.slice("temp_".length)}`
+    : id;
+}
+
 export function parseSdkWebhookSnapshot(
   value: unknown,
 ): SDKWebhookRevisionSnapshot {

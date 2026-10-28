@@ -2,6 +2,7 @@ jest.mock("back-end/src/services/features", () => ({
   queueSDKPayloadRefresh: jest.fn(),
 }));
 
+import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import {
   flushPayloadRefreshBuffer,
@@ -13,7 +14,6 @@ import {
   entityKey,
 } from "back-end/src/events/bulkPublishCorrelation";
 import type { DeferredEventBuffer } from "back-end/src/events/bulkPublishCorrelation";
-import type { SDKConnectionInterface } from "shared/types/sdk-connection";
 import type { Context } from "back-end/src/models/BaseModel";
 import { advancedGuardStamp } from "back-end/src/models/BaseModel";
 
