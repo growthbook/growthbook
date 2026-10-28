@@ -299,12 +299,13 @@ export default function ProfileMenu({
     ),
   ];
 
-  // In the side nav with several organizations, the profile item's tooltip
-  // names the current one, expanded and collapsed.
+  // The side nav profile item's tooltip: with several organizations, the
+  // name and the current one, "Name (Org)", expanded and collapsed; with one,
+  // the name, collapsed only.
   const railName = name || email || "Account";
   const railOrgName = inRail && showOrgPicker && orgName ? orgName : null;
   const tooltip = useMenuTriggerTooltip({
-    label: railOrgName ? `${railName} · ${railOrgName}` : "Profile",
+    label: railOrgName ? `${railName} (${railOrgName})` : railName,
     enabled: !inPlace && (!!railCollapsed || !!railOrgName),
     menuOpen: open,
   });
