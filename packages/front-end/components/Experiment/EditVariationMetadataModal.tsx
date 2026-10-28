@@ -69,7 +69,7 @@ const EditVariationMetadataModal: FC<Props> = ({
         stage(updatedVariations);
         track("edited-variation-metadata");
       })}
-      cta="Apply"
+      cta={uploading > 0 ? "Uploading…" : "Apply"}
       ctaEnabled={uploading === 0}
     >
       <Flex direction="row" gap="3" align="start">
