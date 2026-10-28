@@ -200,10 +200,9 @@ function StartContent({
         {end ? <SummaryRow label="Ends">{end}</SummaryRow> : null}
       </SummaryGrid>
 
-      <Separator size="4" />
-
       {showTodo ? (
         <>
+          <Separator size="4" />
           <Flex direction="column" gap="3">
             <ChecklistTodoHeading remaining={checklistItemsRemaining} />
             {/* Bleeds out so the scroll box doesn't clip the rows' hover tint. */}

@@ -337,7 +337,13 @@ export function PreLaunchChecklistPanel() {
       {loadError ? (
         loadErrorNotice
       ) : summary.remaining === 0 ? (
-        <Callout status="success" size="sm" icon={<PiCheckBold />}>
+        <Callout
+          status="success"
+          size="sm"
+          icon={<PiCheckBold />}
+          mt="-1"
+          mb="1"
+        >
           All items are complete.
         </Callout>
       ) : null}
