@@ -1,13 +1,7 @@
 import React, { ReactNode, useState, useMemo } from "react";
 import clsx from "clsx";
-import {
-  PiPlus,
-  PiX,
-  PiXBold,
-  PiStackBold,
-  PiArrowSquareOut,
-} from "react-icons/pi";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiPlus, PiX, PiStackBold, PiArrowSquareOut } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   isFactMetric,
   expandMetricGroups,
@@ -306,7 +300,7 @@ export default function CustomMetricSlicesSelector({
                       style={{
                         ...MULTI_SELECT_FRAME,
                         minHeight: 36,
-                        padding: "2px 8px",
+                        padding: "2px 2px 2px 8px",
                       }}
                     >
                       <Flex gap="2" align="center" wrap="wrap" flexGrow="1">
@@ -357,7 +351,8 @@ export default function CustomMetricSlicesSelector({
                         })}
                       </Flex>
                       {disabled ? null : (
-                        <Flex align="center" gap="3">
+                        // Spaced as a field's own indicators are.
+                        <Flex align="center" gap="1px">
                           <QuickEditButton
                             label="Edit custom slice"
                             onClick={() => startEditing(levelsIndex)}
@@ -365,19 +360,16 @@ export default function CustomMetricSlicesSelector({
                             fillsRow
                           />
                           <span className={revealedByQuickEdit}>
-                            <IconButton
+                            <button
                               type="button"
-                              color="red"
-                              variant="ghost"
-                              size="1"
+                              className="gb-field-indicator"
                               aria-label="Remove custom slice"
-                              style={{ margin: 0 }}
                               onClick={() =>
                                 removeMetricSliceLevels(levelsIndex)
                               }
                             >
-                              <PiXBold />
-                            </IconButton>
+                              <PiX />
+                            </button>
                           </span>
                         </Flex>
                       )}
