@@ -158,13 +158,15 @@ export default function ExperimentDetailsPanel({
       >
         {/* Above the scroll area, so it and the scrollbar start under it. */}
         <Flex pt="2" align="center" gap="2" flexShrink="0">
-          {/* Padded inside, so its underline runs the rail's full width. */}
+          {/* Padded inside, so its underline runs the rail's full width; less
+              its tabs' own padding, so the first label lines up with the
+              rail's content. */}
           <TabsList
             size="sm"
             style={{
               flex: 1,
               minWidth: 0,
-              paddingInline: "var(--space-5)",
+              paddingInline: "calc(var(--space-5) - 2 * var(--space-1))",
             }}
           >
             <TabsTrigger value="details">Details</TabsTrigger>
