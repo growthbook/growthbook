@@ -829,10 +829,16 @@ export default function AppRail() {
   // bottom group. Checked on scroll and as sections open and close.
   const sectionsRef = useRef<HTMLDivElement>(null);
   const [moreBelow, setMoreBelow] = useState(false);
+  // Whether they scroll at all: then 32px of padding after the last one
+  // keeps it clear of the bottom group once scrolled to the end. Measured
+  // without that padding, so adding it never decides whether they scroll.
+  const [overflowing, setOverflowing] = useState(false);
   const checkMoreBelow = () => {
     const el = sectionsRef.current;
     if (!el) return;
     setMoreBelow(el.scrollTop + el.clientHeight < el.scrollHeight - 1);
+    const padding = parseFloat(getComputedStyle(el).paddingBottom) || 0;
+    setOverflowing(el.scrollHeight - padding > el.clientHeight + 1);
   };
   const checkMoreBelowRef = useRef(checkMoreBelow);
   checkMoreBelowRef.current = checkMoreBelow;
@@ -944,7 +950,11 @@ export default function AppRail() {
             stay in view however tall they get. */}
           <div
             ref={sectionsRef}
-            className={clsx(styles.sections, moreBelow && styles.fadeBottom)}
+            className={clsx(
+              styles.sections,
+              moreBelow && styles.fadeBottom,
+              overflowing && styles.sectionsOverflow,
+            )}
             onScroll={checkMoreBelow}
           >
             {sections.map((section) =>
