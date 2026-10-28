@@ -70,6 +70,7 @@ export function ProjectMenu({
   avatars = false,
   menuSide,
   menuSideOffset,
+  alignFirstRow = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -77,6 +78,9 @@ export function ProjectMenu({
   avatars?: boolean;
   menuSide?: "bottom" | "right";
   menuSideOffset?: number;
+  // Opening to the trigger's side: raised so its first row (the search
+  // field, or All Projects) lines up with the trigger.
+  alignFirstRow?: boolean;
 }) {
   const { projects, project, setProject } = useDefinitions();
   const { isDemo } = useProjectSelector();
@@ -133,6 +137,8 @@ export function ProjectMenu({
       menuPlacement="start"
       menuSide={menuSide}
       menuSideOffset={menuSideOffset}
+      // The menu's 8px padding, and the search row's 4px above the field.
+      menuAlignOffset={alignFirstRow ? (showSearch ? -12 : -8) : undefined}
       menuWidth={avatars ? 240 : 220}
       variant="soft"
       trigger={trigger}

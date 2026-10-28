@@ -79,6 +79,7 @@ export default function RailProjectSelector({
       menuSide="right"
       // Clear of the side nav's edge (the item sits 8px inside it).
       menuSideOffset={16}
+      alignFirstRow
       trigger={
         <button
           type="button"
