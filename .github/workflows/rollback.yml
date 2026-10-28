@@ -31,7 +31,7 @@ jobs:
         run: echo "short=${INPUT_SHA:0:7}" >> "$GITHUB_OUTPUT"
 
       - name: Login to Docker Hub
-        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -64,13 +64,13 @@ jobs:
       # anything back — point each service's task def at the target git-<sha>.
       - name: Render API task definition
         id: taskdef-api
-        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
+        uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
         with:
           task-definition-family: prod-api
           container-name: api
           image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.short_sha }}
       - name: Deploy ECS for GrowthBook Cloud API
-        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
+        uses: aws-actions/amazon-ecs-deploy-task-definition@a00d4d57ac0de1a99b39fe469f3d898d38717c2b # v2.6.4
         with:
           task-definition: ${{ steps.taskdef-api.outputs.task-definition }}
           service: prod-api
@@ -79,13 +79,13 @@ jobs:
 
       - name: Render Python task definition
         id: taskdef-python
-        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
+        uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
         with:
           task-definition-family: prod-api-python
           container-name: api-python
           image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.short_sha }}
       - name: Deploy ECS for GrowthBook Cloud Python
-        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
+        uses: aws-actions/amazon-ecs-deploy-task-definition@a00d4d57ac0de1a99b39fe469f3d898d38717c2b # v2.6.4
         with:
           task-definition: ${{ steps.taskdef-python.outputs.task-definition }}
           service: prod-api-python
@@ -94,13 +94,13 @@ jobs:
 
       - name: Render Jobs task definition
         id: taskdef-jobs
-        uses: aws-actions/amazon-ecs-render-task-definition@138c24f321fdbdf7edee4a685519d253cae2cdea # v1.9.0
+        uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
         with:
           task-definition-family: prod-api-jobs
           container-name: api-jobs
           image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.short_sha }}
       - name: Deploy ECS for GrowthBook Cloud Jobs
-        uses: aws-actions/amazon-ecs-deploy-task-definition@c465972ecbd160473f22e683363b422a5412a3de # v2.6.3
+        uses: aws-actions/amazon-ecs-deploy-task-definition@a00d4d57ac0de1a99b39fe469f3d898d38717c2b # v2.6.4
         with:
           task-definition: ${{ steps.taskdef-jobs.outputs.task-definition }}
           service: prod-api-jobs
