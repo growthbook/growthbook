@@ -1,5 +1,7 @@
 import {
+  buildCustomCheckJudgeRequest,
   buildQualityDecisionRequest,
+  interpretCustomCheckJudge,
   interpretQualityDecisions,
 } from "../../src/enterprise/experimentQualityDecisions";
 
@@ -27,6 +29,21 @@ describe("buildQualityDecisionRequest", () => {
           .questions,
       ),
     ).not.toContain("alignment");
+  });
+});
+
+describe("buildQualityDecisionRequest with custom rules", () => {
+  it("asks each routed rule against the experiment, alone when built-ins are off", () => {
+    const { state, questions } = buildQualityDecisionRequest({
+      hypothesis: "h",
+      goalMetricNames: ["Signups"],
+      builtInChecks: false,
+      customChecks: [{ key: "custom:a", rule: "Names a user segment" }],
+      experimentDigest: '{"name":"x"}',
+    });
+    expect(state.experiment).toBe('{"name":"x"}');
+    expect(Object.keys(questions)).toEqual(["custom:a"]);
+    expect(questions["custom:a"]).toMatchObject({ type: "score" });
   });
 });
 
@@ -125,5 +142,46 @@ describe("interpretQualityDecisions", () => {
     expect(interpretQualityDecisions({})["ai-hypothesis-quality"].score).toBe(
       0,
     );
+  });
+
+  it("scales custom rules to 0-1 and skips built-ins that weren't asked", () => {
+    const verdicts = interpretQualityDecisions(
+      {
+        "custom:a": {
+          type: "score",
+          score: 1,
+          probabilities: { "0": 0.1, "1": 0.8, "2": 0.1 },
+        },
+      },
+      { builtInChecks: false, customKeys: ["custom:a", "custom:b"] },
+    );
+    expect(verdicts).toEqual({
+      "custom:a": { score: 0.5, reason: "Partly meets the rule" },
+    });
+  });
+});
+
+describe("custom check judge", () => {
+  const choice = (label: string, confidence: number) => ({
+    type: "choice" as const,
+    choice: label,
+    confidence,
+  });
+
+  it("asks one choice question about the rule", () => {
+    const { state, questions } = buildCustomCheckJudgeRequest("rule");
+    expect(state).toEqual({ rule: "rule" });
+    expect(
+      Object.keys(
+        questions.judge.type === "choice" ? questions.judge.criteria : {},
+      ),
+    ).toEqual(["decision", "llm"]);
+  });
+
+  it("routes to the decision model only when it's confident", () => {
+    expect(interpretCustomCheckJudge(choice("decision", 0.9))).toBe("decision");
+    expect(interpretCustomCheckJudge(choice("decision", 0.5))).toBe("llm");
+    expect(interpretCustomCheckJudge(choice("llm", 0.9))).toBe("llm");
+    expect(interpretCustomCheckJudge(undefined)).toBe("llm");
   });
 });

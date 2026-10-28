@@ -8,6 +8,7 @@ import {
   isDegenerateDraft,
   reflowSectionWeights,
   removeCustomCheck,
+  setCustomCheckJudge,
   updateCheck,
   updateCustomCheck,
 } from "@/components/Settings/ExperimentQuality/qualityConfigDraft";
@@ -93,5 +94,35 @@ describe("qualityConfigDraft", () => {
 
     draft = removeCustomCheck(draft, custom.id);
     expect(draftToConfig(draft).customAiChecks).toEqual([]);
+  });
+
+  it("keeps a judge until its rule changes, unless an admin chose it", () => {
+    const saved = configToDraft({
+      customAiChecks: [
+        {
+          id: "a",
+          name: "A",
+          rule: "Names a segment",
+          judge: "decision",
+          judgeChosenBy: "auto",
+        },
+      ],
+    });
+    expect(configToDraft(draftToConfig(saved))).toEqual(saved);
+
+    const renamed = updateCustomCheck(saved, "a", { name: "B" });
+    expect(renamed.customAiChecks[0].judge).toBe("decision");
+    const rewritten = updateCustomCheck(saved, "a", { rule: "Other" });
+    expect(draftToConfig(rewritten).customAiChecks?.[0]).not.toHaveProperty(
+      "judge",
+    );
+
+    const chosen = setCustomCheckJudge(saved, "a", "llm");
+    expect(
+      updateCustomCheck(chosen, "a", { rule: "Other" }).customAiChecks[0],
+    ).toMatchObject({ judge: "llm", judgeChosenBy: "admin" });
+    expect(
+      setCustomCheckJudge(chosen, "a", null).customAiChecks[0].judge,
+    ).toBeUndefined();
   });
 });

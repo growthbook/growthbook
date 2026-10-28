@@ -290,6 +290,16 @@ describe("haveAIQualityInputsChanged", () => {
       }),
     ).toBe(false);
   });
+  // Runs on every experiment save, so partial documents must not throw
+  it("handles experiments missing list fields", () => {
+    const partial = {
+      ...baseExperiment(),
+      tags: undefined,
+      goalMetrics: undefined,
+      phases: undefined,
+    } as unknown as ReturnType<typeof baseExperiment>;
+    expect(haveAIQualityInputsChanged(partial, partial)).toBe(false);
+  });
 });
 
 describe("computeAIQualityInputsHash", () => {

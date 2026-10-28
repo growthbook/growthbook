@@ -440,7 +440,7 @@ const QualityTab: FC<{
         </Heading>
         <Flex align="center" gap="3">
           <Text size="sm" color="text-low">
-            <Link href="/settings/experimentation-health">
+            <Link href="/settings/experiment-quality">
               How the score is calculated
             </Link>
           </Text>

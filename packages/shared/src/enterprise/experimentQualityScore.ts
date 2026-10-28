@@ -16,6 +16,7 @@ import {
 import {
   DeterministicExperimentQualityCheckKey,
   ExperimentQualityCheckKey,
+  CustomQualityCheckJudge,
   ExperimentQualityCheckParams,
   ExperimentQualityConfigBody,
   ExperimentQualitySectionKey,
@@ -273,6 +274,7 @@ export interface ResolvedCustomQualityCheck {
   key: CustomQualityCheckKey;
   name: string;
   rule: string;
+  judge: CustomQualityCheckJudge;
   // Own flag AND the AI section is enabled
   enabled: boolean;
   // An equal share of the AI section alongside built-in AI checks
@@ -389,6 +391,7 @@ export function resolveExperimentQualityScoreSettings(
       key: customQualityCheckKey(c.id),
       name: c.name,
       rule: c.rule,
+      judge: c.judge ?? "llm",
       enabled: (c.enabled ?? true) && sections.ai.enabled,
       split: 0,
     }),
@@ -474,7 +477,8 @@ export function getAICheckHashInputs(
     .map((key) => [key, settings.checks[key].aiContext ?? ""]);
   const custom: Array<[string, string]> = settings.customAiChecks
     .filter((c) => c.enabled)
-    .map((c) => [c.key, c.rule]);
+    // A change of judge re-runs the check too
+    .map((c) => [c.key, `${c.judge}:${c.rule}`]);
   return [...builtin, ...custom].sort((a, b) => a[0].localeCompare(b[0]));
 }
 
@@ -498,16 +502,16 @@ export function getExperimentDigestForCustomRules(
     type: experiment.type ?? "standard",
     hypothesis: experiment.hypothesis ?? "",
     description: experiment.description ?? "",
-    tags: [...experiment.tags].sort(),
+    tags: [...(experiment.tags ?? [])].sort(),
     project: experiment.project ?? "",
     hasOwner: !!experiment.owner?.trim(),
     goalMetricNames: [...goalMetricNames].sort(),
-    goalMetricCount: experiment.goalMetrics.length,
-    variations: experiment.variations.map((v) => ({
+    goalMetricCount: experiment.goalMetrics?.length ?? 0,
+    variations: (experiment.variations ?? []).map((v) => ({
       name: v.name,
-      screenshotCount: v.screenshots.length,
+      screenshotCount: v.screenshots?.length ?? 0,
     })),
-    phases: experiment.phases.map((p) => ({
+    phases: (experiment.phases ?? []).map((p) => ({
       dateStarted: toISO(p.dateStarted),
       dateEnded: toISO(p.dateEnded),
     })),
@@ -525,8 +529,8 @@ export function haveAIQualityInputsChanged(
   after: ExperimentForQualityScore,
 ): boolean {
   return (
-    getExperimentDigestForCustomRules(before, before.goalMetrics) !==
-    getExperimentDigestForCustomRules(after, after.goalMetrics)
+    getExperimentDigestForCustomRules(before, before.goalMetrics ?? []) !==
+    getExperimentDigestForCustomRules(after, after.goalMetrics ?? [])
   );
 }
 
