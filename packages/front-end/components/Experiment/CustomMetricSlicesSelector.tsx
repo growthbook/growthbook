@@ -1,6 +1,6 @@
 import React, { ReactNode, useState, useMemo } from "react";
+import clsx from "clsx";
 import {
-  PiPencilSimple,
   PiPlus,
   PiX,
   PiXBold,
@@ -26,6 +26,11 @@ import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import { DocLink } from "@/components/DocLink";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
+import QuickEditButton, {
+  editsOnClick,
+  revealedByQuickEdit,
+  revealsQuickEdit,
+} from "@/components/Experiment/TabbedPage/QuickEditButton";
 
 type MetricWithStringColumns = FactMetricInterface & {
   stringColumns: Array<{
@@ -293,6 +298,11 @@ export default function CustomMetricSlicesSelector({
                     <Flex
                       align="center"
                       gap="3"
+                      className={
+                        disabled
+                          ? undefined
+                          : clsx(revealsQuickEdit, editsOnClick)
+                      }
                       style={{
                         ...MULTI_SELECT_FRAME,
                         minHeight: 36,
@@ -348,29 +358,27 @@ export default function CustomMetricSlicesSelector({
                       </Flex>
                       {disabled ? null : (
                         <Flex align="center" gap="3">
-                          <IconButton
-                            variant="ghost"
-                            size="1"
-                            aria-label="Edit custom slice"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              startEditing(levelsIndex);
-                            }}
-                          >
-                            <PiPencilSimple />
-                          </IconButton>
-                          <IconButton
-                            color="red"
-                            variant="ghost"
-                            size="1"
-                            aria-label="Remove custom slice"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              removeMetricSliceLevels(levelsIndex);
-                            }}
-                          >
-                            <PiXBold />
-                          </IconButton>
+                          <QuickEditButton
+                            label="Edit custom slice"
+                            onClick={() => startEditing(levelsIndex)}
+                            labelTooltip={false}
+                            fillsRow
+                          />
+                          <span className={revealedByQuickEdit}>
+                            <IconButton
+                              type="button"
+                              color="red"
+                              variant="ghost"
+                              size="1"
+                              aria-label="Remove custom slice"
+                              style={{ margin: 0 }}
+                              onClick={() =>
+                                removeMetricSliceLevels(levelsIndex)
+                              }
+                            >
+                              <PiXBold />
+                            </IconButton>
+                          </span>
                         </Flex>
                       )}
                     </Flex>

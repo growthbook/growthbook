@@ -11,6 +11,12 @@ export const revealsQuickEdit = styles.revealsEdit;
 /** Put on any other action that waits for its `revealsQuickEdit` block. */
 export const revealedByQuickEdit = styles.edit;
 
+/**
+ * Put on a framed block edited by clicking anywhere in it, beside
+ * `revealsQuickEdit`; its `QuickEditButton` takes `fillsRow`.
+ */
+export const editsOnClick = styles.clickFrame;
+
 /** A value edited by clicking anywhere on its row; read-only without `onEdit`. */
 export function QuickEditRow({
   label,
@@ -60,7 +66,7 @@ export default function QuickEditButton({
   size?: "1" | "2";
   // Off where what it edits is plain; a blocked reason still shows.
   labelTooltip?: boolean;
-  // Clicked from anywhere in its `QuickEditRow`.
+  // Clicked from anywhere in its `QuickEditRow` or `editsOnClick` block.
   fillsRow?: boolean;
   // Rests at half strength instead of hidden, where nothing reveals it.
   dimmed?: boolean;

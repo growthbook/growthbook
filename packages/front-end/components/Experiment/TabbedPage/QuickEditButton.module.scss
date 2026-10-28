@@ -40,3 +40,16 @@
     @include click-row-target;
   }
 }
+
+// Already framed, so it tints in place rather than bleeding past its box.
+.clickFrame {
+  @include click-row;
+
+  &:hover {
+    background: var(--gray-a2) !important;
+  }
+
+  .rowTarget {
+    @include click-row-target;
+  }
+}
