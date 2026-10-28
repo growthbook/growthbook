@@ -28,6 +28,7 @@ import {
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
 import type { ExperimentChangesBody } from "shared/validators";
+import type { SaveRefusal } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -83,7 +84,7 @@ export type Props = {
   // request, so its values can name variations not saved yet.
   saveWithStagedChanges?: (
     part: ExperimentChangesBody,
-  ) => Promise<string | null>;
+  ) => Promise<SaveRefusal | null>;
 };
 
 const genEnvironmentSettings = ({
@@ -652,7 +653,13 @@ export default function FeatureFromExperimentModal({
                   ],
                 }),
           });
-          if (refusal !== null) throw new Error(refusal);
+          if (refusal) {
+            throw new Error(
+              refusal.onPage
+                ? `${refusal.message} Close this to resolve it on the page.`
+                : refusal.message,
+            );
+          }
           if (!existing) {
             track("Feature Created", {
               valueType: featureToCreate.valueType,

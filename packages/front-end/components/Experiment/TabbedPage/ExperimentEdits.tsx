@@ -89,7 +89,7 @@ interface ExperimentEditsValue {
   } | null;
   // Resolves to why the save didn't go through, or null once every staged
   // edit saved; `with` saves alongside them, in the same request.
-  saveAll: (with_?: ExperimentChangesBody) => Promise<string | null>;
+  saveAll: (with_?: ExperimentChangesBody) => Promise<SaveRefusal | null>;
   // Staged fields join this form through their `form` attribute, so a value
   // their own constraints refuse stops the save.
   formId: string;
@@ -120,6 +120,9 @@ interface ExperimentEditsValue {
 type CheckChanges = (id: string, part: ExperimentChangesBody) => Promise<void>;
 
 const ExperimentEditsContext = createContext<ExperimentEditsValue | null>(null);
+
+// `onPage` when it's resolved on the page, by its fields or the save bar.
+export type SaveRefusal = { message: string; onPage: boolean };
 
 const INVALID_FIELDS = "Fill in the highlighted fields to save.";
 const CONFLICTED = "Someone else saved changes to what you edited.";
@@ -384,9 +387,9 @@ export function ExperimentEditsProvider({
       // The browser says which field and why, and takes the writer there.
       if (form.current && !form.current.reportValidity()) {
         setError(INVALID_FIELDS);
-        return INVALID_FIELDS;
+        return { message: INVALID_FIELDS, onPage: true };
       }
-      let refusal: string | null = null;
+      let refusal: SaveRefusal | null = null;
       setSaving(true);
       savingNow.current = true;
       setError(null);
@@ -425,14 +428,14 @@ export function ExperimentEditsProvider({
       } catch (e) {
         // A conflict shows on the bar and its rows, not as an error.
         if (e instanceof ConflictFlagged) {
-          refusal = CONFLICTED;
+          refusal = { message: CONFLICTED, onPage: true };
         } else {
-          refusal = e.message || "Could not save your changes";
-          if (e instanceof ApiCallError && e.code === "unscoped_rule") {
-            setUnscopedRefusal(refusal);
-          } else {
-            setError(refusal);
-          }
+          const message = e.message || "Could not save your changes";
+          const unscoped =
+            e instanceof ApiCallError && e.code === "unscoped_rule";
+          if (unscoped) setUnscopedRefusal(message);
+          else setError(message);
+          refusal = { message, onPage: unscoped };
         }
       } finally {
         // One changed while it saved stays staged, over what it saved. Judged
