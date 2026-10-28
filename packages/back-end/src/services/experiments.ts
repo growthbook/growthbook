@@ -2461,23 +2461,28 @@ export function fillEmptyVariationKeys(
 
 const inUnitInterval = (n: number) => n >= 0 && n <= 1;
 
-// Only phases that differ from the stored phase at the same index are checked,
-// so an unrelated edit to an experiment with legacy data is not rejected.
+// Validate new or changed allocation values independently, so edits such as
+// closing a phase do not require rewriting its legacy allocations.
 export function assertValidExperimentPhases(
   phases: ExperimentPhase[],
   existing: ExperimentPhase[] = [],
 ): void {
   phases.forEach((phase, i) => {
-    if (isEqual(phase, existing[i])) return;
-    if (!inUnitInterval(phase.coverage)) {
+    const existingPhase = existing[i];
+    if (
+      (!existingPhase || !isEqual(phase.coverage, existingPhase.coverage)) &&
+      !inUnitInterval(phase.coverage)
+    ) {
       throw new BadRequestError(
         `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
       );
     }
     const weights = phase.variationWeights;
     if (
-      !weights.every(inUnitInterval) ||
-      !isVariationWeightsSumValid(weights)
+      (!existingPhase || !isEqual(weights, existingPhase.variationWeights)) &&
+      (!Array.isArray(weights) ||
+        !weights.every(inUnitInterval) ||
+        !isVariationWeightsSumValid(weights))
     ) {
       throw new BadRequestError(
         `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,
