@@ -15,8 +15,8 @@ import styles from "./ScrollArea.module.scss";
 type Edge = "top" | "bottom" | "left" | "right";
 
 /**
- * A scroll box whose scrollbars overlay the content, shown only while hovered
- * or scrolled. The ref is the element that scrolls.
+ * A scroll box whose scrollbars overlay the content, shown while hovered or
+ * scrolled. The ref is the element that scrolls.
  */
 const ScrollArea = forwardRef<
   HTMLDivElement,
@@ -27,6 +27,10 @@ const ScrollArea = forwardRef<
     /** A full-height column, so a child can fill it (`flex: 1`) or scroll. */
     fill?: boolean;
     direction?: "vertical" | "horizontal" | "both";
+    /** The scrollbar's thickness: 4, 8 or 12px. */
+    size?: "1" | "2" | "3";
+    /** Shows the scrollbars whenever the content overflows, not just on hover. */
+    alwaysShow?: boolean;
     /**
      * Marks each edge with more content past it: the content fades out there,
      * or a shadow falls over it.
@@ -44,6 +48,8 @@ const ScrollArea = forwardRef<
     gutter = false,
     fill = false,
     direction = "vertical",
+    size = "1",
+    alwaysShow = false,
     edgeCue,
     skipEdges = [],
     onScroll,
@@ -91,7 +97,8 @@ const ScrollArea = forwardRef<
   const scrollArea = (
     <RadixScrollArea
       ref={viewport}
-      type="hover"
+      type={alwaysShow ? "auto" : "hover"}
+      size={size}
       scrollbars={direction}
       onScroll={onScroll}
       className={
