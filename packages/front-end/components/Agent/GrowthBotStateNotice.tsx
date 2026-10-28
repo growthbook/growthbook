@@ -38,7 +38,7 @@ export default function GrowthBotStateNotice({
         align={centered ? "center" : undefined}
       >
         <Text weight={centered ? "medium" : "semibold"}>
-          You&apos;ve reached your GrowthBot limit
+          You&apos;ve reached your AI Assistant limit
         </Text>
         <Text
           as="p"

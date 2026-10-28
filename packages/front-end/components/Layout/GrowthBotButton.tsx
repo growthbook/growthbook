@@ -36,14 +36,14 @@ export default function GrowthBotButton() {
       onClick={toggleAgentPanel}
       aria-label={
         limit
-          ? "GrowthBot, usage limit reached"
+          ? "AI Assistant, usage limit reached"
           : agentOpen
-            ? "Close GrowthBot, the GrowthBook AI assistant"
-            : "Open GrowthBot, the GrowthBook AI assistant"
+            ? "Close GrowthBook AI assistant"
+            : "Open GrowthBook AI assistant"
       }
       aria-pressed={agentOpen}
     >
-      GrowthBot
+      AI Assistant
     </Button>
   );
 }
