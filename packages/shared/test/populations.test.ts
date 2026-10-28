@@ -6,6 +6,7 @@ import {
 import {
   getPopulationFactTableIds,
   getPopulationRuleViolations,
+  MAX_POPULATION_FACT_TABLES,
   MAX_POPULATION_STEPS,
   type PopulationRuleFactTable,
 } from "shared/populations";
@@ -82,13 +83,13 @@ describe("getPopulationFactTableIds", () => {
 });
 
 describe("getPopulationRuleViolations", () => {
-  it("accepts a valid single-step population", () => {
+  it("accepts a valid multi-step population", () => {
     expect(
       getPopulationRuleViolations({
         datasource: "ds_main",
         userIdTypes: ["user_id"],
-        steps: [step("ftb_events")],
-        factTables: [events],
+        steps: [step("ftb_events"), step("ftb_orders")],
+        factTables: [events, orders],
       }),
     ).toEqual([]);
   });
@@ -99,18 +100,6 @@ describe("getPopulationRuleViolations", () => {
         datasource: "ds_main",
         userIdTypes: ["user_id"],
         steps: [step("ftb_missing")],
-        factTables: [],
-      }),
-    ).toEqual(["Fact table ftb_missing not found."]);
-  });
-
-  it("reports a fact table used by several steps only once", () => {
-    // Intentionally bypass the single-step schema to cover deduplicated errors.
-    expect(
-      getPopulationRuleViolations({
-        datasource: "ds_main",
-        userIdTypes: ["user_id"],
-        steps: [step("ftb_missing"), step("ftb_missing")],
         factTables: [],
       }),
     ).toEqual(["Fact table ftb_missing not found."]);
@@ -140,21 +129,78 @@ describe("getPopulationRuleViolations", () => {
     ]);
   });
 
-  it.each([{ aggregateFilter: ">=3" }, { aggregateFilterColumn: "amount" }])(
-    "rejects an incomplete aggregate filter: %j",
-    (aggregate) => {
-      expect(
-        getPopulationRuleViolations({
-          datasource: "ds_main",
-          userIdTypes: ["user_id"],
-          steps: [{ ...step("ftb_events"), ...aggregate }],
-          factTables: [events],
-        }),
-      ).toEqual([
-        'Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither (step 1).',
-      ]);
-    },
-  );
+  it("reports a fact table used by several steps only once", () => {
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [step("ftb_missing"), step("ftb_missing")],
+        factTables: [],
+      }),
+    ).toEqual(["Fact table ftb_missing not found."]);
+  });
+
+  it("limits the number of distinct fact tables, not steps per fact table", () => {
+    const tables = Array.from(
+      { length: MAX_POPULATION_FACT_TABLES + 1 },
+      (_, i): PopulationRuleFactTable => ({
+        id: `ftb_${i}`,
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        columns: [],
+      }),
+    );
+    const atCap = tables.slice(0, MAX_POPULATION_FACT_TABLES);
+
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: [...atCap, ...atCap].map((t) => step(t.id)),
+        factTables: atCap,
+      }),
+    ).toEqual([]);
+    expect(
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps: tables.map((t) => step(t.id)),
+        factTables: tables,
+      }),
+    ).toEqual([
+      `Populations can read from at most ${MAX_POPULATION_FACT_TABLES} distinct fact tables (this one reads from ${MAX_POPULATION_FACT_TABLES + 1}).`,
+    ]);
+  });
+
+  it("requires aggregateFilter and aggregateFilterColumn together", () => {
+    const run = (steps: PopulationStep[]) =>
+      getPopulationRuleViolations({
+        datasource: "ds_main",
+        userIdTypes: ["user_id"],
+        steps,
+        factTables: [events],
+      });
+
+    expect(
+      run([
+        step("ftb_events"),
+        {
+          ...step("ftb_events"),
+          aggregateFilter: ">=3",
+          aggregateFilterColumn: "$$count",
+        },
+      ]),
+    ).toEqual([]);
+    expect(
+      run([
+        { ...step("ftb_events"), aggregateFilter: ">=3" },
+        step("ftb_events"),
+        { ...step("ftb_events"), aggregateFilterColumn: "amount" },
+      ]),
+    ).toEqual([
+      'Must specify both "aggregateFilter" and "aggregateFilterColumn" or neither (step 1, 3).',
+    ]);
+  });
 
   describe("aggregate filter column and syntax", () => {
     const withAggregate = (
@@ -166,48 +212,60 @@ describe("getPopulationRuleViolations", () => {
       aggregateFilter,
       aggregateFilterColumn,
     });
-    const run = (populationStep: PopulationStep) =>
+    const run = (...steps: PopulationStep[]) =>
       getPopulationRuleViolations({
         datasource: "ds_main",
         userIdTypes: ["user_id"],
-        steps: [populationStep],
-        factTables: [events],
+        steps,
+        factTables: [events, orders],
       });
 
-    it.each([
-      ["amount", ">=3"],
-      ["props.quantity", ">=1,<10"],
-      ["$$count", "> 2"],
-    ])("accepts aggregate column %s with filter %s", (column, filter) => {
-      expect(run(withAggregate(column, filter))).toEqual([]);
+    it("accepts numeric columns, numeric JSON fields, and $$count", () => {
+      expect(
+        run(
+          withAggregate("amount"),
+          withAggregate("props.quantity", ">=1,<10"),
+          withAggregate("$$count", "> 2"),
+        ),
+      ).toEqual([]);
     });
 
-    it.each(["country", "props.coupon", "missing"])(
-      "rejects non-numeric or unknown aggregate column %s",
-      (column) => {
-        expect(run(withAggregate(column))).toEqual([
-          `Aggregate filter column '${column}' must be a numeric column or "$$count" (step 1).`,
-        ]);
-      },
-    );
+    it("rejects non-numeric and unknown columns", () => {
+      expect(
+        run(
+          withAggregate("country"),
+          withAggregate("props.coupon"),
+          withAggregate("missing"),
+        ),
+      ).toEqual([
+        `Aggregate filter column 'country' must be a numeric column or "$$count" (step 1).`,
+        `Aggregate filter column 'props.coupon' must be a numeric column or "$$count" (step 2).`,
+        `Aggregate filter column 'missing' must be a numeric column or "$$count" (step 3).`,
+      ]);
+    });
 
-    it.each(["refund", "legacy.quantity"])(
-      "rejects deleted aggregate column %s",
-      (column) => {
-        expect(run(withAggregate(column))).toEqual([
-          `Aggregate filter column '${column}' must be a numeric column or "$$count" (step 1).`,
-        ]);
-      },
-    );
+    it("rejects deleted numeric columns and fields of deleted JSON columns", () => {
+      expect(
+        run(withAggregate("refund"), withAggregate("legacy.quantity")),
+      ).toEqual([
+        `Aggregate filter column 'refund' must be a numeric column or "$$count" (step 1).`,
+        `Aggregate filter column 'legacy.quantity' must be a numeric column or "$$count" (step 2).`,
+      ]);
+    });
 
-    it.each(["lots", ">=3,<", ","])(
-      "rejects invalid aggregate filter %s",
-      (filter) => {
-        expect(run(withAggregate("$$count", filter))).toEqual([
-          `Invalid aggregate filter "${filter}" (step 1). Use comparisons such as ">=3" or ">=3,<10".`,
-        ]);
-      },
-    );
+    it("rejects filters that are not comma-separated comparisons", () => {
+      expect(
+        run(
+          withAggregate("$$count", "lots"),
+          withAggregate("$$count", ">=3,<"),
+          withAggregate("$$count", ","),
+        ),
+      ).toEqual([
+        'Invalid aggregate filter "lots" (step 1). Use comparisons such as ">=3" or ">=3,<10".',
+        'Invalid aggregate filter ">=3,<" (step 2). Use comparisons such as ">=3" or ">=3,<10".',
+        'Invalid aggregate filter "," (step 3). Use comparisons such as ">=3" or ">=3,<10".',
+      ]);
+    });
 
     it("rejects JSON sub-fields when the fact table has no jsonFields", () => {
       const slimEvents: PopulationRuleFactTable = {
@@ -238,24 +296,17 @@ describe("getPopulationRuleViolations", () => {
     });
   });
 
-  it("returns all violations for a single step", () => {
+  it("returns every violation together", () => {
     expect(
       getPopulationRuleViolations({
         datasource: "ds_main",
         userIdTypes: ["anonymous_id"],
-        steps: [
-          {
-            ...step("ftb_orders"),
-            aggregateFilter: "lots",
-            aggregateFilterColumn: "missing",
-          },
-        ],
-        factTables: [orders],
+        steps: [step("ftb_events"), step("ftb_orders"), step("ftb_other")],
+        factTables: [events, orders, otherWarehouse],
       }),
     ).toEqual([
       "Fact table ftb_orders does not support identifier types: anonymous_id.",
-      'Invalid aggregate filter "lots" (step 1). Use comparisons such as ">=3" or ">=3,<10".',
-      `Aggregate filter column 'missing' must be a numeric column or "$$count" (step 1).`,
+      "Fact table ftb_other is not in Data Source ds_main.",
     ]);
   });
 });

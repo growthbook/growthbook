@@ -5,6 +5,8 @@ import { parseAggregateFilter } from "./aggregate-filters";
 
 // Multi-step populations aren't supported yet.
 export const MAX_POPULATION_STEPS = 1;
+/** Distinct fact tables a population's steps may read from. */
+export const MAX_POPULATION_FACT_TABLES = 5;
 
 export type PopulationRuleFactTable = Pick<
   FactTableInterface,
@@ -50,6 +52,12 @@ export function getPopulationRuleViolations({
   }
 
   const factTableIds = getPopulationFactTableIds(steps);
+  if (factTableIds.length > MAX_POPULATION_FACT_TABLES) {
+    violations.push(
+      `Populations can read from at most ${MAX_POPULATION_FACT_TABLES} distinct fact tables (this one reads from ${factTableIds.length}).`,
+    );
+  }
+
   const factTableMap = new Map(factTables.map((f) => [f.id, f]));
   for (const factTableId of factTableIds) {
     const factTable = factTableMap.get(factTableId);
