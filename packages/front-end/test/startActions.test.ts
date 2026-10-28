@@ -221,19 +221,19 @@ describe("getStartTitle", () => {
       name: "a draft awaiting its schedule's approval",
       startAt: future,
       next: null,
-      expected: "Schedule start",
+      expected: "Schedule Start",
     },
     {
       name: "a draft whose schedule is approved",
       startAt: future,
       next: approvedStart,
-      expected: "Start experiment",
+      expected: "Start Experiment",
     },
     {
       name: "a draft whose schedule has passed",
       startAt: past,
       next: null,
-      expected: "Start experiment",
+      expected: "Start Experiment",
     },
   ] as {
     name: string;

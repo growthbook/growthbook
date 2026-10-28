@@ -4,6 +4,7 @@ import type {
   ExperimentInterface,
   ExperimentPhase,
   FeaturePrerequisite,
+  MetricOverride,
   SavedGroupTargeting,
 } from "shared/validators";
 import type { ExperimentTargetingData } from "shared/types/experiment";
@@ -72,11 +73,23 @@ export function experimentFieldValue(
   return (source as Record<string, unknown> | undefined)?.[key] ?? null;
 }
 
+// An override's "" window type is the "None" window, where a missing one
+// follows the metric; the canonical value would read them as the same.
+const noneWindowKept = (overrides: unknown) =>
+  Array.isArray(overrides)
+    ? overrides.map((o: Partial<MetricOverride> | null) =>
+        o?.windowType === "" ? { ...o, windowType: "none" } : o,
+      )
+    : overrides;
+
 export function sameFieldValue(key: string, a: unknown, b: unknown): boolean {
   if (key === "condition") {
     const condition = (v: unknown) =>
       hasAttributeCondition(v as string | undefined) ? v : "";
     return condition(a) === condition(b);
+  }
+  if (key === "metricOverrides") {
+    return sameCanonicalValue(noneWindowKept(a), noneWindowKept(b));
   }
   return sameCanonicalValue(a, b);
 }

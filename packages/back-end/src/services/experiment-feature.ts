@@ -47,6 +47,7 @@ import {
   getFeatureRevisionsByStatus,
   getLinkageSyncRevisionSummaries,
   getRevision,
+  RevisionContentChangedError,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import {
@@ -1186,6 +1187,41 @@ const openDraftsOf = (
     skipPagination: true,
   });
 
+// Guarded, and retried from a fresh read, so an edit landing in between is
+// kept; a draft published or discarded meanwhile is never written.
+async function updateDraftRules(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+  changes: (rules: FeatureRule[]) => Parameters<typeof updateRevision>[3],
+  log: Parameters<typeof updateRevision>[4],
+): Promise<FeatureRevisionInterface> {
+  let current = draft;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await updateRevision(
+        context,
+        feature,
+        current,
+        changes(current.rules ?? []),
+        log,
+        { guardDateUpdated: true },
+      );
+    } catch (e) {
+      if (!(e instanceof RevisionContentChangedError) || attempt >= 3) throw e;
+      const fresh = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: current.version,
+      });
+      if (!fresh || !DRAFT_REVISION_STATUSES.includes(fresh.status)) throw e;
+      current = fresh;
+    }
+  }
+}
+
 // Rewrites the experiment's rules in every open draft of the flag holding one,
 // returning those drafts as they were.
 async function rewriteExperimentRulesInDrafts({
@@ -1205,11 +1241,11 @@ async function rewriteExperimentRulesInDrafts({
   for (const draft of await openDraftsOf(context, feature)) {
     const touched = (draft.rules ?? []).filter(refersToExperiment);
     if (!touched.length) continue;
-    await updateRevision(
+    await updateDraftRules(
       context,
       feature,
       draft,
-      { rules: rewrite(draft.rules ?? [], feature.id) },
+      (rules) => ({ rules: rewrite(rules, feature.id) }),
       logEntry(touched),
     );
     rewritten.push(draft);
@@ -1458,35 +1494,38 @@ export async function keepFlagInExperiment({
     feature,
     refersToExperiment,
   )) {
-    const rules = [...(draft.rules ?? [])];
-    live.forEach((rule, i) => {
-      if (!refersToExperiment(rule) || rules.some((r) => r.id === rule.id)) {
-        return;
-      }
-      // After the nearest live rule before it that the draft still has, else
-      // before the nearest after it.
-      const ids = new Set(rules.map((r) => r.id));
-      const prev = live
-        .slice(0, i)
-        .reverse()
-        .find((r) => ids.has(r.id));
-      const next = live.slice(i + 1).find((r) => ids.has(r.id));
-      const at = prev
-        ? rules.findIndex((r) => r.id === prev.id) + 1
-        : next
-          ? rules.findIndex((r) => r.id === next.id)
-          : Math.min(i, rules.length);
-      rules.splice(at, 0, rule);
-    });
+    const withLiveRules = (draftRules: FeatureRule[]) => {
+      const rules = [...draftRules];
+      live.forEach((rule, i) => {
+        if (!refersToExperiment(rule) || rules.some((r) => r.id === rule.id)) {
+          return;
+        }
+        // After the nearest live rule before it that the draft still has, else
+        // before the nearest after it.
+        const ids = new Set(rules.map((r) => r.id));
+        const prev = live
+          .slice(0, i)
+          .reverse()
+          .find((r) => ids.has(r.id));
+        const next = live.slice(i + 1).find((r) => ids.has(r.id));
+        const at = prev
+          ? rules.findIndex((r) => r.id === prev.id) + 1
+          : next
+            ? rules.findIndex((r) => r.id === next.id)
+            : Math.min(i, rules.length);
+        rules.splice(at, 0, rule);
+      });
+      return rules;
+    };
     const startedByRemoval = draft.title === removalTitle(experiment);
-    const restored = await updateRevision(
+    const restored = await updateDraftRules(
       context,
       feature,
       draft,
-      {
-        rules,
+      (rules) => ({
+        rules: withLiveRules(rules),
         ...(startedByRemoval && { title: "" }),
-      },
+      }),
       logEntry(live.filter(refersToExperiment)),
     );
     if (startedByRemoval) {
@@ -1711,8 +1750,16 @@ export function keptExperimentRule(
   const coverage = phase?.coverage ?? 1;
   const released = experiment.variations.find((v) => v.id === releasedId);
   const kept = {
-    // A sparse arm stays a patch over the default, as it was served.
-    ...omit(rule, ["type", "experimentId", "variations"]),
+    // A sparse arm stays a patch over the default, as it was served; the
+    // payload served the phase's targeting, never the rule's own.
+    ...omit(rule, [
+      "type",
+      "experimentId",
+      "variations",
+      "condition",
+      "savedGroups",
+      "prerequisites",
+    ]),
     value,
     description: `Released from experiment "${experiment.name}"${
       released ? ` (${released.name})` : ""

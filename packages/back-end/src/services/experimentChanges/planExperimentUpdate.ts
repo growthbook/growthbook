@@ -791,16 +791,17 @@ export async function writeExperimentUpdatePlan({
     changes,
     guard,
   });
-  // After the guarded write, so a refused one leaves both holdouts as they were.
-  if (holdout.remove) {
-    await context.models.holdout.removeExperimentFromHoldout(
-      holdout.remove,
-      experiment.id,
-    );
-  }
+  // After the guarded write, so a refused one leaves both holdouts as they were;
+  // joining before leaving, so a failed join leaves the old holdout as it was.
   if (holdout.add) {
     await context.models.holdout.addExperimentToHoldout(
       holdout.add,
+      experiment.id,
+    );
+  }
+  if (holdout.remove) {
+    await context.models.holdout.removeExperimentFromHoldout(
+      holdout.remove,
       experiment.id,
     );
   }

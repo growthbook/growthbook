@@ -28,12 +28,12 @@ export function getStartTitle(
     !startApproved &&
     getStartSchedule(startAt ? new Date(startAt) : null, now) === "future"
   ) {
-    return "Schedule start";
+    return "Schedule Start";
   }
-  // Bandit is a named resource; experiment is a common noun.
+  // The popover's heading, so Title Case.
   return experiment.type === "multi-armed-bandit"
     ? "Start Bandit"
-    : "Start experiment";
+    : "Start Experiment";
 }
 
 type StartChecklist = {

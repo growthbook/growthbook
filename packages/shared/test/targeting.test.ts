@@ -155,6 +155,23 @@ describe("conflictingFields", () => {
       }),
     ).toEqual([]);
   });
+
+  it("tells a None metric window apart from following the metric", () => {
+    const override = { id: "m", regressionAdjustmentOverride: true };
+    expect(
+      conflictingFields(
+        { metricOverrides: [{ ...override, windowType: "" }], phases: [] },
+        {
+          changes: {
+            metricOverrides: [
+              { ...override, regressionAdjustmentEnabled: true },
+            ],
+          },
+          base: { metricOverrides: [override] },
+        },
+      ),
+    ).toEqual(["metricOverrides"]);
+  });
 });
 
 describe("experimentFieldLabels", () => {

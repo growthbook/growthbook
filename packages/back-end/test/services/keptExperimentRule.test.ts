@@ -105,7 +105,11 @@ const audience = (r: FeatureDefinitionRule) => ({
 });
 
 describe("keptExperimentRule", () => {
-  it.each<{ name: string; change: (e: ExperimentInterface) => void }>([
+  it.each<{
+    name: string;
+    change: (e: ExperimentInterface) => void;
+    rule?: ExperimentRefRule;
+  }>([
     { name: "a partial rollout with a fallback attribute", change: () => {} },
     {
       name: "sticky bucketing off",
@@ -125,13 +129,25 @@ describe("keptExperimentRule", () => {
         delete e.hashVersion;
       },
     },
-  ])("serves the temporary rollout's users: $name", ({ change }) => {
+    {
+      name: "an untargeted phase over targeting the rule held but never served",
+      change: (e) => {
+        e.phases[0].condition = "";
+      },
+      rule: {
+        ...refRule,
+        condition: JSON.stringify({ country: "CA" }),
+        savedGroups: [{ match: "all", ids: ["grp_gone"] }],
+      },
+    },
+  ])("serves the temporary rollout's users: $name", ({ change, rule }) => {
     const exp = cloneDeep(experiment);
     change(exp);
-    const kept = keptExperimentRule(exp, refRule, "feature");
+    const ref = rule ?? refRule;
+    const kept = keptExperimentRule(exp, ref, "feature");
     expect(kept).not.toBeNull();
     expect(audience(payloadRule(kept!, exp))).toEqual(
-      audience(payloadRule(refRule, exp)),
+      audience(payloadRule(ref, exp)),
     );
   });
 
