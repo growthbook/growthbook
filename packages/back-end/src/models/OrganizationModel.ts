@@ -175,7 +175,10 @@ const organizationSchema = new mongoose.Schema({
 organizationSchema.index({ "members.id": 1 });
 
 // Lets cached copies of an org detect any write. Writes that skip these hooks
-// (save, replaceOne, the raw collection) must set changeStamp themselves.
+// (save, replaceOne, the raw collection) must set changeStamp themselves, and
+// so must findOneAndUpdate(..., { overwrite: true }): the $set added here
+// makes Mongo reject a replacement document. updateMany gives every matched
+// org the same stamp, which is fine since stamps are only compared per org.
 organizationSchema.pre(
   ["updateOne", "updateMany", "findOneAndUpdate"],
   function () {
