@@ -572,9 +572,10 @@
   line-height: var(--line-height-1);
 }
 
-// The project selector (RailProjectSelector.tsx). Its 26px avatar on the
-// icon column: centred where the 18px icons are (16px in), so expanded its
-// box starts 3px in, and the name starts where the other rows' labels do.
+// The project selector (RailProjectSelector.tsx). Its avatar (a 26px box,
+// shown at 22px) on the icon column: centered where the 18px icons are (16px
+// in), so expanded its box starts 3px in, and the name starts where the
+// other rows' labels do.
 .row.projectItem {
   padding-left: 3px;
 
@@ -585,11 +586,19 @@
 }
 
 // The avatar's own 8px right margin (LetterAvatar) taken back, so it
-// centres in the collapsed icon's box.
+// centers in the collapsed icon's box.
 .projectAvatar {
   display: flex;
   flex-shrink: 0;
   margin-right: -8px;
+
+  // Shown at 22px, nearer the rows' 18px icons: LetterAvatar's small (26px)
+  // scaled here, corners and initials with it, so the component and the
+  // menu's avatars are unchanged. Scaled about its middle, it keeps its
+  // 26px place in the layout, so it stays centered where it was.
+  > * {
+    transform: scale(calc(22 / 26));
+  }
 }
 
 .projectChevrons {

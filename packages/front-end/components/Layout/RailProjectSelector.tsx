@@ -33,7 +33,7 @@ export default function RailProjectSelector({
   // As main's: nothing to pick from, no selector.
   if (!projects.length) return null;
 
-  // Its own 8px right margin taken back, so it centres in the collapsed
+  // Its own 8px right margin taken back, so it centers in the collapsed
   // icon's box and sits on the icon column expanded.
   const avatar = (
     <span className={styles.projectAvatar} aria-hidden="true">
