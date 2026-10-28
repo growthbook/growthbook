@@ -32,6 +32,11 @@ const ScrollArea = forwardRef<
     /** Shows the scrollbars whenever the content overflows, not just on hover. */
     alwaysShow?: boolean;
     /**
+     * A vertical wheel over a sideways-only scroll moves it sideways, until an
+     * end, where the page takes over.
+     */
+    wheelScrollsSideways?: boolean;
+    /**
      * Marks each edge with more content past it: the content fades out there,
      * or a shadow falls over it.
      */
@@ -50,6 +55,7 @@ const ScrollArea = forwardRef<
     direction = "vertical",
     size = "1",
     alwaysShow = false,
+    wheelScrollsSideways = false,
     edgeCue,
     skipEdges = [],
     onScroll,
@@ -92,6 +98,29 @@ const ScrollArea = forwardRef<
       observer.disconnect();
     };
   }, [edgeCue, direction, skipped]);
+
+  useEffect(() => {
+    const el = viewport.current;
+    if (!wheelScrollsSideways || !el) return;
+    const onWheel = (e: WheelEvent) => {
+      // A sideways swipe or shift-wheel already scrolls sideways.
+      if (e.shiftKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+      const max = el.scrollWidth - el.clientWidth;
+      const atEnd =
+        e.deltaY < 0 ? el.scrollLeft <= 0 : el.scrollLeft >= max - 1;
+      if (max <= 0 || atEnd) return;
+      e.preventDefault();
+      const unit =
+        e.deltaMode === WheelEvent.DOM_DELTA_LINE
+          ? 16
+          : e.deltaMode === WheelEvent.DOM_DELTA_PAGE
+            ? el.clientWidth
+            : 1;
+      el.scrollLeft += e.deltaY * unit;
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [wheelScrollsSideways]);
 
   const shadowed = edgeCue === "shadow";
   const scrollbarRoom = alwaysShow

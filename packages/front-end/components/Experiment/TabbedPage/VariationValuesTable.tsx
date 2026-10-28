@@ -293,6 +293,7 @@ export default function VariationValuesTable({
           direction="horizontal"
           size="2"
           alwaysShow
+          wheelScrollsSideways
           edgeCue="shadow"
           skipEdges={["left"]}
           onScroll={(e) => setScrolled(e.currentTarget.scrollLeft > 0)}
