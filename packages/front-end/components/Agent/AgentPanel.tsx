@@ -1100,10 +1100,10 @@ export default function AgentPanel({
               >
                 <Flex direction="column" gap="3">
                   <Text size="md" weight="semibold">
-                    Hi, I&apos;m GrowthBot 👋
+                    Hey there! 👋
                   </Text>
                   <Text size="md" color="text-mid">
-                    I&apos;m your GrowthBook AI assistant. I have access to your
+                    I&apos;m your AI Assistant. I have access to your
                     experiments, Feature Flags, metrics, and database schemas.
                     <span
                       style={{ display: "block", marginTop: "var(--space-2)" }}

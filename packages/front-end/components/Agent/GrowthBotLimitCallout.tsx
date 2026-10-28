@@ -20,7 +20,7 @@ export default function GrowthBotLimitCallout({
   return (
     <Callout status="warning" size="sm">
       <span id={id}>
-        Daily GrowthBot limit reached.
+        Daily AI Assistant limit reached.
         {resetsIn ? ` Resets ${resetsIn}.` : ""}{" "}
         {canManageBilling
           ? "Enterprise plans have no daily limit."
