@@ -139,7 +139,7 @@ interface MetricWithMetadata {
   useDenominator?: boolean;
   // A metric dataset's population, computed like any other series but only
   // reported as each metric's `populationCount`.
-  isPopulation?: boolean;
+  isPopulationCount?: boolean;
 }
 interface FactTableGroup {
   index: number;
@@ -485,7 +485,7 @@ function getFactTableGroups({
               "Population",
             ),
             unit: population.unit,
-            isPopulation: true,
+            isPopulationCount: true,
           });
           group.populationAlias = getMetricAliases(metricIndex).base;
         }
@@ -2097,7 +2097,7 @@ export function generateProductAnalyticsSQL(
       const data = getMetricData(m, f, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
-      if (!m.useDenominator && !m.isPopulation) {
+      if (!m.useDenominator && !m.isPopulationCount) {
         orderedMetricIds[m.index] = m.metric.id;
       }
     });
