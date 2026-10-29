@@ -1459,9 +1459,10 @@ export default function ConfigDetailPage(): React.ReactElement {
               position: "sticky",
               // Stick at the column's natural top (below the top nav + page
               // inset) so it doesn't jump a few px on scroll before sticking.
-              top: "calc(var(--page-top-offset) + 24px)",
+              top: "calc(var(--page-top-offset) + var(--page-top-padding))",
               alignSelf: "flex-start",
-              maxHeight: "calc(100vh - var(--page-top-offset) - 24px - 1rem)",
+              maxHeight:
+                "calc(100vh - var(--page-top-offset) - var(--page-top-padding) - 1rem)",
               overflowY: "auto",
             }}
           >

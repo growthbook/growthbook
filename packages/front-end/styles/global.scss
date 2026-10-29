@@ -191,13 +191,21 @@ html.app-drawer-open body {
   }
 }
 
+// From the header to a wrapped page's first item. Things that line up with
+// that first item (the design system's and the config page's sidebars) read
+// it too.
+:root {
+  --page-top-padding: 20px;
+}
+
 // Wraps every page but the full-window ones (noPageWrapper, _app.tsx), and
-// owns the page's frame: the side padding, 24px from the header to the page's
-// first item and 32px at the bottom, over the page's own spacing there. A
+// owns the page's frame: the side padding, --page-top-padding from the header
+// to the page's first item and 32px at the bottom, over the page's own
+// spacing there. A
 // page whose content runs to the window's bottom (a rail beside the content,
 // say) drops the bottom padding with noPageBottomPadding (_app.tsx).
 .page-wrapper {
-  padding: var(--space-5) var(--page-padding) var(--space-6);
+  padding: var(--page-top-padding) var(--page-padding) var(--space-6);
   @include page-padding-motion(padding-left, padding-right);
 
   &.page-wrapper-flush-bottom {
