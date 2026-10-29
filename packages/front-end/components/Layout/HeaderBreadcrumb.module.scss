@@ -10,9 +10,8 @@
   translate: 1px 0;
 }
 
-// A first crumb in a button's box (from 1180px up, where the project
-// selector isn't first) shifts left by its padding, so its text starts on
-// the page's left content edge, as the selector's icon does below 1180px.
+// A first crumb in a button's box shifts left by its padding, so its text
+// starts on the page's left content edge.
 .leadingButton > :first-child {
   margin-left: calc(-1 * var(--space-2));
 }
@@ -72,73 +71,11 @@
   }
 }
 
-.projectStatic {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  max-width: 280px;
-  padding: 0 var(--space-2);
-  // Where the project button's icon sits.
-  margin-left: calc(-1 * var(--space-2));
-  color: var(--slate-12);
-  font-size: var(--font-size-1);
-}
-
-// The selector button's label without the button (Button sm, ghost, gray):
-// its box, icon, gap, type and color, so it sits where the button would.
-// The project's folder icon sits on the page's left content edge: the whole
-// button, padding and all, shifts left by its padding, so its hover fill stays
-// even (the title box leaves it room, TopNav.module.scss). Over the app's zero
-// margin for ghost buttons (global-radix-overrides.scss).
-.breadcrumb .projectButton.projectButton {
-  margin-left: calc(-1 * var(--space-2)) !important;
-}
-
-.projectPlain {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  max-width: 280px;
-  height: 24px;
-  padding: 0 var(--space-2);
-  // Where the project button's icon sits.
-  margin-left: calc(-1 * var(--space-2));
-  color: var(--gray-a11);
-  font-size: var(--font-size-1);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--letter-spacing-1);
-
-  svg {
-    flex-shrink: 0;
-  }
-}
-
-// LetterAvatar's small (26px) avatar at 20px: its box is the 20px, and the
-// avatar scales into it from its corner, its own 8px margin outside.
-.headerProjectAvatar {
-  flex-shrink: 0;
-  display: flex;
-  width: 20px;
-  height: 20px;
-
-  > * {
-    transform: scale(calc(20 / 26));
-    transform-origin: 0 0;
-  }
-}
-
 .projectName {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.demoBadgeSelected {
-  display: inline-flex;
-  margin-left: var(--space-1);
 }
 
 // Contained, so a long name truncates instead of scrolling the menu
@@ -157,14 +94,14 @@
   contain: inline-size;
 }
 
-// Items scrolled to from the keyboard or on opening stop below the pinned
-// search row (its padding and the 32px field), not under it.
 // The menu's inner viewport would otherwise be the search row's scroll
 // container (Radix sets overflow on it), so it never pinned.
 .projectMenuWithSearch :global(.rt-BaseMenuViewport) {
   overflow: visible;
 }
 
+// Items scrolled to from the keyboard or on opening stop below the pinned
+// search row (its padding and the 32px field), not under it.
 .projectMenuWithSearch :global(.rt-ScrollAreaViewport) {
   scroll-padding-top: calc(
     var(--base-menu-content-padding) + var(--space-1) + var(--space-6) +
@@ -202,8 +139,7 @@
 }
 
 // On its own row below 1180px (TopNav.module.scss), a breadcrumb that's still
-// too long shortens its middle crumb first, so the project selector and the
-// current page stay readable and tappable.
+// too long shortens its section first, so the current page stays readable.
 @media (max-width: 1180px) {
   // The section's link, around its button. Shrinking is shared by width
   // times this, so the others give up next to nothing until it's at its
@@ -213,8 +149,28 @@
     flex-shrink: 10000;
     min-width: 40px;
   }
-  .breadcrumb .projectButton,
   .currentCrumb {
     min-width: 72px;
   }
+}
+
+// The drawer's in-place project menu (ProjectMenuInPlace). Its search row is
+// pinned right under Back (32px) while the list scrolls, on the drawer's
+// background, its top padding over Back's 4px margin so nothing shows
+// between them.
+.projectSearchInPlace {
+  position: sticky;
+  top: var(--space-6);
+  z-index: 1;
+  margin-top: calc(-1 * var(--space-1));
+  padding: var(--space-1) 0 var(--space-2);
+  background: var(--rail-bg, var(--color-panel-solid));
+}
+
+// The avatar where the drawer's project row has it (3px in, centered on the
+// icon column), and stopping below the pinned search row when scrolled to
+// (Back and the search row: 36px, then the 32px field and 8px below).
+.projectInPlaceItem.projectInPlaceItem {
+  padding-left: 3px;
+  scroll-margin-top: calc(var(--space-6) * 2 + var(--space-1) + var(--space-2));
 }

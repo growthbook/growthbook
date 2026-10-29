@@ -568,7 +568,9 @@ export default function AppRail() {
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawer = isNarrow && drawerOpen;
   // Drawn by the menu itself (railMenu.tsx) into menuHost.
-  const [drawerMenu, setDrawerMenu] = useState<"profile" | "help" | null>(null);
+  const [drawerMenu, setDrawerMenu] = useState<
+    "project" | "profile" | "help" | null
+  >(null);
   const [menuByKeyboard, setMenuByKeyboard] = useState(false);
   const [menuHost, setMenuHost] = useState<HTMLDivElement | null>(null);
   const drawerMenuRef = useRef(drawerMenu);
@@ -592,7 +594,7 @@ export default function AppRail() {
   const backToNavRef = useRef(backToNav);
   backToNavRef.current = backToNav;
   const menuInPlace = (
-    name: "profile" | "help",
+    name: "project" | "profile" | "help",
   ): RailMenuInPlace | undefined =>
     isNarrow
       ? {
@@ -891,10 +893,10 @@ export default function AppRail() {
         {/* Kept mounted while a menu is open in its place: the menus are drawn by
           their rows here. */}
         <div className={drawerMenu ? styles.navHidden : styles.navBody}>
-          {/* In the drawer, the project selector stays in the header. */}
-          {isNarrow ? null : (
-            <RailProjectSelector collapsed={contentCollapsed} />
-          )}
+          <RailProjectSelector
+            collapsed={contentCollapsed}
+            inPlace={menuInPlace("project")}
+          />
           <RailItem
             collapsed={contentCollapsed}
             Icon={SearchIcon}

@@ -1,17 +1,18 @@
 import { ReactNode, RefObject, useEffect, useRef, useState } from "react";
-import { PiFolder, PiMagnifyingGlassBold } from "react-icons/pi";
+import { createPortal } from "react-dom";
+import { PiMagnifyingGlassBold } from "react-icons/pi";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import { useSearch } from "@/services/search";
 import usePermissions from "@/hooks/usePermissions";
-import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import { TextField } from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import LetterAvatar from "./LetterAvatar";
+import { InPlaceMenu, RailMenuEntry, RailMenuInPlace } from "./railMenu";
 import styles from "./HeaderBreadcrumb.module.scss";
 
 // Up to this many projects fit the menu at a glance, without a search field.
@@ -113,14 +114,57 @@ function TruncatedName({ name, current }: { name: string; current: boolean }) {
   );
 }
 
-// The project menu: All Projects and each project, under a search field once
-// there are more than 15. With
-// `avatars`, each has main's avatar beside its name ("ALL" for All Projects).
+// The menu's projects, sorted by name and filtered by its search, which shows
+// past 15 projects.
+function useProjectMenuItems() {
+  const { projects } = useDefinitions();
+  const { items, searchInputProps } = useSearch({
+    items: projects.slice().sort((a, b) => (a.name > b.name ? 1 : -1)),
+    defaultSortField: "name",
+    localStorageKey: "project-selector",
+    searchFields: ["name^3", "description"],
+  });
+  return {
+    items,
+    searchInputProps,
+    showSearch: projects.length > PROJECT_SEARCH_THRESHOLD,
+  };
+}
+
+// One project in the menu: main's avatar ("ALL" for All Projects), its name
+// and, for the demo project, its badge.
+function ProjectOptionContent({
+  id,
+  label,
+  current,
+  isDemo,
+}: {
+  id: string;
+  label: string;
+  current: boolean;
+  isDemo: boolean;
+}) {
+  return (
+    <span className={styles.projectOption}>
+      <span className={styles.projectOptionAvatar} aria-hidden="true">
+        <LetterAvatar
+          name={id ? label : ""}
+          defaultInitials="ALL"
+          size="small"
+        />
+      </span>
+      <TruncatedName name={label} current={current} />
+      {isDemo ? <DemoBadge /> : null}
+    </span>
+  );
+}
+
+// The project menu: All Projects and each project, each with its avatar,
+// under a search field once there are more than 15.
 export function ProjectMenu({
   open,
   onOpenChange,
   trigger,
-  avatars = false,
   menuSide,
   menuSideOffset,
   alignFirstRow = false,
@@ -129,7 +173,6 @@ export function ProjectMenu({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trigger: ReactNode;
-  avatars?: boolean;
   menuSide?: "bottom" | "right";
   menuSideOffset?: number;
   // Opening to the trigger's side: raised so its first row (the search
@@ -139,17 +182,10 @@ export function ProjectMenu({
   // it, so a long list scrolls inside the menu rather than pushing it up.
   anchorRef?: RefObject<HTMLElement>;
 }) {
-  const { projects, project, setProject } = useDefinitions();
+  const { project, setProject } = useDefinitions();
   const { isDemo } = useProjectSelector();
   const searchRef = useRef<HTMLInputElement>(null);
-  const showSearch = projects.length > PROJECT_SEARCH_THRESHOLD;
-
-  const { items, searchInputProps } = useSearch({
-    items: projects.slice().sort((a, b) => (a.name > b.name ? 1 : -1)),
-    defaultSortField: "name",
-    localStorageKey: "project-selector",
-    searchFields: ["name^3", "description"],
-  });
+  const { items, searchInputProps, showSearch } = useProjectMenuItems();
 
   const alignOffset = alignFirstRow
     ? -(showSearch ? MENU_SEARCH_ROW_OFFSET : MENU_FIRST_ROW_OFFSET)
@@ -196,21 +232,13 @@ export function ProjectMenu({
       // Typing jumps by the name, not the avatar's initials before it.
       textValue={label}
     >
-      <span
-        className={styles.projectOption}
-        ref={id === project ? currentRef : undefined}
-      >
-        {avatars ? (
-          <span className={styles.projectOptionAvatar} aria-hidden="true">
-            <LetterAvatar
-              name={id ? label : ""}
-              defaultInitials="ALL"
-              size="small"
-            />
-          </span>
-        ) : null}
-        <TruncatedName name={label} current={id === project} />
-        {id && isDemo(id) ? <DemoBadge /> : null}
+      <span ref={id === project ? currentRef : undefined}>
+        <ProjectOptionContent
+          id={id}
+          label={label}
+          current={id === project}
+          isDemo={!!id && isDemo(id)}
+        />
       </span>
     </DropdownMenuItem>
   );
@@ -268,68 +296,93 @@ export function ProjectMenu({
   );
 }
 
-// The project's avatar in the header (main's small 26px one, shown at 20px
-// to fit the 24px button), "ALL" for All Projects.
-function HeaderProjectAvatar({ name }: { name: string }) {
-  return (
-    <span className={styles.headerProjectAvatar} aria-hidden="true">
-      <LetterAvatar name={name} defaultInitials="ALL" size="small" />
-    </span>
-  );
-}
+// Below 1180px, the drawer's project menu, drawn in its place as the
+// profile and Help menus are there (railMenu.tsx): Back and the search
+// field past 15 projects (both pinned while the list scrolls), then the
+// projects.
+// Choosing one closes the drawer.
+export function ProjectMenuInPlace({ inPlace }: { inPlace: RailMenuInPlace }) {
+  const { project, setProject } = useDefinitions();
+  const { isDemo } = useProjectSelector();
+  const { items, searchInputProps, showSearch } = useProjectMenuItems();
+  const searchRef = useRef<HTMLInputElement>(null);
 
-// The header breadcrumb's selector, below 1180px (the side nav has its own
-// above it, RailProjectSelector.tsx). Its avatars and menu are the side
-// nav's, so the menu looks the same at every width.
-export default function ProjectSelector() {
-  const { projects, current, heldToOneProject, isDemo, name } =
-    useProjectSelector();
-  const [open, setOpen] = useState(false);
-
-  // No projects to pick from: the button's label alone, as plain text.
-  if (!projects.length) {
-    return (
-      <span className={styles.projectPlain}>
-        <PiFolder size={14} aria-hidden="true" />
-        <span className={styles.projectName}>All Projects</span>
-      </span>
-    );
-  }
-
-  if (heldToOneProject) {
-    return (
-      <span className={styles.projectStatic}>
-        <HeaderProjectAvatar name={projects[0].name} />
-        <span className={styles.projectName}>{projects[0].name}</span>
-        {isDemo(projects[0].id) ? <DemoBadge /> : null}
-      </span>
-    );
-  }
-
-  return (
-    <ProjectMenu
-      open={open}
-      onOpenChange={setOpen}
-      avatars
-      trigger={
-        <Button
-          variant="ghost"
-          color="gray"
-          size="sm"
-          // So the click reaches the menu's trigger.
-          preventDefault={false}
-          className={`${styles.headerButton} ${styles.projectButton}`}
-          icon={<HeaderProjectAvatar name={current?.name ?? ""} />}
-          aria-label={`Project: ${name}`}
-        >
-          <span className={styles.projectName}>{name}</span>
-          {current && isDemo(current.id) ? (
-            <span className={styles.demoBadgeSelected}>
-              <DemoBadge />
-            </span>
-          ) : null}
-        </Button>
+  // After InPlaceMenu's own focus on its first item: the search field
+  // instead when it's there, and the selected project scrolled into view.
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      if (showSearch) {
+        searchRef.current?.focus({
+          preventScroll: true,
+          focusVisible: inPlace.fromKeyboard,
+        } as FocusOptions);
       }
-    />
-  );
+      inPlace.host
+        ?.querySelector(`[data-menu-entry="${project || "all"}"]`)
+        ?.scrollIntoView({ block: "nearest" });
+    }, 0);
+    return () => window.clearTimeout(t);
+    // None of these change while it's open (choosing a project closes it).
+  }, [showSearch, project, inPlace.host, inPlace.fromKeyboard]);
+
+  const entries: RailMenuEntry[] = [
+    ...(showSearch
+      ? [
+          {
+            type: "node" as const,
+            key: "search",
+            node: (
+              <div className={styles.projectSearchInPlace}>
+                <TextField
+                  ref={searchRef}
+                  placeholder="Search"
+                  type="search"
+                  aria-label="Search projects"
+                  prepend={<PiMagnifyingGlassBold size={14} />}
+                  // Down moves into the projects; Esc goes back (InPlaceMenu).
+                  onKeyDown={(e) => {
+                    if (e.key !== "ArrowDown") return;
+                    e.preventDefault();
+                    inPlace.host
+                      ?.querySelector<HTMLElement>(
+                        "[data-menu-entry]:not([data-menu-entry=search])",
+                      )
+                      ?.focus();
+                  }}
+                  {...searchInputProps}
+                />
+              </div>
+            ),
+          },
+        ]
+      : []),
+    ...[{ id: "", name: "All Projects" }, ...items].map(
+      (p): RailMenuEntry => ({
+        type: "item",
+        key: p.id || "all",
+        className: styles.projectInPlaceItem,
+        content: (
+          <ProjectOptionContent
+            id={p.id}
+            label={p.name}
+            current={p.id === project}
+            isDemo={!!p.id && isDemo(p.id)}
+          />
+        ),
+        onSelect: () => setProject(p.id),
+      }),
+    ),
+  ];
+
+  return inPlace.host
+    ? createPortal(
+        <InPlaceMenu
+          label="Project"
+          entries={entries}
+          inPlace={inPlace}
+          pinBack
+        />,
+        inPlace.host,
+      )
+    : null;
 }
