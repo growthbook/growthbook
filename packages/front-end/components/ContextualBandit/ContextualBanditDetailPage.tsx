@@ -60,6 +60,7 @@ import {
   useContextualBanditStatusHealth,
 } from "@/hooks/useContextualBandits";
 import Avatar from "@/ui/Avatar";
+import { coveragePercentFormatter } from "@/services/utils";
 
 function OverviewSection({
   title,
@@ -167,7 +168,7 @@ export default function ContextualBanditDetailPage({
 
   const showResultsTab = cb.status !== "draft";
 
-  const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
+  const coveragePct = coveragePercentFormatter.format(cb.coverage ?? 1);
 
   const formatConversionWindow = (value: number, unit: string): string =>
     `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
@@ -660,7 +661,7 @@ export default function ContextualBanditDetailPage({
             >
               <Grid columns="3" gap="4">
                 <DetailSectionColumn label="Traffic">
-                  {coveragePct}% included
+                  {coveragePct} included
                 </DetailSectionColumn>
                 <DetailSectionColumn label="Assignment Attribute">
                   <Flex align="center" gap="1" wrap="wrap">

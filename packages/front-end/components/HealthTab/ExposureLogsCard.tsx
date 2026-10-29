@@ -29,7 +29,7 @@ import type {
   ColumnTopValue,
   FilterColumnSource,
 } from "@/components/FactTables/rowFilterUtils";
-import { datasourcesWithoutHealthData } from "./constants";
+import { hasHealthData } from "./constants";
 import {
   entirePhaseRange,
   getPhaseBounds,
@@ -96,7 +96,7 @@ export default function ExposureLogsCard({
 
   const canRun =
     !!datasource &&
-    !datasourcesWithoutHealthData.has(datasource.type) &&
+    hasHealthData(datasource) &&
     !isManagedWarehouseUnavailable(datasource) &&
     !!exposureQuery &&
     permissionsUtil.canRunHealthQueries(datasource);

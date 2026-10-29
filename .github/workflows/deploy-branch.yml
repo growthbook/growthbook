@@ -7,6 +7,10 @@ on:
         description: "The git branch name to build and deploy to Docker"
         required: true
         type: string
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   # Build and publish the commit to docker
   docker:
@@ -17,7 +21,7 @@ jobs:
       id-token: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ inputs.branch }}
 
@@ -25,7 +29,7 @@ jobs:
         uses: ./.github/actions/checkout-agent-skills
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -33,14 +37,14 @@ jobs:
       # Required to pull the hardened base image (FROM dhi.io/...) in the Dockerfile.
       # Depot forwards these credentials to its remote builder.
       - name: Login to Docker Hardened Images
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: dhi.io
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
       - name: Install Depot CLI
-        uses: depot/setup-action@v1
+        uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1.7.2
 
       - name: Prepare build metadata
         id: metadata
@@ -53,7 +57,7 @@ jobs:
           echo "tag=${{ inputs.branch }}" | sed 's#/#_#g' > $GITHUB_OUTPUT
 
       - name: Build, tag, and push image to Docker Hub
-        uses: depot/build-push-action@v1
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
         with:
           push: true
           context: .

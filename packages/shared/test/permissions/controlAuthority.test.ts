@@ -1,4 +1,5 @@
 import {
+  canBypassStartApproval,
   canCommentOnRevisionEntity,
   canDeleteArchivedEntity,
   canLandArchiveToggle,
@@ -364,6 +365,31 @@ describe("holdsFeatureMoveDestination", () => {
       holdsFeatureMoveDestination(util, { project: "b" }, "", ["dev"]),
     ).toBe(false);
   });
+});
+
+describe("canBypassStartApproval", () => {
+  // Bypass authority in project "a" only.
+  const util = {
+    canBypassFlagApprovalChecks: (obj: { project?: string }) =>
+      obj.project === "a",
+  } as Parameters<typeof canBypassStartApproval>[0];
+
+  it.each([
+    { experiment: "a", flag: "a", expected: true },
+    { experiment: "a", flag: "b", expected: false },
+    { experiment: "b", flag: "a", expected: false },
+  ])(
+    "an experiment in $experiment starting a flag in $flag: $expected",
+    ({ experiment, flag, expected }) => {
+      expect(
+        canBypassStartApproval(
+          util,
+          { project: experiment },
+          { project: flag },
+        ),
+      ).toBe(expected);
+    },
+  );
 });
 
 describe("canEnableEnvironmentOnCreate", () => {

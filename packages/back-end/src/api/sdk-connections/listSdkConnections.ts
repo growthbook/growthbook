@@ -18,7 +18,9 @@ export const listSdkConnections = createApiRequestHandler(
   let connections: SDKConnectionInterface[] = [];
 
   if (req.query.multiOrg) {
-    await validateIsSuperUserRequest(req);
+    // Includes every org's signing and encryption keys, which impersonating
+    // an org already exposes but read-only access must not
+    await validateIsSuperUserRequest(req, "impersonate");
     connections = await findAllSDKConnectionsAcrossAllOrgs();
   } else {
     connections = await findSDKConnectionsByOrganization(req.context);

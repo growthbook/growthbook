@@ -127,7 +127,7 @@ export const docSections = {
   env_prod: "/self-host/env#production-settings",
   visual_editor: "/app/visual",
   url_redirects: "/app/url-redirects",
-  temporaryRollout: "/app/visual",
+  temporaryRollout: "/app/experiment-configuration#temporary-rollouts",
   encryptedSDKEndpoints: "/lib/js#loading-features-and-experiments",
   hashSecureAttributes: "/lib/js#secure-attributes",
   autoMetrics: "/app/metrics/legacy#auto-generate-metrics",
@@ -169,6 +169,8 @@ export const docSections = {
   apiPostCodeRefs: "/api/code-references/operation/postCodeRefs",
   apiCreatePopulation: "/api/Populations/operation/createPopulation",
   idLists: "/features/targeting#id-lists",
+  // The saved groups section until a remote saved groups page is written
+  remoteSavedGroups: "/features/remote-saved-groups",
   queryOptimization: "/app/query-optimization",
   metricGroups: "/app/metrics#metric-groups",
   managedWarehouseTracking: "/app/managed-warehouse#sending-events",

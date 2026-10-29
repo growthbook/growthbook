@@ -21,6 +21,10 @@ import {
 } from "./rampScheduleActions";
 import { listRampSchedules } from "./listRampSchedules";
 import { postRampSchedule } from "./postRampSchedule";
+import {
+  pauseMatchingRampSchedules,
+  rollbackMatchingRampSchedules,
+} from "./alertRampSchedules";
 
 export const rampSchedulesRoutes: OpenApiRoute[] = [
   // CRUD
@@ -45,4 +49,7 @@ export const rampSchedulesRoutes: OpenApiRoute[] = [
   updateLockdownConfigRampSchedule,
   updateStepsRampSchedule,
   refreshMonitoringRampSchedule,
+  // Alert webhooks, across every matching ramp
+  rollbackMatchingRampSchedules,
+  pauseMatchingRampSchedules,
 ];

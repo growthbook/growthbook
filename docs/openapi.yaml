@@ -292,6 +292,10 @@ info:
 
     - **404** - Not Found - Unknown API route or requested resource
 
+    - **409** - Conflict - The resource changed since it was read, or its state
+    blocks the request, such as an experiment start's checklist. `code` names
+    which.
+
     - **422** - Unprocessable Entity - The request is valid, but a warning,
     validation rule, approval requirement, or another publishing gate blocked
     it. Do not assume that `ignoreWarnings` clears every 422 response.
@@ -317,14 +321,16 @@ info:
     person has explicitly asked for it.
 
 
-    Publish responses include a `gates` array that explains every blocker:
+    Publish and experiment start responses include a `gates` array that explains
+    every blocker:
 
 
     - `type`, `severity`, and `messages` identify the problem.
 
     - `override` names the request-body field that can bypass it. This is
     `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and
-    invariant failures, or `skipHooks` for Custom Hook rejections. A value of
+    invariant failures, `skipHooks` for Custom Hook rejections, or
+    `skipChecklist` for an experiment start's launch checklist items. A value of
     `null` means there is no request-body override.
 
     - `requiresPermission` identifies any additional permission needed to use
@@ -342,9 +348,48 @@ info:
     When a successful publish bypasses a gate, the response includes
     `bypassedGates`. Each entry reports the gate `type` and how it was bypassed
     in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`,
-    `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or
-    `revertsBypassApproval` (reverts only). This field is omitted when no gates
-    were bypassed.
+    `skipHooks`, `skipChecklist`, `bypassApprovalPermission`,
+    `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This
+    field is omitted when no gates were bypassed.
+
+
+    ### Request flags
+
+
+    Every refusal a request can get past with a flag:
+
+
+    | Flag                      | Where        | Gets
+    past                                                                                                   
+    |
+
+    | ------------------------- | ------------ |
+    ------------------------------------------------------------------------------------------------------------
+    |
+
+    | `ignoreWarnings`          | Body         | Warnings
+    (`422`)                                                                                            
+    |
+
+    | `skipSchemaValidation`    | Body         | Schema and invariant failures,
+    with **Bypass draft approvals**
+    access                                        |
+
+    | `skipHooks`               | Body         | Custom Hook
+    rejections                                                                                      
+    |
+
+    | `skipChecklist`           | Body         | An experiment start's
+    incomplete launch checklist items (`409` `checklist_incomplete`), but not
+    its blockers |
+
+    | `allowUnscopedRules`      | Body         | A rule for All Environments and
+    All Projects where the organization requires a scope (`422` `unscoped_rule`)
+    |
+
+    | `overrideDraftLimit=true` | Query string | Creating a draft past the draft
+    limit                                                                       
+    |
 servers:
   - url: https://api.growthbook.io/api
     description: GrowthBook Cloud
@@ -984,6 +1029,9 @@ tags:
     description: >-
       <SchemaDefinition
       schemaRef="#/components/schemas/SavedGroupRevisionReview" />
+  - name: SavedGroupUpload_model
+    x-displayName: Saved Group Upload
+    description: <SchemaDefinition schemaRef="#/components/schemas/SavedGroupUpload" />
   - name: ScheduleRule_model
     x-displayName: Schedule Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/ScheduleRule" />
@@ -1414,6 +1462,12 @@ paths:
                                     experiment will skip this rule.
                                   type: number
                                 hashAttribute:
+                                  type: string
+                                fallbackAttribute:
+                                  description: >-
+                                    Used in place of `hashAttribute` when a user
+                                    lacks it. Only SDKs with Sticky Bucketing
+                                    enabled use it.
                                   type: string
                                 seed:
                                   type: string
@@ -2089,6 +2143,12 @@ paths:
                                         experiment will skip this rule.
                                       type: number
                                     hashAttribute:
+                                      type: string
+                                    fallbackAttribute:
+                                      description: >-
+                                        Used in place of `hashAttribute` when a
+                                        user lacks it. Only SDKs with Sticky
+                                        Bucketing enabled use it.
                                       type: string
                                     seed:
                                       type: string
@@ -2994,6 +3054,12 @@ paths:
                                   type: number
                                 hashAttribute:
                                   type: string
+                                fallbackAttribute:
+                                  description: >-
+                                    Used in place of `hashAttribute` when a user
+                                    lacks it. Only SDKs with Sticky Bucketing
+                                    enabled use it.
+                                  type: string
                                 seed:
                                   type: string
                                 hashVersion:
@@ -3668,6 +3734,12 @@ paths:
                                         experiment will skip this rule.
                                       type: number
                                     hashAttribute:
+                                      type: string
+                                    fallbackAttribute:
+                                      description: >-
+                                        Used in place of `hashAttribute` when a
+                                        user lacks it. Only SDKs with Sticky
+                                        Bucketing enabled use it.
                                       type: string
                                     seed:
                                       type: string
@@ -5902,6 +5974,8 @@ paths:
                           maximum: 1
                         hashAttribute:
                           type: string
+                        fallbackAttribute:
+                          type: string
                         seed:
                           type: string
                         hashVersion:
@@ -6602,6 +6676,8 @@ paths:
                       minimum: 0
                       maximum: 1
                     hashAttribute:
+                      type: string
+                    fallbackAttribute:
                       type: string
                     seed:
                       type: string
@@ -9062,6 +9138,12 @@ paths:
                             type: number
                           hashAttribute:
                             type: string
+                          fallbackAttribute:
+                            description: >-
+                              Used in place of `hashAttribute` when a user lacks
+                              it. Only SDKs with Sticky Bucketing enabled use
+                              it.
+                            type: string
                           seed:
                             description: >-
                               Optional seed for the hash function; defaults to
@@ -9995,6 +10077,12 @@ paths:
                           coverage:
                             type: number
                           hashAttribute:
+                            type: string
+                          fallbackAttribute:
+                            description: >-
+                              Used in place of `hashAttribute` when a user lacks
+                              it. Only SDKs with Sticky Bucketing enabled use
+                              it.
                             type: string
                           seed:
                             description: >-
@@ -12819,6 +12907,8 @@ paths:
                       maximum: 1
                     hashAttribute:
                       type: string
+                    fallbackAttribute:
+                      type: string
                     seed:
                       type: string
                     hashVersion:
@@ -14430,6 +14520,11 @@ paths:
         this draft while the schedule is pending, and
         `scheduledPublishLockOthers` to block publishing other drafts of this
         feature in the meantime.
+
+
+        Neither can be set on a draft whose rules would take a draft experiment
+        live, since an automatic publish doesn't start the experiment. Schedule
+        the experiment's start instead; starting it publishes the draft.
       tags:
         - feature-revisions-v2
       parameters:
@@ -14503,7 +14598,14 @@ paths:
         checked again when the schedule runs. A caller with Bypass draft
         approvals access can schedule an unapproved draft by sending
         `bypassApproval: true`. That schedule must be canceled and recreated
-        before it can be changed.
+        before it can be changed, and a later edit that would reset an approval
+        also drops the bypass.
+
+
+        A draft whose rules would take a draft experiment live can't be
+        scheduled, since a scheduled publish doesn't start the experiment.
+        Schedule the experiment's start instead; starting it publishes the
+        draft.
       tags:
         - feature-revisions-v2
       parameters:
@@ -16685,6 +16787,12 @@ paths:
     post:
       operationId: updateExperiment
       summary: Update a single experiment
+      description: >-
+        Setting `status` from draft to running starts the experiment as `POST
+        /experiments/{id}/start` does, judged on the experiment as this update
+        leaves it, with `skipChecklist` in this body. Changing `archived`
+        archives or unarchives it as `POST /experiments/{id}/archive` and
+        `/unarchive` do.
       tags:
         - experiments
       parameters:
@@ -16698,8 +16806,9 @@ paths:
               properties:
                 datasourceId:
                   description: >-
-                    Can only be set if existing experiment does not have a
-                    datasource
+                    Changing it needs an `assignmentQueryId` from the new one,
+                    and drops the metrics, segment and unit dimensions that
+                    aren't from it.
                   type: string
                 assignmentQuery:
                   description: >-
@@ -16759,6 +16868,14 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                bypassApproval:
+                  description: >-
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
+                  type: boolean
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -16806,6 +16923,17 @@ paths:
                   type: string
                 archived:
                   type: boolean
+                linkedChanges:
+                  description: >-
+                    Required while the experiment still serves through linked
+                    changes. "materialize" keeps a stopped experiment's released
+                    variation as a permanent force rule on each linked Feature
+                    Flag; "remove" acknowledges that the linked changes stop
+                    serving.
+                  type: string
+                  enum:
+                    - materialize
+                    - remove
                 status:
                   type: string
                   enum:
@@ -17008,17 +17136,23 @@ paths:
                         properties:
                           namespaceId:
                             type: string
+                          enabled:
+                            type: boolean
                           range:
                             minItems: 2
                             maxItems: 2
                             type: array
                             items:
                               type: number
-                          enabled:
-                            type: boolean
+                          ranges:
+                            type: array
+                            items:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
                         required:
                           - namespaceId
-                          - range
                         additionalProperties: false
                       prerequisites:
                         type: array
@@ -17352,6 +17486,14 @@ paths:
                     has explicitly asked you to. If a check blocks you, stop and
                     ask a person instead of working around it.
                   type: boolean
+                skipChecklist:
+                  description: >-
+                    When `status` starts a draft: start past its incomplete
+                    launch checklist items, as `POST /experiments/{id}/start`
+                    does. Only set this when a person has explicitly asked you
+                    to. If a check blocks you, stop and ask a person instead of
+                    working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -17363,6 +17505,56 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+                  bypassedGates:
+                    description: >-
+                      Gates this start skipped or bypassed. Present only when
+                      there were some.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          description: >-
+                            The checklist item, or `rampLocked:<featureId>` for
+                            a linked Feature Flag a ramp locks.
+                          type: string
+                        type:
+                          description: >-
+                            Gate kind: "checklist-item", "approval-required",
+                            "merge-conflict", "unrelated-draft-changes",
+                            "permission-denied" or "ramp-locked".
+                          type: string
+                        outcome:
+                          type: string
+                          const: bypassed
+                        via:
+                          description: >-
+                            How it was passed: `skipChecklist`, the caller's
+                            permission (`bypassApprovalPermission`), or the
+                            organization's REST API approval bypass
+                            (`restApiBypassesReviews`).
+                          type: string
+                          enum:
+                            - ignoreWarnings
+                            - skipSchemaValidation
+                            - skipHooks
+                            - bypassApprovalPermission
+                            - restApiBypassesReviews
+                            - revertsBypassApproval
+                            - skipChecklist
+                      required:
+                        - key
+                        - type
+                        - outcome
+                        - via
+                      additionalProperties: false
+                  publishedFeatureDrafts:
+                    description: >-
+                      The linked Feature Flag drafts the start published.
+                      Present only when it published some.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/publishedFeatureDrafts'
                 required:
                   - experiment
                 additionalProperties: false
@@ -17373,26 +17565,79 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                description: One or more linked feature drafts could not be published
-                properties:
-                  message:
-                    type: string
-                  code:
-                    type: string
-                    enum:
-                      - pending_draft_publish_failed
-                  details:
-                    $ref: >-
-                      #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
-                required:
-                  - message
-                  - code
-                  - details
+                oneOf:
+                  - type: object
+                    description: >-
+                      An experiment start is blocked by its launch checklist or
+                      a linked Feature Flag
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - checklist_incomplete
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorChecklistIncompleteDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: One or more linked feature drafts could not be published
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - pending_draft_publish_failed
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteExperiment
+      summary: Delete an experiment
+      description: >-
+        Archive first: a live experiment can only be deleted when the
+        organization allows the REST API to bypass approval requirements. Linked
+        Feature Flags lose their experiment rule unless `linkedChanges` is
+        "materialize".
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/linkedChanges'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    description: The ID of the deleted experiment
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start-checklist:
     get:
@@ -17415,13 +17660,23 @@ paths:
                     items:
                       $ref: '#/components/schemas/checklistItems'
                   status:
+                    description: '`notReady` while there''s any gate.'
                     type: string
                     enum:
                       - ready
                       - notReady
+                  gates:
+                    description: >-
+                      Each incomplete required item, and each linked Feature
+                      Flag a ramp locks, as a gate. A refused start returns the
+                      blocking ones in `gates`.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
                 required:
                   - checklistItems
                   - status
+                  - gates
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -17462,13 +17717,118 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/archive:
+    post:
+      operationId: postExperimentArchive
+      summary: Archive an experiment
+      description: >-
+        An archived experiment leaves the SDK payload. Refused while a running
+        experiment or a temporary rollout still serves through linked changes
+        unless `linkedChanges` says what happens to them.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                linkedChanges:
+                  description: >-
+                    Required while the experiment still serves through linked
+                    changes. "materialize" keeps a stopped experiment's released
+                    variation as a permanent force rule on each linked Feature
+                    Flag; "remove" acknowledges that the linked changes stop
+                    serving.
+                  type: string
+                  enum:
+                    - materialize
+                    - remove
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/archive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/unarchive:
+    post:
+      operationId: postExperimentUnarchive
+      summary: Unarchive an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/unarchive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start:
     post:
       operationId: postExperimentStart
       summary: Start/Stage an experiment
       description: >-
         Starts an experiment or stages it for a future start if a
-        `statusUpdateSchedule` is set on the experiment.
+        `statusUpdateSchedule` is set on the experiment. Both check the launch
+        checklist that `GET /experiments/{id}/start-checklist` returns, as
+        gates. An incomplete item refuses the start with `checklist_incomplete`
+        unless `skipChecklist` is set; a linked Feature Flag blocker refuses it
+        either way. The refusal lists each blocking gate in `gates`, with the
+        flag or permission that gets past it and a route that resolves it. A
+        linked Feature Flag draft that still needs approval, or a flag locked by
+        a ramp, is bypassed automatically when the caller has Bypass draft
+        approvals access for that flag or the organization enables the REST API
+        approval bypass. A start reports what it got past in `bypassedGates` and
+        the drafts it published in `publishedFeatureDrafts`; if a draft can't
+        publish, for example because it needs a rebase, the start fails with
+        `pending_draft_publish_failed` before any is published. A staged start
+        carries the caller's Bypass draft approvals access to when it runs, for
+        the drafts as they were when it was staged: if one has changed since, or
+        the caller has lost that access, it needs approval like any other. The
+        organization's REST API approval bypass doesn't carry to a staged start.
       tags:
         - experiments
       parameters:
@@ -17486,6 +17846,14 @@ paths:
                     pre-launch checklist items. Only set this when a person has
                     explicitly asked you to. If a check blocks you, stop and ask
                     a person instead of working around it.
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -17516,6 +17884,56 @@ paths:
                       Present only when the request staged a future scheduled
                       start instead of starting the experiment immediately.
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates this start skipped or bypassed. Present only when
+                      there were some.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          description: >-
+                            The checklist item, or `rampLocked:<featureId>` for
+                            a linked Feature Flag a ramp locks.
+                          type: string
+                        type:
+                          description: >-
+                            Gate kind: "checklist-item", "approval-required",
+                            "merge-conflict", "unrelated-draft-changes",
+                            "permission-denied" or "ramp-locked".
+                          type: string
+                        outcome:
+                          type: string
+                          const: bypassed
+                        via:
+                          description: >-
+                            How it was passed: `skipChecklist`, the caller's
+                            permission (`bypassApprovalPermission`), or the
+                            organization's REST API approval bypass
+                            (`restApiBypassesReviews`).
+                          type: string
+                          enum:
+                            - ignoreWarnings
+                            - skipSchemaValidation
+                            - skipHooks
+                            - bypassApprovalPermission
+                            - restApiBypassesReviews
+                            - revertsBypassApproval
+                            - skipChecklist
+                      required:
+                        - key
+                        - type
+                        - outcome
+                        - via
+                      additionalProperties: false
+                  publishedFeatureDrafts:
+                    description: >-
+                      The linked Feature Flag drafts the start published.
+                      Present only when it published some.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/publishedFeatureDrafts'
                 required:
                   - experiment
                 additionalProperties: false
@@ -17528,7 +17946,9 @@ paths:
               schema:
                 oneOf:
                   - type: object
-                    description: Required checklist items are incomplete
+                    description: >-
+                      An experiment start is blocked by its launch checklist or
+                      a linked Feature Flag
                     properties:
                       message:
                         type: string
@@ -17619,13 +18039,23 @@ paths:
                     items:
                       $ref: '#/components/schemas/checklistItems'
                   status:
+                    description: '`notReady` while there''s any gate.'
                     type: string
                     enum:
                       - ready
                       - notReady
+                  gates:
+                    description: >-
+                      Each incomplete required item, and each linked Feature
+                      Flag a ramp locks, as a gate. A refused start returns the
+                      blocking ones in `gates`.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
                 required:
                   - checklistItems
                   - status
+                  - gates
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
@@ -21238,8 +21668,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -21352,8 +21782,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -23039,6 +23469,16 @@ paths:
       parameters:
         - $ref: '#/components/parameters/limit'
         - $ref: '#/components/parameters/offset'
+        - name: type
+          in: query
+          description: Only list Saved Groups of this type
+          schema:
+            description: Only list Saved Groups of this type
+            type: string
+            enum:
+              - condition
+              - list
+              - remote
       responses:
         '200':
           description: Successful response
@@ -23092,6 +23532,7 @@ paths:
                   enum:
                     - condition
                     - list
+                    - remote
                 condition:
                   description: >-
                     When type = 'condition', this is the JSON-encoded condition
@@ -23099,8 +23540,8 @@ paths:
                   type: string
                 attributeKey:
                   description: >-
-                    When type = 'list', this is the attribute key the group is
-                    based on
+                    When type = 'list' or 'remote', this is the attribute key
+                    the group is based on
                   type: string
                 values:
                   description: >-
@@ -23322,6 +23763,12 @@ paths:
                   type: array
                   items:
                     type: string
+                currentUploadVersion:
+                  description: >-
+                    When type = 'remote', the upload whose IDs the group uses.
+                    Must be a valid upload of this group.
+                  type: integer
+                  exclusiveMinimum: 0
                 bypassApproval:
                   description: >-
                     Set to true to update the live Saved Group without approval.
@@ -23562,6 +24009,391 @@ paths:
           source: >-
             curl -X GET
             'https://api.growthbook.io/api/v1/saved-groups/abc123/references' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/uploads:
+    get:
+      operationId: listSavedGroupUploads
+      summary: List the uploads of a remote saved group
+      description: Newest first.
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/limit'
+        - $ref: '#/components/parameters/offset'
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploads:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/SavedGroupUpload'
+                  limit:
+                    type: integer
+                  offset:
+                    type: integer
+                  count:
+                    type: integer
+                  total:
+                    type: integer
+                  hasMore:
+                    type: boolean
+                  nextOffset:
+                    anyOf:
+                      - type: integer
+                      - type: 'null'
+                required:
+                  - uploads
+                  - limit
+                  - offset
+                  - count
+                  - total
+                  - hasMore
+                  - nextOffset
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postSavedGroupUpload
+      summary: Upload a new version of a remote saved group's IDs
+      description: >-
+        Records the next version of the group's IDs. The start and end of the
+        file are checked for one ID per line, then the whole file in the
+        background; loaders trim and deduplicate the IDs. Poll `GET
+        /saved-groups/{id}/uploads/{version}` until it's valid, then set the
+        group's `currentUploadVersion` with `PUT
+        /saved-groups-revisions/{id}/{version}/upload-version` to use it.
+        Loaders pick up the group's version from `currentUpload` and download it
+        from `GET /saved-groups/{id}/uploads/{version}/file`, which redirects to
+        a short-lived signed storage URL.
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fileKey:
+                  description: The `fileKey` from the upload URL endpoint
+                  type: string
+                fileName:
+                  description: The file's original name, used when downloading it
+                  type: string
+                  minLength: 1
+                  maxLength: 255
+              required:
+                - fileKey
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    $ref: '#/components/schemas/SavedGroupUpload'
+                required:
+                  - upload
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"fileKey":"org_abc/remote-saved-groups/grp_123/staging/1234.csv"}'
+  /v1/saved-groups/{id}/upload-url:
+    post:
+      operationId: postSavedGroupUploadUrl
+      summary: Get a signed URL to upload a remote saved group CSV
+      description: >-
+        Upload a CSV with one ID per line to the returned URL with
+        `Content-Type: text/csv`, then create an upload with the `fileKey`. A
+        first line equal to the attribute name is a header. Needs S3 or Google
+        Cloud Storage.
+      tags:
+        - saved-groups
+      parameters:
+        - $ref: '#/components/parameters/id'
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  signedUrl:
+                    type: string
+                  fields:
+                    description: >-
+                      Form fields for an S3 presigned POST. When null, PUT the
+                      file to `signedUrl` instead.
+                    anyOf:
+                      - type: object
+                        propertyNames:
+                          type: string
+                        additionalProperties:
+                          type: string
+                      - type: 'null'
+                  fileKey:
+                    description: Pass this to the create upload endpoint after uploading
+                    type: string
+                  maxBytes:
+                    type: integer
+                  expiresAt:
+                    format: date-time
+                    type: string
+                required:
+                  - signedUrl
+                  - fields
+                  - fileKey
+                  - maxBytes
+                  - expiresAt
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/upload-url' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups/{id}/uploads/{version}/loads:
+    post:
+      operationId: postSavedGroupUploadLoad
+      summary: Report loading a remote saved group upload into a data store
+      description: >-
+        Called by remote saved group loaders. Each report replaces the previous
+        one from the same `storeId`. Needs permission to publish the saved
+        group.
+      tags:
+        - saved-groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the remote saved group
+          schema:
+            description: The id of the remote saved group
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                storeId:
+                  description: >-
+                    The data store's ID, such as `redis-us-east`, set in the
+                    loader's config. Loaders sharing a store (such as one Redis)
+                    use the same ID. Shown in the UI.
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                status:
+                  description: >-
+                    Loaders validate the file while loading it, so each store
+                    reports its own result.
+                  anyOf:
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: loading
+                      required:
+                        - type
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: loaded
+                        rowCount:
+                          description: Unique IDs loaded
+                          type: integer
+                          minimum: 0
+                      required:
+                        - type
+                        - rowCount
+                      additionalProperties: false
+                    - description: >-
+                        The file has problems, so the store kept serving the
+                        previous upload
+                      type: object
+                      properties:
+                        type:
+                          type: string
+                          const: invalid
+                        invalidLineCount:
+                          type: integer
+                          minimum: 0
+                        errors:
+                          description: The first problems found in the file
+                          maxItems: 10
+                          type: array
+                          items:
+                            type: string
+                            maxLength: 500
+                      required:
+                        - type
+                        - invalidLineCount
+                        - errors
+                      additionalProperties: false
+                    - type: object
+                      properties:
+                        type:
+                          type: string
+                          const: failed
+                        error:
+                          description: A problem in the data store, not the file
+                          type: string
+                          maxLength: 2000
+                      required:
+                        - type
+                        - error
+                      additionalProperties: false
+              required:
+                - storeId
+                - status
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    $ref: '#/components/schemas/SavedGroupUpload'
+                required:
+                  - upload
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads/3/loads'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"storeId":"redis-us-east","status":{"type":"loaded","rowCount":120000}}'
+  /v1/saved-groups/{id}/uploads/{version}:
+    get:
+      operationId: getSavedGroupUpload
+      summary: Get one upload of a remote saved group
+      description: >-
+        Returns an upload of any status. After creating an upload, poll this
+        until `status.type` is `valid` or `invalid`.
+      tags:
+        - saved-groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the remote saved group
+          schema:
+            description: The id of the remote saved group
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload:
+                    $ref: '#/components/schemas/SavedGroupUpload'
+                required:
+                  - upload
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads/3' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteSavedGroupUpload
+      summary: Delete an upload of a remote saved group
+      description: >-
+        Deletes the upload and its file. The version the group uses, or one an
+        open draft uses, can't be deleted. Version numbers aren't reused. Needs
+        permission to publish the saved group.
+      tags:
+        - saved-groups
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The id of the remote saved group
+          schema:
+            description: The id of the remote saved group
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: integer
+            exclusiveMinimum: 0
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedVersion:
+                    type: integer
+                required:
+                  - deletedVersion
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/saved-groups/abc123/uploads/3' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups-revisions/{savedGroupId}:
     get:
@@ -24035,6 +24867,78 @@ paths:
           source: >-
             curl -X PUT
             'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/values'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/saved-groups-revisions/{savedGroupId}/{version}/upload-version:
+    put:
+      operationId: putSavedGroupRevisionUploadVersion
+      summary: Set the upload a remote saved group draft revision uses
+      description: >-
+        Stages which upload the group uses. Only valid for `remote` saved
+        groups, and the upload must be valid. Pass `version: "new"` to
+        auto-create a draft.
+      tags:
+        - saved-group-revisions
+      parameters:
+        - name: savedGroupId
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+        - name: version
+          in: path
+          required: true
+          description: ''
+          schema:
+            anyOf:
+              - type: integer
+              - type: string
+                const: new
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                revisionTitle:
+                  description: >-
+                    Short draft title (e.g. `Enable for beta testers`). Only
+                    used when `version` is "new"; ignored for existing drafts.
+                  type: string
+                revisionComment:
+                  description: >-
+                    Markdown. What changed and why, for reviewers. Only used
+                    when `version` is "new"; ignored for existing drafts.
+                  type: string
+                currentUploadVersion:
+                  description: The version of the upload the group uses
+                  type: integer
+                  exclusiveMinimum: 0
+              required:
+                - currentUploadVersion
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  revision:
+                    $ref: '#/components/schemas/SavedGroupRevision'
+                required:
+                  - revision
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X PUT
+            'https://api.growthbook.io/api/v1/saved-groups-revisions/{savedGroupId}/{version}/upload-version'
             \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/saved-groups-revisions/{savedGroupId}/{version}/archive:
@@ -30265,7 +31169,71 @@ paths:
                       a 422 instead.
                     type: array
                     items:
-                      $ref: '#/components/schemas/gates'
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                          enum:
+                            - feature
+                            - saved-group
+                            - config
+                            - constant
+                        id:
+                          description: The identifier used in the request.
+                          type: string
+                        version:
+                          type: integer
+                        type:
+                          description: Gate kind, e.g. "approval-required".
+                          type: string
+                        severity:
+                          type: string
+                          enum:
+                            - blocker
+                            - warning
+                        messages:
+                          type: array
+                          items:
+                            type: string
+                        override:
+                          description: Request flag that clears this gate on retry, if any.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        requiresPermission:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        resolution:
+                          description: >-
+                            A route that resolves the gate without an override
+                            flag.
+                          anyOf:
+                            - type: object
+                              properties:
+                                action:
+                                  type: string
+                                method:
+                                  type: string
+                                path:
+                                  type: string
+                              required:
+                                - action
+                                - method
+                                - path
+                              additionalProperties: false
+                            - type: 'null'
+                      required:
+                        - entityType
+                        - id
+                        - version
+                        - type
+                        - severity
+                        - messages
+                        - override
+                        - requiresPermission
+                        - resolution
+                      additionalProperties: false
                   bypassedGates:
                     description: >-
                       Gates bypassed by the caller's flags or authority — what
@@ -31063,12 +32031,15 @@ paths:
                   items:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
               required:
                 - name
                 - datasource
@@ -31241,12 +32212,15 @@ paths:
                   items:
                     $ref: '#/components/schemas/FactTableColumnInput'
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 archived:
                   type: boolean
               additionalProperties: false
@@ -32568,12 +33542,15 @@ paths:
                   type: number
                   minimum: 0
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -33303,12 +34280,15 @@ paths:
                   type: number
                   minimum: 0
                 managedBy:
-                  description: Set this to "api" to disable editing in the GrowthBook UI
+                  description: >-
+                    Set this to "api" (or "dbt" for resources synced from dbt)
+                    to disable editing in the GrowthBook UI
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 metricAutoSlices:
                   description: >-
                     Array of slice column names that will be automatically
@@ -33504,13 +34484,15 @@ paths:
                 defaultManagedBy:
                   description: >-
                     Fallback `managedBy` for Fact Tables and Fact Metrics that
-                    omit the field. Defaults to `"api"`. Filters inherit `"api"`
-                    only when the parent Fact Table is api-managed.
+                    omit the field. Defaults to `"api"`; the dbt sync sends
+                    `"dbt"`. Filters inherit `"api"` only when the parent Fact
+                    Table is api-managed.
                   type: string
                   enum:
                     - ''
                     - api
                     - admin
+                    - dbt
                 dryRun:
                   description: Validate with zero writes.
                   type: boolean
@@ -33640,13 +34622,14 @@ paths:
                               $ref: '#/components/schemas/FactTableColumnInput'
                           managedBy:
                             description: >-
-                              Set this to "api" to disable editing in the
-                              GrowthBook UI
+                              Set this to "api" (or "dbt" for resources synced
+                              from dbt) to disable editing in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
+                              - dbt
                         required:
                           - name
                           - datasource
@@ -34389,13 +35372,14 @@ paths:
                             minimum: 0
                           managedBy:
                             description: >-
-                              Set this to "api" to disable editing in the
-                              GrowthBook UI
+                              Set this to "api" (or "dbt" for resources synced
+                              from dbt) to disable editing in the GrowthBook UI
                             type: string
                             enum:
                               - ''
                               - api
                               - admin
+                              - dbt
                           metricAutoSlices:
                             description: >-
                               Array of slice column names that will be
@@ -38319,6 +39303,198 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/ramp-schedules/{id}/actions/refresh-monitoring'
             \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/actions/rollback:
+    post:
+      operationId: rollbackMatchingRampSchedules
+      summary: Roll back matching ramp schedules
+      description: >
+        Rolls back every `running` or `paused` ramp schedule that matches the
+        query
+
+        filters. Built for an alerting tool's webhook, such as a Datadog
+        monitor.
+
+
+        Each filter takes comma-separated values and matches any of them;
+        different
+
+        filters must all match. At least one filter is required.
+
+
+        Returns each matched schedule and whether the rollback was applied or
+        skipped,
+
+        for example because the API key can't publish its Feature Flag. Unknown
+        body
+
+        fields are ignored, so a tool can send its own payload.
+      tags: &ref_0
+        - ramp-schedules
+      parameters:
+        - name: environment
+          in: query
+          description: >-
+            Comma-separated environments. Matches ramps whose rules run in any
+            of them.
+          schema:
+            description: >-
+              Comma-separated environments. Matches ramps whose rules run in any
+              of them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/project'
+        - name: tag
+          in: query
+          description: >-
+            Comma-separated tags. Matches ramps on Feature Flags with any of
+            them.
+          schema:
+            description: >-
+              Comma-separated tags. Matches ramps on Feature Flags with any of
+              them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/feature'
+        - $ref: '#/components/parameters/customFields'
+        - $ref: '#/components/parameters/reason'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  description: >-
+                    Recorded on each ramp, prefixed with `Alert: `. Use the
+                    alert title and link.
+                  type: string
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchedRampSchedule'
+                required:
+                  - rampSchedules
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/actions/rollback' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/ramp-schedules/actions/pause:
+    post:
+      operationId: pauseMatchingRampSchedules
+      summary: Pause matching ramp schedules
+      description: >
+        Pauses every `running` ramp schedule that matches the query filters.
+        Built
+
+        for an alerting tool's webhook, such as a Datadog monitor. Each schedule
+        stays
+
+        paused until someone calls `/actions/resume` on it.
+
+
+        Each filter takes comma-separated values and matches any of them;
+        different
+
+        filters must all match. With no filters, every running schedule is
+        paused,
+
+        for example during a site-wide outage.
+
+
+        Returns each matched schedule and whether the pause was applied or
+        skipped,
+
+        for example because the API key can't publish its Feature Flag. Unknown
+        body
+
+        fields are ignored, so a tool can send its own payload.
+      tags: *ref_0
+      parameters:
+        - name: environment
+          in: query
+          description: >-
+            Comma-separated environments. Matches ramps whose rules run in any
+            of them.
+          schema:
+            description: >-
+              Comma-separated environments. Matches ramps whose rules run in any
+              of them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/project'
+        - name: tag
+          in: query
+          description: >-
+            Comma-separated tags. Matches ramps on Feature Flags with any of
+            them.
+          schema:
+            description: >-
+              Comma-separated tags. Matches ramps on Feature Flags with any of
+              them.
+            type: array
+            items:
+              type: string
+          explode: false
+        - $ref: '#/components/parameters/feature'
+        - $ref: '#/components/parameters/customFields'
+        - $ref: '#/components/parameters/reason'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  description: >-
+                    Recorded on each ramp, prefixed with `Alert: `. Use the
+                    alert title and link.
+                  type: string
+              additionalProperties: {}
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rampSchedules:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MatchedRampSchedule'
+                required:
+                  - rampSchedules
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/ramp-schedules/actions/pause' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/reports:
     get:
@@ -54970,11 +56146,11 @@ paths:
                     type: string
                 key:
                   description: >-
-                    The key your code passes to `interleave()` as `ranker`.
-                    Can't be changed later. Several experiments may share a key
-                    so you can iterate without changing code, but only one of
-                    them can be running in a given environment, and each needs
-                    its own `trackingKey`.
+                    The key your code passes to `interleave()` as `key`. Can't
+                    be changed later. Several experiments may share a key so you
+                    can iterate without changing code, but only one of them can
+                    be running in a given environment, and each needs its own
+                    `trackingKey`.
                   type: string
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                 trackingKey:
@@ -65090,8 +66266,8 @@ paths:
                           additionalProperties: false
                       aggregateFilter:
                         description: >-
-                          Conditions on each unit's total within the window,
-                          such as ">=3" or ">=3,<10". Requires
+                          Conditions on each unit's total within the queried
+                          date range, such as ">=3" or ">=3,<10". Requires
                           aggregateFilterColumn
                         type: string
                       aggregateFilterColumn:
@@ -65099,43 +66275,6 @@ paths:
                           Numeric column to total, or "$$count" to count rows.
                           Requires aggregateFilter
                         type: string
-                      windowSettings:
-                        description: >-
-                          Defaults to no window. Conversion windows are only
-                          allowed on steps after the first
-                        type: object
-                        properties:
-                          type:
-                            type: string
-                            enum:
-                              - conversion
-                              - lookback
-                              - ''
-                          delayValue:
-                            type: number
-                          delayUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                          windowValue:
-                            type: number
-                          windowUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                        required:
-                          - type
-                          - delayValue
-                          - delayUnit
-                          - windowValue
-                          - windowUnit
-                        additionalProperties: false
                     required:
                       - source
                     additionalProperties: false
@@ -65298,8 +66437,8 @@ paths:
                           additionalProperties: false
                       aggregateFilter:
                         description: >-
-                          Conditions on each unit's total within the window,
-                          such as ">=3" or ">=3,<10". Requires
+                          Conditions on each unit's total within the queried
+                          date range, such as ">=3" or ">=3,<10". Requires
                           aggregateFilterColumn
                         type: string
                       aggregateFilterColumn:
@@ -65307,43 +66446,6 @@ paths:
                           Numeric column to total, or "$$count" to count rows.
                           Requires aggregateFilter
                         type: string
-                      windowSettings:
-                        description: >-
-                          Defaults to no window. Conversion windows are only
-                          allowed on steps after the first
-                        type: object
-                        properties:
-                          type:
-                            type: string
-                            enum:
-                              - conversion
-                              - lookback
-                              - ''
-                          delayValue:
-                            type: number
-                          delayUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                          windowValue:
-                            type: number
-                          windowUnit:
-                            type: string
-                            enum:
-                              - weeks
-                              - days
-                              - hours
-                              - minutes
-                        required:
-                          - type
-                          - delayValue
-                          - delayUnit
-                          - windowValue
-                          - windowUnit
-                        additionalProperties: false
                     required:
                       - source
                     additionalProperties: false
@@ -65851,6 +66953,24 @@ components:
       description: ''
       schema:
         type: string
+    linkedChanges:
+      name: linkedChanges
+      in: query
+      description: >-
+        Required while the experiment still serves through linked changes.
+        "materialize" keeps a stopped experiment's released variation as a
+        permanent force rule on each linked Feature Flag; "remove" acknowledges
+        that the linked changes stop serving.
+      schema:
+        description: >-
+          Required while the experiment still serves through linked changes.
+          "materialize" keeps a stopped experiment's released variation as a
+          permanent force rule on each linked Feature Flag; "remove"
+          acknowledges that the linked changes stop serving.
+        type: string
+        enum:
+          - materialize
+          - remove
     variationId:
       name: variationId
       in: path
@@ -66151,6 +67271,60 @@ components:
       in: query
       description: ''
       schema:
+        type: string
+    project:
+      name: project
+      in: query
+      description: >-
+        Comma-separated Project ids. Matches ramps on Feature Flags in any of
+        them.
+      schema:
+        description: >-
+          Comma-separated Project ids. Matches ramps on Feature Flags in any of
+          them.
+        type: array
+        items:
+          type: string
+      explode: false
+    feature:
+      name: feature
+      in: query
+      description: Comma-separated Feature Flag ids.
+      schema:
+        description: Comma-separated Feature Flag ids.
+        type: array
+        items:
+          type: string
+      explode: false
+    customFields:
+      name: customFields
+      in: query
+      description: >-
+        Custom field values, as `customFields[<key>]=<value>`. Comma-separate
+        several values for one key.
+      schema:
+        description: >-
+          Custom field values, as `customFields[<key>]=<value>`. Comma-separate
+          several values for one key.
+        type: object
+        propertyNames:
+          type: string
+        additionalProperties:
+          type: array
+          items:
+            type: string
+      style: deepObject
+      explode: true
+    reason:
+      name: reason
+      in: query
+      description: >-
+        Used when the body has no `reason`, for tools whose payload can't be
+        changed.
+      schema:
+        description: >-
+          Used when the body has no `reason`, for tools whose payload can't be
+          changed.
         type: string
     index:
       name: index
@@ -66678,6 +67852,11 @@ components:
               minimum: 0
               maximum: 1
             hashAttribute:
+              type: string
+            fallbackAttribute:
+              description: >-
+                Used in place of `hashAttribute` when a user lacks it. Only SDKs
+                with Sticky Bucketing enabled use it.
               type: string
             seed:
               description: Optional seed for the hash function; defaults to the rule id
@@ -70218,6 +71397,11 @@ components:
             Attribute to hash on for consistent assignment. Required when
             coverage < 1.
           type: string
+        fallbackAttribute:
+          description: >-
+            Used in place of `hashAttribute` when a user lacks it. Only SDKs
+            with Sticky Bucketing enabled use it.
+          type: string
         seed:
           type: string
         hashVersion:
@@ -72609,6 +73793,32 @@ components:
                 type: array
                 items:
                   type: string
+              columnMapping:
+                description: >-
+                  The column `sql` returns for each role, where it isn't the
+                  canonical name (`experiment_id`, `variation_id`, `timestamp`,
+                  `experiment_name`, `variation_name`, or the identifier type's
+                  own name). Roles not listed use the canonical name.
+                type: object
+                properties:
+                  experimentIdColumn:
+                    type: string
+                  variationIdColumn:
+                    type: string
+                  timestampColumn:
+                    type: string
+                  userIdColumns:
+                    description: Column for each identifier type, keyed by type
+                    type: object
+                    propertyNames:
+                      type: string
+                    additionalProperties:
+                      type: string
+                  experimentNameColumn:
+                    type: string
+                  variationNameColumn:
+                    type: string
+                additionalProperties: false
             required:
               - id
               - name
@@ -72841,6 +74051,7 @@ components:
           enum:
             - condition
             - list
+            - remote
         dateCreated:
           format: date-time
           type: string
@@ -72863,7 +74074,9 @@ components:
             group
           type: string
         attributeKey:
-          description: When type = 'list', this is the attribute key the group is based on
+          description: >-
+            When type = 'list' or 'remote', this is the attribute key the group
+            is based on
           type: string
         values:
           description: When type = 'list', this is the list of values for the attribute key
@@ -72881,6 +74094,34 @@ components:
           type: boolean
         useEmptyListGroup:
           type: boolean
+        currentUploadVersion:
+          description: >-
+            When type = 'remote', the version of the upload the group uses.
+            Absent when it uses none.
+          type: integer
+        currentUpload:
+          description: >-
+            When type = 'remote', the upload whose IDs the group uses, or null
+            if it has none. Loaders load this version.
+          anyOf:
+            - type: object
+              properties:
+                version:
+                  type: integer
+                dateCreated:
+                  format: date-time
+                  type: string
+                numeric:
+                  description: >-
+                    Whether the group's attribute is a number. Loaders store
+                    number IDs in their shortest form, String(Number(id)).
+                  type: boolean
+              required:
+                - version
+                - dateCreated
+                - numeric
+              additionalProperties: false
+            - type: 'null'
       required:
         - id
         - type
@@ -73292,6 +74533,177 @@ components:
           type: string
       required:
         - id
+      additionalProperties: false
+    SavedGroupUpload:
+      type: object
+      properties:
+        savedGroupId:
+          type: string
+        version:
+          type: integer
+        fileName:
+          description: The uploaded file's original name, if it was given
+          anyOf:
+            - type: string
+            - type: 'null'
+        size:
+          description: File size in bytes
+          type: integer
+        sha256:
+          description: >-
+            Hex SHA-256 of the file, set once it's validated. Null if it isn't
+            validated yet, or wasn't read in full.
+          anyOf:
+            - type: string
+            - type: 'null'
+        dateCreated:
+          format: date-time
+          type: string
+        createdBy:
+          description: >-
+            Who uploaded it: a user ID, or an API key ID (`key_…`) for a key
+            acting as itself
+          type: string
+        status:
+          description: >-
+            `pending` until GrowthBook has checked the whole file. Loaders only
+            see `valid` uploads.
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: pending
+              required:
+                - type
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: valid
+                idCount:
+                  description: IDs in the file, before removing duplicates
+                  type: integer
+                  minimum: 0
+              required:
+                - type
+                - idCount
+              additionalProperties: false
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: invalid
+                invalidLineCount:
+                  type: integer
+                  minimum: 0
+                errors:
+                  description: The first problems found in the file
+                  maxItems: 10
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 500
+              required:
+                - type
+                - invalidLineCount
+                - errors
+              additionalProperties: false
+        loads:
+          description: Each data store's latest report on loading this upload
+          type: array
+          items:
+            type: object
+            properties:
+              storeId:
+                description: >-
+                  The data store's ID, such as `redis-us-east`, set in the
+                  loader's config. Loaders sharing a store (such as one Redis)
+                  use the same ID. Shown in the UI.
+                type: string
+                minLength: 1
+                maxLength: 100
+              status:
+                description: >-
+                  Loaders validate the file while loading it, so each store
+                  reports its own result.
+                anyOf:
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: loading
+                    required:
+                      - type
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: loaded
+                      rowCount:
+                        description: Unique IDs loaded
+                        type: integer
+                        minimum: 0
+                    required:
+                      - type
+                      - rowCount
+                    additionalProperties: false
+                  - description: >-
+                      The file has problems, so the store kept serving the
+                      previous upload
+                    type: object
+                    properties:
+                      type:
+                        type: string
+                        const: invalid
+                      invalidLineCount:
+                        type: integer
+                        minimum: 0
+                      errors:
+                        description: The first problems found in the file
+                        maxItems: 10
+                        type: array
+                        items:
+                          type: string
+                          maxLength: 500
+                    required:
+                      - type
+                      - invalidLineCount
+                      - errors
+                    additionalProperties: false
+                  - type: object
+                    properties:
+                      type:
+                        type: string
+                        const: failed
+                      error:
+                        description: A problem in the data store, not the file
+                        type: string
+                        maxLength: 2000
+                    required:
+                      - type
+                      - error
+                    additionalProperties: false
+              dateUpdated:
+                format: date-time
+                type: string
+            required:
+              - storeId
+              - status
+              - dateUpdated
+            additionalProperties: false
+      required:
+        - savedGroupId
+        - version
+        - fileName
+        - size
+        - sha256
+        - dateCreated
+        - createdBy
+        - status
+        - loads
       additionalProperties: false
     Constant:
       type: object
@@ -74767,6 +76179,7 @@ components:
             - ''
             - api
             - admin
+            - dbt
         dateCreated:
           format: date-time
           type: string
@@ -75912,6 +77325,7 @@ components:
             - ''
             - api
             - admin
+            - dbt
         dateCreated:
           format: date-time
           type: string
@@ -76271,6 +77685,21 @@ components:
                   anyOf:
                     - type: number
                     - type: 'null'
+                analysisEndDateMode:
+                  type: string
+                  enum:
+                    - runTime
+                    - lag
+                    - fixedTime
+                analysisEndDateLagHours:
+                  anyOf:
+                    - type: number
+                    - type: 'null'
+                analysisEndDateTime:
+                  anyOf:
+                    - type: string
+                      pattern: ^([01]\d|2[0-3]):[0-5]\d$
+                    - type: 'null'
               additionalProperties: false
             - type: 'null'
         multipleExposureMinPercent:
@@ -76567,6 +77996,7 @@ components:
                   - experiment.traffic
                   - experiment.phases
                   - experiment.visualEditor
+                  - experiment.checklist
                   - experiment.other
                   - savedGroup.create
                   - savedGroup.draft
@@ -77485,6 +78915,25 @@ components:
         - currentStepIndex
         - nextStepAt
         - awaitingApproval
+      additionalProperties: false
+    MatchedRampSchedule:
+      type: object
+      properties:
+        id:
+          type: string
+        featureId:
+          type: string
+        result:
+          type: string
+          enum:
+            - applied
+            - skipped
+        message:
+          type: string
+      required:
+        - id
+        - featureId
+        - result
       additionalProperties: false
     Report:
       type: object
@@ -81952,7 +83401,7 @@ components:
           type: string
           format: date-time
         key:
-          description: The key your code passes to `interleave()` as `ranker`
+          description: The key your code passes to `interleave()` as `key`
           type: string
         trackingKey:
           description: The `experiment_id` recorded in exposures
@@ -85498,52 +86947,17 @@ components:
                   additionalProperties: false
               aggregateFilter:
                 description: >-
-                  Conditions on each unit's total within the window, such as
-                  ">=3" or ">=3,<10". Requires aggregateFilterColumn
+                  Conditions on each unit's total within the queried date range,
+                  such as ">=3" or ">=3,<10". Requires aggregateFilterColumn
                 type: string
               aggregateFilterColumn:
                 description: >-
                   Numeric column to total, or "$$count" to count rows. Requires
                   aggregateFilter
                 type: string
-              windowSettings:
-                type: object
-                properties:
-                  type:
-                    type: string
-                    enum:
-                      - conversion
-                      - lookback
-                      - ''
-                  delayValue:
-                    type: number
-                  delayUnit:
-                    type: string
-                    enum:
-                      - weeks
-                      - days
-                      - hours
-                      - minutes
-                  windowValue:
-                    type: number
-                  windowUnit:
-                    type: string
-                    enum:
-                      - weeks
-                      - days
-                      - hours
-                      - minutes
-                required:
-                  - type
-                  - delayValue
-                  - delayUnit
-                  - windowValue
-                  - windowUnit
-                additionalProperties: false
             required:
               - source
               - rowFilters
-              - windowSettings
             additionalProperties: false
       required:
         - id
@@ -85606,6 +87020,7 @@ components:
                       - experiment.traffic
                       - experiment.phases
                       - experiment.visualEditor
+                      - experiment.checklist
                       - experiment.other
                       - savedGroup.create
                       - savedGroup.draft
@@ -85733,6 +87148,48 @@ components:
         - id
         - experiment
         - status
+      additionalProperties: false
+    VisualChange:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        css:
+          type: string
+        js:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum:
+                  - append
+                  - set
+                  - remove
+              attribute:
+                type: string
+              value:
+                type: string
+              parentSelector:
+                type: string
+              insertBeforeSelector:
+                type: string
+            required:
+              - selector
+              - action
+              - attribute
+            additionalProperties: false
+      required:
+        - variation
       additionalProperties: false
     FeatureDefinition:
       type: object
@@ -86331,48 +87788,6 @@ components:
         - features
         - constants
       additionalProperties: false
-    VisualChange:
-      type: object
-      properties:
-        id:
-          type: string
-        description:
-          type: string
-        css:
-          type: string
-        js:
-          type: string
-        variation:
-          type: string
-        domMutations:
-          type: array
-          items:
-            type: object
-            properties:
-              selector:
-                type: string
-              action:
-                type: string
-                enum:
-                  - append
-                  - set
-                  - remove
-              attribute:
-                type: string
-              value:
-                type: string
-              parentSelector:
-                type: string
-              insertBeforeSelector:
-                type: string
-            required:
-              - selector
-              - action
-              - attribute
-            additionalProperties: false
-      required:
-        - variation
-      additionalProperties: false
     ApiErrorConflictDetails:
       type: object
       properties:
@@ -86482,6 +87897,31 @@ components:
         - pattern
         - example
       additionalProperties: false
+    ApiErrorChangesConflictDetails:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            type: string
+        featureIds:
+          type: array
+          items:
+            type: string
+        urlRedirectIds:
+          type: array
+          items:
+            type: string
+        visualChangesetIds:
+          type: array
+          items:
+            type: string
+      required:
+        - fields
+        - featureIds
+        - urlRedirectIds
+        - visualChangesetIds
+      additionalProperties: false
     ApiErrorUnscopedRuleDetails:
       type: object
       properties:
@@ -86544,6 +87984,7 @@ components:
             - bypassApprovalPermission
             - restApiBypassesReviews
             - revertsBypassApproval
+            - skipChecklist
       required:
         - type
         - outcome
@@ -86864,6 +88305,8 @@ components:
                   coverage:
                     type: number
                   hashAttribute:
+                    type: string
+                  fallbackAttribute:
                     type: string
                   seed:
                     type: string
@@ -87544,12 +88987,91 @@ components:
             When true, this item cannot be bypassed with `skipChecklist` — the
             experiment cannot be started until it is resolved.
           type: boolean
+        featureId:
+          description: The linked Feature Flag the item is about.
+          type: string
       required:
         - key
         - required
         - status
         - manual
         - reason
+      additionalProperties: false
+    gates:
+      type: object
+      properties:
+        key:
+          description: >-
+            The checklist item, or `rampLocked:<featureId>` for a linked Feature
+            Flag a ramp locks.
+          type: string
+        type:
+          description: >-
+            Gate kind: "checklist-item", "approval-required", "merge-conflict",
+            "unrelated-draft-changes", "permission-denied" or "ramp-locked".
+          type: string
+        featureId:
+          description: The linked Feature Flag whose authority decides this gate.
+          type: string
+        severity:
+          type: string
+          enum:
+            - blocker
+            - warning
+        messages:
+          type: array
+          items:
+            type: string
+        override:
+          description: >-
+            Request flag that gets past this gate on retry, if any
+            (`skipChecklist`).
+          anyOf:
+            - type: string
+            - type: 'null'
+        requiresPermission:
+          description: >-
+            Permission on the linked Feature Flag's Project that bypasses this
+            gate.
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolution:
+          description: A route that resolves the gate.
+          anyOf:
+            - type: object
+              properties:
+                action:
+                  type: string
+                method:
+                  type: string
+                path:
+                  type: string
+              required:
+                - action
+                - method
+                - path
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - key
+        - type
+        - severity
+        - messages
+        - override
+        - requiresPermission
+        - resolution
+      additionalProperties: false
+    publishedFeatureDrafts:
+      type: object
+      properties:
+        featureId:
+          type: string
+        revisionVersion:
+          type: number
+      required:
+        - featureId
+        - revisionVersion
       additionalProperties: false
     snapshot:
       type: object
@@ -87977,70 +89499,6 @@ components:
         - version
         - revisionId
         - status
-      additionalProperties: false
-    gates:
-      type: object
-      properties:
-        entityType:
-          type: string
-          enum:
-            - feature
-            - saved-group
-            - config
-            - constant
-        id:
-          description: The identifier used in the request.
-          type: string
-        version:
-          type: integer
-        type:
-          description: Gate kind, e.g. "approval-required".
-          type: string
-        severity:
-          type: string
-          enum:
-            - blocker
-            - warning
-        messages:
-          type: array
-          items:
-            type: string
-        override:
-          description: Request flag that clears this gate on retry, if any.
-          anyOf:
-            - type: string
-            - type: 'null'
-        requiresPermission:
-          anyOf:
-            - type: string
-            - type: 'null'
-        resolution:
-          description: A route that resolves the gate without an override flag.
-          anyOf:
-            - type: object
-              properties:
-                action:
-                  type: string
-                method:
-                  type: string
-                path:
-                  type: string
-              required:
-                - action
-                - method
-                - path
-              additionalProperties: false
-            - type: 'null'
-      required:
-        - entityType
-        - id
-        - version
-        - type
-        - severity
-        - messages
-        - override
-        - requiresPermission
-        - resolution
       additionalProperties: false
     suppressed:
       description: >-
@@ -89181,6 +90639,7 @@ x-tagGroups:
       - SavedGroupRevisionActivityLogEntry_model
       - SavedGroupRevisionRef_model
       - SavedGroupRevisionReview_model
+      - SavedGroupUpload_model
       - ScheduleRule_model
       - ScheduledStopPlan_model
       - SdkConnection_model
