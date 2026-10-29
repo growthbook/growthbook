@@ -2,12 +2,12 @@ import { useFeature } from "@growthbook/growthbook-react";
 import { useRouter } from "next/router";
 import { useEffect, useRef, useState } from "react";
 import { BsQuestionLg, BsXLg } from "react-icons/bs";
-import { FaArrowRight } from "react-icons/fa";
-import { PiChatCircleFill } from "react-icons/pi";
+import { PiArrowRight, PiChatCircleFill } from "react-icons/pi";
 import { Flex, Separator } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 import Button from "@/ui/Button";
+import LinkButton from "@/ui/LinkButton";
 import { Popover } from "@/ui/Popover";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
@@ -149,29 +149,25 @@ export default function InAppHelp() {
               <Text weight="medium" color="text-high">
                 Have a question?
               </Text>
-              <Button
-                icon={<FaArrowRight />}
+              <LinkButton
+                href="https://slack.growthbook.io/?ref=app-top-nav"
+                external
+                icon={<PiArrowRight />}
                 iconPosition="right"
-                onClick={() =>
-                  window.open(
-                    "https://slack.growthbook.io/?ref=app-top-nav",
-                    "_blank",
-                    "noopener",
-                  )
-                }
+                style={{ width: "100%" }}
               >
                 Join the Slack community
-              </Button>
-              <Button
+              </LinkButton>
+              <LinkButton
+                href={docUrl("home")}
                 variant="outline"
-                icon={<FaArrowRight />}
+                external
+                icon={<PiArrowRight />}
                 iconPosition="right"
-                onClick={() =>
-                  window.open(docUrl("home"), "_blank", "noopener")
-                }
+                style={{ width: "100%" }}
               >
                 View docs
-              </Button>
+              </LinkButton>
               {showUpgradeModal && (
                 <>
                   <Separator size="4" />
