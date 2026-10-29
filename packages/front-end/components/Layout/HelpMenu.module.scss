@@ -93,8 +93,9 @@
   padding-left: calc(10px + 16px + var(--space-2));
 }
 
-// As the profile button beside it (ProfileMenu.module.scss), 12px after
-// GrowthBot's outline.
+// As the profile button beside it (ProfileMenu.module.scss). 12px after the AI
+// Assistant button, which shifts 8px right (TopNav.module.scss), so with the
+// translate below, 10px from its edge.
 .headerButton.headerButton {
   flex-shrink: 0;
   margin: 0 0 0 var(--space-3);
