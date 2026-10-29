@@ -597,7 +597,7 @@ export default function Implementation({
                   label={
                     <Flex align="center" gap="1">
                       <PiWarningFill />
-                      {missingCount} missing linkage
+                      {missingCount} missing
                     </Flex>
                   }
                   color="amber"

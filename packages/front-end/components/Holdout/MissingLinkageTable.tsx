@@ -6,7 +6,6 @@ import { useAuth } from "@/services/auth";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
-import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Table, {
@@ -90,11 +89,11 @@ export default function MissingLinkageTable({
                 {row.kind === "experiment" ? "Experiment" : "Feature Flag"}
               </TableCell>
               <TableCell>
-                <HelperText status="warning" size="sm">
+                <Text color="text-mid">
                   {row.problem === "deleted"
                     ? "Deleted"
                     : "No longer in this holdout"}
-                </HelperText>
+                </Text>
               </TableCell>
               {canEdit ? (
                 <TableCell>
