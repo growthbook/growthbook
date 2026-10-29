@@ -130,11 +130,11 @@ const apiContextualBanditMeasurementArmInput = z
     enabled: z.boolean().optional(),
     percent: z
       .number()
-      .min(0)
+      .min(MIN_MEASUREMENT_ARM_PERCENT)
       .max(MAX_MEASUREMENT_ARM_PERCENT)
       .optional()
       .describe(
-        "Share of eligible traffic to hold back, 0.01 to 0.5. Ignored when `enabled` is false; defaults to 0.05.",
+        "Share of eligible traffic to hold back, 0.01 to 0.5. Kept but not applied while `enabled` is false; defaults to 0.05.",
       ),
   })
   .describe(

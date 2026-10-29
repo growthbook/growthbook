@@ -1331,13 +1331,6 @@ export function getFeatureDefinition({
     rule: FeatureDefinitionRule | null,
   ): rule is FeatureDefinitionRule => !!rule;
 
-  // Contextual-bandit rules wrapped by a measurement arm emit a companion
-  // force rule (the held-back control) immediately before the CB rule.
-  const measurementArmControlRules = new Map<
-    FeatureDefinitionRule,
-    FeatureDefinitionRule
-  >();
-
   const defRules = [
     ...holdoutRule,
     ...prerequisiteRules,
@@ -1345,7 +1338,7 @@ export function getFeatureDefinition({
       ?.filter((r) => {
         return isRuleEnabled(r, date);
       })
-      ?.map((r) => {
+      ?.map((r): FeatureDefinitionRule | FeatureDefinitionRule[] | null => {
         const rule: FeatureDefinitionRule = {
           // SDK payload emits the STEM id so split rules
           // (`fr_abc__production` + `fr_abc__staging`) report as `fr_abc`
@@ -1594,21 +1587,6 @@ export function getFeatureDefinition({
             savedGroupStrategy.finalizeCondition(rule.condition);
           if (rule.parentConditions)
             savedGroupStrategy.finalizeCondition(rule.parentConditions);
-          if (measurementArm) {
-            const controlRule: FeatureDefinitionRule = {
-              ...(includeRuleIds
-                ? { id: `cbma_${md5(feature.id + cb.id)}` }
-                : {}),
-              parentConditions: [
-                {
-                  id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
-                  condition: { value: MEASUREMENT_ARM_CONTROL_VALUE },
-                },
-              ],
-              force: valueForSDK(defaultValue),
-            };
-            measurementArmControlRules.set(rule, controlRule);
-          }
           if (metadataOptions) {
             const cbMetadata = buildPayloadMetadata<ExperimentMetadata>(
               {
@@ -1628,28 +1606,32 @@ export function getFeatureDefinition({
             );
           }
 
-          if (allowedKeys) {
-            const picked = pick(
-              rule,
-              allowedKeys.featureRuleKeys,
-            ) as FeatureDefinitionRule;
-            if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = stemRuleId(r.id);
-            }
-            const companion = measurementArmControlRules.get(rule);
-            if (companion) {
-              measurementArmControlRules.delete(rule);
-              measurementArmControlRules.set(
-                picked,
-                pick(
-                  companion,
+          const pickAllowed = (candidate: FeatureDefinitionRule) =>
+            allowedKeys
+              ? (pick(
+                  candidate,
                   allowedKeys.featureRuleKeys,
-                ) as FeatureDefinitionRule,
-              );
-            }
-            return picked;
+                ) as FeatureDefinitionRule)
+              : candidate;
+          const cbRule = pickAllowed(rule);
+          if (allowedKeys && includeRuleIds && r.id != null) {
+            (cbRule as Record<string, unknown>).id = stemRuleId(r.id);
           }
-          return rule;
+          if (!measurementArm) return cbRule;
+
+          const controlRule = pickAllowed({
+            ...(includeRuleIds
+              ? { id: `cbma_${md5(feature.id + cb.id)}` }
+              : {}),
+            parentConditions: [
+              {
+                id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
+                condition: { value: MEASUREMENT_ARM_CONTROL_VALUE },
+              },
+            ],
+            force: valueForSDK(defaultValue),
+          });
+          return [controlRule, cbRule];
         }
 
         const condition = mergeConditionAndSavedGroups({
@@ -1880,11 +1862,8 @@ export function getFeatureDefinition({
         }
         return rule;
       })
-      ?.filter(isRule)
-      ?.flatMap((rule) => {
-        const control = measurementArmControlRules.get(rule);
-        return control ? [control, rule] : [rule];
-      }) ?? []),
+      ?.flatMap((rule) => (Array.isArray(rule) ? rule : [rule]))
+      ?.filter(isRule) ?? []),
   ];
 
   let def: FeatureDefinition = {

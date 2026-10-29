@@ -53956,9 +53956,10 @@ paths:
                     percent:
                       description: >-
                         Share of eligible traffic to hold back, 0.01 to 0.5.
-                        Ignored when `enabled` is false; defaults to 0.05.
+                        Kept but not applied while `enabled` is false; defaults
+                        to 0.05.
                       type: number
-                      minimum: 0
+                      minimum: 0.01
                       maximum: 0.5
                   additionalProperties: false
               additionalProperties: false
@@ -54097,9 +54098,10 @@ paths:
                     percent:
                       description: >-
                         Share of eligible traffic to hold back, 0.01 to 0.5.
-                        Ignored when `enabled` is false; defaults to 0.05.
+                        Kept but not applied while `enabled` is false; defaults
+                        to 0.05.
                       type: number
-                      minimum: 0
+                      minimum: 0.01
                       maximum: 0.5
                   additionalProperties: false
               required:

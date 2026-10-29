@@ -15,8 +15,6 @@ import {
   ContextualBanditMeasurementArm,
   ContextualBanditMeasurementArmSummary,
   DEFAULT_MEASUREMENT_ARM_PERCENT,
-  MAX_MEASUREMENT_ARM_PERCENT,
-  MIN_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
 import {
   ExperimentInterface,
@@ -55,20 +53,9 @@ export function buildMeasurementArmSubdoc({
   cbTrackingKey: string;
   rederiveTrackingKey?: boolean;
 }): ContextualBanditMeasurementArm {
-  const resolvedEnabled = enabled ?? existing?.enabled ?? false;
-  let resolvedPercent =
-    percent ?? existing?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT;
-  if (resolvedPercent < MIN_MEASUREMENT_ARM_PERCENT) {
-    if (resolvedEnabled) {
-      throw new BadRequestError(
-        `measurement_arm_percent: The measurement arm must hold back between ${MIN_MEASUREMENT_ARM_PERCENT * 100}% and ${MAX_MEASUREMENT_ARM_PERCENT * 100}% of traffic, or be disabled`,
-      );
-    }
-    resolvedPercent = existing?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT;
-  }
   return {
-    enabled: resolvedEnabled,
-    percent: resolvedPercent,
+    enabled: enabled ?? existing?.enabled ?? false,
+    percent: percent ?? existing?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
     experimentId: existing?.experimentId,
     trackingKey:
       !rederiveTrackingKey && existing?.trackingKey
@@ -76,36 +63,6 @@ export function buildMeasurementArmSubdoc({
         : getContextualBanditMeasurementArmTrackingKey(cbTrackingKey),
     seed: existing?.seed ?? uuidv4(),
   };
-}
-
-const MEASUREMENT_ARM_SYNC_CB_FIELDS = [
-  "name",
-  "description",
-  "tags",
-  "project",
-  "owner",
-  "hashAttribute",
-  "trackingKey",
-  "datasource",
-  "decisionMetric",
-  "status",
-  "archived",
-  "dateStarted",
-  "dateStopped",
-  "coverage",
-  "condition",
-  "savedGroups",
-  "prerequisites",
-  "measurementArm",
-] as const satisfies readonly (keyof ContextualBanditInterface)[];
-
-export function measurementArmSyncFieldsChanged(
-  before: ContextualBanditInterface,
-  after: ContextualBanditInterface,
-): boolean {
-  return MEASUREMENT_ARM_SYNC_CB_FIELDS.some(
-    (field) => !isEqual(before[field], after[field]),
-  );
 }
 
 export function assertMeasurementArmChangeAllowed(
@@ -175,7 +132,37 @@ function buildPhase(
   return phase;
 }
 
-function cbGovernedChanges(
+export const MEASUREMENT_ARM_GOVERNING_CB_FIELDS = [
+  "name",
+  "description",
+  "tags",
+  "project",
+  "owner",
+  "hashAttribute",
+  "trackingKey",
+  "datasource",
+  "decisionMetric",
+  "status",
+  "archived",
+  "dateStarted",
+  "dateStopped",
+  "coverage",
+  "condition",
+  "savedGroups",
+  "prerequisites",
+  "measurementArm",
+] as const satisfies readonly (keyof ContextualBanditInterface)[];
+
+export function measurementArmSyncFieldsChanged(
+  before: ContextualBanditInterface,
+  after: ContextualBanditInterface,
+): boolean {
+  return MEASUREMENT_ARM_GOVERNING_CB_FIELDS.some(
+    (field) => !isEqual(before[field], after[field]),
+  );
+}
+
+export function cbGovernedChanges(
   cb: ContextualBanditInterface,
   arm: ContextualBanditMeasurementArm,
   experiment?: ExperimentInterface,
@@ -188,7 +175,7 @@ function cbGovernedChanges(
     description: cb.description ?? "",
     tags: cb.tags ?? [],
     project: cb.project ?? "",
-    owner: cb.owner ?? "",
+    owner: cb.owner || "",
     hashAttribute: cb.hashAttribute || "id",
     fallbackAttribute: "",
     hashVersion: 2,
@@ -214,13 +201,11 @@ export async function createMeasurementArmExperiment(
   cb: ContextualBanditInterface,
   arm: ContextualBanditMeasurementArm,
 ): Promise<ExperimentInterface> {
-  const { org, userId } = context;
-  const governed = cbGovernedChanges(cb, arm);
+  const { org } = context;
 
   const data: Partial<ExperimentInterface> = {
-    ...governed,
+    ...cbGovernedChanges(cb, arm),
     organization: org.id,
-    owner: cb.owner || userId || "",
     autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),

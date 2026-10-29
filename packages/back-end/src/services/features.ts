@@ -73,10 +73,8 @@ import {
   getActiveMeasurementArm,
   getContextualBanditMeasurementArmFeatureDefId,
   measurementArmWeights,
-  CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX,
   MEASUREMENT_ARM_BANDIT_VALUE,
   MEASUREMENT_ARM_CONTROL_VALUE,
-  MEASUREMENT_ARM_GENPOP_VALUE,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -129,6 +127,7 @@ import {
   FeatureTestResult,
   ForceRule,
   RolloutRule,
+  SavedGroupTargeting,
 } from "shared/types/feature";
 import {
   Environment,
@@ -433,46 +432,23 @@ export function generateHoldoutsPayload({
     const mainPhase = exp.phases[0];
     if (!mainPhase) return;
 
-    const rule: FeatureDefinitionRule = {
+    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = buildGatingFeature({
       id: getHoldoutFeatureDefId(holdout.id),
       coverage: mainPhase.coverage,
       hashAttribute: exp.hashAttribute,
       seed: mainPhase.seed,
-      hashVersion: 2,
       variations: ["holdoutcontrol", "holdouttreatment"],
       weights: [0.5, 0.5],
-      key: exp.trackingKey,
+      trackingKey: exp.trackingKey,
       phase: `${exp.phases.length - 1}`,
-      meta: [{ key: "0" }, { key: "1" }],
-    };
-
-    const condition = mergeConditionAndSavedGroups({
-      savedGroupStrategy,
       condition: mainPhase.condition,
       savedGroups: mainPhase.savedGroups,
+      savedGroupStrategy,
     });
-    if (condition) {
-      // Same last step every other rule producer takes. Without it a holdout
-      // authored with the condition builder's "is in saved group" operator
-      // keeps `$inGroup` in a format that does not use it.
-      savedGroupStrategy.finalizeCondition(condition);
-      rule.condition = condition;
-    }
-
-    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = {
-      defaultValue: "genpop",
-      rules: [rule],
-    };
   });
   return holdoutDefs;
 }
 
-/**
- * One pseudo-feature per running contextual bandit with an enabled measurement
- * arm. Linked features gate their control force rule and their CB rule on this
- * feature's value, so the wrapper carries the CB's targeting, coverage and hash
- * attribute, and its own seed. Same shape as the holdout pseudo-feature.
- */
 export function generateContextualBanditMeasurementArmsPayload({
   cbMap,
   savedGroupStrategy,
@@ -487,43 +463,88 @@ export function generateContextualBanditMeasurementArmsPayload({
     if (!arm) return;
 
     const id = getContextualBanditMeasurementArmFeatureDefId(cb.id);
-    const rule: FeatureDefinitionRule = {
+    defs[id] = buildGatingFeature({
       id,
       coverage: cb.coverage ?? 1,
       hashAttribute: cb.hashAttribute || "id",
       seed: arm.seed,
-      hashVersion: 2,
       disableStickyBucketing: true,
       variations: [MEASUREMENT_ARM_CONTROL_VALUE, MEASUREMENT_ARM_BANDIT_VALUE],
       weights: measurementArmWeights(arm.percent),
-      key: arm.trackingKey,
+      trackingKey: arm.trackingKey,
       phase: "0",
-      meta: [{ key: "0" }, { key: "1" }],
-    };
-
-    const condition = mergeConditionAndSavedGroups({
-      savedGroupStrategy,
       condition: cb.condition,
       savedGroups: cb.savedGroups,
+      prerequisites: cb.prerequisites,
+      savedGroupStrategy,
     });
-    if (condition) {
-      savedGroupStrategy.finalizeCondition(condition);
-      rule.condition = condition;
-    }
-    if (cb.prerequisites?.length) {
-      rule.parentConditions = prerequisiteParentConditions(
-        cb.prerequisites,
-        savedGroupStrategy,
-      );
-      savedGroupStrategy.finalizeCondition(rule.parentConditions);
-    }
-
-    defs[id] = {
-      defaultValue: MEASUREMENT_ARM_GENPOP_VALUE,
-      rules: [rule],
-    };
   });
   return defs;
+}
+
+const GATING_FEATURE_DEFAULT_VALUE = "genpop";
+
+function buildGatingFeature({
+  id,
+  coverage,
+  hashAttribute,
+  seed,
+  disableStickyBucketing,
+  variations,
+  weights,
+  trackingKey,
+  phase,
+  condition,
+  savedGroups,
+  prerequisites,
+  savedGroupStrategy,
+}: {
+  id: string;
+  coverage: number;
+  hashAttribute: string;
+  seed?: string;
+  disableStickyBucketing?: boolean;
+  variations: [string, string];
+  weights: [number, number];
+  trackingKey: string;
+  phase: string;
+  condition?: string;
+  savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): FeatureDefinition {
+  const rule: FeatureDefinitionRule = {
+    id,
+    coverage,
+    hashAttribute,
+    seed,
+    hashVersion: 2,
+    ...(disableStickyBucketing ? { disableStickyBucketing: true } : {}),
+    variations,
+    weights,
+    key: trackingKey,
+    phase,
+    meta: [{ key: "0" }, { key: "1" }],
+  };
+
+  const mergedCondition = mergeConditionAndSavedGroups({
+    savedGroupStrategy,
+    condition,
+    savedGroups,
+  });
+  if (mergedCondition) {
+    savedGroupStrategy.finalizeCondition(mergedCondition);
+    rule.condition = mergedCondition;
+  }
+  if (prerequisites?.length) {
+    rule.parentConditions = prerequisiteParentConditions(
+      prerequisites,
+      savedGroupStrategy,
+    );
+    savedGroupStrategy.finalizeCondition(rule.parentConditions);
+  }
+
+  return { defaultValue: GATING_FEATURE_DEFAULT_VALUE, rules: [rule] };
 }
 
 export function generateInterleavingsPayload({
@@ -2118,35 +2139,21 @@ export type SDKPayloadBuildInput = {
   data: SDKPayloadRawData;
 };
 
-// Keep only holdout defs that are referenced by at least one feature rule, and
-// measurement-arm defs referenced by a feature rule or an auto experiment.
-function pruneUnreferencedHoldouts(
-  holdouts: Record<string, FeatureDefinition>,
+function pruneUnreferencedGatingFeatures(
+  gatingFeatures: Record<string, FeatureDefinition>,
   features: Record<string, FeatureDefinition>,
   experiments: AutoExperiment[] = [],
 ): Record<string, FeatureDefinition> {
   const referenced = new Set<string>();
-  for (const k in features) {
-    for (const rule of features[k]?.rules ?? []) {
-      for (const pc of rule.parentConditions ?? []) {
-        if (
-          pc.id?.startsWith("$holdout:") ||
-          pc.id?.startsWith(CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX)
-        ) {
-          referenced.add(pc.id);
-        }
-      }
-    }
-  }
-  for (const exp of experiments) {
-    for (const pc of exp.parentConditions ?? []) {
-      if (pc.id?.startsWith(CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX)) {
-        referenced.add(pc.id);
-      }
-    }
+  const parentConditions = [
+    ...Object.values(features).flatMap((f) => f.rules ?? []),
+    ...experiments,
+  ].flatMap((r) => r.parentConditions ?? []);
+  for (const pc of parentConditions) {
+    if (pc.id && pc.id in gatingFeatures) referenced.add(pc.id);
   }
   return Object.fromEntries(
-    Object.entries(holdouts).filter(([key]) => referenced.has(key)),
+    Object.entries(gatingFeatures).filter(([key]) => referenced.has(key)),
   );
 }
 
@@ -2353,7 +2360,7 @@ export async function buildSDKPayloadForConnection(
       savedGroupStrategy,
     });
 
-  const holdoutsInUse = pruneUnreferencedHoldouts(
+  const gatingFeaturesInUse = pruneUnreferencedGatingFeatures(
     { ...holdoutFeatureDefinitions, ...measurementArmFeatureDefinitions },
     featureDefinitions,
     experimentsDefinitions,
@@ -2370,7 +2377,7 @@ export async function buildSDKPayloadForConnection(
 
   const featuresWithHoldouts = {
     ...featureDefinitions,
-    ...holdoutsInUse,
+    ...gatingFeaturesInUse,
     ...interleavingsPayload?.features,
   };
 

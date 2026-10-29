@@ -10,7 +10,6 @@ export const CONTEXTUAL_BANDIT_MEASUREMENT_ARM_DEF_PREFIX = "$cbma:";
 
 export const MEASUREMENT_ARM_CONTROL_VALUE = "control";
 export const MEASUREMENT_ARM_BANDIT_VALUE = "bandit";
-export const MEASUREMENT_ARM_GENPOP_VALUE = "genpop";
 
 export function isContextualBanditMeasurementArm(exp: {
   type?: string | null;

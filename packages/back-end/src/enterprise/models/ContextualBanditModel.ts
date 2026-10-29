@@ -764,6 +764,16 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
         { err: e, cbId: newDoc.id },
         "Failed to sync the measurement arm experiment",
       );
+      const lifecycleChanged =
+        existing.status !== newDoc.status ||
+        !!existing.archived !== !!newDoc.archived;
+      if (lifecycleChanged) {
+        throw new Error(
+          `The Contextual Bandit was updated, but its measurement arm experiment could not be: ${
+            e instanceof Error ? e.message : String(e)
+          }`,
+        );
+      }
     }
   }
 
@@ -808,22 +818,24 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     newDoc: ContextualBanditInterface,
     writeOptions?: WriteOptions,
   ) {
-    await this.syncMeasurementArmAfterUpdate(existing, newDoc);
-    if (writeOptions?.skipSDKRefresh) return;
-    if (!contextualBanditUpdateAffectsPayload(existing, updates, newDoc))
-      return;
-    await refreshLinkedFeaturePayloads(
-      this.context,
-      newDoc,
-      "contextualBandit.refresh",
-    );
-    if ((existing.project || "") !== (newDoc.project || "")) {
+    if (
+      !writeOptions?.skipSDKRefresh &&
+      contextualBanditUpdateAffectsPayload(existing, updates, newDoc)
+    ) {
       await refreshLinkedFeaturePayloads(
         this.context,
-        existing,
+        newDoc,
         "contextualBandit.refresh",
       );
+      if ((existing.project || "") !== (newDoc.project || "")) {
+        await refreshLinkedFeaturePayloads(
+          this.context,
+          existing,
+          "contextualBandit.refresh",
+        );
+      }
     }
+    await this.syncMeasurementArmAfterUpdate(existing, newDoc);
   }
 
   protected async afterDelete(doc: ContextualBanditInterface) {
