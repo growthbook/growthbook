@@ -200,7 +200,7 @@ export default function ExperimentDecisionExplanation({
       ))}
       {tie ? (
         <Box mt="1">
-          <Reason color="amber" icon={<PiMinusCircleBold />} hint={tie.hint}>
+          <Reason color="gray" icon={<PiMinusCircleBold />} hint={tie.hint}>
             {tie.text}
           </Reason>
         </Box>
@@ -214,7 +214,7 @@ export default function ExperimentDecisionExplanation({
             {cautions.map(({ text, hint }, i) => (
               <Reason
                 key={i}
-                color="yellow"
+                color="amber"
                 icon={<PiWarningBold />}
                 hint={hint}
               >
@@ -240,7 +240,7 @@ export default function ExperimentDecisionExplanation({
   );
 }
 
-type ReasonColor = "green" | "amber" | "yellow" | "red";
+type ReasonColor = "green" | "amber" | "gray" | "red";
 
 // A roll back's reasons count against the variation; the others for it.
 export function Reason({

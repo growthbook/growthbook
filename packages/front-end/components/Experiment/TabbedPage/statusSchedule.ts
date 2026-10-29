@@ -56,7 +56,7 @@ export const upcomingEnd = (
     experiment.archived ||
     (schedule?.stopAt && new Date(schedule.stopAt) <= now)
     ? null
-    : scheduledEnd(schedule, date);
+    : scheduledEnd(schedule, day);
 };
 
 /**

@@ -13,6 +13,7 @@ import {
   ExperimentResultStatusData,
   VariationWithIndex,
 } from "shared/types/experiment";
+import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import { Fragment, useState } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import {
@@ -29,6 +30,7 @@ import VariationLabel from "@/ui/VariationLabel";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
+import useApi from "@/hooks/useApi";
 import ExperimentDecisionExplanation, {
   Reason,
 } from "./ExperimentDecisionExplanation";
@@ -67,21 +69,25 @@ type ShipLean =
   | { by: "goal"; metricName: string; winnerId: string };
 
 // The results a decision reads: the latest phase, overall, in its default
-// analysis. Never the slice or settings open on Results; none while Results
-// shows an earlier phase. Each column named as the decision names variations.
+// analysis. Never the slice, settings or earlier phase open on Results. Each
+// column named as the decision names variations.
 function useDecisionResults(experiment: ExperimentInterfaceStringDates) {
   const { dimensionless, phase } = useSnapshot();
-  const analysis =
-    dimensionless && phase === experiment.phases.length - 1
-      ? getSnapshotAnalysis(dimensionless)
-      : null;
-  if (!dimensionless || !analysis) return null;
+  const latestPhase = experiment.phases.length - 1;
+  const viewingLatest = phase === latestPhase;
+  const { data } = useApi<{ snapshot: ExperimentSnapshotInterface }>(
+    `/experiment/${experiment.id}/snapshot/${latestPhase}`,
+    { shouldRun: () => !viewingLatest, autoRevalidate: false },
+  );
+  const snapshot = viewingLatest ? dimensionless : data?.snapshot;
+  const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
+  if (!snapshot || !analysis) return null;
   return {
     analysis,
     results: analysis.results?.[0]?.variations ?? [],
     variationIds: snapshotColumnVariationIds(
       experiment,
-      dimensionless.settings.variations,
+      snapshot.settings.variations,
     ),
   };
 }

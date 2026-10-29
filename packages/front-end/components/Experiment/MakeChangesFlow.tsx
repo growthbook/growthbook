@@ -15,6 +15,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
 import TruncatedText from "@/ui/TruncatedText";
 import TargetingForm from "./TargetingForm";
@@ -220,7 +221,7 @@ export default function MakeChangesFlow({
       }
     >
       <Page display="Type of Changes">
-        <div className="py-2">
+        <Box py="2">
           <ChangeTypeSelector
             experiment={experiment}
             changeType={changeType}
@@ -228,10 +229,12 @@ export default function MakeChangesFlow({
           />
 
           <Box mt="4">
-            <label>Current targeting and traffic (for reference)</label>
+            <Text as="div" weight="semibold" mb="2">
+              Current targeting and traffic (for reference)
+            </Text>
             <TargetingInfo experiment={experiment} />
           </Box>
-        </div>
+        </Box>
       </Page>
 
       {changeType !== "phase" && (

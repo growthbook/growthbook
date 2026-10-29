@@ -208,10 +208,14 @@ export default function AnalysisPlanAdvanced({
   };
   // What the org and project would give a new experiment now. Unset, an old
   // experiment's CUPED stays off; a new one gets the org's default.
+  const hasCuped = hasCommercialFeature("regression-adjustment");
   const defaults = {
     ...getUnsetAnalysisSettings({ organization, project, experiment: {} }),
-    regressionAdjustmentEnabled: !!getScopedSettings({ organization, project })
-      .settings.regressionAdjustmentEnabled.value,
+    // Only if the plan has it, or a reset stages a change the card can't show.
+    regressionAdjustmentEnabled:
+      hasCuped &&
+      !!getScopedSettings({ organization, project }).settings
+        .regressionAdjustmentEnabled.value,
   };
   const defaultAttributionModel =
     orgSettings.attributionModel || "firstExposure";
@@ -256,7 +260,6 @@ export default function AnalysisPlanAdvanced({
     experiment.type,
   );
 
-  const hasCuped = hasCommercialFeature("regression-adjustment");
   const hasPostStratification = hasCommercialFeature("post-stratification");
   const hasSequential = hasCommercialFeature("sequential-testing");
   const sequentialEnabled = !!settled.sequentialTestingEnabled;

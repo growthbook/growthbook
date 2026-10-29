@@ -40,8 +40,7 @@ import {
 } from "shared/types/report";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { format } from "date-fns-tz";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import UITooltip from "@/ui/Tooltip";
+import Tooltip from "@/ui/Tooltip";
 import { Popover } from "@/ui/Popover";
 import { useAuth } from "@/services/auth";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
@@ -163,7 +162,7 @@ const DisabledHealthTabTooltip = ({
   children: ReactNode;
 }) => {
   return (
-    <Tooltip body={HEALTH_TAB_DISABLED_REASONS[reason]}>{children}</Tooltip>
+    <Tooltip content={HEALTH_TAB_DISABLED_REASONS[reason]}>{children}</Tooltip>
   );
 };
 
@@ -184,9 +183,9 @@ function StoredActionItem({
       color={color}
       disabled={!!blockedReason}
     >
-      <UITooltip content={blockedReason} side="left" enabled={!!blockedReason}>
+      <Tooltip content={blockedReason} side="left" enabled={!!blockedReason}>
         <span>{children}</span>
-      </UITooltip>
+      </Tooltip>
     </DropdownMenuItem>
   );
 }
@@ -531,7 +530,7 @@ export default function ExperimentHeader({
   // Breaks only between dates, never inside one, or keeps to one line. The
   // rest of its dates are in the tooltip, when it has any.
   const datesLine = (oneLine: boolean) => (
-    <UITooltip enabled={everyDate.length > 1} content={everyDateList}>
+    <Tooltip enabled={everyDate.length > 1} content={everyDateList}>
       <span
         tabIndex={everyDate.length > 1 ? 0 : undefined}
         // Inset, so the box clipping it to one line keeps its focus ring.
@@ -556,7 +555,7 @@ export default function ExperimentHeader({
           ))}
         </Text>
       </span>
-    </UITooltip>
+    </Tooltip>
   );
   const startGate = useStartGate({
     experiment,
@@ -1026,7 +1025,7 @@ export default function ExperimentHeader({
                       />
                     ) : experiment.status === "draft" &&
                       nextScheduledStartDate ? (
-                      <UITooltip
+                      <Tooltip
                         content={
                           editsBlocked ??
                           (canRunExperiment
@@ -1042,15 +1041,15 @@ export default function ExperimentHeader({
                           Starts {format(nextScheduledStartDate, "MMM d")}{" "}
                           {editSchedule && <PiPencilSimple className="ml-1" />}
                         </Button>
-                      </UITooltip>
+                      </Tooltip>
                     ) : experiment.status === "draft" &&
                       !experiment.archived &&
                       !canRunExperiment ? (
-                      <UITooltip content={RUN_PERMISSION_REASON}>
+                      <Tooltip content={RUN_PERMISSION_REASON}>
                         {startButton}
-                      </UITooltip>
+                      </Tooltip>
                     ) : experiment.status === "draft" && canRunExperiment ? (
-                      <UITooltip
+                      <Tooltip
                         enabled={!!editsBlocked}
                         content={editsBlocked}
                         side="bottom"
@@ -1083,7 +1082,7 @@ export default function ExperimentHeader({
                             startPopover
                           )}
                         </span>
-                      </UITooltip>
+                      </Tooltip>
                     ) : null}
                     {experiment.status === "stopped" && experiment.results ? (
                       <>
@@ -1161,12 +1160,14 @@ export default function ExperimentHeader({
                             disabled={!!editsBlocked}
                           >
                             <Tooltip
-                              body={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
-                              tipPosition="left"
+                              content={`Override Holdout schedule and manually ${holdoutStage === "running" ? "start next phase" : "stop Holdout"} now`}
+                              side="left"
                             >
-                              {holdoutStage === "running"
-                                ? "Start Analysis Phase"
-                                : "Stop Holdout"}
+                              <span>
+                                {holdoutStage === "running"
+                                  ? "Start Analysis Phase"
+                                  : "Stop Holdout"}
+                              </span>
                             </Tooltip>
                           </DropdownMenuItem>
                         ) : (
@@ -1178,10 +1179,10 @@ export default function ExperimentHeader({
                             disabled={!!editsBlocked}
                           >
                             <Tooltip
-                              body="Override Holdout schedule and manually start Holdout now"
-                              tipPosition="left"
+                              content="Override Holdout schedule and manually start Holdout now"
+                              side="left"
                             >
-                              Start holdout
+                              <span>Start holdout</span>
                             </Tooltip>
                           </DropdownMenuItem>
                         ))}

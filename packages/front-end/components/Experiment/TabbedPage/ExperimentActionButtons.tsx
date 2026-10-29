@@ -35,7 +35,7 @@ export default function ExperimentActionButtons({
         : "Start Analysis Phase";
     }
     if (readyForDecision) {
-      return "Make Decision";
+      return "Make decision";
     } else if (isBandit) {
       return "Stop Bandit";
     } else {

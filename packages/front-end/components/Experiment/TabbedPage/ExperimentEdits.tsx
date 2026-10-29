@@ -80,6 +80,8 @@ interface ExperimentEditsValue {
   dirty: boolean;
   saving: boolean;
   error: string | null;
+  // The last save went through, but the page still shows what it replaced.
+  refreshFailed: boolean;
   // Set once a save is refused for a rule that applies everywhere;
   // acknowledging lets the next save, and its checks, write it anyway.
   unscopedRule: {
@@ -314,6 +316,9 @@ export function ExperimentEditsProvider({
   // Read by discards, which mid-save would drop a value the save still writes.
   const savingNow = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  // Any refetch that lands shows what saved.
+  useEffect(() => setRefreshFailed(false), [experiment]);
   const [unscopedRefusal, setUnscopedRefusal] = useState<string | null>(null);
   const [allowUnscopedRules, setAllowUnscopedRules] = useState(false);
   const [conflicts, setConflicts] = useState<string[]>([]);
@@ -407,6 +412,7 @@ export function ExperimentEditsProvider({
       setSaving(true);
       savingNow.current = true;
       setError(null);
+      setRefreshFailed(false);
       setConflicts([]);
       const pending = [...edits.current.entries()];
       // A refused save keeps each edit's base, so a retry can't quietly
@@ -464,7 +470,7 @@ export function ExperimentEditsProvider({
           try {
             await mutate();
           } catch {
-            setError("Saved, but the page couldn't refresh. Reload to see it.");
+            setRefreshFailed(true);
           }
         }
         settled.forEach(({ edit, unchanged }) => {
@@ -591,6 +597,7 @@ export function ExperimentEditsProvider({
       dirty: staged.length > 0,
       saving,
       error,
+      refreshFailed,
       unscopedRule,
       saveAll,
       formId,
@@ -623,6 +630,7 @@ export function ExperimentEditsProvider({
       keepMine,
       saving,
       error,
+      refreshFailed,
       unscopedRule,
       saveAll,
       formId,

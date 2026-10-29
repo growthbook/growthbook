@@ -104,11 +104,8 @@ export default function SRMCard({
         {!hideDimensions && (
           // Out of the flow, so the balance check alone sets the row's height
           // and a long dimension list scrolls within it.
-          <div className="col p-0 position-relative">
-            <div
-              className="position-absolute overflow-hidden"
-              style={{ inset: 0 }}
-            >
+          <Box className="col" p="0" position="relative">
+            <Box position="absolute" inset="0" overflow="hidden">
               <DimensionIssues
                 dimensionData={traffic.dimension}
                 variations={variations}
@@ -118,8 +115,8 @@ export default function SRMCard({
                 canConfigHealthTab={canConfigHealthTab}
                 isBandit={false}
               />
-            </div>
-          </div>
+            </Box>
+          </Box>
         )}
       </div>
     </div>

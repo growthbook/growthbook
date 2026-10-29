@@ -791,6 +791,18 @@ function TabbedPageContents({
                 !showDashboardView && (
                   <CustomMarkdown page={"experiment"} variables={variables} />
                 )}
+              {edits?.refreshFailed ? (
+                <Callout
+                  status="warning"
+                  action={
+                    <Link onClick={() => window.location.reload()}>Reload</Link>
+                  }
+                  {...bannerMargin}
+                >
+                  Your changes saved, but the page couldn&apos;t refresh to show
+                  them.
+                </Callout>
+              ) : null}
               {showStoppedBanner && (
                 <StoppedExperimentBanner
                   experiment={experiment}

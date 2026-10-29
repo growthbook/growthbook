@@ -603,13 +603,7 @@ const MetricDrilldownModal = ({
                 officialBadgeLeftGap={false}
               />
             </Text>
-            <IconButton
-              asChild
-              variant="ghost"
-              color="violet"
-              radius="full"
-              size="2"
-            >
+            <IconButton asChild variant="ghost" radius="full" size="2">
               <a
                 href={getMetricLink(metric.id)}
                 target="_blank"
