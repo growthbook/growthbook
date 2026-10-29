@@ -78,8 +78,9 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  concludeRefresh,
   FULL_REFRESH_NEXT_HINT,
-  releaseConcludedRefresh,
+  RESULTS_NOT_COMMITTED_ERROR,
 } from "back-end/src/jobs/interruptedRefresh";
 import {
   SnapshotResult,
@@ -1257,6 +1258,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
   private writeSourceLists = createOrderedWriter();
+  // Every query started so far, even if planning the rest then throws.
+  public startedQueries: Queries = [];
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1333,7 +1336,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.context,
       params,
       this.integration,
-      this.startQuery.bind(this),
+      async (queryParams) => {
+        const pointer = await this.startQuery(queryParams);
+        this.startedQueries.push(pointer);
+        return pointer;
+      },
       this.experimentUpdateExecutionLogger,
       this.writeSourceLists,
     );
@@ -1462,7 +1469,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   ): Promise<void> {
     // Reached from the runner's own failure paths, where neither the queries
     // nor the analysis is known to be at fault. Queries may still be running.
-    const needsFullRefresh = await this.releaseConcludedRun("failed");
+    const { needsFullRefresh } = await this.releaseConcludedRun("failed");
     await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
@@ -1477,31 +1484,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   }
 
   /**
-   * Lands queued source-list writes, then releases the lock with whatever
-   * cleanup the run's status calls for. Returns true when only a full refresh
-   * is safe next.
+   * Lands queued source-list writes, then concludes the run: commits its
+   * results if it still holds the lock and releases the lock with whatever
+   * cleanup its status calls for.
    */
   private async releaseConcludedRun(
     status: "succeeded" | "partially-succeeded" | "failed",
     queries: Queries = this.model.queries,
-  ): Promise<boolean> {
+  ): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
     try {
       await this.writeSourceLists.flush();
-      if (status !== "failed") {
-        await this.context.models.incrementalRefresh
-          .updateByExperimentIdIfCurrentExecution(
-            this.model.experiment,
-            this.model.id,
-            { materializedBySnapshotId: this.model.id },
-          )
-          .catch((e) =>
-            this.context.logger.warn(
-              e,
-              "Failed to record pipeline tables snapshot id on success",
-            ),
-          );
-      }
-      return await releaseConcludedRefresh(
+      return await concludeRefresh(
         this.context,
         {
           ...this.model,
@@ -1512,9 +1505,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     } catch (e) {
       this.context.logger.warn(
         e,
-        "Failed to release the incremental refresh lock on terminal status",
+        "Failed to conclude the incremental refresh on terminal status",
       );
-      return true;
+      return {
+        resultsError: status === "failed" ? null : RESULTS_NOT_COMMITTED_ERROR,
+        needsFullRefresh: true,
+      };
     }
   }
 
@@ -1533,22 +1529,27 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     error?: string;
     failureCause?: QueryRunnerFailureCause;
   }): Promise<ExperimentSnapshotInterface> {
-    const snapshotStatus =
+    let snapshotStatus: ExperimentSnapshotInterface["status"] =
       status === "running"
         ? "running"
         : status === "failed"
           ? "error"
           : "success";
 
-    // Released before the result is saved, so its error can say when only a
-    // full refresh is safe next.
+    // Concluded before the result is saved: results are saved only if they
+    // were committed, and the error can say when only a full refresh is safe.
     if (snapshotStatus !== "running") {
-      const needsFullRefresh = await this.releaseConcludedRun(
+      const { resultsError, needsFullRefresh } = await this.releaseConcludedRun(
         status === "failed" || status === "partially-succeeded"
           ? status
           : "succeeded",
         queries,
       );
+      if (resultsError) {
+        snapshotStatus = "error";
+        result = undefined;
+        error = resultsError;
+      }
       if (needsFullRefresh) {
         error = error
           ? `${error} ${FULL_REFRESH_NEXT_HINT}`

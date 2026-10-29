@@ -34,10 +34,11 @@ import {
 } from "back-end/src/queryRunners/QueryRunner";
 import {
   getCancelledRunQueryStatuses,
-  releaseConcludedRefresh,
+  concludeRefresh,
   planInterruptedRunCleanup,
   releaseInterruptedRefresh,
   stopInterruptedRefresh,
+  stopInterruptedRefreshOrRelease,
 } from "back-end/src/jobs/interruptedRefresh";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ApiReqContext } from "back-end/types/api";
@@ -52,6 +53,15 @@ jest.mock("back-end/src/models/QueryModel", () => ({
   ...jest.requireActual("back-end/src/models/QueryModel"),
   getQueryStatusesByIds: jest.fn(),
   failQueuedQueries: jest.fn(),
+}));
+
+jest.mock("back-end/src/util/logger", () => ({
+  logger: {
+    debug: jest.fn(),
+    info: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn(),
+  },
 }));
 
 jest.mock(
@@ -408,6 +418,8 @@ type Schedule = "serial" | "waves";
 class Interrupted extends Error {}
 
 class SimRun {
+  // Set when the run concluded without committing its results.
+  resultsError: string | null = null;
   queries: SimQuery[] = [];
   steps = 0;
   failures: string[] = [];
@@ -429,6 +441,9 @@ class SimRun {
   startQuery = async (
     params: StartQueryParams<RowsType, ProcessedRowsType>,
   ): Promise<QueryPointer> => {
+    if (this.queries.length === this.failPlanningAt) {
+      throw new Error("Planning failed");
+    }
     const id = `${this.snapshotId}_q${this.queries.length}`;
     this.queries.push({
       id,
@@ -441,6 +456,17 @@ class SimRun {
     });
     return { name: params.name, query: id, status: "queued" };
   };
+
+  // Planning throws when it starts this query, as if a write failed.
+  failPlanningAt: number | null = null;
+
+  // Queries without dependencies start as soon as they are created.
+  async startDependencyFree(applyEffects: boolean) {
+    for (const q of this.queries.filter((x) => !x.dependencies.length)) {
+      await this.start(q);
+      if (applyEffects && q.phase === "started") await this.apply(q);
+    }
+  }
 
   // Another snapshot takes the lock once this many steps have run.
   stealLockAfter: number | null = null;
@@ -806,6 +832,7 @@ class Experiment {
     detachCovariateCallbacks = false,
     beforeCallback,
     stealLockAfter = null,
+    failPlanningAt = null,
   }: {
     now: number;
     fullRefresh: boolean;
@@ -815,6 +842,7 @@ class Experiment {
     detachCovariateCallbacks?: boolean;
     beforeCallback?: (q: SimQuery, queries: SimQuery[]) => void;
     stealLockAfter?: number | null;
+    failPlanningAt?: number | null;
   }) {
     const snapshotId = `snp_${++snapshotCounter}`;
     const locked = await model.acquireLock({
@@ -836,13 +864,14 @@ class Experiment {
     run.detachCovariateCallbacks = detachCovariateCallbacks;
     if (beforeCallback) run.beforeCallback = beforeCallback;
     run.stealLockAfter = stealLockAfter;
+    run.failPlanningAt = failPlanningAt;
     run.stealLock = async () => {
       await model.updateByExperimentIdIfCurrentExecution(this.id, snapshotId, {
         currentExecutionSnapshotId: THIEF_SNAPSHOT_ID,
       });
     };
     const { factTableMap, metrics, settings } = this.built;
-    await startExperimentIncrementalRefreshQueries(
+    const planning = startExperimentIncrementalRefreshQueries(
       context(),
       {
         snapshotType: "standard",
@@ -861,6 +890,11 @@ class Experiment {
       null,
       run.writer,
     );
+    if (failPlanningAt !== null) {
+      await expect(planning).rejects.toThrow("Planning failed");
+      return { run, finished: false };
+    }
+    await planning;
     const finished = await run.execute(schedule);
     if (!detachCovariateCallbacks) await drainWrites();
     return { run, finished };
@@ -878,20 +912,18 @@ class Experiment {
     return run;
   }
 
-  // Releases a finished run as the runner does. Returns true when only a full
-  // refresh is safe next.
+  // Concludes a finished run as the runner does. Returns true when only a
+  // full refresh is safe next.
   async release(run: SimRun) {
     await run.writer.flush();
-    const status = finishedStatus(run);
-    if (status !== "failed") {
-      await model.updateByExperimentIdIfCurrentExecution(
-        this.id,
-        run.snapshotId,
-        { materializedBySnapshotId: run.snapshotId },
-      );
-    }
     mockQueryStore(run);
-    return releaseConcludedRefresh(context(), snapshotOf(this.id, run), status);
+    const { resultsError, needsFullRefresh } = await concludeRefresh(
+      context(),
+      snapshotOf(this.id, run),
+      finishedStatus(run),
+    );
+    run.resultsError = resultsError;
+    return needsFullRefresh;
   }
 
   // What the cache tables hold, as the statistics queries read them.
@@ -998,6 +1030,10 @@ function mockQueryStore(run: SimRun) {
     }),
   );
 }
+
+// The run ended with results it was allowed to save.
+const committed = (run: SimRun) =>
+  finishedStatus(run) !== "failed" && run.resultsError === null;
 
 function finishedStatus(run: SimRun) {
   const status = rollupQueryStatus(
@@ -1346,6 +1382,9 @@ async function expectLostLockNeverCountsAsSaved(
 
     // The thief never runs; once it lets go, the next refresh must be right.
     const needsFullRefresh = await exp.release(run);
+    if (committed(run)) {
+      failures.push(`${where}: committed its results without the lock`);
+    }
     await model.releaseLock(exp.id, THIEF_SNAPSHOT_ID);
     try {
       await nextRefresh(exp, needsFullRefresh);
@@ -1353,6 +1392,50 @@ async function expectLostLockNeverCountsAsSaved(
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
       failures.push(`${where}: ${message.split("\n").slice(0, 12).join(" ")}`);
+    }
+  }
+  return failures;
+}
+
+// Planning throws part-way, after queries without dependencies have started,
+// and the lock is released the way snapshot creation does on an error.
+async function expectFailedPlanningCleansUp(
+  config: Config,
+  fullRefresh: boolean,
+) {
+  const failures: string[] = [];
+  const count = (
+    await (
+      await setUpExperiment(config)
+    ).startRun({ now: INTERRUPTED_AT, fullRefresh })
+  ).run.queries.length;
+  for (let failPlanningAt = 1; failPlanningAt < count; failPlanningAt++) {
+    for (const applyEffectsFirst of [true, false]) {
+      const exp = await setUpExperiment(config);
+      const { run } = await exp.startRun({
+        now: INTERRUPTED_AT,
+        fullRefresh,
+        failPlanningAt,
+      });
+      await run.startDependencyFree(applyEffectsFirst);
+      mockQueryStore(run);
+      const { needsFullRefresh } = await stopInterruptedRefreshOrRelease(
+        context(),
+        snapshotOf(exp.id, run),
+      );
+      await run.finishLate(true);
+      await drainWrites();
+      const where = `planning failed at query ${failPlanningAt}${applyEffectsFirst ? "" : ", effects landing late"}`;
+      try {
+        expect((await getDoc(exp.id))?.currentExecutionSnapshotId).toBeNull();
+        await nextRefresh(exp, needsFullRefresh);
+        expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        failures.push(
+          `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
+        );
+      }
     }
   }
   return failures;
@@ -1410,6 +1493,17 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       await slowCovariateWriteThenFailedSource({ groups, covariates: true });
     },
   );
+
+  describe.each(modes)("$mode", ({ fullRefresh }) => {
+    it.each(configs.map((c) => [label(c), c] as const))(
+      "recovers when planning fails after queries started: %s",
+      async (_, config) => {
+        expect(await expectFailedPlanningCleansUp(config, fullRefresh)).toEqual(
+          [],
+        );
+      },
+    );
+  });
 
   describe.each(modes)("$mode", ({ fullRefresh }) => {
     it.each(configs.map((c) => [label(c), c] as const))(

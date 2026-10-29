@@ -15,6 +15,8 @@ import { ReqContext } from "back-end/types/request";
 export const FULL_REFRESH_NEXT_HINT =
   "Choose Full refresh from the results page's three-dot menu next, not Update, because Update could now fail or count some data twice.";
 export const INTERRUPTED_REFRESH_ERROR = `This update stopped before it finished. ${FULL_REFRESH_NEXT_HINT}`;
+export const RESULTS_NOT_COMMITTED_ERROR =
+  "Another update took over this experiment's cache tables before this one finished, so its results were not saved. Please try updating results again.";
 export const NOT_RUN_QUERY_ERROR =
   "Not run: the update this query belonged to stopped before the query started.";
 
@@ -252,4 +254,33 @@ export async function releaseConcludedRefresh(
     new Map(snapshot.queries.map((q) => [q.query, q.status])),
     { runFinished: true },
   );
+}
+
+/**
+ * Concludes a run that reached a terminal status. Its results are committed
+ * only while it still holds the lock; then the lock is released with the
+ * cleanup the status calls for. Returns the error to save instead of the
+ * results, if any, and whether only a full refresh is safe next.
+ */
+export async function concludeRefresh(
+  context: ReqContext | ApiReqContext,
+  snapshot: Parameters<typeof stopInterruptedRefresh>[1],
+  status: "succeeded" | "partially-succeeded" | "failed",
+): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
+  let resultsError: string | null = null;
+  if (status !== "failed") {
+    const committed =
+      await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
+        snapshot.experiment,
+        snapshot.id,
+        { materializedBySnapshotId: snapshot.id },
+      );
+    if (!committed) resultsError = RESULTS_NOT_COMMITTED_ERROR;
+  }
+  const needsFullRefresh = await releaseConcludedRefresh(
+    context,
+    snapshot,
+    status,
+  );
+  return { resultsError, needsFullRefresh };
 }

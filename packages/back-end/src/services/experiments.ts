@@ -227,6 +227,7 @@ import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/feature
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { stopInterruptedRefreshOrRelease } from "back-end/src/jobs/interruptedRefresh";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -2183,6 +2184,7 @@ export async function createSnapshotFromPlan({
   }
 
   let createdSnapshotId: string | null = null;
+  let incrementalRunner: ExperimentIncrementalRefreshQueryRunner | null = null;
   let experimentUpdateExecutionLogger: ExperimentUpdateExecutionLogger | null =
     null;
 
@@ -2249,12 +2251,13 @@ export async function createSnapshotFromPlan({
         break;
       case "incremental-full":
       case "incremental-update":
-        queryRunner = new ExperimentIncrementalRefreshQueryRunner(
+        incrementalRunner = new ExperimentIncrementalRefreshQueryRunner(
           context,
           snapshot,
           integration,
           false, // always ignore cache for incremental refresh queries
         );
+        queryRunner = incrementalRunner;
         break;
       case "results":
         queryRunner = new ExperimentResultsQueryRunner(
@@ -2345,7 +2348,20 @@ export async function createSnapshotFromPlan({
 
     return queryRunner;
   } catch (e) {
-    if (hasIncrementalRefreshLock) {
+    // Queries without dependencies start as soon as they are created, so a
+    // refresh that failed while planning may already have changed its tables.
+    const startedQueries = incrementalRunner?.startedQueries ?? [];
+    if (hasIncrementalRefreshLock && startedQueries.length) {
+      await stopInterruptedRefreshOrRelease(context, {
+        ...plan.snapshot,
+        queries: startedQueries,
+      }).catch((releaseErr) =>
+        context.logger.warn(
+          releaseErr,
+          "Failed to clean up the incremental refresh during error cleanup",
+        ),
+      );
+    } else if (hasIncrementalRefreshLock) {
       await context.models.incrementalRefresh
         .releaseLock(experiment.id, plan.snapshot.id)
         .catch((releaseErr) =>
