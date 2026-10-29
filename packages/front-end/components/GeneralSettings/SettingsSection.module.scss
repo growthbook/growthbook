@@ -52,14 +52,13 @@
     transition: none;
   }
 
-  // Without the sub nav, the count lines up with the page content instead.
-  @media (max-width: 1399px) {
-    padding-left: 40px;
-  }
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
     left: 0;
-    padding-right: max(40px, calc(100% - 960px));
+  }
+  // Without the sub nav, the count lines up with the page content instead.
+  @media (max-width: 1023px) {
+    padding-left: 40px;
   }
 }
 
@@ -127,8 +126,8 @@
   padding-top: var(--space-3);
 }
 
-// The Settings nav title stands in for it from 1400px; screen readers still get the h1.
-@media (min-width: 1400px) {
+// The Settings nav title stands in for it from 1024px; screen readers still get the h1.
+@media (min-width: 1024px) {
   .wideHidden {
     position: absolute;
     width: 1px;

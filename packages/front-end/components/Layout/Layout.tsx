@@ -6,6 +6,7 @@ import Sidebar from "./Sidebar";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import SettingsNav from "./SettingsNav";
+import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
 
 const otherPageTitles = [
   {
@@ -41,8 +42,10 @@ const otherPageTitles = [
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
   const { breadcrumb } = usePageHead();
-  // Narrower, the pages beside the Settings nav get too tight.
-  const wide = useMediaQuery("(min-width: 1400px)");
+  // Narrower, the Settings nav moves into the header (SettingsJumpMenu).
+  const settingsNarrow = useMediaQuery(
+    `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
+  );
 
   // hacky:
   const router = useRouter();
@@ -77,15 +80,18 @@ const Layout = (): React.ReactElement => {
     }
   });
 
+  const inSettings = isSettingsRoute(router.route);
+
   return (
     <>
       <Sidebar />
-      {wide && isSettingsRoute(router.route) ? <SettingsNav /> : null}
+      {inSettings && !settingsNarrow ? <SettingsNav /> : null}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
         menuOpen={open}
+        showSettingsJumpMenu={inSettings && settingsNarrow}
       />
     </>
   );

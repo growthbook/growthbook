@@ -19,6 +19,13 @@
     --header-height: 80px;
   }
 }
+// Three below 1024px on Settings pages, for SettingsJumpMenu. Keep in sync
+// with SETTINGS_NAV_MIN_WIDTH_PX in components/Layout/constants.ts.
+@media (max-width: 1023px) {
+  :root:has(#settings-jump-menu) {
+    --header-height: 132px;
+  }
+}
 
 // Sticky page tabs pin 1px under the header to cover its edge. Keep in sync
 // with components/Layout/headerHeight.ts.
@@ -98,10 +105,18 @@ html.app-drawer-open body {
     var(--sidebar-width) + var(--settings-nav-width) + var(--settings-nav-inset)
   );
 }
-// Matches the sub nav's breakpoint: without it, content only clears the sidebar.
-@media (max-width: 1399px) {
+// The sidebar is a drawer here, so the Settings nav starts at the window's
+// edge; below 1024px it's in the header instead (SettingsJumpMenu).
+@media (max-width: 1180px) {
   :root {
-    --settings-layout-left: var(--sidebar-width);
+    --settings-layout-left: calc(
+      var(--settings-nav-width) + var(--settings-nav-inset)
+    );
+  }
+}
+@media (max-width: 1023px) {
+  :root {
+    --settings-layout-left: 0px;
   }
 }
 .main {
@@ -3255,8 +3270,7 @@ html {
 }
 
 @media (max-width: 1180px) {
-  .main,
-  .main.settings-layout {
+  .main {
     padding-left: 0;
   }
 }

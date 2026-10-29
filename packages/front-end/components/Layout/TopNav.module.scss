@@ -22,12 +22,14 @@
     .mobilemenu.mobilemenu {
       display: inline-flex;
     }
-    // Two rows beside the drawer, so the breadcrumb gets the full width.
+    // Two rows beside the drawer, so the breadcrumb gets the full width, and
+    // a third on narrow Settings pages for the Settings nav's button.
     // --header-height grows to match (global.scss).
     .withMenu {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       grid-template-rows: 44px 36px;
+      grid-auto-rows: 52px;
       align-items: center;
       align-self: stretch;
       .mobilemenu {
@@ -45,6 +47,9 @@
       }
       .pagetitle {
         grid-area: 2 / 1 / 3 / -1;
+      }
+      .settingsJump {
+        grid-area: 3 / 1 / 4 / -1;
       }
     }
   }

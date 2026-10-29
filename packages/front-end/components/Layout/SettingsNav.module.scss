@@ -16,9 +16,9 @@
     transition: none;
   }
 
-  // Below this, pages beside it get too narrow; the sidebar lists the pages instead.
-  @media (max-width: 1399px) {
-    display: none;
+  // The sidebar is a drawer here, so this starts at the window's edge.
+  @media (max-width: 1180px) {
+    left: var(--settings-nav-inset);
   }
 }
 
