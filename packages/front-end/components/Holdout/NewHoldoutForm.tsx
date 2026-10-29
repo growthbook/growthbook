@@ -53,7 +53,12 @@ import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOpt
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import {
+  capTypedPercent,
+  COVERAGE_DECIMALS,
+  decimalToPercent,
+  percentToDecimal,
+} from "@/services/utils";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
@@ -572,10 +577,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                           coverageToHoldoutSize(
                             form.watch("phases.0.coverage") ?? 0,
                           ),
+                          COVERAGE_DECIMALS + 2,
                         )
                   }
                   onChange={(e) => {
-                    let holdoutSize = percentToDecimal(e.target.value);
+                    let holdoutSize = percentToDecimal(
+                      capTypedPercent(e.target.value, COVERAGE_DECIMALS),
+                      COVERAGE_DECIMALS + 2,
+                    );
                     if (holdoutSize > MAX_HOLDOUT_SIZE)
                       holdoutSize = MAX_HOLDOUT_SIZE;
                     if (holdoutSize < 0) holdoutSize = 0;
@@ -587,7 +596,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   type="number"
                   min={0}
                   max={decimalToPercent(MAX_HOLDOUT_SIZE)}
-                  step="0.01"
+                  step="any"
                 />
                 <span>%</span>
               </div>

@@ -28,7 +28,12 @@ import { experimentFieldChanges } from "@/components/Experiment/TabbedPage/Exper
 import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import {
+  capTypedPercent,
+  COVERAGE_DECIMALS,
+  decimalToPercent,
+  percentToDecimal,
+} from "@/services/utils";
 
 export interface Props {
   close: () => void;
@@ -150,10 +155,14 @@ function TargetingForm({
                   ? "5"
                   : decimalToPercent(
                       coverageToHoldoutSize(form.watch("coverage") ?? 0),
+                      COVERAGE_DECIMALS + 2,
                     )
               }
               onChange={(e) => {
-                let holdoutSize = percentToDecimal(e.target.value);
+                let holdoutSize = percentToDecimal(
+                  capTypedPercent(e.target.value, COVERAGE_DECIMALS),
+                  COVERAGE_DECIMALS + 2,
+                );
                 if (holdoutSize > MAX_HOLDOUT_SIZE)
                   holdoutSize = MAX_HOLDOUT_SIZE;
                 if (holdoutSize < 0) holdoutSize = 0;
@@ -162,7 +171,7 @@ function TargetingForm({
               type="number"
               min={0}
               max={decimalToPercent(MAX_HOLDOUT_SIZE)}
-              step="0.01"
+              step="any"
             />
             <span>%</span>
           </div>
