@@ -1052,6 +1052,117 @@ export function getInitialSettings(
   };
 }
 
+// Splits assignment queries by whether one of their identifier types is linked
+// to `hashAttribute`. With no attribute links at all, every query is `other`.
+export function getExposureQueriesForAttribute(
+  settings: DataSourceSettings | undefined,
+  hashAttribute: string,
+  queries: ExposureQuery[] = settings?.queries?.exposure || [],
+): { matching: ExposureQuery[]; other: ExposureQuery[]; linked: boolean } {
+  const userIdTypes = settings?.userIdTypes || [];
+  const linked = userIdTypes.some((t) => (t.attributes?.length ?? 0) > 0);
+  if (!linked || !hashAttribute) {
+    return { matching: [], other: queries, linked: false };
+  }
+  const types = new Set(
+    userIdTypes
+      .filter((t) => t.attributes?.includes(hashAttribute))
+      .map((t) => t.userIdType),
+  );
+  const matches = (q: ExposureQuery) =>
+    getExposureQueryIdentifierTypes(q).some((t) => types.has(t));
+  return {
+    matching: queries.filter(matches),
+    other: queries.filter((q) => !matches(q)),
+    linked: true,
+  };
+}
+
+// Which identifier a table is analyzed per: a choice it declares, else what
+// the analysis falls back to.
+export function resolveAssignmentIdentifier({
+  query,
+  identifierType,
+  hashAttribute,
+  hashAttributeIdentifierTypeMap,
+}: {
+  query: ExposureQuery | undefined;
+  identifierType: string | undefined;
+  hashAttribute: string;
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+}): {
+  identifierType: string | null;
+  // The table declares several and the attribute doesn't settle which.
+  choose: boolean;
+  // Analyzed per an identifier the assignment attribute isn't linked to.
+  conflict: boolean;
+  // The one attribute the identifier is linked to, when the assignment
+  // attribute isn't: where following the analysis back would assign by.
+  attribute: string | null;
+} {
+  const declared = query ? getExposureQueryIdentifierTypes(query) : [];
+  const attributeIdentifiers =
+    hashAttributeIdentifierTypeMap.get(hashAttribute) ?? [];
+  const linked = declared.filter((t) => attributeIdentifiers.includes(t));
+  const resolved =
+    resolveAnalysisIdentifierType(
+      query,
+      identifierType && declared.includes(identifierType)
+        ? identifierType
+        : undefined,
+    ) || null;
+  const unlinked = !!resolved && !attributeIdentifiers.includes(resolved);
+  const attributes = unlinked
+    ? [...hashAttributeIdentifierTypeMap]
+        .filter(([, identifiers]) => identifiers.includes(resolved))
+        .map(([attribute]) => attribute)
+    : [];
+  return {
+    identifierType: resolved,
+    choose:
+      declared.length > 1 && !(linked.length === 1 && resolved === linked[0]),
+    conflict: unlinked && attributeIdentifiers.length > 0,
+    attribute: attributes.length === 1 ? attributes[0] : null,
+  };
+}
+
+// Where an assignment attribute leads, preferring the current table; null
+// when it doesn't settle one identifier or the selection already follows it.
+export function followAssignmentAttribute({
+  queries,
+  hashAttribute,
+  hashAttributeIdentifierTypeMap,
+  exposureQueryId,
+  identifierType,
+}: {
+  queries: ExposureQuery[];
+  hashAttribute: string;
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+  exposureQueryId: string;
+  identifierType: string;
+}): { exposureQueryId: string; identifierType: string } | null {
+  const attributeIdentifiers = (
+    hashAttributeIdentifierTypeMap.get(hashAttribute) ?? []
+  ).filter((t) =>
+    queries.some((q) => getExposureQueryIdentifierTypes(q).includes(t)),
+  );
+  if (attributeIdentifiers.length !== 1) return null;
+  const [next] = attributeIdentifiers;
+  const current = queries.find((q) => q.id === exposureQueryId);
+  const resolved = resolveAssignmentIdentifier({
+    query: current,
+    identifierType,
+    hashAttribute,
+    hashAttributeIdentifierTypeMap,
+  });
+  if (current && resolved.identifierType === next) return null;
+  const query =
+    current && getExposureQueryIdentifierTypes(current).includes(next)
+      ? current
+      : queries.find((q) => getExposureQueryIdentifierTypes(q).includes(next));
+  return query ? { exposureQueryId: query.id, identifierType: next } : null;
+}
+
 export function getExposureQuery(
   settings?: DataSourceSettings,
   exposureQueryId?: string,

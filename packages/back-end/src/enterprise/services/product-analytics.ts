@@ -393,13 +393,6 @@ export async function runProductAnalyticsExploration(
       rowFilters: value.rowFilters,
       aggregateFilter: value.aggregateFilter,
       aggregateFilterColumn: value.aggregateFilterColumn,
-      windowSettings: {
-        type: "",
-        delayValue: 0,
-        delayUnit: "days",
-        windowValue: 0,
-        windowUnit: "days",
-      },
     }));
     const factTables = await getFactTablesByIds(
       context,

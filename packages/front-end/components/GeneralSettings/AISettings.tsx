@@ -434,7 +434,7 @@ export default function AISettings({
                       Default AI model
                     </Text>
                     <SelectField
-                      size="medium"
+                      size="lg"
                       id="defaultAIModel"
                       disabled={!canEdit}
                       helpText="Used by every AI feature that doesn't override it."
@@ -470,7 +470,7 @@ export default function AISettings({
                       Embedding model
                     </Text>
                     <SelectField
-                      size="medium"
+                      size="lg"
                       id="embeddingModel"
                       disabled={!canEdit}
                       helpText="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
@@ -507,7 +507,7 @@ export default function AISettings({
                       Dictation model
                     </Text>
                     <SelectField
-                      size="medium"
+                      size="lg"
                       id="sttModel"
                       disabled={!canEdit}
                       helpText="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral."
@@ -540,7 +540,7 @@ export default function AISettings({
                         Autocomplete model
                       </Text>
                       <SelectField
-                        size="medium"
+                        size="lg"
                         id="aiAutocompleteModel"
                         disabled={!canEdit}
                         helpText="Used for AI Assistant suggestions as users type. A small, fast model keeps them cheap and quick."
@@ -628,7 +628,7 @@ export default function AISettings({
                                 Model
                               </Text>
                               <SelectField
-                                size="medium"
+                                size="lg"
                                 id={`${prompt.promptType}-model`}
                                 disabled={!canEdit}
                                 value={
@@ -795,7 +795,7 @@ export default function AISettings({
                           Visual Editor text model
                         </Text>
                         <SelectField
-                          size="medium"
+                          size="lg"
                           id="visualEditorAIModel"
                           disabled={!canEdit}
                           helpText="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
@@ -829,7 +829,7 @@ export default function AISettings({
                           Visual Editor image model
                         </Text>
                         <SelectField
-                          size="medium"
+                          size="lg"
                           id="visualEditorImageModel"
                           disabled={!canEdit}
                           helpText="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."
