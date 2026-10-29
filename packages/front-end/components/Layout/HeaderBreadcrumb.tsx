@@ -4,17 +4,15 @@ import { useRouter } from "next/router";
 import { PiCaretRightBold } from "react-icons/pi";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import LinkButton from "@/ui/LinkButton";
-import ProjectSelector from "./ProjectSelector";
 import { usePageHead } from "./PageHead";
-import { useNarrowLayout } from "./narrowLayout";
 import { navlinks } from "./sidebarNav";
 import styles from "./HeaderBreadcrumb.module.scss";
 
 // From <PageHead breadcrumb>: the first crumb is the section, the last the
 // object; any between them, such as a report's experiment, sit in between.
-// From 1180px up the project selector is in the side nav, so a list page
+// The project selector is in the side nav (and its drawer), so a list page
 // shows its own name as the one, current crumb, and a detail page starts at
-// its section (a link). Below 1180px the selector comes first.
+// its section (a link), at every width.
 
 // The side nav's name for the page at this route (e.g. Experiments); null for
 // a page that isn't in it.
@@ -60,7 +58,6 @@ export default function HeaderBreadcrumb({
 }) {
   const { breadcrumb } = usePageHead();
   const router = useRouter();
-  const projectInHeader = useNarrowLayout();
 
   const isDetail = breadcrumb.length >= 2;
   const listPageName = isDetail
@@ -68,22 +65,16 @@ export default function HeaderBreadcrumb({
     : (breadcrumb[0]?.display ??
       sideNavPageName(router.route.substring(1)) ??
       (pageTitle || null));
-  const section =
-    isDetail || (projectInHeader && breadcrumb[0]?.href) ? breadcrumb[0] : null;
+  const section = isDetail ? breadcrumb[0] : null;
   const middle = breadcrumb.slice(1, -1);
   const object = isDetail
     ? breadcrumb[breadcrumb.length - 1]
-    : projectInHeader || !listPageName
-      ? null
-      : { display: listPageName };
+    : listPageName
+      ? { display: listPageName }
+      : null;
 
   const parts: ReactNode[] = [];
   const buttonParts = new Set<number>();
-  if (projectInHeader) {
-    // With no projects, plain text in the button's box, spaced as one.
-    buttonParts.add(parts.length);
-    parts.push(<ProjectSelector key="project" />);
-  }
   const crumbButtonProps = {
     variant: "ghost",
     color: "gray",
@@ -126,7 +117,7 @@ export default function HeaderBreadcrumb({
       aria-label="Breadcrumb"
       className={clsx(
         styles.breadcrumb,
-        !projectInHeader && buttonParts.has(0) && styles.leadingButton,
+        buttonParts.has(0) && styles.leadingButton,
       )}
     >
       {parts.map((part, i) => (
