@@ -12,7 +12,7 @@ import styles from "./ExperimentSplitVisual.module.scss";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
-  maximumFractionDigits: 2,
+  maximumFractionDigits: 3,
 });
 
 export interface Props {
