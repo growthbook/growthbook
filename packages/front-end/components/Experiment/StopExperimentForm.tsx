@@ -159,6 +159,27 @@ const StopExperimentForm: FC<{
     variations?.[form.watch("winner")]?.id !== recommendedReleaseVariationId;
   const { apiCall } = useAuth();
 
+  // What its users get once it stops serving: a flag's rule stays on the flag
+  // but leaves the payload, and visual changes and redirects drop out.
+  const noun = isBandit ? "Bandit" : "experiment";
+  const flagCount = experiment.linkedFeatures?.length ?? 0;
+  const pageChanges =
+    experiment.hasVisualChangesets || experiment.hasURLRedirects;
+  const withoutRollout = [
+    flagCount === 1
+      ? `Without a Temporary Rollout, its Feature Flag stops serving this ${noun} when you submit; its users get the flag's next rule or default value.`
+      : flagCount > 1
+        ? `Without a Temporary Rollout, its ${flagCount} Feature Flags stop serving this ${noun} when you submit; its users get each flag's next rule or default value.`
+        : "",
+    pageChanges
+      ? flagCount
+        ? "Its visual changes and redirects stop showing too."
+        : "Without a Temporary Rollout, its visual changes and redirects stop showing when you submit."
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
   const variationOption = (index: number) =>
     variations[index] ? (
       <VariationLabel
@@ -412,9 +433,7 @@ const StopExperimentForm: FC<{
               </>
             ) : form.watch("results") === "won" ? (
               <Callout status="info" mb="3" mt="-2">
-                If you don&apos;t enable a Temporary Rollout, all experiment
-                traffic will immediately revert to the default control
-                experience when you submit this form.
+                {withoutRollout}
               </Callout>
             ) : null}
           </>
