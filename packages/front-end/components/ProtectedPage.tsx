@@ -1,6 +1,6 @@
 import { FC, ReactNode } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { useAuth, safeLogout } from "@/services/auth";
+import { useAuth, safeLogout, switchToSSO } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
@@ -19,7 +19,7 @@ const LoggedInPageGuard = ({
   children: ReactNode;
   organizationRequired: boolean;
 }) => {
-  const { error, ready, organization } = useUser();
+  const { error, requiredSSOConnectionId, ready, organization } = useUser();
   const { organizations } = useAuth();
 
   if (error) {
@@ -32,27 +32,56 @@ const LoggedInPageGuard = ({
               className="appbox p-4"
               style={{ maxWidth: 500, margin: "auto" }}
             >
-              <h3 className="mb-3">Something Went Wrong</h3>
-              <Callout status="error">{error}</Callout>
+              <h3 className="mb-3">
+                {requiredSSOConnectionId
+                  ? "Enterprise SSO Required"
+                  : "Something Went Wrong"}
+              </h3>
+              <Callout status={requiredSSOConnectionId ? "info" : "error"}>
+                {error}
+              </Callout>
               <div className="d-flex align-items-center mt-3">
-                <Button
-                  className="ml-auto"
-                  onClick={async () => {
-                    await safeLogout();
-                  }}
-                  color="danger"
-                >
-                  Log Out
-                </Button>
-                <button
-                  className="btn btn-link"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    window.location.reload();
-                  }}
-                >
-                  Reload
-                </button>
+                {requiredSSOConnectionId ? (
+                  <>
+                    <button
+                      className="btn btn-link ml-auto"
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        await safeLogout();
+                      }}
+                    >
+                      Log out
+                    </button>
+                    <Button
+                      onClick={async () => {
+                        await switchToSSO(requiredSSOConnectionId);
+                      }}
+                    >
+                      Sign in with Enterprise SSO
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Button
+                      className="ml-auto"
+                      onClick={async () => {
+                        await safeLogout();
+                      }}
+                      color="danger"
+                    >
+                      Log Out
+                    </Button>
+                    <button
+                      className="btn btn-link"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        window.location.reload();
+                      }}
+                    >
+                      Reload
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           </div>

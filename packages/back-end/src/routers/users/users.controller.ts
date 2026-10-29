@@ -110,7 +110,7 @@ export async function getUser(req: AuthRequest, res: Response) {
       validateLoginMethod(org, req);
       return true;
     } catch (e) {
-      lastError = e;
+      lastError = e.message;
       return false;
     }
   });
@@ -118,6 +118,18 @@ export async function getUser(req: AuthRequest, res: Response) {
   // If all of a user's orgs were filtered out, throw an error
   // An SSO login gets onboarding instead, so it can still accept an invite or see a pending request
   if (orgs.length && !validOrgs.length && !isOrgScopedLogin(req)) {
+    // Name the required connection so the app can switch the user to it in one click
+    const ssoConnectionId = orgs
+      .map((org) => org.restrictLoginMethod)
+      .find((id) => id && !id.startsWith("vercel:"));
+    if (IS_CLOUD && ssoConnectionId) {
+      return res.status(403).json({
+        status: 403,
+        message: "Your organization requires you to log in with Enterprise SSO",
+        code: "sso_required",
+        details: { ssoConnectionId },
+      });
+    }
     throw new Error(lastError || "Must log in with SSO");
   }
 
