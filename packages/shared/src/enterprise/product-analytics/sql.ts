@@ -255,6 +255,19 @@ function createPopulationMetric(
   };
 }
 
+// The Population count series, placed after a metric dataset's metrics.
+function createPopulationCountSeries(
+  population: ExplorationPopulation,
+  index: number,
+): MetricWithMetadata {
+  return {
+    index,
+    metric: createPopulationMetric(population, "population", "Population"),
+    unit: population.unit,
+    isPopulationCount: true,
+  };
+}
+
 // Each population value is a distinct-units count with an optional aggregate
 // filter. The aggregate filter is applied per unit within each dimension
 // bucket (e.g. per day), not across the whole date range.
@@ -477,25 +490,18 @@ function getFactTableGroups({
           metricIndex++;
         }
         if (population) {
-          // Validation guarantees every metric shares the population's fact
-          // table and unit, so the population joins their group as one more
-          // series and gates its unit rollup.
+          // Validation guarantees every metric shares the Population's fact
+          // table and unit, so the series joins their group and gates its
+          // unit rollup.
           const group = groups[population.source.factTableId];
           if (!group) {
             throw new Error(
               `Fact table ${population.source.factTableId} not found`,
             );
           }
-          group.metrics.push({
-            index: metricIndex,
-            metric: createPopulationMetric(
-              population,
-              "population",
-              "Population",
-            ),
-            unit: population.unit,
-            isPopulationCount: true,
-          });
+          group.metrics.push(
+            createPopulationCountSeries(population, metricIndex),
+          );
         }
         return Object.values(groups);
       })();
