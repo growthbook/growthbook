@@ -1,6 +1,5 @@
 import { ExperimentSnapshotTraffic } from "shared/types/experiment-snapshot";
 import { ExperimentReportVariation } from "shared/types/report";
-import { useEffect, useLayoutEffect } from "react";
 import { DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION } from "shared/constants";
 import {
   DataSourceInterfaceWithParams,
@@ -55,20 +54,6 @@ export default function SRMCard({
     snapshotId,
   });
 
-  function onResize() {
-    const childHeight =
-      document.getElementById("child-container")?.clientHeight;
-    const parentElement = document.getElementById("parent-container");
-
-    parentElement && (parentElement.style.height = `${childHeight}px`);
-  }
-
-  useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
-  }, []);
-  useLayoutEffect(onResize, []);
-
   if (!traffic?.overall?.variationUnits?.length) {
     return (
       <div className="appbox my-4 p-3">
@@ -90,63 +75,50 @@ export default function SRMCard({
         }),
       }}
     >
-      <div
-        className={clsx("overflow-hidden", { row: !hideDimensions })}
-        id="parent-container"
-      >
+      <div className={clsx("overflow-hidden", { row: !hideDimensions })}>
         <div className={clsx({ "col-8 border-right pr-4": !hideDimensions })}>
-          <div
-            className="overflow-auto"
-            id="child-container"
-            ref={(node) => {
-              if (node) {
-                const childHeight = node.clientHeight;
-                const parentElement =
-                  document.getElementById("parent-container");
-
-                parentElement &&
-                  (parentElement.style.height = `${childHeight}px`);
-              }
-            }}
-          >
-            <h2 className="d-inline">Experiment Balance Check</h2>{" "}
-            {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
-            <p className="mt-1">
-              Shows actual unit split compared to percent selected for the
-              experiment
-            </p>
-            <hr className="mb-0"></hr>
-            <div style={{ paddingTop: "10px" }}>
-              <div className="row justify-content-start w-100 overflow-auto">
-                <VariationUsersTable
-                  users={traffic.overall.variationUnits}
-                  variations={variations}
-                  srm={traffic.overall.srm}
-                />
-              </div>
-              <Box mt="3">
-                <SRMWarningFooter
-                  srm={traffic.overall.srm}
-                  srmHealth={srmHealth}
-                  variations={variations}
-                  users={traffic.overall.variationUnits}
-                  isBandit={false}
-                />
-              </Box>
-            </div>
+          <h2 className="d-inline">Experiment Balance Check</h2>{" "}
+          {srmHealth !== "healthy" && <StatusBadge status={srmHealth} />}
+          <p className="mt-1">
+            Shows actual unit split compared to percent selected for the
+            experiment
+          </p>
+          <hr className="mb-0"></hr>
+          <div style={{ paddingTop: "10px" }}>
+            <VariationUsersTable
+              users={traffic.overall.variationUnits}
+              variations={variations}
+              srm={traffic.overall.srm}
+            />
+            <Box mt="3">
+              <SRMWarningFooter
+                srm={traffic.overall.srm}
+                srmHealth={srmHealth}
+                variations={variations}
+                users={traffic.overall.variationUnits}
+                isBandit={false}
+              />
+            </Box>
           </div>
         </div>
         {!hideDimensions && (
-          <div className="col h-100 p-0 overflow-hidden">
-            <DimensionIssues
-              dimensionData={traffic.dimension}
-              variations={variations}
-              dataSource={dataSource}
-              exposureQuery={exposureQuery}
-              healthTabConfigParams={healthTabConfigParams}
-              canConfigHealthTab={canConfigHealthTab}
-              isBandit={false}
-            />
+          // Out of the flow, so the balance check alone sets the row's height
+          // and a long dimension list scrolls within it.
+          <div className="col p-0 position-relative">
+            <div
+              className="position-absolute overflow-hidden"
+              style={{ inset: 0 }}
+            >
+              <DimensionIssues
+                dimensionData={traffic.dimension}
+                variations={variations}
+                dataSource={dataSource}
+                exposureQuery={exposureQuery}
+                healthTabConfigParams={healthTabConfigParams}
+                canConfigHealthTab={canConfigHealthTab}
+                isBandit={false}
+              />
+            </div>
           </div>
         )}
       </div>

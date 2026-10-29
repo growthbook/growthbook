@@ -151,8 +151,8 @@ export default function TrafficCard({
           </div>
         )}
 
-        <div className="mt-3 mb-3 d-flex align-items-center">
-          <h3>
+        <div className="mt-3 mb-4 d-flex align-items-center">
+          <h3 className="mb-0">
             {selectedDimension
               ? `Experiment Traffic by ${
                   dimensionWithIssues?.label ?? "Dimension"

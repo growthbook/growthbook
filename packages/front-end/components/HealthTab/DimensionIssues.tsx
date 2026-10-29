@@ -23,6 +23,7 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { EXPERIMENT_DIMENSION_PREFIX } from "./SRMCard";
@@ -359,21 +360,19 @@ export const DimensionIssues = ({
             canConfigHealthTab &&
             exposureQuery.dimensions.length > 0 &&
             healthTabConfigParams ? (
-              <div className="pt-4 d-flex justify-content-center">
-                <div>
-                  <a
-                    href="#"
-                    className="btn btn-outline-primary"
-                    onClick={() => {
-                      track("Health Tab Onboarding Opened", {
-                        source: "dimension-issues",
-                      });
-                      setSetupModalOpen(true);
-                    }}
-                  >
-                    Configure experiment dimension slices
-                  </a>
-                </div>
+              <Flex justify="center" pt="4" px="4">
+                <Button
+                  variant="outline"
+                  wrap
+                  onClick={() => {
+                    track("Health Tab Onboarding Opened", {
+                      source: "dimension-issues",
+                    });
+                    setSetupModalOpen(true);
+                  }}
+                >
+                  Configure dimension slices
+                </Button>
                 {setupModalOpen ? (
                   <HealthTabOnboardingModal
                     open={setupModalOpen}
@@ -384,7 +383,7 @@ export const DimensionIssues = ({
                     healthTabOnboardingPurpose={"dimensions"}
                   />
                 ) : null}
-              </div>
+              </Flex>
             ) : null}
           </>
         )}
