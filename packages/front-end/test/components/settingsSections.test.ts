@@ -4,6 +4,7 @@ import {
   resolveSettingsHash,
   sameSetting,
   sectionForField,
+  settingPaths,
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
   parseBranches,
@@ -137,6 +138,26 @@ describe("parseBranches", () => {
     expect(parseBranches("main,, qa,")).toEqual(["main", "qa"]);
     expect(parseBranches(" , ")).toEqual([]);
     expect(parseBranches("")).toEqual([]);
+  });
+});
+
+describe("settingPaths", () => {
+  it("expands split settings into child paths and leaves the rest alone", () => {
+    expect(
+      settingPaths({
+        metricDefaults: { targetMDE: 10, minimumSampleSize: 150 },
+        northStar: { title: "" },
+        confidenceLevel: 95,
+      }),
+    ).toEqual([
+      "metricDefaults.targetMDE",
+      "metricDefaults.minimumSampleSize",
+      "northStar",
+      "confidenceLevel",
+    ]);
+    expect(settingPaths({ metricDefaults: undefined })).toEqual([
+      "metricDefaults",
+    ]);
   });
 });
 

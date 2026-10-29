@@ -230,6 +230,15 @@ export function sectionForField(field: string): string | null {
 // Settings whose parts are edited in different sections, so they're tracked part by part.
 export const SPLIT_SETTINGS = ["metricDefaults"];
 
+// Top-level keys of `settings`, with split settings expanded to their child paths.
+export function settingPaths(settings: object): string[] {
+  return Object.entries(settings).flatMap(([k, v]) =>
+    SPLIT_SETTINGS.includes(k) && v && typeof v === "object"
+      ? Object.keys(v).map((child) => `${k}.${child}`)
+      : [k],
+  );
+}
+
 // "2 unsaved changes in AI and Custom Markdown", or "… in 3 sections".
 export function describeUnsavedChanges(
   count: number,

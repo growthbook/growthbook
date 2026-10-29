@@ -69,7 +69,7 @@ import {
   sameSetting,
   sectionForField,
   SETTINGS_SECTIONS,
-  SPLIT_SETTINGS,
+  settingPaths,
   toPercent,
 } from "./settingsSections";
 
@@ -331,12 +331,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   const { apiCall } = useAuth();
   const values = form.watch();
   // Compared against the loaded settings, since many setValue calls skip shouldDirty.
-  const dirtyFields = Object.entries(originalValue)
-    .flatMap(([k, v]) =>
-      SPLIT_SETTINGS.includes(k) && v && typeof v === "object"
-        ? Object.keys(v).map((child) => `${k}.${child}`)
-        : [k],
-    )
+  const dirtyFields = settingPaths(originalValue)
     // A remounted empty number input reads NaN or "" where the saved value is undefined.
     .filter(
       (path) => !sameSetting(get(values, path), get(originalValue, path)),
@@ -437,11 +432,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         }
       });
       // A refresh while editing keeps the draft; Discard still restores saved values.
-      const current = form.getValues() as Record<string, unknown>;
+      // Per child path, so an edited metric default doesn't keep stale siblings.
+      const current = form.getValues();
       const prev = originalRef.current as Record<string, unknown>;
-      const draft = { ...newVal } as Record<string, unknown>;
-      Object.keys(prev).forEach((k) => {
-        if (!sameSetting(current[k], prev[k])) draft[k] = current[k];
+      const draft = cloneDeep(newVal) as Record<string, unknown>;
+      settingPaths(prev).forEach((path) => {
+        if (!sameSetting(get(current, path), get(prev, path)))
+          set(draft, path, get(current, path));
       });
       form.reset(draft as OrganizationSettingsWithMetricDefaults);
       originalRef.current = newVal;
@@ -504,6 +501,13 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   // handleSubmit resolves without saving when a field is invalid, so callers pass onInvalid.
   const saveSettings = (onInvalid: (errors: FieldErrors) => void) =>
     form.handleSubmit(async (value) => {
+      // A cleared number input reads NaN; it saves as the default and shows it.
+      dirtyFields.forEach((path) => {
+        if (!Number.isNaN(get(value, path))) return;
+        const fallback = get(initialValues.current, path);
+        set(value, path, fallback);
+        form.setValue(path as Parameters<typeof form.setValue>[0], fallback);
+      });
       const transformedOrgSettings = {
         ...value,
         metricDefaults: {
@@ -638,11 +642,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     setSavedCount(0);
     let invalidSections: string[] | null = null;
     await saveSettings((errors) => {
-      const paths = Object.entries(errors).flatMap(([k, v]) =>
-        SPLIT_SETTINGS.includes(k) && v && typeof v === "object"
-          ? Object.keys(v).map((child) => `${k}.${child}`)
-          : [k],
-      );
+      const paths = settingPaths(errors);
       invalidSections = [...new Set(paths.map(sectionForField))]
         .map((id) => SETTINGS_SECTIONS.find((s) => s.id === id)?.title)
         .filter((t): t is string => !!t);
