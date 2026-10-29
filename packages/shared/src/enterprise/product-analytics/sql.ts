@@ -490,9 +490,6 @@ function getFactTableGroups({
           metricIndex++;
         }
         if (population) {
-          // Validation guarantees every metric shares the Population's fact
-          // table and unit, so the series joins their group and gates its
-          // unit rollup.
           const group = groups[population.source.factTableId];
           if (!group) {
             throw new Error(
@@ -1466,29 +1463,37 @@ function generateUnitAggregationRollupCTE(
     }
   });
 
+  const populationAlias = getPopulationAlias(factTableGroup);
+  const from = populationAlias
+    ? getPopulationMembersOnlySubquery(
+        sourceCTE,
+        populationAlias,
+        dimensions,
+        unitIndex,
+        includedMetrics,
+      )
+    : sourceCTE.name;
+
   return {
     name: `_factTable${factTableGroup.index}_unit${unitIndex}_rollup`,
     sql: `
     SELECT
       ${selects.join(",\n  ")}
-    FROM ${getPopulationMembersSource(factTableGroup, sourceCTE, dimensions, unitIndex, includedMetrics)}
+    FROM ${from}
     ${groupBys.length ? `GROUP BY ${groupBys.join(", ")}` : ""}
   `,
   };
 }
 
-// A population applies to every metric in the request, so the rollup reads
-// each unit's values only when the unit is a member. Each metric keeps its own
-// aggregation, and buckets without members still produce a row.
-function getPopulationMembersSource(
-  factTableGroup: FactTableGroup,
+// Restricts each metric to the Population's members. Non-members' values are
+// nulled rather than filtered out, so buckets with no members still return a row.
+function getPopulationMembersOnlySubquery(
   sourceCTE: CTE,
+  populationAlias: string,
   dimensions: DimensionData[],
   unitIndex: number,
   includedMetrics: MetricData[],
 ): string {
-  const populationAlias = getPopulationAlias(factTableGroup);
-  if (!populationAlias) return sourceCTE.name;
   const isMember = `${populationAlias} = 1 AND unit${unitIndex} IS NOT NULL`;
   const columns = [
     ...dimensions.map((d) => d.alias),
