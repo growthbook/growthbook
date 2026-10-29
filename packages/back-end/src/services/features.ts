@@ -89,6 +89,7 @@ import {
   ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
+  FeatureMetadata,
   InterleavingDefinitions,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
@@ -469,17 +470,23 @@ export function generateInterleavingsPayload({
   environment,
   projects,
   savedGroupStrategy,
+  metadataOptions,
+  projectsMap,
 }: {
   interleavings: InterleavingInterface[];
   environment: string;
   projects: string[];
   savedGroupStrategy: SavedGroupPayloadStrategy;
+  metadataOptions?: Parameters<typeof buildPayloadMetadata>[1];
+  projectsMap?: Map<string, ProjectInterface>;
 }): {
   features: Record<string, FeatureDefinition>;
   interleavings?: InterleavingDefinitions;
 } {
   const features: Record<string, FeatureDefinition> = {};
-  const defs: InterleavingDefinitions = {};
+  // Null-prototype: an interleaving key may be `__proto__`, which on a plain
+  // object would set the prototype instead of adding an entry.
+  const defs: InterleavingDefinitions = Object.create(null);
   interleavings.forEach((il) => {
     if (!interleavingInPayloadScope(il, environment, projects)) return;
 
@@ -496,7 +503,12 @@ export function generateInterleavingsPayload({
       );
       return;
     }
-    defs[il.key] = { trackingKey: il.trackingKey, variations };
+    defs[il.key] = {
+      trackingKey: il.trackingKey,
+      hashAttribute: il.hashAttribute,
+      seed: il.seed,
+      variations,
+    };
 
     const id = getInterleavingFeatureDefId(il.key);
     const rule: FeatureDefinitionRule = {
@@ -529,6 +541,17 @@ export function generateInterleavingsPayload({
       defaultValue: il.variations[0].key,
       rules: [rule],
     };
+
+    // Without it reducePayload's project and tag filters drop the flag, which
+    // takes the interleaving's definition down with it
+    if (metadataOptions) {
+      const metadata = buildPayloadMetadata<FeatureMetadata>(
+        { project: il.project, tags: il.tags },
+        metadataOptions,
+        projectsMap,
+      );
+      if (metadata) features[id].metadata = metadata;
+    }
   });
 
   return {
@@ -2288,6 +2311,11 @@ export async function buildSDKPayloadForConnection(
         environment,
         projects: projectList,
         savedGroupStrategy,
+        metadataOptions: {
+          includeProjectIdInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
       })
     : undefined;
 

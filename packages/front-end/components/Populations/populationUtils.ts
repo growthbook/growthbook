@@ -2,10 +2,6 @@ import type { PopulationStep } from "shared/validators";
 import type { FactTableDefinition } from "shared/types/fact-table";
 import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
 
-function pluralize(n: number, unit: string): string {
-  return `${n} ${n === 1 ? unit.replace(/s$/, "") : unit}`;
-}
-
 export type PopulationStepDescriptionSegment =
   | string
   | { label: string; href: string };
@@ -19,9 +15,7 @@ function getColumnDisplayName(
   );
 }
 
-// A one-line summary such as "Has Events matching country = US in the last
-// 1 week", as text and link segments so callers can render both text and links.
-// TODO: Describe conversion windows once Populations support multiple steps.
+// Returns text and link segments, e.g. "Has Events matching country = US".
 export function describePopulationStep({
   step,
   identifierTypes,
@@ -49,14 +43,9 @@ export function describePopulationStep({
     filtersDescriptions.push(aggregateFilterDescription);
   }
 
-  let conditionsDescriptions = filtersDescriptions.length
+  const conditionsDescriptions = filtersDescriptions.length
     ? ` matching ${filtersDescriptions.join(" and ")}`
     : "";
-
-  const { type, windowValue, windowUnit } = step.windowSettings;
-  if (type === "lookback") {
-    conditionsDescriptions += ` in the last ${pluralize(windowValue, windowUnit)}`;
-  }
 
   const { factTableId } = step.source;
   const factTableSegment: PopulationStepDescriptionSegment = factTable
