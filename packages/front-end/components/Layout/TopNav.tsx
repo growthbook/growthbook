@@ -13,7 +13,7 @@ import { usePageHead } from "./PageHead";
 import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
-import GrowthBotButton from "./GrowthBotButton";
+import AiAssistantButton from "./AiAssistantButton";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -78,7 +78,7 @@ const TopNav: FC<{
                 <NoticeStack notices={notices} />
               </div>
             )}
-            <GrowthBotButton className={styles.aiAssistantButton} />
+            <AiAssistantButton className={styles.aiAssistantButton} />
           </div>
           {/* With the sidebar, Help and the profile menu are in it. */}
           {toggleLeftMenu ? null : (

@@ -1,23 +1,15 @@
-/**
- * "limit" is Cloud's daily cap. The panel only exists while AI is available, so
- * there's no other state.
- */
-export type GrowthBotState = "default" | "limit";
-
-export function getGrowthBotState({
-  tokenUsage,
-}: {
-  /** A null dailyLimit means no daily limit. */
-  tokenUsage?: { numTokensUsed: number; dailyLimit: number | null } | null;
-}): GrowthBotState {
-  if (
-    tokenUsage &&
+/** Cloud's daily cap. A null dailyLimit means no daily limit. */
+export function isAiAssistantLimitReached(
+  tokenUsage:
+    | { numTokensUsed: number; dailyLimit: number | null }
+    | null
+    | undefined,
+): boolean {
+  return (
+    !!tokenUsage &&
     tokenUsage.dailyLimit !== null &&
     tokenUsage.numTokensUsed >= tokenUsage.dailyLimit
-  ) {
-    return "limit";
-  }
-  return "default";
+  );
 }
 
 /** The reset is always within a day, so this never formats a date. */

@@ -2,7 +2,7 @@ import { PiSparkleBold } from "react-icons/pi";
 import Button from "@/ui/Button";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 
-export default function GrowthBotButton({
+export default function AiAssistantButton({
   className,
 }: {
   /**

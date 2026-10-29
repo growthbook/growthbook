@@ -3,14 +3,14 @@ import { PiGauge } from "react-icons/pi";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { formatResetsIn } from "./growthBotState";
-import styles from "./GrowthBotStateNotice.module.scss";
+import { formatResetsIn } from "./aiAssistantLimit";
+import styles from "./AiAssistantLimitNotice.module.scss";
 
 /** Same as the upgrade modal's Enterprise path. */
 const CONTACT_SALES_URL = "https://www.growthbook.io/demo";
 
 /** The panel's message at Cloud's daily AI limit. */
-export default function GrowthBotStateNotice({
+export default function AiAssistantLimitNotice({
   resetsAt,
   centered = false,
 }: {

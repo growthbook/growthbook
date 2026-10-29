@@ -89,8 +89,8 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 import styles from "./AgentPanel.module.scss";
-import GrowthBotStateNotice from "./GrowthBotStateNotice";
-import { useGrowthBotState } from "./useGrowthBotState";
+import AiAssistantLimitNotice from "./AiAssistantLimitNotice";
+import { useAiAssistantLimit } from "./useAiAssistantLimit";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
@@ -224,8 +224,7 @@ export default function AgentPanel({
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
   // At the limit, past conversations stay readable; nothing new can be sent.
-  const { state: growthBotState, resetsAt, refreshUsage } = useGrowthBotState();
-  const limitReached = growthBotState === "limit";
+  const { limitReached, resetsAt, refreshUsage } = useAiAssistantLimit();
   const { setOpen: setNavDrawerOpen } = useSidebarOpen();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
@@ -775,7 +774,7 @@ export default function AgentPanel({
             role="status"
           >
             <Box style={{ width: "min(320px, 100%)" }}>
-              <GrowthBotStateNotice resetsAt={resetsAt} centered />
+              <AiAssistantLimitNotice resetsAt={resetsAt} centered />
             </Box>
           </Flex>
         ) : null}
@@ -962,7 +961,7 @@ export default function AgentPanel({
             background: "var(--color-panel-solid)",
           }}
         >
-          <GrowthBotStateNotice resetsAt={resetsAt} />
+          <AiAssistantLimitNotice resetsAt={resetsAt} />
         </Box>
       ) : (
         <ChatComposer

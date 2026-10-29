@@ -22,8 +22,8 @@ type Upgrade = NonNullable<AppNotice["upgrade"]>;
 export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
   const [listOpen, setListOpen] = useState(false);
-  // Narrow headers share their first row with the menu and GrowthBot
-  // (TopNav.module.scss), so the notices collapse to one button.
+  // Narrow headers share their first row with the menu and the AI Assistant
+  // button (TopNav.module.scss), so the notices collapse to one button.
   const compact = useMediaQuery(
     `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
   );

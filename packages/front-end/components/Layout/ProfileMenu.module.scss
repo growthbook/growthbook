@@ -5,7 +5,7 @@
   margin: 0 0 0 var(--space-1);
   // Puts the icon on the content's right edge; Help shifts with it.
   translate: 6px 0;
-  // Radix size 1's corners, matching the GrowthBot button.
+  // Radix size 1's corners, matching the AI Assistant button.
   border-radius: max(var(--radius-1), var(--radius-full));
 
   // On the icon's corner, not the box's; layered like .sidebarItem's.

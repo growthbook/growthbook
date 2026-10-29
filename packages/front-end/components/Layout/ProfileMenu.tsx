@@ -343,7 +343,7 @@ export default function ProfileMenu({
       {tooltip.anchor}
     </button>
   ) : (
-    // Size 2 is 24px, matching the GrowthBot button.
+    // Size 2 is 24px, matching the AI Assistant button.
     <IconButton
       variant="ghost"
       color="gray"
