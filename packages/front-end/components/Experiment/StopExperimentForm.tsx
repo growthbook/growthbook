@@ -181,7 +181,7 @@ const StopExperimentForm: FC<{
       <>
         {flags.length ? (
           <>
-            Without a Temporary Rollout,{" "}
+            Without a temporary rollout,{" "}
             {oneFlag ? (
               <>
                 the linked Feature Flag <strong>{flags[0]}</strong> stops
@@ -198,7 +198,7 @@ const StopExperimentForm: FC<{
         {pageChanges
           ? flags.length
             ? ` The ${noun}'s ${pageKinds} ${pageStops} too. Users ${pageSeen}.`
-            : `Without a Temporary Rollout, this ${noun}'s ${pageKinds} ${pageStops} when you submit. Users in the ${noun} ${pageSeen}.`
+            : `Without a temporary rollout, this ${noun}'s ${pageKinds} ${pageStops} when you submit. Users in the ${noun} ${pageSeen}.`
           : null}
       </>
     ) : null;
@@ -385,7 +385,7 @@ const StopExperimentForm: FC<{
               <div className="form-group col">
                 <Checkbox
                   id="excludeFromPayload"
-                  label="Enable Temporary Rollout"
+                  label="Enable temporary rollout"
                   value={!form.watch("excludeFromPayload")}
                   setValue={(includeInPayload) => {
                     form.setValue("excludeFromPayload", !includeInPayload);
