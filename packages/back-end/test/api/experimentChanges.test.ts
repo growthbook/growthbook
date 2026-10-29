@@ -359,6 +359,20 @@ describe("applyExperimentChanges", () => {
     expect(await revisionRules(2)).toEqual(before);
   });
 
+  it("refuses weights that don't add up to 100% in a dry run", async () => {
+    await seed({ withDraft: true });
+    await expect(
+      run({
+        experiment: {
+          changes: { variationWeights: [0.6, 0.6] },
+          base: { variationWeights: [0.5, 0.5] },
+        },
+        flagValues: [draftValues(arms("a", "new"))],
+        dryRun: true,
+      }),
+    ).rejects.toThrow("invalid_variation_weights");
+  });
+
   it("writes a sparse-only change", async () => {
     await seed({ withDraft: true });
     await run({
