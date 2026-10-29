@@ -170,7 +170,8 @@ export function InPlaceMenu({
       role="group"
       aria-label={viewLabel}
       onKeyDown={(e) => {
-        if (e.key !== "Escape") return;
+        // Not one a layer inside it (e.g. a Select) already handled.
+        if (e.key !== "Escape" || e.defaultPrevented) return;
         e.preventDefault();
         back(true);
       }}
