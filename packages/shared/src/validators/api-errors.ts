@@ -42,7 +42,8 @@ export const apiErrorRegistry = {
   },
   checklist_incomplete: {
     status: 409,
-    description: "Required checklist items are incomplete",
+    description:
+      "An experiment start is blocked by its launch checklist or a linked Feature Flag",
     detailsSchema: z.object({
       remainingChecklistItems: z.array(checklistItemSchema),
     }),
@@ -85,6 +86,17 @@ export const apiErrorRegistry = {
     detailsSchema: z.object({
       pattern: z.string(),
       example: z.string(),
+    }),
+  },
+  changes_conflict: {
+    status: 409,
+    description:
+      "Values the changes were made against were saved by someone else since they were loaded",
+    detailsSchema: z.object({
+      fields: z.array(z.string()),
+      featureIds: z.array(z.string()),
+      urlRedirectIds: z.array(z.string()),
+      visualChangesetIds: z.array(z.string()),
     }),
   },
   unscoped_rule: {

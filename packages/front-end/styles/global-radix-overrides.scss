@@ -63,7 +63,9 @@
   }
   .rt-SplitButtonLeft.outline,
   .rt-SplitButtonMiddle.outline {
-    overflow: hidden;
+    // Trims the overlap below sideways only, so the top and bottom edges and
+    // the focus ring aren't cut.
+    overflow-x: clip;
     & > * {
       margin-right: -1px;
     }
@@ -80,6 +82,12 @@
       padding-right: var(--space-3) !important;
     }
   }
+}
+
+// A viewport-filling dialog sizes itself against the viewport, so Radix's own
+// scroll padding around it would overflow and add a second scrollbar.
+.rt-BaseDialogScrollPadding:has(> .rt-DialogContent--max) {
+  padding: 0;
 }
 
 // Icon Button
@@ -406,6 +414,90 @@
 .gb-select--lg .rt-SelectTrigger {
   height: 40px;
   border-radius: var(--radius-3);
+}
+
+// SegmentedControl
+.rt-SegmentedControlRoot.gb-segmented-control {
+  --gb-segmented-control-track: var(--gray-a2);
+  --segmented-control-border-radius: var(--radius-2);
+  --segmented-control-indicator-background-color: var(--color-panel-solid);
+  color: var(--gray-11);
+  background-image: linear-gradient(
+    var(--gb-segmented-control-track),
+    var(--gb-segmented-control-track)
+  );
+  box-shadow: inset 0 0 0 1px var(--gray-a4);
+
+  // One label at one weight, so picking a segment never changes its size or line breaks.
+  .rt-SegmentedControlItemLabelInactive {
+    display: none;
+  }
+  .rt-SegmentedControlItemLabelActive {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: inherit;
+    opacity: 1;
+    letter-spacing: inherit;
+    transition: color var(--segmented-control-transition-duration);
+  }
+  .rt-SegmentedControlItem[data-state="on"] {
+    color: var(--gray-12);
+  }
+  .rt-SegmentedControlItemSeparator {
+    display: none;
+  }
+  .rt-SegmentedControlIndicator::before {
+    inset: 3px;
+    border-radius: var(--radius-1);
+    box-shadow: var(--shadow-1);
+  }
+  &.rt-r-size-1 .rt-SegmentedControlItemLabel {
+    padding-inline: calc(var(--space-3) + 4px);
+  }
+  &.rt-r-size-2 .rt-SegmentedControlItemLabel,
+  &.rt-r-size-3 .rt-SegmentedControlItemLabel {
+    padding-inline: calc(var(--space-4) + 4px);
+  }
+  &:not(.gb-segmented-control--wrap) {
+    &.rt-r-size-1 {
+      height: calc(var(--space-5) + 6px);
+    }
+    &.rt-r-size-2 {
+      height: calc(var(--space-6) + 6px);
+    }
+    &.rt-r-size-3 {
+      height: calc(var(--space-7) + 6px);
+    }
+  }
+}
+
+.rt-SegmentedControlRoot.gb-segmented-control--wrap {
+  // Narrows down to its longest words and no further, so segments stay inside it.
+  min-width: min-content;
+  height: auto;
+  align-self: start;
+
+  &.rt-r-size-1 {
+    min-height: calc(var(--space-5) + 6px);
+    line-height: var(--line-height-1);
+  }
+  &.rt-r-size-2 {
+    min-height: calc(var(--space-6) + 6px);
+  }
+  &.rt-r-size-3 {
+    min-height: calc(var(--space-7) + 6px);
+  }
+
+  .rt-SegmentedControlItemLabel {
+    padding-block: var(--space-1);
+  }
+
+  &[data-indicator-placed] .rt-SegmentedControlIndicator {
+    width: var(--gb-segmented-control-indicator-width);
+    transform: translateX(var(--gb-segmented-control-indicator-x));
+    transition-property: transform, width;
+  }
 }
 
 // TextField

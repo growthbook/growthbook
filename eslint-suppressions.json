@@ -207,11 +207,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/BanditDateGraph.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/BanditDecisionMetricSettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -225,14 +220,6 @@
   "packages/front-end/components/Experiment/CompletedExperimentList.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/CustomMetricSlicesSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/Experiment/DifferenceTypeChooserChangeColumnLabel.tsx": {
@@ -253,12 +240,7 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/EditPhaseModal.tsx": {
+  "packages/front-end/components/Experiment/EditPhasesModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
     }
@@ -270,11 +252,6 @@
   },
   "packages/front-end/components/Experiment/EditStatusModal.tsx": {
     "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
-    "no-restricted-imports": {
       "count": 2
     }
   },
@@ -326,14 +303,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/MetricsOverridesSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 8
-    }
-  },
   "packages/front-end/components/Experiment/MetricsSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/NamespaceModal.tsx": {
@@ -359,7 +331,7 @@
   },
   "packages/front-end/components/Experiment/PhaseSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/QueryModal.tsx": {
@@ -390,11 +362,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ResultsVariationsFilter.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/SRMWarning.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -403,11 +370,6 @@
   "packages/front-end/components/Experiment/SafeRolloutTimeSeriesGraph.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/SortableExperimentVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Experiment/StopExperimentForm.tsx": {
@@ -428,11 +390,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ExperimentDecisionExplanation.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -448,19 +405,6 @@
   },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/TargetMDEModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -582,7 +526,7 @@
   },
   "packages/front-end/components/Features/ConditionInput.tsx": {
     "no-restricted-syntax": {
-      "count": 7
+      "count": 6
     }
   },
   "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
@@ -665,7 +609,7 @@
   },
   "packages/front-end/components/Features/FeatureVariationsInput.tsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/components/Features/FeaturesOverview.tsx": {
@@ -721,11 +665,6 @@
   "packages/front-end/components/Features/RolloutPercentInput.tsx": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/BanditRefFields.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/RuleModal/BanditRefNewFields.tsx": {
@@ -800,11 +739,6 @@
   "packages/front-end/components/Features/SavedGroupTargetingField.tsx": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/SortableFeatureVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
     }
   },
   "packages/front-end/components/Features/ValueDisplay.tsx": {
@@ -1100,7 +1034,7 @@
   },
   "packages/front-end/components/License/OptInModal.tsx": {
     "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/License/ShowLicenseInfo.tsx": {
@@ -1166,11 +1100,6 @@
   },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Metrics/FactMetricTypeDisplayName.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },

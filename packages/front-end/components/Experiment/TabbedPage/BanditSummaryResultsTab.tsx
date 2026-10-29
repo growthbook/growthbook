@@ -1,7 +1,7 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { getLatestPhaseVariations } from "shared/experiments";
 import React, { useEffect, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { LiaChartLineSolid } from "react-icons/lia";
 import { TbChartAreaLineFilled } from "react-icons/tb";
 import { BanditEvent } from "shared/validators";
@@ -12,10 +12,11 @@ import BanditSummaryTable from "@/components/Experiment/BanditSummaryTable";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import BanditDateGraph from "@/components/Experiment/BanditDateGraph";
-import ButtonSelectField from "@/components/Forms/ButtonSelectField";
 import BanditUpdateStatus from "@/components/Experiment/TabbedPage/BanditUpdateStatus";
 import { GBCuped } from "@/components/Icons";
 import Callout from "@/ui/Callout";
+import Text from "@/ui/Text";
+import SegmentedControl from "@/ui/SegmentedControl";
 import MultipleExposureWarning from "@/components/Experiment/MultipleExposureWarning";
 import SRMWarning from "@/components/Experiment/SRMWarning";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
@@ -143,37 +144,35 @@ export default function BanditSummaryResultsTab({
 
         {showVisualizations && (
           <>
-            <div className="d-flex mx-3 align-items-center">
-              <div className="h4 mb-0">
+            {/* Level with the metric rows of the experiment results table. */}
+            <Flex align="center" gap="4" px="1">
+              <Box flexGrow="1" minWidth="0">
                 {metric
                   ? getRenderLabelColumn({})({
                       label: metric.name,
                       metric,
                     })
                   : null}
-              </div>
-              <div className="flex-1" />
+              </Box>
               {experiment.regressionAdjustmentEnabled && (
-                <div
-                  className="d-inline-block text-muted text-right mr-1 user-select-none mr-4"
-                  style={{ maxWidth: 130, fontSize: "0.8em" }}
-                >
-                  <span className="font-weight-bold">
-                    <GBCuped size={13} /> CUPED:
-                  </span>{" "}
-                  <span className="">Enabled</span>
-                </div>
+                <Flex align="center" gap="1">
+                  <GBCuped size={13} />
+                  <Text size="sm" color="text-low">
+                    <Text size="inherit" weight="semibold">
+                      CUPED:
+                    </Text>{" "}
+                    Enabled
+                  </Text>
+                </Flex>
               )}
               {isCurrentPhase && (
-                <div className="d-flex align-items-center">
-                  <BanditUpdateStatus
-                    experiment={experiment}
-                    mutate={mutate}
-                    isPublic={isPublic}
-                  />
-                </div>
+                <BanditUpdateStatus
+                  experiment={experiment}
+                  mutate={mutate}
+                  isPublic={isPublic}
+                />
               )}
-            </div>
+            </Flex>
             <BanditSummaryTable
               experiment={experiment}
               metric={metric}
@@ -189,48 +188,48 @@ export default function BanditSummaryResultsTab({
         <>
           <h3 className="mt-4 mb-3">Variation Performance over Time</h3>
           <div className="box px-3 py-2">
-            <div className="d-flex mb-4 pb-2">
-              <div>
-                <label className="uppercase-title">Chart</label>
-                <ButtonSelectField
+            <Flex gap="5" mb="4" wrap="wrap" align="start">
+              <Flex direction="column" gap="1">
+                <Text size="sm" weight="medium" color="text-mid">
+                  Chart
+                </Text>
+                <SegmentedControl
+                  wrap
+                  aria-label="Chart"
                   value={chartMode}
-                  setValue={(v) => setChartMode(v)}
+                  setValue={setChartMode}
                   options={[
-                    {
-                      label: "Cumulative Variation Means",
-                      value: "values",
-                    },
-                    {
-                      label: "Probability of Winning",
-                      value: "probabilities",
-                    },
-                    {
-                      label: "Variation Weights",
-                      value: "weights",
-                    },
+                    { value: "values", label: "Cumulative variation means" },
+                    { value: "probabilities", label: "Probability of winning" },
+                    { value: "weights", label: "Variation weights" },
                   ]}
                 />
-              </div>
+              </Flex>
               {chartMode !== "values" && (
-                <div className="ml-4">
-                  <label className="uppercase-title">Chart type</label>
-                  <ButtonSelectField
+                <Flex direction="column" gap="1">
+                  <Text size="sm" weight="medium" color="text-mid">
+                    Chart type
+                  </Text>
+                  <SegmentedControl
+                    aria-label="Chart type"
                     value={chartType}
-                    setValue={(v) => setChartType(v)}
+                    setValue={setChartType}
                     options={[
                       {
-                        label: <TbChartAreaLineFilled size={20} />,
                         value: "area",
+                        ariaLabel: "Area",
+                        label: <TbChartAreaLineFilled size={18} />,
                       },
                       {
-                        label: <LiaChartLineSolid size={20} />,
                         value: "line",
+                        ariaLabel: "Line",
+                        label: <LiaChartLineSolid size={18} />,
                       },
                     ]}
                   />
-                </div>
+                </Flex>
               )}
-            </div>
+            </Flex>
             <BanditDateGraph
               experiment={experiment}
               metric={metric}

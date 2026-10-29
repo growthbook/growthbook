@@ -29,7 +29,7 @@ export function ChangeField({
   oldNode,
   newNode,
 }: {
-  label?: string;
+  label?: ReactNode;
   changed: boolean;
   oldNode: ReactNode;
   newNode: ReactNode;

@@ -22,6 +22,7 @@ import {
 } from "@/components/ResizablePanels";
 import AreaWithHeader from "@/components/SchemaBrowser/AreaWithHeader";
 import BigValueChart from "@/components/SqlExplorer/BigValueChart";
+import ScrollArea from "@/ui/ScrollArea";
 import DataVizConfigPanel from "./DataVizConfigPanel";
 import PivotTable from "./PivotTable";
 
@@ -868,10 +869,12 @@ export function DataVisualizationDisplay({
     }
 
     return (
-      <PivotTable
-        aggregatedRows={aggregatedRows}
-        dataVizConfig={dataVizConfig}
-      />
+      <ScrollArea direction="both" edgeCue="fade" style={{ height: "100%" }}>
+        <PivotTable
+          aggregatedRows={aggregatedRows}
+          dataVizConfig={dataVizConfig}
+        />
+      </ScrollArea>
     );
   }
 
