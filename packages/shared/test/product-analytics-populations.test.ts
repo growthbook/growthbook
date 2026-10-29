@@ -10,9 +10,9 @@ import { createLikeStringMatchFn } from "shared/sql";
 import {
   ExplorationDateRange,
   MetricExplorationConfig,
-  MetricPopulation,
+  ExplorationPopulation,
   ProductAnalyticsDimension,
-  metricPopulationValidator,
+  explorationPopulationValidator,
   metricTypeValidator,
   explorationConfigValidator,
   productAnalyticsExplorationValidator,
@@ -150,8 +150,8 @@ const ALL_METRICS = [
 ];
 
 const mobileUsers = (
-  extra: Partial<MetricPopulation> = {},
-): MetricPopulation => ({
+  extra: Partial<ExplorationPopulation> = {},
+): ExplorationPopulation => ({
   source: { type: "factTable", factTableId: "events" },
   rowFilters: [{ column: "device_type", operator: "=", values: ["mobile"] }],
   unit: "user_id",
@@ -180,7 +180,7 @@ function explore({
   unit = "user_id",
 }: {
   metrics: FactMetricInterface[];
-  population?: MetricPopulation | null;
+  population?: ExplorationPopulation | null;
   overall?: boolean;
   dimensions?: ProductAnalyticsDimension[];
   dateRange?: ExplorationDateRange;
@@ -529,7 +529,7 @@ describe("metric explorations with a population", () => {
 
     it("defaults omitted row filters to an empty list", () => {
       expect(
-        metricPopulationValidator.parse({
+        explorationPopulationValidator.parse({
           source: mobileRevenueOver10.source,
           unit: "user_id",
         }),
@@ -547,7 +547,7 @@ describe("metric explorations with a population", () => {
       ["steps", { steps: [] }],
     ])("rejects %s", (_, change) => {
       expect(
-        metricPopulationValidator.safeParse({
+        explorationPopulationValidator.safeParse({
           ...mobileRevenueOver10,
           ...change,
         }).success,

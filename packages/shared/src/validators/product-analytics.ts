@@ -24,7 +24,7 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
   dateUpdated: true,
 });
 
-export const metricPopulationValidator = populationStepValidator
+export const explorationPopulationValidator = populationStepValidator
   .extend({
     rowFilters: z
       .array(rowFilterValidator)
@@ -39,7 +39,9 @@ export const metricPopulationValidator = populationStepValidator
       ),
   })
   .strict();
-export type MetricPopulation = z.infer<typeof metricPopulationValidator>;
+export type ExplorationPopulation = z.infer<
+  typeof explorationPopulationValidator
+>;
 
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
@@ -68,7 +70,7 @@ const metricDatasetValidator = z
   .object({
     type: z.literal("metric"),
     values: z.array(metricValueValidator),
-    population: metricPopulationValidator
+    population: explorationPopulationValidator
       .nullable()
       .optional()
       .describe(
@@ -244,7 +246,7 @@ const journeyDatasetValidator = z
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
 // Populations: one single-step population definition per value.
-const populationValueValidator = metricPopulationValidator.extend({
+const populationValueValidator = explorationPopulationValidator.extend({
   name: z.string(),
   type: z.literal("population"),
   unit: z.string().nullable(),

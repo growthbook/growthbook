@@ -40,7 +40,7 @@ import {
   ProductAnalyticsResultRow,
   FunnelDataset,
   PopulationDataset,
-  MetricPopulation,
+  ExplorationPopulation,
   dateGranularity,
 } from "../../validators/product-analytics";
 import {
@@ -220,7 +220,7 @@ function getMetricsAndUnitsFromValues(
 // A population as a distinct-units count with an optional aggregate filter.
 // Used for population previews and for a metric dataset's population.
 function createPopulationMetric(
-  population: Omit<MetricPopulation, "unit">,
+  population: Omit<ExplorationPopulation, "unit">,
   id: string,
   name: string,
 ): MinimalMetric {

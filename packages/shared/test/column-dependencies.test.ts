@@ -1,5 +1,5 @@
 import { explorationConfigReferencesColumn } from "shared/enterprise";
-import { ExplorationConfig, MetricPopulation } from "shared/validators";
+import { ExplorationConfig, ExplorationPopulation } from "shared/validators";
 
 const baseConfig = {
   datasource: "ds1",
@@ -42,14 +42,14 @@ describe("explorationConfigReferencesColumn", () => {
   const filters = [{ id: "flt_1", value: "margin_vc > 0" }];
 
   describe("metric dataset population", () => {
-    const population: MetricPopulation = {
+    const population: ExplorationPopulation = {
       source: { type: "factTable", factTableId: "ft1" },
       rowFilters: [],
       unit: "user_id",
     };
 
     function metricConfig(
-      population: MetricPopulation | null | undefined,
+      population: ExplorationPopulation | null | undefined,
     ): ExplorationConfig {
       return {
         ...baseConfig,
@@ -71,7 +71,7 @@ describe("explorationConfigReferencesColumn", () => {
       };
     }
 
-    it.each<Partial<MetricPopulation>>([
+    it.each<Partial<ExplorationPopulation>>([
       { aggregateFilter: ">0", aggregateFilterColumn: "margin_vc" },
       { rowFilters: [{ column: "margin_vc", operator: ">", values: ["0"] }] },
       { rowFilters: [{ operator: "sql_expr", values: ["margin_vc > 0"] }] },

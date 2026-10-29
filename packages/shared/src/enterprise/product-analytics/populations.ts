@@ -1,7 +1,7 @@
 import type {
   ExplorationConfig,
   MetricValue,
-  MetricPopulation,
+  ExplorationPopulation,
 } from "shared/validators";
 import { getPopulationRuleViolations } from "shared/populations";
 import type {
@@ -27,7 +27,7 @@ export function validatePopulationMetricCompatibility(
   config: Pick<ExplorationConfig, "datasource" | "dimensions">,
   metricValue: MetricValue,
   metric: FactMetricInterface,
-  population: MetricPopulation,
+  population: ExplorationPopulation,
   factTable: FactTableInterface,
 ): void {
   if (!isSupportedWithPopulation(metric)) {
