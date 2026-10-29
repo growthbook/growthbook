@@ -322,7 +322,7 @@ export function AssignmentQueryDriftWarning({
       {drift.message}
     </HelperText>
   ) : (
-    <Callout status={drift.status} mb="3">
+    <Callout status={drift.status} size="sm" mb="3">
       {drift.message}
     </Callout>
   );
