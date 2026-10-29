@@ -16,6 +16,7 @@ import {
   isBinomialMetric,
   isFactMetric,
   isFactFunnelMetric,
+  isIsolatedDimension,
   isRatioMetric,
   isRegressionAdjusted,
   isSubUnitClusterMetric,
@@ -64,6 +65,7 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
+  buildUnitDimensionQueryMap,
   filterParentQueryMap,
   parseUnitDimQueryName,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
@@ -769,6 +771,23 @@ export async function writeSnapshotAnalyses(
   }
 }
 
+export function selectAnalysisQueryData(
+  queryData: QueryMap,
+  snapshotSettings: ExperimentSnapshotSettings,
+  dimensionId: string | undefined,
+): QueryMap {
+  if (dimensionId && isIsolatedDimension(snapshotSettings, dimensionId)) {
+    const isolatedQueryData = buildUnitDimensionQueryMap(
+      queryData,
+      dimensionId,
+    );
+    if (isolatedQueryData.size > 0) {
+      return isolatedQueryData;
+    }
+  }
+  return filterParentQueryMap(queryData);
+}
+
 export async function analyzeExperimentResults({
   queryData,
   analysisSettings,
@@ -785,9 +804,13 @@ export async function analyzeExperimentResults({
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
 }> {
-  const parentQueryData = filterParentQueryMap(queryData);
+  const analysisQueryData = selectAnalysisQueryData(
+    queryData,
+    snapshotSettings,
+    analysisSettings[0]?.dimensions[0],
+  );
   const mdat = getMetricsAndQueryDataForStatsEngine(
-    parentQueryData,
+    analysisQueryData,
     metricMap,
     snapshotSettings,
   );
