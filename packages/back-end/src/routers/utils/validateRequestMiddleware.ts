@@ -1,6 +1,6 @@
 import { RequestHandler } from "express";
 import { Schema } from "zod";
-import { ParamsDictionary } from "express-serve-static-core";
+import type { ParamsDictionary } from "express-serve-static-core";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
 
 type ValidationParams<
