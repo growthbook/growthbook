@@ -7,7 +7,9 @@ import {
 } from "shared/types/organization";
 import { getDefaultRole } from "shared/permissions";
 import track from "@/services/track";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { StopSubmit } from "@/ui/Modal/StopSubmit";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { useAuth } from "@/services/auth";
 import StringArrayField from "@/ui/StringArrayField";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
@@ -86,14 +88,15 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
   // Hit a hard cap and needs to contact sales to increase the number of seats on their license
   if (showContactSupport) {
     return (
-      <Modal
+      <ModalStandard
         trackingEventModalType=""
         open={true}
         close={close}
+        closeCta="Close"
         size="md"
-        header={"Reached seat limit"}
+        header="Reached seat limit"
       >
-        <div className="my-3">
+        <div>
           Whoops! You reached the seat limit on your license. To increase your
           number of seats, please contact{" "}
           <a href="mailto:sales@growthbook.io" target="_blank" rel="noreferrer">
@@ -101,11 +104,12 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           </a>
           .
         </div>
-      </Modal>
+      </ModalStandard>
     );
   }
 
-  const onSubmit = form.handleSubmit(async (value) => {
+  // StopSubmit keeps the modal open, since it shows results or swaps to another modal.
+  const onSubmit = validatedSubmit(form, async (value) => {
     const { email: emails } = value;
 
     if (
@@ -114,7 +118,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       seatsInUse + value.email.length > freeSeats
     ) {
       setShowUpgradeModal(true);
-      return;
+      throw new StopSubmit();
     }
 
     if (
@@ -124,7 +128,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       (license.seats || 0) < seatsInUse + value.email.length
     ) {
       setShowContactSupport(true);
-      return;
+      throw new StopSubmit();
     }
 
     const failed: InviteResult[] = [];
@@ -163,20 +167,20 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
     setFailedInvites(failed);
 
     mutate();
+    throw new StopSubmit();
   });
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType=""
       close={close}
       header="Invite Member"
       open={true}
       cta="Invite"
-      size="xl"
+      size="lg"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }
-      autoCloseOnSubmit={false}
       submit={
         successfulInvites.length || failedInvites.length ? undefined : onSubmit
       }
@@ -248,7 +252,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           <StringArrayField
             legacyHeight
             required
-            label="Email Address"
+            label="Email address"
             placeholder="name@company.com"
             value={form.watch("email")}
             onChange={(emails) => {
@@ -290,7 +294,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
           </Box>
         </>
       )}
-    </Modal>
+    </ModalStandard>
   );
 };
 

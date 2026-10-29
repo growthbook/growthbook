@@ -1028,9 +1028,22 @@ export function contextualBanditChangeActions(
 ): ConfirmAction[] {
   const actions = new Set(statusActions(existing.status, changes.status));
   if (existing.status !== "draft") {
+    if (
+      changes.archived !== undefined &&
+      changes.archived !== !!existing.archived
+    ) {
+      actions.add(
+        existing.status !== "running"
+          ? "experiment.other"
+          : changes.archived
+            ? "experiment.stop"
+            : "experiment.start",
+      );
+    }
     const before = existing as Record<string, unknown>;
     for (const [field, after] of Object.entries(changes)) {
-      if (field === "status" || !changed(before[field], after)) continue;
+      if (field === "status" || field === "archived") continue;
+      if (!changed(before[field], after)) continue;
       const action =
         BANDIT_FIELD_ACTIONS[field as keyof ContextualBanditInterface];
       if (action !== null) actions.add(action ?? "experiment.other");

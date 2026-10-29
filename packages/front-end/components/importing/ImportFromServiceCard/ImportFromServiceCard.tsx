@@ -1,11 +1,17 @@
 import React, { FC, PropsWithChildren } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
+import Text from "@/ui/Text";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;
   icon: string;
-  accentColor: string;
+  // Logos with black or white parts ship an `${icon}-dark.svg` for dark mode
+  hasDarkIcon: boolean;
   // Services with a self-serve importer link to their import page
   path?: string;
   // Services without one open a "request migration help" modal instead
@@ -16,52 +22,57 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
   icon,
   service,
   path,
-  accentColor,
+  hasDarkIcon,
   onRequest,
   children,
 }) => {
+  const { theme } = useAppearanceUITheme();
+  const iconFile = hasDarkIcon && theme === "dark" ? `${icon}-dark` : icon;
+
   return (
-    <div className="appbox p-3 mb-0">
-      <div className="d-flex align-items-center">
-        <div
-          className="d-flex justify-content-center align-items-center mr-3"
+    <Frame mb="0" py="4" px="4">
+      <Flex align="center" gap="4">
+        <Flex
+          align="center"
+          justify="center"
+          flexShrink="0"
+          width="40px"
+          height="40px"
           style={{
-            backgroundColor: accentColor,
-            width: 60,
-            height: 60,
+            backgroundColor: "var(--color-panel-solid)",
+            border: "1px solid var(--gray-a5)",
             borderRadius: 6,
           }}
         >
           <img
-            src={`/images/3rd-party-logos/importing/icons/${icon}.svg`}
-            style={{
-              width: 40,
-            }}
+            src={`/images/3rd-party-logos/importing/icons/${iconFile}.svg`}
+            width={26}
+            height={26}
+            style={{ objectFit: "contain" }}
             alt={`${service} logo`}
           />
-        </div>
-
-        <div className="flex-grow-1">
-          <h2>{service}</h2>
-          <div className="my-2">{children}</div>
-        </div>
-
-        <div>
+        </Flex>
+        <Box flexGrow="1">
+          <Heading as="h2" size="sm" mb="1">
+            {service}
+          </Heading>
+          <Text as="p" color="text-mid" m="0">
+            {children}
+          </Text>
+        </Box>
+        {/* One shared width keeps the description column even down the stack. */}
+        <Flex flexShrink="0" minWidth="200px" justify="end">
           {path ? (
-            <LinkButton href={`importing/${path}`} style={{ minWidth: 200 }}>
+            <LinkButton href={`importing/${path}`}>
               Import from {service}
             </LinkButton>
           ) : (
-            <Button
-              variant="outline"
-              onClick={() => onRequest?.()}
-              style={{ minWidth: 200 }}
-            >
+            <Button variant="outline" onClick={() => onRequest?.()}>
               Get migration help
             </Button>
           )}
-        </div>
-      </div>
-    </div>
+        </Flex>
+      </Flex>
+    </Frame>
   );
 };

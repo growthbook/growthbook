@@ -22,7 +22,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
-import PageHead from "@/components/Layout/PageHead";
+import SettingsPage from "@/components/Layout/SettingsPage";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -77,7 +77,15 @@ const TeamPage: FC = () => {
 
   if (!team) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage
+        title="Team"
+        breadcrumb={[
+          { display: "Settings" },
+          { display: "Organization" },
+          { display: "Teams", href: "/settings/team#teams" },
+          { display: String(tid ?? "") },
+        ]}
+      >
         <Callout status="error">
           Team{" "}
           <Text as="span" size="inherit" mono>
@@ -85,7 +93,7 @@ const TeamPage: FC = () => {
           </Text>{" "}
           does not exist.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
@@ -120,21 +128,28 @@ const TeamPage: FC = () => {
         onSuccess={() => refreshOrganization()}
       />
 
-      <PageHead
-        breadcrumb={[
+      <SettingsPage
+        title={team.name}
+        hideHeader
+        breadcrumb={
           canManageTeam
-            ? { display: "Teams", href: "/settings/team#teams" }
-            : {
-                display: crumbProject?.name ?? "Projects",
-                href: crumbProject
-                  ? `/project/${crumbProject.id}`
-                  : "/projects",
-              },
-          { display: team.name },
-        ]}
-      />
-
-      <div className="container pagecontents">
+            ? [
+                { display: "Settings" },
+                { display: "Organization" },
+                { display: "Teams", href: "/settings/team#teams" },
+                { display: team.name },
+              ]
+            : [
+                {
+                  display: crumbProject?.name ?? "Projects",
+                  href: crumbProject
+                    ? `/project/${crumbProject.id}`
+                    : "/projects",
+                },
+                { display: team.name },
+              ]
+        }
+      >
         {!isEditable && (
           <Callout status="info" mb="4">
             This team is managed by an idP. To make changes to the{" "}
@@ -395,7 +410,7 @@ const TeamPage: FC = () => {
             )}
           </TableBody>
         </Table>
-      </div>
+      </SettingsPage>
     </>
   );
 };

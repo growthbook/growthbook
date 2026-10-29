@@ -1,0 +1,21 @@
+// Only the needed resets, so the browser's focus ring still shows.
+.button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.subtleIcon {
+  display: inline-flex;
+  color: var(--gray-9);
+}
+
+.subtleIconActive {
+  color: var(--gray-11);
+}
