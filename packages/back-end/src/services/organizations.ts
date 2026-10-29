@@ -1816,8 +1816,6 @@ export async function addMemberFromSSOConnection(
   }
   // Never auto-join users into a disabled organization
   if (!organization || organization.disabled) return null;
-  // Already a member, but the org doesn't accept this login
-  if (organization.members.some((m) => m.id === req.userId)) return null;
 
   // If the org has explicitly disabled autoApproveMembers, add the user as a pending member
   // This differs from the non-SSO path (`undefined` is auto-approved there) to preserve existing behavior

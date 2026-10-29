@@ -29,7 +29,6 @@ import {
   findVerifiedOrgsForNewUser,
   getContextFromReq,
   isOrgScopedLogin,
-  isValidLoginMethod,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -97,11 +96,7 @@ export async function getUser(req: AuthRequest, res: Response) {
 
   // If the user is not in an organization yet and is using SSO
   // Check to see if they should be auto-added to one based on their email domain
-  // An SSO login only reaches its own org, so also check when the user only has others (e.g. a personal org)
-  if (
-    !orgs.length ||
-    (isOrgScopedLogin(req) && !orgs.some((org) => isValidLoginMethod(org, req)))
-  ) {
+  if (!orgs.length) {
     const autoOrg = await addMemberFromSSOConnection(req);
     if (autoOrg) {
       orgs.push(autoOrg);
