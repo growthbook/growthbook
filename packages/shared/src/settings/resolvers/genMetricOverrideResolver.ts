@@ -48,12 +48,6 @@ export default function genMetricOverrideResolver(
       case "windowType":
         metricValue = ctx.scopes?.metric?.windowSettings?.type;
         break;
-      case "winRisk":
-        metricValue = ctx.scopes?.metric?.winRisk;
-        break;
-      case "loseRisk":
-        metricValue = ctx.scopes?.metric?.loseRisk;
-        break;
       default: {
         // This should never happen according to our types, but keeping the default behavior in case
         const _exhaustiveCheck: never = fieldName;

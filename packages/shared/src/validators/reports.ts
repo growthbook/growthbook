@@ -30,7 +30,7 @@ const reportAnalysisSettingsSchema = z
     activationMetric: z.string().optional(),
     metricOverrides: z
       .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)
@@ -217,6 +217,20 @@ export const getReportValidator = {
   path: "/reports/:id",
 };
 
+// Retired risk thresholds are still accepted from older clients, then dropped.
+const metricOverrideInput = metricOverride.extend({
+  winRisk: z
+    .number()
+    .describe("No longer used. Accepted and ignored.")
+    .optional()
+    .meta({ deprecated: true }),
+  loseRisk: z
+    .number()
+    .describe("No longer used. Accepted and ignored.")
+    .optional()
+    .meta({ deprecated: true }),
+});
+
 const postReportBody = z
   .object({
     experimentId: z.string().describe("The experiment to create a report for"),
@@ -286,8 +300,8 @@ const postReportBody = z
       .describe("Lookback window when `attributionModel` is `lookbackOverride`")
       .optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(metricOverrideInput)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)
@@ -405,8 +419,8 @@ const putReportSettingsBody = z
       .optional(),
     activationMetric: z.string().describe("Activation metric ID").optional(),
     metricOverrides: z
-      .array(metricOverride)
-      .describe("Per-metric window, risk, and regression-adjustment overrides")
+      .array(metricOverrideInput)
+      .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
       .array(customMetricSlice)

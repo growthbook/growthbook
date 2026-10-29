@@ -160,8 +160,6 @@ export function MetricOverrideTooltipContent({
         conversionWindowsIgnored:
           experiment.attributionModel === "experimentDuration" ||
           experiment.attributionModel === "lookbackOverride",
-        winRisk: settings.winRisk.value,
-        loseRisk: settings.loseRisk.value,
         cuped: hasCommercialFeature("regression-adjustment")
           ? {
               enabled: analysis.regressionAdjustmentEnabled,

@@ -362,8 +362,14 @@ export const apiFactMetricValidator = namedSchema(
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
       regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
-      riskThresholdSuccess: z.coerce.number(),
-      riskThresholdDanger: z.coerce.number(),
+      riskThresholdSuccess: z.coerce
+        .number()
+        .describe("No longer used. Always the default value.")
+        .meta({ deprecated: true }),
+      riskThresholdDanger: z.coerce
+        .number()
+        .describe("No longer used. Always the default value.")
+        .meta({ deprecated: true }),
       displayAsPercentage: z
         .boolean()
         .describe(
@@ -693,18 +699,12 @@ export const postFactMetricBodyFields = z.object({
   regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
   riskThresholdSuccess: z
     .number()
-    .gte(0)
-    .describe(
-      "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-    )
+    .describe("No longer used. Accepted and ignored.")
     .optional()
     .meta({ deprecated: true }),
   riskThresholdDanger: z
     .number()
-    .gte(0)
-    .describe(
-      "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-    )
+    .describe("No longer used. Accepted and ignored.")
     .optional()
     .meta({ deprecated: true }),
   displayAsPercentage: z

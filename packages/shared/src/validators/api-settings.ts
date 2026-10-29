@@ -136,8 +136,14 @@ export const apiSettingsValidator = namedSchema(
       delayHours: z.coerce.number(),
       windowType: z.string(),
       windowHours: z.coerce.number(),
-      winRisk: z.coerce.number(),
-      loseRisk: z.coerce.number(),
+      winRisk: z.coerce
+        .number()
+        .describe("No longer used. Always the default value.")
+        .meta({ deprecated: true }),
+      loseRisk: z.coerce
+        .number()
+        .describe("No longer used. Always the default value.")
+        .meta({ deprecated: true }),
       secureAttributeSalt: z.string(),
       killswitchConfirmation: z.boolean(),
       featureKillSwitchBehavior: z.enum(["off", "warn"]).optional(),
