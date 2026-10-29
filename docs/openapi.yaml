@@ -292,6 +292,10 @@ info:
 
     - **404** - Not Found - Unknown API route or requested resource
 
+    - **409** - Conflict - The resource changed since it was read, or its state
+    blocks the request, such as an experiment start's checklist. `code` names
+    which.
+
     - **422** - Unprocessable Entity - The request is valid, but a warning,
     validation rule, approval requirement, or another publishing gate blocked
     it. Do not assume that `ignoreWarnings` clears every 422 response.
@@ -317,14 +321,16 @@ info:
     person has explicitly asked for it.
 
 
-    Publish responses include a `gates` array that explains every blocker:
+    Publish and experiment start responses include a `gates` array that explains
+    every blocker:
 
 
     - `type`, `severity`, and `messages` identify the problem.
 
     - `override` names the request-body field that can bypass it. This is
     `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and
-    invariant failures, or `skipHooks` for Custom Hook rejections. A value of
+    invariant failures, `skipHooks` for Custom Hook rejections, or
+    `skipChecklist` for an experiment start's launch checklist items. A value of
     `null` means there is no request-body override.
 
     - `requiresPermission` identifies any additional permission needed to use
@@ -342,9 +348,48 @@ info:
     When a successful publish bypasses a gate, the response includes
     `bypassedGates`. Each entry reports the gate `type` and how it was bypassed
     in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`,
-    `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or
-    `revertsBypassApproval` (reverts only). This field is omitted when no gates
-    were bypassed.
+    `skipHooks`, `skipChecklist`, `bypassApprovalPermission`,
+    `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This
+    field is omitted when no gates were bypassed.
+
+
+    ### Request flags
+
+
+    Every refusal a request can get past with a flag:
+
+
+    | Flag                      | Where        | Gets
+    past                                                                                                   
+    |
+
+    | ------------------------- | ------------ |
+    ------------------------------------------------------------------------------------------------------------
+    |
+
+    | `ignoreWarnings`          | Body         | Warnings
+    (`422`)                                                                                            
+    |
+
+    | `skipSchemaValidation`    | Body         | Schema and invariant failures,
+    with **Bypass draft approvals**
+    access                                        |
+
+    | `skipHooks`               | Body         | Custom Hook
+    rejections                                                                                      
+    |
+
+    | `skipChecklist`           | Body         | An experiment start's
+    incomplete launch checklist items (`409` `checklist_incomplete`), but not
+    its blockers |
+
+    | `allowUnscopedRules`      | Body         | A rule for All Environments and
+    All Projects where the organization requires a scope (`422` `unscoped_rule`)
+    |
+
+    | `overrideDraftLimit=true` | Query string | Creating a draft past the draft
+    limit                                                                       
+    |
 servers:
   - url: https://api.growthbook.io/api
     description: GrowthBook Cloud
@@ -1418,6 +1463,12 @@ paths:
                                   type: number
                                 hashAttribute:
                                   type: string
+                                fallbackAttribute:
+                                  description: >-
+                                    Used in place of `hashAttribute` when a user
+                                    lacks it. Only SDKs with Sticky Bucketing
+                                    enabled use it.
+                                  type: string
                                 seed:
                                   type: string
                                 hashVersion:
@@ -2092,6 +2143,12 @@ paths:
                                         experiment will skip this rule.
                                       type: number
                                     hashAttribute:
+                                      type: string
+                                    fallbackAttribute:
+                                      description: >-
+                                        Used in place of `hashAttribute` when a
+                                        user lacks it. Only SDKs with Sticky
+                                        Bucketing enabled use it.
                                       type: string
                                     seed:
                                       type: string
@@ -2997,6 +3054,12 @@ paths:
                                   type: number
                                 hashAttribute:
                                   type: string
+                                fallbackAttribute:
+                                  description: >-
+                                    Used in place of `hashAttribute` when a user
+                                    lacks it. Only SDKs with Sticky Bucketing
+                                    enabled use it.
+                                  type: string
                                 seed:
                                   type: string
                                 hashVersion:
@@ -3671,6 +3734,12 @@ paths:
                                         experiment will skip this rule.
                                       type: number
                                     hashAttribute:
+                                      type: string
+                                    fallbackAttribute:
+                                      description: >-
+                                        Used in place of `hashAttribute` when a
+                                        user lacks it. Only SDKs with Sticky
+                                        Bucketing enabled use it.
                                       type: string
                                     seed:
                                       type: string
@@ -5905,6 +5974,8 @@ paths:
                           maximum: 1
                         hashAttribute:
                           type: string
+                        fallbackAttribute:
+                          type: string
                         seed:
                           type: string
                         hashVersion:
@@ -6605,6 +6676,8 @@ paths:
                       minimum: 0
                       maximum: 1
                     hashAttribute:
+                      type: string
+                    fallbackAttribute:
                       type: string
                     seed:
                       type: string
@@ -9065,6 +9138,12 @@ paths:
                             type: number
                           hashAttribute:
                             type: string
+                          fallbackAttribute:
+                            description: >-
+                              Used in place of `hashAttribute` when a user lacks
+                              it. Only SDKs with Sticky Bucketing enabled use
+                              it.
+                            type: string
                           seed:
                             description: >-
                               Optional seed for the hash function; defaults to
@@ -9998,6 +10077,12 @@ paths:
                           coverage:
                             type: number
                           hashAttribute:
+                            type: string
+                          fallbackAttribute:
+                            description: >-
+                              Used in place of `hashAttribute` when a user lacks
+                              it. Only SDKs with Sticky Bucketing enabled use
+                              it.
                             type: string
                           seed:
                             description: >-
@@ -12822,6 +12907,8 @@ paths:
                       maximum: 1
                     hashAttribute:
                       type: string
+                    fallbackAttribute:
+                      type: string
                     seed:
                       type: string
                     hashVersion:
@@ -14433,6 +14520,11 @@ paths:
         this draft while the schedule is pending, and
         `scheduledPublishLockOthers` to block publishing other drafts of this
         feature in the meantime.
+
+
+        Neither can be set on a draft whose rules would take a draft experiment
+        live, since an automatic publish doesn't start the experiment. Schedule
+        the experiment's start instead; starting it publishes the draft.
       tags:
         - feature-revisions-v2
       parameters:
@@ -14506,7 +14598,14 @@ paths:
         checked again when the schedule runs. A caller with Bypass draft
         approvals access can schedule an unapproved draft by sending
         `bypassApproval: true`. That schedule must be canceled and recreated
-        before it can be changed.
+        before it can be changed, and a later edit that would reset an approval
+        also drops the bypass.
+
+
+        A draft whose rules would take a draft experiment live can't be
+        scheduled, since a scheduled publish doesn't start the experiment.
+        Schedule the experiment's start instead; starting it publishes the
+        draft.
       tags:
         - feature-revisions-v2
       parameters:
@@ -16688,6 +16787,12 @@ paths:
     post:
       operationId: updateExperiment
       summary: Update a single experiment
+      description: >-
+        Setting `status` from draft to running starts the experiment as `POST
+        /experiments/{id}/start` does, judged on the experiment as this update
+        leaves it, with `skipChecklist` in this body. Changing `archived`
+        archives or unarchives it as `POST /experiments/{id}/archive` and
+        `/unarchive` do.
       tags:
         - experiments
       parameters:
@@ -16701,8 +16806,9 @@ paths:
               properties:
                 datasourceId:
                   description: >-
-                    Can only be set if existing experiment does not have a
-                    datasource
+                    Changing it needs an `assignmentQueryId` from the new one,
+                    and drops the metrics, segment and unit dimensions that
+                    aren't from it.
                   type: string
                 assignmentQuery:
                   description: >-
@@ -16762,6 +16868,14 @@ paths:
                   enum:
                     - standard
                     - multi-armed-bandit
+                bypassApproval:
+                  description: >-
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
+                  type: boolean
                 project:
                   description: Project ID which the experiment belongs to
                   type: string
@@ -16809,6 +16923,17 @@ paths:
                   type: string
                 archived:
                   type: boolean
+                linkedChanges:
+                  description: >-
+                    Required while the experiment still serves through linked
+                    changes. "materialize" keeps a stopped experiment's released
+                    variation as a permanent force rule on each linked Feature
+                    Flag; "remove" acknowledges that the linked changes stop
+                    serving.
+                  type: string
+                  enum:
+                    - materialize
+                    - remove
                 status:
                   type: string
                   enum:
@@ -17011,17 +17136,23 @@ paths:
                         properties:
                           namespaceId:
                             type: string
+                          enabled:
+                            type: boolean
                           range:
                             minItems: 2
                             maxItems: 2
                             type: array
                             items:
                               type: number
-                          enabled:
-                            type: boolean
+                          ranges:
+                            type: array
+                            items:
+                              type: array
+                              prefixItems:
+                                - type: number
+                                - type: number
                         required:
                           - namespaceId
-                          - range
                         additionalProperties: false
                       prerequisites:
                         type: array
@@ -17355,6 +17486,14 @@ paths:
                     has explicitly asked you to. If a check blocks you, stop and
                     ask a person instead of working around it.
                   type: boolean
+                skipChecklist:
+                  description: >-
+                    When `status` starts a draft: start past its incomplete
+                    launch checklist items, as `POST /experiments/{id}/start`
+                    does. Only set this when a person has explicitly asked you
+                    to. If a check blocks you, stop and ask a person instead of
+                    working around it.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -17366,6 +17505,56 @@ paths:
                 properties:
                   experiment:
                     $ref: '#/components/schemas/Experiment'
+                  bypassedGates:
+                    description: >-
+                      Gates this start skipped or bypassed. Present only when
+                      there were some.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          description: >-
+                            The checklist item, or `rampLocked:<featureId>` for
+                            a linked Feature Flag a ramp locks.
+                          type: string
+                        type:
+                          description: >-
+                            Gate kind: "checklist-item", "approval-required",
+                            "merge-conflict", "unrelated-draft-changes",
+                            "permission-denied" or "ramp-locked".
+                          type: string
+                        outcome:
+                          type: string
+                          const: bypassed
+                        via:
+                          description: >-
+                            How it was passed: `skipChecklist`, the caller's
+                            permission (`bypassApprovalPermission`), or the
+                            organization's REST API approval bypass
+                            (`restApiBypassesReviews`).
+                          type: string
+                          enum:
+                            - ignoreWarnings
+                            - skipSchemaValidation
+                            - skipHooks
+                            - bypassApprovalPermission
+                            - restApiBypassesReviews
+                            - revertsBypassApproval
+                            - skipChecklist
+                      required:
+                        - key
+                        - type
+                        - outcome
+                        - via
+                      additionalProperties: false
+                  publishedFeatureDrafts:
+                    description: >-
+                      The linked Feature Flag drafts the start published.
+                      Present only when it published some.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/publishedFeatureDrafts'
                 required:
                   - experiment
                 additionalProperties: false
@@ -17376,26 +17565,79 @@ paths:
           content:
             application/json:
               schema:
-                type: object
-                description: One or more linked feature drafts could not be published
-                properties:
-                  message:
-                    type: string
-                  code:
-                    type: string
-                    enum:
-                      - pending_draft_publish_failed
-                  details:
-                    $ref: >-
-                      #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
-                required:
-                  - message
-                  - code
-                  - details
+                oneOf:
+                  - type: object
+                    description: >-
+                      An experiment start is blocked by its launch checklist or
+                      a linked Feature Flag
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - checklist_incomplete
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorChecklistIncompleteDetails
+                    required:
+                      - message
+                      - code
+                      - details
+                  - type: object
+                    description: One or more linked feature drafts could not be published
+                    properties:
+                      message:
+                        type: string
+                      code:
+                        type: string
+                        enum:
+                          - pending_draft_publish_failed
+                      details:
+                        $ref: >-
+                          #/components/schemas/ApiErrorPendingDraftPublishFailedDetails
+                    required:
+                      - message
+                      - code
+                      - details
       x-codeSamples:
         - lang: cURL
           source: |-
             curl -X POST 'https://api.growthbook.io/api/v1/experiments/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteExperiment
+      summary: Delete an experiment
+      description: >-
+        Archive first: a live experiment can only be deleted when the
+        organization allows the REST API to bypass approval requirements. Linked
+        Feature Flags lose their experiment rule unless `linkedChanges` is
+        "materialize".
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+        - $ref: '#/components/parameters/linkedChanges'
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    description: The ID of the deleted experiment
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/experiments/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start-checklist:
     get:
@@ -17418,13 +17660,23 @@ paths:
                     items:
                       $ref: '#/components/schemas/checklistItems'
                   status:
+                    description: '`notReady` while there''s any gate.'
                     type: string
                     enum:
                       - ready
                       - notReady
+                  gates:
+                    description: >-
+                      Each incomplete required item, and each linked Feature
+                      Flag a ramp locks, as a gate. A refused start returns the
+                      blocking ones in `gates`.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
                 required:
                   - checklistItems
                   - status
+                  - gates
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -17465,13 +17717,118 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/experiments/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/archive:
+    post:
+      operationId: postExperimentArchive
+      summary: Archive an experiment
+      description: >-
+        An archived experiment leaves the SDK payload. Refused while a running
+        experiment or a temporary rollout still serves through linked changes
+        unless `linkedChanges` says what happens to them.
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                linkedChanges:
+                  description: >-
+                    Required while the experiment still serves through linked
+                    changes. "materialize" keeps a stopped experiment's released
+                    variation as a permanent force rule on each linked Feature
+                    Flag; "remove" acknowledges that the linked changes stop
+                    serving.
+                  type: string
+                  enum:
+                    - materialize
+                    - remove
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/archive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/experiments/{id}/unarchive:
+    post:
+      operationId: postExperimentUnarchive
+      summary: Unarchive an experiment
+      tags:
+        - experiments
+      parameters:
+        - $ref: '#/components/parameters/id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties: {}
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  experiment:
+                    $ref: '#/components/schemas/ExperimentWithEnhancedStatus'
+                required:
+                  - experiment
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X POST
+            'https://api.growthbook.io/api/v1/experiments/{id}/unarchive' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/experiments/{id}/start:
     post:
       operationId: postExperimentStart
       summary: Start/Stage an experiment
       description: >-
         Starts an experiment or stages it for a future start if a
-        `statusUpdateSchedule` is set on the experiment.
+        `statusUpdateSchedule` is set on the experiment. Both check the launch
+        checklist that `GET /experiments/{id}/start-checklist` returns, as
+        gates. An incomplete item refuses the start with `checklist_incomplete`
+        unless `skipChecklist` is set; a linked Feature Flag blocker refuses it
+        either way. The refusal lists each blocking gate in `gates`, with the
+        flag or permission that gets past it and a route that resolves it. A
+        linked Feature Flag draft that still needs approval, or a flag locked by
+        a ramp, is bypassed automatically when the caller has Bypass draft
+        approvals access for that flag or the organization enables the REST API
+        approval bypass. A start reports what it got past in `bypassedGates` and
+        the drafts it published in `publishedFeatureDrafts`; if a draft can't
+        publish, for example because it needs a rebase, the start fails with
+        `pending_draft_publish_failed` before any is published. A staged start
+        carries the caller's Bypass draft approvals access to when it runs, for
+        the drafts as they were when it was staged: if one has changed since, or
+        the caller has lost that access, it needs approval like any other. The
+        organization's REST API approval bypass doesn't carry to a staged start.
       tags:
         - experiments
       parameters:
@@ -17489,6 +17846,14 @@ paths:
                     pre-launch checklist items. Only set this when a person has
                     explicitly asked you to. If a check blocks you, stop and ask
                     a person instead of working around it.
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Deprecated and ignored. Approval is bypassed automatically
+                    when the caller has Bypass draft approvals access for this
+                    resource or when the organization enables the REST API
+                    approval bypass. Otherwise, the revision must be approved
+                    before it can be published.
                   type: boolean
                 ignoreWarnings:
                   description: >-
@@ -17519,6 +17884,56 @@ paths:
                       Present only when the request staged a future scheduled
                       start instead of starting the experiment immediately.
                     type: string
+                  bypassedGates:
+                    description: >-
+                      Gates this start skipped or bypassed. Present only when
+                      there were some.
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          description: >-
+                            The checklist item, or `rampLocked:<featureId>` for
+                            a linked Feature Flag a ramp locks.
+                          type: string
+                        type:
+                          description: >-
+                            Gate kind: "checklist-item", "approval-required",
+                            "merge-conflict", "unrelated-draft-changes",
+                            "permission-denied" or "ramp-locked".
+                          type: string
+                        outcome:
+                          type: string
+                          const: bypassed
+                        via:
+                          description: >-
+                            How it was passed: `skipChecklist`, the caller's
+                            permission (`bypassApprovalPermission`), or the
+                            organization's REST API approval bypass
+                            (`restApiBypassesReviews`).
+                          type: string
+                          enum:
+                            - ignoreWarnings
+                            - skipSchemaValidation
+                            - skipHooks
+                            - bypassApprovalPermission
+                            - restApiBypassesReviews
+                            - revertsBypassApproval
+                            - skipChecklist
+                      required:
+                        - key
+                        - type
+                        - outcome
+                        - via
+                      additionalProperties: false
+                  publishedFeatureDrafts:
+                    description: >-
+                      The linked Feature Flag drafts the start published.
+                      Present only when it published some.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/publishedFeatureDrafts'
                 required:
                   - experiment
                 additionalProperties: false
@@ -17531,7 +17946,9 @@ paths:
               schema:
                 oneOf:
                   - type: object
-                    description: Required checklist items are incomplete
+                    description: >-
+                      An experiment start is blocked by its launch checklist or
+                      a linked Feature Flag
                     properties:
                       message:
                         type: string
@@ -17622,13 +18039,23 @@ paths:
                     items:
                       $ref: '#/components/schemas/checklistItems'
                   status:
+                    description: '`notReady` while there''s any gate.'
                     type: string
                     enum:
                       - ready
                       - notReady
+                  gates:
+                    description: >-
+                      Each incomplete required item, and each linked Feature
+                      Flag a ramp locks, as a gate. A refused start returns the
+                      blocking ones in `gates`.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/gates'
                 required:
                   - checklistItems
                   - status
+                  - gates
                 additionalProperties: false
         '202':
           $ref: '#/components/responses/ConfirmationHeld'
@@ -21241,8 +21668,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -21355,8 +21782,8 @@ paths:
                   type: string
                 settings:
                   description: >-
-                    Project stats settings that, when set, override the
-                    organization settings.
+                    Project settings that, when set, override the organization
+                    settings.
                   type: object
                   properties:
                     statsEngine:
@@ -30742,7 +31169,71 @@ paths:
                       a 422 instead.
                     type: array
                     items:
-                      $ref: '#/components/schemas/gates'
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                          enum:
+                            - feature
+                            - saved-group
+                            - config
+                            - constant
+                        id:
+                          description: The identifier used in the request.
+                          type: string
+                        version:
+                          type: integer
+                        type:
+                          description: Gate kind, e.g. "approval-required".
+                          type: string
+                        severity:
+                          type: string
+                          enum:
+                            - blocker
+                            - warning
+                        messages:
+                          type: array
+                          items:
+                            type: string
+                        override:
+                          description: Request flag that clears this gate on retry, if any.
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        requiresPermission:
+                          anyOf:
+                            - type: string
+                            - type: 'null'
+                        resolution:
+                          description: >-
+                            A route that resolves the gate without an override
+                            flag.
+                          anyOf:
+                            - type: object
+                              properties:
+                                action:
+                                  type: string
+                                method:
+                                  type: string
+                                path:
+                                  type: string
+                              required:
+                                - action
+                                - method
+                                - path
+                              additionalProperties: false
+                            - type: 'null'
+                      required:
+                        - entityType
+                        - id
+                        - version
+                        - type
+                        - severity
+                        - messages
+                        - override
+                        - requiresPermission
+                        - resolution
+                      additionalProperties: false
                   bypassedGates:
                     description: >-
                       Gates bypassed by the caller's flags or authority — what
@@ -54497,6 +54988,39 @@ paths:
             curl -X PUT
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteContextualBandit
+      summary: Delete a single contextualBandit
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits:
     post:
       operationId: createContextualBandit
@@ -66462,6 +66986,24 @@ components:
       description: ''
       schema:
         type: string
+    linkedChanges:
+      name: linkedChanges
+      in: query
+      description: >-
+        Required while the experiment still serves through linked changes.
+        "materialize" keeps a stopped experiment's released variation as a
+        permanent force rule on each linked Feature Flag; "remove" acknowledges
+        that the linked changes stop serving.
+      schema:
+        description: >-
+          Required while the experiment still serves through linked changes.
+          "materialize" keeps a stopped experiment's released variation as a
+          permanent force rule on each linked Feature Flag; "remove"
+          acknowledges that the linked changes stop serving.
+        type: string
+        enum:
+          - materialize
+          - remove
     variationId:
       name: variationId
       in: path
@@ -67343,6 +67885,11 @@ components:
               minimum: 0
               maximum: 1
             hashAttribute:
+              type: string
+            fallbackAttribute:
+              description: >-
+                Used in place of `hashAttribute` when a user lacks it. Only SDKs
+                with Sticky Bucketing enabled use it.
               type: string
             seed:
               description: Optional seed for the hash function; defaults to the rule id
@@ -70882,6 +71429,11 @@ components:
           description: >-
             Attribute to hash on for consistent assignment. Required when
             coverage < 1.
+          type: string
+        fallbackAttribute:
+          description: >-
+            Used in place of `hashAttribute` when a user lacks it. Only SDKs
+            with Sticky Bucketing enabled use it.
           type: string
         seed:
           type: string
@@ -77477,6 +78029,7 @@ components:
                   - experiment.traffic
                   - experiment.phases
                   - experiment.visualEditor
+                  - experiment.checklist
                   - experiment.other
                   - savedGroup.create
                   - savedGroup.draft
@@ -86500,6 +87053,7 @@ components:
                       - experiment.traffic
                       - experiment.phases
                       - experiment.visualEditor
+                      - experiment.checklist
                       - experiment.other
                       - savedGroup.create
                       - savedGroup.draft
@@ -86627,6 +87181,48 @@ components:
         - id
         - experiment
         - status
+      additionalProperties: false
+    VisualChange:
+      type: object
+      properties:
+        id:
+          type: string
+        description:
+          type: string
+        css:
+          type: string
+        js:
+          type: string
+        variation:
+          type: string
+        domMutations:
+          type: array
+          items:
+            type: object
+            properties:
+              selector:
+                type: string
+              action:
+                type: string
+                enum:
+                  - append
+                  - set
+                  - remove
+              attribute:
+                type: string
+              value:
+                type: string
+              parentSelector:
+                type: string
+              insertBeforeSelector:
+                type: string
+            required:
+              - selector
+              - action
+              - attribute
+            additionalProperties: false
+      required:
+        - variation
       additionalProperties: false
     FeatureDefinition:
       type: object
@@ -87225,48 +87821,6 @@ components:
         - features
         - constants
       additionalProperties: false
-    VisualChange:
-      type: object
-      properties:
-        id:
-          type: string
-        description:
-          type: string
-        css:
-          type: string
-        js:
-          type: string
-        variation:
-          type: string
-        domMutations:
-          type: array
-          items:
-            type: object
-            properties:
-              selector:
-                type: string
-              action:
-                type: string
-                enum:
-                  - append
-                  - set
-                  - remove
-              attribute:
-                type: string
-              value:
-                type: string
-              parentSelector:
-                type: string
-              insertBeforeSelector:
-                type: string
-            required:
-              - selector
-              - action
-              - attribute
-            additionalProperties: false
-      required:
-        - variation
-      additionalProperties: false
     ApiErrorConflictDetails:
       type: object
       properties:
@@ -87376,6 +87930,31 @@ components:
         - pattern
         - example
       additionalProperties: false
+    ApiErrorChangesConflictDetails:
+      type: object
+      properties:
+        fields:
+          type: array
+          items:
+            type: string
+        featureIds:
+          type: array
+          items:
+            type: string
+        urlRedirectIds:
+          type: array
+          items:
+            type: string
+        visualChangesetIds:
+          type: array
+          items:
+            type: string
+      required:
+        - fields
+        - featureIds
+        - urlRedirectIds
+        - visualChangesetIds
+      additionalProperties: false
     ApiErrorUnscopedRuleDetails:
       type: object
       properties:
@@ -87438,6 +88017,7 @@ components:
             - bypassApprovalPermission
             - restApiBypassesReviews
             - revertsBypassApproval
+            - skipChecklist
       required:
         - type
         - outcome
@@ -87758,6 +88338,8 @@ components:
                   coverage:
                     type: number
                   hashAttribute:
+                    type: string
+                  fallbackAttribute:
                     type: string
                   seed:
                     type: string
@@ -88438,12 +89020,91 @@ components:
             When true, this item cannot be bypassed with `skipChecklist` — the
             experiment cannot be started until it is resolved.
           type: boolean
+        featureId:
+          description: The linked Feature Flag the item is about.
+          type: string
       required:
         - key
         - required
         - status
         - manual
         - reason
+      additionalProperties: false
+    gates:
+      type: object
+      properties:
+        key:
+          description: >-
+            The checklist item, or `rampLocked:<featureId>` for a linked Feature
+            Flag a ramp locks.
+          type: string
+        type:
+          description: >-
+            Gate kind: "checklist-item", "approval-required", "merge-conflict",
+            "unrelated-draft-changes", "permission-denied" or "ramp-locked".
+          type: string
+        featureId:
+          description: The linked Feature Flag whose authority decides this gate.
+          type: string
+        severity:
+          type: string
+          enum:
+            - blocker
+            - warning
+        messages:
+          type: array
+          items:
+            type: string
+        override:
+          description: >-
+            Request flag that gets past this gate on retry, if any
+            (`skipChecklist`).
+          anyOf:
+            - type: string
+            - type: 'null'
+        requiresPermission:
+          description: >-
+            Permission on the linked Feature Flag's Project that bypasses this
+            gate.
+          anyOf:
+            - type: string
+            - type: 'null'
+        resolution:
+          description: A route that resolves the gate.
+          anyOf:
+            - type: object
+              properties:
+                action:
+                  type: string
+                method:
+                  type: string
+                path:
+                  type: string
+              required:
+                - action
+                - method
+                - path
+              additionalProperties: false
+            - type: 'null'
+      required:
+        - key
+        - type
+        - severity
+        - messages
+        - override
+        - requiresPermission
+        - resolution
+      additionalProperties: false
+    publishedFeatureDrafts:
+      type: object
+      properties:
+        featureId:
+          type: string
+        revisionVersion:
+          type: number
+      required:
+        - featureId
+        - revisionVersion
       additionalProperties: false
     snapshot:
       type: object
@@ -88871,70 +89532,6 @@ components:
         - version
         - revisionId
         - status
-      additionalProperties: false
-    gates:
-      type: object
-      properties:
-        entityType:
-          type: string
-          enum:
-            - feature
-            - saved-group
-            - config
-            - constant
-        id:
-          description: The identifier used in the request.
-          type: string
-        version:
-          type: integer
-        type:
-          description: Gate kind, e.g. "approval-required".
-          type: string
-        severity:
-          type: string
-          enum:
-            - blocker
-            - warning
-        messages:
-          type: array
-          items:
-            type: string
-        override:
-          description: Request flag that clears this gate on retry, if any.
-          anyOf:
-            - type: string
-            - type: 'null'
-        requiresPermission:
-          anyOf:
-            - type: string
-            - type: 'null'
-        resolution:
-          description: A route that resolves the gate without an override flag.
-          anyOf:
-            - type: object
-              properties:
-                action:
-                  type: string
-                method:
-                  type: string
-                path:
-                  type: string
-              required:
-                - action
-                - method
-                - path
-              additionalProperties: false
-            - type: 'null'
-      required:
-        - entityType
-        - id
-        - version
-        - type
-        - severity
-        - messages
-        - override
-        - requiresPermission
-        - resolution
       additionalProperties: false
     suppressed:
       description: >-

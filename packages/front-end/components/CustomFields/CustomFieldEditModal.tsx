@@ -12,6 +12,7 @@ import {
   reconcileCustomFieldValues,
 } from "@/services/customFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
@@ -116,7 +117,7 @@ const CustomFieldEditModal: FC<{
       open={true}
       close={close}
       size="lg"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await submitForm(value);
       })}
       cta={

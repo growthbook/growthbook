@@ -1,0 +1,38 @@
+.multiline {
+  height: auto !important;
+  min-height: var(--text-field-height);
+
+  textarea {
+    display: block;
+    resize: none;
+    text-indent: 0;
+    padding-inline: var(--text-field-padding);
+    padding-block: calc(
+      (var(--text-field-height) - 2 * var(--text-field-border-width) - 1lh) / 2
+    );
+
+    // Past its max rows, the scrollbar draws only while hovered or focused.
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+
+    &:not(:last-child) {
+      padding-right: 0;
+    }
+
+    &:hover,
+    &:focus {
+      scrollbar-color: var(--gray-a8) transparent;
+    }
+  }
+
+  :global(.gb-field-indicator--reveal) {
+    opacity: 0;
+    transition: opacity 0.1s ease-in-out;
+  }
+
+  &:hover :global(.gb-field-indicator--reveal),
+  &:focus-within :global(.gb-field-indicator--reveal),
+  :global(.gb-field-indicator--reveal[data-state="open"]) {
+    opacity: 1;
+  }
+}

@@ -43,7 +43,7 @@ export function getTempRolloutCandidateFeatureIds(
 }
 
 // Stopped experiments whose temporary rollout is actually being served — the
-// same check as the experiment page's "Temporary Rollout Enabled" banner.
+// same check as the experiment page's "Temporary rollout enabled" banner.
 export function selectServedTempRolloutExperimentIds(
   experiments: TempRolloutExperiment[],
   featuresById: Map<string, FeatureInterface>,

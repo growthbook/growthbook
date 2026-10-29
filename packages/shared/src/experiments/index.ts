@@ -5,6 +5,8 @@ export * from "./outdated-reasons";
 export * from "./phases";
 export * from "./targeting";
 export * from "./variations";
+export * from "./launch-checklist";
+export * from "./datasource-change";
 export * from "./contextual-bandit-columns";
 export * from "./contextual-bandit-condition";
 export * from "./contextual-bandit-weights";

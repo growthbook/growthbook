@@ -89,6 +89,13 @@ export default function ButtonStories() {
         </div>
       </Flex>
 
+      <b>Wrapping label</b>
+      <Flex direction="row" gap="3" className="my-3" style={{ maxWidth: 220 }}>
+        <Button size={size} variant="outline" wrap>
+          A long label that wraps onto a second line
+        </Button>
+      </Flex>
+
       <b>LinkButton</b>
       <Flex direction="row" gap="3" className="my-3">
         <LinkButton size={size} variant="ghost" href="https://growthbook.io">

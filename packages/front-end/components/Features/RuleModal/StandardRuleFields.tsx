@@ -360,7 +360,6 @@ export default function StandardRuleFields({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
-          useCodeInput={true}
           showFullscreenButton={true}
           sparse={!!form.watch("sparse")}
           // Config-backed rules are always sparse, so the toggle is dropped and a
@@ -588,6 +587,10 @@ export default function StandardRuleFields({
                 hashAttribute={form.watch("hashAttribute")}
                 setHashAttribute={(v: string) =>
                   form.setValue("hashAttribute", v)
+                }
+                fallbackAttribute={form.watch("fallbackAttribute")}
+                setFallbackAttribute={(v: string) =>
+                  form.setValue("fallbackAttribute", v)
                 }
                 attributeSchema={attributeSchema}
                 extraIndicator={attributeSelectIndicator}
