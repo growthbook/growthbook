@@ -2420,23 +2420,28 @@ export async function createSnapshot({
 
 const inUnitInterval = (n: number) => n >= 0 && n <= 1;
 
-// Only phases that differ from the stored phase at the same index are checked,
-// so an unrelated edit to an experiment with legacy data is not rejected.
+// A write may keep an invalid value the experiment already stores but not
+// introduce one, so legacy data never blocks stopping the experiment, ending a
+// phase or editing one. Matched by value, not index, so inserting or deleting
+// phases doesn't re-check what was already there.
 export function assertValidExperimentPhases(
   phases: ExperimentPhase[],
   existing: ExperimentPhase[] = [],
 ): void {
   phases.forEach((phase, i) => {
-    if (isEqual(phase, existing[i])) return;
-    if (!inUnitInterval(phase.coverage)) {
+    if (
+      !inUnitInterval(phase.coverage) &&
+      !existing.some((p) => p.coverage === phase.coverage)
+    ) {
       throw new BadRequestError(
         `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
       );
     }
     const weights = phase.variationWeights;
     if (
-      !weights.every(inUnitInterval) ||
-      !isVariationWeightsSumValid(weights)
+      (!weights.every(inUnitInterval) ||
+        !isVariationWeightsSumValid(weights)) &&
+      !existing.some((p) => isEqual(p.variationWeights, weights))
     ) {
       throw new BadRequestError(
         `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,

@@ -41,17 +41,48 @@ describe("assertValidExperimentPhases", () => {
     },
   );
 
-  it("skips phases that are unchanged from the stored ones", () => {
-    const stale = phase({ coverage: 1.5, variationWeights: [50, 50] });
-    expect(() =>
-      assertValidExperimentPhases([stale, phase()], [stale]),
-    ).not.toThrow();
-  });
+  describe("with invalid stored values", () => {
+    const stale = phase({ coverage: 1.5, variationWeights: [0.33, 0.4, 0.3] });
 
-  it("checks a stored phase that the write modifies", () => {
-    const stale = phase({ coverage: 1.5 });
-    expect(() =>
-      assertValidExperimentPhases([{ ...stale, name: "Renamed" }], [stale]),
-    ).toThrow(/invalid_coverage/);
+    it("allows ending the phase", () => {
+      const ended = { ...stale, dateEnded: new Date(), reason: "Done" };
+      expect(() => assertValidExperimentPhases([ended], [stale])).not.toThrow();
+    });
+
+    it("allows starting a new phase after it", () => {
+      expect(() =>
+        assertValidExperimentPhases(
+          [{ ...stale, dateEnded: new Date() }, phase()],
+          [stale],
+        ),
+      ).not.toThrow();
+    });
+
+    it("allows deleting a phase before it", () => {
+      expect(() =>
+        assertValidExperimentPhases([stale], [phase(), stale]),
+      ).not.toThrow();
+    });
+
+    it("allows replacing them with valid values", () => {
+      expect(() =>
+        assertValidExperimentPhases(
+          [{ ...stale, coverage: 1, variationWeights: [0.34, 0.33, 0.33] }],
+          [stale],
+        ),
+      ).not.toThrow();
+    });
+
+    it("rejects replacing them with other invalid values", () => {
+      expect(() =>
+        assertValidExperimentPhases([{ ...stale, coverage: 2 }], [stale]),
+      ).toThrow(/invalid_coverage: phase 0/);
+      expect(() =>
+        assertValidExperimentPhases(
+          [{ ...stale, coverage: 1, variationWeights: [0.5, 0.6, 0] }],
+          [stale],
+        ),
+      ).toThrow(/invalid_variation_weights: phase 0/);
+    });
   });
 });
