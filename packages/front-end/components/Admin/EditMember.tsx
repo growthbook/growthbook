@@ -137,7 +137,7 @@ const EditMember: FC<{
             />
             <Checkbox
               id="reset-auth-subject"
-              label="Reset sign-in method"
+              label="Reset sign-in identity"
               value={resetAuthSubject}
               setValue={setResetAuthSubject}
               disabled={!canEditDetails}

@@ -1,15 +1,16 @@
 import { FC, ReactNode } from "react";
+import { Flex } from "@radix-ui/themes";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { useAuth, safeLogout, switchToSSO } from "@/services/auth";
 import WatchProvider from "@/services/WatchProvider";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
-import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
 
 const LoggedInPageGuard = ({
@@ -40,49 +41,32 @@ const LoggedInPageGuard = ({
               <Callout status={requiredSSOConnectionId ? "info" : "error"}>
                 {error}
               </Callout>
-              <div className="d-flex align-items-center mt-3">
+              <Flex justify="end" align="center" gap="3" mt="3">
                 {requiredSSOConnectionId ? (
                   <>
-                    <button
-                      className="btn btn-link ml-auto"
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        await safeLogout();
-                      }}
-                    >
+                    <Button variant="ghost" onClick={safeLogout}>
                       Log out
-                    </button>
+                    </Button>
                     <Button
-                      onClick={async () => {
-                        await switchToSSO(requiredSSOConnectionId);
-                      }}
+                      onClick={() => switchToSSO(requiredSSOConnectionId)}
                     >
                       Sign in with Enterprise SSO
                     </Button>
                   </>
                 ) : (
                   <>
-                    <Button
-                      className="ml-auto"
-                      onClick={async () => {
-                        await safeLogout();
-                      }}
-                      color="danger"
-                    >
-                      Log Out
+                    <Button color="red" onClick={safeLogout}>
+                      Log out
                     </Button>
-                    <button
-                      className="btn btn-link"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        window.location.reload();
-                      }}
+                    <Button
+                      variant="ghost"
+                      onClick={() => window.location.reload()}
                     >
                       Reload
-                    </button>
+                    </Button>
                   </>
                 )}
-              </div>
+              </Flex>
             </div>
           </div>
         </main>

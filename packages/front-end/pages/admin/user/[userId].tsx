@@ -164,14 +164,16 @@ export default function AdminUserPage() {
             </Heading>
             <KeyValues
               items={[
-                { label: "Email", value: user.email },
                 {
-                  label: "Verified",
+                  label: "Email",
                   value: (
-                    <Badge
-                      label={user.verified ? "Verified" : "Unverified"}
-                      color={user.verified ? "green" : "amber"}
-                    />
+                    <Flex align="center" gap="2" wrap="wrap">
+                      {user.email}
+                      <Badge
+                        label={user.verified ? "Verified" : "Unverified"}
+                        color={user.verified ? "green" : "amber"}
+                      />
+                    </Flex>
                   ),
                 },
                 {
@@ -181,7 +183,7 @@ export default function AdminUserPage() {
                 {
                   label: "Sign-in identity",
                   value: user.authSubject ? (
-                    <code>{user.authSubject}</code>
+                    <CopyableCode value={user.authSubject} muted />
                   ) : (
                     "Not bound"
                   ),

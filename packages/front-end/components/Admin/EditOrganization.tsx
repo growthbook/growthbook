@@ -247,7 +247,8 @@ const EditOrganization: FC<{
               <TextField
                 label="Required SSO connection ID"
                 value={restrictLoginMethod}
-                placeholder="None"
+                placeholder="SSO connection ID"
+                helpText="Members must sign in through this SSO connection, which can belong to another organization."
                 disabled={!canSso}
                 onChange={(e) => setRestrictLoginMethod(e.target.value)}
               />
