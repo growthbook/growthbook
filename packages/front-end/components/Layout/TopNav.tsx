@@ -94,7 +94,7 @@ const TopNav: FC<{
                 <NoticeStack notices={notices} />
               </div>
             )}
-            <GrowthBotButton />
+            <GrowthBotButton className={styles.aiAssistantButton} />
           </div>
           {/* With the side nav, Help and the profile menu are in it. */}
           {toggleLeftMenu ? null : (

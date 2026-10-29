@@ -128,6 +128,15 @@ $sidebarwidth: var(--app-rail-width, 240px);
   }
 }
 
+// The ghost AI Assistant button, its label's end on the content's right edge:
+// the whole button shifts right by its padding, so its hover and open fills
+// keep their full padding past the edge, as the breadcrumb's first item does
+// on the left (HeaderBreadcrumb.module.scss). Over the app's zero margin for
+// ghost buttons (global-radix-overrides.scss).
+.aiAssistantButton.aiAssistantButton {
+  margin-right: calc(-1 * var(--space-2)) !important;
+}
+
 .dropdownItemIconColor {
   &:focus {
     svg {
