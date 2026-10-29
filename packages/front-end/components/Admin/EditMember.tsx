@@ -116,6 +116,11 @@ const EditMember: FC<{
           value={verified}
           setValue={setVerified}
           disabled={!canEditDetails || (member.verified && superAdmin !== true)}
+          disabledMessage={
+            canEditDetails
+              ? "Only full super admins can clear a verified email"
+              : undefined
+          }
         />
         {member.authSubject && (
           <>
@@ -130,6 +135,7 @@ const EditMember: FC<{
               value={resetAuthSubject}
               setValue={setResetAuthSubject}
               disabled={superAdmin !== true}
+              disabledMessage="Only full super admins can reset a sign-in method"
             />
           </>
         )}
