@@ -22,16 +22,18 @@ export default function LabelWithHelpStories() {
             label="With help"
             help="Shown on hover. Use this for a short explanation or tradeoff that doesn't fit in the label."
           />
-          {/* Adornment: an arbitrary trailing node, e.g. a PremiumTooltip. */}
+          {/* Adornment: an arbitrary trailing node. In the product this is
+              typically a PremiumTooltip; here we use a neutral badge so the
+              example reads as "any node", not as the premium marker. */}
           <LabelWithHelp
             label="With adornment"
-            adornment={<Badge color="violet" variant="soft" label="Pro" />}
+            adornment={<Badge color="gray" variant="soft" label="New" />}
           />
           {/* Both help and adornment together. */}
           <LabelWithHelp
             label="With help and adornment"
             help="The help icon comes first, then any trailing adornment."
-            adornment={<Badge color="violet" variant="soft" label="Pro" />}
+            adornment={<Badge color="gray" variant="soft" label="New" />}
           />
         </Flex>
       </Flex>
@@ -51,7 +53,7 @@ export default function LabelWithHelpStories() {
               <LabelWithHelp
                 label="Weight results across update periods"
                 help="Each update period is weighted proportionally to traffic received. This reduces bias, but adds variance."
-                adornment={<Badge color="violet" variant="soft" label="Pro" />}
+                adornment={<Badge color="gray" variant="soft" label="New" />}
               />
             }
             value={checked}
