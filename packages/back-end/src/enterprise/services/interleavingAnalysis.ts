@@ -62,12 +62,18 @@ async function getInterleavingSnapshotSettings(
       "Add at least one metric to this interleaving experiment before updating results",
     );
   }
-  if (!interleaving.dateStarted) {
+  if (!interleaving.dateStarted || interleaving.runs.length === 0) {
     throw new Error(
       "Start this interleaving experiment before updating results",
     );
   }
   const endDate = interleaving.dateStopped ?? new Date();
+
+  // Freeze the run windows with the currently open one closed at endDate.
+  const runs = interleaving.runs.map((r) => ({
+    dateStarted: r.dateStarted,
+    dateEnded: r.dateEnded ?? endDate,
+  }));
 
   const interleavingExposureQuery = await resolveInterleavingExposureQuery(
     context,
@@ -98,6 +104,7 @@ async function getInterleavingSnapshotSettings(
     ],
     metrics: interleaving.metrics,
     pValueThreshold,
+    runs,
     startDate: interleaving.dateStarted,
     endDate,
   };

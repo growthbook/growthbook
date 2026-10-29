@@ -191,10 +191,14 @@ export function getInterleavingMetricQuery(
   dialect: SqlDialect,
   params: InterleavingMetricQueryParams,
 ): string {
-  const { userIdType, trackingKey, variationKeys, startDate, endDate } = params;
+  const { userIdType, trackingKey, variationKeys, runs, startDate, endDate } =
+    params;
 
   if (params.metrics.length === 0) {
     throw new Error("Interleaving metric query requires at least one metric");
+  }
+  if (runs.length === 0) {
+    throw new Error("Interleaving metric query requires at least one run");
   }
   const { jsonArray } = dialect;
   if (!jsonArray) {
@@ -214,9 +218,16 @@ export function getInterleavingMetricQuery(
   const [controlKey, treatmentKey] = variationKeys;
   const ts = INTERLEAVING_TIMESTAMP_COLUMN;
   const lit = (value: string) => `'${dialect.escapeStringLiteral(value)}'`;
+  // One range per run, OR'd. Parenthesised because both callers AND this into
+  // a WHERE clause, where a bare OR would widen the whole predicate.
   const dateFilter = (col: string) =>
-    `${col} >= ${dialect.toTimestamp(startDate)}` +
-    ` AND ${col} <= ${dialect.toTimestamp(endDate)}`;
+    `(${runs
+      .map(
+        (r) =>
+          `(${col} >= ${dialect.toTimestamp(r.dateStarted)}` +
+          ` AND ${col} <= ${dialect.toTimestamp(r.dateEnded)})`,
+      )
+      .join("\n          OR ")})`;
   const item = (field: string) => jsonArray.fieldText("item", field);
   const cols = (parts: string[]) => parts.join(",\n        ");
 
@@ -235,10 +246,15 @@ export function getInterleavingMetricQuery(
   // fail the join outright (Postgres: "operator does not exist: integer =
   // text"). Casting happens in the projecting CTE, not the ON clause, so
   // ClickHouse still sees an equi-join.
-  const itemId = dialect.castToString(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
-  const exposureRankingId = dialect.castToString(
-    `e.${INTERLEAVING_RANKING_ID_COLUMN}`,
-  );
+  //
+  // The wider cast matters here: `castToString` is varchar(256) on SQL Server,
+  // which would silently merge two ids sharing a 256-character prefix into one
+  // group/join key. Item ids come from the customer's catalog and have no
+  // length bound. Named for filters, but this is the same "must not truncate"
+  // requirement.
+  const castKey = dialect.castToFilterString ?? dialect.castToString;
+  const itemId = castKey(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
+  const exposureRankingId = castKey(`e.${INTERLEAVING_RANKING_ID_COLUMN}`);
 
   // One row per (user, ranking, competitive item). Grouping collapses
   // double-logged impressions (SDK retries) and repeated items in a list.
@@ -288,7 +304,7 @@ export function getInterleavingMetricQuery(
   // Resolved like every other fact-table column so virtual columns and JSON
   // paths work, then cast to match the exposure side's string keys.
   const eventColumn = (column: string) =>
-    dialect.castToString(
+    castKey(
       getColumnExpression(
         column,
         factTable,

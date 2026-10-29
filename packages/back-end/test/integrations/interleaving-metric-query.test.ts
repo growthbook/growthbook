@@ -69,6 +69,9 @@ const baseParams = {
   userIdType: "user_id",
   trackingKey: "featured-products-ranker",
   variationKeys: ["buyers-picks", "price-low"] as [string, string],
+  runs: [
+    { dateStarted: new Date("2020-01-01"), dateEnded: new Date("2020-12-31") },
+  ],
   startDate: new Date("2020-01-01"),
   endDate: new Date("2020-12-31"),
   factTable: cartTable,
@@ -214,7 +217,7 @@ describe("getInterleavingMetricQuery", () => {
     // Rows matching no metric's filters are dropped; metric 0/1 have none, so
     // the shared event-row source only has the date filter.
     expect(sql).toMatch(
-      /__eventRows AS \([\s\S]*WHERE\s+m\.timestamp >= '2020-01-01 00:00:00'\s+AND m\.timestamp <= '2020-12-31 00:00:00'\s*\)/,
+      /__eventRows AS \([\s\S]*WHERE\s+\(\s+\(\s+m\.timestamp >= '2020-01-01 00:00:00'\s+AND m\.timestamp <= '2020-12-31 00:00:00'\s+\)\s+\)/,
     );
     expect(sql).toMatch(
       /__preferenceEvents AS \([\s\S]*m\.timestamp >= s\.first_exposure_timestamp[\s\S]*GROUP BY\s+m\.user_id,\s+cast\(m\.item_id as varchar\)/,
@@ -250,6 +253,63 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).toContain("ev.item_id = e.item_id");
     expect(sql).toContain("ev.ranking_id = e.ranking_id");
     expect(sql).toContain("ev.item_id = s.item_id");
+  });
+
+  // castToString is varchar(256) on SQL Server, which would merge two ids
+  // sharing a 256-character prefix into one group/join key. Item ids come from
+  // the customer's catalog and have no length bound.
+  it("does not truncate join keys on SQL Server", () => {
+    const sql = getInterleavingMetricQuery(mssqlDialect, {
+      ...baseParams,
+      metrics: withIndices([
+        { metric: proportion, analyses: [PAIRED, PREFERENCE] },
+      ]),
+    });
+
+    expect(sql).not.toContain("varchar(256)");
+    expect(sql).toContain("as varchar(8000)) AS item_id");
+    expect(sql).toContain("as varchar(8000)) AS ranking_id");
+  });
+
+  // A stopped experiment's tracking key can be reused, so a single window
+  // spanning a stop/restart would also count whatever ran under that key in
+  // between. Each run is filtered separately instead.
+  it("counts only the experiment's own run windows", () => {
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      runs: [
+        {
+          dateStarted: new Date("2020-01-01"),
+          dateEnded: new Date("2020-02-01"),
+        },
+        {
+          dateStarted: new Date("2020-06-01"),
+          dateEnded: new Date("2020-07-01"),
+        },
+      ],
+      metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
+    });
+    const squashed = sql.replace(/\s+/g, " ");
+
+    // Both windows present, OR'd, in the exposure and the event filters
+    expect(squashed).toContain(
+      "( e.timestamp >= '2020-01-01 00:00:00' AND e.timestamp <= '2020-02-01 00:00:00' ) OR ( e.timestamp >= '2020-06-01 00:00:00' AND e.timestamp <= '2020-07-01 00:00:00' )",
+    );
+    expect(squashed).toContain(
+      "( m.timestamp >= '2020-01-01 00:00:00' AND m.timestamp <= '2020-02-01 00:00:00' ) OR ( m.timestamp >= '2020-06-01 00:00:00' AND m.timestamp <= '2020-07-01 00:00:00' )",
+    );
+    // The dormant gap is never a bound of either range
+    expect(squashed).not.toContain("'2020-02-01 00:00:00' AND");
+  });
+
+  it("rejects a query with no run windows", () => {
+    expect(() =>
+      getInterleavingMetricQuery(postgresDialect, {
+        ...baseParams,
+        runs: [],
+        metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
+      }),
+    ).toThrow("at least one run");
   });
 
   it("resolves a virtual item_id through getColumnExpression", () => {

@@ -56423,14 +56423,15 @@ paths:
                     The key your code passes to `interleave()` as `key`. Can't
                     be changed later. Several experiments may share a key so you
                     can iterate without changing code, but only one of them can
-                    be running in a given environment, and each needs its own
-                    `trackingKey`.
+                    be running in a given environment.
                   type: string
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                 trackingKey:
                   description: >-
                     The `experiment_id` recorded in exposures. Defaults to
-                    `key`.
+                    `key`. Tracking keys may be reused once an experiment has
+                    stopped, but only one interleaving experiment per tracking
+                    key can run in a Data Source at a time.
                   type: string
                 hashAttribute:
                   type: string
@@ -84249,6 +84250,22 @@ components:
                 additionalProperties: false
             pValueThreshold:
               type: number
+            runs:
+              description: The run windows these results count exposures from
+              type: array
+              items:
+                type: object
+                properties:
+                  dateStarted:
+                    type: string
+                    format: date-time
+                  dateEnded:
+                    type: string
+                    format: date-time
+                required:
+                  - dateStarted
+                  - dateEnded
+                additionalProperties: false
             startDate:
               type: string
               format: date-time
@@ -84263,6 +84280,7 @@ components:
             - variations
             - metrics
             - pValueThreshold
+            - runs
             - startDate
             - endDate
           additionalProperties: false

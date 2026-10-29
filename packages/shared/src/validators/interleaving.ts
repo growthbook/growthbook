@@ -17,6 +17,12 @@ export const interleavingPreferenceAttribution = ["exposureCount"] as const;
 export type InterleavingPreferenceAttribution =
   (typeof interleavingPreferenceAttribution)[number];
 
+// One period the experiment was running; `dateEnded` unset means still running.
+export const interleavingRunValidator = z
+  .object({ dateStarted: z.date(), dateEnded: z.date().optional() })
+  .strict();
+export type InterleavingRun = z.infer<typeof interleavingRunValidator>;
+
 export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("paired") }).strict(),
   z
@@ -89,6 +95,7 @@ export const interleavingValidator = baseSchema
     status: z.enum(interleavingStatus),
     dateStarted: z.date().optional(),
     dateStopped: z.date().optional(),
+    runs: z.array(interleavingRunValidator),
 
     // Code-facing key, like a feature key: customer code passes it to
     // `interleave()` and the SDK payload's pseudo flag is `$interleave:<key>`.
@@ -225,12 +232,14 @@ export const apiCreateInterleavingBody = z.strictObject({
   tags: z.array(z.string()).optional(),
 
   key: interleavingKeyField.describe(
-    "The key your code passes to `interleave()` as `key`. Can't be changed later. Several experiments may share a key so you can iterate without changing code, but only one of them can be running in a given environment, and each needs its own `trackingKey`.",
+    "The key your code passes to `interleave()` as `key`. Can't be changed later. Several experiments may share a key so you can iterate without changing code, but only one of them can be running in a given environment.",
   ),
   trackingKey: z
     .string()
     .optional()
-    .describe("The `experiment_id` recorded in exposures. Defaults to `key`."),
+    .describe(
+      "The `experiment_id` recorded in exposures. Defaults to `key`. Tracking keys may be reused once an experiment has stopped, but only one interleaving experiment per tracking key can run in a Data Source at a time.",
+    ),
   hashAttribute: z.string().optional(),
   variations: apiInterleavingVariationsInput,
   jsonSchema: apiJSONSchemaDefInput.optional(),

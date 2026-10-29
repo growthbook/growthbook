@@ -41,6 +41,7 @@ function interleaving(
     interleavingExposureQueryId: "ilq_1",
     userIdType: "user_id",
     metrics: [],
+    runs: [],
     environmentSettings: { production: { enabled: true } },
     ...overrides,
   };
@@ -117,6 +118,12 @@ describe("toApiInterleavingSnapshot", () => {
         ],
         metrics: [{ id: "fact__1", analyses: [{ type: "paired" }] }],
         pValueThreshold: 0.05,
+        runs: [
+          {
+            dateStarted: new Date("2026-10-01T00:00:00Z"),
+            dateEnded: new Date("2026-10-07T00:00:00Z"),
+          },
+        ],
         startDate: new Date("2026-10-01T00:00:00Z"),
         endDate: new Date("2026-10-07T00:00:00Z"),
       },
@@ -160,26 +167,39 @@ describe("interleavingChangeActions", () => {
 });
 
 describe("startInterleaving", () => {
-  it("starts a draft and keeps the start date of a restarted one", async () => {
+  it("keeps the start date of a restarted one and opens a new run", async () => {
     const { context, update } = makeContext();
     const started = await startInterleaving(context as never, interleaving());
     expect(started.status).toBe("running");
     expect(started.dateStarted).toBeInstanceOf(Date);
+    expect(update.mock.calls[0][1].runs).toHaveLength(1);
 
     const dateStarted = new Date("2026-10-05T00:00:00Z");
+    const firstRun = {
+      dateStarted,
+      dateEnded: new Date("2026-10-06T00:00:00Z"),
+    };
     await startInterleaving(
       context as never,
       interleaving({
         status: "stopped",
         dateStarted,
-        dateStopped: new Date("2026-10-06T00:00:00Z"),
+        dateStopped: firstRun.dateEnded,
+        runs: [firstRun],
       }),
     );
-    expect(update.mock.calls[1][1]).toEqual({
-      status: "running",
-      dateStarted,
-      dateStopped: undefined,
-    });
+    const restart = update.mock.calls[1][1];
+    expect(restart.status).toBe("running");
+    expect(restart.dateStarted).toEqual(dateStarted);
+    expect(restart.dateStopped).toBeUndefined();
+    // The dormant gap stays out of analysis: the old run keeps its end date and
+    // a new one opens, rather than the original window being reopened.
+    expect(restart.runs).toHaveLength(2);
+    expect(restart.runs[0]).toEqual(firstRun);
+    expect(restart.runs[1].dateEnded).toBeUndefined();
+    expect(restart.runs[1].dateStarted.getTime()).toBeGreaterThanOrEqual(
+      firstRun.dateEnded.getTime(),
+    );
     expect(context.auditLog).toHaveBeenCalledWith(
       expect.objectContaining({ event: "interleaving.start" }),
     );
@@ -210,14 +230,18 @@ describe("startInterleaving", () => {
 });
 
 describe("stopInterleaving", () => {
-  it("stops a running one", async () => {
+  it("stops a running one and closes its open run", async () => {
     const { context } = makeContext();
+    const dateStarted = new Date("2026-10-05T00:00:00Z");
     const stopped = await stopInterleaving(
       context as never,
-      interleaving({ status: "running" }),
+      interleaving({ status: "running", runs: [{ dateStarted }] }),
     );
     expect(stopped.status).toBe("stopped");
     expect(stopped.dateStopped).toBeInstanceOf(Date);
+    expect(stopped.runs).toHaveLength(1);
+    expect(stopped.runs[0].dateStarted).toEqual(dateStarted);
+    expect(stopped.runs[0].dateEnded).toEqual(stopped.dateStopped);
     expect(context.auditLog).toHaveBeenCalledWith(
       expect.objectContaining({ event: "interleaving.stop" }),
     );
