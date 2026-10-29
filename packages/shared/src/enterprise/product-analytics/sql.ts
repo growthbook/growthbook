@@ -1034,10 +1034,9 @@ function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
 // Generate metric value expression from metric with metadata
 function getMetricData(
   metricWithMetadata: MetricWithMetadata,
-  factTableGroup: FactTableGroup,
+  factTable: MinimalFactTable,
   helpers: SqlDialect,
 ): MetricData {
-  const { factTable } = factTableGroup;
   const {
     index: metricIndex,
     metric,
@@ -1079,16 +1078,6 @@ function getMetricData(
     }
   }
 
-  const unitAggregationExpr = selectedUnit
-    ? getUnitAggregationExpr(columnRef, alias, helpers)
-    : null;
-  const rollupAggregationExpr = getRollupAggregationExpr(
-    metric,
-    columnRef,
-    alias,
-    helpers,
-    !!selectedUnit,
-  );
   // Always expose a denominator (unit count) for unit-aggregated non-ratio,
   // non-quantile metrics so the frontend can render either the raw numerator
   // (totals) or numerator/denominator (per-unit averages) based on the
@@ -1109,6 +1098,7 @@ function getMetricData(
   ) {
     rollupCountExpr = getRollupCountExpr(metric, alias);
   }
+
   // Count-like aggregates can turn another series' users into zero contributors.
   // SUM/MAX already preserve NULL for absent activity and need no extra guard.
   const requiresMetricPresence =
@@ -1125,6 +1115,7 @@ function getMetricData(
         null,
       )
     : null;
+
   const cappingSettings = getCappingSettings(metric);
   const rawPercentileValueExpr = getEventValueExpr(
     columnRef,
@@ -1150,8 +1141,16 @@ function getMetricData(
       cappingSettings,
     ),
     presenceExpr,
-    unitAggregationExpr,
-    rollupAggregationExpr,
+    unitAggregationExpr: selectedUnit
+      ? getUnitAggregationExpr(columnRef, alias, helpers)
+      : null,
+    rollupAggregationExpr: getRollupAggregationExpr(
+      metric,
+      columnRef,
+      alias,
+      helpers,
+      !!selectedUnit,
+    ),
     rollupCountExpr,
   };
 }
@@ -1254,7 +1253,7 @@ function generatePercentileCapsCTE(
     const cappingSettings = getCappingSettings(m.metric);
     if (!cappingSettings) return;
 
-    const metricData = getMetricData(m, factTableGroup, helpers);
+    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
     const tails = getCappingTailState(cappingSettings);
 
     if (tails.upperPercentileCapped) {
@@ -1365,7 +1364,7 @@ function generateFactTableRowsCTE(
 
   // Select all metric event values
   factTableGroup.metrics.forEach((m) => {
-    const metricData = getMetricData(m, factTableGroup, helpers);
+    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
     selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
     if (metricData.presenceExpr !== null) {
       selectCols.push(`${metricData.presenceExpr} AS ${metricData.alias}_rows`);
@@ -2107,7 +2106,7 @@ export function generateProductAnalyticsSQL(
   const orderedMetricIds: string[] = [];
   factTableGroups.forEach((f) => {
     f.metrics.forEach((m) => {
-      const data = getMetricData(m, f, dialect);
+      const data = getMetricData(m, f.factTable, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
       if (!m.useDenominator && !m.isPopulationCount) {
@@ -2223,7 +2222,7 @@ export function generateProductAnalyticsSQL(
     const unitMetrics: Record<string, MetricData[]> = {};
     const eventMetrics: MetricData[] = [];
     factTableGroup.metrics.forEach((m) => {
-      const metricData = getMetricData(m, factTableGroup, dialect);
+      const metricData = getMetricData(m, factTableGroup.factTable, dialect);
       if (metricData.unit) {
         if (!unitMetrics[metricData.unit]) {
           unitMetrics[metricData.unit] = [];
