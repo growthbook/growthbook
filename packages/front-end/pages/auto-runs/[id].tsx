@@ -389,6 +389,7 @@ export default function AutoRunPage() {
           breadcrumb={[
             { display: "Import Your Data", href: "/importing" },
             { display: "Eppo Importer", href: "/importing/eppo" },
+            { display: "Eppo Import Report" },
           ]}
         />
         <Box mt="4" mb="5">

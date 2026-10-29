@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import isEqual from "lodash/isEqual";
 import { useFormContext } from "react-hook-form";
 import { Box, Flex } from "@radix-ui/themes";
-import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import { useUser } from "@/services/UserContext";
 import Field from "@/components/Forms/Field";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -47,7 +46,6 @@ export default function FeatureSettings() {
   const { hasCommercialFeature } = useUser();
   const environments = useEnvironments();
   const form = useFormContext();
-  const { defaultFor } = useSettingsForm();
 
   const hasSecureAttributesFeature = hasCommercialFeature(
     "hash-secure-attributes",
@@ -308,7 +306,6 @@ export default function FeatureSettings() {
                 step="1"
                 min="1"
                 containerClassName="mb-0"
-                placeholder={defaultFor("maxConcurrentDrafts")}
                 {...form.register("maxConcurrentDrafts", {
                   valueAsNumber: true,
                 })}

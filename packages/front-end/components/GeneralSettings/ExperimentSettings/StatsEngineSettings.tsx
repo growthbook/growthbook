@@ -248,7 +248,8 @@ export default function StatsEngineSettings() {
               placeholder={defaultFor("pValueThreshold")}
               {...form.register("pValueThreshold", {
                 valueAsNumber: true,
-                validate: (v) => v > 0 && v <= 0.5,
+                // Empty means the default, so NaN passes like the fields above.
+                validate: (v) => Number.isNaN(v) || (v > 0 && v <= 0.5),
               })}
             />
           </Box>
@@ -392,9 +393,8 @@ export default function StatsEngineSettings() {
                     placeholder={defaultFor("regressionAdjustmentDays")}
                     {...form.register("regressionAdjustmentDays", {
                       valueAsNumber: true,
-                      validate: (v) => {
-                        return v === undefined || v > 0;
-                      },
+                      validate: (v) =>
+                        v === undefined || Number.isNaN(v) || v > 0,
                     })}
                   />
                 </Box>
