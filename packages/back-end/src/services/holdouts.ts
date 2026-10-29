@@ -1136,12 +1136,9 @@ export async function getHoldoutLinkage(
     name: null,
     problem: "deleted",
   });
-  const unlinked = (item: {
-    id: string;
-    name: string;
-  }): HoldoutMissingLink => ({
-    id: item.id,
-    name: item.name,
+  const unlinked = (id: string, name: string): HoldoutMissingLink => ({
+    id,
+    name,
     problem: "unlinked",
   });
 
@@ -1151,13 +1148,15 @@ export async function getHoldoutLinkage(
     missing: {
       experiments: [
         ...experimentIds.filter((id) => !experimentExists.has(id)).map(deleted),
-        ...experiments.filter((e) => e.holdoutId !== holdout.id).map(unlinked),
+        ...experiments
+          .filter((e) => e.holdoutId !== holdout.id)
+          .map((e) => unlinked(e.id, e.name)),
       ],
       features: [
         ...featureIds.filter((id) => !existingFeatures.has(id)).map(deleted),
         ...features
           .filter((f) => f.holdout?.id !== holdout.id)
-          .map((f) => unlinked({ id: f.id, name: f.id })),
+          .map((f) => unlinked(f.id, f.id)),
       ],
     },
   };

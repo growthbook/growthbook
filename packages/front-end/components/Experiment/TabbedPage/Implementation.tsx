@@ -57,9 +57,7 @@ import Callout from "@/ui/Callout";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
-import MissingLinkageTable, {
-  missingLinkageCount,
-} from "@/components/Holdout/MissingLinkageTable";
+import MissingLinkageTable from "@/components/Holdout/MissingLinkageTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
@@ -443,9 +441,9 @@ export default function Implementation({
     !experiment.archived &&
     experiment.status !== "stopped" &&
     permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
-  const missingCount = holdoutMissingLinkage
-    ? missingLinkageCount(holdoutMissingLinkage)
-    : 0;
+  const missingCount =
+    (holdoutMissingLinkage?.experiments.length ?? 0) +
+    (holdoutMissingLinkage?.features.length ?? 0);
 
   async function setHoldoutDefaultState(isDefault: boolean) {
     if (!holdout) return;

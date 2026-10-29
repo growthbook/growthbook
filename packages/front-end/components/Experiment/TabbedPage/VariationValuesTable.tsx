@@ -1067,9 +1067,7 @@ function FlagColumn({
   const startsDraft =
     !showsDraft && !showingLive && (editable || canChooseTarget);
   // Its title waits for the hover.
-  const revisionName = showsDraft
-    ? `Revision ${pendingDraft.version}`
-    : "New draft";
+  const revisionName = (showsDraft && draftMention) || "New draft";
   const revisionStatus = showsDraft ? pendingDraft.status : "draft";
   const revisionNotes = showsDraft
     ? draftNotes

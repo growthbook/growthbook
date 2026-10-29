@@ -17,10 +17,6 @@ import Table, {
   TableRow,
 } from "@/ui/Table";
 
-export function missingLinkageCount(missing: HoldoutMissingLinkage): number {
-  return missing.experiments.length + missing.features.length;
-}
-
 export default function MissingLinkageTable({
   holdoutId,
   missing,

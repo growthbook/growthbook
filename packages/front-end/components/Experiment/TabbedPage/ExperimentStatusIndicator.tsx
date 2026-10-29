@@ -105,7 +105,7 @@ export function RawExperimentStatusIndicator({
   return tooltip ? <Tooltip content={tooltip}>{badge}</Tooltip> : badge;
 }
 
-function getFormattedLabel(
+export function getFormattedLabel(
   labelFormat: LabelFormat,
   status: string,
   detailedStatus?: string,

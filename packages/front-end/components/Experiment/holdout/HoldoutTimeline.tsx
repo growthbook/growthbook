@@ -13,7 +13,9 @@ import { GridColumns } from "@visx/grid";
 import EmptyState from "@/components/EmptyState";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import { useHoverTooltip } from "@/hooks/useHoverTooltip";
-import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
+import ExperimentStatusIndicator, {
+  getFormattedLabel,
+} from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import { PopoverContent } from "@/ui/Popover";
 import VariationLabel from "@/ui/VariationLabel";
 import { allDates } from "@/components/Experiment/TabbedPage/statusSchedule";
@@ -39,7 +41,7 @@ function TimelineBar({
   shippedVariation: { name: string; index: number } | null;
   // The stretch since a winner shipped, after the run itself.
   shipped?: boolean;
-  // Still going: fades out past "now" instead of ending.
+  // Still going: runs on past "now", fading out, instead of ending.
   open?: boolean;
   x: number;
   y: number;
@@ -50,8 +52,9 @@ function TimelineBar({
   const fadeId = `fade${useId().replace(/:/g, "")}`;
   const { color, status, detailedStatus } = statusIndicator;
   const { x, y, width, height } = rect;
+  const end = x + width + (open ? PAST_NOW_PX : 0);
   const row = (label: string, value: React.ReactNode) => (
-    <Flex align="center" justify="between" gap="3">
+    <Flex key={label} align="center" justify="between" gap="3">
       <Text
         size="1"
         weight="medium"
@@ -71,8 +74,8 @@ function TimelineBar({
           <linearGradient
             id={`${fadeId}_grad`}
             gradientUnits="userSpaceOnUse"
-            x1={x + width - Math.min(PAST_NOW_PX, width)}
-            x2={x + width}
+            x1={x + width}
+            x2={end}
             y1={0}
             y2={0}
           >
@@ -83,7 +86,7 @@ function TimelineBar({
             <rect
               x={x - 1}
               y={y - 1}
-              width={width + 1}
+              width={end - x + 1}
               height={height + 2}
               fill={`url(#${fadeId}_grad)`}
             />
@@ -94,7 +97,7 @@ function TimelineBar({
         {...rect}
         {...triggerProps}
         // Open, its rounded end and border sit past the mask.
-        width={open ? width + 8 : width}
+        width={open ? end - x + 8 : width}
         mask={open ? `url(#${fadeId})` : undefined}
         fill={shipped ? `var(--${color}-a3)` : `var(--${color}-a5)`}
         stroke={shipped ? `var(--${color}-a7)` : `var(--${color}-9)`}
@@ -114,7 +117,7 @@ function TimelineBar({
               }}
             >
               <Text size="1" weight="bold">
-                {detailedStatus ? `${status}: ${detailedStatus}` : status}
+                {getFormattedLabel("full", status, detailedStatus)}
               </Text>
             </Flex>
             <Flex direction="column" gap="1" px="4" py="2">
@@ -129,11 +132,7 @@ function TimelineBar({
               {/* As the header lists them, past its creation. */}
               {allDates(experiment)
                 .slice(1)
-                .map(({ label, value }) => (
-                  <React.Fragment key={label}>
-                    {row(label, value)}
-                  </React.Fragment>
-                ))}
+                .map(({ label, value }) => row(label, value))}
               {experiment.releasedVariationId
                 ? row(
                     "Shipped",
@@ -193,12 +192,11 @@ const HoldoutTimeline: React.FC<{
   const hasExperiments = experiments.length > 0;
   useEffect(() => {
     const container = containerRef.current;
+    if (!container) return;
     // Follows the container, which the details rail resizes too.
-    const observer = container
-      ? new ResizeObserver(() => setWidth(container.offsetWidth))
-      : null;
-    if (container) observer?.observe(container);
-    return () => observer?.disconnect();
+    const observer = new ResizeObserver(() => setWidth(container.offsetWidth));
+    observer.observe(container);
+    return () => observer.disconnect();
   }, [hasExperiments]);
 
   // Calculate scale domain to align with ticks
@@ -561,7 +559,6 @@ const HoldoutTimeline: React.FC<{
                   const xEnd = xScale(
                     ongoing ? endDate : getValidDate(phase.dateEnded),
                   );
-                  const pastNow = endDateIsNow ? PAST_NOW_PX : 0;
                   const bar = {
                     experiment,
                     statusIndicator,
@@ -575,10 +572,7 @@ const HoldoutTimeline: React.FC<{
                         {...bar}
                         open={ongoing && endDateIsNow}
                         x={xStart}
-                        width={Math.max(
-                          xEnd - xStart + (ongoing ? pastNow : 0),
-                          2,
-                        )}
+                        width={Math.max(xEnd - xStart, 2)}
                       />
                       {experiment.status === "stopped" &&
                       experiment.results === "won" &&
@@ -588,7 +582,7 @@ const HoldoutTimeline: React.FC<{
                           shipped
                           open={endDateIsNow}
                           x={xEnd}
-                          width={Math.max(xScale(endDate) - xEnd + pastNow, 2)}
+                          width={Math.max(xScale(endDate) - xEnd, 2)}
                         />
                       ) : null}
                     </g>
