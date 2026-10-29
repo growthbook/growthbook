@@ -77,7 +77,7 @@ export function RowFilterValueInput({
   if (useValueOptions) {
     return (
       <SelectField
-        size="small"
+        size="md"
         value={values?.[0] || ""}
         onChange={(v) => onChange([v], true)}
         options={state.valueOptions}
