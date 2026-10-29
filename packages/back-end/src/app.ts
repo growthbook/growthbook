@@ -1255,6 +1255,10 @@ app.put(
   adminController._dangerousAdminEnableOrganization,
 );
 app.get(
+  "/admin/organization/:orgId",
+  adminController._dangerousAdminGetOrganization,
+);
+app.get(
   "/admin/organization/:orgId/members",
   adminController._dangerousAdminGetOrganizationMembers,
 );

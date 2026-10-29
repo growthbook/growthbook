@@ -903,6 +903,13 @@ export async function countFeatures(
   );
 }
 
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountFeaturesByOrganization(
+  organization: string,
+): Promise<number> {
+  return FeatureModel.countDocuments({ organization });
+}
+
 export async function hasArchivedFeatures(
   context: ReqContext | ApiReqContext,
   project?: string,
