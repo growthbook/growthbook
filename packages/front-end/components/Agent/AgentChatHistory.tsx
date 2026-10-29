@@ -5,7 +5,7 @@ import {
   PiChatCircleDots,
   PiClockCounterClockwise,
   PiPlus,
-  PiSparkle,
+  PiSparkleBold,
 } from "react-icons/pi";
 import { datetime, formatShortAgo } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -100,7 +100,7 @@ export default function AgentChatHistory({
             {/* On one line with the title: Button wraps its children, where they'd
               stack. */}
             <Flex as="span" align="center" gap="2" minWidth="0">
-              <PiSparkle
+              <PiSparkleBold
                 size={16}
                 aria-hidden="true"
                 style={{ flexShrink: 0 }}
