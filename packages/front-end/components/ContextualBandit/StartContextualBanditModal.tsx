@@ -41,6 +41,7 @@ import {
   type CheckListItem,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { summarizeChecklist } from "@/components/PreLaunchChecklist/checklistSummary";
+import { decimalToPercent } from "@/services/utils";
 
 export interface Props {
   cb: ApiContextualBanditInterface;
@@ -179,7 +180,7 @@ export default function StartContextualBanditModal({
   startContextualBandit,
   close,
 }: Props) {
-  const coveragePct = cb.coverage != null ? Math.floor(cb.coverage * 100) : 100;
+  const coveragePct = cb.coverage != null ? decimalToPercent(cb.coverage) : 100;
   const hasAttributeTargeting = !!(cb.condition && cb.condition !== "{}");
   const hasSavedGroupTargeting = !!cb.savedGroups?.length;
   const hasPrerequisites = !!cb.prerequisites?.length;

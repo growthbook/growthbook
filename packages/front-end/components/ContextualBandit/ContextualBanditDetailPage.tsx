@@ -60,6 +60,7 @@ import {
   useContextualBanditStatusHealth,
 } from "@/hooks/useContextualBandits";
 import Avatar from "@/ui/Avatar";
+import { decimalToPercent } from "@/services/utils";
 
 function OverviewSection({
   title,
@@ -167,7 +168,7 @@ export default function ContextualBanditDetailPage({
 
   const showResultsTab = cb.status !== "draft";
 
-  const coveragePct = cb.coverage != null ? Math.round(cb.coverage * 100) : 100;
+  const coveragePct = cb.coverage != null ? decimalToPercent(cb.coverage) : 100;
 
   const formatConversionWindow = (value: number, unit: string): string =>
     `${value} ${value === 1 ? unit.replace(/s$/, "") : unit}`;
