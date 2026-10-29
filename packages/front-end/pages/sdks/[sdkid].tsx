@@ -37,6 +37,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import SDKConnectionCredentialsCard from "@/components/Features/SDKConnections/SDKConnectionCredentialsCard";
 import SDKConnectionSetup from "@/components/Features/SDKConnections/SDKConnectionSetup";
+import SDKConnectionDetailsRail from "@/components/Features/SDKConnections/SDKConnectionDetailsRail";
 import { canBypassSdkConnectionApproval } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -616,34 +617,54 @@ export default function SDKConnectionPage() {
           </Box>
         )}
         <TabsContent value="overview">
-          <Box mt="5">
-            <Heading size="lg" as="h2" mb="3">
-              Keys
-            </Heading>
-            <SDKConnectionCredentialsCard
-              connection={displayedConn}
-              canUpdate={canUpdate}
-              mutate={mutate}
-            />
-          </Box>
-          <Box mt="6">
-            <SDKConnectionSetup
-              // Starts over from the viewed state when the revision or the
-              // saved connection changes.
-              key={`${selectedRevisionId ?? "live"}-${String(displayedConn.dateUpdated)}`}
-              connection={displayedConn}
-              mutate={mutate}
-              canUpdate={canUpdate}
-              onRevisionCreated={onRevisionCreated}
-              openRevisions={openRevisions}
-              allRevisions={allRevisions}
-              selectedRevision={selectedRevision}
-              onSelectRevision={selectFlow}
-              approvalRequired={approvalRequired}
-              canAutoPublish={canAutoPublish}
-              metadataReviewRequired={metadataReviewRequired}
-            />
-          </Box>
+          <Flex direction={{ initial: "column", md: "row" }} gap="6">
+            <Box style={{ flex: 1, minWidth: 0 }}>
+              <Box mt="5">
+                <Heading size="lg" as="h2" mb="3">
+                  Keys
+                </Heading>
+                <SDKConnectionCredentialsCard
+                  connection={displayedConn}
+                  canUpdate={canUpdate}
+                  mutate={mutate}
+                />
+              </Box>
+              <Box mt="6">
+                <SDKConnectionSetup
+                  // Starts over from the viewed state when the revision or the
+                  // saved connection changes.
+                  key={`${selectedRevisionId ?? "live"}-${String(displayedConn.dateUpdated)}`}
+                  connection={displayedConn}
+                  mutate={mutate}
+                  canUpdate={canUpdate}
+                  onRevisionCreated={onRevisionCreated}
+                  openRevisions={openRevisions}
+                  allRevisions={allRevisions}
+                  selectedRevision={selectedRevision}
+                  onSelectRevision={selectFlow}
+                  approvalRequired={approvalRequired}
+                  canAutoPublish={canAutoPublish}
+                  metadataReviewRequired={metadataReviewRequired}
+                />
+              </Box>
+            </Box>
+            <Box
+              mt="5"
+              pl={{ initial: "0", md: "5" }}
+              style={{
+                width: "100%",
+                maxWidth: 320,
+                flexShrink: 0,
+                borderLeft: "1px solid var(--gray-a5)",
+              }}
+            >
+              <SDKConnectionDetailsRail
+                connection={displayedConn}
+                webhookCount={webhookData?.webhooks?.length ?? 0}
+                onOpenWebhooks={() => setActiveTab("webhooks")}
+              />
+            </Box>
+          </Flex>
         </TabsContent>
         <TabsContent value="webhooks">
           <Box mt="4">
