@@ -36,13 +36,9 @@ import ExperimentBanner from "./ExperimentBanner";
 import { useEditsBlockedReason } from "./ExperimentEdits";
 
 const DECISIONS = {
-  "ship-now": { label: "Ship now", color: "green", variant: "solid" },
-  "ready-for-review": {
-    label: "Decide now",
-    color: "amber",
-    variant: "soft",
-  },
-  "rollback-now": { label: "Roll back now", color: "red", variant: "solid" },
+  "ship-now": { label: "Ship now", color: "green" },
+  "ready-for-review": { label: "Decide now", color: "amber" },
+  "rollback-now": { label: "Roll back now", color: "red" },
 } as const;
 
 type Decision = Extract<
@@ -405,7 +401,7 @@ function RecommendationLine({
       <Badge
         label={decision.label}
         color={decision.color}
-        variant={decision.variant}
+        variant="solid"
         radius="full"
       />
       {status.status === "rollback-now" ? (
