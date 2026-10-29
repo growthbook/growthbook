@@ -820,11 +820,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/FileInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/FlagCard/FlagCard.tsx": {
     "no-restricted-imports": {
       "count": 1

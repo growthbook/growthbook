@@ -1,5 +1,4 @@
-import { Text } from "@radix-ui/themes";
-import { FC, useRef, ChangeEvent, useState, CSSProperties } from "react";
+import { FC, useRef, ChangeEvent, useState } from "react";
 import Button from "@/ui/Button";
 
 interface FileInputProps {
@@ -29,20 +28,17 @@ const FileInput: FC<FileInputProps> = ({
     onChange(e);
   };
 
-  const placeHolderStyle: CSSProperties = {
-    color: "var(--gray-10)",
-  };
-
   return (
     <div>
       <label
         htmlFor={name}
         onClick={handleClick}
-        className="form-control cursor-pointer"
+        className="form-control gb-file-input"
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
             handleClick();
           }
         }}
@@ -51,19 +47,21 @@ const FileInput: FC<FileInputProps> = ({
           color="gray"
           variant="outline"
           size="sm"
-          mt="-2px"
-          mr="1"
-          onClick={handleClick}
           tabIndex={-1}
+          stopPropagation
+          onClick={handleClick}
         >
           Browse...
         </Button>
-        <Text
-          weight="regular"
-          style={fileName === null ? placeHolderStyle : undefined}
+        <span
+          className={
+            fileName === null
+              ? "gb-file-input__name gb-file-input__name--placeholder"
+              : "gb-file-input__name"
+          }
         >
           {fileName || placeholder}
-        </Text>
+        </span>
       </label>
       <input
         type="file"

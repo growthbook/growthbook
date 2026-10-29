@@ -27,6 +27,7 @@ import {
   listEventForwarderWarehouseRegions,
 } from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -60,6 +61,7 @@ import DataSourceConnectInstructions, {
 import EventForwarderDestinationFields, {
   defaultEventForwarderDestination,
   eventDestinationEntryHint,
+  eventDestinationWithConnectionSchema,
   eventForwarderDestinationFromDatasource,
 } from "./EventForwarderDestinationFields";
 import {
@@ -148,8 +150,22 @@ export default function ConnectDataSourceLayout({
   const [writeStatus, setWriteStatus] = useState<TestStatus>("idle");
   const [readMessage, setReadMessage] = useState<string | null>(null);
   const [writeMessage, setWriteMessage] = useState<string | null>(null);
-  const [eventDestination, setEventDestination] = useState(() =>
+  const [eventDestinationDraft, setEventDestination] = useState(() =>
     defaultEventForwarderDestination(initial.type || "bigquery"),
+  );
+  // Set once the user types in the destination location, so a later schema
+  // change does not replace what they entered.
+  const [destinationLocationEdited, setDestinationLocationEdited] =
+    useState(false);
+  const snowflakeSchema =
+    datasource.type === "snowflake"
+      ? ((datasource.params as Partial<SnowflakeConnectionParams> | undefined)
+          ?.schema ?? "")
+      : null;
+  const eventDestination = eventDestinationWithConnectionSchema(
+    eventDestinationDraft,
+    snowflakeSchema,
+    destinationLocationEdited,
   );
   const [saving, setSaving] = useState(false);
   const [resolvedRegion, setResolvedRegion] = useState<DataRegion | null>(null);
@@ -273,6 +289,7 @@ export default function ConnectDataSourceLayout({
       setEventDestination(
         defaultEventForwarderDestination(initial.type || "bigquery"),
       );
+      setDestinationLocationEdited(false);
       setParamsDirty(false);
       resetTest();
     }
@@ -422,6 +439,7 @@ export default function ConnectDataSourceLayout({
   });
   const testStatus = overallTestStatus(readStatus, writeStatus, checksWrite);
   const updateEventDestination = (patch: Partial<typeof eventDestination>) => {
+    if (patch.location !== undefined) setDestinationLocationEdited(true);
     setEventDestination((current) => ({ ...current, ...patch }));
     setDirty(true);
     resetTest();
