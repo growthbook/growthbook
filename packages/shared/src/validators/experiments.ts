@@ -641,6 +641,17 @@ const apiExperimentMetricOverrides = z.object({
   regressionAdjustmentOverride: z.boolean().optional(),
   regressionAdjustmentEnabled: z.boolean().optional(),
   regressionAdjustmentDays: z.coerce.number().optional(),
+  // Retired: kept so the documented shape doesn't change, never returned.
+  winRiskThreshold: z.coerce
+    .number()
+    .describe("No longer used. Never returned.")
+    .optional()
+    .meta({ deprecated: true }),
+  loseRiskThreshold: z.coerce
+    .number()
+    .describe("No longer used. Never returned.")
+    .optional()
+    .meta({ deprecated: true }),
 });
 
 // Corresponds to schemas/ExperimentMetric.yaml

@@ -97,6 +97,8 @@ export interface Props {
   autoFocusAtEnd?: boolean;
   /** While true, a dropped or pasted image isn't in `value` yet. */
   onUploadingChange?: (uploading: boolean) => void;
+  /** The id of the label that names the field. */
+  ariaLabelledBy?: string;
 }
 
 // Heights of the whole control, toolbar included. One ladder serves both the
@@ -352,6 +354,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     collapsibleToolbar = false,
     autoFocusAtEnd = false,
     onUploadingChange,
+    ariaLabelledBy,
   },
   ref,
 ) {
@@ -455,6 +458,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
                 tabIndex={0}
                 className={styles.editable}
                 aria-placeholder={placeholder ?? ""}
+                aria-labelledby={ariaLabelledBy}
                 placeholder={
                   placeholder ? (
                     <div className={styles.placeholder}>{placeholder}</div>

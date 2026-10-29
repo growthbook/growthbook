@@ -21,6 +21,21 @@ const idParams = z
   })
   .strict();
 
+// Retired risk thresholds stay in the documented shape: accepted from older
+// clients and dropped, never returned.
+const apiReportMetricOverride = metricOverride.extend({
+  winRisk: z
+    .number()
+    .describe("No longer used. Accepted and ignored; never returned.")
+    .optional()
+    .meta({ deprecated: true }),
+  loseRisk: z
+    .number()
+    .describe("No longer used. Accepted and ignored; never returned.")
+    .optional()
+    .meta({ deprecated: true }),
+});
+
 const reportAnalysisSettingsSchema = z
   .object({
     statsEngine: z.enum(["bayesian", "frequentist"]).optional(),
@@ -29,7 +44,7 @@ const reportAnalysisSettingsSchema = z
     guardrailMetrics: z.array(z.string()).optional(),
     activationMetric: z.string().optional(),
     metricOverrides: z
-      .array(metricOverride)
+      .array(apiReportMetricOverride)
       .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
@@ -217,20 +232,6 @@ export const getReportValidator = {
   path: "/reports/:id",
 };
 
-// Retired risk thresholds are still accepted from older clients, then dropped.
-const metricOverrideInput = metricOverride.extend({
-  winRisk: z
-    .number()
-    .describe("No longer used. Accepted and ignored.")
-    .optional()
-    .meta({ deprecated: true }),
-  loseRisk: z
-    .number()
-    .describe("No longer used. Accepted and ignored.")
-    .optional()
-    .meta({ deprecated: true }),
-});
-
 const postReportBody = z
   .object({
     experimentId: z.string().describe("The experiment to create a report for"),
@@ -300,7 +301,7 @@ const postReportBody = z
       .describe("Lookback window when `attributionModel` is `lookbackOverride`")
       .optional(),
     metricOverrides: z
-      .array(metricOverrideInput)
+      .array(apiReportMetricOverride)
       .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z
@@ -419,7 +420,7 @@ const putReportSettingsBody = z
       .optional(),
     activationMetric: z.string().describe("Activation metric ID").optional(),
     metricOverrides: z
-      .array(metricOverrideInput)
+      .array(apiReportMetricOverride)
       .describe("Per-metric window, prior, and regression-adjustment overrides")
       .optional(),
     customMetricSlices: z

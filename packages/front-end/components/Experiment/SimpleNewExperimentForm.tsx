@@ -1,4 +1,4 @@
-import { FC, useEffect } from "react";
+import { FC, useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
@@ -28,6 +28,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -346,7 +347,15 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     ? permissionsUtil.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const canSubmit = hasProjectPermission && !sdkConnectionsLoading;
+  const hypothesisLabelId = useId();
+  // An image still uploading would be dropped from the saved hypothesis.
+  const [hypothesisUploading, setHypothesisUploading] = useState(false);
+  const suggestHypothesis = useSuggestHypothesis(
+    form.watch("hypothesis") ?? "",
+    "simple-new-experiment-form",
+  );
+  const canSubmit =
+    hasProjectPermission && !sdkConnectionsLoading && !hypothesisUploading;
 
   // When the project changes, drop any selection that's no longer valid there
   useEffect(() => {
@@ -705,15 +714,22 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       />
 
       <Box mb="3">
-        <Text as="label" weight="semibold" mb="1">
-          Hypothesis
-        </Text>
+        <Box id={hypothesisLabelId} mb="1">
+          <Text as="label" weight="semibold">
+            Hypothesis
+          </Text>
+        </Box>
         <AIRichTextField
           value={form.watch("hypothesis") ?? ""}
           onChange={(hypothesis) => form.setValue("hypothesis", hypothesis)}
           placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
           height="xs"
           collapsibleToolbar
+          aiSuggestFunction={suggestHypothesis}
+          aiButtonText="Check hypothesis"
+          trackingSource="simple-new-experiment-form"
+          onUploadingChange={setHypothesisUploading}
+          ariaLabelledBy={hypothesisLabelId}
         />
       </Box>
 

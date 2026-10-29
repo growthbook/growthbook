@@ -39656,11 +39656,11 @@ paths:
                         type: number
                       winRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored.
+                        description: No longer used. Accepted and ignored; never returned.
                         type: number
                       loseRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored.
+                        description: No longer used. Accepted and ignored; never returned.
                         type: number
                     required:
                       - id
@@ -39938,11 +39938,11 @@ paths:
                         type: number
                       winRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored.
+                        description: No longer used. Accepted and ignored; never returned.
                         type: number
                       loseRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored.
+                        description: No longer used. Accepted and ignored; never returned.
                         type: number
                     required:
                       - id
@@ -72347,6 +72347,14 @@ components:
               type: boolean
             regressionAdjustmentDays:
               type: number
+            winRiskThreshold:
+              deprecated: true
+              description: No longer used. Never returned.
+              type: number
+            loseRiskThreshold:
+              deprecated: true
+              description: No longer used. Never returned.
+              type: number
           additionalProperties: false
       required:
         - metricId
@@ -79067,6 +79075,14 @@ components:
                   regressionAdjustmentEnabled:
                     type: boolean
                   regressionAdjustmentDays:
+                    type: number
+                  winRisk:
+                    deprecated: true
+                    description: No longer used. Accepted and ignored; never returned.
+                    type: number
+                  loseRisk:
+                    deprecated: true
+                    description: No longer used. Accepted and ignored; never returned.
                     type: number
                 required:
                   - id
