@@ -566,7 +566,11 @@ export function ClusterExperimentFields({
   const checkbox = (
     <Checkbox
       label={
-        asRows ? premiumLabel(explanation) : premiumLabel("Cluster experiment")
+        asRows
+          ? // PremiumTooltip lays its children out in a row, so the sentence
+            // goes in as one piece to wrap as text.
+            premiumLabel(<span>{explanation}</span>)
+          : premiumLabel("Cluster experiment")
       }
       weight={asRows ? "regular" : undefined}
       description={asRows ? undefined : explanation}
