@@ -3,6 +3,7 @@ import { IconType } from "react-icons";
 import clsx from "clsx";
 import { PiArrowLeft, PiCaretRightBold } from "react-icons/pi";
 import {
+  DropdownMenuField,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -24,7 +25,8 @@ export type RailMenuEntry =
     }
   | { type: "separator"; key: string }
   | { type: "label"; key: string; label: string }
-  // Anything else in the menu, as is (the organization picker).
+  // Anything else in the menu (the organization picker), in reach of the
+  // dropdown's arrow keys.
   | { type: "node"; key: string; node: ReactNode }
   | {
       type: "submenu";
@@ -94,7 +96,11 @@ export function DropdownEntries({ entries }: { entries: RailMenuEntry[] }) {
               </DropdownMenuLabel>
             );
           case "node":
-            return <Fragment key={entry.key}>{entry.node}</Fragment>;
+            return (
+              <DropdownMenuField key={entry.key}>
+                {entry.node}
+              </DropdownMenuField>
+            );
           case "submenu":
             return (
               <DropdownSubMenu key={entry.key} trigger={entry.trigger}>

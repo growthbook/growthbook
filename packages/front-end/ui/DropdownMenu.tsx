@@ -14,6 +14,7 @@ import React, {
   ReactElement,
   useCallback,
   useEffect,
+  useRef,
   useState,
   createContext,
   useContext,
@@ -239,6 +240,51 @@ type DropdownContentProps = {
   trigger: AllowedChildren;
   triggerClassName?: string;
 } & MarginProps;
+
+/**
+ * A control inside the menu, such as a Select. Radix's arrow keys move between
+ * the menu's items only (and Tab is blocked in a menu), so this puts the
+ * control in their path too, in its place among them.
+ */
+export function DropdownMenuField({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const field = ref.current;
+    const menu = field?.closest<HTMLElement>('[role="menu"]');
+    if (!field || !menu) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+      const control = field.querySelector<HTMLElement>(
+        "button:not(:disabled), input:not(:disabled)",
+      );
+      if (!control) return;
+      // The items and the control, in the order they're shown.
+      const stops = [
+        ...menu.querySelectorAll<HTMLElement>(
+          '[role="menuitem"]:not([data-disabled])',
+        ),
+        control,
+      ].sort((a, b) =>
+        a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING
+          ? -1
+          : 1,
+      );
+      const from = stops.findIndex((el) => el === document.activeElement);
+      const to = stops[from + (e.key === "ArrowDown" ? 1 : -1)];
+      // From one item to the next is Radix's own.
+      if (from === -1 || !to || (stops[from] !== control && to !== control)) {
+        return;
+      }
+      // Ahead of Radix, and of a Select that would open on the key.
+      e.preventDefault();
+      e.stopPropagation();
+      to.focus();
+    };
+    menu.addEventListener("keydown", onKeyDown, true);
+    return () => menu.removeEventListener("keydown", onKeyDown, true);
+  }, []);
+  return <div ref={ref}>{children}</div>;
+}
 
 export function DropdownSubMenu({
   children,
