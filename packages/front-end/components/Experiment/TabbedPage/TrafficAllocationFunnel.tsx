@@ -390,6 +390,9 @@ export default function TrafficAllocationFunnel({
     ? experimentsMap.get(holdout.experimentId)
     : undefined;
   const holdoutPhase = holdoutExperiment?.phases.at(-1);
+  const holdoutSize = holdoutPhase
+    ? coverageToHoldoutSize(holdoutPhase.coverage)
+    : null;
   const getStatusIndicator = useExperimentStatusIndicator();
   const holdoutStatus = holdoutExperiment
     ? getStatusIndicator(holdoutExperiment)
@@ -469,17 +472,13 @@ export default function TrafficAllocationFunnel({
                     ) : null}
                   </Flex>
                 </FunnelRow>
-                {holdoutPhase ? (
+                {holdoutSize !== null ? (
                   <FunnelRow
                     label="Holdout size"
-                    tip={holdoutSizeTip(
-                      coverageToHoldoutSize(holdoutPhase.coverage),
-                    )}
+                    tip={holdoutSizeTip(holdoutSize)}
                   >
                     <Text color="text-high">
-                      {coveragePercentFormatter.format(
-                        coverageToHoldoutSize(holdoutPhase.coverage),
-                      )}
+                      {coveragePercentFormatter.format(holdoutSize)}
                     </Text>
                   </FunnelRow>
                 ) : null}
