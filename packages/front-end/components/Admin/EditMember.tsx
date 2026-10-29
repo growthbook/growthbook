@@ -33,7 +33,7 @@ const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   metadata: "Edit organization details",
   suspend: "Suspend and disable organizations",
   create: "Create organizations",
-  users: "Edit user names, verified status, and sign-in methods",
+  users: "Edit user names, mark emails verified, and reset sign-in methods",
   grant: "Grant super admin access",
 };
 
@@ -115,7 +115,12 @@ const EditMember: FC<{
           label="Verified email"
           value={verified}
           setValue={setVerified}
-          disabled={!canEditDetails}
+          disabled={!canEditDetails || (member.verified && superAdmin !== true)}
+          disabledMessage={
+            canEditDetails
+              ? "Only full super admins can clear a verified email"
+              : undefined
+          }
         />
         {member.authSubject && (
           <>

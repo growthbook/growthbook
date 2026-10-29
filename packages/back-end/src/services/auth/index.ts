@@ -24,6 +24,7 @@ import {
   hasUser,
   markUserAsVerified,
   getUserByEmail,
+  getUserById,
   setAuthSubject,
 } from "back-end/src/models/UserModel";
 import {
@@ -441,6 +442,17 @@ export async function processJWT(
   }
 
   next();
+}
+
+// For setting up anything that later acts as the stored user, since that carries their stored super admin
+export async function assertLoginGrantsStoredSuperAdmin(req: AuthRequest) {
+  if (!req.userId || req.superAdmin) return;
+  const user = await getUserById(req.userId);
+  if (normalizeSuperAdmin(user?.superAdmin)) {
+    throw new Error(
+      "Super admins must sign in with a method that grants super admin access before linking accounts that act as them.",
+    );
+  }
 }
 
 export function deleteAuthCookies(req: Request, res: Response) {
