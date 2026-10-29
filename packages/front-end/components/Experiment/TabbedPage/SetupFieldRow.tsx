@@ -121,10 +121,17 @@ export function InfoTip({ content }: { content: ReactNode }) {
  * Rows edited together, on a gray ground that reaches past them so their
  * labels stay in line with the rows around it.
  */
-export function SetupFieldGroup({ children }: { children: ReactNode }) {
+export function SetupFieldGroup({
+  inset = false,
+  children,
+}: {
+  /** Inside its container, for rows with none around them to line up with. */
+  inset?: boolean;
+  children: ReactNode;
+}) {
   return (
     <Box
-      mx="-4"
+      mx={inset ? "0" : "-4"}
       px="4"
       py="2"
       my="2"

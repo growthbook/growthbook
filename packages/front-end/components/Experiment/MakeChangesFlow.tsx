@@ -227,12 +227,10 @@ export default function MakeChangesFlow({
             setChangeType={setChangeType}
           />
 
-          <div className="mt-4">
+          <Box mt="4">
             <label>Current targeting and traffic (for reference)</label>
-            <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
-              <TargetingInfo experiment={experiment} />
-            </div>
-          </div>
+            <TargetingInfo experiment={experiment} />
+          </Box>
         </div>
       </Page>
 

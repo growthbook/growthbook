@@ -17,7 +17,7 @@ import ChangesTable, {
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
-import { InfoTip } from "./SetupFieldRow";
+import SetupFieldRow, { SetupFieldGroup } from "./SetupFieldRow";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
@@ -33,7 +33,6 @@ const none = <em>None</em>;
 type TargetingField = {
   key: keyof ExperimentTargetingData;
   label: string;
-  tooltip?: string;
   // Shown once it changes; otherwise the summary keeps to who's included.
   advanced?: boolean;
   render: (targeting: ExperimentTargetingData) => ReactNode;
@@ -77,8 +76,6 @@ function useTargetingFields(
     {
       key: "namespace",
       label: "Namespace targeting",
-      tooltip:
-        "Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces",
       render: ({ namespace }) => {
         if (!namespace?.enabled) return <em>Global (all users)</em>;
         const { coverage, ranges, name } = getNamespaceDisplayData(
@@ -176,29 +173,24 @@ export default function TargetingInfo({
 }) {
   const targeting = useTargetingDefaults(experiment);
   const fields = useTargetingFields(experiment);
-  if (!experiment.phases.length) {
-    return (
-      <Box mb="3">
-        <em>No targeting configured yet</em>
-      </Box>
-    );
-  }
   return (
-    <div>
-      {fields
-        .filter((field) => !field.advanced)
-        .map((field) => (
-          <Box key={field.key} mb="3">
-            <Flex align="center" gap="1" mb="1">
-              <Text weight="semibold" color="text-high">
-                {field.label}
+    <SetupFieldGroup inset>
+      {experiment.phases.length ? (
+        fields
+          .filter((field) => !field.advanced)
+          .map((field) => (
+            <SetupFieldRow key={field.key} label={field.label} content="text">
+              <Text as="div" color="text-high">
+                {field.render(targeting)}
               </Text>
-              {field.tooltip ? <InfoTip content={field.tooltip} /> : null}
-            </Flex>
-            <div>{field.render(targeting)}</div>
-          </Box>
-        ))}
-    </div>
+            </SetupFieldRow>
+          ))
+      ) : (
+        <Box py="2">
+          <em>No targeting configured yet</em>
+        </Box>
+      )}
+    </SetupFieldGroup>
   );
 }
 
