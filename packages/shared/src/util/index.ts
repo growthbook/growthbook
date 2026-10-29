@@ -3,7 +3,10 @@ import isEqual from "lodash/isEqual";
 import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
+  LinkedFeatureEnvInputs,
+  LinkedFeatureEnvState,
   LinkedFeatureInfo,
+  LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
 import {
   ExperimentSnapshotAnalysis,
@@ -25,7 +28,6 @@ import {
   SafeRolloutSnapshotAnalysisSettings,
   SafeRolloutSnapshotInterface,
 } from "../validators/safe-rollout-snapshot";
-import { HoldoutInterfaceStringDates } from "../validators/holdout";
 import {
   featureHasEnvironment,
   getAttributeScopeProjectIds,
@@ -59,6 +61,8 @@ export * from "./errors";
 export * from "./namespaces";
 export * from "./custom-fields";
 export * from "./holdouts";
+export * from "./experiment-cleanup";
+export * from "./sortObjectKeys";
 export * from "./interleaving";
 export * from "./diffFormats";
 export * from "./format-json";
@@ -67,6 +71,12 @@ export * from "./event-forwarder-fact-table";
 export * from "./event-forwarder-warehouse-queries";
 
 export const DEFAULT_ENVIRONMENT_IDS = ["production", "dev", "staging", "test"];
+
+// URL Redirects and Visual Editor changes serve in every environment. Never
+// empty, which would pass a permission check vacuously.
+export function getLinkedChangeEnvs(): string[] {
+  return ["__ALL__"];
+}
 
 export function getAffectedEnvsForExperiment({
   experiment,
@@ -250,6 +260,95 @@ export function experimentHasLinkedChanges(
   return false;
 }
 
+export function hasPendingScheduledStart(exp: {
+  nextScheduledStatusUpdate?: { type: string } | null;
+}): boolean {
+  return exp.nextScheduledStatusUpdate?.type === "start";
+}
+
+export function isScheduledToStart(
+  exp: Pick<ExperimentInterface, "status"> & {
+    nextScheduledStatusUpdate?: { type: string } | null;
+  },
+): boolean {
+  return exp.status === "draft" && hasPendingScheduledStart(exp);
+}
+
+// Whether a start armed past its drafts' approvals pinned this draft, and it
+// hasn't changed since.
+export function startBypassCovers(
+  exp: {
+    nextScheduledStatusUpdate?: {
+      type: string;
+      bypassApproval?: boolean;
+      pinnedDrafts?: {
+        featureId: string;
+        revisionVersion: number;
+        dateUpdated: Date | string;
+      }[];
+    } | null;
+  },
+  featureId: string,
+  draft: { version: number; dateUpdated?: Date | string | null },
+): boolean {
+  const staged = exp.nextScheduledStatusUpdate;
+  if (staged?.type !== "start" || !staged.bypassApproval) return false;
+  const { dateUpdated } = draft;
+  if (!dateUpdated) return false;
+  return (staged.pinnedDrafts ?? []).some(
+    (pin) =>
+      pin.featureId === featureId &&
+      pin.revisionVersion === draft.version &&
+      new Date(pin.dateUpdated).getTime() === new Date(dateUpdated).getTime(),
+  );
+}
+
+// Targeting, traffic and namespace. A running experiment with any implementation
+// changes them through a release plan: a draft rule or re-link serves at once.
+export function canEditDeliveryInPlace(
+  exp: Pick<
+    ExperimentInterface,
+    "status" | "hasVisualChangesets" | "hasURLRedirects" | "linkedFeatures"
+  > & { nextScheduledStatusUpdate?: { type: string } | null },
+): boolean {
+  if (hasPendingScheduledStart(exp)) return false;
+  return exp.status !== "running" || !experimentHasLinkedChanges(exp);
+}
+
+export function linkedFeatureEnvStates(
+  inputs: Record<string, LinkedFeatureEnvInputs>,
+): Record<string, LinkedFeatureEnvState> {
+  return Object.fromEntries(
+    Object.entries(inputs).map(([env, { flagEnabled, rule }]) => [
+      env,
+      rule === "missing"
+        ? "missing"
+        : !flagEnabled
+          ? "disabled-env"
+          : rule === "on"
+            ? "active"
+            : "disabled-rule",
+    ]),
+  );
+}
+
+// The publish gate's answer when there is one, else the draft's status:
+// "approved" can still be short of a team or an environment.
+export function pendingDraftApproved(
+  draft: Pick<LinkedFeaturePendingDraft, "approval" | "status">,
+): boolean {
+  return draft.approval?.satisfied ?? draft.status === "approved";
+}
+
+export function linkedDraftApproved(
+  info: Pick<
+    LinkedFeatureInfo,
+    "draftApprovalSatisfied" | "draftRevisionStatus"
+  >,
+): boolean {
+  return info.draftApprovalSatisfied ?? info.draftRevisionStatus === "approved";
+}
+
 export function experimentHasLiveLinkedChanges(
   exp: ExperimentInterface | ExperimentInterfaceStringDates,
   linkedFeatures: LinkedFeatureInfo[],
@@ -318,31 +417,6 @@ export function includeExperimentInPayload(
     if (!hasFeaturesWithPublishedRules) {
       return false;
     }
-  }
-
-  return true;
-}
-
-export function includeHoldoutInPayload(
-  holdout: HoldoutInterfaceStringDates,
-  exp: ExperimentInterface | ExperimentInterfaceStringDates,
-): boolean {
-  // Archived experiments are always excluded
-  if (exp.archived) return false;
-
-  if (
-    Object.keys(holdout.linkedExperiments).length === 0 &&
-    Object.keys(holdout.linkedFeatures).length === 0
-  )
-    return false;
-
-  if (exp.status === "draft") return false;
-
-  if (!exp.phases?.length) return false;
-
-  // Stopped holdouts are not included in the payload
-  if (exp.status === "stopped") {
-    return false;
   }
 
   return true;
@@ -844,6 +918,8 @@ export function ratioVarianceFromSums({
 // Targeting names a saved group in its condition, its saved-group list, or a
 // prerequisite's condition; all three reach the SDK payload. Conditions hold
 // the id as a JSON string, so match it quoted and not as a bare substring.
+// A derived remote group ID such as "grp_vip:parent_id" also uses "grp_vip";
+// group IDs never contain ":", so the `"<id>:` prefix only matches those.
 export function targetingReferencesSavedGroup(
   targeting: {
     condition?: string | null;
@@ -853,10 +929,14 @@ export function targetingReferencesSavedGroup(
   savedGroupId: string,
 ): boolean {
   const quoted = `"${savedGroupId}"`;
+  const derivedPrefix = `"${savedGroupId}:`;
+  const conditionReferences = (condition?: string | null) =>
+    !!condition &&
+    (condition.includes(quoted) || condition.includes(derivedPrefix));
   return (
-    !!targeting.condition?.includes(quoted) ||
+    conditionReferences(targeting.condition) ||
     !!targeting.savedGroups?.some((g) => g.ids.includes(savedGroupId)) ||
-    !!targeting.prerequisites?.some((p) => p.condition?.includes(quoted))
+    !!targeting.prerequisites?.some((p) => conditionReferences(p.condition))
   );
 }
 

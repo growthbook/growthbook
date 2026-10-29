@@ -8,8 +8,8 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import InlineCode, { Props as InlineCodeProps } from "./InlineCode";
 
-// 0.85rem at line-height 1.5; wrapped lines are measured as they render
-const ESTIMATED_LINE_HEIGHT = 20;
+// 0.8rem at line-height 1.5; wrapped lines are measured as they render
+const ESTIMATED_LINE_HEIGHT = 19;
 
 // Inside it, long code and large diffs render in full: for offscreen renders
 // that are read back as text, such as Copy as → Formatted changes

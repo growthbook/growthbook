@@ -129,7 +129,7 @@ export function getDefaultFactMetricProps({
   // Starting data source when no fact table is chosen yet (e.g. "Add" from a
   // data source's page) - otherwise the org default wins.
   initialDatasource?: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactMetricInterface["managedBy"];
 }): CreateFactMetricFormProps & { targetMDE: number } {
   const existingMetricType = existing?.metricType;
   return {
@@ -469,20 +469,6 @@ export function validateFactMetricFormValues(
       throw new Error(`${label} must be a number of 0 or more.`);
     }
   }
-}
-
-export function getMetricConversionTitle(type: MetricType): string {
-  // TODO: support more metric types
-  if (type === "count") {
-    return "Count per User";
-  }
-  if (type === "duration") {
-    return "Duration";
-  }
-  if (type === "revenue") {
-    return "Revenue";
-  }
-  return "Conversion Rate";
 }
 
 export function getPercentileLabel(quantile: number): string {

@@ -1,523 +1,316 @@
+import { ReactNode, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretRight } from "react-icons/pi";
 import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
-import clsx from "clsx";
+import { changedTargeting, hasAttributeCondition } from "shared/experiments";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
-import HeaderWithEdit from "@/components/Layout/HeaderWithEdit";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { AttributeBadge } from "@/components/Features/AttributeBadge";
-import { formatTrafficSplit } from "@/services/utils";
+import { coveragePercentFormatter, formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { HashVersionTooltip } from "@/components/Experiment/HashVersionSelector";
 import useOrgSettings from "@/hooks/useOrgSettings";
-import { GBInfo } from "@/components/Icons";
-
-export interface Props {
-  phaseIndex?: number | null;
-  experiment: ExperimentInterfaceStringDates;
-  editTargeting?: (() => void) | null;
-  noHeader?: boolean;
-  targetingFieldsOnly?: boolean;
-  separateTrafficSplitDisplay?: boolean;
-  showDecimals?: boolean;
-  showNamespaceRanges?: boolean;
-  showChanges?: boolean;
-  changes?: ExperimentTargetingData;
-  showFullTargetingInfo?: boolean;
-  horizontalView?: boolean;
-}
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
+import ChangesTable, {
+  ChangesTableRow,
+} from "@/components/Reviews/ChangesTable";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
+import SetupFieldRow, { SetupFieldGroup } from "./SetupFieldRow";
 
 function formatRanges(ranges: [number, number][]): string {
   return ranges.map(([start, end]) => `[${start} - ${end}]`).join(" ");
 }
 
-export default function TargetingInfo({
-  phaseIndex = null,
-  experiment,
-  editTargeting,
-  noHeader,
-  targetingFieldsOnly,
-  separateTrafficSplitDisplay,
-  showDecimals,
-  showNamespaceRanges,
-  showChanges,
-  changes,
-  showFullTargetingInfo = true,
-  horizontalView,
-}: Props) {
+const none = <em>None</em>;
+
+type TargetingField = {
+  key: keyof ExperimentTargetingData;
+  label: string;
+  // Shown once it changes; otherwise the summary keeps to who's included.
+  advanced?: boolean;
+  render: (targeting: ExperimentTargetingData) => ReactNode;
+};
+
+function useTargetingFields(
+  experiment: ExperimentInterfaceStringDates,
+): TargetingField[] {
   const { namespaces } = useOrgSettings();
+  return [
+    {
+      key: "savedGroups",
+      label: "Saved Group targeting",
+      render: ({ savedGroups }) =>
+        savedGroups?.length ? (
+          <SavedGroupTargetingDisplay savedGroups={savedGroups} />
+        ) : (
+          none
+        ),
+    },
+    {
+      key: "condition",
+      label: "Attribute targeting",
+      render: ({ condition }) =>
+        hasAttributeCondition(condition) ? (
+          <ConditionDisplay condition={condition} />
+        ) : (
+          none
+        ),
+    },
+    {
+      key: "prerequisites",
+      label: "Prerequisite targeting",
+      render: ({ prerequisites }) =>
+        prerequisites?.length ? (
+          <ConditionDisplay prerequisites={prerequisites} />
+        ) : (
+          none
+        ),
+    },
+    {
+      key: "namespace",
+      label: "Namespace targeting",
+      render: ({ namespace }) => {
+        if (!namespace?.enabled) return <em>Global (all users)</em>;
+        const { coverage, ranges, name } = getNamespaceDisplayData(
+          namespace,
+          namespaces,
+        );
+        return (
+          <>
+            {name}{" "}
+            <Text color="text-low">
+              ({coveragePercentFormatter.format(coverage)})
+            </Text>
+            {ranges.length > 0 && (
+              <Text size="sm" color="text-low" ml="1">
+                {formatRanges(ranges)}
+              </Text>
+            )}
+          </>
+        );
+      },
+    },
+    {
+      key: "coverage",
+      label: "Traffic percent",
+      render: ({ coverage }) => coveragePercentFormatter.format(coverage),
+    },
+    ...(experiment.type !== "multi-armed-bandit"
+      ? [
+          {
+            key: "variationWeights",
+            label: "Variation weights",
+            render: ({ variationWeights }) =>
+              formatTrafficSplit(variationWeights, 2),
+          } satisfies TargetingField,
+        ]
+      : []),
+    {
+      key: "hashAttribute",
+      label: "Assignment attribute",
+      advanced: true,
+      render: ({ hashAttribute }) => hashAttribute,
+    },
+    {
+      key: "fallbackAttribute",
+      label: "Fallback attribute",
+      advanced: true,
+      render: ({ fallbackAttribute }) => fallbackAttribute || none,
+    },
+    {
+      key: "disableStickyBucketing",
+      label: "Sticky bucketing",
+      advanced: true,
+      render: ({ disableStickyBucketing }) =>
+        disableStickyBucketing ? "Disabled" : "Enabled",
+    },
+    {
+      key: "hashVersion",
+      label: "Hashing algorithm",
+      advanced: true,
+      render: ({ hashVersion }) =>
+        hashVersion === 1 ? "V1 (Legacy)" : "V2 (Preferred)",
+    },
+  ];
+}
 
-  const phase = experiment.phases[phaseIndex ?? experiment.phases.length - 1];
-  const hasNamespace = phase?.namespace && phase.namespace.enabled;
-
-  // Calculate total namespace allocation
-  const {
-    coverage: namespaceCoverage,
-    ranges: namespaceRanges,
-    name: namespaceName,
-  } = getNamespaceDisplayData(phase.namespace, namespaces);
-
-  const hasSavedGroupsChanges =
-    showChanges &&
-    JSON.stringify(changes?.savedGroups || []) !==
-      JSON.stringify(phase.savedGroups || []);
-  const hasConditionChanges =
-    showChanges && changes?.condition !== phase.condition;
-  const hasPrerequisiteChanges =
-    showChanges &&
-    JSON.stringify(changes?.prerequisites || []) !==
-      JSON.stringify(phase.prerequisites || []);
-  const hasCoverageChanges =
-    showChanges && changes?.coverage !== phase.coverage;
-  const hasVariationWeightsChanges =
-    showChanges &&
-    JSON.stringify(changes?.variationWeights || []) !==
-      JSON.stringify(phase.variationWeights || []);
-  const hasNamespaceChanges =
-    showChanges &&
-    JSON.stringify(changes?.namespace || {}) !==
-      JSON.stringify(phase.namespace || {});
-  const noChanges = !(
-    hasSavedGroupsChanges ||
-    hasConditionChanges ||
-    hasCoverageChanges ||
-    hasVariationWeightsChanges ||
-    hasNamespaceChanges
-  );
-
-  const changesHasNamespace = changes?.namespace && changes.namespace.enabled;
-  const {
-    coverage: changesNamespaceCoverage,
-    ranges: changesNamespaceRanges,
-    name: changesNamespaceName,
-  } = getNamespaceDisplayData(changes?.namespace, namespaces);
-
+function Disclosure({
+  open,
+  onToggle,
+  children,
+}: {
+  open: boolean;
+  onToggle: () => void;
+  children: string;
+}) {
   return (
-    <div>
-      {!noHeader && (
-        <HeaderWithEdit
-          edit={editTargeting || undefined}
-          className="h3"
-          containerClassName="mb-3"
-        >
-          Targeting and Traffic
-        </HeaderWithEdit>
-      )}
-      {phase ? (
-        <div className="row">
-          <div className={clsx("col", horizontalView && "d-flex flex-wrap")}>
-            {!targetingFieldsOnly && (
-              <>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>Tracking Key</strong>{" "}
-                    <Tooltip body="This is hashed together with the assignment attribute (below) to deterministically assign users to a variation." />
-                  </div>
-                  <div>{experiment.trackingKey}</div>
-                </div>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>
-                      Assignment Attribute
-                      {experiment.fallbackAttribute ? "s" : ""}
-                    </strong>{" "}
-                    <Tooltip body="This user attribute will be used to assign variations. This is typically either a logged-in user id or an anonymous id stored in a long-lived cookie.">
-                      <GBInfo />
-                    </Tooltip>
-                  </div>
-                  <div className="d-flex flex-wrap align-items-center gap-1">
-                    <AttributeBadge
-                      attributeId={experiment.hashAttribute || "id"}
-                    />
-                    {experiment.fallbackAttribute ? (
-                      <>
-                        ,{" "}
-                        <AttributeBadge
-                          attributeId={experiment.fallbackAttribute}
-                        />
-                      </>
-                    ) : null}
-                    {
-                      <HashVersionTooltip>
-                        <small className="text-muted ml-1">
-                          (V{experiment.hashVersion || 2} hashing)
-                        </small>
-                      </HashVersionTooltip>
-                    }
-                  </div>
-                </div>
-              </>
-            )}
+    <Link
+      size="sm"
+      aria-expanded={open}
+      onClick={(e) => {
+        e.preventDefault();
+        onToggle();
+      }}
+    >
+      <Flex align="center" gap="1">
+        {children}
+        {open ? <PiCaretDown /> : <PiCaretRight />}
+      </Flex>
+    </Link>
+  );
+}
 
-            {(!showChanges ||
-              showFullTargetingInfo ||
-              hasSavedGroupsChanges ||
-              hasConditionChanges ||
-              hasPrerequisiteChanges) && (
-              <>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>Saved Group targeting</strong>
-                  </div>
-                  <div className="d-flex">
-                    <div
-                      className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50":
-                          hasSavedGroupsChanges,
-                      })}
-                    >
-                      {hasSavedGroupsChanges && (
-                        <div className="text-center mx-1" style={{ width: 20 }}>
-                          Δ
-                        </div>
-                      )}
-                      <div>
-                        {phase.savedGroups?.length ? (
-                          <SavedGroupTargetingDisplay
-                            savedGroups={phase.savedGroups}
-                          />
-                        ) : (
-                          <em>None</em>
-                        )}
-                      </div>
-                    </div>
-                    {hasSavedGroupsChanges && (
-                      <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center mx-1" style={{ width: 20 }}>
-                          →
-                        </div>
-                        <div>
-                          {changes?.savedGroups?.length ? (
-                            <SavedGroupTargetingDisplay
-                              savedGroups={changes.savedGroups}
-                            />
-                          ) : (
-                            <em>None</em>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>Attribute targeting</strong>
-                  </div>
-                  <div className="d-flex">
-                    <div
-                      className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50":
-                          hasConditionChanges,
-                      })}
-                    >
-                      {hasConditionChanges && (
-                        <div className="text-center mx-1" style={{ width: 20 }}>
-                          Δ
-                        </div>
-                      )}
-                      <div>
-                        {phase.condition && phase.condition !== "{}" ? (
-                          <ConditionDisplay condition={phase.condition} />
-                        ) : (
-                          <em>None</em>
-                        )}
-                      </div>
-                    </div>
-                    {hasConditionChanges && (
-                      <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center mx-1" style={{ width: 20 }}>
-                          →
-                        </div>
-                        <div>
-                          {changes?.condition && changes.condition !== "{}" ? (
-                            <ConditionDisplay condition={changes.condition} />
-                          ) : (
-                            <em>None</em>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>Prerequisite targeting</strong>
-                  </div>
-                  <div className="d-flex">
-                    <div
-                      className={clsx("d-flex", {
-                        "text-danger font-weight-bold mw-50":
-                          hasPrerequisiteChanges,
-                      })}
-                    >
-                      {hasPrerequisiteChanges && (
-                        <div className="text-center mx-1" style={{ width: 20 }}>
-                          Δ
-                        </div>
-                      )}
-                      <div>
-                        {phase.prerequisites?.length ? (
-                          <ConditionDisplay
-                            prerequisites={phase.prerequisites}
-                          />
-                        ) : (
-                          <em>None</em>
-                        )}
-                      </div>
-                    </div>
-                    {hasPrerequisiteChanges && (
-                      <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center mx-1" style={{ width: 20 }}>
-                          →
-                        </div>
-                        <div>
-                          {changes?.prerequisites?.length ? (
-                            <ConditionDisplay
-                              prerequisites={changes.prerequisites}
-                            />
-                          ) : (
-                            <em>None</em>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {(!showChanges || showFullTargetingInfo || hasNamespaceChanges) && (
-              <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                <div className="mb-1">
-                  <strong>Namespace targeting</strong>{" "}
-                  <Tooltip body="Use namespaces to run mutually exclusive experiments. Manage namespaces under Experimentation → Namespaces">
-                    <GBInfo />
-                  </Tooltip>
-                </div>
-                <div className="d-flex">
-                  <div>
-                    <div
-                      className={clsx("d-flex", {
-                        "text-danger font-weight-bold": hasNamespaceChanges,
-                      })}
-                    >
-                      {hasNamespaceChanges && (
-                        <div className="text-center" style={{ width: 20 }}>
-                          Δ
-                        </div>
-                      )}
-                      <div>
-                        {hasNamespace ? (
-                          <>
-                            {namespaceName}{" "}
-                            <span className="text-muted">
-                              ({percentFormatter.format(namespaceCoverage)})
-                            </span>
-                            {showNamespaceRanges &&
-                              namespaceRanges.length > 0 && (
-                                <span className="text-muted small ml-1">
-                                  {formatRanges(namespaceRanges)}
-                                </span>
-                              )}
-                          </>
-                        ) : (
-                          <em>Global (all users)</em>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  {hasNamespaceChanges && (
-                    <div className="font-weight-bold text-success d-flex ml-4">
-                      <div className="text-center" style={{ width: 20 }}>
-                        →
-                      </div>
-                      <div>
-                        {changesHasNamespace ? (
-                          <>
-                            {changesNamespaceName}{" "}
-                            <span className="text-muted">
-                              (
-                              {percentFormatter.format(
-                                changesNamespaceCoverage,
-                              )}
-                              )
-                            </span>
-                            {showNamespaceRanges &&
-                              changesNamespaceRanges.length > 0 && (
-                                <span className="text-muted small ml-1">
-                                  {formatRanges(changesNamespaceRanges)}
-                                </span>
-                              )}
-                          </>
-                        ) : (
-                          <em>Global (all users)</em>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {!separateTrafficSplitDisplay ? (
-              (!showChanges ||
-                showFullTargetingInfo ||
-                hasCoverageChanges ||
-                hasVariationWeightsChanges) && (
-                <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                  <div className="mb-1">
-                    <strong>Traffic</strong>
-                  </div>
-                  <div className="d-flex">
-                    <div
-                      className={clsx("d-flex", {
-                        "text-danger font-weight-bold":
-                          hasCoverageChanges || hasVariationWeightsChanges,
-                      })}
-                    >
-                      {(hasCoverageChanges || hasVariationWeightsChanges) && (
-                        <div className="text-center" style={{ width: 20 }}>
-                          Δ
-                        </div>
-                      )}
-                      <div>
-                        {Math.floor(phase.coverage * 100)}% included
-                        {experiment.type !== "multi-armed-bandit" && (
-                          <>
-                            ,{" "}
-                            {formatTrafficSplit(
-                              phase.variationWeights,
-                              showDecimals ? 2 : 0,
-                            )}{" "}
-                            split
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    {(hasCoverageChanges || hasVariationWeightsChanges) && (
-                      <div className="font-weight-bold text-success d-flex ml-4">
-                        <div className="text-center" style={{ width: 20 }}>
-                          →
-                        </div>
-                        <div>
-                          {Math.floor((changes?.coverage ?? 1) * 100)}% included
-                          {experiment.type !== "multi-armed-bandit" && (
-                            <>
-                              ,{" "}
-                              {formatTrafficSplit(
-                                changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0,
-                              )}{" "}
-                              split
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )
-            ) : (
-              <>
-                {(!showChanges ||
-                  showFullTargetingInfo ||
-                  hasCoverageChanges ||
-                  hasVariationWeightsChanges) && (
-                  <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                    <div>
-                      <strong>Traffic percent</strong>
-                    </div>
-                    <div className="d-flex">
-                      <div
-                        className={clsx("d-flex", {
-                          "text-danger font-weight-bold": hasCoverageChanges,
-                        })}
-                      >
-                        {hasCoverageChanges && (
-                          <div className="text-center" style={{ width: 20 }}>
-                            Δ
-                          </div>
-                        )}
-                        <div>{percentFormatter.format(phase.coverage)}</div>
-                      </div>
-                      {hasCoverageChanges && (
-                        <div className="font-weight-bold text-success d-flex ml-4">
-                          <div className="text-center" style={{ width: 20 }}>
-                            →
-                          </div>
-                          <div>
-                            {percentFormatter.format(changes?.coverage ?? 1)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-                {experiment.type !== "multi-armed-bandit" &&
-                  (!showChanges ||
-                    showFullTargetingInfo ||
-                    hasCoverageChanges ||
-                    hasVariationWeightsChanges) && (
-                    <div className={clsx("mb-3", horizontalView && "mr-4")}>
-                      <div>
-                        <strong>Variation weights</strong>
-                      </div>
-                      <div className="d-flex">
-                        <div
-                          className={clsx("d-flex", {
-                            "text-danger font-weight-bold":
-                              hasVariationWeightsChanges,
-                          })}
-                        >
-                          {hasVariationWeightsChanges && (
-                            <div className="text-center" style={{ width: 20 }}>
-                              Δ
-                            </div>
-                          )}
-                          <div>
-                            {formatTrafficSplit(
-                              phase.variationWeights,
-                              showDecimals ? 2 : 0,
-                            )}
-                          </div>
-                        </div>
-                        {hasVariationWeightsChanges && (
-                          <div className="font-weight-bold text-success d-flex ml-4">
-                            <div className="text-center" style={{ width: 20 }}>
-                              →
-                            </div>
-                            <div>
-                              {formatTrafficSplit(
-                                changes?.variationWeights ?? [],
-                                showDecimals ? 2 : 0,
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-              </>
-            )}
-          </div>
-        </div>
+/** Who the experiment includes now. */
+export default function TargetingInfo({
+  experiment,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+}) {
+  const targeting = useTargetingDefaults(experiment);
+  const fields = useTargetingFields(experiment);
+  return (
+    <SetupFieldGroup inset>
+      {experiment.phases.length ? (
+        fields
+          .filter((field) => !field.advanced)
+          .map((field) => (
+            <SetupFieldRow key={field.key} label={field.label} content="text">
+              <Text as="div" color="text-high">
+                {field.render(targeting)}
+              </Text>
+            </SetupFieldRow>
+          ))
       ) : (
-        <div className="mb-3">
+        <Box py="2">
           <em>No targeting configured yet</em>
-        </div>
+        </Box>
       )}
-      {showChanges && !showFullTargetingInfo && noChanges && (
-        <div className="mb-3">
-          <em>No changes</em>
-        </div>
-      )}
-    </div>
+    </SetupFieldGroup>
+  );
+}
+
+/** Live targeting beside `value`, with the phase and seed its release starts. */
+export function TargetingChanges({
+  experiment,
+  value,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  value: ExperimentTargetingData;
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const live = useTargetingDefaults(experiment);
+  const fields = useTargetingFields(experiment);
+  // Judged as the save judges them, so only what it would write shows.
+  const changed = new Set(Object.keys(changedTargeting(value, live)));
+  const phase = experiment.phases.length;
+  const bucketMoved = changed.has("bucketVersion");
+  const minBucketMoved = changed.has("minBucketVersion");
+  // What the release plan does, in words; the settings behind each open up.
+  const releaseRows: ChangesTableRow[] = [
+    ...(value.newPhase
+      ? [
+          {
+            key: "phase",
+            label: "Phase",
+            changed: true,
+            before: phase ? `Phase ${phase}` : none,
+            after: `Phase ${phase + 1}`,
+          },
+        ]
+      : []),
+    ...(value.newPhase && value.reseed && phase
+      ? [
+          {
+            key: "assignment",
+            label: "Assignment",
+            changed: true,
+            before: "As assigned now",
+            after: "Randomized again",
+            details: [
+              {
+                label: "Seed",
+                before: live.seed || experiment.trackingKey,
+                after: "A new seed",
+              },
+            ],
+          },
+        ]
+      : []),
+    ...(bucketMoved || minBucketMoved
+      ? [
+          {
+            key: "stickyBucketing",
+            label: "Sticky bucketed users",
+            changed: true,
+            before: "Keep their assigned variation",
+            after: minBucketMoved
+              ? "Excluded from the experiment"
+              : "Reassigned",
+            // Only the versions that move.
+            details: [
+              ...(bucketMoved
+                ? [
+                    {
+                      label: "Bucket version",
+                      before: live.bucketVersion,
+                      after: value.bucketVersion ?? live.bucketVersion,
+                    },
+                  ]
+                : []),
+              ...(minBucketMoved
+                ? [
+                    {
+                      label: "Minimum bucket version",
+                      before: live.minBucketVersion,
+                      after: value.minBucketVersion ?? live.minBucketVersion,
+                    },
+                  ]
+                : []),
+            ],
+          },
+        ]
+      : []),
+  ];
+  const targetingRows = fields
+    .filter((field) => changed.has(field.key) || (showAll && !field.advanced))
+    .map((field) => ({
+      key: field.key,
+      label: field.label,
+      changed: changed.has(field.key),
+      before: field.render(live),
+      after: field.render(value),
+    }));
+  return (
+    <ChangesTable
+      before="Live"
+      after="After publishing"
+      showDetails={showDetails}
+      groups={[
+        {
+          key: "release",
+          rows: releaseRows,
+          footer: releaseRows.some((row) => row.details) ? (
+            <Disclosure
+              open={showDetails}
+              onToggle={() => setShowDetails(!showDetails)}
+            >
+              {showDetails ? "Hide details" : "Show details"}
+            </Disclosure>
+          ) : undefined,
+        },
+        {
+          key: "targeting",
+          rows: targetingRows,
+          footer: (
+            <Disclosure open={showAll} onToggle={() => setShowAll(!showAll)}>
+              {showAll ? "Show changes only" : "Show full targeting"}
+            </Disclosure>
+          ),
+        },
+      ]}
+    />
   );
 }

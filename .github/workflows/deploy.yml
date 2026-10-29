@@ -17,6 +17,10 @@ concurrency:
   group: deploy-production
   cancel-in-progress: false
 
+# Read-only token by default; a job that needs more declares it itself.
+permissions:
+  contents: read
+
 jobs:
   # Build and publish the commit to docker
   docker:
@@ -29,13 +33,13 @@ jobs:
       docker_sha: ${{ steps.metadata.outputs.docker_sha }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Checkout agent skills
         uses: ./.github/actions/checkout-agent-skills
 
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
@@ -43,14 +47,14 @@ jobs:
       # Required to pull the hardened base image (FROM dhi.io/...) in the Dockerfile.
       # Depot forwards these credentials to its remote builder.
       - name: Login to Docker Hardened Images
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: dhi.io
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
       - name: Configure AWS credentials for ECR
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -58,10 +62,10 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Install Depot CLI
-        uses: depot/setup-action@v1
+        uses: depot/setup-action@91bc8495a33ebfc504ffc89e5674379ccf23c29c # v1.7.2
 
       - name: Prepare build metadata
         id: metadata
@@ -76,7 +80,7 @@ jobs:
       # attempt, then a blocking retry.
       - name: Build, tag, and push image to Docker Hub and ECR
         id: build
-        uses: depot/build-push-action@v1
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
         continue-on-error: true
         with:
           push: true
@@ -96,7 +100,7 @@ jobs:
 
       - name: Retry build, tag, and push image to Docker Hub and ECR
         if: steps.build.outcome == 'failure'
-        uses: depot/build-push-action@v1
+        uses: depot/build-push-action@98e78adca7817480b8185f474a400b451d74e287 # v1.18.0
         with:
           push: true
           context: .
@@ -120,17 +124,17 @@ jobs:
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
       - name: Setup Node
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -138,7 +142,7 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr-prod
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Extract static assets from Docker image and upload to S3
         env:
@@ -160,7 +164,7 @@ jobs:
       # blocking retry. Silently skipping would cost source maps and commits.
       - name: Create Sentry api release
         id: sentry_api
-        uses: getsentry/action-release@v3
+        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
         continue-on-error: true
         with:
           environment: "production"
@@ -174,7 +178,7 @@ jobs:
 
       - name: Retry Sentry api release
         if: steps.sentry_api.outcome == 'failure'
-        uses: getsentry/action-release@v3
+        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
         with:
           environment: "production"
           sourcemaps: "./back-end-dist"
@@ -187,7 +191,7 @@ jobs:
 
       - name: Create Sentry app release
         id: sentry_app
-        uses: getsentry/action-release@v3
+        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
         continue-on-error: true
         with:
           environment: "production"
@@ -202,7 +206,7 @@ jobs:
 
       - name: Retry Sentry app release
         if: steps.sentry_app.outcome == 'failure'
-        uses: getsentry/action-release@v3
+        uses: getsentry/action-release@e6703d0b00208e0b3687ba660d18ab5af7892821 # v3.7.2
         with:
           environment: "production"
           sourcemaps: "./front-end-dist"
@@ -232,7 +236,7 @@ jobs:
           - { service: prod-api-python, container: api-python }
     steps:
       - name: Configure AWS credentials for GrowthBook Cloud
-        uses: aws-actions/configure-aws-credentials@v5
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -240,18 +244,18 @@ jobs:
 
       - name: Login to Amazon ECR
         id: login-ecr-prod
-        uses: aws-actions/amazon-ecr-login@v2
+        uses: aws-actions/amazon-ecr-login@03f1aad4c6c7ffd436567f42f9384779290529bd # v2.1.7
 
       - name: Render task definition
         id: taskdef
-        uses: aws-actions/amazon-ecs-render-task-definition@v1
+        uses: aws-actions/amazon-ecs-render-task-definition@8d79160660ad39c402a16e5fc7cd2a32e8f7d6b7 # v1.9.1
         with:
           task-definition-family: ${{ matrix.service }}
           container-name: ${{ matrix.container }}
           image: ${{ steps.login-ecr-prod.outputs.registry }}/growthbook:git-${{ needs.docker.outputs.docker_sha }}
 
       - name: Deploy to ECS
-        uses: aws-actions/amazon-ecs-deploy-task-definition@v2
+        uses: aws-actions/amazon-ecs-deploy-task-definition@a00d4d57ac0de1a99b39fe469f3d898d38717c2b # v2.6.4
         with:
           task-definition: ${{ steps.taskdef.outputs.task-definition }}
           service: ${{ matrix.service }}

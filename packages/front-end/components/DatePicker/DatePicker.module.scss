@@ -1,3 +1,16 @@
+// The visible field. The input inside fills and clips to it, so the field
+// wears the focus ring, also while its calendar is open.
+.field {
+  &:focus-within,
+  &.open {
+    box-shadow: 0 0 0 1px var(--violet-8);
+  }
+
+  :global(.form-control):focus {
+    box-shadow: none;
+  }
+}
+
 .Content {
   border-radius: 4px;
   padding: 20px 20px 10px 20px;
