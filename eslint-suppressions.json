@@ -382,14 +382,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -975,16 +967,6 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Holdout/LinkedExperimentsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Holdout/LinkedFeaturesTable.tsx": {
-    "no-restricted-imports": {
       "count": 1
     }
   },

@@ -1,7 +1,22 @@
 import { useMemo } from "react";
+import { startCase } from "lodash";
+import { getHoldoutStage } from "shared/util";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import useApi from "./useApi";
+
+// "Running", or "Running: Analysis Phase" once its analysis has started.
+export function holdoutStatusLabel(
+  holdout: Pick<HoldoutInterface, "analysisStartDate">,
+  experiment: Pick<ExperimentInterfaceStringDates, "status">,
+): string {
+  return (
+    startCase(experiment.status) +
+    (getHoldoutStage(holdout, experiment) === "analysis-period"
+      ? ": Analysis Phase"
+      : "")
+  );
+}
 
 // True when a holdout is enabled in at least one env — i.e. when it actually
 // occupies the "Rule #1" slot in the rules list (see FeatureRules.tsx's

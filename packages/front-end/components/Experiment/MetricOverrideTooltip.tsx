@@ -193,18 +193,6 @@ export function MetricOverrideTooltipContent({
       {metric ? (
         <OptionTooltipDescription description={metric.description} />
       ) : null}
-      {onManageOverrides ? (
-        <Box>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
-            onClick={() => onManageOverrides(memberIds)}
-          >
-            {hasOverrides ? "Manage overrides" : "Add overrides"}
-          </Button>
-        </Box>
-      ) : null}
       {group ? (
         <OptionTooltipSection label="Metrics:">
           <Flex direction="column" gap="2" mt="1">
@@ -271,6 +259,18 @@ export function MetricOverrideTooltipContent({
           />
         </>
       )}
+      {onManageOverrides ? (
+        <Box>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
+            onClick={() => onManageOverrides(memberIds)}
+          >
+            {hasOverrides ? "Manage overrides" : "Add overrides"}
+          </Button>
+        </Box>
+      ) : null}
     </OptionTooltipShell>
   );
 }

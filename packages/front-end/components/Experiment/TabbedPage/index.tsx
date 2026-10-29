@@ -12,7 +12,10 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useRouter } from "next/router";
 import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  HoldoutMissingLinkage,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
 import {
@@ -122,6 +125,7 @@ export interface Props {
   linkedFeatures: LinkedFeatureInfo[];
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
+  holdoutMissingLinkage?: HoldoutMissingLinkage;
   mutate: () => void;
   duplicate?: (() => void) | null;
   envs: string[];
@@ -160,6 +164,7 @@ function TabbedPageContents({
   linkedFeatures,
   holdoutFeatures,
   holdoutExperiments,
+  holdoutMissingLinkage,
   mutate,
   duplicate,
   visualChangesets,
@@ -908,6 +913,7 @@ function TabbedPageContents({
                   holdout={holdout}
                   holdoutFeatures={holdoutFeatures}
                   holdoutExperiments={holdoutExperiments}
+                  holdoutMissingLinkage={holdoutMissingLinkage}
                   mutate={mutate}
                   setFeatureModal={setFeatureModal}
                   setVisualEditorModal={setVisualEditorModal}

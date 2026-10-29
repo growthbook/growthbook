@@ -15,7 +15,11 @@ import {
   hasTargetingConfigured,
   onlyTrafficFields,
 } from "shared/experiments";
-import { generateVariationId, isNamespaceSelectable } from "shared/util";
+import {
+  coverageToHoldoutSize,
+  generateVariationId,
+  isNamespaceSelectable,
+} from "shared/util";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiPencilSimple, PiPlus, PiWarningFill } from "react-icons/pi";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
@@ -37,7 +41,7 @@ import { PercentField } from "@/components/Forms/PercentSliderField";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
-import { useHoldouts } from "@/hooks/useHoldouts";
+import { holdoutStatusLabel, useHoldouts } from "@/hooks/useHoldouts";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
 import { coveragePercentFormatter } from "@/services/utils";
 import FunnelConnector from "./FunnelConnector";
@@ -45,7 +49,6 @@ import { ImplementationColumn } from "./ImplementationColumn";
 import VariationValuesTable from "./VariationValuesTable";
 import { DraftPick, FlagDraftPicks } from "./draftPicks";
 import styles from "./TrafficAllocationFunnel.module.scss";
-import SetupFieldRow from "./SetupFieldRow";
 import useExperimentEditing from "./useExperimentEditing";
 import {
   experimentFieldChanges,
@@ -372,6 +375,11 @@ export default function TrafficAllocationFunnel({
     false,
     { enabled: canStageHoldout || !!holdoutId },
   );
+  const holdout = holdoutsMap.get(holdoutId);
+  const holdoutExperiment = holdout
+    ? experimentsMap.get(holdout.experimentId)
+    : undefined;
+  const holdoutPhase = holdoutExperiment?.phases.at(-1);
   const [choosingHoldout, setChoosingHoldout] = useState(false);
   const canAddHoldout =
     canJoinHoldout &&
@@ -436,14 +444,27 @@ export default function TrafficAllocationFunnel({
                   ) : null
                 }
               >
-                <SetupFieldRow label="Name" content="text">
+                <FunnelRow label="Name">
                   <Link href={`/holdout/${holdoutId}`} external>
-                    {holdoutsMap.get(holdoutId)?.name ?? holdoutId}
+                    {holdout?.name ?? holdoutId}
                   </Link>
-                </SetupFieldRow>
-                <SetupFieldRow label="ID" content="text">
-                  <Text color="text-mid">{holdoutId}</Text>
-                </SetupFieldRow>
+                </FunnelRow>
+                {holdoutPhase ? (
+                  <FunnelRow label="Holdout size">
+                    <Text color="text-high">
+                      {coveragePercentFormatter.format(
+                        coverageToHoldoutSize(holdoutPhase.coverage),
+                      )}
+                    </Text>
+                  </FunnelRow>
+                ) : null}
+                {holdout && holdoutExperiment ? (
+                  <FunnelRow label="Status">
+                    <Text color="text-high">
+                      {holdoutStatusLabel(holdout, holdoutExperiment)}
+                    </Text>
+                  </FunnelRow>
+                ) : null}
               </FunnelCard>
               <FunnelConnector />
             </>

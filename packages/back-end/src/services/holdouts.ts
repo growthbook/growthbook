@@ -20,6 +20,8 @@ import {
   ApiUpdateHoldoutBody,
   CreateHoldoutInput,
   HoldoutInterface,
+  HoldoutMissingLink,
+  HoldoutMissingLinkage,
   HoldoutNextScheduledStatusUpdate,
   HOLDOUT_API_EXPERIMENT_UPDATE_FIELDS,
   HOLDOUT_API_TARGETING_UPDATE_FIELDS,
@@ -42,11 +44,13 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   createExperiment,
+  dangerouslyGetExperimentsByIdsBypassPermission,
   deleteExperimentByIdForOrganization,
   getExperimentsByIds,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import {
+  getFeatureProjectsByIds,
   getFeaturesByIds,
   removeHoldoutFromFeature,
 } from "back-end/src/models/FeatureModel";
@@ -1101,6 +1105,88 @@ export async function setHoldoutStage(
     default: {
       stage satisfies never;
     }
+  }
+}
+
+// What a holdout lists, split into what still points back at it and what
+// doesn't. Entries the caller can't read are left out of both.
+export async function getHoldoutLinkage(
+  context: ReqContext,
+  holdout: HoldoutInterface,
+): Promise<{
+  experiments: ExperimentInterface[];
+  features: FeatureInterface[];
+  missing: HoldoutMissingLinkage;
+}> {
+  const experimentIds = Object.keys(holdout.linkedExperiments);
+  const featureIds = Object.keys(holdout.linkedFeatures);
+  const [experiments, features, existingExperiments, existingFeatures] =
+    await Promise.all([
+      getExperimentsByIds(context, experimentIds),
+      getFeaturesByIds(context, featureIds),
+      dangerouslyGetExperimentsByIdsBypassPermission(
+        context.org.id,
+        experimentIds,
+      ),
+      getFeatureProjectsByIds(context, featureIds),
+    ]);
+  const experimentExists = new Set(existingExperiments.map((e) => e.id));
+  const deleted = (id: string): HoldoutMissingLink => ({
+    id,
+    name: null,
+    problem: "deleted",
+  });
+  const unlinked = (item: {
+    id: string;
+    name: string;
+  }): HoldoutMissingLink => ({
+    id: item.id,
+    name: item.name,
+    problem: "unlinked",
+  });
+
+  return {
+    experiments: experiments.filter((e) => e.holdoutId === holdout.id),
+    features: features.filter((f) => f.holdout?.id === holdout.id),
+    missing: {
+      experiments: [
+        ...experimentIds.filter((id) => !experimentExists.has(id)).map(deleted),
+        ...experiments.filter((e) => e.holdoutId !== holdout.id).map(unlinked),
+      ],
+      features: [
+        ...featureIds.filter((id) => !existingFeatures.has(id)).map(deleted),
+        ...features
+          .filter((f) => f.holdout?.id !== holdout.id)
+          .map((f) => unlinked({ id: f.id, name: f.id })),
+      ],
+    },
+  };
+}
+
+// Drops the holdout's side of a link that's already broken. Never re-links:
+// pointing the experiment or flag back would change who's held out mid-run.
+export async function removeHoldoutMissingLink(
+  context: ReqContext,
+  holdout: HoldoutInterface,
+  kind: "experiment" | "feature",
+  id: string,
+): Promise<void> {
+  if (!context.permissions.canUpdateHoldout(holdout, holdout)) {
+    context.permissions.throwPermissionError();
+  }
+  const { missing } = await getHoldoutLinkage(context, holdout);
+  const broken = (
+    kind === "experiment" ? missing.experiments : missing.features
+  ).some((link) => link.id === id);
+  if (!broken) {
+    throw new BadRequestError(
+      `${id} still belongs to this holdout, or you can't see it.`,
+    );
+  }
+  if (kind === "experiment") {
+    await context.models.holdout.removeExperimentFromHoldout(holdout.id, id);
+  } else {
+    await context.models.holdout.removeFeatureFromHoldout(holdout.id, id);
   }
 }
 

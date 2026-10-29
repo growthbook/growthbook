@@ -42,7 +42,10 @@ export default function ExperimentTextField({
   const { apiCall } = useAuth();
   const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
-  const { label, placeholder } = EXPERIMENT_TEXT_FIELDS[field];
+  const { label } = EXPERIMENT_TEXT_FIELDS[field];
+  const placeholder = EXPERIMENT_TEXT_FIELDS[field].placeholder(
+    experiment.type,
+  );
   const isHypothesis = field === "hypothesis";
   const slot = `inline:${field}`;
 
