@@ -13,6 +13,7 @@ import { generateVariationId, getSnapshotAnalysis } from "shared/util";
 import {
   ContextualBanditInterface,
   ContextualBanditMeasurementArm,
+  ContextualBanditQueryInterface,
   ContextualBanditMeasurementArmSummary,
   DEFAULT_MEASUREMENT_ARM_PERCENT,
 } from "shared/validators";
@@ -140,6 +141,7 @@ export const MEASUREMENT_ARM_GOVERNING_CB_FIELDS = [
   "hashAttribute",
   "trackingKey",
   "datasource",
+  "contextualBanditQueryId",
   "decisionMetric",
   "status",
   "archived",
@@ -164,6 +166,7 @@ export function measurementArmSyncFieldsChanged(
 export function cbGovernedChanges(
   cb: ContextualBanditInterface,
   arm: ContextualBanditMeasurementArm,
+  cbQuery: Pick<ContextualBanditQueryInterface, "userIdType"> | null,
   experiment?: ExperimentInterface,
 ): Partial<ExperimentInterface> {
   const variations = experiment?.variations?.length
@@ -182,6 +185,7 @@ export function cbGovernedChanges(
     trackingKey: arm.trackingKey,
     datasource: cb.datasource,
     exposureQueryId: "",
+    exposureQueryIdentifierType: cbQuery?.userIdType ?? "",
     goalMetrics: cb.decisionMetric ? [cb.decisionMetric] : [],
     variations,
     phases: [buildPhase(cb, arm, variations, experiment?.phases?.[0])],
@@ -195,6 +199,15 @@ export function cbGovernedChanges(
   };
 }
 
+function getContextualBanditQuery(
+  context: Context,
+  cb: Pick<ContextualBanditInterface, "contextualBanditQueryId">,
+): Promise<ContextualBanditQueryInterface | null> {
+  return cb.contextualBanditQueryId
+    ? context.models.contextualBanditQueries.getById(cb.contextualBanditQueryId)
+    : Promise.resolve(null);
+}
+
 export async function createMeasurementArmExperiment(
   context: Context,
   cb: ContextualBanditInterface,
@@ -203,9 +216,8 @@ export async function createMeasurementArmExperiment(
   const { org } = context;
 
   const data: Partial<ExperimentInterface> = {
-    ...cbGovernedChanges(cb, arm),
+    ...cbGovernedChanges(cb, arm, await getContextualBanditQuery(context, cb)),
     organization: org.id,
-    autoSnapshots: true,
     dateCreated: new Date(),
     dateUpdated: new Date(),
     userIdType: "anonymous",
@@ -252,7 +264,12 @@ export async function syncMeasurementArmExperiment(
     );
     return null;
   }
-  const governed = cbGovernedChanges(cb, arm, experiment);
+  const governed = cbGovernedChanges(
+    cb,
+    arm,
+    await getContextualBanditQuery(context, cb),
+    experiment,
+  );
   const changes: Partial<ExperimentInterface> = {};
   for (const key of Object.keys(governed) as (keyof ExperimentInterface)[]) {
     if (!isEqual(governed[key], experiment[key])) {

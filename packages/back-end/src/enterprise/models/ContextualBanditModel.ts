@@ -757,7 +757,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
   // the API handlers so the experiment id can be written back.
   protected async beforeUpdate(
     existing: ContextualBanditInterface,
-    _updates: Partial<ContextualBanditInterface>,
+    updates: Partial<ContextualBanditInterface>,
     newDoc: ContextualBanditInterface,
   ) {
     if (!newDoc.measurementArm?.experimentId) return;

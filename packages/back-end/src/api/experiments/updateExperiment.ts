@@ -72,7 +72,6 @@ import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-ava
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import {
   experimentChangeActions,
   pinnedFields,
@@ -86,13 +85,16 @@ import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
-  assertNotMeasurementArmExperiment(experiment, "update via this API");
+  const experiment = await requireEditableExperiment(
+    req.context,
+    req.params.id,
+    "update via this API",
+  );
 
   const assignmentQueryInput = parseAssignmentQueryInput(
     req.body.assignmentQuery,

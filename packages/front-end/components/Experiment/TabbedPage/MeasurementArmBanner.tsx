@@ -2,6 +2,7 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useContextualBandit } from "@/hooks/useContextualBandits";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 export default function MeasurementArmBanner({
   experiment,
@@ -17,7 +18,7 @@ export default function MeasurementArmBanner({
       Measurement arm for{" "}
       {cbId ? (
         <Link href={`/contextual-bandit/${cbId}`}>
-          <strong>{cbName ?? cbId}</strong>
+          <Text weight="semibold">{cbName ?? cbId}</Text>
         </Link>
       ) : (
         "this Contextual Bandit"

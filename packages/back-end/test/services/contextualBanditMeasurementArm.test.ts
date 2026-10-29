@@ -52,9 +52,16 @@ const getLatestSuccessfulSnapshotMock =
   getLatestSuccessfulSnapshot as jest.Mock;
 const queueExperimentUpdateMock = queueExperimentUpdate as jest.Mock;
 
+const cbQuery = { id: "cbq_1", userIdType: "anonymous_id" };
+
 const context = {
   org: { id: "org_1", settings: {} },
   userId: "u_1",
+  models: {
+    contextualBanditQueries: {
+      getById: jest.fn().mockResolvedValue(cbQuery),
+    },
+  },
 } as unknown as ReqContext;
 
 const arm: ContextualBanditMeasurementArm = {
@@ -79,6 +86,7 @@ function makeCb(
     hashAttribute: "id",
     trackingKey: "cb-key",
     datasource: "ds_1",
+    contextualBanditQueryId: "cbq_1",
     decisionMetric: "met_g",
     status: "running",
     archived: false,
@@ -102,7 +110,7 @@ function makeArmExperiment(
     owner: "",
     status: "running",
     goalMetrics: ["met_g"],
-    ...cbGovernedChanges(cb, arm),
+    ...cbGovernedChanges(cb, arm, cbQuery),
     ...overrides,
   } as ExperimentInterface;
 }
@@ -314,17 +322,28 @@ describe("cbGovernedChanges", () => {
         return Reflect.get(target, key);
       },
     });
-    cbGovernedChanges(cb, arm);
+    cbGovernedChanges(cb, arm, cbQuery);
     accessed.delete("id");
     const governing: readonly string[] = MEASUREMENT_ARM_GOVERNING_CB_FIELDS;
     expect([...accessed].filter((k) => !governing.includes(k))).toEqual([]);
   });
 
   it("gives the arm the CB's owner, never the creator", () => {
-    expect(cbGovernedChanges(makeCb({ owner: "" }), arm).owner).toBe("");
-    expect(cbGovernedChanges(makeCb({ owner: "u_cb" }), arm).owner).toBe(
-      "u_cb",
+    expect(cbGovernedChanges(makeCb({ owner: "" }), arm, cbQuery).owner).toBe(
+      "",
     );
+    expect(
+      cbGovernedChanges(makeCb({ owner: "u_cb" }), arm, cbQuery).owner,
+    ).toBe("u_cb");
+  });
+
+  it("takes the analysis identifier from the Bandit's query", () => {
+    expect(
+      cbGovernedChanges(makeCb(), arm, cbQuery).exposureQueryIdentifierType,
+    ).toBe("anonymous_id");
+    expect(
+      cbGovernedChanges(makeCb(), arm, null).exposureQueryIdentifierType,
+    ).toBe("");
   });
 });
 
@@ -345,7 +364,7 @@ describe("reconcileMeasurementArmExperiment", () => {
       contextualBanditId: "cb_1",
       trackingKey: "cb-key__measurement_arm",
       excludeFromPayload: true,
-      autoSnapshots: true,
+      exposureQueryIdentifierType: "anonymous_id",
       goalMetrics: ["met_g"],
       owner: "",
     });
@@ -419,6 +438,9 @@ describe("syncMeasurementArmExperiment", () => {
     expect(bypassWebhooks).toBe(true);
     expect(Object.keys(changes).sort()).toEqual(["phases", "status"]);
     expect(changes.status).toBe("stopped");
+    expect(context.models.contextualBanditQueries.getById).toHaveBeenCalledWith(
+      "cbq_1",
+    );
     expect(changes.phases[0]).toMatchObject({
       coverage: 0.5,
       dateEnded: new Date("2026-02-01"),

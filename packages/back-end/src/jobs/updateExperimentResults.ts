@@ -120,8 +120,10 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
+  if (!experiment) return;
   // Check if it is scheduled again because it might have changed between queued and now
-  if (!experiment || !isAutoSnapshotScheduled(experiment)) return;
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
+  if (!isMeasurementArm && !isAutoSnapshotScheduled(experiment)) return;
 
   let project = null;
   if (experiment.project) {
@@ -138,7 +140,7 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
     experiment.type !== "multi-armed-bandit" &&
-    !isContextualBanditMeasurementArm(experiment)
+    !isMeasurementArm
   ) {
     await updateExperiment({
       context,

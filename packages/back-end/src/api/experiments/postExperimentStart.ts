@@ -18,7 +18,6 @@ import {
   startExperiment,
   validateExperimentChange,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import {
   confirmationLink,
   gateNotices,
@@ -26,7 +25,7 @@ import {
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 function formatScheduledStartUtc(date: Date): string {
   const datePart = date.toLocaleString("en-US", {
@@ -49,7 +48,11 @@ export const postExperimentStart = createApiRequestHandler(
 )(async (req) => {
   const context = req.context as ReqContext;
 
-  const existing = await requireExperiment(context, req.params.id);
+  const existing = await requireEditableExperiment(
+    context,
+    req.params.id,
+    "start via this API",
+  );
 
   // Bandits manage their own update cadence; they don't use statusUpdateSchedule.
   const isBandit = existing.type === "multi-armed-bandit";
@@ -71,7 +74,6 @@ export const postExperimentStart = createApiRequestHandler(
       changes: { status: "running" },
     });
   }
-  assertNotMeasurementArmExperiment(existing, "start via this API");
 
   const skipChecklist = !!req.body?.skipChecklist;
   // Like a Feature Revision publish: approval is bypassed by authority, not

@@ -7,8 +7,7 @@ import { validateExperimentChange } from "back-end/src/services/experimentChange
 import { uploadFile } from "back-end/src/services/files";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 const MIMETYPES: Record<string, string> = {
   "image/png": "png",
@@ -79,8 +78,11 @@ export const postVariationImageUpload = createApiRequestHandler(
     throw new Error("Screenshot data cannot be empty");
   }
 
-  const experiment = await requireExperiment(context, id);
-  assertNotMeasurementArmExperiment(experiment, "edit variations");
+  const experiment = await requireEditableExperiment(
+    context,
+    id,
+    "edit variations",
+  );
 
   const changes: Changeset = {};
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {

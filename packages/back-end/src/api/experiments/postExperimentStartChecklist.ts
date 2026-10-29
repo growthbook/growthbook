@@ -11,15 +11,17 @@ import {
 } from "back-end/src/services/confirmations";
 import { ReqContext } from "back-end/types/request";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 export const postExperimentStartChecklistManualComplete =
   createApiRequestHandler(postExperimentStartChecklistManualCompleteValidator)(
     async (req) => {
       const context = req.context as ReqContext;
-      const experiment = await requireExperiment(context, req.params.id);
-      assertNotMeasurementArmExperiment(experiment, "use the launch checklist");
+      const experiment = await requireEditableExperiment(
+        context,
+        req.params.id,
+        "use the launch checklist",
+      );
 
       const { keys } = req.body;
       const changes = await planChecklistCompletion({

@@ -8,19 +8,21 @@ import { setExperimentSchedule } from "back-end/src/services/experimentSchedulin
 import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import {
   confirmationLink,
   requireConfirmation,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 export const putExperimentSchedule = createApiRequestHandler(
   putExperimentScheduleValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
-  assertNotMeasurementArmExperiment(experiment, "schedule via this API");
+  const experiment = await requireEditableExperiment(
+    req.context,
+    req.params.id,
+    "schedule via this API",
+  );
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }

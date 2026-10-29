@@ -9,6 +9,7 @@ import { validateAndFixCondition } from "shared/util";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { Separator } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
+import { formatPercent } from "@/services/metrics";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
@@ -137,7 +138,7 @@ export default function ContextualBanditTrafficTargetingModal({
             </Text>
             <Text as="div" color="text-mid">
               {cb.measurementArm?.enabled
-                ? `${Math.round(cb.measurementArm.percent * 100)}% of eligible users are held back on the default experience. This is locked once the Bandit has started.`
+                ? `${formatPercent(cb.measurementArm.percent)} of eligible users are held back on the default experience. This is locked once the Bandit has started.`
                 : "Off. A measurement arm can only be added while the Bandit is a draft."}
             </Text>
           </div>

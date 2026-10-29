@@ -71,8 +71,10 @@ export default function ContextualBanditMeasurementArmSummary({
     latest?.status === "error" ? (
       <Callout status="error" mt="2">
         The last measurement arm update failed
-        {latest.error ? `: ${truncate(latest.error, 200)}` : "."} Inspect the
-        queries and re-run the analysis from the results page.
+        {latest.error ? `: ${truncate(latest.error, 200)}` : "."}
+        <Text as="div" mt="1">
+          Inspect the queries and re-run the analysis from the results page.
+        </Text>
       </Callout>
     ) : latest?.status === "running" ? (
       <Text color="text-mid" size="sm">
@@ -83,7 +85,10 @@ export default function ContextualBanditMeasurementArmSummary({
   const loadError = error ? (
     <Callout status="error" mt="2">
       Could not {measurementArm ? "refresh" : "load"} the measurement arm
-      results: {error.message} Reload the page to try again.
+      results: {error.message}
+      <Text as="div" mt="1">
+        Reload the page to try again.
+      </Text>
     </Callout>
   ) : null;
 

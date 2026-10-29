@@ -17,6 +17,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { useRestApiCall } from "@/services/restApi";
+import { formatPercent } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
 import {
@@ -722,7 +723,7 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Measurement Arm">
                   {cb.measurementArm?.enabled ? (
                     <>
-                      {Math.round(cb.measurementArm.percent * 100)}%
+                      {formatPercent(cb.measurementArm.percent)}
                       {cb.measurementArm.experimentId ? (
                         <>
                           {" · "}

@@ -129,6 +129,58 @@ describe("scheduled experiment updates", () => {
     expect(getDataSourceById).not.toHaveBeenCalled();
   });
 
+  it("runs a measurement arm whether or not the org schedule enabled it", async () => {
+    await experiments().insertMany([
+      {
+        ...running,
+        id: "exp_arm",
+        type: "contextualBanditMeasurementArm",
+        autoSnapshots: false,
+        nextSnapshotAttempt: new Date(),
+      },
+      {
+        ...running,
+        id: "exp_plain",
+        autoSnapshots: false,
+        nextSnapshotAttempt: new Date(),
+      },
+    ]);
+
+    await updateSingleExperiment(jobFor("exp_plain"));
+    expect(getDataSourceById).not.toHaveBeenCalled();
+
+    await updateSingleExperiment(jobFor("exp_arm"));
+    expect(getDataSourceById).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a measurement arm refreshing when the org schedule is never", async () => {
+    const organizations = mongoose.connection.collection("organizations");
+    await organizations.updateOne(
+      { id: ORG_ID },
+      { $set: { "settings.updateSchedule": { type: "never" } } },
+    );
+    try {
+      await experiments().insertMany([
+        { ...running, id: "exp_arm", type: "contextualBanditMeasurementArm" },
+        { ...running, id: "exp_plain" },
+      ]);
+
+      await updateSingleExperiment(jobFor("exp_plain"));
+      expect(
+        (await experiments().findOne({ id: "exp_plain" }))?.autoSnapshots,
+      ).toBe(false);
+      expect(getDataSourceById).not.toHaveBeenCalled();
+
+      await updateSingleExperiment(jobFor("exp_arm"));
+      expect(getDataSourceById).toHaveBeenCalledTimes(1);
+    } finally {
+      await organizations.updateOne(
+        { id: ORG_ID },
+        { $unset: { "settings.updateSchedule": "" } },
+      );
+    }
+  });
+
   it("skips when the latest snapshot already covers the lagged cutoff", async () => {
     const organizations = mongoose.connection.collection("organizations");
     const snapshots = mongoose.connection.collection("experimentsnapshots");

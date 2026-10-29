@@ -5,8 +5,7 @@ import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 const deleteVariationScreenshotValidator = {
   paramsSchema: z
@@ -44,8 +43,11 @@ export const deleteVariationScreenshot = createApiRequestHandler(
   const { id, variationId } = req.params;
   const { path } = req.body;
 
-  const experiment = await requireExperiment(context, id);
-  assertNotMeasurementArmExperiment(experiment, "edit variations");
+  const experiment = await requireEditableExperiment(
+    context,
+    id,
+    "edit variations",
+  );
 
   const changes: Changeset = {};
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {
