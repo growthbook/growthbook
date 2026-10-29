@@ -17,7 +17,11 @@ const ImportFromEppoPage: NextPage = () => {
   return (
     <SettingsPage
       title="Eppo Importer"
-      parent={{ display: "Import Your Data", href: "/importing" }}
+      breadcrumb={[
+        { display: "Settings" },
+        { display: "Import Your Data", href: "/importing" },
+        { display: "Eppo Importer" },
+      ]}
     >
       {enabled ? (
         <ImportFromEppo />

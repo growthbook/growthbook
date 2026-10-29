@@ -388,7 +388,7 @@ export default function AutoRunPage() {
         <PageHead
           breadcrumb={[
             { display: "Import Your Data", href: "/importing" },
-            { display: "Eppo", href: "/importing/eppo" },
+            { display: "Eppo Importer", href: "/importing/eppo" },
           ]}
         />
         <Box mt="4" mb="5">
