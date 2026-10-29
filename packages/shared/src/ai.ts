@@ -1,4 +1,5 @@
 import { parseOptionalInt } from "./util/numbers";
+import type { AICustomModel } from "./validators/ai-credential";
 
 export const AI_PROVIDERS = [
   "openai",
@@ -15,6 +16,8 @@ export const AI_PROVIDER_META: Record<
     label: string;
     envVar: string;
     legacyEnvVars?: string[];
+    baseUrlEnvVar: string;
+    defaultBaseUrl: string;
     keyPlaceholder: string;
     consoleUrl: string;
   }
@@ -22,18 +25,24 @@ export const AI_PROVIDER_META: Record<
   openai: {
     label: "OpenAI",
     envVar: "OPENAI_API_KEY",
+    baseUrlEnvVar: "OPENAI_BASE_URL",
+    defaultBaseUrl: "https://api.openai.com/v1",
     keyPlaceholder: "sk-...",
     consoleUrl: "https://platform.openai.com/api-keys",
   },
   anthropic: {
     label: "Anthropic",
     envVar: "ANTHROPIC_API_KEY",
+    baseUrlEnvVar: "ANTHROPIC_BASE_URL",
+    defaultBaseUrl: "https://api.anthropic.com/v1",
     keyPlaceholder: "sk-ant-...",
     consoleUrl: "https://console.anthropic.com/settings/keys",
   },
   google: {
     label: "Google",
     envVar: "GOOGLE_AI_API_KEY",
+    baseUrlEnvVar: "GOOGLE_AI_BASE_URL",
+    defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta",
     legacyEnvVars: ["GEMINI_API_KEY"],
     keyPlaceholder: "AIza...",
     consoleUrl: "https://aistudio.google.com/apikey",
@@ -41,12 +50,16 @@ export const AI_PROVIDER_META: Record<
   xai: {
     label: "xAI",
     envVar: "XAI_API_KEY",
+    baseUrlEnvVar: "XAI_BASE_URL",
+    defaultBaseUrl: "https://api.x.ai/v1",
     keyPlaceholder: "xai-...",
     consoleUrl: "https://console.x.ai",
   },
   mistral: {
     label: "Mistral",
     envVar: "MISTRAL_API_KEY",
+    baseUrlEnvVar: "MISTRAL_BASE_URL",
+    defaultBaseUrl: "https://api.mistral.ai/v1",
     keyPlaceholder: "...",
     consoleUrl: "https://console.mistral.ai/api-keys",
   },
@@ -142,7 +155,42 @@ export const AI_PROVIDER_MODEL_MAP = {
   ],
 } as const;
 
-export type AIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
+export type BuiltInAIModel = (typeof AI_PROVIDER_MODEL_MAP)[AIProvider][number];
+
+// How a setting refers to one of the org's custom models (see aiCustomModels).
+export type CustomAIModel = `custom:${AIProvider}:${string}`;
+
+export type AIModel = BuiltInAIModel | CustomAIModel;
+
+export function getCustomModelKey(
+  model: Pick<AICustomModel, "provider" | "id">,
+): CustomAIModel {
+  return `custom:${model.provider}:${model.id}`;
+}
+
+export function parseCustomModelKey(
+  model: string,
+): { provider: AIProvider; id: string } | null {
+  if (!model.startsWith("custom:")) return null;
+  const rest = model.slice("custom:".length);
+  const sep = rest.indexOf(":");
+  if (sep < 0) return null;
+  const provider = rest.slice(0, sep) as AIProvider;
+  const id = rest.slice(sep + 1);
+  if (!AI_PROVIDERS.includes(provider) || !id) return null;
+  return { provider, id };
+}
+
+export function findCustomModel(
+  model: string,
+  customModels: readonly AICustomModel[] | undefined,
+): AICustomModel | undefined {
+  const parsed = parseCustomModelKey(model);
+  if (!parsed) return undefined;
+  return customModels?.find(
+    (m) => m.provider === parsed.provider && m.id === parsed.id,
+  );
+}
 
 export const CLOUD_MANAGED_AI_MODEL: AIModel = "claude-sonnet-5-5";
 // The visual editor is the most schema-sensitive workload we run: multi-step
@@ -180,6 +228,8 @@ function providerOf(
 }
 
 export function getProviderFromModel(model: AIModel): AIProvider {
+  const custom = parseCustomModelKey(model);
+  if (custom) return custom.provider;
   return providerOf(AI_PROVIDER_MODEL_MAP, model, "Model");
 }
 
@@ -208,6 +258,8 @@ const CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS: ReadonlySet<string> = new Set([
 // omit it entirely when false — passing it is a hard error on the newer
 // Claude models and a silently-dropped no-op on OpenAI reasoning models.
 export function supportsTemperature(model: AIModel): boolean {
+  // Nothing we do needs it, and on some models it's a hard error.
+  if (parseCustomModelKey(model)) return false;
   if (isReasoningModel(model)) return false;
   return !CLAUDE_MODELS_WITHOUT_SAMPLING_PARAMS.has(model);
 }
@@ -269,7 +321,13 @@ export function resolveMaxOutputTokens(
 // allow-list — keep it in sync with AI_PROVIDER_MODEL_MAP. Routing an
 // image to a text-only model fails opaquely at the provider, so callers
 // that attach an image MUST gate on this.
-export function isVisionCapableModel(model: AIModel): boolean {
+export function isVisionCapableModel(
+  model: AIModel,
+  customModels?: readonly AICustomModel[],
+): boolean {
+  if (parseCustomModelKey(model)) {
+    return !!findCustomModel(model, customModels)?.vision;
+  }
   // All Gemini models are multimodal.
   if (model.startsWith("gemini-")) return true;
   // All Claude 3+ models (3, 3.5, 3.7, 4.x) accept image input.
@@ -296,10 +354,11 @@ export function pickVisionModel(settings: {
   openAIAPIKey?: string;
   anthropicAPIKey?: string;
   googleAPIKey?: string;
+  customModels?: readonly AICustomModel[];
 }): AIModel | null {
   if (
     settings.visualEditorAIModel &&
-    isVisionCapableModel(settings.visualEditorAIModel)
+    isVisionCapableModel(settings.visualEditorAIModel, settings.customModels)
   ) {
     return settings.visualEditorAIModel;
   }

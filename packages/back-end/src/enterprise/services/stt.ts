@@ -1,15 +1,20 @@
 import FormData from "form-data";
-import { STTProvider, getProviderFromSTTModel } from "shared/ai";
+import {
+  AI_PROVIDER_META,
+  STTProvider,
+  getProviderFromSTTModel,
+} from "shared/ai";
 import type { ReqContext } from "back-end/types/request";
 import { getAISettingsForOrg } from "back-end/src/services/organizations";
 import { missingAIKeyMessage } from "back-end/src/services/aiCredentials";
 import { recordSTTUsage } from "back-end/src/enterprise/services/ai";
 import { fetch } from "back-end/src/util/http.util";
+import { getAIEndpointFetch } from "back-end/src/services/aiEndpoint";
 
-const STT_ENDPOINTS: Record<STTProvider, string> = {
-  openai: "https://api.openai.com/v1/audio/transcriptions",
-  mistral: "https://api.mistral.ai/v1/audio/transcriptions",
-  xai: "https://api.x.ai/v1/stt",
+const STT_PATHS: Record<STTProvider, string> = {
+  openai: "/audio/transcriptions",
+  mistral: "/audio/transcriptions",
+  xai: "/stt",
 };
 
 // Multipart directly, not the AI SDK's transcribe(): it mis-sniffs webm/mp4 as audio/wav, which providers reject.
@@ -43,11 +48,17 @@ export async function transcribeAudio(
   // xAI's /v1/stt serves one model and documents no `model` field.
   if (provider !== "xai") form.append("model", sttModel);
 
-  const res = await fetch(STT_ENDPOINTS[provider], {
+  const baseUrl = settings.baseUrls[provider];
+  const url = `${baseUrl || AI_PROVIDER_META[provider].defaultBaseUrl}${STT_PATHS[provider]}`;
+  const init = {
     method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}` },
-    body: form,
-  });
+    headers: { ...form.getHeaders(), Authorization: `Bearer ${apiKey}` },
+    body: form.getBuffer(),
+  };
+  const guardedFetch = getAIEndpointFetch(baseUrl);
+  const res = guardedFetch
+    ? await guardedFetch(url, init)
+    : await fetch(url, init);
   if (!res.ok) {
     throw new Error(`Transcription failed (HTTP ${res.status})`);
   }

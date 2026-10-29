@@ -410,6 +410,12 @@ export const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || "";
 // Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
 // GEMINI_API_KEY is the legacy name for GOOGLE_AI_API_KEY.
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
+// Send a provider's requests to an AI gateway or proxy instead of its public API.
+export const OPENAI_BASE_URL = process.env.OPENAI_BASE_URL || "";
+export const ANTHROPIC_BASE_URL = process.env.ANTHROPIC_BASE_URL || "";
+export const XAI_BASE_URL = process.env.XAI_BASE_URL || "";
+export const MISTRAL_BASE_URL = process.env.MISTRAL_BASE_URL || "";
+export const GOOGLE_AI_BASE_URL = process.env.GOOGLE_AI_BASE_URL || "";
 // Pin a specific model ID — if your key returns 404, hit
 // /v1beta/models to find an ID your account has access to and override.
 export const GEMINI_IMAGE_MODEL =

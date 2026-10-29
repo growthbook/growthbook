@@ -138,4 +138,51 @@ describe("getAISettingsForOrg model resolution", () => {
     expect(settings.defaultAIModel).toBe("gpt-5.2");
     expect(settings.visualEditorAIModel).toBe("gpt-5.2");
   });
+
+  it("uses a custom model the org defines", async () => {
+    const mod = loadModule(true, ["openai"]);
+    const settings = await mod.getAISettingsForOrg(
+      makeContext({
+        defaultAIModel: "custom:openai:my-gpt",
+        aiCustomModels: [
+          {
+            provider: "openai",
+            id: "my-gpt",
+            apiFormat: "chat",
+            vision: false,
+          },
+        ],
+      }),
+    );
+
+    expect(settings.defaultAIModel).toBe("custom:openai:my-gpt");
+  });
+
+  it("ignores a custom model that is no longer defined", async () => {
+    const mod = loadModule(false, ["openai"]);
+    const settings = await mod.getAISettingsForOrg(
+      makeContext({ defaultAIModel: "custom:openai:gone", aiCustomModels: [] }),
+    );
+
+    expect(settings.defaultAIModel).toBe("gpt-5.4-mini");
+  });
+
+  it("ignores a Cloud custom model whose provider runs on the managed key", async () => {
+    const mod = loadModule(true, ["anthropic"]);
+    const settings = await mod.getAISettingsForOrg(
+      makeContext({
+        defaultAIModel: "custom:openai:my-gpt",
+        aiCustomModels: [
+          {
+            provider: "openai",
+            id: "my-gpt",
+            apiFormat: "chat",
+            vision: false,
+          },
+        ],
+      }),
+    );
+
+    expect(settings.defaultAIModel).toBe(CLOUD_MANAGED_AI_MODEL);
+  });
 });

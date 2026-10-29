@@ -19,9 +19,11 @@ import { ReqContext } from "back-end/types/request";
 import {
   clearResolvedAIKeysCache,
   encryptAIKey,
+  getEnvBaseUrl,
   getKeyLast4,
   verifyAIKey,
 } from "back-end/src/services/aiCredentials";
+import { normalizeAIBaseUrl } from "back-end/src/services/aiEndpoint";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   secondsUntilAICanBeUsedAgainForPrompt,
@@ -88,7 +90,10 @@ export async function getAICredentials(
 }
 
 export async function putAICredential(
-  req: AuthRequest<{ apiKey: string }, { provider: AIProvider }>,
+  req: AuthRequest<
+    { apiKey: string; baseUrl?: string },
+    { provider: AIProvider }
+  >,
   res: Response,
 ) {
   const context = getContextFromReq(req);
@@ -121,7 +126,22 @@ export async function putAICredential(
     });
   }
 
-  const { valid, message } = await verifyAIKey(provider, apiKey);
+  const { baseUrl, error: baseUrlError } = normalizeAIBaseUrl(
+    req.body.baseUrl ?? "",
+  );
+  if (baseUrlError !== undefined) {
+    return res.status(400).json({
+      status: 400,
+      message: baseUrlError,
+    });
+  }
+
+  // Self-hosted: a blank base URL inherits the env var, so verify against that.
+  const { valid, message } = await verifyAIKey(
+    provider,
+    apiKey,
+    baseUrl || (IS_CLOUD ? "" : getEnvBaseUrl(provider)),
+  );
   if (!valid) {
     return res.status(400).json({
       status: 400,
@@ -132,6 +152,7 @@ export async function putAICredential(
   await context.models.aiCredentials.upsertForProvider(provider, {
     encryptedKey: encryptAIKey(apiKey),
     last4: getKeyLast4(apiKey),
+    baseUrl,
     updatedByEmail: context.email,
   });
 

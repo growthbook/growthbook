@@ -4,16 +4,26 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
   ANTHROPIC_API_KEY,
+  ANTHROPIC_BASE_URL,
   ENCRYPTION_KEY,
   GEMINI_API_KEY,
   GOOGLE_AI_API_KEY,
+  GOOGLE_AI_BASE_URL,
   IS_CLOUD,
   MISTRAL_API_KEY,
+  MISTRAL_BASE_URL,
   OPENAI_API_KEY,
+  OPENAI_BASE_URL,
   XAI_API_KEY,
+  XAI_BASE_URL,
 } from "back-end/src/util/secrets";
 import { fetch } from "back-end/src/util/http.util";
 import { logger } from "back-end/src/util/logger";
+import {
+  getAIEndpointFetch,
+  isNonPublicAIEndpointError,
+  normalizeAIBaseUrl,
+} from "back-end/src/services/aiEndpoint";
 
 type Context = ReqContext | ApiReqContext;
 
@@ -22,6 +32,8 @@ export type AIKeySource = "organization" | "env" | "none";
 export type ResolvedAIKey = {
   key: string;
   source: AIKeySource;
+  // "" means the provider's own API.
+  baseUrl: string;
 };
 
 export type ResolvedAIKeys = Record<AIProvider, ResolvedAIKey>;
@@ -59,9 +71,28 @@ function getEnvKey(provider: AIProvider): string {
   }
 }
 
+export function getEnvBaseUrl(provider: AIProvider): string {
+  const raw = {
+    openai: OPENAI_BASE_URL,
+    anthropic: ANTHROPIC_BASE_URL,
+    xai: XAI_BASE_URL,
+    mistral: MISTRAL_BASE_URL,
+    google: GOOGLE_AI_BASE_URL,
+  }[provider];
+  if (!raw) return "";
+  const { baseUrl, error } = normalizeAIBaseUrl(raw, { cloud: false });
+  if (error !== undefined) {
+    logger.error(
+      `aiCredentials: ignoring ${AI_PROVIDER_META[provider].baseUrlEnvVar}: ${error}`,
+    );
+    return "";
+  }
+  return baseUrl;
+}
+
 const emptyResolvedKeys = (): ResolvedAIKeys =>
   AI_PROVIDERS.reduce((acc, provider) => {
-    acc[provider] = { key: "", source: "none" };
+    acc[provider] = { key: "", source: "none", baseUrl: "" };
     return acc;
   }, {} as ResolvedAIKeys);
 
@@ -74,7 +105,12 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
   for (const provider of AI_PROVIDERS) {
     const envKey = getEnvKey(provider);
     if (envKey) {
-      resolved[provider] = { key: envKey, source: "env" };
+      resolved[provider] = {
+        key: envKey,
+        source: "env",
+        // Cloud's env keys are GrowthBook's own and always use the provider's API.
+        baseUrl: IS_CLOUD ? "" : getEnvBaseUrl(provider),
+      };
     }
   }
 
@@ -108,7 +144,14 @@ async function loadResolvedAIKeys(context: Context): Promise<ResolvedAIKeys> {
       continue;
     }
 
-    resolved[credential.provider] = { key, source: "organization" };
+    resolved[credential.provider] = {
+      key,
+      source: "organization",
+      // Self-hosted: a stored key without its own base URL follows the env var.
+      baseUrl:
+        credential.baseUrl ||
+        (IS_CLOUD ? "" : getEnvBaseUrl(credential.provider)),
+    };
   }
 
   return resolved;
@@ -143,16 +186,17 @@ export function missingAIKeyMessage(provider: AIProvider): string {
   return `No ${label} API key is configured. Add one under Settings → AI & Prompts, or set the ${envVar} environment variable.`;
 }
 
+// Each path is appended to the provider's base URL.
 const VERIFY_ENDPOINTS: Record<
   AIProvider,
-  { url: string; headers: (key: string) => Record<string, string> }
+  { path: string; headers: (key: string) => Record<string, string> }
 > = {
   openai: {
-    url: "https://api.openai.com/v1/models",
+    path: "/models",
     headers: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   anthropic: {
-    url: "https://api.anthropic.com/v1/models",
+    path: "/models",
     headers: (key) => ({
       "x-api-key": key,
       "anthropic-version": "2023-06-01",
@@ -161,15 +205,15 @@ const VERIFY_ENDPOINTS: Record<
   google: {
     // The key goes in a header, not the documented `?key=` query param, so it
     // can't end up in a proxy or error log.
-    url: "https://generativelanguage.googleapis.com/v1beta/models",
+    path: "/models",
     headers: (key) => ({ "x-goog-api-key": key }),
   },
   xai: {
-    url: "https://api.x.ai/v1/models",
+    path: "/models",
     headers: (key) => ({ Authorization: `Bearer ${key}` }),
   },
   mistral: {
-    url: "https://api.mistral.ai/v1/models",
+    path: "/models",
     headers: (key) => ({ Authorization: `Bearer ${key}` }),
   },
 };
@@ -178,18 +222,39 @@ const VERIFY_ENDPOINTS: Record<
 export async function verifyAIKey(
   provider: AIProvider,
   key: string,
+  baseUrl: string = "",
 ): Promise<{ valid: boolean; message?: string }> {
-  const { label } = AI_PROVIDER_META[provider];
-  const { url, headers } = VERIFY_ENDPOINTS[provider];
+  const { label: providerLabel, defaultBaseUrl } = AI_PROVIDER_META[provider];
+  const label = baseUrl ? `${providerLabel} endpoint` : providerLabel;
+  const { path, headers } = VERIFY_ENDPOINTS[provider];
+  const url = `${baseUrl || defaultBaseUrl}${path}`;
 
-  let response: Awaited<ReturnType<typeof fetch>>;
+  let status: number;
+  let ok: boolean;
   try {
-    response = await fetch(url, {
-      method: "GET",
-      headers: headers(key),
-      timeout: 10000,
-    });
+    const guardedFetch = getAIEndpointFetch(baseUrl);
+    if (guardedFetch) {
+      const res = await guardedFetch(url, {
+        method: "GET",
+        headers: headers(key),
+        signal: AbortSignal.timeout(10000),
+      });
+      ({ status, ok } = res);
+    } else {
+      const res = await fetch(url, {
+        method: "GET",
+        headers: headers(key),
+        timeout: 10000,
+      });
+      ({ status, ok } = res);
+    }
   } catch (e) {
+    if (isNonPublicAIEndpointError(e)) {
+      return {
+        valid: false,
+        message: "The base URL must point to a publicly reachable host.",
+      };
+    }
     logger.warn(
       e,
       `aiCredentials: could not reach ${label} to verify the API key`,
@@ -200,20 +265,29 @@ export async function verifyAIKey(
     };
   }
 
-  if (response.status === 401 || response.status === 403) {
+  if (status === 401 || status === 403) {
     return {
       valid: false,
       message: `${label} rejected this API key. Double-check that you copied it correctly and that it is still active.`,
     };
   }
 
-  if (!response.ok) {
+  if (!ok) {
     logger.warn(
-      `aiCredentials: ${label} returned ${response.status} while verifying an API key`,
+      `aiCredentials: ${label} returned ${status} while verifying an API key`,
     );
     return {
       valid: true,
-      message: `${label} returned an unexpected response (${response.status}), so the key was saved unchecked.`,
+      message: `${label} returned an unexpected response (${status}), so the key was saved unchecked.`,
+    };
+  }
+
+  // Many gateways answer this check without looking at the key.
+  if (baseUrl) {
+    return {
+      valid: true,
+      message:
+        "Saved, but keys sent through a custom endpoint can't be fully verified. Try an AI feature to confirm it works.",
     };
   }
 

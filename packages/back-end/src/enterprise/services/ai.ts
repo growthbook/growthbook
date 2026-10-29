@@ -8,7 +8,12 @@ import {
   NoObjectGeneratedError,
   NoOutputGeneratedError,
 } from "ai";
-import type { ToolSet, ModelMessage, LanguageModelUsage } from "ai";
+import type {
+  LanguageModel,
+  ToolSet,
+  ModelMessage,
+  LanguageModelUsage,
+} from "ai";
 import {
   createOpenAI,
   type OpenAIResponsesProviderOptions,
@@ -28,14 +33,17 @@ import {
   AIProvider,
   anthropicStructuredOutputMode,
   DEFAULT_MAX_OUTPUT_TOKENS,
+  findCustomModel,
   getProviderFromModel,
   getProviderFromEmbeddingModel,
   getProviderForAIModel,
+  parseCustomModelKey,
   resolveMaxOutputTokens,
   supportsTemperature,
 } from "shared/ai";
 import { z, ZodObject, ZodRawShape } from "zod";
 import { OrganizationInterface } from "shared/types/organization";
+import type { AICustomModel } from "shared/validators";
 import { logger } from "back-end/src/util/logger";
 import {
   lookupTerms,
@@ -65,6 +73,7 @@ import {
   estimateAIStepsUsd,
 } from "back-end/src/services/aiCost";
 import { IS_CLOUD } from "back-end/src/util/secrets";
+import { getAIClientOptions } from "back-end/src/services/aiEndpoint";
 
 const usesOwnAIKey = (
   keySource: Record<AIProvider, AIKeySource>,
@@ -79,19 +88,17 @@ export const resolveTextAIModel = (
   overrideModel: AIModel | undefined,
   defaultAIModel: AIModel,
   keySource: Record<AIProvider, AIKeySource>,
+  customModels: readonly AICustomModel[],
 ): AIModel =>
-  getAllowedAIModel("text", overrideModel, keySource) || defaultAIModel;
+  getAllowedAIModel("text", overrideModel, keySource, customModels) ||
+  defaultAIModel;
 
+// Returns a factory rather than the provider, so a custom model resolves to its
+// real id and API format.
 export const getAIProviderClass = async (
   context: ReqContext | ApiReqContext,
   model: AIModel,
-): Promise<
-  | ReturnType<typeof createAnthropic>
-  | ReturnType<typeof createOpenAI>
-  | ReturnType<typeof createXai>
-  | ReturnType<typeof createMistral>
-  | ReturnType<typeof createGoogleGenerativeAI>
-> => {
+): Promise<(model: AIModel) => LanguageModel> => {
   const {
     aiEnabled,
     openAIAPIKey,
@@ -99,6 +106,8 @@ export const getAIProviderClass = async (
     xaiAPIKey,
     mistralAPIKey,
     googleAPIKey,
+    baseUrls,
+    customModels,
   } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
@@ -107,43 +116,57 @@ export const getAIProviderClass = async (
     );
   }
 
+  const custom = parseCustomModelKey(model);
+  if (custom && !findCustomModel(model, customModels)) {
+    throw new Error(
+      `The custom model ${custom.id} is no longer configured. Pick another model under Settings → AI & Prompts.`,
+    );
+  }
+  const modelId = (m: AIModel) => parseCustomModelKey(m)?.id ?? m;
+
   const selectedProvider = getProviderFromModel(model);
 
   if (selectedProvider === "anthropic") {
     if (!anthropicAPIKey) {
       throw new Error(missingAIKeyMessage("anthropic"));
     }
-    return createAnthropic({
-      apiKey: anthropicAPIKey,
-    });
+    const anthropic = createAnthropic(
+      getAIClientOptions(anthropicAPIKey, baseUrls.anthropic),
+    );
+    return (m) => anthropic(modelId(m));
   } else if (selectedProvider === "xai") {
     if (!xaiAPIKey) {
       throw new Error(missingAIKeyMessage("xai"));
     }
-    return createXai({
-      apiKey: xaiAPIKey,
-    });
+    const xai = createXai(getAIClientOptions(xaiAPIKey, baseUrls.xai));
+    return (m) => xai(modelId(m));
   } else if (selectedProvider === "mistral") {
     if (!mistralAPIKey) {
       throw new Error(missingAIKeyMessage("mistral"));
     }
-    return createMistral({
-      apiKey: mistralAPIKey,
-    });
+    const mistral = createMistral(
+      getAIClientOptions(mistralAPIKey, baseUrls.mistral),
+    );
+    return (m) => mistral(modelId(m));
   } else if (selectedProvider === "google") {
     if (!googleAPIKey) {
       throw new Error(missingAIKeyMessage("google"));
     }
-    return createGoogleGenerativeAI({
-      apiKey: googleAPIKey,
-    });
+    const google = createGoogleGenerativeAI(
+      getAIClientOptions(googleAPIKey, baseUrls.google),
+    );
+    return (m) => google(modelId(m));
   } else {
     if (!openAIAPIKey) {
       throw new Error(missingAIKeyMessage("openai"));
     }
-    return createOpenAI({
-      apiKey: openAIAPIKey,
-    });
+    const openai = createOpenAI(
+      getAIClientOptions(openAIAPIKey, baseUrls.openai),
+    );
+    return (m) =>
+      findCustomModel(m, customModels)?.apiFormat === "chat"
+        ? openai.chat(modelId(m))
+        : openai(modelId(m));
   }
 };
 
@@ -162,6 +185,19 @@ function getProviderOptions(
   providerOptions?: Parameters<typeof generateText>[0]["providerOptions"];
 } {
   const provider = getProviderFromModel(model);
+  // Custom models get only what's safe everywhere; reasoning options are a 400
+  // on models that don't reason.
+  if (parseCustomModelKey(model)) {
+    return provider === "openai"
+      ? { providerOptions: { openai: { store: false } } }
+      : provider === "anthropic"
+        ? {
+            providerOptions: {
+              anthropic: { structuredOutputMode: "outputFormat" },
+            },
+          }
+        : {};
+  }
   if (provider === "openai") {
     return {
       providerOptions: {
@@ -324,8 +360,14 @@ export const secondsUntilAICanBeUsedAgainForModel = async (
   overrideModel?: AIModel,
 ): Promise<number> => {
   if (!IS_CLOUD) return 0;
-  const { defaultAIModel, keySource } = await getAISettingsForOrg(context);
-  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const { defaultAIModel, keySource, customModels } =
+    await getAISettingsForOrg(context);
+  const model = resolveTextAIModel(
+    overrideModel,
+    defaultAIModel,
+    keySource,
+    customModels,
+  );
   const provider = getProviderForAIModel("text", model) ?? undefined;
   return secondsUntilAICanBeUsedAgainForProvider(context, provider);
 };
@@ -449,14 +491,14 @@ export const simpleCompletion = async ({
   /** Cancels the model call, e.g. when the client went away. */
   abortSignal?: AbortSignal;
 }) => {
-  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+  const { defaultAIModel, keySource, customModels } = await getAISettingsForOrg(
     context,
     true,
   );
 
   const model =
     resolvedModel ??
-    resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+    resolveTextAIModel(overrideModel, defaultAIModel, keySource, customModels);
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);
@@ -633,11 +675,16 @@ export const streamingChatCompletion = async ({
   maxSteps?: number;
   abortSignal?: AbortSignal;
 }) => {
-  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+  const { defaultAIModel, keySource, customModels } = await getAISettingsForOrg(
     context,
     true,
   );
-  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const model = resolveTextAIModel(
+    overrideModel,
+    defaultAIModel,
+    keySource,
+    customModels,
+  );
   const ownKey = usesOwnAIKey(keySource, model);
   const aiProvider = await getAIProviderClass(context, model);
 
@@ -858,11 +905,16 @@ export const parsePrompt = async <T extends ZodObject<ZodRawShape>>({
   // and how many steps a turn used.
   onStepFinish?: Parameters<typeof generateText>[0]["onStepFinish"];
 }): Promise<z.infer<T>> => {
-  const { defaultAIModel, keySource } = await getAISettingsForOrg(
+  const { defaultAIModel, keySource, customModels } = await getAISettingsForOrg(
     context,
     true,
   );
-  const model = resolveTextAIModel(overrideModel, defaultAIModel, keySource);
+  const model = resolveTextAIModel(
+    overrideModel,
+    defaultAIModel,
+    keySource,
+    customModels,
+  );
   const ownKey = usesOwnAIKey(keySource, model);
 
   const aiProvider = await getAIProviderClass(context, model);
@@ -1236,6 +1288,7 @@ export async function generateEmbeddings({
     googleAPIKey,
     embeddingModel,
     keySource,
+    baseUrls,
   } = await getAISettingsForOrg(context, true);
 
   if (!aiEnabled) {
@@ -1251,23 +1304,23 @@ export async function generateEmbeddings({
     if (!openAIAPIKey) {
       throw new Error("OpenAI API key not set");
     }
-    aiProvider = createOpenAI({
-      apiKey: openAIAPIKey,
-    });
+    aiProvider = createOpenAI(
+      getAIClientOptions(openAIAPIKey, baseUrls.openai),
+    );
   } else if (provider === "mistral") {
     if (!mistralAPIKey) {
       throw new Error("Mistral API key not set");
     }
-    aiProvider = createMistral({
-      apiKey: mistralAPIKey,
-    });
+    aiProvider = createMistral(
+      getAIClientOptions(mistralAPIKey, baseUrls.mistral),
+    );
   } else if (provider === "google") {
     if (!googleAPIKey) {
       throw new Error("Google AI API key not set");
     }
-    aiProvider = createGoogleGenerativeAI({
-      apiKey: googleAPIKey,
-    });
+    aiProvider = createGoogleGenerativeAI(
+      getAIClientOptions(googleAPIKey, baseUrls.google),
+    );
   } else {
     throw new Error(`Unsupported embedding provider: ${provider}`);
   }

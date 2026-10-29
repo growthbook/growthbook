@@ -104,7 +104,7 @@ function ProviderRow({
   onChanged: () => Promise<void>;
 }) {
   const { apiCall } = useAuth();
-  const { label, keyPlaceholder, consoleUrl, envVar } =
+  const { label, keyPlaceholder, consoleUrl, envVar, defaultBaseUrl } =
     AI_PROVIDER_META[provider];
 
   const envIsAuthoritative = inheritedFromEnv && !isCloud();
@@ -120,6 +120,7 @@ function ProviderRow({
 
   const [editing, setEditing] = useState(startEditing);
   const [apiKey, setApiKey] = useState("");
+  const [baseUrl, setBaseUrl] = useState(credential?.baseUrl ?? "");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -134,7 +135,7 @@ function ProviderRow({
         `/ai/credentials/${provider}`,
         {
           method: "PUT",
-          body: JSON.stringify({ apiKey }),
+          body: JSON.stringify({ apiKey, baseUrl }),
         },
       );
       setApiKey("");
@@ -185,6 +186,11 @@ function ProviderRow({
                   ? ` · set by ${credential.updatedByEmail}`
                   : ""}{" "}
                 on {date(credential.dateUpdated)}
+                {credential.baseUrl ? (
+                  <Box>
+                    Endpoint: <code>{credential.baseUrl}</code>
+                  </Box>
+                ) : null}
               </>
             ) : managedByGrowthBook ? (
               <>
@@ -212,7 +218,13 @@ function ProviderRow({
           (canUseOwnKeys || credential) && (
             <Flex gap="2">
               {canUseOwnKeys && aiEnabled && (
-                <Button variant="outline" onClick={() => setEditing(true)}>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setBaseUrl(credential?.baseUrl ?? "");
+                    setEditing(true);
+                  }}
+                >
                   {credential ? "Replace" : "Add key"}
                 </Button>
               )}
@@ -244,13 +256,27 @@ function ProviderRow({
       {editing && (
         <Box mt="3">
           <Field
+            label="API key"
             type="password"
             autoComplete="off"
             size="md"
             placeholder={keyPlaceholder}
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            helpText={`Verified against ${label} before saving. Stored encrypted — it is never shown again.`}
+            helpText={
+              baseUrl.trim()
+                ? "Checked with your endpoint where possible, but many gateways don't validate keys, so try an AI feature after saving. Stored encrypted — it is never shown again."
+                : `Verified against ${label} before saving. Stored encrypted — it is never shown again.`
+            }
+          />
+          <Field
+            label="Base URL (optional)"
+            autoComplete="off"
+            size="md"
+            placeholder={defaultBaseUrl}
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
+            helpText={`Send ${label} requests through your own AI gateway or proxy. It must accept ${label}'s API format. Leave blank to call ${label} directly.`}
           />
           <Flex gap="2" mt="2">
             <Button
@@ -266,6 +292,7 @@ function ProviderRow({
               onClick={() => {
                 setEditing(false);
                 setApiKey("");
+                setBaseUrl(credential?.baseUrl ?? "");
                 setError(null);
                 onCancelAdd?.();
               }}
@@ -438,8 +465,10 @@ export default function AIProviderKeys({
               : undefined
           }
           onChanged={async () => {
-            setAddingProvider("");
+            // Refetch first: clearing addingProvider while the list is stale
+            // unmounts the new row and drops its save warning.
             await Promise.all([mutate(), refreshOrganization()]);
+            setAddingProvider("");
           }}
         />
       ))}

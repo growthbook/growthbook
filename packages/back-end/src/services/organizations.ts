@@ -55,7 +55,10 @@ import {
   STTModel,
   resolveDefaultSTTModel,
   getProviderForAIModel,
+  parseCustomModelKey,
+  findCustomModel,
 } from "shared/ai";
+import type { AICustomModel } from "shared/validators";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import {
   MetricCappingSettings,
@@ -354,9 +357,13 @@ export async function getAISettingsForOrg(
   xaiAPIKey: string;
   mistralAPIKey: string;
   googleAPIKey: string;
+  // Custom endpoint per provider ("" = the provider's own API). Only filled in
+  // with `includeKey`, since it goes with the key.
+  baseUrls: Record<AIProvider, string>;
   // Where each provider's key came from. Non-secret, so returned regardless of
   // `includeKey`.
   keySource: Record<AIProvider, AIKeySource>;
+  customModels: AICustomModel[];
   defaultAIModel: AIModel;
   embeddingModel: EmbeddingModel;
   // Dictation model, or null when unavailable (hides the mic button).
@@ -374,6 +381,7 @@ export async function getAISettingsForOrg(
   // Either way it only counts while the plan allows it — see getResolvedAIKeys.
   // Memoized per request, so repeated calls cost one query.
   const resolvedKeys = await getResolvedAIKeys(context);
+  const customModels = context.org.settings?.aiCustomModels ?? [];
 
   const keySource = AI_PROVIDERS.reduce(
     (acc, provider) => {
@@ -398,6 +406,7 @@ export async function getAISettingsForOrg(
     context.org.settings?.defaultAIModel ||
       context.org.settings?.openAIDefaultModel,
     keySource,
+    customModels,
   );
   const selfHostedDefaultAIModel: AIModel =
     SELF_HOSTED_DEFAULT_AI_MODELS.find(
@@ -415,6 +424,7 @@ export async function getAISettingsForOrg(
       "text",
       context.org.settings?.visualEditorAIModel,
       keySource,
+      customModels,
     ) || (IS_CLOUD ? CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL : defaultAIModel);
   // Managed Cloud gets Gemini 3 Pro Image for aspect-ratio fidelity. An org on
   // its own Google key gets the stable default, since a preview model isn't
@@ -436,6 +446,7 @@ export async function getAISettingsForOrg(
       "text",
       context.org.settings?.aiAutocompleteModel,
       keySource,
+      customModels,
     ) ||
     (keySource.anthropic !== "none" ? AUTOCOMPLETE_AI_MODEL : defaultAIModel);
 
@@ -453,7 +464,15 @@ export async function getAISettingsForOrg(
     xaiAPIKey: includeKey ? resolvedKeys.xai.key : "",
     mistralAPIKey: includeKey ? resolvedKeys.mistral.key : "",
     googleAPIKey: includeKey ? resolvedKeys.google.key : "",
+    baseUrls: AI_PROVIDERS.reduce(
+      (acc, provider) => {
+        acc[provider] = includeKey ? resolvedKeys[provider].baseUrl : "";
+        return acc;
+      },
+      {} as Record<AIProvider, string>,
+    ),
     keySource,
+    customModels,
     defaultAIModel,
     embeddingModel:
       getAllowedAIModel(
@@ -477,8 +496,13 @@ export function getAllowedAIModel<T extends string>(
   kind: AIModelKind,
   model: T | undefined,
   keySource: Record<AIProvider, AIKeySource>,
+  customModels: readonly AICustomModel[] = [],
 ): T | undefined {
   if (!model) return undefined;
+  // A custom model only counts while the org still defines it.
+  if (parseCustomModelKey(model) && !findCustomModel(model, customModels)) {
+    return undefined;
+  }
   const provider = getProviderForAIModel(kind, model);
   return provider && canOrgChooseProviderModels(keySource, provider)
     ? model

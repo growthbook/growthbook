@@ -11,7 +11,15 @@ import {
   buildImageAspectInstruction,
   anthropicStructuredOutputMode,
   resolveMaxOutputTokens,
+  getCustomModelKey,
+  parseCustomModelKey,
+  findCustomModel,
+  getProviderFromModel,
+  supportsTemperature,
+  isVisionCapableModel,
+  pickVisionModel,
 } from "../src/ai";
+import { aiCustomModelsValidator } from "../src/validators/ai-credential";
 
 describe("getProviderForAIModel", () => {
   it("resolves text models", () => {
@@ -341,5 +349,108 @@ describe("resolveMaxOutputTokens", () => {
       64000,
     );
     expect(resolveMaxOutputTokens("claude-sonnet-5", 8000)).toBe(8000);
+  });
+});
+
+describe("custom models", () => {
+  const customModels = [
+    {
+      provider: "openai" as const,
+      id: "gw/gpt:latest",
+      apiFormat: "chat" as const,
+      vision: true,
+    },
+    { provider: "anthropic" as const, id: "claude-proxy", vision: false },
+  ];
+
+  it("round-trips keys, including ids with colons and slashes", () => {
+    const key = getCustomModelKey(customModels[0]);
+    expect(key).toBe("custom:openai:gw/gpt:latest");
+    expect(parseCustomModelKey(key)).toEqual({
+      provider: "openai",
+      id: "gw/gpt:latest",
+    });
+  });
+
+  it.each([
+    "gpt-4o",
+    "custom:",
+    "custom:openai",
+    "custom:openai:",
+    "custom:nope:x",
+  ])("does not parse %s", (model) => {
+    expect(parseCustomModelKey(model)).toBeNull();
+  });
+
+  it("finds the provider from the key", () => {
+    expect(getProviderFromModel("custom:anthropic:claude-proxy")).toBe(
+      "anthropic",
+    );
+    expect(getProviderForAIModel("text", "custom:mistral:anything")).toBe(
+      "mistral",
+    );
+  });
+
+  it("finds only defined models", () => {
+    expect(findCustomModel("custom:openai:gw/gpt:latest", customModels)).toBe(
+      customModels[0],
+    );
+    expect(findCustomModel("custom:openai:claude-proxy", customModels)).toBe(
+      undefined,
+    );
+  });
+
+  it("never sends temperature to a custom model", () => {
+    expect(supportsTemperature("custom:anthropic:claude-proxy")).toBe(false);
+  });
+
+  it("uses the admin's vision flag instead of guessing from the id", () => {
+    expect(
+      isVisionCapableModel("custom:openai:gw/gpt:latest", customModels),
+    ).toBe(true);
+    expect(
+      isVisionCapableModel("custom:anthropic:claude-proxy", customModels),
+    ).toBe(false);
+    expect(
+      isVisionCapableModel("custom:openai:undefined-one", customModels),
+    ).toBe(false);
+  });
+
+  it("falls back from a non-vision custom Visual Editor model", () => {
+    expect(
+      pickVisionModel({
+        visualEditorAIModel: "custom:anthropic:claude-proxy",
+        anthropicAPIKey: "k",
+        customModels,
+      }),
+    ).toBe("claude-sonnet-5-5");
+  });
+
+  it("validates the stored list", () => {
+    expect(aiCustomModelsValidator.safeParse(customModels).success).toBe(true);
+    expect(
+      aiCustomModelsValidator.safeParse([customModels[1], customModels[1]])
+        .success,
+    ).toBe(false);
+    expect(
+      aiCustomModelsValidator.safeParse([
+        { provider: "openai", id: "  ", vision: false },
+      ]).success,
+    ).toBe(false);
+    expect(
+      aiCustomModelsValidator.safeParse([
+        { provider: "openai", id: "x", vision: false, extra: 1 },
+      ]).success,
+    ).toBe(false);
+    expect(
+      aiCustomModelsValidator.safeParse([
+        { provider: "openai", id: "x", vision: false },
+      ]).success,
+    ).toBe(false);
+    expect(
+      aiCustomModelsValidator.safeParse([
+        { provider: "anthropic", id: "x", apiFormat: "chat", vision: false },
+      ]).success,
+    ).toBe(false);
   });
 });
