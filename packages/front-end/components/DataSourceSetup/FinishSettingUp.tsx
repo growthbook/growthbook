@@ -819,8 +819,10 @@ export default function FinishSettingUp({
                     </Button>
                   }
                 >
-                  Using Google Analytics 4? GrowthBook can create an exposure
-                  query for you automatically.
+                  Using Google Analytics 4? GrowthBook can prefill an exposure
+                  query from your GA4 events and add the{" "}
+                  <Text mono>anonymous_id</Text> and <Text mono>user_id</Text>{" "}
+                  identifier types.
                 </Callout>
               )}
               <Box
@@ -891,6 +893,13 @@ export default function FinishSettingUp({
                   >
                     Add query
                   </Button>
+                  {!hasIdentifiers && (
+                    <HelperText status="info" size="sm">
+                      {canOfferGoogleAnalytics4
+                        ? "Add an identifier type first, or use the Google Analytics 4 query above."
+                        : "Add an identifier type first."}
+                    </HelperText>
+                  )}
                 </Flex>
               )}
               <Flex align="center" justify="between" gap="3" mt="3">
