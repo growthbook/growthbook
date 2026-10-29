@@ -1,21 +1,16 @@
-@use "../../styles/colors.scss";
-
-// Beside the side nav (AppRail.tsx), following its width.
-$sidebarwidth: var(--app-rail-width, 240px);
 .topbar {
   display: flex;
   justify-content: space-between;
   position: fixed;
   top: 0;
-  left: $sidebarwidth;
-  // Ends at the docked GrowthBot panel's edge while it's open (AgentPanel
+  left: var(--sidebar-width, 240px);
+  // Ends at the docked AI Assistant panel's edge while it's open (AgentPanel
   // .tsx), as the page does.
   right: var(--agent-rail-width, 0px);
   height: var(--header-height);
   z-index: 1010;
-  // Always solid, so nothing shows through as the page scrolls under it.
   background-color: var(--color-background);
-  // 32px on the right, in line with the page content.
+  // The right padding lines up with the page content.
   padding: 0 var(--space-6) 0 var(--space-5);
   transition:
     left 200ms ease,
@@ -40,13 +35,14 @@ $sidebarwidth: var(--app-rail-width, 240px);
     .mobilemenu.mobilemenu {
       display: inline-flex;
     }
-    // Two rows beside the drawer, so the breadcrumb keeps the full width: the
-    // menu, notices and GrowthBot, then the breadcrumb, its folder icon on
-    // the page's content edge. --header-height grows to match (global.scss).
+    // Two rows beside the drawer, so the breadcrumb gets the full width, and
+    // a third on narrow Settings pages for the Settings nav's button.
+    // --header-height grows to match (global.scss).
     .withMenu {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       grid-template-rows: 44px 36px;
+      grid-auto-rows: 52px;
       align-items: center;
       align-self: stretch;
       .mobilemenu {
@@ -65,54 +61,17 @@ $sidebarwidth: var(--app-rail-width, 240px);
       .pagetitle {
         grid-area: 2 / 1 / 3 / -1;
       }
+      .settingsJump {
+        grid-area: 3 / 1 / 4 / -1;
+      }
     }
-  }
-}
-.topbarlite {
-  display: flex;
-  justify-content: space-between;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--header-height);
-  z-index: 1010;
-  background-color: var(--color-surface-solid);
-  border-bottom: 1px solid var(--slate-a3);
-  padding: 0 16px;
-  @media (max-width: 520px) {
-    padding: 0 8px;
-  }
-}
-.guidedstepbar {
-  display: flex;
-  justify-content: space-between;
-  position: fixed;
-  top: var(--header-height);
-  left: $sidebarwidth;
-  // Ends at the docked GrowthBot panel's edge, as the header does.
-  right: var(--agent-rail-width, 0px);
-  height: 56px;
-  z-index: 995;
-  transition: right var(--agent-dock-duration) var(--agent-dock-easing);
-  :global(html.agent-dock-motion) & {
-    transition:
-      left var(--agent-dock-duration) var(--agent-dock-easing),
-      right var(--agent-dock-duration) var(--agent-dock-easing);
-
-    @media (prefers-reduced-motion: reduce) {
-      transition: none;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
   }
 }
 .pagetitle {
   flex: 1;
   min-width: 0;
-  // Reaches 8px into the header's padding, so a first crumb shifted onto the
-  // content edge (HeaderBreadcrumb.module.scss) keeps its whole hover fill.
+  // Room for the hover fill of a first crumb shifted onto the content edge
+  // (HeaderBreadcrumb.module.scss).
   margin-left: calc(-1 * var(--space-2));
   padding-left: var(--space-2);
   overflow: hidden;
@@ -131,8 +90,7 @@ $sidebarwidth: var(--app-rail-width, 240px);
 .mobilemenu.mobilemenu {
   display: none;
   flex-shrink: 0;
-  // Its icon on the page's left content edge: pulled left by the space
-  // around it in its 32px box, which its hover fill still covers.
+  // Puts the icon on the page's left content edge.
   margin: 0 0 0 -6px;
   color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
 }
@@ -144,8 +102,8 @@ $sidebarwidth: var(--app-rail-width, 240px);
   width: 100%;
 }
 
-// In the header's row, as if it weren't there, but for its own row below
-// 1180px (.withMenu).
+// Part of the header's row, except below 1180px, where .withMenu gives it
+// its own.
 .actions {
   display: contents;
 
@@ -154,33 +112,18 @@ $sidebarwidth: var(--app-rail-width, 240px);
     display: none;
   }
 
-  // No right padding: the AI Assistant button spaces itself from the
-  // notices (.aiAssistantButton), and with no button they end on the
-  // content's edge.
+  // .aiAssistantButton spaces itself from the notices.
   > :global(.nav-link) {
     padding-right: 0;
   }
 }
 
-// The ghost AI Assistant button, its label's end on the content's right edge:
-// the whole button shifts right by its padding, so its hover and open fills
-// keep their full padding past the edge, as the breadcrumb's first item does
-// on the left (HeaderBreadcrumb.module.scss). Over the app's zero margin for
-// ghost buttons (global-radix-overrides.scss).
-// 12px from the last notice's border to the button's edge, where its hover
-// and open fills start.
-.aiAssistantButton.aiAssistantButton {
-  margin-right: calc(-1 * var(--space-2)) !important;
-  margin-left: 12px !important;
-}
-
-.dropdownItemIconColor {
-  &:focus {
-    svg {
-      color: white;
-    }
-  }
-  svg {
-    color: var(--text-color-muted);
-  }
+// Shifted right by its padding, so the label ends on the content edge. On a
+// wrapper, since the app zeroes ghost buttons' margins
+// (global-radix-overrides.scss).
+.aiAssistantButton {
+  display: flex;
+  flex-shrink: 0;
+  margin-right: calc(-1 * var(--space-2));
+  margin-left: 12px;
 }

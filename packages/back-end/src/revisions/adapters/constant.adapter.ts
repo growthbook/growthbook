@@ -15,6 +15,7 @@ import {
   constantRequiresReview,
   constantResetReviewOnChange,
   getConstantReviewRequirement,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   constantValidator,
@@ -113,12 +114,9 @@ function constantProjects(snapshot: ConstantInterface): string[] {
 // review rule? Used for inbox/badge surfacing; the precise per-change decision
 // lives in `isApprovalRequiredForRevision`.
 function constantApprovalConfigured(context: Context): boolean {
-  if (!context.hasPremiumFeature("require-approvals")) return false;
-  const requireReviews = context.org.settings?.requireReviews;
-  if (typeof requireReviews === "boolean") return requireReviews;
-  return (
-    Array.isArray(requireReviews) &&
-    requireReviews.some((r) => r.requireReviewOn)
+  return orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
   );
 }
 

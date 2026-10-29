@@ -13,21 +13,23 @@ import { usePageHead } from "./PageHead";
 import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
-import GrowthBotButton from "./GrowthBotButton";
+import AiAssistantButton from "./AiAssistantButton";
+import SettingsJumpMenu from "./SettingsJumpMenu";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
-  // Whether the side nav's drawer (below 1180px) is open.
+  /** Whether the sidebar's drawer (below 1180px) is open. */
   menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
-  showLogo?: boolean;
+  /** Narrow Settings pages: the Settings nav, as a button on its own row. */
+  showSettingsJumpMenu?: boolean;
 }> = ({
   toggleLeftMenu,
   menuOpen,
   pageTitle,
   showNotices,
-  showLogo = true,
+  showSettingsJumpMenu,
 }) => {
   const { breadcrumb } = usePageHead();
   const notices = [
@@ -77,26 +79,22 @@ const TopNav: FC<{
             >
               <PiList size={18} />
             </IconButton>
-          ) : showLogo ? (
-            <div>
-              <img
-                alt="GrowthBook"
-                src="/logo/growthbook-logo.png"
-                style={{ height: 40 }}
-              />
-            </div>
           ) : null}
           {renderTitleOrBreadCrumb()}
-          {/* Beside the title, or its own row's right end below 1180px. */}
+          {showSettingsJumpMenu ? (
+            <div className={styles.settingsJump}>
+              <SettingsJumpMenu />
+            </div>
+          ) : null}
           <div className={styles.actions}>
             {showNotices && (
               <div className="nav-link">
                 <NoticeStack notices={notices} />
               </div>
             )}
-            <GrowthBotButton className={styles.aiAssistantButton} />
+            <AiAssistantButton className={styles.aiAssistantButton} />
           </div>
-          {/* With the side nav, Help and the profile menu are in it. */}
+          {/* With the sidebar, Help and the profile menu are in it. */}
           {toggleLeftMenu ? null : (
             <>
               <HelpMenu />

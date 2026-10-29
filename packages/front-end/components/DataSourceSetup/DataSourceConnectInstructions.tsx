@@ -39,7 +39,7 @@ function CommandBlock({ code, copyText }: { code: string; copyText?: string }) {
           border: "1px solid var(--gray-a5)",
           borderRadius: 6,
           padding: "12px 48px 12px 14px",
-          fontFamily: "var(--font-mono, monospace)",
+          fontFamily: "var(--code-font-family)",
           fontSize: 12,
           lineHeight: 1.75,
           // Wrap long lines in place of a horizontal scrollbar; a token only

@@ -220,8 +220,7 @@ const journeyDatasetValidator = z
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
-// Populations: one single-step population definition per value. Step windows
-// aren't supported, so they're not part of the value.
+// Populations: one single-step population definition per value.
 const populationValueValidator = baseValueValidator.extend({
   type: z.literal("population"),
   unit: z.string().nullable(),

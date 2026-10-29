@@ -1,17 +1,14 @@
-// Ghost, 4px after Help: the two icons read as a pair beside GrowthBot.
-// Radix's ghost margins (which pull it into its padding) are reset.
+// 4px after Help, so the two read as a pair. Resets Radix's ghost margins.
 .headerButton.headerButton {
   position: relative;
   flex-shrink: 0;
   margin: 0 0 0 var(--space-1);
-  // Its icon on the content's right edge: shifted by the space around it in
-  // its 32px box, which its hover fill still covers. Help moves with it.
+  // Puts the icon on the content's right edge; Help shifts with it.
   translate: 6px 0;
-  // The small button's corners (Radix's size 1), as the GrowthBot button's.
+  // Radix size 1's corners, matching the AI Assistant button.
   border-radius: max(var(--radius-1), var(--radius-full));
 
-  // On the icon's top right, not the borderless box's corner. Its ring
-  // takes the hover fill, layered as the side nav's (.railItem).
+  // On the icon's corner, not the box's; layered like .sidebarItem's.
   .reviewDot {
     top: 2px;
     right: 2px;
@@ -39,7 +36,7 @@
 
 // Two layered shadows in every state, the top one clear at rest, so the
 // ring fades with the row's translucent highlight instead of flashing.
-.railItem {
+.sidebarItem {
   .reviewDot {
     top: -1px;
     right: -1px;
@@ -48,7 +45,7 @@
     border: 0;
     box-shadow:
       0 0 0 2px transparent,
-      0 0 0 2px var(--rail-bg);
+      0 0 0 2px var(--sidebar-bg);
     transition: box-shadow 250ms ease-out;
 
     @media (prefers-reduced-motion: reduce) {
@@ -58,16 +55,16 @@
 
   &:hover .reviewDot {
     box-shadow:
-      0 0 0 2px var(--rail-hover),
-      0 0 0 2px var(--rail-bg);
+      0 0 0 2px var(--sidebar-hover),
+      0 0 0 2px var(--sidebar-bg);
     transition-duration: 150ms;
   }
 
   &[data-state="open"] .reviewDot,
   &[aria-expanded="true"] .reviewDot {
     box-shadow:
-      0 0 0 2px var(--rail-active),
-      0 0 0 2px var(--rail-bg);
+      0 0 0 2px var(--sidebar-active),
+      0 0 0 2px var(--sidebar-bg);
   }
 }
 

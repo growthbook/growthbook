@@ -7,7 +7,8 @@ import { namedSchema } from "./openapi-helpers";
 // `model.action`, model-first like webhook events. `override.*` actions are the
 // checks a request skips, whatever it changes. `draft` is a change that doesn't
 // reach users yet; `review` approves or rejects one. `experiment.visualEditor`
-// edits what a visual experiment's variations show.
+// edits what a visual experiment's variations show; `experiment.checklist`
+// marks manual launch checklist items complete.
 export const CONFIRM_ACTIONS = [
   "feature.create",
   "feature.draft",
@@ -24,6 +25,7 @@ export const CONFIRM_ACTIONS = [
   "experiment.traffic",
   "experiment.phases",
   "experiment.visualEditor",
+  "experiment.checklist",
   "experiment.other",
   "savedGroup.create",
   "savedGroup.draft",
@@ -102,14 +104,16 @@ export const CONFIRM_ACTIONS = [
 export type ConfirmAction = (typeof CONFIRM_ACTIONS)[number];
 
 // The "recommended" rule: everything but creating things, drafting, visual
-// editor changes (made with a person at the editor), and writes with no model
-// of their own.
+// editor changes (made with a person at the editor), ticking manual checklist
+// items (generated ones still gate a start), and writes with no model of their
+// own.
 export const RECOMMENDED_CONFIRM_ACTIONS: readonly ConfirmAction[] =
   CONFIRM_ACTIONS.filter(
     (action) =>
       !action.endsWith(".create") &&
       !action.endsWith(".draft") &&
       action !== "experiment.visualEditor" &&
+      action !== "experiment.checklist" &&
       action !== "other.write",
   );
 
@@ -137,6 +141,7 @@ export const BYPASS_OVERRIDE_ACTIONS: Record<
   bypassApprovalPermission: "override.bypassApproval",
   restApiBypassesReviews: "override.restBypassesReviews",
   revertsBypassApproval: null,
+  skipChecklist: "override.skipChecklist",
 };
 
 // The checks a publishing write can ask to skip.

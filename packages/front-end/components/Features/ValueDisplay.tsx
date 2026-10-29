@@ -5,6 +5,7 @@ import {
 } from "shared/types/feature";
 import React, {
   CSSProperties,
+  ReactNode,
   useContext,
   useEffect,
   useMemo,
@@ -12,8 +13,8 @@ import React, {
   useState,
 } from "react";
 import stringify from "json-stringify-pretty-compact";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
-import { PiCheck, PiCornersOut, PiCopy } from "react-icons/pi";
+import { IconButton } from "@radix-ui/themes";
+import { PiCheck, PiCopy } from "react-icons/pi";
 import { parsePlainJSONObject } from "shared/util";
 import InlineCode, {
   LinkifyConfig,
@@ -25,10 +26,16 @@ import VirtualizedCode, {
 import { useConstantLinkify } from "@/components/Constants/useConstantLinkify";
 import styles from "@/components/Archetype/ArchetypeResults.module.scss";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { parseFeatureResult } from "@/hooks/useArchetype";
 import Modal from "@/components/Modal";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import Button from "@/ui/Button";
+import ScrollArea from "@/ui/ScrollArea";
+import { CopyIcon, FullscreenIcon } from "@/ui/ActionIcons";
+import CornerActions, { ActionsOverlay } from "./CornerActions";
+import { useValueDiff } from "./ValueDiffContext";
+import { getFieldLineNumbers } from "./jsonFieldLines";
 
 // For sparse JSON rules, the stored `value` is only the patch. We display the
 // fully expanded value (default merged with the patch) and bold the keys that
@@ -47,28 +54,6 @@ function getSparseMerge(
   };
 }
 
-// Given fully-expanded (one-key-per-line) JSON and the set of patched keys,
-// returns the 1-based line numbers that make up those keys' entries — including
-// the continuation lines of multi-line (nested) values. Top-level keys sit at a
-// 2-space indent; a line at column 0 (the closing brace) ends the object.
-function getBoldLineNumbers(
-  formatted: string,
-  patchKeys: Set<string>,
-): number[] {
-  const bold: number[] = [];
-  let inPatchedEntry = false;
-  formatted.split("\n").forEach((line, i) => {
-    const topLevelKey = line.match(/^ {2}"([^"]+)":/);
-    if (topLevelKey) {
-      inPatchedEntry = patchKeys.has(topLevelKey[1]);
-    } else if (/^[}\]]/.test(line)) {
-      inPatchedEntry = false;
-    }
-    if (inPatchedEntry) bold.push(i + 1);
-  });
-  return bold;
-}
-
 export default function ValueDisplay({
   value,
   type,
@@ -80,11 +65,14 @@ export default function ValueDisplay({
   showCopyButton = true,
   copyButtonClassName,
   isFullscreen = false,
+  actionsOverlay,
   sparse = false,
   defaultValue,
   fullscreenHeader = "Feature Value",
   linkify,
-  fontSize,
+  lineHeight,
+  monochrome,
+  extraActions,
 }: {
   value: string;
   type: FeatureValueType;
@@ -98,6 +86,7 @@ export default function ValueDisplay({
   // row hover) without affecting other ValueDisplay usages.
   copyButtonClassName?: string;
   isFullscreen?: boolean;
+  actionsOverlay?: ActionsOverlay;
   // Header for the fullscreen modal (e.g. "Constant Value" when reused outside features).
   fullscreenHeader?: string;
   // When true (JSON rules flagged sparse), `value` is a partial patch. We show
@@ -109,8 +98,11 @@ export default function ValueDisplay({
   // as links to the referenced constant). Rarely needed — pass to customize or,
   // with a no-op getHref, effectively disable linking.
   linkify?: LinkifyConfig;
-  // Override the rendered code font size (passed through to InlineCode).
-  fontSize?: string;
+  // Override the rendered code line height (passed through to InlineCode).
+  lineHeight?: number;
+  monochrome?: boolean;
+  // More buttons in the same row as copy and fullscreen, after them.
+  extraActions?: ReactNode;
 }) {
   // Link `@const:` references to their constant by default on every surface that
   // renders a value, unless the caller supplies its own linkify config.
@@ -160,36 +152,54 @@ export default function ValueDisplay({
   // 1-based line numbers of the overridden keys, bolded in the expanded value.
   const boldLines = useMemo(
     () =>
-      sparseMerge ? getBoldLineNumbers(formatted, sparseMerge.patchKeys) : [],
+      sparseMerge ? getFieldLineNumbers(formatted, sparseMerge.patchKeys) : [],
     [sparseMerge, formatted],
   );
 
-  // For sparse values the override can sit far down a tall object that's
-  // clipped by the fixed-height scroll box. Scroll it so the first highlighted
-  // line is near the top (with a line of padding above). The content is a
-  // lazily-loaded syntax highlighter, so poll on animation frames until it has
-  // rendered enough to be scrollable, scroll once, then stop (bounded so a
-  // short, non-scrollable value doesn't poll forever).
+  // Beside other values (an experiment's variations), what differs between
+  // them is tinted instead.
+  const shown = useMemo(
+    () =>
+      type === "json"
+        ? (sparseMerge?.merged ?? parsePlainJSONObject(value))
+        : null,
+    [type, sparseMerge, value],
+  );
+  const differingKeys = useValueDiff(isFullscreen ? null : shown);
+  const highlightLines = useMemo(
+    () => (differingKeys ? getFieldLineNumbers(formatted, differingKeys) : []),
+    [differingKeys, formatted],
+  );
+  const emphasizedLines = differingKeys ? highlightLines : boldLines;
+
+  // The first emphasized line can sit far down a tall object that's clipped by
+  // the fixed-height scroll box. When it's out of view, scroll it near the top
+  // (with a line of padding above). The content is a lazily-loaded syntax
+  // highlighter, so poll on animation frames until it has rendered enough to be
+  // scrollable, scroll once, then stop (bounded so a short, non-scrollable value
+  // doesn't poll forever).
   const scrollBoxRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
-    if (!boldLines.length) return;
+    if (!emphasizedLines.length) return;
     const el = scrollBoxRef.current;
     if (!el) return;
-    const firstBold = Math.min(...boldLines);
+    const firstEmphasized = Math.min(...emphasizedLines);
     const totalLines = formatted.split("\n").length;
     let raf = 0;
     let attempts = 0;
     const tryScroll = () => {
-      if (el.scrollHeight > el.clientHeight + 1) {
-        const targetLine = Math.max(0, firstBold - 2); // 0-based, minus a line of padding
-        el.scrollTop = (targetLine / totalLines) * el.scrollHeight;
+      if (el.clientHeight > 0 && el.scrollHeight > el.clientHeight + 1) {
+        const rowHeight = el.scrollHeight / totalLines;
+        if (firstEmphasized * rowHeight <= el.clientHeight) return;
+        const targetLine = Math.max(0, firstEmphasized - 2); // 0-based, minus a line of padding
+        el.scrollTop = targetLine * rowHeight;
         return;
       }
       if (++attempts < 90) raf = requestAnimationFrame(tryScroll);
     };
     raf = requestAnimationFrame(tryScroll);
     return () => cancelAnimationFrame(raf);
-  }, [boldLines, formatted]);
+  }, [emphasizedLines, formatted]);
 
   const showFullscreenButton = _showFullscreenButton && type === "json";
 
@@ -231,78 +241,89 @@ export default function ValueDisplay({
 
   return (
     <>
-      <Box position="relative">
-        <Box ref={scrollBoxRef} style={boxStyle} className={fullClassName}>
+      <CornerActions
+        overlay={actionsOverlay}
+        actions={
+          isFullscreen ? null : (
+            <>
+              {showCopyButton && (type === "json" || type === "string") ? (
+                <UITooltip
+                  content={copySuccess ? "Copied" : "Copy to clipboard"}
+                >
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    className={copyButtonClassName}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      if (!copySuccess) {
+                        performCopy(sparseMerge ? formatted : value);
+                      }
+                    }}
+                  >
+                    <CopyIcon copied={copySuccess} size="sm" />
+                  </IconButton>
+                </UITooltip>
+              ) : null}
+              {showFullscreenButton && (
+                <UITooltip content="View in full screen">
+                  <IconButton
+                    type="button"
+                    radius="full"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setModalOpen(true);
+                    }}
+                  >
+                    <FullscreenIcon size="sm" />
+                  </IconButton>
+                </UITooltip>
+              )}
+              {extraActions}
+            </>
+          )
+        }
+      >
+        {/* The gutter keeps highlighted lines clear of the scrollbar. */}
+        <ScrollArea
+          ref={scrollBoxRef}
+          gutter
+          className={fullClassName}
+          style={{
+            maxHeight: boxStyle.maxHeight,
+            minHeight: boxStyle.minHeight,
+            height: boxStyle.height,
+            maxWidth: boxStyle.maxWidth,
+          }}
+        >
           {virtualize ? (
             <VirtualizedCode
               scrollRef={scrollBoxRef}
               language="json"
               code={formatted}
-              boldLines={sparseMerge ? boldLines : undefined}
+              boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
+              highlightLines={highlightLines}
               linkify={resolvedLinkify}
-              fontSize={fontSize}
+              lineHeight={lineHeight}
+              monochrome={monochrome}
             />
           ) : (
             <InlineCode
               language="json"
               code={formatted}
-              boldLines={sparseMerge ? boldLines : undefined}
+              boldLines={sparseMerge && !differingKeys ? boldLines : undefined}
+              highlightLines={highlightLines}
               linkify={resolvedLinkify}
-              fontSize={fontSize}
+              lineHeight={lineHeight}
+              monochrome={monochrome}
             />
           )}
-        </Box>
-        {!isFullscreen && (
-          <Flex
-            align="center"
-            gap="3"
-            style={{
-              position: "absolute",
-              bottom: -4,
-              right: 16,
-            }}
-          >
-            {showCopyButton && (type === "json" || type === "string") ? (
-              <Tooltip
-                body={copySuccess ? "Copied" : "Copy to clipboard"}
-                usePortal={true}
-              >
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  className={copyButtonClassName}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    if (!copySuccess) {
-                      performCopy(sparseMerge ? formatted : value);
-                    }
-                  }}
-                >
-                  {copySuccess ? <PiCheck size={12} /> : <PiCopy size={12} />}
-                </IconButton>
-              </Tooltip>
-            ) : null}
-            {showFullscreenButton && type === "json" && (
-              <Tooltip body="View in full screen" usePortal={true}>
-                <IconButton
-                  type="button"
-                  radius="full"
-                  variant="ghost"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setModalOpen(true);
-                  }}
-                >
-                  <PiCornersOut size={12} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </Flex>
-        )}
-      </Box>
+        </ScrollArea>
+      </CornerActions>
       {modalOpen && (
         <Modal
           header={fullscreenHeader}
@@ -340,7 +361,7 @@ export default function ValueDisplay({
             sparse={sparse}
             defaultValue={defaultValue}
             linkify={resolvedLinkify}
-            fontSize={fontSize}
+            lineHeight={lineHeight}
           />
         </Modal>
       )}

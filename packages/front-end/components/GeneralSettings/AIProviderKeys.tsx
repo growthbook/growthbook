@@ -413,10 +413,7 @@ export default function AIProviderKeys({
   }
 
   return (
-    <Box mb="6" width="100%">
-      <Text size="lg" weight="semibold" as="div">
-        AI providers
-      </Text>
+    <Box width="100%">
       <Text size="md" color="text-mid" as="div" mb="3">
         {providerDescription}
       </Text>

@@ -1,6 +1,7 @@
 import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { radixSize, Size } from "@/ui/sizes";
 import { useHeaderHeight } from "@/components/Layout/headerHeight";
 import styles from "./Table.module.scss";
@@ -61,8 +62,6 @@ export default function Table({
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
-  const [overflowX, setOverflowX] = useState(false);
-
   // Only once too wide: a scroll box can't let the header stick to the
   // window. Not with scrollX, already a scroll region.
   const [autoScroll, setAutoScroll] = useState(false);
@@ -83,20 +82,10 @@ export default function Table({
   }, [isListVariant, scrollX]);
 
   // A pinned column only earns its divider once there is something behind it.
-  useEffect(() => {
-    const wrapper = wrapperRef.current;
-    if (!scrollX || !stickyLastColumn || !wrapper) return;
-    const check = () =>
-      setOverflowX(wrapper.scrollWidth > wrapper.clientWidth + 1);
-    check();
-    const observer = new ResizeObserver(check);
-    observer.observe(wrapper);
-    // The table too: a drag-resize changes its width without changing the
-    // wrapper's.
-    const table = wrapper.querySelector("table");
-    if (table) observer.observe(table);
-    return () => observer.disconnect();
-  }, [scrollX, stickyLastColumn]);
+  const overflowX = useIsOverflowingX(
+    wrapperRef,
+    !!scrollX && !!stickyLastColumn,
+  );
 
   const headerHeight = useHeaderHeight();
   useEffect(() => {
@@ -117,7 +106,6 @@ export default function Table({
     const header = wrapper.querySelector(".rt-TableHeader");
     if (!header) return;
 
-    // Without an offset, the header sticks under the app header.
     const topOffset = stickyTopOffset ?? headerHeight;
 
     const check = () => {

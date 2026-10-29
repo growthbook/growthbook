@@ -241,14 +241,15 @@ describe("mapV2ApiRuleToFeatureRule", () => {
       });
     });
 
-    // GET→edit→PUT must persist id/seed/hashVersion verbatim (else re-bucketing).
-    it("preserves id, seed, and hashVersion on round-trip", () => {
+    // GET→edit→PUT must persist bucketing fields verbatim (else re-bucketing).
+    it("preserves id, seed, hashVersion, and fallbackAttribute on round-trip", () => {
       const out = mapV2ApiRuleToFeatureRule({
         id: "fr_explicit",
         type: "rollout",
         value: "v",
         coverage: 0.5,
         hashAttribute: "userId",
+        fallbackAttribute: "deviceId",
         seed: "my-seed",
         hashVersion: 2,
       } as ApiRuleV2Input);
@@ -257,6 +258,7 @@ describe("mapV2ApiRuleToFeatureRule", () => {
         seed: "my-seed",
         hashVersion: 2,
         hashAttribute: "userId",
+        fallbackAttribute: "deviceId",
       });
     });
 
@@ -270,6 +272,7 @@ describe("mapV2ApiRuleToFeatureRule", () => {
       } as ApiRuleV2Input);
       expect(out).not.toHaveProperty("seed");
       expect(out).not.toHaveProperty("hashVersion");
+      expect(out).not.toHaveProperty("fallbackAttribute");
     });
   });
 

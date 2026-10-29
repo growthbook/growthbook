@@ -137,7 +137,7 @@ const ExperimentTimeline: React.FC<{
     hideTooltip();
   };
 
-  // Follows its container, not just the window: the docked GrowthBot panel
+  // Follows its container, not just the window: the docked AI Assistant panel
   // narrows the page without resizing the window. The container only renders
   // with experiments to show, so it's observed again once they appear.
   const hasExperiments = experiments.length > 0;

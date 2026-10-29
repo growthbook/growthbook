@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiWarningFill } from "react-icons/pi";
@@ -10,32 +10,23 @@ import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { AppNotice, rankNotices } from "./notices";
 import styles from "./NoticeStack.module.scss";
 
 type Upgrade = NonNullable<AppNotice["upgrade"]>;
-
-// Below 1180px the header's first row is shared with the menu and GrowthBot
-// (TopNav.module.scss), so the notices are one compact button there.
-const COMPACT_QUERY = "(max-width: 1180px)";
-function useCompact() {
-  return useSyncExternalStore(
-    (listener) => {
-      const mq = window.matchMedia(COMPACT_QUERY);
-      mq.addEventListener("change", listener);
-      return () => mq.removeEventListener("change", listener);
-    },
-    () => window.matchMedia(COMPACT_QUERY).matches,
-    () => false,
-  );
-}
 
 // The most important notice in full, and a "+N" that lists them all, so a
 // crowded row stays one line.
 export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   const [upgrade, setUpgrade] = useState<Upgrade | null>(null);
   const [listOpen, setListOpen] = useState(false);
-  const compact = useCompact();
+  // Narrow headers share their first row with the menu and the AI Assistant
+  // button (TopNav.module.scss), so the notices collapse to one button.
+  const compact = useMediaQuery(
+    `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
+  );
   // The list lives in the persistent top nav, so following a link closes it.
   const router = useRouter();
   useEffect(() => {
@@ -65,7 +56,7 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   // Even with one notice, so a tap shows its full text.
   if (compact) {
     return (
-      <Flex align="center" className={styles.stack}>
+      <Flex align="center" flexShrink="0">
         <Popover
           open={listOpen}
           onOpenChange={setListOpen}
@@ -100,7 +91,7 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   }
 
   return (
-    <Flex align="center" gap="2" className={styles.stack}>
+    <Flex align="center" gap="2" flexShrink="0">
       <Tooltip
         content={<Box className={styles["notice-tooltip"]}>{top.details}</Box>}
         enabled={!!top.details}

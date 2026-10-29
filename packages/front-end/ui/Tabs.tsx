@@ -10,7 +10,7 @@ import {
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
-import { useHeaderHeight } from "@/components/Layout/headerHeight";
+import { useTabsTop } from "@/components/Layout/headerHeight";
 import { radixSize, Size } from "@/ui/sizes";
 
 /**
@@ -146,8 +146,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
-    // Pinned 1px under the app header.
-    const pinnedTopPx = useHeaderHeight() - 1;
+    const pinnedTopPx = useTabsTop();
 
     useEffect(() => {
       const observer = new IntersectionObserver(
@@ -169,7 +168,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
     return (
       <Box
         className={`${headerPinned ? pinnedClass || "" : ""} tabwrap sticky`}
-        style={{ top: "calc(var(--header-height) - 1px)" }}
+        style={{ top: "var(--tabs-top)" }}
       >
         {/* This is needed as for some reason the intersection observer doesn't work on the position:sticky element-even with the right margin offsets. */}
         <Box

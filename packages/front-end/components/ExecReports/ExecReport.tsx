@@ -338,7 +338,7 @@ export default function ExecReport() {
             </Box>
           )}
           {/* Side by side while both fit, at their widths below; stacked
-            beside the docked GrowthBot panel or on a narrow window. */}
+            beside the docked AI Assistant panel or on a narrow window. */}
           <Flex gap="3" mb="3" wrap="wrap">
             <Box
               className="appbox"

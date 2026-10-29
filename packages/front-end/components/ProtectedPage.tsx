@@ -8,7 +8,7 @@ import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
-import InAppHelp from "./Auth/InAppHelp";
+import PylonLoader from "./Auth/PylonLoader";
 import Button from "./Button";
 import TopNavLite from "./Layout/TopNavLite";
 
@@ -107,7 +107,7 @@ const ProtectedPage: React.FC<{
   return (
     <UserContextProvider key={orgId}>
       <LoggedInPageGuard organizationRequired={organizationRequired}>
-        <InAppHelp />
+        <PylonLoader />
         {!organizationRequired ? (
           <>{children}</>
         ) : orgId ? (

@@ -1,0 +1,67 @@
+// As the side nav's current page.
+.panelOpen.panelOpen.panelOpen {
+  background-color: var(--slate-a3);
+
+  :global(.rt-Text) {
+    font-weight: 500;
+  }
+
+  &:hover {
+    background-color: var(--slate-a4);
+  }
+}
+
+// Four classes, over the button's own transition lists (which it includes),
+// so hover and press still ease.
+.fades.fades.fades.fades {
+  max-width: 200px;
+  overflow: hidden;
+  white-space: nowrap;
+  transition:
+    max-width var(--agent-dock-duration) var(--agent-dock-easing),
+    padding var(--agent-dock-duration) var(--agent-dock-easing),
+    opacity var(--agent-dock-duration) var(--agent-dock-easing),
+    visibility 0s,
+    box-shadow 150ms ease,
+    background-color 150ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Fades and narrows with the panel's slide, so the notices beside it end at
+// the page's edge; hidden once it's faded. Its padding goes too, over the
+// ghost button's own (!important).
+:global(html.agent-dock-full) .fades.fades.fades.fades.fades {
+  max-width: 0;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  border-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--agent-dock-duration) var(--agent-dock-easing),
+    max-width var(--agent-dock-duration) var(--agent-dock-easing),
+    padding var(--agent-dock-duration) var(--agent-dock-easing),
+    visibility 0s linear var(--agent-dock-duration);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The wrapper's optical shifts (TopNav.module.scss) go with it, so the
+// notices end on the content's edge beside the panel.
+.wrapper {
+  transition: margin var(--agent-dock-duration) var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+:global(html.agent-dock-full) .wrapper {
+  margin-left: 0;
+  margin-right: 0;
+}

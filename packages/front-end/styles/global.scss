@@ -1,5 +1,4 @@
 @use "colors";
-@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -10,23 +9,35 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
-// The app header's height (TopNav, TopNavLite). Keep in sync with
-// HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
+// Keep in sync with HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
 :root {
   --header-height: 44px;
-  // The docked GrowthBot panel's slide, and everything that moves with it:
+  // The docked AI Assistant panel's slide, and everything that moves with it:
   // the page, the header's and bars' edges, the header button, the side nav.
   // Keep in sync with AGENT_DOCK_MOTION_MS (AgentPanelContext.tsx).
   --agent-dock-duration: 220ms;
   --agent-dock-easing: cubic-bezier(0.22, 1, 0.36, 1);
 }
-// Below 1180px, beside the side nav's drawer, the header takes two rows: the
-// menu, notices and GrowthBot, then the breadcrumb (TopNav.module.scss). Keep
-// in sync with HEADER_HEIGHT_TWO_ROWS_PX.
+// Two rows below 1180px on pages with the sidebar (TopNav.module.scss).
 @media (max-width: 1180px) {
   :root:has(#main-menu-toggle) {
     --header-height: 80px;
   }
+}
+// Three below 1024px on Settings pages, for SettingsJumpMenu. Keep in sync
+// with SETTINGS_NAV_MIN_WIDTH_PX in components/Layout/constants.ts.
+@media (max-width: 1023px) {
+  :root:has(#settings-jump-menu) {
+    --header-height: 132px;
+  }
+}
+
+// Sticky page tabs pin 1px under the header to cover its edge. Keep in sync
+// with components/Layout/headerHeight.ts.
+:root {
+  --tabs-top: calc(var(--header-height) - 1px);
+  --tabs-bar-height: 40px;
+  --tabs-bottom: calc(var(--tabs-top) + var(--tabs-bar-height));
 }
 
 main {
@@ -64,39 +75,57 @@ body {
   z-index: 990;
 }
 
-// 240px expanded, 48px collapsed; below 1180px the side nav is a drawer.
 :root {
-  --app-rail-width: 240px;
+  --sidebar-width: 240px;
 }
-html.app-rail-collapsed {
-  --app-rail-width: 48px;
+html.app-sidebar-collapsed {
+  --sidebar-width: 48px;
 }
 @media (max-width: 1180px) {
-  html.app-rail-collapsed {
-    --app-rail-width: 240px;
+  html.app-sidebar-collapsed {
+    --sidebar-width: 240px;
   }
 }
-// Crossing 1180px by resizing, or restoring a saved collapsed side nav on load
-// (AppRail.tsx): no transition runs, and one under way ends, so the layout
-// switches at once.
+// Set briefly by Sidebar.tsx when crossing 1180px or restoring a collapsed
+// sidebar, so the layout switches without animating.
 html.app-breakpoint-switch,
 html.app-breakpoint-switch *,
 html.app-breakpoint-switch *::before,
 html.app-breakpoint-switch *::after,
-html.app-rail-restore,
-html.app-rail-restore *,
-html.app-rail-restore *::before,
-html.app-rail-restore *::after {
+html.app-sidebar-restore,
+html.app-sidebar-restore *,
+html.app-sidebar-restore *::before,
+html.app-sidebar-restore *::after {
   transition: none !important;
 }
-// While the side nav's drawer is open, the page behind it doesn't scroll.
 html.app-drawer-open,
 html.app-drawer-open body {
   overflow: hidden;
 }
 
+:root {
+  --settings-nav-width: 256px;
+  --settings-nav-inset: 12px;
+  --settings-layout-left: calc(
+    var(--sidebar-width) + var(--settings-nav-width) + var(--settings-nav-inset)
+  );
+}
+// The sidebar is a drawer here, so the Settings nav starts at the window's
+// edge; below 1024px it's in the header instead (SettingsJumpMenu).
+@media (max-width: 1180px) {
+  :root {
+    --settings-layout-left: calc(
+      var(--settings-nav-width) + var(--settings-nav-inset)
+    );
+  }
+}
+@media (max-width: 1023px) {
+  :root {
+    --settings-layout-left: 0px;
+  }
+}
 .main {
-  padding-left: var(--app-rail-width);
+  padding-left: var(--sidebar-width);
   padding-right: var(--agent-rail-width, 0px);
   transition:
     padding-left 200ms ease,
@@ -112,6 +141,9 @@ html.app-drawer-open body {
   }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+  &.settings-layout {
+    padding-left: var(--settings-layout-left);
   }
   &.product-analytics-explore-landing {
     display: flex;
@@ -138,8 +170,13 @@ html.app-drawer-open body {
 .contents {
   padding: 15px;
 }
+:root {
+  // Page content looks odd when very wide. Components that frame page content
+  // read this too.
+  --page-content-max-width: 1340px;
+}
 .pagecontents {
-  max-width: 1340px; /* add otherwise things start to look odd when very wide */
+  max-width: var(--page-content-max-width);
 }
 pre {
   font-size: 100%;
@@ -349,19 +386,6 @@ pre {
 .btn-light-hover:hover {
   background-color: rgba(154, 110, 248, 0.2);
   color: inherit;
-}
-
-.btn-link-filter-on {
-  color: var(--text-color-primary);
-  &:hover {
-    color: var(--text-link-hover-color);
-  }
-}
-.btn-link-filter-off {
-  color: var(--text-color-muted);
-  &:hover {
-    color: var(--text-link-hover-color);
-  }
 }
 
 .experiment-status-widget {
@@ -586,24 +610,45 @@ pre {
   }
 }
 
+// The surface reaches the window's bottom however short a tab is. The top nav's
+// room is padding inside it, so this adds no scroll.
+.main.experiment,
+.main.bandit,
+.main.holdout {
+  min-height: 100vh;
+  // Runs the window's full width: every page-width limit inside reads this.
+  --page-content-max-width: none;
+  // Beside the details panel, the content caps and centers once there's room.
+  .experiment-column {
+    --page-content-max-width: 1600px;
+  }
+}
+
 .main.experiment,
 .main.bandit,
 .main.holdout,
 .public.experiment,
 .public.bandit,
 .public.holdout {
+  background-color: var(--color-panel-solid);
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
     }
   }
   .experiment-tabs {
-    background-color: var(--color-background);
-    // NB: Keep top property in sync with the tabs' pin (useHeaderHeight)
-    // also, make sure shared reports & shared experiments look good
-    top: calc(var(--header-height) - 1px);
-    height: 40px;
+    // Sticky, so it has to match the page it scrolls over.
+    background-color: var(--color-panel-solid);
+    // NB: make sure shared reports & shared experiments look good
+    top: var(--tabs-top);
+    height: var(--tabs-bar-height);
     transition: 150ms all;
+    // The underline belongs to the whole row, so it runs the page's full
+    // width, past the tab list and under anything beside it.
+    box-shadow: inset 0 -1px 0 0 var(--gray-a5);
+    .rt-BaseTabList {
+      box-shadow: none;
+    }
     .header-tabs {
       flex-wrap: nowrap;
       .date-dropdown {
@@ -646,16 +691,6 @@ pre {
     &.pinned {
       position: sticky;
       z-index: 930;
-      // ensure no shadow bleeds above component, otherwise noticeable when scrolling quickly
-      box-shadow:
-        0 1px 2px rgba(0, 0, 0, 0.1),
-        0 4px 4px rgba(0, 0, 0, 0.025);
-      .header-tabs .tab-wrapper {
-        overflow: hidden;
-      }
-      .rt-BaseTabList {
-        box-shadow: none !important;
-      }
     }
   }
   .analysis-settings-top {
@@ -682,9 +717,8 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top property in sync with the tabs' pin (useHeaderHeight)
-  top: calc(var(--header-height) - 1px);
-  height: 40px;
+  top: var(--tabs-top);
+  height: var(--tabs-bar-height);
   transition: 150ms all;
 
   &.pinned {
@@ -711,8 +745,13 @@ pre {
   padding: 0 10px;
 }
 
+// `overflowing` is measured, since the details panel narrows the column
+// without the window and the viewport query alone misses that.
 .experiment-results-wrapper,
 .bandit-summary-results-wrapper {
+  &.overflowing {
+    overflow-x: auto;
+  }
   @media (max-width: 900px) {
     overflow-x: auto;
   }
@@ -813,7 +852,11 @@ pre {
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
-        top: 95px;
+        top: var(--tabs-bottom);
+        // A scrolling wrapper would pin it to the wrapper, not the page.
+        .overflowing & {
+          position: static;
+        }
         @media (max-width: 900px) {
           position: static;
         }
@@ -826,8 +869,10 @@ pre {
         z-index: 801;
       }
 
+      // Header labels share one baseline, whatever control sits beside them;
+      // AlignedGraph's axis tick `y` is set to land on it too.
       &.header-label {
-        padding-bottom: 5px;
+        padding-bottom: 7px;
         font-size: 16px;
         font-weight: var(--font-weight-bold);
         color: var(--color-text-high);
@@ -943,12 +988,6 @@ main.main {
   &.report {
     .experiment-results th.axis-col {
       top: calc(var(--header-height) - 1px);
-    }
-  }
-  &.public.experiment {
-    .experiment-results th.axis-col {
-      // Under the 40px sticky tabs.
-      top: calc(var(--header-height) + 39px);
     }
   }
   .select-dropdown-underline {
@@ -1450,19 +1489,6 @@ main.main {
     strong,
     b {
       font-weight: 800;
-    }
-  }
-}
-
-.app-sidebar-header {
-  .selected {
-    background-color: colors.$purple;
-  }
-  .divider {
-    margin-top: 9px;
-    border-top: 1px solid rgba(0, 0, 0, 0.5);
-    a {
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
   }
 }
@@ -2659,24 +2685,6 @@ li.metrics a span img {
   object-position: 50% 50%;
 }
 .carousel {
-  .carousel-control-next,
-  .carousel-control-prev {
-    background-color: transparent !important;
-    opacity: 0.6;
-  }
-  .carousel-control-next-icon,
-  .carousel-control-prev-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    border-radius: 50px;
-    background-image: none;
-    background-color: colors.$gray-600;
-    color: #fff;
-    font-size: 18px;
-  }
   .carousel-inner {
     overflow: visible;
     img {
@@ -2800,7 +2808,7 @@ html {
         border-right: 0.3em solid transparent;
         border-bottom: 0;
         border-left: 0.3em solid transparent;
-        color: var(--text-color-main) !important;
+        color: var(--color-text-high) !important;
       }
       .gb-select__input-container {
         margin: 0 !important;
@@ -2813,8 +2821,11 @@ html {
       .gb-select__single-value {
         margin: 0 10px 0 0 !important;
         padding: 0 1px !important;
-        color: var(--text-dark) !important;
+        color: var(--color-text-high) !important;
         max-width: 250px !important;
+        .date-label {
+          color: var(--color-text-mid);
+        }
       }
     }
     .gb-select__indicators {
@@ -2824,6 +2835,9 @@ html {
       border-bottom: 1px solid var(--text-link-hover-color) !important;
       .gb-select__value-container .gb-select__single-value {
         color: var(--text-link-hover-color) !important;
+        .date-label {
+          color: inherit;
+        }
         &:after {
           color: var(--text-color-main) !important;
         }
@@ -3228,13 +3242,53 @@ html {
     padding-bottom: 4px;
   }
 }
+// Settings pages: card and table styling from the design.
+.main.settings-layout {
+  .container-fluid.pagecontents {
+    margin-left: 0;
+    max-width: 1240px;
+    padding: 28px 40px;
+  }
+  .appbox {
+    border-radius: 8px;
+    border-color: var(--slate-a4);
+  }
+  .gbtable {
+    thead th {
+      padding: 10px 12px;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--gray-11);
+      background-color: var(--slate-2);
+    }
+    td {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    tbody tr:hover {
+      background-color: var(--slate-a2);
+    }
+  }
+  .rt-TableRoot {
+    .rt-TableColumnHeaderCell {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-11);
+      background-color: var(--slate-2);
+    }
+    .rt-TableCell {
+      font-size: 13px;
+    }
+    .rt-TableBody .rt-TableRow:hover {
+      background-color: var(--slate-a2);
+    }
+  }
+}
+
 @media (max-width: 1180px) {
   .main {
     padding-left: 0;
-    padding-top: var(--header-height);
-  }
-  .sidebar.open {
-    left: 0;
   }
 }
 
@@ -3523,6 +3577,7 @@ textarea.form-control--sm {
 }
 textarea.form-control--md {
   min-height: 32px;
+  line-height: var(--line-height-2);
   padding-top: 4px;
   padding-bottom: 4px;
 }
@@ -3851,6 +3906,12 @@ input:disabled {
 .dashboard-grid {
   position: relative;
 
+  // Blocks glide only while being arranged; otherwise a width change (the
+  // window, a side panel) would redraw every chart through each frame.
+  &:not(.is-editing) .react-grid-item {
+    transition: none;
+  }
+
   // Make sure each grid item is a clean stacking context so the inner
   // .appbox shadow/border don't get clipped by RGL's positioning. Also need
   // position:relative so the disabled-resize tooltip overlay can absolutely
@@ -3971,20 +4032,6 @@ input:disabled {
   border-radius: 2px;
   &:hover {
     border-color: var(--violet-11);
-  }
-}
-
-// For absolute or fixed containers that should position themselves after the sidebar
-.sidebarLeft {
-  left: var(--app-rail-width, 240px);
-}
-// Conditionally add these classes based on the SidebarOpenProvider
-@media (max-width: 1180px) {
-  .sidebarLeftOpen {
-    left: var(--app-rail-width, 240px) !important;
-  }
-  .sidebarLeftClosed {
-    left: 0 !important;
   }
 }
 

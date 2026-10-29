@@ -6,7 +6,7 @@ import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Button from "@/components/Button";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import styles from "./TopNav.module.scss";
+import styles from "./GuidedGetStartedBar.module.scss";
 
 const manualSteps = ["attributes", "environments"];
 
@@ -23,13 +23,13 @@ const GuidedGetStartedBar = () => {
 
   return (
     <div
-      className={`navbar ${styles.guidedstepbar}`}
+      className={`navbar ${styles.bar}`}
       style={{
         background: "#7B45EA",
         color: "#FFFFFF",
         height: "50px",
         position: "sticky",
-        paddingLeft: 32,
+        paddingLeft: "var(--space-6)",
       }}
     >
       <span>
