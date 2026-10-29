@@ -173,7 +173,10 @@ describe("ExperimentModel", () => {
       await ExperimentModel.collection.insertOne({ ...stored });
 
       await updateExperiment({
-        context: { org: { id: stored.organization } } as unknown as ReqContext,
+        context: {
+          org: { id: stored.organization },
+          hasPremiumFeature: () => false,
+        } as unknown as ReqContext,
         experiment: stored,
         changes: {
           exposureQueryId: "eq_b",

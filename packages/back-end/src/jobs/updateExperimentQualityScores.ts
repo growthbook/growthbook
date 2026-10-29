@@ -4,7 +4,10 @@ import {
   EXPERIMENT_QUALITY_PROMPT_VERSION,
   EXPERIMENT_QUALITY_SCORE_VERSION,
 } from "shared/enterprise";
-import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import {
+  getAISettingsForOrg,
+  getContextForAgendaJobByOrgId,
+} from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
   getExperimentById,
@@ -17,7 +20,6 @@ import {
   computeAndStoreAIQualityChecks,
   getQualityScopeFilter,
   loadAIQualityInputs,
-  loadQualityScoreInputs,
   storeQualityScore,
 } from "back-end/src/enterprise/services/experimentQualityScore";
 import { EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
@@ -105,7 +107,7 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
     }
   }
 
-  const scoreInputs = await loadQualityScoreInputs(context);
+  const { aiEnabled } = await getAISettingsForOrg(context);
   // The daily pass only refreshes results from an older release
   if (outdatedOnly && !scope) return;
 
@@ -119,7 +121,7 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
           ? {
               ...scope,
               $or: [
-                ...(scoreInputs.aiEnabled
+                ...(aiEnabled
                   ? [
                       {
                         ...(hasCustomChecks
@@ -177,7 +179,6 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
       await storeQualityScore(
         context,
         "experiment" in outcome ? outcome.experiment : experiment,
-        scoreInputs,
       );
     } catch (e) {
       logger.error(e, `Quality recheck failed for ${experiment.id}`);
@@ -210,7 +211,6 @@ const updateSingleExperimentQuality = async (
   await storeQualityScore(
     context,
     "experiment" in outcome ? outcome.experiment : experiment,
-    await loadQualityScoreInputs(context),
   );
   if (outcome.status === "rate-limited") {
     await queueExperimentQualityScoreUpdate({
