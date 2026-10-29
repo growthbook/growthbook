@@ -411,7 +411,6 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields || controlValueDisabled}
               useDropdown={true}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />
@@ -436,7 +435,6 @@ export default function SafeRolloutFields({
               renderJSONInline={true}
               disabled={disableFields}
               useDropdown={true}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={FIVE_LINES_HEIGHT}
             />

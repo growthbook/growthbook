@@ -1,0 +1,253 @@
+// Lexical ships no styles; everything the editor renders is themed here.
+
+.wrapper {
+  position: relative;
+  // A column, so the text area takes whatever height the toolbar leaves and
+  // the caller's height describes the control they can see.
+  display: flex;
+  flex-direction: column;
+  // Matches the select fields it sits beside on a form.
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-2);
+  background-color: var(--color-surface);
+  transition:
+    border-color 100ms ease,
+    box-shadow 100ms ease;
+
+  // The ring the select fields draw on focus: the border stays put.
+  &:focus-within {
+    box-shadow: 0 0 0 1px var(--accent-8);
+  }
+}
+
+// The ribbon ends before the toggle rather than under it.
+.toolbarInset {
+  padding-right: 28px;
+}
+
+// Holds the toggle against the seam above the text, wherever that falls: the
+// ribbon wraps to two rows in a narrow column, so its height is not fixed.
+.editableWrap {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+// Straddles that seam, on the surface so the line does not run through it.
+.toolbarToggle {
+  position: absolute;
+  top: 0;
+  right: 6px;
+  z-index: 1;
+  margin: 0;
+  width: 18px;
+  height: 14px;
+  min-width: 18px;
+  transform: translateY(-50%);
+  border: 1px solid var(--gray-a6);
+  border-radius: var(--radius-1);
+  // Opaque: the surface token is translucent, so the seam would show through.
+  background-color: var(--color-panel-solid);
+}
+
+.editable {
+  outline: none;
+  cursor: text;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  color: var(--gray-12);
+  font-family: var(--default-font-family);
+  tab-size: 2;
+
+  > :first-child {
+    margin-top: 0;
+  }
+  > :last-child {
+    margin-bottom: 0;
+  }
+}
+
+.placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  user-select: none;
+  color: var(--gray-a10);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Sizes. Padding and type scale only: height is the caller's to set.
+.md {
+  .editable,
+  .placeholder {
+    padding: var(--space-3);
+    font-size: var(--font-size-2);
+    line-height: var(--line-height-2);
+  }
+}
+
+.sm {
+  .editable,
+  .placeholder {
+    padding: var(--space-2);
+    font-size: var(--font-size-1);
+    line-height: var(--line-height-1);
+  }
+}
+
+// Node styling, mapped from the theme object in the component.
+
+.paragraph {
+  margin: 0 0 var(--space-2);
+}
+
+.h1,
+.h2,
+.h3,
+.h4,
+.h5,
+.h6 {
+  margin: var(--space-4) 0 var(--space-2);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--line-height-2);
+  color: var(--gray-12);
+}
+.h1 {
+  font-size: var(--font-size-5);
+}
+.h2 {
+  font-size: var(--font-size-4);
+}
+.h3 {
+  font-size: var(--font-size-3);
+}
+.h4,
+.h5,
+.h6 {
+  font-size: var(--font-size-2);
+}
+
+.quote {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--gray-a6);
+  color: var(--gray-11);
+}
+
+.ul,
+.ol {
+  margin: 0 0 var(--space-2);
+  padding-left: var(--space-5);
+}
+
+.li {
+  margin: 0;
+}
+
+// Lexical keeps nested lists as list items, which would otherwise show a
+// marker beside the list they contain.
+.nestedLi {
+  list-style-type: none;
+
+  &::before,
+  &::after {
+    display: none;
+  }
+}
+
+.link {
+  color: var(--accent-11);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.bold {
+  font-weight: var(--font-weight-bold);
+}
+
+.italic {
+  font-style: italic;
+}
+
+.strikethrough {
+  text-decoration: line-through;
+}
+
+.inlineCode {
+  padding: 0.1em 0.3em;
+  border-radius: var(--radius-2);
+  background-color: var(--gray-a3);
+  font-family: var(--code-font-family);
+  font-size: 0.9em;
+}
+
+.codeBlock {
+  display: block;
+  margin: 0 0 var(--space-2);
+  padding: var(--space-3);
+  border-radius: var(--radius-2);
+  background-color: var(--gray-a3);
+  font-family: var(--code-font-family);
+  font-size: 0.9em;
+  white-space: pre-wrap;
+}
+
+.imageWrapper {
+  display: inline-block;
+  max-width: 100%;
+}
+
+.image {
+  display: block;
+  max-width: 100%;
+  border-radius: var(--radius-2);
+}
+
+.uploading {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-2);
+  background-color: var(--gray-a3);
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+  line-height: var(--line-height-1);
+}
+
+.toolbar {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--gray-a5);
+  // Sits above the editable area, which scrolls under it.
+  position: relative;
+  z-index: 1;
+  background-color: var(--color-surface);
+  // The wrapper's, set rather than inherited: a collapsible ribbon sits in a Collapse.
+  border-top-left-radius: var(--radius-2);
+  border-top-right-radius: var(--radius-2);
+}
+
+.toolbarButton {
+  margin: 0;
+  padding: 0;
+  width: var(--space-5);
+  height: var(--space-5);
+}
+
+.linkPreviewIcon {
+  flex-shrink: 0;
+  color: var(--gray-11);
+}
+
+.linkPreviewUrl {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

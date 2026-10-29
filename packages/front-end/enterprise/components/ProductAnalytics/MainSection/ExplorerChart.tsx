@@ -64,7 +64,7 @@ const CHART_ID = "explorer-chart";
 
 // ECharts 6 treats these as a minimum around the plot, then shrinks the grid
 // until axis labels and names fit. (v5's `containLabel` is ignored.)
-const CHART_GRID = {
+export const CHART_GRID = {
   left: 8,
   right: 16,
   bottom: 8,

@@ -1,8 +1,12 @@
 import { ReactNode, ReactElement, useRef } from "react";
 import { DiffMethod } from "react-diff-viewer-continued";
 import isEqual from "lodash/isEqual";
-import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
+import { Box, Flex, Grid, VisuallyHidden } from "@radix-ui/themes";
+import {
+  PiArrowSquareOut,
+  PiCheckCircleFill,
+  PiXCircleFill,
+} from "react-icons/pi";
 import {
   FeatureRule,
   FeaturePrerequisite,
@@ -27,9 +31,12 @@ import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
 import { useExperiments } from "@/hooks/useExperiments";
+import VariationLabel from "@/ui/VariationLabel";
+import { featureStatusColors } from "@/components/Features/FeaturesOverview";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 import { useEnvironments } from "@/services/features";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UiTooltip from "@/ui/Tooltip";
 import {
   ChangeField,
   toConditionString,
@@ -41,6 +48,7 @@ import {
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import SortedTags from "@/components/Tags/SortedTags";
+import { coveragePercentFormatter } from "@/services/utils";
 import styles from "./FeatureDiffRenders.module.scss";
 
 // Resolves an experiment ID to its display name and renders it as a link.
@@ -61,6 +69,28 @@ function ExperimentLink({
   );
 }
 
+// Number chip plus the linked experiment's name for the rule's variation id,
+// by position only when there's no id. Falls back to the rule index.
+function VariationValueLabel({
+  experimentId,
+  variationId,
+  index,
+}: {
+  experimentId?: string;
+  variationId?: string;
+  index: number;
+}) {
+  const { experimentsMap } = useExperiments();
+  const variations =
+    (experimentId && experimentsMap.get(experimentId)?.variations) || [];
+  const position = variationId
+    ? variations.findIndex((v) => v.id === variationId)
+    : index;
+  const name = variations[position]?.name;
+  if (!name) return <>{`Variation ${index} value`}</>;
+  return <VariationLabel number={position} name={name} size="sm" />;
+}
+
 // Uses ChangeField for single-line values (booleans, numbers, short strings)
 // and an inline diff viewer for multi-line / JSON values.
 // When label is omitted the label row is suppressed (e.g. when the section
@@ -70,7 +100,7 @@ function ValueChangedField({
   pre,
   post,
 }: {
-  label?: string;
+  label?: ReactNode;
   pre: string | null | undefined;
   post: string | null | undefined;
 }) {
@@ -130,11 +160,6 @@ function ValueChangedField({
     </div>
   );
 }
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 1,
-});
 
 function getRuleTypeLabel(type: FeatureRule["type"]): string {
   switch (type) {
@@ -457,7 +482,7 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
     const v = valStr.slice(0, 40);
     detail = `value: ${v}${valStr.length > 40 ? "…" : ""}`;
   } else if (rule.type === "rollout") {
-    detail = `${percentFormatter.format(rule.coverage)} of ${rule.hashAttribute}${rule.seed ? `, seed: ${rule.seed}` : ""}`;
+    detail = `${coveragePercentFormatter.format(rule.coverage)} of ${rule.hashAttribute}${rule.seed ? `, seed: ${rule.seed}` : ""}`;
   } else if (rule.type === "experiment") {
     detail = `key: ${rule.trackingKey}`;
   } else if (rule.type === "experiment-ref") {
@@ -709,10 +734,10 @@ function RuleFieldDiffs({
         key="coverage"
         label="Coverage"
         changed
-        oldNode={percentFormatter.format(
+        oldNode={coveragePercentFormatter.format(
           (pre as { coverage: number }).coverage,
         )}
-        newNode={percentFormatter.format(
+        newNode={coveragePercentFormatter.format(
           (post as { coverage: number }).coverage,
         )}
       />,
@@ -759,7 +784,13 @@ function RuleFieldDiffs({
       rows.push(
         <ValueChangedField
           key={`var-${i}`}
-          label={`Variation ${i} value`}
+          label={
+            <VariationValueLabel
+              experimentId={(post as { experimentId?: string }).experimentId}
+              variationId={(nv ?? pv)?.variationId}
+              index={i}
+            />
+          }
           pre={pv !== null && pv !== undefined ? formatValue(pv.value) : null}
           post={nv !== null && nv !== undefined ? formatValue(nv.value) : null}
         />,
@@ -882,7 +913,7 @@ function NewRuleDetails({
         label="Coverage"
         changed
         oldNode={<em>unset</em>}
-        newNode={percentFormatter.format(rule.coverage)}
+        newNode={coveragePercentFormatter.format(rule.coverage)}
       />,
       <ValueChangedField
         key="value"
@@ -948,7 +979,13 @@ function NewRuleDetails({
       rows.push(
         <ValueChangedField
           key={`var-${i}`}
-          label={`Variation ${i} value`}
+          label={
+            <VariationValueLabel
+              experimentId={rule.experimentId}
+              variationId={v.variationId}
+              index={i}
+            />
+          }
           pre={null}
           post={formatValue(v.value)}
         />,
@@ -1865,23 +1902,6 @@ function renderPrerequisiteList(
   return sections.length ? <div className="mt-1">{sections}</div> : null;
 }
 
-export function renderEnvPrerequisites(
-  envId: string,
-  current: FeaturePrerequisite[],
-  draft: FeaturePrerequisite[],
-): ReactNode {
-  const result = renderPrerequisiteList(current, draft);
-  if (!result) return null;
-  return (
-    <div>
-      <Text size="sm" color="text-low" as="div" mb="2">
-        {envId}
-      </Text>
-      {result}
-    </div>
-  );
-}
-
 export function renderPrerequisites(
   current: FeaturePrerequisite[],
   draft: FeaturePrerequisite[],
@@ -1889,49 +1909,62 @@ export function renderPrerequisites(
   return renderPrerequisiteList(current, draft);
 }
 
-// Text "On"/"Off" indicator for an environment toggle.
-function EnvEnabledIndicator({ enabled }: { enabled: boolean }) {
+// On/off icon for an environment toggle. "muted" is the before half of a diff.
+function EnvEnabledIndicator({
+  enabled,
+  tone = "state",
+}: {
+  enabled: boolean;
+  tone?: "state" | "muted";
+}) {
+  // Teal, not green: a check beside approval verdicts reads as one.
+  const color = enabled ? "var(--teal-10)" : featureStatusColors.off;
+  const label = enabled ? "On" : "Off";
+  const Icon = enabled ? PiCheckCircleFill : PiXCircleFill;
   return (
-    <span
-      style={{
-        fontSize: "var(--font-size-2)",
-        fontWeight: 500,
-      }}
-    >
-      {enabled ? "On" : "Off"}
-    </span>
+    <UiTooltip content={label}>
+      <span style={{ display: "inline-flex", alignItems: "center" }}>
+        <Icon
+          size={20}
+          style={{ color, opacity: tone === "muted" ? 0.3 : undefined }}
+        />
+        {/* Real text, so a selection copies name and state. */}
+        <VisuallyHidden>{label}</VisuallyHidden>
+      </span>
+    </UiTooltip>
   );
 }
 
-export function renderEnvironmentsEnabled(
-  current: boolean | undefined,
-  draft: boolean | undefined,
+export function renderEnvironmentToggles(
+  toggles: { envId: string; from: boolean; to: boolean }[],
 ): ReactNode {
-  if (current === undefined && draft === undefined) return null;
-  if (current === draft) return null;
+  if (!toggles.length) return null;
   return (
-    <div className="d-flex align-items-center mb-2">
-      <div className="text-danger d-flex align-items-center">
-        <div className="text-center mr-2" style={{ width: 16 }}>
-          Δ
-        </div>
-        {current === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={current} />
-        )}
-      </div>
-      <div className="text-success d-flex align-items-center ml-4">
-        <div className="text-center mx-2" style={{ width: 16 }}>
-          →
-        </div>
-        {draft === undefined ? (
-          <em>unset</em>
-        ) : (
-          <EnvEnabledIndicator enabled={draft} />
-        )}
-      </div>
-    </div>
+    <Grid
+      gapX="4"
+      gapY="3"
+      mb="2"
+      style={{
+        gridTemplateColumns: "repeat(auto-fill, minmax(120px, max-content))",
+      }}
+    >
+      {toggles.map(({ envId, from, to }) => (
+        <Box key={envId} minWidth="0">
+          <Box minWidth="0" mb="1">
+            <UiTooltip content={envId}>
+              <Text weight="medium" truncate>
+                {envId}
+              </Text>
+            </UiTooltip>
+          </Box>
+          <Flex align="center" gap="2">
+            <EnvEnabledIndicator enabled={from} tone="muted" />
+            <span className={styles.toggleArrow}>→</span>
+            <EnvEnabledIndicator enabled={to} />
+          </Flex>
+        </Box>
+      ))}
+    </Grid>
   );
 }
 

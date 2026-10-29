@@ -125,6 +125,7 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
+- **409** - Conflict - The resource changed since it was read, or its state blocks the request, such as an experiment start's checklist. `code` names which.
 - **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that `ignoreWarnings` clears every 422 response.
 - **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute, or the limit your self-hosted server sets. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
@@ -137,13 +138,26 @@ The response body will be a JSON object with the following properties:
 
 Automated callers, including AI agents, should report a blocked response to a person instead of retrying with an override. Use an override only when a person has explicitly asked for it.
 
-Publish responses include a `gates` array that explains every blocker:
+Publish and experiment start responses include a `gates` array that explains every blocker:
 
 - `type`, `severity`, and `messages` identify the problem.
-- `override` names the request-body field that can bypass it. This is `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and invariant failures, or `skipHooks` for Custom Hook rejections. A value of `null` means there is no request-body override.
+- `override` names the request-body field that can bypass it. This is `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and invariant failures, `skipHooks` for Custom Hook rejections, or `skipChecklist` for an experiment start's launch checklist items. A value of `null` means there is no request-body override.
 - `requiresPermission` identifies any additional permission needed to use the override.
 - `resolution` provides an API action, method, and path when the blocker must be resolved another way.
 
 For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in `resolution`.
 
-When a successful publish bypasses a gate, the response includes `bypassedGates`. Each entry reports the gate `type` and how it was bypassed in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This field is omitted when no gates were bypassed.
+When a successful publish bypasses a gate, the response includes `bypassedGates`. Each entry reports the gate `type` and how it was bypassed in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `skipChecklist`, `bypassApprovalPermission`, `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This field is omitted when no gates were bypassed.
+
+### Request flags
+
+Every refusal a request can get past with a flag:
+
+| Flag                      | Where        | Gets past                                                                                                    |
+| ------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `ignoreWarnings`          | Body         | Warnings (`422`)                                                                                             |
+| `skipSchemaValidation`    | Body         | Schema and invariant failures, with **Bypass draft approvals** access                                        |
+| `skipHooks`               | Body         | Custom Hook rejections                                                                                       |
+| `skipChecklist`           | Body         | An experiment start's incomplete launch checklist items (`409` `checklist_incomplete`), but not its blockers |
+| `allowUnscopedRules`      | Body         | A rule for All Environments and All Projects where the organization requires a scope (`422` `unscoped_rule`) |
+| `overrideDraftLimit=true` | Query string | Creating a draft past the draft limit                                                                        |

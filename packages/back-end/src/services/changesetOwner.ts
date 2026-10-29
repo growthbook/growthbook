@@ -18,11 +18,7 @@ import {
   getLatestPhaseVariations,
   getVisibleVariations,
 } from "shared/experiments";
-import {
-  changesetOwnerRef,
-  generateVariationId,
-  getAffectedEnvsForExperiment,
-} from "shared/util";
+import { changesetOwnerRef, generateVariationId } from "shared/util";
 import type { ReqContext } from "back-end/types/request";
 import type { ApiReqContext } from "back-end/types/api";
 import {
@@ -39,11 +35,16 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { logger } from "back-end/src/util/logger";
-import { toExperimentApiInterface } from "back-end/src/services/experiments";
+import {
+  assertCanRunLinkedChanges,
+  auditVisualChangeEditAfterStart,
+  toExperimentApiInterface,
+} from "back-end/src/services/experiments";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
 import { BadRequestError } from "back-end/src/util/errors";
 import { confirmationLink } from "back-end/src/services/confirmations";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
 export type ChangesetOwnerKind = "experiment" | "contextual-bandit";
 
@@ -158,7 +159,9 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
   canUpdateOwner(): boolean {
     return this.context.permissions.canUpdateExperiment(this.experiment, {});
   }
-  assertCanCreateChangeset(): void {}
+  assertCanCreateChangeset(): void {
+    assertScheduledStartAllows(this.experiment, "AI Visual Editor changes");
+  }
   canCreateChangeset(): boolean {
     return (
       this.context.permissions.canUpdateExperiment(this.experiment, {}) &&
@@ -239,6 +242,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
     sourceVariationId?: string;
   }): Promise<{ id: string; name: string }> {
     await this.reload();
+    requireDraftExperiment(this.context, this.experiment);
     const experiment = this.experiment;
     const sourceVariation = sourceVariationId
       ? experiment.variations.find((v) => v.id === sourceVariationId)
@@ -308,6 +312,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
 
   async removeVariation(variationId: string): Promise<RemoveVariationResult> {
     await this.reload();
+    requireDraftExperiment(this.context, this.experiment);
     const experiment = this.experiment;
     const idx = experiment.variations.findIndex((v) => v.id === variationId);
     if (idx < 0) {
@@ -384,6 +389,7 @@ export class ExperimentChangesetOwner implements ChangesetOwner {
 
   async renameVariation(variationId: string, name: string): Promise<string> {
     await this.reload();
+    requireDraftExperiment(this.context, this.experiment);
     const experiment = this.experiment;
     const idx = experiment.variations.findIndex((v) => v.id === variationId);
     if (idx < 0) {
@@ -721,10 +727,14 @@ function renormalizeWeights(weights: number[]): number[] {
 }
 
 function requireDraftExperiment(
-  context: ApiReqContext,
-  experiment: { status: string; archived: boolean },
+  context: Ctx,
+  experiment: Pick<
+    ExperimentInterface,
+    "status" | "archived" | "nextScheduledStatusUpdate"
+  >,
   { allowRunning = false }: { allowRunning?: boolean } = {},
 ): void {
+  assertScheduledStartAllows(experiment, "AI Visual Editor changes");
   if (allowRunning && !experiment.archived && experiment.status === "running") {
     return;
   }
@@ -745,35 +755,15 @@ function requireVisualChangeWrite(
     visualChangesetId,
   }: { allowRunning: boolean; visualChangesetId: string },
 ): () => Promise<void> {
-  requireDraftExperiment(req.context, experiment, { allowRunning });
-  if (experiment.status !== "running") return async () => {};
-
-  // Every environment, not the linked features' ones: a stale hasVisualChangesets flag would shrink the check.
-  const envs = getAffectedEnvsForExperiment({
-    experiment: { ...experiment, hasVisualChangesets: true },
-    // getEnvironments falls back to the SDK defaults; an empty list would pass vacuously.
-    orgEnvironments: getEnvironments(req.context.org),
-  });
-  if (!req.context.permissions.canRunExperiment(experiment, envs)) {
-    req.context.permissions.throwPermissionError();
+  // A stopped experiment is open like a draft; running still needs the opt-in.
+  if (experiment.archived || experiment.status !== "stopped") {
+    requireDraftExperiment(req.context, experiment, { allowRunning });
   }
-  // The write already landed, so a failed audit is logged, not surfaced.
+  if (experiment.status === "draft") return async () => {};
+
+  assertCanRunLinkedChanges(req.context, experiment);
   return () =>
-    req
-      .audit({
-        event: "experiment.update",
-        entity: { object: "experiment", id: experiment.id },
-        details: auditDetailsUpdate(experiment, experiment, {
-          visualChangesetId,
-          liveVisualChangeEdit: true,
-        }),
-      })
-      .catch((err) =>
-        logger.error(
-          { err, experimentId: experiment.id, visualChangesetId },
-          "Failed to audit a live visual change edit",
-        ),
-      );
+    auditVisualChangeEditAfterStart(req.audit, experiment, visualChangesetId);
 }
 
 export function changesetOwnerConfirmationLink(owner: ChangesetOwner) {

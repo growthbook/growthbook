@@ -121,9 +121,11 @@ const ContextualBanditPage = (): ReactElement => {
   const canAddVisualChanges =
     canAddLinkedChanges &&
     permissionsUtil.canCreateVisualChange({ project: cb.project });
-  const canRun =
-    !cb.archived &&
-    permissionsUtil.canRunContextualBandit({ project: cb.project }, envs);
+  const hasRunPermission = permissionsUtil.canRunContextualBandit(
+    { project: cb.project },
+    envs,
+  );
+  const canRun = !cb.archived && hasRunPermission;
   const canEditVisualChangesets =
     canEditContextualBanditVisualChanges(cb) &&
     permissionsUtil.canUpdateVisualChange({ project: cb.project }) &&
@@ -135,6 +137,10 @@ const ContextualBanditPage = (): ReactElement => {
     mutateLinkedFeatures();
     mutateVisualChangesets();
   };
+  const canArchive =
+    permissionsUtil.canViewContextualBanditModal(cb.project) &&
+    (cb.status !== "running" || hasRunPermission);
+  const canDelete = permissionsUtil.canDeleteContextualBandit(cb);
 
   return (
     <>
@@ -151,6 +157,9 @@ const ContextualBanditPage = (): ReactElement => {
             cb={cb}
             mutate={mutate}
             canRun={canRun}
+            canStop={hasRunPermission}
+            canArchive={canArchive}
+            canDelete={canDelete}
             editOverview={
               canEdit ? () => setOverviewModalOpen(true) : undefined
             }

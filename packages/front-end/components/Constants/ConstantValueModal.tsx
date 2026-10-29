@@ -10,6 +10,7 @@ import {
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretDownFill, PiPlus, PiTrash } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -142,7 +143,7 @@ export default function ConstantValueModal({
       size="lg"
       close={close}
       cta="Save"
-      submit={form.handleSubmit(async (values) => {
+      submit={validatedSubmit(form, async (values) => {
         // A key's presence is the override (even when its value is empty): an
         // empty override forces that environment's resolved value to empty,
         // overriding the constant's value. Removing the row (the trash button)
@@ -212,7 +213,6 @@ export default function ConstantValueModal({
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
           valueType={type === "string" ? "string" : "json"}
-          useCodeInput={type === "json"}
           showFullscreenButton={type === "json"}
           constantContext={constantContext}
         />
@@ -281,7 +281,6 @@ export default function ConstantValueModal({
                   value={envValues[envId] || ""}
                   setValue={(v) => setOverrideValue(envId, v)}
                   valueType={type === "string" ? "string" : "json"}
-                  useCodeInput={type === "json"}
                   showFullscreenButton={type === "json"}
                   constantContext={constantContext}
                 />

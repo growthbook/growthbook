@@ -11,6 +11,7 @@ import {
   SqlExplorerDataVisualization,
 } from "@/components/DataViz/SqlExplorerDataVisualization";
 import DisplayTestQueryResults from "@/components/Settings/DisplayTestQueryResults";
+import ScrollArea from "@/ui/ScrollArea";
 import { BlockProps } from ".";
 
 export default function SqlExplorerBlock({
@@ -31,7 +32,7 @@ export default function SqlExplorerBlock({
     if (!dataVizConfig) return null; // Warning state handled by parent component
 
     return (
-      <div>
+      <ScrollArea fill direction="both" edgeCue="fade" style={{ flex: 1 }}>
         <SqlExplorerDataVisualization
           rows={savedQuery.results.results}
           dataVizConfig={dataVizConfig}
@@ -39,21 +40,28 @@ export default function SqlExplorerBlock({
           showPanel={false}
           graphTitle={""}
         />
-      </div>
+      </ScrollArea>
     );
   }
 
   const blockConfig = block.blockConfig || [];
+  // Alone, the table or chart takes the block's size; stacked, they scroll.
+  const alone = blockConfig.length === 1;
 
   // Process blockConfig to render items in order
   const renderItems = blockConfig.map((configId, index) => {
     if (isResultsTableItem(configId)) {
       // Render results table
       return (
-        <div key={`${configId}-${index}`}>
+        <Flex
+          key={`${configId}-${index}`}
+          direction="column"
+          flexGrow={alone ? "1" : undefined}
+          minHeight="0"
+        >
           <Box
             style={{
-              height: 500,
+              ...(alone ? { flex: 1, minHeight: 0 } : { height: 500 }),
               position: "relative",
               overflow: "auto",
             }}
@@ -67,7 +75,7 @@ export default function SqlExplorerBlock({
               showSampleHeader={false}
             />
           </Box>
-        </div>
+        </Flex>
       );
     } else {
       // Render visualization - try to find by ID first, then fallback to title
@@ -82,6 +90,8 @@ export default function SqlExplorerBlock({
           py="5"
           align="center"
           justify="center"
+          flexGrow={alone ? "1" : undefined}
+          minHeight="0"
           style={{
             border: "1px solid var(--gray-a3)",
             borderRadius: "var(--radius-4)",
@@ -101,9 +111,16 @@ export default function SqlExplorerBlock({
     }
   });
 
-  return (
-    <Flex direction="column" gap="4">
+  const items = (
+    <Flex direction="column" gap="4" flexGrow="1" minHeight="0">
       {renderItems}
     </Flex>
+  );
+  return alone ? (
+    items
+  ) : (
+    <ScrollArea fill direction="both" edgeCue="fade" style={{ flex: 1 }}>
+      {items}
+    </ScrollArea>
   );
 }
