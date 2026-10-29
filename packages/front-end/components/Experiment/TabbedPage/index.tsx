@@ -716,14 +716,16 @@ function TabbedPageContents({
         <ConfirmDialog
           title="Leave without saving?"
           content="You have unsaved changes to this experiment. Leaving Setup discards them."
-          yesText="Leave Setup"
-          noText="Keep editing"
-          onConfirm={() => {
+          // Staying is the primary action; leaving is the secondary one.
+          yesText="Keep editing"
+          noText="Leave Setup"
+          onConfirm={() => setPendingTab(null)}
+          onCancel={() => {
             edits?.discardAll();
             switchTab(pendingTab.tab, pendingTab.scrollToId);
             setPendingTab(null);
           }}
-          onCancel={() => setPendingTab(null)}
+          onDismiss={() => setPendingTab(null)}
         />
       ) : null}
       <ExperimentHeader
