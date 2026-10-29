@@ -92,7 +92,7 @@ export function IneligibleClusterMetricsCallouts({
   return (
     <>
       {ineligible.droppedNames.length > 0 && (
-        <Callout status="info" mb="3">
+        <Callout status="warning" mb="3">
           {`Saving will remove metrics that cluster experiments can't analyze: ${ineligible.droppedNames.join(", ")}.`}
         </Callout>
       )}
