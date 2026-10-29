@@ -11,7 +11,7 @@ export interface SourceVersion {
   dirty: boolean;
 }
 
-function versionOf(dir: string): SourceVersion {
+export function versionOf(dir: string): SourceVersion {
   const git = (...args: string[]) =>
     execFileSync("git", ["-C", dir, ...args], { encoding: "utf8" }).trim();
   try {
@@ -27,7 +27,7 @@ function versionOf(dir: string): SourceVersion {
 
 // Mirrors scripts/assemble-agent-skills.mjs, which the eval command runs
 // first: $SKILLS_SRC, then agent-skills.local.json, then skills-src/.
-function skillsSource(skillsSrc: string | null): string | null {
+export function skillsSource(skillsSrc: string | null): string | null {
   if (skillsSrc) return path.resolve(BACK_END, skillsSrc);
   const local = path.join(BACK_END, "agent-skills.local.json");
   if (existsSync(local)) {

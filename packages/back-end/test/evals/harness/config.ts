@@ -10,12 +10,19 @@ export interface EvalConfig {
   driver: string;
   // Null means the driver's default.
   profile: string | null;
+  // The in-app agent's model: --model, or GrowthBook's default.
   agentModel: AIModel;
+  // --model as typed, null when it wasn't given. External harnesses get it
+  // verbatim (it may be one of their aliases) and otherwise use their own.
+  agentModelFlag: string | null;
   simulatorModel: AIModel;
   judgeModel: AIModel;
   // Null means the suite's own threshold.
   threshold: number | null;
   skillsSrc: string | null;
+  // A built growthbook-mcp checkout for the external `mcp` profiles; null
+  // runs the published package.
+  mcpServer: string | null;
 }
 
 function positiveInt(
@@ -54,14 +61,20 @@ export function readEvalConfig(env = process.env): EvalConfig {
   if (threshold !== null && !(threshold >= 0 && threshold <= 1)) {
     throw new Error(`EVAL_THRESHOLD must be between 0 and 1`);
   }
+  const driver = env.EVAL_DRIVER || "in-app";
   return {
     trials: positiveInt("EVAL_TRIALS", env.EVAL_TRIALS, 3),
     concurrency: positiveInt("EVAL_CONCURRENCY", env.EVAL_CONCURRENCY, 4),
     scenarioIds: list(env.EVAL_SCENARIO),
     tag: env.EVAL_TAG || null,
-    driver: env.EVAL_DRIVER || "in-app",
+    driver,
     profile: env.EVAL_PROFILE || null,
-    agentModel: model("EVAL_MODEL", env.EVAL_MODEL, "claude-sonnet-5-5"),
+    agentModel: model(
+      "EVAL_MODEL",
+      driver === "in-app" ? env.EVAL_MODEL : undefined,
+      "claude-sonnet-5-5",
+    ),
+    agentModelFlag: env.EVAL_MODEL || null,
     simulatorModel: model(
       "EVAL_SIMULATOR_MODEL",
       env.EVAL_SIMULATOR_MODEL,
@@ -74,5 +87,6 @@ export function readEvalConfig(env = process.env): EvalConfig {
     ),
     threshold,
     skillsSrc: env.SKILLS_SRC || null,
+    mcpServer: env.EVAL_MCP_SERVER || null,
   };
 }

@@ -3,10 +3,19 @@
 //   pnpm --filter back-end eval <suite> [--trials 3] [--scenario mc-03,mc-04]
 //     [--tag release-plan] [--model claude-sonnet-5-5] [--driver in-app]
 //     [--profile skills] [--concurrency 4] [--threshold 0.9] [--skip-assemble]
+//     [--mcp-server ../growthbook-mcp]
+// Drivers and their profiles:
+//   in-app       skills (default), no-skills
+//   claude-code  mcp (default), mcp-api, plugin, bare. Runs the `claude` CLI
+//                against a local eval server; needs ANTHROPIC_API_KEY. --model
+//                is passed through only when given (aliases like opus work).
+//                --mcp-server points the mcp profiles at a built
+//                growthbook-mcp checkout instead of the published package.
 // Skills come from wherever assemble-skills resolves them ($SKILLS_SRC,
 // agent-skills.local.json, or skills-src/), so a playbook branch is tested by
-// pointing at it. Flags reach the harness as EVAL_* variables because Jest
-// rejects unknown CLI flags.
+// pointing at it; the claude-code plugin profile loads that checkout as its
+// plugin. Flags reach the harness as EVAL_* variables because Jest rejects
+// unknown CLI flags.
 import { spawnSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -25,6 +34,7 @@ const FLAGS = {
   threshold: "EVAL_THRESHOLD",
   "simulator-model": "EVAL_SIMULATOR_MODEL",
   "judge-model": "EVAL_JUDGE_MODEL",
+  "mcp-server": "EVAL_MCP_SERVER",
 };
 
 const { values, positionals } = parseArgs({

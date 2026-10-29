@@ -12,6 +12,7 @@ pnpm --filter back-end eval make-changes                  # 12 scenarios × 3 tr
 pnpm --filter back-end eval smoke --trials 1
 pnpm --filter back-end eval make-changes --scenario mc-03,mc-04 --trials 5
 pnpm --filter back-end eval make-changes --tag release-plan --profile no-skills
+pnpm --filter back-end eval smoke --driver claude-code --profile plugin
 ```
 
 | Flag                                 | Default             | Meaning                                            |
@@ -30,10 +31,16 @@ Keys come from the shell or from `packages/back-end/.env.local` (only the AI pro
 
 **Skills under test.** The command runs `assemble-skills` first, so it uses whatever skills source that resolves: `$SKILLS_SRC`, then `agent-skills.local.json`, then `skills-src/`. Point `SKILLS_SRC` at a local `growthbook/skills` branch to test a playbook change, and compare its `summary.json` with a run on the pinned skills or with `--profile no-skills`.
 
-| Driver   | Profile     | What the agent gets                                             |
-| -------- | ----------- | --------------------------------------------------------------- |
-| `in-app` | `skills`    | The in-app assistant with the assembled skills                  |
-| `in-app` | `no-skills` | The same assistant with every skill domain disabled for the org |
+| Driver        | Profile     | What the agent gets                                                                    |
+| ------------- | ----------- | -------------------------------------------------------------------------------------- |
+| `in-app`      | `skills`    | The in-app assistant with the assembled skills                                         |
+| `in-app`      | `no-skills` | The same assistant with every skill domain disabled for the org                        |
+| `claude-code` | `mcp`       | The GrowthBook MCP server with its bundled skills                                      |
+| `claude-code` | `mcp-api`   | The same server with skills off                                                        |
+| `claude-code` | `plugin`    | The Agent Skills plugin from the run's skills checkout, calling the API with `gb-call` |
+| `claude-code` | `bare`      | A base URL, an API key, and the OpenAPI spec, with only `curl` in the shell            |
+
+The `claude-code` driver runs `claude -p` per user message against an eval server: the real app with real API-key auth on a local port, recording every call by key. Each trial gets a throwaway org and key, its own temp directory as `HOME`, `--restricted` and `--strict-mcp-config`, and only its profile's tools, so it never sees your Claude Code settings, plugins, MCP servers, or GrowthBook config. It signs in with `ANTHROPIC_API_KEY`, and the run stops if Claude Code reports any other sign-in. External agents have no confirm cards, so `confirmCards` doesn't apply to them.
 
 ## Reading results
 

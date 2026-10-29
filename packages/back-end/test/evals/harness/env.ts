@@ -23,6 +23,12 @@ export function prepareEvalEnv(): void {
   }
   // Background jobs would race a trial's writes; the eval runs none.
   process.env.CRON_DISABLED = "true";
+  // External agents call the eval server with one key per trial; the default
+  // 60 a minute would throttle a busy agent and grade the limiter instead.
+  process.env.API_RATE_LIMIT_MAX = "10000";
+  // MCP calls carry telemetry headers; eval traffic stays out of GrowthBook's
+  // own analytics.
+  process.env.DISABLE_TELEMETRY = "true";
 }
 
 export function assertProviderKeys(models: AIModel[]): void {

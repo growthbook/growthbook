@@ -90,6 +90,9 @@ export interface World {
   experiment(seed: ExperimentSeed): Promise<Seeded>;
   read(target: Seeded): Promise<WorldSnapshot>;
   updateOrgSettings(settings: Partial<OrganizationSettings>): Promise<void>;
+  // A real admin secret key for this org, which the eval server's auth
+  // accepts. It has no confirm rules: external agents have no confirm cards.
+  createApiKey(): Promise<string>;
 }
 
 export interface WorldOptions {
@@ -186,6 +189,13 @@ export async function createWorld({ agentModel }: WorldOptions) {
         { id: org.id },
         { $set: { settings: org.settings } },
       );
+    },
+    createApiKey: async () => {
+      const { key } = await context.models.apiKeys.createOrganizationApiKey({
+        description: "Eval agent",
+        roleId: "admin",
+      });
+      return key;
     },
   };
 

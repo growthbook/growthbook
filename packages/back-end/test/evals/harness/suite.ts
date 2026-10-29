@@ -63,6 +63,7 @@ export async function runSuite(
     await factory.close?.();
   }
 
+  const driverMetadata = factory.metadata();
   const summary = summarize(
     {
       ...runMetadata(config.skillsSrc),
@@ -70,9 +71,10 @@ export async function runSuite(
       suite: suite.name,
       driver: factory.name,
       profile: factory.profile,
-      driverMetadata: factory.metadata(),
+      driverMetadata,
       models: {
-        agent: config.agentModel,
+        // External harnesses pick their own model unless --model says.
+        agent: driverMetadata.agentModel ?? config.agentModel,
         simulator: config.simulatorModel,
         judge: config.judgeModel,
       },

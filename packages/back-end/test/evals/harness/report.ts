@@ -32,7 +32,8 @@ export interface RunInfo extends RunMetadata {
   driver: string;
   profile: string;
   driverMetadata: Record<string, string>;
-  models: { agent: AIModel; simulator: AIModel; judge: AIModel };
+  // The agent may be an external harness's model, named its own way.
+  models: { agent: string; simulator: AIModel; judge: AIModel };
   k: number;
   threshold: number;
 }
@@ -174,7 +175,10 @@ export function formatReport(
   const header = [
     summary.suite,
     `${summary.driver} (${summary.profile})`,
-    `skills ${summary.skills ? `${home(summary.skills.path)} @ ${sha(summary.skills)}` : "none assembled"}`,
+    // An MCP server bundles its own skills; otherwise the run's checkout.
+    summary.driverMetadata.mcpServer
+      ? `skills from ${summary.driverMetadata.mcpServer}`
+      : `skills ${summary.skills ? `${home(summary.skills.path)} @ ${sha(summary.skills)}` : "none assembled"}`,
     `agent ${summary.models.agent}`,
     `growthbook @ ${sha(summary.growthbook)}`,
     `k=${k}`,
