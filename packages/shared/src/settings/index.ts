@@ -115,8 +115,6 @@ export const resolvers: Record<
   delayHours: genMetricOverrideResolver("delayHours"),
   windowType: genMetricOverrideResolver("windowType"),
   windowHours: genMetricOverrideResolver("windowHours"),
-  winRisk: genMetricOverrideResolver("winRisk"),
-  loseRisk: genMetricOverrideResolver("loseRisk"),
   secureAttributeSalt: genDefaultResolver("secureAttributeSalt"),
   killswitchConfirmation: genDefaultResolver("killswitchConfirmation"),
   requireReviews: genDefaultResolver("requireReviews"),

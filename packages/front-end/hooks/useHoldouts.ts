@@ -1,7 +1,29 @@
 import { useMemo } from "react";
+import { startCase } from "lodash";
+import { getHoldoutStage } from "shared/util";
 import { HoldoutInterface } from "shared/validators";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { coveragePercentFormatter } from "@/services/utils";
 import useApi from "./useApi";
+
+// "Running", or "Running: Analysis Phase" once its analysis has started.
+export function holdoutStatusLabel(
+  holdout: Pick<HoldoutInterface, "analysisStartDate">,
+  experiment: Pick<ExperimentInterfaceStringDates, "status">,
+): string {
+  return (
+    startCase(experiment.status) +
+    (getHoldoutStage(holdout, experiment) === "analysis-period"
+      ? ": Analysis Phase"
+      : "")
+  );
+}
+
+// The holdout measures its held-out share against a comparison group as big.
+export function holdoutSizeTip(size: number): string {
+  const pct = (n: number) => coveragePercentFormatter.format(n);
+  return `Of users the holdout targets, ${pct(size)} are held out and never reach this experiment. Another ${pct(size)} reach it as the holdout's comparison group, and the other ${pct(1 - 2 * size)} reach it unmeasured.`;
+}
 
 // True when a holdout is enabled in at least one env — i.e. when it actually
 // occupies the "Rule #1" slot in the rules list (see FeatureRules.tsx's
