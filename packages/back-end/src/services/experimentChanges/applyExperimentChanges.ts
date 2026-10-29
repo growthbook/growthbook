@@ -15,6 +15,7 @@ import {
 import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   deleteRevisionForFailedLanding,
+  getLinkageSyncRevisionSummaries,
   getRevision,
   getRevisionSnapshot,
   prevalidateRevisionUpdate,
@@ -26,6 +27,7 @@ import {
   getDraftRevision,
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
+import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import {
   ExperimentFeatureUpdatePlan,
   ExperimentLinkedFeatureValueUpdate,
@@ -449,6 +451,26 @@ async function compensate(
       failed.push(`${c.featureId} (draft v${c.version})`);
     }
   }
+  // A restored or deleted draft changes what each experiment queues to
+  // publish; rebuilt before the failure returns, so a start right after sees it.
+  await Promise.all(
+    [...new Set(compensations.map((c) => c.featureId))].map(
+      async (featureId) => {
+        try {
+          const { openDrafts, liveRevision } =
+            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
+          await syncFeatureExperimentLinkages(
+            context,
+            featureId,
+            openDrafts,
+            liveRevision,
+          );
+        } catch (e) {
+          logger.error(e, `Could not resync ${featureId} after rolling back`);
+        }
+      },
+    ),
+  );
   return failed;
 }
 

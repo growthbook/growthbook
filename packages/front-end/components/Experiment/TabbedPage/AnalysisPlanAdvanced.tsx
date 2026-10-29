@@ -5,6 +5,7 @@ import { getValidDate } from "shared/dates";
 import {
   getUnsetAnalysisSettings,
   SETTLED_ANALYSIS_SETTINGS,
+  getScopedSettings,
 } from "shared/settings";
 import {
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
@@ -205,12 +206,13 @@ export default function AnalysisPlanAdvanced({
     ...experiment,
     ...getUnsetAnalysisSettings({ organization, project, experiment }),
   };
-  // What the org and project would give it now.
-  const defaults = getUnsetAnalysisSettings({
-    organization,
-    project,
-    experiment: {},
-  });
+  // What the org and project would give a new experiment now. Unset, an old
+  // experiment's CUPED stays off; a new one gets the org's default.
+  const defaults = {
+    ...getUnsetAnalysisSettings({ organization, project, experiment: {} }),
+    regressionAdjustmentEnabled: !!getScopedSettings({ organization, project })
+      .settings.regressionAdjustmentEnabled.value,
+  };
   const defaultAttributionModel =
     orgSettings.attributionModel || "firstExposure";
   const resetIf = (

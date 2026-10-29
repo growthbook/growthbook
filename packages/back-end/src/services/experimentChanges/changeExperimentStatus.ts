@@ -1,3 +1,4 @@
+import isEqual from "lodash/isEqual";
 import {
   getAllVariations,
   getLaunchChecklistItems,
@@ -58,6 +59,7 @@ import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
   ChecklistIncompleteError,
+  ConflictError,
   InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
@@ -702,7 +704,7 @@ export async function startExperiment({
   restApiBypassesReviews?: boolean;
   // Caller must verify admin-bypass permissions first; it is re-checked per flag.
   bypassLockdown?: boolean;
-  // What the caller already checked this start against, in this request.
+  // What the caller checked and confirmed; the start may bypass no more.
   plan?: StartPlan;
 }) {
   const experiment = await loadAndValidateExperimentForStatusChange(
@@ -716,14 +718,19 @@ export async function startExperiment({
       ["draft"],
     );
   }
-  const plan =
-    checked ??
-    (await assertStartAllowed(context, experiment, {
-      when: "now",
-      skipChecklist,
-      bypassApproval: bypassLockdown,
-      restApiBypassesReviews,
-    }));
+  // Planned on what it publishes now, even after the caller's check: a draft
+  // changed since can't ride along unchecked, nor bypass more than it did.
+  const plan = await assertStartAllowed(context, experiment, {
+    when: "now",
+    skipChecklist,
+    bypassApproval: bypassLockdown,
+    restApiBypassesReviews,
+  });
+  if (checked && !isEqual(plan.bypassed, checked.bypassed)) {
+    throw new ConflictError(
+      "Its Feature Flag drafts changed while it was starting. Try again.",
+    );
+  }
 
   const { updated, publishResult } = await executeExperimentStart(
     context,

@@ -459,7 +459,14 @@ export function ExperimentEditsProvider({
           unchanged: isEqual(dryRunShare(edit), sent),
         }));
         // Cleared once the refetch lands, so the page never shows the old values.
-        if (posted) await mutate();
+        // A failed refetch still ends the save; what saved shows on reload.
+        if (posted) {
+          try {
+            await mutate();
+          } catch {
+            setError("Saved, but the page couldn't refresh. Reload to see it.");
+          }
+        }
         settled.forEach(({ edit, unchanged }) => {
           if (unchanged) edit.onSaved?.();
           else rebaseOnRender.current.push(edit);
