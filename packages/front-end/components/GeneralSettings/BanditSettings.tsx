@@ -1,7 +1,8 @@
 import { useFormContext } from "react-hook-form";
 import { ScopedSettings } from "shared/settings";
 import { Box, Flex, Grid } from "@radix-ui/themes";
-import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
+import { useOptionalSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
+import { UnsavedMark } from "@/components/GeneralSettings/SettingsGroup";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -19,7 +20,8 @@ export default function BanditSettings({
 }) {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
-  const { defaultFor } = useSettingsForm();
+  // Absent on experiment pages, which render this outside Settings.
+  const defaultFor = useOptionalSettingsForm()?.defaultFor;
   const hasBandits = hasCommercialFeature("multi-armed-bandits");
 
   const scheduleHours =
@@ -39,9 +41,11 @@ export default function BanditSettings({
         <Box width="100%">
           <Grid columns="2" width="auto" gap="1">
             <Box>
-              <Text weight="semibold" as="label" mb="1">
-                Exploratory stage
-              </Text>
+              <UnsavedMark name={["banditBurnInValue", "banditBurnInUnit"]}>
+                <Text weight="semibold" as="label" mb="1">
+                  Exploratory stage
+                </Text>
+              </UnsavedMark>
               <Text size="sm" color="text-mid" mb="2" as="p">
                 Time before variation weights start updating.
               </Text>
@@ -49,7 +53,7 @@ export default function BanditSettings({
                 <Box>
                   <Field
                     size="legacy"
-                    placeholder={defaultFor("banditBurnInValue")}
+                    placeholder={defaultFor?.("banditBurnInValue")}
                     {...form.register("banditBurnInValue", {
                       valueAsNumber: true,
                     })}
@@ -107,9 +111,11 @@ export default function BanditSettings({
             </Box>
 
             <Box>
-              <Text weight="semibold" as="label" mb="1">
-                Update cadence
-              </Text>
+              <UnsavedMark name={["banditScheduleValue", "banditScheduleUnit"]}>
+                <Text weight="semibold" as="label" mb="1">
+                  Update cadence
+                </Text>
+              </UnsavedMark>
               <Text size="sm" color="text-mid" mb="2" as="p">
                 How often variation weights update.
               </Text>
@@ -117,7 +123,7 @@ export default function BanditSettings({
                 <Box>
                   <Field
                     size="legacy"
-                    placeholder={defaultFor("banditScheduleValue")}
+                    placeholder={defaultFor?.("banditScheduleValue")}
                     {...form.register("banditScheduleValue", {
                       valueAsNumber: true,
                     })}

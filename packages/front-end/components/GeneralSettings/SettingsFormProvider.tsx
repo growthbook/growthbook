@@ -120,6 +120,11 @@ const SettingsFormContext = createContext<SettingsFormContextValue | null>(
   null,
 );
 
+// For components also rendered outside Settings, where there is no provider.
+export function useOptionalSettingsForm() {
+  return useContext(SettingsFormContext);
+}
+
 export function useSettingsForm() {
   const ctx = useContext(SettingsFormContext);
   if (!ctx) {

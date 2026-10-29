@@ -5,7 +5,7 @@ import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { SettingsCard } from "./SettingsSection";
-import { useSettingsForm } from "./SettingsFormProvider";
+import { useOptionalSettingsForm } from "./SettingsFormProvider";
 import styles from "./SettingsSection.module.scss";
 
 export function SettingsGroup({
@@ -70,8 +70,8 @@ export function SettingsField({
   action?: ReactNode;
   children: ReactNode;
 }) {
-  const { isFieldDirty } = useSettingsForm();
-  const dirty = [name ?? []].flat().some(isFieldDirty);
+  const isFieldDirty = useOptionalSettingsForm()?.isFieldDirty;
+  const dirty = !!isFieldDirty && [name ?? []].flat().some(isFieldDirty);
   return (
     <Box>
       {/* Bootstrap gives labels a 0.5rem bottom margin; the design wants 2px. */}
@@ -111,8 +111,9 @@ export function UnsavedMark({
   dirty?: boolean;
   children: ReactNode;
 }) {
-  const { isFieldDirty } = useSettingsForm();
-  const show = dirty ?? [name ?? []].flat().some(isFieldDirty);
+  const isFieldDirty = useOptionalSettingsForm()?.isFieldDirty;
+  const show =
+    dirty ?? (!!isFieldDirty && [name ?? []].flat().some(isFieldDirty));
   return (
     <Box position="relative">
       {show && (
