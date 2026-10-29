@@ -155,12 +155,7 @@ export default function SavedGroupsPage() {
         {remoteGroupsEnabled
           ? "Learn more about using Condition Groups, ID Lists and Remote Groups."
           : "Learn more about using Condition Groups and ID Lists."}
-        <Link
-          href={docUrl("savedGroups")}
-          target="_blank"
-          rel="noreferrer"
-          ml="1"
-        >
+        <Link href={docUrl("savedGroups")} external ml="1">
           Docs <PiArrowSquareOut />
         </Link>
       </HelperText>
