@@ -220,6 +220,9 @@ export interface ReviewAndPublishTabProps<T> {
   // locked/frozen at a published revision). Drafts, edits, review requests, and
   // discarding stay available — only paths that advance the live state are hidden.
   publishBlockedReason?: string;
+  // When set, Roll back and Revert are disabled and this reason is shown (e.g.
+  // the entity can't be changed on the org's plan).
+  revertBlockedReason?: string;
   selectRevision: (revision: Revision | null) => void;
   onPublish: (revisionId: string) => Promise<void>;
   onDiscard: (revisionId: string) => Promise<void>;
@@ -273,6 +276,7 @@ function ReviewAndPublishRevision<T>({
   canBypassApproval,
   holdsLandingDestination,
   publishBlockedReason,
+  revertBlockedReason,
   selectRevision,
   onPublish,
   onDiscard,
@@ -865,6 +869,7 @@ function ReviewAndPublishRevision<T>({
     adminPublish,
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
+    scheduledStartDay: null,
     experimentsStep: false,
     featureLockedByRamp: false,
     featureLockedBySchedule,
@@ -1284,7 +1289,11 @@ function ReviewAndPublishRevision<T>({
   const readonlyActionsColumn = (
     <Box
       className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+      style={{
+        position: "sticky",
+        top: "calc(var(--header-height) + var(--space-5))",
+        overflow: "hidden",
+      }}
     >
       {actionsColumnHeader}
       <Box p="4">
@@ -1329,7 +1338,11 @@ function ReviewAndPublishRevision<T>({
               onClick={() =>
                 previousPublishedRevision && onRevert(previousPublishedRevision)
               }
-              disabled={!canRevertOrEdit || !previousPublishedRevision}
+              disabled={
+                !canRevertOrEdit ||
+                !previousPublishedRevision ||
+                !!revertBlockedReason
+              }
               style={{ width: "100%" }}
             >
               Roll back
@@ -1340,7 +1353,7 @@ function ReviewAndPublishRevision<T>({
             color="red"
             variant="outline"
             onClick={() => onRevert(revision)}
-            disabled={!canRevertOrEdit}
+            disabled={!canRevertOrEdit || !!revertBlockedReason}
             style={{ width: "100%" }}
           >
             Revert to this revision
@@ -1354,6 +1367,11 @@ function ReviewAndPublishRevision<T>({
           <PermissionBlocker mt="2">
             You don&apos;t have permission to edit drafts for this {entityNoun}.
           </PermissionBlocker>
+        )}
+        {revision.status !== "discarded" && onRevert && revertBlockedReason && (
+          <Callout status="warning" size="sm" mt="2">
+            {revertBlockedReason}
+          </Callout>
         )}
         {revision.status !== "discarded" && onRevert && !canRevertOrEdit && (
           <PermissionBlocker mt="2">
@@ -1382,7 +1400,11 @@ function ReviewAndPublishRevision<T>({
   const draftActionsColumn = (
     <Box
       className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+      style={{
+        position: "sticky",
+        top: "calc(var(--header-height) + var(--space-5))",
+        overflow: "hidden",
+      }}
     >
       {actionsColumnHeader}
       <Box p="4">

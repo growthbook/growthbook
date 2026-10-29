@@ -1,6 +1,5 @@
-// 48px short of the title box (TopNav.module.scss's .pagetitle), so a
-// truncated crumb's ellipsis stays clear of the box's 32px fade. Nudged 1px
-// right, on list and detail pages alike.
+// Keeps a truncated crumb's ellipsis clear of .pagetitle's 32px fade
+// (TopNav.module.scss).
 .breadcrumb {
   display: flex;
   align-items: center;
@@ -10,8 +9,7 @@
   translate: 1px 0;
 }
 
-// A first crumb in a button's box shifts left by its padding, so its text
-// starts on the page's left content edge.
+// Aligns a leading button crumb's text with the page's content edge.
 .leadingButton > :first-child {
   margin-left: calc(-1 * var(--space-2));
 }
@@ -22,8 +20,7 @@
   color: var(--slate-10);
 }
 
-// Beside a button crumb, a chevron sits 4px closer: the button's own
-// padding already spaces it.
+// The button's own padding already spaces the chevron.
 .afterButton {
   margin-left: -4px;
 }
@@ -32,8 +29,7 @@
   margin-right: -4px;
 }
 
-// A block, not a flex box, so the ellipsis applies; its 24px line centers
-// the text.
+// A block, not flex, so the ellipsis applies.
 .currentCrumb {
   display: block;
   flex-shrink: 1;
@@ -71,79 +67,15 @@
   }
 }
 
-.projectName {
+.crumbLinkText {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-// Contained, so a long name truncates instead of scrolling the menu
-// sideways (its scroll area grows to its widest content). Pinned at the top
-// while the list scrolls under it: pulled up over the menu's top padding and
-// padded by as much, so it sits where it would and stays there, on the
-// menu's own background.
-.projectSearch {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  margin-top: calc(-1 * var(--base-menu-content-padding));
-  padding: calc(var(--base-menu-content-padding) + var(--space-1))
-    var(--space-1) var(--space-2);
-  background: var(--color-panel-solid);
-  contain: inline-size;
-}
-
-// The menu's inner viewport would otherwise be the search row's scroll
-// container (Radix sets overflow on it), so it never pinned.
-.projectMenuWithSearch :global(.rt-BaseMenuViewport) {
-  overflow: visible;
-}
-
-// Items scrolled to from the keyboard or on opening stop below the pinned
-// search row (its padding and the 32px field), not under it.
-.projectMenuWithSearch :global(.rt-ScrollAreaViewport) {
-  scroll-padding-top: calc(
-    var(--base-menu-content-padding) + var(--space-1) + var(--space-6) +
-      var(--space-2)
-  );
-}
-
-.projectList {
-  contain: inline-size;
-}
-
-// Also while the search field keeps focus (ProjectSelector.tsx).
-.projectItem:hover {
-  background-color: var(--accent-a4);
-}
-
-.projectOption {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-
-.projectOptionName {
-  display: flex;
-  min-width: 0;
-}
-
-// 10px from the avatar to the name: the option's 8px gap, plus 2px of the
-// avatar's own 8px margin (LetterAvatar).
-.projectOptionAvatar {
-  display: flex;
-  flex-shrink: 0;
-  margin-right: -6px;
-}
-
-// On its own row below 1180px (TopNav.module.scss), a breadcrumb that's still
-// too long shortens its section first, so the current page stays readable.
+// Below 1180px the section shrinks first, so the current page stays readable.
 @media (max-width: 1180px) {
-  // The section's link, around its button. Shrinking is shared by width
-  // times this, so the others give up next to nothing until it's at its
-  // minimum.
   .breadcrumb > a {
     display: flex;
     flex-shrink: 10000;
@@ -152,25 +84,4 @@
   .currentCrumb {
     min-width: 72px;
   }
-}
-
-// The drawer's in-place project menu (ProjectMenuInPlace). Its search row is
-// pinned right under Back (32px) while the list scrolls, on the drawer's
-// background, its top padding over Back's 4px margin so nothing shows
-// between them.
-.projectSearchInPlace {
-  position: sticky;
-  top: var(--space-6);
-  z-index: 1;
-  margin-top: calc(-1 * var(--space-1));
-  padding: var(--space-1) 0 var(--space-2);
-  background: var(--rail-bg, var(--color-panel-solid));
-}
-
-// The avatar where the drawer's project row has it (3px in, centered on the
-// icon column), and stopping below the pinned search row when scrolled to
-// (Back and the search row: 36px, then the 32px field and 8px below).
-.projectInPlaceItem.projectInPlaceItem {
-  padding-left: 3px;
-  scroll-margin-top: calc(var(--space-6) * 2 + var(--space-1) + var(--space-2));
 }

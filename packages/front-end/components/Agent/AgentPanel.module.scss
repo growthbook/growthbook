@@ -21,7 +21,7 @@
   width: 400px;
 
   &.expanded {
-    width: calc(100% - var(--app-rail-width, 240px));
+    width: calc(100% - var(--sidebar-width, 240px));
     border-left: none;
 
     // Beside the drawer there's no side nav to leave room for.

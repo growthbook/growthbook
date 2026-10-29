@@ -1,10 +1,11 @@
 import { CSSProperties, useId } from "react";
 
-// One drawing, so the mark keeps its size and place collapsed and expanded.
-export const LOGO_SCALE = 1.0388;
+const LOGO_SCALE = 1.0388;
 const HEIGHT = 22;
-// 5px further from the mark than the brand's spacing and 1px higher, so it
-// sits centered on the mark.
+/**
+ * Moves the wordmark 5px right and 1px up from the brand's spacing, centering
+ * it on the mark.
+ */
 const WORDMARK_SHIFT = 5 / LOGO_SCALE;
 const WORDMARK_RISE = 1 / LOGO_SCALE;
 const WIDTH = 137 + WORDMARK_SHIFT;
@@ -26,7 +27,7 @@ const MARK = [
   },
 ];
 
-// In the logo's units.
+// In viewBox units.
 const SWEEP_BAND = 56;
 const MARK_WIDTH = 20.01;
 
@@ -41,11 +42,10 @@ export default function GrowthBookLogo({
   className?: string;
   markClassName?: string;
   wordmarkClassName?: string;
-  // Its movement is the page's CSS on this class; the distance to travel is
-  // --sweep-distance.
+  /** The caller's CSS animates this class, translating by --sweep-distance. */
   sweepClassName?: string;
 }) {
-  // Without useId's colons, for the url() references.
+  // url() references break on useId's colons.
   const id = useId().replace(/:/g, "");
   const gradientId = `gb-logo-sweep-${id}`;
   const clipId = `gb-logo-clip-${id}`;

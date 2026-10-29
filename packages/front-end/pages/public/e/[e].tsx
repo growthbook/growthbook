@@ -1,28 +1,34 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import { ExperimentReportSSRData } from "shared/types/report";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import Head from "next/head";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
-  LinkedFeatureInfo,
 } from "shared/types/experiment";
 import { truncateString } from "shared/util";
-import { date, daysBetween } from "shared/dates";
-import React, { useEffect, useRef, useState } from "react";
+import { date } from "shared/dates";
+import React, { useState } from "react";
 import clsx from "clsx";
-import { VisualChangesetInterface } from "shared/types/visual-changeset";
-import { URLRedirectInterface } from "shared/types/url-redirect";
+import { Box, Flex } from "@radix-ui/themes";
 import PageHead from "@/components/Layout/PageHead";
 import { useUser } from "@/services/UserContext";
 import useSSRPolyfills from "@/hooks/useSSRPolyfills";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import PublicExperimentMetaInfo from "@/components/Experiment/Public/PublicExperimentMetaInfo";
+import PublicExperimentDetails from "@/components/Experiment/Public/PublicExperimentDetails";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import { ExperimentTab } from "@/components/Experiment/TabbedPage";
 import PublicExperimentOverview from "@/components/Experiment/Public/PublicExperimentOverview";
 import PublicExperimentResults from "@/components/Experiment/Public/PublicExperimentResults";
 import BanditSummaryResultsTab from "@/components/Experiment/TabbedPage/BanditSummaryResultsTab";
-import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
+import CollapsiblePanelLayout, {
+  DetailsPanelToggle,
+  PANEL_WIDTH_PX,
+} from "@/components/CollapsiblePanelLayout";
+import usePinnedHeader from "@/hooks/usePinnedHeader";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 
 export async function getServerSideProps(context) {
   const { e } = context.params;
@@ -37,20 +43,14 @@ export async function getServerSideProps(context) {
       context.res.statusCode = 404;
     }
 
-    const snapshot = data?.snapshot;
-    const visualChangesets = data?.visualChangesets;
-    const urlRedirects = data?.urlRedirects;
-    const linkedFeatures = data?.linkedFeatures;
-    const ssrData = data?.ssrData;
-
     return {
       props: {
         experiment: experiment || null,
-        snapshot: snapshot || null,
-        visualChangesets: visualChangesets || null,
-        urlRedirects: urlRedirects || null,
-        linkedFeatures: linkedFeatures || null,
-        ssrData: ssrData || null,
+        snapshot: data?.snapshot || null,
+        linkedFeatureCount: data?.linkedFeatureCount ?? 0,
+        visualChangesetCount: data?.visualChangesetCount ?? 0,
+        urlRedirectCount: data?.urlRedirectCount ?? 0,
+        ssrData: data?.ssrData || null,
       },
     };
   } catch (e) {
@@ -64,9 +64,9 @@ export async function getServerSideProps(context) {
 interface PublicExperimentPageProps {
   experiment: ExperimentInterfaceStringDates | null;
   snapshot: ExperimentSnapshotInterface | null;
-  visualChangesets: VisualChangesetInterface[] | null;
-  urlRedirects: URLRedirectInterface[] | null;
-  linkedFeatures: LinkedFeatureInfo[] | null;
+  linkedFeatureCount: number;
+  visualChangesetCount: number;
+  urlRedirectCount: number;
   ssrData: ExperimentReportSSRData | null;
 }
 
@@ -75,15 +75,15 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
   const {
     experiment,
     snapshot,
-    visualChangesets,
-    urlRedirects,
-    linkedFeatures,
+    linkedFeatureCount,
+    visualChangesetCount,
+    urlRedirectCount,
     ssrData,
   } = props;
 
   const isOrgMember =
     (!!userId && experiment?.organization === userOrganization.id) ||
-    !!superAdmin;
+    hasSuperAdminPermission(superAdmin, "impersonate");
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
 
@@ -91,8 +91,12 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     `tabbedPageTab__public__${experiment?.id}`,
     "overview",
   );
-  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
-  const [headerPinned, setHeaderPinned] = useState(false);
+
+  // Open beside the overview when there's room for it; narrow, only on request.
+  const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
+  const [detailsOpen, setDetailsOpen] = useState<boolean | null>(null);
+  const detailsShown = detailsOpen ?? !narrow;
+  const [detailsWidth, setDetailsWidth] = useState(PANEL_WIDTH_PX);
 
   const phases = experiment?.phases || [];
   const lastPhaseIndex = phases.length - 1;
@@ -118,28 +122,10 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
     !experiment ||
     (experiment?.status === "draft" && !hasResults && phases.length === 1);
 
-  // Pinned 1px under the header, covering its edge.
-  const stickyTabsTop = usePageTopOffset() - 1;
-  useEffect(() => {
-    if (shouldHideTabs) return;
-    const el = tabsPinSentinelRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setHeaderPinned(!entry.isIntersecting);
-      },
-      {
-        root: null,
-        rootMargin: `-${stickyTabsTop}px 0px 0px 0px`,
-        threshold: 0,
-      },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [shouldHideTabs, stickyTabsTop]);
+  const [tabsPinSentinelRef, headerPinned] = usePinnedHeader(!!experiment);
 
   const isBandit = experiment?.type === "multi-armed-bandit";
+  const onOverview = shouldHideTabs || tab === "overview";
 
   return (
     <div className={`public pb-2 ${isBandit ? "bandit" : "experiment"}`}>
@@ -188,7 +174,7 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
         />
       ) : null}
 
-      {shouldHideTabs ? null : (
+      {!experiment ? null : (
         <>
           <div
             ref={tabsPinSentinelRef}
@@ -205,32 +191,35 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
               pinned: headerPinned,
             })}
           >
-            <div className="container-fluid pagecontents position-relative">
-              <div className="row header-tabs position-relative">
+            <div className="position-relative container-fluid pagecontents px-4">
+              <div className="d-flex align-items-center header-tabs">
+                {/* Kept without tabs: the details toggle lives here. */}
                 <Tabs
                   value={tab}
                   onValueChange={(t: ExperimentTab) => setTab(t)}
-                  style={{ width: "100%" }}
+                  style={{ flex: 1, minWidth: 0 }}
                 >
-                  <TabsList size="lg" className="px-3">
-                    <TabsTrigger value="overview">Overview</TabsTrigger>
-                    <TabsTrigger value="results">Results</TabsTrigger>
-                    {isBandit ? (
-                      <TabsTrigger value="explore">Explore</TabsTrigger>
-                    ) : null}
-                  </TabsList>
-                </Tabs>
-
-                <div className="col-auto experiment-date-range pr-3">
-                  {startDate && (
-                    <span>
-                      {startDate} — {endDate}{" "}
-                      <span className="text-muted">
-                        ({daysBetween(startDate, endDate)} days)
-                      </span>
-                    </span>
+                  {shouldHideTabs ? null : (
+                    <TabsList size="lg">
+                      <Flex align="center" className="flex-1">
+                        <TabsTrigger value="overview">Overview</TabsTrigger>
+                        <TabsTrigger value="results">Results</TabsTrigger>
+                        {isBandit ? (
+                          <TabsTrigger value="explore">Explore</TabsTrigger>
+                        ) : null}
+                      </Flex>
+                    </TabsList>
                   )}
-                </div>
+                </Tabs>
+                {onOverview ? (
+                  <DetailsPanelToggle
+                    open={detailsShown}
+                    setOpen={(open) => {
+                      setDetailsWidth(PANEL_WIDTH_PX);
+                      setDetailsOpen(open);
+                    }}
+                  />
+                ) : null}
               </div>
             </div>
           </div>
@@ -238,68 +227,85 @@ export default function PublicExperimentPage(props: PublicExperimentPageProps) {
       )}
 
       {experiment ? (
-        <div className="mt-3 container-fluid pagecontents px-3">
-          <div
-            className={clsx(
-              "pt-3",
-              tab === "overview" ? "d-block" : "d-none d-print-block",
-            )}
-          >
-            <PublicExperimentOverview
-              experiment={experiment}
-              visualChangesets={visualChangesets ?? []}
-              urlRedirects={urlRedirects ?? []}
-              linkedFeatures={linkedFeatures ?? []}
-              ssrPolyfills={ssrPolyfills}
-            />
-          </div>
-
-          {isBandit ? (
-            <div
-              className={
-                isBandit && tab === "results"
-                  ? "d-block mt-4"
-                  : "d-none d-print-block"
-              }
-            >
-              <BanditSummaryResultsTab
+        <Box
+          mx="auto"
+          width="100%"
+          style={{ maxWidth: "var(--page-content-max-width)" }}
+        >
+          <CollapsiblePanelLayout
+            open={onOverview && detailsShown}
+            top="var(--tabs-bottom)"
+            width={detailsWidth}
+            onWidthChange={setDetailsWidth}
+            onCollapse={() => setDetailsOpen(false)}
+            panel={
+              <PublicExperimentDetails
                 experiment={experiment}
-                isTabActive={tab === "results"}
-                ssrSnapshot={snapshot ?? undefined}
-                ssrPolyfills={ssrPolyfills}
-                isPublic={true}
+                linkedFeatureCount={linkedFeatureCount}
+                visualChangesetCount={visualChangesetCount}
+                urlRedirectCount={urlRedirectCount}
               />
-            </div>
-          ) : null}
-
-          <div
-            className={
-              (!isBandit && tab === "results") ||
-              (isBandit && tab === "explore")
-                ? "d-block pt-2"
-                : "d-none d-print-block"
             }
           >
-            <PublicExperimentResults
-              experiment={experiment}
-              snapshot={snapshot ?? undefined}
-              snapshotError={
-                !snapshot
-                  ? new Error("Missing snapshot")
-                  : snapshot.error
-                    ? new Error(snapshot.error)
-                    : snapshot?.status === "error"
-                      ? new Error("Report analysis failed")
-                      : undefined
-              }
-              ssrPolyfills={ssrPolyfills}
-              isTabActive={
-                (!isBandit && tab === "results") ||
-                (isBandit && tab === "explore")
-              }
-            />
-          </div>
-        </div>
+            <div className="container-fluid pagecontents px-4">
+              <div
+                className={clsx(
+                  "pt-2",
+                  onOverview ? "d-block" : "d-none d-print-block",
+                )}
+              >
+                <PublicExperimentOverview
+                  experiment={experiment}
+                  ssrPolyfills={ssrPolyfills}
+                />
+              </div>
+
+              {isBandit ? (
+                <div
+                  className={
+                    tab === "results" ? "d-block py-4" : "d-none d-print-block"
+                  }
+                >
+                  <BanditSummaryResultsTab
+                    experiment={experiment}
+                    isTabActive={tab === "results"}
+                    ssrSnapshot={snapshot ?? undefined}
+                    ssrPolyfills={ssrPolyfills}
+                    isPublic={true}
+                  />
+                </div>
+              ) : null}
+
+              <div
+                className={
+                  (!isBandit && tab === "results") ||
+                  (isBandit && tab === "explore")
+                    ? "d-block py-4"
+                    : "d-none d-print-block"
+                }
+              >
+                <PublicExperimentResults
+                  experiment={experiment}
+                  snapshot={snapshot ?? undefined}
+                  snapshotError={
+                    !snapshot
+                      ? new Error("Missing snapshot")
+                      : snapshot.error
+                        ? new Error(snapshot.error)
+                        : snapshot?.status === "error"
+                          ? new Error("Report analysis failed")
+                          : undefined
+                  }
+                  ssrPolyfills={ssrPolyfills}
+                  isTabActive={
+                    (!isBandit && tab === "results") ||
+                    (isBandit && tab === "explore")
+                  }
+                />
+              </div>
+            </div>
+          </CollapsiblePanelLayout>
+        </Box>
       ) : null}
     </div>
   );

@@ -25,7 +25,7 @@ export function AssistantBubble({
         width: "min(920px, 100%)",
         maxWidth: "100%",
         minWidth: 0,
-        // Set by its container (the GrowthBot panel, AgentPanel.tsx); as before
+        // Set by its container (the AI Assistant panel, AgentPanel.tsx); as before
         // otherwise.
         background:
           variant === "artifact"
@@ -49,7 +49,7 @@ export function UserBubble({
 }: {
   children: React.ReactNode;
   /**
-   * Opt-in (the GrowthBot panel): speech-bubble corners, so it reads as a
+   * Opt-in (the AI Assistant panel): speech-bubble corners, so it reads as a
    * message, not a button.
    */
   soft?: boolean;

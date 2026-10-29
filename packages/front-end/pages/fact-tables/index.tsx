@@ -448,7 +448,7 @@ export default function FactTablesPage() {
               className="relative"
               width={{ initial: "100%", sm: "40%" }}
               // No narrower than 160px when space is short, e.g. beside the
-              // docked GrowthBot panel.
+              // docked AI Assistant panel.
               style={{ minWidth: 160 }}
             >
               <Field

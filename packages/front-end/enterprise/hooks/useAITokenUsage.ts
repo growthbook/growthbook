@@ -21,7 +21,7 @@ type UseAITokenUsageResult = {
   refresh: () => void;
 };
 
-// `enabled: false` skips the request, as off Cloud.
+/** `enabled: false` skips the request, as off Cloud. */
 export function useAITokenUsage({
   enabled = true,
 }: { enabled?: boolean } = {}): UseAITokenUsageResult {

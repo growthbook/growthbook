@@ -52,8 +52,8 @@ import {
 } from "@/ui/DropdownMenu";
 import { useFeatureHealthStates } from "@/hooks/useFeatureHealthStates";
 import { useScrollPosition } from "@/hooks/useScrollPosition";
+import usePinnedHeader from "@/hooks/usePinnedHeader";
 import { draftStatusTooltip } from "@/components/Reviews/RevisionStatusBadge";
-import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
 import FeatureArchiveModal from "./FeatureArchiveModal";
 import FeatureDeleteModal from "./FeatureDeleteModal";
 import AddToHoldoutModal from "./AddToHoldoutModal";
@@ -159,29 +159,8 @@ export default function FeaturesHeader({
   const watchHealth = healthHook.watch;
   useEffect(() => watchHealth([feature.id]), [feature.id, watchHealth]);
 
-  // Sticky tabs header — mirrors the experiment page pattern
-  const tabsPinSentinelRef = useRef<HTMLDivElement>(null);
-  const [headerPinned, setHeaderPinned] = useState(false);
+  const [tabsPinSentinelRef, headerPinned] = usePinnedHeader();
   const { scrollY } = useScrollPosition();
-  // Pinned 1px under the header and any bar under it, covering its edge.
-  const stickyTabsTop = usePageTopOffset() - 1;
-  useEffect(() => {
-    const el = tabsPinSentinelRef.current;
-    if (!el) return;
-
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        setHeaderPinned(!entry.isIntersecting);
-      },
-      {
-        root: null,
-        rootMargin: `-${stickyTabsTop}px 0px 0px 0px`,
-        threshold: 0,
-      },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [stickyTabsTop]);
 
   // Portal the revisionAndSettingsGroup between the header and sticky tabs on scroll.
   // Moving a single DOM node keeps dropdown menus stable.

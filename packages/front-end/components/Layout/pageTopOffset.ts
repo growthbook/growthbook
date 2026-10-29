@@ -69,3 +69,19 @@ export function usePageTopOffset(): number {
   );
   return useHeaderHeight() + pinnedBarHeight;
 }
+
+/**
+ * 1px under the header and any bar under it, so pinned tabs cover its edge.
+ * Keep in sync with --tabs-top in global.scss.
+ */
+export function useTabsTop(): number {
+  return usePageTopOffset() - 1;
+}
+
+/** Keep in sync with --tabs-bar-height in global.scss. */
+const TABS_BAR_HEIGHT_PX = 40;
+
+/** Keep in sync with --tabs-bottom in global.scss. */
+export function useTabsBottom(): number {
+  return useTabsTop() + TABS_BAR_HEIGHT_PX;
+}

@@ -179,6 +179,7 @@ import {
   runValidateFeatureHooks,
   runValidateFeatureRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { settleFeatureRemovalsAfterPublish } from "back-end/src/util/featureExperimentSync";
 import {
   createEvent,
   hasPreviousObject,
@@ -900,6 +901,13 @@ export async function countFeatures(
   return FeatureModel.countDocuments(
     featureListQuery(context.org.id, { project, projectIds, includeArchived }),
   );
+}
+
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountFeaturesByOrganization(
+  organization: string,
+): Promise<number> {
+  return FeatureModel.countDocuments({ organization });
 }
 
 export async function hasArchivedFeatures(
@@ -1878,6 +1886,7 @@ export async function editFeatureRules(
   matches: { ruleId: string; environmentId?: string }[],
   updates: Partial<FeatureRule>,
   user: EventUser,
+  { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   const projected = applyPartialFeatureRuleUpdatesToRevision(
     revision,
@@ -1910,6 +1919,7 @@ export async function editFeatureRules(
       subject,
       value: JSON.stringify(updates),
     },
+    { guardDateUpdated },
   );
   return updatedRevision;
 }
@@ -4765,6 +4775,9 @@ async function publishRevisionInner({
     );
   }
 
+  // Committed: a removal waiting on this publish can finish.
+  await settleFeatureRemovalsAfterPublish(context, updatedFeature);
+
   // Best-effort: the feature is already committed.
   await finalizeRampActionsAfterPublish(
     context,
@@ -4995,6 +5008,7 @@ export async function getFeatureMetaInfoById(
     // (potentially large) default value is fetched only when the caller asks for
     // it — the list itself never parses it.
     baseConfig: 1,
+    "holdout.id": 1,
     ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
 
@@ -5008,7 +5022,10 @@ export async function getFeatureMetaInfoById(
     const f = features[i];
     if (!context.permissions.canReadTargetingScopedResource(f)) continue;
 
-    metaInfo.push(toFeatureMetaInfo(f, includeDefaultValue));
+    metaInfo.push({
+      ...toFeatureMetaInfo(f, includeDefaultValue),
+      holdoutId: f.holdout?.id ?? null,
+    });
   }
   return metaInfo;
 }
@@ -5038,6 +5055,7 @@ export async function getFeatureMetaInfoByIds(
       neverStale: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
+      "holdout.id": 1,
     },
   );
 
@@ -5059,6 +5077,7 @@ export async function getFeatureMetaInfoByIds(
       linkedExperiments: f.linkedExperiments,
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
+      holdoutId: f.holdout?.id ?? null,
     }));
 }
 

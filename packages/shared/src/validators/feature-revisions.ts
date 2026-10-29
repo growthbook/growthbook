@@ -412,6 +412,7 @@ const forceRolloutCreateInput = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
@@ -543,6 +544,7 @@ const rulePatchSchema = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),

@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Flex } from "@radix-ui/themes";
 import track from "@/services/track";
 import { ImportFromServiceCard } from "@/components/importing/ImportFromServiceCard/ImportFromServiceCard";
 import { ImportRequestModal } from "@/components/importing/ImportRequestModal/ImportRequestModal";
@@ -10,15 +11,15 @@ const supportedServices = [
   {
     service: "LaunchDarkly",
     icon: "launchdarkly",
+    hasDarkIcon: true,
     path: "launchdarkly",
-    accentColor: "#000",
     text: "Import your projects, features and environments from LaunchDarkly.",
   },
   {
     service: "Statsig",
     icon: "statsig",
+    hasDarkIcon: false,
     path: "statsig",
-    accentColor: "#000",
     text: "Import your projects, features, environments, and metrics from Statsig.",
   },
 ];
@@ -28,8 +29,8 @@ export const EPPO_IMPORTER_FLAG = "eppo-importer";
 const eppoService = {
   service: "Eppo (Datadog)",
   icon: "eppo",
+  hasDarkIcon: true,
   path: "eppo",
-  accentColor: "#000",
   text: "Import your Feature Flags, audiences, experiments, and warehouse-native metrics from Eppo.",
 };
 
@@ -40,63 +41,63 @@ const upcomingServices = [
     service: "Optimizely",
     slug: "optimizely",
     icon: "optimizely",
-    accentColor: "#000",
+    hasDarkIcon: false,
     text: "Migrate your Feature Experimentation flags, audiences, and experiments.",
   },
   {
     service: "Eppo (Datadog)",
     slug: "eppo",
     icon: "eppo",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your flags, audiences, experiments, and warehouse-native metrics.",
   },
   {
     service: "Split (Harness FME)",
     slug: "split",
     icon: "split",
-    accentColor: "#000",
+    hasDarkIcon: false,
     text: "Migrate your feature flags, segments, and targeting rules.",
   },
   {
     service: "PostHog",
     slug: "posthog",
     icon: "posthog",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your feature flags, cohorts, and experiments.",
   },
   {
     service: "Amplitude Experiment",
     slug: "amplitude",
     icon: "amplitude",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your flags, targeting, and experiment designs.",
   },
   {
     service: "Unleash",
     slug: "unleash",
     icon: "unleash",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your feature toggles, strategies, segments, and environments.",
   },
   {
     service: "Flagsmith",
     slug: "flagsmith",
     icon: "flagsmith",
-    accentColor: "#000",
+    hasDarkIcon: false,
     text: "Migrate your flags, segments, and multivariate tests.",
   },
   {
     service: "ConfigCat",
     slug: "configcat",
     icon: "configcat",
-    accentColor: "#000",
+    hasDarkIcon: false,
     text: "Migrate your settings, targeting rules, and percentage rollouts.",
   },
   {
     service: "Firebase Remote Config",
     slug: "firebase",
     icon: "firebase",
-    accentColor: "#000",
+    hasDarkIcon: false,
     text: "Migrate your parameters, conditions, and A/B tests.",
   },
 ];
@@ -115,7 +116,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
     : upcomingServices;
 
   return (
-    <div>
+    <Flex direction="column" gap="3">
       {requestService && (
         <ImportRequestModal
           service={requestService.service}
@@ -124,36 +125,32 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         />
       )}
 
-      <h1>Import your data</h1>
-
-      {supported.map(({ service, icon, path, accentColor, text }) => (
-        <div key={`ImportFromServiceCard-${service}`} className="my-3">
-          <ImportFromServiceCard
-            service={service}
-            icon={icon}
-            path={path}
-            accentColor={accentColor}
-          >
-            {text}
-          </ImportFromServiceCard>
-        </div>
+      {supported.map(({ service, icon, path, hasDarkIcon, text }) => (
+        <ImportFromServiceCard
+          key={`ImportFromServiceCard-${service}`}
+          service={service}
+          icon={icon}
+          path={path}
+          hasDarkIcon={hasDarkIcon}
+        >
+          {text}
+        </ImportFromServiceCard>
       ))}
 
-      {upcoming.map(({ service, slug, icon, accentColor, text }) => (
-        <div key={`ImportFromServiceCard-${service}`} className="my-3">
-          <ImportFromServiceCard
-            service={service}
-            icon={icon}
-            accentColor={accentColor}
-            onRequest={() => {
-              track("Import interest clicked", { service: slug });
-              setRequestService({ service, slug });
-            }}
-          >
-            {text}
-          </ImportFromServiceCard>
-        </div>
+      {upcoming.map(({ service, slug, icon, hasDarkIcon, text }) => (
+        <ImportFromServiceCard
+          key={`ImportFromServiceCard-${service}`}
+          service={service}
+          icon={icon}
+          hasDarkIcon={hasDarkIcon}
+          onRequest={() => {
+            track("Import interest clicked", { service: slug });
+            setRequestService({ service, slug });
+          }}
+        >
+          {text}
+        </ImportFromServiceCard>
       ))}
-    </div>
+    </Flex>
   );
 };

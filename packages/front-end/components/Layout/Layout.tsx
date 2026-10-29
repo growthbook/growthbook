@@ -1,19 +1,12 @@
 import { useRouter } from "next/router";
-import { SidebarLinkProps } from "./SidebarLink";
-import { navlinks } from "./sidebarNav";
+import useMediaQuery from "@/hooks/useMediaQuery";
+import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
-import AppRail from "./AppRail";
+import Sidebar from "./Sidebar";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
-
-const breadcrumbLinks = [
-  ...navlinks,
-  {
-    name: "Power Calculator",
-    path: /^power-calculator/,
-    subLinks: [] as SidebarLinkProps[],
-  },
-];
+import SettingsNav from "./SettingsNav";
+import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
 
 const otherPageTitles = [
   {
@@ -49,6 +42,10 @@ const otherPageTitles = [
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
   const { breadcrumb } = usePageHead();
+  // Narrower, the Settings nav moves into the header (SettingsJumpMenu).
+  const settingsNarrow = useMediaQuery(
+    `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
+  );
 
   // hacky:
   const router = useRouter();
@@ -70,7 +67,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  breadcrumbLinks.forEach((o) => {
+  navlinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {
@@ -83,14 +80,18 @@ const Layout = (): React.ReactElement => {
     }
   });
 
+  const inSettings = isSettingsRoute(router.route);
+
   return (
     <>
-      <AppRail />
+      <Sidebar />
+      {inSettings && !settingsNarrow ? <SettingsNav /> : null}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
         menuOpen={open}
+        showSettingsJumpMenu={inSettings && settingsNarrow}
       />
     </>
   );

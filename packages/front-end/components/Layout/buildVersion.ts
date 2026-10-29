@@ -1,5 +1,3 @@
-// Only self-hosted builds have a commit; without one there's nothing to
-// show.
 export function buildVersionLabel(build: {
   sha: string;
   lastVersion: string;

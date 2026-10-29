@@ -15,6 +15,7 @@ import ColumnResizeHandleStories from "@/ui/ColumnResizeHandle.stories";
 import ColumnSettingsStories from "@/ui/ColumnSettings.stories";
 import ColumnSettingsButtonStories from "@/ui/ColumnSettingsButton.stories";
 import CheckboxStories from "@/ui/Checkbox.stories";
+import CollapseStories from "@/ui/Collapse.stories";
 import DataListStories from "@/ui/DataList.stories";
 import DatePickerStories from "@/ui/DatePicker.stories";
 import DropdownMenuStories from "@/ui/DropdownMenu.stories";
@@ -22,6 +23,7 @@ import ExperimentResultIndicatorStories from "@/ui/ExperimentResultIndicator.sto
 import FieldStories from "@/ui/Field.stories";
 import ExperimentStatusIndicatorStories from "@/ui/ExperimentStatusIndicator.stories";
 import TextStories from "@/ui/Text.stories";
+import TruncatedTextStories from "@/ui/TruncatedText.stories";
 import TextFieldStories from "@/ui/TextField.stories";
 import HeadingStories from "@/ui/Heading.stories";
 import HelperTextStories from "@/ui/HelperText.stories";
@@ -32,7 +34,9 @@ import PopoverStories from "@/ui/Popover.stories";
 import PremiumCalloutStories from "@/ui/PremiumCallout.stories";
 import RadioCardsStories from "@/ui/RadioCards.stories";
 import RadioGroupStories from "@/ui/RadioGroup.stories";
+import ScrollAreaStories from "@/ui/ScrollArea.stories";
 import MultiSelectFieldStories from "@/ui/MultiSelectField.stories";
+import SegmentedControlStories from "@/ui/SegmentedControl.stories";
 import SelectStories from "@/ui/Select.stories";
 import SelectFieldStories from "@/ui/SelectField.stories";
 import SliderStories from "@/ui/Slider.stories";
@@ -41,6 +45,7 @@ import SwitchStories from "@/ui/Switch.stories";
 import TableStories from "@/ui/Table.stories";
 import TabsStories from "@/ui/Tabs.stories";
 import ProgressBarStories from "@/ui/ProgressBar.stories";
+import RichTextEditorStories from "@/ui/RichTextEditor.stories";
 import VariationLabelStories from "@/ui/VariationLabel.stories";
 import VariationNumberStories from "@/ui/VariationNumber.stories";
 import VariationStatsTableStories from "@/ui/VariationStatsTable.stories";
@@ -84,6 +89,7 @@ export default function DesignSystemPage() {
       Stories: ColumnSettingsButtonStories,
     },
     { name: "Checkbox", Stories: CheckboxStories },
+    { name: "Collapse", Stories: CollapseStories },
     { name: "DataList", Stories: DataListStories },
     { name: "DatePicker", Stories: DatePickerStories },
     { name: "DropdownMenu", Stories: DropdownMenuStories },
@@ -99,6 +105,7 @@ export default function DesignSystemPage() {
     { name: "VariationNumber", Stories: VariationNumberStories },
     { name: "VariationStatsTable", Stories: VariationStatsTableStories },
     { name: "Text", Stories: TextStories },
+    { name: "TruncatedText", Stories: TruncatedTextStories },
     {
       name: "TextField",
       description:
@@ -115,6 +122,8 @@ export default function DesignSystemPage() {
     { name: "ProgressBar", Stories: ProgressBarStories },
     { name: "RadioCards", Stories: RadioCardsStories },
     { name: "RadioGroup", Stories: RadioGroupStories },
+    { name: "ScrollArea", Stories: ScrollAreaStories },
+    { name: "SegmentedControl", Stories: SegmentedControlStories },
     { name: "Select", Stories: SelectStories },
     {
       name: "Field (legacy text input)",
@@ -130,6 +139,7 @@ export default function DesignSystemPage() {
     { name: "Table", Stories: TableStories },
     { name: "Tabs", Stories: TabsStories },
     { name: "Modal", Stories: ModalStories },
+    { name: "RichTextEditor", Stories: RichTextEditorStories },
   ] satisfies StoryEntry[];
 
   const entries = useMemo(
@@ -189,7 +199,10 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
-              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
+              <Frame
+                id="size-cohesion"
+                style={{ scrollMarginTop: "calc(var(--header-height) + 34px)" }}
+              >
                 <Flex direction="column" gap="3">
                   <h3 className="mb-1">Size cohesion</h3>
                   <Text>
@@ -205,7 +218,13 @@ export default function DesignSystemPage() {
                 </Flex>
               </Frame>
               {entries.map(({ name, description, Stories, id }) => (
-                <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
+                <Frame
+                  key={id}
+                  id={id}
+                  style={{
+                    scrollMarginTop: "calc(var(--header-height) + 34px)",
+                  }}
+                >
                   <Flex direction="column" gap="3">
                     <h3 className="mb-1">{name}</h3>
                     <Text>{description}</Text>

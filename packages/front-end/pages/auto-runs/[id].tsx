@@ -375,8 +375,9 @@ export default function AutoRunPage() {
       <Container size="3" py={{ initial: "1", xs: "3", sm: "6" }}>
         <PageHead
           breadcrumb={[
-            { display: "Import your data", href: "/importing" },
-            { display: "Eppo", href: "/importing/eppo" },
+            { display: "Import Your Data", href: "/importing" },
+            { display: "Eppo Importer", href: "/importing/eppo" },
+            { display: "Eppo Import Report" },
           ]}
         />
         <Box mt="4" mb="5">

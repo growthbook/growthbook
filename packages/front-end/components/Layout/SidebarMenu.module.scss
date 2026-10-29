@@ -1,0 +1,128 @@
+.itemContent {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+}
+
+.itemIcon {
+  flex-shrink: 0;
+}
+
+.itemLabel {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.inPlace {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.entry.entry {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 7px;
+  border: 0;
+  border-radius: var(--radius-3);
+  background: transparent;
+  color: var(--sidebar-text, var(--slate-11));
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-2);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color 250ms ease-out,
+    color 250ms ease-out;
+
+  .itemContent {
+    gap: 10px;
+  }
+
+  .itemIcon {
+    width: 18px;
+    height: 18px;
+    color: var(--sidebar-icon, var(--slate-11));
+  }
+
+  &:hover {
+    background: var(--sidebar-hover, var(--slate-a3));
+    color: var(--sidebar-text-strong, var(--slate-12));
+    transition-duration: 150ms;
+
+    .itemIcon {
+      color: var(--sidebar-text-strong, var(--slate-12));
+    }
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.back.back {
+  margin-bottom: var(--space-1);
+}
+
+.back.backPinned {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--sidebar-bg, var(--color-panel-solid));
+
+  // The hover fill is translucent, so layer it over the background.
+  &:hover {
+    background:
+      linear-gradient(
+        var(--sidebar-hover, var(--slate-a3)),
+        var(--sidebar-hover, var(--slate-a3))
+      ),
+      var(--sidebar-bg, var(--color-panel-solid));
+  }
+}
+
+.backContent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.backIcon {
+  flex-shrink: 0;
+  color: var(--sidebar-icon, var(--slate-11));
+}
+
+.caret {
+  flex-shrink: 0;
+  margin-left: var(--space-2);
+  color: var(--sidebar-chevron, var(--slate-10));
+}
+
+.label {
+  padding: 8px 10px 6px;
+  color: var(--slate-11);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 14px;
+}
+
+.separator {
+  flex-shrink: 0;
+  height: 1px;
+  margin: 6px var(--space-1);
+  background: var(--sidebar-divider, var(--slate-4));
+}

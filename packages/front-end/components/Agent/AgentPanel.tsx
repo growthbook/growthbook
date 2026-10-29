@@ -88,9 +88,9 @@ import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
 import styles from "./AgentPanel.module.scss";
-import GrowthBotLimitCallout from "./GrowthBotLimitCallout";
-import { formatResetsIn } from "./growthBotState";
-import { useGrowthBotState } from "./useGrowthBotState";
+import AiAssistantLimitCallout from "./AiAssistantLimitCallout";
+import { formatResetsIn } from "./aiAssistantLimit";
+import { useAiAssistantLimit } from "./useAiAssistantLimit";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
@@ -205,11 +205,11 @@ function preWorkToSteps(
   });
 }
 
-// Past the GrowthBot button's fade back in, however slow the frames.
+// Past the AI Assistant button's fade back in, however slow the frames.
 const FOCUS_RETURN_MAX_MS = 1000;
 // The page makes room for it (global.scss's .main reads --agent-rail-width).
 const DOCKED_WIDTH = "400px";
-const LIMIT_CALLOUT_ID = "growthbot-limit-callout";
+const LIMIT_CALLOUT_ID = "ai-assistant-limit-callout";
 // Before paint in the browser, as a plain effect on the server.
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
@@ -242,8 +242,7 @@ export default function AgentPanel({
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
   // At the limit, past conversations stay readable; nothing new can be sent.
-  const { state: growthBotState, resetsAt, refreshUsage } = useGrowthBotState();
-  const limitReached = growthBotState === "limit";
+  const { limitReached, resetsAt, refreshUsage } = useAiAssistantLimit();
   const { setOpen: setNavDrawerOpen } = useSidebarOpen();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
@@ -639,7 +638,7 @@ export default function AgentPanel({
   }, [switchHolding, revealConversation]);
 
   // html.agent-dock-full styles what sits beside the panel (the header's
-  // GrowthBot button fades out).
+  // AI Assistant button fades out).
   // Set as the slide starts (shown), so everything moves together.
   const dockedShown = docked && shown;
   useIsomorphicLayoutEffect(() => {
@@ -713,10 +712,10 @@ export default function AgentPanel({
     const target =
       returnFocusRef.current && returnFocusRef.current.isConnected
         ? returnFocusRef.current
-        : document.querySelector<HTMLElement>("[data-growthbot-trigger]");
+        : document.querySelector<HTMLElement>("[data-ai-assistant-trigger]");
     if (!focusWasInPanel || !target) return;
     // The button stays hidden for the start of its fade back in
-    // (GrowthBotButton.module.scss), and focus() does nothing until it shows,
+    // (AiAssistantButton.module.scss), and focus() does nothing until it shows,
     // so try each frame until focus lands, unless it has moved on meanwhile.
     const deadline = Date.now() + FOCUS_RETURN_MAX_MS;
     let frame = 0;
@@ -1008,8 +1007,7 @@ export default function AgentPanel({
           : "width var(--agent-dock-duration) var(--agent-dock-easing), transform var(--agent-dock-duration) var(--agent-dock-easing)",
       }}
     >
-      {/* The panel sits above the app's own layer, out of the drawer veil's reach,
-        so it draws its own. */}
+      {/* The panel sits above the drawer's veil, so it draws its own. */}
       <div
         className={styles.navDrawerVeil}
         aria-hidden="true"
@@ -1277,7 +1275,10 @@ export default function AgentPanel({
       <Box className={styles.composerColumn}>
         {limitReached ? (
           <Box px="5" pb="2">
-            <GrowthBotLimitCallout id={LIMIT_CALLOUT_ID} resetsAt={resetsAt} />
+            <AiAssistantLimitCallout
+              id={LIMIT_CALLOUT_ID}
+              resetsAt={resetsAt}
+            />
           </Box>
         ) : null}
         <ChatComposer

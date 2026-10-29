@@ -1,0 +1,20 @@
+// Each cell draws its own borders, so the pinned column keeps its edge.
+.table {
+  border-collapse: separate;
+  border-spacing: 0;
+
+  tbody tr:first-child td {
+    border-top-width: 0;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: 1px solid var(--border-color-100);
+  }
+}
+
+.pinned {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background-color: var(--color-panel-solid);
+}

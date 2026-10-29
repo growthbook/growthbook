@@ -111,7 +111,7 @@ export function RequestLine({
       style={{
         padding: "6px 8px",
         borderRadius: "var(--radius-2)",
-        // Set by its container (the GrowthBot panel, AgentPanel.tsx); the outline
+        // Set by its container (the AI Assistant panel, AgentPanel.tsx); the outline
         // is drawn inside, so it keeps its size.
         background: "var(--ai-artifact-inner-bg, var(--gray-a3))",
         boxShadow: "var(--ai-artifact-strip-outline, none)",
@@ -167,7 +167,7 @@ function MethodPill({ method }: { method: string }) {
         lineHeight: "16px",
         fontWeight: 600,
         letterSpacing: 0.3,
-        fontFamily: "var(--font-mono, monospace)",
+        fontFamily: "var(--code-font-family)",
       }}
     >
       {upper || "?"}

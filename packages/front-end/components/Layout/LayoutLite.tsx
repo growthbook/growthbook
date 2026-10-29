@@ -3,7 +3,7 @@ import TopNav from "./TopNav";
 const LayoutLite = (): React.ReactElement => {
   return (
     <>
-      <TopNav showNotices={false} pageTitle="Setup" showLogo={false} />
+      <TopNav showNotices={false} pageTitle="Setup" />
     </>
   );
 };

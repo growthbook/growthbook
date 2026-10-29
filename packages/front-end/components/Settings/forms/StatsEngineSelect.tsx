@@ -12,6 +12,7 @@ export default function StatsEngineSelect({
   value,
   onChange,
   labelClassName = "mr-2",
+  containerClassName = "mb-3",
   disabled,
 }: {
   value?: StatsEngine;
@@ -21,6 +22,7 @@ export default function StatsEngineSelect({
   className?: string;
   onChange?: (v: StatsEngine) => void;
   labelClassName?: string;
+  containerClassName?: string;
   disabled?: boolean;
 }) {
   const parentDefaultValue = parentSettings?.statsEngine?.value;
@@ -48,7 +50,7 @@ export default function StatsEngineSelect({
       size="legacy"
       label={label}
       className={className}
-      containerClassName="mb-3"
+      containerClassName={containerClassName}
       labelClassName={labelClassName}
       sort={false}
       options={options}

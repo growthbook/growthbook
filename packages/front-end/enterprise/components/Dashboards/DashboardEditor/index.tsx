@@ -1,4 +1,11 @@
-import React, { useCallback, useContext, useMemo, useState } from "react";
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { PiCaretDownFill, PiPencilSimpleFill } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import {
@@ -22,7 +29,6 @@ import { withErrorBoundary } from "@sentry/nextjs";
 import {
   LayoutItem,
   ResponsiveGridLayout,
-  useContainerWidth,
   verticalCompactor,
 } from "react-grid-layout";
 import Heading from "@/ui/Heading";
@@ -73,9 +79,9 @@ export function getGridKeyForBlock(
 
 // Build the RGL LayoutItem[] from blocks. Blocks without an existing layout
 // get stacked full-width below the highest occupied y so they don't collide.
-// minW/minH come from the shared per-type defaults; maxW is the absolute grid
-// cap. Height is intentionally uncapped. None of these constraints are
-// persisted.
+// minW/minH come from the shared per-type defaults, and a block saved shorter
+// than its minH is shown at it; maxW is the absolute grid cap. Height is
+// intentionally uncapped. None of these constraints are persisted.
 export function buildRGLLayout(
   blocks: DashboardBlockInterfaceOrData<DashboardBlockInterface>[],
   cols: number = DASHBOARD_GRID_COLS,
@@ -96,7 +102,7 @@ export function buildRGLLayout(
         x: block.layout.x,
         y: block.layout.y,
         w: Math.min(block.layout.w, maxW),
-        h: Math.max(1, block.layout.h),
+        h: Math.max(bounds.minH, block.layout.h),
         minW: bounds.minW,
         minH: bounds.minH,
         maxW,
@@ -745,6 +751,34 @@ interface DashboardGridProps {
   ) => React.ReactNode;
 }
 
+// The container's width, in whole pixels, once it has held for a frame: while
+// a panel slides beside the grid, its blocks wait and lay out once, where the
+// slide ends. Hidden with its tab the container measures 0, which is ignored,
+// so the grid waits for a real width and keeps its last one meanwhile.
+function useSettledWidth() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let frame = 0;
+    const observer = new ResizeObserver(([entry]) => {
+      cancelAnimationFrame(frame);
+      const next = Math.round(entry.contentRect.width);
+      if (next === 0) return;
+      frame = requestAnimationFrame(() => {
+        frame = requestAnimationFrame(() => setWidth(next));
+      });
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
+  }, []);
+  return [ref, width] as const;
+}
+
 // Wraps blocks in react-grid-layout so users can drag, drop, and resize.
 // Drag/resize are disabled outside edit mode and while a new block is being
 // added. We only persist layout changes from the canonical (lg)
@@ -760,9 +794,7 @@ function DashboardGrid({
   isGeneralDashboard,
   renderBlock,
 }: DashboardGridProps) {
-  const { width, containerRef, mounted } = useContainerWidth({
-    initialWidth: 1280,
-  });
+  const [containerRef, width] = useSettledWidth();
   const [openGapKey, setOpenGapKey] = useState<string | null>(null);
   const [isGridInteracting, setIsGridInteracting] = useState(false);
 
@@ -772,10 +804,12 @@ function DashboardGrid({
       RGL_COLS[RGL_CANONICAL_BREAKPOINT],
     );
     if (!isDefined(stagedBlockIndex) || isAddingBlock) return nextLayout;
-    return nextLayout.map((item, index) => ({
-      ...item,
-      static: index !== stagedBlockIndex,
-    }));
+    // Only the block being edited moves; the rest still make way for it.
+    return nextLayout.map((item, index) =>
+      index === stagedBlockIndex
+        ? item
+        : { ...item, isDraggable: false, isResizable: false },
+    );
   }, [blocks, isAddingBlock, stagedBlockIndex]);
   const gaps = useMemo(() => {
     if (
@@ -833,13 +867,10 @@ function DashboardGrid({
 
   return (
     <div
-      // useContainerWidth gives back React 19's `RefObject<T | null>` but the
-      // codebase is still on React 18 types - cast to satisfy the older
-      // LegacyRef signature without changing runtime behaviour.
-      ref={containerRef as unknown as React.RefObject<HTMLDivElement>}
+      ref={containerRef}
       className={clsx("dashboard-grid-container", { "is-editing": isEditing })}
     >
-      {mounted && (
+      {width > 0 && (
         <ResponsiveGridLayout
           width={width}
           className={clsx("dashboard-grid", {
@@ -915,7 +946,7 @@ function DashboardGrid({
           })}
         </ResponsiveGridLayout>
       )}
-      {mounted &&
+      {width > 0 &&
         addBlockType &&
         gaps.map((gap) => {
           const gapKey = `${gap.x}-${gap.y}-${gap.w}-${gap.h}`;

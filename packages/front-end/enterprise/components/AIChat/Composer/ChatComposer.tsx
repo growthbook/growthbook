@@ -87,7 +87,7 @@ export interface ChatComposerProps {
   autoFocus?: boolean;
   /** "wide" = PA chat, "compact" = agent panel, "hero" = PA empty state. */
   variant?: "wide" | "compact" | "hero";
-  /** Compact only, opt-in (the GrowthBot panel). */
+  /** Compact only, opt-in (the AI Assistant panel). */
   seamless?: boolean;
   mentionItems?: MentionItem[];
   /** Until true, mentions aren't marked stale — the list may still be loading. */

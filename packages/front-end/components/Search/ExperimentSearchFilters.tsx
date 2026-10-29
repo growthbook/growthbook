@@ -53,7 +53,7 @@ const ExperimentSearchFilters: FC<
   });
 
   return (
-    // Onto more rows where they don't fit (beside the docked GrowthBot panel).
+    // Onto more rows where they don't fit (beside the docked AI Assistant panel).
     <Flex gap="5" align="center" wrap="wrap">
       {!project && projects.length > 0 && (
         <FilterDropdown

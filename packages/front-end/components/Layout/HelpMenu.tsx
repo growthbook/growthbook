@@ -1,4 +1,4 @@
-import { ReactNode, useRef, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 import clsx from "clsx";
 import { IconButton, VisuallyHidden } from "@radix-ui/themes";
@@ -12,7 +12,7 @@ import {
   PiQuestion,
   PiSlackLogo,
 } from "react-icons/pi";
-import { Popover } from "@/ui/Popover";
+import { DropdownMenu } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import { inferDocUrl } from "@/components/DocLink";
 import { getGrowthBookBuild, isCloud } from "@/services/env";
@@ -21,113 +21,74 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { withOpticalWeight } from "./opticalWeight";
-import { useMenuTriggerTooltip } from "./railTooltips";
+import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import { buildVersionLabel } from "./buildVersion";
 import {
+  DropdownEntries,
   InPlaceMenu,
   MenuItemContent,
-  RailMenuEntry,
-  RailMenuInPlace,
-} from "./railMenu";
-import railStyles from "./AppRail.module.scss";
-import railMenuStyles from "./RailMenu.module.scss";
+  SIDEBAR_ICON_SIZE,
+  SidebarItemLook,
+  SidebarMenuEntry,
+  SidebarMenuInPlace,
+} from "./SidebarMenu";
 import styles from "./HelpMenu.module.scss";
 
 const HelpIcon = withOpticalWeight(PiQuestion);
 
 const SLACK_URL = "https://slack.growthbook.io/?ref=app-top-nav";
 
-const externalIcon = (
-  <PiArrowSquareOutBold
-    size={12}
-    className={styles.externalIcon}
-    aria-hidden="true"
-  />
-);
-const newTab = <VisuallyHidden> (opens in a new tab)</VisuallyHidden>;
-
-type HelpItem = {
-  key: string;
-  Icon: IconType;
-  label: string;
-  trailing?: ReactNode;
-  srSuffix?: ReactNode;
-  // Right after the label (8px), not at the row's end.
-  trailingAfterLabel?: boolean;
-  onSelect: () => void;
-};
-
 function helpLink(
   key: string,
   Icon: IconType,
   label: string,
   href: string,
-): HelpItem {
+): SidebarMenuEntry {
   return {
+    type: "item",
     key,
-    Icon,
-    label,
-    trailing: externalIcon,
-    srSuffix: newTab,
     onSelect: () => {
       window.open(href, "_blank", "noopener,noreferrer");
     },
+    content: (
+      <MenuItemContent
+        Icon={Icon}
+        label={
+          <>
+            {label}
+            <VisuallyHidden> (opens in a new tab)</VisuallyHidden>
+          </>
+        }
+        trailing={
+          <PiArrowSquareOutBold
+            size={12}
+            className={styles.externalIcon}
+            aria-hidden="true"
+          />
+        }
+      />
+    ),
   };
 }
 
-// Chat with support opens the upgrade window, as the old floating help
-// panel's Upgrade Now did.
 export default function HelpMenu({
-  collapsed = false,
-  iconSize = 16,
-  triggerClassName,
-  openClassName,
-  iconClassName,
-  labelClassName,
+  sidebarItem,
   inPlace,
 }: {
-  // Without these, the header's Help (pages without the side nav).
-  collapsed?: boolean;
-  iconSize?: number;
-  triggerClassName?: string;
-  openClassName?: string;
-  iconClassName?: string;
-  labelClassName?: string;
-  // In the narrow drawer: its menu drawn in place (AppRail.tsx).
-  inPlace?: RailMenuInPlace;
+  /** Set in the sidebar; without it, it's the header's button. */
+  sidebarItem?: SidebarItemLook;
+  /** In the drawer, the menu is drawn in place (Sidebar.tsx). */
+  inPlace?: SidebarMenuInPlace;
 }) {
-  const inRail = triggerClassName !== undefined;
   const [open, setOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const { hasCommercialFeature } = useUser();
-  // Plans with live chat have Pylon's own chat bubble (InAppHelp.tsx).
+  // Plans with live chat have Pylon's own chat bubble (PylonLoader.tsx).
   const offerLiveChat = isCloud() && !hasCommercialFeature("livechat");
   const version = buildVersionLabel(getGrowthBookBuild());
   const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 1500 });
 
-  const items: HelpItem[] = [
-    helpLink("docs", PiBookOpen, "View Docs", inferDocUrl()),
-    helpLink("slack", PiSlackLogo, "Join Slack Community", SLACK_URL),
-    ...(offerLiveChat
-      ? [
-          {
-            key: "live-chat",
-            Icon: PiChatCircleDots,
-            label: "Chat with support",
-            trailing: (
-              <PaidFeatureBadge commercialFeature="livechat" useTip={false} />
-            ),
-            trailingAfterLabel: true,
-            onSelect: () => {
-              setOpen(false);
-              setUpgradeOpen(true);
-            },
-          },
-        ]
-      : []),
-  ];
-
-  // The menu stays open, to show "Copied".
+  // The menu stays open to show "Copied".
   const copyVersion = () => {
     if (version) performCopy(version);
   };
@@ -153,27 +114,31 @@ export default function HelpMenu({
     </span>
   );
 
-  const entries: RailMenuEntry[] = [
+  const entries: SidebarMenuEntry[] = [
     { type: "label", key: "header", label: "Help" },
-    ...items.map(
-      (item): RailMenuEntry => ({
-        type: "item",
-        key: item.key,
-        onSelect: item.onSelect,
-        content: (
-          <MenuItemContent
-            Icon={item.Icon}
-            label={
-              <>
-                {item.label}
-                {item.srSuffix}
-              </>
-            }
-            trailing={item.trailing}
-          />
-        ),
-      }),
-    ),
+    helpLink("docs", PiBookOpen, "View docs", inferDocUrl()),
+    helpLink("slack", PiSlackLogo, "Join the Slack community", SLACK_URL),
+    ...(offerLiveChat
+      ? [
+          {
+            type: "item" as const,
+            key: "live-chat",
+            onSelect: () => setUpgradeOpen(true),
+            content: (
+              <MenuItemContent
+                Icon={PiChatCircleDots}
+                label="Chat with support"
+                trailing={
+                  <PaidFeatureBadge
+                    commercialFeature="livechat"
+                    useTip={false}
+                  />
+                }
+              />
+            ),
+          },
+        ]
+      : []),
     ...(version
       ? [
           { type: "separator" as const, key: "version-divider" },
@@ -189,30 +154,21 @@ export default function HelpMenu({
       : []),
   ];
 
-  // Opened with a click, focus stays put, as the section menus.
-  const openedByPointer = useRef(false);
-
   const tooltip = useMenuTriggerTooltip({
     label: "Help",
-    enabled: collapsed && !inPlace,
+    enabled: !!sidebarItem?.collapsed && !inPlace,
     menuOpen: open,
   });
 
-  const trigger = inRail ? (
+  const trigger = sidebarItem ? (
     <button
       type="button"
       className={clsx(
-        triggerClassName,
-        (open || inPlace?.open) && openClassName,
+        sidebarItem.className,
+        (open || inPlace?.open) && sidebarItem.openClassName,
       )}
       aria-label="Help"
-      data-rail-menu-trigger="help"
-      onPointerDown={() => {
-        openedByPointer.current = true;
-      }}
-      onKeyDown={() => {
-        openedByPointer.current = false;
-      }}
+      data-sidebar-menu-trigger="help"
       {...tooltip.triggerProps}
       {...(inPlace
         ? {
@@ -221,8 +177,14 @@ export default function HelpMenu({
           }
         : {})}
     >
-      <HelpIcon size={iconSize} className={iconClassName} aria-hidden />
-      {collapsed ? null : <span className={labelClassName}>Help</span>}
+      <HelpIcon
+        size={SIDEBAR_ICON_SIZE}
+        className={sidebarItem.iconClassName}
+        aria-hidden
+      />
+      {sidebarItem.collapsed ? null : (
+        <span className={sidebarItem.labelClassName}>Help</span>
+      )}
       {tooltip.anchor}
     </button>
   ) : (
@@ -232,15 +194,9 @@ export default function HelpMenu({
       size="2"
       className={styles.headerButton}
       aria-label="Help"
-      data-rail-menu-trigger="help"
-      onPointerDown={() => {
-        openedByPointer.current = true;
-      }}
-      onKeyDown={() => {
-        openedByPointer.current = false;
-      }}
+      data-sidebar-menu-trigger="help"
     >
-      <HelpIcon size={iconSize} aria-hidden="true" />
+      <HelpIcon size={16} aria-hidden="true" />
     </IconButton>
   );
 
@@ -267,96 +223,21 @@ export default function HelpMenu({
     );
   }
 
-  const popoverRow = (
-    key: string,
-    content: ReactNode,
-    onSelect: () => void,
-    className?: string,
-  ) => (
-    <button
-      key={key}
-      type="button"
-      className={clsx(railStyles.popoverItem, styles.popoverRow, className)}
-      onClick={onSelect}
-    >
-      {content}
-    </button>
-  );
-
   return (
     <>
       {upgradeModal}
-      <Popover
+      <DropdownMenu
         open={open}
         onOpenChange={setOpen}
+        menuPlacement="end"
+        menuSide={sidebarItem ? "right" : "bottom"}
+        // 8px past the sidebar's edge: the item sits 8px inside it.
+        menuSideOffset={sidebarItem ? 16 : undefined}
+        variant="soft"
         trigger={trigger}
-        // In the side nav, clear of its edge (the item sits 8px inside it).
-        side={inRail ? "right" : "bottom"}
-        align="end"
-        sideOffset={inRail ? 16 : 8}
-        showArrow={false}
-        contentClassName={clsx(railStyles.popover, styles.popover)}
-        // The padding is on the list inside (.popoverBody), as the section
-        // menus'.
-        contentStyle={{ padding: 0 }}
-        onOpenAutoFocus={(e) => {
-          if (openedByPointer.current) e.preventDefault();
-        }}
-        onCloseAutoFocus={(e) => {
-          if (openedByPointer.current) e.preventDefault();
-        }}
-        content={
-          <div
-            className={clsx(railStyles.popoverBody, railStyles.popoverInner)}
-            role="group"
-            aria-label="Help"
-          >
-            <div className={railStyles.eyebrow} aria-hidden="true">
-              Help
-            </div>
-            {items.map((item) =>
-              popoverRow(
-                item.key,
-                <>
-                  <item.Icon
-                    size={16}
-                    className={styles.popoverIcon}
-                    aria-hidden="true"
-                  />
-                  <span
-                    className={clsx(
-                      styles.popoverLabel,
-                      item.trailingAfterLabel && styles.popoverLabelFit,
-                    )}
-                  >
-                    {item.label}
-                    {item.srSuffix}
-                  </span>
-                  {item.trailing}
-                </>,
-                item.onSelect,
-              ),
-            )}
-            {version ? (
-              <>
-                <div
-                  className={clsx(
-                    railMenuStyles.separator,
-                    styles.popoverDivider,
-                  )}
-                  role="none"
-                />
-                {popoverRow(
-                  "version",
-                  versionContent,
-                  copyVersion,
-                  clsx(styles.versionItem, styles.popoverVersion),
-                )}
-              </>
-            ) : null}
-          </div>
-        }
-      />
+      >
+        <DropdownEntries entries={entries} />
+      </DropdownMenu>
     </>
   );
 }
