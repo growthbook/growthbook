@@ -721,6 +721,7 @@ class InMemoryIncrementalRefreshModel {
           experimentSettingsHash: null,
         } as IncrementalRefreshInterface)),
       currentExecutionSnapshotId: snapshotId,
+      lastLockHolderSnapshotId: snapshotId,
       lockHeartbeatAt: new Date(),
     });
     return true;
@@ -753,16 +754,30 @@ class InMemoryIncrementalRefreshModel {
     throw new Error(`${method} failed`);
   }
 
+  private remember(list: string[] | undefined, snapshotId: string) {
+    return [...(list ?? []), snapshotId].slice(-20);
+  }
+
   async cleanUpUnlockedPhase(
     experimentId: string,
     phase: number,
+    snapshotId: string,
     plan: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
   ) {
     this.maybeFail("cleanUpUnlockedPhase");
     const doc = this.docs.get(experimentId);
-    if (!doc || doc.phase !== phase || doc.currentExecutionSnapshotId) {
+    if (
+      !doc ||
+      doc.phase !== phase ||
+      doc.currentExecutionSnapshotId ||
+      doc.lastLockHolderSnapshotId !== snapshotId
+    ) {
       return false;
     }
+    doc.cleanedUpSnapshotIds = this.remember(
+      doc.cleanedUpSnapshotIds,
+      snapshotId,
+    );
     if (plan.forceFullRefresh) doc.unitsTableFullName = null;
     const keep = (s: { groupId: string }) =>
       !plan.metricGroupIdsToRebuild.includes(s.groupId);
@@ -774,15 +789,30 @@ class InMemoryIncrementalRefreshModel {
   async commitRunResults(experimentId: string, snapshotId: string) {
     this.maybeFail("commitRunResults");
     const doc = this.docs.get(experimentId);
-    if (
-      !doc ||
-      (doc.currentExecutionSnapshotId !== snapshotId &&
-        doc.materializedBySnapshotId !== snapshotId)
-    ) {
-      return false;
-    }
-    doc.materializedBySnapshotId = snapshotId;
+    if (!doc) return false;
+    if (doc.committedSnapshotIds?.includes(snapshotId)) return true;
+    if (doc.currentExecutionSnapshotId !== snapshotId) return false;
+    doc.committedSnapshotIds = this.remember(
+      doc.committedSnapshotIds,
+      snapshotId,
+    );
     return true;
+  }
+
+  async markMaterialized(experimentId: string, snapshotId: string) {
+    const doc = this.docs.get(experimentId);
+    if (
+      doc?.committedSnapshotIds?.includes(snapshotId) &&
+      doc.lastLockHolderSnapshotId === snapshotId
+    ) {
+      doc.materializedBySnapshotId = snapshotId;
+    }
+  }
+
+  async wasCleanedUpBy(experimentId: string, snapshotId: string) {
+    return !!this.docs
+      .get(experimentId)
+      ?.cleanedUpSnapshotIds?.includes(snapshotId);
   }
 
   async releaseLockAfterInterruptedRun(
@@ -793,6 +823,10 @@ class InMemoryIncrementalRefreshModel {
     this.maybeFail("releaseLockAfterInterruptedRun");
     const doc = this.locked(experimentId, snapshotId);
     if (!doc) return false;
+    doc.cleanedUpSnapshotIds = this.remember(
+      doc.cleanedUpSnapshotIds,
+      snapshotId,
+    );
     doc.currentExecutionSnapshotId = null;
     doc.lockHeartbeatAt = null;
     if (plan.forceFullRefresh) doc.unitsTableFullName = null;
@@ -955,15 +989,19 @@ class Experiment {
 
   // Concludes a finished run as the runner does. Returns true when only a
   // full refresh is safe next.
-  async release(run: SimRun) {
+  // When the snapshot save is lost, the tables must not point at it.
+  async release(run: SimRun, { saveLost = false } = {}) {
     await run.writer.flush();
     mockQueryStore(run);
-    const { resultsError, needsFullRefresh } = await concludeRefresh(
+    const { committed, resultsError, needsFullRefresh } = await concludeRefresh(
       context(),
       snapshotOf(this.id, run),
       finishedStatus(run),
     );
     run.resultsError = resultsError;
+    if (committed && !resultsError && !saveLost) {
+      await model.markMaterialized(this.id, run.snapshotId);
+    }
     return needsFullRefresh;
   }
 
@@ -1548,6 +1586,75 @@ async function expectRetriedConclusionKeepsResults(
   return failures;
 }
 
+// A run's snapshot save is lost after it concluded, and a later process
+// concludes it again, sometimes after a newer run already finished. The
+// second conclusion must recognise its own work: keep the run's results,
+// change nothing a newer run owns, and never point the tables at a snapshot
+// that was not saved as a success.
+async function expectConcludingAgainLaterChangesNothing(
+  config: Config,
+  fullRefresh: boolean,
+) {
+  const failures: string[] = [];
+  const count = (
+    await (
+      await setUpExperiment(config)
+    ).startRun({ now: INTERRUPTED_AT, fullRefresh })
+  ).run.queries.length;
+  const tablesState = async (experimentId: string) => {
+    const doc = await getDoc(experimentId);
+    return {
+      unitsTableFullName: doc?.unitsTableFullName,
+      metricSources: doc?.metricSources,
+      metricCovariateSources: doc?.metricCovariateSources,
+      currentExecutionSnapshotId: doc?.currentExecutionSnapshotId,
+    };
+  };
+  for (let failQueryIndex = -1; failQueryIndex < count; failQueryIndex++) {
+    for (const newerRunBetween of [false, true]) {
+      const exp = await setUpExperiment(config);
+      const before = (await getDoc(exp.id))?.materializedBySnapshotId;
+      const { run } = await exp.startRun({
+        now: INTERRUPTED_AT,
+        fullRefresh,
+        failQueryIndex: failQueryIndex < 0 ? null : failQueryIndex,
+      });
+      const where = `${failQueryIndex < 0 ? "clean run" : `${run.queries[failQueryIndex].name} failed`}${newerRunBetween ? ", newer run between" : ""}`;
+      try {
+        const needsFullRefresh = await exp.release(run, { saveLost: true });
+        // Never points at a snapshot whose save was lost.
+        expect((await getDoc(exp.id))?.materializedBySnapshotId).toBe(before);
+        const firstError = run.resultsError;
+        if (newerRunBetween) {
+          await exp.completeRun(INTERRUPTED_AT + 50, needsFullRefresh);
+        }
+        const settled = await tablesState(exp.id);
+
+        const pointer = (await getDoc(exp.id))?.materializedBySnapshotId;
+        expect(await exp.release(run)).toBe(false);
+        expect(run.resultsError).toBe(firstError);
+        expect(await tablesState(exp.id)).toEqual(settled);
+        // Saved now, it may become the tables' snapshot, unless a newer run
+        // took the lock since.
+        expect((await getDoc(exp.id))?.materializedBySnapshotId).toBe(
+          newerRunBetween || committed(run) === false
+            ? pointer
+            : run.snapshotId,
+        );
+
+        await nextRefresh(exp, needsFullRefresh && !newerRunBetween);
+        expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        failures.push(
+          `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
+        );
+      }
+    }
+  }
+  return failures;
+}
+
 describe("incremental refresh interruption (in-memory lock state)", () => {
   beforeAll(() => {
     model = createModel("memory");
@@ -1582,6 +1689,10 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
         ...before,
         currentExecutionSnapshotId: null,
         lockHeartbeatAt: null,
+        cleanedUpSnapshotIds: [
+          ...(before?.cleanedUpSnapshotIds ?? []),
+          run.snapshotId,
+        ],
       });
       expect(await exp.contents()).toEqual(
         expectedContents(config, INTERRUPTED_AT),
@@ -1608,6 +1719,17 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
         expect(await expectFailedPlanningCleansUp(config, fullRefresh)).toEqual(
           [],
         );
+      },
+    );
+  });
+
+  describe.each(modes)("$mode", ({ fullRefresh }) => {
+    it.each(configs.map((c) => [label(c), c] as const))(
+      "changes nothing when concluded again by a later process: %s",
+      async (_, config) => {
+        expect(
+          await expectConcludingAgainLaterChangesNothing(config, fullRefresh),
+        ).toEqual([]);
       },
     );
   });
@@ -1757,6 +1879,18 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
     "recovers from an interruption at every step: $mode",
     async ({ fullRefresh }) => {
       expect(await sweep(MONGO_CONFIG, fullRefresh, ["serial"])).toEqual([]);
+    },
+  );
+
+  it.each(modes)(
+    "changes nothing when concluded again by a later process: $mode",
+    async ({ fullRefresh }) => {
+      expect(
+        await expectConcludingAgainLaterChangesNothing(
+          MONGO_CONFIG,
+          fullRefresh,
+        ),
+      ).toEqual([]);
     },
   );
 

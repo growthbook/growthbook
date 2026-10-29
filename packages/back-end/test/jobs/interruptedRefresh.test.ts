@@ -324,6 +324,7 @@ describe("isIncrementalRefreshRun", () => {
 describe("releasing an interrupted refresh", () => {
   const releaseLockAfterInterruptedRun = jest.fn();
   const cleanUpUnlockedPhase = jest.fn();
+  const wasCleanedUpBy = jest.fn();
   const releaseLock = jest.fn();
   const context = {
     org: { id: "org_1" },
@@ -331,6 +332,7 @@ describe("releasing an interrupted refresh", () => {
       incrementalRefresh: {
         releaseLockAfterInterruptedRun,
         cleanUpUnlockedPhase,
+        wasCleanedUpBy,
         releaseLock,
       },
     },
@@ -365,6 +367,7 @@ describe("releasing an interrupted refresh", () => {
     jest.clearAllMocks();
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
     cleanUpUnlockedPhase.mockResolvedValue(false);
+    wasCleanedUpBy.mockResolvedValue(false);
     releaseLock.mockResolvedValue(undefined);
   });
 
@@ -429,7 +432,23 @@ describe("releasing an interrupted refresh", () => {
       );
     });
 
-    it("applies the cleanup again when the run was already concluded and nobody holds the lock", async () => {
+    it("does nothing more for a run an earlier attempt already cleaned up", async () => {
+      releaseLockAfterInterruptedRun.mockResolvedValue(false);
+      wasCleanedUpBy.mockResolvedValue(true);
+      await expect(
+        releaseInterruptedRefresh(
+          context,
+          snapshot(),
+          statusMap(
+            { max_timestamp_metrics_source_ft1_abc0: "failed" },
+            "succeeded",
+          ),
+        ),
+      ).resolves.toBe(false);
+      expect(cleanUpUnlockedPhase).not.toHaveBeenCalled();
+    });
+
+    it("applies the cleanup when the run was released without it and nobody has taken the lock since", async () => {
       releaseLockAfterInterruptedRun.mockResolvedValue(false);
       cleanUpUnlockedPhase.mockResolvedValue(true);
       await expect(
@@ -442,10 +461,15 @@ describe("releasing an interrupted refresh", () => {
           ),
         ),
       ).resolves.toBe(false);
-      expect(cleanUpUnlockedPhase).toHaveBeenCalledWith("exp_1", 0, {
-        metricGroupIdsToRebuild: ["ft1_abc0"],
-        forceFullRefresh: false,
-      });
+      expect(cleanUpUnlockedPhase).toHaveBeenCalledWith(
+        "exp_1",
+        0,
+        SNAPSHOT_ID,
+        {
+          metricGroupIdsToRebuild: ["ft1_abc0"],
+          forceFullRefresh: false,
+        },
+      );
     });
 
     it("reports a full refresh is needed when the lock was already gone", async () => {

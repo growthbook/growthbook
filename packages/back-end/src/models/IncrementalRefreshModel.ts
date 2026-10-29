@@ -10,6 +10,13 @@ import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "incrementalrefresh";
 
+// How many recent runs the committed and cleaned-up lists remember.
+const RECENT_RUNS = 20;
+const recentlyConcluded = (snapshotId: string) => ({
+  $each: [snapshotId],
+  $slice: -RECENT_RUNS,
+});
+
 // A lock is considered stale once its heartbeat is older than this. The
 // runner refreshes the heartbeat every ~30s while queries are executing, so
 // this only needs to cover slow polls / brief stalls — not the full runtime
@@ -89,6 +96,7 @@ export class IncrementalRefreshModel extends BaseClass {
     const lockAvailable = this.getAvailableLockFilter();
     const lockFields = {
       currentExecutionSnapshotId: snapshotId,
+      lastLockHolderSnapshotId: snapshotId,
       lockHeartbeatAt: new Date(),
       dateUpdated: new Date(),
     };
@@ -170,6 +178,7 @@ export class IncrementalRefreshModel extends BaseClass {
     };
     const claimFields = {
       currentExecutionSnapshotId: token,
+      lastLockHolderSnapshotId: token,
       lockHeartbeatAt: new Date(),
       dateUpdated: new Date(),
     };
@@ -247,6 +256,7 @@ export class IncrementalRefreshModel extends BaseClass {
           dateUpdated: new Date(),
           ...(forceFullRefresh ? { unitsTableFullName: null } : {}),
         },
+        $push: { cleanedUpSnapshotIds: recentlyConcluded(snapshotId) },
         ...(metricGroupIdsToRebuild.length
           ? {
               $pull: {
@@ -261,13 +271,14 @@ export class IncrementalRefreshModel extends BaseClass {
   }
 
   /**
-   * Applies an interrupted run's cleanup to a phase document nobody holds the
-   * lock on, e.g. when the run was already concluded once. Returns false when
-   * another run holds the lock.
+   * Applies an interrupted run's cleanup to a phase document whose lock is
+   * free and that nobody has taken since this run, e.g. after a plain
+   * release. Returns false when another run has held the lock since.
    */
   public async cleanUpUnlockedPhase(
     experimentId: string,
     phase: number,
+    snapshotId: string,
     {
       metricGroupIdsToRebuild,
       forceFullRefresh,
@@ -280,12 +291,14 @@ export class IncrementalRefreshModel extends BaseClass {
         experimentId,
         phase,
         currentExecutionSnapshotId: null,
+        lastLockHolderSnapshotId: snapshotId,
       },
       {
         $set: {
           dateUpdated: new Date(),
           ...(forceFullRefresh ? { unitsTableFullName: null } : {}),
         },
+        $push: { cleanedUpSnapshotIds: recentlyConcluded(snapshotId) },
         ...(metricGroupIdsToRebuild.length
           ? {
               $pull: {
@@ -301,31 +314,61 @@ export class IncrementalRefreshModel extends BaseClass {
 
   /**
    * The commit point for a run's results: records them only while the run
-   * still holds the lock. Committing again after the run released its lock is
-   * a no-op success, so a retried conclusion keeps its results. Returns false
-   * when nothing was recorded.
+   * still holds the lock. A run whose results were already committed commits
+   * again as a no-op success, so a retried conclusion keeps its results.
+   * Returns false when nothing was recorded.
    */
   public async commitRunResults(
     experimentId: string,
     snapshotId: string,
   ): Promise<boolean> {
-    const result = await this._dangerousGetCollection().updateOne(
+    const collection = this._dangerousGetCollection();
+    const filter = { organization: this.context.org.id, experimentId };
+    const recorded = await collection.findOne(
+      { ...filter, committedSnapshotIds: snapshotId },
+      { projection: { _id: 1 } },
+    );
+    if (recorded) return true;
+    const result = await collection.updateOne(
+      { ...filter, currentExecutionSnapshotId: snapshotId },
       {
-        organization: this.context.org.id,
-        experimentId,
-        $or: [
-          { currentExecutionSnapshotId: snapshotId },
-          { materializedBySnapshotId: snapshotId },
-        ],
-      },
-      {
-        $set: {
-          dateUpdated: new Date(),
-          materializedBySnapshotId: snapshotId,
-        },
+        $set: { dateUpdated: new Date() },
+        $push: { committedSnapshotIds: recentlyConcluded(snapshotId) },
       },
     );
     return result.matchedCount > 0;
+  }
+
+  /**
+   * Points the tables at a run's snapshot once that snapshot was saved as a
+   * success, so they never point at a snapshot whose save was lost. Skipped
+   * when another run has taken the lock since.
+   */
+  public async markMaterialized(experimentId: string, snapshotId: string) {
+    await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        committedSnapshotIds: snapshotId,
+        lastLockHolderSnapshotId: snapshotId,
+      },
+      {
+        $set: { materializedBySnapshotId: snapshotId, dateUpdated: new Date() },
+      },
+    );
+  }
+
+  /** True once a run's cleanup was applied as its lock was released. */
+  public async wasCleanedUpBy(experimentId: string, snapshotId: string) {
+    const doc = await this._dangerousGetCollection().findOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        cleanedUpSnapshotIds: snapshotId,
+      },
+      { projection: { _id: 1 } },
+    );
+    return doc !== null;
   }
 
   public async touchLockHeartbeat(experimentId: string, snapshotId: string) {

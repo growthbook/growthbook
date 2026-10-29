@@ -80,6 +80,7 @@ import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   concludeRefresh,
   FULL_REFRESH_NEXT_HINT,
+  LOCK_LOST_ERROR,
   RESULTS_NOT_COMMITTED_ERROR,
 } from "back-end/src/jobs/interruptedRefresh";
 import {
@@ -98,11 +99,10 @@ import { incrementalRefreshQueryNames } from "./incrementalRefreshQueryNames";
 import { createOrderedWriter, OrderedWriter } from "./orderedWriter";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
+
+type Conclusion = Awaited<ReturnType<typeof concludeRefresh>>;
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
-
-const LOCK_LOST_ERROR =
-  "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.";
 
 const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
 
@@ -288,7 +288,7 @@ export const startExperimentIncrementalRefreshQueries = async (
     );
     if (!segmentObj) {
       throw new Error(
-        `The experiment's segment (${snapshotSettings.segment}) could not be found. Update the experiment's segment and run a Full Refresh.`,
+        `The experiment's segment (${snapshotSettings.segment}) could not be found. Update the experiment's segment, then run a full refresh.`,
       );
     }
   }
@@ -1260,10 +1260,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private writeSourceLists = createOrderedWriter();
   // Every query started so far, even if planning the rest then throws.
   public startedQueries: Queries = [];
-  private conclusion: {
-    resultsError: string | null;
-    needsFullRefresh: boolean;
-  } | null = null;
+  private conclusion: Conclusion | null = null;
+  // Set when the last save replaced the results with an error.
+  private refusedError: string | null = null;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1495,13 +1494,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private async releaseConcludedRun(
     status: "succeeded" | "partially-succeeded" | "failed",
     queries: Queries = this.model.queries,
-  ): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
-    // A retry after a failed save reuses the conclusion: this run released
-    // its lock, so concluding again could no longer commit.
+  ): Promise<Conclusion> {
+    // A retry after a failed save reuses the conclusion. Concluding again is
+    // safe too, but this skips the writes.
     if (this.conclusion) return this.conclusion;
     try {
       await this.writeSourceLists.flush();
-      this.conclusion = await concludeRefresh(
+      const conclusion = await concludeRefresh(
         this.context,
         {
           ...this.model,
@@ -1509,17 +1508,26 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         },
         status,
       );
-      return this.conclusion;
+      // A pending cleanup is retried with the next attempt.
+      if (!conclusion.cleanupPending) this.conclusion = conclusion;
+      return conclusion;
     } catch (e) {
+      // The commit itself failed; a retry commits again.
       this.context.logger.warn(
         e,
         "Failed to conclude the incremental refresh on terminal status",
       );
       return {
+        committed: false,
         resultsError: status === "failed" ? null : RESULTS_NOT_COMMITTED_ERROR,
         needsFullRefresh: true,
+        cleanupPending: true,
       };
     }
+  }
+
+  protected override refusedResultsError(): string | null {
+    return this.refusedError;
   }
 
   async updateModel({
@@ -1546,23 +1554,28 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
     // Concluded before the result is saved: results are saved only if they
     // were committed, and the error can say when only a full refresh is safe.
+    let conclusion: Conclusion | null = null;
+    this.refusedError = null;
     if (snapshotStatus !== "running") {
-      const { resultsError, needsFullRefresh } = await this.releaseConcludedRun(
+      conclusion = await this.releaseConcludedRun(
         status === "failed" || status === "partially-succeeded"
           ? status
           : "succeeded",
         queries,
       );
-      if (resultsError) {
+      if (conclusion.resultsError) {
         snapshotStatus = "error";
         result = undefined;
-        error = resultsError;
+        error = conclusion.resultsError;
+        // Not a query failure: the next refresh retries.
+        failureCause = "cancelled";
       }
-      if (needsFullRefresh) {
+      if (conclusion.needsFullRefresh) {
         error = error
           ? `${error} ${FULL_REFRESH_NEXT_HINT}`
           : FULL_REFRESH_NEXT_HINT;
       }
+      if (conclusion.resultsError) this.refusedError = error ?? null;
     }
 
     const updates: Partial<ExperimentSnapshotInterface> = {
@@ -1580,6 +1593,18 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       conclusion: { concludedBy: this.concludedBy },
       experimentUpdateExecutionLogger: this.experimentUpdateExecutionLogger,
     });
+    // Only now that the snapshot is saved as a success may the tables point
+    // at it.
+    if (conclusion?.committed && snapshotStatus === "success") {
+      await this.context.models.incrementalRefresh
+        .markMaterialized(this.model.experiment, this.model.id)
+        .catch((e) =>
+          this.context.logger.warn(
+            e,
+            "Failed to record pipeline tables snapshot id on success",
+          ),
+        );
+    }
     if (
       this.model.report &&
       ["failed", "partially-succeeded", "succeeded"].includes(status)

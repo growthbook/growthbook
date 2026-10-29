@@ -54,8 +54,16 @@ const incrementalRefresh = z
       incrementalRefreshMetricCovariateSourceValidator,
     ),
 
+    // Recent runs whose results were committed, and whose cleanup was
+    // applied, so a run concluded again (a retry, or recovery) recognises
+    // its own work instead of repeating it.
+    committedSnapshotIds: z.array(z.string()).optional(),
+    cleanedUpSnapshotIds: z.array(z.string()).optional(),
+
     // Incremental refresh lock
     currentExecutionSnapshotId: z.string().nullable(),
+    // The latest snapshot to take the lock, kept after it is released.
+    lastLockHolderSnapshotId: z.string().nullable().optional(),
     lockHeartbeatAt: z.date().nullable().optional(),
   })
   .strict();

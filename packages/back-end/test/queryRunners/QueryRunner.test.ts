@@ -720,6 +720,38 @@ describe("QueryRunner", () => {
       async onQueryFinish() {}
     }
 
+    it("finishes with the error saved in place of refused results", async () => {
+      class RefusingQueryRunner extends RaceTestQueryRunner {
+        protected refusedResultsError() {
+          return "Results were not saved.";
+        }
+
+        async onQueryFinish() {}
+      }
+      const runner = new RefusingQueryRunner(
+        mockContext,
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: new Date(),
+        },
+        mockIntegration,
+      );
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        createMockQuery("qry_a", "succeeded"),
+      ]);
+
+      await runner.startAnalysis({
+        pointers: [{ name: "a", query: "qry_a", status: "succeeded" }],
+      });
+
+      expect(runner.status).toBe("finished");
+      await expect(runner.waitForResults()).rejects.toThrow(
+        "Results were not saved.",
+      );
+    });
+
     it("identifies a run with no generated queries", async () => {
       const runner = new RaceTestQueryRunner(
         mockContext,

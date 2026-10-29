@@ -232,6 +232,7 @@ describe("cancelExperimentSnapshot", () => {
           releaseLock,
           releaseLockAfterInterruptedRun,
           cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
+          wasCleanedUpBy: jest.fn().mockResolvedValue(false),
         },
       },
       logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },

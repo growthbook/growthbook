@@ -332,6 +332,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         hasFreshLockHeartbeat,
         releaseLockAfterInterruptedRun,
         cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
+        wasCleanedUpBy: jest.fn().mockResolvedValue(false),
       },
       metricAnalysis: { update: jest.fn() },
     },

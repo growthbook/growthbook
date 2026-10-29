@@ -11,12 +11,15 @@ import {
 import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
+import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 
 export const FULL_REFRESH_NEXT_HINT =
   "Choose Full refresh from the results page's three-dot menu next, not Update, because Update could now fail or count some data twice.";
 export const INTERRUPTED_REFRESH_ERROR = `This update stopped before it finished. ${FULL_REFRESH_NEXT_HINT}`;
 export const RESULTS_NOT_COMMITTED_ERROR =
   "Another update took over this experiment's cache tables before this one finished, so its results were not saved. Please try updating results again.";
+export const LOCK_LOST_ERROR =
+  "Incremental refresh lock was lost to another snapshot; aborting to avoid corrupting shared pipeline tables.";
 export const NOT_RUN_QUERY_ERROR =
   "Not run: the update this query belonged to stopped before the query started.";
 
@@ -137,11 +140,21 @@ export async function releaseInterruptedRefresh(
       );
     }
     if (needsCleanup && !released) {
-      // The run was already concluded and nobody holds the lock: applying the
-      // cleanup again is safe. Only another run's lock makes it impossible.
+      // An earlier attempt already concluded this run: nothing left to do.
+      if (
+        await context.models.incrementalRefresh.wasCleanedUpBy(
+          snapshot.experiment,
+          snapshot.id,
+        )
+      ) {
+        return false;
+      }
+      // Released without its cleanup, and nobody has taken the lock since:
+      // applying it now is safe. Otherwise a newer run owns the tables.
       return !(await context.models.incrementalRefresh.cleanUpUnlockedPhase(
         snapshot.experiment,
         snapshot.phase,
+        snapshot.id,
         plan,
       ));
     }
@@ -268,27 +281,63 @@ export async function releaseConcludedRefresh(
 /**
  * Concludes a run that reached a terminal status. Its results are committed
  * only while it still holds the lock; then the lock is released with the
- * cleanup the status calls for. Safe to repeat: a run that already committed
- * and released commits and cleans up again as a no-op. Returns the error to save instead of the
- * results, if any, and whether only a full refresh is safe next.
+ * cleanup the status calls for. Safe to repeat, from any process: committing
+ * and cleaning up again recognise this run's earlier work. A release that
+ * throws leaves the cleanup pending without undoing the commit.
  */
 export async function concludeRefresh(
   context: ReqContext | ApiReqContext,
   snapshot: Parameters<typeof stopInterruptedRefresh>[1],
   status: "succeeded" | "partially-succeeded" | "failed",
-): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
-  let resultsError: string | null = null;
-  if (status !== "failed") {
-    const committed = await context.models.incrementalRefresh.commitRunResults(
+): Promise<{
+  committed: boolean;
+  resultsError: string | null;
+  needsFullRefresh: boolean;
+  cleanupPending: boolean;
+}> {
+  const committed =
+    status !== "failed" &&
+    (await context.models.incrementalRefresh.commitRunResults(
       snapshot.experiment,
       snapshot.id,
+    ));
+  const resultsError =
+    status !== "failed" && !committed ? RESULTS_NOT_COMMITTED_ERROR : null;
+  try {
+    const needsFullRefresh = await releaseConcludedRefresh(
+      context,
+      snapshot,
+      status,
     );
-    if (!committed) resultsError = RESULTS_NOT_COMMITTED_ERROR;
+    return { committed, resultsError, needsFullRefresh, cleanupPending: false };
+  } catch (e) {
+    logger.warn(e, `Failed to release concluded refresh ${snapshot.id}`);
+    return {
+      committed,
+      resultsError,
+      needsFullRefresh: true,
+      cleanupPending: true,
+    };
   }
-  const needsFullRefresh = await releaseConcludedRefresh(
-    context,
-    snapshot,
-    status,
-  );
-  return { resultsError, needsFullRefresh };
+}
+
+/**
+ * True for errors raised by the incremental refresh's own safety checks. They
+ * mean "try again" (the next refresh repairs or rebuilds the tables), so they
+ * must never turn off scheduled updates.
+ */
+export function isRetryableIncrementalRefreshError(error: unknown): boolean {
+  if (error instanceof ConcurrentIncrementalRefreshError) return true;
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === "string"
+        ? error
+        : "";
+  return [
+    RESULTS_NOT_COMMITTED_ERROR,
+    INTERRUPTED_REFRESH_ERROR,
+    LOCK_LOST_ERROR,
+    NOT_RUN_QUERY_ERROR,
+  ].some((safetyMessage) => message.includes(safetyMessage));
 }

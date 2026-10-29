@@ -13,6 +13,7 @@ import {
 } from "back-end/src/models/QueryModel";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { OrderedWriter } from "back-end/src/queryRunners/orderedWriter";
+import { RESULTS_NOT_COMMITTED_ERROR } from "back-end/src/jobs/interruptedRefresh";
 import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
@@ -35,6 +36,8 @@ const context = {
       updateByExperimentIdIfCurrentExecution: jest.fn().mockResolvedValue(true),
       commitRunResults: jest.fn().mockResolvedValue(true),
       cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
+      wasCleanedUpBy: jest.fn().mockResolvedValue(false),
+      markMaterialized: jest.fn().mockResolvedValue(undefined),
     },
   },
 } as unknown as ReqContext;
@@ -256,5 +259,62 @@ describe("ExperimentIncrementalRefreshQueryRunner retrying its conclusion", () =
     expect(saved.error ?? "").toBe("");
     expect(models.commitRunResults).toHaveBeenCalledTimes(1);
     jest.mocked(models.commitRunResults).mockResolvedValue(true);
+  });
+});
+
+describe("ExperimentIncrementalRefreshQueryRunner saving its results", () => {
+  const models = context.models.incrementalRefresh;
+  const finished = {
+    ...snapshot,
+    runnerKind: "incremental-update",
+    queries: [
+      {
+        name: "insert_metrics_source_data_g1",
+        query: "q_insert",
+        status: "succeeded",
+      },
+    ],
+  } as unknown as ExperimentSnapshotInterface;
+  const newRunner = () =>
+    new ExperimentIncrementalRefreshQueryRunner(context, finished, {
+      datasource: {},
+    } as SourceIntegrationInterface);
+
+  beforeEach(() => {
+    jest.mocked(getQueryStatusesByIds).mockResolvedValue([]);
+  });
+  afterEach(() => {
+    jest.mocked(models.commitRunResults).mockResolvedValue(true);
+  });
+
+  it("points the tables at the snapshot only once it is saved", async () => {
+    jest.mocked(updateSnapshot).mockRejectedValueOnce(new Error("save failed"));
+    await expect(
+      newRunner().updateModel({
+        status: "succeeded",
+        queries: finished.queries,
+      }),
+    ).rejects.toThrow("save failed");
+    expect(models.markMaterialized).not.toHaveBeenCalled();
+  });
+
+  it("saves refused results as a retryable error, not a query failure", async () => {
+    jest.mocked(models.commitRunResults).mockResolvedValue(false);
+    const runner = newRunner();
+
+    await runner.updateModel({
+      status: "succeeded",
+      queries: finished.queries,
+    });
+
+    const saved = jest.mocked(updateSnapshot).mock.calls[0][0];
+    expect(saved.updates.status).toBe("error");
+    expect(saved.failureCause).toBe("cancelled");
+    expect(models.markMaterialized).not.toHaveBeenCalled();
+    expect(
+      (
+        runner as unknown as { refusedResultsError: () => string | null }
+      ).refusedResultsError(),
+    ).toContain(RESULTS_NOT_COMMITTED_ERROR);
   });
 });

@@ -428,6 +428,15 @@ export abstract class QueryRunner<
   }
 
   /**
+   * The error the last updateModel saved in place of the results, if it
+   * refused them (e.g. an incremental refresh's safety check). The runner
+   * then finishes with that error, so callers see what was saved.
+   */
+  protected refusedResultsError(): string | null {
+    return null;
+  }
+
+  /**
    * Persist a terminal error. Snapshot runners override to write only while
    * status is still running, so a cancel/reaper conclusion is not clobbered.
    */
@@ -674,6 +683,11 @@ export abstract class QueryRunner<
     });
     this.model = newModel;
     this.dagPersisted = true;
+    const refused = this.refusedResultsError();
+    if (refused) {
+      error = refused;
+      result = undefined;
+    }
 
     if (error || result) {
       this.setStatus("finished", error, result);
@@ -945,6 +959,11 @@ export abstract class QueryRunner<
       failureCause,
     });
     this.model = newModel;
+    const refused = this.refusedResultsError();
+    if (refused) {
+      error = refused;
+      result = undefined;
+    }
 
     if (error || result) {
       this.setStatus("finished", error, result);
