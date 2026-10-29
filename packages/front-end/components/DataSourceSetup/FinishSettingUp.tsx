@@ -83,7 +83,9 @@ const EXPANDABLE_STEPS: StepId[] = ["forwarder", "identifiers", "queries"];
 // Status icon or checkbox, identifier type, description, row actions.
 const IDENTIFIER_COLUMNS = "24px minmax(0, 1fr) minmax(0, 2fr) 56px";
 
-const IDENTIFIER_ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
+const SETUP_DIVIDER = "1px solid var(--gray-a5)";
+const IDENTIFIER_ROW_BORDER = { borderTop: SETUP_DIVIDER };
+const IDENTIFIER_COLUMN_BORDER = { borderRight: SETUP_DIVIDER };
 
 const attributeKey = (property: string) => `attribute:${property}`;
 const savedTypeKey = (userIdType: string) => `type:${userIdType}`;
@@ -871,9 +873,14 @@ export default function FinishSettingUp({
                       px="4"
                       py="4"
                       minWidth="0"
-                      style={{ borderRight: "1px solid var(--gray-a5)" }}
+                      style={IDENTIFIER_COLUMN_BORDER}
                     >
-                      <Button onClick={openGoogleAnalytics4}>
+                      <Button
+                        variant={
+                          exposureQueries.length > 0 ? "outline" : "solid"
+                        }
+                        onClick={openGoogleAnalytics4}
+                      >
                         Create GA4 query
                       </Button>
                       <Text as="p" size="sm" color="text-mid" mb="0">
@@ -899,13 +906,11 @@ export default function FinishSettingUp({
                         Add query
                       </Button>
                       <Text as="p" size="sm" color="text-mid" mb="0">
-                        Write your own SQL for any data source or identifier
-                        type.
+                        Write your own SQL for any table or identifier type.
                       </Text>
                       {!hasIdentifiers && (
                         <HelperText status="info" size="sm">
-                          Add an identifier type first, or use the Google
-                          Analytics 4 query.
+                          Add an identifier type first, or use Create GA4 query.
                         </HelperText>
                       )}
                     </Flex>
