@@ -26,12 +26,15 @@ jest.mock("back-end/src/models/QueryModel", () => ({
 }));
 const context = {
   org: { id: "org_test" },
+  logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
   permissions: { canRunExperimentQueries: () => true },
   models: {
     incrementalRefresh: {
       releaseLock: jest.fn().mockResolvedValue(undefined),
       releaseLockAfterInterruptedRun: jest.fn().mockResolvedValue(true),
       updateByExperimentIdIfCurrentExecution: jest.fn().mockResolvedValue(true),
+      commitRunResults: jest.fn().mockResolvedValue(true),
+      cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
     },
   },
 } as unknown as ReqContext;
@@ -214,4 +217,44 @@ describe("ExperimentIncrementalRefreshQueryRunner failing with queries still pen
       expect(order).toEqual(["covariate write", "source removal", "release"]);
     },
   );
+});
+
+describe("ExperimentIncrementalRefreshQueryRunner retrying its conclusion", () => {
+  it("keeps its results when saving the snapshot failed once", async () => {
+    const models = context.models.incrementalRefresh;
+    const finished = {
+      ...snapshot,
+      runnerKind: "incremental-update",
+      queries: [
+        {
+          name: "insert_metrics_source_data_g1",
+          query: "q_insert",
+          status: "succeeded",
+        },
+      ],
+    } as unknown as ExperimentSnapshotInterface;
+    jest.mocked(getQueryStatusesByIds).mockResolvedValue([]);
+    // Committing again after the lock was released would miss.
+    jest
+      .mocked(models.commitRunResults)
+      .mockResolvedValueOnce(true)
+      .mockResolvedValue(false);
+    jest.mocked(updateSnapshot).mockRejectedValueOnce(new Error("save failed"));
+    const runner = new ExperimentIncrementalRefreshQueryRunner(
+      context,
+      finished,
+      { datasource: {} } as SourceIntegrationInterface,
+    );
+
+    const conclude = () =>
+      runner.updateModel({ status: "succeeded", queries: finished.queries });
+    await expect(conclude()).rejects.toThrow("save failed");
+    await conclude();
+
+    const saved = jest.mocked(updateSnapshot).mock.calls[1][0].updates;
+    expect(saved.status).toBe("success");
+    expect(saved.error ?? "").toBe("");
+    expect(models.commitRunResults).toHaveBeenCalledTimes(1);
+    jest.mocked(models.commitRunResults).mockResolvedValue(true);
+  });
 });

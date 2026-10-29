@@ -745,11 +745,52 @@ class InMemoryIncrementalRefreshModel {
     }
   }
 
+  // The next call to this method throws once, like a dropped connection.
+  failOnce: string | null = null;
+  private maybeFail(method: string) {
+    if (this.failOnce !== method) return;
+    this.failOnce = null;
+    throw new Error(`${method} failed`);
+  }
+
+  async cleanUpUnlockedPhase(
+    experimentId: string,
+    phase: number,
+    plan: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
+  ) {
+    this.maybeFail("cleanUpUnlockedPhase");
+    const doc = this.docs.get(experimentId);
+    if (!doc || doc.phase !== phase || doc.currentExecutionSnapshotId) {
+      return false;
+    }
+    if (plan.forceFullRefresh) doc.unitsTableFullName = null;
+    const keep = (s: { groupId: string }) =>
+      !plan.metricGroupIdsToRebuild.includes(s.groupId);
+    doc.metricSources = doc.metricSources.filter(keep);
+    doc.metricCovariateSources = doc.metricCovariateSources.filter(keep);
+    return true;
+  }
+
+  async commitRunResults(experimentId: string, snapshotId: string) {
+    this.maybeFail("commitRunResults");
+    const doc = this.docs.get(experimentId);
+    if (
+      !doc ||
+      (doc.currentExecutionSnapshotId !== snapshotId &&
+        doc.materializedBySnapshotId !== snapshotId)
+    ) {
+      return false;
+    }
+    doc.materializedBySnapshotId = snapshotId;
+    return true;
+  }
+
   async releaseLockAfterInterruptedRun(
     experimentId: string,
     snapshotId: string,
     plan: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
   ) {
+    this.maybeFail("releaseLockAfterInterruptedRun");
     const doc = this.locked(experimentId, snapshotId);
     if (!doc) return false;
     doc.currentExecutionSnapshotId = null;
@@ -1047,6 +1088,7 @@ function finishedStatus(run: SimRun) {
 const snapshotOf = (experimentId: string, run: SimRun) => ({
   id: run.snapshotId,
   experiment: experimentId,
+  phase: 0,
   organization: ORG,
   runnerKind: run.fullRefresh
     ? ("incremental-full" as const)
@@ -1441,6 +1483,71 @@ async function expectFailedPlanningCleansUp(
   return failures;
 }
 
+// A finished run is concluded, and then concluded again, as when saving its
+// snapshot failed and the runner retries, or recovery finishes it later. One
+// step of the first conclusion can also fail once. The retry must keep the
+// run's results and leave the tables, lock and next refresh as one clean
+// conclusion would.
+async function expectRetriedConclusionKeepsResults(
+  config: Config,
+  fullRefresh: boolean,
+  steps: (string | null)[] = [
+    null,
+    "commitRunResults",
+    "releaseLockAfterInterruptedRun",
+    "cleanUpUnlockedPhase",
+  ],
+) {
+  const failures: string[] = [];
+  // Only the in-memory store can fail a step on demand.
+  const store =
+    model instanceof IncrementalRefreshModel
+      ? { failOnce: null as string | null }
+      : (model as unknown as InMemoryIncrementalRefreshModel);
+  const count = (
+    await (
+      await setUpExperiment(config)
+    ).startRun({ now: INTERRUPTED_AT, fullRefresh })
+  ).run.queries.length;
+  for (let failQueryIndex = -1; failQueryIndex < count; failQueryIndex++) {
+    for (const failStep of steps) {
+      const exp = await setUpExperiment(config);
+      const { run } = await exp.startRun({
+        now: INTERRUPTED_AT,
+        fullRefresh,
+        failQueryIndex: failQueryIndex < 0 ? null : failQueryIndex,
+      });
+      const where = `${failQueryIndex < 0 ? "clean run" : `${run.queries[failQueryIndex].name} failed`}, ${failStep ?? "no step"} failing once`;
+      try {
+        store.failOnce = failStep;
+        let needsFullRefresh = await exp.release(run).catch(() => null);
+        store.failOnce = null;
+        const first = run.resultsError;
+        // The retry.
+        const retried = await exp.release(run);
+        // Nobody else took the lock, so the retry has nothing left to report.
+        expect(retried).toBe(false);
+        needsFullRefresh = (needsFullRefresh ?? false) || retried;
+        if (finishedStatus(run) !== "failed") {
+          expect(run.resultsError).toBeNull();
+          if (first !== null) expect(first).toBeNull();
+        }
+        expect((await getDoc(exp.id))?.currentExecutionSnapshotId).toBeNull();
+        await nextRefresh(exp, needsFullRefresh);
+        expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        failures.push(
+          `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
+        );
+      } finally {
+        store.failOnce = null;
+      }
+    }
+  }
+  return failures;
+}
+
 describe("incremental refresh interruption (in-memory lock state)", () => {
   beforeAll(() => {
     model = createModel("memory");
@@ -1501,6 +1608,17 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
         expect(await expectFailedPlanningCleansUp(config, fullRefresh)).toEqual(
           [],
         );
+      },
+    );
+  });
+
+  describe.each(modes)("$mode", ({ fullRefresh }) => {
+    it.each(configs.map((c) => [label(c), c] as const))(
+      "keeps its results when concluding is retried: %s",
+      async (_, config) => {
+        expect(
+          await expectRetriedConclusionKeepsResults(config, fullRefresh),
+        ).toEqual([]);
       },
     );
   });
@@ -1639,6 +1757,17 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
     "recovers from an interruption at every step: $mode",
     async ({ fullRefresh }) => {
       expect(await sweep(MONGO_CONFIG, fullRefresh, ["serial"])).toEqual([]);
+    },
+  );
+
+  it.each(modes)(
+    "keeps its results when concluding is retried: $mode",
+    async ({ fullRefresh }) => {
+      expect(
+        await expectRetriedConclusionKeepsResults(MONGO_CONFIG, fullRefresh, [
+          null,
+        ]),
+      ).toEqual([]);
     },
   );
 

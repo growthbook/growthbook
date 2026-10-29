@@ -104,7 +104,7 @@ export async function releaseInterruptedRefresh(
   context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "experiment" | "runnerKind" | "queries"
+    "id" | "experiment" | "runnerKind" | "queries" | "phase"
   >,
   statusByQueryId: Map<string, QueryStatus>,
   { runFinished = false }: { runFinished?: boolean } = {},
@@ -136,7 +136,16 @@ export async function releaseInterruptedRefresh(
           : "Interrupted incremental refresh no longer held its lock; its cache state could not be dropped",
       );
     }
-    return needsCleanup && !released;
+    if (needsCleanup && !released) {
+      // The run was already concluded and nobody holds the lock: applying the
+      // cleanup again is safe. Only another run's lock makes it impossible.
+      return !(await context.models.incrementalRefresh.cleanUpUnlockedPhase(
+        snapshot.experiment,
+        snapshot.phase,
+        plan,
+      ));
+    }
+    return false;
   } catch (e) {
     logger.warn(
       e,
@@ -187,7 +196,7 @@ export async function stopInterruptedRefresh(
   context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "experiment" | "runnerKind" | "queries" | "organization"
+    "id" | "experiment" | "runnerKind" | "queries" | "organization" | "phase"
   >,
 ): Promise<{ notRunQueryIds: string[]; needsFullRefresh: boolean }> {
   const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
@@ -259,7 +268,8 @@ export async function releaseConcludedRefresh(
 /**
  * Concludes a run that reached a terminal status. Its results are committed
  * only while it still holds the lock; then the lock is released with the
- * cleanup the status calls for. Returns the error to save instead of the
+ * cleanup the status calls for. Safe to repeat: a run that already committed
+ * and released commits and cleans up again as a no-op. Returns the error to save instead of the
  * results, if any, and whether only a full refresh is safe next.
  */
 export async function concludeRefresh(
@@ -269,12 +279,10 @@ export async function concludeRefresh(
 ): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
   let resultsError: string | null = null;
   if (status !== "failed") {
-    const committed =
-      await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-        snapshot.experiment,
-        snapshot.id,
-        { materializedBySnapshotId: snapshot.id },
-      );
+    const committed = await context.models.incrementalRefresh.commitRunResults(
+      snapshot.experiment,
+      snapshot.id,
+    );
     if (!committed) resultsError = RESULTS_NOT_COMMITTED_ERROR;
   }
   const needsFullRefresh = await releaseConcludedRefresh(

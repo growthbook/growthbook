@@ -323,11 +323,16 @@ describe("isIncrementalRefreshRun", () => {
 
 describe("releasing an interrupted refresh", () => {
   const releaseLockAfterInterruptedRun = jest.fn();
+  const cleanUpUnlockedPhase = jest.fn();
   const releaseLock = jest.fn();
   const context = {
     org: { id: "org_1" },
     models: {
-      incrementalRefresh: { releaseLockAfterInterruptedRun, releaseLock },
+      incrementalRefresh: {
+        releaseLockAfterInterruptedRun,
+        cleanUpUnlockedPhase,
+        releaseLock,
+      },
     },
   } as unknown as ApiReqContext;
 
@@ -338,6 +343,7 @@ describe("releasing an interrupted refresh", () => {
       id: SNAPSHOT_ID,
       organization: "org_1",
       experiment: "exp_1",
+      phase: 0,
       runnerKind,
       queries: runQueries({}).map((q) => ({
         name: q.name,
@@ -358,6 +364,7 @@ describe("releasing an interrupted refresh", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
+    cleanUpUnlockedPhase.mockResolvedValue(false);
     releaseLock.mockResolvedValue(undefined);
   });
 
@@ -420,6 +427,25 @@ describe("releasing an interrupted refresh", () => {
         SNAPSHOT_ID,
         { metricGroupIdsToRebuild: [], forceFullRefresh: true },
       );
+    });
+
+    it("applies the cleanup again when the run was already concluded and nobody holds the lock", async () => {
+      releaseLockAfterInterruptedRun.mockResolvedValue(false);
+      cleanUpUnlockedPhase.mockResolvedValue(true);
+      await expect(
+        releaseInterruptedRefresh(
+          context,
+          snapshot(),
+          statusMap(
+            { max_timestamp_metrics_source_ft1_abc0: "failed" },
+            "succeeded",
+          ),
+        ),
+      ).resolves.toBe(false);
+      expect(cleanUpUnlockedPhase).toHaveBeenCalledWith("exp_1", 0, {
+        metricGroupIdsToRebuild: ["ft1_abc0"],
+        forceFullRefresh: false,
+      });
     });
 
     it("reports a full refresh is needed when the lock was already gone", async () => {

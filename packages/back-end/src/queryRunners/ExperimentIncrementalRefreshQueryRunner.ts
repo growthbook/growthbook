@@ -1260,6 +1260,10 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private writeSourceLists = createOrderedWriter();
   // Every query started so far, even if planning the rest then throws.
   public startedQueries: Queries = [];
+  private conclusion: {
+    resultsError: string | null;
+    needsFullRefresh: boolean;
+  } | null = null;
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1492,9 +1496,12 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     status: "succeeded" | "partially-succeeded" | "failed",
     queries: Queries = this.model.queries,
   ): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
+    // A retry after a failed save reuses the conclusion: this run released
+    // its lock, so concluding again could no longer commit.
+    if (this.conclusion) return this.conclusion;
     try {
       await this.writeSourceLists.flush();
-      return await concludeRefresh(
+      this.conclusion = await concludeRefresh(
         this.context,
         {
           ...this.model,
@@ -1502,6 +1509,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         },
         status,
       );
+      return this.conclusion;
     } catch (e) {
       this.context.logger.warn(
         e,

@@ -260,6 +260,74 @@ export class IncrementalRefreshModel extends BaseClass {
     return result.matchedCount > 0;
   }
 
+  /**
+   * Applies an interrupted run's cleanup to a phase document nobody holds the
+   * lock on, e.g. when the run was already concluded once. Returns false when
+   * another run holds the lock.
+   */
+  public async cleanUpUnlockedPhase(
+    experimentId: string,
+    phase: number,
+    {
+      metricGroupIdsToRebuild,
+      forceFullRefresh,
+    }: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
+  ): Promise<boolean> {
+    const pullGroups = { groupId: { $in: metricGroupIdsToRebuild } };
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        phase,
+        currentExecutionSnapshotId: null,
+      },
+      {
+        $set: {
+          dateUpdated: new Date(),
+          ...(forceFullRefresh ? { unitsTableFullName: null } : {}),
+        },
+        ...(metricGroupIdsToRebuild.length
+          ? {
+              $pull: {
+                metricSources: pullGroups,
+                metricCovariateSources: pullGroups,
+              },
+            }
+          : {}),
+      },
+    );
+    return result.matchedCount > 0;
+  }
+
+  /**
+   * The commit point for a run's results: records them only while the run
+   * still holds the lock. Committing again after the run released its lock is
+   * a no-op success, so a retried conclusion keeps its results. Returns false
+   * when nothing was recorded.
+   */
+  public async commitRunResults(
+    experimentId: string,
+    snapshotId: string,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        $or: [
+          { currentExecutionSnapshotId: snapshotId },
+          { materializedBySnapshotId: snapshotId },
+        ],
+      },
+      {
+        $set: {
+          dateUpdated: new Date(),
+          materializedBySnapshotId: snapshotId,
+        },
+      },
+    );
+    return result.matchedCount > 0;
+  }
+
   public async touchLockHeartbeat(experimentId: string, snapshotId: string) {
     await this._dangerousGetCollection().updateOne(
       {
