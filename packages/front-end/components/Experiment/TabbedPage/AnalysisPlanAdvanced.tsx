@@ -341,7 +341,7 @@ export default function AnalysisPlanAdvanced({
             </Box>
           </SetupFieldRow>
           <SetupFieldRow label="Variance reduction" content="text">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="2" align="start">
               <Checkbox
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">
@@ -387,7 +387,7 @@ export default function AnalysisPlanAdvanced({
           </SetupFieldRow>
           {settled.statsEngine === "frequentist" ? (
             <SetupFieldRow label="Corrections" content="text">
-              <Flex direction="column" gap="2">
+              <Flex direction="column" gap="2" align="start">
                 <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">

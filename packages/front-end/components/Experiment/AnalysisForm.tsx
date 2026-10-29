@@ -899,7 +899,7 @@ const AnalysisForm: FC<{
         </SetupFieldRow>
         {!isHoldout && (
           <SetupFieldRow label="Variance reduction" content="text">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="2" align="start">
               <Checkbox
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">
@@ -955,7 +955,7 @@ const AnalysisForm: FC<{
           !isBandit &&
           !isHoldout && (
             <SetupFieldRow label="Corrections" content="text">
-              <Flex direction="column" gap="2">
+              <Flex direction="column" gap="2" align="start">
                 <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
