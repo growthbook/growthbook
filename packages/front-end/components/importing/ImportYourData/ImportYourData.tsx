@@ -10,15 +10,14 @@ const supportedServices = [
   {
     service: "LaunchDarkly",
     icon: "launchdarkly",
+    hasDarkIcon: true,
     path: "launchdarkly",
-    accentColor: "#000",
     text: "Import your projects, features and environments from LaunchDarkly.",
   },
   {
     service: "Statsig",
     icon: "statsig",
     path: "statsig",
-    accentColor: "#000",
     text: "Import your projects, features, environments, and metrics from Statsig.",
   },
 ];
@@ -28,8 +27,8 @@ export const EPPO_IMPORTER_FLAG = "eppo-importer";
 const eppoService = {
   service: "Eppo (Datadog)",
   icon: "eppo",
+  hasDarkIcon: true,
   path: "eppo",
-  accentColor: "#000",
   text: "Import your Feature Flags, audiences, experiments, and warehouse-native metrics from Eppo.",
 };
 
@@ -40,63 +39,58 @@ const upcomingServices = [
     service: "Optimizely",
     slug: "optimizely",
     icon: "optimizely",
-    accentColor: "#000",
     text: "Migrate your Feature Experimentation flags, audiences, and experiments.",
   },
   {
     service: "Eppo (Datadog)",
     slug: "eppo",
     icon: "eppo",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your flags, audiences, experiments, and warehouse-native metrics.",
   },
   {
     service: "Split (Harness FME)",
     slug: "split",
     icon: "split",
-    accentColor: "#000",
     text: "Migrate your feature flags, segments, and targeting rules.",
   },
   {
     service: "PostHog",
     slug: "posthog",
     icon: "posthog",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your feature flags, cohorts, and experiments.",
   },
   {
     service: "Amplitude Experiment",
     slug: "amplitude",
     icon: "amplitude",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your flags, targeting, and experiment designs.",
   },
   {
     service: "Unleash",
     slug: "unleash",
     icon: "unleash",
-    accentColor: "#000",
+    hasDarkIcon: true,
     text: "Migrate your feature toggles, strategies, segments, and environments.",
   },
   {
     service: "Flagsmith",
     slug: "flagsmith",
     icon: "flagsmith",
-    accentColor: "#000",
     text: "Migrate your flags, segments, and multivariate tests.",
   },
   {
     service: "ConfigCat",
     slug: "configcat",
     icon: "configcat",
-    accentColor: "#000",
     text: "Migrate your settings, targeting rules, and percentage rollouts.",
   },
   {
     service: "Firebase Remote Config",
     slug: "firebase",
     icon: "firebase",
-    accentColor: "#000",
     text: "Migrate your parameters, conditions, and A/B tests.",
   },
 ];
@@ -126,25 +120,25 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
 
       <h1>Import your data</h1>
 
-      {supported.map(({ service, icon, path, accentColor, text }) => (
+      {supported.map(({ service, icon, path, hasDarkIcon, text }) => (
         <div key={`ImportFromServiceCard-${service}`} className="my-3">
           <ImportFromServiceCard
             service={service}
             icon={icon}
             path={path}
-            accentColor={accentColor}
+            hasDarkIcon={hasDarkIcon}
           >
             {text}
           </ImportFromServiceCard>
         </div>
       ))}
 
-      {upcoming.map(({ service, slug, icon, accentColor, text }) => (
+      {upcoming.map(({ service, slug, icon, hasDarkIcon, text }) => (
         <div key={`ImportFromServiceCard-${service}`} className="my-3">
           <ImportFromServiceCard
             service={service}
             icon={icon}
-            accentColor={accentColor}
+            hasDarkIcon={hasDarkIcon}
             onRequest={() => {
               track("Import interest clicked", { service: slug });
               setRequestService({ service, slug });
