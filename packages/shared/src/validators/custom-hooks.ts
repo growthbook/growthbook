@@ -19,6 +19,18 @@ export const customHookEntityTypes = [
 
 export const MAX_CUSTOM_HOOK_INPUT_FEATURES = 10;
 
+// Flag ids whose facts are passed to the hook as `inputFeatureFacts`.
+const inputFeaturesList = z
+  .array(z.string().min(1))
+  .max(
+    MAX_CUSTOM_HOOK_INPUT_FEATURES,
+    `A custom hook can list at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES} input Feature Flags.`,
+  )
+  .refine(
+    (ids) => new Set(ids).size === ids.length,
+    "Each input Feature Flag can be listed only once.",
+  );
+
 export const customHookValidator = z
   .object({
     id: z.string(),
@@ -37,8 +49,7 @@ export const customHookValidator = z
     lastSuccess: z.date().optional(),
     lastFailure: z.date().optional(),
     incrementalChangesOnly: z.boolean().optional(),
-    // Flag ids whose facts are passed to the hook as `inputFeatureFacts`.
-    inputFeatures: z.array(z.string()).optional(),
+    inputFeatures: inputFeaturesList.optional(),
   })
   .strict();
 
@@ -58,13 +69,6 @@ export const hookEntityType: Record<CustomHookType, CustomHookEntityType> = {
 };
 
 const inputFeaturesDescription = `Feature Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Not allowed on hooks scoped to one Feature Flag or experiment.`;
-
-const inputFeaturesBodyField = z
-  .array(z.string().min(1))
-  .max(
-    MAX_CUSTOM_HOOK_INPUT_FEATURES,
-    `A custom hook can list at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES} input Feature Flags`,
-  );
 
 // External REST API. Validators carry the OpenAPI route metadata.
 export const apiCustomHookValidator = namedSchema(
@@ -132,7 +136,7 @@ const postCustomHookApiBody = z
     entityType: z.enum(customHookEntityTypes).optional(),
     entityId: z.string().optional(),
     incrementalChangesOnly: z.boolean().optional(),
-    inputFeatures: inputFeaturesBodyField
+    inputFeatures: inputFeaturesList
       .describe(inputFeaturesDescription)
       .optional(),
   })
@@ -160,7 +164,7 @@ const updateCustomHookApiBody = z
       )
       .optional(),
     incrementalChangesOnly: z.boolean().optional(),
-    inputFeatures: inputFeaturesBodyField
+    inputFeatures: inputFeaturesList
       .describe(
         `Feature Flag ids whose facts the hook receives as \`inputFeatureFacts\` (at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES}). Send [] to clear the list; omit to leave it unchanged.`,
       )

@@ -1,7 +1,10 @@
-import { featureValueType } from "shared/validators";
+import { CustomHookInterface, featureValueType } from "shared/validators";
 import { valueHasConfigExtends } from "shared/util";
 import { FeatureInterface } from "shared/types/feature";
 import { overlayDocsById } from "back-end/src/util/scanOverlay.util";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
+import { Context } from "back-end/src/models/BaseModel";
 
 export type HookInputFeatureFacts = {
   project: string;
@@ -101,8 +104,9 @@ export function buildHookInputFeatureFacts(
   };
 }
 
-// A bulk publish's proposed flag states win over saved ones, so a hook never
-// approves a change against an input flag the same publish is changing.
+// Other flags' proposed states in the same bulk publish win over their saved
+// ones. The overlay never holds the flag being validated, so a hook that lists
+// its own flag sees that flag's saved state.
 export function buildInputFeatureFactsById(
   saved: FeatureInterface[],
   overlay: Map<string, FeatureInterface> | null | undefined,
@@ -114,4 +118,35 @@ export function buildInputFeatureFactsById(
       buildHookInputFeatureFacts(feature, environmentIds),
     ]),
   );
+}
+
+// One read per batch, under an org-wide scan context (all projects), so the
+// facts don't depend on who made the change. A failed read fails the change.
+export async function loadInputFeatureFacts(
+  scanContext: Context,
+  hooks: Pick<CustomHookInterface, "inputFeatures">[],
+): Promise<Map<string, HookInputFeatureFacts>> {
+  const ids = [...new Set(hooks.flatMap((h) => h.inputFeatures ?? []))];
+  if (!ids.length) return new Map();
+  return buildInputFeatureFactsById(
+    await getFeaturesByIds(scanContext, ids),
+    scanContext.featureScanOverlay,
+    getEnvironmentIdsFromOrg(scanContext.org),
+  );
+}
+
+// Hooks with no listed flags get exactly their old arguments. A listed id with
+// no flag maps to null.
+export function withInputFeatureFacts(
+  hook: Pick<CustomHookInterface, "inputFeatures">,
+  facts: Map<string, HookInputFeatureFacts>,
+  args: Record<string, unknown>,
+): Record<string, unknown> {
+  if (!hook.inputFeatures?.length) return args;
+  return {
+    ...args,
+    inputFeatureFacts: Object.fromEntries(
+      hook.inputFeatures.map((id) => [id, facts.get(id) ?? null]),
+    ),
+  };
 }

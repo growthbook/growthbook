@@ -29,7 +29,6 @@ import { CustomHookError, SoftWarningError } from "back-end/src/util/errors";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
-import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import { Context } from "back-end/src/models/BaseModel";
 import {
   expandOrgMembers,
@@ -42,8 +41,8 @@ import {
 import type { SandboxEvalResult } from "./sandbox-core";
 import { runInSandbox } from "./sandbox-pool";
 import {
-  buildInputFeatureFactsById,
-  HookInputFeatureFacts,
+  loadInputFeatureFacts,
+  withInputFeatureFacts,
 } from "./inputFeatureFacts";
 
 // Custom hook orchestration; sandboxed JS runs in the child-process pool (sandbox-pool.ts).
@@ -709,36 +708,6 @@ export async function collectCustomHookResults(
     warnings.push(...hookWarnings);
   }
   return { hardErrors, warnings };
-}
-
-// One read per batch, under an org-wide scan context (all projects), so the
-// facts don't depend on who made the change. A failed read fails the change.
-async function loadInputFeatureFacts(
-  scanContext: Context,
-  hooks: CustomHookInterface[],
-): Promise<Map<string, HookInputFeatureFacts>> {
-  const ids = [...new Set(hooks.flatMap((h) => h.inputFeatures ?? []))];
-  if (!ids.length) return new Map();
-  return buildInputFeatureFactsById(
-    await getFeaturesByIds(scanContext, ids),
-    scanContext.featureScanOverlay,
-    getEnvironmentIdsFromOrg(scanContext.org),
-  );
-}
-
-// Hooks without a list get exactly their old arguments.
-function withInputFeatureFacts(
-  hook: CustomHookInterface,
-  facts: Map<string, HookInputFeatureFacts>,
-  args: Record<string, unknown>,
-): Record<string, unknown> {
-  if (!hook.inputFeatures?.length) return args;
-  return {
-    ...args,
-    inputFeatureFacts: Object.fromEntries(
-      hook.inputFeatures.map((id) => [id, facts.get(id) ?? null]),
-    ),
-  };
 }
 
 // Private methods

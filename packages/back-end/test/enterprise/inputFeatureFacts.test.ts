@@ -2,7 +2,19 @@ import { FeatureInterface } from "shared/types/feature";
 import {
   buildHookInputFeatureFacts,
   buildInputFeatureFactsById,
+  loadInputFeatureFacts,
+  withInputFeatureFacts,
 } from "back-end/src/enterprise/sandbox/inputFeatureFacts";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { Context } from "back-end/src/models/BaseModel";
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getFeaturesByIds: jest.fn(),
+}));
+
+const mockGetFeaturesByIds = getFeaturesByIds as jest.MockedFunction<
+  typeof getFeaturesByIds
+>;
 
 const envs = ["dev", "production"];
 
@@ -321,5 +333,81 @@ describe("buildInputFeatureFactsById", () => {
       envs,
     );
     expect(facts.get("new")?.project).toBe("prj_1");
+  });
+});
+
+describe("withInputFeatureFacts", () => {
+  const facts = new Map([
+    ["a", buildHookInputFeatureFacts(feature({ id: "a" }), envs)],
+  ]);
+  const args = { feature: { id: "x" } };
+
+  it("returns the args unchanged for a hook without a list", () => {
+    expect(withInputFeatureFacts({}, facts, args)).toBe(args);
+    expect(withInputFeatureFacts({ inputFeatures: [] }, facts, args)).toBe(
+      args,
+    );
+  });
+
+  it("adds facts for each listed id, with null for a missing flag", () => {
+    expect(
+      withInputFeatureFacts({ inputFeatures: ["a", "gone"] }, facts, args),
+    ).toEqual({
+      ...args,
+      inputFeatureFacts: { a: facts.get("a"), gone: null },
+    });
+  });
+});
+
+describe("loadInputFeatureFacts", () => {
+  const scanContext = (overlay?: Map<string, FeatureInterface>) =>
+    ({
+      org: {
+        settings: {
+          environments: envs.map((id) => ({ id })),
+        },
+      },
+      featureScanOverlay: overlay,
+    }) as unknown as Context;
+
+  beforeEach(() => mockGetFeaturesByIds.mockReset());
+
+  it("skips the read when no hook lists flags", async () => {
+    const facts = await loadInputFeatureFacts(scanContext(), [
+      {},
+      { inputFeatures: [] },
+    ]);
+    expect(facts.size).toBe(0);
+    expect(mockGetFeaturesByIds).not.toHaveBeenCalled();
+  });
+
+  it("reads each listed id once across the batch", async () => {
+    mockGetFeaturesByIds.mockResolvedValue([feature({ id: "a" })]);
+    const facts = await loadInputFeatureFacts(scanContext(), [
+      { inputFeatures: ["a", "b"] },
+      { inputFeatures: ["a"] },
+    ]);
+    expect(mockGetFeaturesByIds).toHaveBeenCalledTimes(1);
+    expect(mockGetFeaturesByIds.mock.calls[0][1]).toEqual(["a", "b"]);
+    expect([...facts.keys()]).toEqual(["a"]);
+    expect(Object.keys(facts.get("a")?.environments ?? {})).toEqual(envs);
+  });
+
+  it("applies the scan context's bulk publish overlay", async () => {
+    mockGetFeaturesByIds.mockResolvedValue([
+      feature({ id: "a", archived: false }),
+    ]);
+    const facts = await loadInputFeatureFacts(
+      scanContext(new Map([["a", feature({ id: "a", archived: true })]])),
+      [{ inputFeatures: ["a"] }],
+    );
+    expect(facts.get("a")?.archived).toBe(true);
+  });
+
+  it("fails when the read fails", async () => {
+    mockGetFeaturesByIds.mockRejectedValue(new Error("db down"));
+    await expect(
+      loadInputFeatureFacts(scanContext(), [{ inputFeatures: ["a"] }]),
+    ).rejects.toThrow("db down");
   });
 });

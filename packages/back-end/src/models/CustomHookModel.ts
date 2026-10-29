@@ -198,7 +198,13 @@ export class CustomHookModel extends BaseClass {
 
     if (inputFeatures.length > MAX_CUSTOM_HOOK_INPUT_FEATURES) {
       throw new BadRequestError(
-        `A custom hook can list at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES} input Feature Flags`,
+        `A custom hook can list at most ${MAX_CUSTOM_HOOK_INPUT_FEATURES} input Feature Flags.`,
+      );
+    }
+
+    if (new Set(inputFeatures).size !== inputFeatures.length) {
+      throw new BadRequestError(
+        "Each input Feature Flag can be listed only once.",
       );
     }
 
@@ -211,7 +217,7 @@ export class CustomHookModel extends BaseClass {
     // Only newly added ids are checked, so removing an id or editing a hook
     // whose listed flag was since deleted is never refused.
     const previous = new Set(previousDoc?.inputFeatures ?? []);
-    const added = [...new Set(inputFeatures)].filter((id) => !previous.has(id));
+    const added = inputFeatures.filter((id) => !previous.has(id));
     if (!added.length) return;
 
     // Loads only flags the person saving can read.
