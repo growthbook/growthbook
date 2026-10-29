@@ -138,14 +138,17 @@ function ProjectOptionContent({
   label,
   current,
   isDemo,
+  optionRef,
 }: {
   id: string;
   label: string;
   current: boolean;
   isDemo: boolean;
+  // The selected project's, to scroll it into view as the menu opens.
+  optionRef?: RefObject<HTMLSpanElement>;
 }) {
   return (
-    <span className={styles.projectOption}>
+    <span ref={optionRef} className={styles.projectOption}>
       <span className={styles.projectOptionAvatar} aria-hidden="true">
         <LetterAvatar
           name={id ? label : ""}
@@ -232,14 +235,13 @@ export function ProjectMenu({
       // Typing jumps by the name, not the avatar's initials before it.
       textValue={label}
     >
-      <span ref={id === project ? currentRef : undefined}>
-        <ProjectOptionContent
-          id={id}
-          label={label}
-          current={id === project}
-          isDemo={!!id && isDemo(id)}
-        />
-      </span>
+      <ProjectOptionContent
+        id={id}
+        label={label}
+        current={id === project}
+        isDemo={!!id && isDemo(id)}
+        optionRef={id === project ? currentRef : undefined}
+      />
     </DropdownMenuItem>
   );
 
