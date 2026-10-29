@@ -60,7 +60,7 @@ export default function MeasurementArmSizeField({
             style={{ width: 110 }}
             min={MIN_PERCENT}
             max={MAX_PERCENT}
-            step={1}
+            step="any"
             value={draft}
             onChange={(e) => {
               setDraft(e.target.value);

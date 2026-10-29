@@ -364,16 +364,20 @@ export function assertNotMeasurementArmExperiment(
 }
 
 export async function refreshMeasurementArmAfterBanditRun(
+  context: Context,
   cb: ContextualBanditInterface,
 ): Promise<void> {
   const arm = getActiveMeasurementArm(cb);
   if (!arm) return;
   try {
+    // Reconcile before analyzing: the Bandit query's identifier type can change
+    // without a Bandit write, and the analysis filters metrics by it.
+    await syncMeasurementArmExperiment(context, cb);
     await queueExperimentUpdate(cb.organization, arm.experimentId);
   } catch (e) {
     logger.warn(
       { err: e, cbId: cb.id, experimentId: arm.experimentId },
-      "Failed to queue the measurement arm refresh after a bandit run",
+      "Failed to refresh the measurement arm after a bandit run",
     );
   }
 }

@@ -4,6 +4,8 @@ import { MEASUREMENT_ARM_EDITABLE_FIELDS } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
+import { useContextualBandit } from "@/hooks/useContextualBandits";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
 import ExperimentMetricsSelector from "@/components/Experiment/ExperimentMetricsSelector";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import HelperText from "@/ui/HelperText";
@@ -27,6 +29,18 @@ export default function MeasurementArmMetricsForm({
   const { apiCall } = useAuth();
   const { getDatasourceById } = useDefinitions();
   const datasource = getDatasourceById(experiment.datasource);
+  // The arm analyzes through the Bandit's query, which can change its
+  // identifier type without a Bandit write, so resolve it live.
+  const { contextualBandit } = useContextualBandit(
+    experiment.contextualBanditId,
+  );
+  const { contextualBanditQueriesMap } = useContextualBanditQueries(
+    experiment.datasource,
+  );
+  const identifierType = contextualBandit?.contextualBanditQueryId
+    ? contextualBanditQueriesMap.get(contextualBandit.contextualBanditQueryId)
+        ?.userIdType
+    : undefined;
   const form = useForm<FormValues>({
     defaultValues: {
       secondaryMetrics: experiment.secondaryMetrics || [],
@@ -62,7 +76,7 @@ export default function MeasurementArmMetricsForm({
         )}
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
-        exposureQueryIdentifierType={experiment.exposureQueryIdentifierType}
+        exposureQueryIdentifierType={identifierType}
         project={experiment.project}
         goalMetrics={experiment.goalMetrics || []}
         secondaryMetrics={form.watch("secondaryMetrics")}

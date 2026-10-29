@@ -544,23 +544,50 @@ describe("getMeasurementArmResultsSummary", () => {
 });
 
 describe("refreshMeasurementArmAfterBanditRun", () => {
-  it("queues the arm's scheduled update when the arm is active", async () => {
-    await refreshMeasurementArmAfterBanditRun(makeCb());
+  it("reconciles the arm before queueing its update", async () => {
+    const experiment = makeArmExperiment();
+    getExperimentByIdMock.mockResolvedValue(experiment);
+    updateExperimentMock.mockResolvedValue(experiment);
+
+    await refreshMeasurementArmAfterBanditRun(context, makeCb());
+
     expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma");
+    expect(getExperimentByIdMock.mock.invocationCallOrder[0]).toBeLessThan(
+      queueExperimentUpdateMock.mock.invocationCallOrder[0],
+    );
+  });
+
+  it("picks up a new identifier type from the Bandit's query", async () => {
+    getExperimentByIdMock.mockResolvedValue(makeArmExperiment());
+    updateExperimentMock.mockImplementation(async ({ changes }) => changes);
+    (
+      context.models.contextualBanditQueries.getById as jest.Mock
+    ).mockResolvedValueOnce({ ...cbQuery, userIdType: "user_id" });
+
+    await refreshMeasurementArmAfterBanditRun(context, makeCb());
+
+    expect(updateExperimentMock.mock.calls[0][0].changes).toEqual({
+      exposureQueryIdentifierType: "user_id",
+    });
   });
 
   it("does nothing when the arm is off or the CB is not running", async () => {
     await refreshMeasurementArmAfterBanditRun(
+      context,
       makeCb({ measurementArm: { ...arm, enabled: false } }),
     );
-    await refreshMeasurementArmAfterBanditRun(makeCb({ status: "stopped" }));
+    await refreshMeasurementArmAfterBanditRun(
+      context,
+      makeCb({ status: "stopped" }),
+    );
     expect(queueExperimentUpdateMock).not.toHaveBeenCalled();
   });
 
-  it("never fails the bandit run when queueing fails", async () => {
+  it("never fails the bandit run when the refresh fails", async () => {
+    getExperimentByIdMock.mockResolvedValue(makeArmExperiment());
     queueExperimentUpdateMock.mockRejectedValueOnce(new Error("agenda down"));
     await expect(
-      refreshMeasurementArmAfterBanditRun(makeCb()),
+      refreshMeasurementArmAfterBanditRun(context, makeCb()),
     ).resolves.toBeUndefined();
   });
 });

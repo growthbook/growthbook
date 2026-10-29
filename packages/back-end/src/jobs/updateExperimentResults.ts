@@ -1,7 +1,7 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
 import {
-  isAutoSnapshotScheduled,
+  isAnalysisRefreshBlocked,
   isContextualBanditMeasurementArm,
 } from "shared/experiments";
 import {
@@ -121,9 +121,13 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
 
   const experiment = await getExperimentById(context, experimentId);
   if (!experiment) return;
-  // Check if it is scheduled again because it might have changed between queued and now
+  // Re-check because it might have changed between queued and now. A
+  // measurement arm refreshes on its Bandit's schedule, so the org-derived
+  // autoSnapshots flag doesn't gate it; archiving and the user's auto-refresh
+  // toggle still do.
   const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
-  if (!isMeasurementArm && !isAutoSnapshotScheduled(experiment)) return;
+  if (isAnalysisRefreshBlocked(experiment)) return;
+  if (!isMeasurementArm && !experiment.autoSnapshots) return;
 
   let project = null;
   if (experiment.project) {

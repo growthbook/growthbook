@@ -153,6 +153,31 @@ describe("scheduled experiment updates", () => {
     expect(getDataSourceById).toHaveBeenCalledTimes(1);
   });
 
+  it("skips an archived measurement arm", async () => {
+    await experiments().insertMany([
+      {
+        ...running,
+        id: "exp_arm_archived",
+        type: "contextualBanditMeasurementArm",
+        autoSnapshots: false,
+        archived: true,
+        nextSnapshotAttempt: new Date(),
+      },
+      {
+        ...running,
+        id: "exp_arm_disabled",
+        type: "contextualBanditMeasurementArm",
+        autoSnapshots: false,
+        disableAutoSnapshots: true,
+        nextSnapshotAttempt: new Date(),
+      },
+    ]);
+
+    await updateSingleExperiment(jobFor("exp_arm_archived"));
+    await updateSingleExperiment(jobFor("exp_arm_disabled"));
+    expect(getDataSourceById).not.toHaveBeenCalled();
+  });
+
   it("keeps a measurement arm refreshing when the org schedule is never", async () => {
     const organizations = mongoose.connection.collection("organizations");
     await organizations.updateOne(
