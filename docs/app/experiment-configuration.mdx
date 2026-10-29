@@ -117,6 +117,6 @@ When an experiment finishes and you enable a Temporary Rollout to ship the winni
 
 Temporary Rollouts are explicitly named **temporary** because long-term you should re-implement the winning variation in your site's code. When you no longer need the rollout, stop it from the experiment to improve your site performance.
 
-The rollout keeps the experiment's targeting and rollout percentage, so the variation goes to everyone the experiment included.
+The rollout keeps the experiment's targeting and goes to every user who meets it, whatever the experiment's rollout percentage was.
 
 Without a Temporary Rollout, the experiment stops serving as soon as you stop it. Its rules stay on its Feature Flags but no longer apply. For users in the experiment, each flag checks the rules below the experiment's rule, in order, and serves its default value if none match. Its URL Redirects and AI Visual Editor changes stop too, so users see the original pages.

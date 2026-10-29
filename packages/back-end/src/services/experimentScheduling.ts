@@ -2,7 +2,7 @@ import { ExperimentInterface } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   expandMetricGroups,
-  getLatestPhaseVariations,
+  snapshotColumnVariationIds,
   withScheduledBy,
 } from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
@@ -65,8 +65,10 @@ async function getTiebreakerLiftMap(
 
   return buildTiebreakerLiftMap({
     variations: dimension.variations,
-    // As the decision status names them; the snapshot's own ids are keys.
-    variationIds: getLatestPhaseVariations(experiment).map((v) => v.id),
+    variationIds: snapshotColumnVariationIds(
+      experiment,
+      snapshot.settings.variations,
+    ),
     metricId,
     inverse: metric?.inverse,
   });

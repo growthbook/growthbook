@@ -436,9 +436,8 @@ const StopExperimentForm: FC<{
                     helpText={
                       // Body size, past the legacy field's small print.
                       <Text size="md" color="text-mid">
-                        Served to everyone the{" "}
-                        {isBandit ? "Bandit" : "experiment"} includes (its
-                        targeting and rollout percentage).
+                        Served to every user who meets the{" "}
+                        {isBandit ? "Bandit" : "experiment"}&apos;s targeting.
                       </Text>
                     }
                     placeholder="Pick one..."

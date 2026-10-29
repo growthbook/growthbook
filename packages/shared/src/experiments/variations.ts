@@ -33,6 +33,21 @@ export function getLatestPhaseVariations(
   return getPhaseVariations(experiment, latestPhaseIndex);
 }
 
+/**
+ * Names each of a snapshot's result columns by the variation its saved key
+ * belongs to now, as decisions name variations; "" for a key none has. The
+ * columns keep their order when variations are reordered later.
+ */
+export function snapshotColumnVariationIds(
+  experiment: ExperimentWithVariationsAndPhases,
+  snapshotVariations: { id: string }[],
+): string[] {
+  const byKey = new Map(
+    getLatestPhaseVariations(experiment).map((v, i) => [v.key || i + "", v.id]),
+  );
+  return snapshotVariations.map((v) => byKey.get(v.id) ?? "");
+}
+
 // The latest phase's variations in the shape the experiment stores and writes.
 export function getStorableVariations(
   experiment: ExperimentWithVariationsAndPhases,

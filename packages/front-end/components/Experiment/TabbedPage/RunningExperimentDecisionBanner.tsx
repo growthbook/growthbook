@@ -4,7 +4,9 @@ import {
   expandMetricGroups,
   getLatestPhaseVariations,
   isSuspiciousUplift,
+  snapshotColumnVariationIds,
 } from "shared/experiments";
+import { getSnapshotAnalysis } from "shared/util";
 import {
   DecisionCriteriaData,
   ExperimentInterfaceStringDates,
@@ -68,6 +70,26 @@ type ShipLean =
   | { by: "tiebreaker"; metricName: string; winnerId: string | null }
   | { by: "goal"; metricName: string; winnerId: string };
 
+// The results a decision reads: the latest phase, overall, in its default
+// analysis. Never the slice or settings open on Results; none while Results
+// shows an earlier phase. Each column named as the decision names variations.
+function useDecisionResults(experiment: ExperimentInterfaceStringDates) {
+  const { dimensionless, phase } = useSnapshot();
+  const analysis =
+    dimensionless && phase === experiment.phases.length - 1
+      ? getSnapshotAnalysis(dimensionless)
+      : null;
+  if (!dimensionless || !analysis) return null;
+  return {
+    analysis,
+    results: analysis.results?.[0]?.variations ?? [],
+    variationIds: snapshotColumnVariationIds(
+      experiment,
+      dimensionless.settings.variations,
+    ),
+  };
+}
+
 // Which of a ship's tied winners to lean to. The stop plan's tiebreaker metric
 // picks one at the scheduled end; without one, a sole goal metric nudges
 // toward a variation clearly ahead on it. Null for neither.
@@ -75,16 +97,13 @@ function useShipLean(
   experiment: ExperimentInterfaceStringDates,
   status: ExperimentResultStatusData | undefined,
 ): ShipLean | null {
-  const { snapshot, analysis } = useSnapshot();
+  const decisionResults = useDecisionResults(experiment);
   const { getExperimentMetricById, metricGroups } = useDefinitions();
   if (status?.status !== "ship-now" || status.variations.length < 2) {
     return null;
   }
-  const results = analysis?.results?.[0]?.variations ?? [];
-  // As the decision status names them; the snapshot's own ids are keys.
-  const variationIds = snapshot
-    ? getLatestPhaseVariations(experiment).map((v) => v.id)
-    : [];
+  const results = decisionResults?.results ?? [];
+  const variationIds = decisionResults?.variationIds ?? [];
 
   const tiebreakerId =
     experiment.statusUpdateSchedule?.scheduledStopPlan?.tiebreakerMetricId;
@@ -134,12 +153,11 @@ function useSuspiciousResults(
   experiment: ExperimentInterfaceStringDates,
   status: ExperimentResultStatusData,
 ): { variationId: string; hint: string }[] {
-  const { snapshot, analysis } = useSnapshot();
+  const decisionResults = useDecisionResults(experiment);
   const { getExperimentMetricById, metricGroups } = useDefinitions();
   const { metricDefaults } = useOrganizationMetricDefaults();
-  if (!isDecision(status) || !snapshot || !analysis) return [];
-  const results = analysis.results?.[0]?.variations ?? [];
-  const ids = getLatestPhaseVariations(experiment).map((v) => v.id);
+  if (!isDecision(status) || !decisionResults) return [];
+  const { analysis, results, variationIds: ids } = decisionResults;
   const metrics = [
     ...new Set(
       expandMetricGroups(
@@ -544,7 +562,9 @@ export function DecisionRecommendation({
                 ? "it has enough data to detect its target effect"
                 : runningExperimentStatus.scheduledEndPassed
                   ? "its scheduled end has passed"
-                  : "sequential testing allows it"}
+                  : runningExperimentStatus.sequentialUsed
+                    ? "sequential testing allows it"
+                    : "its results are already strong enough"}
               , but there&apos;s no clear winner among{" "}
               {sentenceList(
                 control ? [...labels, names[control.id]] : labels,

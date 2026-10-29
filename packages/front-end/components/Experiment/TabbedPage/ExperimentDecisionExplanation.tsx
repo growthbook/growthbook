@@ -151,7 +151,9 @@ export default function ExperimentDecisionExplanation({
           ? "Enough data to detect its target effect."
           : status.scheduledEndPassed
             ? "Its scheduled end has passed, so it can be decided now."
-            : "Sequential testing lets it be decided early."}
+            : status.sequentialUsed
+              ? "Sequential testing lets it be decided early."
+              : "Its results are strong enough to decide early."}
       </Reason>
       {decidingRules.map((r) => (
         <Fragment key={JSON.stringify(r.variationIds)}>
