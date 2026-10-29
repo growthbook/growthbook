@@ -222,10 +222,6 @@ export class AnalyticsExplorationModel extends BaseClass {
         path: dataset.type === "data_source" ? dataset.path : null,
         sql: dataset.type === "sql" ? dataset.sql : null,
         rawTable: config.chartType === "rawTable",
-        // The population is part of the query's identity: it changes every
-        // metric's results, so it belongs with the general settings rather
-        // than any one value. Omitted (not null) without a population so
-        // pre-existing cache hashes stay valid.
         ...(dataset.type === "metric" && dataset.population
           ? { population: dataset.population }
           : {}),

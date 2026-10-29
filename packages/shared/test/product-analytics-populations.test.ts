@@ -508,25 +508,6 @@ describe("metric explorations with a population", () => {
         ),
       ).toThrow("Populations currently support only proportion metrics");
     });
-
-    it("rejects a proportion that doesn't count distinct users", () => {
-      const config = explore({
-        metrics: [purchasers],
-        population: mobileRevenueOver10,
-      });
-      expect(() =>
-        validatePopulationMetricCompatibility(
-          config,
-          config.dataset.values[0],
-          {
-            ...purchasers,
-            numerator: { ...purchasers.numerator!, column: "revenue" },
-          } as FactMetricInterface,
-          mobileRevenueOver10,
-          table,
-        ),
-      ).toThrow("Populations currently support only proportion metrics");
-    });
   });
 
   describe("request schema", () => {

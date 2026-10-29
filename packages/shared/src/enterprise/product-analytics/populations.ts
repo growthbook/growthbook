@@ -6,8 +6,20 @@ import type {
 import { getPopulationRuleViolations } from "shared/populations";
 import type {
   FactMetricInterface,
+  FactMetricType,
   FactTableInterface,
+  StandardFactMetricInterface,
 } from "shared/types/fact-table";
+
+// Metric types that can be combined with a population. Types not listed here
+// are rejected.
+const POPULATION_METRIC_TYPES = new Set<FactMetricType>(["proportion"]);
+
+function isSupportedWithPopulation(
+  metric: FactMetricInterface,
+): metric is StandardFactMetricInterface {
+  return POPULATION_METRIC_TYPES.has(metric.metricType);
+}
 
 // A dataset-level population applies to every metric in the request, so each
 // metric must be compatible with it; one unsupported metric rejects the request.
@@ -18,12 +30,10 @@ export function validatePopulationMetricCompatibility(
   population: MetricPopulation,
   factTable: FactTableInterface,
 ): void {
-  if (
-    metric.metricType !== "proportion" ||
-    metric.numerator.column !== "$$distinctUsers"
-  ) {
+  if (!isSupportedWithPopulation(metric)) {
+    const supported = [...POPULATION_METRIC_TYPES].join(", ");
     throw new Error(
-      `Metric "${metric.name}" can't be combined with a Population. Populations currently support only proportion metrics, and the Population applies to every metric in the request.`,
+      `Metric "${metric.name}" can't be combined with a Population. Populations currently support only ${supported} metrics, and the Population applies to every metric in the request.`,
     );
   }
   if (config.dimensions.some((d) => d.dimensionType !== "date")) {
