@@ -8,12 +8,12 @@ import {
   interpretQualityDecisions,
 } from "shared/enterprise";
 import { CustomQualityCheckJudge } from "shared/validators";
-import { TYPESAFE_API_KEY, TYPESAFE_BASE_URL } from "back-end/src/util/secrets";
+import {
+  TYPESAFE_API_KEY,
+  TYPESAFE_BASE_URL,
+  TYPESAFE_DEFAULT_MODEL,
+} from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-
-// Pinned, so answers and thresholds don't shift when TypeSafe moves its
-// jev-latest alias
-const QUALITY_DECISION_MODEL = "jev-1.13.0";
 
 let client: TypeSafeClient | null = null;
 
@@ -28,6 +28,7 @@ function getClient(): TypeSafeClient {
   client ??= new TypeSafeClient({
     apiKey: TYPESAFE_API_KEY,
     ...(TYPESAFE_BASE_URL ? { baseURL: TYPESAFE_BASE_URL } : {}),
+    ...(TYPESAFE_DEFAULT_MODEL ? { defaultModel: TYPESAFE_DEFAULT_MODEL } : {}),
   });
   return client;
 }
@@ -38,7 +39,6 @@ export async function judgeQualityWithDecisionModel(
   input: Parameters<typeof buildQualityDecisionRequest>[0],
 ): Promise<QualityDecisionVerdicts> {
   const response = await getClient().systemOne({
-    model: QUALITY_DECISION_MODEL,
     ...buildQualityDecisionRequest(input),
   });
   return interpretQualityDecisions(
@@ -58,7 +58,6 @@ export async function classifyCustomCheckJudge(
   if (!isDecisionModelConfigured()) return "llm";
   try {
     const response = await getClient().systemOne({
-      model: QUALITY_DECISION_MODEL,
       ...buildCustomCheckJudgeRequest(rule),
     });
     return interpretCustomCheckJudge(
