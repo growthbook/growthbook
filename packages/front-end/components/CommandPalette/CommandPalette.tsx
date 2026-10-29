@@ -22,8 +22,11 @@ import { isCloud } from "@/services/env";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
-import { buildSidebarLinkFilterProps } from "@/components/Layout/SidebarLink";
-import { flattenNavItems, navlinks } from "@/components/Layout/sidebarNav";
+import {
+  buildSidebarLinkFilterProps,
+  flattenNavItems,
+  navlinks,
+} from "@/components/Layout/sidebarNav";
 import {
   ORG_PAGE_KEYWORDS,
   SETTINGS_SECTIONS,

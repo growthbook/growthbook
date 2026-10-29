@@ -7,7 +7,7 @@ import { isCloud } from "@/services/env";
 const PYLON_CLEARANCE_PX = 76;
 
 /** Loads Pylon, which draws its own chat bubble; the Help menu is HelpMenu. */
-export default function InAppHelp() {
+export default function PylonLoader() {
   const config = useFeature("pylon-config").value;
   const {
     name,
@@ -34,7 +34,14 @@ export default function InAppHelp() {
         },
       };
     }
-  }, [config, commercialFeatures]);
+  }, [
+    config,
+    commercialFeatures,
+    hasCommercialFeature,
+    pylonHmacHash,
+    email,
+    name,
+  ]);
 
   // Publish the launcher's footprint so bottom-right overlays can clear it.
   useEffect(() => {

@@ -100,7 +100,7 @@ export default function HelpMenu({
   const [open, setOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const { hasCommercialFeature } = useUser();
-  // Plans with live chat have Pylon's own chat bubble (InAppHelp.tsx).
+  // Plans with live chat have Pylon's own chat bubble (PylonLoader.tsx).
   const offerLiveChat = isCloud() && !hasCommercialFeature("livechat");
   const version = buildVersionLabel(getGrowthBookBuild());
   const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 1500 });

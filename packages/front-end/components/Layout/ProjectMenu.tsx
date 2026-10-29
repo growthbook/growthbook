@@ -18,7 +18,7 @@ import {
   SidebarMenuInPlace,
 } from "./SidebarMenu";
 import { BOTTOM_TOOLTIP_DELAY_MS } from "./SidebarTooltip";
-import styles from "./ProjectSelector.module.scss";
+import styles from "./ProjectMenu.module.scss";
 
 /** Above this many projects, the menu gets a search field. */
 const PROJECT_SEARCH_THRESHOLD = 15;

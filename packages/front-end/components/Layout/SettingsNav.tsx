@@ -21,8 +21,7 @@ import {
 } from "@/components/GeneralSettings/settingsSections";
 import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import sectionStyles from "@/components/GeneralSettings/SettingsSection.module.scss";
-import { buildSidebarLinkFilterProps } from "./SidebarLink";
-import { settingsNavLink } from "./sidebarNav";
+import { buildSidebarLinkFilterProps, settingsNavLink } from "./sidebarNav";
 import { useSettingsNav } from "./SettingsNavContext";
 import styles from "./SettingsNav.module.scss";
 

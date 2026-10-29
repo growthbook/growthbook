@@ -7,7 +7,7 @@ import {
   ProjectMenu,
   ProjectMenuInPlace,
   useProjectSelector,
-} from "./ProjectSelector";
+} from "./ProjectMenu";
 import { SidebarMenuInPlace } from "./SidebarMenu";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import styles from "./Sidebar.module.scss";

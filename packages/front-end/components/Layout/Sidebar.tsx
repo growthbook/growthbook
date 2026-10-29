@@ -45,10 +45,11 @@ import SidebarProjectSelector from "./SidebarProjectSelector";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
+  navlinks,
+  settingsNavLink,
   SidebarLinkFilterProps,
   SidebarLinkProps,
-} from "./SidebarLink";
-import { navlinks, settingsNavLink } from "./sidebarNav";
+} from "./sidebarNav";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import { SidebarMenuInPlace } from "./SidebarMenu";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
