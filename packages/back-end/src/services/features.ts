@@ -150,6 +150,7 @@ import {
   getEnvsForRampTarget,
 } from "shared/util";
 import { measureSdkPayloadSize } from "shared/health";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { armerActor } from "back-end/src/util/armingApiKeyId";
 import { mapChangedFeatureValues } from "back-end/src/util/featureValues";
 import {
@@ -3022,6 +3023,7 @@ export function normalizeRuleForApi(rule: FeatureRule): ApiFeatureRule {
         sparse: rule.sparse,
         coverage: rule.coverage ?? 1,
         hashAttribute: rule.hashAttribute,
+        fallbackAttribute: rule.fallbackAttribute,
         seed: rule.seed,
         // Emit so a GET→edit→PUT round-trip preserves it (else the rollout re-buckets).
         hashVersion: rule.hashVersion,
@@ -3993,22 +3995,26 @@ export function validateFeatureRuleValues(
   switch (rule.type) {
     case "force":
     case "rollout":
-      validateFeatureValue(feature, rule.value, "Value");
+      assertStorableFeatureValue(feature, rule.value, "Value");
       break;
     case "experiment":
       (rule.values ?? []).forEach((v, i) =>
-        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+        assertStorableFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );
       break;
     case "experiment-ref":
     case "contextual-bandit-ref":
       (rule.variations ?? []).forEach((v, i) =>
-        validateFeatureValue(feature, v.value, `Variation ${i + 1}`),
+        assertStorableFeatureValue(feature, v.value, `Variation ${i + 1}`),
       );
       break;
     case "safe-rollout":
-      validateFeatureValue(feature, rule.controlValue, "Control value");
-      validateFeatureValue(feature, rule.variationValue, "Variation value");
+      assertStorableFeatureValue(feature, rule.controlValue, "Control value");
+      assertStorableFeatureValue(
+        feature,
+        rule.variationValue,
+        "Variation value",
+      );
       break;
   }
 }
@@ -4027,7 +4033,7 @@ export function assertFeatureValuesValid(
     : feature;
   mapChangedFeatureValues(
     values,
-    (value, label) => validateFeatureValue(valueFeature, value, label),
+    (value, label) => assertStorableFeatureValue(valueFeature, value, label),
     previous,
   );
 }
@@ -4257,6 +4263,9 @@ export const fromApiEnvSettingsRulesToFeatureEnvSettingsRules = (
           condition: r.condition,
           savedGroups: resolveSavedGroupsInput(r) ?? [],
           enabled: r.enabled != null ? r.enabled : true,
+          ...(r.fallbackAttribute && {
+            fallbackAttribute: r.fallbackAttribute,
+          }),
           // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
           ...(r.seed !== undefined && { seed: r.seed }),
           ...(r.hashVersion !== undefined && { hashVersion: r.hashVersion }),

@@ -23,10 +23,6 @@ import {
   StatsigSavedGroup,
   StatsigEnvironment,
   StatsigTag,
-  StatsigFeatureGatesResponse,
-  StatsigDynamicConfigsResponse,
-  StatsigExperimentsResponse,
-  StatsigSavedGroupsResponse,
   ImportData,
   StatsigMetric,
   StatsigMetricSource,
@@ -188,60 +184,6 @@ async function getFromStatsig<ResType>(
 }
 
 /**
- * Fetch feature gates (based on Console API endpoints)
- */
-export const getStatsigFeatureGates = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigFeatureGatesResponse> => {
-  return getFromStatsig("gates", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
- * Fetch dynamic configs (based on Console API endpoints)
- */
-export const getStatsigDynamicConfigs = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigDynamicConfigsResponse> => {
-  return getFromStatsig(
-    "dynamic_configs",
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch experiments (based on Console API endpoints)
- */
-export const getStatsigExperiments = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigExperimentsResponse> => {
-  return getFromStatsig("experiments", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
- * Fetch segments/saved groups (based on Console API endpoints)
- */
-export const getStatsigSegments = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<StatsigSavedGroupsResponse> => {
-  return getFromStatsig("segments", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
  * Fetch ID list for a specific segment
  */
 export const getStatsigSegmentIdList = async (
@@ -253,72 +195,6 @@ export const getStatsigSegmentIdList = async (
 ): Promise<{ data: { name: string; count: number; ids: string[] } }> => {
   return getFromStatsig(
     `segments/${segmentId}/id_list`,
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch tags (based on Console API endpoints)
- */
-export const getStatsigTags = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig("tags", apiKey, "GET", useBackendProxy, apiCall);
-};
-
-/**
- * Fetch metrics (based on Console API endpoints)
- */
-export const getStatsigMetrics = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig(
-    "metrics/list",
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch metric sources
- */
-export const getStatsigMetricSources = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig(
-    "metrics/metric_source/list",
-    apiKey,
-    "GET",
-    useBackendProxy,
-    apiCall,
-  );
-};
-
-/**
- * Fetch environments (based on Console API endpoints)
- */
-export const getStatsigEnvironments = async (
-  apiKey: string,
-  useBackendProxy: boolean = false,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  apiCall?: ApiCallType<any>,
-): Promise<unknown> => {
-  return getFromStatsig(
-    "environments",
     apiKey,
     "GET",
     useBackendProxy,
@@ -1904,6 +1780,11 @@ export async function runImport(options: RunImportOptions) {
             ? existingExperimentsMap.get(transformedExperiment.trackingKey)
             : undefined;
           const isUpdate = !!existingExperiment;
+          // An update can't start a draft; it's started once its companion
+          // flag is saved.
+          const startsDraft =
+            existingExperiment?.status === "draft" &&
+            transformedExperiment.status === "running";
 
           // Create or update the experiment
           let experimentRes: { experiment: ExperimentInterfaceStringDates };
@@ -1913,7 +1794,11 @@ export async function runImport(options: RunImportOptions) {
               `/experiment/${existingExperiment.id}`,
               {
                 method: "POST",
-                body: JSON.stringify(transformedExperiment),
+                body: JSON.stringify(
+                  startsDraft
+                    ? { ...transformedExperiment, status: undefined }
+                    : transformedExperiment,
+                ),
               },
             );
           } else {
@@ -2002,6 +1887,36 @@ export async function runImport(options: RunImportOptions) {
               body: JSON.stringify(transformedFeature),
             },
           );
+
+          if (startsDraft) {
+            const { id, phases } = experimentRes.experiment;
+            const last = phases.length - 1;
+            // Records a start Statsig already made, so no start checklist. A
+            // refused start leaves the import done, as a draft.
+            try {
+              await apiCall(`/experiment/${id}/status`, {
+                method: "POST",
+                body: JSON.stringify({
+                  status: "running",
+                  skipChecklist: true,
+                }),
+              });
+              experimentRes.experiment = {
+                ...experimentRes.experiment,
+                status: "running",
+              };
+              // Starting dates the phase today; it began when Statsig started it.
+              await apiCall(`/experiment/${id}/phase/${last}`, {
+                method: "PUT",
+                body: JSON.stringify(phases[last]),
+              });
+            } catch (e) {
+              experiment.error =
+                experimentRes.experiment.status === "running"
+                  ? `Started, but dated today rather than when Statsig started it. ${e.message}`
+                  : `Updated as a draft; start it from its page. ${e.message}`;
+            }
+          }
 
           const experimentIsUpdate = !!existingExperiment;
           experiment.status = "completed";

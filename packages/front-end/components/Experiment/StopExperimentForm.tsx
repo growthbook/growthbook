@@ -1,4 +1,4 @@
-import { FC, useRef, useState } from "react";
+import { FC, useRef } from "react";
 import { getAllVariations } from "shared/experiments";
 import {
   DecisionCriteriaData,
@@ -9,20 +9,26 @@ import {
 import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import SelectField from "@/components/Forms/SelectField";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
-import RunningExperimentDecisionBanner from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
+import {
+  decidedVariations,
+  DecisionRecommendation,
+  useRecommendedShip,
+} from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { coveragePercentFormatter } from "@/services/utils";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -40,7 +46,6 @@ const StopExperimentForm: FC<{
   mutate,
   source,
 }) => {
-  const [showModal, setShowModal] = useState(true);
   const isBandit = experiment.type == "multi-armed-bandit";
   const isStopped = experiment.status === "stopped";
 
@@ -87,11 +92,10 @@ const StopExperimentForm: FC<{
   const lastPhaseIndex = phases.length - 1;
   const lastPhase = phases[lastPhaseIndex];
 
-  const percentFormatter = new Intl.NumberFormat(undefined, {
-    style: "percent",
-    maximumFractionDigits: 2,
-  });
-
+  const recommendedShip = useRecommendedShip(
+    experiment,
+    runningExperimentStatus,
+  );
   const getRecommendedResult = (
     recommendation?: ExperimentResultStatusData,
     controlVariationId?: string,
@@ -99,10 +103,7 @@ const StopExperimentForm: FC<{
     if (recommendation?.status === "ship-now") {
       return {
         result: "won",
-        releasedVariationId:
-          recommendation.variations.length === 1
-            ? recommendation.variations[0].variationId
-            : undefined,
+        releasedVariationId: recommendedShip ?? undefined,
       };
     }
     if (recommendation?.status === "rollback-now") {
@@ -154,14 +155,68 @@ const StopExperimentForm: FC<{
     variations?.[form.watch("winner")]?.id !== recommendedReleaseVariationId;
   const { apiCall } = useAuth();
 
-  const decisionBanner =
-    runningExperimentStatus && decisionCriteria
-      ? RunningExperimentDecisionBanner({
-          experiment,
-          runningExperimentStatus,
-          decisionCriteria,
-          showDecisionCriteriaLink: false,
-        })
+  // What users in it get once it stops serving: a flag's rule stays on the
+  // flag but leaves the payload, and visual changes and redirects drop out.
+  const noun = isBandit ? "Bandit" : "experiment";
+  const flags = experiment.linkedFeatures ?? [];
+  const visual = !!experiment.hasVisualChangesets;
+  const redirects = !!experiment.hasURLRedirects;
+  const pageChanges = visual || redirects;
+  const pageKinds =
+    visual && redirects
+      ? "visual changes and URL redirects"
+      : visual
+        ? "visual changes"
+        : "URL redirects";
+  const pageStops = visual && !redirects ? "stop showing" : "stop";
+  const pageSeen =
+    visual && redirects
+      ? "see the original pages"
+      : visual
+        ? "see the page without them"
+        : "stay on the original URL";
+  const oneFlag = flags.length === 1;
+  const withoutRollout =
+    flags.length || pageChanges ? (
+      <>
+        {flags.length ? (
+          <>
+            Without a temporary rollout,{" "}
+            {oneFlag ? (
+              <>
+                the linked Feature Flag <strong>{flags[0]}</strong> stops
+              </>
+            ) : (
+              `the ${flags.length} linked Feature Flags stop`
+            )}{" "}
+            serving this {noun} when you submit. For users in the {noun},{" "}
+            {oneFlag ? "the" : "each"} flag then checks the rules below this{" "}
+            {noun}&apos;s rule, in order. Users who match none of them get{" "}
+            {oneFlag ? "the" : "that"} flag&apos;s default value.
+          </>
+        ) : null}
+        {pageChanges
+          ? flags.length
+            ? ` The ${noun}'s ${pageKinds} ${pageStops} too. Users ${pageSeen}.`
+            : `Without a temporary rollout, this ${noun}'s ${pageKinds} ${pageStops} when you submit. Users in the ${noun} ${pageSeen}.`
+          : null}
+      </>
+    ) : null;
+
+  const variationOption = (index: number) =>
+    variations[index] ? (
+      <VariationLabel
+        number={index}
+        name={variations[index].name}
+        disableTooltip
+      />
+    ) : null;
+
+  const decision =
+    runningExperimentStatus &&
+    decisionCriteria &&
+    decidedVariations(experiment, runningExperimentStatus).length
+      ? { runningExperimentStatus, decisionCriteria }
       : null;
 
   const submit = form.handleSubmit(async (value) => {
@@ -215,21 +270,25 @@ const StopExperimentForm: FC<{
       }
       size="lg"
       close={close}
-      open={showModal}
+      open
       submit={submit}
       cta={isStopped ? "Save" : "Stop"}
       ctaColor={isStopped ? "violet" : "red"}
     >
       <Flex direction={"column"} gap={"1"}>
-        {decisionBanner ? (
+        {decision ? (
           <>
-            <Flex direction={"column"} gap="0">
+            <Flex direction="column" gap="1">
               <Text as="label" weight="semibold">
                 Recommendation
               </Text>
-              {decisionBanner}
+              <DecisionRecommendation
+                experiment={experiment}
+                runningExperimentStatus={decision.runningExperimentStatus}
+                decisionCriteria={decision.decisionCriteria}
+              />
             </Flex>
-            <hr className="m-1" />
+            <Separator size="4" mt="3" mb="4" />
           </>
         ) : null}
         <Flex direction={"column"} gap="0">
@@ -237,6 +296,7 @@ const StopExperimentForm: FC<{
             <SelectField
               size="legacy"
               label="Conclusion"
+              isSearchable={false}
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
               value={form.watch("results")}
@@ -277,6 +337,7 @@ const StopExperimentForm: FC<{
               <SelectField
                 size="legacy"
                 label="Winner"
+                isSearchable={false}
                 containerClassName="col-lg"
                 className={
                   decisionDoesNotMatchRecommendedResult ? "warning" : ""
@@ -294,6 +355,10 @@ const StopExperimentForm: FC<{
                 options={variations.slice(1).map((v, i) => {
                   return { value: i + 1 + "", label: v.name };
                 })}
+                sort={false}
+                formatOptionLabel={(o) =>
+                  variationOption(parseIntWithDefault(o.value, 0))
+                }
               />
             )}
           </div>
@@ -320,20 +385,21 @@ const StopExperimentForm: FC<{
               <div className="form-group col">
                 <Checkbox
                   id="excludeFromPayload"
-                  label="Enable Temporary Rollout"
+                  label="Enable temporary rollout"
                   value={!form.watch("excludeFromPayload")}
                   setValue={(includeInPayload) => {
                     form.setValue("excludeFromPayload", !includeInPayload);
                   }}
+                  description={
+                    <>
+                      GrowthBook keeps serving the variation below until you
+                      ship the change in code and end the rollout.{" "}
+                      <DocLink useRadix={false} docSection="temporaryRollout">
+                        Learn more
+                      </DocLink>
+                    </>
+                  }
                 />
-
-                <small className="form-text text-muted">
-                  Keep the {isBandit ? "Bandit" : "Experiment"} running until
-                  you can implement the changes in code.{" "}
-                  <DocLink useRadix={false} docSection="temporaryRollout">
-                    Learn more
-                  </DocLink>
-                </small>
               </div>
             </div>
 
@@ -341,7 +407,9 @@ const StopExperimentForm: FC<{
             (lastPhase?.coverage ?? 1) < 1 ? (
               <Callout status="warning" mb="2" mt="-2">
                 Currently only{" "}
-                <strong>{percentFormatter.format(lastPhase.coverage)}</strong>{" "}
+                <strong>
+                  {coveragePercentFormatter.format(lastPhase.coverage)}
+                </strong>{" "}
                 of traffic is directed at this experiment.
                 <br />
                 Upon rollout, <strong>100%</strong> of traffic will be directed
@@ -355,17 +423,30 @@ const StopExperimentForm: FC<{
                   <SelectField
                     size="legacy"
                     label="Variation to Release"
+                    isSearchable={false}
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
                     onChange={(v) => {
                       form.setValue("releasedVariationId", v);
                     }}
-                    helpText="Send 100% of experiment traffic to this variation"
+                    helpText={
+                      // Body size, past the legacy field's small print.
+                      <Text size="md" color="text-mid">
+                        Served to every user who meets the {noun}&apos;s
+                        targeting.
+                      </Text>
+                    }
                     placeholder="Pick one..."
                     required
                     options={variations.map((v) => {
                       return { value: v.id, label: v.name };
                     })}
+                    sort={false}
+                    formatOptionLabel={(o) =>
+                      variationOption(
+                        variations.findIndex((v) => v.id === o.value),
+                      )
+                    }
                   />
                 </div>
                 {variationDoesNotMatchRecommendedReleaseVariationId ? (
@@ -374,11 +455,9 @@ const StopExperimentForm: FC<{
                   </Callout>
                 ) : null}
               </>
-            ) : form.watch("results") === "won" ? (
+            ) : withoutRollout ? (
               <Callout status="info" mb="3" mt="-2">
-                If you don&apos;t enable a Temporary Rollout, all experiment
-                traffic will immediately revert to the default control
-                experience when you submit this form.
+                {withoutRollout}
               </Callout>
             ) : null}
           </>
@@ -389,21 +468,15 @@ const StopExperimentForm: FC<{
             <Text as="label" weight="semibold">
               Additional Analysis or Details
             </Text>
-            <MarkdownInput
-              value={form.watch("analysis")}
-              setValue={(val) => form.setValue("analysis", val)}
+            <AIRichTextField
+              value={form.watch("analysis") ?? ""}
+              onChange={(val) => form.setValue("analysis", val)}
               aiSuggestFunction={aiSuggestFunction}
               aiButtonText="Generate Analysis"
-              aiSuggestionHeader="Suggested Summary"
               trackingSource="stop-experiment"
+              collapsibleToolbar
               onAISuggestionReceived={(result) => {
                 aiSuggestionRef.current = result;
-              }}
-              onOptInModalClose={() => {
-                setShowModal(true);
-              }}
-              onOptInModalOpen={() => {
-                setShowModal(false);
               }}
             />
           </div>

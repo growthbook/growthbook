@@ -26,7 +26,7 @@
 
 .code,
 .fullValue {
-  font-family: var(--font-mono, monospace);
+  font-family: var(--code-font-family);
   font-size: 0.875em;
   color: var(--text-color-main);
 }
