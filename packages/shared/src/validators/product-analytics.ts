@@ -9,7 +9,7 @@ import {
 } from "./fact-table";
 import { populationStepValidator } from "./population";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 
 const baseValueValidator = z.object({
   name: z.string(),
@@ -24,21 +24,24 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
   dateUpdated: true,
 });
 
-export const explorationPopulationValidator = populationStepValidator
-  .extend({
-    rowFilters: z
-      .array(rowFilterValidator)
-      .optional()
-      .transform((filters) => filters ?? [])
-      .pipe(z.array(rowFilterValidator))
-      .meta({ default: [] }),
-    unit: z
-      .string()
-      .describe(
-        "Identifier type that defines population membership. Every metric's unit must match it.",
-      ),
-  })
-  .strict();
+export const explorationPopulationValidator = componentSchema(
+  "ExplorationPopulation",
+  populationStepValidator
+    .extend({
+      rowFilters: z
+        .array(rowFilterValidator)
+        .optional()
+        .transform((filters) => filters ?? [])
+        .pipe(z.array(rowFilterValidator))
+        .meta({ default: [] }),
+      unit: z
+        .string()
+        .describe(
+          "Identifier type that defines population membership. Every metric's unit must match it.",
+        ),
+    })
+    .strict(),
+);
 export type ExplorationPopulation = z.infer<
   typeof explorationPopulationValidator
 >;

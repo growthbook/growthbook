@@ -243,7 +243,7 @@ describe("draft metric explorations", () => {
   });
   const internal = { cache: "never", allowDraftMetrics: true } as const;
 
-  it("rejects a draft with a population before creating an exploration", async () => {
+  it("rejects a draft with a population", async () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric");
