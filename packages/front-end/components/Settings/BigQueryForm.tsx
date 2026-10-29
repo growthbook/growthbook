@@ -15,20 +15,43 @@ import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
 export function BigQueryAdvancedSettings({
   params,
   onParamChange,
+  showProjectId,
 }: {
   params: Partial<BigQueryConnectionParams>;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
+  // JSON keys fill this in. Auto-discovery has no key, so that field stays on the main form.
+  showProjectId: boolean;
 }) {
   return (
-    <TextField
-      mb="3"
-      name="apiEndpoint"
-      label="API endpoint (optional)"
-      placeholder="https://proxy.example.com/"
-      value={params.apiEndpoint || ""}
-      onChange={onParamChange}
-      helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
-    />
+    <>
+      {showProjectId ? (
+        <TextField
+          mb="3"
+          name="defaultProject"
+          label="BigQuery project ID"
+          value={params.defaultProject || ""}
+          onChange={onParamChange}
+          helpText="Filled from the key file. Change this only if GrowthBook should query a different project than the service account's project."
+        />
+      ) : null}
+      <TextField
+        mb="3"
+        name="reservation"
+        label="Reservation (optional)"
+        value={params.reservation || ""}
+        onChange={onParamChange}
+        helpText="If set, GrowthBook includes this reservation on every BigQuery query. Use the full resource name, for example projects/my-project/locations/US/reservations/my-reservation."
+      />
+      <TextField
+        mb="3"
+        name="apiEndpoint"
+        label="API endpoint (optional)"
+        placeholder="https://proxy.example.com/"
+        value={params.apiEndpoint || ""}
+        onChange={onParamChange}
+        helpText="Default is https://bigquery.googleapis.com. '/bigquery/v2' is automatically appended to the URL."
+      />
+    </>
   );
 }
 
@@ -267,22 +290,27 @@ const BigQueryForm: FC<{
           </div>
         </>
       )}
-      <div
-        className={`form-group ${connectionOnly ? "col-md-12" : "col-md-6"}`}
-      >
-        <label>BigQuery Project ID</label>
-        <Field
-          size="legacy"
-          type="text"
-          className="form-control"
-          name="defaultProject"
-          value={params.defaultProject || ""}
-          onChange={onParamChange}
-          placeholder=""
-        />
-      </div>
+      {authType === "auto" ? (
+        <div
+          className={`form-group ${connectionOnly ? "col-md-12" : "col-md-6"}`}
+        >
+          <label>BigQuery project ID</label>
+          <Field
+            size="legacy"
+            type="text"
+            className="form-control"
+            name="defaultProject"
+            value={params.defaultProject || ""}
+            onChange={onParamChange}
+            placeholder=""
+            helpText="Auto-discovery does not include a project, so enter the project GrowthBook should query."
+          />
+        </div>
+      ) : null}
       {!connectionOnly && (
-        <div className="form-group col-md-6">
+        <div
+          className={`form-group ${authType === "auto" ? "col-md-6" : "col-md-12"}`}
+        >
           <label>
             Default Dataset{" "}
             <Tooltip body="The default dataset is where your experiment assignments are stored. GrowthBook uses this to create default queries that define working assignments and metrics. This value can be edited later if needed." />
@@ -325,20 +353,6 @@ const BigQueryForm: FC<{
           )}
         </div>
       )}
-      <div className="form-group col-md-12">
-        <label>
-          Reservation (optional){" "}
-          <Tooltip body="If set, GrowthBook will include this reservation on all BigQuery query jobs. Use the full reservation resource name (e.g. projects/my-project/locations/US/reservations/my-reservation)." />
-        </label>
-        <Field
-          size="legacy"
-          type="text"
-          className="form-control"
-          name="reservation"
-          value={params.reservation || ""}
-          onChange={onParamChange}
-        />
-      </div>
     </div>
   );
 };
