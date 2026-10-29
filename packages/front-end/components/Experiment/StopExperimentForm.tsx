@@ -9,7 +9,7 @@ import {
 import { computeAIUsageData, formatAIRateLimitRetryMessage } from "shared/ai";
 import { useForm } from "react-hook-form";
 import { experimentHasLinkedChanges, parseIntWithDefault } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { useAuth } from "@/services/auth";
@@ -18,12 +18,15 @@ import SelectField from "@/components/Forms/SelectField";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import { DocLink } from "@/components/DocLink";
 import DatePicker from "@/components/DatePicker";
-import RunningExperimentDecisionBanner, {
+import {
   decidedVariations,
+  DecisionRecommendation,
+  useRecommendedShip,
 } from "@/components/Experiment/TabbedPage/RunningExperimentDecisionBanner";
 import Checkbox from "@/ui/Checkbox";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import VariationLabel from "@/ui/VariationLabel";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import { Results } from "./ResultsIndicator";
 
@@ -93,6 +96,10 @@ const StopExperimentForm: FC<{
     maximumFractionDigits: 2,
   });
 
+  const recommendedShip = useRecommendedShip(
+    experiment,
+    runningExperimentStatus,
+  );
   const getRecommendedResult = (
     recommendation?: ExperimentResultStatusData,
     controlVariationId?: string,
@@ -100,10 +107,7 @@ const StopExperimentForm: FC<{
     if (recommendation?.status === "ship-now") {
       return {
         result: "won",
-        releasedVariationId:
-          recommendation.variations.length === 1
-            ? recommendation.variations[0].variationId
-            : undefined,
+        releasedVariationId: recommendedShip ?? undefined,
       };
     }
     if (recommendation?.status === "rollback-now") {
@@ -154,6 +158,15 @@ const StopExperimentForm: FC<{
     recommendedReleaseVariationId !== undefined &&
     variations?.[form.watch("winner")]?.id !== recommendedReleaseVariationId;
   const { apiCall } = useAuth();
+
+  const variationOption = (index: number) =>
+    variations[index] ? (
+      <VariationLabel
+        number={index}
+        name={variations[index].name}
+        disableTooltip
+      />
+    ) : null;
 
   const decision =
     runningExperimentStatus &&
@@ -221,17 +234,17 @@ const StopExperimentForm: FC<{
       <Flex direction={"column"} gap={"1"}>
         {decision ? (
           <>
-            <Flex direction={"column"} gap="0">
+            <Flex direction="column" gap="1">
               <Text as="label" weight="semibold">
                 Recommendation
               </Text>
-              <RunningExperimentDecisionBanner
+              <DecisionRecommendation
                 experiment={experiment}
-                {...decision}
-                showDecisionCriteriaLink={false}
+                runningExperimentStatus={decision.runningExperimentStatus}
+                decisionCriteria={decision.decisionCriteria}
               />
             </Flex>
-            <hr className="m-1" />
+            <Separator size="4" mt="3" mb="4" />
           </>
         ) : null}
         <Flex direction={"column"} gap="0">
@@ -239,6 +252,7 @@ const StopExperimentForm: FC<{
             <SelectField
               size="legacy"
               label="Conclusion"
+              isSearchable={false}
               containerClassName="col-lg"
               className={decisionDoesNotMatchRecommendedResult ? "warning" : ""}
               value={form.watch("results")}
@@ -279,6 +293,7 @@ const StopExperimentForm: FC<{
               <SelectField
                 size="legacy"
                 label="Winner"
+                isSearchable={false}
                 containerClassName="col-lg"
                 className={
                   decisionDoesNotMatchRecommendedResult ? "warning" : ""
@@ -296,6 +311,10 @@ const StopExperimentForm: FC<{
                 options={variations.slice(1).map((v, i) => {
                   return { value: i + 1 + "", label: v.name };
                 })}
+                sort={false}
+                formatOptionLabel={(o) =>
+                  variationOption(parseIntWithDefault(o.value, 0))
+                }
               />
             )}
           </div>
@@ -357,6 +376,7 @@ const StopExperimentForm: FC<{
                   <SelectField
                     size="legacy"
                     label="Variation to Release"
+                    isSearchable={false}
                     containerClassName="col"
                     value={form.watch("releasedVariationId")}
                     onChange={(v) => {
@@ -368,6 +388,12 @@ const StopExperimentForm: FC<{
                     options={variations.map((v) => {
                       return { value: v.id, label: v.name };
                     })}
+                    sort={false}
+                    formatOptionLabel={(o) =>
+                      variationOption(
+                        variations.findIndex((v) => v.id === o.value),
+                      )
+                    }
                   />
                 </div>
                 {variationDoesNotMatchRecommendedReleaseVariationId ? (

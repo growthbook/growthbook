@@ -139,16 +139,6 @@ const ExperimentPage = (): ReactElement => {
           source="eid"
         />
       )}
-      {stopModalOpen && (
-        <StopExperimentForm
-          close={() => setStopModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          runningExperimentStatus={runningExperimentStatus}
-          decisionCriteria={decisionCriteria}
-          source="eid"
-        />
-      )}
       {duplicateModalOpen && (
         <NewExperimentForm
           onClose={() => setDuplicateModalOpen(false)}
@@ -223,6 +213,16 @@ const ExperimentPage = (): ReactElement => {
           urlRedirectEnvStates={urlRedirectEnvStates}
           editSchedule={editSchedule}
         />
+        {stopModalOpen && (
+          <StopExperimentForm
+            close={() => setStopModalOpen(false)}
+            mutate={mutate}
+            experiment={experiment}
+            runningExperimentStatus={runningExperimentStatus}
+            decisionCriteria={decisionCriteria}
+            source="eid"
+          />
+        )}
       </SnapshotProvider>
     </>
   );
