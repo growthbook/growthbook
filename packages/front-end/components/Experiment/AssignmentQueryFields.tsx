@@ -489,6 +489,9 @@ export default function AssignmentQueryFields({
   );
 }
 
+export const POST_STRATIFICATION_CLUSTER_MESSAGE =
+  "Post-stratification isn't supported for cluster experiments.";
+
 export function ClusterExperimentFields({
   exposureQuery,
   identifierType,

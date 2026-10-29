@@ -38,6 +38,7 @@ import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
+import { POST_STRATIFICATION_CLUSTER_MESSAGE } from "@/components/Experiment/AssignmentQueryFields";
 import SetupFieldRow from "./SetupFieldRow";
 import { QuickEditRow } from "./QuickEditButton";
 import { useExperimentEdits } from "./ExperimentEdits";
@@ -363,12 +364,23 @@ export default function AnalysisPlanAdvanced({
                   }
                   weight="regular"
                   value={
-                    hasPostStratification && !!settled.postStratificationEnabled
+                    hasPostStratification &&
+                    !experiment.isClusterExperiment &&
+                    !!settled.postStratificationEnabled
                   }
                   setValue={(value) =>
                     stage({ postStratificationEnabled: value })
                   }
-                  disabled={disabled || !hasPostStratification}
+                  disabled={
+                    disabled ||
+                    !hasPostStratification ||
+                    !!experiment.isClusterExperiment
+                  }
+                  disabledMessage={
+                    experiment.isClusterExperiment
+                      ? POST_STRATIFICATION_CLUSTER_MESSAGE
+                      : undefined
+                  }
                 />
               ) : null}
             </Flex>

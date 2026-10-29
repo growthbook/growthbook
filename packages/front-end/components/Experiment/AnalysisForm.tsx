@@ -35,6 +35,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import AssignmentQueryFields, {
   AssignmentQueryDriftWarning,
   ClusterExperimentFields,
+  POST_STRATIFICATION_CLUSTER_MESSAGE,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
@@ -938,6 +939,11 @@ const AnalysisForm: FC<{
                     !hasPostStratificationFeature ||
                     isClusterExperiment ||
                     (isBandit && experiment.status !== "draft")
+                  }
+                  disabledMessage={
+                    isClusterExperiment
+                      ? POST_STRATIFICATION_CLUSTER_MESSAGE
+                      : undefined
                   }
                 />
               ) : null}

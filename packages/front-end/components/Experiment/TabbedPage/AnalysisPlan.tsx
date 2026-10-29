@@ -830,7 +830,7 @@ export default function AnalysisPlan({
         <AnalysisPlanAdvanced
           open={advancedOpen}
           setOpen={setAdvancedOpen}
-          experiment={effective}
+          experiment={{ ...effective, isClusterExperiment }}
           datasourceId={datasource}
           exposureQueryId={exposureQueryId}
           identifierType={resolution.identifierType}
