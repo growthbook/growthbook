@@ -11,7 +11,10 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import { getExperimentLaunchChecklist } from "back-end/src/models/ExperimentLaunchChecklistModel";
-import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import {
+  getChangesToStartExperiment,
+  getLinkedFeatureInfo,
+} from "back-end/src/services/experiments";
 import { publishPendingFeatureDraftsForExperiment } from "back-end/src/services/experiment-feature";
 import {
   ChecklistIncompleteError,
@@ -39,6 +42,10 @@ jest.mock("back-end/src/services/experiment-feature", () => ({
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanPublishPendingFeatureDrafts: jest.fn(),
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
+  assertValidExperimentPhases: (...args: unknown[]) =>
+    jest
+      .requireActual("back-end/src/services/experiments")
+      .assertValidExperimentPhases(...args),
   getChangesToStartExperiment: jest.fn(),
   getLinkedFeatureInfo: jest.fn(),
   resetExperimentBanditSettings: jest.fn(() => ({ banditStage: "explore" })),
@@ -162,6 +169,22 @@ describe("startExperiment", () => {
         ],
       },
     });
+    expect(publishPendingFeatureDraftsForExperiment).not.toHaveBeenCalled();
+  });
+
+  it("refuses a stored invalid coverage before publishing a draft", async () => {
+    (getExperimentById as jest.Mock).mockResolvedValue({
+      ...draft,
+      phases: [{ coverage: 1.5, variationWeights: [0.5, 0.5] }],
+    });
+    // An experiment with results keeps its phases as they are.
+    (getChangesToStartExperiment as jest.Mock).mockResolvedValueOnce({
+      status: "running",
+    });
+
+    await expect(
+      startExperiment({ context, experimentId: "exp_1", skipChecklist: true }),
+    ).rejects.toThrow("invalid_coverage");
     expect(publishPendingFeatureDraftsForExperiment).not.toHaveBeenCalled();
   });
 });
