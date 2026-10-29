@@ -1,4 +1,4 @@
-import { PiSparkle } from "react-icons/pi";
+import { PiSparkleBold } from "react-icons/pi";
 import Button from "@/ui/Button";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
 import { useGrowthBotState } from "@/components/Agent/useGrowthBotState";
@@ -26,11 +26,11 @@ export default function GrowthBotButton() {
       icon={
         limit ? (
           <span className={styles.iconWrap}>
-            <PiSparkle />
+            <PiSparkleBold />
             <span className={styles.limitDot} />
           </span>
         ) : (
-          <PiSparkle />
+          <PiSparkleBold />
         )
       }
       onClick={toggleAgentPanel}
