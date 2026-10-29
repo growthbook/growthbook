@@ -151,6 +151,10 @@ describe("getExperimentFactMetricsQuery contextual bandit period weighting", () 
     // The shared period-folding CTE is emitted.
     expect(c).toContain("__banditPeriodStatistics");
     expect(c).toContain("__banditPeriodWeights");
+    // Single-user periods fall back to the arm's pooled variance (rather than
+    // contributing zero variance and hiding uncertainty).
+    expect(c).toContain("__variationPooledStats");
+    expect(c).toContain("pooled_main_variance/bps.users");
     // Context attribute remains a real dimension column (no dummy 'All').
     expect(c).toContain("attr_cb_country");
     expect(c).not.toContain("'All'ASdimension");

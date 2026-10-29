@@ -235,6 +235,58 @@ export function getBanditStatisticsFactMetricCTE(
         vep.variation
         ${dimensionCols.map((d) => `, bpw.${d.alias}`).join("")}
     )
+    , __variationPooledStats AS (
+      -- Per-variation pooled (across-period) sample variance/covariance. Used to impute missing variances in periods with fewer than 2 users.
+      SELECT
+        variation AS variation
+        ${dimensionCols.map((d) => `, ${d.alias} AS ${d.alias}`).join("")}
+        ${metricData
+          .map((data) => {
+            const alias = data.alias + "_";
+            return `
+        , ${dialect.ifElse(
+          "SUM(users) <= 1",
+          "0",
+          `(SUM(${alias}main_sum_squares) - POWER(SUM(${alias}main_sum), 2) / SUM(users)) / (SUM(users) - 1)`,
+        )} AS ${alias}pooled_main_variance
+        ${
+          data.ratioMetric
+            ? `
+        , ${dialect.ifElse(
+          "SUM(users) <= 1",
+          "0",
+          `(SUM(${alias}denominator_sum_squares) - POWER(SUM(${alias}denominator_sum), 2) / SUM(users)) / (SUM(users) - 1)`,
+        )} AS ${alias}pooled_denominator_variance
+        , ${dialect.ifElse(
+          "SUM(users) <= 1",
+          "0",
+          `(SUM(${alias}main_denominator_sum_product) - SUM(${alias}main_sum) * SUM(${alias}denominator_sum) / SUM(users)) / (SUM(users) - 1)`,
+        )} AS ${alias}pooled_main_denominator_covariance`
+            : ""
+        }
+        ${
+          data.regressionAdjusted
+            ? `
+        , ${dialect.ifElse(
+          "SUM(users) <= 1",
+          "0",
+          `(SUM(${alias}covariate_sum_squares) - POWER(SUM(${alias}covariate_sum), 2) / SUM(users)) / (SUM(users) - 1)`,
+        )} AS ${alias}pooled_covariate_variance
+        , ${dialect.ifElse(
+          "SUM(users) <= 1",
+          "0",
+          `(SUM(${alias}main_covariate_sum_product) - SUM(${alias}main_sum) * SUM(${alias}covariate_sum) / SUM(users)) / (SUM(users) - 1)`,
+        )} AS ${alias}pooled_main_covariate_covariance`
+            : ""
+        }`;
+          })
+          .join("\n")}
+      FROM
+        __banditPeriodStatistics
+      GROUP BY
+        variation
+        ${dimensionCols.map((d) => `, ${d.alias}`).join("")}
+    )
     SELECT
       bps.variation
       ${dimensionCols.map((d) => `, bps.${d.alias} AS ${d.alias}`).join("")}
@@ -248,7 +300,7 @@ export function getBanditStatisticsFactMetricCTE(
       , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
-          "0",
+          `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_main_variance / bps.users`,
           `POWER((${renormalizedWeight}), 2) * ((
           bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
         ) / (bps.users - 1)) / bps.users
@@ -261,7 +313,7 @@ export function getBanditStatisticsFactMetricCTE(
         , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
-          "0",
+          `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_denominator_variance / bps.users`,
           `POWER((${renormalizedWeight}), 2) * ((
             (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1))
           ) / bps.users
@@ -273,7 +325,7 @@ export function getBanditStatisticsFactMetricCTE(
             (SUM(bps.users) - 1) * SUM(
               ${dialect.ifElse(
                 "bps.users <= 1",
-                "0",
+                `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_main_denominator_covariance / bps.users`,
                 `
               POWER((${renormalizedWeight}), 2) / (bps.users * (bps.users - 1)) * (
                 bps.${alias}main_denominator_sum_product - bps.${alias}main_sum * bps.${alias}denominator_sum / bps.users
@@ -293,7 +345,7 @@ export function getBanditStatisticsFactMetricCTE(
         , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
-          "0",
+          `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_covariate_variance / bps.users`,
           `POWER((${renormalizedWeight}), 2) * ((
             (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1))
           ) / bps.users
@@ -303,7 +355,7 @@ export function getBanditStatisticsFactMetricCTE(
             (SUM(bps.users) - 1) * SUM(
               ${dialect.ifElse(
                 "bps.users <= 1",
-                "0",
+                `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_main_covariate_covariance / bps.users`,
                 `
               POWER((${renormalizedWeight}), 2) / (bps.users * (bps.users - 1)) * (
                 bps.${alias}main_covariate_sum_product - bps.${alias}main_sum * bps.${alias}covariate_sum / bps.users
@@ -342,6 +394,18 @@ export function getBanditStatisticsFactMetricCTE(
           dimensionCols.length
             ? dimensionCols
                 .map((d) => `AND bps.${d.alias} = vwt.${d.alias}`)
+                .join("\n")
+            : ""
+        }
+      )
+    LEFT JOIN
+      __variationPooledStats vps
+      ON (
+        bps.variation = vps.variation
+        ${
+          dimensionCols.length
+            ? dimensionCols
+                .map((d) => `AND bps.${d.alias} = vps.${d.alias}`)
                 .join("\n")
             : ""
         }
