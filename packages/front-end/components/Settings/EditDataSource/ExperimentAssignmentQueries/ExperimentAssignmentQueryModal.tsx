@@ -143,6 +143,7 @@ export const ExperimentAssignmentQueryModal = ({
   dataSource,
   exposureQuery,
   defaultIdentifierTypes,
+  unsaved = false,
   onSave,
   onCancel,
 }: {
@@ -150,6 +151,8 @@ export const ExperimentAssignmentQueryModal = ({
   exposureQuery?: ExposureQuery;
   // Identifiers a new query is meant to cover
   defaultIdentifierTypes?: string[];
+  // A prefilled query that is not stored until this modal is submitted
+  unsaved?: boolean;
   onSave: (exposureQuery: ExposureQuery) => Promise<void> | void;
   onCancel: () => void;
 }) => {
@@ -533,12 +536,12 @@ export const ExperimentAssignmentQueryModal = ({
   return (
     <PagedModal
       trackingEventModalType={
-        exposureQuery
+        exposureQuery && !unsaved
           ? "edit-experiment-assignment-query"
           : "new-experiment-assignment-query"
       }
       header={
-        exposureQuery
+        exposureQuery && !unsaved
           ? "Edit Experiment Assignment Query"
           : "Add Experiment Assignment Query"
       }
@@ -546,7 +549,7 @@ export const ExperimentAssignmentQueryModal = ({
       setStep={setStep}
       submit={submit}
       close={onCancel}
-      cta={exposureQuery ? "Save" : "Add"}
+      cta={exposureQuery && !unsaved ? "Save" : "Add"}
       size={step === 0 && mode === "sql" ? "max" : "lg"}
       disabledMessage={
         step === 0 && source.loadingColumns ? "Loading columns..." : undefined

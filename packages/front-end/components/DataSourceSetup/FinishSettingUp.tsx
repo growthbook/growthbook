@@ -30,9 +30,15 @@ import Link from "@/ui/Link";
 import { ExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueryModal";
 import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import { EventForwarderManagedBadge } from "@/components/Settings/EditDataSource/EventForwarderManaged";
+import {
+  applyGoogleAnalytics4Settings,
+  GA4_EXPOSURE_QUERY_ID,
+  hasGoogleAnalytics4ExposureQuery,
+} from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
@@ -65,11 +71,12 @@ type IdentifierRow = {
 // Open the attribute modal to create a new identifier or edit an existing one.
 type AttributeModalState = { attribute: string | null } | null;
 
-// Index of the exposure query being edited, or null to add a new one that
-// starts with the given identifier types.
+// A saved query to edit, a new query with starter identifier types, or an
+// unsaved Google Analytics 4 draft that is stored only when the modal is submitted.
 type QueryModal =
-  | { index: number; identifierTypes?: never }
-  | { index: null; identifierTypes: string[] }
+  | { index: number; identifierTypes?: never; draft?: never }
+  | { index: null; identifierTypes: string[]; draft?: never }
+  | { index: null; identifierTypes?: never; draft: ExposureQuery }
   | null;
 
 const EXPANDABLE_STEPS: StepId[] = ["forwarder", "identifiers", "queries"];
@@ -258,6 +265,7 @@ export default function FinishSettingUp({
   const identifierTypes = dataSource.settings?.userIdTypes ?? [];
   const exposureQueries = dataSource.settings?.queries?.exposure ?? [];
   const hasIdentifiers = identifierTypes.length > 0;
+
   // Identifier types no exposure query returns yet. A new query starts with
   // these so one query can cover everything.
   const uncoveredIdentifierTypes = identifierTypes
@@ -393,17 +401,49 @@ export default function FinishSettingUp({
   const identifierDescription =
     "Tell us how you identify your users (for example, user_id or id). This determines how you can split traffic for experiments and track metric conversions. Uncheck any that aren't relevant, and add any that might be missing.";
 
+  const canOfferGoogleAnalytics4 =
+    dataSource.type === "bigquery" &&
+    !hasEventForwarder &&
+    !hasGoogleAnalytics4ExposureQuery(dataSource.settings);
+
+  const openGoogleAnalytics4 = () => {
+    const settings = applyGoogleAnalytics4Settings(
+      dataSource.settings,
+      dataSource.params,
+    );
+    const draft = settings.queries?.exposure?.find(
+      (query) => query.id === GA4_EXPOSURE_QUERY_ID,
+    );
+    if (!draft) return;
+    setQueryModal({ index: null, draft });
+  };
+
   const saveQuery = async (exposureQuery: ExposureQuery) => {
     if (!queryModal) return;
     const copy = cloneDeep(dataSource);
     const queries = copy.settings?.queries ?? {};
     const exposure = [...(queries.exposure ?? [])];
-    if (queryModal.index === null) {
+    if (queryModal.draft) {
+      // Identifier types and the query are both stored from the submitted draft.
+      copy.settings = applyGoogleAnalytics4Settings(copy.settings, copy.params);
+      const next = [...(copy.settings.queries?.exposure ?? [])];
+      const saved = { ...exposureQuery, id: GA4_EXPOSURE_QUERY_ID };
+      const ga4Index = next.findIndex(
+        (query) => query.id === GA4_EXPOSURE_QUERY_ID,
+      );
+      if (ga4Index >= 0) next[ga4Index] = saved;
+      else next.push(saved);
+      copy.settings = {
+        ...copy.settings,
+        queries: { ...copy.settings.queries, exposure: next },
+      };
+    } else if (queryModal.index === null) {
       exposure.push(exposureQuery);
+      copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     } else {
       exposure[queryModal.index] = exposureQuery;
+      copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     }
-    copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     await onSave(copy);
     setQueryModal(null);
   };
@@ -755,7 +795,7 @@ export default function FinishSettingUp({
                     "queries",
                     "Set up queries",
                     () => setExpandedStep("queries"),
-                    true,
+                    !canOfferGoogleAnalytics4,
                   )
         }
       >
@@ -764,6 +804,25 @@ export default function FinishSettingUp({
             completion.forwarder ||
             completion.queries) && (
             <Box mt="3">
+              {canOfferGoogleAnalytics4 && canEdit && (
+                <Callout
+                  status="info"
+                  mb="3"
+                  action={
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      color="inherit"
+                      onClick={openGoogleAnalytics4}
+                    >
+                      Create query
+                    </Button>
+                  }
+                >
+                  Using Google Analytics 4? GrowthBook can create an exposure
+                  query for you automatically.
+                </Callout>
+              )}
               <Box
                 style={{
                   border: "1px solid var(--gray-a5)",
@@ -816,7 +875,7 @@ export default function FinishSettingUp({
                 ))}
               </Box>
               {canEdit && (
-                <Box mt="2">
+                <Flex align="center" gap="2" mt="2" wrap="wrap">
                   <Button
                     variant="ghost"
                     icon={<PiPlus />}
@@ -832,7 +891,7 @@ export default function FinishSettingUp({
                   >
                     Add query
                   </Button>
-                </Box>
+                </Flex>
               )}
               <Flex align="center" justify="between" gap="3" mt="3">
                 <Flex align="center" gap="3" flexShrink="0">
@@ -906,12 +965,24 @@ export default function FinishSettingUp({
 
       {queryModal && (
         <ExperimentAssignmentQueryModal
-          dataSource={dataSource}
-          exposureQuery={
-            queryModal.index === null
-              ? undefined
-              : exposureQueries[queryModal.index]
+          dataSource={
+            queryModal.draft
+              ? {
+                  ...dataSource,
+                  settings: applyGoogleAnalytics4Settings(
+                    dataSource.settings,
+                    dataSource.params,
+                  ),
+                }
+              : dataSource
           }
+          exposureQuery={
+            queryModal.draft ??
+            (queryModal.index === null
+              ? undefined
+              : exposureQueries[queryModal.index])
+          }
+          unsaved={!!queryModal.draft}
           defaultIdentifierTypes={queryModal.identifierTypes}
           onCancel={() => setQueryModal(null)}
           onSave={saveQuery}
