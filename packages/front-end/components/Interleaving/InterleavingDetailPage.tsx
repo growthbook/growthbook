@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
+import { interleavingEnvsForChange } from "shared/permissions";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -13,6 +14,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import ConfirmDialog from "@/ui/ConfirmDialog";
 import Metadata from "@/ui/Metadata";
+import VariationLabel from "@/ui/VariationLabel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import SortedTags from "@/components/Tags/SortedTags";
 import Owner from "@/components/Avatar/Owner";
@@ -55,7 +57,10 @@ export default function InterleavingDetailPage({
     !il.archived &&
     permissionsUtil.canRunInterleaving(
       { project: il.project },
-      environments.map((e) => e.id),
+      interleavingEnvsForChange({
+        existing: il,
+        environmentIds: environments.map((e) => e.id),
+      }),
     );
   const canEdit =
     permissionsUtil.canUpdateInterleaving({ project: il.project }, {}) &&
@@ -240,7 +245,17 @@ export default function InterleavingDetailPage({
       {confirmStop && (
         <ConfirmDialog
           title="Stop this interleaving experiment?"
-          content="Users will get the first ranker's list. Results stay available."
+          content={
+            <Flex align="center" gap="1" wrap="wrap">
+              Users will get
+              <VariationLabel
+                number={0}
+                name={il.variations[0].name || il.variations[0].key}
+                size="sm"
+              />
+              &apos;s list. Results stay available.
+            </Flex>
+          }
           yesText="Stop"
           onConfirm={async () => {
             await stop();

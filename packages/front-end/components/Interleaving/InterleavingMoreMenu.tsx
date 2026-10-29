@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useRouter } from "next/router";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
+import { interleavingEnvsForChange } from "shared/permissions";
+import { interleavingInSDKPayload } from "shared/util";
 import { IconButton } from "@radix-ui/themes";
 import { PiDotsThreeVertical } from "react-icons/pi";
 import { radixSize } from "@/ui/sizes";
@@ -38,12 +40,15 @@ export default function InterleavingMoreMenu({
     {},
   );
   const canEdit = canUpdate && !il.archived;
-  const canRun =
-    !il.archived &&
-    permissionsUtil.canRunInterleaving(
-      { project: il.project },
-      environments.map((e) => e.id),
-    );
+  const changeEnvs = interleavingEnvsForChange({
+    existing: il,
+    environmentIds: environments.map((e) => e.id),
+  });
+  const canRunChange = permissionsUtil.canRunInterleaving(
+    { project: il.project },
+    changeEnvs,
+  );
+  const canRun = !il.archived && canRunChange;
   const canDelete = permissionsUtil.canDeleteInterleaving({
     project: il.project,
   });
@@ -58,7 +63,10 @@ export default function InterleavingMoreMenu({
 
   if (!canUpdate && !canDelete && !onAuditLog) return null;
 
-  const showArchive = canUpdate;
+  const togglingArchiveServes =
+    interleavingInSDKPayload(il) ||
+    interleavingInSDKPayload({ ...il, archived: !il.archived });
+  const showArchive = canUpdate && (!togglingArchiveServes || canRunChange);
 
   return (
     <DropdownMenu

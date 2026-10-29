@@ -13,8 +13,10 @@ import {
 import { useForm } from "react-hook-form";
 import { PiArrowSquareOut } from "react-icons/pi";
 import { TestQueryRow } from "shared/types/integrations";
+import { Box } from "@radix-ui/themes";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
@@ -163,7 +165,7 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
       cta="Save"
       ctaEnabled={saveEnabled}
     >
-      <div className="my-2 ml-3 mr-3">
+      <Box>
         <Field label="Display name" required {...form.register("name")} />
         <Field
           label="Description (optional)"
@@ -183,8 +185,12 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
           onChange={(value) => form.setValue("userIdType", value)}
         />
 
-        <div className="form-group">
-          <label className="mr-5">Query</label>
+        <Box mb="3">
+          <Box mb="2">
+            <Text as="label" weight="semibold">
+              Query
+            </Text>
+          </Box>
           {userEnteredQuery === defaultQuery && (
             <Callout status="info" mb="2">
               The prefilled query below may require editing to fit your data
@@ -194,7 +200,7 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
           {userEnteredQuery && (
             <Code language="sql" code={userEnteredQuery} expandable={true} />
           )}
-          <div>
+          <Box>
             <Button
               mt="2"
               onClick={() => setUiMode("sql")}
@@ -203,8 +209,8 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
             >
               Customize SQL
             </Button>
-          </div>
-        </div>
+          </Box>
+        </Box>
 
         <Callout status="info">
           Return one row per impression.{" "}
@@ -213,7 +219,7 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
           <code>{INTERLEAVING_ITEM_FIELD_VARIATION}</code> and{" "}
           <code>{INTERLEAVING_ITEM_FIELD_COMPETITIVE}</code>.
         </Callout>
-      </div>
+      </Box>
     </ModalStandard>
   );
 };

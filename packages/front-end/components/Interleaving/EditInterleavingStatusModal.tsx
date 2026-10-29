@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Flex } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type {
   ApiInterleavingInterface,
@@ -7,6 +8,7 @@ import type {
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import VariationLabel from "@/ui/VariationLabel";
 import SelectField from "@/components/Forms/SelectField";
 
 const LABELS: Record<InterleavingStatus, string> = {
@@ -69,7 +71,15 @@ export default function EditInterleavingStatusModal({
       />
       {status === "stopped" && il.status === "running" && (
         <Callout status="warning">
-          Users will get the first ranker&apos;s list. Results stay available.
+          <Flex align="center" gap="1" wrap="wrap">
+            Users will get
+            <VariationLabel
+              number={0}
+              name={il.variations[0].name || il.variations[0].key}
+              size="sm"
+            />
+            &apos;s list. Results stay available.
+          </Flex>
         </Callout>
       )}
       {status === "running" && il.status !== "running" && (

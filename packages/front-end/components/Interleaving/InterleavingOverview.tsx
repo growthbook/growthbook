@@ -85,7 +85,7 @@ export default function InterleavingOverview({
   }));
 
   const targetingItems: DataListItem[] = [
-    { label: "Hash Attribute", value: il.hashAttribute || EMPTY },
+    { label: "Hash attribute", value: il.hashAttribute || EMPTY },
     {
       label: "Coverage",
       value: `${Math.round((il.coverage ?? 1) * 100)}% included`,
@@ -117,7 +117,7 @@ export default function InterleavingOverview({
   ];
 
   const analysisItems: DataListItem[] = [
-    { label: "Tracking Key", value: il.trackingKey || EMPTY },
+    { label: "Tracking key", value: il.trackingKey || EMPTY },
     {
       label: "Data Source",
       value: getDatasourceById(il.datasource)?.name || il.datasource || EMPTY,
@@ -126,19 +126,17 @@ export default function InterleavingOverview({
       label: "Interleaving Exposure Query",
       value: exposureQuery?.name || il.interleavingExposureQueryId || EMPTY,
     },
-    { label: "Identifier Type", value: il.userIdType || EMPTY },
+    { label: "Identifier type", value: il.userIdType || EMPTY },
     {
       label: "Metrics",
       value: il.metrics.length ? (
-        <ul className="list-unstyled mb-0">
+        <Flex direction="column" gap="1">
           {il.metrics.map((m) => (
-            <li key={m.id}>
-              <Link href={getMetricLink(m.id)}>
-                {getExperimentMetricById(m.id)?.name ?? m.id}
-              </Link>
-            </li>
+            <Link key={m.id} href={getMetricLink(m.id)}>
+              {getExperimentMetricById(m.id)?.name ?? m.id}
+            </Link>
           ))}
-        </ul>
+        </Flex>
       ) : (
         EMPTY
       ),

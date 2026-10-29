@@ -1,13 +1,14 @@
 import { useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
 import { useRestApiCall } from "@/services/restApi";
-import { useEnvironments } from "@/services/features";
+import { useAttributeSchema, useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
-import Field from "@/components/Forms/Field";
+import SelectField from "@/components/Forms/SelectField";
+import PercentField from "@/components/Forms/PercentField";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 
 export default function EditInterleavingTargetingModal({
@@ -21,6 +22,9 @@ export default function EditInterleavingTargetingModal({
 }) {
   const restApiCall = useRestApiCall();
   const environments = useEnvironments();
+  const hashAttributes = useAttributeSchema(false, il.project)
+    .filter((a) => a.hashAttribute)
+    .map((a) => a.property);
 
   const [hashAttribute, setHashAttribute] = useState(il.hashAttribute);
   const [coverage, setCoverage] = useState(il.coverage ?? 1);
@@ -69,23 +73,25 @@ export default function EditInterleavingTargetingModal({
         </Callout>
       )}
       <Flex gap="3">
-        <Field
-          label="Hash attribute"
-          value={hashAttribute}
-          onChange={(e) => setHashAttribute(e.target.value)}
-          containerClassName="flex-1"
-        />
-        <Field
-          label="Coverage (%)"
-          type="number"
-          min={0}
-          max={100}
-          value={Math.round(coverage * 100)}
-          onChange={(e) =>
-            setCoverage(Math.min(1, Math.max(0, Number(e.target.value) / 100)))
-          }
-          containerClassName="flex-1"
-        />
+        <Box flexGrow="1">
+          <SelectField
+            label="Hash attribute"
+            value={hashAttribute}
+            onChange={setHashAttribute}
+            options={hashAttributes.map((a) => ({ value: a, label: a }))}
+            createable
+            helpText="Decides which units are interleaved."
+          />
+        </Box>
+        <Box flexGrow="1">
+          <PercentField
+            label="Coverage"
+            value={coverage}
+            onChange={(v) => setCoverage(Math.min(1, Math.max(0, v ?? 0)))}
+            min={0}
+            max={1}
+          />
+        </Box>
       </Flex>
       <TargetingFieldsGroup
         project={il.project ?? ""}

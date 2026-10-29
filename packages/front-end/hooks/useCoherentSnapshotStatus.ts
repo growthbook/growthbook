@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from "react";
 
 export type SnapshotStatusLike = { id: string; status: string };
+export type DatedSnapshotStatusLike = SnapshotStatusLike & {
+  dateCreated: string;
+};
+
+export function newestSnapshotStatus<S extends DatedSnapshotStatusLike>(
+  statusLatest: S | null | undefined,
+  heavyLatest: S | null | undefined,
+): S | null | undefined {
+  if (!statusLatest) return heavyLatest;
+  if (!heavyLatest) return statusLatest;
+  return heavyLatest.dateCreated > statusLatest.dateCreated
+    ? heavyLatest
+    : statusLatest;
+}
 
 // Refetch results when polling discovers a newer successful run.
 export function useRefetchHeavyOnStatusSuccess(

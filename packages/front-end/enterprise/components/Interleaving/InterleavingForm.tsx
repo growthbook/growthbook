@@ -15,7 +15,6 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import TagsInput from "@/components/Tags/TagsInput";
-import Text from "@/ui/Text";
 import EnvironmentSelect from "@/components/Features/FeatureModal/EnvironmentSelect";
 import type { InterleavingRankers } from "@/components/Interleaving/InterleavingVariationsInput";
 import InterleavingAnalysisFields, {
@@ -191,7 +190,7 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
       backButton
     >
       <Page display="Overview" validate={validateOverview}>
-        <div className="px-2">
+        <Box px="2">
           {projects.length > 0 && (
             <SelectField
               label="Project"
@@ -230,15 +229,13 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
             value={form.watch("owner")}
             onChange={(v) => form.setValue("owner", v)}
           />
-          <Box mb="2">
-            <Text weight="semibold">Tags</Text>
-          </Box>
-          <Box mb="3">
-            <TagsInput
-              value={form.watch("tags")}
-              onChange={(tags) => form.setValue("tags", tags)}
-            />
-          </Box>
+          <TagsInput
+            label="Tags"
+            // Defaults to true, which would pull focus off Project/Name.
+            autoFocus={false}
+            value={form.watch("tags")}
+            onChange={(tags) => form.setValue("tags", tags)}
+          />
           <SelectField
             label="Hash attribute"
             value={form.watch("hashAttribute")}
@@ -259,17 +256,17 @@ export default function InterleavingForm({ onClose }: { onClose: () => void }) {
               }))
             }
           />
-        </div>
+        </Box>
       </Page>
       <Page display="Analysis">
-        <div className="px-2">
+        <Box px="2">
           <InterleavingAnalysisFields
             value={analysis}
             setValue={setAnalysis}
             project={project}
             onAddExposureQuery={() => setAddingQuery(true)}
           />
-        </div>
+        </Box>
       </Page>
     </PagedModal>
   );

@@ -5,6 +5,7 @@ import {
 import { useCallback, useState } from "react";
 import { useRestApi, useRestApiCall } from "@/services/restApi";
 import {
+  newestSnapshotStatus,
   useCoherentLatest,
   useRefetchHeavyOnStatusSuccess,
 } from "@/hooks/useCoherentSnapshotStatus";
@@ -65,20 +66,25 @@ export function useInterleavingResults(id: string | undefined) {
     interleavingEndpoints.getInterleavingStatus,
     id ? { params: { id } } : null,
     {
-      refreshInterval: (d) =>
-        d?.latest?.status === "running" || d?.latest?.status === "pending"
+      refreshInterval: (d) => {
+        const latest = newestSnapshotStatus(
+          d?.latest,
+          heavyData?.latest ?? null,
+        );
+        return latest?.status === "running" || latest?.status === "pending"
           ? 2000
-          : 0,
+          : 0;
+      },
     },
   );
 
   const snapshot = heavyData?.snapshot ?? null;
-  const statusLatest = statusData?.latest ?? null;
-  const heavyLatest = heavyData?.latest ?? null;
+  const statusLatest = newestSnapshotStatus(
+    statusData?.latest,
+    heavyData?.latest,
+  );
   const heavyCaughtUp =
-    statusLatest?.status === "success" &&
-    heavyLatest?.id === statusLatest.id &&
-    heavyLatest?.status === "success";
+    statusLatest?.status === "success" && snapshot?.id === statusLatest.id;
 
   useRefetchHeavyOnStatusSuccess(
     statusLatest,

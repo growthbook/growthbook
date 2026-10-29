@@ -5,6 +5,7 @@ import {
   type InterleavingMetricConfig,
 } from "shared/validators";
 import { isFactMetric } from "shared/experiments";
+import { getInterleavingMetricIssue } from "shared/util";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Checkbox from "@/ui/Checkbox";
@@ -51,6 +52,21 @@ export default function InterleavingMetricsInput({
     );
   };
 
+  const getMetricDisabledInfo = (metricId: string) => {
+    const metric = getExperimentMetricById(metricId);
+    if (!metric || !isFactMetric(metric)) return { disabled: false };
+    const factTable = metric.numerator
+      ? getFactTableById(metric.numerator.factTableId)
+      : undefined;
+    const issue = getInterleavingMetricIssue({
+      metric,
+      factTable: factTable ?? undefined,
+      userIdType,
+      analyses: [],
+    });
+    return issue ? { disabled: true, reason: issue } : { disabled: false };
+  };
+
   const toggle = (
     metricId: string,
     analysis: InterleavingAnalysis,
@@ -66,8 +82,12 @@ export default function InterleavingMetricsInput({
 
   return (
     <Box>
-      <div className="form-group">
-        <label>Metrics</label>
+      <Box mb="3">
+        <Box mb="2">
+          <Text as="label" weight="semibold">
+            Metrics
+          </Text>
+        </Box>
         <MetricsSelector
           datasource={datasource}
           exposureQueryIdentifierType={userIdType}
@@ -92,10 +112,11 @@ export default function InterleavingMetricsInput({
           noManual
           excludeQuantiles
           allowedFactMetricTypes={["mean", "proportion"]}
+          getMetricDisabledInfo={getMetricDisabledInfo}
           disabled={disabled || !datasource}
-          helpText="Mean or proportion fact metrics whose fact table has an item_id column. Paired analysis also needs a ranking_id column."
+          helpText="Paired analysis additionally needs a ranking_id column on the metric's fact table."
         />
-      </div>
+      </Box>
       {value.length > 0 && (
         <Flex direction="column" gap="2" mb="3">
           {value.map((m) => {

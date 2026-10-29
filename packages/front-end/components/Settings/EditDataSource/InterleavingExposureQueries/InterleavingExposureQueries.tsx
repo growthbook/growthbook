@@ -5,6 +5,7 @@ import { ApiInterleavingExposureQueryInterface } from "shared/validators";
 import { PiCaretRight, PiDotsThreeVertical, PiPlus } from "react-icons/pi";
 import { Box, Card, Flex, IconButton } from "@radix-ui/themes";
 import Heading from "@/ui/Heading";
+import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
 import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
 import Button from "@/ui/Button";
@@ -111,10 +112,10 @@ export const InterleavingExposureQueries: FC<
           </Button>
         </Box>
       </Flex>
-      <p>
+      <Text as="div" mb="3">
         Queries that return interleaving impressions. Each row is one ranked
         list that was shown, with the per-item detail in a JSON array.
-      </p>
+      </Text>
 
       {!loading && exposureQueries.length === 0 ? (
         <Callout status="info">
@@ -134,14 +135,14 @@ export const InterleavingExposureQueries: FC<
                   {query.name}
                 </Heading>
                 {query.description && (
-                  <p className="text-muted mb-0 mt-1">{query.description}</p>
+                  <Text as="div" size="sm" color="text-low" mt="1">
+                    {query.description}
+                  </Text>
                 )}
 
                 <Flex gap="4">
                   <Box>
-                    <strong className="font-weight-semibold">
-                      Identifier:{" "}
-                    </strong>
+                    <Text weight="semibold">Identifier: </Text>
                     <code>{query.userIdTypes.join(", ")}</code>
                   </Box>
                 </Flex>

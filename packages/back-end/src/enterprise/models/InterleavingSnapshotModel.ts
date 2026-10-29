@@ -58,7 +58,7 @@ export class InterleavingSnapshotModel extends BaseClass {
   ): Promise<InterleavingSnapshotInterface | null> {
     const snapshots = await this._find(
       { interleavingId },
-      { sort: { dateCreated: -1 }, limit: 1 },
+      { sort: { dateCreated: -1 }, limit: 1, bypassReadPermissionChecks: true },
     );
     return snapshots[0] || null;
   }
@@ -69,7 +69,23 @@ export class InterleavingSnapshotModel extends BaseClass {
   ): Promise<InterleavingSnapshotInterface[]> {
     return this._find(
       { interleavingId },
-      { sort: { dateCreated: -1 }, limit: Math.min(limit, 100) },
+      {
+        sort: { dateCreated: -1 },
+        limit: Math.min(limit, 100),
+        bypassReadPermissionChecks: true,
+      },
+    );
+  }
+
+  public listActiveForInterleaving(
+    interleavingId: string,
+  ): Promise<InterleavingSnapshotInterface[]> {
+    return this._find(
+      {
+        interleavingId,
+        status: { $in: ["running", "pending"] },
+      },
+      { bypassReadPermissionChecks: true },
     );
   }
 
@@ -78,7 +94,24 @@ export class InterleavingSnapshotModel extends BaseClass {
   ): Promise<InterleavingSnapshotInterface | null> {
     const snapshots = await this._find(
       { interleavingId, status: "success" },
-      { sort: { dateCreated: -1 }, limit: 1 },
+      { sort: { dateCreated: -1 }, limit: 1, bypassReadPermissionChecks: true },
+    );
+    return snapshots[0] || null;
+  }
+
+  // As getLatestForInterleaving, plus a projection: the status poll needs only
+  // the run metadata, so the results blob is left in the database.
+  public async getLatestStatusForInterleaving(
+    interleavingId: string,
+  ): Promise<InterleavingSnapshotInterface | null> {
+    const snapshots = await this._find(
+      { interleavingId },
+      {
+        sort: { dateCreated: -1 },
+        limit: 1,
+        bypassReadPermissionChecks: true,
+        projection: { results: 0 },
+      },
     );
     return snapshots[0] || null;
   }

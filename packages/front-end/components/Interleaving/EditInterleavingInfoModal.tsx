@@ -1,5 +1,4 @@
 import { useForm } from "react-hook-form";
-import { Box } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
@@ -8,7 +7,6 @@ import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import TagsInput from "@/components/Tags/TagsInput";
 import SelectOwner from "@/components/Owner/SelectOwner";
-import Text from "@/ui/Text";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -92,10 +90,9 @@ export default function EditInterleavingInfoModal({
         options={projectOptions}
         initialOption="All Projects"
       />
-      <Box mb="2">
-        <Text weight="semibold">Tags</Text>
-      </Box>
       <TagsInput
+        label="Tags"
+        autoFocus={false}
         value={form.watch("tags")}
         onChange={(tags) => form.setValue("tags", tags)}
       />

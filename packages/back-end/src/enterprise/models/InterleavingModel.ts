@@ -60,6 +60,7 @@ import {
   toApiInterleavingSnapshotStatus,
 } from "back-end/src/enterprise/services/interleavingApi";
 import {
+  cancelInterleavingSnapshot,
   resolveInterleavingExposureQuery,
   runInterleavingSnapshot,
 } from "back-end/src/enterprise/services/interleavingAnalysis";
@@ -223,7 +224,7 @@ const BaseClass = MakeModelClass({
             );
           }
           const latest =
-            await req.context.models.interleavingSnapshots.getLatestForInterleaving(
+            await req.context.models.interleavingSnapshots.getLatestStatusForInterleaving(
               interleaving.id,
             );
           return {
@@ -581,6 +582,28 @@ export class InterleavingModel extends BaseClass {
         "Stop or archive this interleaving experiment before deleting it.",
       );
     }
+    // A stopped or archived experiment can still have a refresh in flight.
+    // Dropping its snapshots would orphan the warehouse queries and the
+    // reaper that finalizes them keys off the snapshot doc, so cancel first.
+    const cancelContext =
+      this.context.scanContextOverride ??
+      getContextForAgendaJobByOrgObject(this.context.org);
+    const running =
+      await cancelContext.models.interleavingSnapshots.listActiveForInterleaving(
+        doc.id,
+      );
+    for (const snapshot of running) {
+      try {
+        await cancelInterleavingSnapshot(cancelContext, snapshot);
+      } catch (e) {
+        // Best effort: an unreachable warehouse must not make the experiment
+        // undeletable. afterDelete still removes the snapshot documents.
+        this.context.logger.error(
+          e,
+          `Failed to cancel interleaving snapshot ${snapshot.id} while deleting ${doc.id}`,
+        );
+      }
+    }
   }
 
   protected async afterDelete(doc: InterleavingInterface) {
@@ -632,7 +655,8 @@ export class InterleavingModel extends BaseClass {
       !isEqual(updated.environmentSettings, existing.environmentSettings);
     // Live payload changes require the same permission as starting.
     const servesNow =
-      interleavingInSDKPayload(existing) &&
+      (interleavingInSDKPayload(existing) ||
+        interleavingInSDKPayload({ ...existing, ...updated })) &&
       payloadAffectingChanges(existing, updated).length > 0;
     const envs = interleavingEnvsForChange({
       existing,

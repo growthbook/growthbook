@@ -5,6 +5,7 @@ import type {
   InterleavingAnalysis,
 } from "shared/validators";
 import { ago, getValidDate } from "shared/dates";
+import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { useInterleavingResults } from "@/hooks/useInterleavings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
@@ -72,7 +73,7 @@ export default function InterleavingResults({
     !!datasource && permissionsUtil.canRunExperimentQueries(datasource);
 
   if (loading) return <LoadingOverlay />;
-  const variations = il.variations.map((v, index) => ({
+  const variations = (snapshot?.settings.variations ?? []).map((v, index) => ({
     id: v.id,
     name: v.name || v.key,
     weight: 0.5,
@@ -84,10 +85,16 @@ export default function InterleavingResults({
     (snapshot?.results ?? []).flatMap((r): ExperimentTableRow[] => {
       const metric = getExperimentMetricById(r.metricId);
       if (r.analysis.type !== type || !metric) return [];
+      const displayMetric: ExperimentMetricDefinition =
+        type === "preference" &&
+        isFactMetric(metric) &&
+        metric.metricType !== "funnel"
+          ? { ...metric, metricType: "proportion" as const }
+          : metric;
       return [
         {
           label: metric.name,
-          metric,
+          metric: displayMetric,
           metricOverrideFields: [],
           resultGroup: "goal",
           variations: interleavingResultToSnapshotMetrics(r),
