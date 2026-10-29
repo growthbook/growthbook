@@ -6,6 +6,7 @@ import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
@@ -16,6 +17,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
@@ -3407,12 +3409,6 @@ function getExperimentMetric(
   if (overrides.windowType !== undefined) {
     ret.overrides.window = overrides.windowType;
   }
-  if (overrides.winRisk !== undefined) {
-    ret.overrides.winRiskThreshold = overrides.winRisk;
-  }
-  if (overrides.loseRisk !== undefined) {
-    ret.overrides.loseRiskThreshold = overrides.loseRisk;
-  }
   if (overrides.properPriorOverride !== undefined) {
     ret.overrides.properPriorOverride = overrides.properPriorOverride;
   }
@@ -3883,28 +3879,6 @@ export function postMetricApiPayloadIsValid(
 
   // Validate behavior
   if (behavior) {
-    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
-
-    // Enforce that both and riskThresholdSuccess exist, or neither
-    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
-    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
-    if (riskDangerExists !== riskSuccessExists)
-      return {
-        valid: false,
-        error:
-          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      };
-
-    // We have both. Make sure they're valid
-    if (riskDangerExists && riskSuccessExists) {
-      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
-      if (riskThresholdDanger < riskThresholdSuccess)
-        return {
-          valid: false,
-          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
-        };
-    }
-
     // Validate conversion window
     const { conversionWindowEnd, conversionWindowStart } = behavior;
     const conversionWindowEndExists =
@@ -4045,28 +4019,6 @@ export function putMetricApiPayloadIsValid(
 
   // Validate behavior
   if (behavior) {
-    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
-
-    // Enforce that both and riskThresholdSuccess exist, or neither
-    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
-    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
-    if (riskDangerExists !== riskSuccessExists)
-      return {
-        valid: false,
-        error:
-          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      };
-
-    // We have both. Make sure they're valid
-    if (riskDangerExists && riskSuccessExists) {
-      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
-      if (riskThresholdDanger < riskThresholdSuccess)
-        return {
-          valid: false,
-          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
-        };
-    }
-
     // Validate conversion window
     const { conversionWindowEnd, conversionWindowStart } = behavior;
     const conversionWindowEndExists =
@@ -4298,14 +4250,6 @@ export function postMetricApiPayloadToMetricInterface(
     if (typeof behavior.minSampleSize !== "undefined") {
       metric.minSampleSize = behavior.minSampleSize;
     }
-
-    if (typeof behavior.riskThresholdDanger !== "undefined") {
-      metric.loseRisk = behavior.riskThresholdDanger;
-    }
-
-    if (typeof behavior.riskThresholdSuccess !== "undefined") {
-      metric.winRisk = behavior.riskThresholdSuccess;
-    }
   }
 
   let queryFormat: undefined | "builder" | "sql" = undefined;
@@ -4452,14 +4396,6 @@ export function putMetricApiPayloadToMetricInterface(
     if (typeof behavior.minSampleSize !== "undefined") {
       metric.minSampleSize = behavior.minSampleSize;
     }
-
-    if (typeof behavior.riskThresholdDanger !== "undefined") {
-      metric.loseRisk = behavior.riskThresholdDanger;
-    }
-
-    if (typeof behavior.riskThresholdSuccess !== "undefined") {
-      metric.winRisk = behavior.riskThresholdSuccess;
-    }
   }
 
   if (sqlBuilder) {
@@ -4574,8 +4510,8 @@ export function toMetricApiInterface(
       minSampleSize:
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
       targetMDE: metric.targetMDE ?? metricDefaults?.targetMDE ?? 0.1,
-      riskThresholdDanger: metric.loseRisk ?? 0.0125,
-      riskThresholdSuccess: metric.winRisk ?? 0.0025,
+      riskThresholdDanger: DEFAULT_LOSE_RISK_THRESHOLD,
+      riskThresholdSuccess: DEFAULT_WIN_RISK_THRESHOLD,
       windowSettings: metric.windowSettings
         ? {
             ...metric.windowSettings,

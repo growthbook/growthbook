@@ -826,6 +826,26 @@ describe("applyExperimentChanges", () => {
       ).toBe(0);
       expect((await storedExperiment()).linkedFeatures).toEqual([FLAG]);
     });
+
+    it("removes a flag whose rule is already gone while the experiment runs", async () => {
+      await seed({ withDraft: false });
+      await dropRule();
+      await setExperiment({ status: "running" });
+      await run({ unlinkFeatures: [FLAG] });
+      expect((await storedExperiment()).linkedFeatures).toEqual([]);
+    });
+  });
+
+  it("refuses to link a flag once the experiment is past draft", async () => {
+    await seed({ withDraft: false });
+    await dropRule();
+    await setExperiment({ status: "running" });
+    await expect(
+      run({ linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }] }),
+    ).rejects.toThrow(
+      "Set the experiment's status back to draft to link a Feature Flag.",
+    );
+    expect(await refRules("draft")).toEqual([]);
   });
 
   it("refuses a holdout change once the experiment has something linked", async () => {
