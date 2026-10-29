@@ -243,7 +243,7 @@ describe("draft metric explorations", () => {
   });
   const internal = { cache: "never", allowDraftMetrics: true } as const;
 
-  it("rejects a draft with a population before loading saved definitions", async () => {
+  it("rejects a draft with a population before creating an exploration", async () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric");
@@ -260,8 +260,6 @@ describe("draft metric explorations", () => {
     await expect(run).rejects.toThrow(
       "Metrics with populations require a saved metric.",
     );
-    expect(getByIds).not.toHaveBeenCalled();
-    expect(getFactTablesByIdsMock).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 

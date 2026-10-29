@@ -1,5 +1,4 @@
 import type {
-  ExplorationPopulation,
   MetricDataset,
   ProductAnalyticsDimension,
 } from "shared/validators";
@@ -21,13 +20,23 @@ function isSupportedWithPopulation(
   return POPULATION_METRIC_TYPES.has(metric.metricType);
 }
 
-// Rules that depend only on the request, so they can be checked before any
-// metrics or Fact Tables are loaded.
-export function getPopulationDatasetViolations(
-  dataset: MetricDataset,
-  dimensions: ProductAnalyticsDimension[],
-): string[] {
-  if (!dataset.population) return [];
+// The population applies to every metric in the request, so one incompatible
+// metric rejects the request.
+export function getPopulationViolations({
+  dataset,
+  dimensions,
+  datasource,
+  metricMap,
+  factTableMap,
+}: {
+  dataset: MetricDataset;
+  dimensions: ProductAnalyticsDimension[];
+  datasource: string;
+  metricMap: Map<string, FactMetricInterface>;
+  factTableMap: Map<string, FactTableInterface>;
+}): string[] {
+  const population = dataset.population;
+  if (!population) return [];
   const violations: string[] = [];
   if (dataset.values.some((value) => value.draftMetric)) {
     violations.push("Metrics with populations require a saved metric.");
@@ -35,26 +44,7 @@ export function getPopulationDatasetViolations(
   if (dimensions.some((d) => d.dimensionType !== "date")) {
     violations.push("Metrics with populations can only be grouped by date.");
   }
-  return violations;
-}
-
-// The population applies to every metric in the request, so one incompatible
-// metric rejects the request.
-export function getPopulationMetricViolations({
-  population,
-  datasource,
-  values,
-  metricMap,
-  factTableMap,
-}: {
-  population: ExplorationPopulation;
-  datasource: string;
-  values: MetricDataset["values"];
-  metricMap: Map<string, FactMetricInterface>;
-  factTableMap: Map<string, FactTableInterface>;
-}): string[] {
-  const violations: string[] = [];
-  for (const value of values) {
+  for (const value of dataset.values) {
     const metric = metricMap.get(value.metricId);
     if (!metric) continue;
     if (!isSupportedWithPopulation(metric)) {

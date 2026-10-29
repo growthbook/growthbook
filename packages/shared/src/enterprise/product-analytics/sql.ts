@@ -56,11 +56,6 @@ import { hasTimestampColumn } from "./utils";
 import { buildJourneySql, transformJourneyRowsToResult } from "./journey-sql";
 import { factTableHasResolvableColumn } from "./columns";
 
-import {
-  getPopulationDatasetViolations,
-  getPopulationMetricViolations,
-} from "./populations";
-
 // Internal Type definitions
 type MinimalFactTable = Pick<
   FactTableInterface,
@@ -405,22 +400,6 @@ function getFactTableGroups({
       return (() => {
         const groups: Record<string, FactTableGroup> = {};
         const population = config.dataset.population ?? undefined;
-        if (population) {
-          const violations = [
-            ...getPopulationDatasetViolations(
-              config.dataset,
-              config.dimensions,
-            ),
-            ...getPopulationMetricViolations({
-              population,
-              datasource: config.datasource,
-              values: config.dataset.values,
-              metricMap,
-              factTableMap,
-            }),
-          ];
-          if (violations.length) throw new Error(violations.join(" "));
-        }
         let metricIndex = 0;
         for (const value of config.dataset.values) {
           const originalMetric = metricMap.get(value.metricId);

@@ -4,7 +4,7 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  getPopulationMetricViolations,
+  getPopulationViolations,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -238,6 +238,19 @@ const dialect: SqlDialect = {
   castToFloat: (col) => `CAST(${col} AS REAL)`,
   castToString: (col) => `CAST(${col} AS TEXT)`,
 };
+
+function violations(
+  config: MetricExplorationConfig,
+  metrics: FactMetricInterface[] = ALL_METRICS,
+) {
+  return getPopulationViolations({
+    dataset: config.dataset,
+    dimensions: config.dimensions,
+    datasource: config.datasource,
+    metricMap: new Map(metrics.map((m) => [m.id, m])),
+    factTableMap: new Map([[table.id, table]]),
+  }).join(" ");
+}
 
 function generate(config: MetricExplorationConfig) {
   return generateProductAnalyticsSQL(
@@ -491,16 +504,14 @@ describe("metric explorations with a population", () => {
         "Invalid aggregate filter",
       ],
     ])("rejects %s", (_, config, message) => {
-      expect(() => generate(config)).toThrow(message);
+      expect(violations(config)).toContain(message);
       // Only the population makes these invalid.
-      if (!message.includes("grouped by date")) {
-        expect(() =>
-          generate({
-            ...config,
-            dataset: { ...config.dataset, population: null },
-          }),
-        ).not.toThrow();
-      }
+      expect(
+        violations({
+          ...config,
+          dataset: { ...config.dataset, population: null },
+        }),
+      ).toBe("");
     });
 
     it.each(
@@ -515,15 +526,9 @@ describe("metric explorations with a population", () => {
         metricType,
         numerator: metricType === "funnel" ? null : purchasers.numerator,
       } as FactMetricInterface;
-      expect(
-        getPopulationMetricViolations({
-          population: mobileRevenueOver10,
-          datasource: config.datasource,
-          values: config.dataset.values,
-          metricMap: new Map([[metric.id, metric]]),
-          factTableMap: new Map([[table.id, table]]),
-        }).join(" "),
-      ).toContain("Populations currently support only proportion metrics");
+      expect(violations(config, [metric])).toContain(
+        "Populations currently support only proportion metrics",
+      );
     });
   });
 

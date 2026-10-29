@@ -17,8 +17,7 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
-  getPopulationDatasetViolations,
-  getPopulationMetricViolations,
+  getPopulationViolations,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -172,22 +171,15 @@ export async function runProductAnalyticsExploration(
     if (!metricIds.length) {
       throw new BadRequestError("No metrics provided");
     }
-    const hasDraftMetric = dataset.values.some((value) => value.draftMetric);
     if (
-      hasDraftMetric &&
+      dataset.values.some((value) => value.draftMetric) &&
       (dataset.values.length !== 1 || metricIds[0] !== "fact__preview")
     ) {
       throw new BadRequestError(
         "A draft preview must contain only fact__preview",
       );
     }
-    const populationDatasetViolations = getPopulationDatasetViolations(
-      dataset,
-      config.dimensions,
-    );
-    if (populationDatasetViolations.length) {
-      throw new BadRequestError(populationDatasetViolations.join(" "));
-    }
+
     const factMetrics = await context.models.factMetrics.getByIds(
       dataset.values
         .filter((value) => !value.draftMetric)
@@ -231,15 +223,15 @@ export async function runProductAnalyticsExploration(
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
     if (dataset.population) {
-      const violations = getPopulationMetricViolations({
-        population: dataset.population,
+      const populationViolations = getPopulationViolations({
+        dataset,
+        dimensions: config.dimensions,
         datasource: datasource.id,
-        values: dataset.values,
         metricMap,
         factTableMap,
       });
-      if (violations.length) {
-        throw new BadRequestError(violations.join(" "));
+      if (populationViolations.length) {
+        throw new BadRequestError(populationViolations.join(" "));
       }
     }
 
