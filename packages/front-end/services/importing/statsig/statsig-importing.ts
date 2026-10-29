@@ -1889,25 +1889,32 @@ export async function runImport(options: RunImportOptions) {
           );
 
           if (startsDraft) {
+            const { id, phases } = experimentRes.experiment;
+            const last = phases.length - 1;
             // Records a start Statsig already made, so no start checklist. A
             // refused start leaves the import done, as a draft.
             try {
-              await apiCall(
-                `/experiment/${experimentRes.experiment.id}/status`,
-                {
-                  method: "POST",
-                  body: JSON.stringify({
-                    status: "running",
-                    skipChecklist: true,
-                  }),
-                },
-              );
+              await apiCall(`/experiment/${id}/status`, {
+                method: "POST",
+                body: JSON.stringify({
+                  status: "running",
+                  skipChecklist: true,
+                }),
+              });
               experimentRes.experiment = {
                 ...experimentRes.experiment,
                 status: "running",
               };
+              // Starting dates the phase today; it began when Statsig started it.
+              await apiCall(`/experiment/${id}/phase/${last}`, {
+                method: "PUT",
+                body: JSON.stringify(phases[last]),
+              });
             } catch (e) {
-              experiment.error = `Updated as a draft; start it from its page. ${e.message}`;
+              experiment.error =
+                experimentRes.experiment.status === "running"
+                  ? `Started, but dated today rather than when Statsig started it. ${e.message}`
+                  : `Updated as a draft; start it from its page. ${e.message}`;
             }
           }
 

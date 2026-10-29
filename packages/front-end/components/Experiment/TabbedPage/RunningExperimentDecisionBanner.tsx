@@ -14,7 +14,7 @@ import {
   VariationWithIndex,
 } from "shared/types/experiment";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import {
   buildTiebreakerLiftMap,
@@ -75,11 +75,20 @@ function useDecisionResults(experiment: ExperimentInterfaceStringDates) {
   const { dimensionless, phase } = useSnapshot();
   const latestPhase = experiment.phases.length - 1;
   const viewingLatest = phase === latestPhase;
-  const { data } = useApi<{ snapshot: ExperimentSnapshotInterface }>(
+  const summarySnapshotId = experiment.analysisSummary?.snapshotId;
+  const { data, mutate } = useApi<{ snapshot: ExperimentSnapshotInterface }>(
     `/experiment/${experiment.id}/snapshot/${latestPhase}`,
-    { shouldRun: () => !viewingLatest, autoRevalidate: false },
+    { shouldRun: () => !viewingLatest },
   );
-  const snapshot = viewingLatest ? dimensionless : data?.snapshot;
+  // Only the results the decision was made on, so a cached older one can't
+  // pick the winner; refetched once the decision moves past it.
+  const fetched =
+    data?.snapshot?.id === summarySnapshotId ? data?.snapshot : undefined;
+  const stale = !viewingLatest && !!data && !fetched;
+  useEffect(() => {
+    if (stale) mutate();
+  }, [stale, mutate]);
+  const snapshot = viewingLatest ? dimensionless : fetched;
   const analysis = snapshot ? getSnapshotAnalysis(snapshot) : null;
   if (!snapshot || !analysis) return null;
   return {
