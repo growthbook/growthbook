@@ -39656,11 +39656,11 @@ paths:
                         type: number
                       winRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored; never returned.
+                        description: No longer used. Accepted and ignored.
                         type: number
                       loseRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored; never returned.
+                        description: No longer used. Accepted and ignored.
                         type: number
                     required:
                       - id
@@ -39938,11 +39938,11 @@ paths:
                         type: number
                       winRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored; never returned.
+                        description: No longer used. Accepted and ignored.
                         type: number
                       loseRisk:
                         deprecated: true
-                        description: No longer used. Accepted and ignored; never returned.
+                        description: No longer used. Accepted and ignored.
                         type: number
                     required:
                       - id
@@ -79078,11 +79078,11 @@ components:
                     type: number
                   winRisk:
                     deprecated: true
-                    description: No longer used. Accepted and ignored; never returned.
+                    description: No longer used. Accepted and ignored.
                     type: number
                   loseRisk:
                     deprecated: true
-                    description: No longer used. Accepted and ignored; never returned.
+                    description: No longer used. Accepted and ignored.
                     type: number
                 required:
                   - id

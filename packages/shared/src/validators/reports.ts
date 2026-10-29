@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { apiOptionalAssignmentQueryResponseFields } from "./assignment-query-field";
-import { namedSchema } from "./openapi-helpers";
+import { namedSchema, retiredRiskInput } from "./openapi-helpers";
 import {
   apiExperimentResultsValidator,
   attributionModel,
@@ -21,19 +21,10 @@ const idParams = z
   })
   .strict();
 
-// Retired risk thresholds stay in the documented shape: accepted from older
-// clients and dropped, never returned.
+// Older clients may still send the retired risk thresholds.
 const apiReportMetricOverride = metricOverride.extend({
-  winRisk: z
-    .number()
-    .describe("No longer used. Accepted and ignored; never returned.")
-    .optional()
-    .meta({ deprecated: true }),
-  loseRisk: z
-    .number()
-    .describe("No longer used. Accepted and ignored; never returned.")
-    .optional()
-    .meta({ deprecated: true }),
+  winRisk: retiredRiskInput(),
+  loseRisk: retiredRiskInput(),
 });
 
 const reportAnalysisSettingsSchema = z

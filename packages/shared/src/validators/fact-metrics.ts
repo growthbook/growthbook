@@ -9,7 +9,11 @@ import {
   ROW_FILTER_RANGE_LENGTH_MESSAGE,
 } from "./fact-table";
 
-import { namedSchema } from "./openapi-helpers";
+import {
+  namedSchema,
+  retiredRiskDefault,
+  retiredRiskInput,
+} from "./openapi-helpers";
 import {
   MARKDOWN_DESCRIPTION,
   METRIC_NAME_DESCRIPTION,
@@ -362,14 +366,8 @@ export const apiFactMetricValidator = namedSchema(
       windowSettings: apiWindowSettings,
       priorSettings: apiPriorSettings,
       regressionAdjustmentSettings: apiRegressionAdjustmentSettings,
-      riskThresholdSuccess: z.coerce
-        .number()
-        .describe("No longer used. Always the default value.")
-        .meta({ deprecated: true }),
-      riskThresholdDanger: z.coerce
-        .number()
-        .describe("No longer used. Always the default value.")
-        .meta({ deprecated: true }),
+      riskThresholdSuccess: retiredRiskDefault(),
+      riskThresholdDanger: retiredRiskDefault(),
       displayAsPercentage: z
         .boolean()
         .describe(
@@ -697,16 +695,8 @@ export const postFactMetricBodyFields = z.object({
   windowSettings: postWindowSettings.optional(),
   priorSettings: postPriorSettings.optional(),
   regressionAdjustmentSettings: postRegressionAdjustmentSettings.optional(),
-  riskThresholdSuccess: z
-    .number()
-    .describe("No longer used. Accepted and ignored.")
-    .optional()
-    .meta({ deprecated: true }),
-  riskThresholdDanger: z
-    .number()
-    .describe("No longer used. Accepted and ignored.")
-    .optional()
-    .meta({ deprecated: true }),
+  riskThresholdSuccess: retiredRiskInput(),
+  riskThresholdDanger: retiredRiskInput(),
   displayAsPercentage: z
     .boolean()
     .describe(

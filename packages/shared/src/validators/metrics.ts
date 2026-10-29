@@ -7,7 +7,11 @@ import {
   paginationQueryFields,
 } from "./shared";
 
-import { namedSchema } from "./openapi-helpers";
+import {
+  namedSchema,
+  retiredRiskDefault,
+  retiredRiskInput,
+} from "./openapi-helpers";
 import {
   MARKDOWN_DESCRIPTION,
   METRIC_NAME_DESCRIPTION,
@@ -113,14 +117,8 @@ export const apiMetricValidator = namedSchema(
           .number()
           .optional()
           .meta({ deprecated: true }),
-        riskThresholdSuccess: z.coerce
-          .number()
-          .describe("No longer used. Always the default value.")
-          .meta({ deprecated: true }),
-        riskThresholdDanger: z.coerce
-          .number()
-          .describe("No longer used. Always the default value.")
-          .meta({ deprecated: true }),
+        riskThresholdSuccess: retiredRiskDefault(),
+        riskThresholdDanger: retiredRiskDefault(),
         minPercentChange: z.coerce.number(),
         maxPercentChange: z.coerce.number(),
         minSampleSize: z.coerce.number(),
@@ -362,16 +360,8 @@ const postMetricBody = z
             "Controls the bayesian prior for the metric. If omitted, organization defaults will be used.",
           )
           .optional(),
-        riskThresholdSuccess: z
-          .number()
-          .describe("No longer used. Accepted and ignored.")
-          .optional()
-          .meta({ deprecated: true }),
-        riskThresholdDanger: z
-          .number()
-          .describe("No longer used. Accepted and ignored.")
-          .optional()
-          .meta({ deprecated: true }),
+        riskThresholdSuccess: retiredRiskInput(),
+        riskThresholdDanger: retiredRiskInput(),
         minPercentChange: z
           .number()
           .gte(0)
@@ -606,16 +596,8 @@ const putMetricBody = z
             "Controls the bayesian prior for the metric. If omitted, organization defaults will be used.",
           )
           .optional(),
-        riskThresholdSuccess: z
-          .number()
-          .describe("No longer used. Accepted and ignored.")
-          .optional()
-          .meta({ deprecated: true }),
-        riskThresholdDanger: z
-          .number()
-          .describe("No longer used. Accepted and ignored.")
-          .optional()
-          .meta({ deprecated: true }),
+        riskThresholdSuccess: retiredRiskInput(),
+        riskThresholdDanger: retiredRiskInput(),
         minPercentChange: z
           .number()
           .gte(0)

@@ -31,7 +31,11 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 
-import { componentSchema, namedSchema } from "./openapi-helpers";
+import {
+  componentSchema,
+  namedSchema,
+  retiredRiskOmitted,
+} from "./openapi-helpers";
 import {
   EXPERIMENT_HYPOTHESIS_DESCRIPTION,
   EXPERIMENT_NAME_DESCRIPTION,
@@ -641,17 +645,8 @@ const apiExperimentMetricOverrides = z.object({
   regressionAdjustmentOverride: z.boolean().optional(),
   regressionAdjustmentEnabled: z.boolean().optional(),
   regressionAdjustmentDays: z.coerce.number().optional(),
-  // Retired: kept so the documented shape doesn't change, never returned.
-  winRiskThreshold: z.coerce
-    .number()
-    .describe("No longer used. Never returned.")
-    .optional()
-    .meta({ deprecated: true }),
-  loseRiskThreshold: z.coerce
-    .number()
-    .describe("No longer used. Never returned.")
-    .optional()
-    .meta({ deprecated: true }),
+  winRiskThreshold: retiredRiskOmitted(),
+  loseRiskThreshold: retiredRiskOmitted(),
 });
 
 // Corresponds to schemas/ExperimentMetric.yaml
