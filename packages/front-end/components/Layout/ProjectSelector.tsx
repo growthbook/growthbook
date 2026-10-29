@@ -225,7 +225,8 @@ export function ProjectMenu({
       menuAlignOffset={alignOffset}
       menuMaxHeight={alignFirstRow ? maxHeight : undefined}
       menuClassName={showSearch ? styles.projectMenuWithSearch : undefined}
-      menuWidth={avatars ? 240 : 220}
+      // As the profile menu's.
+      menuWidth={280}
       variant="soft"
       trigger={trigger}
     >
