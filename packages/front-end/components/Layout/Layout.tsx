@@ -1,21 +1,11 @@
 import { useRouter } from "next/router";
 import useMediaQuery from "@/hooks/useMediaQuery";
-import { SidebarLinkProps } from "./SidebarLink";
 import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import AppRail from "./AppRail";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import SettingsNav from "./SettingsNav";
-
-const breadcrumbLinks = [
-  ...navlinks,
-  {
-    name: "Power Calculator",
-    path: /^power-calculator/,
-    subLinks: [] as SidebarLinkProps[],
-  },
-];
 
 const otherPageTitles = [
   {
@@ -74,7 +64,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  breadcrumbLinks.forEach((o) => {
+  navlinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {

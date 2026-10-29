@@ -1,4 +1,3 @@
-import { IconType } from "react-icons/lib";
 import { GrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "shared/types/organization";
 import { Permissions, hasSuperAdminPermission } from "shared/permissions";
@@ -23,13 +22,6 @@ export type SidebarLinkProps = {
   name: string;
   href: string;
   path: RegExp;
-  icon?: string;
-  Icon?: IconType;
-  divider?: boolean;
-  sectionTitle?: string;
-  className?: string;
-  autoClose?: boolean;
-  navigateOnExpand?: boolean;
   filter?: (props: SidebarLinkFilterProps) => boolean;
   subLinks?: SidebarLinkProps[];
   beta?: boolean;

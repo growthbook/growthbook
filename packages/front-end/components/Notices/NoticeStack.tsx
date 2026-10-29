@@ -56,7 +56,7 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   // Even with one notice, so a tap shows its full text.
   if (compact) {
     return (
-      <Flex align="center" className={styles.stack}>
+      <Flex align="center" flexShrink="0">
         <Popover
           open={listOpen}
           onOpenChange={setListOpen}
@@ -91,7 +91,7 @@ export default function NoticeStack({ notices }: { notices: AppNotice[] }) {
   }
 
   return (
-    <Flex align="center" gap="2" className={styles.stack}>
+    <Flex align="center" gap="2" flexShrink="0">
       <Tooltip
         content={<Box className={styles["notice-tooltip"]}>{top.details}</Box>}
         enabled={!!top.details}

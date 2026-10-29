@@ -1,5 +1,4 @@
 @use "colors";
-@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -1459,19 +1458,6 @@ main.main {
     strong,
     b {
       font-weight: 800;
-    }
-  }
-}
-
-.app-sidebar-header {
-  .selected {
-    background-color: colors.$purple;
-  }
-  .divider {
-    margin-top: 9px;
-    border-top: 1px solid rgba(0, 0, 0, 0.5);
-    a {
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
   }
 }
@@ -3273,10 +3259,6 @@ html {
   .main,
   .main.settings-layout {
     padding-left: 0;
-    padding-top: var(--header-height);
-  }
-  .sidebar.open {
-    left: 0;
   }
 }
 
@@ -4020,20 +4002,6 @@ input:disabled {
   border-radius: 2px;
   &:hover {
     border-color: var(--violet-11);
-  }
-}
-
-// For absolute or fixed containers that should position themselves after the sidebar
-.sidebarLeft {
-  left: var(--app-rail-width, 240px);
-}
-// Conditionally add these classes based on the SidebarOpenProvider
-@media (max-width: 1180px) {
-  .sidebarLeftOpen {
-    left: var(--app-rail-width, 240px) !important;
-  }
-  .sidebarLeftClosed {
-    left: 0 !important;
   }
 }
 

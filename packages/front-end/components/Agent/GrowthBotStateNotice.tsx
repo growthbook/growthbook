@@ -14,7 +14,7 @@ export default function GrowthBotStateNotice({
   resetsAt,
   centered = false,
 }: {
-  resetsAt?: number | null;
+  resetsAt: number | null;
   centered?: boolean;
 }) {
   const canManageBilling = usePermissionsUtil().canManageBilling();

@@ -21,14 +21,7 @@ const TopNav: FC<{
   menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
-  showLogo?: boolean;
-}> = ({
-  toggleLeftMenu,
-  menuOpen,
-  pageTitle,
-  showNotices,
-  showLogo = true,
-}) => {
+}> = ({ toggleLeftMenu, menuOpen, pageTitle, showNotices }) => {
   const { breadcrumb } = usePageHead();
   const notices = [
     ...useAccountPlanNotices(),
@@ -77,14 +70,6 @@ const TopNav: FC<{
             >
               <PiList size={18} />
             </IconButton>
-          ) : showLogo ? (
-            <div>
-              <img
-                alt="GrowthBook"
-                src="/logo/growthbook-logo.png"
-                style={{ height: 40 }}
-              />
-            </div>
           ) : null}
           {renderTitleOrBreadCrumb()}
           <div className={styles.actions}>

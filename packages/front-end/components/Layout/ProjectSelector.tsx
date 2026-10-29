@@ -13,6 +13,7 @@ import { TextField } from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import LetterAvatar from "./LetterAvatar";
 import { InPlaceMenu, RailMenuEntry, RailMenuInPlace } from "./railMenu";
+import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
 import styles from "./ProjectSelector.module.scss";
 
 /** Above this many projects, the menu gets a search field. */
@@ -23,8 +24,6 @@ const MENU_EDGE_MARGIN = 10;
 const MENU_FIRST_ROW_OFFSET = 8;
 /** The menu's top padding plus the search row's 4px above the field. */
 const MENU_SEARCH_ROW_OFFSET = 12;
-/** Matches the side nav's tooltip delay. */
-const NAME_TOOLTIP_DELAY_MS = 300;
 
 const DEMO_BADGE_TITLE = "This is a demo project with sample data";
 const DEMO_BADGE_COLOR = "#EB8045";
@@ -42,7 +41,6 @@ export function DemoBadge() {
   );
 }
 
-/** Shared by the header's and the side nav's selectors. */
 export function useProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
@@ -60,7 +58,6 @@ export function useProjectSelector() {
 
   return {
     projects,
-    project,
     current,
     heldToOneProject,
     isDemo,
@@ -82,7 +79,7 @@ function TruncatedName({ name, current }: { name: string; current: boolean }) {
     <Tooltip
       content={name}
       side="right"
-      delayDuration={NAME_TOOLTIP_DELAY_MS}
+      delayDuration={BOTTOM_TOOLTIP_DELAY_MS}
       open={open}
       onOpenChange={(next) => setOpen(next && isTruncated())}
     >
@@ -96,7 +93,7 @@ function TruncatedName({ name, current }: { name: string; current: boolean }) {
           window.clearTimeout(timer.current);
           timer.current = window.setTimeout(() => {
             if (isTruncated()) setOpen(true);
-          }, NAME_TOOLTIP_DELAY_MS);
+          }, BOTTOM_TOOLTIP_DELAY_MS);
         }}
         onPointerLeave={() => {
           window.clearTimeout(timer.current);
@@ -154,42 +151,36 @@ function ProjectOptionContent({
   );
 }
 
+/** Opens to the right, its first row level with the trigger. */
 export function ProjectMenu({
   open,
   onOpenChange,
   trigger,
-  menuSide,
-  menuSideOffset,
-  alignFirstRow = false,
   anchorRef,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trigger: ReactNode;
-  menuSide?: "bottom" | "right";
-  menuSideOffset?: number;
-  /** Raises a side-opening menu so its first row lines up with the trigger. */
-  alignFirstRow?: boolean;
   /**
-   * With alignFirstRow, caps the menu to the space below this element, so a
-   * long list scrolls instead of pushing the menu up.
+   * The menu is capped to the space below this, so a long list scrolls instead
+   * of pushing the menu up.
    */
-  anchorRef?: RefObject<HTMLElement>;
+  anchorRef: RefObject<HTMLElement>;
 }) {
   const { project, setProject } = useDefinitions();
   const { isDemo } = useProjectSelector();
   const searchRef = useRef<HTMLInputElement>(null);
   const { items, searchInputProps, showSearch } = useProjectMenuItems();
 
-  const alignOffset = alignFirstRow
-    ? -(showSearch ? MENU_SEARCH_ROW_OFFSET : MENU_FIRST_ROW_OFFSET)
-    : undefined;
+  const alignOffset = -(showSearch
+    ? MENU_SEARCH_ROW_OFFSET
+    : MENU_FIRST_ROW_OFFSET);
   const [maxHeight, setMaxHeight] = useState<number | undefined>(undefined);
   useEffect(() => {
-    if (!open || !alignFirstRow || !anchorRef?.current) return;
+    if (!open || !anchorRef.current) return;
     const anchor = anchorRef.current;
     const update = () => {
-      const menuTop = anchor.getBoundingClientRect().top + (alignOffset ?? 0);
+      const menuTop = anchor.getBoundingClientRect().top + alignOffset;
       setMaxHeight(
         Math.max(0, window.innerHeight - MENU_EDGE_MARGIN - menuTop),
       );
@@ -197,7 +188,7 @@ export function ProjectMenu({
     update();
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
-  }, [open, alignFirstRow, anchorRef, alignOffset]);
+  }, [open, anchorRef, alignOffset]);
 
   // As the menu opens, typing goes straight to the search field, and the
   // selected project scrolls into view.
@@ -241,10 +232,11 @@ export function ProjectMenu({
       open={open}
       onOpenChange={onOpenChange}
       menuPlacement="start"
-      menuSide={menuSide}
-      menuSideOffset={menuSideOffset}
+      menuSide="right"
+      // 8px past the sidebar's edge: the item sits 8px inside it.
+      menuSideOffset={16}
       menuAlignOffset={alignOffset}
-      menuMaxHeight={alignFirstRow ? maxHeight : undefined}
+      menuMaxHeight={maxHeight}
       menuClassName={showSearch ? styles.projectMenuWithSearch : undefined}
       menuWidth={280}
       variant="soft"

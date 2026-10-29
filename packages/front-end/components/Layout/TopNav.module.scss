@@ -1,12 +1,11 @@
 @use "../../styles/colors.scss";
 
-$sidebarwidth: var(--app-rail-width, 240px);
 .topbar {
   display: flex;
   justify-content: space-between;
   position: fixed;
   top: 0;
-  left: $sidebarwidth;
+  left: var(--app-rail-width, 240px);
   right: 0;
   height: var(--header-height);
   z-index: 1010;
@@ -73,7 +72,7 @@ $sidebarwidth: var(--app-rail-width, 240px);
   justify-content: space-between;
   position: fixed;
   top: var(--header-height);
-  left: $sidebarwidth;
+  left: var(--app-rail-width, 240px);
   right: 0;
   height: 56px;
   z-index: 995;

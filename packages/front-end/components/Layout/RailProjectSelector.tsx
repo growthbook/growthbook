@@ -114,10 +114,6 @@ export default function RailProjectSelector({
     <ProjectMenu
       open={open}
       onOpenChange={setOpen}
-      menuSide="right"
-      // 8px past the side nav's edge: the item sits 8px inside it.
-      menuSideOffset={16}
-      alignFirstRow
       anchorRef={triggerRef}
       trigger={
         <button

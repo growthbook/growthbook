@@ -31,6 +31,7 @@ import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -69,6 +70,7 @@ import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/u
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
 import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_PANEL_PORTAL_Z_INDEX,
@@ -274,25 +276,17 @@ export default function AgentPanel({
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback("/agent/chat");
 
-  // Below this width the left sidebar collapses (see TopNav.module.scss
-  // `@media (max-width: 1180px)`), so the docked expanded panel must run to
-  // the left edge instead of clearing the 240px sidebar.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Narrower, the sidebar is a drawer, so the expanded panel runs to the left
+  // edge instead of clearing it.
+  const sidebarIsDrawer = useMediaQuery(
+    `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
+  );
 
   // Portaled to body so the panel stacks against body-portaled page controls
   // instead of being sealed inside the root theme's stacking context. Tradeoff:
   // #portal-root stays sealed, so legacy modals render under an open panel.
   const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
   useEffect(() => setPortalHost(document.body), []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(max-width: 1180px)");
-    const update = () => setSidebarCollapsed(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   const { mutate } = useSWRConfig();
   const { orgId } = useAuth();
@@ -675,7 +669,7 @@ export default function AgentPanel({
         left: "auto",
         width: expanded
           ? `calc((100vw - ${
-              sidebarCollapsed ? "0px" : "var(--app-rail-width, 240px)"
+              sidebarIsDrawer ? "0px" : "var(--app-rail-width, 240px)"
             }) * 0.9)`
           : "min(400px, 100vw)",
         background: "var(--color-background)",
