@@ -617,17 +617,15 @@ export async function _dangerousAdminPutMember(
   ) {
     updates.authSubject = "";
   }
-  // Each of these lets another identity take over the account, so only full super admins can do it
+  // Either edit lets an unverified identity take over the account, so only full super admins can do it
   if (
-    (updates.email !== undefined ||
-      updates.authSubject !== undefined ||
-      updates.verified === false) &&
+    (updates.email !== undefined || updates.verified === false) &&
     req.superAdmin !== true
   ) {
     return res.status(403).json({
       status: 403,
       message:
-        "Only full super admins can change a user's email, clear their verified status, or reset their sign-in method",
+        "Only full super admins can change a user's email or clear their verified status",
     });
   }
   if (

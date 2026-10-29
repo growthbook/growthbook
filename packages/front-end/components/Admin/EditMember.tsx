@@ -33,7 +33,7 @@ const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   metadata: "Edit organization details",
   suspend: "Suspend and disable organizations",
   create: "Create organizations",
-  users: "Edit user names and mark emails verified",
+  users: "Edit user names, mark emails verified, and reset sign-in methods",
   grant: "Grant super admin access",
 };
 
@@ -134,8 +134,7 @@ const EditMember: FC<{
               label="Reset sign-in method"
               value={resetAuthSubject}
               setValue={setResetAuthSubject}
-              disabled={superAdmin !== true}
-              disabledMessage="Only full super admins can reset a sign-in method"
+              disabled={!canEditDetails}
             />
           </>
         )}
