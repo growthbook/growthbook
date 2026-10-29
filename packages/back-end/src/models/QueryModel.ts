@@ -307,6 +307,27 @@ export async function markPendingQueriesAsFailed(
 }
 
 /**
+ * Fails queries that have not started yet and returns the ids it failed. A
+ * query that started in the meantime is left alone and not returned.
+ */
+export async function failQueuedQueries(
+  context: ReqContext | ApiReqContext,
+  ids: string[],
+  error: string,
+): Promise<string[]> {
+  const failed = await Promise.all(
+    ids.map(async (id) => {
+      const result = await QueryModel.updateOne(
+        { organization: context.org.id, id, status: "queued" },
+        { $set: { status: "failed", finishedAt: new Date(), error } },
+      );
+      return result.modifiedCount > 0 ? id : null;
+    }),
+  );
+  return failed.filter((id): id is string => id !== null);
+}
+
+/**
  * Prove the owning runner is still alive for queries it hasn't started yet.
  * Returns the number affected.
  */

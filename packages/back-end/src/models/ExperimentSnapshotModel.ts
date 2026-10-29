@@ -1063,7 +1063,15 @@ export async function findRunningSnapshotsByQueryId(ids: string[]) {
   const docs = await ExperimentSnapshotModel.find({
     status: "running",
     dateCreated: { $gt: earliestDate },
-    queries: { $elemMatch: { query: { $in: ids }, status: "running" } },
+    $or: [
+      { queries: { $elemMatch: { query: { $in: ids }, status: "running" } } },
+      // An incremental refresh's stored pointer can still say "queued" after
+      // the query started.
+      {
+        runnerKind: { $in: ["incremental-full", "incremental-update"] },
+        "queries.query": { $in: ids },
+      },
+    ],
   });
 
   return docs.map((doc) => toInterface(doc));

@@ -8,6 +8,7 @@ import {
   reconcileSnapshotQueryPointers,
 } from "back-end/src/models/ExperimentSnapshotModel";
 import {
+  failQueuedQueries,
   getQueryStatusesByIds,
   markPendingQueriesAsFailed,
 } from "back-end/src/models/QueryModel";
@@ -21,6 +22,11 @@ import { cancelExternalJobsForQueries } from "back-end/src/services/queryCancell
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
+import {
+  getCancelledRunQueryStatuses,
+  isIncrementalRefreshRun,
+  releaseInterruptedRefresh,
+} from "back-end/src/jobs/interruptedRefresh";
 
 export const SNAPSHOT_CANCELLED_ERROR = "Update cancelled by user";
 
@@ -119,7 +125,13 @@ export async function cancelExperimentSnapshot(
     .map((doc) => doc.id);
 
   // The fence: once pending docs are failed, no live runner can promote a
-  // queued query or record a result for a running one.
+  // queued query or record a result for a running one. Queued docs go first,
+  // so a query the runner starts meanwhile is not taken as never started.
+  const notStartedIds = await failQueuedQueries(
+    context,
+    before.filter((doc) => doc.status === "queued").map((doc) => doc.id),
+    QUERY_CANCELLED_BY_USER_ERROR,
+  );
   await markPendingQueriesAsFailed(
     context,
     pendingIds,
@@ -178,11 +190,21 @@ export async function cancelExperimentSnapshot(
     }
   }
 
-  await context.models.incrementalRefresh
-    .releaseLock(snapshot.experiment, snapshot.id)
-    .catch((e) =>
-      logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
+  if (isIncrementalRefreshRun(snapshot)) {
+    // The fence above stops the run, so drop the cache state it may have
+    // appended to as the lock is released.
+    await releaseInterruptedRefresh(
+      context,
+      snapshot,
+      getCancelledRunQueryStatuses(notStartedIds, after),
     );
+  } else {
+    await context.models.incrementalRefresh
+      .releaseLock(snapshot.experiment, snapshot.id)
+      .catch((e) =>
+        logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
+      );
+  }
 
   const afterStatusById = new Map(after.map((doc) => [doc.id, doc.status]));
   const cancelledQueryIds = pendingIds.filter(
