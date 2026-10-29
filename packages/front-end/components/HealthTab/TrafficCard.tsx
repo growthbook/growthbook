@@ -7,8 +7,8 @@ import { useEffect, useMemo, useState } from "react";
 import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
-import { SegmentedControl } from "@radix-ui/themes";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
+import SegmentedControl from "@/ui/SegmentedControl";
 import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -154,19 +154,22 @@ export default function TrafficCard({
             {cluster && (
               <div className="col-auto">
                 <div className="uppercase-title text-muted">Unit</div>
-                <SegmentedControl.Root
-                  size="1"
-                  value={showClusters ? "cluster" : "subunit"}
-                  onValueChange={(v) => setShowClusters(v === "cluster")}
+                <SegmentedControl
+                  size="sm"
                   aria-label="Unit"
-                >
-                  <SegmentedControl.Item value="cluster">
-                    {getUnitDisplayName(cluster.identifier)}
-                  </SegmentedControl.Item>
-                  <SegmentedControl.Item value="subunit">
-                    {getUnitDisplayName(cluster.subUnitIdentifier)}
-                  </SegmentedControl.Item>
-                </SegmentedControl.Root>
+                  value={showClusters ? "cluster" : "subunit"}
+                  setValue={(v) => setShowClusters(v === "cluster")}
+                  options={[
+                    {
+                      value: "cluster",
+                      label: getUnitDisplayName(cluster.identifier),
+                    },
+                    {
+                      value: "subunit",
+                      label: getUnitDisplayName(cluster.subUnitIdentifier),
+                    },
+                  ]}
+                />
               </div>
             )}
             {!disableDimensions && (
