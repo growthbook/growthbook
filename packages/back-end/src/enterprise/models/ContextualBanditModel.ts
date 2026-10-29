@@ -43,7 +43,6 @@ import {
 import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { logger } from "back-end/src/util/logger";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   resolveOwnerEmail,
@@ -751,8 +750,9 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
   // Keep the measurement-arm experiment in step with CB-governed fields
   // (status, targeting, metric, naming). Sub-doc create/delete is handled by
   // the API handlers so the experiment id can be written back.
-  private async syncMeasurementArmAfterUpdate(
+  protected async beforeUpdate(
     existing: ContextualBanditInterface,
+    _updates: Partial<ContextualBanditInterface>,
     newDoc: ContextualBanditInterface,
   ) {
     if (!newDoc.measurementArm?.experimentId) return;
@@ -760,20 +760,11 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     try {
       await syncMeasurementArmExperiment(this.context, newDoc);
     } catch (e) {
-      logger.error(
-        { err: e, cbId: newDoc.id },
-        "Failed to sync the measurement arm experiment",
+      throw new Error(
+        `Could not update the measurement arm experiment: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
       );
-      const lifecycleChanged =
-        existing.status !== newDoc.status ||
-        !!existing.archived !== !!newDoc.archived;
-      if (lifecycleChanged) {
-        throw new Error(
-          `The Contextual Bandit was updated, but its measurement arm experiment could not be: ${
-            e instanceof Error ? e.message : String(e)
-          }`,
-        );
-      }
     }
   }
 
@@ -818,24 +809,21 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     newDoc: ContextualBanditInterface,
     writeOptions?: WriteOptions,
   ) {
-    if (
-      !writeOptions?.skipSDKRefresh &&
-      contextualBanditUpdateAffectsPayload(existing, updates, newDoc)
-    ) {
+    if (writeOptions?.skipSDKRefresh) return;
+    if (!contextualBanditUpdateAffectsPayload(existing, updates, newDoc))
+      return;
+    await refreshLinkedFeaturePayloads(
+      this.context,
+      newDoc,
+      "contextualBandit.refresh",
+    );
+    if ((existing.project || "") !== (newDoc.project || "")) {
       await refreshLinkedFeaturePayloads(
         this.context,
-        newDoc,
+        existing,
         "contextualBandit.refresh",
       );
-      if ((existing.project || "") !== (newDoc.project || "")) {
-        await refreshLinkedFeaturePayloads(
-          this.context,
-          existing,
-          "contextualBandit.refresh",
-        );
-      }
     }
-    await this.syncMeasurementArmAfterUpdate(existing, newDoc);
   }
 
   protected async afterDelete(doc: ContextualBanditInterface) {

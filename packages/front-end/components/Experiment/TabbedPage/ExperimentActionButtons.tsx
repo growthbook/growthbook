@@ -1,6 +1,5 @@
 import { ExperimentResultStatusData } from "shared/types/experiment";
 import { HoldoutStage } from "shared/util";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 
 export interface Props {
@@ -9,7 +8,6 @@ export interface Props {
   isBandit?: boolean;
   runningExperimentStatus?: ExperimentResultStatusData;
   holdoutStage?: HoldoutStage;
-  disabledReason?: string;
 }
 
 export default function ExperimentActionButtons({
@@ -18,7 +16,6 @@ export default function ExperimentActionButtons({
   isBandit,
   runningExperimentStatus,
   holdoutStage,
-  disabledReason,
 }: Props) {
   const runningStatus = runningExperimentStatus?.status;
 
@@ -44,32 +41,22 @@ export default function ExperimentActionButtons({
   return (
     <div className="d-flex ml-2">
       {!holdoutStage && (
-        <Tooltip
-          shouldDisplay={!editTargeting && !!disabledReason}
-          body={disabledReason}
-        >
-          <Button
-            variant={readyForDecision ? "outline" : "solid"}
-            mr="3"
-            disabled={!editTargeting}
-            onClick={() => editTargeting?.()}
-          >
-            Make Changes
-          </Button>
-        </Tooltip>
-      )}
-      <Tooltip
-        shouldDisplay={!editResult && !!disabledReason}
-        body={disabledReason}
-      >
         <Button
-          variant={readyForDecision ? "solid" : "outline"}
-          onClick={() => editResult?.()}
-          disabled={!editResult}
+          variant={readyForDecision ? "outline" : "solid"}
+          mr="3"
+          disabled={!editTargeting}
+          onClick={() => editTargeting?.()}
         >
-          {displayCTAText()}
+          Make Changes
         </Button>
-      </Tooltip>
+      )}
+      <Button
+        variant={readyForDecision ? "solid" : "outline"}
+        onClick={() => editResult?.()}
+        disabled={!editResult}
+      >
+        {displayCTAText()}
+      </Button>
     </div>
   );
 }

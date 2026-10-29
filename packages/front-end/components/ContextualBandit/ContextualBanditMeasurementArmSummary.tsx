@@ -30,14 +30,19 @@ export default function ContextualBanditMeasurementArmSummary({
 }) {
   const { getExperimentMetricById, getFactTableById } = useDefinitions();
   const displayCurrency = useCurrency();
-  const { measurementArm, loading, error, mutate } =
-    useContextualBanditMeasurementArm(
-      cb.measurementArm?.enabled && cb.status !== "draft" ? cb.id : undefined,
-    );
-
   const { latest: banditLatest } = useContextualBanditSnapshot();
   const banditLatestId = banditLatest?.id;
   const banditLatestStatus = banditLatest?.status;
+  const { measurementArm, loading, error, mutate } =
+    useContextualBanditMeasurementArm(
+      cb.measurementArm?.enabled && cb.status !== "draft" ? cb.id : undefined,
+      {
+        expectRefreshAfter:
+          banditLatestStatus === "success"
+            ? banditLatest?.dateCreated
+            : undefined,
+      },
+    );
   useEffect(() => {
     if (!banditLatestId) return;
     void mutate();
@@ -54,7 +59,7 @@ export default function ContextualBanditMeasurementArmSummary({
   const latest = measurementArm?.latestSnapshot ?? null;
   const metric = result ? getExperimentMetricById(result.metricId) : null;
   const formatMean = (v: number | null) =>
-    v == null
+    v === null
       ? "—"
       : metric
         ? getExperimentMetricFormatter(metric, getFactTableById)(v, {
@@ -66,8 +71,8 @@ export default function ContextualBanditMeasurementArmSummary({
     latest?.status === "error" ? (
       <Callout status="error" mt="2">
         The last measurement arm update failed
-        {latest.error ? `: ${truncate(latest.error, 200)}` : "."} Open View
-        results to inspect the queries and re-run the analysis.
+        {latest.error ? `: ${truncate(latest.error, 200)}` : "."} Inspect the
+        queries and re-run the analysis from the results page.
       </Callout>
     ) : latest?.status === "running" ? (
       <Text color="text-mid" size="sm">
@@ -75,13 +80,15 @@ export default function ContextualBanditMeasurementArmSummary({
       </Text>
     ) : null;
 
+  const loadError = error ? (
+    <Callout status="error" mt="2">
+      Could not refresh the measurement arm results: {error.message}
+    </Callout>
+  ) : null;
+
   let body: React.ReactNode;
-  if (error) {
-    body = (
-      <Callout status="error">
-        Could not load the measurement arm results: {error.message}
-      </Callout>
-    );
+  if (error && !measurementArm) {
+    body = loadError;
   } else if (loading) {
     body = <Text color="text-mid">Loading…</Text>;
   } else if (cb.status === "draft") {
@@ -100,21 +107,22 @@ export default function ContextualBanditMeasurementArmSummary({
           </Text>
         ) : null}
         {latestAttempt}
+        {loadError}
       </>
     );
   } else {
     const liftText =
-      result.lift != null
+      result.lift !== null
         ? `${result.lift >= 0 ? "+" : ""}${formatPercent(result.lift)}`
         : "—";
     const ciText =
-      result.ci && result.ci[0] != null && result.ci[1] != null
+      result.ci !== null && result.ci[0] !== null && result.ci[1] !== null
         ? ` (${formatPercent(result.ci[0])} to ${formatPercent(result.ci[1])})`
         : "";
     const confidenceText =
-      result.chanceToWin != null
+      result.chanceToWin !== null
         ? ` · ${formatPercent(result.chanceToWin)} chance the Bandit wins`
-        : result.pValue != null
+        : result.pValue !== null
           ? ` · p = ${result.pValue.toFixed(3)}`
           : "";
     body = (
@@ -131,17 +139,18 @@ export default function ContextualBanditMeasurementArmSummary({
         </Text>
         <Text color="text-mid" size="sm">
           Measurement arm {formatMean(result.controlMean)} (
-          {result.controlUsers != null
+          {result.controlUsers !== null
             ? formatNumber(result.controlUsers)
             : "—"}{" "}
           users) · Bandit {formatMean(result.banditMean)} (
-          {result.banditUsers != null ? formatNumber(result.banditUsers) : "—"}{" "}
+          {result.banditUsers !== null ? formatNumber(result.banditUsers) : "—"}{" "}
           users)
           {measurementArm?.resultsSnapshot
             ? ` · Updated ${ago(measurementArm.resultsSnapshot.dateCreated)}`
             : ""}
         </Text>
         {latestAttempt}
+        {loadError}
       </Flex>
     );
   }

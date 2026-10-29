@@ -33,8 +33,7 @@ import {
   getLatestSnapshotStatus,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { getDataSourceById } from "back-end/src/models/DataSourceModel";
-import { createExperimentSnapshot } from "back-end/src/services/experiments";
+import { queueExperimentUpdate } from "back-end/src/jobs/updateExperimentResults";
 import { BadRequestError } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 
@@ -348,42 +347,16 @@ export function assertNotMeasurementArmExperiment(
 }
 
 export async function refreshMeasurementArmAfterBanditRun(
-  context: Context,
   cb: ContextualBanditInterface,
-  triggeredBy: "manual" | "schedule" = "schedule",
 ): Promise<void> {
   const arm = getActiveMeasurementArm(cb);
   if (!arm) return;
-  const { experimentId } = arm;
   try {
-    const experiment = await getExperimentById(context, experimentId);
-    if (!experiment || experiment.status !== "running") return;
-    const phase = Math.max(0, experiment.phases.length - 1);
-
-    const latest = await getLatestSnapshotStatus({
-      context,
-      experiment: experimentId,
-      phase,
-      type: "standard",
-    });
-    if (latest?.status === "running") return;
-
-    const datasource = await getDataSourceById(context, experiment.datasource);
-    if (!datasource) return;
-
-    await createExperimentSnapshot({
-      context,
-      experiment,
-      datasource,
-      dimension: undefined,
-      phase,
-      type: "standard",
-      triggeredBy,
-    });
+    await queueExperimentUpdate(cb.organization, arm.experimentId);
   } catch (e) {
     logger.warn(
-      { err: e, cbId: cb.id, experimentId },
-      "Failed to refresh the measurement arm after a bandit run",
+      { err: e, cbId: cb.id, experimentId: arm.experimentId },
+      "Failed to queue the measurement arm refresh after a bandit run",
     );
   }
 }

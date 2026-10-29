@@ -127,7 +127,7 @@ export default function ContextualBanditTrafficTargetingModal({
           hideVariations
         />
 
-        <hr className="my-4" />
+        <Separator size="4" my="4" />
 
         {cb.status === "draft" ? (
           <MeasurementArmSizeField
@@ -137,7 +137,7 @@ export default function ContextualBanditTrafficTargetingModal({
         ) : (
           <div>
             <Text as="div" weight="semibold" mb="1">
-              Measurement arm size
+              Measurement arm
             </Text>
             <Text as="div" color="text-mid">
               {cb.measurementArm?.enabled
@@ -151,7 +151,7 @@ export default function ContextualBanditTrafficTargetingModal({
 
         <ContextualBanditAssignmentAttributeSelect project={cb.project} />
 
-        <hr className="my-4" />
+        <Separator size="4" my="4" />
 
         <TargetingFieldsGroup
           project={cb.project ?? ""}

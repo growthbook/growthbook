@@ -13,7 +13,7 @@ export default function MeasurementArmBanner({
   const cbName = contextualBandit?.name;
 
   return (
-    <Callout status="info" mb="3">
+    <Callout status="info" mt="3" mb="3">
       Measurement arm for{" "}
       {cbId ? (
         <Link href={`/contextual-bandit/${cbId}`}>

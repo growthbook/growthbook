@@ -548,9 +548,7 @@ export default function TabbedPage({
         )}
       >
         {isContextualBanditMeasurementArm(experiment) && (
-          <div className="pt-3">
-            <MeasurementArmBanner experiment={experiment} />
-          </div>
+          <MeasurementArmBanner experiment={experiment} />
         )}
         {experiment.type !== "holdout" &&
           !isContextualBanditMeasurementArm(experiment) &&

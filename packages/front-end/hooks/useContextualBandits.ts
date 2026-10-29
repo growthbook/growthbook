@@ -67,13 +67,29 @@ export function useContextualBandit(cbId: string | undefined) {
   };
 }
 
-export function useContextualBanditMeasurementArm(cbId: string | undefined) {
+const MEASUREMENT_ARM_REFRESH_WAIT_MS = 10 * 60 * 1000;
+
+export function useContextualBanditMeasurementArm(
+  cbId: string | undefined,
+  { expectRefreshAfter }: { expectRefreshAfter?: string } = {},
+) {
   const { data, error, mutate } = useRestApi(
     contextualBanditEndpoints.getContextualBanditMeasurementArm,
     cbId ? { params: { id: cbId } } : null,
     {
-      refreshInterval: (d) =>
-        d?.measurementArm?.latestSnapshot?.status === "running" ? 5000 : 0,
+      refreshInterval: (d) => {
+        const latest = d?.measurementArm?.latestSnapshot ?? null;
+        if (latest?.status === "running") return 5000;
+        if (!expectRefreshAfter) return 0;
+        const expectedAt = new Date(expectRefreshAfter).getTime();
+        const armBehind =
+          latest === null ||
+          new Date(latest.dateCreated).getTime() < expectedAt;
+        return armBehind &&
+          Date.now() - expectedAt < MEASUREMENT_ARM_REFRESH_WAIT_MS
+          ? 10000
+          : 0;
+      },
     },
   );
   return {

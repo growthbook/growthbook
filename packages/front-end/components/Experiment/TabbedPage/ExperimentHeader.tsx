@@ -875,18 +875,13 @@ export default function ExperimentHeader({
               </Button>
             ) : (
               <div>
-                {experiment.status === "running" ? (
+                {experiment.status === "running" && !isMeasurementArm ? (
                   <ExperimentActionButtons
                     editResult={canRunExperiment ? editResult : undefined}
                     editTargeting={canRunExperiment ? editTargeting : undefined}
                     isBandit={isBandit}
                     runningExperimentStatus={runningExperimentStatus}
                     holdoutStage={holdoutStage}
-                    disabledReason={
-                      isMeasurementArm
-                        ? "This experiment is the Contextual Bandit's measurement arm. Traffic, targeting and status are managed from the Bandit."
-                        : undefined
-                    }
                   />
                 ) : experiment.status === "draft" && nextScheduledStartDate ? (
                   <Button

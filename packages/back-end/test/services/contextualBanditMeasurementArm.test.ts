@@ -15,6 +15,7 @@ import {
   getLatestSnapshotStatus,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { queueExperimentUpdate } from "back-end/src/jobs/updateExperimentResults";
 import {
   assertMeasurementArmChangeAllowed,
   assertMeasurementArmExperimentEditable,
@@ -24,6 +25,7 @@ import {
   MEASUREMENT_ARM_GOVERNING_CB_FIELDS,
   measurementArmSyncFieldsChanged,
   reconcileMeasurementArmExperiment,
+  refreshMeasurementArmAfterBanditRun,
   syncMeasurementArmExperiment,
 } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 
@@ -37,6 +39,9 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   getLatestSnapshotStatus: jest.fn(),
   getLatestSuccessfulSnapshot: jest.fn(),
 }));
+jest.mock("back-end/src/jobs/updateExperimentResults", () => ({
+  queueExperimentUpdate: jest.fn(),
+}));
 
 const createExperimentMock = createExperiment as jest.Mock;
 const deleteExperimentMock = deleteExperimentByIdForOrganization as jest.Mock;
@@ -45,6 +50,7 @@ const updateExperimentMock = updateExperiment as jest.Mock;
 const getLatestSnapshotStatusMock = getLatestSnapshotStatus as jest.Mock;
 const getLatestSuccessfulSnapshotMock =
   getLatestSuccessfulSnapshot as jest.Mock;
+const queueExperimentUpdateMock = queueExperimentUpdate as jest.Mock;
 
 const context = {
   org: { id: "org_1", settings: {} },
@@ -512,5 +518,27 @@ describe("getMeasurementArmResultsSummary", () => {
     });
     expect(summary?.resultsSnapshot).toBe(null);
     expect(summary?.decisionMetricResult).toBe(null);
+  });
+});
+
+describe("refreshMeasurementArmAfterBanditRun", () => {
+  it("queues the arm's scheduled update when the arm is active", async () => {
+    await refreshMeasurementArmAfterBanditRun(makeCb());
+    expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma");
+  });
+
+  it("does nothing when the arm is off or the CB is not running", async () => {
+    await refreshMeasurementArmAfterBanditRun(
+      makeCb({ measurementArm: { ...arm, enabled: false } }),
+    );
+    await refreshMeasurementArmAfterBanditRun(makeCb({ status: "stopped" }));
+    expect(queueExperimentUpdateMock).not.toHaveBeenCalled();
+  });
+
+  it("never fails the bandit run when queueing fails", async () => {
+    queueExperimentUpdateMock.mockRejectedValueOnce(new Error("agenda down"));
+    await expect(
+      refreshMeasurementArmAfterBanditRun(makeCb()),
+    ).resolves.toBeUndefined();
   });
 });

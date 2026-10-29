@@ -549,11 +549,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.traffic) {
           updates.traffic = result.traffic;
         }
-        await refreshMeasurementArmAfterBanditRun(
-          this.context,
-          await this.loadCbDoc(),
-          this.model.triggeredBy ?? "schedule",
-        );
+        await refreshMeasurementArmAfterBanditRun(await this.loadCbDoc());
       }
 
       // Similar to experiment `analysisSummary` pattern, persist a lightweight health
