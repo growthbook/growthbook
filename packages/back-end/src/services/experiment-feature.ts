@@ -12,7 +12,6 @@ import {
   MatchingRule,
   mergeResultHasChanges,
 } from "shared/util";
-import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import { Variation } from "shared/types/experiment";
@@ -465,9 +464,6 @@ export function validateExperimentFeatureVariations({
       throw new Error(
         "variations and variationWeights must be the same length.",
       );
-    }
-    if (!isVariationWeightsSumValid(variationWeights)) {
-      throw new Error("variationWeights must add up to 1.");
     }
   }
   if (update.variations.length !== variations.length) {

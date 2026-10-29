@@ -77,7 +77,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
-  isVariationWeightsSumValid,
+  areVariationWeightsValid,
   scheduleWriteNeedsRunPermission,
   sdkConnectionServesProject,
   withScheduledBy,
@@ -2420,23 +2420,36 @@ export async function createSnapshot({
 
 const inUnitInterval = (n: number) => n >= 0 && n <= 1;
 
-// Only phases that differ from the stored phase at the same index are checked,
-// so an unrelated edit to an experiment with legacy data is not rejected.
+// A write may keep an invalid value its phase already stores but not introduce
+// one, so legacy data never blocks stopping the experiment, ending a phase or
+// editing one. Phases have no id: an unchanged phase is its stored self
+// wherever a deletion moved it, an edited one is the stored phase at its index.
+// A phase that starts serving gets no pass: an appended one, or the latest one
+// when the experiment starts or resumes. Every path that does either lets the
+// user fix the values.
 export function assertValidExperimentPhases(
   phases: ExperimentPhase[],
   existing: ExperimentPhase[] = [],
+  startsRunning = false,
 ): void {
   phases.forEach((phase, i) => {
-    if (isEqual(phase, existing[i])) return;
-    if (!inUnitInterval(phase.coverage)) {
+    const startsServing =
+      i >= existing.length || (startsRunning && i === phases.length - 1);
+    const stored = startsServing
+      ? null
+      : (existing.find((p) => isEqual(p, phase)) ?? existing[i]);
+    if (
+      !inUnitInterval(phase.coverage) &&
+      stored?.coverage !== phase.coverage
+    ) {
       throw new BadRequestError(
         `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
       );
     }
     const weights = phase.variationWeights;
     if (
-      !weights.every(inUnitInterval) ||
-      !isVariationWeightsSumValid(weights)
+      !areVariationWeightsValid(weights) &&
+      !isEqual(stored?.variationWeights, weights)
     ) {
       throw new BadRequestError(
         `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,
