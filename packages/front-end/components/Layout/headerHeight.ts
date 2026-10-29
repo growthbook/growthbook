@@ -32,7 +32,7 @@ export function useHeaderHeight(): number {
 }
 
 // Where page tabs pin: 1px under the header, so they cover its edge. Keep in
-// sync with .experiment-tabs and .feature-tabs in global.scss.
+// sync with --tabs-top in global.scss.
 export function useTabsTop(): number {
   return useHeaderHeight() - 1;
 }

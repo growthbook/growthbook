@@ -47,11 +47,7 @@ import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import CompareExperimentEventsModal from "@/components/Experiment/CompareExperimentEventsModal";
 import { PreLaunchChecklistProvider } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  TABS_BAR_HEIGHT_PX,
-} from "@/components/Layout/constants";
-import { useTabsTop } from "@/components/Layout/headerHeight";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
@@ -269,7 +265,6 @@ function TabbedPageContents({
 
   // When narrow, the panel opens only on request, over the content; the stored
   // choice is for a wide window, so narrowing never overwrites it.
-  const tabsTop = useTabsTop();
   const narrow = useMediaQuery(`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`);
   const [openWhileNarrow, setOpenWhileNarrow] = useState(false);
   useEffect(() => setOpenWhileNarrow(false), [narrow]);
@@ -757,7 +752,7 @@ function TabbedPageContents({
       >
         <CollapsiblePanelLayout
           open={detailsPanelOpen}
-          top={tabsTop + TABS_BAR_HEIGHT_PX}
+          top="var(--tabs-bottom)"
           width={detailsWidth}
           onWidthChange={setDetailsWidth}
           onCollapse={() => setDetailsShown(false)}

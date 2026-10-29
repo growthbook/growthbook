@@ -24,6 +24,16 @@
   }
 }
 
+// Sticky page tabs (.experiment-tabs, .feature-tabs, StickyTabsList) pin 1px
+// under the header, so they cover its edge. Keep --tabs-top in sync with
+// useTabsTop in components/Layout/headerHeight.ts.
+:root {
+  --tabs-top: calc(var(--header-height) - 1px);
+  --tabs-bar-height: 40px;
+  // Where what pins under the tabs starts.
+  --tabs-bottom: calc(var(--tabs-top) + var(--tabs-bar-height));
+}
+
 main {
   padding-top: var(--header-height);
 }
@@ -590,11 +600,9 @@ pre {
   .experiment-tabs {
     // Sticky, so it has to match the page it scrolls over.
     background-color: var(--color-panel-solid);
-    // NB: Keep top in sync with useTabsTop (components/Layout/headerHeight.ts)
-    // and height with TABS_BAR_HEIGHT_PX (components/Layout/constants.ts)
-    // also, make sure shared reports & shared experiments look good
-    top: calc(var(--header-height) - 1px);
-    height: 40px;
+    // NB: make sure shared reports & shared experiments look good
+    top: var(--tabs-top);
+    height: var(--tabs-bar-height);
     transition: 150ms all;
     // The underline belongs to the whole row, so it runs the page's full
     // width, past the tab list and under anything beside it.
@@ -670,10 +678,8 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top in sync with useTabsTop (components/Layout/headerHeight.ts)
-  // and height with TABS_BAR_HEIGHT_PX (components/Layout/constants.ts)
-  top: calc(var(--header-height) - 1px);
-  height: 40px;
+  top: var(--tabs-top);
+  height: var(--tabs-bar-height);
   transition: 150ms all;
 
   &.pinned {
@@ -807,7 +813,7 @@ pre {
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
-        top: 95px;
+        top: var(--tabs-bottom);
         // A scrolling wrapper would pin it to the wrapper, not the page.
         .overflowing & {
           position: static;
@@ -943,12 +949,6 @@ main.main {
   &.report {
     .experiment-results th.axis-col {
       top: calc(var(--header-height) - 1px);
-    }
-  }
-  &.public.experiment {
-    .experiment-results th.axis-col {
-      // Under the 40px sticky tabs.
-      top: calc(var(--header-height) + 39px);
     }
   }
   .select-dropdown-underline {
