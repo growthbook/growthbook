@@ -30,17 +30,9 @@ exports[`metric explorations with a population generated SQL matches the snapsho
         ELSE NULL
       END AS m0,
       CASE
-        WHEN ((event_name = 'Purchase')) THEN 1
-        ELSE NULL
-      END AS m0_rows,
-      CASE
         WHEN ((device_type = 'mobile')) THEN revenue
         ELSE NULL
-      END AS m1,
-      CASE
-        WHEN ((device_type = 'mobile')) THEN 1
-        ELSE NULL
-      END AS m1_rows
+      END AS m1
     FROM
       _factTable0
   ),
@@ -48,15 +40,9 @@ exports[`metric explorations with a population generated SQL matches the snapsho
     SELECT
       unit0,
       dimension0,
+      MAX(m0) AS m0,
       CASE
-        WHEN COUNT(m0_rows) > 0 THEN MAX(m0)
-        ELSE NULL
-      END AS m0,
-      CASE
-        WHEN COUNT(m1_rows) > 0 THEN CASE
-          WHEN (SUM(m1) > 10) THEN 1
-          ELSE NULL
-        END
+        WHEN (SUM(m1) > 10) THEN 1
         ELSE NULL
       END AS m1
     FROM

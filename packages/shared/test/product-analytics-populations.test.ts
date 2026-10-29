@@ -588,7 +588,6 @@ describe("metric explorations with a population", () => {
       );
       // The population (m2) isn't returned as a metric.
       expect(orderedMetricIds).toEqual([purchasers.id, loggedIn.id]);
-      expect(sql.match(/ AS m2_rows\b/g)).toHaveLength(1);
       expect(sql).not.toContain("m3");
       // Each metric is read only for members; no joins.
       expect(

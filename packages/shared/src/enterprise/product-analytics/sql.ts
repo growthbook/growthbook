@@ -1109,8 +1109,7 @@ function getMetricData(
     selectedUnit !== null &&
     (columnRef.aggregation === "count distinct" ||
       columnRef.aggregation === "hll merge" ||
-      columnRef.column === "$$distinctDates" ||
-      getPopulationAlias(factTableGroup) !== null);
+      columnRef.column === "$$distinctDates");
   const presenceExpr = requiresMetricPresence
     ? getEventValueExpr(
         { ...columnRef, column: "$$count" },
