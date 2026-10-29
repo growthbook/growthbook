@@ -30,7 +30,7 @@ import {
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
 } from "shared/experiments";
-import { isCappableFactMetric } from "shared/validators";
+import { isCappableFactMetric, isExternallyManaged } from "shared/validators";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
@@ -2484,7 +2484,7 @@ function StandardFactMetricModal({
                   ) && hasCommercialFeature("manage-official-resources") ? (
                     <Checkbox
                       label="Mark as Official Metric"
-                      disabled={form.watch("managedBy") === "api"}
+                      disabled={isExternallyManaged(form.watch("managedBy"))}
                       disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
                       description="Official Metrics can only be modified by Admins or users
                       with the ManageOfficialResources policy."

@@ -27,7 +27,6 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import DateResults from "@/components/Experiment/DateResults";
 import VariationIdWarning from "@/components/Experiment/VariationIdWarning";
-import StatusBanner from "@/components/Experiment/StatusBanner";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { trackSnapshot } from "@/services/track";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -38,7 +37,10 @@ import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import { MetricDrilldownProvider } from "@/components/MetricDrilldown/MetricDrilldownContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { useIncrementalPipelineUnsupportedReason } from "@/hooks/useIncrementalPipelineUnsupportedReason";
+import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
+import { hasHealthData } from "@/components/HealthTab/constants";
 import { ExperimentTab } from "./TabbedPage";
+import { showsUnhealthyBanner } from "./TabbedPage/UnhealthyExperimentBanner";
 
 export type AnalysisBarSettings = {
   dimension: string;
@@ -57,9 +59,7 @@ const CompactResults = dynamic(
 const Results: FC<{
   experiment: ExperimentInterfaceStringDates;
   mutateExperiment: () => void;
-  draftMode?: boolean;
   editMetrics?: () => void;
-  editResult?: () => void;
   statsEngine: StatsEngine;
   analysisBarSettings: AnalysisBarSettings;
   setAnalysisBarSettings: (s: AnalysisBarSettings) => void;
@@ -75,9 +75,7 @@ const Results: FC<{
 }> = ({
   experiment,
   mutateExperiment,
-  draftMode = false,
   editMetrics,
-  editResult,
   statsEngine,
   analysisBarSettings,
   setAnalysisBarSettings,
@@ -136,6 +134,7 @@ const Results: FC<{
   }, [experiment.phases.length, setPhase]);
 
   const permissionsUtil = usePermissionsUtil();
+  const { getRunningExperimentResultStatus } = useRunningExperimentStatus();
   const { getDatasourceById, getExperimentMetricById, metricGroups } =
     useDefinitions();
   const incrementalPipelineUnsupportedReason =
@@ -180,7 +179,6 @@ const Results: FC<{
     })) || [];
 
   const showCompactResults =
-    !draftMode &&
     hasData &&
     hasValidStatsEngine &&
     snapshot &&
@@ -188,7 +186,6 @@ const Results: FC<{
     !analysis?.settings?.dimensions?.length;
 
   const showBreakDownResults =
-    !draftMode &&
     hasData &&
     hasValidStatsEngine &&
     ((snapshot?.dimension &&
@@ -196,7 +193,6 @@ const Results: FC<{
       (analysis?.settings?.dimensions?.length ?? 0) > 0);
 
   const showDateResults =
-    !draftMode &&
     hasData &&
     hasValidStatsEngine &&
     snapshot?.dimension?.substring(0, 8) === "pre:date" && // todo: refactor hardcoded dimension
@@ -239,22 +235,44 @@ const Results: FC<{
 
   const isBandit = experiment.type === "multi-armed-bandit";
   const hasQueries = queryStrings.length > 0;
+
+  function noDataHint(): string | null {
+    if (!hasValidStatsEngine) {
+      return "The stats engine changed, so click Update to re-run the analysis.";
+    }
+    if (!snapshot) {
+      return datasource && permissionsUtil.canRunExperimentQueries(datasource)
+        ? "Click Update to run the analysis."
+        : null;
+    }
+    const started = phaseObj?.dateStarted ?? "";
+    if (phaseAgeMinutes >= 120) {
+      const noun = isBandit
+        ? "Bandit"
+        : experiment.type === "holdout"
+          ? "holdout"
+          : "experiment";
+      return `Make sure your ${noun} is tracking properly.`;
+    }
+    if (phaseAgeMinutes < 0) {
+      return `This experiment will start ${relativeDate(started)}. Once it has run for a little while, click Update to check again.`;
+    }
+    return `It started ${ago(started)}. Give it a little longer, then click Update to check again.`;
+  }
+
   return (
     <>
-      {!draftMode ? null : (
-        <StatusBanner
-          mutateExperiment={mutateExperiment}
-          editResult={editResult || undefined}
-        />
-      )}
-
       {!hasMetrics && (
         <Callout
           status="info"
-          m="3"
+          contentAlign="center"
+          mx="3"
+          my="3"
           action={
             editMetrics && (
-              <Button onClick={() => editMetrics()}>Add metrics</Button>
+              <Button variant="outline" size="sm" onClick={() => editMetrics()}>
+                Add metrics
+              </Button>
             )
           }
         >
@@ -263,19 +281,20 @@ const Results: FC<{
       )}
 
       {status === "failed" && !hasData && !snapshotLoading && hasMetrics ? (
-        <Callout status="error" mx="3" my="4">
-          The most recent update failed.
-          {hasQueries ? (
-            <>
-              {" "}
+        <Callout
+          status="error"
+          contentAlign="center"
+          mx="3"
+          my="3"
+          action={
+            hasQueries ? (
               <Link onClick={() => setQueriesModalOpen(true)}>
                 View queries
               </Link>
-              {" to see what went wrong."}
-            </>
-          ) : (
-            ""
-          )}
+            ) : null
+          }
+        >
+          The most recent update failed.
         </Callout>
       ) : null}
 
@@ -286,39 +305,8 @@ const Results: FC<{
         hasMetrics &&
         !dimensionNeedsOverallResultsFirst &&
         !snapshotLoading && (
-          <Callout status="info" mx="3" mb="4">
-            No data yet.{" "}
-            {!hasValidStatsEngine ? (
-              "Stats engine was changed. Try clicking the 'Update' button above to re-run the analysis."
-            ) : (
-              <>
-                {snapshot &&
-                  phaseAgeMinutes >= 120 &&
-                  `Make sure your ${
-                    isBandit
-                      ? "Bandit"
-                      : experiment.type === "holdout"
-                        ? "Holdout"
-                        : "Experiment"
-                  } is tracking properly.`}
-                {snapshot &&
-                  phaseAgeMinutes < 120 &&
-                  (phaseAgeMinutes < 0
-                    ? "This experiment will start " +
-                      relativeDate(
-                        experiment.phases[phase]?.dateStarted ?? "",
-                      ) +
-                      ". Wait until it's been running for a little while and click the 'Update' button above to check again."
-                    : "It was just started " +
-                      ago(experiment.phases[phase]?.dateStarted ?? "") +
-                      ". Give it a little longer and click the 'Update' button above to check again.")}
-                {!snapshot &&
-                  datasource &&
-                  permissionsUtil.canRunExperimentQueries(datasource) &&
-                  `Click the "Update" button above.`}
-                {snapshotLoading && <div> Snapshot loading...</div>}
-              </>
-            )}
+          <Callout status="info" contentAlign="center" mx="3" my="3">
+            No data yet. {noDataHint()}
           </Callout>
         )}
 
@@ -513,6 +501,16 @@ const Results: FC<{
               startDate={phaseObj?.dateStarted ?? ""}
               endDate={phaseObj?.dateEnded ?? ""}
               isLatestPhase={phase === experiment.phases.length - 1}
+              // Hidden where the page's banner takes their place and links
+              // to the Health tab.
+              showHealthWarnings={
+                phase !== experiment.phases.length - 1 ||
+                !hasHealthData(datasource) ||
+                !showsUnhealthyBanner(
+                  experiment,
+                  getRunningExperimentResultStatus(experiment),
+                )
+              }
               phase={phase}
               status={experiment.status}
               goalMetrics={experiment.goalMetrics}

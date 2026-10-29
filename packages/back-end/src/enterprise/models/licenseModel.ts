@@ -1,6 +1,7 @@
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import omit from "lodash/omit";
 import { LicenseInterface } from "shared/enterprise";
+import type { LicenseRefs } from "back-end/src/util/adminOrgQuery";
 
 const licenseSchema = new mongoose.Schema({
   id: String, // Unique ID for the license key
@@ -71,4 +72,62 @@ export async function getLicenseByKey(
 ): Promise<LicenseInterface | null> {
   const doc = await LicenseModel.findOne({ id: key });
   return doc ? toInterface(doc) : null;
+}
+
+export async function getLicensesByKeys(
+  keys: string[],
+): Promise<LicenseInterface[]> {
+  if (!keys.length) return [];
+  const docs = await LicenseModel.find({ id: { $in: keys } });
+  return docs.map(toInterface);
+}
+
+async function getLicenseRefs(
+  query: FilterQuery<LicenseDocument>,
+): Promise<LicenseRefs> {
+  // Archived licenses still grant their plan, so they count like the row summary
+  const docs = await LicenseModel.find(query, {
+    id: 1,
+    organizationId: 1,
+  }).lean<Pick<LicenseInterface, "id" | "organizationId">[]>();
+  return {
+    orgIds: docs.flatMap((d) => (d.organizationId ? [d.organizationId] : [])),
+    licenseKeys: docs.map((d) => d.id),
+  };
+}
+
+export async function _dangerousGetLicenseRefsByPlans(
+  plans: string[],
+): Promise<LicenseRefs> {
+  return getLicenseRefs({ plan: { $in: plans } });
+}
+
+export async function _dangerousGetLicenseRefsBySubscriptionStatus(
+  status: "trialing" | "past_due" | "canceled",
+): Promise<LicenseRefs> {
+  // Same precedence as getSubscriptionFromLicense: Orb first, then Stripe
+  const subscriptionMatches = (statuses: string[]) => [
+    {
+      "orbSubscription.id": { $nin: [null, ""] },
+      "orbSubscription.status": { $in: statuses },
+    },
+    {
+      "orbSubscription.id": { $in: [null, ""] },
+      "stripeSubscription.id": { $nin: [null, ""] },
+      "stripeSubscription.status": { $in: statuses },
+    },
+  ];
+  return getLicenseRefs({
+    $or:
+      status === "trialing"
+        ? [
+            ...subscriptionMatches([status]),
+            // getAdminOrgSummary shows past_due and canceled over isTrial
+            {
+              isTrial: true,
+              $nor: subscriptionMatches(["past_due", "canceled"]),
+            },
+          ]
+        : subscriptionMatches([status]),
+  });
 }

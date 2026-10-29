@@ -3,6 +3,9 @@ import { useEffect } from "react";
 import { useUser } from "@/services/UserContext";
 import { isCloud } from "@/services/env";
 
+// Pylon's launcher is a third-party iframe, so its footprint can't be measured.
+const PYLON_CLEARANCE_PX = 76;
+
 // Pylon draws its own chat bubble; Help itself is in HelpMenu.
 export default function InAppHelp() {
   const config = useFeature("pylon-config").value;
@@ -32,6 +35,17 @@ export default function InAppHelp() {
       };
     }
   }, [config, commercialFeatures]);
+
+  // Publish the launcher's footprint so bottom-right overlays can clear it.
+  useEffect(() => {
+    const publish = (px: number) =>
+      document.documentElement.style.setProperty(
+        "--help-launcher-clearance",
+        `${px}px`,
+      );
+    publish(window["pylon"] ? PYLON_CLEARANCE_PX : 0);
+    return () => publish(0);
+  });
 
   return null;
 }

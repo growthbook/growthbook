@@ -1,3 +1,4 @@
+import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   FeatureRule,
   FeaturePrerequisite,
@@ -1082,12 +1083,16 @@ export async function assertValidFeatureRules(
   context: ReqContext | ApiReqContext,
   rules: FeatureRule[],
   stored: FeatureRule[] = [],
-  { copiesRules = false }: { copiesRules?: boolean } = {},
+  {
+    // Experiments the same save changes, judged as they will be.
+    planned = [],
+    copiesRules = false,
+  }: { planned?: ExperimentInterface[]; copiesRules?: boolean } = {},
 ): Promise<void> {
   if (!copiesRules) assertScopedRules(context, rules, stored);
   assertValidChangedRuleEnvironments(context, rules, stored);
   await assertValidChangedRuleProjectIds(rules, stored, context);
-  await assertValidChangedRuleExperimentIds(rules, stored, context);
+  await assertValidChangedRuleExperimentIds(rules, stored, context, planned);
   await validateChangedRuleReferences(rules, stored, context);
   validateRulesScheduleRules(rules, context, stored);
 }
@@ -1099,8 +1104,11 @@ export async function assertValidRuleWrite(
   feature: FeatureInterface,
   rule: FeatureRule,
   stored?: FeatureRule,
+  planned: ExperimentInterface[] = [],
 ): Promise<void> {
-  await assertValidFeatureRules(context, [rule], stored ? [stored] : []);
+  await assertValidFeatureRules(context, [rule], stored ? [stored] : [], {
+    planned,
+  });
   if (
     !stored ||
     !isEqual(configCheckedRuleValues(stored), configCheckedRuleValues(rule))
