@@ -92,11 +92,28 @@ html.app-drawer-open body {
   overflow: hidden;
 }
 
+:root {
+  --settings-nav-width: 256px;
+  --settings-nav-inset: 12px;
+  --settings-layout-left: calc(
+    var(--app-rail-width) + var(--settings-nav-width) +
+      var(--settings-nav-inset)
+  );
+}
+// Matches the sub nav's breakpoint: without it, content only clears the sidebar.
+@media (max-width: 1399px) {
+  :root {
+    --settings-layout-left: var(--app-rail-width);
+  }
+}
 .main {
   padding-left: var(--app-rail-width);
   transition: padding-left 200ms ease;
   @media (prefers-reduced-motion: reduce) {
     transition: none;
+  }
+  &.settings-layout {
+    padding-left: var(--settings-layout-left);
   }
   &.product-analytics-explore-landing {
     display: flex;
@@ -3208,8 +3225,53 @@ html {
     padding-bottom: 4px;
   }
 }
+// Settings pages: card and table styling from the design.
+.main.settings-layout {
+  .container-fluid.pagecontents {
+    margin-left: 0;
+    max-width: 1240px;
+    padding: 28px 40px;
+  }
+  .appbox {
+    border-radius: 8px;
+    border-color: var(--slate-a4);
+  }
+  .gbtable {
+    thead th {
+      padding: 10px 12px;
+      font-size: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+      color: var(--gray-11);
+      background-color: var(--slate-2);
+    }
+    td {
+      padding: 10px 12px;
+      font-size: 13px;
+    }
+    tbody tr:hover {
+      background-color: var(--slate-a2);
+    }
+  }
+  .rt-TableRoot {
+    .rt-TableColumnHeaderCell {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--gray-11);
+      background-color: var(--slate-2);
+    }
+    .rt-TableCell {
+      font-size: 13px;
+    }
+    .rt-TableBody .rt-TableRow:hover {
+      background-color: var(--slate-a2);
+    }
+  }
+}
+
 @media (max-width: 1180px) {
-  .main {
+  .main,
+  .main.settings-layout {
     padding-left: 0;
     padding-top: var(--header-height);
   }

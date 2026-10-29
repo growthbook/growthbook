@@ -22,6 +22,7 @@ import {
   PiFlask,
   PiGearSix,
   PiMagnifyingGlass,
+  PiShieldCheck,
   PiSidebarSimple,
   PiX,
 } from "react-icons/pi";
@@ -47,7 +48,7 @@ import {
   SidebarLinkFilterProps,
   SidebarLinkProps,
 } from "./SidebarLink";
-import { navlinks } from "./sidebarNav";
+import { navlinks, settingsNavLink } from "./sidebarNav";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import { RailMenuInPlace } from "./railMenu";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
@@ -87,7 +88,7 @@ const SECTION_ICONS: Record<string, IconType> = {
   "SDK Configuration": withOpticalWeight(PiCode),
 };
 const RAIL_SECTIONS = navlinks.filter((l) => !!SECTION_ICONS[l.name]);
-const SETTINGS_LINK = navlinks.find((l) => l.name === "Settings");
+const ADMIN_LINK = navlinks.find((l) => l.name === "Admin");
 
 /** On <html>; sets --app-rail-width (global.scss). */
 const COLLAPSED_CLASS = "app-rail-collapsed";
@@ -771,7 +772,8 @@ export default function AppRail() {
     (link.subLinks || []).some((l) => l.path.test(route));
   const activeSection =
     sections.find((s) => isActive(s.link))?.link.name ?? null;
-  const settingsActive = !!SETTINGS_LINK && isActive(SETTINGS_LINK);
+  const showAdmin =
+    !!ADMIN_LINK && (!ADMIN_LINK.filter || ADMIN_LINK.filter(filterProps));
 
   // Collapsing folds every section, so its pages fold as the rail narrows;
   // expanding unfolds the same ones once it has widened.
@@ -1020,9 +1022,19 @@ export default function AppRail() {
               Icon={SettingsIcon}
               label="Settings"
               href="/settings"
-              active={settingsActive}
+              active={isActive(settingsNavLink)}
               tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
             />
+            {ADMIN_LINK && showAdmin ? (
+              <RailItem
+                collapsed={contentCollapsed}
+                Icon={PiShieldCheck}
+                label={ADMIN_LINK.name}
+                href={ADMIN_LINK.href}
+                active={isActive(ADMIN_LINK)}
+                tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
+              />
+            ) : null}
             <ProfileMenu
               inPlace={menuInPlace("profile")}
               railCollapsed={contentCollapsed}

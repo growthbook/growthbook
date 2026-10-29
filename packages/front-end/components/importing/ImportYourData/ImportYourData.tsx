@@ -1,5 +1,6 @@
 import React, { FC, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
+import { Flex } from "@radix-ui/themes";
 import track from "@/services/track";
 import { ImportFromServiceCard } from "@/components/importing/ImportFromServiceCard/ImportFromServiceCard";
 import { ImportRequestModal } from "@/components/importing/ImportRequestModal/ImportRequestModal";
@@ -115,7 +116,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
     : upcomingServices;
 
   return (
-    <div>
+    <Flex direction="column" gap="3">
       {requestService && (
         <ImportRequestModal
           service={requestService.service}
@@ -124,36 +125,32 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         />
       )}
 
-      <h1>Import your data</h1>
-
       {supported.map(({ service, icon, path, hasDarkIcon, text }) => (
-        <div key={`ImportFromServiceCard-${service}`} className="my-3">
-          <ImportFromServiceCard
-            service={service}
-            icon={icon}
-            path={path}
-            hasDarkIcon={hasDarkIcon}
-          >
-            {text}
-          </ImportFromServiceCard>
-        </div>
+        <ImportFromServiceCard
+          key={`ImportFromServiceCard-${service}`}
+          service={service}
+          icon={icon}
+          path={path}
+          hasDarkIcon={hasDarkIcon}
+        >
+          {text}
+        </ImportFromServiceCard>
       ))}
 
       {upcoming.map(({ service, slug, icon, hasDarkIcon, text }) => (
-        <div key={`ImportFromServiceCard-${service}`} className="my-3">
-          <ImportFromServiceCard
-            service={service}
-            icon={icon}
-            hasDarkIcon={hasDarkIcon}
-            onRequest={() => {
-              track("Import interest clicked", { service: slug });
-              setRequestService({ service, slug });
-            }}
-          >
-            {text}
-          </ImportFromServiceCard>
-        </div>
+        <ImportFromServiceCard
+          key={`ImportFromServiceCard-${service}`}
+          service={service}
+          icon={icon}
+          hasDarkIcon={hasDarkIcon}
+          onRequest={() => {
+            track("Import interest clicked", { service: slug });
+            setRequestService({ service, slug });
+          }}
+        >
+          {text}
+        </ImportFromServiceCard>
       ))}
-    </div>
+    </Flex>
   );
 };

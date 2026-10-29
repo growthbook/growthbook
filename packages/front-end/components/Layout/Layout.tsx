@@ -1,10 +1,12 @@
 import { useRouter } from "next/router";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { SidebarLinkProps } from "./SidebarLink";
-import { navlinks } from "./sidebarNav";
+import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
 import AppRail from "./AppRail";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
+import SettingsNav from "./SettingsNav";
 
 const breadcrumbLinks = [
   ...navlinks,
@@ -49,6 +51,8 @@ const otherPageTitles = [
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
   const { breadcrumb } = usePageHead();
+  // Narrower, the pages beside the Settings nav get too tight.
+  const wide = useMediaQuery("(min-width: 1400px)");
 
   // hacky:
   const router = useRouter();
@@ -86,6 +90,7 @@ const Layout = (): React.ReactElement => {
   return (
     <>
       <AppRail />
+      {wide && isSettingsRoute(router.route) ? <SettingsNav /> : null}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
