@@ -988,7 +988,7 @@ export default function ConnectDataSourceLayout({
                         placeholder="Select a region"
                         options={regionOptions}
                         sort={false}
-                        size="small"
+                        size="md"
                         legacyLabelFormatting={false}
                         noOptionsMessage={() => "No matching regions"}
                       />
