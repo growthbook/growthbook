@@ -3,22 +3,18 @@ import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapsh
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
-import {
-  errorSnapshotIfStillRunning,
-  updateSnapshot,
-} from "back-end/src/models/ExperimentSnapshotModel";
+import { updateSnapshot } from "back-end/src/models/ExperimentSnapshotModel";
 import {
   failQueuedQueries,
   getQueryStatusesByIds,
 } from "back-end/src/models/QueryModel";
-import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
+import { RESULTS_SUPERSEDED_ERROR } from "back-end/src/jobs/interruptedRefresh";
 import type { OrderedWriter } from "back-end/src/queryRunners/orderedWriter";
-import { RESULTS_NOT_COMMITTED_ERROR } from "back-end/src/jobs/interruptedRefresh";
+import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   updateSnapshot: jest.fn(),
-  errorSnapshotIfStillRunning: jest.fn(),
 }));
 jest.mock("back-end/src/models/QueryModel", () => ({
   ...jest.requireActual("back-end/src/models/QueryModel"),
@@ -32,11 +28,7 @@ const context = {
   models: {
     incrementalRefresh: {
       releaseLock: jest.fn().mockResolvedValue(undefined),
-      releaseLockAfterInterruptedRun: jest.fn().mockResolvedValue(true),
-      updateByExperimentIdIfCurrentExecution: jest.fn().mockResolvedValue(true),
       commitRunResults: jest.fn().mockResolvedValue(true),
-      cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
-      wasCleanedUpBy: jest.fn().mockResolvedValue(false),
       markMaterialized: jest.fn().mockResolvedValue(undefined),
     },
   },
@@ -103,166 +95,7 @@ describe.each([
   });
 });
 
-describe("ExperimentIncrementalRefreshQueryRunner failing with queries still pending", () => {
-  // The insert is still running when the run fails; its timestamp query has
-  // not started.
-  const incrementalSnapshot = {
-    ...snapshot,
-    runnerKind: "incremental-update",
-    queries: [
-      {
-        name: "insert_metrics_source_data_g1",
-        query: "q_insert",
-        status: "running",
-      },
-      {
-        name: "max_timestamp_metrics_source_g1",
-        query: "q_max",
-        status: "queued",
-      },
-    ],
-  } as unknown as ExperimentSnapshotInterface;
-
-  beforeEach(() => {
-    jest.mocked(getQueryStatusesByIds).mockResolvedValue([
-      { id: "q_insert", status: "running", createdAt: new Date() },
-      { id: "q_max", status: "queued", createdAt: new Date() },
-    ]);
-  });
-
-  function expectCleanedUp() {
-    expect(failQueuedQueries).toHaveBeenCalledWith(
-      context,
-      ["q_max"],
-      expect.any(String),
-    );
-    expect(
-      context.models.incrementalRefresh.releaseLockAfterInterruptedRun,
-    ).toHaveBeenCalledWith("exp_test", "snap_test", {
-      metricGroupIdsToRebuild: ["g1"],
-      forceFullRefresh: false,
-    });
-    expect(
-      context.models.incrementalRefresh.releaseLock,
-    ).not.toHaveBeenCalled();
-  }
-
-  it("drops what the run may have appended when its status rolls up to failed", async () => {
-    const runner = new ExperimentIncrementalRefreshQueryRunner(
-      context,
-      incrementalSnapshot,
-      { datasource: {} } as SourceIntegrationInterface,
-    );
-    await runner.updateModel({
-      status: "failed",
-      queries: incrementalSnapshot.queries,
-      error: "Error running one or more database queries",
-    });
-    expectCleanedUp();
-  });
-
-  it("drops what the run may have appended when it shuts down with an error", async () => {
-    jest.mocked(errorSnapshotIfStillRunning).mockResolvedValue(true);
-    const runner = new ExperimentIncrementalRefreshQueryRunner(
-      context,
-      incrementalSnapshot,
-      { datasource: {} } as SourceIntegrationInterface,
-    );
-    await (
-      runner as unknown as {
-        writeErrorIfStillActive: (error: string) => Promise<void>;
-      }
-    ).writeErrorIfStillActive("boom");
-    expectCleanedUp();
-  });
-
-  it.each(["partially-succeeded", "failed"] as const)(
-    "lands queued source-list writes before releasing the lock (%s)",
-    async (status) => {
-      jest.mocked(getQueryStatusesByIds).mockResolvedValue([]);
-      const runner = new ExperimentIncrementalRefreshQueryRunner(
-        context,
-        incrementalSnapshot,
-        { datasource: {} } as SourceIntegrationInterface,
-      );
-      const order: string[] = [];
-      let landSlowWrite = () => {};
-      const writeSourceLists = (
-        runner as unknown as { writeSourceLists: OrderedWriter }
-      ).writeSourceLists;
-      // A slow covariate write, then a failed source's removal behind it.
-      writeSourceLists(
-        () =>
-          new Promise<void>((resolve) => {
-            landSlowWrite = () => {
-              order.push("covariate write");
-              resolve();
-            };
-          }),
-      );
-      writeSourceLists(async () => {
-        order.push("source removal");
-      });
-      const release = jest.mocked(
-        context.models.incrementalRefresh.releaseLockAfterInterruptedRun,
-      );
-      release.mockImplementationOnce(async () => {
-        order.push("release");
-        return true;
-      });
-
-      const updating = runner.updateModel({ status, queries: [] });
-      await new Promise((resolve) => setImmediate(resolve));
-      expect(release).not.toHaveBeenCalled();
-      landSlowWrite();
-      await updating;
-
-      expect(order).toEqual(["covariate write", "source removal", "release"]);
-    },
-  );
-});
-
-describe("ExperimentIncrementalRefreshQueryRunner retrying its conclusion", () => {
-  it("keeps its results when saving the snapshot failed once", async () => {
-    const models = context.models.incrementalRefresh;
-    const finished = {
-      ...snapshot,
-      runnerKind: "incremental-update",
-      queries: [
-        {
-          name: "insert_metrics_source_data_g1",
-          query: "q_insert",
-          status: "succeeded",
-        },
-      ],
-    } as unknown as ExperimentSnapshotInterface;
-    jest.mocked(getQueryStatusesByIds).mockResolvedValue([]);
-    // Committing again after the lock was released would miss.
-    jest
-      .mocked(models.commitRunResults)
-      .mockResolvedValueOnce(true)
-      .mockResolvedValue(false);
-    jest.mocked(updateSnapshot).mockRejectedValueOnce(new Error("save failed"));
-    const runner = new ExperimentIncrementalRefreshQueryRunner(
-      context,
-      finished,
-      { datasource: {} } as SourceIntegrationInterface,
-    );
-
-    const conclude = () =>
-      runner.updateModel({ status: "succeeded", queries: finished.queries });
-    await expect(conclude()).rejects.toThrow("save failed");
-    await conclude();
-
-    const saved = jest.mocked(updateSnapshot).mock.calls[1][0].updates;
-    expect(saved.status).toBe("success");
-    expect(saved.error ?? "").toBe("");
-    expect(models.commitRunResults).toHaveBeenCalledTimes(1);
-    jest.mocked(models.commitRunResults).mockResolvedValue(true);
-  });
-});
-
-describe("ExperimentIncrementalRefreshQueryRunner saving its results", () => {
+describe("ExperimentIncrementalRefreshQueryRunner concluding", () => {
   const models = context.models.incrementalRefresh;
   const finished = {
     ...snapshot,
@@ -273,6 +106,7 @@ describe("ExperimentIncrementalRefreshQueryRunner saving its results", () => {
         query: "q_insert",
         status: "succeeded",
       },
+      { name: "statistics_g1", query: "q_stats", status: "queued" },
     ],
   } as unknown as ExperimentSnapshotInterface;
   const newRunner = () =>
@@ -280,25 +114,42 @@ describe("ExperimentIncrementalRefreshQueryRunner saving its results", () => {
       datasource: {},
     } as SourceIntegrationInterface);
 
-  beforeEach(() => {
-    jest.mocked(getQueryStatusesByIds).mockResolvedValue([]);
-  });
   afterEach(() => {
     jest.mocked(models.commitRunResults).mockResolvedValue(true);
   });
 
-  it("points the tables at the snapshot only once it is saved", async () => {
-    jest.mocked(updateSnapshot).mockRejectedValueOnce(new Error("save failed"));
-    await expect(
-      newRunner().updateModel({
-        status: "succeeded",
-        queries: finished.queries,
-      }),
-    ).rejects.toThrow("save failed");
-    expect(models.markMaterialized).not.toHaveBeenCalled();
+  it("commits, saves, then points the tables at the snapshot and releases", async () => {
+    await newRunner().updateModel({
+      status: "succeeded",
+      queries: finished.queries,
+    });
+
+    const order = (fn: unknown) =>
+      (fn as jest.Mock).mock.invocationCallOrder[0];
+    expect(order(models.commitRunResults)).toBeLessThan(order(updateSnapshot));
+    expect(order(updateSnapshot)).toBeLessThan(order(models.markMaterialized));
+    expect(order(models.markMaterialized)).toBeLessThan(
+      order(models.releaseLock),
+    );
   });
 
-  it("saves refused results as a retryable error, not a query failure", async () => {
+  it("keeps the lock and its results when saving the snapshot failed once", async () => {
+    jest.mocked(updateSnapshot).mockRejectedValueOnce(new Error("save failed"));
+    const runner = newRunner();
+    const conclude = () =>
+      runner.updateModel({ status: "succeeded", queries: finished.queries });
+
+    await expect(conclude()).rejects.toThrow("save failed");
+    expect(models.markMaterialized).not.toHaveBeenCalled();
+    expect(models.releaseLock).not.toHaveBeenCalled();
+    await conclude();
+
+    const saved = jest.mocked(updateSnapshot).mock.calls[1][0].updates;
+    expect(saved.status).toBe("success");
+    expect(models.markMaterialized).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves results it could not commit as superseded, not as a query failure", async () => {
     jest.mocked(models.commitRunResults).mockResolvedValue(false);
     const runner = newRunner();
 
@@ -309,12 +160,64 @@ describe("ExperimentIncrementalRefreshQueryRunner saving its results", () => {
 
     const saved = jest.mocked(updateSnapshot).mock.calls[0][0];
     expect(saved.updates.status).toBe("error");
-    expect(saved.failureCause).toBe("cancelled");
+    expect(saved.updates.error).toBe(RESULTS_SUPERSEDED_ERROR);
+    expect(saved.failureCause).toBe("superseded");
     expect(models.markMaterialized).not.toHaveBeenCalled();
     expect(
       (
         runner as unknown as { refusedResultsError: () => string | null }
       ).refusedResultsError(),
-    ).toContain(RESULTS_NOT_COMMITTED_ERROR);
+    ).toBe(RESULTS_SUPERSEDED_ERROR);
+  });
+
+  it("stops queries that have not started before releasing a failed run", async () => {
+    jest
+      .mocked(getQueryStatusesByIds)
+      .mockResolvedValue([
+        { id: "q_stats", status: "queued", createdAt: new Date() },
+      ]);
+
+    await newRunner().updateModel({
+      status: "failed",
+      queries: finished.queries,
+      error: "boom",
+    });
+
+    expect(failQueuedQueries).toHaveBeenCalledWith(
+      context,
+      ["q_stats"],
+      expect.any(String),
+    );
+    expect(models.commitRunResults).not.toHaveBeenCalled();
+    expect(models.releaseLock).toHaveBeenCalledWith("exp_test", "snap_test");
+  });
+
+  it("lands queued source-list writes before releasing the lock", async () => {
+    const runner = newRunner();
+    const order: string[] = [];
+    let landSlowWrite = () => {};
+    const writeSourceLists = (
+      runner as unknown as { writeSourceLists: OrderedWriter }
+    ).writeSourceLists;
+    writeSourceLists(
+      () =>
+        new Promise<void>((resolve) => {
+          landSlowWrite = () => {
+            order.push("source-list write");
+            resolve();
+          };
+        }),
+    );
+    jest.mocked(models.releaseLock).mockImplementationOnce(async () => {
+      order.push("release");
+    });
+
+    const updating = runner.updateModel({ status: "failed", queries: [] });
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(models.releaseLock).not.toHaveBeenCalled();
+    landSlowWrite();
+    await updating;
+
+    expect(order).toEqual(["source-list write", "release"]);
   });
 });

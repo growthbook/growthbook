@@ -104,6 +104,18 @@ export async function assertIncrementalRefreshPrerequisites({
   // detects the metric-source hash drift (see getFactTablesNeedingRebuild) and
   // rebuilds only that metric's fact-table cache, leaving the units table and
   // every unaffected metric cache on the incremental path.
+  // A breakdown reads the tables as they are, so it can't use any a stopped
+  // run left marked. An Update rebuilds those itself.
+  if (
+    analysisType === "exploratory" &&
+    incrementalRefreshModel &&
+    hasTablesMarkedDirty(incrementalRefreshModel)
+  ) {
+    throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+      INTERRUPTED_UPDATE_FULL_REFRESH_REASON,
+    );
+  }
+
   if (analysisType === "main-update" && incrementalRefreshModel) {
     const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
       snapshotSettings,
@@ -344,15 +356,28 @@ export function getMetricSettingsHashForIncrementalRefresh({
  */
 export function getFactTablesNeedingRebuild({
   existingMetricSources,
+  existingCovariateSources = [],
   desiredFanOut,
   currentMetricSettingsHashes,
 }: {
   existingMetricSources: IncrementalRefreshInterface["metricSources"];
+  existingCovariateSources?: IncrementalRefreshInterface["metricCovariateSources"];
   desiredFanOut: MetricFanOut;
   currentMetricSettingsHashes: Map<string, string>;
 }): Set<string> {
   const factTablesToRebuild = new Set<string>();
   if (!existingMetricSources.length) return factTablesToRebuild;
+
+  // A run stopped while writing these tables: they may hold rows past their
+  // saved watermark.
+  const dirtyGroupIds = new Set(
+    [...existingMetricSources, ...existingCovariateSources]
+      .filter((source) => source.dirtyBy)
+      .map((source) => source.groupId),
+  );
+  existingMetricSources
+    .filter((source) => dirtyGroupIds.has(source.groupId))
+    .forEach((source) => factTablesToRebuild.add(source.factTableId));
 
   // (factTableId, metricId) tuples the persisted caches currently hold.
   const storedTuples = new Set<string>();
@@ -601,6 +626,25 @@ export function getAggregatedFactTableRestateReason({
 
 // True when a dimension breakdown would read a units table built under different
 // experiment-level settings.
+export const INTERRUPTED_UPDATE_FULL_REFRESH_REASON =
+  "An earlier update stopped part-way. Run a full refresh.";
+
+// True when a stopped run left a table marked that it may have changed.
+export function hasTablesMarkedDirty(
+  incrementalRefreshModel: Pick<
+    IncrementalRefreshInterface,
+    "unitsDirtyBy" | "metricSources" | "metricCovariateSources"
+  >,
+): boolean {
+  return (
+    !!incrementalRefreshModel.unitsDirtyBy ||
+    [
+      ...incrementalRefreshModel.metricSources,
+      ...incrementalRefreshModel.metricCovariateSources,
+    ].some((source) => !!source.dirtyBy)
+  );
+}
+
 export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
   exposureQueries,
@@ -612,6 +656,8 @@ export function exploratoryOverallRequiresFullRefresh({
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
+  if (hasTablesMarkedDirty(incrementalRefreshModel)) return true;
+
   const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
     snapshotSettings,
     exposureQueries,

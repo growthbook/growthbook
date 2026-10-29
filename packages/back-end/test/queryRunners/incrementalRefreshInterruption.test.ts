@@ -24,7 +24,10 @@ import {
   getQueryStatusesByIds,
   failQueuedQueries,
 } from "back-end/src/models/QueryModel";
-import { startExperimentIncrementalRefreshQueries } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import {
+  runsAsFullRefresh,
+  startExperimentIncrementalRefreshQueries,
+} from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
 import { createOrderedWriter } from "back-end/src/queryRunners/orderedWriter";
 import {
   rollupQueryStatus,
@@ -33,12 +36,8 @@ import {
   type StartQueryParams,
 } from "back-end/src/queryRunners/QueryRunner";
 import {
-  getCancelledRunQueryStatuses,
-  concludeRefresh,
-  planInterruptedRunCleanup,
-  releaseInterruptedRefresh,
-  stopInterruptedRefresh,
-  stopInterruptedRefreshOrRelease,
+  RESULTS_SUPERSEDED_ERROR,
+  stopIncrementalRefresh,
 } from "back-end/src/jobs/interruptedRefresh";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ApiReqContext } from "back-end/types/api";
@@ -46,8 +45,8 @@ import { factMetricFactory } from "../factories/FactMetric.factory";
 import { factTableFactory } from "../factories/FactTable.factory";
 
 // Drives the real incremental refresh query plan against a simulated
-// warehouse, interrupts it at every step, runs each cleanup path, then checks
-// that the next refresh leaves every cache table equal to a clean full refresh.
+// warehouse, stops it at every step through every stop path, then checks that
+// the next refresh leaves every cache table equal to a clean full refresh.
 
 jest.mock("back-end/src/models/QueryModel", () => ({
   ...jest.requireActual("back-end/src/models/QueryModel"),
@@ -424,10 +423,6 @@ class SimRun {
   steps = 0;
   failures: string[] = [];
   writer = createOrderedWriter();
-  // Covariate callbacks left running in the background, as QueryRunner does.
-  detachCovariateCallbacks = false;
-  detached: Promise<unknown>[] = [];
-  beforeCallback: (q: SimQuery, queries: SimQuery[]) => void = () => undefined;
 
   constructor(
     readonly snapshotId: string,
@@ -468,7 +463,7 @@ class SimRun {
     }
   }
 
-  // Another snapshot takes the lock once this many steps have run.
+  // The run loses its lock once this many steps have run.
   stealLockAfter: number | null = null;
   stealLock: () => Promise<void> = async () => undefined;
 
@@ -553,17 +548,7 @@ class SimRun {
 
   async callback(q: SimQuery, countStep = true) {
     if (countStep) await this.step();
-    this.beforeCallback(q, this.queries);
-    const done = q.params.onSuccess?.(q.rows ?? []);
-    if (
-      this.detachCovariateCallbacks &&
-      q.name.startsWith("insert_metrics_covariate_data_")
-    ) {
-      this.detached.push(Promise.resolve(done));
-      await new Promise((resolve) => setImmediate(resolve));
-    } else {
-      await done;
-    }
+    await q.params.onSuccess?.(q.rows ?? []);
     q.phase = "done";
   }
 
@@ -666,13 +651,19 @@ function buildMetrics({ groups, covariates }: Config) {
 
 let model: IncrementalRefreshModel;
 const pendingWrites = new Set<Promise<unknown>>();
-// While set, covariate source-list writes wait for it, like a slow write.
-let covariateWriteGate: Promise<void> | null = null;
 
-// Same lock and cleanup semantics as IncrementalRefreshModel, without Mongo,
-// so the full sweep stays fast. The Mongo-backed sweep below checks it agrees.
+// Same lock semantics as IncrementalRefreshModel, without Mongo, so the full
+// sweep stays fast. The Mongo-backed sweeps below check it agrees.
 class InMemoryIncrementalRefreshModel {
   docs = new Map<string, IncrementalRefreshInterface>();
+
+  // The next call to this method throws once, like a dropped connection.
+  failOnce: string | null = null;
+  private maybeFail(method: string) {
+    if (this.failOnce !== method) return;
+    this.failOnce = null;
+    throw new Error(`${method} failed`);
+  }
 
   private locked(experimentId: string, snapshotId: string) {
     const doc = this.docs.get(experimentId);
@@ -721,7 +712,6 @@ class InMemoryIncrementalRefreshModel {
           experimentSettingsHash: null,
         } as IncrementalRefreshInterface)),
       currentExecutionSnapshotId: snapshotId,
-      lastLockHolderSnapshotId: snapshotId,
       lockHeartbeatAt: new Date(),
     });
     return true;
@@ -732,6 +722,7 @@ class InMemoryIncrementalRefreshModel {
     snapshotId: string,
     data: Partial<IncrementalRefreshInterface>,
   ) {
+    this.maybeFail("updateByExperimentIdIfCurrentExecution");
     const doc = this.locked(experimentId, snapshotId);
     if (!doc) return false;
     Object.assign(doc, structuredClone(data));
@@ -739,6 +730,7 @@ class InMemoryIncrementalRefreshModel {
   }
 
   async releaseLock(experimentId: string, snapshotId: string) {
+    this.maybeFail("releaseLock");
     const doc = this.locked(experimentId, snapshotId);
     if (doc) {
       doc.currentExecutionSnapshotId = null;
@@ -746,95 +738,26 @@ class InMemoryIncrementalRefreshModel {
     }
   }
 
-  // The next call to this method throws once, like a dropped connection.
-  failOnce: string | null = null;
-  private maybeFail(method: string) {
-    if (this.failOnce !== method) return;
-    this.failOnce = null;
-    throw new Error(`${method} failed`);
-  }
-
-  private remember(list: string[] | undefined, snapshotId: string) {
-    return [...(list ?? []), snapshotId].slice(-20);
-  }
-
-  async cleanUpUnlockedPhase(
-    experimentId: string,
-    phase: number,
-    snapshotId: string,
-    plan: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
-  ) {
-    this.maybeFail("cleanUpUnlockedPhase");
-    const doc = this.docs.get(experimentId);
-    if (
-      !doc ||
-      doc.phase !== phase ||
-      doc.currentExecutionSnapshotId ||
-      doc.lastLockHolderSnapshotId !== snapshotId
-    ) {
-      return false;
-    }
-    doc.cleanedUpSnapshotIds = this.remember(
-      doc.cleanedUpSnapshotIds,
-      snapshotId,
-    );
-    if (plan.forceFullRefresh) doc.unitsTableFullName = null;
-    const keep = (s: { groupId: string }) =>
-      !plan.metricGroupIdsToRebuild.includes(s.groupId);
-    doc.metricSources = doc.metricSources.filter(keep);
-    doc.metricCovariateSources = doc.metricCovariateSources.filter(keep);
-    return true;
-  }
-
   async commitRunResults(experimentId: string, snapshotId: string) {
     this.maybeFail("commitRunResults");
     const doc = this.docs.get(experimentId);
-    if (!doc) return false;
-    if (doc.committedSnapshotIds?.includes(snapshotId)) return true;
-    if (doc.currentExecutionSnapshotId !== snapshotId) return false;
-    doc.committedSnapshotIds = this.remember(
-      doc.committedSnapshotIds,
-      snapshotId,
-    );
+    if (
+      !doc ||
+      (doc.currentExecutionSnapshotId !== snapshotId &&
+        doc.lastCommittedSnapshotId !== snapshotId)
+    ) {
+      return false;
+    }
+    doc.lastCommittedSnapshotId = snapshotId;
     return true;
   }
 
   async markMaterialized(experimentId: string, snapshotId: string) {
+    this.maybeFail("markMaterialized");
     const doc = this.docs.get(experimentId);
-    if (
-      doc?.committedSnapshotIds?.includes(snapshotId) &&
-      doc.lastLockHolderSnapshotId === snapshotId
-    ) {
+    if (doc?.lastCommittedSnapshotId === snapshotId) {
       doc.materializedBySnapshotId = snapshotId;
     }
-  }
-
-  async wasCleanedUpBy(experimentId: string, snapshotId: string) {
-    return !!this.docs
-      .get(experimentId)
-      ?.cleanedUpSnapshotIds?.includes(snapshotId);
-  }
-
-  async releaseLockAfterInterruptedRun(
-    experimentId: string,
-    snapshotId: string,
-    plan: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
-  ) {
-    this.maybeFail("releaseLockAfterInterruptedRun");
-    const doc = this.locked(experimentId, snapshotId);
-    if (!doc) return false;
-    doc.cleanedUpSnapshotIds = this.remember(
-      doc.cleanedUpSnapshotIds,
-      snapshotId,
-    );
-    doc.currentExecutionSnapshotId = null;
-    doc.lockHeartbeatAt = null;
-    if (plan.forceFullRefresh) doc.unitsTableFullName = null;
-    const keep = (s: { groupId: string }) =>
-      !plan.metricGroupIdsToRebuild.includes(s.groupId);
-    doc.metricSources = doc.metricSources.filter(keep);
-    doc.metricCovariateSources = doc.metricCovariateSources.filter(keep);
-    return true;
   }
 }
 
@@ -856,17 +779,15 @@ function createModel(backend: "memory" | "mongo") {
       : (new InMemoryIncrementalRefreshModel() as unknown as IncrementalRefreshModel);
   const write = m.updateByExperimentIdIfCurrentExecution.bind(m);
   m.updateByExperimentIdIfCurrentExecution = (...args) => {
-    const gate =
-      covariateWriteGate && "metricCovariateSources" in args[2]
-        ? covariateWriteGate
-        : Promise.resolve();
-    const p = gate.then(() => write(...args));
+    const p = write(...args);
     pendingWrites.add(p);
     p.finally(() => pendingWrites.delete(p)).catch(() => undefined);
     return p;
   };
   return m;
 }
+
+const memoryModel = () => model as unknown as InMemoryIncrementalRefreshModel;
 
 const logger = {
   warn: jest.fn(),
@@ -898,15 +819,15 @@ class Experiment {
     this.built = buildMetrics(config);
   }
 
+  // Starts a refresh the way the runner does: a marked units table turns an
+  // Update into a full refresh once the lock is held.
   async startRun({
     now,
     fullRefresh,
     stopAfter = null,
     failQueryIndex = null,
     schedule = "serial",
-    detachCovariateCallbacks = false,
-    beforeCallback,
-    stealLockAfter = null,
+    loseLockAfter = null,
     failPlanningAt = null,
   }: {
     now: number;
@@ -914,9 +835,7 @@ class Experiment {
     stopAfter?: number | null;
     failQueryIndex?: number | null;
     schedule?: Schedule;
-    detachCovariateCallbacks?: boolean;
-    beforeCallback?: (q: SimQuery, queries: SimQuery[]) => void;
-    stealLockAfter?: number | null;
+    loseLockAfter?: number | null;
     failPlanningAt?: number | null;
   }) {
     const snapshotId = `snp_${++snapshotCounter}`;
@@ -927,24 +846,21 @@ class Experiment {
       legacyExperimentSettingsHash: "unused",
     });
     if (!locked) throw new Error("Could not acquire the lock");
+    const state = await model.getLockedBySnapshotId(this.id, snapshotId);
+    const runsFull = runsAsFullRefresh(fullRefresh, state);
     this.warehouse.now = now;
     const run = new SimRun(
       snapshotId,
-      fullRefresh,
+      runsFull,
       this.sim,
       this.warehouse,
       stopAfter,
       failQueryIndex,
     );
-    run.detachCovariateCallbacks = detachCovariateCallbacks;
-    if (beforeCallback) run.beforeCallback = beforeCallback;
-    run.stealLockAfter = stealLockAfter;
+    run.stealLockAfter = loseLockAfter;
     run.failPlanningAt = failPlanningAt;
-    run.stealLock = async () => {
-      await model.updateByExperimentIdIfCurrentExecution(this.id, snapshotId, {
-        currentExecutionSnapshotId: THIEF_SNAPSHOT_ID,
-      });
-    };
+    // The run's heartbeat went stale and its lock was released for another.
+    run.stealLock = () => model.releaseLock(this.id, snapshotId);
     const { factTableMap, metrics, settings } = this.built;
     const planning = startExperimentIncrementalRefreshQueries(
       context(),
@@ -957,7 +873,7 @@ class Experiment {
         queryParentId: snapshotId,
         experimentId: this.id,
         experimentQueryMetadata: null,
-        fullRefresh,
+        fullRefresh: runsFull,
         incrementalRefreshStartTime: toDate(now),
       },
       this.sim.integration,
@@ -971,11 +887,11 @@ class Experiment {
     }
     await planning;
     const finished = await run.execute(schedule);
-    if (!detachCovariateCallbacks) await drainWrites();
+    await drainWrites();
     return { run, finished };
   }
 
-  // A run to completion, released the way the runner releases it.
+  // A run to completion, concluded the way the runner concludes it.
   async completeRun(now: number, fullRefresh: boolean, schedule?: Schedule) {
     const { run, finished } = await this.startRun({
       now,
@@ -983,26 +899,25 @@ class Experiment {
       schedule,
     });
     expect(finished).toBe(true);
-    await this.release(run);
+    await this.conclude(run);
     return run;
   }
 
-  // Concludes a finished run as the runner does. Returns true when only a
-  // full refresh is safe next.
-  // When the snapshot save is lost, the tables must not point at it.
-  async release(run: SimRun, { saveLost = false } = {}) {
+  // Concludes a finished run as the runner's updateModel does: commit while
+  // holding the lock, save the snapshot, point the tables at it, stop. A
+  // failing step throws, and calling this again retries, as the runner does.
+  async conclude(run: SimRun, { saveFails = false } = {}) {
     await run.writer.flush();
-    mockQueryStore(run);
-    const { committed, resultsError, needsFullRefresh } = await concludeRefresh(
-      context(),
-      snapshotOf(this.id, run),
-      finishedStatus(run),
-    );
-    run.resultsError = resultsError;
-    if (committed && !resultsError && !saveLost) {
-      await model.markMaterialized(this.id, run.snapshotId);
+    const status = finishedStatus(run);
+    let committed = false;
+    if (status !== "failed") {
+      committed = await model.commitRunResults(this.id, run.snapshotId);
+      run.resultsError = committed ? null : RESULTS_SUPERSEDED_ERROR;
     }
-    return needsFullRefresh;
+    if (saveFails) throw new Error("Saving the snapshot failed");
+    if (committed) await model.markMaterialized(this.id, run.snapshotId);
+    mockQueryStore(run);
+    await stopIncrementalRefresh(context(), snapshotOf(this.id, run));
   }
 
   // What the cache tables hold, as the statistics queries read them.
@@ -1017,8 +932,9 @@ class Experiment {
       const sources = doc.metricSources.filter((s) => s.factTableId === ft);
       expect(sources).toHaveLength(1);
       const table = this.warehouse.tables.get(sources[0].tableFullName);
-      if (table?.kind !== "metric")
+      if (table?.kind !== "metric") {
         throw new Error(`No metric table for ${ft}`);
+      }
       metricRows[ft] = table.rows.map((r) => r.eventId).sort();
       if (!this.config.covariates) continue;
       const covSource = doc.metricCovariateSources.find(
@@ -1085,11 +1001,9 @@ function expectedContents(config: Config, now: number) {
 }
 
 // ---------------------------------------------------------------------------
-// Cleanup paths
+// Stop paths
 
-type CleanupPath = "reaper" | "timedOut" | "cancel";
-
-const THIEF_SNAPSHOT_ID = "snp_thief";
+type StopPath = "reaper" | "timedOut" | "cancel" | "runnerFailure";
 
 // Query doc reads and writes go to the run's simulated queries.
 function mockQueryStore(run: SimRun) {
@@ -1126,11 +1040,7 @@ function finishedStatus(run: SimRun) {
 const snapshotOf = (experimentId: string, run: SimRun) => ({
   id: run.snapshotId,
   experiment: experimentId,
-  phase: 0,
   organization: ORG,
-  runnerKind: run.fullRefresh
-    ? ("incremental-full" as const)
-    : ("incremental-update" as const),
   queries: run.queries.map((q) => ({
     name: q.name,
     query: q.id,
@@ -1138,43 +1048,29 @@ const snapshotOf = (experimentId: string, run: SimRun) => ({
   })),
 });
 
-async function cleanUp(
-  path: CleanupPath,
-  experimentId: string,
-  run: SimRun,
-): Promise<boolean> {
-  const snapshot = snapshotOf(experimentId, run);
-  switch (path) {
-    case "reaper":
-      return releaseInterruptedRefresh(
-        context(),
-        snapshot,
-        new Map(run.queries.map((q) => [q.id, q.status])),
-      );
-    case "timedOut": {
-      mockQueryStore(run);
-      const { needsFullRefresh } = await stopInterruptedRefresh(
-        context(),
-        snapshot,
-      );
-      return needsFullRefresh;
-    }
-    case "cancel": {
-      const notStartedIds = run.queries
-        .filter((q) => q.status === "queued")
-        .map((q) => q.id);
-      run.queries
-        .filter((q) => q.status === "queued" || q.status === "running")
-        .forEach((q) => (q.status = "failed"));
-      const after = run.queries.map((q) => ({ id: q.id, status: q.status }));
-      return releaseInterruptedRefresh(
-        context(),
-        snapshot,
-        getCancelledRunQueryStatuses(notStartedIds, after),
-      );
-    }
+// Every stop path fails the queries that have not started, then releases.
+async function stop(path: StopPath, experimentId: string, run: SimRun) {
+  if (path === "cancel") {
+    // A user cancel fails every pending query first.
+    run.queries
+      .filter((q) => q.status === "queued" || q.status === "running")
+      .forEach((q) => (q.status = "failed"));
+    await model.releaseLock(experimentId, run.snapshotId);
+    return;
   }
+  if (path === "runnerFailure") await run.writer.flush();
+  mockQueryStore(run);
+  await stopIncrementalRefresh(context(), snapshotOf(experimentId, run));
 }
+
+// Statements that change the units table; each marks it first.
+const changesUnits = (run: SimRun, name: string) =>
+  [
+    `drop_${run.snapshotId}_old`,
+    `create_${run.snapshotId}`,
+    `drop_${run.snapshotId}`,
+    `alter_${run.snapshotId}`,
+  ].includes(name);
 
 // ---------------------------------------------------------------------------
 
@@ -1189,13 +1085,16 @@ async function setUpExperiment(config: Config) {
   return exp;
 }
 
-// Refreshes as the app would next: a full refresh when the cleanup asked
-// for one or the units table is gone, otherwise an Update.
-async function nextRefresh(exp: Experiment, needsFullRefresh: boolean) {
+// Refreshes as an Update would next, unless the units table is missing. A
+// marked units table is left for the runner to turn into a full refresh.
+async function nextRefresh(exp: Experiment, fullRefresh = false) {
   const doc = await getDoc(exp.id);
-  const fullRefresh = needsFullRefresh || !doc?.unitsTableFullName;
-  const run = await exp.completeRun(NEXT_AT, fullRefresh);
+  const run = await exp.completeRun(
+    NEXT_AT,
+    fullRefresh || !doc?.unitsTableFullName,
+  );
   expect(run.failures).toEqual([]);
+  expect(committed(run)).toBe(true);
 }
 
 const configs: Config[] = [1, 2, 3].flatMap((groups) =>
@@ -1224,16 +1123,43 @@ const modes = [
   { mode: "Full refresh", fullRefresh: true },
 ];
 const paths: {
-  path: CleanupPath;
+  path: StopPath;
   late: ("none" | "warehouse" | "runner")[];
 }[] = [
   { path: "reaper", late: ["none", "warehouse"] },
   { path: "timedOut", late: ["none", "runner"] },
   { path: "cancel", late: ["none", "warehouse", "runner"] },
+  { path: "runnerFailure", late: ["none", "runner"] },
 ];
 
-// Interrupts a run after each step in turn, cleans up through every path,
-// then checks the next refresh. Returns a description of each bad outcome.
+const failureText = (where: string, e: unknown) => {
+  const message = e instanceof Error ? e.message : String(e);
+  return `${where}: ${message.split("\n").slice(0, 12).join(" ")}`;
+};
+
+// Marks the run left must cover every table it may have changed, and none it
+// didn't touch.
+async function checkMarks(exp: Experiment, run: SimRun) {
+  const doc = await getDoc(exp.id);
+  const unitsStarted = run.queries.some(
+    (q) => changesUnits(run, q.name) && q.phase !== "queued",
+  );
+  if (!unitsStarted) expect(doc?.unitsDirtyBy ?? null).toBeNull();
+  const insertsStarted = run.queries.some(
+    (q) => q.name.startsWith("insert_") && q.phase !== "queued",
+  );
+  if (!insertsStarted && !unitsStarted) {
+    expect(
+      [
+        ...(doc?.metricSources ?? []),
+        ...(doc?.metricCovariateSources ?? []),
+      ].filter((s) => s.dirtyBy),
+    ).toEqual([]);
+  }
+}
+
+// Stops a run after each step in turn through every stop path, lets in-flight
+// queries finish late, then checks the next refresh.
 async function sweep(
   config: Config,
   fullRefresh: boolean,
@@ -1253,31 +1179,27 @@ async function sweep(
             schedule,
           });
           expect(finished).toBe(false);
-          const needsFullRefresh = await cleanUp(path, exp.id, run);
+          await stop(path, exp.id, run);
           const where = `${schedule} step ${stopAfter} (${run.queries
             .filter((q) => q.phase !== "queued")
             .map((q) => `${q.name}:${q.phase}`)
             .slice(-3)
             .join(", ")}) via ${path}, late ${lateMode}`;
-          const doc = await getDoc(exp.id);
-          if (doc?.currentExecutionSnapshotId !== null) {
-            failures.push(`${where}: lock not released`);
-            continue;
-          }
-          if (lateMode !== "none") {
-            await run.finishLate(lateMode === "runner");
-            await drainWrites();
-          }
           try {
-            await nextRefresh(exp, needsFullRefresh);
+            expect(
+              (await getDoc(exp.id))?.currentExecutionSnapshotId,
+            ).toBeNull();
+            await checkMarks(exp, run);
+            if (lateMode !== "none") {
+              await run.finishLate(lateMode === "runner");
+              await drainWrites();
+            }
+            await nextRefresh(exp);
             expect(await exp.contents()).toEqual(
               expectedContents(config, NEXT_AT),
             );
           } catch (e) {
-            const message = e instanceof Error ? e.message : String(e);
-            failures.push(
-              `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
-            );
+            failures.push(failureText(where, e));
           }
         }
       }
@@ -1286,8 +1208,39 @@ async function sweep(
   return failures;
 }
 
-// Fails each query in turn, lets the rest of the run finish, then releases it
-// the way the runner does.
+// The run's lock goes stale after each step in turn and a newer refresh takes
+// it. The old run carries on: whatever it does after that must fail, and the
+// newer refresh must see every table the old run may have changed.
+async function sweepLostLock(
+  config: Config,
+  fullRefresh: boolean,
+  newerFullRefresh: boolean,
+) {
+  const failures: string[] = [];
+  const total = await countSteps(config, fullRefresh, "serial");
+  for (let loseLockAfter = 0; loseLockAfter < total; loseLockAfter++) {
+    const exp = await setUpExperiment(config);
+    const { run, finished } = await exp.startRun({
+      now: INTERRUPTED_AT,
+      fullRefresh,
+      loseLockAfter,
+    });
+    const where = `lock lost after step ${loseLockAfter}, newer ${newerFullRefresh ? "full refresh" : "Update"}`;
+    try {
+      expect(finished).toBe(true);
+      await exp.conclude(run);
+      expect(committed(run)).toBe(false);
+      await nextRefresh(exp, newerFullRefresh);
+      expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+    } catch (e) {
+      failures.push(failureText(where, e));
+    }
+  }
+  return failures;
+}
+
+// Fails each query in turn, lets the rest of the run finish, then concludes
+// it the way the runner does.
 async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
   const failures: string[] = [];
   const count = (
@@ -1302,187 +1255,75 @@ async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
       fullRefresh,
       failQueryIndex,
     });
-    expect(finished).toBe(true);
-    const status = finishedStatus(run);
-    const needsFullRefresh = await exp.release(run);
-    const where = `${run.queries[failQueryIndex].name} failed (run ${status})`;
+    const where = `${run.queries[failQueryIndex].name} failed`;
     try {
-      await nextRefresh(exp, needsFullRefresh);
+      expect(finished).toBe(true);
+      await exp.conclude(run);
+      expect((await getDoc(exp.id))?.currentExecutionSnapshotId).toBeNull();
+      await nextRefresh(exp);
       expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      failures.push(`${where}: ${message.split("\n").slice(0, 12).join(" ")}`);
+      failures.push(failureText(where, e));
     }
   }
   return failures;
 }
 
-// A covariate callback's write is slow, and a max-timestamp query fails while
-// it is queued, so the source's removal waits behind it. The run partially
-// succeeds and is released; the removal must land first.
-async function slowCovariateWriteThenFailedSource(config: Config) {
-  // The last source, so no later write queues behind the slow one.
-  const probe = await (
-    await setUpExperiment(config)
-  ).startRun({ now: INTERRUPTED_AT, fullRefresh: false });
-  const failQueryIndex = probe.run.queries
-    .map((q) => q.name)
-    .lastIndexOf(
-      probe.run.queries
-        .map((q) => q.name)
-        .filter((n) => n.startsWith("max_timestamp_metrics_source_"))
-        .pop() ?? "",
-    );
-
-  const exp = await setUpExperiment(config);
-  let landCovariateWrite = () => {};
-  const { run } = await exp.startRun({
-    now: INTERRUPTED_AT,
-    fullRefresh: false,
-    failQueryIndex,
-    detachCovariateCallbacks: true,
-    // Slows the covariate write of the source whose timestamp query fails.
-    beforeCallback: (q, queries) => {
-      const failing = queries[failQueryIndex]?.name ?? "";
-      const groupId = failing.replace("max_timestamp_metrics_source_", "");
-      if (q.name === `insert_metrics_covariate_data_${groupId}`) {
-        covariateWriteGate = new Promise((resolve) => {
-          landCovariateWrite = resolve;
-        });
-      }
-    },
-  });
-  expect(
-    rollupQueryStatus(
-      run.queries.map((q) => ({ name: q.name, query: q.id, status: q.status })),
-    ),
-  ).toBe("partially-succeeded");
-
-  const releasing = exp.release(run);
-  await new Promise((resolve) => setImmediate(resolve));
-  covariateWriteGate = null;
-  landCovariateWrite();
-  await releasing;
-  await Promise.allSettled(run.detached);
-  await drainWrites();
-
-  await nextRefresh(exp, false);
-  expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
-}
-
-async function expectFencedCleanupChangesNothing(
-  fullRefresh: boolean,
-  config: Config = { groups: 2, covariates: true },
-) {
-  const total = await countSteps(config, fullRefresh, "serial");
-  for (let stopAfter = 0; stopAfter < total; stopAfter++) {
-    for (const path of ["reaper", "timedOut", "cancel"] as const) {
-      const exp = await setUpExperiment(config);
-      const { run } = await exp.startRun({
-        now: INTERRUPTED_AT,
-        fullRefresh,
-        stopAfter,
-      });
-      await model.updateByExperimentIdIfCurrentExecution(
-        exp.id,
-        run.snapshotId,
-        { currentExecutionSnapshotId: "snp_other" },
-      );
-      const before = await getDoc(exp.id);
-      const plan = planInterruptedRunCleanup({
-        snapshotId: run.snapshotId,
-        fullRefresh,
-        queries: run.queries.map((q) => ({
-          name: q.name,
-          status: q.status,
-        })),
-      });
-      const needsFullRefresh = await cleanUp(path, exp.id, run);
-      expect(await getDoc(exp.id)).toEqual(before);
-      if (path === "reaper") {
-        expect(needsFullRefresh).toBe(
-          plan.forceFullRefresh || plan.metricGroupIdsToRebuild.length > 0,
-        );
-      }
-    }
-  }
-}
-
-// Another snapshot takes the lock after each step in turn, so every fenced
-// write from then on misses. A query that saves state must not count as
-// succeeded unless its state was saved, and the run's release must say when
-// only a full refresh is safe next.
-async function expectLostLockNeverCountsAsSaved(
-  config: Config,
-  fullRefresh: boolean,
-) {
+// Each step of concluding a finished run fails once, and the runner retries.
+// The run keeps its results, the tables point at its snapshot only once it
+// is saved, and the lock is released.
+async function sweepConcludeRetries(config: Config, fullRefresh: boolean) {
   const failures: string[] = [];
-  const total = await countSteps(config, fullRefresh, "serial");
-  for (let stealLockAfter = 0; stealLockAfter < total; stealLockAfter++) {
+  const steps = [
+    "commitRunResults",
+    "save",
+    "markMaterialized",
+    "releaseLock",
+  ] as const;
+  for (const failStep of steps) {
     const exp = await setUpExperiment(config);
-    const { run, finished } = await exp.startRun({
-      now: INTERRUPTED_AT,
-      fullRefresh,
-      stealLockAfter,
-    });
-    expect(finished).toBe(true);
-    const where = `lock lost after step ${stealLockAfter}`;
-    const doc = await getDoc(exp.id);
-    const tableMax = (name: string | null | undefined) => {
-      const table = name ? exp.warehouse.tables.get(name) : undefined;
-      if (!table || table.kind === "covariate") return undefined;
-      return maxOf(table.rows.map((r) => r.maxTs));
-    };
-    const savedMinute = (date: Date | null | undefined) =>
-      date ? toMinute(date) : null;
-    run.queries
-      .filter((q) => q.status === "succeeded")
-      .forEach((q) => {
-        if (q.name === `max_timestamp_${run.snapshotId}`) {
-          if (
-            doc?.unitsTableFullName !==
-              q.query.match(/"table":"([^"]+)"/)?.[1] ||
-            savedMinute(doc?.unitsMaxTimestamp) !==
-              tableMax(doc?.unitsTableFullName)
-          ) {
-            failures.push(`${where}: ${q.name} succeeded without its save`);
-          }
-        }
-        if (q.name.startsWith("max_timestamp_metrics_source_")) {
-          const groupId = q.name.replace("max_timestamp_metrics_source_", "");
-          const source = doc?.metricSources.find((x) => x.groupId === groupId);
-          if (
-            !source ||
-            savedMinute(source.maxTimestamp) !== tableMax(source.tableFullName)
-          ) {
-            failures.push(`${where}: ${q.name} succeeded without its save`);
-          }
-        }
-      });
-
-    // The thief never runs; once it lets go, the next refresh must be right.
-    const needsFullRefresh = await exp.release(run);
-    if (committed(run)) {
-      failures.push(`${where}: committed its results without the lock`);
-    }
-    await model.releaseLock(exp.id, THIEF_SNAPSHOT_ID);
+    const before = (await getDoc(exp.id))?.materializedBySnapshotId;
+    const { run } = await exp.startRun({ now: INTERRUPTED_AT, fullRefresh });
+    const where = `${failStep} failing once`;
     try {
-      await nextRefresh(exp, needsFullRefresh);
+      if (failStep !== "save" && model instanceof IncrementalRefreshModel) {
+        continue;
+      }
+      if (failStep !== "save") memoryModel().failOnce = failStep;
+      const firstAttempt = await exp
+        .conclude(run, { saveFails: failStep === "save" })
+        .then(() => true)
+        .catch(() => false);
+      if (failStep === "save") {
+        // Never points at a snapshot whose save failed.
+        expect((await getDoc(exp.id))?.materializedBySnapshotId).toBe(before);
+      }
+      if (!firstAttempt) await exp.conclude(run);
+      expect(committed(run)).toBe(true);
+      if (failStep === "releaseLock") {
+        // A failed release isn't retried: the lock expires, and nothing is
+        // marked, so the next refresh is an ordinary Update.
+        expect((await getDoc(exp.id))?.currentExecutionSnapshotId).toBe(
+          run.snapshotId,
+        );
+        await model.releaseLock(exp.id, run.snapshotId);
+      }
+      const doc = await getDoc(exp.id);
+      expect(doc?.materializedBySnapshotId).toBe(run.snapshotId);
+      expect(doc?.currentExecutionSnapshotId).toBeNull();
+      expect(doc?.unitsDirtyBy ?? null).toBeNull();
+      await nextRefresh(exp);
       expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      failures.push(`${where}: ${message.split("\n").slice(0, 12).join(" ")}`);
+      failures.push(failureText(where, e));
     }
   }
   return failures;
 }
 
 // Planning throws part-way, after queries without dependencies have started,
-// and the lock is released the way snapshot creation does on an error.
-async function expectFailedPlanningCleansUp(
-  config: Config,
-  fullRefresh: boolean,
-) {
+// and the run is stopped the way snapshot creation does on an error.
+async function sweepFailedPlanning(config: Config, fullRefresh: boolean) {
   const failures: string[] = [];
   const count = (
     await (
@@ -1498,161 +1339,41 @@ async function expectFailedPlanningCleansUp(
         failPlanningAt,
       });
       await run.startDependencyFree(applyEffectsFirst);
-      mockQueryStore(run);
-      const { needsFullRefresh } = await stopInterruptedRefreshOrRelease(
-        context(),
-        snapshotOf(exp.id, run),
-      );
+      await stop("reaper", exp.id, run);
       await run.finishLate(true);
       await drainWrites();
       const where = `planning failed at query ${failPlanningAt}${applyEffectsFirst ? "" : ", effects landing late"}`;
       try {
         expect((await getDoc(exp.id))?.currentExecutionSnapshotId).toBeNull();
-        await nextRefresh(exp, needsFullRefresh);
+        await nextRefresh(exp);
         expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
       } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        failures.push(
-          `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
-        );
+        failures.push(failureText(where, e));
       }
     }
   }
   return failures;
 }
 
-// A finished run is concluded, and then concluded again, as when saving its
-// snapshot failed and the runner retries, or recovery finishes it later. One
-// step of the first conclusion can also fail once. The retry must keep the
-// run's results and leave the tables, lock and next refresh as one clean
-// conclusion would.
-async function expectRetriedConclusionKeepsResults(
-  config: Config,
-  fullRefresh: boolean,
-  steps: (string | null)[] = [
-    null,
-    "commitRunResults",
-    "releaseLockAfterInterruptedRun",
-    "cleanUpUnlockedPhase",
-  ],
-) {
-  const failures: string[] = [];
-  // Only the in-memory store can fail a step on demand.
-  const store =
-    model instanceof IncrementalRefreshModel
-      ? { failOnce: null as string | null }
-      : (model as unknown as InMemoryIncrementalRefreshModel);
-  const count = (
-    await (
-      await setUpExperiment(config)
-    ).startRun({ now: INTERRUPTED_AT, fullRefresh })
-  ).run.queries.length;
-  for (let failQueryIndex = -1; failQueryIndex < count; failQueryIndex++) {
-    for (const failStep of steps) {
-      const exp = await setUpExperiment(config);
-      const { run } = await exp.startRun({
-        now: INTERRUPTED_AT,
-        fullRefresh,
-        failQueryIndex: failQueryIndex < 0 ? null : failQueryIndex,
-      });
-      const where = `${failQueryIndex < 0 ? "clean run" : `${run.queries[failQueryIndex].name} failed`}, ${failStep ?? "no step"} failing once`;
-      try {
-        store.failOnce = failStep;
-        let needsFullRefresh = await exp.release(run).catch(() => null);
-        store.failOnce = null;
-        const first = run.resultsError;
-        // The retry.
-        const retried = await exp.release(run);
-        // Nobody else took the lock, so the retry has nothing left to report.
-        expect(retried).toBe(false);
-        needsFullRefresh = (needsFullRefresh ?? false) || retried;
-        if (finishedStatus(run) !== "failed") {
-          expect(run.resultsError).toBeNull();
-          if (first !== null) expect(first).toBeNull();
-        }
-        expect((await getDoc(exp.id))?.currentExecutionSnapshotId).toBeNull();
-        await nextRefresh(exp, needsFullRefresh);
-        expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        failures.push(
-          `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
-        );
-      } finally {
-        store.failOnce = null;
-      }
-    }
-  }
-  return failures;
-}
+// A dimension breakdown holds the lock, writes nothing, and its process dies.
+// Nothing is marked, so the next refresh stays an Update.
+async function expectBreakdownLockNeverForcesFullRefresh(config: Config) {
+  const exp = await setUpExperiment(config);
+  const unitsTable = (await getDoc(exp.id))?.unitsTableFullName;
+  await model.acquireLock({
+    experimentId: exp.id,
+    phase: 0,
+    snapshotId: "snp_breakdown",
+    legacyExperimentSettingsHash: "unused",
+  });
+  await model.releaseLock(exp.id, "snp_breakdown");
 
-// A run's snapshot save is lost after it concluded, and a later process
-// concludes it again, sometimes after a newer run already finished. The
-// second conclusion must recognise its own work: keep the run's results,
-// change nothing a newer run owns, and never point the tables at a snapshot
-// that was not saved as a success.
-async function expectConcludingAgainLaterChangesNothing(
-  config: Config,
-  fullRefresh: boolean,
-) {
-  const failures: string[] = [];
-  const count = (
-    await (
-      await setUpExperiment(config)
-    ).startRun({ now: INTERRUPTED_AT, fullRefresh })
-  ).run.queries.length;
-  const tablesState = async (experimentId: string) => {
-    const doc = await getDoc(experimentId);
-    return {
-      unitsTableFullName: doc?.unitsTableFullName,
-      metricSources: doc?.metricSources,
-      metricCovariateSources: doc?.metricCovariateSources,
-      currentExecutionSnapshotId: doc?.currentExecutionSnapshotId,
-    };
-  };
-  for (let failQueryIndex = -1; failQueryIndex < count; failQueryIndex++) {
-    for (const newerRunBetween of [false, true]) {
-      const exp = await setUpExperiment(config);
-      const before = (await getDoc(exp.id))?.materializedBySnapshotId;
-      const { run } = await exp.startRun({
-        now: INTERRUPTED_AT,
-        fullRefresh,
-        failQueryIndex: failQueryIndex < 0 ? null : failQueryIndex,
-      });
-      const where = `${failQueryIndex < 0 ? "clean run" : `${run.queries[failQueryIndex].name} failed`}${newerRunBetween ? ", newer run between" : ""}`;
-      try {
-        const needsFullRefresh = await exp.release(run, { saveLost: true });
-        // Never points at a snapshot whose save was lost.
-        expect((await getDoc(exp.id))?.materializedBySnapshotId).toBe(before);
-        const firstError = run.resultsError;
-        if (newerRunBetween) {
-          await exp.completeRun(INTERRUPTED_AT + 50, needsFullRefresh);
-        }
-        const settled = await tablesState(exp.id);
-
-        const pointer = (await getDoc(exp.id))?.materializedBySnapshotId;
-        expect(await exp.release(run)).toBe(false);
-        expect(run.resultsError).toBe(firstError);
-        expect(await tablesState(exp.id)).toEqual(settled);
-        // Saved now, it may become the tables' snapshot, unless a newer run
-        // took the lock since.
-        expect((await getDoc(exp.id))?.materializedBySnapshotId).toBe(
-          newerRunBetween || committed(run) === false
-            ? pointer
-            : run.snapshotId,
-        );
-
-        await nextRefresh(exp, needsFullRefresh && !newerRunBetween);
-        expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
-      } catch (e) {
-        const message = e instanceof Error ? e.message : String(e);
-        failures.push(
-          `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
-        );
-      }
-    }
-  }
-  return failures;
+  const doc = await getDoc(exp.id);
+  expect(doc?.unitsDirtyBy ?? null).toBeNull();
+  const run = await exp.completeRun(NEXT_AT, false);
+  expect(run.fullRefresh).toBe(false);
+  expect((await getDoc(exp.id))?.unitsTableFullName).toBe(unitsTable);
+  expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
 }
 
 describe("incremental refresh interruption (in-memory lock state)", () => {
@@ -1668,110 +1389,56 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       await exp.completeRun(INTERRUPTED_AT, false);
       await exp.completeRun(NEXT_AT, false);
       expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+      expect((await getDoc(exp.id))?.unitsDirtyBy ?? null).toBeNull();
     },
   );
 
-  it.each(modes)(
-    "leaves a finished $mode untouched",
-    async ({ fullRefresh }) => {
-      const config = { groups: 2, covariates: true };
-      const exp = await setUpExperiment(config);
-      const { run, finished } = await exp.startRun({
-        now: INTERRUPTED_AT,
-        fullRefresh,
-      });
-      expect(finished).toBe(true);
-      const before = await getDoc(exp.id);
-      for (const path of ["reaper", "timedOut", "cancel"] as const) {
-        expect(await cleanUp(path, exp.id, run)).toBe(false);
-      }
-      expect(await getDoc(exp.id)).toEqual({
-        ...before,
-        currentExecutionSnapshotId: null,
-        lockHeartbeatAt: null,
-        cleanedUpSnapshotIds: [
-          ...(before?.cleanedUpSnapshotIds ?? []),
-          run.snapshotId,
-        ],
-      });
-      expect(await exp.contents()).toEqual(
-        expectedContents(config, INTERRUPTED_AT),
-      );
-    },
-  );
-
-  it.each(modes)(
-    "changes nothing when another snapshot holds the lock: $mode",
-    ({ fullRefresh }) => expectFencedCleanupChangesNothing(fullRefresh),
-  );
-
-  it.each([1, 2, 3])(
-    "rebuilds a failed source whose removal queued behind a slow covariate write (%i group(s))",
-    async (groups) => {
-      await slowCovariateWriteThenFailedSource({ groups, covariates: true });
-    },
+  it.each(configs)(
+    "keeps Updates incremental after a breakdown's lock goes stale ($groups, $covariates)",
+    (config) => expectBreakdownLockNeverForcesFullRefresh(config),
   );
 
   describe.each(modes)("$mode", ({ fullRefresh }) => {
     it.each(configs.map((c) => [label(c), c] as const))(
-      "recovers when planning fails after queries started: %s",
+      "recovers from a stop at every step: %s",
       async (_, config) => {
-        expect(await expectFailedPlanningCleansUp(config, fullRefresh)).toEqual(
-          [],
-        );
+        const schedules: Schedule[] =
+          config.groups > 1 ? ["serial", "waves"] : ["serial"];
+        expect(await sweep(config, fullRefresh, schedules)).toEqual([]);
       },
     );
-  });
 
-  describe.each(modes)("$mode", ({ fullRefresh }) => {
-    it.each(configs.map((c) => [label(c), c] as const))(
-      "changes nothing when concluded again by a later process: %s",
-      async (_, config) => {
+    it.each(
+      configs.flatMap((c) =>
+        [false, true].map((newer) => [label(c), newer, c] as const),
+      ),
+    )(
+      "recovers when the lock goes stale at every step: %s, newer full refresh %s",
+      async (_, newerFullRefresh, config) => {
         expect(
-          await expectConcludingAgainLaterChangesNothing(config, fullRefresh),
+          await sweepLostLock(config, fullRefresh, newerFullRefresh),
         ).toEqual([]);
       },
     );
-  });
 
-  describe.each(modes)("$mode", ({ fullRefresh }) => {
-    it.each(configs.map((c) => [label(c), c] as const))(
-      "keeps its results when concluding is retried: %s",
-      async (_, config) => {
-        expect(
-          await expectRetriedConclusionKeepsResults(config, fullRefresh),
-        ).toEqual([]);
-      },
-    );
-  });
-
-  describe.each(modes)("$mode", ({ fullRefresh }) => {
-    it.each(configs.map((c) => [label(c), c] as const))(
-      "never counts a save that missed a lost lock as done: %s",
-      async (_, config) => {
-        expect(
-          await expectLostLockNeverCountsAsSaved(config, fullRefresh),
-        ).toEqual([]);
-      },
-    );
-  });
-
-  describe.each(modes)("$mode", ({ fullRefresh }) => {
     it.each(configs.map((c) => [label(c), c] as const))(
       "recovers from any one query failing: %s",
       async (_, config) => {
         expect(await sweepQueryFailures(config, fullRefresh)).toEqual([]);
       },
     );
-  });
 
-  describe.each(modes)("$mode", ({ fullRefresh }) => {
     it.each(configs.map((c) => [label(c), c] as const))(
-      "recovers from an interruption at every step: %s",
+      "keeps its results when a conclude step fails once: %s",
       async (_, config) => {
-        const schedules: Schedule[] =
-          config.groups > 1 ? ["serial", "waves"] : ["serial"];
-        expect(await sweep(config, fullRefresh, schedules)).toEqual([]);
+        expect(await sweepConcludeRetries(config, fullRefresh)).toEqual([]);
+      },
+    );
+
+    it.each(configs.map((c) => [label(c), c] as const))(
+      "recovers when planning fails after queries started: %s",
+      async (_, config) => {
+        expect(await sweepFailedPlanning(config, fullRefresh)).toEqual([]);
       },
     );
   });
@@ -1792,125 +1459,27 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
     await disconnectTestMongo();
   });
 
-  it.each(modes)(
-    "changes nothing when another snapshot holds the lock: $mode",
-    ({ fullRefresh }) =>
-      expectFencedCleanupChangesNothing(fullRefresh, MONGO_CONFIG),
-  );
-
-  it("drops the sources to rebuild and releases the lock in one write", async () => {
-    const exp = await setUpExperiment({ groups: 2, covariates: true });
-    const before = await getDoc(exp.id);
-    const [rebuilt, kept] = (before?.metricSources ?? []).map((s) => s.groupId);
-    await model.acquireLock({
-      experimentId: exp.id,
-      phase: 0,
-      snapshotId: "snp_cleanup",
-      legacyExperimentSettingsHash: "unused",
-    });
-
-    const needsFullRefresh = await releaseInterruptedRefresh(
-      context(),
-      {
-        id: "snp_cleanup",
-        experiment: exp.id,
-        runnerKind: "incremental-update",
-        queries: [
-          {
-            name: `insert_metrics_source_data_${rebuilt}`,
-            query: "q1",
-            status: "running",
-          },
-          {
-            name: `max_timestamp_metrics_source_${rebuilt}`,
-            query: "q2",
-            status: "queued",
-          },
-        ],
-      },
-      new Map([
-        ["q1", "running"],
-        ["q2", "queued"],
-      ]),
-    );
-
-    expect(needsFullRefresh).toBe(false);
-    const doc = await getDoc(exp.id);
-    expect(doc?.currentExecutionSnapshotId).toBeNull();
-    expect(doc?.lockHeartbeatAt).toBeNull();
-    expect(doc?.unitsTableFullName).toBe(before?.unitsTableFullName);
-    expect(doc?.metricSources.map((s) => s.groupId)).toEqual([kept]);
-    expect(doc?.metricCovariateSources.map((s) => s.groupId)).toEqual([kept]);
-  });
-
-  it("forgets the units table when the run stopped between drop and rename", async () => {
-    const exp = await setUpExperiment({ groups: 2, covariates: true });
-    await model.acquireLock({
-      experimentId: exp.id,
-      phase: 0,
-      snapshotId: "snp_cleanup",
-      legacyExperimentSettingsHash: "unused",
-    });
-
-    await releaseInterruptedRefresh(
-      context(),
-      {
-        id: "snp_cleanup",
-        experiment: exp.id,
-        runnerKind: "incremental-update",
-        queries: [
-          { name: "drop_snp_cleanup", query: "q1", status: "succeeded" },
-          { name: "alter_snp_cleanup", query: "q2", status: "running" },
-        ],
-      },
-      new Map([
-        ["q1", "succeeded"],
-        ["q2", "running"],
-      ]),
-    );
-
-    const doc = await getDoc(exp.id);
-    expect(doc?.unitsTableFullName).toBeNull();
-    expect(doc?.metricSources).toHaveLength(2);
-    expect(doc?.currentExecutionSnapshotId).toBeNull();
-  });
+  it("keeps Updates incremental after a breakdown's lock goes stale", () =>
+    expectBreakdownLockNeverForcesFullRefresh(MONGO_CONFIG));
 
   it.each(modes)(
-    "recovers from an interruption at every step: $mode",
+    "recovers from a stop at every step: $mode",
     async ({ fullRefresh }) => {
       expect(await sweep(MONGO_CONFIG, fullRefresh, ["serial"])).toEqual([]);
     },
   );
 
   it.each(modes)(
-    "changes nothing when concluded again by a later process: $mode",
+    "recovers when the lock goes stale at every step: $mode",
     async ({ fullRefresh }) => {
-      expect(
-        await expectConcludingAgainLaterChangesNothing(
-          MONGO_CONFIG,
-          fullRefresh,
-        ),
-      ).toEqual([]);
+      expect(await sweepLostLock(MONGO_CONFIG, fullRefresh, false)).toEqual([]);
     },
   );
 
   it.each(modes)(
-    "keeps its results when concluding is retried: $mode",
+    "keeps its results when saving fails once: $mode",
     async ({ fullRefresh }) => {
-      expect(
-        await expectRetriedConclusionKeepsResults(MONGO_CONFIG, fullRefresh, [
-          null,
-        ]),
-      ).toEqual([]);
-    },
-  );
-
-  it.each(modes)(
-    "never counts a save that missed a lost lock as done: $mode",
-    async ({ fullRefresh }) => {
-      expect(
-        await expectLostLockNeverCountsAsSaved(MONGO_CONFIG, fullRefresh),
-      ).toEqual([]);
+      expect(await sweepConcludeRetries(MONGO_CONFIG, fullRefresh)).toEqual([]);
     },
   );
 });

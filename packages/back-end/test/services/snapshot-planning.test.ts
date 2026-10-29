@@ -990,6 +990,48 @@ describe("snapshot planning", () => {
     );
   });
 
+  it("runs a full refresh when a stopped run left the units table marked", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const context = makeContext();
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
+        unitsTableFullName: "db.schema.units_exp_123",
+        unitsDirtyBy: "snp_stopped",
+      },
+    });
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
+    expect(plan.fullRefresh).toBe(true);
+  });
+
   it("claims a pre-phase document for the phase whose settings hash it matches, even when a newer phase exists", async () => {
     const datasource = makeIncrementalDatasource();
     wireIncrementalIntegration(datasource);

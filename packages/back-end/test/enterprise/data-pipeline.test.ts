@@ -11,6 +11,7 @@ import {
   assertIncrementalRefreshPrerequisites,
   getFactTablesNeedingRebuild,
   exploratoryOverallRequiresFullRefresh,
+  hasTablesMarkedDirty,
   legacyDocDescribesPhase,
 } from "back-end/src/enterprise/services/data-pipeline";
 import { planMetricFanOut } from "back-end/src/services/experimentQueries/planMetricFanOut";
@@ -367,6 +368,47 @@ describe("getFactTablesNeedingRebuild", () => {
       currentMetricSettingsHashes: new Map([["m_same_ft", "h1"]]),
     });
     expect(rebuild.size).toBe(0);
+  });
+
+  it("flags the fact table of a source, or covariate source, a stopped run left marked", () => {
+    const sources = [
+      {
+        ...makeMetricSource("grp_a", "ft_a", [
+          { id: "m_same_ft", settingsHash: "h1" },
+        ]),
+        dirtyBy: "snp_stopped",
+      },
+      makeMetricSource("grp_b", "ft_b", [
+        { id: "m_other_ft", settingsHash: "h2" },
+      ]),
+    ];
+    const fanOut = planMetricFanOut([sameFtMetric, otherFtMetric]);
+    const hashes = new Map([
+      ["m_same_ft", "h1"],
+      ["m_other_ft", "h2"],
+    ]);
+    expect([
+      ...getFactTablesNeedingRebuild({
+        existingMetricSources: sources,
+        desiredFanOut: fanOut,
+        currentMetricSettingsHashes: hashes,
+      }),
+    ]).toEqual(["ft_a"]);
+    expect([
+      ...getFactTablesNeedingRebuild({
+        existingMetricSources: sources.map((s) => ({ ...s, dirtyBy: null })),
+        existingCovariateSources: [
+          {
+            groupId: "grp_b",
+            tableFullName: "t_cov",
+            lastSuccessfulMaxTimestamp: null,
+            dirtyBy: "snp_stopped",
+          },
+        ],
+        desiredFanOut: fanOut,
+        currentMetricSettingsHashes: hashes,
+      }),
+    ]).toEqual(["ft_b"]);
   });
 
   it("does not flag a metric whose settings hash is unchanged", () => {
@@ -859,6 +901,58 @@ describe("exploratoryOverallRequiresFullRefresh", () => {
         }),
         latestOverallSnapshotId: "snp_new",
       }),
+    ).toBe(true);
+  });
+});
+
+describe("tables a stopped run left marked", () => {
+  const metric = factMetricFactory.build({ id: "m1" });
+  const marked = makeIncrementalRefreshModel({ unitsDirtyBy: "snp_stopped" });
+
+  beforeEach(() => {
+    orgHasPremiumFeatureMock.mockReturnValue(true);
+  });
+
+  it("are refused by a dimension breakdown", async () => {
+    await expect(
+      assertIncrementalRefreshPrerequisites({
+        org: { id: "org_123" } as OrganizationInterface,
+        integration: makeIntegration(),
+        snapshotSettings: makeSnapshotSettings(),
+        metricMap: new Map([[metric.id, metric]]),
+        experiment: { id: "exp_123" } as ExperimentInterface,
+        incrementalRefreshModel: marked,
+        analysisType: "exploratory",
+      }),
+    ).rejects.toBeInstanceOf(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
+        snapshotSettings: makeSnapshotSettings(),
+        incrementalRefreshModel: marked,
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(true);
+  });
+
+  it("include any marked source but not unmarked ones", () => {
+    expect(hasTablesMarkedDirty(makeIncrementalRefreshModel())).toBe(false);
+    expect(hasTablesMarkedDirty(marked)).toBe(true);
+    expect(
+      hasTablesMarkedDirty(
+        makeIncrementalRefreshModel({
+          metricCovariateSources: [
+            {
+              groupId: "g1",
+              tableFullName: "t",
+              lastSuccessfulMaxTimestamp: null,
+              dirtyBy: "snp_stopped",
+            },
+          ],
+        }),
+      ),
     ).toBe(true);
   });
 });

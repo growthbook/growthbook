@@ -24,7 +24,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import { isRetryableIncrementalRefreshError } from "back-end/src/jobs/interruptedRefresh";
+import { isSupersededRefreshError } from "back-end/src/jobs/interruptedRefresh";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)
@@ -263,15 +263,14 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
       });
     }
   } catch (e) {
-    // Lock contention and the incremental refresh's own safety checks are
-    // transient: the next scheduled refresh retries or repairs, so don't
+    // Another update holding or taking the lock is transient, so don't
     // disable auto-updates.
-    if (isRetryableIncrementalRefreshError(e)) {
+    if (isSupersededRefreshError(e)) {
       logger.info(
         { err: e },
         "Skipping auto-update for experiment " +
           experimentId +
-          ": the incremental refresh will retry",
+          ": another incremental refresh holds it",
       );
       return;
     }

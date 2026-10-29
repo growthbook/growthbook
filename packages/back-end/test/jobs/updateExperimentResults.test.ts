@@ -10,7 +10,7 @@ import { updateSingleExperiment } from "back-end/src/jobs/updateExperimentResult
 import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
 import {
   LOCK_LOST_ERROR,
-  RESULTS_NOT_COMMITTED_ERROR,
+  RESULTS_SUPERSEDED_ERROR,
 } from "back-end/src/jobs/interruptedRefresh";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
@@ -387,7 +387,7 @@ describe("scheduled updates stopped by an incremental refresh safety check", () 
       "lock held by another update",
       new ConcurrentIncrementalRefreshError("busy"),
     ],
-    ["results not committed", RESULTS_NOT_COMMITTED_ERROR],
+    ["results superseded by another update", RESULTS_SUPERSEDED_ERROR],
     [
       "a query that lost the lock",
       new Error(`Query failed: ${LOCK_LOST_ERROR}`),

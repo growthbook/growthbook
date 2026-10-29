@@ -17,6 +17,7 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { NOT_RUN_QUERY_ERROR } from "back-end/src/jobs/interruptedRefresh";
 import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
 import {
   failQueuedQueries,
@@ -24,10 +25,6 @@ import {
   getStaleQueries,
   markPendingQueriesAsFailed,
 } from "back-end/src/models/QueryModel";
-import {
-  INTERRUPTED_REFRESH_ERROR,
-  NOT_RUN_QUERY_ERROR,
-} from "back-end/src/jobs/interruptedRefresh";
 import {
   getExperimentById,
   updateExperiment,
@@ -323,17 +320,10 @@ describe("classifyStalledSnapshot", () => {
 describe("expireOldQueries stalled snapshot reaper", () => {
   const releaseLock = jest.fn().mockResolvedValue(undefined);
   const hasFreshLockHeartbeat = jest.fn();
-  const releaseLockAfterInterruptedRun = jest.fn();
   const context = {
     org: { id: "org_1" },
     models: {
-      incrementalRefresh: {
-        releaseLock,
-        hasFreshLockHeartbeat,
-        releaseLockAfterInterruptedRun,
-        cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
-        wasCleanedUpBy: jest.fn().mockResolvedValue(false),
-      },
+      incrementalRefresh: { releaseLock, hasFreshLockHeartbeat },
       metricAnalysis: { update: jest.fn() },
     },
   };
@@ -368,11 +358,6 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       reason: "superseded",
     });
     hasFreshLockHeartbeat.mockResolvedValue(false);
-    releaseLockAfterInterruptedRun.mockResolvedValue(true);
-    (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([]);
-    (failQueuedQueries as jest.Mock).mockImplementation(
-      async (_: unknown, ids: string[]) => ids,
-    );
   });
 
   async function runJob() {
@@ -812,245 +797,40 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
   });
 
-  describe("incremental refreshes", () => {
-    const insertName = "insert_metrics_source_data_g1";
-    const maxTsName = "max_timestamp_metrics_source_g1";
+  it("stops a timed-out incremental refresh's queued queries before releasing it", async () => {
+    const snapshot = runningSnapshot("snp_1", {});
+    snapshot.runnerKind = "incremental-update";
+    snapshot.queries = [
+      { name: "insert", query: "qry_running", status: "running" },
+      { name: "statistics", query: "qry_queued", status: "queued" },
+    ];
+    (getStaleQueries as jest.Mock).mockResolvedValue([
+      { id: "qry_running", organization: "org_1" },
+    ]);
+    (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([snapshot]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      { id: "qry_running", status: "failed" },
+      { id: "qry_queued", status: "queued" },
+    ]);
+    (failQueuedQueries as jest.Mock).mockResolvedValue(["qry_queued"]);
 
-    function incrementalSnapshot(
-      statuses: Record<string, QueryStatus>,
-      snapshot: Parameters<typeof runningSnapshot>[1] = {},
-    ) {
-      const candidate = runningSnapshot("snp_1", snapshot);
-      candidate.runnerKind = "incremental-update";
-      candidate.queries = Object.keys(statuses).map((name) => ({
-        name,
-        query: `qry_${name}`,
-        status: "queued",
-      }));
-      (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
-        Object.entries(statuses).map(([name, status]) => ({
-          id: `qry_${name}`,
-          status,
-        })),
-      );
-      return candidate;
-    }
+    await runJob();
 
-    it("drops the sources an orphaned run appended to as it releases the lock", async () => {
-      mockCandidates([
-        incrementalSnapshot(
-          { [insertName]: "failed", [maxTsName]: "queued" },
-          { type: "standard", triggeredBy: "schedule" },
-        ),
-      ]);
-
-      await runJob();
-
-      expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
-        "exp_1",
-        "snp_1",
-        { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
-      );
-      expect(releaseLock).not.toHaveBeenCalled();
-      expect(updateExperiment).toHaveBeenCalled();
-      expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
-        context,
-        "snp_1",
-        expect.objectContaining({
-          error: expect.stringContaining("A retry has been scheduled."),
+    expect(failQueuedQueries).toHaveBeenCalledWith(
+      context,
+      ["qry_queued"],
+      NOT_RUN_QUERY_ERROR,
+    );
+    expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+    expect(updateSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: expect.objectContaining({
+          queries: [
+            { name: "insert", query: "qry_running", status: "failed" },
+            { name: "statistics", query: "qry_queued", status: "failed" },
+          ],
         }),
-        "cancelled",
-        { concludedBy: "reaper", reason: "orphaned" },
-      );
-    });
-
-    it("asks for a full refresh and skips the retry when the orphaned run lost its lock", async () => {
-      releaseLockAfterInterruptedRun.mockResolvedValue(false);
-      mockCandidates([
-        incrementalSnapshot(
-          { [insertName]: "failed", [maxTsName]: "queued" },
-          { type: "standard", triggeredBy: "schedule" },
-        ),
-      ]);
-
-      await runJob();
-
-      expect(updateExperiment).not.toHaveBeenCalled();
-      expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
-        context,
-        "snp_1",
-        expect.objectContaining({ error: INTERRUPTED_REFRESH_ERROR }),
-        "query",
-        { concludedBy: "reaper", reason: "orphaned" },
-      );
-    });
-
-    it("keeps the not-finalized message and adds the full refresh hint", async () => {
-      releaseLockAfterInterruptedRun.mockResolvedValue(false);
-      mockCandidates([
-        incrementalSnapshot({
-          [insertName]: "succeeded",
-          [maxTsName]: "failed",
-        }),
-      ]);
-
-      await runJob();
-
-      const error = (errorSnapshotIfStillRunning as jest.Mock).mock.calls[0][2]
-        .error;
-      expect(error).toMatch(
-        /^Snapshot stalled: queries finished but results were never finalized\./,
-      );
-      expect(error).toMatch(/Choose Full refresh .* count some data twice\.$/);
-    });
-
-    it("stops and cleans up an orphaned run before it errors the snapshot", async () => {
-      mockCandidates([
-        incrementalSnapshot({ [insertName]: "failed", [maxTsName]: "queued" }),
-      ]);
-
-      await runJob();
-
-      const order = (fn: unknown) =>
-        (fn as jest.Mock).mock.invocationCallOrder[0];
-      expect(order(failQueuedQueries)).toBeLessThan(
-        order(releaseLockAfterInterruptedRun),
-      );
-      expect(order(releaseLockAfterInterruptedRun)).toBeLessThan(
-        order(errorSnapshotIfStillRunning),
-      );
-    });
-
-    it("rebuilds the source of an insert the runner started during the reap", async () => {
-      mockCandidates([
-        incrementalSnapshot({ [insertName]: "queued", [maxTsName]: "queued" }),
-      ]);
-      (failQueuedQueries as jest.Mock).mockResolvedValue([`qry_${maxTsName}`]);
-
-      await runJob();
-
-      expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
-        "exp_1",
-        "snp_1",
-        { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
-      );
-    });
-
-    it("keeps the usual message when nothing needed dropping", async () => {
-      releaseLockAfterInterruptedRun.mockResolvedValue(false);
-      mockCandidates([
-        incrementalSnapshot({ [insertName]: "queued", [maxTsName]: "queued" }),
-      ]);
-
-      await runJob();
-
-      expect(errorSnapshotIfStillRunning).toHaveBeenCalledWith(
-        context,
-        "snp_1",
-        expect.objectContaining({
-          error: expect.stringContaining("Please try updating results again."),
-        }),
-        "query",
-        { concludedBy: "reaper", reason: "orphaned" },
-      );
-    });
-
-    it("fails a timed-out run's queued queries and asks for a full refresh when it cannot clean up", async () => {
-      const snapshot = incrementalSnapshot({
-        [insertName]: "failed",
-        [maxTsName]: "queued",
-      });
-      (getStaleQueries as jest.Mock).mockResolvedValue([
-        { id: `qry_${insertName}`, organization: "org_1" },
-      ]);
-      (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
-        snapshot,
-      ]);
-      (failQueuedQueries as jest.Mock).mockResolvedValue([`qry_${maxTsName}`]);
-      releaseLockAfterInterruptedRun.mockResolvedValue(false);
-
-      await runJob();
-
-      expect(failQueuedQueries).toHaveBeenCalledWith(
-        context,
-        [`qry_${maxTsName}`],
-        NOT_RUN_QUERY_ERROR,
-      );
-      expect(releaseLockAfterInterruptedRun).toHaveBeenCalledWith(
-        "exp_1",
-        "snp_1",
-        { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
-      );
-      expect(releaseLock).not.toHaveBeenCalled();
-      expect(updateSnapshot).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: "snp_1",
-          updates: {
-            status: "error",
-            error: INTERRUPTED_REFRESH_ERROR,
-            queries: [
-              {
-                name: insertName,
-                query: `qry_${insertName}`,
-                status: "failed",
-              },
-              { name: maxTsName, query: `qry_${maxTsName}`, status: "failed" },
-            ],
-          },
-        }),
-      );
-    });
-
-    it("releases the lock without cleanup when the timed-out run cannot be stopped", async () => {
-      const snapshot = incrementalSnapshot({
-        [insertName]: "failed",
-        [maxTsName]: "queued",
-      });
-      (getStaleQueries as jest.Mock).mockResolvedValue([
-        { id: `qry_${insertName}`, organization: "org_1" },
-      ]);
-      (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
-        snapshot,
-      ]);
-      (getQueryStatusesByIds as jest.Mock).mockRejectedValue(
-        new Error("mongo down"),
-      );
-
-      await runJob();
-
-      expect(releaseLockAfterInterruptedRun).not.toHaveBeenCalled();
-      expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
-      expect(updateSnapshot).toHaveBeenCalledWith(
-        expect.objectContaining({
-          updates: expect.objectContaining({
-            error: INTERRUPTED_REFRESH_ERROR,
-          }),
-        }),
-      );
-    });
-
-    it("keeps the usual timed-out message once the run is cleaned up", async () => {
-      const snapshot = incrementalSnapshot({
-        [insertName]: "failed",
-        [maxTsName]: "queued",
-      });
-      (getStaleQueries as jest.Mock).mockResolvedValue([
-        { id: `qry_${insertName}`, organization: "org_1" },
-      ]);
-      (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
-        snapshot,
-      ]);
-
-      await runJob();
-
-      expect(updateSnapshot).toHaveBeenCalledWith(
-        expect.objectContaining({
-          updates: expect.objectContaining({
-            error:
-              "Queries were interrupted. Please try updating results again.",
-          }),
-        }),
-      );
-    });
+      }),
+    );
   });
 });

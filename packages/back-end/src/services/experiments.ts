@@ -227,7 +227,7 @@ import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/feature
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { stopInterruptedRefreshOrRelease } from "back-end/src/jobs/interruptedRefresh";
+import { stopIncrementalRefresh } from "back-end/src/jobs/interruptedRefresh";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -1535,6 +1535,7 @@ function getSnapshotQueryRunnerKind({
  * - There is no prior incremental state for this experiment.
  * - The state document exists but has no `unitsTableFullName`, meaning
  *   the warehouse units table was never created (e.g., the initial attempt failed).
+ * - A run stopped while changing the units table, leaving it marked dirty.
  */
 function resolveFullRefresh(
   useCache: boolean,
@@ -1559,6 +1560,14 @@ function resolveFullRefresh(
     return {
       fullRefresh: true,
       fullRefreshReason: "Units table was never materialized by a prior run.",
+    };
+  }
+
+  if (incrementalRefreshModel.unitsDirtyBy) {
+    return {
+      fullRefresh: true,
+      fullRefreshReason:
+        "An earlier update stopped while changing the units table.",
     };
   }
 
@@ -2348,19 +2357,13 @@ export async function createSnapshotFromPlan({
 
     return queryRunner;
   } catch (e) {
-    // Queries without dependencies start as soon as they are created, so a
-    // refresh that failed while planning may already have changed its tables.
-    const startedQueries = incrementalRunner?.startedQueries ?? [];
-    if (hasIncrementalRefreshLock && startedQueries.length) {
-      await stopInterruptedRefreshOrRelease(context, {
+    // Queries without dependencies start as soon as they are created, so
+    // stop the ones that have not started before releasing.
+    if (hasIncrementalRefreshLock && incrementalRunner) {
+      await stopIncrementalRefresh(context, {
         ...plan.snapshot,
-        queries: startedQueries,
-      }).catch((releaseErr) =>
-        context.logger.warn(
-          releaseErr,
-          "Failed to clean up the incremental refresh during error cleanup",
-        ),
-      );
+        queries: incrementalRunner.startedQueries,
+      });
     } else if (hasIncrementalRefreshLock) {
       await context.models.incrementalRefresh
         .releaseLock(experiment.id, plan.snapshot.id)
