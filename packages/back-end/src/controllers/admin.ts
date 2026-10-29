@@ -58,7 +58,11 @@ import {
   getLicensePlansForFilter,
   isSubscriptionStatusFilter,
 } from "back-end/src/util/adminOrgQuery";
-import { getCollection } from "back-end/src/util/mongo.util";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { _dangerousCountFeaturesByOrganization } from "back-end/src/models/FeatureModel";
+import { _dangerousCountExperimentsByOrganization } from "back-end/src/models/ExperimentModel";
+import { _dangerousCountSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -133,6 +137,8 @@ export async function _dangerousAdminGetOrganizations(
       status: statusLicenses,
       ssoOrgIds,
     }),
+    // Searches usually look for a big customer, not the newest signup
+    search ? "members" : "newest",
   );
 
   const licenses = await getLicensesByKeys(
@@ -170,17 +176,14 @@ export async function _dangerousAdminGetOrganization(
     });
   }
 
-  const countFor = (collection: string) =>
-    getCollection(collection).countDocuments({ organization: org.id });
-
   const [ssoConnections, datasources, ...counts] = await Promise.all([
     _dangerousGetSSOConnectionsByOrganization(org.id),
     _dangerourslyGetAllDatasourcesByOrganizations([org.id]),
-    countFor("projects"),
-    countFor("features"),
-    countFor("experiments"),
-    countFor("sdkconnections"),
-    countFor("savedgroups"),
+    ProjectModel._dangerousCountByOrganization(org.id),
+    _dangerousCountFeaturesByOrganization(org.id),
+    _dangerousCountExperimentsByOrganization(org.id),
+    _dangerousCountSDKConnectionsByOrganization(org.id),
+    SavedGroupModel._dangerousCountByOrganization(org.id),
   ]);
   const [projects, features, experiments, sdkConnections, savedGroups] = counts;
 

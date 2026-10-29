@@ -284,6 +284,7 @@ export async function findAllOrganizations(
   search: string,
   limit: number = 50,
   filter: FilterQuery<OrganizationInterface> = {},
+  sort: "newest" | "members" = "newest",
 ) {
   const regex = new RegExp(escapeRegExp(search), "i");
 
@@ -301,16 +302,46 @@ export async function findAllOrganizations(
   const hasFilter = Object.keys(filter).length > 0;
   const query = hasFilter ? { $and: [searchQuery, filter] } : searchQuery;
 
-  const docs = await OrganizationModel.find(query)
-    .sort({ _id: -1 })
-    .skip((page - 1) * limit)
-    .limit(limit);
+  const docs =
+    sort === "members"
+      ? await findPageByMemberCount(query, page, limit)
+      : await OrganizationModel.find(query)
+          .sort({ _id: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit);
 
   const total = await (search || hasFilter
     ? OrganizationModel.find(query).countDocuments()
     : OrganizationModel.find().estimatedDocumentCount());
 
   return { organizations: docs.map(toInterface), total };
+}
+
+// Ranks on IDs and member counts only, so member arrays stay out of the sort
+async function findPageByMemberCount(
+  query: FilterQuery<OrganizationInterface>,
+  page: number,
+  limit: number,
+) {
+  const ranked = await getCollection(COLLECTION)
+    .aggregate<{ id: string }>([
+      { $match: query },
+      {
+        $project: {
+          id: 1,
+          memberCount: { $size: { $ifNull: ["$members", []] } },
+        },
+      },
+      { $sort: { memberCount: -1, _id: -1 } },
+      { $skip: (page - 1) * limit },
+      { $limit: limit },
+    ])
+    .toArray();
+  const ids = ranked.map((d) => d.id);
+  const docs = await getCollection(COLLECTION)
+    .find({ id: { $in: ids } })
+    .toArray();
+  return ids.flatMap((id) => docs.filter((d) => d.id === id));
 }
 
 export async function findOrganizationById(id: string) {

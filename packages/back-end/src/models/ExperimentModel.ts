@@ -613,6 +613,13 @@ type NamespaceUsageExperimentDoc = NamespaceUsageExperiment & {
 // `releasedVariationId` is derived by that migration, and
 // `experimentAllocatesTrafficInNamespace` mirrors its backfill, which is why
 // `results`, `winner` and `variations.id` are projected.
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountExperimentsByOrganization(
+  organization: string,
+): Promise<number> {
+  return ExperimentModel.countDocuments({ organization });
+}
+
 export async function countActiveExperimentsUsingNamespace(
   context: ReqContext | ApiReqContext,
   namespaceId: string,
