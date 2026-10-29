@@ -54,6 +54,9 @@ import {
   getSavedGroupPayloadStrategy,
   withoutUnsupportedSavedGroupCapabilities,
   findAllReferencedSavedGroupIds,
+  forEachRemoteGroupIdInCondition,
+  getDerivedRemoteGroups,
+  parseDerivedGroupId,
   readSavedGroupReferenceId,
   savedGroupFormatFromConnection,
   SavedGroupPayloadStrategy,
@@ -86,6 +89,7 @@ import {
   ContextualBanditDefinitions,
   ExperimentMetadata,
   FeatureDefinition,
+  FeatureMetadata,
   InterleavingDefinitions,
 } from "shared/types/sdk";
 import { ProjectInterface } from "shared/types/project";
@@ -465,17 +469,23 @@ export function generateInterleavingsPayload({
   environment,
   projects,
   savedGroupStrategy,
+  metadataOptions,
+  projectsMap,
 }: {
   interleavings: InterleavingInterface[];
   environment: string;
   projects: string[];
   savedGroupStrategy: SavedGroupPayloadStrategy;
+  metadataOptions?: Parameters<typeof buildPayloadMetadata>[1];
+  projectsMap?: Map<string, ProjectInterface>;
 }): {
   features: Record<string, FeatureDefinition>;
   interleavings?: InterleavingDefinitions;
 } {
   const features: Record<string, FeatureDefinition> = {};
-  const defs: InterleavingDefinitions = {};
+  // Null-prototype: an interleaving key may be `__proto__`, which on a plain
+  // object would set the prototype instead of adding an entry.
+  const defs: InterleavingDefinitions = Object.create(null);
   interleavings.forEach((il) => {
     if (!interleavingInPayloadScope(il, environment, projects)) return;
 
@@ -492,7 +502,12 @@ export function generateInterleavingsPayload({
       );
       return;
     }
-    defs[il.key] = { trackingKey: il.trackingKey, variations };
+    defs[il.key] = {
+      trackingKey: il.trackingKey,
+      hashAttribute: il.hashAttribute,
+      seed: il.seed,
+      variations,
+    };
 
     const id = getInterleavingFeatureDefId(il.key);
     const rule: FeatureDefinitionRule = {
@@ -525,6 +540,17 @@ export function generateInterleavingsPayload({
       defaultValue: il.variations[0].key,
       rules: [rule],
     };
+
+    // Without it reducePayload's project and tag filters drop the flag, which
+    // takes the interleaving's definition down with it
+    if (metadataOptions) {
+      const metadata = buildPayloadMetadata<FeatureMetadata>(
+        { project: il.project, tags: il.tags },
+        metadataOptions,
+        projectsMap,
+      );
+      if (metadata) features[id].metadata = metadata;
+    }
   });
 
   return {
@@ -1039,21 +1065,39 @@ export function getUsedSavedGroupIds(
       });
     }
   };
+  // Remote groups can also appear as `__gb_remoteGroupIds` checks, for SDKs that
+  // can't read their references, e.g. {"__gb_remoteGroupIds": {"$in": ["grp_1"]}}.
+  // Their entries still tell the SDK which attribute to look up.
+  const addConditionToUsedGroupIds = (condition: unknown) => {
+    recursiveWalk(condition, addToUsedGroupIds);
+    forEachRemoteGroupIdInCondition(condition, groupMap, (id) =>
+      seedIds.add(id),
+    );
+  };
   Object.values(features).forEach((feature) => {
     if (!feature.rules) {
       return;
     }
     feature.rules.forEach((rule) => {
-      recursiveWalk(rule.condition, addToUsedGroupIds);
-      recursiveWalk(rule.parentConditions, addToUsedGroupIds);
+      addConditionToUsedGroupIds(rule.condition);
+      addConditionToUsedGroupIds(rule.parentConditions);
     });
   });
   experimentsDefinitions.forEach((experimentDefinition) => {
-    recursiveWalk(experimentDefinition.condition, addToUsedGroupIds);
-    recursiveWalk(experimentDefinition.parentConditions, addToUsedGroupIds);
+    addConditionToUsedGroupIds(experimentDefinition.condition);
+    addConditionToUsedGroupIds(experimentDefinition.parentConditions);
   });
 
-  return findAllReferencedSavedGroupIds(seedIds, groupMap);
+  const used = findAllReferencedSavedGroupIds(seedIds, groupMap);
+  // A derived group, e.g. "grp_vip:parent_id", needs its source group's entry
+  // too: its lookups use the source's attribute. Checked after following
+  // condition groups, which can name derived groups too. Sources are remote
+  // groups, so they reference nothing further.
+  [...used].forEach((id) => {
+    const derived = parseDerivedGroupId(id, groupMap);
+    if (derived) used.add(derived.sourceId);
+  });
+  return used;
 }
 
 export function filterUsedContextualBandits(
@@ -2266,6 +2310,11 @@ export async function buildSDKPayloadForConnection(
         environment,
         projects: projectList,
         savedGroupStrategy,
+        metadataOptions: {
+          includeProjectIdInMetadata,
+          includeTagsInMetadata,
+        },
+        projectsMap,
       })
     : undefined;
 
@@ -2280,9 +2329,11 @@ export async function buildSDKPayloadForConnection(
     experimentsDefinitions,
     data.groupMap,
   );
-  const usedSavedGroups = data.savedGroups.filter((sg) =>
-    usedSavedGroupIds.has(sg.id),
-  );
+  const usedSavedGroups = [
+    ...data.savedGroups.filter((sg) => usedSavedGroupIds.has(sg.id)),
+    // Remote groups checked against another attribute
+    ...getDerivedRemoteGroups(usedSavedGroupIds, data.savedGroups),
+  ];
 
   const contextualBanditsInUse = filterUsedContextualBandits(
     cbMap,
@@ -3783,6 +3834,8 @@ export function applySavedGroupHashing(
 ): SavedGroupInterface[] {
   const clonedGroups = clone(savedGroups);
   clonedGroups.forEach((group) => {
+    // Remote IDs are not in the payload; resolvers look them up unhashed.
+    if (group.type === "remote") return;
     const attribute = attributes.find(
       (attr) => attr.property === group.attributeKey,
     );

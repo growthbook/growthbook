@@ -91,6 +91,17 @@ export const UPLOAD_METHOD = (() => {
   return "local";
 })();
 
+/**
+ * The largest CSV a Remote Group upload can be, in MB. 100 MB is about 2.8
+ * million UUIDs or 4 million typical email addresses. It can go up to 5 GB
+ * (5120), S3's limit for one upload.
+ */
+export const REMOTE_SAVED_GROUP_MAX_UPLOAD_MB = parseEnvInt(
+  process.env.REMOTE_SAVED_GROUP_MAX_UPLOAD_MB,
+  100,
+  { min: 1, max: 5120, name: "REMOTE_SAVED_GROUP_MAX_UPLOAD_MB" },
+);
+
 let MONGODB_URI = process.env.MONGODB_URI || "";
 
 if (!MONGODB_URI) {

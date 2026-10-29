@@ -17,6 +17,8 @@ import {
   changedProjectRoleProjects,
   sameRoleValue,
   actsAsUser,
+  hasSuperAdminPermission,
+  normalizeSuperAdmin,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -236,7 +238,7 @@ export function validateLoginMethod(
   if (
     org.restrictLoginMethod &&
     req.loginMethod?.id !== org.restrictLoginMethod &&
-    !req.superAdmin
+    !hasSuperAdminPermission(req.superAdmin, "impersonate")
   ) {
     throw new Error(
       `Your organization requires you to log in with ${
@@ -260,7 +262,7 @@ export function validateLoginMethod(
   if (
     org.restrictAuthSubPrefix &&
     !req.authSubject?.startsWith(org.restrictAuthSubPrefix) &&
-    !req.superAdmin
+    !hasSuperAdminPermission(req.superAdmin, "impersonate")
   ) {
     throw new Error(
       `Your organization requires you to log in with ${org.restrictAuthSubPrefix}`,
@@ -1996,8 +1998,12 @@ export async function getContextForApiKeyIdInOrg(
     return null;
   }
   // Super-admin authority bypasses roles, so a scoped token never carries it.
-  const superAdmin = !!user?.superAdmin && !key.scoped;
-  if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
+  const superAdmin = key.scoped ? false : normalizeSuperAdmin(user?.superAdmin);
+  if (
+    user &&
+    !hasSuperAdminPermission(superAdmin, "impersonate") &&
+    !org.members.some((m) => m.id === user.id)
+  ) {
     return null;
   }
   // Like a user who armed it and left, a requester who left fires nothing.
