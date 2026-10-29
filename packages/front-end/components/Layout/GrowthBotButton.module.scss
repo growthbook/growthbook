@@ -20,6 +20,7 @@
   transition:
     max-width var(--agent-dock-duration) var(--agent-dock-easing),
     padding var(--agent-dock-duration) var(--agent-dock-easing),
+    margin var(--agent-dock-duration) var(--agent-dock-easing),
     opacity var(--agent-dock-duration) var(--agent-dock-easing),
     visibility 0s,
     box-shadow 150ms ease,
@@ -31,11 +32,13 @@
 }
 
 // Fades and narrows with the panel's slide, so the notices beside it end at
-// the page's edge; hidden once it's faded.
+// the page's edge; hidden once it's faded. Its padding and its optical shift
+// (TopNav.module.scss) go too, over the ghost button's own (both !important).
 :global(html.agent-dock-full) .fades.fades.fades.fades.fades {
   max-width: 0;
-  padding-left: 0;
-  padding-right: 0;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  margin-right: 0 !important;
   border-width: 0;
   opacity: 0;
   visibility: hidden;
@@ -43,6 +46,7 @@
     opacity var(--agent-dock-duration) var(--agent-dock-easing),
     max-width var(--agent-dock-duration) var(--agent-dock-easing),
     padding var(--agent-dock-duration) var(--agent-dock-easing),
+    margin var(--agent-dock-duration) var(--agent-dock-easing),
     visibility 0s linear var(--agent-dock-duration);
 
   @media (prefers-reduced-motion: reduce) {

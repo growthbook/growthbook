@@ -7,7 +7,12 @@ import styles from "./GrowthBotButton.module.scss";
 // Shown on main's rule (AgentPanelContext's `available`: the plan's AI
 // suggestions, with AI enabled), and hidden otherwise. As main's, it has
 // no limit indicator: at the daily limit the panel explains it.
-export default function GrowthBotButton() {
+export default function GrowthBotButton({
+  className,
+}: {
+  // The header's: its optical alignment (TopNav.module.scss).
+  className?: string;
+}) {
   const {
     available: agentAvailable,
     open: agentOpen,
@@ -18,10 +23,10 @@ export default function GrowthBotButton() {
 
   return (
     <Button
-      variant="outline"
+      variant="ghost"
       color="gray"
       size="sm"
-      className={clsx(styles.fades, agentOpen && styles.panelOpen)}
+      className={clsx(styles.fades, agentOpen && styles.panelOpen, className)}
       // Where focus goes back to as the panel closes (AgentPanel.tsx).
       data-growthbot-trigger
       icon={<PiSparkleBold />}
