@@ -181,10 +181,12 @@ function assertNever(value: never): never {
   throw new Error(`Unexpected value: ${value}`);
 }
 
-// Alias of the group's Population count series, if it has one.
-function getPopulationAlias(factTableGroup: FactTableGroup): string | null {
-  const series = factTableGroup.metrics.find((m) => m.isPopulationCount);
-  return series ? getMetricAliases(series.index).base : null;
+// The Population count series has a fixed alias, so its columns are found by
+// name rather than by position among the metrics.
+const POPULATION_COUNT_ALIAS = "population_count";
+
+function hasPopulationCountSeries(factTableGroup: FactTableGroup): boolean {
+  return factTableGroup.metrics.some((m) => m.isPopulationCount);
 }
 
 function getMetricAliases(index: number) {
@@ -1039,6 +1041,7 @@ function getMetricData(
     metric,
     unit,
     useDenominator,
+    isPopulationCount,
   } = metricWithMetadata;
   const columnRef = useDenominator ? metric.denominator : metric.numerator;
 
@@ -1047,7 +1050,11 @@ function getMetricData(
   }
 
   const aliases = getMetricAliases(metricIndex);
-  const alias = useDenominator ? aliases.denominator : aliases.base;
+  const alias = isPopulationCount
+    ? POPULATION_COUNT_ALIAS
+    : useDenominator
+      ? aliases.denominator
+      : aliases.base;
 
   const skipUnitAggregation =
     metric.metricType === "quantile" &&
@@ -1463,11 +1470,9 @@ function generateUnitAggregationRollupCTE(
     }
   });
 
-  const populationAlias = getPopulationAlias(factTableGroup);
-  const from = populationAlias
+  const from = hasPopulationCountSeries(factTableGroup)
     ? getPopulationMembersOnlySubquery(
         sourceCTE,
-        populationAlias,
         dimensions,
         unitIndex,
         includedMetrics,
@@ -1489,12 +1494,11 @@ function generateUnitAggregationRollupCTE(
 // nulled rather than filtered out, so buckets with no members still return a row.
 function getPopulationMembersOnlySubquery(
   sourceCTE: CTE,
-  populationAlias: string,
   dimensions: DimensionData[],
   unitIndex: number,
   includedMetrics: MetricData[],
 ): string {
-  const isMember = `${populationAlias} = 1 AND unit${unitIndex} IS NOT NULL`;
+  const isMember = `${POPULATION_COUNT_ALIAS} = 1 AND unit${unitIndex} IS NOT NULL`;
   const columns = [
     ...dimensions.map((d) => d.alias),
     ...includedMetrics.map(
@@ -2354,6 +2358,36 @@ function parseNumberValue(value: unknown): number | null {
   return null;
 }
 
+type ProductAnalyticsResultValue = NonNullable<
+  ProductAnalyticsResultRow["values"]
+>[number];
+
+// The Population's member count for a row, or null when the request has no
+// Population.
+function getPopulationCount(
+  config: ExplorationConfig,
+  row: Record<string, unknown>,
+): number | null {
+  if (config.dataset.type !== "metric" || !config.dataset.population) {
+    return null;
+  }
+  return parseNumberValue(row[`${POPULATION_COUNT_ALIAS}_numerator`]) ?? 0;
+}
+
+// Reports a metric's value alongside the Population's size. When no member had
+// any activity for the metric, its total is 0 rather than unknown.
+function withPopulationCount(
+  value: ProductAnalyticsResultValue,
+  populationCount: number,
+): ProductAnalyticsResultValue {
+  const noMemberActivity = value.numerator === null && value.denominator === 0;
+  return {
+    ...value,
+    numerator: noMemberActivity ? 0 : value.numerator,
+    populationCount,
+  };
+}
+
 export function transformProductAnalyticsRowsToResult(
   config: ExplorationConfig,
   rows: Record<string, unknown>[],
@@ -2387,30 +2421,19 @@ export function transformProductAnalyticsRowsToResult(
       const alias = `dimension${i}`;
       resultRow.dimensions.push(parseStringValue(row[alias]));
     });
-    // A metric dataset's population is the series after the requested metrics.
-    const populationCount =
-      config.dataset.type === "metric" && config.dataset.population
-        ? (parseNumberValue(
-            row[getMetricAliases(orderedMetricIds.length).numerator],
-          ) ?? 0)
-        : undefined;
+    const populationCount = getPopulationCount(config, row);
     orderedMetricIds.forEach((metricId, index) => {
       const aliases = getMetricAliases(index);
-      const numerator = parseNumberValue(row[aliases.numerator]);
-      const denominator = parseNumberValue(row[aliases.denominator]);
-      resultRow.values?.push({
+      const value: ProductAnalyticsResultValue = {
         metricId,
-        // A sum over members with no matching activity is 0, not unknown.
-        // Metrics without a count (e.g. quantiles) keep NULL.
-        numerator:
-          populationCount !== undefined &&
-          numerator === null &&
-          denominator === 0
-            ? 0
-            : numerator,
-        denominator,
-        ...(populationCount !== undefined ? { populationCount } : {}),
-      });
+        numerator: parseNumberValue(row[aliases.numerator]),
+        denominator: parseNumberValue(row[aliases.denominator]),
+      };
+      resultRow.values?.push(
+        populationCount === null
+          ? value
+          : withPopulationCount(value, populationCount),
+      );
     });
   }
 

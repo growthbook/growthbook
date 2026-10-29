@@ -586,12 +586,15 @@ describe("metric explorations with a population", () => {
           population: mobileRevenueOver10,
         }),
       );
-      // The population (m2) isn't returned as a metric.
+      // The population count isn't returned as a metric, and its columns are
+      // named, not numbered after the metrics.
       expect(orderedMetricIds).toEqual([purchasers.id, loggedIn.id]);
-      expect(sql).not.toContain("m3");
+      expect(sql).not.toMatch(/\bm2\b/);
       // Each metric is read only for members; no joins.
       expect(
-        sql.match(/WHEN m2 = 1\s+AND unit0 IS NOT NULL THEN m[01]\s/g),
+        sql.match(
+          /WHEN population_count = 1\s+AND unit0 IS NOT NULL THEN m[01]\s/g,
+        ),
       ).toHaveLength(2);
       expect(sql).not.toContain("JOIN");
     });
