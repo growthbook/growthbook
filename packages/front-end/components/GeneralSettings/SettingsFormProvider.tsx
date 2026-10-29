@@ -414,9 +414,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             hasRequireApprovals,
           );
         } else {
-          // A saved false or 0 wins; an empty string still falls back to the default.
-          const saved = settings?.[k];
-          newVal[k] = (saved ?? "") === "" ? newVal[k] : saved;
+          // A saved false, 0 or empty string wins over the default.
+          newVal[k] = settings?.[k] ?? newVal[k];
         }
 
         if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {

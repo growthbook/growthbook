@@ -169,6 +169,7 @@ export default function EventTypeFilter({
       sideOffset={4}
       showArrow={false}
       contentStyle={{ padding: 0, width: 420 }}
+      contentClassName={styles.panel}
       // Clicks on the field toggle it themselves.
       onInteractOutside={(e) => {
         if (fieldRef.current?.contains(e.target as Node)) e.preventDefault();

@@ -252,6 +252,14 @@ export function scrollToSettingsSection(id: string) {
 const isAbsent = (v: unknown) =>
   v === undefined || v === null || v === "" || Number.isNaN(v);
 
+// Splits the comma-separated branch filter, dropping blanks.
+export function parseBranches(text: string): string[] {
+  return text
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
 // Rounds away float noise, so 0.07 loads as 7 rather than 7.000000000000001.
 export function toPercent(fraction: number): number {
   return Math.round(fraction * 1e8) / 1e6;

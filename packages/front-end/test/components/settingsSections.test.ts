@@ -6,6 +6,7 @@ import {
   sectionForField,
   SETTINGS_SECTIONS,
   tokenizeSettingsQuery,
+  parseBranches,
   toPercent,
 } from "@/components/GeneralSettings/settingsSections";
 
@@ -124,6 +125,18 @@ describe("sameSetting", () => {
     expect(sameSetting(["a", "b"], ["b", "a"])).toBe(false);
     expect(sameSetting([{ id: 1, note: "" }], [{ id: 1 }])).toBe(true);
     expect(sameSetting([{ id: 1, on: true }], [{ id: 1 }])).toBe(false);
+  });
+});
+
+describe("parseBranches", () => {
+  it("splits on commas and trims each name", () => {
+    expect(parseBranches("main, qa ,dev")).toEqual(["main", "qa", "dev"]);
+  });
+
+  it("drops empty entries, including a trailing comma", () => {
+    expect(parseBranches("main,, qa,")).toEqual(["main", "qa"]);
+    expect(parseBranches(" , ")).toEqual([]);
+    expect(parseBranches("")).toEqual([]);
   });
 });
 

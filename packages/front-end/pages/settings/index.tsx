@@ -63,6 +63,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
     const id = resolveSettingsHash(urlHash);
     const root = pageRef.current;
     if (!id || !root) return;
+    // A linked section hidden by the search would never show, so the search gives way.
+    if (document.getElementById(id)?.closest("[hidden]")) setQuery("");
     const section = SETTINGS_SECTIONS.find(
       (s) => s.id === id || document.getElementById(id)?.closest(`#${s.id}`),
     );
@@ -78,7 +80,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       stop();
       USER_EVENTS.forEach((e) => window.removeEventListener(e, stop));
     };
-  }, [urlHash, pinSection]);
+  }, [urlHash, pinSection, setQuery]);
 
   // Scroll spy: the last visible section whose top has passed the sticky header is active.
   useEffect(() => {

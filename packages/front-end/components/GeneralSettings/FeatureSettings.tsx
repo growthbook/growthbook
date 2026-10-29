@@ -15,12 +15,7 @@ import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import { GBInfo } from "@/components/Icons";
 import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
-
-const parseBranches = (text: string) =>
-  text
-    .split(",")
-    .map((s) => s.trim())
-    .filter(Boolean);
+import { parseBranches } from "./settingsSections";
 
 // Keeps the typed text (e.g. a trailing comma) and re-syncs only when the array changes elsewhere.
 function BranchesField() {
