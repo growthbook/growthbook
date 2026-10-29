@@ -108,10 +108,11 @@ const expireOldQueries = async () => {
     let error = "Queries were interrupted. Please try updating results again.";
     const failedQueryIds = new Set(queryIds);
     if (isIncrementalRefreshRun(snapshot)) {
-      const { notRunQueryIds, needsFullRefresh } =
-        await stopInterruptedRefreshOrRelease(context, snapshot);
-      notRunQueryIds.forEach((id) => failedQueryIds.add(id));
-      if (needsFullRefresh) error = INTERRUPTED_REFRESH_ERROR;
+      const stopped = await stopForRetry(context, snapshot);
+      // Left running: the stalled-snapshot reaper retries the cleanup.
+      if (!stopped) continue;
+      stopped.notRunQueryIds.forEach((id) => failedQueryIds.add(id));
+      if (stopped.needsFullRefresh) error = INTERRUPTED_REFRESH_ERROR;
     }
 
     updateQueryStatus(snapshot.queries, failedQueryIds);
@@ -469,11 +470,12 @@ async function reapStalledSnapshots() {
     // Before the snapshot is errored: stop its queued queries from starting,
     // then drop the cache state it may have appended to as the lock is
     // released. When that is no longer possible, only a full refresh is safe.
-    const { notRunQueryIds, needsFullRefresh } = isIncrementalRefreshRun(
-      snapshot,
-    )
-      ? await stopInterruptedRefreshOrRelease(context, snapshot)
+    const stopped = isIncrementalRefreshRun(snapshot)
+      ? await stopForRetry(context, snapshot)
       : { notRunQueryIds: [], needsFullRefresh: false };
+    // Left running so the next tick retries the cleanup.
+    if (!stopped) continue;
+    const { notRunQueryIds, needsFullRefresh } = stopped;
 
     const statusById = new Map(queryStatuses.map((s) => [s.id, s.status]));
     notRunQueryIds.forEach((id) => statusById.set(id, "failed"));
@@ -565,6 +567,27 @@ async function reapStalledSnapshots() {
     if (!isIncrementalRefreshRun(snapshot)) {
       await releaseStalledSnapshotLock(context, snapshot);
     }
+  }
+}
+
+/**
+ * Stops an interrupted incremental refresh. Returns null when neither its
+ * cleanup nor the full refresh flag could be recorded, so the snapshot must
+ * stay running for a later pass; it keeps its lock until then, or until a
+ * stale takeover flags the tables.
+ */
+async function stopForRetry(
+  context: ApiReqContext,
+  snapshot: Parameters<typeof stopInterruptedRefreshOrRelease>[1],
+) {
+  try {
+    return await stopInterruptedRefreshOrRelease(context, snapshot);
+  } catch (e) {
+    logger.error(
+      e,
+      `Could not clean up or flag interrupted incremental refresh ${snapshot.id}; leaving it for the next pass`,
+    );
+    return null;
   }
 }
 

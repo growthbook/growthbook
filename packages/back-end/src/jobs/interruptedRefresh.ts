@@ -1,5 +1,6 @@
 import { QueryInterface, QueryStatus } from "shared/types/query";
 import { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
+import { IncrementalRefreshInterface } from "shared/validators";
 import {
   failQueuedQueries,
   getQueryStatusesByIds,
@@ -12,11 +13,19 @@ import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
+// The flag or the dropped units table makes the next update a full refresh.
 export const FULL_REFRESH_NEXT_HINT =
-  "Choose Full refresh from the results page's three-dot menu next, not Update, because Update could now fail or count some data twice.";
+  "The next update will run a full refresh.";
+// The cleanup and the flag could not be saved; the lock is still held.
+export const CLEANUP_PENDING_HINT =
+  "Its cleanup could not be saved yet, so updates may be blocked for a few minutes before a full refresh runs.";
 export const INTERRUPTED_REFRESH_ERROR = `This update stopped before it finished. ${FULL_REFRESH_NEXT_HINT}`;
+export const INTERRUPTED_RUN_FULL_REFRESH_REASON =
+  "An earlier update stopped part-way and its cache tables could not be cleaned up.";
 export const RESULTS_NOT_COMMITTED_ERROR =
   "Another update took over this experiment's cache tables before this one finished, so its results were not saved. Please try updating results again.";
+export const UPDATE_INVALIDATED_ERROR =
+  "An earlier update stopped part-way while this one was running, so these results could count some data twice. The next update will run a full refresh.";
 export const NOT_RUN_QUERY_ERROR =
   "Not run: the update this query belonged to stopped before the query started.";
 
@@ -104,7 +113,7 @@ export async function releaseInterruptedRefresh(
   context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "experiment" | "runnerKind" | "queries"
+    "id" | "experiment" | "runnerKind" | "queries" | "phase"
   >,
   statusByQueryId: Map<string, QueryStatus>,
   { runFinished = false }: { runFinished?: boolean } = {},
@@ -136,15 +145,69 @@ export async function releaseInterruptedRefresh(
           : "Interrupted incremental refresh no longer held its lock; its cache state could not be dropped",
       );
     }
-    return needsCleanup && !released;
+    if (needsCleanup && !released) {
+      // The run was already concluded and nobody holds the lock: applying the
+      // cleanup again is safe. Only another run's lock calls for the flag.
+      if (
+        await context.models.incrementalRefresh.cleanUpUnlockedPhase(
+          snapshot.experiment,
+          snapshot.phase,
+          plan,
+        )
+      ) {
+        return false;
+      }
+      await requireFullRefresh(context, snapshot);
+      return true;
+    }
+    return false;
   } catch (e) {
     logger.warn(
       e,
       `Failed to clean up interrupted incremental refresh ${snapshot.id}; releasing its lock without cleanup`,
     );
+    // Throws, keeping the lock, when the flag can't be recorded either.
+    if (needsCleanup) await requireFullRefresh(context, snapshot);
     await releaseLockWithoutCleanup(context, snapshot);
     return needsCleanup;
   }
+}
+
+// Stored apart from the lock so the run holding it now, and every later one,
+// can see that the cache tables can no longer be trusted. A failed write
+// throws: callers leave the interrupted run in place to be retried.
+async function requireFullRefresh(
+  context: ReqContext | ApiReqContext,
+  snapshot: Pick<ExperimentSnapshotInterface, "id" | "experiment">,
+) {
+  await context.models.incrementalRefresh.requireFullRefresh(
+    snapshot.experiment,
+    { reason: INTERRUPTED_RUN_FULL_REFRESH_REASON, snapshotId: snapshot.id },
+  );
+}
+
+/**
+ * True when a run that reads the cache tables as they are (an Update or a
+ * dimension breakdown) can't trust them, because another run was interrupted
+ * and left them in a state it could not clean up.
+ */
+export function isUpdateInvalidatedByInterruptedRun(
+  snapshot: Pick<ExperimentSnapshotInterface, "runnerKind">,
+  state: Pick<IncrementalRefreshInterface, "fullRefreshRequired"> | null,
+): boolean {
+  return (
+    readsCacheTablesAsIs(snapshot) &&
+    (state?.fullRefreshRequired ?? null) !== null
+  );
+}
+
+function readsCacheTablesAsIs(
+  snapshot: Pick<ExperimentSnapshotInterface, "runnerKind">,
+) {
+  return (
+    snapshot.runnerKind === "incremental-update" ||
+    snapshot.runnerKind === "incremental-exploratory"
+  );
 }
 
 // Keeps a failed cleanup from also blocking the full refresh it asks for.
@@ -187,7 +250,7 @@ export async function stopInterruptedRefresh(
   context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "experiment" | "runnerKind" | "queries" | "organization"
+    "id" | "experiment" | "runnerKind" | "queries" | "organization" | "phase"
   >,
 ): Promise<{ notRunQueryIds: string[]; needsFullRefresh: boolean }> {
   const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];
@@ -215,7 +278,9 @@ export async function stopInterruptedRefresh(
   return { notRunQueryIds, needsFullRefresh };
 }
 
-// Never leaves the lock held: a failed cleanup falls back to a plain release.
+// A failed cleanup falls back to a plain release only once the flag is
+// recorded; if that fails too, it throws and the run keeps its lock until a
+// retry, or until a stale takeover flags the tables.
 export async function stopInterruptedRefreshOrRelease(
   context: ReqContext | ApiReqContext,
   snapshot: Parameters<typeof stopInterruptedRefresh>[1],
@@ -227,6 +292,7 @@ export async function stopInterruptedRefreshOrRelease(
       e,
       `Failed to stop interrupted incremental refresh ${snapshot.id}`,
     );
+    await requireFullRefresh(context, snapshot);
     await releaseLockWithoutCleanup(context, snapshot);
     return { notRunQueryIds: [], needsFullRefresh: true };
   }
@@ -258,24 +324,55 @@ export async function releaseConcludedRefresh(
 
 /**
  * Concludes a run that reached a terminal status. Its results are committed
- * only while it still holds the lock; then the lock is released with the
- * cleanup the status calls for. Returns the error to save instead of the
- * results, if any, and whether only a full refresh is safe next.
+ * only while it holds the lock and, if it read the tables as they are, no
+ * interrupted run has flagged them; a full refresh then clears the flag.
+ * Then the lock is released with the cleanup the status calls for. Returns the
+ * error to save instead of the results, if any, and whether only a full
+ * refresh is safe next.
  */
 export async function concludeRefresh(
   context: ReqContext | ApiReqContext,
-  snapshot: Parameters<typeof stopInterruptedRefresh>[1],
+  snapshot: Parameters<typeof stopInterruptedRefresh>[1] &
+    Pick<ExperimentSnapshotInterface, "dateCreated">,
   status: "succeeded" | "partially-succeeded" | "failed",
 ): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
   let resultsError: string | null = null;
   if (status !== "failed") {
-    const committed =
-      await context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-        snapshot.experiment,
-        snapshot.id,
-        { materializedBySnapshotId: snapshot.id },
-      );
-    if (!committed) resultsError = RESULTS_NOT_COMMITTED_ERROR;
+    const committed = await context.models.incrementalRefresh.commitRunResults(
+      snapshot.experiment,
+      snapshot.id,
+      {
+        materialized: snapshot.runnerKind !== "incremental-exploratory",
+        requireUnflagged: readsCacheTablesAsIs(snapshot),
+      },
+    );
+    if (!committed) {
+      const stillLocked =
+        await context.models.incrementalRefresh.isLockedBySnapshotId(
+          snapshot.experiment,
+          snapshot.id,
+        );
+      resultsError = stillLocked
+        ? UPDATE_INVALIDATED_ERROR
+        : RESULTS_NOT_COMMITTED_ERROR;
+    } else if (
+      status === "succeeded" &&
+      snapshot.runnerKind === "incremental-full"
+    ) {
+      // A flag left in place only costs another full refresh.
+      await context.models.incrementalRefresh
+        .clearFullRefreshRequired(
+          snapshot.experiment,
+          snapshot.id,
+          snapshot.dateCreated,
+        )
+        .catch((e) =>
+          logger.warn(
+            e,
+            "Failed to clear the full refresh flag after a full refresh",
+          ),
+        );
+    }
   }
   const needsFullRefresh = await releaseConcludedRefresh(
     context,

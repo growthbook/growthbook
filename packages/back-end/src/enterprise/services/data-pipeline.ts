@@ -104,6 +104,16 @@ export async function assertIncrementalRefreshPrerequisites({
   // detects the metric-source hash drift (see getFactTablesNeedingRebuild) and
   // rebuilds only that metric's fact-table cache, leaving the units table and
   // every unaffected metric cache on the incremental path.
+  // An interrupted run left the tables in a state only a full refresh repairs.
+  if (
+    analysisType !== "main-fullRefresh" &&
+    incrementalRefreshModel?.fullRefreshRequired
+  ) {
+    throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+      `${incrementalRefreshModel.fullRefreshRequired.reason} Please run a Full refresh.`,
+    );
+  }
+
   if (analysisType === "main-update" && incrementalRefreshModel) {
     const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
       snapshotSettings,
@@ -612,6 +622,9 @@ export function exploratoryOverallRequiresFullRefresh({
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
+  // An interrupted run left tables only a full refresh repairs.
+  if (incrementalRefreshModel.fullRefreshRequired) return true;
+
   const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
     snapshotSettings,
     exposureQueries,

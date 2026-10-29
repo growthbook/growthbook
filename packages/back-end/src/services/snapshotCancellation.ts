@@ -159,6 +159,24 @@ export async function cancelExperimentSnapshot(
   if (action === "none" && !pendingIds.length) {
     throw new BadRequestError("Snapshot is not running");
   }
+  if (isIncrementalRefreshRun(snapshot)) {
+    // The fence above stops the run, so drop the cache state it may have
+    // appended to as the lock is released. Done before the snapshot is
+    // concluded: if neither the cleanup nor the full refresh flag can be
+    // recorded this throws, and the reaper retries the still-running snapshot.
+    await releaseInterruptedRefresh(
+      context,
+      snapshot,
+      getCancelledRunQueryStatuses(notStartedIds, after),
+    );
+  } else {
+    await context.models.incrementalRefresh
+      .releaseLock(snapshot.experiment, snapshot.id)
+      .catch((e) =>
+        logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
+      );
+  }
+
   const outcome = await applySnapshotCancel(
     context,
     snapshot.id,
@@ -188,22 +206,6 @@ export async function cancelExperimentSnapshot(
         latestSuccessId,
       );
     }
-  }
-
-  if (isIncrementalRefreshRun(snapshot)) {
-    // The fence above stops the run, so drop the cache state it may have
-    // appended to as the lock is released.
-    await releaseInterruptedRefresh(
-      context,
-      snapshot,
-      getCancelledRunQueryStatuses(notStartedIds, after),
-    );
-  } else {
-    await context.models.incrementalRefresh
-      .releaseLock(snapshot.experiment, snapshot.id)
-      .catch((e) =>
-        logger.warn(e, "Failed to release incremental lock on snapshot cancel"),
-      );
   }
 
   const afterStatusById = new Map(after.map((doc) => [doc.id, doc.status]));

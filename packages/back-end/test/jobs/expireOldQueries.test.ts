@@ -324,6 +324,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
   const releaseLock = jest.fn().mockResolvedValue(undefined);
   const hasFreshLockHeartbeat = jest.fn();
   const releaseLockAfterInterruptedRun = jest.fn();
+  const requireFullRefresh = jest.fn().mockResolvedValue(undefined);
   const context = {
     org: { id: "org_1" },
     models: {
@@ -331,6 +332,8 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         releaseLock,
         hasFreshLockHeartbeat,
         releaseLockAfterInterruptedRun,
+        cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
+        requireFullRefresh,
       },
       metricAnalysis: { update: jest.fn() },
     },
@@ -367,6 +370,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     });
     hasFreshLockHeartbeat.mockResolvedValue(false);
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
+    requireFullRefresh.mockResolvedValue(undefined);
     (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([]);
     (failQueuedQueries as jest.Mock).mockImplementation(
       async (_: unknown, ids: string[]) => ids,
@@ -881,6 +885,10 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         "query",
         { concludedBy: "reaper", reason: "orphaned" },
       );
+      expect(requireFullRefresh).toHaveBeenCalledWith(
+        "exp_1",
+        expect.objectContaining({ snapshotId: "snp_1" }),
+      );
     });
 
     it("keeps the not-finalized message and adds the full refresh hint", async () => {
@@ -899,7 +907,42 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect(error).toMatch(
         /^Snapshot stalled: queries finished but results were never finalized\./,
       );
-      expect(error).toMatch(/Choose Full refresh .* count some data twice\.$/);
+      expect(error).toMatch(/The next update will run a full refresh\.$/);
+    });
+
+    it("leaves a run for the next pass when neither its cleanup nor the flag can be written", async () => {
+      mockCandidates([
+        incrementalSnapshot({ [insertName]: "failed", [maxTsName]: "queued" }),
+      ]);
+      releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+      requireFullRefresh.mockRejectedValue(new Error("mongo down"));
+
+      await runJob();
+
+      expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
+      expect(releaseLock).not.toHaveBeenCalled();
+    });
+
+    it("leaves a timed-out run for the reaper when neither its cleanup nor the flag can be written", async () => {
+      const snapshot = incrementalSnapshot({
+        [insertName]: "failed",
+        [maxTsName]: "queued",
+      });
+      (getStaleQueries as jest.Mock).mockResolvedValue([
+        { id: `qry_${insertName}`, organization: "org_1" },
+      ]);
+      (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([
+        snapshot,
+      ]);
+      releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+      requireFullRefresh.mockRejectedValue(new Error("mongo down"));
+
+      await runJob();
+
+      expect(updateSnapshot).not.toHaveBeenCalledWith(
+        expect.objectContaining({ id: "snp_1" }),
+      );
+      expect(releaseLock).not.toHaveBeenCalled();
     });
 
     it("stops and cleans up an orphaned run before it errors the snapshot", async () => {

@@ -41,6 +41,7 @@ import {
 } from "back-end/src/services/reports";
 import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { getMetricMap } from "back-end/src/models/MetricModel";
+import { INTERRUPTED_RUN_FULL_REFRESH_REASON } from "back-end/src/jobs/interruptedRefresh";
 import {
   createExperimentSnapshotModel,
   findSnapshotById,
@@ -941,6 +942,53 @@ describe("snapshot planning", () => {
     expect(assertIncrementalRefreshPrerequisitesMock).toHaveBeenCalled();
     expect(plan.snapshot.runnerKind).toBe("results");
     expect(plan.incrementalFallbackReason).toBe("metric not compatible");
+  });
+
+  it("runs a full refresh when an interrupted run flagged the state", async () => {
+    getDataSourceByIdMock.mockResolvedValue(
+      makeDatasource({
+        settings: {
+          queries: {},
+          pipelineSettings: {
+            allowWriting: true,
+            mode: "incremental",
+          },
+        },
+      }),
+    );
+    assertIncrementalRefreshPrerequisitesMock.mockResolvedValue(
+      undefined as never,
+    );
+
+    const context = makeContext();
+    wireIncrementalRefreshState(context, {
+      phaseDoc: {
+        unitsTableFullName: "db.schema.units_exp_123",
+        fullRefreshRequired: {
+          reason: INTERRUPTED_RUN_FULL_REFRESH_REASON,
+          snapshotId: "snp_old",
+          date: new Date(),
+        },
+      },
+    });
+
+    const plan = await planSnapshot({
+      experiment: makeExperiment(),
+      context,
+      type: "standard",
+      triggeredBy: "schedule",
+      phaseIndex: 0,
+      useCache: true,
+      defaultAnalysisSettings: makeAnalysisSettings(),
+      additionalAnalysisSettings: [],
+      settingsForSnapshotMetrics: [],
+      metricMap: new Map<string, ExperimentMetricInterface>(),
+      factTableMap: new Map() as FactTableMap,
+    });
+
+    expect(plan.snapshot.runnerKind).toBe("incremental-full");
+    expect(plan.fullRefresh).toBe(true);
+    expect(plan.fullRefreshReason).toBe(INTERRUPTED_RUN_FULL_REFRESH_REASON);
   });
 
   it("preserves the computed full refresh when using the incremental runner on a first run", async () => {

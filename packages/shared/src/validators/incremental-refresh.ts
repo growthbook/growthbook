@@ -54,6 +54,22 @@ const incrementalRefresh = z
       incrementalRefreshMetricCovariateSourceValidator,
     ),
 
+    // Set when an interrupted run left cache tables it could not clean up
+    // because it had lost the lock; only a full refresh started after `date`
+    // clears it.
+    fullRefreshRequired: z
+      .object({
+        reason: z.string(),
+        // The interrupted run, when known.
+        snapshotId: z.string().nullable(),
+        // The snapshot or phase mutation that took the lock from a run that
+        // never released it. A full refresh may clear a flag it set itself.
+        takenOverBy: z.string().optional(),
+        date: z.date(),
+      })
+      .nullable()
+      .optional(),
+
     // Incremental refresh lock
     currentExecutionSnapshotId: z.string().nullable(),
     lockHeartbeatAt: z.date().nullable().optional(),

@@ -79,8 +79,11 @@ import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
   concludeRefresh,
+  CLEANUP_PENDING_HINT,
   FULL_REFRESH_NEXT_HINT,
+  isUpdateInvalidatedByInterruptedRun,
   RESULTS_NOT_COMMITTED_ERROR,
+  UPDATE_INVALIDATED_ERROR,
 } from "back-end/src/jobs/interruptedRefresh";
 import {
   SnapshotResult,
@@ -98,6 +101,13 @@ import { incrementalRefreshQueryNames } from "./incrementalRefreshQueryNames";
 import { createOrderedWriter, OrderedWriter } from "./orderedWriter";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
+
+// Adds a note on what happens next, unless the error already says it.
+function withNote(error: string | undefined, note: string | null) {
+  if (!note) return error;
+  if (!error) return note;
+  return error.includes(note) ? error : `${error} ${note}`;
+}
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
 export const INCREMENTAL_CUPED_TABLE_PREFIX = "gb_cuped";
 
@@ -1348,6 +1358,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   // largely copied from ExperimentResultsQueryRunner
   async runAnalysis(queryMap: QueryMap): Promise<SnapshotResult> {
+    const state =
+      await this.context.models.incrementalRefresh.getLockedBySnapshotId(
+        this.model.experiment,
+        this.model.id,
+      );
+    if (isUpdateInvalidatedByInterruptedRun(this.model, state)) {
+      throw new Error(UPDATE_INVALIDATED_ERROR);
+    }
+
     const { results: analysesResults, banditResult } =
       await analyzeExperimentResults({
         queryData: queryMap,
@@ -1469,13 +1488,13 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   ): Promise<void> {
     // Reached from the runner's own failure paths, where neither the queries
     // nor the analysis is known to be at fault. Queries may still be running.
-    const { needsFullRefresh } = await this.releaseConcludedRun("failed");
+    const { note } = await this.releaseConcludedRun("failed");
     await errorSnapshotIfStillRunning(
       this.context,
       this.model.id,
       {
         queries: this.model.queries,
-        error: needsFullRefresh ? `${error} ${FULL_REFRESH_NEXT_HINT}` : error,
+        error: withNote(error, note),
       },
       "unknown",
       { concludedBy: this.concludedBy },
@@ -1485,16 +1504,16 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   /**
    * Lands queued source-list writes, then concludes the run: commits its
-   * results if it still holds the lock and releases the lock with whatever
+   * results if they can be trusted and releases the lock with whatever
    * cleanup its status calls for.
    */
   private async releaseConcludedRun(
     status: "succeeded" | "partially-succeeded" | "failed",
     queries: Queries = this.model.queries,
-  ): Promise<{ resultsError: string | null; needsFullRefresh: boolean }> {
+  ): Promise<{ resultsError: string | null; note: string | null }> {
     try {
       await this.writeSourceLists.flush();
-      return await concludeRefresh(
+      const { resultsError, needsFullRefresh } = await concludeRefresh(
         this.context,
         {
           ...this.model,
@@ -1502,14 +1521,19 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         },
         status,
       );
+      return {
+        resultsError,
+        note: needsFullRefresh ? FULL_REFRESH_NEXT_HINT : null,
+      };
     } catch (e) {
+      // The lock stays held; a retry or a stale takeover flags the tables.
       this.context.logger.warn(
         e,
         "Failed to conclude the incremental refresh on terminal status",
       );
       return {
         resultsError: status === "failed" ? null : RESULTS_NOT_COMMITTED_ERROR,
-        needsFullRefresh: true,
+        note: CLEANUP_PENDING_HINT,
       };
     }
   }
@@ -1539,7 +1563,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     // Concluded before the result is saved: results are saved only if they
     // were committed, and the error can say when only a full refresh is safe.
     if (snapshotStatus !== "running") {
-      const { resultsError, needsFullRefresh } = await this.releaseConcludedRun(
+      const { resultsError, note } = await this.releaseConcludedRun(
         status === "failed" || status === "partially-succeeded"
           ? status
           : "succeeded",
@@ -1550,11 +1574,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         result = undefined;
         error = resultsError;
       }
-      if (needsFullRefresh) {
-        error = error
-          ? `${error} ${FULL_REFRESH_NEXT_HINT}`
-          : FULL_REFRESH_NEXT_HINT;
-      }
+      error = withNote(error, note);
     }
 
     const updates: Partial<ExperimentSnapshotInterface> = {

@@ -228,7 +228,12 @@ describe("cancelExperimentSnapshot", () => {
         },
       },
       models: {
-        incrementalRefresh: { releaseLock, releaseLockAfterInterruptedRun },
+        incrementalRefresh: {
+          releaseLock,
+          releaseLockAfterInterruptedRun,
+          cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
+          requireFullRefresh: jest.fn().mockResolvedValue(undefined),
+        },
       },
       logger: { info: jest.fn(), warn: jest.fn(), error: jest.fn() },
     } as unknown as ReqContext;
@@ -458,6 +463,43 @@ describe("cancelExperimentSnapshot", () => {
       "exp_1",
       snapshot.id,
       { metricGroupIdsToRebuild: ["g1"], forceFullRefresh: false },
+    );
+    expect(releaseLock).not.toHaveBeenCalled();
+  });
+
+  it("leaves an incremental refresh running for the reaper when neither its cleanup nor the flag can be written", async () => {
+    const insert = await insertQuery("succeeded");
+    const maxTimestamp = await insertQuery("queued");
+    const { snapshot } = await insertReportSnapshot({
+      id: "snp_incremental",
+      status: "running",
+      queries: [
+        {
+          name: "insert_metrics_source_data_g1",
+          query: insert,
+          status: "succeeded",
+        },
+        {
+          name: "max_timestamp_metrics_source_g1",
+          query: maxTimestamp,
+          status: "queued",
+        },
+      ],
+      reportSnapshotId: "snp_prev",
+    });
+    releaseLockAfterInterruptedRun.mockRejectedValue(new Error("mongo down"));
+    jest
+      .mocked(context.models.incrementalRefresh.requireFullRefresh)
+      .mockRejectedValueOnce(new Error("mongo down"));
+
+    await expect(
+      cancelExperimentSnapshot(context, {
+        ...snapshot,
+        runnerKind: "incremental-update",
+      }),
+    ).rejects.toThrow("mongo down");
+    expect((await findSnapshotById(context, snapshot.id))?.status).toBe(
+      "running",
     );
     expect(releaseLock).not.toHaveBeenCalled();
   });
