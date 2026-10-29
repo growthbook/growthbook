@@ -25,7 +25,12 @@ export default function ConfirmDialog({
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   return (
-    <AlertDialog.Root open={true}>
+    <AlertDialog.Root
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onCancel();
+      }}
+    >
       <AlertDialog.Content maxWidth="520px">
         <Flex direction="column" gap="4">
           <Box>

@@ -16,7 +16,14 @@ import {
   withStagedTargeting,
 } from "shared/permissions";
 import { FeatureInterface } from "shared/types/feature";
-import { useState, useMemo, useRef, useCallback, useEffect } from "react";
+import {
+  Fragment,
+  useState,
+  useMemo,
+  useRef,
+  useCallback,
+  useEffect,
+} from "react";
 import {
   FeatureRevisionInterface,
   MinimalFeatureRevisionInterface,
@@ -58,6 +65,7 @@ import {
   PiClockFill,
   PiGitMergeBold,
   PiCaretDownBold,
+  PiFlaskBold,
 } from "react-icons/pi";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
@@ -74,6 +82,12 @@ import {
   useFeatureExperimentChecklists,
 } from "@/services/features";
 import { getFutureScheduledStartDate } from "@/services/experiments";
+import Frame from "@/ui/Frame";
+import {
+  SummaryGrid,
+  SummaryRow,
+} from "@/components/Experiment/TabbedPage/StartSections";
+import { scheduledTime } from "@/components/Experiment/TabbedPage/statusSchedule";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import LinkButton from "@/components/Button";
@@ -139,6 +153,7 @@ import { useApprovalCoverage } from "@/components/Reviews/useApprovalCoverage";
 import DivergenceNotice from "@/components/Reviews/DivergenceNotice";
 import NoticeBanner from "@/components/Reviews/NoticeBanner";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import PermissionBlocker from "@/ui/PermissionBlocker";
 import Metadata from "@/ui/Metadata";
 import ReviewCommentPopover from "@/components/Reviews/ReviewCommentPopover";
@@ -150,7 +165,11 @@ import {
   DropdownMenuItem,
 } from "@/ui/DropdownMenu";
 import RevertModal from "@/components/Reviews/Feature/RevertModal";
-import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
+import {
+  checklistReadiness,
+  getReviewAndPublishState,
+  scheduleToStartLabel,
+} from "@/components/Reviews/reviewAndPublishState";
 import {
   PersonRow,
   ReviewerVerdictIcon,
@@ -158,6 +177,8 @@ import {
 import ReviewHeader, {
   ReviewHeaderOtherDraft,
 } from "@/components/Reviews/ReviewHeader";
+
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 export interface Props {
   // The base (live) feature.
@@ -531,8 +552,14 @@ export default function ReviewAndPublish({
   >(null);
   const [secondaryError, setSecondaryError] = useState<string | null>(null);
   const [actionsDropdownOpen, setActionsDropdownOpen] = useState(false);
-  const publishAfterApproval = useRef(false);
-  const checklistAfterApproval = useRef(false);
+  // What "Submit and Publish" goes on to once the revision is approved.
+  const [afterApproval, setAfterApproval] = useState<
+    "checklist" | "publish" | null
+  >(null);
+  // Why an approval that should have fired the armed publish left it unpublished.
+  const [armedPublishMissed, setArmedPublishMissed] = useState<string | null>(
+    null,
+  );
   const doSubmitRef = useRef<() => void>(() => {});
   const revisionLogRef = useRef<MutateLog>(null);
 
@@ -619,6 +646,8 @@ export default function ReviewAndPublish({
     setConflictStep(0);
     setResolveConflicts(false);
     setExperimentsStep(false);
+    setAfterApproval(null);
+    setArmedPublishMissed(null);
     setSubmitError(null);
     setRevertOpen(false);
     setConfirmReopen(false);
@@ -963,10 +992,28 @@ export default function ReviewAndPublish({
       proposed: withStagedTargeting(feature, revision?.metadata),
     });
 
+  const experimentsMap = useMemo<
+    Map<string, ExperimentInterfaceStringDates>
+  >(() => {
+    if (!experimentsList) return new Map();
+    return new Map(experimentsList.map((exp) => [exp.id, exp]));
+  }, [experimentsList]);
+
+  const { experiments, immediateStartExperiments, scheduledExperiments } =
+    useFeatureExperimentChecklists({
+      feature,
+      revision: revision ?? undefined,
+      experimentsMap,
+    });
+
+  // An armed publish can't start the draft experiments this draft takes live,
+  // so a draft that carries them is armed by scheduling their start instead.
+  const launchesExperiments = experiments.length > 0;
   const hasScheduledRevisions = hasCommercialFeature("scheduled-revisions");
   // Arming on a draft rides request-review, so it needs draft authority too.
   const canArmSchedule =
     holdsSchedulePublish &&
+    !launchesExperiments &&
     (revision?.status !== "draft" ||
       permissionsUtil.canEditFeatureDrafts(feature));
   // Only while an approval is still needed; once it can publish, Publish does that.
@@ -975,9 +1022,13 @@ export default function ReviewAndPublish({
     canArmSchedule &&
     (revision?.status !== "approved" || !approvalsCoverFootprint);
   const canArmOnDate = canArmSchedule;
+  // A persisted "when approved" arm shows as itself, even where it can't be re-armed.
+  const armedWhenApproved = revisionAutoPublishArmed && !scheduledPending;
   const effectivePublishMode: "approve" | "date" = canArmWhenApproved
     ? publishMode
-    : "date";
+    : armedWhenApproved
+      ? "approve"
+      : "date";
 
   // A schedule armed by an admin via the bypass-approval override is locked:
   // nobody (not even the arming admin) can edit it inline — it can only be
@@ -1140,20 +1191,6 @@ export default function ReviewAndPublish({
     ).length;
   }, [revisionList, revision, feature.version]);
 
-  const experimentsMap = useMemo<
-    Map<string, ExperimentInterfaceStringDates>
-  >(() => {
-    if (!experimentsList) return new Map();
-    return new Map(experimentsList.map((exp) => [exp.id, exp]));
-  }, [experimentsList]);
-
-  const { experiments, immediateStartExperiments, scheduledExperiments } =
-    useFeatureExperimentChecklists({
-      feature,
-      revision: revision ?? undefined,
-      experimentsMap,
-    });
-
   const [selectedExperiments, setSelectedExperiments] = useState<Set<string>>(
     new Set(),
   );
@@ -1173,40 +1210,50 @@ export default function ReviewAndPublish({
   ).length;
   const onlyScheduledSelected =
     selectedImmediateCount === 0 && selectedScheduledCount > 0;
-
-  const hasChecklistStep = experiments.length > 0;
-
-  const openChecklistStep = useCallback(() => {
-    checklistStateRef.current.clear();
-    setChecklistIncomplete(false);
-    setChecklistBlocked(false);
-    setChecklistAcknowledged(false);
-    setExperimentsStep(true);
-  }, []);
-
-  const checklistStateRef = useRef<Map<string, ChecklistReadyStatus>>(
-    new Map(),
+  const scheduledStartDays = new Set(
+    scheduledExperiments
+      .filter((e) => selectedExperiments.has(e.id))
+      .map((e) => getFutureScheduledStartDate(e))
+      .flatMap((date) => (date ? [format(date, "MMM d")] : [])),
   );
-  const [checklistIncomplete, setChecklistIncomplete] = useState(false);
-  const [checklistBlocked, setChecklistBlocked] = useState(false);
-  useEffect(() => {
-    checklistStateRef.current.clear();
-    setChecklistIncomplete(false);
-    setChecklistBlocked(false);
+  const scheduledStartDay =
+    scheduledStartDays.size === 1 ? [...scheduledStartDays][0] : null;
+
+  // Only the experiments going out with this publish have checklists to show.
+  const hasChecklistStep = selectedExperiments.size > 0;
+  const unstartedExperiments = experiments.filter(
+    (e) => !selectedExperiments.has(e.id),
+  );
+
+  const [checklistStatuses, setChecklistStatuses] = useState<
+    Record<string, ChecklistReadyStatus>
+  >({});
+  const resetChecklists = useCallback(() => {
+    setChecklistStatuses({});
     setChecklistAcknowledged(false);
-  }, [version]);
+  }, []);
+  const toggleChecklistStep = useCallback(
+    (open: boolean) => {
+      resetChecklists();
+      setExperimentsStep(open);
+    },
+    [resetChecklists],
+  );
+  useEffect(() => {
+    resetChecklists();
+  }, [version, resetChecklists]);
   const handleChecklistReady = useCallback(
     (expId: string, status: ChecklistReadyStatus) => {
       setChecklistAcknowledged(false);
-      checklistStateRef.current.set(expId, status);
-      const all = [...checklistStateRef.current.values()];
-      setChecklistIncomplete(
-        all.some((v) => v.hasHardBlockers || v.hasSoftBlockers || v.loading),
-      );
-      setChecklistBlocked(all.some((v) => v.hasHardBlockers || v.loading));
+      setChecklistStatuses((prev) => ({ ...prev, [expId]: status }));
     },
     [],
   );
+  const {
+    loading: checklistLoading,
+    blocked: checklistBlocked,
+    incomplete: checklistIncomplete,
+  } = checklistReadiness(selectedExperiments, checklistStatuses);
 
   const currentRevisionData = liveBaseInput;
   // Three modes, picked by what's available:
@@ -1291,23 +1338,18 @@ export default function ReviewAndPublish({
     <Box className="contents container-fluid pagecontents pt-4">{children}</Box>
   );
 
-  // After a reviewer chooses "Submit and Publish", advance to the pre-launch
-  // checklist when linked experiments require it; otherwise run publish once
-  // the revision is approved.
+  // After a reviewer chooses "Submit and Publish", go on to the pre-launch
+  // checklist or the publish once the revision is approved: at once if it
+  // already was, since re-approving changes no status to wait for.
   useEffect(() => {
-    if (revision?.status !== "approved") return;
-
-    if (checklistAfterApproval.current) {
-      checklistAfterApproval.current = false;
-      openChecklistStep();
-      return;
-    }
-
-    if (publishAfterApproval.current) {
-      publishAfterApproval.current = false;
+    if (!afterApproval || revision?.status !== "approved") return;
+    setAfterApproval(null);
+    if (afterApproval === "checklist") {
+      toggleChecklistStep(true);
+    } else {
       doSubmitRef.current();
     }
-  }, [revision?.status, openChecklistStep]);
+  }, [afterApproval, revision?.status, toggleChecklistStep]);
 
   // The selected version doesn't exist yet (still loading) or ?v= is invalid.
   if (!revision) {
@@ -1895,11 +1937,13 @@ export default function ReviewAndPublish({
     adminPublish,
     hasSelectedExperiments: selectedExperiments.size > 0,
     onlyScheduledSelected,
+    scheduledStartDay,
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
     checklistIncomplete,
-    checklistBlocked,
+    // Publish waits on loading checklists, though they show no blocker yet.
+    checklistBlocked: checklistBlocked || checklistLoading,
     checklistAcknowledged,
     governanceCanPublish: governance ? governance.canPublish : true,
   });
@@ -1909,7 +1953,7 @@ export default function ReviewAndPublish({
     try {
       switch (state.submitAction) {
         case "next-experiments":
-          openChecklistStep();
+          toggleChecklistStep(true);
           return;
         case "request-review": {
           setSubmitting(true);
@@ -1923,7 +1967,9 @@ export default function ReviewAndPublish({
               mergeResultSerialized: JSON.stringify(mergeResult),
               comment,
               autoPublishOnApproval:
-                autoPublishArmed && effectivePublishMode === "approve",
+                autoPublishArmed &&
+                canArmWhenApproved &&
+                effectivePublishMode === "approve",
               scheduledPublishAt: dateArmed ? scheduleDate : null,
               scheduledPublishLockEdits: scheduleLockEdits,
               scheduledPublishLockOthers: scheduleLockOthers,
@@ -1960,6 +2006,38 @@ export default function ReviewAndPublish({
     }
   };
   doSubmitRef.current = doSubmit;
+
+  const experimentNames = listFormat.format(experiments.map((e) => e.name));
+  // The server refuses an armed publish that would leave these unstarted.
+  const armedLaunchWarning =
+    armedWhenApproved && launchesExperiments ? (
+      <HelperText status="warning" size="sm" mt="2">
+        An automatic publish can&apos;t start {experimentNames}, so this draft
+        won&apos;t publish on its own. Publish it directly once it&apos;s
+        approved.
+      </HelperText>
+    ) : null;
+
+  // The approval answers 200 even when the server refuses the armed publish, so
+  // ask what landed.
+  const confirmArmedPublish = async () => {
+    // On a failed read, the refreshed page still shows the revision's status.
+    const status = await apiCall<{ revisions: FeatureRevisionInterface[] }>(
+      `/feature/${feature.id}/revisions?versions=${revision.version}`,
+    ).then(
+      (res) => res.revisions?.[0]?.status ?? null,
+      () => null,
+    );
+    if (status === "published") {
+      onPublish?.();
+    } else if (status === "approved") {
+      setArmedPublishMissed(
+        launchesExperiments
+          ? `An automatic publish can't start ${experimentNames}; publish this draft directly instead.`
+          : "The automatic publish didn't run.",
+      );
+    }
+  };
 
   // Persist (or, for drafts, stage) the "publish when approved" arming.
   const doToggleAutoPublish = async (enabled: boolean) => {
@@ -2190,49 +2268,72 @@ export default function ReviewAndPublish({
     }
   };
 
+  // A start publishes one draft per Feature Flag, the one queued on the experiment.
+  const startsThisDraft = experiments.filter((exp) =>
+    exp.pendingFeatureDrafts?.some(
+      (d) =>
+        d.featureId === feature.id && d.revisionVersion === revision.version,
+    ),
+  );
+  const startsOtherDraft = experiments.filter(
+    (exp) => !startsThisDraft.includes(exp),
+  );
+  const experimentLinks = (group: ExperimentInterfaceStringDates[]) =>
+    listFormat.formatToParts(group.map((exp) => exp.id)).map((part, i) => {
+      const exp = group.find((e) => e.id === part.value);
+      return part.type === "element" && exp ? (
+        <Link key={exp.id} href={`/experiment/${exp.id}`}>
+          {exp.name}
+        </Link>
+      ) : (
+        <Fragment key={i}>{part.value}</Fragment>
+      );
+    });
+
+  const renderExperimentGroup = (
+    title: string,
+    group: ExperimentInterfaceStringDates[],
+  ) => (
+    <>
+      <Flex align="center" gap="1" mb="2">
+        <PiFlaskBold />
+        <Text>{title}</Text>
+      </Flex>
+      {group.map((experiment) => (
+        <Box key={experiment.id}>
+          <Checkbox
+            value={selectedExperiments.has(experiment.id)}
+            setValue={(e) => {
+              const newValue = new Set(selectedExperiments);
+              if (e === true) newValue.add(experiment.id);
+              else newValue.delete(experiment.id);
+              setSelectedExperiments(newValue);
+            }}
+            label={experiment.name}
+            weight="regular"
+          />
+        </Box>
+      ))}
+    </>
+  );
+
   const renderExperimentSelection = () =>
     experiments.length > 0 ? (
       <Box mb="3">
         {immediateStartExperiments.length > 0 && (
           <Box mb={scheduledExperiments.length > 0 ? "3" : "0"}>
-            <Heading as="h4" size="sm" mb="2">
-              Start running experiments upon publishing:
-            </Heading>
-            {immediateStartExperiments.map((experiment) => (
-              <Box key={experiment.id}>
-                <Checkbox
-                  value={selectedExperiments.has(experiment.id)}
-                  setValue={(e) => {
-                    const newValue = new Set(selectedExperiments);
-                    if (e === true) newValue.add(experiment.id);
-                    else newValue.delete(experiment.id);
-                    setSelectedExperiments(newValue);
-                  }}
-                  label={experiment.name}
-                />
-              </Box>
-            ))}
+            {renderExperimentGroup(
+              "Start running experiments upon publishing:",
+              immediateStartExperiments,
+            )}
           </Box>
         )}
         {scheduledExperiments.length > 0 && (
           <Box>
-            <Heading as="h4" size="sm" mb="2">
-              Approve scheduled start for experiments:
-            </Heading>
-            {scheduledExperiments.map((experiment) => (
-              <Box key={experiment.id}>
-                <Checkbox
-                  value={selectedExperiments.has(experiment.id)}
-                  setValue={(e) => {
-                    const newValue = new Set(selectedExperiments);
-                    if (e === true) newValue.add(experiment.id);
-                    else newValue.delete(experiment.id);
-                    setSelectedExperiments(newValue);
-                  }}
-                  label={experiment.name}
-                />
-              </Box>
-            ))}
+            {renderExperimentGroup(
+              "Approve scheduled start for experiments:",
+              scheduledExperiments,
+            )}
           </Box>
         )}
       </Box>
@@ -2388,6 +2489,10 @@ export default function ReviewAndPublish({
     </ModalStandard>
   ) : null;
 
+  // Only while the draft still sits approved.
+  const armedPublishNotice =
+    revision.status === "approved" ? armedPublishMissed : null;
+
   // Hoisted out of the footer render so the read-only schedule card (shown to
   // reviewers/non-managers) can tell whether the arming control will already
   // render it below the rebase/divergence notice — and avoid showing it twice.
@@ -2455,13 +2560,18 @@ export default function ReviewAndPublish({
     (!requiredTeams.satisfied ||
       !requiredProjects.satisfied ||
       hasUncoveredApproval);
+  // "Continue to Publish" is the same publish path with a checklist step in
+  // front, so selecting an experiment must not change which bands show.
+  const onPublishPath =
+    state.submitAction === "publish" ||
+    state.submitAction === "next-experiments";
   // An approved draft warrants the band only while a gate is unmet — otherwise
   // the publish section already carries the state, and "Publishing is blocked"
   // would contradict an enabled CTA.
   const showApprovalBand =
     requireReviews &&
     !!revision &&
-    state.submitAction !== "publish" &&
+    !onPublishPath &&
     (revision.status === "approved"
       ? approvalGateUnmet
       : revision.status === "draft" || isInReviewCycle(revision.status));
@@ -2524,41 +2634,42 @@ export default function ReviewAndPublish({
   // ── Left column: all of the changes, then history ──
   const changesColumn = experimentsStep ? (
     <Box>
-      <Heading as="h3" size="md" mb="3">
+      <Heading as="h3" size="md" mb="1">
         Review &amp; {onlyScheduledSelected ? "Schedule" : "Publish"}
       </Heading>
-      <Text as="p" mb="3">
-        Please review the{" "}
-        <strong>
-          Pre-Launch Checklist
-          {selectedExperiments.size !== 1 ? "s" : ""}
-        </strong>{" "}
-        for the experiment
-        {selectedExperiments.size !== 1 ? "s" : ""} that will be{" "}
-        {onlyScheduledSelected ? "scheduled to start" : "published"} along with
-        this draft.
+      <Text as="p" color="text-mid" mb="4">
+        Publishing this draft {onlyScheduledSelected ? "schedules" : "starts"}{" "}
+        {selectedExperiments.size === 1
+          ? "this experiment"
+          : "these experiments"}
+        {onlyScheduledSelected
+          ? " to start"
+          : selectedScheduledCount > 0
+            ? " at the times below"
+            : ""}
+        .
       </Text>
       {experiments.map((experiment) => {
         if (!selectedExperiments.has(experiment.id)) return null;
         const scheduledStartDate = getFutureScheduledStartDate(experiment);
         return (
-          <Box key={experiment.id} mb="3">
-            {scheduledStartDate && (
-              <Callout status="info" mb="2">
-                <strong>{experiment.name}</strong> will start on{" "}
-                <strong>
-                  {format(scheduledStartDate, "MMM d, yyyy 'at' h:mm a")}
-                </strong>
-                .
-              </Callout>
-            )}
+          <Frame key={experiment.id} px="5" py="4">
             <PreLaunchChecklistForDraftFeature
               experiment={experiment}
               feature={feature}
               mutateExperiment={mutate}
               onReady={(status) => handleChecklistReady(experiment.id, status)}
+              details={
+                <SummaryGrid>
+                  <SummaryRow label="Start">
+                    {scheduledStartDate
+                      ? scheduledTime(scheduledStartDate)
+                      : "When this draft publishes"}
+                  </SummaryRow>
+                </SummaryGrid>
+              }
             />
-          </Box>
+          </Frame>
         );
       })}
     </Box>
@@ -2770,7 +2881,8 @@ export default function ReviewAndPublish({
           isStepAction ||
           showPublishSection ||
           !!submitError ||
-          !!secondaryError) && (
+          !!secondaryError ||
+          !!armedPublishNotice) && (
           <Box mt={showApprovalBand ? "0" : "6"}>
             {/* The poller gave up on this draft's scheduled publish (cleared on
               cancel/re-arm). Shown to every viewer — matches the generic
@@ -2804,17 +2916,20 @@ export default function ReviewAndPublish({
                 )
               ) : (
                 // "When approved" is just a toggle — show a disabled checkbox.
-                <Checkbox
-                  label="Automatically publish when approved"
-                  weight="regular"
-                  disabled
-                  value={true}
-                  setValue={() => {}}
-                />
+                <>
+                  <Checkbox
+                    label="Automatically publish when approved"
+                    weight="regular"
+                    disabled
+                    value={true}
+                    setValue={() => {}}
+                  />
+                  {armedLaunchWarning}
+                </>
               ))}
 
             {/* Submit review — reviewer action, opens the comment/decision popover */}
-            {canReview && !adminPublish && (
+            {canReview && !adminPublish && !experimentsStep && (
               <Flex direction="column" gap="3">
                 <ReviewCommentPopover
                   submitUrl={`/feature/${feature.id}/${revision.version}/submit-review`}
@@ -2825,23 +2940,33 @@ export default function ReviewAndPublish({
                   canReviewerPublish={hasPublishPermission}
                   publishBlocked={reviewerPublishBlocked}
                   publishHasMoreSteps={hasChecklistStep}
+                  publishNote={
+                    unstartedExperiments.length ? (
+                      <>
+                        Publishing doesn&apos;t start{" "}
+                        {experimentLinks(unstartedExperiments)}.{" "}
+                        {unstartedExperiments.length === 1
+                          ? "Start it from its experiment page."
+                          : "Start them from their experiment pages."}
+                      </>
+                    ) : null
+                  }
                   isBlockedContributor={!!isBlockedContributor}
                   onSuccess={async (opts) => {
-                    let publishedViaArming = false;
+                    setArmedPublishMissed(null);
+                    let armedPublish = false;
                     if (opts?.publish) {
                       if (hasChecklistStep) {
-                        checklistAfterApproval.current = true;
+                        setAfterApproval("checklist");
                       } else if (!revisionAutoPublishArmed) {
-                        publishAfterApproval.current = true;
+                        setAfterApproval("publish");
                       } else {
-                        publishedViaArming = true;
+                        armedPublish = true;
                       }
                     }
                     await mutate();
                     await revisionLogRef?.current?.mutateLog();
-                    if (publishedViaArming) {
-                      onPublish && onPublish();
-                    }
+                    if (armedPublish) await confirmArmedPublish();
                   }}
                   trigger={
                     <Button
@@ -2917,7 +3042,7 @@ export default function ReviewAndPublish({
                 : scheduledPending
                   ? "Publish now"
                   : onlyScheduledSelected
-                    ? "Schedule to Start"
+                    ? scheduleToStartLabel(scheduledStartDay)
                     : "Publish";
 
               {
@@ -2963,11 +3088,16 @@ export default function ReviewAndPublish({
                         }
                       />
                     ) : (
-                      // Approved revisions can only defer to a date — "when
-                      // approved" would just publish now, so show it as text.
-                      <Text size="md">on a specific date</Text>
+                      // One mode is open: the persisted "when approved" arm,
+                      // or a date ("when approved" would just publish now).
+                      <Text size="md">
+                        {effectivePublishMode === "approve"
+                          ? "when approved"
+                          : "on a specific date"}
+                      </Text>
                     )}
                   </Flex>
+                  {armedLaunchWarning}
                   {autoPublishArmed && effectivePublishMode === "date" && (
                     <Box mt="2" ml="4">
                       {hasScheduledRevisions ? (
@@ -3024,21 +3154,6 @@ export default function ReviewAndPublish({
                               />
                             </Box>
                           )}
-                          {experiments.length > 0 && (
-                            <Callout status="warning" mt="2">
-                              This draft would start{" "}
-                              {experiments.length === 1
-                                ? "a linked draft experiment"
-                                : `${experiments.length} linked draft experiments`}
-                              . A scheduled publish won&apos;t start{" "}
-                              {experiments.length === 1 ? "it" : "them"} — it
-                              will be held at the scheduled time until{" "}
-                              {experiments.length === 1 ? "it is" : "they are"}{" "}
-                              started (or removed from this draft). Start{" "}
-                              {experiments.length === 1 ? "it" : "them"} before
-                              the scheduled time to avoid a stuck publish.
-                            </Callout>
-                          )}
                         </>
                       ) : (
                         <PremiumTooltip commercialFeature="scheduled-revisions">
@@ -3078,6 +3193,30 @@ export default function ReviewAndPublish({
                       }
                     : {},
                 )
+              ) : launchesExperiments &&
+                holdsSchedulePublish &&
+                !experimentsStep ? (
+                <HelperText status="info" size="sm" mb="5">
+                  <span>
+                    {startsThisDraft.length > 0 && (
+                      <>
+                        To publish this draft later, schedule the start of{" "}
+                        {experimentLinks(startsThisDraft)}. Starting{" "}
+                        {startsThisDraft.length === 1 ? "it" : "any of them"}{" "}
+                        publishes this draft.
+                      </>
+                    )}
+                    {startsThisDraft.length > 0 &&
+                      startsOtherDraft.length > 0 &&
+                      " "}
+                    {startsOtherDraft.length > 0 && (
+                      <>
+                        Starting {experimentLinks(startsOtherDraft)} won&apos;t
+                        publish this draft.
+                      </>
+                    )}
+                  </span>
+                </HelperText>
               ) : null;
 
               return (
@@ -3126,7 +3265,7 @@ export default function ReviewAndPublish({
                         reads as a contradiction. */}
                       {requireReviews &&
                         !adminPublish &&
-                        state.submitAction === "publish" &&
+                        onPublishPath &&
                         (!requiredTeams.satisfied ||
                           !requiredProjects.satisfied ||
                           hasUncoveredApproval) && (
@@ -3183,13 +3322,7 @@ export default function ReviewAndPublish({
                               value={adminPublish}
                               setValue={(val) => {
                                 setAdminPublish(!!val);
-                                if (!val) {
-                                  checklistStateRef.current.clear();
-                                  setChecklistIncomplete(false);
-                                  setChecklistBlocked(false);
-                                  setChecklistAcknowledged(false);
-                                  setExperimentsStep(false);
-                                }
+                                if (!val) toggleChecklistStep(false);
                               }}
                             />
                           </Box>
@@ -3198,7 +3331,11 @@ export default function ReviewAndPublish({
                       {state.showChecklistAcknowledgment && (
                         <Box mb="3">
                           <Checkbox
-                            label="Acknowledge incomplete recommended items and continue"
+                            label={`Bypass remaining To Do items and ${
+                              onlyScheduledSelected
+                                ? "schedule start"
+                                : "publish"
+                            }`}
                             weight="regular"
                             disabled={!canDoPrimary}
                             value={checklistAcknowledged}
@@ -3239,6 +3376,16 @@ export default function ReviewAndPublish({
                                 ? "One or more of the Projects this draft adds don't allow targeting from other Projects' Feature Flags. Remove them to publish."
                                 : "You don't have permission to target one or more of the Projects this draft adds. Remove them, or ask someone who can target them to publish."}
                           </PermissionBlocker>
+                        )}
+
+                        {experimentsStep && checklistBlocked && (
+                          <HelperText status="error" size="sm">
+                            Complete the Must resolve items to{" "}
+                            {onlyScheduledSelected
+                              ? "schedule the start"
+                              : "publish"}
+                            .
+                          </HelperText>
                         )}
 
                         {linkedRamps.map((ramp) => (
@@ -3289,13 +3436,7 @@ export default function ReviewAndPublish({
                         <Box mt="2">
                           <LinkButton
                             color="link"
-                            onClick={() => {
-                              checklistStateRef.current.clear();
-                              setChecklistIncomplete(false);
-                              setChecklistBlocked(false);
-                              setChecklistAcknowledged(false);
-                              setExperimentsStep(false);
-                            }}
+                            onClick={() => toggleChecklistStep(false)}
                           >
                             <FaArrowLeft /> Back
                           </LinkButton>
@@ -3306,8 +3447,13 @@ export default function ReviewAndPublish({
 
                   {/* Errors render outside the publish section so request-review
                   failures stay visible even when that section is hidden. */}
-                  {(submitError || secondaryError) && (
+                  {(submitError || secondaryError || armedPublishNotice) && (
                     <Flex direction="column" gap="2" mt="3">
+                      {armedPublishNotice && (
+                        <Callout status="warning" size="sm">
+                          Approved, but not published. {armedPublishNotice}
+                        </Callout>
+                      )}
                       {submitError && (
                         <ErrorDisplay
                           error={submitError}

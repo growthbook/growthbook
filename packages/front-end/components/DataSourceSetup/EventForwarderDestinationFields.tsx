@@ -32,6 +32,18 @@ export function eventDestinationEntryHint(
   return `Enter a ${location} and table prefix to ${action}.`;
 }
 
+// connectionSchema null means this warehouse has no connection schema to copy.
+export function eventDestinationWithConnectionSchema(
+  destination: EventForwarderDestination,
+  connectionSchema: string | null,
+  locationEdited: boolean,
+): EventForwarderDestination {
+  if (locationEdited || connectionSchema === null) return destination;
+  if (!connectionSchema.trim()) return destination;
+  if (destination.location === connectionSchema) return destination;
+  return { ...destination, location: connectionSchema };
+}
+
 export function defaultEventForwarderDestination(
   type: DataSourceType,
 ): EventForwarderDestination {
