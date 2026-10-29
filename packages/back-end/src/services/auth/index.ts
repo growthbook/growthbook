@@ -444,13 +444,13 @@ export async function processJWT(
   next();
 }
 
-// Unscoped user credentials (PATs, visual editor keys, OAuth grants, Slack links) act with the stored super admin, not the login that minted them
-export async function assertLoginCanMintUnscopedToken(req: AuthRequest) {
+// For setting up anything that later acts as the stored user, since that carries their stored super admin
+export async function assertLoginGrantsStoredSuperAdmin(req: AuthRequest) {
   if (!req.userId || req.superAdmin) return;
   const user = await getUserById(req.userId);
   if (normalizeSuperAdmin(user?.superAdmin)) {
     throw new Error(
-      "Super admins must sign in with a method that grants super admin access before creating or revealing credentials that act as their account.",
+      "Super admins must sign in with a method that grants super admin access before linking accounts that act as them.",
     );
   }
 }

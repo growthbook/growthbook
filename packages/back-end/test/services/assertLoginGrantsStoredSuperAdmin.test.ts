@@ -1,5 +1,5 @@
 import { getUserById } from "back-end/src/models/UserModel";
-import { assertLoginCanMintUnscopedToken } from "back-end/src/services/auth";
+import { assertLoginGrantsStoredSuperAdmin } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 
 // Not spread from requireActual: UserModel imports services/auth, so loading the
@@ -16,7 +16,7 @@ function reqWith(superAdmin: AuthRequest["superAdmin"], userId = "u_1") {
   return { userId, superAdmin } as AuthRequest;
 }
 
-describe("assertLoginCanMintUnscopedToken", () => {
+describe("assertLoginGrantsStoredSuperAdmin", () => {
   beforeEach(() => {
     mockedGetUserById.mockReset();
   });
@@ -24,23 +24,23 @@ describe("assertLoginCanMintUnscopedToken", () => {
   it("rejects a login that was demoted while the stored user is a super admin", async () => {
     mockedGetUserById.mockResolvedValue({ superAdmin: true } as never);
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(false)),
+      assertLoginGrantsStoredSuperAdmin(reqWith(false)),
     ).rejects.toThrow(/Super admins must sign in/);
   });
 
   it("rejects a demoted partial super admin too", async () => {
     mockedGetUserById.mockResolvedValue({ superAdmin: ["view"] } as never);
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(false)),
+      assertLoginGrantsStoredSuperAdmin(reqWith(false)),
     ).rejects.toThrow();
   });
 
   it("allows a login that still holds super admin, without reading the user", async () => {
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(true)),
+      assertLoginGrantsStoredSuperAdmin(reqWith(true)),
     ).resolves.toBeUndefined();
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(["view"])),
+      assertLoginGrantsStoredSuperAdmin(reqWith(["view"])),
     ).resolves.toBeUndefined();
     expect(mockedGetUserById).not.toHaveBeenCalled();
   });
@@ -48,21 +48,21 @@ describe("assertLoginCanMintUnscopedToken", () => {
   it("allows ordinary users and malformed stored values", async () => {
     mockedGetUserById.mockResolvedValue({ superAdmin: false } as never);
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(false)),
+      assertLoginGrantsStoredSuperAdmin(reqWith(false)),
     ).resolves.toBeUndefined();
     mockedGetUserById.mockResolvedValue({ superAdmin: [] } as never);
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(false)),
+      assertLoginGrantsStoredSuperAdmin(reqWith(false)),
     ).resolves.toBeUndefined();
     mockedGetUserById.mockResolvedValue(null);
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(false)),
+      assertLoginGrantsStoredSuperAdmin(reqWith(false)),
     ).resolves.toBeUndefined();
   });
 
   it("does nothing without a user id", async () => {
     await expect(
-      assertLoginCanMintUnscopedToken(reqWith(false, "")),
+      assertLoginGrantsStoredSuperAdmin(reqWith(false, "")),
     ).resolves.toBeUndefined();
     expect(mockedGetUserById).not.toHaveBeenCalled();
   });

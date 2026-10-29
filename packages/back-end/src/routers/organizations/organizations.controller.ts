@@ -16,6 +16,7 @@ import {
   getRoles,
   hasSuperAdminPermission,
   holdsAllSuperAdminPermissions,
+  normalizeSuperAdmin,
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
@@ -136,10 +137,7 @@ import {
   parseAttributionCookie,
   postSignupAttributionToLicenseServer,
 } from "back-end/src/util/signup-attribution";
-import {
-  assertLoginCanMintUnscopedToken,
-  usingOpenId,
-} from "back-end/src/services/auth";
+import { usingOpenId } from "back-end/src/services/auth";
 import { getSdkPayloadSizeAlerts } from "back-end/src/services/sdkPayloadSize";
 import { getSSOConnectionSummary } from "back-end/src/models/SSOConnectionModel";
 import { getUserPermissions } from "back-end/src/util/organization.util";
@@ -2073,8 +2071,13 @@ export async function postApiKey(
         "Cannot create user personal access token without a user ID",
       );
     }
-    // Scoped PATs never carry super admin, so only unscoped ones need the login check
-    if (!scopedRole) await assertLoginCanMintUnscopedToken(req);
+    // Tokens take super admin from the user record, not from this login
+    const user = await getUserById(userId);
+    if (normalizeSuperAdmin(user?.superAdmin) && !req.superAdmin) {
+      throw new Error(
+        "Super admins must sign in with a method that grants super admin access to create personal access tokens.",
+      );
+    }
     key = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
@@ -2150,12 +2153,6 @@ export async function putApiKey(
     expiresAt,
     confirmRules,
   } = req.body;
-
-  // Omitting scopedRole leaves a PAT unscoped, which carries its user's stored super admin
-  const existing = await context.models.apiKeys.getById(id);
-  if (existing?.userId && !scopedRole) {
-    await assertLoginCanMintUnscopedToken(req);
-  }
 
   // The model returns both the pre- and post-update docs from a single read so
   // the audit log can diff the permission scope. If the key doesn't exist the
@@ -2260,11 +2257,6 @@ export async function postApiKeyRotate(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const existing = await context.models.apiKeys.getById(id);
-  if (existing?.userId && !existing.scoped) {
-    await assertLoginCanMintUnscopedToken(req);
-  }
-
   const { before, after } = await context.models.apiKeys.rotateSecret(
     id,
     req.body.gracePeriodHours,
@@ -2339,7 +2331,6 @@ export async function postApiKeyReveal(
       status: 403,
     });
   }
-  if (key.userId && !key.scoped) await assertLoginCanMintUnscopedToken(req);
 
   res.status(200).json({
     status: 200,
