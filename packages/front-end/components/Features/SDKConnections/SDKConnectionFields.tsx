@@ -185,6 +185,7 @@ export default function SDKConnectionFields({
             {/* Stays on the legacy select: the version list must accept a
                 typed-in version that isn't in the list yet. */}
             <SelectField
+              size="small"
               label="SDK version"
               sort={false}
               placeholder="0.0.0"
@@ -264,6 +265,7 @@ export default function SDKConnectionFields({
 
       <Box>
         <MultiSelectField
+          size="md"
           label={
             <Flex align="center" gap="1" as="span">
               Filter by Projects

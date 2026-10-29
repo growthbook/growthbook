@@ -48,6 +48,7 @@ export default function SavedGroupFormatField({
 
   return (
     <SelectField
+      size="small"
       label={
         <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
       }

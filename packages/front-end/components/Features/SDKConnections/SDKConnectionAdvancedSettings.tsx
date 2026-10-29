@@ -73,10 +73,22 @@ export default function SDKConnectionAdvancedSettings({
   const panelId = useId();
   const proxyHostId = useId();
   const ref = useRef<HTMLDivElement>(null);
+  // Scrolls only the modal's scroll viewport: `scrollIntoView` also scrolls the
+  // scroll area's clipped root, shifting the viewport and leaving a blank band.
   useEffect(() => {
-    if (open) {
-      ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-    }
+    const panel = ref.current;
+    const viewport = panel?.closest<HTMLElement>(
+      "[data-radix-scroll-area-viewport]",
+    );
+    if (!open || !panel || !viewport) return;
+    const p = panel.getBoundingClientRect();
+    const v = viewport.getBoundingClientRect();
+    const overflow = p.bottom - v.bottom;
+    if (overflow <= 0) return;
+    viewport.scrollBy({
+      top: Math.min(overflow, p.top - v.top - 8),
+      behavior: "smooth",
+    });
   }, [open]);
 
   const categories = [
@@ -236,6 +248,7 @@ export default function SDKConnectionAdvancedSettings({
                 {value.includeCustomFieldsInMetadata && (
                   <Box mt="2">
                     <MultiSelectField
+                      size="md"
                       placeholder="No fields included"
                       value={value.allowedCustomFieldsInMetadata}
                       onChange={(fields) =>

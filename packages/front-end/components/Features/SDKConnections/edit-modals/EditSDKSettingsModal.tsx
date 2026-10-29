@@ -284,6 +284,7 @@ export default function EditSDKSettingsModal({
             {value.includeCustomFieldsInMetadata && (
               <Box mt="2">
                 <MultiSelectField
+                  size="md"
                   placeholder="No fields included"
                   value={value.allowedCustomFieldsInMetadata}
                   onChange={(fields) =>
