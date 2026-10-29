@@ -1,32 +1,32 @@
-.rail {
-  --rail-bg: var(--color-panel-solid);
-  --rail-border: var(--slate-4);
-  --rail-divider: var(--slate-5);
-  --rail-keycap: var(--slate-4);
-  --rail-hover: var(--slate-a3);
-  --rail-active: var(--slate-a3);
-  --rail-text: color-mix(in srgb, var(--slate-12) 80%, var(--slate-11));
-  --rail-text-strong: var(--slate-12);
-  --rail-icon: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
-  --rail-muted: var(--slate-11);
-  --rail-chevron: var(--slate-10);
+.sidebar {
+  --sidebar-bg: var(--color-panel-solid);
+  --sidebar-border: var(--slate-4);
+  --sidebar-divider: var(--slate-5);
+  --sidebar-keycap: var(--slate-4);
+  --sidebar-hover: var(--slate-a3);
+  --sidebar-active: var(--slate-a3);
+  --sidebar-text: color-mix(in srgb, var(--slate-12) 80%, var(--slate-11));
+  --sidebar-text-strong: var(--slate-12);
+  --sidebar-icon: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
+  --sidebar-muted: var(--slate-11);
+  --sidebar-chevron: var(--slate-10);
 
   position: fixed;
   top: 0;
   bottom: 0;
   left: 0;
   z-index: 1000;
-  width: var(--app-rail-width, 240px);
+  width: var(--sidebar-width, 240px);
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-2) var(--space-2) var(--space-3);
   box-sizing: border-box;
   overflow: hidden;
-  background: var(--rail-bg);
-  border-right: 1px solid var(--rail-border);
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
   font-family: var(--default-font-family);
-  color: var(--rail-text);
+  color: var(--sidebar-text);
   transition: width 200ms ease;
 
   // Over the header (1010) and its veil, below modals. Hidden as well as off
@@ -94,11 +94,11 @@
   top: 9px;
   right: 8px;
   margin: 0;
-  color: var(--rail-icon);
+  color: var(--sidebar-icon);
 
   &:hover {
-    background: var(--rail-hover);
-    color: var(--rail-text-strong);
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
   }
 }
 
@@ -118,10 +118,10 @@
   overflow-y: auto;
 }
 
-:global(.dark-theme) .rail {
-  --rail-border: var(--slate-a4);
-  --rail-divider: var(--slate-a5);
-  --rail-keycap: var(--slate-a4);
+:global(.dark-theme) .sidebar {
+  --sidebar-border: var(--slate-a4);
+  --sidebar-divider: var(--slate-a5);
+  --sidebar-keycap: var(--slate-a4);
 }
 
 .collapsed {
@@ -157,8 +157,8 @@
   fill: #151e3d;
 }
 
-// Fades out before the narrowing rail's edge cuts into it. Only while the
-// rail moves, so reduced motion stays instant.
+// Fades out before the narrowing sidebar's edge cuts into it. Only while the
+// sidebar moves, so reduced motion stays instant.
 .collapsing .brandWordmark {
   opacity: 0;
   transition: opacity 80ms ease-out;
@@ -194,7 +194,7 @@
   align-self: stretch;
   height: 1px;
   margin: 6px 0;
-  background: var(--rail-divider);
+  background: var(--sidebar-divider);
 
   .collapsed & {
     width: 32px;
@@ -205,7 +205,7 @@
   margin: var(--space-1) 0;
 }
 
-.rail .bottomDivider.bottomDivider {
+.sidebar .bottomDivider.bottomDivider {
   width: auto;
   margin: var(--space-1) -8px;
 }
@@ -224,10 +224,10 @@
   mask-image: linear-gradient(
     to bottom,
     #000 calc(100% - 48px),
-    rgb(0 0 0 / calc(var(--rail-fade-bottom) + 0.33)) calc(100% - 16px),
-    rgb(0 0 0 / var(--rail-fade-bottom)) 100%
+    rgb(0 0 0 / calc(var(--sidebar-fade-bottom) + 0.33)) calc(100% - 16px),
+    rgb(0 0 0 / var(--sidebar-fade-bottom)) 100%
   );
-  transition: --rail-fade-bottom 200ms ease;
+  transition: --sidebar-fade-bottom 200ms ease;
 
   @media (prefers-reduced-motion: reduce) {
     transition: none;
@@ -235,7 +235,7 @@
 }
 
 .sections.fadeBottom {
-  --rail-fade-bottom: 0;
+  --sidebar-fade-bottom: 0;
 }
 
 .sections.sectionsOverflow {
@@ -244,19 +244,19 @@
 
 // Opening a section that starts the list scrolling mustn't shift the rows
 // sideways under the pointer.
-.rail:not(.collapsed) .sections {
+.sidebar:not(.collapsed) .sections {
   scrollbar-gutter: stable;
 }
 
 // Registered so the fade can transition; 1 is no fade.
-@property --rail-fade-bottom {
+@property --sidebar-fade-bottom {
   syntax: "<number>";
   inherits: false;
   initial-value: 1;
 }
 
 // 4px between the sections and the bottom group once they fill the space:
-// the rail's 8px gaps either side, less 6px each.
+// the sidebar's 8px gaps either side, less 6px each.
 .spacer {
   flex-grow: 1;
   margin: -6px 0;
@@ -286,13 +286,13 @@
   border: 0;
   border-radius: var(--radius-3);
   background: transparent;
-  color: var(--rail-icon);
+  color: var(--sidebar-icon);
   cursor: pointer;
   text-decoration: none;
 
   &:hover {
-    background: var(--rail-hover);
-    color: var(--rail-text-strong);
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
     text-decoration: none;
   }
 }
@@ -310,7 +310,7 @@
   border: 0;
   border-radius: var(--radius-3);
   background: transparent;
-  color: var(--rail-text);
+  color: var(--sidebar-text);
   font-family: var(--default-font-family);
   font-size: var(--font-size-2);
   font-weight: var(--font-weight-medium);
@@ -321,15 +321,15 @@
   cursor: pointer;
 
   &:hover {
-    background: var(--rail-hover);
-    color: var(--rail-text-strong);
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
     text-decoration: none;
   }
 }
 
 .rowIcon {
   flex-shrink: 0;
-  color: var(--rail-icon);
+  color: var(--sidebar-icon);
 }
 
 .rowLabel {
@@ -339,7 +339,7 @@
   text-overflow: ellipsis;
 }
 
-// In over 150ms and out over 250ms, so moving down the rail leaves a trail
+// In over 150ms and out over 250ms, so moving down the sidebar leaves a trail
 // rather than a flicker.
 .iconItem,
 .row,
@@ -373,39 +373,39 @@
 
 // Weight as well as fill, so the selection doesn't rest on the fill alone.
 .active.active {
-  background: var(--rail-active);
-  color: var(--rail-text-strong);
+  background: var(--sidebar-active);
+  color: var(--sidebar-text-strong);
   font-weight: var(--font-weight-bold);
 
   .rowIcon {
-    color: var(--rail-text-strong);
+    color: var(--sidebar-text-strong);
   }
 }
 
 // Keeps the hover look while the pointer moves into its menu.
 .menuShowing.menuShowing:not(.active) {
-  background: var(--rail-hover);
-  color: var(--rail-text-strong);
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
 
   .rowIcon {
-    color: var(--rail-text-strong);
+    color: var(--sidebar-text-strong);
   }
 }
 
 .menuOpen.menuOpen {
-  background: var(--rail-active);
-  color: var(--rail-text-strong);
+  background: var(--sidebar-active);
+  color: var(--sidebar-text-strong);
 
   .rowIcon {
-    color: var(--rail-text-strong);
+    color: var(--sidebar-text-strong);
   }
 }
 
 .openSection {
-  color: var(--rail-text-strong);
+  color: var(--sidebar-text-strong);
 
   .rowIcon {
-    color: var(--rail-text-strong);
+    color: var(--sidebar-text-strong);
   }
 }
 
@@ -422,8 +422,8 @@
 
 // Hovering the chevron still highlights the row.
 .sectionHeader:hover > .sectionRow:not(.active) {
-  background: var(--rail-hover);
-  color: var(--rail-text-strong);
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
   transition-duration: 150ms;
 }
 
@@ -440,7 +440,7 @@
   border: 0;
   border-radius: var(--radius-2);
   background: transparent;
-  color: var(--rail-chevron);
+  color: var(--sidebar-chevron);
   cursor: pointer;
   transition:
     color 250ms ease-out,
@@ -461,7 +461,7 @@
   }
 }
 
-// Hidden while the rail resizes, so it never slides over its row's icon.
+// Hidden while the sidebar resizes, so it never slides over its row's icon.
 .resizing .chevronButton {
   opacity: 0;
   pointer-events: none;
@@ -525,7 +525,7 @@
   }
 }
 
-// One item in the rail's column, so a closed list adds no gap.
+// One item in the sidebar's column, so a closed list adds no gap.
 .sectionGroup {
   flex-shrink: 0;
   display: flex;
@@ -537,15 +537,15 @@
   align-items: center;
   padding: 7px 10px 7px 43px;
   border-radius: var(--radius-3);
-  color: var(--rail-icon);
+  color: var(--sidebar-icon);
   font-size: 13px;
   font-weight: var(--font-weight-medium);
   line-height: 18px;
   text-decoration: none;
 
   &:hover {
-    background: var(--rail-hover);
-    color: var(--rail-text-strong);
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
     text-decoration: none;
   }
 
@@ -560,24 +560,24 @@
   color: var(--slate-12);
   font-weight: var(--font-weight-bold);
 
-  .rail & {
-    background: var(--rail-active);
-    color: var(--rail-text-strong);
+  .sidebar & {
+    background: var(--sidebar-active);
+    color: var(--sidebar-text-strong);
   }
 }
 
 .keycap {
   flex-shrink: 0;
   padding: 1px 5px;
-  border: 1px solid var(--rail-keycap);
+  border: 1px solid var(--sidebar-keycap);
   border-radius: var(--radius-2);
-  color: var(--rail-muted);
+  color: var(--sidebar-muted);
   font-size: 11px;
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-1);
 }
 
-// RailProjectSelector.tsx: the avatar centers on the icon column, and the
+// SidebarProjectSelector.tsx: the avatar centers on the icon column, and the
 // name lines up with the other rows' labels.
 .row.projectItem {
   padding-left: 3px;
@@ -608,7 +608,7 @@
 
   &:hover {
     background: transparent;
-    color: var(--rail-text);
+    color: var(--sidebar-text);
   }
 }
 
@@ -639,11 +639,11 @@
   box-sizing: border-box;
 
   &[data-state="open"] {
-    animation: rail-popover-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+    animation: sidebar-popover-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
   }
 
   &[data-state="closed"] {
-    animation: rail-popover-out 120ms ease-in both;
+    animation: sidebar-popover-out 120ms ease-in both;
     pointer-events: none;
   }
 
@@ -655,7 +655,7 @@
   }
 }
 
-@keyframes rail-popover-in {
+@keyframes sidebar-popover-in {
   from {
     opacity: 0;
     transform: translateX(-4px);
@@ -666,7 +666,7 @@
   }
 }
 
-@keyframes rail-popover-out {
+@keyframes sidebar-popover-out {
   from {
     opacity: 1;
   }
@@ -732,14 +732,14 @@
 }
 
 // Tripled, to outrank Radix Themes' animation.
-.railTooltip.railTooltip.railTooltip {
+.sidebarTooltip.sidebarTooltip.sidebarTooltip {
   &[data-state="delayed-open"],
   &[data-state="instant-open"] {
-    animation: rail-tooltip-in 120ms ease-out both;
+    animation: sidebar-tooltip-in 120ms ease-out both;
   }
 
   &[data-state="closed"] {
-    animation: rail-tooltip-out 100ms ease-in both;
+    animation: sidebar-tooltip-out 100ms ease-in both;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -749,7 +749,7 @@
   }
 }
 
-@keyframes rail-tooltip-in {
+@keyframes sidebar-tooltip-in {
   from {
     opacity: 0;
   }
@@ -758,7 +758,7 @@
   }
 }
 
-@keyframes rail-tooltip-out {
+@keyframes sidebar-tooltip-out {
   from {
     opacity: 1;
   }

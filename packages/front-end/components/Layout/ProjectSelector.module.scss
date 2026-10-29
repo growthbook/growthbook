@@ -62,7 +62,7 @@
   z-index: 1;
   margin-top: calc(-1 * var(--space-1));
   padding: var(--space-1) 0 var(--space-2);
-  background: var(--rail-bg, var(--color-panel-solid));
+  background: var(--sidebar-bg, var(--color-panel-solid));
 }
 
 // The avatar lines up with the drawer's project row; scrolled-to items stop

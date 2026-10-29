@@ -10,7 +10,7 @@ import styles from "./HeaderBreadcrumb.module.scss";
 
 function sideNavPageName(route: string): string | null {
   for (const link of navlinks) {
-    // The side nav shows Settings as one item, so use that name, not its
+    // The sidebar shows Settings as one item, so use that name, not its
     // first page's ("General").
     if (link.name === "Settings" && route === link.href.substring(1)) {
       return link.name;

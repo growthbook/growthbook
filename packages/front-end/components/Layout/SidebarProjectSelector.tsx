@@ -8,16 +8,16 @@ import {
   ProjectMenuInPlace,
   useProjectSelector,
 } from "./ProjectSelector";
-import { RailMenuInPlace } from "./railMenu";
-import { useMenuTriggerTooltip } from "./railTooltips";
-import styles from "./AppRail.module.scss";
+import { SidebarMenuInPlace } from "./SidebarMenu";
+import { useMenuTriggerTooltip } from "./SidebarTooltip";
+import styles from "./Sidebar.module.scss";
 
-export default function RailProjectSelector({
+export default function SidebarProjectSelector({
   collapsed,
   inPlace,
 }: {
   collapsed: boolean;
-  inPlace?: RailMenuInPlace;
+  inPlace?: SidebarMenuInPlace;
 }) {
   const { projects, current, heldToOneProject, isDemo, name } =
     useProjectSelector();
@@ -98,8 +98,8 @@ export default function RailProjectSelector({
           className={clsx(className, inPlace.open && styles.menuOpen)}
           aria-label={`Project: ${name}`}
           aria-expanded={inPlace.open}
-          // Focus returns here from the menu (AppRail.tsx).
-          data-rail-menu-trigger="project"
+          // Focus returns here from the menu (Sidebar.tsx).
+          data-sidebar-menu-trigger="project"
           onClick={(e) => inPlace.onOpen(e.detail === 0)}
           {...tooltip.triggerProps}
         >

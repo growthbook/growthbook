@@ -2,7 +2,7 @@ import { useRouter } from "next/router";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
-import AppRail from "./AppRail";
+import Sidebar from "./Sidebar";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import SettingsNav from "./SettingsNav";
@@ -79,7 +79,7 @@ const Layout = (): React.ReactElement => {
 
   return (
     <>
-      <AppRail />
+      <Sidebar />
       {wide && isSettingsRoute(router.route) ? <SettingsNav /> : null}
       <TopNav
         pageTitle={pageTitle}

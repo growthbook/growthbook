@@ -21,16 +21,16 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { withOpticalWeight } from "./opticalWeight";
-import { useMenuTriggerTooltip } from "./railTooltips";
+import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import { buildVersionLabel } from "./buildVersion";
 import {
   InPlaceMenu,
   MenuItemContent,
-  RailMenuEntry,
-  RailMenuInPlace,
-} from "./railMenu";
-import railStyles from "./AppRail.module.scss";
-import railMenuStyles from "./RailMenu.module.scss";
+  SidebarMenuEntry,
+  SidebarMenuInPlace,
+} from "./SidebarMenu";
+import sidebarStyles from "./Sidebar.module.scss";
+import sidebarMenuStyles from "./SidebarMenu.module.scss";
 import styles from "./HelpMenu.module.scss";
 
 const HelpIcon = withOpticalWeight(PiQuestion);
@@ -85,7 +85,7 @@ export default function HelpMenu({
   inPlace,
 }: {
   /**
-   * Set in the side nav; without the trigger props, it's the header's button.
+   * Set in the sidebar; without the trigger props, it's the header's button.
    */
   collapsed?: boolean;
   iconSize?: number;
@@ -93,10 +93,10 @@ export default function HelpMenu({
   openClassName?: string;
   iconClassName?: string;
   labelClassName?: string;
-  /** In the drawer, the menu is drawn in place (AppRail.tsx). */
-  inPlace?: RailMenuInPlace;
+  /** In the drawer, the menu is drawn in place (Sidebar.tsx). */
+  inPlace?: SidebarMenuInPlace;
 }) {
-  const inRail = triggerClassName !== undefined;
+  const inSidebar = triggerClassName !== undefined;
   const [open, setOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const { hasCommercialFeature } = useUser();
@@ -150,10 +150,10 @@ export default function HelpMenu({
     </span>
   );
 
-  const entries: RailMenuEntry[] = [
+  const entries: SidebarMenuEntry[] = [
     { type: "label", key: "header", label: "Help" },
     ...items.map(
-      (item): RailMenuEntry => ({
+      (item): SidebarMenuEntry => ({
         type: "item",
         key: item.key,
         onSelect: item.onSelect,
@@ -195,7 +195,7 @@ export default function HelpMenu({
     menuOpen: open,
   });
 
-  const trigger = inRail ? (
+  const trigger = inSidebar ? (
     <button
       type="button"
       className={clsx(
@@ -203,7 +203,7 @@ export default function HelpMenu({
         (open || inPlace?.open) && openClassName,
       )}
       aria-label="Help"
-      data-rail-menu-trigger="help"
+      data-sidebar-menu-trigger="help"
       onPointerDown={() => {
         openedByPointer.current = true;
       }}
@@ -229,7 +229,7 @@ export default function HelpMenu({
       size="2"
       className={styles.headerButton}
       aria-label="Help"
-      data-rail-menu-trigger="help"
+      data-sidebar-menu-trigger="help"
       onPointerDown={() => {
         openedByPointer.current = true;
       }}
@@ -273,7 +273,7 @@ export default function HelpMenu({
     <button
       key={key}
       type="button"
-      className={clsx(railStyles.popoverItem, styles.popoverRow, className)}
+      className={clsx(sidebarStyles.popoverItem, styles.popoverRow, className)}
       onClick={onSelect}
     >
       {content}
@@ -287,12 +287,12 @@ export default function HelpMenu({
         open={open}
         onOpenChange={setOpen}
         trigger={trigger}
-        // 8px past the side nav's edge: the item sits 8px inside it.
-        side={inRail ? "right" : "bottom"}
+        // 8px past the sidebar's edge: the item sits 8px inside it.
+        side={inSidebar ? "right" : "bottom"}
         align="end"
-        sideOffset={inRail ? 16 : 8}
+        sideOffset={inSidebar ? 16 : 8}
         showArrow={false}
-        contentClassName={clsx(railStyles.popover, styles.popover)}
+        contentClassName={clsx(sidebarStyles.popover, styles.popover)}
         // The padding is on the list inside (.popoverBody), as in the
         // section menus.
         contentStyle={{ padding: 0 }}
@@ -304,11 +304,14 @@ export default function HelpMenu({
         }}
         content={
           <div
-            className={clsx(railStyles.popoverBody, railStyles.popoverInner)}
+            className={clsx(
+              sidebarStyles.popoverBody,
+              sidebarStyles.popoverInner,
+            )}
             role="group"
             aria-label="Help"
           >
-            <div className={railStyles.eyebrow} aria-hidden="true">
+            <div className={sidebarStyles.eyebrow} aria-hidden="true">
               Help
             </div>
             {items.map((item) =>
@@ -342,7 +345,7 @@ export default function HelpMenu({
               <>
                 <div
                   className={clsx(
-                    railMenuStyles.separator,
+                    sidebarMenuStyles.separator,
                     styles.popoverDivider,
                   )}
                   role="none"

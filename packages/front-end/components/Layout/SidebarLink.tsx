@@ -27,7 +27,7 @@ export type SidebarLinkProps = {
   beta?: boolean;
 };
 
-/** Same inputs the side nav uses for `filter` on nav links — use for Cmd+K / tests so visibility stays in sync. */
+/** Same inputs the sidebar uses for `filter` on nav links — use for Cmd+K / tests so visibility stays in sync. */
 export function buildSidebarLinkFilterProps(input: {
   permissionsUtils: Permissions;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;

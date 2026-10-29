@@ -15,7 +15,7 @@ function readHeaderHeight() {
   return Number.isFinite(height) ? height : HEADER_HEIGHT_PX;
 }
 
-/** Taller below 1180px on pages with the side nav (two rows). */
+/** Taller below 1180px on pages with the sidebar (two rows). */
 export function useHeaderHeight(): number {
   return useSyncExternalStore(
     (listener) => {

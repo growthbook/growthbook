@@ -30,7 +30,7 @@
 // Spans from the main sidebar to the window edge, over the sub nav.
 .unsavedBar {
   position: fixed;
-  left: var(--app-rail-width);
+  left: var(--sidebar-width);
   right: 0;
   bottom: 0;
   // Over the sub nav (999 too, but earlier in the DOM) and under the slide-out sidebar (1000).

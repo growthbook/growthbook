@@ -8,7 +8,7 @@
   // Radix size 1's corners, matching the GrowthBot button.
   border-radius: max(var(--radius-1), var(--radius-full));
 
-  // On the icon's corner, not the box's; layered like .railItem's.
+  // On the icon's corner, not the box's; layered like .sidebarItem's.
   .reviewDot {
     top: 2px;
     right: 2px;
@@ -36,7 +36,7 @@
 
 // Two layered shadows in every state, the top one clear at rest, so the
 // ring fades with the row's translucent highlight instead of flashing.
-.railItem {
+.sidebarItem {
   .reviewDot {
     top: -1px;
     right: -1px;
@@ -45,7 +45,7 @@
     border: 0;
     box-shadow:
       0 0 0 2px transparent,
-      0 0 0 2px var(--rail-bg);
+      0 0 0 2px var(--sidebar-bg);
     transition: box-shadow 250ms ease-out;
 
     @media (prefers-reduced-motion: reduce) {
@@ -55,16 +55,16 @@
 
   &:hover .reviewDot {
     box-shadow:
-      0 0 0 2px var(--rail-hover),
-      0 0 0 2px var(--rail-bg);
+      0 0 0 2px var(--sidebar-hover),
+      0 0 0 2px var(--sidebar-bg);
     transition-duration: 150ms;
   }
 
   &[data-state="open"] .reviewDot,
   &[aria-expanded="true"] .reviewDot {
     box-shadow:
-      0 0 0 2px var(--rail-active),
-      0 0 0 2px var(--rail-bg);
+      0 0 0 2px var(--sidebar-active),
+      0 0 0 2px var(--sidebar-bg);
   }
 }
 

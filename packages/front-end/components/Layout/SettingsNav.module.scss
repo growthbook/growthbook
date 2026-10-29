@@ -2,7 +2,7 @@
   position: fixed;
   top: calc(var(--header-height) + var(--settings-nav-inset));
   bottom: var(--settings-nav-inset);
-  left: calc(var(--app-rail-width) + var(--settings-nav-inset));
+  left: calc(var(--sidebar-width) + var(--settings-nav-inset));
   width: var(--settings-nav-width);
   display: flex;
   flex-direction: column;

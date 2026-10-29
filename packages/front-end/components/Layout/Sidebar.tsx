@@ -37,11 +37,11 @@ import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
-import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
+import { BOTTOM_TOOLTIP_DELAY_MS } from "./SidebarTooltip";
 import GrowthBookLogo from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
-import RailProjectSelector from "./RailProjectSelector";
+import SidebarProjectSelector from "./SidebarProjectSelector";
 import { OPTICAL_STROKE, withOpticalWeight } from "./opticalWeight";
 import {
   buildSidebarLinkFilterProps,
@@ -50,9 +50,9 @@ import {
 } from "./SidebarLink";
 import { navlinks, settingsNavLink } from "./sidebarNav";
 import { useSidebarOpen } from "./SidebarOpenProvider";
-import { RailMenuInPlace } from "./railMenu";
+import { SidebarMenuInPlace } from "./SidebarMenu";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
-import styles from "./AppRail.module.scss";
+import styles from "./Sidebar.module.scss";
 
 const SearchIcon = withOpticalWeight(PiMagnifyingGlass);
 const SettingsIcon = withOpticalWeight(PiGearSix);
@@ -87,11 +87,11 @@ const SECTION_ICONS: Record<string, IconType> = {
   Insights: LightbulbNoHighlight,
   "SDK Configuration": withOpticalWeight(PiCode),
 };
-const RAIL_SECTIONS = navlinks.filter((l) => !!SECTION_ICONS[l.name]);
+const SIDEBAR_SECTIONS = navlinks.filter((l) => !!SECTION_ICONS[l.name]);
 const ADMIN_LINK = navlinks.find((l) => l.name === "Admin");
 
-/** On <html>; sets --app-rail-width (global.scss). */
-const COLLAPSED_CLASS = "app-rail-collapsed";
+/** On <html>; sets --sidebar-width (global.scss). */
+const COLLAPSED_CLASS = "app-sidebar-collapsed";
 const BREAKPOINT_SWITCH_CLASS = "app-breakpoint-switch";
 /**
  * Long enough for the drawer closing and menus moving to land while transitions
@@ -99,12 +99,12 @@ const BREAKPOINT_SWITCH_CLASS = "app-breakpoint-switch";
  */
 const BREAKPOINT_SWITCH_MS = 150;
 /**
- * Turns transitions off while a saved collapsed rail is restored, so it doesn't
- * slide shut on load (global.scss).
+ * Turns transitions off while a saved collapsed sidebar is restored, so it
+ * doesn't slide shut on load (global.scss).
  */
-const RAIL_RESTORE_CLASS = "app-rail-restore";
-/** Matches .rail's width transition (AppRail.module.scss). */
-const RAIL_WIDTH_TRANSITION_MS = 200;
+const SIDEBAR_RESTORE_CLASS = "app-sidebar-restore";
+/** Matches .sidebar's width transition (Sidebar.module.scss). */
+const SIDEBAR_WIDTH_TRANSITION_MS = 200;
 const ICON_SIZE = 18;
 /**
  * Lets the pointer cross the gap from a collapsed section's icon into its
@@ -113,7 +113,7 @@ const ICON_SIZE = 18;
 const HOVER_CLOSE_DELAY_MS = 150;
 
 /**
- * Runs before paint in the browser, so a saved collapsed rail never flashes
+ * Runs before paint in the browser, so a saved collapsed sidebar never flashes
  * open.
  */
 const useIsomorphicLayoutEffect =
@@ -123,9 +123,9 @@ const isMac = () =>
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.userAgent);
 
-function useRailCollapsed(): [boolean, () => void] {
+function useSidebarCollapsed(): [boolean, () => void] {
   const { userId } = useUser();
-  const key = userId ? `gb-app-rail-collapsed:${userId}` : null;
+  const key = userId ? `gb-sidebar-collapsed:${userId}` : null;
   const [collapsed, setCollapsed] = useState(false);
 
   useIsomorphicLayoutEffect(() => {
@@ -140,19 +140,19 @@ function useRailCollapsed(): [boolean, () => void] {
       setCollapsed(false);
       return;
     }
-    // Something earlier in the load may have measured the rail open, so its
+    // Something earlier in the load may have measured the sidebar open, so its
     // width would ease from there. Two frames: one renders collapsed, one paints.
     const root = document.documentElement;
-    root.classList.add(RAIL_RESTORE_CLASS);
+    root.classList.add(SIDEBAR_RESTORE_CLASS);
     let frame = requestAnimationFrame(() => {
       frame = requestAnimationFrame(() =>
-        root.classList.remove(RAIL_RESTORE_CLASS),
+        root.classList.remove(SIDEBAR_RESTORE_CLASS),
       );
     });
     setCollapsed(true);
     return () => {
       cancelAnimationFrame(frame);
-      root.classList.remove(RAIL_RESTORE_CLASS);
+      root.classList.remove(SIDEBAR_RESTORE_CLASS);
     };
   }, [key]);
 
@@ -196,7 +196,7 @@ type Section = {
 };
 
 function permittedSections(filterProps: SidebarLinkFilterProps): Section[] {
-  return RAIL_SECTIONS.flatMap((link) => {
+  return SIDEBAR_SECTIONS.flatMap((link) => {
     if (link.filter && !link.filter(filterProps)) return [];
     const pages = (link.subLinks || []).filter(
       (l) => !l.filter || l.filter(filterProps),
@@ -221,7 +221,8 @@ function PageBadge({ page }: { page: SidebarLinkProps }) {
 }
 
 /**
- * One section's popover shows at a time, so the rail holds which one is open.
+ * One section's popover shows at a time, so the sidebar holds which one is
+ * open.
  */
 function CollapsedSection({
   section,
@@ -342,7 +343,7 @@ function CollapsedSection({
             // Already showing (from focus): move into the list.
             document
               .querySelector<HTMLElement>(
-                `[data-rail-popover="${section.link.name}"] a`,
+                `[data-sidebar-popover="${section.link.name}"] a`,
               )
               ?.focus();
           } else {
@@ -362,7 +363,7 @@ function CollapsedSection({
       trigger={trigger}
       side="right"
       align="start"
-      // 8px past the rail's edge: the icon sits 8px inside it.
+      // 8px past the sidebar's edge: the icon sits 8px inside it.
       sideOffset={16}
       showArrow={false}
       contentClassName={clsx(styles.popover, styles.sectionPopover)}
@@ -384,7 +385,7 @@ function CollapsedSection({
       content={
         <div
           className={clsx(styles.popoverBody, styles.popoverInner)}
-          data-rail-popover={section.link.name}
+          data-sidebar-popover={section.link.name}
           onMouseEnter={clearTimer}
           onMouseLeave={closeSoon}
         >
@@ -428,7 +429,7 @@ function ExpandedSection({
   route: string;
 }) {
   const { Icon } = section;
-  const listId = `app-rail-${section.link.name.replace(/\W+/g, "-")}`;
+  const listId = `sidebar-${section.link.name.replace(/\W+/g, "-")}`;
   return (
     <div className={styles.sectionGroup}>
       <div className={styles.sectionHeader}>
@@ -494,7 +495,7 @@ function ExpandedSection({
   );
 }
 
-function RailItem({
+function SidebarItem({
   collapsed,
   Icon,
   label,
@@ -551,7 +552,7 @@ function RailItem({
       content={tooltip ?? label}
       side="right"
       delayDuration={tooltipDelay}
-      className={styles.railTooltip}
+      className={styles.sidebarTooltip}
     >
       {element}
     </Tooltip>
@@ -560,13 +561,13 @@ function RailItem({
   );
 }
 
-export default function AppRail() {
+export default function Sidebar() {
   const router = useRouter();
   const route = router.route.substring(1);
   const { open: drawerOpen, setOpen: setDrawerOpen } = useSidebarOpen();
-  const [collapsedPref, toggleCollapsed] = useRailCollapsed();
+  const [collapsedPref, toggleCollapsed] = useSidebarCollapsed();
 
-  // Below 1180px the rail is a drawer, always expanded. Crossing that width
+  // Below 1180px the sidebar is a drawer, always expanded. Crossing that width
   // briefly turns transitions off (global.scss), so nothing slides.
   const [isNarrow, setIsNarrow] = useState(false);
   useEffect(() => {
@@ -598,7 +599,7 @@ export default function AppRail() {
   const navRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawer = isNarrow && drawerOpen;
-  // Drawn by the menu itself (railMenu.tsx) into menuHost.
+  // Drawn by the menu itself (SidebarMenu.tsx) into menuHost.
   const [drawerMenu, setDrawerMenu] = useState<
     "project" | "profile" | "help" | null
   >(null);
@@ -615,7 +616,7 @@ export default function AppRail() {
     if (!from) return;
     requestAnimationFrame(() => {
       navRef.current
-        ?.querySelector<HTMLElement>(`[data-rail-menu-trigger="${from}"]`)
+        ?.querySelector<HTMLElement>(`[data-sidebar-menu-trigger="${from}"]`)
         ?.focus({
           preventScroll: true,
           focusVisible: fromKeyboard,
@@ -626,7 +627,7 @@ export default function AppRail() {
   backToNavRef.current = backToNav;
   const menuInPlace = (
     name: "project" | "profile" | "help",
-  ): RailMenuInPlace | undefined =>
+  ): SidebarMenuInPlace | undefined =>
     isNarrow
       ? {
           open: drawerMenu === name,
@@ -722,7 +723,7 @@ export default function AppRail() {
 
   const noHover = useMediaQuery("(hover: none)");
 
-  // Collapsing, the labels stay while the rail narrows; expanding, they
+  // Collapsing, the labels stay while the sidebar narrows; expanding, they
   // follow at once.
   const userToggled = useRef(false);
   const toggleAnimated = () => {
@@ -730,8 +731,8 @@ export default function AppRail() {
     toggleCollapsed();
   };
   const [contentCollapsed, setContentCollapsed] = useState(collapsed);
-  // While the rail's width moves, the section rows' chevrons hide, so they
-  // never slide over the icons as the rows resize (AppRail.module.scss).
+  // While the sidebar's width moves, the section rows' chevrons hide, so they
+  // never slide over the icons as the rows resize (Sidebar.module.scss).
   const [resizing, setResizing] = useState(false);
   useIsomorphicLayoutEffect(() => {
     const animate = userToggled.current;
@@ -749,7 +750,7 @@ export default function AppRail() {
     const timer = setTimeout(() => {
       setContentCollapsed(collapsed);
       setResizing(false);
-    }, RAIL_WIDTH_TRANSITION_MS);
+    }, SIDEBAR_WIDTH_TRANSITION_MS);
     return () => clearTimeout(timer);
   }, [collapsed]);
 
@@ -775,7 +776,7 @@ export default function AppRail() {
   const showAdmin =
     !!ADMIN_LINK && (!ADMIN_LINK.filter || ADMIN_LINK.filter(filterProps));
 
-  // Collapsing folds every section, so its pages fold as the rail narrows;
+  // Collapsing folds every section, so its pages fold as the sidebar narrows;
   // expanding unfolds the same ones once it has widened.
   const [openSections, setOpenSections] = useState<string[]>(
     activeSection ? [activeSection] : [],
@@ -794,7 +795,7 @@ export default function AppRail() {
     ).matches;
     const timer = setTimeout(
       () => setSectionsFolded(false),
-      reducedMotion ? 0 : RAIL_WIDTH_TRANSITION_MS,
+      reducedMotion ? 0 : SIDEBAR_WIDTH_TRANSITION_MS,
     );
     return () => clearTimeout(timer);
   }, [collapsed]);
@@ -811,9 +812,9 @@ export default function AppRail() {
     if (onHome) setOpenSections([]);
   }, [onHome]);
 
-  const [openRailMenu, setOpenRailMenu] = useState<string | null>(null);
+  const [openSectionMenu, setOpenSectionMenu] = useState<string | null>(null);
   useEffect(() => {
-    setOpenRailMenu(null);
+    setOpenSectionMenu(null);
   }, [route, collapsed]);
 
   const [upgradeModal, setUpgradeModal] = useState(false);
@@ -869,7 +870,7 @@ export default function AppRail() {
         ref={navRef}
         id="main-menu"
         aria-label="Main"
-        className={clsx(styles.rail, {
+        className={clsx(styles.sidebar, {
           [styles.collapsed]: contentCollapsed,
           [styles.resizing]: resizing,
           [styles.collapsing]: resizing && collapsed,
@@ -915,11 +916,11 @@ export default function AppRail() {
 
         {/* Kept mounted while a menu is open in its place: its row draws it. */}
         <div className={drawerMenu ? styles.navHidden : styles.navBody}>
-          <RailProjectSelector
+          <SidebarProjectSelector
             collapsed={contentCollapsed}
             inPlace={menuInPlace("project")}
           />
-          <RailItem
+          <SidebarItem
             collapsed={contentCollapsed}
             Icon={SearchIcon}
             label="Search"
@@ -957,8 +958,8 @@ export default function AppRail() {
                   section={section}
                   active={activeSection === section.link.name}
                   route={route}
-                  openMenu={openRailMenu}
-                  setOpenMenu={setOpenRailMenu}
+                  openMenu={openSectionMenu}
+                  setOpenMenu={setOpenSectionMenu}
                   tapOpens={noHover}
                 />
               ) : (
@@ -1005,7 +1006,7 @@ export default function AppRail() {
 
           <div className={styles.bottomGroup}>
             {showUpgrade ? (
-              <RailItem
+              <SidebarItem
                 collapsed={contentCollapsed}
                 Icon={UpgradeIcon}
                 label="Upgrade"
@@ -1017,7 +1018,7 @@ export default function AppRail() {
                 className={styles.upgrade}
               />
             ) : null}
-            <RailItem
+            <SidebarItem
               collapsed={contentCollapsed}
               Icon={SettingsIcon}
               label="Settings"
@@ -1026,7 +1027,7 @@ export default function AppRail() {
               tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
             />
             {ADMIN_LINK && showAdmin ? (
-              <RailItem
+              <SidebarItem
                 collapsed={contentCollapsed}
                 Icon={PiShieldCheck}
                 label={ADMIN_LINK.name}
@@ -1037,12 +1038,14 @@ export default function AppRail() {
             ) : null}
             <ProfileMenu
               inPlace={menuInPlace("profile")}
-              railCollapsed={contentCollapsed}
-              railClassName={contentCollapsed ? styles.iconItem : styles.row}
-              railOpenClassName={styles.menuOpen}
-              railLabelClassName={styles.rowLabel}
-              railIconSize={ICON_SIZE}
-              railIconClassName={contentCollapsed ? undefined : styles.rowIcon}
+              sidebarCollapsed={contentCollapsed}
+              sidebarClassName={contentCollapsed ? styles.iconItem : styles.row}
+              sidebarOpenClassName={styles.menuOpen}
+              sidebarLabelClassName={styles.rowLabel}
+              sidebarIconSize={ICON_SIZE}
+              sidebarIconClassName={
+                contentCollapsed ? undefined : styles.rowIcon
+              }
             />
             <HelpMenu
               inPlace={menuInPlace("help")}
@@ -1060,7 +1063,7 @@ export default function AppRail() {
                 className={clsx(styles.divider, styles.bottomDivider)}
                 role="separator"
               />
-              <RailItem
+              <SidebarItem
                 collapsed={contentCollapsed}
                 Icon={PiSidebarSimple}
                 label="Collapse"

@@ -35,14 +35,14 @@ import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import UserAvatar from "@/components/Avatar/UserAvatar";
 import EditProfileModal from "./EditProfileModal";
 import { withOpticalWeight } from "./opticalWeight";
-import { useMenuTriggerTooltip } from "./railTooltips";
+import { useMenuTriggerTooltip } from "./SidebarTooltip";
 import {
   DropdownEntries,
   InPlaceMenu,
   MenuItemContent,
-  RailMenuEntry,
-  RailMenuInPlace,
-} from "./railMenu";
+  SidebarMenuEntry,
+  SidebarMenuInPlace,
+} from "./SidebarMenu";
 import { useUserOrganizations } from "./useUserOrganizations";
 import styles from "./ProfileMenu.module.scss";
 
@@ -60,25 +60,25 @@ const THEME_ICONS: Record<keyof typeof THEME_LABELS, IconType> = {
 };
 
 export default function ProfileMenu({
-  railCollapsed,
-  railClassName,
-  railOpenClassName,
-  railLabelClassName,
-  railIconSize = 18,
-  railIconClassName,
+  sidebarCollapsed,
+  sidebarClassName,
+  sidebarOpenClassName,
+  sidebarLabelClassName,
+  sidebarIconSize = 18,
+  sidebarIconClassName,
   inPlace,
 }: {
-  /** Set in the side nav; without the rail* props, it's the header's button. */
-  railCollapsed?: boolean;
-  railClassName?: string;
-  railOpenClassName?: string;
-  railLabelClassName?: string;
-  railIconSize?: number;
-  railIconClassName?: string;
-  /** In the drawer, the menu is drawn in place (AppRail.tsx). */
-  inPlace?: RailMenuInPlace;
+  /** Set in the sidebar; without the sidebar* props, it's the header's button. */
+  sidebarCollapsed?: boolean;
+  sidebarClassName?: string;
+  sidebarOpenClassName?: string;
+  sidebarLabelClassName?: string;
+  sidebarIconSize?: number;
+  sidebarIconClassName?: string;
+  /** In the drawer, the menu is drawn in place (Sidebar.tsx). */
+  inPlace?: SidebarMenuInPlace;
 } = {}) {
-  const inRail = railCollapsed !== undefined;
+  const inSidebar = sidebarCollapsed !== undefined;
   const router = useRouter();
   const { name, email, organization, hasCommercialFeature } = useUser();
   const { logout, orgId, setOrgId } = useAuth();
@@ -138,9 +138,9 @@ export default function ProfileMenu({
     key: string,
     content: ReactNode,
     onSelect: () => void,
-  ): RailMenuEntry => ({ type: "item", key, content, onSelect });
+  ): SidebarMenuEntry => ({ type: "item", key, content, onSelect });
   const themeKeys = Object.keys(THEME_LABELS) as (keyof typeof THEME_LABELS)[];
-  const entries: RailMenuEntry[] = [
+  const entries: SidebarMenuEntry[] = [
     {
       type: "item",
       key: "identity",
@@ -298,11 +298,11 @@ export default function ProfileMenu({
 
   // With several organizations the tooltip always shows "Name (Org)";
   // otherwise just the name, and only when collapsed.
-  const railName = name || email || "Account";
-  const railOrgName = inRail && showOrgPicker && orgName ? orgName : null;
+  const sidebarName = name || email || "Account";
+  const sidebarOrgName = inSidebar && showOrgPicker && orgName ? orgName : null;
   const tooltip = useMenuTriggerTooltip({
-    label: railOrgName ? `${railName} (${railOrgName})` : railName,
-    enabled: !inPlace && (!!railCollapsed || !!railOrgName),
+    label: sidebarOrgName ? `${sidebarName} (${sidebarOrgName})` : sidebarName,
+    enabled: !inPlace && (!!sidebarCollapsed || !!sidebarOrgName),
     menuOpen: open,
   });
 
@@ -311,16 +311,16 @@ export default function ProfileMenu({
       <span className={styles.reviewDot} aria-hidden="true" />
     ) : null;
 
-  const trigger = inRail ? (
+  const trigger = inSidebar ? (
     <button
       type="button"
       className={clsx(
-        railClassName,
-        styles.railItem,
-        (open || inPlace?.open) && railOpenClassName,
+        sidebarClassName,
+        styles.sidebarItem,
+        (open || inPlace?.open) && sidebarOpenClassName,
       )}
       aria-label={accountLabel}
-      data-rail-menu-trigger="profile"
+      data-sidebar-menu-trigger="profile"
       {...tooltip.triggerProps}
       {...(inPlace
         ? {
@@ -331,14 +331,14 @@ export default function ProfileMenu({
     >
       <span className={styles.avatarWrap}>
         <ProfileIcon
-          size={railIconSize}
-          className={railIconClassName}
+          size={sidebarIconSize}
+          className={sidebarIconClassName}
           aria-hidden="true"
         />
         {reviewDot}
       </span>
-      {railCollapsed ? null : (
-        <span className={railLabelClassName}>{railName}</span>
+      {sidebarCollapsed ? null : (
+        <span className={sidebarLabelClassName}>{sidebarName}</span>
       )}
       {tooltip.anchor}
     </button>
@@ -350,7 +350,7 @@ export default function ProfileMenu({
       size="2"
       className={styles.headerButton}
       aria-label={accountLabel}
-      data-rail-menu-trigger="profile"
+      data-sidebar-menu-trigger="profile"
     >
       <ProfileIcon size={16} aria-hidden="true" />
       {reviewDot}
@@ -391,9 +391,9 @@ export default function ProfileMenu({
         open={open}
         onOpenChange={setOpen}
         menuPlacement="end"
-        menuSide={inRail ? "right" : "bottom"}
-        // 8px past the side nav's edge: the item sits 8px inside it.
-        menuSideOffset={inRail ? 16 : undefined}
+        menuSide={inSidebar ? "right" : "bottom"}
+        // 8px past the sidebar's edge: the item sits 8px inside it.
+        menuSideOffset={inSidebar ? 16 : undefined}
         // Room for the name, email and organization.
         menuWidth={280}
         variant="soft"

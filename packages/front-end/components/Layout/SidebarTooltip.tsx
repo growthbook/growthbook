@@ -1,9 +1,9 @@
 import { FocusEvent, ReactNode, useEffect, useState } from "react";
 import Tooltip from "@/ui/Tooltip";
-import styles from "./AppRail.module.scss";
+import styles from "./Sidebar.module.scss";
 
 /**
- * Delays the side nav's Search and bottom-item tooltips, so they don't flash as
+ * Delays the sidebar's Search and bottom-item tooltips, so they don't flash as
  * the pointer passes.
  */
 export const BOTTOM_TOOLTIP_DELAY_MS = 300;
@@ -39,7 +39,7 @@ export function useMenuTriggerTooltip({
         content={label}
         side="right"
         delayDuration={BOTTOM_TOOLTIP_DELAY_MS}
-        className={styles.railTooltip}
+        className={styles.sidebarTooltip}
         open={open && !menuOpen}
         onOpenChange={setOpen}
       >

@@ -9,13 +9,13 @@ import {
   DropdownMenuSeparator,
   DropdownSubMenu,
 } from "@/ui/DropdownMenu";
-import styles from "./RailMenu.module.scss";
+import styles from "./SidebarMenu.module.scss";
 
 /**
  * One definition drives both the desktop dropdown and the drawer's in-place
  * menu.
  */
-export type RailMenuEntry =
+export type SidebarMenuEntry =
   | {
       type: "item";
       key: string;
@@ -37,7 +37,7 @@ export type RailMenuEntry =
       key: string;
       label: string;
       trigger: ReactNode;
-      entries: RailMenuEntry[];
+      entries: SidebarMenuEntry[];
     };
 
 export function MenuItemContent({
@@ -58,7 +58,7 @@ export function MenuItemContent({
   );
 }
 
-export type RailMenuInPlace = {
+export type SidebarMenuInPlace = {
   open: boolean;
   /** From the keyboard, the first item shows its focus ring. */
   onOpen: (fromKeyboard: boolean) => void;
@@ -69,7 +69,7 @@ export type RailMenuInPlace = {
   fromKeyboard: boolean;
 };
 
-export function DropdownEntries({ entries }: { entries: RailMenuEntry[] }) {
+export function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
   return (
     <>
       {entries.map((entry) => {
@@ -125,8 +125,8 @@ export function InPlaceMenu({
   pinBack = false,
 }: {
   label: string;
-  entries: RailMenuEntry[];
-  inPlace: RailMenuInPlace;
+  entries: SidebarMenuEntry[];
+  inPlace: SidebarMenuInPlace;
   /** Keeps Back at the top while a long list scrolls. */
   pinBack?: boolean;
 }) {
@@ -139,7 +139,7 @@ export function InPlaceMenu({
   let viewLabel = label;
   for (const key of stack) {
     const sub = view.find(
-      (e): e is Extract<RailMenuEntry, { type: "submenu" }> =>
+      (e): e is Extract<SidebarMenuEntry, { type: "submenu" }> =>
         e.type === "submenu" && e.key === key,
     );
     if (!sub) break;

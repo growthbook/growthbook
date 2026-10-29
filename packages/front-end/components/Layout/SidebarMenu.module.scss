@@ -34,7 +34,7 @@
   border: 0;
   border-radius: var(--radius-3);
   background: transparent;
-  color: var(--rail-text, var(--slate-11));
+  color: var(--sidebar-text, var(--slate-11));
   font-size: var(--font-size-2);
   font-weight: var(--font-weight-medium);
   line-height: var(--line-height-2);
@@ -51,16 +51,16 @@
   .itemIcon {
     width: 18px;
     height: 18px;
-    color: var(--rail-icon, var(--slate-11));
+    color: var(--sidebar-icon, var(--slate-11));
   }
 
   &:hover {
-    background: var(--rail-hover, var(--slate-a3));
-    color: var(--rail-text-strong, var(--slate-12));
+    background: var(--sidebar-hover, var(--slate-a3));
+    color: var(--sidebar-text-strong, var(--slate-12));
     transition-duration: 150ms;
 
     .itemIcon {
-      color: var(--rail-text-strong, var(--slate-12));
+      color: var(--sidebar-text-strong, var(--slate-12));
     }
   }
 
@@ -82,16 +82,16 @@
   position: sticky;
   top: 0;
   z-index: 2;
-  background: var(--rail-bg, var(--color-panel-solid));
+  background: var(--sidebar-bg, var(--color-panel-solid));
 
   // The hover fill is translucent, so layer it over the background.
   &:hover {
     background:
       linear-gradient(
-        var(--rail-hover, var(--slate-a3)),
-        var(--rail-hover, var(--slate-a3))
+        var(--sidebar-hover, var(--slate-a3)),
+        var(--sidebar-hover, var(--slate-a3))
       ),
-      var(--rail-bg, var(--color-panel-solid));
+      var(--sidebar-bg, var(--color-panel-solid));
   }
 }
 
@@ -103,13 +103,13 @@
 
 .backIcon {
   flex-shrink: 0;
-  color: var(--rail-icon, var(--slate-11));
+  color: var(--sidebar-icon, var(--slate-11));
 }
 
 .caret {
   flex-shrink: 0;
   margin-left: var(--space-2);
-  color: var(--rail-chevron, var(--slate-10));
+  color: var(--sidebar-chevron, var(--slate-10));
 }
 
 .label {
@@ -126,5 +126,5 @@
   flex-shrink: 0;
   height: 1px;
   margin: 6px var(--separator-inset, var(--space-1));
-  background: var(--rail-divider, var(--slate-4));
+  background: var(--sidebar-divider, var(--slate-4));
 }

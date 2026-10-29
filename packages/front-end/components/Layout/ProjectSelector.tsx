@@ -12,8 +12,12 @@ import Text from "@/ui/Text";
 import { TextField } from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import LetterAvatar from "./LetterAvatar";
-import { InPlaceMenu, RailMenuEntry, RailMenuInPlace } from "./railMenu";
-import { BOTTOM_TOOLTIP_DELAY_MS } from "./railTooltips";
+import {
+  InPlaceMenu,
+  SidebarMenuEntry,
+  SidebarMenuInPlace,
+} from "./SidebarMenu";
+import { BOTTOM_TOOLTIP_DELAY_MS } from "./SidebarTooltip";
 import styles from "./ProjectSelector.module.scss";
 
 /** Above this many projects, the menu gets a search field. */
@@ -281,9 +285,13 @@ export function ProjectMenu({
 
 /**
  * The drawer's project menu, drawn in place like its profile and Help menus
- * (railMenu.tsx).
+ * (SidebarMenu.tsx).
  */
-export function ProjectMenuInPlace({ inPlace }: { inPlace: RailMenuInPlace }) {
+export function ProjectMenuInPlace({
+  inPlace,
+}: {
+  inPlace: SidebarMenuInPlace;
+}) {
   const { project, setProject } = useDefinitions();
   const { isDemo } = useProjectSelector();
   const { items, searchInputProps, showSearch } = useProjectMenuItems();
@@ -307,7 +315,7 @@ export function ProjectMenuInPlace({ inPlace }: { inPlace: RailMenuInPlace }) {
     // None of these change while it's open (choosing a project closes it).
   }, [showSearch, project, inPlace.host, inPlace.fromKeyboard]);
 
-  const entries: RailMenuEntry[] = [
+  const entries: SidebarMenuEntry[] = [
     ...(showSearch
       ? [
           {
@@ -339,7 +347,7 @@ export function ProjectMenuInPlace({ inPlace }: { inPlace: RailMenuInPlace }) {
         ]
       : []),
     ...[{ id: "", name: "All Projects" }, ...items].map(
-      (p): RailMenuEntry => ({
+      (p): SidebarMenuEntry => ({
         type: "item",
         key: p.id || "all",
         className: styles.projectInPlaceItem,

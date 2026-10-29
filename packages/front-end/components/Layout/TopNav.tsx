@@ -17,7 +17,7 @@ import GrowthBotButton from "./GrowthBotButton";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
-  /** Whether the side nav's drawer (below 1180px) is open. */
+  /** Whether the sidebar's drawer (below 1180px) is open. */
   menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
@@ -80,7 +80,7 @@ const TopNav: FC<{
             )}
             <GrowthBotButton className={styles.aiAssistantButton} />
           </div>
-          {/* With the side nav, Help and the profile menu are in it. */}
+          {/* With the sidebar, Help and the profile menu are in it. */}
           {toggleLeftMenu ? null : (
             <>
               <HelpMenu />

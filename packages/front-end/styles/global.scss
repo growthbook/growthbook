@@ -13,7 +13,7 @@
 :root {
   --header-height: 44px;
 }
-// Two rows below 1180px on pages with the side nav (TopNav.module.scss).
+// Two rows below 1180px on pages with the sidebar (TopNav.module.scss).
 @media (max-width: 1180px) {
   :root:has(#main-menu-toggle) {
     --header-height: 80px;
@@ -64,26 +64,26 @@ body {
 }
 
 :root {
-  --app-rail-width: 240px;
+  --sidebar-width: 240px;
 }
-html.app-rail-collapsed {
-  --app-rail-width: 48px;
+html.app-sidebar-collapsed {
+  --sidebar-width: 48px;
 }
 @media (max-width: 1180px) {
-  html.app-rail-collapsed {
-    --app-rail-width: 240px;
+  html.app-sidebar-collapsed {
+    --sidebar-width: 240px;
   }
 }
-// Set briefly by AppRail.tsx when crossing 1180px or restoring a collapsed
-// side nav, so the layout switches without animating.
+// Set briefly by Sidebar.tsx when crossing 1180px or restoring a collapsed
+// sidebar, so the layout switches without animating.
 html.app-breakpoint-switch,
 html.app-breakpoint-switch *,
 html.app-breakpoint-switch *::before,
 html.app-breakpoint-switch *::after,
-html.app-rail-restore,
-html.app-rail-restore *,
-html.app-rail-restore *::before,
-html.app-rail-restore *::after {
+html.app-sidebar-restore,
+html.app-sidebar-restore *,
+html.app-sidebar-restore *::before,
+html.app-sidebar-restore *::after {
   transition: none !important;
 }
 html.app-drawer-open,
@@ -95,18 +95,17 @@ html.app-drawer-open body {
   --settings-nav-width: 256px;
   --settings-nav-inset: 12px;
   --settings-layout-left: calc(
-    var(--app-rail-width) + var(--settings-nav-width) +
-      var(--settings-nav-inset)
+    var(--sidebar-width) + var(--settings-nav-width) + var(--settings-nav-inset)
   );
 }
 // Matches the sub nav's breakpoint: without it, content only clears the sidebar.
 @media (max-width: 1399px) {
   :root {
-    --settings-layout-left: var(--app-rail-width);
+    --settings-layout-left: var(--sidebar-width);
   }
 }
 .main {
-  padding-left: var(--app-rail-width);
+  padding-left: var(--sidebar-width);
   transition: padding-left 200ms ease;
   @media (prefers-reduced-motion: reduce) {
     transition: none;

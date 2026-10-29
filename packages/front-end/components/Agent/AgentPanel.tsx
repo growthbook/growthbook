@@ -669,7 +669,7 @@ export default function AgentPanel({
         left: "auto",
         width: expanded
           ? `calc((100vw - ${
-              sidebarIsDrawer ? "0px" : "var(--app-rail-width, 240px)"
+              sidebarIsDrawer ? "0px" : "var(--sidebar-width, 240px)"
             }) * 0.9)`
           : "min(400px, 100vw)",
         background: "var(--color-background)",
