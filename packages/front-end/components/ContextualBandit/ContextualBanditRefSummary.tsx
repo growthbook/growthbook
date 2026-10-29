@@ -18,11 +18,7 @@ import { ValueDiffProvider } from "@/components/Features/ValueDiffContext";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import { AttributeBadge } from "@/components/Features/AttributeBadge";
 import { PlainEntityBadge } from "@/components/Features/EntityBadge";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
+import { coveragePercentFormatter } from "@/services/utils";
 
 export function isContextualBanditRefRuleSkipped(
   cb: ApiContextualBanditInterface,
@@ -114,7 +110,9 @@ export default function ContextualBanditRefSummary({
 
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <PlainEntityBadge label={percentFormatter.format(cb.coverage ?? 1)} />
+        <PlainEntityBadge
+          label={coveragePercentFormatter.format(cb.coverage ?? 1)}
+        />
         of units in the Contextual Bandit
       </Flex>
 

@@ -66,6 +66,12 @@ describe("variation weighting functions", () => {
     expect(capTypedPercent("", 2)).toBe("");
   });
 
+  it("reads a pasted exponent whole before cutting its decimals", () => {
+    expect(capTypedPercent("1e-2", 4)).toBe("0.01");
+    expect(capTypedPercent("2.5E1", 2)).toBe("25");
+    expect(capTypedPercent("1.23456e-1", 4)).toBe("0.1235");
+  });
+
   it("rebalances weights", () => {
     expect(rebalance([0.3334, 0.3333, 0.3333], 1, 0.3406, 4)).toEqual([
       0.3334, 0.3406, 0.326,

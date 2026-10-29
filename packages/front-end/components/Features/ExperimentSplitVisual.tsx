@@ -8,6 +8,7 @@ import {
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
+import { coveragePercentFormatter } from "@/services/utils";
 import styles from "./ExperimentSplitVisual.module.scss";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -90,7 +91,7 @@ export default function ExperimentSplitVisual({
             {label}
           </Text>{" "}
           <Text as="span" size="md" color="text-mid">
-            ({percentFormatter.format(coverageVal)} included)
+            ({coveragePercentFormatter.format(coverageVal)} included)
           </Text>
         </Box>
         {coverage < 1 && (

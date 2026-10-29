@@ -96,14 +96,22 @@ export function getHoldoutTrafficBreakdown(
 } {
   const coverage = phase?.coverage ?? 0;
   const weights = phase?.variationWeights ?? [];
-  const inHoldoutWeight = weights[0] ?? 0;
-  const forMeasurementWeight = weights[1] ?? 0;
+  const inHoldoutPercent = decimalToPercent(
+    coverage * (weights[0] ?? 0),
+    COVERAGE_DECIMALS + 2,
+  );
+  const forMeasurementPercent = decimalToPercent(
+    coverage * (weights[1] ?? 0),
+    COVERAGE_DECIMALS + 2,
+  );
 
   return {
-    inHoldoutPercent: Math.floor(coverage * inHoldoutWeight * 100),
-    forMeasurementPercent: Math.floor(coverage * forMeasurementWeight * 100),
-    notForMeasurementPercent: Math.floor(
-      (1 - coverage * (inHoldoutWeight + forMeasurementWeight)) * 100,
+    inHoldoutPercent,
+    forMeasurementPercent,
+    // The rest, so the three always add up to 100%.
+    notForMeasurementPercent: floatRound(
+      100 - inHoldoutPercent - forMeasurementPercent,
+      COVERAGE_DECIMALS,
     ),
   };
 }
@@ -118,7 +126,7 @@ export function phaseSummary(
   return (
     <>
       <span className="percent-traffic">
-        {Math.floor(phase.coverage * 100)}%
+        {coveragePercentFormatter.format(phase.coverage)}
       </span>{" "}
       traffic
       {!skipWeights && (
@@ -181,6 +189,14 @@ export const coveragePercentFormatter = new Intl.NumberFormat(undefined, {
 
 // Truncates typing to 3 integer digits and `decimals` decimal places.
 export function capTypedPercent(raw: string, decimals: number): string {
+  // An exponent, like a pasted "1e-2", is read whole; cutting its digits
+  // would change its value.
+  if (/e/i.test(raw)) {
+    const value = Number(raw);
+    return Number.isFinite(value)
+      ? String(parseFloat(value.toFixed(decimals)))
+      : raw;
+  }
   const match = raw.match(
     new RegExp(`^(\\d{0,3})\\d*(\\.\\d{0,${decimals}})?`),
   );
