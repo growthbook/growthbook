@@ -376,6 +376,10 @@ const GeneralSettingsPage = (): React.ReactElement => {
             settings?.approvalFlows,
             hasRequireApprovals,
           );
+        } else if (k === "clusterIssueMinPercent") {
+          // 0 is a valid threshold, so only a missing value falls back.
+          newVal.clusterIssueMinPercent =
+            settings?.clusterIssueMinPercent ?? newVal.clusterIssueMinPercent;
         } else {
           newVal[k] = settings?.[k] || newVal[k];
         }
