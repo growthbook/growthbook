@@ -246,6 +246,18 @@ export default function AnalysisSettingsSummary({
     return totalUsers;
   }, [analysis?.results]);
   const totalUnits = healthUnits ?? resultsUnits;
+  // A cluster's sub-units can fall into several breakdown slices, so summing
+  // slices would count it more than once. Use the overall results instead.
+  const overallClusterUnits = useMemo(() => {
+    const overall = dimensionless?.analyses?.find(
+      (a) => !a.settings.dimensions.length,
+    );
+    if (!overall?.results?.length) return null;
+    return (overall.results[0].variations ?? []).reduce(
+      (acc, v) => acc + (v?.users || 0),
+      0,
+    );
+  }, [dimensionless?.analyses]);
 
   // Cluster results are analyzed per cluster, so their unit counts are
   // clusters, while health traffic counts sub-units.
@@ -939,11 +951,13 @@ export default function AnalysisSettingsSummary({
           <Flex align="center" gap="4">
             {snapshot && clusterSubUnitIdentifier ? (
               <>
-                <Metadata
-                  label={getUnitDisplayName(clusterIdentifier)}
-                  value={numberFormatter.format(resultsUnits)}
-                  style={{ whiteSpace: "nowrap" }}
-                />
+                {overallClusterUnits !== null && (
+                  <Metadata
+                    label={getUnitDisplayName(clusterIdentifier)}
+                    value={numberFormatter.format(overallClusterUnits)}
+                    style={{ whiteSpace: "nowrap" }}
+                  />
+                )}
                 {healthUnits !== null && (
                   <Metadata
                     label={getUnitDisplayName(clusterSubUnitIdentifier)}
