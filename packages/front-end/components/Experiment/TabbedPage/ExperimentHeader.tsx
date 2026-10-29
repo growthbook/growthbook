@@ -938,7 +938,10 @@ export default function ExperimentHeader({
           {/* Raised so the name's x-height centres on the buttons' text.
               Sized to its text as before, but never narrower than 300px:
               short of that, the actions wrap below instead of squeezing the
-              name to a few characters per line on phones. */}
+              name to a few characters per line on phones. The huge grow
+              factor (capped by max-content) gives the title its text width
+              before the actions column gets any leftover space; at 1 the two
+              would split it and a long name would wrap narrower than before. */}
           <Box
             className={revealsQuickEdit}
             mt="-3px"

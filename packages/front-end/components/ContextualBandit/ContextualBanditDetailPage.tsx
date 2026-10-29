@@ -350,7 +350,6 @@ export default function ContextualBanditDetailPage({
       >
         <Flex
           align="center"
-          gap="2"
           flexGrow="1"
           flexShrink="1"
           flexBasis="300px"
@@ -364,18 +363,39 @@ export default function ContextualBanditDetailPage({
             mb="0"
           >
             {cb.name}
+            {/* Inline and centred on the name's last line, so a wrapped name
+                keeps its status beside it rather than at the far edge. */}
+            <Flex
+              as="span"
+              display="inline-flex"
+              align="center"
+              style={{
+                verticalAlign: "top",
+                height: "var(--heading-line-height-6)",
+                lineHeight: 0,
+              }}
+            >
+              {/* Lowered so it sits where it did beside the heading. */}
+              <Box
+                as="span"
+                ml="2"
+                position="relative"
+                top="1px"
+                style={{ userSelect: "none" }}
+              >
+                <ExperimentStatusIndicator
+                  experimentData={contextualBanditStatusIndicatorData(
+                    cb,
+                    statusHealth,
+                  )}
+                />
+              </Box>
+            </Flex>
           </Heading>
-          <Box style={{ userSelect: "none" }}>
-            <ExperimentStatusIndicator
-              experimentData={contextualBanditStatusIndicatorData(
-                cb,
-                statusHealth,
-              )}
-            />
-          </Box>
         </Flex>
 
-        <Flex direction="row" align="center" gap="2" flexShrink="0">
+        {/* Right-aligned when wrapped below the name. */}
+        <Flex direction="row" align="center" gap="2" flexShrink="0" ml="auto">
           {canRun && cb.status === "draft" ? (
             <Button onClick={() => setShowStart(true)}>
               Start Contextual Bandit
