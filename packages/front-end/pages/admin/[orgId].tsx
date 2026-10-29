@@ -187,6 +187,7 @@ function OrganizationDetail({
       email: user?.email ?? "",
       verified: !!user?.verified,
       superAdmin: user?.superAdmin ?? false,
+      authSubject: user?.authSubject,
     };
   });
   const search = memberSearch.trim().toLowerCase();

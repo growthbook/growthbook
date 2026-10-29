@@ -394,7 +394,7 @@ export async function processJWT(
         organizationId: hashedOrganizationId,
         cloudOrgId: IS_CLOUD ? orgId : "",
         accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
-        superAdmin: hasSuperAdminPermission(user.superAdmin, "view"),
+        superAdmin: hasSuperAdminPermission(req.superAdmin, "view"),
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
           : "",
