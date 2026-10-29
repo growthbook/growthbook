@@ -87,6 +87,45 @@ const DEFAULT_MEMBER_FILTERS: MemberFilters = {
   superAdminsOnly: false,
 };
 
+// Kept in the URL so filters survive opening an organization and going back
+function useQueryFilters<T extends Record<string, string | number | boolean>>(
+  defaults: T,
+  prefix = "",
+): [T, Dispatch<SetStateAction<T>>] {
+  const router = useRouter();
+  const filters = { ...defaults };
+  for (const key of Object.keys(defaults) as (keyof T & string)[]) {
+    const raw = router.query[prefix + key];
+    if (typeof raw !== "string") continue;
+    const fallback = defaults[key];
+    filters[key] = (
+      typeof fallback === "number"
+        ? parseInt(raw) || fallback
+        : typeof fallback === "boolean"
+          ? raw === "1"
+          : raw
+    ) as T[keyof T & string];
+  }
+
+  const setFilters: Dispatch<SetStateAction<T>> = (action) => {
+    const next = typeof action === "function" ? action(filters) : action;
+    if (next === filters) return;
+    const query = { ...router.query };
+    for (const key of Object.keys(defaults)) {
+      delete query[prefix + key];
+      if (next[key] !== defaults[key]) {
+        query[prefix + key] = next[key] === true ? "1" : String(next[key]);
+      }
+    }
+    router.replace(
+      { pathname: router.pathname, query, hash: window.location.hash },
+      undefined,
+      { shallow: true },
+    );
+  };
+  return [filters, setFilters];
+}
+
 // Searches as you type; the delay keeps each keystroke from hitting the API
 function useDebouncedSearch<T extends { search: string; page: number }>(
   search: string,
@@ -488,12 +527,19 @@ function MemberList({
 }
 
 export default function Admin() {
+  const router = useRouter();
   const { license, superAdmin } = useUser();
-  // Kept here so filters survive switching tabs, which unmounts each list
-  const [orgFilters, setOrgFilters] = useState(DEFAULT_ORG_FILTERS);
-  const [memberFilters, setMemberFilters] = useState(DEFAULT_MEMBER_FILTERS);
+  const [orgFilters, setOrgFilters] = useQueryFilters(DEFAULT_ORG_FILTERS);
+  const [memberFilters, setMemberFilters] = useQueryFilters(
+    DEFAULT_MEMBER_FILTERS,
+    "members.",
+  );
   const canView = hasSuperAdminPermission(superAdmin, "view");
 
+  // The search inputs read their starting value once, so wait for the query
+  if (!router.isReady) {
+    return <LoadingOverlay />;
+  }
   if (!canView) {
     return (
       <Callout status="error">Only super admins can view this page</Callout>
