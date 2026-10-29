@@ -167,14 +167,16 @@ export const ExperimentAssignmentQueryModal = ({
     : [];
 
   // Editing starts on the mapping, since most edits don't touch the SQL.
-  const [step, setStep] = useState(exposureQuery ? 1 : 0);
+  // An unsaved draft has not been run, so it starts on the SQL step. Its
+  // guessed columns are not test results and cannot be saved as-is.
+  const [step, setStep] = useState(exposureQuery && !unsaved ? 1 : 0);
   const [sql, setSql] = useState(
     () =>
       exposureQuery?.query ??
       getInitialExposureQuery(dataSource, defaultIdentifierTypes),
   );
   const [savedColumns] = useState(() =>
-    exposureQuery ? getSavedColumns(exposureQuery) : null,
+    exposureQuery && !unsaved ? getSavedColumns(exposureQuery) : null,
   );
 
   const [name, setName] = useState(exposureQuery?.name ?? "");
@@ -430,7 +432,9 @@ export const ExperimentAssignmentQueryModal = ({
   );
 
   async function submit() {
-    if (!detected) throw new Error("Test your SQL first");
+    if (!detected || (unsaved && !columnsDetected)) {
+      throw new Error("Test your SQL first");
+    }
     if (!name) throw new Error("Enter a name for this assignment query");
     if (!canCoverAllProjects && !projects.length) {
       throw new Error(
