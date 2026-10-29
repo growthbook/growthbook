@@ -2420,12 +2420,13 @@ export async function createSnapshot({
 
 const inUnitInterval = (n: number) => n >= 0 && n <= 1;
 
-// A write may keep an invalid value the experiment already stores but not
-// introduce one, so legacy data never blocks stopping the experiment, ending a
-// phase or editing one. Matched by value, not index, so deleting a phase
-// doesn't re-check the rest. A phase that starts serving gets no pass: an
-// appended one, or the latest one when the experiment starts or resumes.
-// Every path that does either lets the user fix the values.
+// A write may keep an invalid value its phase already stores but not introduce
+// one, so legacy data never blocks stopping the experiment, ending a phase or
+// editing one. Phases have no id: an unchanged phase is its stored self
+// wherever a deletion moved it, an edited one is the stored phase at its index.
+// A phase that starts serving gets no pass: an appended one, or the latest one
+// when the experiment starts or resumes. Every path that does either lets the
+// user fix the values.
 export function assertValidExperimentPhases(
   phases: ExperimentPhase[],
   existing: ExperimentPhase[] = [],
@@ -2434,10 +2435,12 @@ export function assertValidExperimentPhases(
   phases.forEach((phase, i) => {
     const startsServing =
       i >= existing.length || (startsRunning && i === phases.length - 1);
-    const stored = startsServing ? [] : existing;
+    const stored = startsServing
+      ? null
+      : (existing.find((p) => isEqual(p, phase)) ?? existing[i]);
     if (
       !inUnitInterval(phase.coverage) &&
-      !stored.some((p) => p.coverage === phase.coverage)
+      stored?.coverage !== phase.coverage
     ) {
       throw new BadRequestError(
         `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
@@ -2446,7 +2449,7 @@ export function assertValidExperimentPhases(
     const weights = phase.variationWeights;
     if (
       !areVariationWeightsValid(weights) &&
-      !stored.some((p) => isEqual(p.variationWeights, weights))
+      !isEqual(stored?.variationWeights, weights)
     ) {
       throw new BadRequestError(
         `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,

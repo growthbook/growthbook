@@ -102,6 +102,22 @@ describe("assertValidExperimentPhases", () => {
       ).toThrow(/invalid_coverage: phase 1/);
     });
 
+    it("rejects copying them onto another phase", () => {
+      const live = phase({ variationWeights: [0.34, 0.33, 0.33] });
+      expect(() =>
+        assertValidExperimentPhases(
+          [stale, { ...live, variationWeights: stale.variationWeights }],
+          [stale, live],
+        ),
+      ).toThrow(/invalid_variation_weights: phase 1/);
+      expect(() =>
+        assertValidExperimentPhases(
+          [stale, { ...live, coverage: stale.coverage }],
+          [stale, live],
+        ),
+      ).toThrow(/invalid_coverage: phase 1/);
+    });
+
     it("allows deleting a phase before it", () => {
       expect(() =>
         assertValidExperimentPhases([stale], [phase(), stale]),
