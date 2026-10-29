@@ -67,6 +67,12 @@ import {
 import Badge from "@/ui/Badge";
 import SelectField from "@/components/Forms/SelectField";
 import Field from "@/components/Forms/Field";
+import {
+  capTypedPercent,
+  COVERAGE_DECIMALS,
+  decimalToPercent,
+  percentToDecimalForNumber,
+} from "@/services/utils";
 import DatePicker from "@/components/DatePicker";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Switch from "@/ui/Switch";
@@ -408,13 +414,21 @@ function isEmptyConditionValue(value: string | null | undefined): boolean {
   return trimmed === "" || trimmed === "{}";
 }
 
+function parseTypedPercent(raw: string): number {
+  return parseFloat(capTypedPercent(raw, COVERAGE_DECIMALS)) || 0;
+}
+
 export function buildPatch(
   patch: UIStepPatch,
   ruleId: string,
 ): RampStepAction["patch"] {
   const out: RampStepAction["patch"] = { ruleId };
 
-  if (patch.coverage !== undefined) out.coverage = patch.coverage / 100;
+  if (patch.coverage !== undefined)
+    out.coverage = percentToDecimalForNumber(
+      patch.coverage,
+      COVERAGE_DECIMALS + 2,
+    );
   if (patch.condition !== undefined) {
     // `null` sentinel means "clear targeting" explicitly.
     if (patch.condition === null) {
@@ -1798,15 +1812,16 @@ export default function RampScheduleSection({
                       type="number"
                       min="0"
                       max="100"
+                      step="any"
                       onFocus={(e) => e.target.select()}
-                      value={String(state.endPatch.coverage ?? 100)}
+                      value={state.endPatch.coverage ?? 100}
                       onChange={(e) =>
                         patchState({
                           endPatch: {
                             ...state.endPatch,
                             coverage: Math.min(
                               100,
-                              Math.max(0, parseInt(e.target.value) || 0),
+                              Math.max(0, parseTypedPercent(e.target.value)),
                             ),
                           },
                         })
@@ -1996,7 +2011,11 @@ export default function RampScheduleSection({
                   {activeFields.has("coverage") &&
                     (() => {
                       const maxCov = step.monitored ? 50 : 100;
-                      const minCov = step.monitored ? 1 : 0;
+                      // A monitored step needs some traffic to watch.
+                      const clampCov = (cov: number) =>
+                        step.monitored && cov <= 0
+                          ? 1
+                          : Math.min(maxCov, Math.max(0, cov));
                       return (
                         <Box style={{ width: COL.coverage, flexShrink: 0 }}>
                           {isReadOnlyView ? (
@@ -2015,28 +2034,23 @@ export default function RampScheduleSection({
                               <Field
                                 style={{ width: COL.coverage }}
                                 type="number"
-                                min={minCov}
+                                min={0}
                                 max={maxCov}
+                                step="any"
                                 onFocus={(e) => e.target.select()}
-                                value={String(step.patch.coverage ?? 0)}
+                                value={step.patch.coverage ?? 0}
                                 onChange={(e) =>
                                   updateStepPatch(
                                     i,
                                     "coverage",
-                                    parseInt(e.target.value) || 0,
+                                    parseTypedPercent(e.target.value),
                                   )
                                 }
                                 onBlur={(e) =>
                                   updateStepPatch(
                                     i,
                                     "coverage",
-                                    Math.min(
-                                      maxCov,
-                                      Math.max(
-                                        minCov,
-                                        parseInt(e.target.value) || 0,
-                                      ),
-                                    ),
+                                    clampCov(parseTypedPercent(e.target.value)),
                                   )
                                 }
                               />
@@ -4353,7 +4367,7 @@ export function reconstructUIPatch(
   if (!patch) return {};
   const p: UIStepPatch = {};
   if ((patch.coverage ?? null) !== null)
-    p.coverage = Math.round(patch.coverage! * 100);
+    p.coverage = decimalToPercent(patch.coverage!, COVERAGE_DECIMALS + 2);
   if ("condition" in patch) {
     const condition = patch.condition;
     p.condition =

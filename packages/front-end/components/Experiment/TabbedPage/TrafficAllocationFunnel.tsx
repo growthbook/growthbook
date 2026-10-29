@@ -549,7 +549,9 @@ export default function TrafficAllocationFunnel({
                   form={edits?.formId}
                 />
               ) : (
-                <Text color="text-high">{Math.round(coverage * 100)}%</Text>
+                <Text color="text-high">
+                  {percentFormatter.format(coverage)}
+                </Text>
               )}
             </FunnelRow>
           </FunnelCard>

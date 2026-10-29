@@ -162,7 +162,7 @@ function TargetingForm({
               type="number"
               min={0}
               max={decimalToPercent(MAX_HOLDOUT_SIZE)}
-              step="1"
+              step="0.01"
             />
             <span>%</span>
           </div>
