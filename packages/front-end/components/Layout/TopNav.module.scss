@@ -154,9 +154,9 @@ $sidebarwidth: var(--app-rail-width, 240px);
     display: none;
   }
 
-  // No right padding: the AI Assistant button's own (invisible, ghost)
-  // padding spaces it from the notices, as the notices' 8px gap does
-  // between them.
+  // No right padding: the AI Assistant button spaces itself from the
+  // notices (.aiAssistantButton), and with no button they end on the
+  // content's edge.
   > :global(.nav-link) {
     padding-right: 0;
   }
@@ -167,11 +167,11 @@ $sidebarwidth: var(--app-rail-width, 240px);
 // keep their full padding past the edge, as the breadcrumb's first item does
 // on the left (HeaderBreadcrumb.module.scss). Over the app's zero margin for
 // ghost buttons (global-radix-overrides.scss).
-// And 1px closer to the notices, for the sparkle's own 1px side bearing, so
-// the visible space from the last notice matches the notices' 8px gap.
+// 12px of visible space from the last notice's border to the sparkle: this
+// margin, the button's own 8px padding and the sparkle's 1px side bearing.
 .aiAssistantButton.aiAssistantButton {
   margin-right: calc(-1 * var(--space-2)) !important;
-  margin-left: -1px !important;
+  margin-left: calc(12px - var(--space-2) - 1px) !important;
 }
 
 .dropdownItemIconColor {
