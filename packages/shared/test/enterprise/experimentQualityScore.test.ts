@@ -7,7 +7,6 @@ import {
   getAIQualityInputsHash,
   getExperimentQualityScore,
   getQualityImprovements,
-  haveAIQualityInputsChanged,
   resolveExperimentQualityScoreSettings,
   reflowShares,
   roundToTotal,
@@ -267,30 +266,8 @@ describe("resolveExperimentQualityScoreSettings", () => {
   });
 });
 
-describe("haveAIQualityInputsChanged", () => {
-  it("flags edits the AI checks read, and ignores the rest", () => {
-    const before = baseExperiment();
-    expect(haveAIQualityInputsChanged(before, { ...before })).toBe(false);
-    expect(
-      haveAIQualityInputsChanged(before, { ...before, hypothesis: "New" }),
-    ).toBe(true);
-    expect(
-      haveAIQualityInputsChanged(before, {
-        ...before,
-        goalMetrics: ["met_revenue"],
-      }),
-    ).toBe(true);
-    expect(
-      haveAIQualityInputsChanged(before, { ...before, status: "running" }),
-    ).toBe(true);
-    expect(
-      haveAIQualityInputsChanged(before, {
-        ...before,
-        aiQualityResults: { inputsHash: "x", checks: [] },
-      }),
-    ).toBe(false);
-  });
-  // Runs on every experiment save, so partial documents must not throw
+describe("getExperimentDigestForCustomRules", () => {
+  // Older documents can lack list fields, so they must not throw
   it("handles experiments missing list fields", () => {
     const partial = {
       ...baseExperiment(),
@@ -298,7 +275,7 @@ describe("haveAIQualityInputsChanged", () => {
       goalMetrics: undefined,
       phases: undefined,
     } as unknown as ReturnType<typeof baseExperiment>;
-    expect(haveAIQualityInputsChanged(partial, partial)).toBe(false);
+    expect(() => getExperimentDigestForCustomRules(partial, [])).not.toThrow();
   });
 });
 

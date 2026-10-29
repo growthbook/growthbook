@@ -44,6 +44,9 @@ export function customQualityCheckKey(id: string): CustomQualityCheckKey {
 // results are recomputed with the new prompt.
 export const EXPERIMENT_QUALITY_PROMPT_VERSION = 9;
 
+// Bump when the checks or scoring math change so stored scores are refreshed
+export const EXPERIMENT_QUALITY_SCORE_VERSION = 1;
+
 const EPS = 1e-9;
 
 // ---------------------------------------------------------------------------
@@ -519,19 +522,6 @@ export function getExperimentDigestForCustomRules(
     releasedVariationId: experiment.releasedVariationId || null,
     learnings: experiment.analysis ?? "",
   });
-}
-
-// Whether an edit could change an AI verdict. The built-in AI checks read
-// the hypothesis and goal metrics, and custom rules read the whole digest,
-// which includes both.
-export function haveAIQualityInputsChanged(
-  before: ExperimentForQualityScore,
-  after: ExperimentForQualityScore,
-): boolean {
-  return (
-    getExperimentDigestForCustomRules(before, before.goalMetrics ?? []) !==
-    getExperimentDigestForCustomRules(after, after.goalMetrics ?? [])
-  );
 }
 
 export function computeAIQualityInputsHash({

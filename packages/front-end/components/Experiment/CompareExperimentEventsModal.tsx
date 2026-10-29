@@ -248,6 +248,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   analysisSummary: false,
   aiQualityResults: false,
   qualityScoreOverride: false,
+  qualityScore: false,
   processResults: false,
   dismissedWarnings: false,
   holdoutId: false,
