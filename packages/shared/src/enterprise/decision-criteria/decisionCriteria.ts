@@ -1006,14 +1006,16 @@ export function getPresetDecisionCriteriaForOrg(
 // Pure mapping of a snapshot dimension's variations to their tiebreaker-metric
 // relative lift, keyed by the snapshot's own variation ids (index-aligned with
 // the analysis results). Callers own loading the snapshot/metric.
+// `variationIds` names each of `variations` (index-aligned) as the decision
+// status does: the experiment's latest-phase variation ids.
 export function buildTiebreakerLiftMap({
   variations,
-  snapshotVariationIds,
+  variationIds,
   metricId,
   inverse,
 }: {
   variations: SnapshotVariation[];
-  snapshotVariationIds: string[];
+  variationIds: string[];
   metricId: string;
   inverse?: boolean;
 }): Record<string, number> | null {
@@ -1023,11 +1025,44 @@ export function buildTiebreakerLiftMap({
   const sign = inverse ? -1 : 1;
   const map: Record<string, number> = {};
   variations.forEach((dv, i) => {
-    const id = snapshotVariationIds[i];
+    const id = variationIds[i];
     const expected = dv?.metrics?.[metricId]?.expected;
     if (id && typeof expected === "number") map[id] = expected * sign;
   });
   return Object.keys(map).length > 0 ? map : null;
+}
+
+/**
+ * Of ship winners tied on the criteria, the one clearly ahead on a metric: its
+ * lift interval wholly above each other's (below, for a lower-is-better
+ * metric). Null when none is, or any lacks an interval.
+ */
+export function clearLeader({
+  variations,
+  variationIds,
+  tiedVariationIds,
+  metricId,
+  inverse,
+}: {
+  variations: SnapshotVariation[];
+  variationIds: string[];
+  tiedVariationIds: string[];
+  metricId: string;
+  inverse?: boolean;
+}): string | null {
+  const intervals = tiedVariationIds.map((id) => {
+    const ci = variations[variationIds.indexOf(id)]?.metrics?.[metricId]?.ci;
+    return ci ? { id, ci: inverse ? [-ci[1], -ci[0]] : ci } : null;
+  });
+  if (intervals.length < 2 || intervals.some((v) => v === null)) return null;
+  const leader = intervals.find(
+    (v) =>
+      v &&
+      intervals.every(
+        (other) => other === v || (other && v.ci[0] > other.ci[1]),
+      ),
+  );
+  return leader?.id ?? null;
 }
 
 export type ScheduledShipDecision =
