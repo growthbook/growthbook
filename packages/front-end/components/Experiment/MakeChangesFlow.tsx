@@ -336,12 +336,18 @@ function ChangeTypeSelector({
         <RadioGroup
           value={changeType || ""}
           setValue={(v: ChangeType) => setChangeType(v)}
-          options={options.filter(
-            (o) =>
-              !o.disabled &&
-              (invalidWeightsPercent === null ||
-                ["weights", "advanced"].includes(o.value)),
-          )}
+          options={options
+            .filter((o) => !o.disabled)
+            .map((o) =>
+              invalidWeightsPercent === null ||
+              ["weights", "advanced"].includes(o.value)
+                ? o
+                : {
+                    ...o,
+                    disabled: true,
+                    disabledReason: "Fix the variation weights first.",
+                  },
+            )}
         />
       </div>
     </div>

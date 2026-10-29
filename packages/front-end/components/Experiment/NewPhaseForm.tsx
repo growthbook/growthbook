@@ -208,12 +208,6 @@ const NewPhaseForm: FC<{
         />
       )}
 
-      {!isValid && (
-        <Callout status="warning" mb="3">
-          Variation weights add up to {Math.round(totalWeights * 100)}%. Adjust
-          them to add up to 100% to start the new phase.
-        </Callout>
-      )}
       <FeatureVariationsInput
         valueType={"string"}
         coverage={form.watch("coverage")}
@@ -234,6 +228,12 @@ const NewPhaseForm: FC<{
         showPreview={false}
         hideCoverage={!hasLinkedChanges}
       />
+      {!isValid && (
+        <Callout status="warning" mb="3">
+          Variation weights add up to {Math.round(totalWeights * 100)}%. Adjust
+          them to add up to 100% to start the new phase.
+        </Callout>
+      )}
       {hasLinkedChanges && (
         <NamespaceSelector
           form={form}
