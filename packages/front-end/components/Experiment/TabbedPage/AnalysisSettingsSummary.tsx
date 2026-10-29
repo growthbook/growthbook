@@ -356,6 +356,10 @@ export default function AnalysisSettingsSummary({
     ) {
       reasons.push(OVERALL_NON_INCREMENTAL_FULL_REFRESH_REASON);
     }
+    // An interrupted run left the tables in a state only a full refresh repairs.
+    if (incrementalRefresh?.fullRefreshRequired) {
+      reasons.push(incrementalRefresh.fullRefreshRequired.reason);
+    }
     return reasons;
   }, [
     isIncremental,

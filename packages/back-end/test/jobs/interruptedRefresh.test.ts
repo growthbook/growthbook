@@ -334,6 +334,7 @@ describe("isIncrementalRefreshRun", () => {
 
 describe("releasing an interrupted refresh", () => {
   const releaseLockAfterInterruptedRun = jest.fn();
+  const cleanUpUnlockedPhase = jest.fn();
   const releaseLock = jest.fn();
   const requireFullRefresh = jest.fn();
   const context = {
@@ -341,6 +342,7 @@ describe("releasing an interrupted refresh", () => {
     models: {
       incrementalRefresh: {
         releaseLockAfterInterruptedRun,
+        cleanUpUnlockedPhase,
         releaseLock,
         requireFullRefresh,
       },
@@ -354,6 +356,7 @@ describe("releasing an interrupted refresh", () => {
       id: SNAPSHOT_ID,
       organization: "org_1",
       experiment: "exp_1",
+      phase: 0,
       runnerKind,
       queries: runQueries({}).map((q) => ({
         name: q.name,
@@ -374,6 +377,7 @@ describe("releasing an interrupted refresh", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     releaseLockAfterInterruptedRun.mockResolvedValue(true);
+    cleanUpUnlockedPhase.mockResolvedValue(false);
     releaseLock.mockResolvedValue(undefined);
     requireFullRefresh.mockResolvedValue(undefined);
   });
@@ -457,6 +461,26 @@ describe("releasing an interrupted refresh", () => {
         ),
       ).resolves.toBe(true);
       expect(requireFullRefresh).toHaveBeenCalledWith("exp_1", flagged);
+    });
+
+    it("applies the cleanup again, without flagging, when the run was already concluded and nobody holds the lock", async () => {
+      releaseLockAfterInterruptedRun.mockResolvedValue(false);
+      cleanUpUnlockedPhase.mockResolvedValue(true);
+      await expect(
+        releaseInterruptedRefresh(
+          context,
+          snapshot(),
+          statusMap(
+            { max_timestamp_metrics_source_ft1_abc0: "failed" },
+            "succeeded",
+          ),
+        ),
+      ).resolves.toBe(false);
+      expect(cleanUpUnlockedPhase).toHaveBeenCalledWith("exp_1", 0, {
+        metricGroupIdsToRebuild: ["ft1_abc0"],
+        forceFullRefresh: false,
+      });
+      expect(requireFullRefresh).not.toHaveBeenCalled();
     });
 
     it("throws, so the caller retries, when flagging it fails", async () => {

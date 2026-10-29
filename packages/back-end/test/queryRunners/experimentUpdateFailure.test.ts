@@ -13,6 +13,10 @@ import {
 } from "back-end/src/models/QueryModel";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { OrderedWriter } from "back-end/src/queryRunners/orderedWriter";
+import {
+  CLEANUP_PENDING_HINT,
+  FULL_REFRESH_NEXT_HINT,
+} from "back-end/src/jobs/interruptedRefresh";
 import type { ReqContext } from "back-end/types/request";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
@@ -26,15 +30,18 @@ jest.mock("back-end/src/models/QueryModel", () => ({
 }));
 const context = {
   org: { id: "org_test" },
+  logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
   permissions: { canRunExperimentQueries: () => true },
   models: {
     incrementalRefresh: {
       releaseLock: jest.fn().mockResolvedValue(undefined),
       releaseLockAfterInterruptedRun: jest.fn().mockResolvedValue(true),
+      cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
       updateByExperimentIdIfCurrentExecution: jest.fn().mockResolvedValue(true),
       commitRunResults: jest.fn().mockResolvedValue(true),
       isLockedBySnapshotId: jest.fn().mockResolvedValue(true),
       clearFullRefreshRequired: jest.fn().mockResolvedValue(true),
+      requireFullRefresh: jest.fn().mockResolvedValue(undefined),
     },
   },
 } as unknown as ReqContext;
@@ -217,4 +224,76 @@ describe("ExperimentIncrementalRefreshQueryRunner failing with queries still pen
       expect(order).toEqual(["covariate write", "source removal", "release"]);
     },
   );
+});
+
+describe("ExperimentIncrementalRefreshQueryRunner conclusion errors", () => {
+  const updateSnapshotError = () =>
+    jest.mocked(updateSnapshot).mock.calls[0][0].updates.error ?? "";
+  // The insert succeeded but its timestamp query failed, so the release has
+  // a source to drop.
+  const finishedSnapshot = {
+    ...snapshot,
+    runnerKind: "incremental-update",
+    queries: [
+      {
+        name: "insert_metrics_source_data_g1",
+        query: "q_insert",
+        status: "succeeded",
+      },
+      {
+        name: "max_timestamp_metrics_source_g1",
+        query: "q_max",
+        status: "failed",
+      },
+    ],
+  } as unknown as ExperimentSnapshotInterface;
+  const models = context.models.incrementalRefresh;
+
+  afterEach(() => {
+    jest.mocked(models.commitRunResults).mockResolvedValue(true);
+    jest.mocked(models.releaseLockAfterInterruptedRun).mockResolvedValue(true);
+  });
+
+  it("says once that the next update runs a full refresh, and never to avoid Update", async () => {
+    // Flagged while it ran, and another run holds the lock now.
+    jest.mocked(models.commitRunResults).mockResolvedValue(false);
+    jest.mocked(models.isLockedBySnapshotId).mockResolvedValueOnce(true);
+    jest.mocked(models.releaseLockAfterInterruptedRun).mockResolvedValue(false);
+    const runner = new ExperimentIncrementalRefreshQueryRunner(
+      context,
+      finishedSnapshot,
+      { datasource: {} } as SourceIntegrationInterface,
+    );
+
+    await runner.updateModel({
+      status: "partially-succeeded",
+      queries: finishedSnapshot.queries,
+    });
+
+    const error = updateSnapshotError();
+    expect(error.split(FULL_REFRESH_NEXT_HINT)).toHaveLength(2);
+    expect(error).not.toMatch(/not Update/);
+  });
+
+  it("says the cleanup is pending when it could not be saved", async () => {
+    jest
+      .mocked(models.releaseLockAfterInterruptedRun)
+      .mockRejectedValue(new Error("mongo down"));
+    jest
+      .mocked(models.requireFullRefresh)
+      .mockRejectedValueOnce(new Error("mongo down"));
+    const runner = new ExperimentIncrementalRefreshQueryRunner(
+      context,
+      finishedSnapshot,
+      { datasource: {} } as SourceIntegrationInterface,
+    );
+
+    await runner.updateModel({
+      status: "partially-succeeded",
+      queries: finishedSnapshot.queries,
+    });
+
+    expect(updateSnapshotError()).toContain(CLEANUP_PENDING_HINT);
+    expect(updateSnapshotError()).not.toContain(FULL_REFRESH_NEXT_HINT);
+  });
 });

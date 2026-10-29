@@ -110,7 +110,7 @@ export async function assertIncrementalRefreshPrerequisites({
     incrementalRefreshModel?.fullRefreshRequired
   ) {
     throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
-      `${incrementalRefreshModel.fullRefreshRequired.reason} Please run a Full Refresh.`,
+      `${incrementalRefreshModel.fullRefreshRequired.reason} Please run a Full refresh.`,
     );
   }
 

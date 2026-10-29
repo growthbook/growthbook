@@ -60,7 +60,11 @@ const incrementalRefresh = z
     fullRefreshRequired: z
       .object({
         reason: z.string(),
-        snapshotId: z.string(),
+        // The interrupted run, when known.
+        snapshotId: z.string().nullable(),
+        // The snapshot or phase mutation that took the lock from a run that
+        // never released it. A full refresh may clear a flag it set itself.
+        takenOverBy: z.string().optional(),
         date: z.date(),
       })
       .nullable()

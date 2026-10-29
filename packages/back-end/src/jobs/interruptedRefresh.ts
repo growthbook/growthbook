@@ -13,8 +13,12 @@ import { logger } from "back-end/src/util/logger";
 import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 
+// The flag or the dropped units table makes the next update a full refresh.
 export const FULL_REFRESH_NEXT_HINT =
-  "Choose Full refresh from the results page's three-dot menu next, not Update, because Update could now fail or count some data twice.";
+  "The next update will run a full refresh.";
+// The cleanup and the flag could not be saved; the lock is still held.
+export const CLEANUP_PENDING_HINT =
+  "Its cleanup could not be saved yet, so updates may be blocked for a few minutes before a full refresh runs.";
 export const INTERRUPTED_REFRESH_ERROR = `This update stopped before it finished. ${FULL_REFRESH_NEXT_HINT}`;
 export const INTERRUPTED_RUN_FULL_REFRESH_REASON =
   "An earlier update stopped part-way and its cache tables could not be cleaned up.";
@@ -109,7 +113,7 @@ export async function releaseInterruptedRefresh(
   context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "experiment" | "runnerKind" | "queries"
+    "id" | "experiment" | "runnerKind" | "queries" | "phase"
   >,
   statusByQueryId: Map<string, QueryStatus>,
   { runFinished = false }: { runFinished?: boolean } = {},
@@ -142,6 +146,17 @@ export async function releaseInterruptedRefresh(
       );
     }
     if (needsCleanup && !released) {
+      // The run was already concluded and nobody holds the lock: applying the
+      // cleanup again is safe. Only another run's lock calls for the flag.
+      if (
+        await context.models.incrementalRefresh.cleanUpUnlockedPhase(
+          snapshot.experiment,
+          snapshot.phase,
+          plan,
+        )
+      ) {
+        return false;
+      }
       await requireFullRefresh(context, snapshot);
       return true;
     }
@@ -235,7 +250,7 @@ export async function stopInterruptedRefresh(
   context: ReqContext | ApiReqContext,
   snapshot: Pick<
     ExperimentSnapshotInterface,
-    "id" | "experiment" | "runnerKind" | "queries" | "organization"
+    "id" | "experiment" | "runnerKind" | "queries" | "organization" | "phase"
   >,
 ): Promise<{ notRunQueryIds: string[]; needsFullRefresh: boolean }> {
   const queryIds = [...new Set(snapshot.queries.map((q) => q.query))];

@@ -787,12 +787,30 @@ class InMemoryIncrementalRefreshModel {
     if (!doc?.fullRefreshRequired) return false;
     if (
       doc.fullRefreshRequired.date >= refreshStartedAt &&
-      doc.fullRefreshRequired.snapshotId !== snapshotId
+      doc.fullRefreshRequired.takenOverBy !== snapshotId
     ) {
       return false;
     }
     doc.fullRefreshRequired = null;
     doc.dateUpdated = new Date();
+    return true;
+  }
+
+  async cleanUpUnlockedPhase(
+    experimentId: string,
+    phase: number,
+    plan: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
+  ) {
+    if (this.failRepairWrites) throw new Error("write failed");
+    const doc = this.docs.get(experimentId);
+    if (!doc || doc.phase !== phase || doc.currentExecutionSnapshotId) {
+      return false;
+    }
+    if (plan.forceFullRefresh) doc.unitsTableFullName = null;
+    const keep = (s: { groupId: string }) =>
+      !plan.metricGroupIdsToRebuild.includes(s.groupId);
+    doc.metricSources = doc.metricSources.filter(keep);
+    doc.metricCovariateSources = doc.metricCovariateSources.filter(keep);
     return true;
   }
 
@@ -1101,6 +1119,7 @@ function finishedStatus(run: SimRun) {
 const snapshotOf = (experimentId: string, run: SimRun) => ({
   id: run.snapshotId,
   experiment: experimentId,
+  phase: 0,
   organization: ORG,
   runnerKind: run.fullRefresh
     ? ("incremental-full" as const)
@@ -1614,6 +1633,43 @@ async function expectFailedRepairKeepsTheLock(
   return failures;
 }
 
+// The same interrupted run is concluded twice, e.g. by a cancel and then by
+// its own runner, or after a plain release. With nobody holding the lock the
+// second cleanup applies itself again instead of flagging the tables.
+async function expectConcludingTwiceNeverFlags(
+  config: Config,
+  fullRefresh: boolean,
+) {
+  const failures: string[] = [];
+  const total = await countSteps(config, fullRefresh, "serial");
+  for (let stopAfter = 0; stopAfter < total; stopAfter++) {
+    for (const first of ["cancel", "plain release"] as const) {
+      const exp = await setUpExperiment(config);
+      const { run } = await exp.startRun({
+        now: INTERRUPTED_AT,
+        fullRefresh,
+        stopAfter,
+      });
+      if (first === "cancel") await cleanUp("cancel", exp.id, run);
+      else await model.releaseLock(exp.id, run.snapshotId);
+      const needsFullRefresh = await cleanUp("reaper", exp.id, run);
+      const where = `step ${stopAfter}, ${first} then reaper`;
+      try {
+        expect(needsFullRefresh).toBe(false);
+        expect((await getDoc(exp.id))?.fullRefreshRequired ?? null).toBeNull();
+        await nextRefresh(exp, false);
+        expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+      } catch (e) {
+        const message = e instanceof Error ? e.message : String(e);
+        failures.push(
+          `${where}: ${message.split("\n").slice(0, 12).join(" ")}`,
+        );
+      }
+    }
+  }
+  return failures;
+}
+
 describe("incremental refresh interruption (in-memory lock state)", () => {
   beforeAll(() => {
     model = createModel("memory");
@@ -1673,6 +1729,17 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       ({ fullRefresh: thiefFullRefresh }) =>
         expectStaleLockRecoveredByFlag(fullRefresh, thiefFullRefresh),
       120_000,
+    );
+  });
+
+  describe.each(modes)("$mode", ({ fullRefresh }) => {
+    it.each(configs.map((c) => [label(c), c] as const))(
+      "repairs a run concluded twice without flagging it: %s",
+      async (_, config) => {
+        expect(
+          await expectConcludingTwiceNeverFlags(config, fullRefresh),
+        ).toEqual([]);
+      },
     );
   });
 
@@ -1793,7 +1860,7 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
           thief.snapshotId,
         );
         expect(state?.fullRefreshRequired).toEqual(
-          expect.objectContaining({ snapshotId: thief.snapshotId }),
+          expect.objectContaining({ takenOverBy: thief.snapshotId }),
         );
 
         // An Update can't commit what it read; a full refresh repairs the
@@ -1811,6 +1878,28 @@ describe("incremental refresh interruption (Mongo lock state)", () => {
       }
     },
   );
+
+  it("records a phase mutation that takes a stale lock as the taker, not the interrupted run", async () => {
+    const exp = await setUpExperiment(MONGO_CONFIG);
+    await exp.startRun({
+      now: INTERRUPTED_AT,
+      fullRefresh: false,
+      stopAfter: 1,
+    });
+    await mongoose.connection
+      .db!.collection(COLLECTION_NAME)
+      .updateOne(
+        { experimentId: exp.id },
+        { $set: { lockHeartbeatAt: new Date(0) } },
+      );
+
+    expect(
+      await model.acquirePhaseSlotForMutation(exp.id, 0, "irdel_test"),
+    ).toBe(true);
+    expect((await getDoc(exp.id))?.fullRefreshRequired).toEqual(
+      expect.objectContaining({ snapshotId: null, takenOverBy: "irdel_test" }),
+    );
+  });
 
   it("flags every phase of only that experiment when the lock moved on", async () => {
     const exp = await setUpExperiment({ groups: 1, covariates: false });

@@ -231,6 +231,7 @@ describe("cancelExperimentSnapshot", () => {
         incrementalRefresh: {
           releaseLock,
           releaseLockAfterInterruptedRun,
+          cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
           requireFullRefresh: jest.fn().mockResolvedValue(undefined),
         },
       },

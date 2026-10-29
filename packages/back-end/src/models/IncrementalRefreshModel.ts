@@ -66,13 +66,14 @@ export class IncrementalRefreshModel extends BaseClass {
 
   /**
    * Takes the lock on an existing document. Taking it from a run that never
-   * released it also flags the tables in the same write: that run may still
-   * be appending rows it will never record.
+   * released it also flags this document's tables in the same write: that run
+   * may still be appending rows it will never record. Only this document is
+   * flagged, since the stale lock was on it.
    */
   private async claimLock(
     filter: Record<string, unknown>,
     fields: Record<string, unknown>,
-    snapshotId: string,
+    holderId: string,
   ): Promise<boolean> {
     const collection = this._dangerousGetCollection();
     const free = await collection.updateOne(
@@ -91,7 +92,8 @@ export class IncrementalRefreshModel extends BaseClass {
           ...fields,
           fullRefreshRequired: {
             reason: STALE_LOCK_FULL_REFRESH_REASON,
-            snapshotId,
+            snapshotId: null,
+            takenOverBy: holderId,
             date: new Date(),
           },
         },
@@ -128,7 +130,6 @@ export class IncrementalRefreshModel extends BaseClass {
     legacyExperimentSettingsHash: string;
   }): Promise<boolean> {
     const collection = this._dangerousGetCollection();
-    const lockAvailable = this.getAvailableLockFilter();
     const lockFields = {
       currentExecutionSnapshotId: snapshotId,
       lockHeartbeatAt: new Date(),
@@ -177,12 +178,14 @@ export class IncrementalRefreshModel extends BaseClass {
       );
       if (conflictingDoc) return false;
 
+      // Only creates the document: a stale lock must go through claimLock,
+      // which flags the tables as it takes it.
       const insertedPhase = await collection.updateOne(
         {
           organization: this.context.org.id,
           experimentId,
           phase,
-          $or: lockAvailable,
+          currentExecutionSnapshotId: null,
         },
         {
           $set: lockFields,
@@ -206,11 +209,12 @@ export class IncrementalRefreshModel extends BaseClass {
     token: string,
   ): Promise<boolean> {
     const collection = this._dangerousGetCollection();
+    // Only creates the document; an existing one goes through claimLock.
     const claimFilter = {
       organization: this.context.org.id,
       experimentId,
       phase,
-      $or: this.getAvailableLockFilter(),
+      currentExecutionSnapshotId: null,
     };
     const claimFields = {
       currentExecutionSnapshotId: token,
@@ -311,7 +315,8 @@ export class IncrementalRefreshModel extends BaseClass {
 
   /**
    * Flags every phase document of the experiment so its next refresh is a
-   * full one. Unfenced: used when the lock has already moved on.
+   * full one. Unfenced: used when the lock has already moved on. Every phase,
+   * because phases can be renumbered after the interrupted run took its lock.
    */
   public async requireFullRefresh(
     experimentId: string,
@@ -345,12 +350,51 @@ export class IncrementalRefreshModel extends BaseClass {
         // A flag set when this refresh took a stale lock is its own to clear.
         $or: [
           { "fullRefreshRequired.date": { $lt: refreshStartedAt } },
-          { "fullRefreshRequired.snapshotId": snapshotId },
+          { "fullRefreshRequired.takenOverBy": snapshotId },
         ],
       },
       { $set: { fullRefreshRequired: null, dateUpdated: new Date() } },
     );
     return result.modifiedCount > 0;
+  }
+
+  /**
+   * Applies an interrupted run's cleanup to a phase document nobody holds the
+   * lock on, e.g. when the run was already concluded once. Returns false when
+   * another run holds the lock.
+   */
+  public async cleanUpUnlockedPhase(
+    experimentId: string,
+    phase: number,
+    {
+      metricGroupIdsToRebuild,
+      forceFullRefresh,
+    }: { metricGroupIdsToRebuild: string[]; forceFullRefresh: boolean },
+  ): Promise<boolean> {
+    const pullGroups = { groupId: { $in: metricGroupIdsToRebuild } };
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        phase,
+        currentExecutionSnapshotId: null,
+      },
+      {
+        $set: {
+          dateUpdated: new Date(),
+          ...(forceFullRefresh ? { unitsTableFullName: null } : {}),
+        },
+        ...(metricGroupIdsToRebuild.length
+          ? {
+              $pull: {
+                metricSources: pullGroups,
+                metricCovariateSources: pullGroups,
+              },
+            }
+          : {}),
+      },
+    );
+    return result.matchedCount > 0;
   }
 
   /**

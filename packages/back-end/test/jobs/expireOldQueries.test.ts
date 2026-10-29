@@ -332,6 +332,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
         releaseLock,
         hasFreshLockHeartbeat,
         releaseLockAfterInterruptedRun,
+        cleanUpUnlockedPhase: jest.fn().mockResolvedValue(false),
         requireFullRefresh,
       },
       metricAnalysis: { update: jest.fn() },
@@ -906,7 +907,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       expect(error).toMatch(
         /^Snapshot stalled: queries finished but results were never finalized\./,
       );
-      expect(error).toMatch(/Choose Full refresh .* count some data twice\.$/);
+      expect(error).toMatch(/The next update will run a full refresh\.$/);
     });
 
     it("leaves a run for the next pass when neither its cleanup nor the flag can be written", async () => {
