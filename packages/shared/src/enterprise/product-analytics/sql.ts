@@ -132,13 +132,18 @@ function isManagedWarehousePerOrgTable(path: string): boolean {
   const table = path.replace(/`/g, "").split(".").pop()?.trim().toLowerCase();
   return table !== undefined && MANAGED_WAREHOUSE_PER_ORG_TABLES.has(table);
 }
+// A series the query computes. Despite the name, not always a Fact Metric:
+// fact table / data source values, Population previews, the denominator half
+// of a ratio, and a metric dataset's Population count are all represented
+// this way.
 interface MetricWithMetadata {
   metric: MinimalMetric;
   unit?: string;
   index: number;
   useDenominator?: boolean;
-  // A metric dataset's population, computed like any other series but only
-  // reported as each metric's `populationCount`.
+  // When true, this series counts the Population's members. There's one per
+  // request; its count is reported as every metric's `populationCount`, and
+  // the series itself isn't returned as a metric.
   isPopulationCount?: boolean;
 }
 interface FactTableGroup {
