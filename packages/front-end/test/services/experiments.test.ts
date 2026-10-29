@@ -52,7 +52,7 @@ describe("getClusterUnitsLabel", () => {
 
   it("returns nothing without a sub-unit", () => {
     expect(
-      getClusterUnitsLabel({ ...cluster, clusterSubUnitIdentifier: null }),
+      getClusterUnitsLabel({ ...cluster, clusterSubUnitIdentifier: undefined }),
     ).toBeUndefined();
   });
 });
