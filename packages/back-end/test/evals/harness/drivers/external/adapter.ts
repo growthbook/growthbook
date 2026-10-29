@@ -33,6 +33,8 @@ export interface HarnessTurn {
 export interface HarnessAdapter {
   prepare(env: HarnessEnv): Promise<void>;
   send(message: string, session: string | null): Promise<HarnessTurn>;
+  // Removes whatever the harness saved about the trial outside its workdir.
+  cleanup(): Promise<void>;
 }
 
 // A harness, set up once per run for one profile, so a missing CLI or plugin

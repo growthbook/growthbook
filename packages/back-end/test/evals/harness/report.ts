@@ -1,7 +1,6 @@
 import { mkdirSync, writeFileSync } from "fs";
 import { homedir } from "os";
 import path from "path";
-import type { AIModel } from "shared/ai";
 import type { RunMetadata, SourceVersion } from "./metadata";
 import { addUsage, emptyUsage, type Usage } from "./record";
 import type { TrialOutcome } from "./run-trials";
@@ -33,7 +32,7 @@ export interface RunInfo extends RunMetadata {
   profile: string;
   driverMetadata: Record<string, string>;
   // The agent may be an external harness's model, named its own way.
-  models: { agent: string; simulator: AIModel; judge: AIModel };
+  models: { agent: string; simulator: string; judge: string };
   k: number;
   threshold: number;
 }

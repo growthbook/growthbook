@@ -1,8 +1,6 @@
-import { generateText, Output } from "ai";
 import { z } from "zod";
-import type { AIModel } from "shared/ai";
+import { askClaude } from "back-end/test/evals/harness/claude-cli";
 import type { ScenarioUser } from "back-end/test/evals/harness/scenario";
-import { evalModel, usageOf } from "back-end/test/evals/harness/models";
 import type {
   TranscriptEvent,
   Usage,
@@ -36,18 +34,16 @@ Grade each criterion strictly from the transcript. Tool calls and their results 
 Separately, check the simulated user: it must stay in character, follow its instructions, and not invent facts the instructions don't give it.`;
 
 export async function judgeTrial(
-  modelId: AIModel,
+  model: string,
   user: ScenarioUser,
   transcript: TranscriptEvent[],
   criteria: JudgeCriterion[],
 ): Promise<JudgeVerdict> {
   const rubrics = criteria.map(rubricFor);
-  const { model, providerOptions } = evalModel(modelId);
-  const result = await generateText({
+  const { output: verdict, usage } = await askClaude({
     model,
-    providerOptions,
     system: SYSTEM,
-    output: Output.object({ schema: verdictSchema }),
+    schema: verdictSchema,
     prompt: `The simulated user's opening message: ${user.opening}
 
 The simulated user's private instructions:
@@ -63,7 +59,7 @@ Transcript:
 ${renderTranscript(transcript)}
 </transcript>`,
   });
-  const verdict = result.output;
+  if (!verdict) throw new Error("The judge returned no verdict");
   const reasons = rubrics.flatMap(({ key }) => {
     const graded = verdict.criteria.find((c) => c.key === key);
     if (!graded) return [`${key}: the judge returned no verdict`];
@@ -74,6 +70,6 @@ ${renderTranscript(transcript)}
     reasons,
     simulatorValid: verdict.simulator.followedInstructions,
     simulatorReason: verdict.simulator.reason,
-    usage: usageOf(modelId, result.usage),
+    usage,
   };
 }

@@ -7,7 +7,8 @@
 // Drivers and their profiles:
 //   in-app       skills (default), no-skills
 //   claude-code  mcp (default), mcp-api, plugin, bare. Runs the `claude` CLI
-//                against a local eval server; needs ANTHROPIC_API_KEY. --model
+//                against a local eval server, signed in with your Claude
+//                Code login. --model
 //                is passed through only when given (aliases like opus work).
 //                --mcp-server points the mcp profiles at a built
 //                growthbook-mcp checkout instead of the published package.

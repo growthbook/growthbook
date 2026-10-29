@@ -24,6 +24,7 @@ const startEvalServer = async () =>
 export function externalDriver(harness: Harness): DriverFactory {
   let server: Promise<EvalServer> | null = null;
   const workdirs: string[] = [];
+  const adapters: HarnessAdapter[] = [];
   return {
     name: harness.name,
     profile: harness.profile,
@@ -36,6 +37,7 @@ export function externalDriver(harness: Harness): DriverFactory {
       const workdir = await mkdtemp(path.join(tmpdir(), "gb-eval-"));
       workdirs.push(workdir);
       const adapter = harness.adapter();
+      adapters.push(adapter);
       await adapter.prepare({ apiUrl: url, apiKey, workdir });
       return externalConversation(adapter, () => callsFor(apiKey));
     },
@@ -45,6 +47,7 @@ export function externalDriver(harness: Harness): DriverFactory {
         (s) => s.close(),
         () => undefined,
       );
+      await Promise.all(adapters.map((a) => a.cleanup()));
       await Promise.all(
         workdirs.map((dir) => rm(dir, { recursive: true, force: true })),
       );

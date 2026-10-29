@@ -1,7 +1,7 @@
 import path from "path";
 import { readEvalConfig, type EvalConfig } from "./config";
 import { createDriverFactory } from "./drivers";
-import { assertProviderKeys } from "./env";
+import { assertClaudeLogin } from "./claude-cli";
 import { RESULTS_ROOT, runMetadata } from "./metadata";
 import {
   formatReport,
@@ -45,7 +45,7 @@ export async function runSuite(
       `No ${suite.name} scenarios match the --scenario/--tag filter`,
     );
   }
-  assertProviderKeys([config.simulatorModel, config.judgeModel]);
+  assertClaudeLogin();
   const factory = createDriverFactory(config);
   const runId = `${new Date().toISOString().replace(/[:.]/g, "-")}-${suite.name}`;
   const resultsDir = path.join(RESULTS_ROOT, runId);

@@ -15,8 +15,10 @@ export interface EvalConfig {
   // --model as typed, null when it wasn't given. External harnesses get it
   // verbatim (it may be one of their aliases) and otherwise use their own.
   agentModelFlag: string | null;
-  simulatorModel: AIModel;
-  judgeModel: AIModel;
+  // Claude models for the simulated user and the judge, as the claude CLI's
+  // --model takes them.
+  simulatorModel: string;
+  judgeModel: string;
   // Null means the suite's own threshold.
   threshold: number | null;
   skillsSrc: string | null;
@@ -75,16 +77,8 @@ export function readEvalConfig(env = process.env): EvalConfig {
       "claude-sonnet-5-5",
     ),
     agentModelFlag: env.EVAL_MODEL || null,
-    simulatorModel: model(
-      "EVAL_SIMULATOR_MODEL",
-      env.EVAL_SIMULATOR_MODEL,
-      "claude-sonnet-5-5",
-    ),
-    judgeModel: model(
-      "EVAL_JUDGE_MODEL",
-      env.EVAL_JUDGE_MODEL,
-      "claude-opus-5-5",
-    ),
+    simulatorModel: env.EVAL_SIMULATOR_MODEL || "claude-sonnet-5-5",
+    judgeModel: env.EVAL_JUDGE_MODEL || "claude-opus-5-5",
     threshold,
     skillsSrc: env.SKILLS_SRC || null,
     mcpServer: env.EVAL_MCP_SERVER || null,

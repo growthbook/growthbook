@@ -27,7 +27,7 @@ pnpm --filter back-end eval smoke --driver claude-code --profile plugin
 | `--simulator-model`, `--judge-model` | Sonnet, Opus        | Claude models for the simulated user and the judge |
 | `--skip-assemble`                    | off                 | Reuse the already assembled skills                 |
 
-Keys come from the shell or from `packages/back-end/.env.local` (only the AI provider keys are read from that file). The simulator and judge need `ANTHROPIC_API_KEY`.
+**Authentication.** The simulated user, the judge, and the `claude-code` driver all run through the `claude` CLI and use your Claude Code login, so they need no API key; the run stops up front if you aren't logged in. Only the `in-app` driver needs a provider key, because it runs GrowthBook's own agent, which calls the provider's API the way production does: `ANTHROPIC_API_KEY` (or the key for the `--model` you pick) from the shell or `packages/back-end/.env.local`, which is read for provider keys only.
 
 **Skills under test.** The command runs `assemble-skills` first, so it uses whatever skills source that resolves: `$SKILLS_SRC`, then `agent-skills.local.json`, then `skills-src/`. Point `SKILLS_SRC` at a local `growthbook/skills` branch to test a playbook change, and compare its `summary.json` with a run on the pinned skills or with `--profile no-skills`.
 
@@ -40,7 +40,7 @@ Keys come from the shell or from `packages/back-end/.env.local` (only the AI pro
 | `claude-code` | `plugin`    | The Agent Skills plugin from the run's skills checkout, calling the API with `gb-call` |
 | `claude-code` | `bare`      | A base URL, an API key, and the OpenAPI spec, with only `curl` in the shell            |
 
-The `claude-code` driver runs `claude -p` per user message against an eval server: the real app with real API-key auth on a local port, recording every call by key. Each trial gets a throwaway org and key, its own temp directory as `HOME`, `--restricted` and `--strict-mcp-config`, and only its profile's tools, so it never sees your Claude Code settings, plugins, MCP servers, or GrowthBook config. It signs in with `ANTHROPIC_API_KEY`, and the run stops if Claude Code reports any other sign-in. External agents have no confirm cards, so `confirmCards` doesn't apply to them.
+The `claude-code` driver runs `claude -p` per user message against an eval server: the real app with real API-key auth on a local port, recording every call by key. Each trial gets a throwaway org and key, its own temp working directory, `--restricted` and `--strict-mcp-config`, a minimal environment, and only its profile's tools, so it never sees your Claude Code settings, hooks, CLAUDE.md, plugins, MCP servers, or GrowthBook key. It signs in with your Claude Code login (the run stops if it finds an API key instead), and each trial's saved session is purged afterward. External agents have no confirm cards, so `confirmCards` doesn't apply to them.
 
 ## Reading results
 

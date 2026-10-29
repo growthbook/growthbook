@@ -1,11 +1,14 @@
 import { execFileSync, spawn } from "child_process";
 import { existsSync } from "fs";
-import { mkdir, writeFile } from "fs/promises";
-import { homedir } from "os";
+import { writeFile } from "fs/promises";
 import path from "path";
 import { createInterface } from "readline";
 import { z } from "zod";
-import { ANTHROPIC_API_KEY } from "back-end/src/util/secrets";
+import {
+  assertClaudeLogin,
+  claudeEnv,
+  FENCE_FLAGS,
+} from "back-end/test/evals/harness/claude-cli";
 import { versionOf } from "back-end/test/evals/harness/metadata";
 import {
   addUsage,
@@ -45,16 +48,6 @@ interface McpServerLaunch {
   command: string;
   args: string[];
   source: string;
-}
-
-function claudeVersion(): string {
-  try {
-    return execFileSync("claude", ["--version"], { encoding: "utf8" })
-      .trim()
-      .split(" ")[0];
-  } catch {
-    throw new Error("The claude-code driver runs the `claude` CLI; install it");
-  }
 }
 
 function mcpServerLaunch(checkout: string | null): McpServerLaunch {
@@ -341,23 +334,19 @@ interface Launch {
 }
 
 // Claude Code headless: one `claude -p` per user message, resumed by session
-// id. Each trial is fenced into its own directory and home, with only the
-// eval server, the trial's key, and the profile's tools.
+// id, signed in with the developer's own Claude login. Each trial runs in its
+// own directory with only the eval server, the trial's key, and the profile's
+// tools.
 //
-// Not --bare: it swaps Claude Code's system prompt for a few dozen tokens and
-// drops the Skill tool, so it would grade an agent no customer runs and leave
-// the plugin's skills uncallable. The fresh home and --restricted keep out the
-// developer's settings, hooks, CLAUDE.md, plugins, and MCP servers instead.
+// Not --bare: it swaps Claude Code's system prompt for a few dozen tokens,
+// drops the Skill tool, and ignores the CLI login. --restricted keeps out the
+// developer's settings, hooks, CLAUDE.md, and plugins instead, and
+// --strict-mcp-config their MCP servers.
 export function claudeCodeHarness(
   profile: ExternalProfile,
   { model, skillsSource, mcpServer }: ClaudeCodeOptions,
 ): Harness {
-  if (!ANTHROPIC_API_KEY) {
-    throw new Error(
-      "Claude Code trials sign in with ANTHROPIC_API_KEY. Export it or add it to packages/back-end/.env.local.",
-    );
-  }
-  const version = claudeVersion();
+  const version = assertClaudeLogin();
   const mcp =
     profile === "mcp" || profile === "mcp-api"
       ? mcpServerLaunch(mcpServer)
@@ -367,13 +356,13 @@ export function claudeCodeHarness(
   let firstInit: InitEvent | null = null;
 
   // A trial whose tools didn't load would grade an agent without them, and
-  // one signed in any other way would run on the developer's own account.
+  // one that found an API key would bill it instead of the CLI login.
   const observe = (init: InitEvent) => {
     firstInit ??= init;
     models.add(init.model);
-    if (init.apiKeySource !== "ANTHROPIC_API_KEY") {
+    if (init.apiKeySource !== "none") {
       throw new Error(
-        `Claude Code signed in with ${init.apiKeySource}, not ANTHROPIC_API_KEY`,
+        `Claude Code signed in with ${init.apiKeySource}, not your Claude login`,
       );
     }
     const server = init.mcp_servers.find((s) => s.name === MCP_NAME);
@@ -392,17 +381,12 @@ export function claudeCodeHarness(
     apiKey,
     workdir,
   }: HarnessEnv): Promise<Launch> => {
-    // A fresh home: no ~/.claude settings, skills, plugins, or MCP servers, no
-    // shell profile, and no ~/.config/growthbook for gb-call to fall back to.
-    const home = path.join(workdir, ".home");
-    await mkdir(home, { recursive: true });
     const args = [
       "-p",
       "--output-format",
       "stream-json",
       "--verbose",
-      "--restricted",
-      "--strict-mcp-config",
+      ...FENCE_FLAGS,
       "--permission-mode",
       "dontAsk",
       "--max-budget-usd",
@@ -412,7 +396,7 @@ export function claudeCodeHarness(
     let gbEnv: Record<string, string> = {};
 
     if (mcp) {
-      const config = path.join(home, "mcp.json");
+      const config = path.join(workdir, ".mcp-config.json");
       await writeFile(
         config,
         JSON.stringify({
@@ -479,23 +463,14 @@ export function claudeCodeHarness(
     return {
       cwd: workdir,
       args,
-      // Only what the CLI needs, so nothing from the developer's shell (their
-      // GrowthBook key, Claude settings, provider overrides) reaches a trial.
-      env: {
-        PATH: process.env.PATH ?? "",
-        ...(process.env.TMPDIR ? { TMPDIR: process.env.TMPDIR } : {}),
-        LANG: process.env.LANG ?? "en_US.UTF-8",
-        SHELL: "/bin/bash",
-        HOME: home,
-        CLAUDE_CONFIG_DIR: path.join(home, ".claude"),
-        ANTHROPIC_API_KEY,
+      // Only what the CLI needs, so nothing else from the developer's shell
+      // (their GrowthBook key, an API key, provider overrides) reaches a trial.
+      env: claudeEnv({
         CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: "1",
         // npx's first fetch of the MCP package can outlast the default wait.
         MCP_TIMEOUT: "60000",
-        // A package cache, not config: npx skips refetching per trial.
-        npm_config_cache: path.join(homedir(), ".npm"),
         ...gbEnv,
-      },
+      }),
     };
   };
 
@@ -522,6 +497,14 @@ export function claudeCodeHarness(
           skillsLoaded: skillsLoaded(stream.events),
           end: endOf(run, stream.result),
         };
+      },
+      // The CLI saves each session under ~/.claude; eval sessions don't stay.
+      cleanup: async () => {
+        if (!launch) return;
+        execFileSync("claude", ["purge", launch.cwd, "--yes"], {
+          env: claudeEnv(),
+          stdio: "ignore",
+        });
       },
     };
   };

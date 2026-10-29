@@ -1,8 +1,6 @@
-import { generateText } from "ai";
-import type { AIModel } from "shared/ai";
 import type { ScenarioUser } from "./scenario";
+import { askClaude } from "./claude-cli";
 import { renderVisible, type VisibleEvent } from "./conversation";
-import { evalModel, usageOf } from "./models";
 import type { Usage } from "./record";
 
 const STOP = "###STOP###";
@@ -22,14 +20,12 @@ Rules:
 export type SimulatedReply = { stop: true } | { stop: false; text: string };
 
 export async function simulateUser(
-  modelId: AIModel,
+  model: string,
   user: ScenarioUser,
   conversation: VisibleEvent[],
 ): Promise<{ reply: SimulatedReply; usage: Usage }> {
-  const { model, providerOptions } = evalModel(modelId);
-  const result = await generateText({
+  const { text: raw, usage } = await askClaude({
     model,
-    providerOptions,
     system: SYSTEM,
     prompt: `Your goal and private instructions (the assistant can't see them):
 <instructions>
@@ -43,10 +39,10 @@ ${renderVisible(conversation)}
 
 Write your next message, or ${STOP}.`,
   });
-  const text = result.text.trim();
+  const text = raw.trim();
   return {
     reply:
       !text || text.includes(STOP) ? { stop: true } : { stop: false, text },
-    usage: usageOf(modelId, result.usage),
+    usage,
   };
 }
