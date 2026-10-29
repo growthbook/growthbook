@@ -28,6 +28,8 @@ export type MetricAnalysisWindowSelectorProps = {
   /** For experiments: phase end date or now */
   phaseEndDate?: Date | null;
   helpText?: React.ReactNode;
+  /** Without its own label and description, for a row that labels it. */
+  bare?: boolean;
 };
 
 const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
@@ -39,6 +41,7 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   analysisEndDate,
   phaseEndDate,
   helpText,
+  bare = false,
 }) => {
   const endDate = analysisEndDate ?? phaseEndDate ?? new Date();
   const [localWindowValue, setLocalWindowValue] = useState<string | null>(null);
@@ -69,145 +72,165 @@ const MetricAnalysisWindowSelector: FC<MetricAnalysisWindowSelectorProps> = ({
   };
 
   return (
-    <Box mb="2">
+    <Box mb={bare ? "0" : "2"}>
       <Flex direction="column">
         <Box>
           <SelectField
             size="legacy"
             label={
-              <AttributionModelTooltip>
-                Metric Analysis Windows <GBInfo />
-              </AttributionModelTooltip>
+              bare ? undefined : (
+                <AttributionModelTooltip>
+                  Metric Analysis Windows <GBInfo />
+                </AttributionModelTooltip>
+              )
             }
             labelClassName="font-weight-bold"
             value={attributionModel}
             onChange={handleModeChange}
             options={[
-              { label: "Respect Metric Settings", value: "firstExposure" },
+              { label: "Respect metric settings", value: "firstExposure" },
               {
-                label: "Ignore Conversion Windows",
+                label: "Ignore conversion windows",
                 value: "experimentDuration",
               },
               {
-                label: "Use Custom Lookback Window",
+                label: "Use custom lookback window",
                 value: "lookbackOverride",
               },
             ]}
             sort={false}
             disabled={disabled}
-            helpText="Apply custom metric window behavior in this experiment."
+            helpText={
+              bare
+                ? undefined
+                : "Apply custom metric window behavior in this experiment."
+            }
           />
         </Box>
         {attributionModel === "lookbackOverride" && lookbackOverride && (
-          <Box className="appbox bg-light p-3">
-            <Box mb="2">
-              <RadioGroup
-                value={lookbackOverride.type}
-                setValue={(v) => {
-                  if (v === "date") {
-                    onLookbackOverrideChange({
-                      type: "date",
-                      value: new Date(
-                        endDate.getTime() -
-                          DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS *
-                            24 *
-                            60 *
-                            60 *
-                            1000,
-                      ),
-                    });
-                  } else if (v === "window") {
-                    onLookbackOverrideChange({
-                      type: "window",
-                      value: DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS,
-                      valueUnit: DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
-                    });
-                  }
-                }}
-                options={[
-                  { label: "Fixed Date", value: "date" },
-                  { label: "Lookback Window", value: "window" },
-                ]}
-                disabled={disabled}
-              />
-            </Box>
-
-            <Flex direction="row" gap="2" align="center">
-              {lookbackOverride.type === "date" && (
-                <>
-                  <Box>Only use metric data from</Box>
-                  <DatePicker
-                    date={lookbackOverride.value}
-                    timeZone="utc"
-                    containerClassName={""}
-                    setDate={(d) => {
-                      if (d) {
-                        onLookbackOverrideChange({ type: "date", value: d });
-                      }
-                    }}
-                  />
-                  <Box>until the end of the experiment</Box>
-                </>
-              )}
-              {lookbackOverride.type === "window" && (
-                <>
-                  <Box>Use only the latest</Box>
-                  <Field
-                    size="legacy"
-                    type="number"
-                    style={{ width: 70 }}
-                    min={0}
-                    step={0.01}
-                    value={
-                      localWindowValue !== null
-                        ? localWindowValue
-                        : (lookbackOverride.value ?? "")
-                    }
-                    onChange={(e) => {
-                      setLocalWindowValue(e.target.value ?? "");
-                    }}
-                    onBlur={() => {
-                      if (localWindowValue === null) return;
-                      const v = parseFloat(localWindowValue);
-                      if (localWindowValue === "" || isNaN(v) || v < 0) {
-                        onLookbackOverrideChange({
-                          ...lookbackOverride,
-                          value: 14,
-                        });
-                      } else {
-                        onLookbackOverrideChange({
-                          ...lookbackOverride,
-                          value: v,
-                        });
-                      }
-                      setLocalWindowValue(null);
-                    }}
-                    disabled={disabled}
-                  />
-                  <SelectField
-                    size="legacy"
-                    value={
-                      lookbackOverride.valueUnit ??
-                      DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT
-                    }
-                    onChange={(v) => {
-                      onLookbackOverrideChange({
-                        ...lookbackOverride,
-                        valueUnit: v as LookbackOverrideValueUnit,
-                      });
-                    }}
-                    options={[
-                      { label: "Minutes", value: "minutes" },
-                      { label: "Hours", value: "hours" },
-                      { label: "Days", value: "days" },
-                      { label: "Weeks", value: "weeks" },
-                    ]}
-                    disabled={disabled}
-                  />
-                  <Box>of data until the end of the experiment</Box>
-                </>
-              )}
-            </Flex>
+          <Box mt="3">
+            <RadioGroup
+              value={lookbackOverride.type}
+              setValue={(v) => {
+                if (v === "date") {
+                  onLookbackOverrideChange({
+                    type: "date",
+                    value: new Date(
+                      endDate.getTime() -
+                        DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS *
+                          24 *
+                          60 *
+                          60 *
+                          1000,
+                    ),
+                  });
+                } else if (v === "window") {
+                  onLookbackOverrideChange({
+                    type: "window",
+                    value: DEFAULT_LOOKBACK_OVERRIDE_VALUE_DAYS,
+                    valueUnit: DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+                  });
+                }
+              }}
+              gap="2"
+              options={[
+                {
+                  value: "date",
+                  label: "Fixed date",
+                  description:
+                    "Only use metric data from this date until the end of the experiment.",
+                  renderOutsideItem: true,
+                  renderOnSelect:
+                    lookbackOverride.type === "date" ? (
+                      <Box pl="5">
+                        <DatePicker
+                          date={lookbackOverride.value}
+                          timeZone="utc"
+                          containerClassName="mb-0"
+                          disabled={disabled}
+                          setDate={(d) => {
+                            if (d) {
+                              onLookbackOverrideChange({
+                                type: "date",
+                                value: d,
+                              });
+                            }
+                          }}
+                        />
+                      </Box>
+                    ) : undefined,
+                },
+                {
+                  value: "window",
+                  label: "Lookback window",
+                  description:
+                    "Only use the latest metric data until the end of the experiment.",
+                  renderOutsideItem: true,
+                  renderOnSelect:
+                    lookbackOverride.type === "window" ? (
+                      <Flex pl="5" gap="2" align="center">
+                        <Field
+                          size="legacy"
+                          type="number"
+                          style={{ width: 70 }}
+                          containerClassName="mb-0"
+                          min={0}
+                          step={0.01}
+                          value={
+                            localWindowValue !== null
+                              ? localWindowValue
+                              : (lookbackOverride.value ?? "")
+                          }
+                          onChange={(e) => {
+                            setLocalWindowValue(e.target.value ?? "");
+                          }}
+                          onBlur={() => {
+                            if (localWindowValue === null) return;
+                            const v = parseFloat(localWindowValue);
+                            if (localWindowValue === "" || isNaN(v) || v < 0) {
+                              onLookbackOverrideChange({
+                                ...lookbackOverride,
+                                value: 14,
+                              });
+                            } else {
+                              onLookbackOverrideChange({
+                                ...lookbackOverride,
+                                value: v,
+                              });
+                            }
+                            setLocalWindowValue(null);
+                          }}
+                          disabled={disabled}
+                          aria-label="Lookback window length"
+                        />
+                        <SelectField
+                          aria-label="Lookback window unit"
+                          size="legacy"
+                          value={
+                            lookbackOverride.valueUnit ??
+                            DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT
+                          }
+                          onChange={(v) => {
+                            onLookbackOverrideChange({
+                              ...lookbackOverride,
+                              valueUnit: v as LookbackOverrideValueUnit,
+                            });
+                          }}
+                          containerClassName="mb-0"
+                          options={[
+                            { label: "Minutes", value: "minutes" },
+                            { label: "Hours", value: "hours" },
+                            { label: "Days", value: "days" },
+                            { label: "Weeks", value: "weeks" },
+                          ]}
+                          disabled={disabled}
+                        />
+                      </Flex>
+                    ) : undefined,
+                },
+              ]}
+              disabled={disabled}
+            />
             {lookbackDateAfterPresentOrExperiment && (
               <HelperText status="warning" size="md">
                 Lookback date is later than the present or the end of the

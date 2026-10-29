@@ -9,6 +9,7 @@ import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
 import { useUser } from "@/services/UserContext";
 import { useAuth } from "@/services/auth";
+import { coveragePercentFormatter } from "@/services/utils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { DocLink } from "@/components/DocLink";
 import { IssueValue } from "./IssueTags";
@@ -93,7 +94,7 @@ export function PowerCard({
       recommendations.push(
         <li key="coverage">
           Consider increasing the traffic percentage above{" "}
-          {phase.coverage * 100}%
+          {coveragePercentFormatter.format(phase.coverage)}
         </li>,
       );
     }

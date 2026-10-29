@@ -17,6 +17,8 @@ import {
   changedProjectRoleProjects,
   sameRoleValue,
   actsAsUser,
+  hasSuperAdminPermission,
+  normalizeSuperAdmin,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -127,7 +129,11 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { PaymentRequiredError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  PaymentRequiredError,
+} from "back-end/src/util/errors";
+import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
 import {
   ArmingOAuthSignIn,
@@ -136,7 +142,10 @@ import {
   SECRET_API_KEY_ID,
 } from "back-end/src/util/armingApiKeyId";
 import { oauthTokenScope } from "back-end/src/util/oauth-token.util";
-import { getKeyPermissionsForRequest } from "back-end/src/util/organization.util";
+import {
+  getKeyPermissionsForRequest,
+  normalizeInviteEmail,
+} from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -209,7 +218,7 @@ export function validateLoginMethod(
   if (
     org.restrictLoginMethod &&
     req.loginMethod?.id !== org.restrictLoginMethod &&
-    !req.superAdmin
+    !hasSuperAdminPermission(req.superAdmin, "impersonate")
   ) {
     throw new Error(
       `Your organization requires you to log in with ${
@@ -233,7 +242,7 @@ export function validateLoginMethod(
   if (
     org.restrictAuthSubPrefix &&
     !req.authSubject?.startsWith(org.restrictAuthSubPrefix) &&
-    !req.superAdmin
+    !hasSuperAdminPermission(req.superAdmin, "impersonate")
   ) {
     throw new Error(
       `Your organization requires you to log in with ${org.restrictAuthSubPrefix}`,
@@ -1151,10 +1160,7 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email
-    .toLowerCase()
-    .replace(/^[\s;,]+/, "")
-    .replace(/[\s;,]+$/, "");
+  email = normalizeInviteEmail(email);
 
   if (!z.string().email().safeParse(email).success) {
     throw new Error(`Invalid email address: ${email}`);
@@ -1423,6 +1429,12 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
+    const analysisEndDateError = getAnalysisEndDateSettingsError(
+      config.organization.settings.updateSchedule,
+    );
+    if (analysisEndDateError) {
+      throw new BadRequestError(analysisEndDateError);
+    }
     await sanitizeDefaultRoleUpdate(context, config.organization.settings);
     const settings = {
       ...organization.settings,
@@ -1966,8 +1978,12 @@ export async function getContextForApiKeyIdInOrg(
     return null;
   }
   // Super-admin authority bypasses roles, so a scoped token never carries it.
-  const superAdmin = !!user?.superAdmin && !key.scoped;
-  if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
+  const superAdmin = key.scoped ? false : normalizeSuperAdmin(user?.superAdmin);
+  if (
+    user &&
+    !hasSuperAdminPermission(superAdmin, "impersonate") &&
+    !org.members.some((m) => m.id === user.id)
+  ) {
     return null;
   }
   // Like a user who armed it and left, a requester who left fires nothing.

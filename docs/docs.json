@@ -307,6 +307,7 @@
                   "integrations/discord",
                   "integrations/datadog",
                   "integrations/github-metrics",
+                  "integrations/dbt",
                   "tools/chrome-extension",
                   "tools/vscode-extension",
                   "tools/cli",
@@ -617,6 +618,8 @@
                   "api/ramp-schedules/operation/updateRampScheduleLockdown",
                   "api/ramp-schedules/operation/updateRampScheduleSteps",
                   "api/ramp-schedules/operation/refreshMonitoringRampSchedule",
+                  "api/ramp-schedules/operation/rollbackMatchingRampSchedules",
+                  "api/ramp-schedules/operation/pauseMatchingRampSchedules",
                   "api/ramp-schedules/operation/getRampSchedule",
                   "api/ramp-schedules/operation/updateRampSchedule",
                   "api/ramp-schedules/operation/deleteRampSchedule"
@@ -690,8 +693,11 @@
                   "api/experiments/operation/listExperimentResults",
                   "api/experiments/operation/getExperiment",
                   "api/experiments/operation/updateExperiment",
+                  "api/experiments/operation/deleteExperiment",
                   "api/experiments/operation/getExperimentStartChecklist",
                   "api/experiments/operation/getExperimentResults",
+                  "api/experiments/operation/postExperimentArchive",
+                  "api/experiments/operation/postExperimentUnarchive",
                   "api/experiments/operation/postExperimentStart",
                   "api/experiments/operation/postExperimentStartChecklistManualComplete",
                   "api/experiments/operation/postExperimentStop",
@@ -783,7 +789,13 @@
                   "api/saved-groups/operation/deleteSavedGroup",
                   "api/saved-groups/operation/archiveSavedGroup",
                   "api/saved-groups/operation/unarchiveSavedGroup",
-                  "api/saved-groups/operation/getSavedGroupReferences"
+                  "api/saved-groups/operation/getSavedGroupReferences",
+                  "api/saved-groups/operation/listSavedGroupUploads",
+                  "api/saved-groups/operation/postSavedGroupUpload",
+                  "api/saved-groups/operation/postSavedGroupUploadUrl",
+                  "api/saved-groups/operation/postSavedGroupUploadLoad",
+                  "api/saved-groups/operation/getSavedGroupUpload",
+                  "api/saved-groups/operation/deleteSavedGroupUpload"
                 ]
               },
               {
@@ -797,6 +809,7 @@
                   "api/saved-group-revisions/operation/putSavedGroupRevisionMetadata",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionCondition",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionValues",
+                  "api/saved-group-revisions/operation/putSavedGroupRevisionUploadVersion",
                   "api/saved-group-revisions/operation/putSavedGroupRevisionArchive",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsAdd",
                   "api/saved-group-revisions/operation/postSavedGroupRevisionItemsRemove",
@@ -1266,6 +1279,7 @@
               "api/SavedGroupRevisionActivityLogEntry_model",
               "api/SavedGroupRevisionRef_model",
               "api/SavedGroupRevisionReview_model",
+              "api/SavedGroupUpload_model",
               "api/ScheduleRule_model",
               "api/ScheduledStopPlan_model",
               "api/SdkConnection_model",
@@ -1286,8 +1300,17 @@
       "anchors": []
     }
   },
+  "banner": {
+    "content": "**New:** See what we've shipped lately on our [Product Updates](https://growthbook.io/product-updates) page.",
+    "dismissible": true
+  },
   "navbar": {
     "links": [
+      {
+        "label": "Product Updates",
+        "icon": "bullhorn",
+        "href": "https://growthbook.io/product-updates"
+      },
       {
         "label": "Github",
         "type": "github",

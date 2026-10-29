@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
+import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import { Responsive } from "@radix-ui/themes/props";
 import { Size } from "@/ui/sizes";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import VariationNumber from "@/ui/VariationNumber";
+import styles from "./VariationLabel.module.scss";
 
 export interface VariationLabelProps {
   number: number;
@@ -14,6 +16,8 @@ export interface VariationLabelProps {
   maxWidth?: Responsive<string>;
   // Set when rendered inside an element that already has a tooltip, to avoid nesting.
   disableTooltip?: boolean;
+  // A truncated name fades out instead of ending in an ellipsis.
+  fadeOverflow?: boolean;
 }
 
 // Hide truncated names below this width, but keep shorter names that fully fit.
@@ -27,6 +31,7 @@ export default function VariationLabel({
   size = "md",
   maxWidth,
   disableTooltip = false,
+  fadeOverflow = false,
 }: VariationLabelProps) {
   // Root always fills the available width so the ResizeObserver re-measures on grow.
   const rootRef = useRef<HTMLDivElement>(null);
@@ -69,6 +74,10 @@ export default function VariationLabel({
         flexGrow={hideName ? "0" : "1"}
         width={hideName ? "0" : undefined}
         overflow="hidden"
+        className={clsx(
+          fadeOverflow && styles.fadeOverflow,
+          isTruncated && styles.truncated,
+        )}
       >
         <Text
           ref={textRef}
