@@ -11,6 +11,7 @@ import {
   PiHourglassHigh,
   PiKey,
   PiListChecks,
+  PiLock,
   PiMoon,
   PiPlus,
   PiSignOut,
@@ -29,10 +30,12 @@ import {
   isCloud,
   isMultiOrg,
   showMultiOrgSelfSelector,
+  usingSSO,
 } from "@/services/env";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import UserAvatar from "@/components/Avatar/UserAvatar";
+import ChangePasswordModal from "@/components/Auth/ChangePasswordModal";
 import EditProfileModal from "./EditProfileModal";
 import { withOpticalWeight } from "./opticalWeight";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
@@ -52,6 +55,7 @@ const ProfileIcon = withOpticalWeight(PiUserCircle);
 const SunDimIcon = withOpticalWeight(PiSunDim);
 const ActivityIcon = withOpticalWeight(PiListChecks);
 const TokenIcon = withOpticalWeight(PiKey);
+const LockIcon = withOpticalWeight(PiLock);
 const SignOutIcon = withOpticalWeight(PiSignOut);
 
 const THEME_LABELS = { system: "System", light: "Light", dark: "Dark" };
@@ -78,6 +82,7 @@ export default function ProfileMenu({
 
   const [open, setOpen] = useState(false);
   const [editProfileOpen, setEditProfileOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
 
   const hasApprovalFlows = hasCommercialFeature("require-approvals");
   const { count: openRevisionCount } = useOpenRevisionCount();
@@ -280,6 +285,19 @@ export default function ProfileMenu({
       ),
     },
     { type: "separator", key: "sep-3" },
+    // As main's: not with SSO, which owns the password.
+    ...(usingSSO()
+      ? []
+      : [
+          item(
+            "change-password",
+            <MenuItemContent Icon={LockIcon} label="Change password" />,
+            () => {
+              setOpen(false);
+              setChangePasswordOpen(true);
+            },
+          ),
+        ]),
     item(
       "sign-out",
       <MenuItemContent Icon={SignOutIcon} label="Sign out" />,
@@ -353,6 +371,9 @@ export default function ProfileMenu({
     <>
       {editProfileOpen ? (
         <EditProfileModal close={() => setEditProfileOpen(false)} />
+      ) : null}
+      {changePasswordOpen ? (
+        <ChangePasswordModal close={() => setChangePasswordOpen(false)} />
       ) : null}
     </>
   );
