@@ -70,6 +70,10 @@ const mockedGetSnowflakeTablePrefix =
   EventForwarderConfig.getSnowflakeEventForwarderTablePrefix as jest.MockedFunction<
     typeof EventForwarderConfig.getSnowflakeEventForwarderTablePrefix
   >;
+const mockedGetDatabricksTablePrefix =
+  EventForwarderConfig.getDatabricksEventForwarderTablePrefix as jest.MockedFunction<
+    typeof EventForwarderConfig.getDatabricksEventForwarderTablePrefix
+  >;
 const mockedGetSourceIntegrationObject =
   DataSourceService.getSourceIntegrationObject as jest.MockedFunction<
     typeof DataSourceService.getSourceIntegrationObject
@@ -319,6 +323,7 @@ describe("syncEventForwarderEventsFactTableMetadata", () => {
     jest.clearAllMocks();
     mockedGetBigQueryTablePrefix.mockReturnValue("gb");
     mockedGetSnowflakeTablePrefix.mockReturnValue("GB");
+    mockedGetDatabricksTablePrefix.mockReturnValue("gb");
     mockedGetContextForAgendaJobByOrgObject.mockReturnValue(agendaContext);
   });
 
@@ -506,6 +511,124 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
       ft,
       expect.any(Date),
     );
+  });
+
+  describe("when the Events fact table does not exist yet", () => {
+    beforeEach(() => {
+      mockedGetDataSourceById.mockResolvedValue(datasource());
+      mockedGetFactTable.mockResolvedValue(null);
+      mockedGetSourceIntegrationObject.mockReturnValue({
+        params: { defaultProject: "my-project" },
+      } as never);
+      mockedCreateFactTable.mockResolvedValue(eventsFactTable() as never);
+    });
+
+    async function sync(sinkType: "bigquery" | "snowflake" | "databricks") {
+      const ctx = context();
+      ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
+        {
+          datasourceId: "ds_1",
+          sinkType,
+          status: "error",
+          config: "encrypted",
+        },
+      ]);
+      await syncEventForwarderEventsFactTableMetadata(ctx as never, []);
+    }
+
+    it("creates a fact table for a BigQuery destination", async () => {
+      mockedDecrypt.mockReturnValue({
+        dataset: "analytics_123",
+        tablePrefix: "gb",
+      });
+
+      await sync("bigquery");
+
+      expect(mockedCreateFactTable).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          sql: expect.stringContaining("`analytics_123`"),
+        }),
+      );
+    });
+
+    it("skips an empty failed BigQuery configuration", async () => {
+      mockedDecrypt.mockReturnValue({ dataset: "  ", tablePrefix: "gb" });
+
+      await sync("bigquery");
+
+      expect(mockedCreateFactTable).not.toHaveBeenCalled();
+    });
+
+    it("creates a fact table for a Snowflake destination", async () => {
+      mockedDecrypt.mockReturnValue({
+        database: "ANALYTICS",
+        schema: "EVENTS",
+        tablePrefix: "GB",
+      });
+
+      await sync("snowflake");
+
+      expect(mockedCreateFactTable).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          sql: expect.stringContaining("ANALYTICS.EVENTS"),
+        }),
+      );
+    });
+
+    it("skips a Snowflake configuration that is missing a schema", async () => {
+      mockedDecrypt.mockReturnValue({
+        database: "ANALYTICS",
+        schema: " ",
+        tablePrefix: "GB",
+      });
+
+      await sync("snowflake");
+
+      expect(mockedCreateFactTable).not.toHaveBeenCalled();
+    });
+
+    it("skips a Snowflake configuration that is missing a database", async () => {
+      mockedDecrypt.mockReturnValue({
+        database: "",
+        schema: "EVENTS",
+        tablePrefix: "GB",
+      });
+
+      await sync("snowflake");
+
+      expect(mockedCreateFactTable).not.toHaveBeenCalled();
+    });
+
+    it("creates a fact table for a Databricks destination", async () => {
+      mockedDecrypt.mockReturnValue({
+        catalog: "main",
+        schema: "growthbook_events",
+        tablePrefix: "gb",
+      });
+
+      await sync("databricks");
+
+      expect(mockedCreateFactTable).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          sql: expect.stringContaining("`main`.`growthbook_events`"),
+        }),
+      );
+    });
+
+    it("skips a Databricks configuration that is missing a catalog", async () => {
+      mockedDecrypt.mockReturnValue({
+        catalog: " ",
+        schema: "growthbook_events",
+        tablePrefix: "gb",
+      });
+
+      await sync("databricks");
+
+      expect(mockedCreateFactTable).not.toHaveBeenCalled();
+    });
   });
 });
 

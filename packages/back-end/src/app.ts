@@ -1088,6 +1088,10 @@ app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
+app.post(
+  "/datasources/event-forwarder/detect-region",
+  datasourcesController.postDetectEventForwarderRegion,
+);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.put(
