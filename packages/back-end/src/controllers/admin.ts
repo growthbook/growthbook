@@ -50,6 +50,7 @@ import { licenseInit } from "back-end/src/enterprise";
 import {
   _dangerousGetLicenseRefsByPlans,
   _dangerousGetLicenseRefsBySubscriptionStatus,
+  getLicenseByKey,
   getLicensesByKeys,
 } from "back-end/src/enterprise/models/licenseModel";
 import {
@@ -176,7 +177,8 @@ export async function _dangerousAdminGetOrganization(
     });
   }
 
-  const [ssoConnections, datasources, ...counts] = await Promise.all([
+  const [license, ssoConnections, datasources, ...counts] = await Promise.all([
+    org.licenseKey ? getLicenseByKey(org.licenseKey) : null,
     _dangerousGetSSOConnectionsByOrganization(org.id),
     _dangerourslyGetAllDatasourcesByOrganizations([org.id]),
     ProjectModel._dangerousCountByOrganization(org.id),
@@ -190,6 +192,8 @@ export async function _dangerousAdminGetOrganization(
   return res.status(200).json({
     status: 200,
     organization: org,
+    // From the cached license, like the list, so it shows before a live refresh
+    summary: getAdminOrgSummary(org, license),
     // Strip the secret, like the SSO edit form expects
     ssoConnection: ssoConnections[0]
       ? { ...ssoConnections[0], clientSecret: "" }

@@ -85,10 +85,11 @@ export async function getLicensesByKeys(
 async function getLicenseRefs(
   query: FilterQuery<LicenseDocument>,
 ): Promise<LicenseRefs> {
-  const docs = await LicenseModel.find(
-    { ...query, archived: { $ne: true } },
-    { id: 1, organizationId: 1 },
-  ).lean<Pick<LicenseInterface, "id" | "organizationId">[]>();
+  // Archived licenses still grant their plan, so they count like the row summary
+  const docs = await LicenseModel.find(query, {
+    id: 1,
+    organizationId: 1,
+  }).lean<Pick<LicenseInterface, "id" | "organizationId">[]>();
   return {
     orgIds: docs.flatMap((d) => (d.organizationId ? [d.organizationId] : [])),
     licenseKeys: docs.map((d) => d.id),
@@ -105,21 +106,28 @@ export async function _dangerousGetLicenseRefsBySubscriptionStatus(
   status: "trialing" | "past_due" | "canceled",
 ): Promise<LicenseRefs> {
   // Same precedence as getSubscriptionFromLicense: Orb first, then Stripe
-  const subscriptionMatches = [
+  const subscriptionMatches = (statuses: string[]) => [
     {
       "orbSubscription.id": { $nin: [null, ""] },
-      "orbSubscription.status": status,
+      "orbSubscription.status": { $in: statuses },
     },
     {
       "orbSubscription.id": { $in: [null, ""] },
       "stripeSubscription.id": { $nin: [null, ""] },
-      "stripeSubscription.status": status,
+      "stripeSubscription.status": { $in: statuses },
     },
   ];
   return getLicenseRefs({
     $or:
       status === "trialing"
-        ? [...subscriptionMatches, { isTrial: true }]
-        : subscriptionMatches,
+        ? [
+            ...subscriptionMatches([status]),
+            // getAdminOrgSummary shows past_due and canceled over isTrial
+            {
+              isTrial: true,
+              $nor: subscriptionMatches(["past_due", "canceled"]),
+            },
+          ]
+        : subscriptionMatches([status]),
   });
 }

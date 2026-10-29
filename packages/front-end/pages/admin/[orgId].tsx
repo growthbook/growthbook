@@ -11,7 +11,11 @@ import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SuperAdminPermission } from "shared/validators";
 import { hasSuperAdminPermission } from "shared/permissions";
-import { getAdminOrgSummary, LicenseInterface } from "shared/enterprise";
+import {
+  AdminOrgSummary,
+  getAdminOrgSummary,
+  LicenseInterface,
+} from "shared/enterprise";
 import { DEFAULT_STATS_ENGINE } from "shared/constants";
 import { date } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -55,6 +59,7 @@ import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 type OrgDetailResponse = {
   organization: OrganizationInterface;
+  summary: AdminOrgSummary;
   ssoConnection: SSOConnectionInterface | null;
   datasources: Pick<DataSourceInterface, "id" | "name" | "type">[];
   counts: {
@@ -119,6 +124,7 @@ export default function AdminOrganizationPage() {
 
 function OrganizationDetail({
   organization: org,
+  summary: cachedSummary,
   ssoConnection,
   datasources,
   counts,
@@ -132,7 +138,7 @@ function OrganizationDetail({
     hasSuperAdminPermission(superAdmin, p);
   const isCurrent = org.id === currentOrgId;
   const canEditOrg = (
-    ["metadata", "billing", "suspend", "messages", "provision", "sso"] as const
+    ["metadata", "billing", "provision", "sso"] as const
   ).some(can);
   // Warehouse actions run inside the org, so they also need a way in
   const canProvision =
@@ -155,7 +161,8 @@ function OrganizationDetail({
     shouldRun: () => isCloud() && !!org.licenseKey,
   });
   const license = licenseData?.license ?? null;
-  const summary = getAdminOrgSummary(org, license);
+  // The cached summary covers loading and license server errors
+  const summary = license ? getAdminOrgSummary(org, license) : cachedSummary;
 
   const [memberSearch, setMemberSearch] = useState("");
   const [editOrgOpen, setEditOrgOpen] = useState(false);
