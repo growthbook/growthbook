@@ -14,6 +14,8 @@ import type {
   TestResult,
   PValueErrorMessage,
   FrequentistTestResult,
+  InterleavingTestMethod,
+  InterleavingTestResult,
 } from "shared/types/stats-engine";
 
 export type {
@@ -22,6 +24,8 @@ export type {
   TestResult,
   PValueErrorMessage,
   FrequentistTestResult,
+  InterleavingTestMethod,
+  InterleavingTestResult,
 };
 
 export type RiskType = "absolute" | "relative";

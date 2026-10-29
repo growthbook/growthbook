@@ -21,6 +21,7 @@ const R_FIXTURE: PairedSufficientStats = {
 describe("pairedDeltaTest", () => {
   it("matches R-computed delta-method values", () => {
     const res = pairedDeltaTest(R_FIXTURE);
+    expect(res.method).toBe("paired_delta_t");
     expect(res.errorMessage).toBeNull();
     expect(res.expected).toBeCloseTo(0.1495726496, 9);
     expect(res.uplift.stddev).toBeCloseTo(0.0514565834, 9);
@@ -64,9 +65,9 @@ describe("pairedDeltaTest", () => {
   });
 
   it("guards degenerate inputs", () => {
-    expect(pairedDeltaTest({ ...R_FIXTURE, users: 1 }).errorMessage).toBe(
-      "NOT_ENOUGH_USERS",
-    );
+    const notEnough = pairedDeltaTest({ ...R_FIXTURE, users: 1 });
+    expect(notEnough.errorMessage).toBe("NOT_ENOUGH_USERS");
+    expect(notEnough.method).toBe("paired_delta_t");
     expect(
       pairedDeltaTest({ ...R_FIXTURE, exposures_sum: 0 }).errorMessage,
     ).toBe("NO_COMPETITIVE_EXPOSURES");
@@ -94,13 +95,15 @@ describe("preferenceSignTest", () => {
       users_pref_control: 18,
       users_tied: 12,
     });
+    expect(res.method).toBe("exact_binomial_sign");
     expect(res.errorMessage).toBeNull();
     expect(res.expected).toBeCloseTo(0.25, 10); // (30-18)/(30+18)
     expect(res.pValue).toBeCloseTo(0.1114028911, 9);
-    expect(res.uplift.stddev).toBeCloseTo(0.1397542486, 9);
     // Clopper-Pearson on the 30/48 non-tied proportion, mapped by tau = 2p - 1.
     expect(res.ci[0]).toBeCloseTo(-0.0529884788, 8);
     expect(res.ci[1]).toBeCloseTo(0.5209551931, 8);
+    // stddev is the CI half-width over z, not the Wald SE (0.1397542486)
+    expect(res.uplift.stddev).toBeCloseTo(0.1464168924, 9);
   });
 
   it("is symmetric: swapping T and C flips the sign", () => {
@@ -141,6 +144,9 @@ describe("preferenceSignTest", () => {
     expect(res.pValue).toBeCloseTo(0.5, 10);
     expect(res.ci[0]).toBeCloseTo(-0.683772234, 8);
     expect(res.ci[1]).toBeCloseTo(1, 10);
+    // The Wald SE would be 0 here; the half-width-derived stddev is not
+    expect(res.uplift.stddev).toBeCloseTo(0.4295416261, 9);
+    expect(res.uplift.stddev).toBeGreaterThan(0);
   });
 
   it("agrees with the exact p-value about whether zero is excluded", () => {

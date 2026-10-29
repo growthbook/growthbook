@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { FrequentistTestResult } from "../../types/stats-engine";
+import type { InterleavingTestResult } from "../../types/stats-engine";
 import { baseSchema } from "./base-model";
 import {
   interleavingAnalysisValidator,
@@ -52,9 +52,14 @@ const interleavingResultSideValidator = z
 
 // Treatment vs control, as returned by stats-ts (pairedDeltaTest or
 // preferenceSignTest). The `satisfies` is the point: it fails to compile if
-// this drifts from the engine's FrequentistTestResult.
+// this drifts from the engine's InterleavingTestResult.
 const interleavingTestResultValidator = z
   .object({
+    method: z
+      .enum(["paired_delta_t", "exact_binomial_sign"])
+      .describe(
+        "Which test produced this result. paired_delta_t: paired delta-method t-test on per-user credited rates (paired analysis). exact_binomial_sign: exact binomial sign test over non-tied users with a Clopper-Pearson interval (preference analysis).",
+      ),
     expected: z.number(),
     ci: z.tuple([z.number().nullable(), z.number().nullable()]),
     uplift: z
@@ -69,7 +74,7 @@ const interleavingTestResultValidator = z
       ])
       .nullable(),
   })
-  .strict() satisfies z.ZodType<FrequentistTestResult>;
+  .strict() satisfies z.ZodType<InterleavingTestResult>;
 
 /** Result of one (metric, analysis) pair. */
 export const interleavingMetricResultValidator = z

@@ -84326,6 +84326,17 @@ components:
               test:
                 type: object
                 properties:
+                  method:
+                    description: >-
+                      Which test produced this result. paired_delta_t: paired
+                      delta-method t-test on per-user credited rates (paired
+                      analysis). exact_binomial_sign: exact binomial sign test
+                      over non-tied users with a Clopper-Pearson interval
+                      (preference analysis).
+                    type: string
+                    enum:
+                      - paired_delta_t
+                      - exact_binomial_sign
                   expected:
                     type: number
                   ci:
@@ -84367,6 +84378,7 @@ components:
                           - ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST
                       - type: 'null'
                 required:
+                  - method
                   - expected
                   - ci
                   - uplift

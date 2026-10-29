@@ -108,9 +108,17 @@ describe("getInterleavingMetricQuery", () => {
     expect(paired).toContain("'featured-products-ranker'");
     expect(preference).toContain("__share");
     expect(preference).toContain("m0_users_pref_treatment");
+    // Ties are decided within a tolerance, not by float equality
     expect(preference).toMatch(
-      /WHEN pref\.wins_t_0 = pref\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_tied/,
+      /WHEN pref\.wins_t_0 - pref\.wins_c_0 > 1e-9 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_pref_treatment/,
     );
+    expect(preference).toMatch(
+      /WHEN pref\.wins_c_0 - pref\.wins_t_0 > 1e-9 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_pref_control/,
+    );
+    expect(preference).toMatch(
+      /WHEN ABS\(pref\.wins_t_0 - pref\.wins_c_0\) <= 1e-9 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_tied/,
+    );
+    expect(preference).not.toMatch(/wins_t_0 = pref\.wins_c_0/);
     expect(preference).not.toContain("__credited");
     // Preference has its own post-exposure event aggregation at item grain
     expect(preference).not.toContain("__itemEvents");

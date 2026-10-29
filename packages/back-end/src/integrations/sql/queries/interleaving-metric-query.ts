@@ -41,6 +41,10 @@ export function interleavingMetricColumn(metricIndex: number, stat: string) {
   return `m${metricIndex}_${stat}`;
 }
 
+// Absolute tolerance for comparing a user's fractional treatment and control
+// win totals in the preference analysis (see the final SELECT).
+const PREFERENCE_TIE_TOLERANCE = "1e-9";
+
 /**
  * Sufficient-statistics query for interleaving experiments: one query per
  * fact table, covering every metric on that table and each analysis
@@ -460,10 +464,14 @@ export function getInterleavingMetricQuery(
       `${gate(i, `pu.treatment_${i} * pu.exposures_${i}`)} AS ${out("treatment_exposures_sum_product")}`,
       `${gate(i, `pu.control_${i} * pu.exposures_${i}`)} AS ${out("control_exposures_sum_product")}`,
     ]),
+    // Fractional shares (1/3, 2/3, ...) make the win totals floats, and two
+    // sums that are equal in exact arithmetic can differ by an ulp depending
+    // on summation order. Exact equality would then turn a tied user into a
+    // preference, so ties are decided within an absolute tolerance.
     ...plan.preference.flatMap(({ i, out }) => [
-      `SUM(${dialect.ifElse(`pref.wins_t_${i} > pref.wins_c_${i}`, "1", "0")}) AS ${out("users_pref_treatment")}`,
-      `SUM(${dialect.ifElse(`pref.wins_c_${i} > pref.wins_t_${i}`, "1", "0")}) AS ${out("users_pref_control")}`,
-      `SUM(${dialect.ifElse(`pref.wins_t_${i} = pref.wins_c_${i}`, "1", "0")}) AS ${out("users_tied")}`,
+      `SUM(${dialect.ifElse(`pref.wins_t_${i} - pref.wins_c_${i} > ${PREFERENCE_TIE_TOLERANCE}`, "1", "0")}) AS ${out("users_pref_treatment")}`,
+      `SUM(${dialect.ifElse(`pref.wins_c_${i} - pref.wins_t_${i} > ${PREFERENCE_TIE_TOLERANCE}`, "1", "0")}) AS ${out("users_pref_control")}`,
+      `SUM(${dialect.ifElse(`ABS(pref.wins_t_${i} - pref.wins_c_${i}) <= ${PREFERENCE_TIE_TOLERANCE}`, "1", "0")}) AS ${out("users_tied")}`,
     ]),
   ];
 
