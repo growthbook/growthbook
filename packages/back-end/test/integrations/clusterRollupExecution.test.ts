@@ -77,6 +77,7 @@ type SubUnitRow = {
   user_id: string;
   region_id: string;
   dim?: string;
+  dim_exp_browser?: string;
   m0_value: number;
   m0_denominator?: number;
 };
@@ -165,6 +166,7 @@ function buildSql(
 type StatRow = {
   variation: string;
   dim?: string;
+  dim_exp_browser?: string;
   users: number;
   m0_main_sum: number;
   m0_denominator_sum: number;
@@ -393,5 +395,102 @@ describe("cluster rollup execution (SQL math)", () => {
       m0_denominator_sum: 2,
       m0_main_denominator_sum_product: 20, // 10*2
     });
+  });
+
+  // Dimension isolation for cluster experiments
+  // -------------------------------------------
+  // The fix runs the OVERALL (parent) analysis over a DIMENSIONLESS rollup
+  // (GROUP BY variation, cluster) so each cluster is one whole observation, and
+  // runs each sub-unit breakdown as its OWN isolated query (GROUP BY variation,
+  // dim, cluster). Re-deriving the overall by summing the per-dimension rows
+  // would split clusters across dimension values and double-count them, which is
+  // why the parent must stay dimensionless.
+  it("computes the overall over whole clusters and isolates each sub-unit dimension slice", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_mean_isolation",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+    const data = buildMetricData(metric);
+    const browserDim: DimensionColumnData[] = [
+      { alias: "dim_exp_browser", value: "dim_exp_browser" },
+    ];
+
+    // Worked example: clusters A (total 20) and B (total 40), each split evenly
+    // across browser X/Y.
+    const rows: SubUnitRow[] = [
+      {
+        variation: "control",
+        user_id: "a1",
+        region_id: "A",
+        dim_exp_browser: "X",
+        m0_value: 10,
+      },
+      {
+        variation: "control",
+        user_id: "a2",
+        region_id: "A",
+        dim_exp_browser: "Y",
+        m0_value: 10,
+      },
+      {
+        variation: "control",
+        user_id: "b1",
+        region_id: "B",
+        dim_exp_browser: "X",
+        m0_value: 20,
+      },
+      {
+        variation: "control",
+        user_id: "b2",
+        region_id: "B",
+        dim_exp_browser: "Y",
+        m0_value: 20,
+      },
+    ];
+
+    // (a) Dimensionless parent: GROUP BY (variation, cluster) — each cluster
+    // appears once, and the query carries no dimension column.
+    const parentSql = buildSql(data, rows, []);
+    expect(parentSql).not.toContain("dim_exp_");
+    const overall = run(parentSql);
+    expect(overall).toHaveLength(1);
+    expect(overall[0]).toMatchObject({
+      users: 2, // clusters A, B
+      m0_main_sum: 60, // 20 + 40
+      m0_denominator_sum: 4, // cluster sizes 2 + 2
+    });
+
+    // (b) Isolated per-dimension query: GROUP BY (variation, dim, cluster). Each
+    // cluster stays whole within its slice (one row per cluster per slice).
+    const isolatedSql = buildSql(data, rows, browserDim);
+    expect(isolatedSql).toContain("dim_exp_browser");
+    const bySlice = Object.fromEntries(
+      run(isolatedSql).map((r) => [r.dim_exp_browser, r]),
+    );
+    expect(bySlice.X).toMatchObject({
+      users: 2, // clusters A, B each contribute their X portion
+      m0_main_sum: 30, // 10 + 20
+      m0_denominator_sum: 2, // one sub-unit per cluster in slice X
+    });
+    expect(bySlice.Y).toMatchObject({
+      users: 2,
+      m0_main_sum: 30,
+      m0_denominator_sum: 2,
+    });
+
+    // Re-deriving the overall from the per-dimension rows would double-count the
+    // clusters: summed users (2 + 2 = 4) exceeds the true cluster count (2).
+    // This is exactly why the parent analysis must read the dimensionless rollup.
+    const summedUsers = Object.values(bySlice).reduce(
+      (acc, r) => acc + r.users,
+      0,
+    );
+    expect(summedUsers).toBe(4);
+    expect(summedUsers).toBeGreaterThan(overall[0].users);
   });
 });

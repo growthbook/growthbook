@@ -16,6 +16,7 @@ import {
   isBinomialMetric,
   isFactMetric,
   isFactFunnelMetric,
+  isIsolatedDimension,
   isRatioMetric,
   isRegressionAdjusted,
   isSubUnitClusterMetric,
@@ -64,6 +65,7 @@ import { promiseAllChunks } from "back-end/src/util/promise";
 import { logger } from "back-end/src/util/logger";
 import { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
+  buildUnitDimensionQueryMap,
   filterParentQueryMap,
   parseUnitDimQueryName,
 } from "back-end/src/queryRunners/unitDimensionQueryNaming";
@@ -128,6 +130,7 @@ export function getAnalysisSettingsForStatsEngine(
     use_covariate_as_response: !!settings.useCovariateAsResponse,
     post_stratification_enabled:
       !isClusterExperiment && !!settings.postStratificationEnabled,
+    is_cluster_experiment: isClusterExperiment,
   };
 
   return analysisData;
@@ -321,7 +324,8 @@ export function getMetricSettingsForStatsEngine(
   // Cluster-level metrics are a standard analysis with the cluster as the unit.
   const isClusterMetric = isSubUnitClusterMetric(metric, settings);
 
-  const ratioMetric = isClusterMetric || isRatioMetric(metric, denominator);
+  const createRatioStatistic =
+    isClusterMetric || isRatioMetric(metric, denominator);
   const quantileMetric = quantileMetricType(metric);
   const regressionAdjusted =
     settings.regressionAdjustmentEnabled &&
@@ -341,7 +345,7 @@ export function getMetricSettingsForStatsEngine(
   }
   // Fact ratio metrics (and every cluster metric) carry the denominator on the
   // metric row itself.
-  if (isClusterMetric || (isFactMetric(metric) && ratioMetric)) {
+  if (isClusterMetric || (isFactMetric(metric) && createRatioStatistic)) {
     denominator = metric;
   }
 
@@ -354,9 +358,9 @@ export function getMetricSettingsForStatsEngine(
         ? "quantile_unit"
         : quantileMetric === "event"
           ? "quantile_event"
-          : ratioMetric && regressionAdjusted
+          : createRatioStatistic && regressionAdjusted
             ? "ratio_ra"
-            : ratioMetric && !regressionAdjusted
+            : createRatioStatistic && !regressionAdjusted
               ? "ratio"
               : regressionAdjusted
                 ? "mean_ra"
@@ -767,6 +771,23 @@ export async function writeSnapshotAnalyses(
   }
 }
 
+export function selectAnalysisQueryData(
+  queryData: QueryMap,
+  snapshotSettings: ExperimentSnapshotSettings,
+  dimensionId: string | undefined,
+): QueryMap {
+  if (dimensionId && isIsolatedDimension(snapshotSettings, dimensionId)) {
+    const isolatedQueryData = buildUnitDimensionQueryMap(
+      queryData,
+      dimensionId,
+    );
+    if (isolatedQueryData.size > 0) {
+      return isolatedQueryData;
+    }
+  }
+  return filterParentQueryMap(queryData);
+}
+
 export async function analyzeExperimentResults({
   queryData,
   analysisSettings,
@@ -783,9 +804,13 @@ export async function analyzeExperimentResults({
   results: ExperimentReportResults[];
   banditResult?: BanditResult;
 }> {
-  const parentQueryData = filterParentQueryMap(queryData);
+  const analysisQueryData = selectAnalysisQueryData(
+    queryData,
+    snapshotSettings,
+    analysisSettings[0]?.dimensions[0],
+  );
   const mdat = getMetricsAndQueryDataForStatsEngine(
-    parentQueryData,
+    analysisQueryData,
     metricMap,
     snapshotSettings,
   );
@@ -896,8 +921,9 @@ export function analyzeExperimentTraffic({
       trafficResults.multipleExposures =
         (trafficResults.multipleExposures ?? 0) + (Number(r.units) || 0);
     }
+    // Exact variation-id match only. Any value that doesn't match a known
+    // variation id is skipped rather than coerced.
     const variationIndex = variationIdMap[r.variation];
-    // skip if variation is not found (this happens if variation is __multiple__)
     if (variationIndex === undefined) return;
     const dimTraffic: Map<string, ExperimentSnapshotTrafficDimension> =
       dimTrafficResults.get(r.dimension_name) ?? new Map();

@@ -4,10 +4,12 @@ import {
   ExperimentMetricInterface,
   getClusterSubUnit,
   getFactMetricFactTableIds,
+  getIsolatedDimensionIds,
   isFactMetric,
   isRegressionAdjusted,
   quantileMetricType,
 } from "shared/experiments";
+import { PRECOMPUTED_DIMENSION_PREFIX } from "shared/constants";
 import cloneDeep from "lodash/cloneDeep";
 import { SegmentInterface } from "shared/types/segment";
 import {
@@ -17,6 +19,7 @@ import {
 } from "shared/validators";
 import {
   ExperimentAggregateUnitsQueryResponseRows,
+  ExperimentDimensionWithSpecifiedSlices,
   ExternalIdCallback,
   InsertMetricSourceDataQueryParams,
   UpdateExperimentIncrementalUnitsQueryParams,
@@ -94,6 +97,7 @@ import {
   StartQueryParams,
 } from "./QueryRunner";
 import { shouldRunHealthTrafficQuery } from "./snapshotQueryHelpers";
+import { getUnitDimQueryName } from "./unitDimensionQueryNaming";
 
 export const INCREMENTAL_UNITS_TABLE_PREFIX = "gb_units";
 export const INCREMENTAL_METRICS_TABLE_PREFIX = "gb_metrics";
@@ -104,6 +108,38 @@ const getRandomTableSuffix = () => Math.random().toString(36).substring(2, 10);
 function tableNameFromFullName(fullName: string) {
   const segments = fullName.replace(/`/g, "").split(".");
   return segments[segments.length - 1];
+}
+
+export function getStatisticsQueryVariants({
+  baseName,
+  precomputationDisabled,
+  parentPrecomputedDimensions,
+  isolatedPrecomputedDimensions,
+}: {
+  baseName: string;
+  precomputationDisabled: boolean;
+  parentPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[];
+  isolatedPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[];
+}): {
+  name: string;
+  dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
+}[] {
+  if (precomputationDisabled) {
+    return [{ name: baseName, dimensionsForPrecomputation: [] }];
+  }
+  return [
+    {
+      name: baseName,
+      dimensionsForPrecomputation: parentPrecomputedDimensions,
+    },
+    ...isolatedPrecomputedDimensions.map((d) => ({
+      name: getUnitDimQueryName(
+        `${PRECOMPUTED_DIMENSION_PREFIX}${d.id}`,
+        baseName,
+      ),
+      dimensionsForPrecomputation: [d],
+    })),
+  ];
 }
 
 export type ExperimentIncrementalRefreshQueryParams = {
@@ -459,6 +495,22 @@ const startExperimentIncrementalRefreshQueries = async (
     incrementalRefreshModel,
     nVariations: params.variationNames.length,
   });
+
+  const isClusterExperiment = getClusterSubUnit(snapshotSettings) !== null;
+  const isolatedDimensionIds = new Set(
+    getIsolatedDimensionIds(snapshotSettings),
+  );
+  const parentPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[] =
+    isClusterExperiment ? [] : eligibleDimensionsWithSlicesUnderMaxCells;
+  // Only breakdowns that a corresponding analysis actually requests (those in
+  // snapshotSettings.dimensions, surfaced via getIsolatedDimensionIds) get an
+  // isolated query.
+  const isolatedPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[] =
+    isClusterExperiment
+      ? eligibleDimensionsWithSlicesUnderMaxCells.filter((d) =>
+          isolatedDimensionIds.has(`${PRECOMPUTED_DIMENSION_PREFIX}${d.id}`),
+        )
+      : [];
 
   const unitQueryParams: UpdateExperimentIncrementalUnitsQueryParams = {
     unitsTableFullName: unitsTableFullName,
@@ -1094,54 +1146,63 @@ const startExperimentIncrementalRefreshQueries = async (
         // quantile/mean group only disables precomputation on the quantile slice.
         const runOverallQuantileAnalysis =
           partition.metrics.some(quantileMetricType);
-        const dimensionsForPrecomputation =
-          org.settings?.disablePrecomputedDimensions ||
-          runOverallQuantileAnalysis
-            ? []
-            : eligibleDimensionsWithSlicesUnderMaxCells;
+        const precomputationDisabled =
+          !!org.settings?.disablePrecomputedDimensions ||
+          runOverallQuantileAnalysis;
 
-        const statisticsQuery = await startQuery({
-          name: `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`,
-          displayTitle: `Compute Statistics ${sourceName}`,
-          query: integration.getIncrementalRefreshStatisticsQuery({
-            settings: snapshotSettings,
-            exposureQuery: resolvedExposureQuery,
-            activationMetric: activationMetric,
-            factTableMap: params.factTableMap,
-            unitsSourceTableFullName: unitsTableFullName,
-            metrics: partition.metrics,
-            lastMaxTimestamp: existingSource?.maxTimestamp || null,
-            dimensionsForPrecomputation,
-            dimensionsForAnalysis: [],
-            metricSources: [
-              {
-                factTableId: group.factTableId,
-                tableFullName: metricSourceTableFullName,
-                ...(anyMetricHasCuped && metricSourceCovariateTableFullName
-                  ? {
-                      covariateTableFullName:
-                        metricSourceCovariateTableFullName,
-                    }
-                  : {}),
-              },
-            ],
-          }),
-          dependencies: [
-            insertMetricsSourceDataQuery.query,
-            ...(insertMetricCovariateDataQuery
-              ? [insertMetricCovariateDataQuery.query]
-              : []),
-          ],
-          run: (query, setExternalId, queryMetadata) =>
-            integration.runIncrementalRefreshStatisticsQuery(
-              query,
-              setExternalId,
-              queryMetadata,
-            ),
-          metadata: { factTableIds: [group.factTableId] },
-          queryType: "experimentIncrementalRefreshStatistics",
-        });
-        queries.push(statisticsQuery);
+        const metricSources = [
+          {
+            factTableId: group.factTableId,
+            tableFullName: metricSourceTableFullName,
+            ...(anyMetricHasCuped && metricSourceCovariateTableFullName
+              ? {
+                  covariateTableFullName: metricSourceCovariateTableFullName,
+                }
+              : {}),
+          },
+        ];
+        const statisticsDependencies = [
+          insertMetricsSourceDataQuery.query,
+          ...(insertMetricCovariateDataQuery
+            ? [insertMetricCovariateDataQuery.query]
+            : []),
+        ];
+        const baseStatisticsName = `statistics_${group.groupId}${conversionWindowQueryNameSuffix(partition.window?.key)}`;
+
+        for (const variant of getStatisticsQueryVariants({
+          baseName: baseStatisticsName,
+          precomputationDisabled,
+          parentPrecomputedDimensions,
+          isolatedPrecomputedDimensions,
+        })) {
+          const statisticsQuery = await startQuery({
+            name: variant.name,
+            displayTitle: `Compute Statistics ${sourceName}`,
+            query: integration.getIncrementalRefreshStatisticsQuery({
+              settings: snapshotSettings,
+              exposureQuery: resolvedExposureQuery,
+              activationMetric: activationMetric,
+              factTableMap: params.factTableMap,
+              unitsSourceTableFullName: unitsTableFullName,
+              metrics: partition.metrics,
+              lastMaxTimestamp: existingSource?.maxTimestamp || null,
+              asOf: params.incrementalRefreshStartTime,
+              dimensionsForPrecomputation: variant.dimensionsForPrecomputation,
+              dimensionsForAnalysis: [],
+              metricSources,
+            }),
+            dependencies: statisticsDependencies,
+            run: (query, setExternalId, queryMetadata) =>
+              integration.runIncrementalRefreshStatisticsQuery(
+                query,
+                setExternalId,
+                queryMetadata,
+              ),
+            metadata: { factTableIds: [group.factTableId] },
+            queryType: "experimentIncrementalRefreshStatistics",
+          });
+          queries.push(statisticsQuery);
+        }
       }
     }
   }
@@ -1181,50 +1242,58 @@ const startExperimentIncrementalRefreshQueries = async (
       .map((p) => p.group.groupId)
       .join("__");
 
-    const dimensionsForPrecomputation = org.settings
-      ?.disablePrecomputedDimensions
-      ? []
-      : eligibleDimensionsWithSlicesUnderMaxCells;
+    const precomputationDisabled = !!org.settings?.disablePrecomputedDimensions;
+    const baseStatisticsName = `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`;
+    const metricSources = subGroup.pipelines.map((p) => ({
+      factTableId: p.group.factTableId,
+      tableFullName: p.tableFullName,
+      ...(p.covariateTableFullName
+        ? { covariateTableFullName: p.covariateTableFullName }
+        : {}),
+    }));
+    const statisticsDependencies = [
+      ...subGroup.pipelines.map((p) => p.insertQuery.query),
+      ...subGroup.pipelines.flatMap((p) =>
+        p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
+      ),
+    ];
 
-    const multiSourceStatsQuery = await startQuery({
-      name: `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`,
-      displayTitle: `Compute Multi-Source Statistics ${sourceName}`,
-      query: integration.getIncrementalRefreshStatisticsQuery({
-        settings: snapshotSettings,
-        exposureQuery: resolvedExposureQuery,
-        activationMetric: activationMetric,
-        factTableMap: params.factTableMap,
-        unitsSourceTableFullName: unitsTableFullName,
-        metrics: subGroup.metrics,
-        lastMaxTimestamp: null,
-        dimensionsForPrecomputation,
-        dimensionsForAnalysis: [],
-        metricSources: subGroup.pipelines.map((p) => ({
-          factTableId: p.group.factTableId,
-          tableFullName: p.tableFullName,
-          ...(p.covariateTableFullName
-            ? { covariateTableFullName: p.covariateTableFullName }
-            : {}),
-        })),
-      }),
-      dependencies: [
-        ...subGroup.pipelines.map((p) => p.insertQuery.query),
-        ...subGroup.pipelines.flatMap((p) =>
-          p.covariateInsertQuery ? [p.covariateInsertQuery.query] : [],
-        ),
-      ],
-      run: (query, setExternalId, queryMetadata) =>
-        integration.runIncrementalRefreshStatisticsQuery(
-          query,
-          setExternalId,
-          queryMetadata,
-        ),
-      metadata: {
-        factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
-      },
-      queryType: "experimentIncrementalRefreshStatistics",
-    });
-    queries.push(multiSourceStatsQuery);
+    for (const variant of getStatisticsQueryVariants({
+      baseName: baseStatisticsName,
+      precomputationDisabled,
+      parentPrecomputedDimensions,
+      isolatedPrecomputedDimensions,
+    })) {
+      const multiSourceStatsQuery = await startQuery({
+        name: variant.name,
+        displayTitle: `Compute Multi-Source Statistics ${sourceName}`,
+        query: integration.getIncrementalRefreshStatisticsQuery({
+          settings: snapshotSettings,
+          exposureQuery: resolvedExposureQuery,
+          activationMetric: activationMetric,
+          factTableMap: params.factTableMap,
+          unitsSourceTableFullName: unitsTableFullName,
+          metrics: subGroup.metrics,
+          lastMaxTimestamp: null,
+          asOf: params.incrementalRefreshStartTime,
+          dimensionsForPrecomputation: variant.dimensionsForPrecomputation,
+          dimensionsForAnalysis: [],
+          metricSources,
+        }),
+        dependencies: statisticsDependencies,
+        run: (query, setExternalId, queryMetadata) =>
+          integration.runIncrementalRefreshStatisticsQuery(
+            query,
+            setExternalId,
+            queryMetadata,
+          ),
+        metadata: {
+          factTableIds: subGroup.pipelines.map((p) => p.group.factTableId),
+        },
+        queryType: "experimentIncrementalRefreshStatistics",
+      });
+      queries.push(multiSourceStatsQuery);
+    }
   }
 
   const runTrafficQuery = shouldRunHealthTrafficQuery({

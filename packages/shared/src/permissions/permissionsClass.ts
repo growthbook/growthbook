@@ -684,6 +684,22 @@ export class Permissions {
     );
   };
 
+  // A project move serves the pseudo flag through the destination's SDK
+  // connections too, so both sides need run permission.
+  public canRunInterleavingUpdate = (
+    existing: Pick<InterleavingInterface, "project">,
+    updated: Pick<InterleavingInterface, "project">,
+    environments: string[],
+  ): boolean => {
+    const projects = new Set(existing.project ? [existing.project] : [""]);
+    if ("project" in updated) projects.add(updated.project || "");
+    return this.checkEnvFilterPermission(
+      { projects: [...projects] },
+      environments,
+      "runExperiments",
+    );
+  };
+
   public canRunContextualBanditQueries = (
     datasource: Pick<DataSourceInterface, "projects">,
   ): boolean => {
@@ -976,7 +992,7 @@ export class Permissions {
   public canCreateFactTable = (
     factTable: Pick<FactTableInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (factTable.managedBy && ["admin", "api"].includes(factTable.managedBy)) {
+    if (factTable.managedBy) {
       if (!this.canCreateOfficialResources(factTable)) {
         return false;
       }
@@ -1039,11 +1055,7 @@ export class Permissions {
     factTable: Pick<FactTableInterface, "projects" | "managedBy"> &
       Partial<Pick<FactTableInterface, "id" | "datasource">>,
   ): boolean => {
-    if (
-      factTable.managedBy &&
-      ["admin", "api"].includes(factTable.managedBy) &&
-      !isEventForwarderManagedFactTable(factTable)
-    ) {
+    if (factTable.managedBy && !isEventForwarderManagedFactTable(factTable)) {
       if (!this.canDeleteOfficialResources(factTable)) {
         return false;
       }
@@ -1067,7 +1079,7 @@ export class Permissions {
   public canCreateFactMetric = (
     metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+    if (metric.managedBy) {
       if (!this.canCreateOfficialResources(metric)) {
         return false;
       }
@@ -1079,10 +1091,7 @@ export class Permissions {
     existing: Pick<FactMetricInterface, "projects" | "managedBy">,
     updates: UpdateProps<FactMetricInterface>,
   ): boolean => {
-    if (
-      (existing.managedBy && ["admin", "api"].includes(existing.managedBy)) ||
-      (updates.managedBy && ["admin", "api"].includes(updates.managedBy))
-    ) {
+    if (existing.managedBy || updates.managedBy) {
       if (!this.canUpdateOfficialResources(existing, updates)) {
         return false;
       }
@@ -1098,7 +1107,7 @@ export class Permissions {
   public canDeleteFactMetric = (
     metric: Pick<FactMetricInterface, "projects" | "managedBy">,
   ): boolean => {
-    if (metric.managedBy && ["admin", "api"].includes(metric.managedBy)) {
+    if (metric.managedBy) {
       if (!this.canCreateOfficialResources(metric)) {
         return false;
       }
@@ -1595,7 +1604,8 @@ export class Permissions {
       datasetType === "metric" ||
       datasetType === "fact_table" ||
       datasetType === "funnel" ||
-      datasetType === "journey"
+      datasetType === "journey" ||
+      datasetType === "population"
     ) {
       return this.canRunMetricAnalysisQueries(datasource);
     }

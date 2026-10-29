@@ -1,6 +1,7 @@
 import {
   apiKeyToggleRequiresAdmin,
   canApplyExpirationPolicy,
+  canManageApiKeySecret,
   canSetApiKeyDisabled,
   changesApiKeyAuthority,
 } from "../../src/permissions/apiKeyAuthority";
@@ -139,6 +140,25 @@ describe("canSetApiKeyDisabled", () => {
   );
 });
 
+describe("canManageApiKeySecret", () => {
+  const creator = { canCreateApiKey: () => true };
+  const nonCreator = { canCreateApiKey: () => false };
+
+  it("needs permission to create API keys for an org key", () => {
+    expect(canManageApiKeySecret(creator, {}, "u_1")).toBe(true);
+    expect(canManageApiKeySecret(nonCreator, {}, "u_1")).toBe(false);
+  });
+
+  it("lets only the owner manage a PAT's secret, whatever their permissions", () => {
+    expect(canManageApiKeySecret(nonCreator, { userId: "u_1" }, "u_1")).toBe(
+      true,
+    );
+    expect(canManageApiKeySecret(creator, { userId: "u_2" }, "u_1")).toBe(
+      false,
+    );
+  });
+});
+
 describe("canApplyExpirationPolicy", () => {
   it("needs delete for secret keys and members' token access for PATs", () => {
     const deleteOnly = {
@@ -202,8 +222,7 @@ describe("changesApiKeyAuthority", () => {
         environments: [],
         additionalRoles: [],
         projectRoles: [],
-        requesterHeader: "optional",
-        requesterPermissions: "assume",
+        actAs: "system",
         confirmRules: null,
       }),
     ).toBe(false);
@@ -225,8 +244,8 @@ describe("changesApiKeyAuthority", () => {
       after: { ...stored, limitAccessByEnvironment: true },
     },
     {
-      name: "acting with the key's own role",
-      after: { ...stored, requesterPermissions: "key" as const },
+      name: "acting as the member it names",
+      after: { ...stored, actAs: "user" as const },
     },
     {
       name: "turning confirmations on",

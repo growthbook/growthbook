@@ -333,6 +333,11 @@ export default function DatePicker({
 
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string) => {
+      if (!value.trim()) {
+        setDate(undefined);
+        setBufferedDate("");
+        return;
+      }
       const parsedDate = clock.fromText(value);
       const finalDate = clampInput ? clampParsedDate(parsedDate) : parsedDate;
       setDate(finalDate);
@@ -402,7 +407,6 @@ export default function DatePicker({
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
                 minWidth: isRange ? 220 : undefined,
-                height: fixedHeight ? inputHeight : undefined,
                 minHeight: inputHeight,
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}

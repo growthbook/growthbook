@@ -1,13 +1,18 @@
 import type {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
+import type { QueryInterface } from "shared/types/query";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { getUnitDimQueryName } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import {
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
   parseStatsEngineResult,
+  selectAnalysisQueryData,
 } from "back-end/src/services/stats";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -374,5 +379,82 @@ describe("getAnalysisSettingsForStatsEngine", () => {
     expect(postStratFor({ postStratificationEnabled: false }, true)).toBe(
       false,
     );
+  });
+});
+
+describe("selectAnalysisQueryData", () => {
+  const q = (id: string) => ({ id }) as unknown as QueryInterface;
+
+  const clusterSettings = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+    dimensions: [{ id: "exp:browser" }],
+    precomputedUnitDimensionIds: [],
+  } as unknown as ExperimentSnapshotSettings;
+
+  // Distinct references so we can tell the parent bucket apart from the
+  // isolated bucket even though they share the bare key names.
+  const parentGroup = q("parent-group");
+  const parentMetric = q("parent-metric");
+  const isolatedGroup = q("isolated-group");
+  const isolatedMetric = q("isolated-metric");
+
+  const fullMap = (): QueryMap =>
+    new Map([
+      ["group_0", parentGroup],
+      ["met_revenue", parentMetric],
+      [getUnitDimQueryName("exp:browser", "group_0"), isolatedGroup],
+      [getUnitDimQueryName("exp:browser", "met_revenue"), isolatedMetric],
+    ]);
+
+  it("routes an isolated cluster sub-unit dimension to its isolated query map", () => {
+    const result = selectAnalysisQueryData(
+      fullMap(),
+      clusterSettings,
+      "exp:browser",
+    );
+    expect([...result.keys()].sort()).toEqual(["group_0", "met_revenue"]);
+    expect(result.get("group_0")).toBe(isolatedGroup);
+    expect(result.get("met_revenue")).toBe(isolatedMetric);
+  });
+
+  it("uses the dimensionless parent query map for the parent analysis", () => {
+    const result = selectAnalysisQueryData(fullMap(), clusterSettings, "");
+    expect([...result.keys()].sort()).toEqual(["group_0", "met_revenue"]);
+    expect(result.get("group_0")).toBe(parentGroup);
+    expect(result.get("met_revenue")).toBe(parentMetric);
+  });
+
+  it("falls through to the parent filter for a non-isolated dimension", () => {
+    const nonClusterSettings = {
+      isClusterExperiment: false,
+      clusterSubUnitIdentifier: null,
+      dimensions: [{ id: "exp:browser" }],
+      precomputedUnitDimensionIds: [],
+    } as unknown as ExperimentSnapshotSettings;
+
+    const result = selectAnalysisQueryData(
+      fullMap(),
+      nonClusterSettings,
+      "exp:browser",
+    );
+    expect(result.get("group_0")).toBe(parentGroup);
+    expect(result.get("met_revenue")).toBe(parentMetric);
+  });
+
+  it("leaves an already-routed bare-key map untouched (explicit per-dimension path)", () => {
+    // getQueryMapForAnalysis pre-routes to bare keys; buildUnitDimensionQueryMap
+    // finds no `unitdim:` queries, so we fall through without dropping anything.
+    const preRouted: QueryMap = new Map([
+      ["group_0", isolatedGroup],
+      ["met_revenue", isolatedMetric],
+    ]);
+    const result = selectAnalysisQueryData(
+      preRouted,
+      clusterSettings,
+      "exp:browser",
+    );
+    expect(result.get("group_0")).toBe(isolatedGroup);
+    expect(result.get("met_revenue")).toBe(isolatedMetric);
   });
 });

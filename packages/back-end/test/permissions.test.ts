@@ -251,7 +251,7 @@ describe("Build base user permissions", () => {
         members: [
           {
             ...testOrg.members[0],
-            role: "admin",
+            role: "gbDefault_projectAdmin",
             limitAccessByEnvironment: true,
             environments: ["development"],
             projectRoles: [
@@ -271,8 +271,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["development"],
         limitAccessByEnvironment: false,
-        permissions: roleToPermissionMap("admin", testOrg),
-        envGrants: expectedEnvGrants("admin", testOrg, ["development"], false),
+        permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+        envGrants: expectedEnvGrants(
+          "gbDefault_projectAdmin",
+          testOrg,
+          ["development"],
+          false,
+        ),
       },
       projects: {
         prj_exl5jr5dl4rbw856: {
@@ -1049,7 +1054,7 @@ describe("Build base user permissions", () => {
         dateCreated: new Date(),
         dateUpdated: new Date(),
         createdBy: "Demo User",
-        role: "admin",
+        role: "gbDefault_projectAdmin",
         limitAccessByEnvironment: true,
         environments: ["development"],
         projectRoles: [
@@ -1096,8 +1101,13 @@ describe("Build base user permissions", () => {
       global: {
         environments: ["development"],
         limitAccessByEnvironment: false,
-        permissions: roleToPermissionMap("admin", testOrg),
-        envGrants: expectedEnvGrants("admin", testOrg, ["development"], false),
+        permissions: roleToPermissionMap("gbDefault_projectAdmin", testOrg),
+        envGrants: expectedEnvGrants(
+          "gbDefault_projectAdmin",
+          testOrg,
+          ["development"],
+          false,
+        ),
       },
       projects: {
         prj_test: {

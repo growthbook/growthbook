@@ -1,17 +1,27 @@
-import { FC, useState, useMemo } from "react";
+import { FC, ElementType, useState, useMemo } from "react";
 import { AuditInterface, EventType } from "shared/types/audit";
+import { Flex } from "@radix-ui/themes";
 import { DiffMethod } from "react-diff-viewer-continued";
-import { BsArrowRepeat } from "react-icons/bs";
-import { FaAngleDown, FaAngleUp } from "react-icons/fa";
+import { PiArrowClockwise, PiCaretDown, PiCaretUp } from "react-icons/pi";
 import { datetime } from "shared/dates";
 import { entityEvents } from "shared/constants";
 import { auditUserToEventUser } from "shared/validators";
 import LazyDiffViewer from "@/components/AuditHistoryExplorer/LazyDiffViewer";
+import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Callout from "@/ui/Callout";
+import UiButton from "@/ui/Button";
 import { Select, SelectItem } from "@/ui/Select";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 import Button from "./Button";
 import Code from "./SyntaxHighlighting/Code";
 import LoadingOverlay from "./LoadingOverlay";
@@ -97,6 +107,8 @@ export function HistoryTableRow({
   showType = false,
   itemName = "",
   url = "",
+  Row = "tr",
+  Cell = "td",
 }: {
   event: AuditInterface;
   open: boolean;
@@ -105,19 +117,35 @@ export function HistoryTableRow({
   showType?: boolean;
   itemName?: string;
   url?: string;
+  /** Swap in the design-system Table's Row/Cell when rendering inside it. */
+  Row?: ElementType;
+  Cell?: ElementType;
 }) {
   let colSpanNum = 4;
   if (showName) colSpanNum++;
   if (showType) colSpanNum++;
 
   const displayName = itemName || event.entity.name || event.entity.id;
+  // The list table paints its own hover tint on each cell. The legacy table
+  // still uses the highlight classes.
+  const designSystem = Row !== "tr";
+  const openCellStyle: React.CSSProperties | undefined =
+    designSystem && open ? { backgroundColor: "var(--gray-a2)" } : undefined;
 
   return (
     <>
-      <tr
+      <Row
         style={{ cursor: event.details ? "pointer" : "" }}
-        className={open ? "highlight" : event.details ? "hover-highlight" : ""}
-        onClick={(e) => {
+        className={
+          designSystem
+            ? undefined
+            : open
+              ? "highlight"
+              : event.details
+                ? "hover-highlight"
+                : ""
+        }
+        onClick={(e: React.MouseEvent) => {
           // Don't toggle the row's open state if a link was clicked
           const target = e.target as HTMLElement;
           if (target && target.closest("a")) {
@@ -127,31 +155,44 @@ export function HistoryTableRow({
           setOpen(!open);
         }}
       >
-        <td title={datetime(event.dateCreated)}>
+        <Cell title={datetime(event.dateCreated)} style={openCellStyle}>
           {datetime(event.dateCreated)}
-        </td>
-        {showType && <td>{event.entity.object}</td>}
+        </Cell>
+        {showType && <Cell style={openCellStyle}>{event.entity.object}</Cell>}
         {showName && (
-          <td>{url ? <Link href={url}>{displayName}</Link> : displayName}</td>
+          <Cell style={openCellStyle}>
+            {url ? <Link href={url}>{displayName}</Link> : displayName}
+          </Cell>
         )}
-        <td>
+        <Cell style={openCellStyle}>
           <EventUser user={auditUserToEventUser(event.user)} display="name" />
-        </td>
-        <td>{event.event}</td>
-        <td style={{ width: 30 }}>
-          {event.details && (open ? <FaAngleUp /> : <FaAngleDown />)}
-        </td>
-      </tr>
+        </Cell>
+        <Cell style={openCellStyle}>{event.event}</Cell>
+        <Cell style={{ width: 30, ...openCellStyle }}>
+          {event.details && (open ? <PiCaretUp /> : <PiCaretDown />)}
+        </Cell>
+      </Row>
       {open && event.details && (
-        <tr>
-          <td colSpan={colSpanNum} className="bg-light p-3">
+        <Row {...(designSystem ? { "data-no-hover": true } : {})}>
+          <Cell
+            colSpan={colSpanNum}
+            className={designSystem ? undefined : "bg-light p-3"}
+            style={
+              designSystem
+                ? {
+                    backgroundColor: "var(--gray-a2)",
+                    padding: "var(--space-3)",
+                  }
+                : undefined
+            }
+          >
             <EventDetails
               eventType={event.event}
               details={event.details}
               reason={event.reason}
             />
-          </td>
-        </tr>
+          </Cell>
+        </Row>
       )}
     </>
   );
@@ -166,11 +207,13 @@ const HistoryTable: FC<{
     | "factTable"
     | "datasource"
     | "apiKey"
-    | "project";
+    | "project"
+    | "population";
   showName?: boolean;
   showType?: boolean;
+  maxHeight?: string;
   id?: string;
-}> = ({ id, type, showName = false, showType = false }) => {
+}> = ({ id, type, showName = false, showType = false, maxHeight }) => {
   const [cursor, setCursor] = useState<string | null>(null);
   const [cursors, setCursors] = useState<(string | null)[]>([null]); // Stack of cursors for each page
   const [eventFilter, setEventFilter] = useState("");
@@ -223,14 +266,14 @@ const HistoryTable: FC<{
 
   return (
     <>
-      <div className="row align-items-center">
-        <div className="col-auto">
-          <h4>Audit Log</h4>
-        </div>
-        <div className="col-auto text-muted">
+      <Flex align="center" gap="3" mb="2" wrap="wrap">
+        <Heading as="h3" size="md" mb="0">
+          Audit Log
+        </Heading>
+        <Text color="text-mid">
           {data.total} total event{data.total !== 1 ? "s" : ""}
-        </div>
-        <div className="col-auto ml-auto">
+        </Text>
+        <Flex align="center" gap="2" ml="auto">
           <Select
             value={eventFilter || "all"}
             setValue={(v) => {
@@ -248,44 +291,73 @@ const HistoryTable: FC<{
               </SelectItem>
             ))}
           </Select>
-        </div>
-        <div className="col-auto">
-          <Button
-            color="link btn-sm"
-            onClick={async () => {
-              await mutate();
-            }}
+          <UiButton
+            variant="ghost"
+            size="sm"
+            icon={<PiArrowClockwise />}
+            onClick={() => mutate()}
           >
-            <BsArrowRepeat /> refresh
-          </Button>
-        </div>
-      </div>
-      <table className="table appbox">
-        <thead>
-          <tr>
-            <th>Date</th>
-            {showType && <th>Type</th>}
-            {showName && <th>Name</th>}
-            <th>User</th>
-            <th>Event</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          {events.map((event) => (
-            <HistoryTableRow
-              event={event}
-              key={event.id}
-              showName={showName}
-              showType={showType}
-              open={open === event.id}
-              setOpen={(open) => {
-                setOpen(open ? event.id : "");
-              }}
-            />
-          ))}
-        </tbody>
-      </table>
+            Refresh
+          </UiButton>
+        </Flex>
+      </Flex>
+      {maxHeight ? (
+        <Table variant="list" stickyHeader scrollX maxHeight={maxHeight}>
+          <TableHeader>
+            <TableRow>
+              <TableColumnHeader>Date</TableColumnHeader>
+              {showType && <TableColumnHeader>Type</TableColumnHeader>}
+              {showName && <TableColumnHeader>Name</TableColumnHeader>}
+              <TableColumnHeader>User</TableColumnHeader>
+              <TableColumnHeader>Event</TableColumnHeader>
+              <TableColumnHeader></TableColumnHeader>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {events.map((event) => (
+              <HistoryTableRow
+                event={event}
+                key={event.id}
+                showName={showName}
+                showType={showType}
+                open={open === event.id}
+                setOpen={(open) => {
+                  setOpen(open ? event.id : "");
+                }}
+                Row={TableRow}
+                Cell={TableCell}
+              />
+            ))}
+          </TableBody>
+        </Table>
+      ) : (
+        <table className="table appbox">
+          <thead>
+            <tr>
+              <th>Date</th>
+              {showType && <th>Type</th>}
+              {showName && <th>Name</th>}
+              <th>User</th>
+              <th>Event</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {events.map((event) => (
+              <HistoryTableRow
+                event={event}
+                key={event.id}
+                showName={showName}
+                showType={showType}
+                open={open === event.id}
+                setOpen={(open) => {
+                  setOpen(open ? event.id : "");
+                }}
+              />
+            ))}
+          </tbody>
+        </table>
+      )}
       {(currentPage > 1 || hasMore) && (
         <div className="d-flex justify-content-between align-items-center mt-3">
           <div>

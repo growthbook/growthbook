@@ -37,6 +37,7 @@ export type AnalysisSettingsForStatsEngineInit = {
   one_sided_intervals?: boolean;
   use_covariate_as_response?: boolean;
   post_stratification_enabled?: boolean;
+  is_cluster_experiment?: boolean;
 };
 
 export class AnalysisSettingsForStatsEngine {
@@ -59,6 +60,7 @@ export class AnalysisSettingsForStatsEngine {
   one_sided_intervals: boolean;
   use_covariate_as_response: boolean;
   post_stratification_enabled: boolean;
+  is_cluster_experiment: boolean;
 
   constructor(args: AnalysisSettingsForStatsEngineInit) {
     this.var_names = args.var_names;
@@ -81,6 +83,7 @@ export class AnalysisSettingsForStatsEngine {
     this.use_covariate_as_response = args.use_covariate_as_response ?? false;
     this.post_stratification_enabled =
       args.post_stratification_enabled ?? false;
+    this.is_cluster_experiment = args.is_cluster_experiment ?? false;
   }
 }
 

@@ -3,6 +3,13 @@ import {
   getDelayWindowHours,
   getUserIdTypes,
 } from "shared/experiments";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getSnapshotCutoffDate,
+} from "shared/util";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { ExperimentUnitsQueryParams } from "shared/types/integrations";
 import type { SqlDialect } from "shared/types/sql";
@@ -65,6 +72,12 @@ export function getExperimentUnitsQuery(
   const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
   const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
 
+  const isClusterKeyedUnitDimension = (
+    d: (typeof unitDimensions)[number],
+  ): boolean =>
+    clusterIdColumn !== null &&
+    (d.dimension.userIdType || "user_id") === clusterIdColumn;
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
@@ -72,7 +85,9 @@ export function getExperimentUnitsQuery(
       objects: [
         [effectiveBaseIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
-        ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
+        ...unitDimensions
+          .filter((d) => !isClusterKeyedUnitDimension(d))
+          .map((d) => [d.dimension.userIdType || "user_id"]),
         segment ? [segment.userIdType || "user_id"] : [],
       ],
       from: unitsSettings.startDate,
@@ -82,16 +97,38 @@ export function getExperimentUnitsQuery(
     },
   );
 
+  const getUnitDimensionJoinIdType = (
+    d: (typeof unitDimensions)[number],
+  ): string =>
+    isClusterKeyedUnitDimension(d) && clusterIdColumn !== null
+      ? clusterIdColumn
+      : baseIdType;
+
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
 
+  // __experimentExposures reads the mapped columns and aliases them to the
+  // standard names, so every CTE after it reads e.timestamp
+  const rawTimestampColumn = `e.${getExposureQueryTimestampColumn(exposureQuery)}`;
   const timestampColumn = "e.timestamp";
-  const timestampDateTimeColumn = dialect.castUserDateCol(timestampColumn);
   const overrideConversionWindows =
     unitsSettings.attributionModel === "experimentDuration" ||
     unitsSettings.attributionModel === "lookbackOverride";
 
   const contextualBanditCfg = getContextualBanditUnitsSqlConfig(unitsSettings);
+
+  const isContextualBandit = !!unitsSettings.banditSettings?.contextualBandit;
+
+  // Contextual bandits attribute each user to their first exposure (one unit per
+  // user), so multi-variation users are never bucketed as '__multiple__'.
+  const variationValuePerUnit =
+    isContextualBandit || unitsSettings.banditSettings?.useFirstExposure
+      ? getFirstVariationValuePerUnit(dialect)
+      : dialect.ifElse(
+          "count(distinct e.variation) > 1",
+          "'__multiple__'",
+          "max(e.variation)",
+        );
 
   const {
     contextualExposureSelectCols,
@@ -151,10 +188,19 @@ export function getExperimentUnitsQuery(
     __experimentExposures AS (
       -- Viewed Experiment
       SELECT
-        e.${baseIdType} as ${baseIdType}
-        , ${dialect.castToString("e.variation_id")} as variation
-        , ${timestampDateTimeColumn} as timestamp
-        ${clusterIdColumn ? `, e.${clusterIdColumn} as ${clusterIdColumn}` : ""}
+        e.${getExposureQueryIdentifierColumn(exposureQuery, baseIdType)} as ${baseIdType}
+        , ${dialect.castToString(
+          `e.${getExposureQueryVariationIdColumn(exposureQuery)}`,
+        )} as variation
+        , ${dialect.castUserDateCol(rawTimestampColumn)} as timestamp
+        ${
+          clusterIdColumn
+            ? `, e.${getExposureQueryIdentifierColumn(
+                exposureQuery,
+                clusterIdColumn,
+              )} as ${clusterIdColumn}`
+            : ""
+        }
         ${contextualExposureSelectCols}
         ${experimentDimensions
           .map((d) => {
@@ -171,11 +217,13 @@ export function getExperimentUnitsQuery(
       FROM
           __rawExperiment e
       WHERE
-          e.experiment_id = '${unitsSettings.experimentId}'
-          AND ${timestampColumn} >= ${dialect.toTimestamp(startDate)}
+          e.${getExposureQueryExperimentIdColumn(
+            exposureQuery,
+          )} = '${unitsSettings.experimentId}'
+          AND ${rawTimestampColumn} >= ${dialect.toTimestamp(startDate)}
           ${
             endDate
-              ? `AND ${timestampColumn} <= ${dialect.toTimestamp(endDate)}`
+              ? `AND ${rawTimestampColumn} <= ${dialect.toTimestamp(endDate)}`
               : ""
           }
           ${
@@ -199,6 +247,7 @@ export function getExperimentUnitsQuery(
               [activationMetric],
               unitsSettings.endDate,
               overrideConversionWindows,
+              getSnapshotCutoffDate(unitsSettings),
             ),
             experimentId: unitsSettings.experimentId,
             phase: unitsSettings.phase,
@@ -231,7 +280,7 @@ export function getExperimentUnitsQuery(
         (d) =>
           `, __dim_unit_${d.dimension.id} as (${getDimensionCTE(
             d.dimension,
-            baseIdType,
+            getUnitDimensionJoinIdType(d),
             idJoinMap,
           )})`,
       )
@@ -240,16 +289,7 @@ export function getExperimentUnitsQuery(
       -- One row per user
       SELECT
         e.${baseIdType} AS ${baseIdType}
-        , ${
-          !!unitsSettings.banditSettings?.useFirstExposure &&
-          unitsSettings.banditSettings
-            ? getFirstVariationValuePerUnit(dialect)
-            : dialect.ifElse(
-                "count(distinct e.variation) > 1",
-                "'__multiple__'",
-                "max(e.variation)",
-              )
-        } AS variation
+        , ${variationValuePerUnit} AS variation
         , MIN(${timestampColumn}) AS first_exposure_timestamp
         ${
           clusterIdColumn
@@ -294,13 +334,14 @@ export function getExperimentUnitsQuery(
             : ""
         }
         ${unitDimensions
-          .map(
-            (d) => `
+          .map((d) => {
+            const joinIdType = getUnitDimensionJoinIdType(d);
+            return `
             LEFT JOIN __dim_unit_${d.dimension.id} __dim_unit_${d.dimension.id} ON (
-              __dim_unit_${d.dimension.id}.${baseIdType} = e.${baseIdType}
+              __dim_unit_${d.dimension.id}.${joinIdType} = e.${joinIdType}
             )
-          `,
-          )
+          `;
+          })
           .join("\n")}
         ${
           activationMetric

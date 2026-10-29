@@ -296,8 +296,9 @@ export type MultiSelectFieldProps = Omit<
     value: string[],
     action?: ActionMeta<SingleValue>["action"],
   ) => void;
+  /** Sorts the menu options and lets selected chips be dragged to reorder. */
   sort?: boolean;
-  /** Alphabetize options and groups. Defaults to `sort`, which also enables dragging chips. */
+  /** Overrides `sort` for the menu only, so chips stay draggable. */
   sortOptions?: boolean;
   customStyles?: StylesConfig<ColorOption, true>;
   customClassName?: string;

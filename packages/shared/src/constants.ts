@@ -90,6 +90,7 @@ export const NULL_VARIATION_VALUE = "__NULL_VARIATION";
 export const NULL_DIMENSION_DISPLAY = "NULL (unset)";
 export const PRECOMPUTED_DIMENSION_PREFIX = "precomputed:";
 export const MAX_PRECOMPUTED_UNIT_DIMENSIONS = 3;
+export const MAX_CLUSTER_SUBUNIT_DIMENSIONS = MAX_PRECOMPUTED_UNIT_DIMENSIONS;
 
 // Max length for entity description fields (features, experiments, metrics, etc.)
 export const MAX_DESCRIPTION_LENGTH = 10000;
@@ -225,6 +226,20 @@ export const attributeDataTypes = [
   "secureString[]",
 ] as const;
 
+/**
+ * Attributes GrowthBook's SDKs set themselves start with this prefix, so they
+ * don't collide with customer attributes. Check names with
+ * `isInternalAttributeName`.
+ */
+export const INTERNAL_ATTRIBUTE_PREFIX = "__gb_";
+
+export function isInternalAttributeName(name: string): boolean {
+  return name.startsWith(INTERNAL_ATTRIBUTE_PREFIX);
+}
+
+/** The attribute SDKs set to the user's remote saved group IDs. */
+export const REMOTE_GROUP_IDS_ATTRIBUTE = `${INTERNAL_ATTRIBUTE_PREFIX}remoteGroupIds`;
+
 // Runtime allow-list for discussion parents. Kept here (rather than only as a
 // type) so request handlers can validate an incoming parentType.
 export const DISCUSSION_PARENT_TYPES = [
@@ -305,6 +320,7 @@ export const entityEvents = {
     "delete",
     "disable",
     "enable",
+    "rotate",
     "confirm",
     "reject",
   ],
@@ -312,7 +328,7 @@ export const entityEvents = {
   oauthGrant: ["create", "update", "delete"],
   oauthRefreshToken: ["create", "update", "delete"],
   installation: ["update"],
-  savedGroup: ["created", "deleted", "updated"],
+  savedGroup: ["created", "deleted", "updated", "uploaded", "uploadDeleted"],
   constant: ["created", "updated", "deleted"],
   config: ["created", "updated", "deleted"],
   segment: ["create", "delete", "update"],

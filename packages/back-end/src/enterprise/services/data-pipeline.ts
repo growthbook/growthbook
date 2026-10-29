@@ -1,4 +1,5 @@
 import md5 from "md5";
+import { isEqual } from "lodash";
 import {
   ClusterMetricAnalysisLevel,
   ExperimentMetricInterface,
@@ -24,7 +25,15 @@ import {
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { ExposureQuery } from "shared/types/datasource";
-import { getIdentifierTypeForSettingsHash } from "shared/util";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getIdentifierTypeForSettingsHash,
+  getSnapshotCutoffDate,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
@@ -42,7 +51,7 @@ import type { MetricFanOut } from "back-end/src/services/experimentQueries/planM
  * Preconditions for running the incremental refresh query runner on a snapshot.
  * Throws when incremental refresh is unsupported for this configuration, or when
  * an incremental update would reuse a units table built under different
- * experiment-level settings.
+ * experiment-level settings or holding data past the snapshot's cutoff.
  *
  * Does not validate metric-source cache drift. See getFactTablesNeedingRebuild.
  */
@@ -107,6 +116,20 @@ export async function assertIncrementalRefreshPrerequisites({
         "The experiment configuration is outdated. Please run a Full Refresh.",
       );
     }
+
+    // The tables only grow, so an update can't analyze through a cutoff
+    // earlier than rows they already hold, such as rows a refresh loaded
+    // before it failed.
+    const cutoff = getSnapshotCutoffDate(snapshotSettings);
+    const tablesEnd = [
+      incrementalRefreshModel.unitsMaxTimestamp,
+      ...incrementalRefreshModel.metricSources.map((s) => s.maxTimestamp),
+    ];
+    if (cutoff && tablesEnd.some((end) => !!end && end > cutoff)) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        "The Incremental Refresh tables hold data past the analysis end date. Please run a Full Refresh.",
+      );
+    }
   }
 }
 
@@ -114,8 +137,29 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 type HashExposureQuery = Pick<
   ExposureQuery,
-  "id" | "userIdType" | "userIdTypes"
+  "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
+
+// The assignment query columns an incremental units table is built from.
+// Cluster experiments key the table on the sub-unit, so its column counts too.
+const getUnitsTableColumns = (
+  query: Pick<ExposureQuery, "columnMapping">,
+  identifierType: string,
+  subUnitIdentifierType?: string,
+) => ({
+  identifier: getExposureQueryIdentifierColumn(query, identifierType),
+  ...(subUnitIdentifierType
+    ? {
+        subUnitIdentifier: getExposureQueryIdentifierColumn(
+          query,
+          subUnitIdentifierType,
+        ),
+      }
+    : {}),
+  timestamp: getExposureQueryTimestampColumn(query),
+  experimentId: getExposureQueryExperimentIdColumn(query),
+  variationId: getExposureQueryVariationIdColumn(query),
+});
 
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
@@ -140,6 +184,32 @@ export function getExperimentSettingsHashForIncrementalRefresh(
     settingsForHash.isClusterExperiment = true;
     settingsForHash.clusterSubUnitIdentifier =
       snapshotSettings.clusterSubUnitIdentifier ?? null;
+  }
+
+  const exposureQuery = exposureQueries.find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  );
+  if (exposureQuery?.columnMapping) {
+    const analysisIdentifierType = resolveAnalysisIdentifierType(
+      exposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    );
+    const subUnitIdentifierType = snapshotSettings.isClusterExperiment
+      ? (snapshotSettings.clusterSubUnitIdentifier ?? undefined)
+      : undefined;
+    const unitsColumns = getUnitsTableColumns(
+      exposureQuery,
+      analysisIdentifierType,
+      subUnitIdentifierType,
+    );
+    if (
+      !isEqual(
+        unitsColumns,
+        getUnitsTableColumns({}, analysisIdentifierType, subUnitIdentifierType),
+      )
+    ) {
+      settingsForHash.unitsColumns = unitsColumns;
+    }
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.

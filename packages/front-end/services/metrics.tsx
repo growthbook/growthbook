@@ -42,6 +42,29 @@ import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
 
+export function resolveFactMetricCreation(
+  ready: boolean,
+  newFlow: boolean,
+  hasFactTable: boolean,
+  embedded = false,
+) {
+  if (!ready) return "pending";
+  if (newFlow && !embedded) return "page";
+  if (!hasFactTable) return "fact-table";
+  return newFlow ? "inline" : "modal";
+}
+
+export function duplicateFactMetric(
+  metric: FactMetricInterface,
+  canCreateOfficial: boolean,
+): FactMetricInterface {
+  return {
+    ...metric,
+    name: `${metric.name} (copy)`,
+    managedBy: metric.managedBy === "admin" && canCreateOfficial ? "admin" : "",
+  };
+}
+
 export function getInitialInlineFilters(
   factTable: Pick<
     FactTableDefinition,
@@ -106,7 +129,7 @@ export function getDefaultFactMetricProps({
   // Starting data source when no fact table is chosen yet (e.g. "Add" from a
   // data source's page) - otherwise the org default wins.
   initialDatasource?: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactMetricInterface["managedBy"];
 }): CreateFactMetricFormProps & { targetMDE: number } {
   const existingMetricType = existing?.metricType;
   return {
