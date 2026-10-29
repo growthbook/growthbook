@@ -9,6 +9,7 @@ import {
   getContextFromReq,
   isValidLoginMethod,
 } from "back-end/src/services/organizations";
+import { assertLoginCanMintUnscopedToken } from "back-end/src/services/auth";
 import {
   exchangeAuthorizationCode,
   exchangeRefreshToken,
@@ -214,6 +215,10 @@ export async function postAuthorize(
         status: 400,
         message: "permissions is invalid",
       });
+    }
+    // Without a scoped role the grant's tokens are unscoped and carry the stored super admin
+    if (!permissions.data?.scopedRole) {
+      await assertLoginCanMintUnscopedToken(req);
     }
 
     // Verify the user is a member of the chosen org. No superadmin bypass:

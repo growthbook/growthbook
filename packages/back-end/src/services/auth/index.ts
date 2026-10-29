@@ -24,6 +24,7 @@ import {
   hasUser,
   markUserAsVerified,
   getUserByEmail,
+  getUserById,
   setAuthSubject,
 } from "back-end/src/models/UserModel";
 import {
@@ -441,6 +442,17 @@ export async function processJWT(
   }
 
   next();
+}
+
+// Unscoped user credentials take super admin from the stored user, not from the login that minted them
+export async function assertLoginCanMintUnscopedToken(req: AuthRequest) {
+  if (!req.userId || req.superAdmin) return;
+  const user = await getUserById(req.userId);
+  if (normalizeSuperAdmin(user?.superAdmin)) {
+    throw new Error(
+      "Super admins must sign in with a method that grants super admin access to manage unscoped personal access tokens.",
+    );
+  }
 }
 
 export function deleteAuthCookies(req: Request, res: Response) {

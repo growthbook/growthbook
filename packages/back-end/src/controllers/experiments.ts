@@ -146,6 +146,7 @@ import { IdeaModel } from "back-end/src/models/IdeasModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
+import { assertLoginCanMintUnscopedToken } from "back-end/src/services/auth";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
@@ -4242,6 +4243,8 @@ export async function findOrCreateVisualEditorToken(
   const context = getContextFromReq(req);
 
   if (!req.userId) throw new Error("No user found");
+  // The visual editor key is an unscoped user key, so it carries the stored super admin
+  await assertLoginCanMintUnscopedToken(req);
 
   let visualEditorKey = await context.models.apiKeys.getVisualEditorApiKey(
     req.userId,
