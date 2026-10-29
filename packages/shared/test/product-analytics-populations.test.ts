@@ -55,6 +55,7 @@ const population: MetricPopulation = {
   rowFilters: [{ column: "device_type", operator: "=", values: ["mobile"] }],
   aggregateFilter: ">10",
   aggregateFilterColumn: "revenue",
+  unit: "user_id",
 };
 const config: MetricExplorationConfig = {
   type: "metric",
@@ -296,8 +297,12 @@ describe("population-backed proportions", () => {
     };
     const { sql, orderedMetricIds } = query(c, population, metric, [renewal]);
     expect(orderedMetricIds).toEqual([metric.id, renewal.id]);
-    // Membership is computed once and shared, not once per metric.
-    expect(sql.match(/ AS pop_rows\b/g)).toHaveLength(1);
+    // Membership is one extra series after the metrics, shared by all of them.
+    expect(sql.match(/ AS m2_rows\b/g)).toHaveLength(1);
+    expect(sql).not.toContain("m3");
+    expect(
+      sql.match(/WHEN m2 = 1\s+AND unit0 IS NOT NULL THEN m[01]\s/g),
+    ).toHaveLength(2);
     expect(sql).not.toContain("JOIN");
     const septemberFirstCounts = execute(c, population, metric, [
       renewal,
@@ -536,19 +541,26 @@ describe("population-backed proportions", () => {
   it("normalizes omitted population filters to an empty array", () => {
     const input = {
       ...config,
-      dataset: { ...config.dataset, population: { source: population.source } },
+      dataset: {
+        ...config.dataset,
+        population: { source: population.source, unit: "user_id" },
+      },
     };
     const explicit = structuredClone(config);
     explicit.dataset.population = {
       source: population.source,
       rowFilters: [],
+      unit: "user_id",
     };
     expect(explorationConfigValidator.parse(input)).toEqual(
       explorationConfigValidator.parse(explicit),
     );
     expect(
-      metricPopulationValidator.parse({ source: population.source }),
-    ).toEqual({ source: population.source, rowFilters: [] });
+      metricPopulationValidator.parse({
+        source: population.source,
+        unit: "user_id",
+      }),
+    ).toEqual({ source: population.source, rowFilters: [], unit: "user_id" });
   });
 
   it("rejects names on attached populations but requires them on standalone series", () => {
@@ -632,8 +644,21 @@ describe("population-backed proportions", () => {
         table,
       );
     expect(() => validate(config, population, metric, null)).toThrow(
-      "identifier",
+      'Metric "Users who purchased" must use the population\'s identifier type "user_id".',
     );
+    expect(() =>
+      validate(
+        config,
+        { ...population, unit: "anonymous_id" },
+        metric,
+        "anonymous_id",
+      ),
+    ).toThrow(
+      "The population's identifier type \"anonymous_id\" isn't supported by the Fact Table.",
+    );
+    expect(() =>
+      metricPopulationValidator.parse({ source: population.source }),
+    ).toThrow();
     const p = structuredClone(population);
     p.source.factTableId = "other";
     expect(() => validate(config, p)).toThrow("same Fact Table");
@@ -655,7 +680,7 @@ describe("population-backed proportions", () => {
       }),
     ).toThrow("grouped by date");
     expect(() => validate(config, population, metric, "other")).toThrow(
-      "identifier",
+      "must use the population's identifier type",
     );
     expect(() =>
       validate(config, { ...population, aggregateFilter: "invalid" }),

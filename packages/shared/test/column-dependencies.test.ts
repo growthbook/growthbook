@@ -45,6 +45,7 @@ describe("explorationConfigReferencesColumn", () => {
     const population: MetricPopulation = {
       source: { type: "factTable", factTableId: "ft1" },
       rowFilters: [],
+      unit: "user_id",
     };
 
     function metricConfig(

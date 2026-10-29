@@ -42120,8 +42120,15 @@ paths:
                                                   Numeric column to total, or "$$count" to
                                                   count rows. Requires aggregateFilter
                                                 type: string
+                                              unit:
+                                                description: >-
+                                                  Identifier type that defines population
+                                                  membership. Every metric's unit must
+                                                  match it.
+                                                type: string
                                             required:
                                               - source
+                                              - unit
                                             additionalProperties: false
                                           - type: 'null'
                                     required:
@@ -45573,8 +45580,15 @@ paths:
                                                   Numeric column to total, or "$$count" to
                                                   count rows. Requires aggregateFilter
                                                 type: string
+                                              unit:
+                                                description: >-
+                                                  Identifier type that defines population
+                                                  membership. Every metric's unit must
+                                                  match it.
+                                                type: string
                                             required:
                                               - source
+                                              - unit
                                             additionalProperties: false
                                           - type: 'null'
                                     required:
@@ -49223,8 +49237,15 @@ paths:
                                               Numeric column to total, or "$$count" to
                                               count rows. Requires aggregateFilter
                                             type: string
+                                          unit:
+                                            description: >-
+                                              Identifier type that defines population
+                                              membership. Every metric's unit must
+                                              match it.
+                                            type: string
                                         required:
                                           - source
+                                          - unit
                                         additionalProperties: false
                                       - type: 'null'
                                 required:
@@ -52884,8 +52905,15 @@ paths:
                                               Numeric column to total, or "$$count" to
                                               count rows. Requires aggregateFilter
                                             type: string
+                                          unit:
+                                            description: >-
+                                              Identifier type that defines population
+                                              membership. Every metric's unit must
+                                              match it.
+                                            type: string
                                         required:
                                           - source
+                                          - unit
                                         additionalProperties: false
                                       - type: 'null'
                                 required:
@@ -58474,8 +58502,14 @@ paths:
                                 Numeric column to total, or "$$count" to count
                                 rows. Requires aggregateFilter
                               type: string
+                            unit:
+                              description: >-
+                                Identifier type that defines population
+                                membership. Every metric's unit must match it.
+                              type: string
                           required:
                             - source
+                            - unit
                           additionalProperties: false
                         - type: 'null'
                   required:
@@ -58997,9 +59031,16 @@ paths:
                                               Numeric column to total, or "$$count" to
                                               count rows. Requires aggregateFilter
                                             type: string
+                                          unit:
+                                            description: >-
+                                              Identifier type that defines population
+                                              membership. Every metric's unit must
+                                              match it.
+                                            type: string
                                         required:
                                           - source
                                           - rowFilters
+                                          - unit
                                         additionalProperties: false
                                       - type: 'null'
                                 required:
@@ -81444,9 +81485,16 @@ components:
                                       Numeric column to total, or "$$count" to
                                       count rows. Requires aggregateFilter
                                     type: string
+                                  unit:
+                                    description: >-
+                                      Identifier type that defines population
+                                      membership. Every metric's unit must match
+                                      it.
+                                    type: string
                                 required:
                                   - source
                                   - rowFilters
+                                  - unit
                                 additionalProperties: false
                               - type: 'null'
                         required:
@@ -84703,9 +84751,15 @@ components:
                                 Numeric column to total, or "$$count" to count
                                 rows. Requires aggregateFilter
                               type: string
+                            unit:
+                              description: >-
+                                Identifier type that defines population
+                                membership. Every metric's unit must match it.
+                              type: string
                           required:
                             - source
                             - rowFilters
+                            - unit
                           additionalProperties: false
                         - type: 'null'
                   required:

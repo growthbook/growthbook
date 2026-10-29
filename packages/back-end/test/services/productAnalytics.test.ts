@@ -250,6 +250,7 @@ describe("draft metric explorations", () => {
     testConfig.dataset.population = {
       source: { type: "factTable", factTableId: "ft_1" },
       rowFilters: [],
+      unit: "user_id",
     };
     const run = runProductAnalyticsExploration(context, testConfig, {
       ...internal,
@@ -340,6 +341,7 @@ describe("inline population validation before exploration cache lookup", () => {
   const population = {
     source: { type: "factTable" as const, factTableId: "ft_1" },
     rowFilters: [],
+    unit: "user_id",
   };
   const metric = {
     id: "fact_1",

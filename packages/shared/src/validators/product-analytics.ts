@@ -32,6 +32,11 @@ export const metricPopulationValidator = populationStepValidator
       .transform((filters) => filters ?? [])
       .pipe(z.array(rowFilterValidator))
       .meta({ default: [] }),
+    unit: z
+      .string()
+      .describe(
+        "Identifier type that defines population membership. Every metric's unit must match it.",
+      ),
   })
   .strict();
 export type MetricPopulation = z.infer<typeof metricPopulationValidator>;

@@ -38,14 +38,19 @@ export function validatePopulationMetricCompatibility(
       "The population and metric must use the same Fact Table and Data Source.",
     );
   }
-  if (!metricValue.unit || !factTable.userIdTypes.includes(metricValue.unit)) {
+  if (!factTable.userIdTypes.includes(population.unit)) {
     throw new Error(
-      "Select an identifier type supported by both the population and metric.",
+      `The population's identifier type "${population.unit}" isn't supported by the Fact Table.`,
+    );
+  }
+  if (metricValue.unit !== population.unit) {
+    throw new Error(
+      `Metric "${metric.name}" must use the population's identifier type "${population.unit}".`,
     );
   }
   const violations = getPopulationRuleViolations({
     datasource: config.datasource,
-    userIdTypes: [metricValue.unit],
+    userIdTypes: [population.unit],
     steps: [population],
     factTables: [factTable],
   });
