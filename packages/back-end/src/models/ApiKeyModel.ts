@@ -51,6 +51,7 @@ import {
 } from "back-end/src/api/specs/api-key.spec";
 import { applyPagination } from "back-end/src/util/handler";
 import { loadApiKeys, toApiKey } from "back-end/src/services/apiKeyResponse";
+import { storedVersionGuard } from "back-end/src/util/storedVersionGuard";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { requireConfirmation } from "back-end/src/services/confirmations";
 import { MakeModelClass } from "./BaseModel";
@@ -1164,6 +1165,14 @@ export class ApiKeyModel extends BaseClass {
         "You do not have permission to change API keys' roles. This needs permission to edit and create API keys.",
       );
     }
+    // The version every check below sees, from the stored doc. Read first, so
+    // a write that lands before `key` is read fails the guard rather than
+    // slipping past it.
+    const stored = await this._dangerousGetCollection().findOne(
+      { organization: this.context.org.id, id },
+      { projection: { dateUpdated: 1 } },
+    );
+    const guard = storedVersionGuard({ dateUpdated: stored?.dateUpdated });
     const key = await this.findSecretApiKey(id);
     if (!key) {
       this.context.throwNotFoundError(
@@ -1206,14 +1215,14 @@ export class ApiKeyModel extends BaseClass {
       actions: ["access.apiKeys"],
       summary: `Change the roles of API key ${key.description || id}`,
       links: [],
-      pin: key.dateUpdated,
+      pin: guard,
     });
     // Guarded on the version the checks and confirmation saw, so a key
     // deleted or edited since then is a 404 or 409, with nothing audited.
     const { before, after } = await this.updateSecretApiKeyPermissions(
       id,
       updates,
-      { guard: { dateUpdated: key.dateUpdated } },
+      { guard },
     );
     await this.context.auditLog({
       event: "apiKey.update",
