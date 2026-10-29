@@ -72,7 +72,6 @@ export default function TagsModal({
       trackingEventModalType=""
       open={true}
       close={close}
-      compact
       header={isEdit ? "Edit Tag" : "Create Tag"}
       cta={isEdit ? "Save changes" : "Create tag"}
       ctaEnabled={isEdit || (name.length >= 2 && !duplicate)}

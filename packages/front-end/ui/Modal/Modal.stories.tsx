@@ -59,17 +59,11 @@ function WideTable() {
 export default function ModalStories() {
   const [size, setSize] = useState<Size | null>(null);
   const [scrolling, setScrolling] = useState(false);
-  const [compact, setCompact] = useState(false);
   const [environment, setEnvironment] = useState("production");
   const [disableStickyBucketing, setDisableStickyBucketing] = useState(false);
-  const openModal = (
-    nextSize: Size,
-    nextScrolling: boolean,
-    nextCompact = false,
-  ) => {
+  const openModal = (nextSize: Size, nextScrolling: boolean) => {
     setSize(nextSize);
     setScrolling(nextScrolling);
-    setCompact(nextCompact);
   };
   return (
     <>
@@ -79,7 +73,6 @@ export default function ModalStories() {
           if (!open) setSize(null);
         }}
         size={size ?? "md"}
-        compact={compact}
         trackingEventModalType="test-modal"
       >
         <ModalForm
@@ -152,9 +145,6 @@ export default function ModalStories() {
         </Button>
         <Button onClick={() => openModal("lg", true)}>
           Large Modal (scrolling)
-        </Button>
-        <Button onClick={() => openModal("md", false, true)}>
-          Compact Modal
         </Button>
       </Flex>
     </>

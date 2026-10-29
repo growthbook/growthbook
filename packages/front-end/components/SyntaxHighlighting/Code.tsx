@@ -66,7 +66,6 @@ export default function Code({
   startingLineNumber,
   showLineNumbers = true,
   maxHeight,
-  fontSize = CODE_FONT_SIZE,
 }: {
   code: string;
   language: Language;
@@ -82,7 +81,6 @@ export default function Code({
   startingLineNumber?: number;
   showLineNumbers?: boolean;
   maxHeight?: string;
-  fontSize?: string;
 }) {
   language = language || "none";
   if (language === "sh") language = "bash";
@@ -101,7 +99,6 @@ export default function Code({
 
   const style = useMemo(() => {
     const style = cloneDeep(getCodeTheme(theme));
-    style['code[class*="language-"]'].fontSize = fontSize;
 
     const codeBackgrounds = {
       dark: "transparent",
@@ -116,11 +113,11 @@ export default function Code({
       // Each line is the code font size times its line height, plus the 1em
       // of padding Prism puts above and below
       style['pre[class*="language-"]'].maxHeight =
-        `calc(${collapsedLines} * ${fontSize} * ${CODE_LINE_HEIGHT} + 2em)`;
+        `calc(${collapsedLines} * ${CODE_FONT_SIZE} * ${CODE_LINE_HEIGHT} + 2em)`;
     }
 
     return style;
-  }, [theme, maxHeight, collapsedLines, isExpanded, fontSize]);
+  }, [theme, maxHeight, collapsedLines, isExpanded]);
 
   const shouldRenderPrism =
     hasExpanded ||

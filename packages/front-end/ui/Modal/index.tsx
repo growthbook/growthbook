@@ -89,7 +89,6 @@ type ModalContextValue = {
   // True while a ModalForm submit is in flight. Root uses it to block dismiss.
   loading: boolean;
   setLoading: (loading: boolean) => void;
-  compact: boolean;
 };
 
 const ModalContext = createContext<ModalContextValue | null>(null);
@@ -129,8 +128,6 @@ type RootProps = TrackingEventModalProps & {
   /** Radix's corner close, for a composition with no other way out. */
   showCloseButton?: boolean;
   hasDescription?: boolean;
-  // 560px wide with 16px padding and a divider under the header.
-  compact?: boolean;
   /** For a modal that places focus itself: call `e.preventDefault()`. */
   onOpenAutoFocus?: ComponentProps<typeof Dialog.Content>["onOpenAutoFocus"];
   children: ReactNode;
@@ -144,7 +141,6 @@ function Root({
   dismissible = false,
   showCloseButton = false,
   hasDescription = true,
-  compact = false,
   onOpenAutoFocus,
   trackingEventModalType,
   trackingEventModalSource,
@@ -219,10 +215,8 @@ function Root({
       sendTrackingEvent,
       loading,
       setLoading,
-      compact,
     }),
     [
-      compact,
       padding,
       error,
       errorDetails,
@@ -246,7 +240,7 @@ function Root({
         className={size === "max" ? "rt-DialogContent--max" : undefined}
         size={getRadixSize(size)}
         width={size === "max" ? "95vw" : undefined}
-        maxWidth={compact ? "560px" : getMaxWidth(size)}
+        maxWidth={getMaxWidth(size)}
         // Claim the height too, so the body sizes against the viewport.
         height={size === "max" ? "95vh" : undefined}
         maxHeight={
@@ -312,22 +306,6 @@ function Root({
 // ---------------------------------------------------------------------------
 
 function Header({ children }: { children: ReactNode }) {
-  if (useOptionalModalContext()?.compact) {
-    return (
-      <Flex
-        flexShrink="0"
-        justify="between"
-        align="center"
-        gap="3"
-        style={{
-          padding: "var(--space-4)",
-          borderBottom: "1px solid var(--gray-a5)",
-        }}
-      >
-        {children}
-      </Flex>
-    );
-  }
   return (
     <Flex flexShrink="0" justify="between" align="center" gap="3" pt="6" px="7">
       {children}
@@ -336,14 +314,8 @@ function Header({ children }: { children: ReactNode }) {
 }
 
 function Title({ children }: { children: ReactNode }) {
-  const compact = useOptionalModalContext()?.compact;
   return (
-    <Dialog.Title
-      size={compact ? "3" : "5"}
-      weight="bold"
-      mb="0"
-      style={{ color: "var(--color-text-high)" }}
-    >
+    <Dialog.Title size="5" mb="0" style={{ color: "var(--color-text-high)" }}>
       {children}
     </Dialog.Title>
   );
@@ -367,22 +339,18 @@ function Description({ children }: { children: ReactNode }) {
 // ---------------------------------------------------------------------------
 
 function Body({ children }: { children: ReactNode }) {
-  const { bodyRef, error, errorDetails, compact } = useModalContext();
+  const { bodyRef, error, errorDetails } = useModalContext();
   return (
     <ScrollArea
       type="auto"
-      mt={compact ? "0" : "5"}
+      mt="5"
       ref={bodyRef}
       scrollbars="vertical"
       className={styles.bodyScrollArea}
     >
       <Box
         className={styles.body}
-        style={{
-          padding: compact
-            ? "var(--space-4)"
-            : "0 var(--space-7) var(--space-5)",
-        }}
+        style={{ padding: "0 var(--space-7) var(--space-5)" }}
       >
         {error && <ErrorDisplay error={error} details={errorDetails} mb="5" />}
         {children}
@@ -407,10 +375,9 @@ function Footer({
   /** Cross-axis alignment, for footers holding more than a row of buttons. */
   align?: "start" | "center" | "end" | "baseline" | "stretch";
 }) {
-  const ctx = useOptionalModalContext();
-  const compact = ctx?.compact;
   // Even mode pads the content box, so the footer bleeds back out to its edges.
-  const evenlyPadded = ctx?.padding === "even";
+  const { padding } = useModalContext();
+  const evenlyPadded = padding === "even";
   return (
     <Box
       flexShrink="0"
@@ -430,11 +397,9 @@ function Footer({
         // The left inset is short by a ghost button's padding, so a ghost
         // action on the left lines up with the content.
         style={{
-          padding: compact
-            ? "14px var(--space-4)"
-            : evenlyPadded
-              ? EVEN_PADDING
-              : "20px var(--space-7) 20px calc(var(--space-7) - var(--space-3))",
+          padding: evenlyPadded
+            ? EVEN_PADDING
+            : "20px var(--space-7) 20px calc(var(--space-7) - var(--space-3))",
         }}
       >
         {children}

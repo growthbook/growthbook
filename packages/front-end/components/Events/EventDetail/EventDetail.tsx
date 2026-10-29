@@ -19,7 +19,6 @@ export const EventDetail: FC<EventDetailProps> = ({ event }) => {
       filename={event.data.event}
       code={JSON.stringify(event.data, null, 2)}
       expandable={false}
-      fontSize="0.7rem"
     />
   );
 };

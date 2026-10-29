@@ -408,7 +408,7 @@ export default function CloudUsage() {
             </DropdownMenu>
             <Box width="160px">
               <SelectField
-                size="small"
+                size="md"
                 containerClassName="mb-0"
                 options={monthOptions}
                 value={monthsAgo + ""}

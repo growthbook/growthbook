@@ -172,8 +172,7 @@ const InviteModal = ({ mutate, close, defaultRole }: Props) => {
       header="Invite Member"
       open={true}
       cta="Invite"
-      size="lg"
-      maxWidth={600}
+      size="md"
       closeCta={
         successfulInvites.length || failedInvites.length ? "Close" : "Cancel"
       }

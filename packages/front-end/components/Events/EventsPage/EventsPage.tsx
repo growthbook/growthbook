@@ -361,7 +361,7 @@ export const EventsPageContainer = () => {
       <Flex align="center" gap="2" flexShrink="0">
         <Text weight="semibold">Show</Text>
         <SelectField
-          size="small"
+          size="md"
           aria-label="Show events per page"
           containerStyles={{ control: (base) => ({ ...base, width: 72 }) }}
           containerClassName="mb-0"

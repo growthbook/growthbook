@@ -593,8 +593,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       close={onClose}
       open={isOpen}
       error={error ?? undefined}
-      size="lg"
-      maxWidth={600}
+      size="md"
       secondaryCTA={
         step === "confirm" ? (
           <Button
