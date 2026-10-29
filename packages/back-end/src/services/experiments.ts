@@ -2422,16 +2422,18 @@ const inUnitInterval = (n: number) => n >= 0 && n <= 1;
 
 // A write may keep an invalid value the experiment already stores but not
 // introduce one, so legacy data never blocks stopping the experiment, ending a
-// phase or editing one. Matched by value, not index, so inserting or deleting
-// phases doesn't re-check what was already there.
+// phase or editing one. Matched by value, not index, so deleting a phase
+// doesn't re-check the rest. Appended phases get no pass: every path that
+// starts a phase lets the user fix the values.
 export function assertValidExperimentPhases(
   phases: ExperimentPhase[],
   existing: ExperimentPhase[] = [],
 ): void {
   phases.forEach((phase, i) => {
+    const stored = i < existing.length ? existing : [];
     if (
       !inUnitInterval(phase.coverage) &&
-      !existing.some((p) => p.coverage === phase.coverage)
+      !stored.some((p) => p.coverage === phase.coverage)
     ) {
       throw new BadRequestError(
         `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
@@ -2440,7 +2442,7 @@ export function assertValidExperimentPhases(
     const weights = phase.variationWeights;
     if (
       !areVariationWeightsValid(weights) &&
-      !existing.some((p) => isEqual(p.variationWeights, weights))
+      !stored.some((p) => isEqual(p.variationWeights, weights))
     ) {
       throw new BadRequestError(
         `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,

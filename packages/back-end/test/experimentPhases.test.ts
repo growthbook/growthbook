@@ -58,6 +58,30 @@ describe("assertValidExperimentPhases", () => {
       ).not.toThrow();
     });
 
+    it("rejects a new phase that copies its weights", () => {
+      expect(() =>
+        assertValidExperimentPhases(
+          [
+            { ...stale, dateEnded: new Date() },
+            { ...stale, coverage: 1 },
+          ],
+          [stale],
+        ),
+      ).toThrow(/invalid_variation_weights: phase 1/);
+    });
+
+    it("rejects a new phase that copies its coverage", () => {
+      expect(() =>
+        assertValidExperimentPhases(
+          [
+            { ...stale, dateEnded: new Date() },
+            { ...stale, variationWeights: [0.34, 0.33, 0.33] },
+          ],
+          [stale],
+        ),
+      ).toThrow(/invalid_coverage: phase 1/);
+    });
+
     it("allows deleting a phase before it", () => {
       expect(() =>
         assertValidExperimentPhases([stale], [phase(), stale]),
