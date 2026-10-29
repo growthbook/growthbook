@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
@@ -49,11 +49,66 @@ interface memberOrgProps {
 
 const numberFormatter = new Intl.NumberFormat();
 
-const MEMBER_RANGES: Record<string, { min?: number; max?: number }> = {
-  "1-9": { min: 1, max: 9 },
-  "10-49": { min: 10, max: 49 },
-  "50+": { min: 50 },
+const MEMBER_RANGES: Record<
+  string,
+  { min?: number; max?: number; label: string }
+> = {
+  "1-9": { min: 1, max: 9, label: "1–9 members" },
+  "10-49": { min: 10, max: 49, label: "10–49 members" },
+  "50+": { min: 50, label: "50+ members" },
 };
+
+type FilterOptions = [value: string, label: string][];
+
+// What each org filter offers besides "all"; URL values outside these are ignored
+function getOrgFilterOptions() {
+  const cloud = isCloud();
+  const cloudStatuses: FilterOptions = [
+    ["trialing", "Trial"],
+    ["past_due", "Past due"],
+    ["canceled", "Canceled"],
+  ];
+  const options: Partial<Record<keyof OrgFilters, FilterOptions>> = {
+    plan: cloud
+      ? [
+          ["starter", "Starter"],
+          ["pro", "Pro"],
+          ["enterprise", "Enterprise"],
+        ]
+      : [],
+    status: [
+      ...(cloud ? cloudStatuses : []),
+      ["suspended", "Suspended"],
+      ["disabled", "Disabled"],
+    ],
+    members: Object.entries(MEMBER_RANGES).map(([value, r]) => [
+      value,
+      r.label,
+    ]),
+    createdDays: [
+      ["7", "Created in the last 7 days"],
+      ["30", "Created in the last 30 days"],
+      ["90", "Created in the last 90 days"],
+      ["365", "Created in the last year"],
+    ],
+    loginMethod: cloud
+      ? [
+          ["sso", "SSO"],
+          ["sso_required", "SSO required"],
+          ["none", "No SSO"],
+        ]
+      : [],
+  };
+  return options;
+}
+
+function optionItems(options: FilterOptions = []) {
+  return options.map(([value, label]) => (
+    <SelectItem key={value} value={value}>
+      {label}
+    </SelectItem>
+  ));
+}
 
 function formatSuperAdmin(superAdmin: SuperAdmin | undefined) {
   const normalized = normalizeSuperAdmin(superAdmin);
@@ -91,16 +146,22 @@ const DEFAULT_MEMBER_FILTERS: MemberFilters = {
 function useQueryFilters<T extends Record<string, string | number | boolean>>(
   defaults: T,
   prefix = "",
+  options: Partial<Record<keyof T, FilterOptions>> = {},
 ): [T, Dispatch<SetStateAction<T>>] {
   const router = useRouter();
   const filters = { ...defaults };
   for (const key of Object.keys(defaults) as (keyof T & string)[]) {
     const raw = router.query[prefix + key];
     if (typeof raw !== "string") continue;
+    // A stale or hand-edited link can't set a value no control offers
+    const allowed = options[key];
+    if (allowed && !allowed.some(([value]) => value === raw)) continue;
     const fallback = defaults[key];
     filters[key] = (
       typeof fallback === "number"
-        ? parseInt(raw) || fallback
+        ? parseInt(raw) > 0
+          ? parseInt(raw)
+          : fallback
         : typeof fallback === "boolean"
           ? raw === "1"
           : raw
@@ -132,9 +193,19 @@ function useDebouncedSearch<T extends { search: string; page: number }>(
   setFilters: Dispatch<SetStateAction<T>>,
 ) {
   const [input, setInput] = useState(search);
+  // The last search this input wrote, to tell it apart from URL changes made
+  // elsewhere, like the Admin nav link clearing the search
+  const written = useRef(search);
+  useEffect(() => {
+    if (search !== written.current) {
+      written.current = search;
+      setInput(search);
+    }
+  }, [search]);
   useEffect(() => {
     const timeout = setTimeout(() => {
       const next = input.trim();
+      written.current = next;
       setFilters((f) =>
         f.search === next ? f : { ...f, search: next, page: 1 },
       );
@@ -157,6 +228,7 @@ function OrganizationList({
     filters;
   const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
   const [orgModalOpen, setOrgModalOpen] = useState(false);
+  const options = getOrgFilterOptions();
 
   const params = new URLSearchParams({ page: String(page), search });
   if (plan !== "all") params.set("plan", plan);
@@ -221,9 +293,7 @@ function OrganizationList({
             setValue={filterSetter("plan")}
           >
             <SelectItem value="all">All plans</SelectItem>
-            <SelectItem value="starter">Starter</SelectItem>
-            <SelectItem value="pro">Pro</SelectItem>
-            <SelectItem value="enterprise">Enterprise</SelectItem>
+            {optionItems(options.plan)}
           </Select>
         )}
         <Select
@@ -232,11 +302,7 @@ function OrganizationList({
           setValue={filterSetter("status")}
         >
           <SelectItem value="all">All statuses</SelectItem>
-          {isCloud() && <SelectItem value="trialing">Trial</SelectItem>}
-          {isCloud() && <SelectItem value="past_due">Past due</SelectItem>}
-          {isCloud() && <SelectItem value="canceled">Canceled</SelectItem>}
-          <SelectItem value="suspended">Suspended</SelectItem>
-          <SelectItem value="disabled">Disabled</SelectItem>
+          {optionItems(options.status)}
         </Select>
         <Select
           aria-label="Members"
@@ -244,9 +310,7 @@ function OrganizationList({
           setValue={filterSetter("members")}
         >
           <SelectItem value="all">Any number of members</SelectItem>
-          <SelectItem value="1-9">1–9 members</SelectItem>
-          <SelectItem value="10-49">10–49 members</SelectItem>
-          <SelectItem value="50+">50+ members</SelectItem>
+          {optionItems(options.members)}
         </Select>
         <Select
           aria-label="Created"
@@ -254,10 +318,7 @@ function OrganizationList({
           setValue={filterSetter("createdDays")}
         >
           <SelectItem value="all">Created any time</SelectItem>
-          <SelectItem value="7">Created in the last 7 days</SelectItem>
-          <SelectItem value="30">Created in the last 30 days</SelectItem>
-          <SelectItem value="90">Created in the last 90 days</SelectItem>
-          <SelectItem value="365">Created in the last year</SelectItem>
+          {optionItems(options.createdDays)}
         </Select>
         {isCloud() && (
           <Select
@@ -266,9 +327,7 @@ function OrganizationList({
             setValue={filterSetter("loginMethod")}
           >
             <SelectItem value="all">Any login method</SelectItem>
-            <SelectItem value="sso">SSO</SelectItem>
-            <SelectItem value="sso_required">SSO required</SelectItem>
-            <SelectItem value="none">No SSO</SelectItem>
+            {optionItems(options.loginMethod)}
           </Select>
         )}
         {data && (
@@ -529,7 +588,11 @@ function MemberList({
 export default function Admin() {
   const router = useRouter();
   const { license, superAdmin } = useUser();
-  const [orgFilters, setOrgFilters] = useQueryFilters(DEFAULT_ORG_FILTERS);
+  const [orgFilters, setOrgFilters] = useQueryFilters(
+    DEFAULT_ORG_FILTERS,
+    "",
+    getOrgFilterOptions(),
+  );
   const [memberFilters, setMemberFilters] = useQueryFilters(
     DEFAULT_MEMBER_FILTERS,
     "members.",
