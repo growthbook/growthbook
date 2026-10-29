@@ -2,7 +2,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
   const sdkInfo = {
     js: {
       name: "JS SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -23,6 +23,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -85,7 +94,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     react: {
       name: "React SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -114,6 +123,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -285,7 +303,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     node: {
       name: "Node SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-js",
       examples: [
@@ -308,19 +326,28 @@ export const SdkSupportedFeatures = ({ sdk }) => {
           experimentation: "All versions",
         },
         {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
+        },
+        {
           savedGroupReferencesV2: "≥ v1.8.0",
         },
         {
           contextualBandits: "≥ v1.7.0",
         },
         {
+          trackingPlugin: "≥ v1.7.0",
+        },
+        {
           caseInsensitiveMembership: "≥ v1.6.4",
         },
         {
           caseInsensitiveRegex: "≥ v1.6.3",
-        },
-        {
-          trackingPlugin: "≥ v1.7.0",
         },
         {
           savedGroupReferences: "≥ v1.1.0",
@@ -402,7 +429,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     python: {
       name: "Python SDK",
-      version: "3.2.0",
+      version: "3.2.2",
       github: "https://github.com/growthbook/growthbook-python",
       examples: [],
       packageRepos: [
@@ -589,7 +616,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     java: {
       name: "Java SDK",
-      version: "0.11.1",
+      version: "0.11.3",
       github: "https://github.com/growthbook/growthbook-sdk-java",
       examples: [
         {
@@ -764,7 +791,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     kotlin: {
       name: "Kotlin SDK",
-      version: "7.6.0",
+      version: "9.0.0",
       github: "https://github.com/growthbook/growthbook-kotlin",
       examples: [],
       packageRepos: [
@@ -779,6 +806,9 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          contextualBandits: "≥ v8.0.0",
         },
         {
           trackingPlugin: "≥ v7.8.0",
@@ -820,7 +850,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     swift: {
       name: "Swift SDK",
-      version: "1.2.4",
+      version: "1.3.4",
       github: "https://github.com/growthbook/growthbook-swift",
       examples: [],
       packageRepos: [
@@ -879,7 +909,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     reactNative: {
       name: "React Native SDK",
-      version: "1.8.0",
+      version: "2.0.0",
       github:
         "https://github.com/growthbook/growthbook/tree/main/packages/sdk-react",
       examples: [
@@ -900,6 +930,15 @@ export const SdkSupportedFeatures = ({ sdk }) => {
         },
         {
           experimentation: "All versions",
+        },
+        {
+          interleaving: "≥ v2.0.0",
+        },
+        {
+          savedGroupReferencesRemote: "≥ v2.0.0",
+        },
+        {
+          contextualBanditsAuto: "≥ v2.0.0",
         },
         {
           savedGroupReferencesV2: "≥ v1.8.0",
@@ -1236,7 +1275,7 @@ export const SdkSupportedFeatures = ({ sdk }) => {
     },
     flutter: {
       name: "Flutter SDK",
-      version: "4.4.0",
+      version: "4.5.0",
       github: "https://github.com/growthbook/growthbook-flutter",
       examples: [],
       packageRepos: [

@@ -1,6 +1,6 @@
 # Changelog
 
-## **2.0.0** - Unreleased
+## **2.0.0** - Oct 29, 2026
 
 - **Breaking:** targeting conditions are strict about types. An attribute only matches a condition of the same type, with no conversions between strings, numbers, booleans and null. Missing attributes no longer count as `0` in comparisons, and version operators no longer convert numbers or missing values. See [Updating to 2.0.0](https://docs.growthbook.io/lib/js#updating-to-200)
 - Negated operators (`$ne`, `$nin`, `$not`, `$vne`, `$notInGroup`) are always the exact opposite of their positive form
