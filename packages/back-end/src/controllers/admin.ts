@@ -1,5 +1,6 @@
 import { Response } from "express";
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import pick from "lodash/pick";
 import { parseIntWithDefault } from "shared/util";
 import {
@@ -616,12 +617,17 @@ export async function _dangerousAdminPutMember(
   ) {
     updates.authSubject = "";
   }
-  // Changing anyone's email lets you reset their password and take over the
-  // account, so only full super admins can do it
-  if (updates.email !== undefined && req.superAdmin !== true) {
+  // Each of these lets another identity take over the account, so only full super admins can do it
+  if (
+    (updates.email !== undefined ||
+      updates.authSubject !== undefined ||
+      updates.verified === false) &&
+    req.superAdmin !== true
+  ) {
     return res.status(403).json({
       status: 403,
-      message: "Only full super admins can change a user's email",
+      message:
+        "Only full super admins can change a user's email, clear their verified status, or reset their sign-in method",
     });
   }
   if (
@@ -667,13 +673,18 @@ export async function _dangerousAdminPutMember(
   const orig = pick(member, Object.keys(updates));
   await updateUser(userId, updates);
 
+  // The IdP subject is an identifier, so the audit log only records whether one was bound
+  const forAudit = (u: Partial<UserInterface>) =>
+    u.authSubject === undefined
+      ? u
+      : { ...omit(u, "authSubject"), authSubjectBound: !!u.authSubject };
   await req.audit({
     event: "user.update",
     entity: {
       object: "user",
       id: userId,
     },
-    details: auditDetailsUpdate(orig, updates),
+    details: auditDetailsUpdate(forAudit(orig), forAudit(updates)),
   });
 
   return res.status(200).json({

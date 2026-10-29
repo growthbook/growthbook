@@ -33,7 +33,7 @@ const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   metadata: "Edit organization details",
   suspend: "Suspend and disable organizations",
   create: "Create organizations",
-  users: "Edit user names, verified status, and sign-in methods",
+  users: "Edit user names and mark emails verified",
   grant: "Grant super admin access",
 };
 
@@ -115,7 +115,7 @@ const EditMember: FC<{
           label="Verified email"
           value={verified}
           setValue={setVerified}
-          disabled={!canEditDetails}
+          disabled={!canEditDetails || (member.verified && superAdmin !== true)}
         />
         {member.authSubject && (
           <>
@@ -129,7 +129,7 @@ const EditMember: FC<{
               label="Reset sign-in method"
               value={resetAuthSubject}
               setValue={setResetAuthSubject}
-              disabled={!canEditDetails}
+              disabled={superAdmin !== true}
             />
           </>
         )}
