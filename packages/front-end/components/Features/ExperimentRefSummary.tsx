@@ -23,6 +23,7 @@ import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { coveragePercentFormatter } from "@/services/utils";
 import ValueDisplay from "./ValueDisplay";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 import { ValueDiffProvider } from "./ValueDiffContext";
@@ -204,7 +205,9 @@ export default function ExperimentRefSummary({
       </Flex>
       <Flex direction="row" gap="2" mb="3">
         <Text weight="medium">INCLUDE</Text>
-        <PlainEntityBadge label={percentFormatter.format(effectiveCoverage)} />
+        <PlainEntityBadge
+          label={coveragePercentFormatter.format(effectiveCoverage)}
+        />
         of units in the {isBandit ? "Bandit" : "experiment"}
         {hasNamespace && (
           <>
@@ -212,7 +215,7 @@ export default function ExperimentRefSummary({
             <PlainEntityBadge label={percentFormatter.format(namespaceRange)} />
             of the namespace and
             <PlainEntityBadge
-              label={percentFormatter.format(phase?.coverage ?? 1)}
+              label={coveragePercentFormatter.format(phase?.coverage ?? 1)}
             />
             exposure)
           </>

@@ -173,6 +173,12 @@ export function percentToDecimal(val: string, precision: number = 4): number {
 export const VARIATION_WEIGHT_DECIMALS = 2;
 export const COVERAGE_DECIMALS = 4;
 
+// A traffic share, to the precision its inputs take.
+export const coveragePercentFormatter = new Intl.NumberFormat(undefined, {
+  style: "percent",
+  maximumFractionDigits: COVERAGE_DECIMALS,
+});
+
 // Truncates typing to 3 integer digits and `decimals` decimal places.
 export function capTypedPercent(raw: string, decimals: number): string {
   const match = raw.match(

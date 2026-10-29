@@ -20,7 +20,7 @@ import InlineCode from "@/components/SyntaxHighlighting/InlineCode";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import MonitoredIcon from "@/components/Features/RuleModal/MonitoredIcon";
-import { decimalToPercent } from "@/services/utils";
+import { coveragePercentFormatter } from "@/services/utils";
 import {
   NodeState,
   resolveNodeStatus,
@@ -196,10 +196,9 @@ function PopoverPatchDisplay({
     const k = (s: string) => `${ai}-${s}`;
 
     if (p.coverage !== null && p.coverage !== undefined) {
-      const displayCov = decimalToPercent(p.coverage);
       coverageItems.push(
         <PopoverEffectRow key={k("cov")} label="Rollout %">
-          {displayCov}%
+          {coveragePercentFormatter.format(p.coverage)}
         </PopoverEffectRow>,
       );
     }

@@ -11,7 +11,7 @@ import { calculateNamespaceCoverage, getNamespaceRanges } from "shared/util";
 import { getValidDate } from "shared/dates";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
-import { formatTrafficSplit } from "@/services/utils";
+import { coveragePercentFormatter, formatTrafficSplit } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MetricName from "@/components/Metrics/MetricName";
 import Badge from "@/ui/Badge";
@@ -264,7 +264,9 @@ export function renderUserTargetingPhases(
     if (coverageChanged || weightsChanged) {
       const fmtTraffic = (p: PhaseTargeting) => {
         const cov =
-          p.coverage !== undefined ? percentFormatter.format(p.coverage) : "—";
+          p.coverage !== undefined
+            ? coveragePercentFormatter.format(p.coverage)
+            : "—";
         const split = p.variationWeights?.length
           ? `, ${formatTrafficSplit(p.variationWeights, 0)} split`
           : "";

@@ -28,6 +28,7 @@ import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { coveragePercentFormatter } from "@/services/utils";
 import { Results } from "./ResultsIndicator";
 
 const StopExperimentForm: FC<{
@@ -90,11 +91,6 @@ const StopExperimentForm: FC<{
   const phases = experiment.phases || [];
   const lastPhaseIndex = phases.length - 1;
   const lastPhase = phases[lastPhaseIndex];
-
-  const percentFormatter = new Intl.NumberFormat(undefined, {
-    style: "percent",
-    maximumFractionDigits: 2,
-  });
 
   const recommendedShip = useRecommendedShip(
     experiment,
@@ -411,7 +407,9 @@ const StopExperimentForm: FC<{
             (lastPhase?.coverage ?? 1) < 1 ? (
               <Callout status="warning" mb="2" mt="-2">
                 Currently only{" "}
-                <strong>{percentFormatter.format(lastPhase.coverage)}</strong>{" "}
+                <strong>
+                  {coveragePercentFormatter.format(lastPhase.coverage)}
+                </strong>{" "}
                 of traffic is directed at this experiment.
                 <br />
                 Upon rollout, <strong>100%</strong> of traffic will be directed

@@ -41,7 +41,7 @@ import {
   type CheckListItem,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
 import { summarizeChecklist } from "@/components/PreLaunchChecklist/checklistSummary";
-import { decimalToPercent } from "@/services/utils";
+import { coveragePercentFormatter } from "@/services/utils";
 
 export interface Props {
   cb: ApiContextualBanditInterface;
@@ -180,7 +180,7 @@ export default function StartContextualBanditModal({
   startContextualBandit,
   close,
 }: Props) {
-  const coveragePct = cb.coverage != null ? decimalToPercent(cb.coverage) : 100;
+  const coveragePct = coveragePercentFormatter.format(cb.coverage ?? 1);
   const hasAttributeTargeting = !!(cb.condition && cb.condition !== "{}");
   const hasSavedGroupTargeting = !!cb.savedGroups?.length;
   const hasPrerequisites = !!cb.prerequisites?.length;
@@ -246,7 +246,7 @@ export default function StartContextualBanditModal({
           >
             <Flex direction="column" gap="4">
               <TargetingSummaryRow label="Traffic" inline>
-                <Text>{coveragePct}% included</Text>
+                <Text>{coveragePct} included</Text>
               </TargetingSummaryRow>
               {hasAttributeTargeting && (
                 <TargetingSummaryRow label="Attribute targeting">

@@ -39,6 +39,7 @@ import { useTargetingDefaults } from "@/components/Experiment/useExperimentTarge
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
+import { coveragePercentFormatter } from "@/services/utils";
 import FunnelConnector from "./FunnelConnector";
 import { ImplementationColumn } from "./ImplementationColumn";
 import VariationValuesTable from "./VariationValuesTable";
@@ -550,7 +551,7 @@ export default function TrafficAllocationFunnel({
                 />
               ) : (
                 <Text color="text-high">
-                  {percentFormatter.format(coverage)}
+                  {coveragePercentFormatter.format(coverage)}
                 </Text>
               )}
             </FunnelRow>

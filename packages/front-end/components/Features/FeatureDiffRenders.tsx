@@ -48,6 +48,7 @@ import {
 import { COMPACT_DIFF_STYLES } from "@/components/AuditHistoryExplorer/CompareAuditEventsUtils";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
 import SortedTags from "@/components/Tags/SortedTags";
+import { coveragePercentFormatter } from "@/services/utils";
 import styles from "./FeatureDiffRenders.module.scss";
 
 // Resolves an experiment ID to its display name and renders it as a link.
@@ -159,11 +160,6 @@ function ValueChangedField({
     </div>
   );
 }
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 1,
-});
 
 function getRuleTypeLabel(type: FeatureRule["type"]): string {
   switch (type) {
@@ -486,7 +482,7 @@ function RuleHeading({ rule, index }: { rule: FeatureRule; index: number }) {
     const v = valStr.slice(0, 40);
     detail = `value: ${v}${valStr.length > 40 ? "…" : ""}`;
   } else if (rule.type === "rollout") {
-    detail = `${percentFormatter.format(rule.coverage)} of ${rule.hashAttribute}${rule.seed ? `, seed: ${rule.seed}` : ""}`;
+    detail = `${coveragePercentFormatter.format(rule.coverage)} of ${rule.hashAttribute}${rule.seed ? `, seed: ${rule.seed}` : ""}`;
   } else if (rule.type === "experiment") {
     detail = `key: ${rule.trackingKey}`;
   } else if (rule.type === "experiment-ref") {
@@ -738,10 +734,10 @@ function RuleFieldDiffs({
         key="coverage"
         label="Coverage"
         changed
-        oldNode={percentFormatter.format(
+        oldNode={coveragePercentFormatter.format(
           (pre as { coverage: number }).coverage,
         )}
-        newNode={percentFormatter.format(
+        newNode={coveragePercentFormatter.format(
           (post as { coverage: number }).coverage,
         )}
       />,
@@ -917,7 +913,7 @@ function NewRuleDetails({
         label="Coverage"
         changed
         oldNode={<em>unset</em>}
-        newNode={percentFormatter.format(rule.coverage)}
+        newNode={coveragePercentFormatter.format(rule.coverage)}
       />,
       <ValueChangedField
         key="value"

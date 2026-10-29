@@ -3,15 +3,11 @@ import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
 import ValidateValue from "@/components/Features/ValidateValue";
 import Text from "@/ui/Text";
+import { coveragePercentFormatter } from "@/services/utils";
 import { AttributeBadge } from "./AttributeBadge";
 import { PlainEntityBadge } from "./EntityBadge";
 import ConfigBackedSummary from "./ConfigBackedSummary";
 import ValueDisplay from "./ValueDisplay";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 export default function RolloutSummary({
   value,
@@ -92,7 +88,7 @@ export default function RolloutSummary({
           </Box>
           <Flex align="center" gap="2">
             <PlainEntityBadge
-              label={percentFormatter.format(displayCoverage)}
+              label={coveragePercentFormatter.format(displayCoverage)}
             />
             of units
           </Flex>

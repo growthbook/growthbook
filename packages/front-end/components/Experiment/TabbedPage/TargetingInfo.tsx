@@ -8,7 +8,7 @@ import {
 import { changedTargeting, hasAttributeCondition } from "shared/experiments";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
-import { formatTrafficSplit } from "@/services/utils";
+import { coveragePercentFormatter, formatTrafficSplit } from "@/services/utils";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ChangesTable, {
@@ -18,11 +18,6 @@ import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import SetupFieldRow, { SetupFieldGroup } from "./SetupFieldRow";
-
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
 
 function formatRanges(ranges: [number, number][]): string {
   return ranges.map(([start, end]) => `[${start} - ${end}]`).join(" ");
@@ -85,7 +80,9 @@ function useTargetingFields(
         return (
           <>
             {name}{" "}
-            <Text color="text-low">({percentFormatter.format(coverage)})</Text>
+            <Text color="text-low">
+              ({coveragePercentFormatter.format(coverage)})
+            </Text>
             {ranges.length > 0 && (
               <Text size="sm" color="text-low" ml="1">
                 {formatRanges(ranges)}
@@ -98,7 +95,7 @@ function useTargetingFields(
     {
       key: "coverage",
       label: "Traffic percent",
-      render: ({ coverage }) => percentFormatter.format(coverage),
+      render: ({ coverage }) => coveragePercentFormatter.format(coverage),
     },
     ...(experiment.type !== "multi-armed-bandit"
       ? [
