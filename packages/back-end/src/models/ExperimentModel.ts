@@ -1033,8 +1033,17 @@ export async function updateExperiment({
     throw new Error("Cannot set empty name for experiment!");
 
   validateMetricOverrides(allChanges.metricOverrides);
-  if (allChanges.phases) {
-    assertValidExperimentPhases(allChanges.phases, experiment.phases);
+  const phases = allChanges.phases ?? experiment.phases;
+  const startsServing =
+    allChanges.status === "running" && experiment.status !== "running";
+  if (allChanges.phases || startsServing) {
+    assertValidExperimentPhases(
+      phases,
+      experiment.phases,
+      startsServing
+        ? Math.min(experiment.phases.length, phases.length - 1)
+        : experiment.phases.length,
+    );
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
   assertValidBucketVersions({ ...experiment, ...allChanges }, experiment);
