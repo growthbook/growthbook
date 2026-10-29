@@ -26,24 +26,25 @@ export default function LabelWithHelp({
         {label}
         {help ? (
           <Tooltip content={help}>
-            <span
-              tabIndex={0}
-              onClick={guardClick}
-              aria-label={
-                typeof label === "string"
-                  ? `More information about ${label}`
-                  : "More information"
-              }
-              style={{ display: "inline-flex" }}
-            >
-              <PiInfo color="var(--color-text-low)" />
-            </span>
+            <Flex display="inline-flex" asChild>
+              <span
+                tabIndex={0}
+                onClick={guardClick}
+                aria-label={
+                  typeof label === "string"
+                    ? `More information about ${label}`
+                    : "More information"
+                }
+              >
+                <PiInfo color="var(--color-text-low)" />
+              </span>
+            </Flex>
           </Tooltip>
         ) : null}
         {adornment ? (
-          <span onClick={guardClick} style={{ display: "inline-flex" }}>
-            {adornment}
-          </span>
+          <Flex display="inline-flex" asChild>
+            <span onClick={guardClick}>{adornment}</span>
+          </Flex>
         ) : null}
       </span>
     </Flex>
