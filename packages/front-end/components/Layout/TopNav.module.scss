@@ -112,5 +112,5 @@
   display: flex;
   flex-shrink: 0;
   margin-right: calc(-1 * var(--space-2));
-  margin-left: 12px;
+  margin-left: var(--space-3);
 }
