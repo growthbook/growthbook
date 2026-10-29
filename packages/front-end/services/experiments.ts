@@ -1559,3 +1559,26 @@ export function getClusterUnitsLabel(
   }
   return getUnitDisplayName(settings.exposureQueryIdentifierType);
 }
+
+// Sub-unit counts only exist for metrics rolled up from the sub-unit, not for
+// metrics analyzed directly per cluster.
+export function getClusterSubUnitsLabel(
+  settings:
+    | Pick<
+        ExperimentSnapshotSettings,
+        | "isClusterExperiment"
+        | "clusterSubUnitIdentifier"
+        | "exposureQueryIdentifierType"
+        | "clusterLevelMetricIds"
+      >
+    | undefined,
+  metricId: string,
+): string | undefined {
+  if (
+    !getClusterUnitsLabel(settings) ||
+    settings?.clusterLevelMetricIds?.includes(metricId)
+  ) {
+    return undefined;
+  }
+  return getUnitDisplayName(settings?.clusterSubUnitIdentifier);
+}

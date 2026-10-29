@@ -18,6 +18,8 @@ export interface MetricStats {
   count: number;
   stddev: number;
   mean: number;
+  //used in cluster experiments.
+  sub_count?: number;
 }
 
 export interface LegacyMetricAnalysis {

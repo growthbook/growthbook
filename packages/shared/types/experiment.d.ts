@@ -91,6 +91,14 @@ export type ExperimentUnhealthyData = {
   };
   lowPowered?: boolean;
   covariateImbalance?: boolean;
+  clusterAssignment?: {
+    rawDecimal: number;
+    mixedClusters: number;
+  };
+  clusterMapping?: {
+    rawDecimal: number;
+    multiClusterUnits: number;
+  };
 };
 
 export type ExperimentResultStatus =
@@ -430,6 +438,7 @@ export type ExperimentHealthSettings = {
   decisionFrameworkEnabled: boolean;
   srmThreshold: number;
   multipleExposureMinPercent: number;
+  clusterIssueMinPercent: number;
   experimentMinLengthDays: number;
 };
 

@@ -9,6 +9,7 @@ import type { QueryInterface } from "shared/types/query";
 import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
 import { getUnitDimQueryName } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import {
+  analyzeExperimentClusterHealth,
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
   parseStatsEngineResult,
@@ -323,6 +324,103 @@ describe("analyzeExperimentTraffic", () => {
     expect(
       analyzeExperimentTraffic({ variations, rows: [] }).multipleExposures,
     ).toBeUndefined();
+  });
+});
+
+describe("analyzeExperimentClusterHealth", () => {
+  const reliability = (
+    cluster_id: string,
+    variation: string,
+    units: number,
+    pct: number,
+  ) => ({
+    kind: "reliability" as const,
+    cluster_id,
+    variation,
+    metric_a: units,
+    metric_b: pct,
+  });
+  const assignment = (total: number, mixed: number) => ({
+    kind: "assignment" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: total,
+    metric_b: mixed,
+  });
+  const mapping = (total: number, multi: number) => ({
+    kind: "mapping" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: total,
+    metric_b: multi,
+  });
+
+  it("splits reliability/assignment/mapping rows into the three results", () => {
+    const result = analyzeExperimentClusterHealth({
+      variations,
+      rows: [
+        reliability("region_a", "treatment", 500, 0.5),
+        reliability("region_b", "control", 300, 0.3),
+        reliability("region_c", "control", 200, 0.2),
+        assignment(100, 3),
+        mapping(1000, 7),
+      ],
+    });
+
+    expect(result.clusterUnits.error).toBeUndefined();
+    expect(result.clusterUnits.clusters).toEqual([
+      { id: "region_a", variation: 1, units: 500, pct: 0.5 },
+      { id: "region_b", variation: 0, units: 300, pct: 0.3 },
+      { id: "region_c", variation: 0, units: 200, pct: 0.2 },
+    ]);
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 100,
+      mixedClusters: 3,
+    });
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 1000,
+      multiClusterUnits: 7,
+    });
+  });
+
+  it("uses -1 for unknown reliability variations", () => {
+    const result = analyzeExperimentClusterHealth({
+      variations,
+      rows: [reliability("region_a", "__unknown__", 10, 1)],
+    });
+    expect(result.clusterUnits.clusters[0].variation).toBe(-1);
+  });
+
+  it("defaults to zero when summary rows are absent", () => {
+    const result = analyzeExperimentClusterHealth({ variations, rows: [] });
+    expect(result.clusterUnits.clusters).toEqual([]);
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 0,
+      mixedClusters: 0,
+    });
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 0,
+      multiClusterUnits: 0,
+    });
+  });
+
+  it("returns empty/zeroed results and the error when the query failed", () => {
+    const result = analyzeExperimentClusterHealth({
+      variations,
+      rows: [],
+      error: "boom",
+    });
+    expect(result.clusterUnits).toEqual({ clusters: [], error: "boom" });
+    expect(result.clusterAssignment).toEqual({
+      totalClusters: 0,
+      mixedClusters: 0,
+      error: "boom",
+    });
+    expect(result.clusterSubUnitMapping).toEqual({
+      totalUnits: 0,
+      multiClusterUnits: 0,
+      error: "boom",
+    });
   });
 });
 

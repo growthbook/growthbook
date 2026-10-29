@@ -34,7 +34,10 @@ import { getAggregateMetricColumnLegacyMetrics } from "back-end/src/integrations
 import { getMaxHoursToConvert } from "back-end/src/integrations/sql/dates/max-hours-to-convert";
 import { getFactMetricCTE } from "back-end/src/integrations/sql/ctes/fact-metric-cte";
 import { getExperimentFactMetricsQuery } from "back-end/src/integrations/sql/queries/experiment-fact-metrics-query";
-import { N_STAR_VALUES } from "back-end/src/services/experimentQueries/constants";
+import {
+  MAX_ROWS_CLUSTER_UNITS_QUERY,
+  N_STAR_VALUES,
+} from "back-end/src/services/experimentQueries/constants";
 import { getFeatureEvalDiagnosticsQuery } from "back-end/src/integrations/sql/queries/feature-eval-diagnostics-query";
 import { getExperimentExposuresQuery } from "back-end/src/integrations/sql/queries/experiment-exposures-query";
 import { factMetricFactory } from "./factories/FactMetric.factory";
@@ -2654,6 +2657,15 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toMatch(/MAX\(cap\.m0_value_cap\) AS m0_value_cap/);
     expect(normalized).toContain("m0_main_cap_value");
 
+    // Metric Drilldowns: the per-cluster sub-unit count is carried through the
+    // rollup and summed downstream, so drilldowns can show user counts even for
+    // ratio metrics (whose denominator is the denominator metric, not users).
+    expect(normalized).toMatch(/COUNT\(DISTINCT m\.user_id\) AS sub_count/);
+    expect(normalized).toMatch(
+      /SUM\(COALESCE\(m\.sub_count, 0\)\) AS sub_count/,
+    );
+    expect(normalized).not.toContain("m0_sub_count");
+
     expect(format(normalized, "bigquery")).toMatchSnapshot();
   });
 
@@ -2689,9 +2701,16 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     );
     expect(normalized).toMatch(/__userMetricJoin.*m\.region_id = d\.region_id/);
 
+    // Multi-cluster sub-units (region_id = '__multiple__') are dropped before the
+    // region collapse, so they never form a phantom cluster in the analysis.
+    expect(normalized).toContain("region_id <> '__multiple__'");
+
     // A standard per-unit analysis: no sub-unit rollup or mean-to-ratio conversion.
     expect(normalized).not.toContain("__clusterRollup");
     expect(normalized).not.toContain("m0_denominator");
+    // Cluster-level metrics are already at the cluster grain, so there is no
+    // sub-unit rollup and thus no sub-unit count.
+    expect(normalized).not.toContain("sub_count");
     expect(normalized).toContain("FROM __userMetricAgg m");
     expect(normalized).toContain("COUNT(*) AS users");
   });
@@ -2738,6 +2757,158 @@ describe("cluster experiment ratio analysis - bigquery", () => {
         },
       ),
     ).toThrow("cannot share a metric source cache");
+  });
+
+  const buildClusterTrafficSql = (clusterGrain: boolean): string =>
+    datasourceIntegration.getExperimentAggregateUnitsQuery({
+      settings: baseSettings,
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+        query: clusterExposureQuery.query,
+        identifierType: "region_id",
+      }),
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      useUnitsTable: true,
+      unitsTableFullName: "proj.ds.units",
+      clusterGrain,
+    });
+
+  it("counts traffic per sub-unit by default (no cluster collapse)", () => {
+    const normalized = buildClusterTrafficSql(false)
+      .replace(/\s+/g, " ")
+      .trim();
+    // Without clusterGrain the sub-unit rows are counted directly.
+    expect(normalized).not.toContain("__clusterCollapsedUnits");
+    expect(normalized).toMatch(/__distinctUnits AS \( SELECT region_id/);
+  });
+
+  it("collapses sub-units to one row per cluster for cluster-grain traffic", () => {
+    const normalized = buildClusterTrafficSql(true).replace(/\s+/g, " ").trim();
+
+    // Sub-units are rolled up to one row per cluster before counting, so the
+    // downstream COUNT(*) counts clusters (the randomization unit), not users.
+    expect(normalized).toContain("__clusterCollapsedUnits");
+    expect(normalized).toMatch(
+      /__clusterCollapsedUnits AS \([\s\S]*GROUP BY region_id/,
+    );
+    // The collapsed set resolves a single variation and exposure date per cluster.
+    expect(normalized).toMatch(/MIN\(first_exposure_timestamp\)/);
+    // __distinctUnits then reads the collapsed per-cluster set.
+    expect(normalized).toMatch(
+      /__distinctUnits AS \( SELECT region_id[\s\S]*FROM __clusterCollapsedUnits/,
+    );
+  });
+
+  const buildClusterHealthSql = (useUnitsTable: boolean): string =>
+    datasourceIntegration.getExperimentClusterHealthQuery({
+      settings: baseSettings,
+      unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+        query: clusterExposureQuery.query,
+        identifierType: "region_id",
+      }),
+      activationMetric: null,
+      dimensions: [],
+      segment: null,
+      factTableMap,
+      useUnitsTable,
+      unitsTableFullName: useUnitsTable ? "proj.ds.units" : undefined,
+    });
+
+  it("aggregates clusters once and reuses the aggregate for every branch", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    // A single per-cluster aggregate (cluster id, min/max assignment, sub-unit
+    // count) is computed once from the units table and reused by all branches.
+    expect(normalized).toMatch(
+      /__clusterAgg AS \([\s\S]*region_id AS cluster_id[\s\S]*MIN\(variation\) AS min_variation[\s\S]*MAX\(variation\) AS max_variation[\s\S]*COUNT\(DISTINCT user_id\) AS units[\s\S]*FROM proj\.ds\.units[\s\S]*GROUP BY region_id/,
+    );
+    // The units table is scanned once (by __clusterAgg); branches read the CTEs.
+    expect((normalized.match(/FROM proj\.ds\.units/g) ?? []).length).toBe(1);
+    expect(normalized).not.toContain("__rawExperiment");
+    expect(normalized).not.toContain("__experimentUnits");
+  });
+
+  it("emits a reliability branch with top-N clusters by sub-unit count", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    // Share of all surviving sub-units: numerator over a window SUM.
+    expect(normalized).toMatch(/\/ SUM\(units\) OVER \(\s*\) AS pct/);
+    // Reliability rows carry the cluster id, variation, and counts.
+    expect(normalized).toContain("'reliability' AS kind");
+    // Largest clusters first, capped at the row limit.
+    expect(normalized).toMatch(/ORDER BY units DESC/);
+    expect(normalized).toMatch(
+      new RegExp(`LIMIT ${MAX_ROWS_CLUSTER_UNITS_QUERY}`),
+    );
+  });
+
+  it("emits an assignment branch with total and mixed cluster counts", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    expect(normalized).toContain("'assignment' AS kind");
+    // Counts every cluster, flagging those with mixed assignment, off the shared
+    // per-cluster aggregate.
+    expect(normalized).toMatch(/COUNT\(\*\)[\s\S]*AS metric_a/);
+    expect(normalized).toMatch(
+      /SUM\(\s*CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END\s*\)[\s\S]*AS metric_b/,
+    );
+    expect(normalized).toMatch(/'assignment' AS kind[\s\S]*FROM __clusterAgg/);
+    // The __multiple__ pseudo-cluster is excluded so it does not inflate the
+    // total or mixed cluster counts.
+    expect(normalized).toMatch(
+      /'assignment' AS kind[\s\S]*?FROM __clusterAgg[\s\S]*?WHERE cluster_id <> '__multiple__'[\s\S]*?UNION ALL SELECT 'mapping'/,
+    );
+  });
+
+  it("emits a mapping branch counting multi-cluster sub-units", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    expect(normalized).toContain("'mapping' AS kind");
+    expect(normalized).toMatch(/SUM\(units\)[\s\S]*AS metric_a/);
+    expect(normalized).toMatch(
+      /SUM\(\s*CASE WHEN cluster_id = '__multiple__' THEN units ELSE 0 END\s*\)[\s\S]*AS metric_b/,
+    );
+    expect(normalized).toMatch(/'mapping' AS kind[\s\S]*FROM __clusterAgg/);
+  });
+
+  it("drops multi-cluster sub-units and mixed clusters from the reliability branch", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    // The reliability set only keeps real, single-assignment clusters.
+    expect(normalized).toMatch(
+      /__realClusters AS \([\s\S]*WHERE cluster_id <> '__multiple__'[\s\S]*AND min_variation = max_variation/,
+    );
+  });
+
+  it("builds units inline when no units table is available", () => {
+    const normalized = buildClusterHealthSql(false).replace(/\s+/g, " ").trim();
+
+    // Builds the sub-unit-grained units set inline, then aggregates per cluster.
+    expect(normalized).toContain("__rawExperiment");
+    expect(normalized).toContain("__experimentUnits");
+    expect(normalized).toMatch(
+      /__clusterAgg AS \([\s\S]*FROM __experimentUnits/,
+    );
+  });
+
+  it("marks a sub-unit's cluster id as __multiple__ when it maps to >1 cluster", () => {
+    // The inline units build collapses to one row per sub-unit and flags
+    // sub-units observed in more than one cluster.
+    const normalized = buildClusterHealthSql(false).replace(/\s+/g, " ").trim();
+
+    expect(normalized).toMatch(
+      /CASE WHEN count\(distinct e\.region_id\) > 1 THEN '__multiple__' ELSE max\(e\.region_id\) END\s*\) AS region_id/,
+    );
+  });
+
+  it("drops multi-cluster sub-units from the traffic query", () => {
+    const normalized = buildClusterTrafficSql(false)
+      .replace(/\s+/g, " ")
+      .trim();
+
+    expect(normalized).toContain("region_id <> '__multiple__'");
   });
 });
 

@@ -51,6 +51,7 @@ import {
 import {
   getBanditSRMValue,
   getExperimentSRMValue,
+  getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import {
@@ -6459,6 +6460,12 @@ export async function getExperimentAnalysisSummary({
       0,
     ) ?? null;
 
+  const srmTotalUnits =
+    getExperimentSRMVariationUnits(experimentSnapshot)?.reduce(
+      (acc, a) => acc + a,
+      0,
+    ) ?? null;
+
   const srm =
     experiment.type === "multi-armed-bandit"
       ? getBanditSRMValue(experimentSnapshot)
@@ -6469,6 +6476,7 @@ export async function getExperimentAnalysisSummary({
       srm,
       multipleExposures: experimentSnapshot.multipleExposures,
       totalUsers,
+      srmTotalUnits,
     };
 
     if (snapshotHealthPower?.type === "error") {
@@ -6492,6 +6500,22 @@ export async function getExperimentAnalysisSummary({
     if (snapshotCovariateImbalance) {
       analysisSummary.health.covariateImbalance = {
         isImbalanced: snapshotCovariateImbalance.isImbalanced,
+      };
+    }
+
+    const clusterAssignment = experimentSnapshot.health?.clusterAssignment;
+    if (clusterAssignment && !clusterAssignment.error) {
+      analysisSummary.health.clusterAssignment = {
+        totalClusters: clusterAssignment.totalClusters,
+        mixedClusters: clusterAssignment.mixedClusters,
+      };
+    }
+    const clusterSubUnitMapping =
+      experimentSnapshot.health?.clusterSubUnitMapping;
+    if (clusterSubUnitMapping && !clusterSubUnitMapping.error) {
+      analysisSummary.health.clusterSubUnitMapping = {
+        totalUnits: clusterSubUnitMapping.totalUnits,
+        multiClusterUnits: clusterSubUnitMapping.multiClusterUnits,
       };
     }
   }

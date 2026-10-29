@@ -15,6 +15,8 @@ import Link from "@/ui/Link";
 import SRMCard from "@/components/HealthTab/SRMCard";
 import CovariateImbalanceCard from "@/components/HealthTab/CovariateImbalanceCard";
 import MultipleExposuresCard from "@/components/HealthTab/MultipleExposuresCard";
+import ClusterIssueCard from "@/components/HealthTab/ClusterIssueCard";
+import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Button from "@/ui/Button";
@@ -324,6 +326,8 @@ export default function HealthTab({
   );
 }
 
+const numberFormatter = new Intl.NumberFormat();
+
 function HealthSnapshotCards({
   experiment,
   snapshot,
@@ -358,6 +362,32 @@ function HealthSnapshotCards({
   const totalUsers =
     traffic.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
 
+  const clusterTraffic =
+    snapshot.settings.isClusterExperiment && snapshot.health?.clusterTraffic
+      ? snapshot.health?.clusterTraffic
+      : null;
+  const srmTraffic = clusterTraffic ?? traffic;
+  const srmTotalUsers =
+    srmTraffic?.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
+
+  const clusterId = snapshot.settings.exposureQueryIdentifierType;
+  const subUnitId = snapshot.settings.clusterSubUnitIdentifier;
+  const clusterIds =
+    snapshot.settings.isClusterExperiment && clusterId && subUnitId
+      ? { cluster: clusterId, subUnit: subUnitId }
+      : null;
+  const clusterAssignment = snapshot.health?.clusterAssignment;
+  const clusterSubUnitMapping = snapshot.health?.clusterSubUnitMapping;
+  const oneMixedCluster = clusterAssignment?.mixedClusters === 1;
+  const oneMultiClusterUnit = clusterSubUnitMapping?.multiClusterUnits === 1;
+  // "1 of 25 region_id values": the noun follows the total, the verb the count.
+  const clusterNoun =
+    clusterAssignment?.totalClusters === 1 ? "value" : "values";
+  const subUnitNoun =
+    clusterSubUnitMapping?.totalUnits === 1 ? "value" : "values";
+
+  const isClusterExperiment = !!snapshot.settings.isClusterExperiment;
+
   const phaseObj = experiment.phases?.[phase];
 
   const variations = getLatestPhaseVariations(experiment).map((v, i) => {
@@ -376,19 +406,32 @@ function HealthSnapshotCards({
         traffic={traffic}
         variations={variations}
         isBandit={isBandit}
+        cluster={
+          snapshot.settings.isClusterExperiment &&
+          snapshot.settings.exposureQueryIdentifierType &&
+          snapshot.settings.clusterSubUnitIdentifier
+            ? {
+                identifier: snapshot.settings.exposureQueryIdentifierType,
+                subUnitIdentifier: snapshot.settings.clusterSubUnitIdentifier,
+                traffic: snapshot.health?.clusterTraffic,
+              }
+            : undefined
+        }
+        disableDimensionSRM={isClusterExperiment}
       />
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
         {!isBandit ? (
           <SRMCard
-            traffic={traffic}
+            traffic={srmTraffic}
             variations={variations}
-            totalUsers={totalUsers}
+            totalUsers={srmTotalUsers}
             onNotify={handleHealthNotification}
             snapshotId={snapshot.id}
             dataSource={datasource}
             exposureQuery={exposureQuery}
             healthTabConfigParams={healthTabConfigParams}
             canConfigHealthTab={hasPermissionToConfigHealthTag}
+            hideDimensions={isClusterExperiment}
           />
         ) : (
           <BanditSRMCard
@@ -399,7 +442,7 @@ function HealthSnapshotCards({
           />
         )}
       </div>
-      {!isBandit && (
+      {!isBandit && snapshot.settings.regressionAdjustmentEnabled && (
         <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
           <CovariateImbalanceCard
             experiment={experiment}
@@ -419,6 +462,115 @@ function HealthSnapshotCards({
           />
         </div>
       )}
+
+      {clusterIds && clusterSubUnitMapping ? (
+        <div id="clusterMapping" style={{ scrollMarginTop: "100px" }}>
+          <ClusterIssueCard
+            id="clusterMapping"
+            title="Cluster Mapping Check"
+            description={
+              <>
+                Detects whether each{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> belongs to
+                only one <IdentifierCode>{clusterIds.cluster}</IdentifierCode>
+              </>
+            }
+            affectedCount={clusterSubUnitMapping.multiClusterUnits}
+            totalCount={clusterSubUnitMapping.totalUnits}
+            error={clusterSubUnitMapping.error}
+            onNotify={handleHealthNotification}
+            healthyMessage={
+              <b>
+                Every <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
+                mapped to one{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>.
+              </b>
+            }
+            belowThresholdMessage={(threshold, share) => (
+              <>
+                {numberFormatter.format(
+                  clusterSubUnitMapping.multiClusterUnits,
+                )}{" "}
+                of {numberFormatter.format(clusterSubUnitMapping.totalUnits)}{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
+                {subUnitNoun} ({share}) appeared in more than one{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
+                {oneMultiClusterUnit ? "was" : "were"} removed from results, but
+                that is below your threshold of {threshold}.
+              </>
+            )}
+            warningMessage={(share) => (
+              <>
+                <strong>Cluster Mapping Warning</strong>.{" "}
+                {numberFormatter.format(
+                  clusterSubUnitMapping.multiClusterUnits,
+                )}{" "}
+                of {numberFormatter.format(clusterSubUnitMapping.totalUnits)}{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>{" "}
+                {subUnitNoun} ({share}) appeared in more than one{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> and{" "}
+                {oneMultiClusterUnit ? "was" : "were"} automatically removed
+                from results. Check that{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> is a
+                stable grouping for each{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode>.
+              </>
+            )}
+          />
+        </div>
+      ) : null}
+      {clusterIds && clusterAssignment ? (
+        <div id="clusterAssignment" style={{ scrollMarginTop: "100px" }}>
+          <ClusterIssueCard
+            id="clusterAssignment"
+            title="Cluster Assignment Check"
+            description={
+              <>
+                Detects whether every{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> in a{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> saw the
+                same variation
+              </>
+            }
+            affectedCount={clusterAssignment.mixedClusters}
+            totalCount={clusterAssignment.totalClusters}
+            error={clusterAssignment.error}
+            onNotify={handleHealthNotification}
+            healthyMessage={
+              <b>
+                Every <IdentifierCode>{clusterIds.cluster}</IdentifierCode> had
+                a single variation.
+              </b>
+            }
+            belowThresholdMessage={(threshold, share) => (
+              <>
+                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
+                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
+                {clusterNoun} ({share}) had{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
+                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
+                removed from results, but that is below your threshold of{" "}
+                {threshold}.
+              </>
+            )}
+            warningMessage={(share) => (
+              <>
+                <strong>Cluster Assignment Warning</strong>.{" "}
+                {numberFormatter.format(clusterAssignment.mixedClusters)} of{" "}
+                {numberFormatter.format(clusterAssignment.totalClusters)}{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode>{" "}
+                {clusterNoun} ({share}) had{" "}
+                <IdentifierCode>{clusterIds.subUnit}</IdentifierCode> values in
+                more than one variation and {oneMixedCluster ? "was" : "were"}{" "}
+                automatically removed from results. Check that the{" "}
+                <IdentifierCode>{clusterIds.cluster}</IdentifierCode> in your
+                assignment query matches the attribute the SDK hashes on.
+              </>
+            )}
+          />
+        </div>
+      ) : null}
 
       {!isBandit &&
       !isHoldout &&

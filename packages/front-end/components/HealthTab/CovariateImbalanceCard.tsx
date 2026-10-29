@@ -113,9 +113,6 @@ export default function CovariateImbalanceCard({
         (snapshot.settings.guardrailMetrics?.length ?? 0)),
   );
 
-  // Check if CUPED is enabled for the experiment
-  const cupedEnabled = snapshot.settings.regressionAdjustmentEnabled;
-
   const learnMore = (
     <Link
       href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
@@ -155,13 +152,7 @@ export default function CovariateImbalanceCard({
         </Text>
         <Separator size="4" my="3" />
         <Box pt="2">
-          {!cupedEnabled ? (
-            <Box mt="2">
-              <Text color="text-low">
-                <i>Only available with CUPED enabled.</i>
-              </Text>
-            </Box>
-          ) : totalNumMetricsTested === 0 ? (
+          {totalNumMetricsTested === 0 ? (
             <Box mt="2">
               <Text color="text-low">
                 <i>
