@@ -140,11 +140,11 @@ $sidebarwidth: var(--app-rail-width, 240px);
 // keep their full padding past the edge, as the breadcrumb's first item does
 // on the left (HeaderBreadcrumb.module.scss). Over the app's zero margin for
 // ghost buttons (global-radix-overrides.scss).
-// 12px of visible space from the last notice's border to the sparkle: this
-// margin, the button's own 8px padding and the sparkle's 1px side bearing.
+// 12px from the last notice's border to the button's edge, where its hover
+// and open fills start.
 .aiAssistantButton.aiAssistantButton {
   margin-right: calc(-1 * var(--space-2)) !important;
-  margin-left: calc(12px - var(--space-2) - 1px) !important;
+  margin-left: 12px !important;
 }
 
 .dropdownItemIconColor {
