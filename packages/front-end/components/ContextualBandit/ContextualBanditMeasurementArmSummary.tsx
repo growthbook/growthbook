@@ -82,7 +82,8 @@ export default function ContextualBanditMeasurementArmSummary({
 
   const loadError = error ? (
     <Callout status="error" mt="2">
-      Could not refresh the measurement arm results: {error.message}
+      Could not {measurementArm ? "refresh" : "load"} the measurement arm
+      results: {error.message} Reload the page to try again.
     </Callout>
   ) : null;
 

@@ -15,7 +15,7 @@ export default function MetricDescription({
   const { mutateDefinitions } = useDefinitions();
   const permissions = usePermissionsUtil();
   const canEdit =
-    !["api", "config"].includes(metric.managedBy || "") &&
+    !["api", "dbt", "config"].includes(metric.managedBy || "") &&
     permissions.canUpdateFactMetric(metric, {});
 
   return (

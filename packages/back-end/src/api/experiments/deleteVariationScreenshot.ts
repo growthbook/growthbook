@@ -1,14 +1,12 @@
 import { z } from "zod";
 import cloneDeep from "lodash/cloneDeep";
 import { Changeset } from "shared/types/experiment";
-import {
-  getExperimentById,
-  updateExperiment,
-} from "back-end/src/models/ExperimentModel";
+import { updateExperiment } from "back-end/src/models/ExperimentModel";
 import { validateExperimentChange } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
+import { requireExperiment } from "./requireExperiment";
 
 const deleteVariationScreenshotValidator = {
   paramsSchema: z
@@ -46,20 +44,8 @@ export const deleteVariationScreenshot = createApiRequestHandler(
   const { id, variationId } = req.params;
   const { path } = req.body;
 
-  const experiment = await getExperimentById(context, id);
-
-  if (!experiment) {
-    throw new Error("Experiment not found");
-  }
-
-  if (experiment.type === "holdout") {
-    throw new Error("Holdouts are not supported via this API");
-  }
+  const experiment = await requireExperiment(context, id);
   assertNotMeasurementArmExperiment(experiment, "edit variations");
-
-  if (experiment.organization !== context.org.id) {
-    throw new Error("You do not have access to this experiment");
-  }
 
   const changes: Changeset = {};
   if (!context.permissions.canUpdateExperiment(experiment, changes)) {

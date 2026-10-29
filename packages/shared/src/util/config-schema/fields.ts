@@ -33,7 +33,8 @@ export const JSON_SCHEMA_PRESETS = {
 } as const;
 export type PresetKey = keyof typeof JSON_SCHEMA_PRESETS;
 
-// Sorted-key stringify so preset detection ignores key order.
+// Sorted-key stringify so preset detection ignores key order. Not
+// sortObjectKeys: its code-unit order would move the REST schema fingerprint.
 function canonicalJSON(v: unknown): string {
   return JSON.stringify(v, (_k, val) =>
     val && typeof val === "object" && !Array.isArray(val)

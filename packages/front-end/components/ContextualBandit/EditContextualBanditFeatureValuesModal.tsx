@@ -25,6 +25,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FeatureValueField from "@/components/Features/FeatureValueField";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import Text from "@/ui/Text";
@@ -247,7 +248,7 @@ export default function EditContextualBanditFeatureValuesModal({
       close={close}
       open={true}
       size={"lg"}
-      submit={form.handleSubmit(async (values) => {
+      submit={validatedSubmit(form, async (values) => {
         if (!existingRule || !existingRule.id) {
           throw new Error(
             "Could not find the contextual-bandit rule on this feature.",
@@ -359,7 +360,6 @@ export default function EditContextualBanditFeatureValuesModal({
                 valueType={feature.valueType}
                 feature={feature}
                 renderJSONInline={true}
-                useCodeInput={true}
                 showFullscreenButton={true}
                 sparse={isConfigBacked}
                 allowConfigBacking={isConfigBacked}

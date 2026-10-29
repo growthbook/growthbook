@@ -1,11 +1,19 @@
-import { Box, Text, Flex } from "@radix-ui/themes";
+import isEqual from "lodash/isEqual";
+import { Box, Flex } from "@radix-ui/themes";
 import { DecisionFrameworkExperimentRecommendationStatus } from "shared/types/experiment";
 import {
   DecisionCriteriaInterface,
   DecisionCriteriaRule,
 } from "shared/enterprise";
-import { Fragment } from "react";
+import { Fragment, ReactNode } from "react";
+import {
+  PiCheckCircleBold,
+  PiMinusCircleBold,
+  PiWarningBold,
+  PiXCircleBold,
+} from "react-icons/pi";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 
 interface Props {
   status: DecisionFrameworkExperimentRecommendationStatus;
@@ -17,25 +25,27 @@ interface Props {
   showDecisionCriteria: boolean;
   setShowDecisionCriteria: (show: boolean) => void;
   showDecisionCriteriaLink?: boolean;
+  // Beside the criteria link.
+  action?: ReactNode;
+  // The decision criteria's name, for a decision its default made.
+  criteriaName?: string;
+  // How many goal metrics it has, for the wording.
+  goalMetricCount?: number;
+  // Each variation's results, by id, under a decision its default made.
+  outcomes?: Record<string, ReactNode>;
+  // For a ship tied between variations: who's tied, and how it's broken.
+  tie?: { text: ReactNode; hint: ReactNode } | null;
+  // Doubts about the results behind it, after the reasons.
+  cautions?: { text: ReactNode; hint?: ReactNode }[];
+  // The decision's colour, for each reason's icon.
+  reasonColor: ReasonColor;
 }
 
-const getRecommendationText = (
-  status: "ship-now" | "ready-for-review" | "rollback-now",
-  multipleVariations: boolean,
-) => {
-  switch (status) {
-    case "ship-now":
-      return `Review reasons to ship${
-        multipleVariations ? " and select the preferred variation" : ""
-      }.`;
-    case "ready-for-review":
-      return `Reasons to review${
-        multipleVariations ? " the eligible variations" : ""
-      }.`;
-    case "rollback-now":
-      return "Review reasons to rollback.";
-  }
-};
+const REASONS_HEADING = {
+  "ship-now": "Reasons to ship:",
+  "ready-for-review": "Why there's no clear winner:",
+  "rollback-now": "Reasons to roll back:",
+} as const;
 
 export default function ExperimentDecisionExplanation({
   status,
@@ -44,6 +54,13 @@ export default function ExperimentDecisionExplanation({
   showDecisionCriteria,
   setShowDecisionCriteria,
   showDecisionCriteriaLink,
+  action,
+  criteriaName,
+  goalMetricCount,
+  outcomes = {},
+  tie,
+  cautions = [],
+  reasonColor,
 }: Props) {
   // If the experiment is not in a decision state, don't show anything
   if (
@@ -86,7 +103,7 @@ export default function ExperimentDecisionExplanation({
       }
     })();
 
-    return `${quantity} ${metricType} ${connection} statistically significant and ${direction}`;
+    return `${quantity} ${metricType} ${connection} statistically significant and ${direction}.`;
   };
 
   // get the variations that have identical deciding rules
@@ -95,8 +112,8 @@ export default function ExperimentDecisionExplanation({
     decidingRule: DecisionCriteriaRule | null;
   }[] = [];
   variations.forEach((v) => {
-    const existingRule = decidingRules.find(
-      (r) => r.decidingRule === v.decidingRule,
+    const existingRule = decidingRules.find((r) =>
+      isEqual(r.decidingRule, v.decidingRule),
     );
     if (existingRule) {
       existingRule.variationIds.push(v.variationId);
@@ -108,96 +125,154 @@ export default function ExperimentDecisionExplanation({
     }
   });
 
+  // No call reads as neither a pass nor a fail.
+  const decisionIcon =
+    status.status === "ready-for-review" ? <PiMinusCircleBold /> : undefined;
+
   return (
-    <Box mt="4" ml="3">
-      <Text size="2">
-        {getRecommendationText(status.status, variations.length > 1)}
+    <Box>
+      <Text as="div" mb="2">
+        {REASONS_HEADING[status.status]}
       </Text>
+      {/* Enough data to decide on: good news, whatever the decision. */}
+      <Reason
+        color="green"
+        hint={
+          status.powerReached
+            ? `Running longer would only detect effects smaller than its ${
+                goalMetricCount === 1
+                  ? "goal metric's target"
+                  : "goal metrics' targets"
+              }.`
+            : undefined
+        }
+      >
+        {status.powerReached
+          ? "Enough data to detect its target effect."
+          : status.scheduledEndPassed
+            ? "Its scheduled end has passed, so it can be decided now."
+            : status.sequentialUsed
+              ? "Sequential testing lets it be decided early."
+              : "Its results are strong enough to decide early."}
+      </Reason>
       {decidingRules.map((r) => (
         <Fragment key={JSON.stringify(r.variationIds)}>
-          <Flex direction="column" mb="2">
-            <Flex direction="row" align="center" gap="1" mb="1">
-              {decidingRules.length > 1
-                ? r.variationIds.map((v, i) => (
-                    <Fragment key={v}>
-                      <Box>{variationNames[v]}</Box>
-                      {i !== r.variationIds.length - 1 ? (
-                        <Text mx="1">,</Text>
-                      ) : null}
-                    </Fragment>
-                  ))
-                : null}
+          {decidingRules.length > 1 ? (
+            <Flex align="center" gap="1" mt="2" mb="1">
+              {r.variationIds.map((v, i) => (
+                <Fragment key={v}>
+                  <Box>{variationNames[v]}</Box>
+                  {i !== r.variationIds.length - 1 ? <Text>,</Text> : null}
+                </Fragment>
+              ))}
             </Flex>
-          </Flex>
-          <Flex direction="column" gap="2">
-            {status.powerReached && (
-              <Flex gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">
-                  The experiment has reached the targeted statistical power.
-                </Text>
-              </Flex>
-            )}
-            {!status.powerReached && status.scheduledEndPassed && (
-              <Flex gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">
-                  The scheduled end date has passed and a recommendation can be
-                  made.
-                </Text>
-              </Flex>
-            )}
-            {!status.powerReached &&
-              !status.scheduledEndPassed &&
-              status.sequentialUsed && (
-                <Flex gap="2" align="center">
-                  <Text size="2" className="text-muted">
-                    •
-                  </Text>
-                  <Text size="2">
-                    Sequential testing was used in the analysis, enabling early
-                    stopping.
-                  </Text>
-                </Flex>
-              )}
+          ) : null}
+          <Flex direction="column" gap="1" mt="1">
             {r.decidingRule?.conditions.map((condition, i) => (
-              <Flex key={i} gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">{getConditionText(condition)}</Text>
-              </Flex>
+              <Reason key={i} color={reasonColor} icon={decisionIcon}>
+                {getConditionText(condition)}
+              </Reason>
             ))}
             {!r.decidingRule && (
-              <Flex gap="2" align="center">
-                <Text size="2" className="text-muted">
-                  •
-                </Text>
-                <Text size="2">
-                  No other decision rules were triggered, and{" "}
-                  {status.status === "ship-now"
-                    ? "ship"
-                    : status.status === "ready-for-review"
-                      ? "review"
-                      : "rollback"}{" "}
-                  is the default action.
-                </Text>
-              </Flex>
+              <Reason
+                color={reasonColor}
+                icon={decisionIcon}
+                hint={
+                  r.variationIds.some((id) => outcomes[id])
+                    ? r.variationIds.map((id) => (
+                        <Fragment key={id}>{outcomes[id]}</Fragment>
+                      ))
+                    : undefined
+                }
+              >
+                No rule in {criteriaName ?? "your decision criteria"} matched,
+                so{" "}
+                {status.status === "ship-now"
+                  ? "it ships by default"
+                  : status.status === "ready-for-review"
+                    ? "the call is yours"
+                    : "it rolls back by default"}
+                .
+              </Reason>
             )}
           </Flex>
         </Fragment>
       ))}
-      {showDecisionCriteriaLink ? (
-        <Box mt="4" mb="2">
-          <Link onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}>
-            View Decision Criteria
-          </Link>
+      {tie ? (
+        <Box mt="1">
+          <Reason color="gray" icon={<PiMinusCircleBold />} hint={tie.hint}>
+            {tie.text}
+          </Reason>
         </Box>
       ) : null}
+      {cautions.length ? (
+        <>
+          <Text as="div" mt="3" mb="2">
+            Caution:
+          </Text>
+          <Flex direction="column" gap="1">
+            {cautions.map(({ text, hint }, i) => (
+              <Reason
+                key={i}
+                color="amber"
+                icon={<PiWarningBold />}
+                hint={hint}
+              >
+                {text}
+              </Reason>
+            ))}
+          </Flex>
+        </>
+      ) : null}
+      {action || showDecisionCriteriaLink ? (
+        <Flex mt="3" mb="1" align="center" gap="4">
+          {action}
+          {showDecisionCriteriaLink ? (
+            <Link
+              onClick={() => setShowDecisionCriteria(!showDecisionCriteria)}
+            >
+              View decision criteria
+            </Link>
+          ) : null}
+        </Flex>
+      ) : null}
     </Box>
+  );
+}
+
+type ReasonColor = "green" | "amber" | "gray" | "red";
+
+// A roll back's reasons count against the variation; the others for it.
+export function Reason({
+  color,
+  icon = color === "red" ? <PiXCircleBold /> : <PiCheckCircleBold />,
+  hint,
+  children,
+}: {
+  color: ReasonColor;
+  icon?: ReactNode;
+  // A line under it, set off by a rule.
+  hint?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Flex gap="2" align="start">
+      {/* Level with the reason's first line. */}
+      <Flex
+        flexShrink="0"
+        align="center"
+        style={{ height: "var(--line-height-2)", color: `var(--${color}-11)` }}
+      >
+        {icon}
+      </Flex>
+      <Box>
+        <Text as="div">{children}</Text>
+        {hint ? (
+          <Box mt="1" pl="2" style={{ borderLeft: "2px solid var(--gray-a5)" }}>
+            <Text as="div">{hint}</Text>
+          </Box>
+        ) : null}
+      </Box>
+    </Flex>
   );
 }

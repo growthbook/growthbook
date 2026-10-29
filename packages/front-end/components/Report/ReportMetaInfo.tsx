@@ -344,13 +344,9 @@ export default function ReportMetaInfo({
             </Flex>
           </div>
           <div className="flex-shrink-0">
-            <div className="d-flex">
+            <Flex align="center" gap="3">
               {showPrivateLink && (
-                <LinkButton
-                  variant="outline"
-                  href={`/report/${report.id}`}
-                  mr="4"
-                >
+                <LinkButton variant="outline" href={`/report/${report.id}`}>
                   Edit Report
                 </LinkButton>
               )}
@@ -397,7 +393,7 @@ export default function ReportMetaInfo({
                   canDelete={canDelete}
                 />
               ) : null}
-            </div>
+            </Flex>
           </div>
         </div>
       </div>
