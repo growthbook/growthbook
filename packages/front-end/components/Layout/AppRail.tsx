@@ -995,13 +995,13 @@ export default function AppRail() {
                     const opening =
                       sectionsFolded ||
                       !openSections.includes(section.link.name);
-                    // The row opens only its section; the chevron leaves the
-                    // others open.
+                    // Row and chevron alike leave the other open sections
+                    // open; each stays open until it's closed itself.
                     setOpenSections((open) =>
                       !opening
                         ? open.filter((name) => name !== section.link.name)
-                        : navigate || sectionsFolded
-                          ? [section.link.name]
+                        : open.includes(section.link.name)
+                          ? open
                           : [...open, section.link.name],
                     );
                     if (opening) setSectionsFolded(false);
