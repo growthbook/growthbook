@@ -648,7 +648,7 @@ export default function ExperimentHeader({
             {clusterBlocksBandit ? (
               <Callout status="warning">
                 {
-                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the analysis settings."
+                  "Cluster experiments can't be run as Bandits. To convert this one, first turn off cluster experiment in the Analysis Plan's Data Source settings."
                 }
               </Callout>
             ) : (

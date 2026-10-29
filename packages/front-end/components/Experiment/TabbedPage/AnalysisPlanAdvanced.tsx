@@ -358,9 +358,14 @@ export default function AnalysisPlanAdvanced({
               {!orgSettings.disablePrecomputedDimensions ? (
                 <Checkbox
                   label={
-                    <PremiumTooltip commercialFeature="post-stratification">
-                      Post-stratification
-                    </PremiumTooltip>
+                    // Upgrading wouldn't enable it, so only the cluster reason shows.
+                    experiment.isClusterExperiment ? (
+                      "Post-stratification"
+                    ) : (
+                      <PremiumTooltip commercialFeature="post-stratification">
+                        Post-stratification
+                      </PremiumTooltip>
+                    )
                   }
                   weight="regular"
                   value={

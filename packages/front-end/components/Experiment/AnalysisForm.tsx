@@ -790,8 +790,16 @@ const AnalysisForm: FC<{
             )}
             {supportsClusterExperiments && !isBandit && !isHoldout && (
               <ClusterExperimentFields
+                asRows
                 exposureQuery={exposureQuery}
-                identifierType={exposureQueryIdentifierType}
+                identifierType={
+                  exposureQuery
+                    ? resolveAnalysisIdentifierType(
+                        exposureQuery,
+                        exposureQueryIdentifierType,
+                      )
+                    : undefined
+                }
                 isClusterExperiment={isClusterExperiment}
                 subUnitIdentifier={clusterSubUnitIdentifier}
                 setIsClusterExperiment={(value) =>
@@ -925,9 +933,14 @@ const AnalysisForm: FC<{
               {!orgSettings.disablePrecomputedDimensions ? (
                 <Checkbox
                   label={
-                    <PremiumTooltip commercialFeature="post-stratification">
-                      Post-stratification
-                    </PremiumTooltip>
+                    // Upgrading wouldn't enable it, so only the cluster reason shows.
+                    isClusterExperiment ? (
+                      "Post-stratification"
+                    ) : (
+                      <PremiumTooltip commercialFeature="post-stratification">
+                        Post-stratification
+                      </PremiumTooltip>
+                    )
                   }
                   weight="regular"
                   value={

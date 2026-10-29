@@ -51,6 +51,7 @@ import { getIneligibleClusterMetrics } from "@/services/experiments";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import AssignmentQueryFields, {
   ClusterExperimentFields,
+  getClusterSubUnitOptions,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -922,6 +923,9 @@ function DataSourceModal({
   const exposureQuery = selected?.settings?.queries?.exposure?.find(
     (q) => q.id === exposureQueryId,
   );
+  const clusterIdentifier = exposureQuery
+    ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
+    : undefined;
   const changed =
     suggested ||
     !sameSource ||
@@ -937,7 +941,11 @@ function DataSourceModal({
       close={close}
       cta="Confirm"
       ctaEnabled={
-        changed && (!isClusterExperiment || !!clusterSubUnitIdentifier)
+        changed &&
+        (!isClusterExperiment ||
+          getClusterSubUnitOptions(exposureQuery, clusterIdentifier).includes(
+            clusterSubUnitIdentifier,
+          ))
       }
       trackingEventModalType="experiment-data-source"
       submit={() => {
@@ -973,11 +981,7 @@ function DataSourceModal({
       {supportsClusterExperiments ? (
         <ClusterExperimentFields
           exposureQuery={exposureQuery}
-          identifierType={
-            exposureQuery
-              ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
-              : undefined
-          }
+          identifierType={clusterIdentifier}
           isClusterExperiment={isClusterExperiment}
           subUnitIdentifier={clusterSubUnitIdentifier}
           setIsClusterExperiment={setClusterChecked}
