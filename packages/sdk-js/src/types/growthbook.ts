@@ -50,6 +50,7 @@ export type FeatureRule<T = any> = {
   }>;
   contextualBanditRef?: string;
   contextualVariations?: T[];
+  metadata?: PayloadMetadata;
 };
 
 export type ContextualBanditDefinition = {
@@ -66,10 +67,33 @@ export type ContextualBanditDefinitions = Record<
   ContextualBanditDefinition
 >;
 
+export type InterleavingDefinition = {
+  trackingKey: string;
+  // Carried here, not read off the pseudo flag's rule: remote evaluation
+  // replaces rules with a forced defaultValue, so the rule is gone client-side.
+  hashAttribute: string;
+  seed: string;
+  variations: { key: string; config: Record<string, unknown> }[];
+};
+
+export type InterleavingDefinitions = Record<string, InterleavingDefinition>;
+
 export interface FeatureDefinition<T = any> {
   defaultValue?: T;
   rules?: FeatureRule<T>[];
+  metadata?: PayloadMetadata;
 }
+
+/**
+ * Sent when the SDK Connection opts in. A feature in every project has
+ * `allProjects` instead of `projects`, and one in no project has neither.
+ */
+export type PayloadMetadata = {
+  projects?: string[];
+  allProjects?: boolean;
+  tags?: string[];
+  customFields?: Record<string, unknown>;
+};
 
 export type FeatureResultSource =
   | "unknownFeature"
@@ -142,6 +166,7 @@ export type AutoExperiment<T = AutoExperimentVariation> = Experiment<T> & {
   changeId?: string;
   // If true, require the experiment to be manually triggered
   manual?: boolean;
+  metadata?: PayloadMetadata;
   contextualBanditRef?: string;
 };
 
@@ -261,6 +286,8 @@ export type RenderFunction = () => void;
 export type Options = {
   enabled?: boolean;
   attributes?: Attributes;
+  /** The user's remote saved groups; wins over a `__gb_remoteGroupIds` attribute. */
+  remoteGroupIds?: string[];
   url?: string;
   features?: Record<string, FeatureDefinition>;
   experiments?: AutoExperiment[];
@@ -355,6 +382,7 @@ export type ClientOptions = {
 // Contexts
 export type GlobalContext = {
   log: (msg: string, ctx: any) => void;
+  debug?: boolean;
   features?: FeatureDefinitions;
   experiments?: AutoExperiment[];
   enabled?: boolean;
@@ -388,6 +416,8 @@ export type UserContext = {
   qaMode?: boolean;
   enableDevMode?: boolean;
   attributes?: Attributes;
+  /** The user's remote saved groups; wins over a `__gb_remoteGroupIds` attribute. */
+  remoteGroupIds?: string[];
   url?: string;
   blockedChangeIds?: string[];
   stickyBucketAssignmentDocs?: Record<
@@ -501,10 +531,33 @@ export type FeatureApiResponse = {
   encryptedSavedGroups?: string;
   contextualBandits?: ContextualBanditDefinitions;
   encryptedContextualBandits?: string;
+  interleavings?: InterleavingDefinitions;
+  encryptedInterleavings?: string;
 };
 
 // Alias
 export type GrowthBookPayload = FeatureApiResponse;
+
+/** Each filter is an array, and any one of its values is enough */
+export type PayloadFilters = {
+  projects?: string[];
+  tags?: string[];
+  customFields?: Record<string, unknown[]>;
+};
+
+export type ReducePayloadOptions = {
+  userContext?: UserContext;
+  /** Keep only the features and auto experiments that match every filter */
+  include?: PayloadFilters;
+  /** Remove the features and auto experiments that match any filter */
+  exclude?: PayloadFilters;
+  /**
+   * "keep" (default) sends the prerequisites of what is kept even when the
+   * filters remove them, so the client evaluates the same as the full payload.
+   * "filter" applies the filters to them too.
+   */
+  prerequisites?: "keep" | "filter";
+};
 
 // Polyfills required for non-standard browser environments (ReactNative, Node, etc.)
 // These are typed as `any` since polyfills like `node-fetch` are not 100% compatible with native types
@@ -628,7 +681,34 @@ export type SavedGroupsValues = Record<string, (string | number)[]>;
 /** The savedGroupReferencesV2 shape of one saved group, of any type. */
 export type SavedGroupPayloadEntry =
   | { type: "list"; attributeKey: string; values: (string | number)[] }
-  | { type: "condition"; condition: ConditionInterface };
+  | { type: "condition"; condition: ConditionInterface }
+  // IDs live outside the payload; see `SavedGroupResolver`
+  | {
+      type: "remote";
+      attributeKey: string;
+      /**
+       * Set on a derived group (ID `<group id>:<attribute>`): the remote group
+       * whose IDs `attributeKey`'s value is looked up in.
+       */
+      valuesFrom?: string;
+    };
+
+/** A remote saved group from the payload, as a resolver sees it. */
+export type RemoteSavedGroup = {
+  id: string;
+  attributeKey: string;
+  /** For a derived group, the remote group whose IDs it checks. */
+  valuesFrom?: string;
+};
+
+/**
+ * Looks up which of `groups` a user is in, from their `attributes` (only the
+ * ones remote groups use). Returns the group IDs.
+ */
+export type SavedGroupResolver = (args: {
+  attributes: Attributes;
+  groups: RemoteSavedGroup[];
+}) => Promise<string[]>;
 
 /** The `savedGroups` payload field. Entries may use either shape above. */
 export type SavedGroupsPayload = Record<

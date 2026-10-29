@@ -1,6 +1,10 @@
-import { DetectedFactTableColumn } from "shared/types/fact-table";
+import { DetectedColumn } from "shared/types/fact-table";
 import { SchemaWithPath } from "shared/types/integrations";
 import {
+  findColumnByName,
+  getRemappedUserIdColumns,
+  rematchUserIdColumns,
+  GA4_EVENTS_TEMPLATE,
   getColumnMappingError,
   getDefaultPartitionColumn,
   getDefaultTimestampColumn,
@@ -15,9 +19,7 @@ import {
   getUnlistedTable,
 } from "@/services/schemaBrowserTables";
 
-const cols = (
-  ...datatypes: DetectedFactTableColumn["datatype"][]
-): DetectedFactTableColumn[] =>
+const cols = (...datatypes: DetectedColumn["datatype"][]): DetectedColumn[] =>
   datatypes.map((datatype, i) => ({ column: `c${i}`, datatype }));
 
 describe("getColumnMappingError", () => {
@@ -130,13 +132,14 @@ describe("getPickerTableSql", () => {
     format: "",
   });
 
-  it("uses the GA4 query for a GA4 events export only", () => {
+  it("uses the GA4 template for a GA4 events export only", () => {
     const [events, users] = getSchemaBrowserTables(GA4, true);
-    expect(getPickerTableSql(events)).toContain(
+    expect(GA4_EVENTS_TEMPLATE.matches(events)).toBe(true);
+    expect(GA4_EVENTS_TEMPLATE.matches(users)).toBe(false);
+    expect(GA4_EVENTS_TEMPLATE.getSql(events, "")).toContain(
       "FROM\n  `proj.analytics_123.events_*`",
     );
-    expect(getPickerTableName(events)).toBe("GA4 Events");
-    expect(getPickerTableSql(users)).toMatch(/^SELECT \* FROM/);
+    expect(getPickerTableName(events, GA4_EVENTS_TEMPLATE)).toBe("GA4 Events");
   });
 
   it("adds only a lower bound on the partition column", () => {
@@ -216,10 +219,7 @@ describe("getPickerTableSql", () => {
 
   it("filters GA4's hand-written query but keeps its columns", () => {
     const [events] = getSchemaBrowserTables(GA4, true);
-    const sql = getPickerTableSql(events, {
-      columns: ["x"],
-      rowFilterWhere: "(x = 1)",
-    });
+    const sql = GA4_EVENTS_TEMPLATE.getSql(events, "(x = 1)");
     expect(sql).toMatch(/^SELECT\n {2}TIMESTAMP_MICROS/);
     expect(sql).toMatch(/_TABLE_SUFFIX .*\n {2}AND \(x = 1\)$/);
   });
@@ -300,21 +300,16 @@ describe("isPseudoColumn", () => {
 describe("getPickerTableColumns", () => {
   it("lists every column GA4's query returns, in order", () => {
     const [events] = getSchemaBrowserTables(GA4, true);
-    const selected = getPickerTableSql(events)
+    const selected = GA4_EVENTS_TEMPLATE.getSql(events, "")
       .split("\nFROM")[0]
       .split(",\n")
       .map((line) => line.trim().match(/(\w+)$/)?.[1]);
-    expect(getPickerTableColumns(events, []).map((c) => c.column)).toEqual(
-      selected,
-    );
+    expect(GA4_EVENTS_TEMPLATE.columns.map((c) => c.column)).toEqual(selected);
   });
 
   it("maps a plain table's information schema types", () => {
     expect(
-      getPickerTableColumns(tracks, [
-        col("ts", "TIMESTAMP"),
-        col("user_id", "STRING"),
-      ]),
+      getPickerTableColumns([col("ts", "TIMESTAMP"), col("user_id", "STRING")]),
     ).toEqual([
       { column: "ts", datatype: "date" },
       { column: "user_id", datatype: "string" },
@@ -323,7 +318,7 @@ describe("getPickerTableColumns", () => {
 
   it("rules a table out only on known types", () => {
     const error = (...columns: ReturnType<typeof col>[]) =>
-      getColumnMappingError(getPickerTableColumns(tracks, columns), true);
+      getColumnMappingError(getPickerTableColumns(columns), true);
     expect(error(col("user_id", "STRING"), col("amount", "NUMERIC"))).toBe(
       "Selected table does not have a timestamp column.",
     );
@@ -334,7 +329,7 @@ describe("getPickerTableColumns", () => {
 });
 
 describe("getDefaultTimestampColumn", () => {
-  const detected = (...names: string[]): DetectedFactTableColumn[] =>
+  const detected = (...names: string[]): DetectedColumn[] =>
     names.map((column) => ({
       column,
       datatype: column.endsWith("_id") ? "string" : "date",
@@ -354,5 +349,54 @@ describe("getDefaultTimestampColumn", () => {
         detected("user_id", "created_at", "updated_at"),
       ),
     ).toBe("created_at");
+  });
+});
+
+describe("findColumnByName", () => {
+  it("prefers an exact match over looser ones", () => {
+    expect(findColumnByName(cols("", "", ""), "c1")).toBe("c1");
+    const named = ["userId", "user_id_2", "user_id"].map((column) => ({
+      column,
+      datatype: "string" as const,
+    }));
+    expect(findColumnByName(named, "user_id")).toBe("user_id");
+    expect(findColumnByName(named, "USER_ID")).toBe("user_id");
+    expect(findColumnByName(named.slice(0, 2), "user_id")).toBe("userId");
+  });
+});
+
+describe("rematchUserIdColumns", () => {
+  const columns = ["uid", "anonymous_id", "device_id"].map((column) => ({
+    column,
+    datatype: "string" as const,
+  }));
+
+  it("keeps a mapping whose column still exists", () => {
+    expect(
+      rematchUserIdColumns({ user_id: "uid" }, ["user_id"], columns),
+    ).toEqual({ user_id: "uid" });
+  });
+
+  it("re-matches by name when the mapped column is gone", () => {
+    expect(
+      rematchUserIdColumns({ anonymous_id: "anon" }, ["anonymous_id"], columns),
+    ).toEqual({ anonymous_id: "anonymous_id" });
+  });
+
+  it("drops identifiers with no matching column", () => {
+    expect(
+      rematchUserIdColumns({ user_id: "gone" }, ["user_id"], columns),
+    ).toEqual({});
+  });
+});
+
+describe("getRemappedUserIdColumns", () => {
+  it("stores only identifiers whose column isn't their own name", () => {
+    expect(
+      getRemappedUserIdColumns(["user_id", "anonymous_id"], {
+        user_id: "user_id",
+        anonymous_id: "device_id",
+      }),
+    ).toEqual({ anonymous_id: "device_id" });
   });
 });

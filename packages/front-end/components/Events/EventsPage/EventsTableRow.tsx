@@ -19,7 +19,7 @@ export const EventsTableRow: FC<EventsTableRowProps> = ({ event }) => {
   const permissionsUtils = usePermissionsUtil();
 
   const { data } = useApi<{ keys: ApiKeyInterface[] }>("/keys", {
-    shouldRun: () => permissionsUtils.canCreateApiKey(),
+    shouldRun: () => permissionsUtils.canViewApiKeys(),
   });
 
   const apiKeyDescriptions = useMemo(() => {

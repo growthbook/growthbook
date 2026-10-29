@@ -4,7 +4,6 @@ import { ProjectInterface } from "shared/types/project";
 import { ago } from "shared/dates";
 import { Box } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -26,6 +25,7 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
@@ -226,19 +226,13 @@ const ProjectsPage: FC = () => {
                           </div>
                         ) : null}
                         {p.publicId && (
-                          <Box
-                            style={{ color: "var(--gray-9)", opacity: 0.85 }}
-                          >
-                            <Text as="div" size="sm" mono>
-                              {p.publicId}
-                            </Text>
+                          <Box>
+                            <CopyableCode value={p.publicId} muted />
                           </Box>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Text size="sm" mono>
-                          {p.id}
-                        </Text>
+                        <CopyableCode value={p.id} />
                       </TableCell>
                       <TableCell>
                         {p.description && p.description.length > 80

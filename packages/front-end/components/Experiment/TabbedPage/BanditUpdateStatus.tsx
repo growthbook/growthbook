@@ -14,6 +14,7 @@ import { getQueryStatus } from "@/components/Queries/RunQueriesButton";
 import Callout from "@/ui/Callout";
 import { Popover } from "@/ui/Popover";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import styles from "./BanditUpdateStatus.module.scss";
 
 function SectionLabel({ children, mt }: { children: ReactNode; mt?: "3" }) {
@@ -138,14 +139,13 @@ export default function BanditUpdateStatus({
               </Text>
             </Flex>
             <Flex as="span" align="center" gap="1">
-              <Text
-                size="sm"
-                color="text-mid"
-                whiteSpace="nowrap"
-                title={hasUpdated ? datetime(lastEvent?.date ?? "") : "never"}
+              <Tooltip
+                content={hasUpdated ? datetime(lastEvent?.date ?? "") : "never"}
               >
-                {hasUpdated ? ago(lastEvent?.date ?? "") : never}
-              </Text>
+                <Text size="sm" color="text-mid" whiteSpace="nowrap">
+                  {hasUpdated ? ago(lastEvent?.date ?? "") : never}
+                </Text>
+              </Tooltip>
               <PiCaretDown size={12} />
             </Flex>
           </Flex>

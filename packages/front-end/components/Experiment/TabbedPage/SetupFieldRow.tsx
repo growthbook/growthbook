@@ -4,71 +4,77 @@ import { PiInfo } from "react-icons/pi";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 
-/** Width of the label column. Every setup field shares it, so they line up. */
+// Shared by every setup field so their controls line up.
 export const LABEL_WIDTH = "180px";
 
-/** Below this a control has no usable room, and the row stacks instead. */
 const MIN_FIELD_WIDTH = "260px";
 
-/** Half the difference between a control's height and its own text. */
+// Nudges the label level with the text a taller control centres.
 const LABEL_OFFSET: Record<LabelSize, string> = { md: "10px", lg: "6px" };
+// Text inside a padded panel starts the panel's padding down.
+const PANEL_PADDING = "var(--space-4)";
 
 type LabelSize = "md" | "lg";
 
-/**
- * One field on the setup tab: its name on the left, the control on the right.
- * Anything explaining the field belongs in `tooltip`, not under the label.
- */
 export default function SetupFieldRow({
+  id,
   label,
   labelSize = "md",
   tooltip,
   content = "control",
   labelAlign = "top",
-  fieldMaxWidth,
+  stacked = false,
   children,
 }: {
+  /** For pointing at the field from elsewhere on the page. */
+  id?: string;
   label: string;
   /** `lg` for a field whose label doubles as the section's title. */
   labelSize?: LabelSize;
   tooltip?: string;
-  /** `text` for a row that only reads a value back, which needs no offset. */
-  content?: "control" | "text";
+  /**
+   * `text` for a row that only reads a value back, which needs no offset;
+   * `panel` for values inside a padded panel.
+   */
+  content?: "control" | "text" | "panel";
   /** `center` for a row whose control is a single line, such as a select. */
   labelAlign?: "top" | "center";
-  /**
-   * The width a control keeps, for one that has no business filling the row.
-   * It is also the point the row wraps at, in place of the usual threshold.
-   */
-  fieldMaxWidth?: string;
+  /** Label above, for a control that needs the row's full width. */
+  stacked?: boolean;
   children: ReactNode;
 }) {
   return (
-    // Wraps rather than squeezing: below the width the field needs, the label
-    // takes a row of its own. Driven by the row's own width, not the window's.
+    // A narrow row wraps, putting the label on its own line.
     <Flex
-      align={labelAlign === "center" ? "center" : "start"}
-      gap="4"
+      id={id}
+      // Text shares the label's baseline, whatever their sizes.
+      align={
+        labelAlign === "center"
+          ? "center"
+          : content === "text"
+            ? "baseline"
+            : "start"
+      }
+      gap={stacked ? "2" : "4"}
       py="2"
       wrap="wrap"
     >
       <Box
         flexShrink="0"
-        width={LABEL_WIDTH}
-        // Nudged down so the label reads level with the control beside it,
-        // which centres its own text inside a taller box.
+        width={stacked ? "100%" : LABEL_WIDTH}
         style={{
           paddingTop:
-            content === "control" && labelAlign === "top"
-              ? LABEL_OFFSET[labelSize]
-              : "0",
+            stacked || content === "text" || labelAlign === "center"
+              ? "0"
+              : content === "panel"
+                ? PANEL_PADDING
+                : LABEL_OFFSET[labelSize],
         }}
       >
         <Flex align="center" gap="1">
           <Text
             as="label"
             size={labelSize}
-            // A section's title reads like the page's other section headings.
             weight={labelSize === "lg" ? "semibold" : "medium"}
             color="text-high"
             mb="0"
@@ -76,23 +82,65 @@ export default function SetupFieldRow({
             {label}
           </Text>
           {tooltip ? (
-            <Tooltip content={<Text align="left">{tooltip}</Text>}>
-              <span style={{ display: "flex", color: "var(--color-text-mid)" }}>
-                <PiInfo />
-              </span>
-            </Tooltip>
+            <InfoTip content={<Text align="left">{tooltip}</Text>} />
           ) : null}
         </Flex>
       </Box>
       <Box
         flexGrow="1"
-        style={{
-          minWidth: `min(100%, ${fieldMaxWidth ?? MIN_FIELD_WIDTH})`,
-          maxWidth: fieldMaxWidth,
-        }}
+        flexBasis="0"
+        style={{ minWidth: `min(100%, ${MIN_FIELD_WIDTH})` }}
       >
         {children}
       </Box>
     </Flex>
+  );
+}
+
+export function InfoTip({ content }: { content: ReactNode }) {
+  return (
+    <Tooltip content={content}>
+      {/* Focusable, so the tip opens from the keyboard too. */}
+      <span
+        tabIndex={0}
+        role="button"
+        aria-label="More information"
+        style={{
+          display: "inline-flex",
+          verticalAlign: "middle",
+          color: "var(--color-text-mid)",
+        }}
+      >
+        <PiInfo />
+      </span>
+    </Tooltip>
+  );
+}
+
+/**
+ * Rows edited together, on a gray ground that reaches past them so their
+ * labels stay in line with the rows around it.
+ */
+export function SetupFieldGroup({
+  inset = false,
+  children,
+}: {
+  /** Inside its container, for rows with none around them to line up with. */
+  inset?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Box
+      mx={inset ? "0" : "-4"}
+      px="4"
+      py="2"
+      my="2"
+      style={{
+        backgroundColor: "var(--gray-a2)",
+        borderRadius: "var(--radius-3)",
+      }}
+    >
+      {children}
+    </Box>
   );
 }

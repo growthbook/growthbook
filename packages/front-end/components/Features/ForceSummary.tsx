@@ -1,3 +1,4 @@
+import { ReactNode } from "react";
 import { FeatureInterface } from "shared/types/feature";
 import { getConfigBackingKey, getFeatureBaseConfigKey } from "shared/util";
 import { Box, Flex } from "@radix-ui/themes";
@@ -15,10 +16,11 @@ export default function ForceSummary({
   isDefault = false,
   environment,
   label = "SERVE",
-  fontSize,
   lineHeight,
   actionsOverlay,
-  showCopyButton = true,
+  monochrome,
+  fullWidth = false,
+  extraActions,
 }: {
   value: string;
   feature: FeatureInterface;
@@ -26,17 +28,20 @@ export default function ForceSummary({
   sparse?: boolean;
   // null for surfaces that already label the value.
   label?: string | null;
-  // Denser type for a cramped surface; defaults are ValueDisplay's own.
-  fontSize?: string;
+  // Denser type for a cramped surface; the default is ValueDisplay's own.
   lineHeight?: number;
   actionsOverlay?: ActionsOverlay;
-  // The feature's default value (vs a rule). A config-backed default is a pure
-  // config with no overrides, so the "with overrides" tag never applies to it.
+  // A config-backed default is a pure config, so it never counts overrides.
   isDefault?: boolean;
   // Environment this value is shown for, so a config-backed value previews its
   // matching env flavor. Absent (e.g. all-environments view) = the base value.
   environment?: string;
-  showCopyButton?: boolean;
+  monochrome?: boolean;
+  // Spans its container, so the copy and fullscreen buttons sit at its edge
+  // rather than just past a short value.
+  fullWidth?: boolean;
+  // More buttons beside the value's copy and fullscreen.
+  extraActions?: ReactNode;
 }) {
   // Mirror the SDK compiler: a value resolves a config ONLY when the feature is
   // config-backed (baseConfig set). A stray `@config:` hand-typed into a plain
@@ -57,26 +62,27 @@ export default function ForceSummary({
         isDefault={isDefault}
         environment={environment}
         label={label}
-        showCopyButton={showCopyButton}
+        lineHeight={lineHeight}
+        actionsOverlay={actionsOverlay}
       />
     );
   }
 
   return (
     <>
-      <Flex direction="row" gap="2">
+      <Flex direction="row" gap="2" width={fullWidth ? "100%" : undefined}>
         {label !== null && <Text weight="medium">{label}</Text>}
         <Box width="100%">
           <ValueDisplay
             value={value}
             type={feature.valueType}
             showFullscreenButton={true}
-            showCopyButton={showCopyButton}
             sparse={sparse}
             defaultValue={feature.defaultValue}
-            fontSize={fontSize}
             lineHeight={lineHeight}
+            monochrome={monochrome}
             actionsOverlay={actionsOverlay}
+            extraActions={extraActions}
             fullStyle={{
               maxHeight: maxHeight ?? 150,
               overflowY: "auto",

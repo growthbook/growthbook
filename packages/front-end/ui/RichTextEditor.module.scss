@@ -48,18 +48,8 @@
   transform: translateY(-50%);
   border: 1px solid var(--gray-a6);
   border-radius: var(--radius-1);
-  // Opaque: the surface token is translucent, and the seam showed through.
+  // Opaque: the surface token is translucent, so the seam would show through.
   background-color: var(--color-panel-solid);
-}
-
-.readOnly {
-  border-color: transparent;
-  background-color: transparent;
-
-  &:focus-within {
-    border-color: transparent;
-    box-shadow: none;
-  }
 }
 
 .editable {
@@ -86,7 +76,7 @@
   left: 0;
   pointer-events: none;
   user-select: none;
-  color: var(--gray-a9);
+  color: var(--gray-a10);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -238,8 +228,9 @@
   position: relative;
   z-index: 1;
   background-color: var(--color-surface);
-  border-top-left-radius: inherit;
-  border-top-right-radius: inherit;
+  // The wrapper's, set rather than inherited: a collapsible ribbon sits in a Collapse.
+  border-top-left-radius: var(--radius-2);
+  border-top-right-radius: var(--radius-2);
 }
 
 .toolbarButton {

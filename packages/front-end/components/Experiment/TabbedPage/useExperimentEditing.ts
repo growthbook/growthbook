@@ -1,4 +1,5 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { HoldoutInterfaceStringDates } from "shared/validators";
 import { isAnalysisOnly } from "shared/util";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
@@ -18,20 +19,20 @@ export function valuesAreSetup(
 }
 
 /**
- * Whether the experiment can be edited at all, and whether the setup surfaces
- * should edit in place. They edit in place while it is still a draft and go
- * read-only once it has started, unless it is analysis only: nothing is served
- * from its setup, so that stays editable.
+ * Whether the experiment can be edited, and edited in place: drafts only,
+ * unless it is analysis only, where nothing is served from its setup.
  */
 export default function useExperimentEditing(
   experiment: ExperimentInterfaceStringDates,
   disableEditing?: boolean,
+  holdout?: HoldoutInterfaceStringDates,
 ) {
   const permissionsUtil = usePermissionsUtil();
-  const canEdit =
-    !experiment.archived &&
-    permissionsUtil.canViewExperimentModal(experiment.project) &&
-    !disableEditing;
+  // A holdout's experiment has no project; its scope lives on the holdout.
+  const canUpdate = holdout
+    ? permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects })
+    : permissionsUtil.canViewExperimentModal(experiment.project);
+  const canEdit = !experiment.archived && canUpdate && !disableEditing;
 
   const analysisOnly = isAnalysisOnly(experiment);
 

@@ -28,9 +28,9 @@ export function OptionTooltipShell({
 }: {
   href: string;
   title: string;
-  /** "dark" for a card with links of its own, so the title isn't one more. */
+  // "dark" for a card with links of its own, so the title isn't one more.
   titleColor?: "dark";
-  /** A line held close under the title, such as what kind of thing it is. */
+  // A line held close under the title, such as what kind of thing it is.
   subtitle?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -153,8 +153,6 @@ export function OptionTooltipDescription({
   );
 }
 
-export type OptionPopoverSide = "top" | "right" | "bottom" | "left";
-
 export function OptionPopover({
   context = "menu",
   side,
@@ -162,8 +160,8 @@ export function OptionPopover({
   children,
 }: {
   context?: OptionContext;
-  /** Overrides the side the context would use, for a control too narrow for it. */
-  side?: OptionPopoverSide;
+  // Overrides the side the context would use, for a control too narrow for it.
+  side?: "top" | "right" | "bottom" | "left";
   content: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -180,7 +178,9 @@ export function OptionPopover({
             position: "relative",
             display: isValue ? "flex" : "block",
             alignItems: isValue ? "center" : undefined,
-            minWidth: isValue ? undefined : 80,
+            // A value fills the select so its label can shrink to fit
+            width: isValue ? "100%" : undefined,
+            minWidth: isValue ? 0 : 80,
             maxWidth: 400,
           }}
         >
@@ -195,13 +195,15 @@ export function OptionPopover({
 export function OptionLabel({
   label,
   style,
+  maxWidth = OPTION_LABEL_MAX_WIDTH,
 }: {
   label: string;
   style?: React.CSSProperties;
+  maxWidth?: number | string;
 }) {
   return (
     <Text size="md">
-      <OverflowText maxWidth={OPTION_LABEL_MAX_WIDTH} style={style}>
+      <OverflowText maxWidth={maxWidth} style={style}>
         {label}
       </OverflowText>
     </Text>

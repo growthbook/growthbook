@@ -1,7 +1,11 @@
 import { NextFunction, Request, Response } from "express";
 import { SSO_CONFIG } from "shared/enterprise";
 import { ExpressCookieStickyBucketService } from "@growthbook/growthbook";
-import { userHasPermission } from "shared/permissions";
+import {
+  hasSuperAdminPermission,
+  normalizeSuperAdmin,
+  userHasPermission,
+} from "shared/permissions";
 import { AuditInterface } from "shared/types/audit";
 import { Permission } from "shared/types/organization";
 import { UserInterface } from "shared/types/user";
@@ -171,7 +175,7 @@ export async function processJWT(
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
-    req.superAdmin = !!user.superAdmin;
+    req.superAdmin = normalizeSuperAdmin(user.superAdmin);
 
     // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
     // require all future logins to be verified too.
@@ -201,7 +205,10 @@ export async function processJWT(
         undefined;
 
       if (req.organization) {
-        if (req.organization.suspended && !req.superAdmin) {
+        if (
+          req.organization.suspended &&
+          !hasSuperAdminPermission(req.superAdmin, "impersonate")
+        ) {
           const allowedPaths = new Set(["GET /organization", "GET /user"]);
           const currentPath = `${req.method} ${req.path}`;
           if (!allowedPaths.has(currentPath)) {
@@ -215,7 +222,7 @@ export async function processJWT(
         }
 
         if (
-          !req.superAdmin &&
+          !hasSuperAdminPermission(req.superAdmin, "impersonate") &&
           !req.organization.members.filter((m) => m.id === req.userId).length
         ) {
           res.status(403).json({
@@ -339,7 +346,7 @@ export async function processJWT(
         organizationId: hashedOrganizationId,
         cloudOrgId: IS_CLOUD ? orgId : "",
         accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
-        superAdmin: user.superAdmin,
+        superAdmin: hasSuperAdminPermission(user.superAdmin, "view"),
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
           : "",

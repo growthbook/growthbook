@@ -1,20 +1,25 @@
-import type { FeatureInterface, FeatureRule } from "shared/types/feature";
+import type {
+  ExperimentRefRule,
+  FeatureInterface,
+  FeatureRule,
+} from "shared/types/feature";
 import type { FeatureRevisionInterface } from "shared/types/feature-revision";
+import type { ReqContext } from "back-end/types/request";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   getFeatureRevisionsByFeatureIds,
-  getRevisionsByVersions,
+  getLinkageSyncRevisionSummaries,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
+import { getLaunchDraftVersion } from "back-end/src/util/featureExperimentSync";
 
 jest.mock("back-end/src/models/FeatureModel", () => ({
   getFeaturesByIds: jest.fn(),
 }));
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getFeatureRevisionsByFeatureIds: jest.fn(),
-  getRevisionsByVersions: jest.fn(),
-  // Feeds attributeScopeProjects, which these cases do not exercise.
+  getLinkageSyncRevisionSummaries: jest.fn(),
   getActiveDraftMetadataByFeatureIds: jest.fn(async () => ({})),
 }));
 jest.mock("back-end/src/services/features", () => ({
@@ -24,7 +29,7 @@ jest.mock("back-end/src/services/features", () => ({
 const mockGetFeatures = getFeaturesByIds as jest.Mock;
 const mockGetRevisions = getFeatureRevisionsByFeatureIds as jest.Mock;
 const mockLiveAndBase = getLiveAndBaseRevisionsForFeature as jest.Mock;
-const mockGetBases = getRevisionsByVersions as jest.Mock;
+const mockSummaries = getLinkageSyncRevisionSummaries as jest.Mock;
 
 const EXPERIMENT_ID = "exp_1";
 
@@ -42,8 +47,7 @@ const refRule = (value: string, id = "fr_1"): FeatureRule =>
       { variationId: "var_0", value: "control" },
       { variationId: "var_1", value },
     ],
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any;
+  }) as FeatureRule;
 
 const makeFeature = (liveRules: FeatureRule[]): FeatureInterface =>
   ({
@@ -59,8 +63,7 @@ const makeFeature = (liveRules: FeatureRule[]): FeatureInterface =>
     dateUpdated: new Date(),
     environmentSettings: { production: { enabled: true, rules: [] } },
     rules: liveRules,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any;
+  }) as FeatureInterface;
 
 const makeDraft = (
   version: number,
@@ -78,19 +81,55 @@ const makeDraft = (
     environmentsEnabled: { production: true },
     dateCreated: new Date(),
     dateUpdated: new Date(),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  }) as any;
+  }) as FeatureRevisionInterface;
 
 const context = {
-  org: { id: "org_1", settings: { environments: [{ id: "production" }] } },
+  org: {
+    id: "org_1",
+    settings: { environments: [{ id: "production" }], requireReviews: true },
+  },
   hasPremiumFeature: () => true,
   permissions: { canPublishFeature: () => true },
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-} as any;
+  getProjects: async () => [],
+} as unknown as ReqContext;
 
-const run = (refIsDraft: boolean) =>
+// The page reads drafts normalized; a start reads them as stored. `stored`
+// overrides a draft's rules where normalizing changed them.
+const stub = ({
+  live,
+  drafts,
+  bases = [],
+  stored = {},
+}: {
+  live: FeatureRule[];
+  drafts: FeatureRevisionInterface[];
+  bases?: FeatureRevisionInterface[];
+  stored?: Record<number, FeatureRule[]>;
+}) => {
+  const feature = makeFeature(live);
+  mockGetFeatures.mockResolvedValue([feature]);
+  mockGetRevisions.mockResolvedValue({ flag: drafts });
+  const summaries = {
+    openDrafts: drafts.map((d) => {
+      const base =
+        d.baseVersion !== feature.version
+          ? bases.find((b) => b.version === d.baseVersion)
+          : undefined;
+      return {
+        version: d.version,
+        rules: stored[d.version] ?? d.rules,
+        ...(base && { base: { version: base.version, rules: base.rules } }),
+      };
+    }),
+    liveRevision: { version: feature.version, rules: live },
+  };
+  mockSummaries.mockResolvedValue(summaries);
+  return summaries;
+};
+
+const run = (refIsDraft: boolean, ctx = context) =>
   getRefLinkedFeatureInfo({
-    context,
+    context: ctx,
     linkedFeatureIds: ["flag"],
     refIsDraft,
     matchRule: (rule) =>
@@ -100,7 +139,6 @@ const run = (refIsDraft: boolean) =>
 
 beforeEach(() => {
   jest.clearAllMocks();
-  context.org.settings.requireReviews = true;
   mockLiveAndBase.mockImplementation(async ({ feature }) => ({
     live: { ...makeDraft(3, feature.rules), status: "published" },
     base: { ...makeDraft(3, feature.rules), status: "published" },
@@ -108,21 +146,19 @@ beforeEach(() => {
 });
 
 describe("getRefLinkedFeatureInfo pendingDraft", () => {
-  it("reports a running experiment's unpublished edit even though state stays live", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("draft-value")])],
+  it("reports a running experiment's unpublished edit through pendingDraft alone", async () => {
+    stub({
+      live: [refRule("live-value")],
+      drafts: [makeDraft(4, [refRule("draft-value")])],
     });
 
     const [info] = await run(false);
 
-    // `state` stays live-first so every existing consumer is unaffected...
     expect(info.state).toBe("live");
     expect(info.values).toEqual([
       { variationId: "var_0", value: "control" },
       { variationId: "var_1", value: "live-value" },
     ]);
-    // ...and the pending edit is only visible through pendingDraft.
     expect(info.pendingDraft?.version).toBe(4);
     expect(info.pendingDraft?.status).toBe("pending-review");
     expect(info.pendingDraft?.values).toEqual([
@@ -130,24 +166,12 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
       { variationId: "var_1", value: "draft-value" },
     ]);
     expect(info.pendingDraft?.pendingApproval).toBe(true);
-    // The live values are the before side of the diff.
     expect(info.liveValues).toEqual([
       { variationId: "var_0", value: "control" },
       { variationId: "var_1", value: "live-value" },
     ]);
-  });
-
-  it("does NOT widen the sibling fields the pre-launch checklist filters on", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("draft-value")])],
-    });
-
-    const [info] = await run(false);
-
-    // changeExperimentStatus filters `pendingApproval` with no state gate and
-    // reads `draftRevisionStatus` for the verdict — populating either here
-    // would hard-block a running experiment on an unrelated draft.
+    // Set on a running experiment, these would hard-block its start on an
+    // unrelated draft.
     expect(info.pendingApproval).toBeUndefined();
     expect(info.draftRevisionVersion).toBeUndefined();
     expect(info.draftRevisionStatus).toBeUndefined();
@@ -155,38 +179,65 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
     expect(info.hasUnrelatedDraftChanges).toBeUndefined();
   });
 
-  it("populates pendingDraft for a first draft that has no live rule to compare", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("draft-value")])],
+  it("offers every draft that adds the rule when live has none, newest first", async () => {
+    stub({
+      live: [],
+      drafts: [
+        makeDraft(4, [refRule("older-edit")]),
+        makeDraft(5, [refRule("draft-value")]),
+      ],
     });
 
     const [info] = await run(true);
 
     expect(info.state).toBe("draft");
-    expect(info.pendingDraft?.version).toBe(4);
+    expect(info.pendingDraft?.version).toBe(5);
+    expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
     expect(info.liveValues).toBeUndefined();
-    // On a draft experiment the sibling fields ARE populated, as before.
-    expect(info.draftRevisionVersion).toBe(4);
+    expect(info.draftRevisionVersion).toBe(5);
     expect(info.pendingApproval).toBe(true);
   });
 
-  it("reports no pendingDraft when the draft's rule is identical to live", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("same")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [makeDraft(4, [refRule("same")])],
-    });
+  it.each([
+    { targetingProjects: ["prj_targeted"], pendingApproval: true },
+    { targetingProjects: [], pendingApproval: undefined },
+  ])(
+    "judges approval by every Project governing the flag (targeting $targetingProjects)",
+    async ({ targetingProjects, pendingApproval }) => {
+      // Only the Project the flag may target has a review rule.
+      const reviewed = {
+        ...context,
+        org: {
+          ...context.org,
+          settings: {
+            ...context.org.settings,
+            requireReviews: [
+              {
+                requireReviewOn: true,
+                resetReviewOnChange: false,
+                environments: [],
+                projects: ["prj_targeted"],
+              },
+            ],
+          },
+        },
+      } as unknown as ReqContext;
+      stub({ live: [], drafts: [makeDraft(5, [refRule("draft-value")])] });
+      mockGetFeatures.mockResolvedValue([
+        { ...makeFeature([]), targetingProjects },
+      ]);
 
-    const [info] = await run(false);
+      const [info] = await run(true, reviewed);
 
-    expect(info.state).toBe("live");
-    expect(info.pendingDraft).toBeUndefined();
-  });
+      expect(info.pendingApproval).toBe(pendingApproval);
+      expect(info.pendingDraft?.pendingApproval).toBe(!!pendingApproval);
+    },
+  );
 
   it("offers every draft that changes the rule, newest first", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("live-value")])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [
+    stub({
+      live: [refRule("live-value")],
+      drafts: [
         makeDraft(4, [refRule("older-edit")]),
         makeDraft(5, [refRule("newer-edit")]),
         makeDraft(6, [refRule("live-value")]),
@@ -200,12 +251,12 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
   });
 
   it("passes over a draft that only holds the rule as it was when the draft was cut", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([refRule("republished")])]);
-    mockGetBases.mockResolvedValue([
-      { ...makeDraft(2, [refRule("live-value")]), status: "published" },
-    ]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [
+    stub({
+      live: [refRule("republished")],
+      bases: [
+        { ...makeDraft(2, [refRule("live-value")]), status: "published" },
+      ],
+      drafts: [
         makeDraft(4, [refRule("real-edit")], 2),
         makeDraft(5, [refRule("live-value")], 2),
         makeDraft(6, [refRule("republished")]),
@@ -214,25 +265,74 @@ describe("getRefLinkedFeatureInfo pendingDraft", () => {
 
     const [info] = await run(false);
 
-    expect(mockGetBases).toHaveBeenCalledWith(
-      expect.objectContaining({ versions: [2] }),
-    );
     expect(info.pendingDraft?.version).toBe(4);
     expect(info.otherPendingDrafts).toBeUndefined();
   });
 
-  it("offers every draft that adds the rule when live has none", async () => {
-    mockGetFeatures.mockResolvedValue([makeFeature([])]);
-    mockGetRevisions.mockResolvedValue({
-      flag: [
-        makeDraft(4, [refRule("older-edit")]),
-        makeDraft(5, [refRule("newer-edit")]),
-      ],
+  describe("offers exactly the draft a start launches", () => {
+    const scoped = (environments: string[], value = "draft-value") =>
+      ({
+        ...refRule(value),
+        allEnvironments: false,
+        environments,
+      }) as ExperimentRefRule;
+
+    it.each([
+      {
+        name: "a rule that runs in no environment",
+        live: [],
+        draft: scoped([]),
+        stored: scoped([]),
+      },
+      {
+        name: "a rule only in environments outside the flag's Project",
+        live: [refRule("live-value")],
+        // Reading the draft narrows the rule to the environments it can reach.
+        draft: scoped([]),
+        stored: scoped(["staging"]),
+      },
+      {
+        name: "a rule whose change normalizing hides",
+        live: [scoped(["production"], "live-value")],
+        draft: scoped(["production"], "live-value"),
+        stored: scoped(["production", "staging"], "live-value"),
+      },
+    ])("for $name", async ({ live, draft, stored }) => {
+      const summaries = stub({
+        live,
+        drafts: [makeDraft(4, [draft])],
+        stored: { 4: [stored] },
+      });
+
+      const [info] = await run(true);
+
+      expect(
+        getLaunchDraftVersion(
+          EXPERIMENT_ID,
+          summaries.openDrafts,
+          summaries.liveRevision,
+        ),
+      ).toBe(4);
+      expect(info.pendingDraft?.version).toBe(4);
+      expect(info.pendingDraft?.values).toEqual(draft.variations);
     });
 
-    const [info] = await run(true);
+    it("offers none when a start launches none", async () => {
+      const summaries = stub({
+        live: [refRule("live-value")],
+        drafts: [makeDraft(4, [refRule("live-value")])],
+      });
 
-    expect(info.pendingDraft?.version).toBe(5);
-    expect(info.otherPendingDrafts?.map((d) => d.version)).toEqual([4]);
+      const [info] = await run(true);
+
+      expect(
+        getLaunchDraftVersion(
+          EXPERIMENT_ID,
+          summaries.openDrafts,
+          summaries.liveRevision,
+        ),
+      ).toBeNull();
+      expect(info.pendingDraft).toBeUndefined();
+    });
   });
 });

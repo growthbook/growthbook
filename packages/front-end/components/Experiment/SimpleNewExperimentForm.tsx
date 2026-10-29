@@ -21,12 +21,19 @@ import SelectField from "@/components/Forms/SelectField";
 import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import ImplementationTypeSelect from "@/components/Experiment/ImplementationTypeSelect";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import {
+  formatAttributeOptionLabel,
+  toAttributeOption,
+} from "@/components/Features/AttributeOptionTooltip";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  getExposureQueriesForAttribute,
   getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
   getHashAttributeIdentifierTypeMap,
@@ -131,28 +138,27 @@ export function getAutoExposureQueryId({
       : "";
   }
 
-  if (exposureQueries.length > 1) {
-    // A hash attribute can be linked to multiple identifier types, each with
-    // its own query. Only auto-select when exactly one query is linked across
-    // all matching identifier types.
-    const linkedUserIdTypes =
-      dsSettings?.userIdTypes
-        ?.filter((t) => t.attributes?.includes(hashAttribute))
-        .map((t) => t.userIdType) || [];
-    const matchingQueries = exposureQueries.filter((q) =>
-      getExposureQueryIdentifierTypes(q).some((identifierType) =>
-        linkedUserIdTypes.includes(identifierType),
-      ),
-    );
-    if (matchingQueries.length === 1) return matchingQueries[0].id;
-  }
-  return "";
+  // A hash attribute can be linked to several identifier types, each with its
+  // own query; only one linked query is unambiguous.
+  const { matching } = getExposureQueriesForAttribute(
+    dsSettings,
+    hashAttribute,
+    exposureQueries,
+  );
+  return matching.length === 1 ? matching[0].id : "";
 }
 
-// Not asked for at creation; changed afterwards on the Setup page.
-function defaultHashAttributeOf(hashAttributes: string[]): string {
-  if (hashAttributes.includes("id")) return "id";
-  return hashAttributes[0] ?? "id";
+// "id" when flagged, else the only flagged attribute; otherwise the form asks,
+// starting from "id" only when none is flagged and the schema declares it.
+export function defaultHashAttributeOf(
+  schema: { property: string; hashAttribute?: boolean }[],
+): string {
+  const hashable = schema.filter((a) => a.hashAttribute).map((a) => a.property);
+  if (hashable.length) {
+    if (hashable.includes("id")) return "id";
+    return hashable.length === 1 ? hashable[0] : "";
+  }
+  return !schema.length || schema.some((a) => a.property === "id") ? "id" : "";
 }
 
 /**
@@ -270,10 +276,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const initialProject = ctxProject || "";
 
   const initialAttributeSchema = useAttributeSchema(false, initialProject);
-  const initialHashAttributes = initialAttributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
-  const initialHashAttribute = defaultHashAttributeOf(initialHashAttributes);
+  const initialHashAttribute = defaultHashAttributeOf(initialAttributeSchema);
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -298,11 +301,14 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
-  const hashAttributes = attributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
-  const hasHashAttributes = hashAttributes.length > 0;
-  const defaultHashAttribute = defaultHashAttributeOf(hashAttributes);
+  const hashableAttributes = attributeSchema.filter((a) => a.hashAttribute);
+  const selectableAttributes =
+    hashableAttributes.length > 0 ? hashableAttributes : attributeSchema;
+  const defaultHashAttribute = defaultHashAttributeOf(attributeSchema);
+  // The assignment query and identifier follow it, so it's asked whenever
+  // there's a choice; with none flagged, the default may be one no SDK sends.
+  const askHashAttribute =
+    attributeSchema.length > 0 && hashableAttributes.length !== 1;
 
   const { availableFields: customFields, value: customFieldValues } =
     useReconciledCustomFields({
@@ -350,9 +356,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       form.setValue("templateId", "");
     }
     const hashAttribute = form.getValues("hashAttribute");
-    const validAttributes = attributeSchema
-      .filter((s) => !hasHashAttributes || s.hashAttribute)
-      .map((s) => s.property);
+    const validAttributes = selectableAttributes.map((s) => s.property);
     if (!hashAttribute || !validAttributes.includes(hashAttribute)) {
       form.setValue("hashAttribute", defaultHashAttribute);
     }
@@ -370,6 +374,22 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       form.setValue("hashAttribute", holdoutHashAttribute);
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const currentHashAttribute = form.watch("hashAttribute");
+  const hashAttributeHoldoutMismatch =
+    !!holdoutHashAttribute && currentHashAttribute !== holdoutHashAttribute;
+  // The holdout's attribute may not be flagged for hashing, and the field
+  // reads as empty unless its value is an option.
+  const hashAttributeOptions =
+    !currentHashAttribute ||
+    selectableAttributes.some((a) => a.property === currentHashAttribute)
+      ? selectableAttributes
+      : [
+          ...selectableAttributes,
+          attributeSchema.find((a) => a.property === currentHashAttribute) ?? {
+            property: currentHashAttribute,
+          },
+        ];
 
   const watchedTemplateId = form.watch("templateId");
   const watchedTemplate = watchedTemplateId
@@ -444,6 +464,9 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
     const project = rawValue.project || "";
     const hashAttribute = rawValue.hashAttribute || defaultHashAttribute;
+    if (!hashAttribute) {
+      throw new Error("You must select an assignment attribute");
+    }
 
     const hasSDKWithNoBucketingV2 = !allConnectionsSupportBucketingV2(
       sdkConnectionsData?.connections,
@@ -697,6 +720,36 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           setValue={(v) => form.setValue("implementationType", v)}
         />
       </Box>
+
+      {askHashAttribute && (
+        <SelectField
+          required
+          label={
+            <>
+              <Text weight="semibold" mb="1">
+                Assignment attribute
+              </Text>
+              <Text as="div" color="text-mid">
+                Will be hashed together with the tracking key to determine which
+                variation to assign
+              </Text>
+            </>
+          }
+          className={hashAttributeHoldoutMismatch ? "warning" : undefined}
+          value={currentHashAttribute ?? ""}
+          onChange={(v) => form.setValue("hashAttribute", v)}
+          options={hashAttributeOptions.map(toAttributeOption)}
+          formatOptionLabel={formatAttributeOptionLabel}
+          helpText={
+            hashAttributeHoldoutMismatch ? (
+              <HelperText status="warning" size="sm" mt="2">
+                The hash attribute of this experiment does not match the hash
+                attribute of the holdout this experiment will belong to.
+              </HelperText>
+            ) : undefined
+          }
+        />
+      )}
 
       {customFields.length > 0 && (
         <CustomFieldInput

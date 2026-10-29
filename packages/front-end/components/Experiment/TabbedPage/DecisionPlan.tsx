@@ -1,172 +1,250 @@
 import { ReactNode, useState } from "react";
-import { Box, Flex, Separator } from "@radix-ui/themes";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
-import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
-import TargetMDEModal from "@/components/Experiment/TabbedPage/TargetMDEModal";
-import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import { Box, Flex } from "@radix-ui/themes";
 import {
-  percentFormatter,
-  useDecisionMakingSummary,
-} from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
-import Heading from "@/ui/Heading";
+  DecisionCriteriaData,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import { ExperimentAnalysisSettingsDraft } from "shared/validators";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import DecisionCriteriaModal from "@/components/DecisionCriteria/DecisionCriteriaModal";
+import DecisionCriteriaSelectorModal from "@/components/DecisionCriteria/DecisionCriteriaSelectorModal";
+import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
+import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
-import { useEditsBlockedReason } from "./ExperimentEdits";
-import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
-import SetupFieldRow from "./SetupFieldRow";
+import { useDecisionMakingSummary } from "./DecisionMakingSettings";
+import {
+  useExperimentFieldEdit,
+  useHoldEditBases,
+  useStagedState,
+} from "./ExperimentEdits";
+import { QuickEditRow } from "./QuickEditButton";
+import SetupFieldRow, { InfoTip } from "./SetupFieldRow";
+import { scheduledEnd, scheduleTimes } from "./statusSchedule";
 
-type Editor = "targetMDE" | "criteria" | "schedule";
+const INNER_LABEL_WIDTH = "128px";
 
-/**
- * How the experiment's result gets decided: each goal's target MDE, the
- * decision criteria and what happens at the end. Each one writes straight from
- * its own dialog, so they wait while the page holds unsaved edits.
- */
+function Panel({ children }: { children: ReactNode }) {
+  return (
+    <Frame
+      px="4"
+      py="4"
+      mb="0"
+      noBackground
+      style={{ backgroundColor: "var(--gray-a2)", border: "none" }}
+    >
+      {children}
+    </Frame>
+  );
+}
+
+function CriteriaName({ criteria }: { criteria: DecisionCriteriaData }) {
+  return (
+    <Flex align="center" gap="1">
+      <Text color="text-high">{criteria.name}</Text>
+      {criteria.description ? <InfoTip content={criteria.description} /> : null}
+    </Flex>
+  );
+}
+
+function InnerRow({
+  label,
+  tooltip,
+  children,
+}: {
+  label: string;
+  tooltip?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Flex align="start" gap="3" wrap="wrap">
+      <Flex align="center" gap="1" flexShrink="0" width={INNER_LABEL_WIDTH}>
+        <Text color="text-high" whiteSpace="nowrap">
+          {label}
+        </Text>
+        {tooltip ? <InfoTip content={tooltip} /> : null}
+      </Flex>
+      <Box flexGrow="1" flexBasis="0" minWidth="200px">
+        {children}
+      </Box>
+    </Flex>
+  );
+}
+
+// The Analysis Plan's schedule and decision rows, each edited in a dialog
+// that stages with the plan.
 export default function DecisionPlan({
-  experiment,
-  mutate,
+  experiment: plan,
+  stage,
   canEdit,
+  canEditSchedule,
+  mutate,
   envs,
 }: {
+  // With the plan's staged settings.
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
+  stage: (changes: ExperimentAnalysisSettingsDraft) => void;
   canEdit: boolean;
+  canEditSchedule: boolean;
+  mutate: () => void;
   // Environments the experiment reaches; the schedule dialog gates on them.
   envs: string[];
 }) {
   const permissionsUtil = usePermissionsUtil();
+  // Held with the page's other edits until it saves; null clears it.
+  const [stagedSchedule, setStagedSchedule] = useStagedState<{
+    schedule: ExperimentInterfaceStringDates["statusUpdateSchedule"];
+  } | null>("analysis-plan:schedule", null);
+  useExperimentFieldEdit("schedule", !!stagedSchedule, plan, {
+    label: "Schedule",
+    statusBound: true,
+    fields: () => ({ statusUpdateSchedule: stagedSchedule?.schedule ?? null }),
+    onSaved: () => setStagedSchedule(null),
+    discard: () => setStagedSchedule(null),
+  });
+  const experiment = stagedSchedule
+    ? { ...plan, statusUpdateSchedule: stagedSchedule.schedule }
+    : plan;
   const summary = useDecisionMakingSummary(experiment);
-  const editsBlocked = useEditsBlockedReason();
-  const [editing, setEditing] = useState<Editor | null>(null);
-  if (!summary) return null;
-  const { goalsWithTargetMDE, decisionCriteria, endSummary, endDetails } =
-    summary;
+  const [editing, setEditing] = useState<
+    "schedule" | "endPlan" | "criteria" | "rules" | null
+  >(null);
+  useHoldEditBases(editing !== null);
 
-  const editable =
-    canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
+  const scheduleEditable =
+    canEditSchedule && permissionsUtil.canUpdateExperiment(experiment, {});
   const close = () => setEditing(null);
-  const saved = () => {
-    close();
-    mutate();
-  };
-
-  const row = (
-    label: string,
-    tooltip: string,
-    editor: Editor,
-    value: ReactNode,
-    hasValue = true,
-  ) => (
-    <SetupFieldRow label={label} tooltip={tooltip} content="text">
-      <Flex align="start" gap="2" className={revealsQuickEdit}>
-        <Box minWidth="0">{value}</Box>
-        {editable && hasValue ? (
-          <QuickEditButton
-            label={`Edit ${label[0].toLowerCase()}${label.slice(1)}`}
-            onClick={() => setEditing(editor)}
-            blockedReason={editsBlocked}
-          />
-        ) : null}
-      </Flex>
-    </SetupFieldRow>
-  );
+  const times = scheduleTimes(experiment);
+  const scheduled = !!(times.starts || times.ends);
+  const hasEnd = !!scheduledEnd(experiment.statusUpdateSchedule);
 
   return (
     <>
-      {editing === "criteria" ? (
-        editable ? (
-          <DecisionCriteriaSelectorModal
-            initialCriteria={decisionCriteria}
-            experiment={experiment}
-            onSubmit={saved}
-            onClose={close}
-            canEdit
-          />
-        ) : (
-          <DecisionCriteriaModal
-            decisionCriteria={decisionCriteria}
-            editable={false}
-            mutate={() => {}}
-            onClose={close}
-          />
-        )
-      ) : null}
-      {editing === "targetMDE" ? (
-        <TargetMDEModal
-          goalsWithTargetMDE={goalsWithTargetMDE}
-          experiment={experiment}
-          onSubmit={saved}
-          onClose={close}
-        />
-      ) : null}
-      {editing === "schedule" ? (
+      {editing === "schedule" || editing === "endPlan" ? (
         <EditScheduleModal
+          focusEndPlan={editing === "endPlan"}
           experiment={experiment}
           mutate={mutate}
           envs={envs}
           close={close}
+          stageChanges={(changes) => {
+            if ("statusUpdateSchedule" in changes) {
+              setStagedSchedule({ schedule: changes.statusUpdateSchedule });
+            }
+            if (changes.decisionCriteriaId) {
+              stage({
+                decisionFrameworkSettings: {
+                  ...experiment.decisionFrameworkSettings,
+                  decisionCriteriaId: changes.decisionCriteriaId,
+                },
+              });
+            }
+          }}
         />
       ) : null}
-      <Separator size="4" my="2" />
-      <Box py="4">
-        <Heading color="text-high" as="h4" size="sm" mb="1">
-          Decision-making Settings
-        </Heading>
+      {editing === "criteria" && summary ? (
+        <DecisionCriteriaSelectorModal
+          initialCriteria={summary.decisionCriteria}
+          stageChanges={(decisionCriteriaId) => {
+            if (decisionCriteriaId === summary.decisionCriteria.id) return;
+            stage({
+              decisionFrameworkSettings: {
+                ...experiment.decisionFrameworkSettings,
+                decisionCriteriaId,
+              },
+            });
+          }}
+          onSubmit={close}
+          onClose={close}
+        />
+      ) : null}
+      {editing === "rules" && summary ? (
+        <DecisionCriteriaModal
+          decisionCriteria={summary.decisionCriteria}
+          editable={false}
+          mutate={() => {}}
+          onClose={close}
+        />
+      ) : null}
 
-        {row(
-          "Target MDE",
-          "The smallest effect on each goal metric worth detecting.",
-          "targetMDE",
-          goalsWithTargetMDE.length ? (
-            goalsWithTargetMDE.map((metric) => (
-              <Text as="div" color="text-high" key={metric.id}>
-                {metric.name} (
-                {percentFormatter.format(metric.computedTargetMDE)})
-              </Text>
-            ))
-          ) : (
-            <Text color="text-low">
-              <em>No goal metrics</em>
-            </Text>
-          ),
-          goalsWithTargetMDE.length > 0,
-        )}
-        {row(
-          "Decision criteria",
-          "The rules that turn results into a recommendation to ship, roll back or review.",
-          "criteria",
-          <Text color="text-high">
-            {/* Editors open the rules from the pencil; anyone else from the name. */}
-            {editable ? (
-              decisionCriteria.name
+      <SetupFieldRow
+        label="Schedule"
+        content="panel"
+        labelAlign={scheduled ? "top" : "center"}
+      >
+        <Panel>
+          <QuickEditRow
+            label="Edit schedule"
+            onEdit={scheduleEditable ? () => setEditing("schedule") : null}
+            align={scheduled ? "start" : "center"}
+          >
+            {scheduled ? (
+              <Flex direction="column" gap="3" flexGrow="1">
+                <InnerRow label={times.started ? "Started" : "Starts"}>
+                  <Text color="text-high">{times.starts ?? "Manually"}</Text>
+                </InnerRow>
+                <InnerRow label={times.ended ? "Ended" : "Ends"}>
+                  <Text color="text-high">{times.ends ?? "Manually"}</Text>
+                </InnerRow>
+              </Flex>
             ) : (
-              <Link onClick={() => setEditing("criteria")}>
-                {decisionCriteria.name}
-              </Link>
+              <Text color="text-high">Starts and ends manually.</Text>
             )}
-            {decisionCriteria.description ? (
-              <Text color="text-mid">{`: ${decisionCriteria.description}`}</Text>
-            ) : null}
-          </Text>,
-        )}
-        {row(
-          "End of experiment",
-          "What happens when the experiment reaches its scheduled end.",
-          "schedule",
-          <>
-            <Text as="div" color="text-high">
-              {endSummary}
-            </Text>
-            {endDetails.map((detail) => (
-              <Text as="div" color="text-mid" key={detail}>
-                {detail}
-              </Text>
-            ))}
-          </>,
-        )}
-      </Box>
+          </QuickEditRow>
+        </Panel>
+      </SetupFieldRow>
+
+      {summary ? (
+        <SetupFieldRow label="Decision" content="panel">
+          <Panel>
+            <Flex direction="column" gap="3">
+              <InnerRow label="Decision criteria">
+                {canEdit ? (
+                  <QuickEditRow
+                    label="Edit decision criteria"
+                    onEdit={() => setEditing("criteria")}
+                  >
+                    <CriteriaName criteria={summary.decisionCriteria} />
+                  </QuickEditRow>
+                ) : (
+                  <Link onClick={() => setEditing("rules")}>
+                    <CriteriaName criteria={summary.decisionCriteria} />
+                  </Link>
+                )}
+              </InnerRow>
+              <InnerRow
+                label="At end"
+                tooltip="What happens when the experiment reaches its scheduled end."
+              >
+                {/* The plan only runs at a scheduled end. */}
+                {hasEnd ? (
+                  <QuickEditRow
+                    label="Edit end of experiment"
+                    onEdit={
+                      scheduleEditable ? () => setEditing("endPlan") : null
+                    }
+                  >
+                    <Flex direction="column" gap="1" minWidth="0">
+                      <Text as="div" color="text-high">
+                        {summary.endSummary}
+                      </Text>
+                      {summary.endDetails.map((detail, i) => (
+                        <Text as="div" color="text-high" key={i}>
+                          {detail}
+                        </Text>
+                      ))}
+                    </Flex>
+                  </QuickEditRow>
+                ) : (
+                  <Text color="text-high">
+                    You choose what happens when you stop the experiment.
+                  </Text>
+                )}
+              </InnerRow>
+            </Flex>
+          </Panel>
+        </SetupFieldRow>
+      ) : null}
     </>
   );
 }

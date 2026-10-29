@@ -6,10 +6,8 @@ const TICK_SPACING = 90;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const MONTH_MS = 28 * DAY_MS;
 
-/**
- * The dates a time axis labels: as many as fit its width, or each point's own
- * once there are that few, formatted as finely as their spacing needs.
- */
+// As many dates as fit the width (each point's own, when there are that few),
+// formatted as finely as their spacing needs.
 export function dateAxisTicks(
   scale: ScaleTime<number, number>,
   width: number,
@@ -25,7 +23,7 @@ export function dateAxisTicks(
   return { ticks, format: (d) => format(d.valueOf(), pattern) };
 }
 
-/** Of a run of events, only those at least `gap` pixels apart, so a burst reads as one. */
+// Keeps events at least `gap` pixels apart, so a burst reads as one.
 export function spacedOut(
   times: number[],
   scale: ScaleTime<number, number>,

@@ -3,6 +3,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import cloneDeep from "lodash/cloneDeep";
 import {
+  changesetOwnerRef,
   getImplementationType,
   implementationTypeAfterUnlink,
   includeExperimentInPayload,
@@ -13,7 +14,10 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { v4 as uuidv4 } from "uuid";
-import { VisualChange } from "shared/types/visual-changeset";
+import {
+  VisualChange,
+  VisualChangesetInterface,
+} from "shared/types/visual-changeset";
 import {
   ExperimentInterfaceExcludingHoldouts,
   ExperimentStatus,
@@ -33,6 +37,11 @@ import {
 import { FeatureInterface } from "shared/types/feature";
 import { DiffResult } from "shared/types/events/diff";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
+import {
+  getUnsetAnalysisSettings,
+  isAnalysisSettingUnset,
+  SETTLED_ANALYSIS_SETTINGS,
+} from "shared/settings";
 import { getExperimentReminderResets } from "back-end/src/services/experimentReminderState";
 import { ReqContext } from "back-end/types/request";
 import {
@@ -238,8 +247,28 @@ const experimentSchema = new mongoose.Schema({
     type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
     date: Date,
     failedAttempts: Number,
+    lastError: String,
     scheduledBy: String,
     scheduledByApiKey: String,
+    bypassApproval: Boolean,
+    // No default, or every experiment would carry an empty pointer.
+    pinnedDrafts: {
+      type: [
+        {
+          _id: false,
+          featureId: String,
+          revisionVersion: Number,
+          dateUpdated: Date,
+        },
+      ],
+      default: undefined,
+    },
+  },
+  scheduledStatusUpdateFailure: {
+    _id: false,
+    type: { type: String, enum: [...SCHEDULED_STATUS_UPDATE_TYPES] },
+    date: Date,
+    reason: String,
   },
   results: String,
   analysis: String,
@@ -592,6 +621,13 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountExperimentsByOrganization(
+  organization: string,
+): Promise<number> {
+  return ExperimentModel.countDocuments({ organization });
+}
+
 // What `countActiveExperimentsUsingNamespace` reads: the projected fields
 // `experimentAllocatesTrafficInNamespace` needs, plus the ones it filters on.
 // Typed on `getCollection` so neither the filter nor the result needs a cast.
@@ -814,6 +850,18 @@ export async function getExperimentsByIds(
   });
 }
 
+// For guards that must see every experiment, whatever the caller may read.
+export async function dangerouslyGetExperimentsByIdsBypassPermission(
+  organization: string,
+  ids: string[],
+): Promise<ExperimentInterface[]> {
+  if (!ids.length) return [];
+  const docs = await getCollection(COLLECTION)
+    .find({ organization, id: { $in: ids } })
+    .toArray();
+  return docs.map(toInterface);
+}
+
 export async function getExperimentsByTrackingKeys(
   context: ReqContext | ApiReqContext,
   trackingKeys: string[],
@@ -867,6 +915,10 @@ export async function createExperiment({
     uid: uuidv4().replace(/-/g, ""),
     // If this is a sample experiment, we'll override the id with data.id
     ...data,
+    // A new experiment starts from the org's CUPED setting.
+    regressionAdjustmentEnabled:
+      data.regressionAdjustmentEnabled ??
+      !!context.org.settings?.regressionAdjustmentEnabled,
     // set the default phase seed to uuid
     phases: data.phases
       ? data.phases.map(({ ...phase }) => {
@@ -882,6 +934,14 @@ export async function createExperiment({
     lastSnapshotAttempt: new Date(),
     nextSnapshotAttempt: nextUpdate ?? undefined,
   } satisfies Partial<ExperimentInterface> as ExperimentInterface;
+  Object.assign(
+    experimentToCreate,
+    getUnsetAnalysisSettings({
+      organization: context.org,
+      project: await getAnalysisProject(context, data.project),
+      experiment: experimentToCreate,
+    }),
+  );
 
   if (experimentToCreate.type !== "holdout") {
     await runValidateExperimentHooks({
@@ -969,6 +1029,14 @@ export async function updateExperiment({
     effectiveImplementationType !== merged.implementationType
       ? { implementationType: effectiveImplementationType }
       : {}),
+    // Staging a scheduled change, clearing one, or a status change made some
+    // other way retires the last failure.
+    ...(experiment.scheduledStatusUpdateFailure &&
+    ("nextScheduledStatusUpdate" in changes ||
+      (!!changes.status && changes.status !== experiment.status)) &&
+    !("scheduledStatusUpdateFailure" in changes)
+      ? { scheduledStatusUpdateFailure: null }
+      : {}),
     dateUpdated: new Date(),
   };
   if (allChanges.name === "")
@@ -1040,7 +1108,48 @@ export async function updateExperiment({
     bypassWebhooks,
   });
 
-  return updated;
+  return { ...updated, ...(await settleAnalysisSettings(context, updated)) };
+}
+
+const getAnalysisProject = async (
+  context: ReqContext | ApiReqContext,
+  projectId: string | undefined,
+) =>
+  (projectId ? await context.models.projects.getById(projectId) : null) ??
+  undefined;
+
+// Stores each analysis setting still left to the org or project as it resolves
+// now; only where still unset, and outside the update's change set.
+async function settleAnalysisSettings(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<Partial<ExperimentInterface>> {
+  if (
+    !SETTLED_ANALYSIS_SETTINGS.some((key) =>
+      isAnalysisSettingUnset(experiment[key]),
+    )
+  ) {
+    return {};
+  }
+  const settled = getUnsetAnalysisSettings({
+    organization: context.org,
+    project: await getAnalysisProject(context, experiment.project),
+    experiment,
+  });
+  await Promise.all(
+    Object.entries(settled).map(([key, value]) =>
+      ExperimentModel.updateOne(
+        {
+          id: experiment.id,
+          organization: context.org.id,
+          // Only the string setting can be stored empty.
+          [key]: typeof value === "string" ? { $in: [null, ""] } : null,
+        },
+        { $set: { [key]: value } },
+      ),
+    ),
+  );
+  return settled;
 }
 
 export async function getExperimentsByMetric(
@@ -1957,11 +2066,7 @@ async function unlinkFeatureFromExperimentDoc(
   });
 }
 
-/**
- * Unlinks the flag from the experiments waiting to drop it that nothing live
- * or open references any more. Unfiltered: the waiting removal is the
- * decision, whoever's write lands it.
- */
+// Unfiltered: the waiting removal is the decision, whoever's write lands it.
 export async function unlinkLandedFeatureRemovals(
   context: ReqContext | ApiReqContext,
   featureId: string,
@@ -2030,8 +2135,8 @@ export async function setPendingFeatureUnlink(
 
 // Queues a draft for auto-publish when the experiment transitions to running.
 // $addToSet is atomic and idempotent on exact (featureId, revisionVersion)
-// pairs. Multiple drafts of the same feature are intentionally allowed and
-// applied sequentially at start (publishPendingFeatureDraftsForExperiment).
+// pairs. A start publishes one draft per feature (getLaunchDrafts) and prunes
+// the rest.
 export async function addPendingFeatureDraftToExperiment(
   context: ReqContext | ApiReqContext,
   experimentId: string,
@@ -2232,7 +2337,12 @@ export const getAllVisualExperiments = async (
 
   if (!visualChangesets.length) return [];
 
-  const visualChangesByExperimentId = visualChangesets.reduce<
+  const experimentOwned = visualChangesets.filter(
+    (c): c is VisualChangesetInterface & { experiment: string } =>
+      changesetOwnerRef(c)?.kind === "experiment",
+  );
+
+  const visualChangesByExperimentId = experimentOwned.reduce<
     Record<string, Array<VisualChange>>
   >((acc, c) => {
     if (!acc[c.experiment]) acc[c.experiment] = [];
@@ -2251,7 +2361,7 @@ export const getAllVisualExperiments = async (
     );
   };
 
-  return visualChangesets
+  return experimentOwned
     .map<VisualExperiment>((c) => ({
       experiment: experimentMap.get(c.experiment) as ExperimentInterface,
       visualChangeset: c,

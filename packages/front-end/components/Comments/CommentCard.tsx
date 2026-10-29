@@ -100,11 +100,13 @@ export default function CommentCard({
               gapY={compact ? "0" : "2"}
               wrap="wrap"
             >
-              <EventUser
-                user={user}
-                display={compact ? "name" : "name-email"}
-                size="sm"
-              />
+              <Text as="div" size={compact ? "sm" : "md"}>
+                <EventUser
+                  user={user}
+                  display={compact ? "name" : "name-email"}
+                  size="sm"
+                />
+              </Text>
               <Text color="text-low" size="sm">
                 {metadata}
               </Text>

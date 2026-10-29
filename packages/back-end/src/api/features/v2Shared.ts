@@ -232,6 +232,23 @@ export function resolveScopeFromInput(
   return { allEnvironments: true, environments: undefined };
 }
 
+// A rule with a v2 scope patch applied. Sending only `environments` scopes the
+// rule to them, even if it applied to all environments before.
+export function withPatchedScope<
+  T extends { allEnvironments?: boolean; environments?: string[] },
+>(rule: T, patch: { allEnvironments?: boolean; environments?: string[] }): T {
+  if (patch.allEnvironments === undefined && patch.environments === undefined) {
+    return rule;
+  }
+  return {
+    ...rule,
+    ...resolveScopeFromInput(
+      patch.allEnvironments,
+      patch.environments ?? rule.environments,
+    ),
+  };
+}
+
 // Project-scope resolution mirroring resolveScopeFromInput. Default allProjects:true;
 // allProjects:false keeps an explicit projects list (empty = scoped to nothing, leak-safe).
 export function resolveProjectScopeFromInput(
@@ -323,6 +340,9 @@ export function mapV2ApiRuleToFeatureRule(
       ...(ruleInput.sparse !== undefined && { sparse: ruleInput.sparse }),
       coverage: ruleInput.coverage ?? 1,
       hashAttribute: ruleInput.hashAttribute ?? "",
+      ...(ruleInput.fallbackAttribute && {
+        fallbackAttribute: ruleInput.fallbackAttribute,
+      }),
       // Preserve on round-trips — dropping seed/hashVersion re-buckets the rollout.
       ...(ruleInput.seed !== undefined && { seed: ruleInput.seed }),
       ...(ruleInput.hashVersion !== undefined && {

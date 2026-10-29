@@ -46,7 +46,7 @@ export function OfficialBadge({
   ...marginProps
 }: {
   type: string;
-  managedBy?: "" | "config" | "api" | "admin";
+  managedBy?: "" | "config" | "api" | "admin" | "dbt";
   disableTooltip?: boolean;
   // Replaces the default "managed by the API" copy.
   tooltip?: React.ReactNode;
@@ -105,6 +105,11 @@ export function OfficialBadge({
                 </>
               ) : managedBy === "admin" ? (
                 <>admins.</>
+              ) : managedBy === "dbt" ? (
+                <>
+                  dbt. It is read-only and cannot be modified from within
+                  GrowthBook.
+                </>
               ) : (
                 <>
                   the API. It is read-only and cannot be modified from within
@@ -157,7 +162,7 @@ export default function MetricName({
   isGroup?: boolean;
   showGroupIcon?: boolean;
   metrics?: { metric: ExperimentMetricDefinition | null; joinable: boolean }[];
-  /** Skip the group count's metric-list tooltip, e.g. in a card that lists them. */
+  // For a card that already lists the group's metrics.
   hideGroupTooltip?: boolean;
   showLink?: boolean;
   badgeColor?: string;
@@ -182,7 +187,7 @@ export default function MetricName({
       }));
     const allJoinable = groupMetrics.every((m) => m.joinable);
     const allNonConversionWindow = groupMetrics.every(
-      (m) => m?.metric?.windowSettings?.type !== "conversion",
+      (m) => m.metric?.windowSettings?.type !== "conversion",
     );
 
     const conversionWarning =
@@ -238,7 +243,7 @@ export default function MetricName({
                             "text-danger": !m.joinable,
                             "text-warning":
                               filterConversionWindowMetrics &&
-                              m?.metric?.windowSettings?.type === "conversion",
+                              m.metric?.windowSettings?.type === "conversion",
                           })}
                         >
                           {m.metric?.name}

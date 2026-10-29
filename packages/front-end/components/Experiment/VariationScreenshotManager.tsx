@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { Dispatch, SetStateAction, useMemo, useState } from "react";
 import clsx from "clsx";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import {
@@ -33,6 +33,24 @@ const TILE_ASPECT = "1 / 1";
 // Shared so a reorder doesn't re-request every signed URL.
 const imageCache = {};
 
+const uploadTile = (
+  <Flex
+    align="center"
+    justify="center"
+    width="100%"
+    className={clsx(
+      "appbox mb-0",
+      styles.uploadTile,
+      placeholderStyles.noImageBox,
+      placeholderStyles.noImageBoxEditable,
+    )}
+    style={{ aspectRatio: TILE_ASPECT, border: "none" }}
+  >
+    <PiCameraPlusLight size={32} />
+    <span className={styles.uploadHint}>Upload image</span>
+  </Flex>
+);
+
 function ScreenshotTile({
   screenshot,
   onDelete,
@@ -49,7 +67,6 @@ function ScreenshotTile({
   return (
     <Box
       ref={setNodeRef}
-      position="relative"
       className={styles.tile}
       style={{
         ...style,
@@ -100,21 +117,21 @@ function ScreenshotTile({
   );
 }
 
-// Uploads land immediately; order and removals ride along with the form's save.
-// So cancelling won't undo an upload, and a removed file stays in storage.
+// Uploads, order and removals all ride along with the form's save, so
+// cancelling drops an upload; its file, like a removed one, stays in storage.
 export default function VariationScreenshotManager({
   experiment,
   variationIndex,
   screenshots,
   setScreenshots,
-  mutate,
+  setUploading,
 }: {
   experiment: ExperimentInterfaceStringDates;
   variationIndex: number;
   screenshots: Screenshot[];
-  setScreenshots: (screenshots: Screenshot[]) => void;
-  // The upload is already saved; the page's copy has to catch up before its save.
-  mutate: () => void;
+  // Updaters, since a multi-file drop adds them one at a time.
+  setScreenshots: Dispatch<SetStateAction<Screenshot[]>>;
+  setUploading: (pending: number) => void;
 }) {
   // The tile is its own drag handle, so a click needs movement to become a drag.
   const sensors = useSensors(
@@ -122,11 +139,11 @@ export default function VariationScreenshotManager({
     useSensor(TouchSensor, {
       activationConstraint: { delay: 150, tolerance: 5 },
     }),
-    useSensor(KeyboardSensor, {}),
+    useSensor(KeyboardSensor),
   );
+  const variation = experiment.variations[variationIndex];
   // The viewer reads screenshots off the experiment, which still holds the
   // saved ones.
-  const variation = experiment.variations[variationIndex];
   const stagedExperiment = useMemo(
     () => ({
       ...experiment,
@@ -146,10 +163,12 @@ export default function VariationScreenshotManager({
         collisionDetection={closestCenter}
         onDragEnd={({ active, over }) => {
           if (!over || active.id === over.id) return;
-          const oldIndex = screenshots.findIndex((s) => s.path === active.id);
-          const newIndex = screenshots.findIndex((s) => s.path === over.id);
-          if (oldIndex < 0 || newIndex < 0) return;
-          setScreenshots(arrayMove(screenshots, oldIndex, newIndex));
+          setScreenshots((prev) => {
+            const oldIndex = prev.findIndex((s) => s.path === active.id);
+            const newIndex = prev.findIndex((s) => s.path === over.id);
+            if (oldIndex < 0 || newIndex < 0) return prev;
+            return arrayMove(prev, oldIndex, newIndex);
+          });
         }}
       >
         <SortableContext
@@ -163,26 +182,13 @@ export default function VariationScreenshotManager({
               className={styles.gridUpload}
               messageClassName={styles.gridUploadMessage}
               message="Drop image here"
-              onSuccess={(_, screenshot) => {
-                setScreenshots([...screenshots, screenshot]);
-                mutate();
-              }}
+              attach={false}
+              onSuccess={(screenshot) =>
+                setScreenshots((prev) => [...prev, screenshot])
+              }
+              onPendingChange={setUploading}
             >
-              <Flex
-                align="center"
-                justify="center"
-                width="100%"
-                className={clsx(
-                  "appbox mb-0",
-                  styles.uploadTile,
-                  placeholderStyles.noImageBox,
-                  placeholderStyles.noImageBoxEditable,
-                )}
-                style={{ aspectRatio: TILE_ASPECT, border: "none" }}
-              >
-                <PiCameraPlusLight size={32} />
-                <span className={styles.uploadHint}>Upload image</span>
-              </Flex>
+              {uploadTile}
             </ScreenshotUpload>
             {screenshots.map((s, i) => (
               <ScreenshotTile
@@ -190,8 +196,8 @@ export default function VariationScreenshotManager({
                 screenshot={s}
                 onOpen={() => setLightbox(i)}
                 onDelete={() =>
-                  setScreenshots(
-                    screenshots.filter((other) => other.path !== s.path),
+                  setScreenshots((prev) =>
+                    prev.filter((other) => other.path !== s.path),
                   )
                 }
               />

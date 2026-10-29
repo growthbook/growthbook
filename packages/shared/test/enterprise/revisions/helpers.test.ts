@@ -15,6 +15,7 @@ import {
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
   isSavedGroupRevisionMetadataOnly,
+  isSavedGroupRevisionArchiveOnly,
   isConstantRevisionMetadataOnly,
 } from "../../../src/revisions/helpers";
 import type {
@@ -984,6 +985,46 @@ describe("revisions helpers", () => {
           { op: "replace", path: "/projects/0", value: "p1" },
         ]),
       ).toBe(true);
+    });
+  });
+
+  describe("isSavedGroupRevisionArchiveOnly", () => {
+    it("returns false for an empty proposed-changes list", () => {
+      expect(isSavedGroupRevisionArchiveOnly([])).toBe(false);
+    });
+
+    it("returns false when proposedChanges is not an array (legacy format)", () => {
+      expect(
+        isSavedGroupRevisionArchiveOnly({ archived: true } as unknown),
+      ).toBe(false);
+    });
+
+    it.each([true, false])(
+      "returns true for setting archived to %s",
+      (value) => {
+        expect(
+          isSavedGroupRevisionArchiveOnly([
+            { op: "replace", path: "/archived", value },
+          ]),
+        ).toBe(true);
+      },
+    );
+
+    it("returns false for another metadata field", () => {
+      expect(
+        isSavedGroupRevisionArchiveOnly([
+          { op: "replace", path: "/groupName", value: "v2" },
+        ]),
+      ).toBe(false);
+    });
+
+    it("returns false when archiving is mixed with other changes", () => {
+      expect(
+        isSavedGroupRevisionArchiveOnly([
+          { op: "replace", path: "/archived", value: true },
+          { op: "replace", path: "/currentUploadVersion", value: 2 },
+        ]),
+      ).toBe(false);
     });
   });
 

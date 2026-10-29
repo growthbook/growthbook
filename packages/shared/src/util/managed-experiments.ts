@@ -7,9 +7,6 @@ import { validateFeatureValue } from "./features";
 
 const FEATURE_KEY_ALLOWED = /[^a-zA-Z0-9_.:|-]+/g;
 
-/** Checklist key prefix for a flag's outstanding approval. */
-export const PENDING_APPROVAL_ITEM_PREFIX = "pendingApproval:";
-
 export type ManagedFlagKeyPlan = {
   /** The id the tracking key sanitizes to — what gets created if it is free. */
   derivedId: string;

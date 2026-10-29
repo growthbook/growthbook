@@ -32,6 +32,9 @@ type StartRefusal = {
 
 export type StartExperiment = ReturnType<typeof useStartExperiment>;
 
+export const RUN_PERMISSION_REASON =
+  "Requires permission to start and stop experiments in this experiment's environments.";
+
 /** Starting an experiment or holdout, shared by the header and the review. */
 export default function useStartExperiment({
   experiment,
@@ -57,12 +60,10 @@ export default function useStartExperiment({
   const isHoldout = experiment.type === "holdout";
   const isBandit = experiment.type === "multi-armed-bandit";
 
-  // Per-flag failures from the last failed start, so each blocked draft can be
-  // linked instead of only showing the error string.
+  // Kept per flag so each blocked draft can be linked.
   const [pendingDraftFailures, setPendingDraftFailures] = useState<
     PendingDraftFailure[]
   >([]);
-  // The To Do items the server refused the last attempt on.
   const [checklistFailures, setChecklistFailures] = useState<
     ServerChecklistItem[]
   >([]);
@@ -112,7 +113,7 @@ export default function useStartExperiment({
   }) {
     // Only a holdout starts by adding its first phase; an experiment waits on
     // its targeting row, a hard block while it has none.
-    if (!experiment.phases?.length) {
+    if (!experiment.phases.length) {
       if (!isHoldout) {
         throw new Error("Set up targeting before starting this experiment.");
       }
@@ -125,7 +126,8 @@ export default function useStartExperiment({
 
     clearStartFailures();
     if (isHoldout) {
-      await apiCall(`/holdout/${holdout?.id}/edit-status`, {
+      if (!holdout) throw new Error("This holdout is still loading.");
+      await apiCall(`/holdout/${holdout.id}/edit-status`, {
         method: "POST",
         body: JSON.stringify({
           status: "running",
@@ -160,13 +162,17 @@ export default function useStartExperiment({
 
   async function approveScheduledExperimentStart(opts?: {
     skipChecklist?: boolean;
+    bypassApproval?: boolean;
   }) {
     clearStartFailures();
     await apiCall(
       `/experiment/${experiment.id}/approve-scheduled-start`,
       {
         method: "POST",
-        body: JSON.stringify({ skipChecklist: !!opts?.skipChecklist }),
+        body: JSON.stringify({
+          skipChecklist: !!opts?.skipChecklist,
+          bypassApproval: !!opts?.bypassApproval,
+        }),
       },
       keepStartFailures,
     );
@@ -179,6 +185,7 @@ export default function useStartExperiment({
   }
 
   return {
+    hasUpdatePermissions,
     canRunExperiment,
     banditBlockedReason,
     pendingDraftFailures,

@@ -108,6 +108,12 @@ A rule can optionally be scoped to specific **projects** within the feature's de
 
 → [Delivering a feature to multiple projects](/features/environments#delivering-a-feature-to-multiple-projects)
 
+### Requiring a scope
+
+Turn on **Require rules to target specific environments or Projects** under **Settings → General → Feature Flags** to stop rules from quietly applying everywhere. Saving a new rule for All Environments and All Projects, or widening an existing rule to that, then shows a warning you have to acknowledge before the rule saves. Rules that already apply everywhere can still be edited.
+
+Over the REST API, those writes return a `422` with code `unscoped_rule`. Send `"allowUnscopedRules": true` in the request body to save the rule anyway. A key with confirmation rules for overrides holds that request until a person confirms it.
+
 ## Scheduling Rules
 
 <CommercialFeature feature="schedule-feature-flag" />

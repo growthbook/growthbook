@@ -5,7 +5,6 @@ import { HoldoutSelect } from "@/components/Holdout/HoldoutSelect";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Text from "@/ui/Text";
 
-/** Picks the experiment's holdout, staged for the page's Save. */
 const AddToHoldoutModal = ({
   experiment,
   holdoutId,
@@ -39,13 +38,7 @@ const AddToHoldoutModal = ({
       cta="Apply"
       // "None" clears a holdout that's set; there's nothing to clear otherwise.
       ctaEnabled={showHoldoutSelect && selected !== holdoutId}
-      submit={
-        showHoldoutSelect
-          ? async () => {
-              stage(selected);
-            }
-          : undefined
-      }
+      submit={showHoldoutSelect ? async () => stage(selected) : undefined}
     >
       {experimentHasLinkedFeatures && (
         <Callout status="error">
@@ -69,7 +62,7 @@ const AddToHoldoutModal = ({
       {showHoldoutSelect && (
         <HoldoutSelect
           selectedProject={experiment.project}
-          setHoldout={(id) => setSelected(id ?? "")}
+          setHoldout={setSelected}
           selectedHoldoutId={selected}
           keepSelection
           formType="experiment"

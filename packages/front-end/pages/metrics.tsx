@@ -6,16 +6,12 @@ import MetricGroupsList from "@/components/Metrics/MetricGroupsList";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import LinkButton from "@/ui/LinkButton";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
-import Button from "@/ui/Button";
 import { Tabs, TabsTrigger, TabsList, TabsContent } from "@/ui/Tabs";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import MetricTemplateRedirect from "@/components/FactTables/MetricTemplateRedirect";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 
 const MetricsPage = (): React.ReactElement => {
-  const { metrics, factMetrics, factTables, datasources, project } =
-    useDefinitions();
+  const { metrics, factMetrics, datasources, project } = useDefinitions();
 
   const hasDatasource = datasources.some((d) =>
     isProjectListValidForProject(d.projects, project),
@@ -23,15 +19,6 @@ const MetricsPage = (): React.ReactElement => {
   const hasMetrics =
     metrics.some((m) => isProjectListValidForProject(m.projects, project)) ||
     factMetrics.some((m) => isProjectListValidForProject(m.projects, project));
-
-  const hasFactTables = factTables.some((f) =>
-    isProjectListValidForProject(f.projects, project),
-  );
-
-  const permissionsUtil = usePermissionsUtil();
-  const canCreateMetric = permissionsUtil.canCreateFactMetric({
-    projects: project ? [project] : [],
-  });
 
   const factMetricFlow = useFactMetricFlow("metrics-empty-state");
 
@@ -48,35 +35,15 @@ const MetricsPage = (): React.ReactElement => {
           <p>
             Metrics are defined with SQL on top of your data warehouse. Use them
             as goals and guardrails in experiments to measure success.
+            {hasDatasource &&
+              factMetricFlow.creation().mode === "fact-table" &&
+              " A fact table provides the shared SQL query for your Fact Metrics."}
           </p>
           <Box mt="3">
             {!hasDatasource ? (
               <LinkButton href="/datasources">Connect Data Source</LinkButton>
-            ) : !hasFactTables ? (
-              <>
-                <p>
-                  Start by creating a <strong>Fact Table</strong>, which serves
-                  as the foundation for your metrics.
-                </p>
-                <LinkButton href="/fact-tables">Create Fact Table</LinkButton>
-              </>
             ) : (
-              <Tooltip
-                body="You don't have permission to add Fact Metrics in this Project."
-                shouldDisplay={!canCreateMetric}
-              >
-                {canCreateMetric && factMetricFlow.newFlow ? (
-                  <LinkButton href={factMetricFlow.href()}>
-                    Add metric
-                  </LinkButton>
-                ) : canCreateMetric ? (
-                  <Button onClick={() => factMetricFlow.open()}>
-                    Add metric
-                  </Button>
-                ) : (
-                  <Button disabled>Add metric</Button>
-                )}
-              </Tooltip>
+              factMetricFlow.createButton()
             )}
           </Box>
         </Box>

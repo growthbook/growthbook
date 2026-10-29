@@ -1,5 +1,7 @@
-import { PENDING_APPROVAL_ITEM_PREFIX } from "shared/util";
-import type { ManualLaunchChecklistItem } from "shared/validators";
+import {
+  PENDING_APPROVAL_ITEM_PREFIX,
+  type ManualLaunchChecklistItem,
+} from "shared/validators";
 import type { CheckListItem } from "./PreLaunchChecklistItems";
 
 export type ChecklistTier = "blocking" | "recommended" | "optional";
@@ -57,9 +59,9 @@ export function summarizeChecklist(items: CheckListItem[]): ChecklistSummary {
 }
 
 export const STALE_VALUES_ITEM_PREFIX = "staleVariationValues:";
-export const MERGE_CONFLICT_ITEM_PREFIX = "mergeConflict:";
+const MERGE_CONFLICT_ITEM_PREFIX = "mergeConflict:";
 
-function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
+export function isPendingApprovalItem(item: Pick<CheckListItem, "key">) {
   return item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX);
 }
 

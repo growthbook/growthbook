@@ -299,26 +299,29 @@ export class RevisionModel extends BaseClass {
   // Judged on the write itself — `existing` as approved against `proposed` as
   // it will be stored — so a gated change added under a standing approval is
   // seen even when the approved content was not gated.
-  private resetApprovalIfNeeded(
-    existing: Revision,
-    proposed: Revision,
-    userId: string,
-  ): { status?: Revision["status"]; resetEntry?: ActivityLogEntry } {
-    if (existing.status !== "approved") return {};
-    if (!this.context.hasPremiumFeature("require-approvals")) return {};
+  private changeResetsReview(existing: Revision, proposed: Revision): boolean {
+    if (!this.context.hasPremiumFeature("require-approvals")) return false;
 
     // The adapter may override how reset-on-change is determined (constants key
     // off the feature `requireReviews` model). Default to the entity's
     // approval-flow toggle.
     const adapter = getAdapter(existing.target.type);
-    const shouldReset = adapter.shouldResetReviewOnChange
+    return adapter.shouldResetReviewOnChange
       ? adapter.shouldResetReviewOnChange(this.context, existing, proposed)
       : !!getApprovalFlowSettings(
           this.context.org.settings?.approvalFlows,
           existing.target.type,
           entityProjects(existing.target.snapshot),
         )?.resetReviewOnChange;
-    if (!shouldReset) return {};
+  }
+
+  private resetApprovalIfNeeded(
+    existing: Revision,
+    proposed: Revision,
+    userId: string,
+  ): { status?: Revision["status"]; resetEntry?: ActivityLogEntry } {
+    if (existing.status !== "approved") return {};
+    if (!this.changeResetsReview(existing, proposed)) return {};
     return {
       status: "pending-review",
       resetEntry: {
@@ -867,6 +870,22 @@ export class RevisionModel extends BaseClass {
    * `authorId` is supplied, restrict to revisions authored by that user — the
    * `?mine=true` query path. Used by the public `revisions/latest` endpoint.
    */
+  /** Every open revision of an entity, if the entity can be read. */
+  async getOpenByTarget(entityType: RevisionTargetType, entityId: string) {
+    const readable = await this.readableTargetIds([
+      { type: entityType, id: entityId },
+    ]);
+    if (!readable.has(`${entityType}:${entityId}`)) return [];
+    return this._find(
+      {
+        "target.type": entityType,
+        "target.id": entityId,
+        status: { $in: [...RevisionModel.OPEN_STATUSES] },
+      } as Record<string, unknown>,
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
   async getLatestOpenByTarget(
     entityType: RevisionTargetType,
     entityId: string,
@@ -1677,6 +1696,7 @@ export class RevisionModel extends BaseClass {
         // make this attempt lose.
         "autoPublishOnApproval",
         "scheduledPublishAt",
+        "scheduledPublishBypassApproval",
       ],
       async (existing) => {
         await assertCasAuthority(authority, existing);
@@ -1692,9 +1712,16 @@ export class RevisionModel extends BaseClass {
           REVISION_MODEL[existing.target.type],
           { ...existing, target },
         );
+        // The bypass was given for the draft as armed; a change that would take
+        // back an approval takes it back too.
+        const dropsBypass =
+          !disarm &&
+          !!existing.scheduledPublishBypassApproval &&
+          this.changeResetsReview(existing, { ...existing, target });
         return {
           target,
           ...(disarm ? CLEARED_SCHEDULE : {}),
+          ...(dropsBypass ? { scheduledPublishBypassApproval: undefined } : {}),
           // An approval reset starts a new cycle — demote the prior verdicts.
           ...(status
             ? {

@@ -1,15 +1,14 @@
-import { keyBy } from "lodash";
 import {
   getLinkedChangeEnvs,
   implementationTypeAfterUnlink,
 } from "shared/util";
 import { isURLTargeted } from "@growthbook/growthbook";
-import { getLatestPhaseVariations } from "shared/experiments";
-import { ExperimentInterface, Variation } from "shared/types/experiment";
 import {
-  DestinationURL,
-  URLRedirectInterface,
-} from "shared/types/url-redirect";
+  getLatestPhaseVariations,
+  syncedDestinationURLs,
+} from "shared/experiments";
+import { ExperimentInterface } from "shared/types/experiment";
+import { URLRedirectInterface } from "shared/types/url-redirect";
 import { urlRedirectValidator } from "shared/validators";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -22,7 +21,6 @@ import {
 import { MakeModelClass } from "./BaseModel";
 
 type WriteOptions = {
-  checkCircularDependencies?: boolean;
   skipSDKRefresh?: boolean;
 };
 
@@ -83,18 +81,6 @@ export function assertNoRedirectLoop(
       );
     }
   }
-}
-
-// What syncURLRedirectsWithVariations leaves once an experiment's variations change.
-export function syncedDestinationURLs(
-  destinationURLs: DestinationURL[],
-  variations: Pick<Variation, "id">[],
-): DestinationURL[] {
-  const byVariationId = keyBy(destinationURLs, "variation");
-  return variations.map(
-    (variation) =>
-      byVariationId[variation.id] ?? { variation: variation.id, url: "" },
-  );
 }
 
 const BaseClass = MakeModelClass({
@@ -160,18 +146,8 @@ export class UrlRedirectModel extends BaseClass<WriteOptions> {
     );
   }
 
-  protected async customValidation(
-    doc: URLRedirectInterface,
-    previousDoc?: URLRedirectInterface,
-    writeOptions?: WriteOptions,
-  ) {
+  protected async customValidation(doc: URLRedirectInterface) {
     assertRedirectOrigin(doc);
-    if (writeOptions?.checkCircularDependencies) {
-      assertNoRedirectLoop(
-        doc,
-        (await this.getServedRedirects()).filter((r) => r.id !== doc.id),
-      );
-    }
   }
 
   protected async afterCreateOrUpdate(

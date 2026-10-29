@@ -18,7 +18,6 @@ import {
 import {
   getInlineFilterPromptColumns,
   ExperimentMetricDefinition,
-  isFactMetric,
   isEmptyInlineFilterPlaceholder,
 } from "shared/experiments";
 import {
@@ -42,6 +41,29 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { formatByteSizeString, getNumberFormatDigits } from "shared/util";
 import { decimalToPercent } from "@/services/utils";
 import { getNewExperimentDatasourceDefaults } from "@/services/datasources";
+
+export function resolveFactMetricCreation(
+  ready: boolean,
+  newFlow: boolean,
+  hasFactTable: boolean,
+  embedded = false,
+) {
+  if (!ready) return "pending";
+  if (newFlow && !embedded) return "page";
+  if (!hasFactTable) return "fact-table";
+  return newFlow ? "inline" : "modal";
+}
+
+export function duplicateFactMetric(
+  metric: FactMetricInterface,
+  canCreateOfficial: boolean,
+): FactMetricInterface {
+  return {
+    ...metric,
+    name: `${metric.name} (copy)`,
+    managedBy: metric.managedBy === "admin" && canCreateOfficial ? "admin" : "",
+  };
+}
 
 export function getInitialInlineFilters(
   factTable: Pick<
@@ -107,7 +129,7 @@ export function getDefaultFactMetricProps({
   // Starting data source when no fact table is chosen yet (e.g. "Add" from a
   // data source's page) - otherwise the org default wins.
   initialDatasource?: string;
-  managedBy?: "" | "api" | "admin";
+  managedBy?: FactMetricInterface["managedBy"];
 }): CreateFactMetricFormProps & { targetMDE: number } {
   const existingMetricType = existing?.metricType;
   return {
@@ -449,20 +471,6 @@ export function validateFactMetricFormValues(
   }
 }
 
-export function getMetricConversionTitle(type: MetricType): string {
-  // TODO: support more metric types
-  if (type === "count") {
-    return "Count per User";
-  }
-  if (type === "duration") {
-    return "Duration";
-  }
-  if (type === "revenue") {
-    return "Revenue";
-  }
-  return "Conversion Rate";
-}
-
 export function getPercentileLabel(quantile: number): string {
   if (quantile === 0.5) {
     return "Median";
@@ -721,11 +729,4 @@ export function getMetricFormatter(
   }
 
   return formatPercent;
-}
-
-/** "dailyParticipation" → "Daily participation". */
-export function metricTypeLabel(metric: ExperimentMetricDefinition): string {
-  const type = isFactMetric(metric) ? metric.metricType : metric.type;
-  const words = type.replace(/([A-Z])/g, " $1").toLowerCase();
-  return words.charAt(0).toUpperCase() + words.slice(1);
 }

@@ -4,11 +4,12 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getStorableVariations } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import track from "@/services/track";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FieldAlignedVariationNumber, {
   VARIATION_NUMBER_WIDTH,
 } from "@/components/Experiment/FieldAlignedVariationNumber";
@@ -20,7 +21,6 @@ interface Props {
   close: () => void;
   // Hands the edited variations to the page, which saves them with the rest.
   stage: (variations: Variation[]) => void;
-  mutate: () => void;
   source?: string;
 }
 
@@ -29,16 +29,9 @@ const EditVariationMetadataModal: FC<Props> = ({
   variationIndex,
   close,
   stage,
-  mutate,
   source,
 }) => {
-  const variations = getLatestPhaseVariations(experiment).map((v) => ({
-    id: v.id,
-    key: v.key,
-    name: v.name,
-    description: v.description,
-    screenshots: v.screenshots,
-  }));
+  const variations = getStorableVariations(experiment);
   const variation = variations[variationIndex];
 
   const form = useForm({
@@ -47,9 +40,9 @@ const EditVariationMetadataModal: FC<Props> = ({
       description: variation?.description ?? "",
     },
   });
-  // Uploads write straight through; order and removals are staged with the
-  // rest of the variation.
   const [screenshots, setScreenshots] = useState(variation?.screenshots ?? []);
+  // Apply stages only finished uploads, so it waits for the rest.
+  const [uploading, setUploading] = useState(0);
 
   if (!variation) return null;
 
@@ -61,7 +54,7 @@ const EditVariationMetadataModal: FC<Props> = ({
       open={true}
       close={close}
       size="lg"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const updatedVariations = variations.map((v, i) =>
           i === variationIndex
             ? {
@@ -76,7 +69,8 @@ const EditVariationMetadataModal: FC<Props> = ({
         stage(updatedVariations);
         track("edited-variation-metadata");
       })}
-      cta="Apply"
+      cta={uploading > 0 ? "Uploading…" : "Apply"}
+      ctaEnabled={uploading === 0}
     >
       <Flex direction="row" gap="3" align="start">
         <FieldAlignedVariationNumber number={variationIndex} />
@@ -98,7 +92,7 @@ const EditVariationMetadataModal: FC<Props> = ({
             variationIndex={variationIndex}
             screenshots={screenshots}
             setScreenshots={setScreenshots}
-            mutate={mutate}
+            setUploading={setUploading}
           />
         </Flex>
         {/* Balances the badge's gutter so the fields stay centred. */}

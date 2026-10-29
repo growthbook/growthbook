@@ -17,6 +17,8 @@ import {
   getPastExperimentQueryName,
   withKeptIdentifierType,
   resolveAssignmentQuerySelectionChange,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
 } from "shared/util";
 import { ExposureQuery } from "shared/types/datasource";
 
@@ -928,5 +930,69 @@ describe("getDataSourceSaveChanges", () => {
         },
       }).changesOtherFields,
     ).toBe(true);
+  });
+});
+
+describe("findColumnsNeedingQuotes", () => {
+  it("rejects capitals only where unquoted names fold to lowercase", () => {
+    const query = { columnMapping: { userIdColumns: { user_id: "userId" } } };
+    expect(findColumnsNeedingQuotes(query, "lower")).toEqual(["userId"]);
+    // Snowflake's driver lowercases every name, so case says nothing there
+    expect(findColumnsNeedingQuotes(query, "upper")).toEqual([]);
+    expect(findColumnsNeedingQuotes(query, undefined)).toEqual([]);
+    expect(
+      findColumnsNeedingQuotes(
+        { columnMapping: { timestampColumn: "created_at" } },
+        "lower",
+      ),
+    ).toEqual([]);
+  });
+
+  it("rejects names that need quoting on every warehouse", () => {
+    expect(
+      findColumnsNeedingQuotes(
+        { columnMapping: { experimentNameColumn: "exp name" } },
+        undefined,
+      ),
+    ).toEqual(["exp name"]);
+  });
+
+  it("returns every offending column once", () => {
+    expect(
+      findColumnsNeedingQuotes(
+        {
+          columnMapping: {
+            experimentIdColumn: "experimentId",
+            variationNameColumn: "Variation Name",
+            timestampColumn: "timestamp",
+            userIdColumns: { user_id: "userId", anonymous_id: "userId" },
+          },
+        },
+        "lower",
+      ),
+    ).toEqual(["experimentId", "Variation Name", "userId"]);
+  });
+});
+
+describe("getColumnsNeedingQuotesMessage", () => {
+  it("names one column with the matching fix", () => {
+    expect(getColumnsNeedingQuotesMessage(["userId"])).toBe(
+      'Column "userId" can\'t be mapped because of its capital letters. In SQL mode, quote it and alias it to a lowercase name, like "userId" AS user_id.',
+    );
+    expect(getColumnsNeedingQuotesMessage(["exp name"])).toBe(
+      'Column "exp name" can\'t be mapped because of its special characters. In SQL mode, quote it and alias it to a lowercase name with only letters, numbers and underscores, like "exp name" AS exp_name.',
+    );
+  });
+
+  it("lists every column and covers both reasons", () => {
+    expect(
+      getColumnsNeedingQuotesMessage([
+        "userId",
+        "experimentId",
+        "Variation Name",
+      ]),
+    ).toBe(
+      'Columns "userId", "experimentId" and "Variation Name" can\'t be mapped because of their capital letters or special characters. In SQL mode, quote each one and alias them to lowercase names with only letters, numbers and underscores, like "userId" AS user_id.',
+    );
   });
 });

@@ -97,7 +97,7 @@ export type SelectFieldProps = Omit<
   maxMenuHeight?: number;
 };
 
-/** The shared ladder, plus `legacy` for the un-migrated default. */
+// The shared ladder, plus `legacy` for the un-migrated default.
 type SelectFieldSize = Size<"xs" | "sm" | "md" | "lg"> | "legacy";
 
 export function useSelectOptions(
@@ -188,6 +188,9 @@ export const ReactSelectProps = {
         ...styles,
         backgroundColor: "var(--surface-background-color)",
       };
+    },
+    placeholder: (styles) => {
+      return { ...styles, color: "var(--gray-a10)" };
     },
     // react-select's default z-index of 1 lets page content in its own stacking
     // context paint over the portalled menu and swallow its clicks.

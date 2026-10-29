@@ -2,6 +2,7 @@ import { Flex, Tooltip } from "@radix-ui/themes";
 import { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 import { StatusIndicatorData } from "shared/enterprise";
 import Badge from "@/ui/Badge";
+import StatusDot from "@/components/Experiment/StatusDot";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 
 type LabelFormat = "full" | "status-only" | "detail-only";
@@ -35,16 +36,7 @@ export function ExperimentDot({
 }: {
   color: StatusIndicatorData["color"] | "yellow" | "lime";
 }) {
-  return (
-    <div
-      style={{
-        width: 8,
-        height: 8,
-        borderRadius: 8,
-        backgroundColor: `var(--${color}-9)`,
-      }}
-    ></div>
-  );
+  return <StatusDot color={`var(--${color}-9)`} />;
 }
 
 export function ExperimentStatusDetailsWithDot({

@@ -35,6 +35,7 @@ import TemplateFieldMapping from "@/components/FactTables/MetricEditor/TemplateF
 import { FactMetricSeed } from "@/components/FactTables/MetricEditor/templateMetric";
 
 import styles from "./MetricWorkspace.module.scss";
+import { createNavigationCancellation } from "./navigationCancellation";
 
 type DefaultsContext = Pick<
   Parameters<typeof getDefaultFactMetricProps>[0],
@@ -125,7 +126,7 @@ export default function MetricWorkspace({
   isEditing: boolean;
   setIsEditing?: (value: boolean) => void;
   mutate: () => Promise<unknown>;
-  onSaved?: (metric: FactMetricInterface) => void;
+  onSaved?: (metric: FactMetricInterface) => void | Promise<unknown>;
   onCancel?: () => void;
   actionsContainer: HTMLDivElement | null;
   // Tracking source, matching what FactMetricModal reports for the same
@@ -245,24 +246,26 @@ export default function MetricWorkspace({
     if (!isEditing) return;
     leaving.current = false;
     baseline.current = snapshot();
+    const cancellation = createNavigationCancellation();
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
       if (isDirty()) e.preventDefault();
     };
-    const onRouteChangeStart = (url: string) => {
+    const onRouteChangeStart = (url: string, options: { shallow: boolean }) => {
       if (!isDirty()) return;
       setConfirmLeave(() => () => {
         leaving.current = true;
         router.push(url);
       });
-      router.events.emit("routeChangeError");
+      router.events.emit("routeChangeError", cancellation.error, url, options);
       // Next's pages router only cancels a route change when a handler throws.
-      throw new Error("Navigation cancelled to keep unsaved metric changes");
+      throw cancellation.error;
     };
     window.addEventListener("beforeunload", onBeforeUnload);
     router.events.on("routeChangeStart", onRouteChangeStart);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       router.events.off("routeChangeStart", onRouteChangeStart);
+      cancellation.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing, router.events]);
@@ -352,7 +355,11 @@ export default function MetricWorkspace({
       // Await so the metric page can find the new metric on arrival.
       await mutate();
       leaving.current = true;
-      onSaved?.(res.factMetric);
+      try {
+        await onSaved?.(res.factMetric);
+      } finally {
+        leaving.current = false;
+      }
     }
   }
 

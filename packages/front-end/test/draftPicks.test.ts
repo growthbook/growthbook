@@ -1,7 +1,8 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
 import {
+  draftNextStep,
+  draftReviewState,
   resolveDraftPick,
-  withPickedDraft,
 } from "@/components/Experiment/TabbedPage/draftPicks";
 
 type PendingDraft = NonNullable<LinkedFeatureInfo["pendingDraft"]>;
@@ -56,19 +57,66 @@ describe("resolveDraftPick", () => {
     };
     expect(on(cleaned, pick)).toBe(7);
   });
+
+  it("holds a new draft whatever opens while values are staged for it", () => {
+    expect(resolveDraftPick(info(8), undefined, "exp_1", true).target).toBe(
+      "new",
+    );
+  });
 });
 
-describe("withPickedDraft", () => {
-  it("puts the picked draft in place of the newest, and none when starting one", () => {
-    const flag = info(7, 5);
-    expect(withPickedDraft(flag, undefined, "exp_1")).toBe(flag);
-    expect(
-      withPickedDraft(flag, { newestVersion: 7, target: 5 }, "exp_1")
-        .pendingDraft?.version,
-    ).toBe(5);
-    expect(
-      withPickedDraft(flag, { newestVersion: 7, target: "new" }, "exp_1")
-        .pendingDraft,
-    ).toBeUndefined();
+describe("draftReviewState", () => {
+  // Only whether the approval is satisfied matters here.
+  const pending = (
+    fields: Omit<Partial<PendingDraft>, "approval"> & {
+      approval?: { satisfied: boolean };
+    },
+  ) => ({ status: "draft", pendingApproval: false, ...fields }) as PendingDraft;
+
+  it.each([
+    ["needs no review", pending({}), "ready", "Publish"],
+    [
+      "already gets past the review it needs",
+      pending({ pendingApproval: true, approval: { satisfied: true } }),
+      "ready",
+      "Publish",
+    ],
+    [
+      "still needs approval",
+      pending({ pendingApproval: true, approval: { satisfied: false } }),
+      "needs-approval",
+      "Request review",
+    ],
+    [
+      "is waiting on a reviewer",
+      pending({ pendingApproval: true, status: "pending-review" }),
+      "in-review",
+      "Review",
+    ],
+    [
+      "had changes requested",
+      pending({ pendingApproval: true, status: "changes-requested" }),
+      "changes-requested",
+      "View feedback",
+    ],
+    [
+      "is approved",
+      pending({ pendingApproval: true, status: "approved" }),
+      "approved",
+      "Publish",
+    ],
+    [
+      "is approved short of what publishing needs",
+      pending({
+        pendingApproval: true,
+        status: "approved",
+        approval: { satisfied: false },
+      }),
+      "in-review",
+      "Review",
+    ],
+  ])("a draft that %s", (_, draft, state, step) => {
+    expect(draftReviewState(draft)).toBe(state);
+    expect(draftNextStep(draft)).toBe(step);
   });
 });

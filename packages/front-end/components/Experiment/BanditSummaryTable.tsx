@@ -183,22 +183,20 @@ export default function BanditSummaryTable({
   const shrinkRows = variations.length > 8;
   const rowHeight = !shrinkRows ? ROW_HEIGHT : ROW_HEIGHT_CONDENSED;
 
+  // The container resizes with the window and as the details panel opens. It
+  // only mounts once there are results, which can arrive after this does.
+  const hasResults = !!results;
   useEffect(() => {
-    window.addEventListener("resize", onResize, false);
-    return () => window.removeEventListener("resize", onResize, false);
-  }, []);
-  // The container resizes without the window too, as the details panel opens.
-  useEffect(() => {
-    if (!tableContainerRef.current) return;
+    if (!hasResults || !tableContainerRef.current) return;
     const resizeObserver = new ResizeObserver(() => onResize());
     resizeObserver.observe(tableContainerRef.current);
     const table = tableContainerRef.current.querySelector("table");
     if (table) resizeObserver.observe(table);
     return () => resizeObserver.disconnect();
-  }, []);
+  }, [hasResults]);
   useLayoutEffect(onResize, [cellScale]);
   useEffect(onResize, [isTabActive]);
-  const overflowing = useIsOverflowingX(tableContainerRef, !!results);
+  const overflowing = useIsOverflowingX(tableContainerRef, hasResults);
 
   const {
     containerRef,
@@ -296,11 +294,11 @@ export default function BanditSummaryTable({
                   className="axis-col graph-cell"
                   style={{
                     width:
-                      (tableContainerRef?.current?.clientWidth ?? 900) < 900
+                      (tableContainerRef.current?.clientWidth ?? 900) < 900
                         ? graphCellWidth
                         : undefined,
                     minWidth:
-                      (tableContainerRef?.current?.clientWidth ?? 900) >= 900
+                      (tableContainerRef.current?.clientWidth ?? 900) >= 900
                         ? graphCellWidth
                         : undefined,
                   }}

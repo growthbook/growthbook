@@ -5,50 +5,50 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { PiSidebarSimple, PiSidebarSimpleFill } from "react-icons/pi";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import useMediaQuery from "@/hooks/useMediaQuery";
-import { SAVE_BAR_RESIZE_EVENT } from "@/components/Experiment/TabbedPage/UnsavedEditsBar";
+import Tooltip from "@/ui/Tooltip";
 import styles from "./CollapsiblePanelLayout.module.scss";
 
 export const PANEL_WIDTH_PX = 360;
 const MIN_PANEL_WIDTH_PX = 280;
-/** The panel can take at most this share of the layout. */
 const MAX_PANEL_SHARE = 2 / 3;
-/** Drag this far past the minimum width to close the panel instead. */
+// Drag this far past the minimum width to close the panel instead.
 const COLLAPSE_DELTA_PX = 60;
 const HANDLE_WIDTH_PX = 20;
 const SLIDE_MS = 160;
 
 export interface Props {
   children: ReactNode;
-  /** The right column. */
   panel: ReactNode;
+  // Sticks to the bottom of the content column; a floating panel ends above it.
+  footer?: ReactNode;
   open: boolean;
-  /** Viewport offset the panel sticks to, below any fixed page header. */
+  // Viewport offset the panel sticks to, below any fixed page header.
   top?: number;
-  /** Panel width in px. Fixed so it does not stretch on wide screens. */
+  // Fixed so the panel does not stretch on wide screens.
   width?: number;
-  /** Omit to make the panel a fixed width with no drag handle. */
-  onWidthChange?: (width: number) => void;
-  /** Lets a drag well past the minimum width close the panel. */
-  onCollapse?: () => void;
+  onWidthChange: (width: number) => void;
+  // A drag well past the minimum width closes the panel.
+  onCollapse: () => void;
+  // Takes no input in the content, while the footer stays usable.
+  busy?: boolean;
 }
 
-/**
- * Two columns with a right panel that sticks alongside the content for the full
- * height of the screen. Wide enough, the panel docks and the content column
- * reflows beside it; narrower, the panel floats over the content instead so the
- * content keeps its width.
- */
+// A right panel that sticks beside the content at full screen height. Wide, it
+// docks and the content reflows; narrow, it floats so the content keeps its width.
 export default function CollapsiblePanelLayout({
   children,
   panel,
+  footer = null,
   open,
   top = 0,
   width = PANEL_WIDTH_PX,
   onWidthChange,
   onCollapse,
+  busy = false,
 }: Props) {
   const overlay = useMediaQuery(
     `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
@@ -56,19 +56,30 @@ export default function CollapsiblePanelLayout({
   const [dragWidth, setDragWidth] = useState<number | null>(null);
   const layout = useRef<HTMLDivElement>(null);
   const panelBox = useRef<HTMLDivElement>(null);
+  const footerBox = useRef<HTMLDivElement>(null);
+  const contentBox = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (contentBox.current) contentBox.current.inert = busy;
+  }, [busy]);
   const [layoutWidth, setLayoutWidth] = useState(0);
+  const [footerHeight, setFooterHeight] = useState(0);
   useEffect(() => {
     const el = layout.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) =>
-      setLayoutWidth(entry.contentRect.width),
-    );
+    const footerEl = footerBox.current;
+    if (!el || !footerEl) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        if (entry.target === el) setLayoutWidth(entry.contentRect.width);
+        else setFooterHeight(entry.contentRect.height);
+      }
+    });
     observer.observe(el);
+    observer.observe(footerEl);
     return () => observer.disconnect();
   }, []);
+  // Floating, the panel ends where the footer starts, so the footer stays whole.
+  const footerClearance = overlay ? footerHeight : 0;
   const [previewCollapsed, setPreviewCollapsed] = useState(false);
-  const dragged = useRef(width);
-  const rawDrag = useRef(width);
   // Clamped at render rather than stored, so widening the window restores the
   // dragged width.
   const maxPanelWidth = layoutWidth
@@ -78,22 +89,19 @@ export default function CollapsiblePanelLayout({
   const collapseBelow = MIN_PANEL_WIDTH_PX - COLLAPSE_DELTA_PX;
 
   const startDrag = (e: ReactPointerEvent<HTMLDivElement>) => {
-    if (!onWidthChange) return;
     e.preventDefault();
     const startX = e.clientX;
-    dragged.current = panelWidth;
-    rawDrag.current = panelWidth;
-
-    const clamp = (value: number, min: number) =>
-      Math.round(Math.min(maxPanelWidth, Math.max(min, value)));
-
     const startWidth = panelWidth;
+    let rawDrag = panelWidth;
+
+    const clamp = (value: number) =>
+      Math.round(Math.min(maxPanelWidth, Math.max(MIN_PANEL_WIDTH_PX, value)));
+
     const onMove = (move: PointerEvent) => {
-      rawDrag.current = startWidth + (startX - move.clientX);
-      dragged.current = clamp(rawDrag.current, MIN_PANEL_WIDTH_PX);
-      setDragWidth(dragged.current);
+      rawDrag = startWidth + (startX - move.clientX);
+      setDragWidth(clamp(rawDrag));
       // Preview the collapse; nothing is committed until release.
-      setPreviewCollapsed(!!onCollapse && rawDrag.current < collapseBelow);
+      setPreviewCollapsed(rawDrag < collapseBelow);
     };
     const onUp = () => {
       window.removeEventListener("pointermove", onMove);
@@ -101,11 +109,11 @@ export default function CollapsiblePanelLayout({
       window.removeEventListener("pointercancel", onUp);
       setDragWidth(null);
       setPreviewCollapsed(false);
-      if (onCollapse && rawDrag.current < collapseBelow) {
+      if (rawDrag < collapseBelow) {
         onCollapse();
         return;
       }
-      onWidthChange(dragged.current);
+      onWidthChange(clamp(rawDrag));
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
@@ -119,23 +127,14 @@ export default function CollapsiblePanelLayout({
     if (!el) return;
     const fit = () => {
       const offset = Math.max(el.getBoundingClientRect().top, 0);
-      // Stop above the fixed save bar.
-      const bar =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue(
-            "--experiment-save-bar-height",
-          ),
-        ) || 0;
-      el.style.height = `${Math.max(0, window.innerHeight - offset - bar)}px`;
+      el.style.height = `${Math.max(0, window.innerHeight - offset - footerClearance)}px`;
     };
     fit();
     window.addEventListener("scroll", fit, { passive: true });
     window.addEventListener("resize", fit);
-    window.addEventListener(SAVE_BAR_RESIZE_EVENT, fit);
     return () => {
       window.removeEventListener("scroll", fit);
       window.removeEventListener("resize", fit);
-      window.removeEventListener(SAVE_BAR_RESIZE_EVENT, fit);
     };
   });
 
@@ -173,14 +172,21 @@ export default function CollapsiblePanelLayout({
   // Only the toggle animates; a drag tracks the pointer.
   const resizing = dragWidth !== null;
 
-  const currentWidth = expanded ? panelWidth : 0;
+  // A close starts sliding with the render that closes it, so the content
+  // beside it never holds still at the old width; an open waits for the zero
+  // width to paint.
+  const shown = expanded && showPanel;
+  const currentWidth = shown ? panelWidth : 0;
 
   // Overlaid, the panel gives back its space and floats over the content.
   const overlaid = overlay
     ? {
         // Tracks the animated width so the right edge stays put mid-slide.
         marginLeft: -currentWidth,
-        zIndex: 900,
+        // Keeps the content column reaching the bottom of the screen, where
+        // the footer sits under the shortened panel.
+        marginBottom: footerClearance,
+        zIndex: 1002,
         // The pinned header's shadow, facing left. The negative spread keeps it
         // from bleeding above the panel.
         boxShadow:
@@ -189,10 +195,28 @@ export default function CollapsiblePanelLayout({
     : {};
 
   return (
-    <Flex align="start" width="100%" ref={layout}>
-      <Box flexGrow="1" style={{ minWidth: 0 }}>
-        {children}
-      </Box>
+    <Flex
+      align="start"
+      width="100%"
+      ref={layout}
+      // The drag handle straddles the panel's edge, which reaches the window's
+      // while it slides; clip, not hidden, so nothing inside stops sticking.
+      style={{ overflowX: "clip" }}
+    >
+      {/* At least as tall as the panel, so the footer starts at the bottom of
+          the screen even under short content. */}
+      <Flex
+        direction="column"
+        flexGrow="1"
+        style={{ minWidth: 0, alignSelf: "stretch" }}
+      >
+        <Box ref={contentBox} flexGrow="1" aria-busy={busy}>
+          {children}
+        </Box>
+        <div ref={footerBox} className={styles.footer}>
+          {footer}
+        </div>
+      </Flex>
       {mounted ? (
         <Box
           ref={panelBox}
@@ -202,51 +226,83 @@ export default function CollapsiblePanelLayout({
           style={{
             top,
             // Until `fit` measures it.
-            height: `calc(100vh - ${top}px)`,
+            height: `calc(100vh - ${top + footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
-            borderLeft: expanded ? "1px solid var(--gray-a5)" : "none",
+            borderLeft: shown ? "1px solid var(--gray-a5)" : "none",
             transition: resizing
               ? "none"
               : `width ${SLIDE_MS}ms ease, margin-left ${SLIDE_MS}ms ease`,
             ...overlaid,
           }}
         >
-          {onWidthChange ? (
-            <Box
-              onPointerDown={startDrag}
-              className={styles.dragHandle}
-              style={{
-                position: "absolute",
-                top: 0,
-                bottom: 0,
-                left: -HANDLE_WIDTH_PX / 2,
-                width: HANDLE_WIDTH_PX,
-                cursor: "col-resize",
-                touchAction: "none",
-                zIndex: 1,
-              }}
-            />
-          ) : null}
+          <Box
+            onPointerDown={startDrag}
+            className={styles.dragHandle}
+            style={{
+              position: "absolute",
+              top: 0,
+              bottom: 0,
+              left: -HANDLE_WIDTH_PX / 2,
+              width: HANDLE_WIDTH_PX,
+              cursor: "col-resize",
+              touchAction: "none",
+              zIndex: 1,
+            }}
+          />
           {/* Clips the contents mid-slide; the handle sits outside it so it
               can straddle the border. */}
           <Box height="100%" style={{ overflow: "hidden" }}>
-            {/* Holds its width mid-slide so the contents don't reflow. */}
-            <Box
+            {/* Holds its width mid-slide so the contents don't reflow. A
+                full-height column: the panel lays out and scrolls its own. */}
+            <Flex
+              direction="column"
               height="100%"
-              style={{
-                overflowY: "auto",
-                width: `${panelWidth}px`,
-                // A column, so a panel that wants to fill the height can.
-                display: "flex",
-                flexDirection: "column",
-              }}
+              style={{ width: `${panelWidth}px` }}
             >
               {panel}
-            </Box>
+            </Flex>
           </Box>
         </Box>
       ) : null}
     </Flex>
+  );
+}
+
+// Opens and closes the panel, from the tab bar beside it.
+export function DetailsPanelToggle({
+  open,
+  setOpen,
+}: {
+  open: boolean;
+  setOpen: (open: boolean) => void;
+}) {
+  const label = open ? "Hide details" : "Show details";
+  const Icon = open ? PiSidebarSimpleFill : PiSidebarSimple;
+  return (
+    <Tooltip content={label}>
+      <IconButton
+        type="button"
+        size="1"
+        variant="ghost"
+        color="gray"
+        style={{
+          // Ghost sizes itself from its padding; pin the box so the toggle
+          // does not shift as it flips. Nudged right to line up with the row's
+          // end; same footprint, so nothing beside it moves.
+          margin: 0,
+          marginLeft: "calc(var(--space-3) + var(--space-1))",
+          marginRight: "calc(-1 * var(--space-1))",
+          padding: 0,
+          width: "var(--space-5)",
+          height: "var(--space-5)",
+        }}
+        aria-label={label}
+        onClick={() => setOpen(!open)}
+      >
+        {/* Flipped so the small bar sits on the right, like the panel. */}
+        <Icon size={16} style={{ transform: "scaleX(-1)" }} />
+      </IconButton>
+    </Tooltip>
   );
 }

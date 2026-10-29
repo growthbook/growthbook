@@ -164,6 +164,13 @@ type NextScheduledStatusUpdateStringDates = Omit<
   date: string;
 };
 
+type ScheduledStatusUpdateFailureStringDates = Omit<
+  NonNullable<ExperimentInterface["scheduledStatusUpdateFailure"]>,
+  "date"
+> & {
+  date: string;
+};
+
 type StatusUpdateScheduleStringDates = Omit<
   NonNullable<ExperimentInterface["statusUpdateSchedule"]>,
   "startAt" | "stopAt"
@@ -213,12 +220,14 @@ export type ExperimentInterfaceStringDates = Omit<
   | "dateUpdated"
   | "phases"
   | "nextScheduledStatusUpdate"
+  | "scheduledStatusUpdateFailure"
   | "statusUpdateSchedule"
 > & {
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
   nextScheduledStatusUpdate?: NextScheduledStatusUpdateStringDates | null;
+  scheduledStatusUpdateFailure?: ScheduledStatusUpdateFailureStringDates | null;
   statusUpdateSchedule?: StatusUpdateScheduleStringDates | null;
 };
 
@@ -281,9 +290,7 @@ export type LinkedFeatureState = "live" | "draft" | "discarded" | "archived";
 
 /** The two settings that combine into a `LinkedFeatureEnvState`. */
 export type LinkedFeatureEnvInputs = {
-  /** The flag's own toggle for the environment. */
   flagEnabled: boolean;
-  /** This experiment's rule in the environment. */
   rule: "on" | "off" | "missing";
 };
 
@@ -309,10 +316,7 @@ export type LinkedFeaturePendingDraft = {
   /** Armed to publish on a schedule with edits frozen until then. */
   lockedBySchedule: boolean;
   status: RevisionStatus;
-  /** The revision's own title, for naming which draft a readout describes. */
   title?: string;
-  /** Open drafts other than this one that also carry this experiment's rule. */
-  otherDraftCount: number;
   /** Whether publishing would change anything, by the publish gate's own test. */
   hasChanges: boolean;
   values: ExperimentRefVariation[];
@@ -419,9 +423,20 @@ export interface LinkedFeatureInfo {
    * caller, or the recorded armer once a start is scheduled.
    */
   cannotPublish?: boolean;
-  /** Environments disabled live that the pending draft's auto-publish will enable. Only for `pendingFeatureDrafts` drafts. */
-  environmentsToEnable?: string[];
+  /**
+   * Set on the Setup page when the experiment's rules on this flag disagree:
+   * one entry per set of identical values, each read from its own rules.
+   */
+  valueGroups?: LinkedFeatureValueGroup[];
 }
+
+export type LinkedFeatureValueGroup = Omit<
+  LinkedFeatureInfo,
+  "feature" | "valueGroups"
+> & {
+  ruleIds: string[];
+  environments: string[];
+};
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";
 

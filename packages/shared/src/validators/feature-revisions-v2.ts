@@ -10,9 +10,11 @@ import {
   booleanQueryField,
   schemaValidationQueryFields,
   publishOverrideBodyFields,
+  allowUnscopedRulesBodyField,
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   inlineRampScheduleInput,
@@ -24,6 +26,19 @@ import { apiFeatureRevisionV2Validator } from "./features-v2";
 import { apiJSONSchemaDefInput, revisionStatusFilterSchema } from "./features";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  FEATURE_DESCRIPTION,
+  NEW_DRAFT_COMMENT_DESCRIPTION,
+  NEW_DRAFT_TITLE_DESCRIPTION,
+  PUBLISH_COMMENT_DESCRIPTION,
+  REQUEST_REVIEW_COMMENT_DESCRIPTION,
+  REVIEW_ACTION_DESCRIPTION,
+  REVIEW_COMMENT_DESCRIPTION,
+  REVISION_COMMENT_DESCRIPTION,
+  REVISION_TITLE_DESCRIPTION,
+  RULE_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
+} from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
@@ -39,18 +54,11 @@ const ruleParams = revisionParams.extend({ ruleId: z.string() });
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z
-    .string()
-    .optional()
-    .describe(
-      'Title for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+  revisionTitle: z.string().optional().describe(NEW_DRAFT_TITLE_DESCRIPTION),
   revisionComment: z
     .string()
     .optional()
-    .describe(
-      'Comment for a newly created draft. Only used when version is "new"; ignored for existing revisions.',
-    ),
+    .describe(NEW_DRAFT_COMMENT_DESCRIPTION),
 };
 
 // ---- Shared response schemas ----
@@ -140,7 +148,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().describe(RULE_DESCRIPTION).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -203,6 +211,10 @@ const targetingRuleCreateInputV2 = namedSchema(
         .describe(
           "Attribute to hash on for consistent assignment. Required when coverage < 1.",
         ),
+      fallbackAttribute: z
+        .string()
+        .optional()
+        .describe(FALLBACK_ATTRIBUTE_DESCRIPTION),
       seed: z.string().optional(),
       hashVersion: z
         .union([z.literal(1), z.literal(2)])
@@ -310,7 +322,7 @@ export type RuleCreateInputV2 = z.infer<typeof ruleCreateInputV2>;
 
 const rulePatchSchemaV2 = z
   .object({
-    description: z.string().optional(),
+    description: z.string().describe(RULE_DESCRIPTION).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -329,6 +341,7 @@ const rulePatchSchemaV2 = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),
@@ -414,6 +427,7 @@ export const postFeatureRevisionV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionV2",
   summary: "Create a draft revision",
   description:
@@ -422,15 +436,15 @@ export const postFeatureRevisionV2Validator = {
   paramsSchema: idParams,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      title: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
       ignoreWarnings: ignoreWarningsBodyField,
     })
     .strict(),
   querySchema: z
     .object({
       overrideDraftLimit: booleanQueryField.describe(
-        "If the organization caps concurrent drafts per feature (`maxConcurrentDrafts` setting), requests at or over the cap are rejected with a 409. Pass `true` to create the draft anyway.",
+        `If the organization caps concurrent drafts per feature (\`maxConcurrentDrafts\` setting), requests at or over the cap are rejected with a 409. Pass \`true\` to create the draft anyway. ${HUMAN_OVERRIDE_NOTE}`,
       ),
     })
     .strict(),
@@ -487,7 +501,7 @@ export const postFeatureRevisionPublishV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
+      comment: z.string().describe(PUBLISH_COMMENT_DESCRIPTION).optional(),
       bypassApproval: bypassApprovalPublishBodyField,
       ...publishOverrideBodyFields,
     })
@@ -516,8 +530,8 @@ export const postFeatureRevisionRevertV2Validator = {
   bodySchema: z
     .object({
       strategy: z.enum(["draft", "publish"]).optional(),
-      comment: z.string().optional(),
-      title: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
       // Same reason as the Saved Group and Config reverts: publishing a revert
       // that restores `archived` runs the bypassable dependent guard, and a
       // strict body without these rejects the acknowledgment it asks for.
@@ -731,12 +745,15 @@ export const postFeatureRevisionRequestReviewV2Validator = {
   operationId: "postFeatureRevisionRequestReviewV2",
   summary: "Request review for a draft revision",
   description:
-    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.\n\nSet `scheduledPublishAt` to a future ISO date-time to defer the auto-publish until that date (it still also requires approval when review is required). Use `scheduledPublishLockEdits` to freeze edits to this draft while the schedule is pending, and `scheduledPublishLockOthers` to block publishing other drafts of this feature in the meantime.",
+    "Moves the draft into the `pending-review` state and notifies reviewers.\n\nSet `autoPublishOnApproval` to `true` to publish the revision automatically the moment it is approved (GitHub auto-merge model). This requires the org to have auto-publish-on-approval enabled for the feature and the caller to have publish permission; the auto-publish then executes with the caller's authority.\n\nSet `scheduledPublishAt` to a future ISO date-time to defer the auto-publish until that date (it still also requires approval when review is required). Use `scheduledPublishLockEdits` to freeze edits to this draft while the schedule is pending, and `scheduledPublishLockOthers` to block publishing other drafts of this feature in the meantime.\n\nNeither can be set on a draft whose rules would take a draft experiment live, since an automatic publish doesn't start the experiment. Schedule the experiment's start instead; starting it publishes the draft.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
+      comment: z
+        .string()
+        .describe(REQUEST_REVIEW_COMMENT_DESCRIPTION)
+        .optional(),
       autoPublishOnApproval: z.boolean().optional(),
       // Same field, same rule as the schedule-publish endpoint below.
       scheduledPublishAt: z
@@ -758,7 +775,7 @@ export const postFeatureRevisionSchedulePublishV2Validator = {
   operationId: "postFeatureRevisionSchedulePublishV2",
   summary: "Schedule (or cancel) a deferred publish for a draft revision",
   description:
-    "Schedules the draft to publish on or after `scheduledPublishAt`. When approval is required, publishing waits until the draft is also approved. Send `scheduledPublishAt: null` to cancel the schedule.\n\nSet `lockEdits` to prevent content changes while the schedule is pending; rebasing remains allowed. Set `lockOthers` to prevent other drafts of this Feature Flag from being published until this schedule runs or is canceled. The caller needs Publish access, and that access is checked again when the schedule runs. A caller with Bypass draft approvals access can schedule an unapproved draft by sending `bypassApproval: true`. That schedule must be canceled and recreated before it can be changed.",
+    "Schedules the draft to publish on or after `scheduledPublishAt`. When approval is required, publishing waits until the draft is also approved. Send `scheduledPublishAt: null` to cancel the schedule.\n\nSet `lockEdits` to prevent content changes while the schedule is pending; rebasing remains allowed. Set `lockOthers` to prevent other drafts of this Feature Flag from being published until this schedule runs or is canceled. The caller needs Publish access, and that access is checked again when the schedule runs. A caller with Bypass draft approvals access can schedule an unapproved draft by sending `bypassApproval: true`. That schedule must be canceled and recreated before it can be changed, and a later edit that would reset an approval also drops the bypass.\n\nA draft whose rules would take a draft experiment live can't be scheduled, since a scheduled publish doesn't start the experiment. Schedule the experiment's start instead; starting it publishes the draft.",
   tags: ["feature-revisions-v2"],
   paramsSchema: revisionParamsStrict,
   bodySchema: z
@@ -793,8 +810,11 @@ export const postFeatureRevisionSubmitReviewV2Validator = {
   paramsSchema: revisionParamsStrict,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -1005,9 +1025,9 @@ export const putFeatureRevisionMetadataV2Validator = {
   paramsSchema: revisionParams,
   bodySchema: z
     .object({
-      comment: z.string().optional(),
-      title: z.string().optional(),
-      description: z.string().optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      description: z.string().describe(FEATURE_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
       project: z.string().optional(),
       targetingAllProjects: z
@@ -1085,6 +1105,7 @@ export const postFeatureRevisionRuleAddV2Validator = {
   method: "post" as const,
   path: "/features/:id/revisions/:version/rules",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevisionRuleAddV2",
   summary: "Add a rule to a draft revision",
   description:
@@ -1106,11 +1127,13 @@ export const postFeatureRevisionRuleAddV2Validator = {
         ),
       ...newDraftMetadataFields,
       ...publishOverrideBodyFields,
+      allowUnscopedRules: allowUnscopedRulesBodyField,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const postFeatureRevisionRulesReorderV2Validator = {
@@ -1139,6 +1162,7 @@ export const putFeatureRevisionRuleV2Validator = {
   method: "put" as const,
   path: "/features/:id/revisions/:version/rules/:ruleId",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "putFeatureRevisionRuleV2",
   summary: "Update a rule in a draft revision",
   description:
@@ -1160,11 +1184,13 @@ export const putFeatureRevisionRuleV2Validator = {
         ),
       ...newDraftMetadataFields,
       ...publishOverrideBodyFields,
+      allowUnscopedRules: allowUnscopedRulesBodyField,
     })
     .strict(),
   querySchema: z.object({ ...schemaValidationQueryFields }).strict(),
   responseSchema: revisionResponse,
   version: "v2" as const,
+  possibleErrors: ["unscoped_rule"] as const,
 };
 
 export const deleteFeatureRevisionRuleV2Validator = {

@@ -16,6 +16,7 @@ import {
   getColumnExpression,
   expandVirtualColumnsInSql,
   sqlReferencesColumn,
+  sqlReferencesColumnAllowingQualified,
   validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
@@ -2661,6 +2662,68 @@ describe("Virtual Columns", () => {
 
     it("still matches around a lone dollar sign with no closing delimiter", () => {
       expect(sqlReferencesColumn("margin_vc + $1", "margin_vc")).toBe(true);
+    });
+  });
+
+  describe("sqlReferencesColumnAllowingQualified", () => {
+    it("detects a bare identifier reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("margin_vc / price", "margin_vc"),
+      ).toBe(true);
+    });
+
+    it("detects a table-qualified reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "SELECT e.bandit_version FROM exposures e",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects a qualified reference with whitespace around the dot", () => {
+      expect(sqlReferencesColumnAllowingQualified("e . price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified("e.\n  price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified('e . "price"', "price")).toBe(
+        true,
+      );
+      expect(
+        sqlReferencesColumnAllowingQualified("`e` . `price`", "price", "`"),
+      ).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "status = 'bandit_version'",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("e.gross_margin_vc", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a comment", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price -- e.margin_vc\n",
+          "margin_vc",
+        ),
+      ).toBe(false);
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price /* e.margin_vc */",
+          "margin_vc",
+        ),
+      ).toBe(false);
     });
   });
 

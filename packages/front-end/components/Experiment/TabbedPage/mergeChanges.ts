@@ -1,14 +1,12 @@
 import type { ExperimentChangesBody } from "shared/validators";
 
-/**
- * One changeset from the page's edits, each holding a share of it. A body key
- * with no branch here is silently dropped from the save; `dryRun` is the
- * caller's, not an edit's.
- */
+// Experiment fields merge, lists concatenate, and an acknowledgment of
+// all-environment rules covers the save; the caller adds `dryRun` and `release`.
 export function mergeChanges(
   parts: ExperimentChangesBody[],
 ): ExperimentChangesBody {
   const body: ExperimentChangesBody = {};
+  const lists: Record<string, unknown> = body;
   for (const part of parts) {
     if (part.experiment) {
       body.experiment = {
@@ -16,55 +14,16 @@ export function mergeChanges(
         base: { ...body.experiment?.base, ...part.experiment.base },
       };
     }
-    if (part.flagValues) {
-      body.flagValues = [...(body.flagValues ?? []), ...part.flagValues];
-    }
-    if (part.linkFeatures) {
-      body.linkFeatures = [...(body.linkFeatures ?? []), ...part.linkFeatures];
-    }
-    if (part.unlinkFeatures) {
-      body.unlinkFeatures = [
-        ...(body.unlinkFeatures ?? []),
-        ...part.unlinkFeatures,
-      ];
-    }
-    if (part.keepFeatures) {
-      body.keepFeatures = [...(body.keepFeatures ?? []), ...part.keepFeatures];
-    }
     if (part.managedFlag) body.managedFlag = part.managedFlag;
     if (part.renameManagedFlag) {
       body.renameManagedFlag = part.renameManagedFlag;
     }
     if (part.deleteManagedFlag) body.deleteManagedFlag = true;
-    if (part.addUrlRedirects) {
-      body.addUrlRedirects = [
-        ...(body.addUrlRedirects ?? []),
-        ...part.addUrlRedirects,
-      ];
-    }
-    if (part.editUrlRedirects) {
-      body.editUrlRedirects = [
-        ...(body.editUrlRedirects ?? []),
-        ...part.editUrlRedirects,
-      ];
-    }
-    if (part.removeUrlRedirects) {
-      body.removeUrlRedirects = [
-        ...(body.removeUrlRedirects ?? []),
-        ...part.removeUrlRedirects,
-      ];
-    }
-    if (part.editVisualChangesets) {
-      body.editVisualChangesets = [
-        ...(body.editVisualChangesets ?? []),
-        ...part.editVisualChangesets,
-      ];
-    }
-    if (part.removeVisualChangesets) {
-      body.removeVisualChangesets = [
-        ...(body.removeVisualChangesets ?? []),
-        ...part.removeVisualChangesets,
-      ];
+    if (part.allowUnscopedRules) body.allowUnscopedRules = true;
+    for (const [key, value] of Object.entries(part)) {
+      if (!Array.isArray(value)) continue;
+      const prev = lists[key];
+      lists[key] = [...(Array.isArray(prev) ? prev : []), ...value];
     }
   }
   return body;

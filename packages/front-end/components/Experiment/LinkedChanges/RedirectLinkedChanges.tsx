@@ -1,237 +1,136 @@
-import {
-  ExperimentInterfaceStringDates,
-  LinkedChangeEnvStates,
-} from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
-import { IconButton } from "@radix-ui/themes";
-import { PiLink, PiPencilSimple } from "react-icons/pi";
-import ImplementationHeading from "@/components/Experiment/ImplementationHeading";
+import { LinkedChangeEnvStates } from "shared/types/experiment";
 import { SdkConnectionEnvironmentsPopover } from "@/components/Experiment/LinkedChanges/EnvironmentStatesGrid";
-import { useLinkedChangeAddGate } from "@/components/Experiment/LinkedChanges/AddLinkedChanges";
 import {
-  AddImplementationButton,
-  CardHeaderDivider,
-  ImplementationCard,
-  ImplementationCardHeader,
-  ImplementationSection,
-  StagedChangeNote,
-  VariationCells,
-} from "@/components/Experiment/TabbedPage/ImplementationCard";
+  ColumnCell,
+  ColumnFooter,
+  ColumnHeader,
+  ColumnLayout,
+  HeaderText,
+  StagedNote,
+} from "@/components/Experiment/TabbedPage/ImplementationColumn";
 import { ShownRedirect } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
-import { DropdownMenuItem } from "@/ui/DropdownMenu";
+import { DropdownMenuItem, DropdownMenuSeparator } from "@/ui/DropdownMenu";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import styles from "./RedirectLinkedChanges.module.scss";
-import { redirectDestinationParts } from "./redirectDestination";
+import {
+  redirectDestinationParts,
+  withoutProtocol,
+} from "./redirectDestination";
 
 function RedirectDestination({ from, to }: { from: string; to: string }) {
   const parts = redirectDestinationParts(from, to);
-  const shown = parts ? (
-    <>
-      {parts.elided ? "…" : null}
-      {parts.kept}
-      {parts.changed}
-    </>
-  ) : (
-    to
-  );
+  const shown = parts
+    ? `${parts.elided ? "…" : ""}${parts.path}`
+    : withoutProtocol(to);
   return (
-    <Link
-      href={to}
-      external
-      color="dark"
-      // As the Visual Editor's summaries read.
-      weight="regular"
-      underline="hover"
-      className={styles.redirectUrl}
-      title={to}
-      style={{ overflowWrap: "anywhere" }}
-    >
-      {shown}
-    </Link>
+    <Tooltip content={to} enabled={!!parts?.elided}>
+      <Link href={to} external style={{ overflowWrap: "anywhere" }}>
+        {shown}
+      </Link>
+    </Tooltip>
   );
 }
-
-type ShownVariation = ReturnType<typeof getLatestPhaseVariations>[number];
 
 const STAGED_NOTES = {
   added: "Added when you save.",
   edited: "Changed when you save.",
-  removed: "Removed from this experiment when you save.",
 };
 
-function RedirectCard({
+export default function UrlRedirectColumn({
+  layout,
   redirect,
-  variations,
   project,
   canEdit,
-  lockedReason,
+  lockedReason = null,
   environmentStates,
   onEdit,
   onRemove,
   onUndo,
 }: {
+  layout: ColumnLayout;
   redirect: ShownRedirect;
-  variations: ShownVariation[];
   project: string;
   canEdit: boolean;
-  lockedReason: string | null;
+  lockedReason?: string | null;
   environmentStates?: LinkedChangeEnvStates;
   onEdit: () => void;
   onRemove: () => void;
   onUndo: () => void;
 }) {
+  const { variations } = layout;
   const origin = redirect.urlPattern;
-  const removed = redirect.staged === "removed";
-  const editable = canEdit && !removed;
+  const menu = canEdit
+    ? [
+        <DropdownMenuItem
+          key="edit"
+          disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
+          onClick={onEdit}
+        >
+          Edit URL redirect
+        </DropdownMenuItem>,
+        <DropdownMenuSeparator key="separator" />,
+        <DropdownMenuItem
+          key="remove"
+          color="red"
+          disabled={!!lockedReason}
+          tooltip={lockedReason ?? undefined}
+          onClick={onRemove}
+        >
+          Remove from experiment
+        </DropdownMenuItem>,
+      ]
+    : [];
 
   return (
-    <ImplementationCard>
-      <ImplementationCardHeader
-        icon={<PiLink />}
+    <>
+      <ColumnHeader
+        layout={layout}
         title={
-          <Link
-            href={origin}
-            external
-            weight="medium"
-            style={{ overflowWrap: "anywhere" }}
-          >
-            {origin}
-          </Link>
-        }
-        actions={
           <>
-            {environmentStates ? (
-              <SdkConnectionEnvironmentsPopover
-                environmentStates={environmentStates}
-                kind="URL Redirect"
-                project={project}
-              />
-            ) : null}
-            {editable ? (
-              <>
-                <CardHeaderDivider />
-                <Tooltip content={lockedReason ?? "Edit URL redirect"}>
-                  <IconButton
-                    variant="ghost"
-                    color="violet"
-                    radius="medium"
-                    size="1"
-                    disabled={!!lockedReason}
-                    onClick={onEdit}
-                    aria-label="Edit URL redirect"
-                  >
-                    <PiPencilSimple size="14" />
-                  </IconButton>
-                </Tooltip>
-              </>
-            ) : null}
+            <HeaderText>Redirects</HeaderText>
+            <Link href={origin} external weight="regular" truncate>
+              {withoutProtocol(origin)}
+            </Link>
+            <HeaderText>to…</HeaderText>
           </>
         }
+        menu={menu}
         menuLabel={`${origin} actions`}
-        menu={
-          editable ? (
-            <DropdownMenuItem
-              color="red"
-              disabled={!!lockedReason}
-              onClick={onRemove}
-            >
-              <Tooltip
-                content={lockedReason}
-                side="left"
-                enabled={!!lockedReason}
-              >
-                <span>Remove from experiment</span>
-              </Tooltip>
-            </DropdownMenuItem>
-          ) : null
-        }
       />
-      {redirect.staged ? (
-        <StagedChangeNote onUndo={onUndo} mb={removed ? "0" : "3"}>
-          {STAGED_NOTES[redirect.staged]}
-        </StagedChangeNote>
-      ) : null}
-      {removed ? null : (
-        <VariationCells variations={variations}>
-          {(v) => {
-            const to = redirect.destinationURLs.find(
-              (d) => d.variation === v.id,
-            )?.url;
-            return to ? (
+      {variations.map((v, i) => {
+        const to = redirect.destinationURLs.find(
+          (d) => d.variation === v.id,
+        )?.url;
+        return (
+          <ColumnCell key={v.id} layout={layout} row={i} fieldLine>
+            {to ? (
               <RedirectDestination from={origin} to={to} />
             ) : (
               <Text color="text-low">No redirect</Text>
-            );
-          }}
-        </VariationCells>
-      )}
-    </ImplementationCard>
-  );
-}
-
-/** The experiment's URL Redirects: a card each, a destination per variation. */
-export default function UrlRedirectRows({
-  experiment,
-  variations,
-  urlRedirects,
-  canEdit,
-  lockedReason = null,
-  environmentStates,
-  onAdd,
-  addBlockedReason = null,
-  onEdit,
-  onRemove,
-  onUndo,
-}: {
-  experiment: ExperimentInterfaceStringDates;
-  // As the variation cards above show them, staged edits included.
-  variations: ShownVariation[];
-  urlRedirects: ShownRedirect[];
-  canEdit: boolean;
-  // Why the edits it offers can't be made by this user.
-  lockedReason?: string | null;
-  environmentStates?: LinkedChangeEnvStates;
-  onAdd: (() => void) | null;
-  addBlockedReason?: string | null;
-  onEdit: (redirect: ShownRedirect) => void;
-  onRemove: (redirect: ShownRedirect) => void;
-  onUndo: (redirect: ShownRedirect) => void;
-}) {
-  const { unsupportedReason, commercialFeature } = useLinkedChangeAddGate(
-    "urlredirect",
-    experiment,
-  );
-  return (
-    <ImplementationSection
-      cols={Math.min(variations.length, 3)}
-      heading={<ImplementationHeading>URL Redirects</ImplementationHeading>}
-      add={
-        onAdd ? (
-          <AddImplementationButton
-            label="Add URL redirect"
-            onClick={onAdd}
-            disabledReason={addBlockedReason ?? unsupportedReason}
-            commercialFeature={commercialFeature}
-          />
-        ) : null
-      }
-    >
-      {urlRedirects.map((r) => (
-        <RedirectCard
-          key={r.key}
-          redirect={r}
-          variations={variations}
-          project={experiment.project ?? ""}
-          canEdit={canEdit}
-          lockedReason={lockedReason}
-          environmentStates={environmentStates}
-          onEdit={() => onEdit(r)}
-          onRemove={() => onRemove(r)}
-          onUndo={() => onUndo(r)}
-        />
-      ))}
-    </ImplementationSection>
+            )}
+          </ColumnCell>
+        );
+      })}
+      <ColumnFooter
+        layout={layout}
+        start={
+          environmentStates && Object.keys(environmentStates).length ? (
+            <SdkConnectionEnvironmentsPopover
+              environmentStates={environmentStates}
+              kind="URL Redirect"
+              project={project}
+            />
+          ) : null
+        }
+      >
+        {redirect.staged ? (
+          <StagedNote onUndo={onUndo}>
+            {STAGED_NOTES[redirect.staged]}
+          </StagedNote>
+        ) : null}
+      </ColumnFooter>
+    </>
   );
 }

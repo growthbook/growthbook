@@ -7,7 +7,6 @@ import Tooltip from "@/ui/Tooltip";
 export interface Props {
   editResult?: () => void;
   editTargeting?: (() => void) | null;
-  // Why both wait, e.g. on edits staged on the page.
   blockedReason?: string | null;
   isBandit?: boolean;
   runningExperimentStatus?: ExperimentResultStatusData;
@@ -36,14 +35,14 @@ export default function ExperimentActionButtons({
         : "Start Analysis Phase";
     }
     if (readyForDecision) {
-      return "Make Decision";
+      return "Make decision";
     } else if (isBandit) {
       return "Stop Bandit";
     } else {
       return "Stop Experiment";
     }
   };
-  // Neither is offered without permission to run it, as on the feature page.
+  // Hidden without permission to run them, as on the feature page.
   if (!editResult && (holdoutStage || !editTargeting)) return null;
   return (
     <Flex ml="2" gap="3">

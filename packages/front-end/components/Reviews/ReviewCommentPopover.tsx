@@ -88,6 +88,8 @@ interface Props {
   // When true, publish CTAs use a trailing arrow to signal a follow-on step
   // (e.g. the pre-launch checklist before the final publish).
   publishHasMoreSteps?: boolean;
+  // Shown with the publish option, e.g. what publishing leaves out.
+  publishNote?: React.ReactNode;
   trigger: React.ReactNode | ((state: { open: boolean }) => React.ReactNode);
   /** Prevents self-approval when blockSelfApproval is set. */
   isBlockedContributor?: boolean;
@@ -110,6 +112,7 @@ export default function ReviewCommentPopover({
   canReviewerPublish = false,
   publishBlocked = false,
   publishHasMoreSteps = false,
+  publishNote = null,
   trigger,
   isBlockedContributor = false,
   onSuccess,
@@ -129,6 +132,7 @@ export default function ReviewCommentPopover({
       "Comment",
   );
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Persist the in-progress draft as it changes. An empty/default draft is
@@ -159,7 +163,8 @@ export default function ReviewCommentPopover({
 
   // Verdicts (Approve / Request changes) may stand alone, but a plain
   // "Comment" decision with no text would create an empty log entry.
-  const canSubmit = decision !== "Comment" || comment.trim().length > 0;
+  const canSubmit =
+    !uploading && (decision !== "Comment" || comment.trim().length > 0);
 
   const isApproval = decision === "Approved";
   // A future-dated schedule fires later, so approving it isn't an immediate publish.
@@ -223,6 +228,7 @@ export default function ReviewCommentPopover({
         maxHeight="xl"
         simpleToolbar
         collapsibleToolbar
+        onUploadingChange={setUploading}
       />
 
       <Box mt="5">
@@ -257,6 +263,12 @@ export default function ReviewCommentPopover({
           {error}
         </HelperText>
       )}
+
+      {showPublishOption && publishNote ? (
+        <HelperText status="info" size="sm" mt="3">
+          {publishNote}
+        </HelperText>
+      ) : null}
 
       <Flex gap="2" mt="3" justify="end">
         <LinkButton

@@ -1,6 +1,7 @@
 import isEqual from "lodash/isEqual";
 import { getExperimentIdsFromRules, naiveFlattenV1Rules } from "shared/util";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
+import { FeatureRule } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -29,54 +30,52 @@ type LaunchCandidate = RevisionRules &
     base?: RevisionRules;
   };
 
+type RuleMatcher = (rule: FeatureRule) => boolean;
+
 // Plain JSON, so stored documents compare by value.
-function experimentRefRules(
-  rules: unknown,
-  experimentId: string,
-): ReturnType<typeof naiveFlattenV1Rules> {
-  return JSON.parse(
-    JSON.stringify(
-      naiveFlattenV1Rules(rules).filter(
-        (r) => r.type === "experiment-ref" && r.experimentId === experimentId,
-      ),
-    ),
-  );
+function matchedRules(rules: unknown, matches: RuleMatcher): FeatureRule[] {
+  return JSON.parse(JSON.stringify(naiveFlattenV1Rules(rules).filter(matches)));
 }
 
-/**
- * The one draft an experiment launches for a flag: the newest open draft whose
- * rule for the experiment (or the flag's type) differs from live and from the
- * revision it was cut from. A draft that carries the rule unchanged, or an old
- * copy of it, is someone else's work and never launches with it.
- */
+// Newest first. A draft carrying the rules (and the flag's type) unchanged from
+// live or from its own base, or an old copy of them, is someone else's work.
+export function getRuleChangingDraftVersions(
+  matches: RuleMatcher,
+  openDrafts: LaunchCandidate[],
+  liveRevision: RevisionRules | null,
+): number[] {
+  const changesFrom = (draft: RevisionRules, from: RevisionRules | null) => {
+    const draftRules = matchedRules(draft.rules, matches);
+    const draftType = draft.metadata?.valueType;
+    const fromType = from?.metadata?.valueType;
+    return (
+      draftRules.length > 0 &&
+      (!isEqual(draftRules, matchedRules(from?.rules, matches)) ||
+        (!!draftType && !!fromType && draftType !== fromType))
+    );
+  };
+  return openDrafts
+    .filter(
+      (draft) =>
+        changesFrom(draft, liveRevision) &&
+        (!draft.base || changesFrom(draft, draft.base)),
+    )
+    .map((draft) => draft.version)
+    .sort((a, b) => b - a);
+}
+
 export function getLaunchDraftVersion(
   experimentId: string,
   openDrafts: LaunchCandidate[],
   liveRevision: RevisionRules | null,
 ): number | null {
-  const changesFrom = (draft: RevisionRules, from: RevisionRules | null) => {
-    const draftRules = experimentRefRules(draft.rules, experimentId);
-    const draftType = draft.metadata?.valueType;
-    const fromType = from?.metadata?.valueType;
-    return (
-      (draftRules.length > 0 &&
-        !isEqual(draftRules, experimentRefRules(from?.rules, experimentId))) ||
-      (!!draftType &&
-        !!fromType &&
-        draftType !== fromType &&
-        getExperimentIdsFromRules(draft.rules).includes(experimentId))
-    );
-  };
-  let launch: number | null = null;
-  for (const draft of openDrafts) {
-    const changesExperiment =
-      changesFrom(draft, liveRevision) &&
-      (!draft.base || changesFrom(draft, draft.base));
-    if (changesExperiment && (launch === null || draft.version > launch)) {
-      launch = draft.version;
-    }
-  }
-  return launch;
+  return (
+    getRuleChangingDraftVersions(
+      (r) => r.type === "experiment-ref" && r.experimentId === experimentId,
+      openDrafts,
+      liveRevision,
+    )[0] ?? null
+  );
 }
 
 /**
@@ -212,11 +211,8 @@ export async function syncFeatureExperimentLinkages(
   }
 }
 
-/**
- * Unlinks the experiments waiting to drop this flag, once nothing live or open
- * still has their rule. Runs after draft writes and after a publish takes a
- * rule out; never throws.
- */
+// Unlinks the experiments waiting to drop this flag once nothing live or open
+// still has their rule. Never throws.
 async function settlePendingFeatureUnlinks(
   context: ReqContext | ApiReqContext,
   featureId: string,
@@ -234,7 +230,6 @@ async function settlePendingFeatureUnlinks(
   }
 }
 
-/** After a publish commits: the rules now live, and the drafts still open. */
 export async function settleFeatureRemovalsAfterPublish(
   context: ReqContext | ApiReqContext,
   feature: { organization: string; id: string; rules?: unknown },
@@ -267,10 +262,7 @@ function referencedExperimentIds(
   ];
 }
 
-/**
- * Whether a draft without the experiment's rule takes it out of the revision
- * it was cut from. A base that can't be found counts.
- */
+// A base that can't be found counts as having the rule.
 export function draftTakesRuleOut<R>(
   hasRule: (rules: R | undefined) => boolean,
   draft: { rules?: R },

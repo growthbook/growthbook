@@ -210,6 +210,7 @@ const EXPERIMENT_SECTION_KEYS: Record<
   status: "metadata",
   statusUpdateSchedule: "metadata",
   nextScheduledStatusUpdate: "metadata",
+  scheduledStatusUpdateFailure: "metadata",
   winner: "metadata",
   owner: "metadata",
   type: "metadata",

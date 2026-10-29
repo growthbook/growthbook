@@ -505,3 +505,45 @@ table[class*="[&_td]:min-w-[150px]"] td:first-child:has(code) {
   white-space: nowrap;
   word-wrap: break-word;
 }
+
+/* Product Updates navbar link: brand tint plus a "new" dot on the icon,
+   matching Open App (blue in light mode, purple in dark mode).
+   Light-mode text uses a deeper blue to meet WCAG AA contrast on the tint.
+   Remove once the page is no longer new. */
+#navbar a[href="https://growthbook.io/product-updates"]:not(#banner a)
+{
+  --pu-accent: var(--primary);
+  --pu-text: 3 120 160;
+  --pu-ring: var(--background-light);
+  --pu-tint: 0.08;
+  position: relative;
+  color: rgb(var(--pu-text)) !important;
+  border-color: rgb(var(--pu-accent) / 0.4) !important;
+  background-color: rgb(var(--pu-accent) / var(--pu-tint)) !important;
+}
+
+.dark #navbar a[href="https://growthbook.io/product-updates"]:not(#banner a)
+{
+  --pu-accent: var(--primary-light);
+  --pu-text: var(--primary-light);
+  --pu-ring: var(--background-dark);
+  --pu-tint: 0.12;
+}
+
+#navbar a[href="https://growthbook.io/product-updates"]:not(#banner a) svg
+{
+  background-color: rgb(var(--pu-text)) !important;
+}
+
+#navbar a[href="https://growthbook.io/product-updates"]:not(#banner a)::after
+{
+  content: "";
+  position: absolute;
+  top: 8px;
+  left: 29px;
+  width: 7px;
+  height: 7px;
+  border-radius: 9999px;
+  background: rgb(var(--pu-accent));
+  box-shadow: 0 0 0 2px rgb(var(--pu-ring));
+}

@@ -6,7 +6,15 @@ import { validateListSize } from "back-end/src/routers/saved-group/saved-group.c
 
 export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
   async (req) => {
-    const { name, attributeKey, values, condition, owner, projects } = req.body;
+    const {
+      name,
+      description,
+      attributeKey,
+      values,
+      condition,
+      owner,
+      projects,
+    } = req.body;
 
     if (!req.context.permissions.canCreateSavedGroup({ ...req.body })) {
       req.context.permissions.throwPermissionError();
@@ -80,7 +88,8 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
         req.context.org.settings?.savedGroupSizeLimit,
         req.context.permissions.canBypassSavedGroupSizeLimit(projects),
       );
-    } else {
+    } else if (type !== "remote") {
+      // Remote groups are checked when the model saves them.
       throw new Error("Must specify a saved group type");
     }
 
@@ -88,6 +97,7 @@ export const postSavedGroup = createApiRequestHandler(postSavedGroupValidator)(
       type: type,
       values: values || [],
       groupName: name,
+      description,
       // Falls back to the authenticated user (only present for Personal Access
       // Tokens) when no owner is provided, otherwise stays empty.
       owner: owner || req.context.actingUserId,

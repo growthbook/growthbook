@@ -24,14 +24,11 @@ export interface CommentComposerProps {
   /** Resting height; the editor grows with the text up to `maxHeight`. */
   height?: RichTextHeight;
   maxHeight?: RichTextHeight;
+  /** For narrow surfaces: small buttons. */
+  compact?: boolean;
 }
 
-/**
- * Shared comment composer used by `DiscussionThread` (via `CommentForm`) and
- * `ReviewAndPublish`. Wraps the rich text editor in a form with internal
- * value/loading/error state. The caller only needs to provide the network
- * call via `onSubmit`.
- */
+// Owns value/loading/error state; the caller only supplies the network call.
 export default function CommentComposer({
   onSubmit,
   cta = "Comment",
@@ -42,16 +39,19 @@ export default function CommentComposer({
   onCancel,
   height = "sm",
   maxHeight,
+  compact = false,
 }: CommentComposerProps) {
+  const buttonSize = compact ? "sm" : "md";
   const [value, setValue] = useState(initialValue);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
     <form
       onSubmit={async (e) => {
         e.preventDefault();
-        if (loading || value.trim().length < 1) return;
+        if (loading || uploading || value.trim().length < 1) return;
         setLoading(true);
         setError(null);
         try {
@@ -77,16 +77,26 @@ export default function CommentComposer({
         autoFocusAtEnd={autofocusAtEnd}
         simpleToolbar
         collapsibleToolbar
+        onUploadingChange={setUploading}
       />
       {/* Left aligned: the bottom-right corner belongs to the help launcher. */}
       <Flex align="center" mt="3" gap="2">
         {cta ? (
-          <Button type="submit" disabled={value.trim().length < 1}>
+          <Button
+            type="submit"
+            size={buttonSize}
+            disabled={uploading || value.trim().length < 1}
+          >
             {cta}
           </Button>
         ) : null}
         {onCancel ? (
-          <Button variant="ghost" color="gray" onClick={onCancel}>
+          <Button
+            variant="ghost"
+            color="gray"
+            size={buttonSize}
+            onClick={onCancel}
+          >
             Cancel
           </Button>
         ) : null}

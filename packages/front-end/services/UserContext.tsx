@@ -35,11 +35,19 @@ import {
   setTag as sentrySetTag,
 } from "@sentry/nextjs";
 import { GROWTHBOOK_SECURE_ATTRIBUTE_SALT } from "shared/constants";
-import { Permissions, userHasPermission } from "shared/permissions";
+import {
+  Permissions,
+  hasSuperAdminPermission,
+  userHasPermission,
+} from "shared/permissions";
 import { getValidDate } from "shared/dates";
 import sha256 from "crypto-js/sha256";
 import Cookies from "js-cookie";
-import { AgreementType, SdkPayloadSizeAlert } from "shared/validators";
+import {
+  AgreementType,
+  SdkPayloadSizeAlert,
+  SuperAdmin,
+} from "shared/validators";
 import { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
@@ -82,7 +90,11 @@ export const DEFAULT_PERMISSIONS: Record<GlobalPermission, boolean> = {
   createDimensions: false,
   createPresentations: false,
   createMetricGroups: false,
-  manageApiKeys: false,
+  viewApiKeys: false,
+  createApiKeys: false,
+  editApiKeys: false,
+  deleteApiKeys: false,
+  managePersonalAccessTokens: false,
   manageBilling: false,
   manageNamespaces: false,
   manageNorthStarMetric: false,
@@ -105,7 +117,7 @@ export interface UserContextValue {
   name?: string;
   pylonHmacHash?: string;
   email?: string;
-  superAdmin?: boolean;
+  superAdmin?: SuperAdmin;
   npsSurveyAt?: string;
   accountCreatedAt?: string;
   npsSurveyEnabled?: boolean;
@@ -159,7 +171,7 @@ interface UserResponse {
   email: string;
   pylonHmacHash: string;
   verified: boolean;
-  superAdmin: boolean;
+  superAdmin: SuperAdmin;
   npsSurveyAt?: string;
   accountCreatedAt?: string;
   npsSurveyEnabled?: boolean;
@@ -298,7 +310,10 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (data?.organizations && setOrganizations) {
-      setOrganizations(data.organizations, data.superAdmin);
+      setOrganizations(
+        data.organizations,
+        hasSuperAdminPermission(data.superAdmin, "impersonate"),
+      );
     }
   }, [data, setOrganizations]);
 
@@ -337,7 +352,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       environments: [],
       limitAccessByEnvironment: false,
       name: data.userName,
-      role: data.superAdmin ? getSuperadminDefaultRole() : "readonly",
+      role: hasSuperAdminPermission(data.superAdmin, "impersonate")
+        ? getSuperadminDefaultRole()
+        : "readonly",
       projectRoles: [],
     };
   }
@@ -384,7 +401,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
       anonymous_id,
       id: data?.userId || "",
       user_id: data?.userId || "",
-      superAdmin: data?.superAdmin || false,
+      superAdmin: hasSuperAdminPermission(data?.superAdmin, "view"),
       cloud: isCloud(),
       // Raw _ga value, matching Jitsu's ids.ga; cloud-only since self-hosted it's the customer's GA
       gaCookie: isCloud() ? Cookies.get("_ga") || "" : "",
@@ -620,7 +637,9 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
-        orgSuspended: organization?.suspended === true && !data?.superAdmin,
+        orgSuspended:
+          organization?.suspended === true &&
+          !hasSuperAdminPermission(data?.superAdmin, "impersonate"),
         hasCommercialFeature: (feature) => commercialFeatures.has(feature),
         watching: watching,
         canSubscribe,

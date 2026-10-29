@@ -1,6 +1,6 @@
 import { Box, Flex } from "@radix-ui/themes";
 import { FactTableDefinition, RowFilter } from "shared/types/fact-table";
-import { operatorLabelMap } from "@/components/FactTables/rowFilterUtils";
+import { getRowFilterDescription } from "@/components/FactTables/rowFilterUtils";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 
@@ -32,13 +32,7 @@ export default function FilterSummary({
                 color="violet"
                 radius="small"
                 style={{ whiteSpace: "normal", overflowWrap: "anywhere" }}
-                label={
-                  rf.operator === "saved_filter"
-                    ? (factTable?.filters.find(
-                        (filter) => filter.id === rf.values?.[0],
-                      )?.name ?? "Deleted saved filter")
-                    : `${factTable?.columns.find((c) => c.column === rf.column)?.name || rf.column} ${operatorLabelMap[rf.operator] || rf.operator} ${rf.values?.join(", ") || ""}`.trim()
-                }
+                label={getRowFilterDescription(rf, factTable)}
               />
             ))}
           </Flex>

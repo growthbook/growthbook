@@ -10,7 +10,9 @@ import {
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import AnalysisForm, {
+  AnalysisFormFocus,
+} from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
@@ -32,12 +34,10 @@ export interface Props {
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
   holdoutProjects?: string[];
-  /**
-   * The settings modal's open state, when something else on the page opens it
-   * too. Owned here otherwise.
-   */
+  // Lifted when something else on the page opens the settings modal too.
   settingsOpen?: boolean;
   setSettingsOpen?: (open: boolean) => void;
+  settingsFocus?: AnalysisFormFocus | null;
 }
 
 export default function AnalysisSettings({
@@ -50,6 +50,7 @@ export default function AnalysisSettings({
   holdoutProjects,
   settingsOpen,
   setSettingsOpen,
+  settingsFocus = null,
 }: Props) {
   const {
     getDatasourceById,
@@ -173,6 +174,7 @@ export default function AnalysisSettings({
           editDates={true}
           editVariationIds={false}
           editMetrics={true}
+          focus={settingsFocus}
           source={"analysis-settings"}
           envs={envs}
           holdoutProjects={holdoutProjects}

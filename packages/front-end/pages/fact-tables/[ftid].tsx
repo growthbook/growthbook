@@ -137,7 +137,10 @@ export default function FactTablePage() {
   let canEdit = permissionsUtil.canUpdateFactTable(factTable, factTable);
   let canDelete = permissionsUtil.canDeleteFactTable(factTable);
 
-  if (factTable.managedBy && ["api", "config"].includes(factTable.managedBy)) {
+  if (
+    factTable.managedBy &&
+    ["api", "dbt", "config"].includes(factTable.managedBy)
+  ) {
     canEdit = false;
     canDelete = false;
   }

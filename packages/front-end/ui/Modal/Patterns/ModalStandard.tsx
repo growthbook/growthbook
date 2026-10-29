@@ -1,4 +1,4 @@
-import { ReactNode, ComponentProps } from "react";
+import { ComponentProps, CSSProperties, ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Modal, { Size, TrackingEventModalProps } from "@/ui/Modal";
@@ -61,25 +61,35 @@ export type Props = TrackingEventModalProps & {
   // Optional button rendered on the left side of the footer. Use for
   // destructive or out-of-flow actions that shouldn't be the primary CTA.
   secondaryAction?: ReactNode;
+  // Full-bleed strip between the body and the footer, e.g. a ModalWarningBanner.
+  aboveFooterContent?: ReactNode;
   close: () => void;
   closeCta?: string;
   children: ReactNode;
 };
 
-/**
- * Radix focuses the first tabbable node, which pops the tooltip of a modal
- * whose first control is an icon button. Prefer the first field a person would
- * type into, and otherwise the dialog itself.
- */
+// Radix focuses the first tabbable node, which pops an icon button's tooltip.
+// Prefer the first field to type into, else the dialog itself.
 const focusFirstField: NonNullable<
   ComponentProps<typeof Modal.Root>["onOpenAutoFocus"]
 > = (e) => {
   const content = e.currentTarget as HTMLElement;
   e.preventDefault();
-  const field = content.querySelector<HTMLElement>(
+  const fields = content.querySelectorAll<HTMLElement>(
     "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([disabled]), textarea:not([disabled]), [contenteditable='true']",
   );
-  (field ?? content).focus();
+  for (const field of Array.from(fields)) {
+    // Skips what keyboard focus skips, such as a dropzone's hidden input.
+    if (
+      field.getAttribute("tabindex")?.trim().startsWith("-") ||
+      !field.getClientRects().length
+    ) {
+      continue;
+    }
+    field.focus({ preventScroll: true });
+    if (document.activeElement === field) return;
+  }
+  content.focus({ preventScroll: true });
 };
 
 // ModalStandard is the opinionated wrapper around the composable Modal
@@ -98,6 +108,7 @@ export default function ModalStandard({
   size = "md",
   submit,
   secondaryAction,
+  aboveFooterContent,
   close,
   closeCta = "Cancel",
   children,
@@ -115,6 +126,17 @@ export default function ModalStandard({
       </Modal.Header>
       {subheader && <Modal.Description>{subheader}</Modal.Description>}
       <Modal.Body>{children}</Modal.Body>
+      {aboveFooterContent ? (
+        <Box
+          style={
+            {
+              "--modal-warning-banner-inset": "var(--space-7)",
+            } as CSSProperties
+          }
+        >
+          {aboveFooterContent}
+        </Box>
+      ) : null}
       <Modal.Footer
         justify={secondaryAction ? "between" : "end"}
         align={secondaryAction ? "center" : undefined}

@@ -196,6 +196,13 @@ function readableConnections(
     );
 }
 
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountSDKConnectionsByOrganization(
+  organization: string,
+): Promise<number> {
+  return SDKConnectionModel.countDocuments({ organization });
+}
+
 // Not filtered by the caller's project read access: used as a referential
 // integrity check before an environment is removed.
 export async function countSDKConnectionsByEnvironment(

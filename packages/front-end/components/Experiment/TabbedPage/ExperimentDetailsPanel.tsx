@@ -1,87 +1,94 @@
 import { ReactNode, useState } from "react";
+import { hasPendingScheduledStart, isManagedByExperiment } from "shared/util";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
-import { isManagedByExperiment } from "shared/util";
 import {
   HoldoutInterfaceStringDates,
   type ImplementationType,
 } from "shared/validators";
+import { DiscussionInterface } from "shared/types/discussion";
 import DiscussionThread from "@/components/DiscussionThread";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
+import ScrollArea from "@/ui/ScrollArea";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import ProjectTagBar, {
+  ExperimentDataFields,
   QuickEditField,
 } from "@/components/Experiment/TabbedPage/ProjectTagBar";
 import EditExperimentInfoModal, {
   InfoSection,
+  SECTION_HEADERS,
 } from "@/components/Experiment/TabbedPage/EditExperimentInfoModal";
 import { useCustomFields } from "@/hooks/useCustomFields";
 import { filterCustomFieldsForSectionAndProject } from "@/services/customFields";
 import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
+import useApi from "@/hooks/useApi";
 import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
-import InlineMarkdownField from "@/components/Experiment/TabbedPage/InlineMarkdownField";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import { usePreLaunchChecklist } from "@/components/PreLaunchChecklist/PreLaunchChecklistProvider";
 import {
-  ChecklistCountBadge,
   PreLaunchChecklistPanel,
+  todoTitle,
 } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import Metadata from "@/ui/Metadata";
 import QuickEditButton, { revealsQuickEdit } from "./QuickEditButton";
+import { headerDates } from "./statusSchedule";
 import ExpandableBlock from "./ExpandableBlock";
-import ExperimentHealthBadges from "./ExperimentHealthBadges";
 
-const DETAILS_PANEL_TABS = ["details", "comments", "todo"] as const;
+const DETAILS_PANEL_TABS = ["details", "comments"] as const;
 export type DetailsPanelTab = (typeof DETAILS_PANEL_TABS)[number];
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
+  datasourceMissing?: boolean;
   holdout?: HoldoutInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
   /** The page's staged implementation type, shown in place of the stored one. */
   stagedImplementationType: ImplementationType | null;
-  /** A staged holdout ("" to leave), shown in place of the stored one. */
   stagedHoldoutId?: string | null;
-  /** Opens the schedule editor. */
-  editSchedule?: (() => void) | null;
   mutate: () => void;
   disableEditing?: boolean;
   tab: DetailsPanelTab;
   setTab: (tab: DetailsPanelTab) => void;
 }
 
-/** The experiment's metadata and discussion, beside the page rather than above it. */
 export default function ExperimentDetailsPanel({
   experiment,
+  datasourceMissing = false,
   holdout,
   linkedFeatures,
   stagedImplementationType,
   stagedHoldoutId = null,
-  editSchedule = null,
   mutate,
   disableEditing,
   tab,
   setTab,
 }: Props) {
-  const [showEditInfoModal, setShowEditInfoModal] = useState(false);
+  // Editors can't open over the page's unsaved edits; their buttons say why.
+  const editsBlocked = useEditsBlockedReason();
+  const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
+  const [infoSection, setInfoSection] = useState<InfoSection | null>(null);
+  const [customFieldId, setCustomFieldId] = useState<string | null>(null);
+  const [editingHoldout, setEditingHoldout] = useState(false);
   const managedFeature =
     linkedFeatures.find((f) =>
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
-  // Another editing surface cannot open over the page's own unsaved edits, so
-  // the controls that would open one say why instead.
-  const editsBlocked = useEditsBlockedReason();
-  const { canEdit } = useExperimentEditing(experiment, disableEditing);
-  const [infoSection, setInfoSection] = useState<InfoSection>("all");
-  const [customFieldId, setCustomFieldId] = useState<string | null>(null);
+  // The thread's own request, so a new comment updates the count too.
+  const { data: discussionData } = useApi<{
+    discussion: DiscussionInterface;
+  }>(`/discussion/experiment/${experiment.id}`);
+  const commentCount = discussionData?.discussion?.comments?.length ?? 0;
   const editSection = (section: InfoSection, fieldId: string | null = null) => {
     setInfoSection(section);
     setCustomFieldId(fieldId);
-    setShowEditInfoModal(true);
   };
 
   const { hasCommercialFeature } = useUser();
@@ -99,35 +106,25 @@ export default function ExperimentDetailsPanel({
         label={label}
         onClick={onClick}
         blockedReason={editsBlocked}
+        labelTooltip={false}
       />
     ) : null;
 
-  // The key only changes while nothing is serving it.
   const fieldAction = (field: QuickEditField) => {
-    if (field === "trackingKey" && experiment.status !== "draft") return null;
-    return pencil(QUICK_FIELD_LABELS[field], () => editSection(field));
+    // The key only changes while nothing is serving it, or about to.
+    if (
+      field === "trackingKey" &&
+      (experiment.status !== "draft" || hasPendingScheduledStart(experiment))
+    ) {
+      return null;
+    }
+    return pencil(SECTION_HEADERS[field], () => editSection(field));
   };
   const isHoldout = experiment.type === "holdout";
-  const tagBar = (panel: "about" | "details") => (
-    <ProjectTagBar
-      panel={panel}
-      fieldAction={isHoldout ? undefined : fieldAction}
-      experiment={experiment}
-      holdout={holdout}
-      managedFlagId={managedFeature?.feature.id ?? null}
-      stagedImplementationType={stagedImplementationType}
-      stagedHoldoutId={stagedHoldoutId}
-      editSchedule={canEdit ? editSchedule : null}
-    />
-  );
-  const {
-    active: checklistActive,
-    checklistItemsRemaining,
-    checklistHardBlockerCount,
-  } = usePreLaunchChecklist();
+  const rowAction = isHoldout ? null : fieldAction;
+  const { active: checklistActive, checklistItemsRemaining } =
+    usePreLaunchChecklist();
   const showTodo = checklistActive && !experiment.archived;
-  // Once it starts, a draft's To Do tab is gone.
-  const shownTab = tab === "todo" && !showTodo ? "details" : tab;
 
   const customFieldRows = hasCustomFields ? (
     <ExpandableBlock>
@@ -148,25 +145,25 @@ export default function ExperimentDetailsPanel({
 
   return (
     <>
-      {showEditInfoModal && !isHoldout ? (
+      {infoSection ? (
         <EditExperimentInfoModal
           experiment={experiment}
-          setShowEditInfoModal={setShowEditInfoModal}
+          setShowEditInfoModal={() => setInfoSection(null)}
           mutate={mutate}
           section={infoSection}
           customFieldId={customFieldId}
         />
       ) : null}
-      {showEditInfoModal && isHoldout && holdout ? (
+      {editingHoldout && holdout ? (
         <EditHoldoutInfoModal
           experiment={experiment}
           holdout={holdout}
-          setShowEditInfoModal={setShowEditInfoModal}
+          setShowEditInfoModal={setEditingHoldout}
           mutate={mutate}
         />
       ) : null}
       <Tabs
-        value={shownTab}
+        value={tab}
         onValueChange={(value) => {
           const next = DETAILS_PANEL_TABS.find((t) => t === value);
           if (next) setTab(next);
@@ -178,71 +175,96 @@ export default function ExperimentDetailsPanel({
           minHeight: 0,
         }}
       >
-        <Flex px="5" pt="2" align="center" gap="2">
-          <TabsList size="sm" style={{ flex: 1, minWidth: 0 }}>
+        {/* Above the scroll area, so it and the scrollbar start under it. */}
+        <Flex pt="2" align="center" gap="2" flexShrink="0">
+          {/* Padded inside, so its underline runs the rail's full width; less
+              its tabs' own padding, so the first label lines up with the
+              rail's content. */}
+          <TabsList
+            size="sm"
+            style={{
+              flex: 1,
+              minWidth: 0,
+              paddingInline: "calc(var(--space-5) - 2 * var(--space-1))",
+            }}
+          >
             <TabsTrigger value="details">Details</TabsTrigger>
-            <TabsTrigger value="comments">Comments</TabsTrigger>
-            {showTodo && (
-              <TabsTrigger value="todo">
-                <Flex as="span" align="center" gap="2">
-                  To Do
-                  <ChecklistCountBadge
-                    remaining={checklistItemsRemaining}
-                    blocking={checklistHardBlockerCount > 0}
-                  />
-                </Flex>
-              </TabsTrigger>
-            )}
-          </TabsList>
-        </Flex>
-        <TabsContent value="details">
-          <Flex px="5" py="4" direction="column" gap="4">
-            <Flex direction="column" gap="3">
-              {!isHoldout && (
-                <InlineMarkdownField
-                  label="Description"
-                  field="description"
-                  stacked
-                  experiment={experiment}
-                  editable={false}
-                  labelAction={pencil("Edit description", () =>
-                    editSection("description"),
-                  )}
+            <TabsTrigger value="comments">
+              Comments
+              {commentCount > 0 && (
+                <Badge
+                  label={commentCount.toString()}
+                  size="xs"
+                  color="gray"
+                  variant="soft"
+                  radius="full"
+                  ml="1"
                 />
               )}
-              {tagBar("about")}
-              <ExperimentHealthBadges experiment={experiment} />
-              {customFieldRows}
-            </Flex>
-            <Separator size="4" />
-            {/* Holdouts edit all of this at once, so they keep a heading
-                for the button; elsewhere each field has its own. */}
-            {isHoldout ? (
+            </TabsTrigger>
+          </TabsList>
+        </Flex>
+        <ScrollArea fill style={{ flex: 1, minHeight: 0 }}>
+          <TabsContent value="details">
+            <Flex px="5" py="4" direction="column" gap="4">
+              {showTodo ? (
+                <>
+                  <PanelSection title={todoTitle(checklistItemsRemaining)}>
+                    <PreLaunchChecklistPanel />
+                  </PanelSection>
+                  {/* Runs edge to edge, past the rail's padding. */}
+                  <Box mx="-5">
+                    <Separator size="4" />
+                  </Box>
+                </>
+              ) : null}
+              {/* A holdout's name, owner, tags and projects edit together;
+                  every other field has its own button. */}
               <PanelSection
                 title="General"
-                action={pencil("Edit details", () =>
-                  setShowEditInfoModal(true),
-                )}
+                action={
+                  isHoldout
+                    ? pencil("Edit details", () => setEditingHoldout(true))
+                    : null
+                }
               >
-                {tagBar("details")}
+                <Flex direction="column" gap="3">
+                  <ProjectTagBar
+                    experiment={experiment}
+                    holdout={holdout}
+                    fieldAction={rowAction}
+                  />
+                  {/* The header's dates, which a phase selector stands in for
+                      there. */}
+                  {headerDates(experiment, new Date()).map(
+                    ({ label, value }) => (
+                      <Metadata
+                        key={label}
+                        size="sm"
+                        stacked
+                        label={label}
+                        value={value}
+                      />
+                    ),
+                  )}
+                  {customFieldRows}
+                </Flex>
               </PanelSection>
-            ) : (
-              tagBar("details")
-            )}
-          </Flex>
-        </TabsContent>
-        <TabsContent
-          value="comments"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            flex: 1,
-            minHeight: 0,
-          }}
-        >
-          <Box
-            px="5"
-            pt="4"
+              <Separator size="4" />
+              <PanelSection title="Data">
+                <ExperimentDataFields
+                  experiment={experiment}
+                  datasourceMissing={datasourceMissing}
+                  managedFlagId={managedFeature?.feature.id ?? null}
+                  stagedImplementationType={stagedImplementationType}
+                  stagedHoldoutId={stagedHoldoutId}
+                  fieldAction={rowAction}
+                />
+              </PanelSection>
+            </Flex>
+          </TabsContent>
+          <TabsContent
+            value="comments"
             style={{
               display: "flex",
               flexDirection: "column",
@@ -258,44 +280,26 @@ export default function ExperimentDetailsPanel({
               allowNewComments={!experiment.archived}
               projects={experiment.project ? [experiment.project] : []}
             />
-          </Box>
-        </TabsContent>
-        {showTodo && (
-          <TabsContent value="todo">
-            <Flex px="5" py="4" direction="column" gap="4">
-              <PreLaunchChecklistPanel />
-            </Flex>
           </TabsContent>
-        )}
+        </ScrollArea>
       </Tabs>
     </>
   );
 }
 
-const QUICK_FIELD_LABELS: Record<QuickEditField, string> = {
-  project: "Edit project",
-  trackingKey: "Edit experiment key",
-  owner: "Edit owner",
-  tags: "Edit tags",
-};
-
-/** A titled block of the panel, with the button that edits it. */
-function PanelSection({
+export function PanelSection({
   title,
-  action,
+  action = null,
   children,
 }: {
   title: string;
   action?: ReactNode;
   children: ReactNode;
 }) {
+  const [open, setOpen] = useState(true);
   return (
-    <Flex
-      direction="column"
-      gap="3"
-      className={action ? revealsQuickEdit : undefined}
-    >
-      <Flex align="center" gap="1">
+    <Box className={action ? revealsQuickEdit : undefined}>
+      <CollapseTrigger open={open} onOpenChange={setOpen} action={action}>
         <Text
           size="sm"
           weight="medium"
@@ -304,9 +308,10 @@ function PanelSection({
         >
           {title}
         </Text>
-        {action}
-      </Flex>
-      {children}
-    </Flex>
+      </CollapseTrigger>
+      <Collapse open={open}>
+        <Box pt="4">{children}</Box>
+      </Collapse>
+    </Box>
   );
 }

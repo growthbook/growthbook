@@ -1,6 +1,6 @@
 import { FeatureInterface, FeatureValueType } from "shared/types/feature";
 import { Box, Flex, Grid, IconButton, Slider } from "@radix-ui/themes";
-import { useMemo, useState } from "react";
+import { ReactNode, useMemo, useState } from "react";
 import { getEqualWeights } from "shared/experiments";
 import {
   PiArrowsClockwise,
@@ -8,10 +8,12 @@ import {
   PiPlusBold,
 } from "react-icons/pi";
 import {
+  coverageToPercent,
   decimalToPercent,
   distributeWeights,
-  percentToDecimal,
+  isEqualSplit,
   percentToDecimalForNumber,
+  typedPercentToCoverage,
 } from "@/services/utils";
 import {
   generateVariationId,
@@ -31,8 +33,10 @@ import {
   SortableFeatureVariationRow,
   gridColumns,
   SortableVariation,
+  valueColumnIsKey,
 } from "./SortableFeatureVariationRow";
 import SortableVariationsList from "./SortableVariationsList";
+import { ValueDiffProvider } from "./ValueDiffContext";
 
 export interface Props {
   valueType?: FeatureValueType;
@@ -60,9 +64,6 @@ export interface Props {
   showDescriptions?: boolean;
   simple?: boolean;
   onlySafeToEditVariationMetadata?: boolean;
-  // When set, the variation with this id has its Name field auto-focused on
-  // mount.
-  autoFocusVariationId?: string | null;
   // JSON features only. When true, each variation value is rendered as a sparse
   // patch (merged onto the feature default). Pass-through to the value editor;
   // callers own the sparse toggle since it's a rule-level flag.
@@ -95,35 +96,38 @@ export default function FeatureVariationsInput({
   showDescriptions,
   simple,
   onlySafeToEditVariationMetadata,
-  autoFocusVariationId,
   sparse,
 }: Props) {
   const weights = useMemo(
     () => variations?.map((v) => v.weight) || [],
     [variations],
   );
-  const isEqualWeights = weights?.every(
-    (w) => Math.abs(w - weights[0]) < 0.0001,
-  );
+  const isEqualWeights = isEqualSplit(weights);
 
   const idsMatchIndexes = variations?.every((v, i) => v.value === i + "");
 
   const [editingSplits, setEditingSplits] = useState(startEditingSplits);
-  // A feature rule forces values; everywhere else the column holds variation keys.
-  const valueIsKey = valueAsId || !hideVariationIds;
+  const valueIsKey = valueColumnIsKey({ valueAsId, hideVariationIds });
   const [editingIds, setEditingIds] = useState(
     startEditingIndexes || !idsMatchIndexes,
   );
   const [numberOfVariations, setNumberOfVariations] = useState(
     Math.max(variations?.length ?? 2, 2) + "",
   );
-  // Leaving advanced mode resets bespoke ids to their index. Descriptions stay:
-  // `showDescriptions` is the caller's call, not advanced mode's.
+  // Leaving advanced mode resets bespoke keys to their index.
   const exitAdvancedMode = () => {
     setEditingIds(false);
     if (!variations || !setVariations) return;
     setVariations(variations.map((v, i) => ({ ...v, value: i + "" })));
   };
+
+  // Plain text when it can't be edited: every row's column fits the longest,
+  // up to a point, so the names sit beside them.
+  const valueWidth =
+    (!setVariations || disableVariations || onlySafeToEditVariationMetadata) &&
+    valueType !== "json"
+      ? `${Math.min(24, Math.max(3, ...(variations ?? []).map((v) => v.value.length))) + 1}ch`
+      : null;
 
   const showDragHandle =
     !!setVariations &&
@@ -143,6 +147,9 @@ export default function FeatureVariationsInput({
   // it is probably safe to renormalize variation keys on sort
   const forceRenormalizeVariationKeysOnSort =
     !valueAsId && !editingIds && !onlySafeToEditVariationMetadata;
+  // Drag and the row menu both reorder, so both renumber the same way.
+  const renumberKeysOnReorder =
+    !!idsMatchIndexes || forceRenormalizeVariationKeysOnSort;
 
   const setEqualWeights = () => {
     if (!variations || !setWeight) return;
@@ -181,10 +188,12 @@ export default function FeatureVariationsInput({
         : hideCoverage || hideVariations
           ? "Traffic Percentage"
           : "Traffic Percentage & Variation Weights";
+  // The slider's own label says it all, and there's nothing to set it apart from.
+  const coverageAlone = !simple && !hideCoverage && !!hideVariations;
 
   return (
     <Box mb="4">
-      {_label !== null ? (
+      {_label !== null && !coverageAlone ? (
         <Text as="label" weight="semibold">
           {label}
         </Text>
@@ -192,67 +201,14 @@ export default function FeatureVariationsInput({
       {simple ? (
         <>
           {!hideCoverage ? (
-            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
-              <Text as="label" mb="0">
-                {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
-              </Text>
-              <Flex align="center" pb="4" gap="3">
-                <Box flexGrow="1">
-                  <Slider
-                    value={
-                      isNaN(coverage ?? 0)
-                        ? [0]
-                        : [decimalToPercent(coverage ?? 0)]
-                    }
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={!!disableCoverage}
-                    onValueChange={(e) => {
-                      let decimal = percentToDecimalForNumber(e[0]);
-                      if (decimal > 1) decimal = 1;
-                      if (decimal < 0) decimal = 0;
-                      setCoverage?.(decimal);
-                    }}
-                  />
-                </Box>
-                <Box>
-                  <Box position="relative" className={styles.percentInputWrap}>
-                    <Field
-                      size="legacy"
-                      style={{ width: 95 }}
-                      value={
-                        isNaN(coverage ?? 0)
-                          ? ""
-                          : decimalToPercent(coverage ?? 0)
-                      }
-                      onChange={(e) => {
-                        let decimal = percentToDecimal(e.target.value);
-                        if (decimal > 1) decimal = 1;
-                        if (decimal < 0) decimal = 0;
-                        setCoverage?.(decimal);
-                      }}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="1"
-                      disabled={!!disableCoverage}
-                    />
-                    <Text as="span">%</Text>
-                  </Box>
-                </Box>
-              </Flex>
-            </Box>
+            <CoverageField
+              coverage={coverage}
+              setCoverage={setCoverage}
+              label={coverageLabel}
+              tooltip={coverageTooltip}
+              disabled={disableCoverage}
+              panel
+            />
           ) : null}
           <Field
             size="legacy"
@@ -281,69 +237,18 @@ export default function FeatureVariationsInput({
       ) : (
         <>
           {!hideCoverage ? (
-            <Box px="4" pt="4" mb="6" className="bg-highlight rounded">
-              <Text as="label" mb="0">
-                {coverageLabel}{" "}
-                <Tooltip content={coverageTooltip} side="top">
-                  <Box
-                    as="span"
-                    display="inline-block"
-                    tabIndex={0}
-                    aria-label={`More information about ${coverageLabel}`}
-                  >
-                    <GBInfo />
-                  </Box>
-                </Tooltip>
-              </Text>
-              <Flex align="center" pb="4" gap="3">
-                <Box flexGrow="1">
-                  <Slider
-                    value={
-                      isNaN(coverage ?? 0)
-                        ? [0]
-                        : [decimalToPercent(coverage ?? 0)]
-                    }
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={!!disableCoverage}
-                    onValueChange={(e) => {
-                      let decimal = percentToDecimalForNumber(e[0]);
-                      if (decimal > 1) decimal = 1;
-                      if (decimal < 0) decimal = 0;
-                      setCoverage?.(decimal);
-                    }}
-                  />
-                </Box>
-                <Box>
-                  <Box position="relative" className={styles.percentInputWrap}>
-                    <Field
-                      size="legacy"
-                      style={{ width: 95 }}
-                      value={
-                        isNaN(coverage ?? 0)
-                          ? ""
-                          : decimalToPercent(coverage ?? 0)
-                      }
-                      onChange={(e) => {
-                        let decimal = percentToDecimal(e.target.value);
-                        if (decimal > 1) decimal = 1;
-                        if (decimal < 0) decimal = 0;
-                        setCoverage?.(decimal);
-                      }}
-                      type="number"
-                      min={0}
-                      max={100}
-                      step="1"
-                      disabled={
-                        !!disableCoverage && onlySafeToEditVariationMetadata
-                      }
-                    />
-                    <Text as="span">%</Text>
-                  </Box>
-                </Box>
-              </Flex>
-              {showPreview && coverage !== undefined && variations ? (
+            <CoverageField
+              coverage={coverage}
+              setCoverage={setCoverage}
+              label={coverageLabel}
+              tooltip={coverageTooltip}
+              disabled={disableCoverage}
+              panel={!coverageAlone}
+            >
+              {showPreview &&
+              !hideVariations &&
+              coverage !== undefined &&
+              variations ? (
                 <Box pb="4">
                   <ExperimentSplitVisual
                     coverage={coverage}
@@ -352,7 +257,7 @@ export default function FeatureVariationsInput({
                   />
                 </Box>
               ) : null}
-            </Box>
+            </CoverageField>
           ) : null}
 
           {canToggleAdvanced &&
@@ -360,7 +265,7 @@ export default function FeatureVariationsInput({
             !!variations?.length &&
             !idsMatchIndexes && (
               <Callout status="warning" size="sm" mb="3">
-                Turning off Advanced resets variation ids to their position (0,
+                Turning off Advanced resets variation keys to their position (0,
                 1, 2&hellip;).
               </Callout>
             )}
@@ -371,6 +276,7 @@ export default function FeatureVariationsInput({
                 columns={gridColumns({
                   hideVariationIds,
                   hideValueField: !editingIds,
+                  valueWidth,
                   showDescription: showDescriptions,
                   hideSplit: hideSplits,
                   isJson: valueType === "json",
@@ -385,8 +291,9 @@ export default function FeatureVariationsInput({
               >
                 {showDragHandle && <span />}
                 {!hideVariationIds && (
-                  <Text size="md" weight="semibold">
-                    {!valueAsId && editingIds ? "#" : "Key"}
+                  // Centered over the variation numbers.
+                  <Text size="md" weight="semibold" align="center">
+                    {editingIds ? "#" : "Key"}
                   </Text>
                 )}
                 {editingIds && (
@@ -431,6 +338,7 @@ export default function FeatureVariationsInput({
                       </Flex>
                       {editingSplits &&
                         !isEqualWeights &&
+                        !disableVariations &&
                         !disableCustomSplit &&
                         !hideSplits && (
                           <Tooltip
@@ -482,42 +390,43 @@ export default function FeatureVariationsInput({
                 )}
               </Grid>
               {variations && (
-                <SortableVariationsList
-                  valuesAsIds={idsMatchIndexes}
-                  forceRenormalizeVariationKeysOnSort={
-                    forceRenormalizeVariationKeysOnSort
-                  }
-                  variations={variations}
-                  setVariations={!disableVariations ? setVariations : undefined}
-                >
-                  {variations.map((variation, i) => (
-                    <SortableFeatureVariationRow
-                      i={i}
-                      key={variation.id}
-                      variation={variation}
-                      variations={variations}
-                      setVariations={
-                        !disableVariations ? setVariations : undefined
-                      }
-                      setWeight={!disableVariations ? setWeight : undefined}
-                      onlySafeToEditVariationMetadata={
-                        onlySafeToEditVariationMetadata
-                      }
-                      customSplit={editingSplits}
-                      valueType={valueType}
-                      valueAsId={valueAsId}
-                      valueIsKey={valueIsKey}
-                      hideVariationIds={hideVariationIds}
-                      hideValueField={!editingIds}
-                      hideSplit={hideSplits}
-                      feature={feature}
-                      showDescription={showDescriptions}
-                      showDragHandle={showDragHandle}
-                      autoFocusName={variation.id === autoFocusVariationId}
-                      sparse={sparse}
-                    />
-                  ))}
-                </SortableVariationsList>
+                <ValueDiffProvider>
+                  <SortableVariationsList
+                    forceRenormalizeVariationKeysOnSort={renumberKeysOnReorder}
+                    variations={variations}
+                    setVariations={
+                      !disableVariations ? setVariations : undefined
+                    }
+                  >
+                    {variations.map((variation, i) => (
+                      <SortableFeatureVariationRow
+                        i={i}
+                        key={variation.id}
+                        variation={variation}
+                        variations={variations}
+                        setVariations={
+                          !disableVariations ? setVariations : undefined
+                        }
+                        setWeight={!disableVariations ? setWeight : undefined}
+                        onlySafeToEditVariationMetadata={
+                          onlySafeToEditVariationMetadata
+                        }
+                        customSplit={editingSplits}
+                        valueType={valueType}
+                        valueAsId={valueAsId}
+                        renumberKeysOnReorder={renumberKeysOnReorder}
+                        hideVariationIds={hideVariationIds}
+                        hideValueField={!editingIds}
+                        valueWidth={valueWidth}
+                        hideSplit={hideSplits}
+                        feature={feature}
+                        showDescription={showDescriptions}
+                        showDragHandle={showDragHandle}
+                        sparse={sparse}
+                      />
+                    ))}
+                  </SortableVariationsList>
+                </ValueDiffProvider>
               )}
               {!disableVariations &&
                 variations &&
@@ -551,6 +460,83 @@ export default function FeatureVariationsInput({
           )}
         </>
       )}
+    </Box>
+  );
+}
+
+// The included-traffic slider and its typed percentage.
+function CoverageField({
+  coverage,
+  setCoverage,
+  label,
+  tooltip,
+  disabled,
+  panel,
+  children,
+}: {
+  coverage?: number;
+  setCoverage?: (coverage: number) => void;
+  label: string;
+  tooltip: string;
+  disabled: boolean;
+  // Sets it apart from the variations around it; alone, it needs none.
+  panel: boolean;
+  children?: ReactNode;
+}) {
+  const unset = isNaN(coverage ?? 0);
+  const set = (decimal: number) =>
+    setCoverage?.(Math.min(Math.max(decimal, 0), 1));
+  return (
+    <Box
+      {...(panel && {
+        px: "4",
+        pt: "4",
+        mb: "6",
+        className: "bg-highlight rounded",
+      })}
+    >
+      <Text as="label" weight="semibold" mb="0">
+        {label}{" "}
+        <Tooltip content={tooltip} side="top">
+          <Box
+            as="span"
+            display="inline-block"
+            tabIndex={0}
+            aria-label={`More information about ${label}`}
+          >
+            <GBInfo />
+          </Box>
+        </Tooltip>
+      </Text>
+      <Flex align="center" pb={panel ? "4" : "0"} gap="3">
+        <Box flexGrow="1">
+          <Slider
+            value={unset ? [0] : [decimalToPercent(coverage ?? 0)]}
+            min={0}
+            max={100}
+            step={1}
+            disabled={disabled}
+            onValueChange={(e) => set(percentToDecimalForNumber(e[0]))}
+          />
+        </Box>
+        <Box>
+          <Box position="relative" className={styles.percentInputWrap}>
+            <Field
+              size="legacy"
+              style={{ width: 95 }}
+              value={unset ? "" : coverageToPercent(coverage ?? 0)}
+              onChange={(e) => set(typedPercentToCoverage(e.target.value))}
+              type="number"
+              min={0}
+              max={100}
+              step="any"
+              disabled={disabled}
+            />
+            <Text as="span">%</Text>
+          </Box>
+        </Box>
+      </Flex>
+      {children}
     </Box>
   );
 }

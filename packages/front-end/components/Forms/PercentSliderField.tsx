@@ -1,81 +1,87 @@
-import { useEffect, useState } from "react";
-import { Box, Slider } from "@radix-ui/themes";
+import { useState } from "react";
+import { Box } from "@radix-ui/themes";
 import Field from "@/components/Forms/Field";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import {
+  capTypedPercent,
+  COVERAGE_DECIMALS,
+  decimalToPercent,
+  percentToDecimal,
+} from "@/services/utils";
 import Text from "@/ui/Text";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import own from "./PercentSliderField.module.scss";
 
 export interface Props {
-  /** The share, as a decimal between 0 and 1. */
+  // A decimal between 0 and 1.
   value: number;
   onChange: (value: number) => void;
   disabled?: boolean;
   ariaLabel?: string;
-  /**
-   * "blur" holds what is typed until the field is left, for a field whose
-   * change moves the other fields around it. "change" reports every keystroke.
-   */
+  // "blur" holds what is typed until the field is left, for a field whose
+  // change moves the fields around it.
   commitOn?: "change" | "blur";
-  /** Whole percentages by default; "any" takes fractions. */
-  step?: number | "any";
+  decimals?: number;
+  // The form whose check refuses it empty, when that isn't the one it's in.
+  form?: string;
 }
 
 const clamp = (value: number) => Math.min(1, Math.max(0, value));
 
-/** A percentage in a field that carries its own "%". */
+// A percentage in a field that carries its own "%".
 export function PercentField({
   value,
   onChange,
   disabled,
   ariaLabel,
   commitOn = "change",
-  step = 1,
+  decimals = COVERAGE_DECIMALS,
+  form,
 }: Props) {
-  const percent = isNaN(value) ? "" : decimalToPercent(value);
-  // Only used with commitOn="blur".
-  const [typed, setTyped] = useState<string | number>(percent);
-  useEffect(() => setTyped(percent), [percent]);
+  const percent = isNaN(value) ? "" : decimalToPercent(value, decimals + 2);
+  // What's typed but not yet committed, with commitOn="blur".
+  const [typed, setTyped] = useState<string | null>(null);
 
   const onBlurCommit = commitOn === "blur";
-  const commit = (raw: string) => onChange(clamp(percentToDecimal(raw)));
+  const cap = (raw: string) => capTypedPercent(raw, decimals);
+  const commit = (raw: string) =>
+    onChange(clamp(percentToDecimal(raw, decimals + 2)));
 
   return (
     <Box
       position="relative"
       display="inline-block"
-      className={`${styles.percentInputWrapMd} ${own.autoWidth}`}
+      className={`${styles.percentInputWrapMd} ${own.field}`}
     >
       <Field
         size="md"
         disabled={disabled}
-        value={onBlurCommit ? typed : percent}
+        value={onBlurCommit ? (typed ?? percent) : percent}
         onChange={(e) =>
-          onBlurCommit ? setTyped(e.target.value) : commit(e.target.value)
+          onBlurCommit
+            ? setTyped(cap(e.target.value))
+            : commit(cap(e.target.value))
         }
-        onBlur={onBlurCommit ? (e) => commit(e.target.value) : undefined}
+        onBlur={
+          onBlurCommit
+            ? (e) => {
+                // Tabbing through commits nothing, or a stored value with more
+                // precision than shown would come back rounded.
+                if (typed !== null) commit(e.target.value);
+                setTyped(null);
+              }
+            : undefined
+        }
         type="number"
+        required
+        form={form}
         min={0}
         max={100}
-        step={step}
+        // Fractions are allowed, so a stored one is never refused; the arrows
+        // still step by 1.
+        step="any"
         aria-label={ariaLabel}
       />
       <Text as="span">%</Text>
     </Box>
-  );
-}
-
-/** The same value as a 0-100 slider. */
-export function PercentSlider({ value, onChange, disabled, ariaLabel }: Props) {
-  return (
-    <Slider
-      value={[isNaN(value) ? 0 : decimalToPercent(value)]}
-      min={0}
-      max={100}
-      step={1}
-      disabled={disabled}
-      aria-label={ariaLabel}
-      onValueChange={(e) => onChange(clamp(e[0] / 100))}
-    />
   );
 }

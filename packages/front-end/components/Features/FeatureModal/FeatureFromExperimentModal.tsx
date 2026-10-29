@@ -28,6 +28,13 @@ import {
   isManagedFeature,
 } from "shared/util";
 import { getLatestPhaseVariations } from "shared/experiments";
+import type { ExperimentChangesBody } from "shared/validators";
+import type { SaveRefusal } from "@/components/Experiment/TabbedPage/ExperimentEdits";
+import {
+  AddedFlag,
+  addedFlagChanges,
+  useFlagCreated,
+} from "@/components/Experiment/TabbedPage/addedFlags";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
@@ -35,17 +42,18 @@ import VariationLabel from "@/ui/VariationLabel";
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import track from "@/services/track";
 import {
   getDefaultValue,
   useEnvironments,
+  useScopedRuleDefaultEnvironment,
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
 import { useConfigBacking } from "@/hooks/useConfigBacking";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
-import { useWatching } from "@/services/WatchProvider";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import SelectField from "@/components/Forms/SelectField";
@@ -76,6 +84,13 @@ export type Props = {
   source?: string;
   // Feature IDs in "discarded" state that can be re-added.
   reAddableFeatureIds?: string[];
+  // Adds the flag to the page's staged changes instead of saving it.
+  stage?: (added: AddedFlag) => Promise<void>;
+  // With variations staged: the flag saves with the staged changes, in one
+  // request, so its values can name variations not saved yet.
+  saveWithStagedChanges?: (
+    part: ExperimentChangesBody,
+  ) => Promise<SaveRefusal | null>;
 };
 
 const genEnvironmentSettings = ({
@@ -155,8 +170,13 @@ export default function FeatureFromExperimentModal({
   mutate,
   source,
   reAddableFeatureIds = [],
+  stage,
+  saveWithStagedChanges,
 }: Props) {
-  const { project, refreshTags } = useDefinitions();
+  // Staged or saved with staged changes, an existing flag gets a new draft.
+  const withStagedChanges = !!(stage || saveWithStagedChanges);
+  const { project } = useDefinitions();
+  const flagCreated = useFlagCreated();
   const selectedProject = experiment.project ?? project;
   const allEnvironments = useEnvironments();
   const environments = filterEnvironmentsByExperiment(
@@ -164,7 +184,6 @@ export default function FeatureFromExperimentModal({
     experiment,
   );
   const permissionsUtil = usePermissionsUtil();
-  const { refreshWatching } = useWatching();
   const settings = useOrgSettings();
   const { holdoutsMap } = useHoldouts();
 
@@ -329,20 +348,37 @@ export default function FeatureFromExperimentModal({
     selectedEnvironments: string[];
   } | null>(null);
 
+  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(environments);
+  const seededScope =
+    enabledEnvsForDestination === null
+      ? // New feature, or the selected one hasn't loaded yet.
+        { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
+      : {
+          allEnvironments:
+            environments.length > 0 &&
+            enabledEnvsForDestination.length === environments.length,
+          selectedEnvironments: enabledEnvsForDestination,
+        };
   const ruleScope =
     scopeOverride?.key === destinationKey
       ? scopeOverride
-      : enabledEnvsForDestination === null
-        ? // New feature, or the selected one hasn't loaded yet.
-          { allEnvironments: true, selectedEnvironments: NO_ENVIRONMENTS }
-        : {
-            allEnvironments:
-              environments.length > 0 &&
-              enabledEnvsForDestination.length === environments.length,
-            selectedEnvironments: enabledEnvsForDestination,
-          };
+      : seededScope.allEnvironments && scopedRuleDefaultEnv
+        ? {
+            allEnvironments: false,
+            selectedEnvironments: [scopedRuleDefaultEnv],
+          }
+        : seededScope;
   const ruleAllEnvironments = ruleScope.allEnvironments;
   const ruleSelectedEnvironments = ruleScope.selectedEnvironments;
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate({
+    allEnvironments: ruleAllEnvironments,
+    environments: ruleSelectedEnvironments,
+  });
 
   const setRuleAllEnvironments = (allEnvironments: boolean) =>
     setScopeOverride({
@@ -454,7 +490,7 @@ export default function FeatureFromExperimentModal({
       "You don't have permission to create feature flag drafts.";
   }
 
-  if (holdoutWarning) {
+  if (holdoutWarning || unscopedRuleBlocksSubmit) {
     ctaEnabled = false;
   }
 
@@ -504,7 +540,7 @@ export default function FeatureFromExperimentModal({
       size="lg"
       header="Add Feature Flag to Experiment"
       headerAction={
-        existing && existingFeature ? (
+        existing && existingFeature && !withStagedChanges ? (
           <DraftSelectorDropdown
             feature={existingFeature}
             revisionList={existingRevisionList}
@@ -517,10 +553,11 @@ export default function FeatureFromExperimentModal({
           />
         ) : null
       }
-      cta={cta}
+      cta={saveWithStagedChanges ? "Save and add" : cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      submit={form.handleSubmit(async (values) => {
+      aboveFooterContent={unscopedRuleBanner}
+      submit={validatedSubmit(form, async (values) => {
         const { variations, existing, ...feature } = values;
 
         const featureFromCache = existing ? existingFeature : undefined;
@@ -584,12 +621,53 @@ export default function FeatureFromExperimentModal({
           );
         }
 
+        checkUnscopedRule();
+        if (holdoutWarning) throw new Error("Holdout configuration mismatch.");
+        if (withStagedChanges) {
+          const added: AddedFlag = {
+            feature: featureToCreate as FeatureInterface,
+            newFlag: existing
+              ? null
+              : {
+                  id: featureToCreate.id,
+                  valueType: featureToCreate.valueType,
+                  defaultValue: featureToCreate.defaultValue,
+                  description: featureToCreate.description,
+                  owner: featureToCreate.owner,
+                  project: featureToCreate.project,
+                  tags: featureToCreate.tags,
+                  environmentSettings: newFeatureEnvSettings,
+                  ...(featureToCreate.holdout && {
+                    holdout: featureToCreate.holdout,
+                  }),
+                  customFields: featureToCreate.customFields,
+                },
+            values: variations,
+            sparse: !!rule.sparse,
+            environments: {
+              allEnvironments: ruleAllEnvironments,
+              environments: ruleAllEnvironments ? [] : ruleSelectedEnvironments,
+            },
+            allowUnscopedRules,
+          };
+          if (stage) return stage(added);
+          const refusal = await saveWithStagedChanges?.(
+            addedFlagChanges(added),
+          );
+          if (refusal) {
+            throw new Error(
+              refusal.onPage
+                ? `${refusal.message} Close this to resolve it on the page.`
+                : refusal.message,
+            );
+          }
+          if (!existing) flagCreated(featureToCreate);
+          return;
+        }
+
         let targetFeatureId: string;
 
         if (existing) {
-          if (holdoutWarning)
-            throw new Error("Holdout configuration mismatch.");
-
           targetFeatureId = featureToCreate.id;
         } else {
           const created = await apiCall<{ feature: FeatureInterface }>(
@@ -603,16 +681,7 @@ export default function FeatureFromExperimentModal({
             throw new Error("Feature creation failed");
           }
           targetFeatureId = created.feature.id;
-
-          track("Feature Created", {
-            valueType: featureToCreate.valueType,
-            hasDescription: featureToCreate.description
-              ? featureToCreate.description.length > 0
-              : false,
-            initialRule: "experiment-ref",
-          });
-          refreshTags(featureToCreate.tags || []);
-          refreshWatching();
+          flagCreated(featureToCreate);
         }
 
         const autoPublish = existing && draftMode === "publish";
@@ -629,6 +698,7 @@ export default function FeatureFromExperimentModal({
             autoPublish,
             draftVersion,
             forceNewDraft,
+            allowUnscopedRules,
           }),
         });
 
@@ -832,8 +902,9 @@ export default function FeatureFromExperimentModal({
         <>
           <HelperText status="info">
             <Box>
-              A rule will be added to the bottom of the rule list. For more
-              control over placement, add Experiment rules directly from the{" "}
+              A rule will be added to the bottom of the rule list
+              {withStagedChanges ? ", in a new draft" : ""}. For more control
+              over placement, add Experiment rules directly from the{" "}
               <Link href={`/features/${existing}`} target="_blank">
                 Feature page
                 <PiArrowSquareOut className="ml-1" />
@@ -899,7 +970,6 @@ export default function FeatureFromExperimentModal({
               valueType={valueType}
               feature={existing ? existingFeature : undefined}
               sparse={sparse}
-              useCodeInput={true}
               showFullscreenButton={true}
               allowConfigBacking={isConfigBacked}
               configBackingOptionKeys={configBackingOptionKeys}

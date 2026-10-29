@@ -190,7 +190,6 @@ export function ManagedValues({
           value={value}
           feature={feature}
           sparse={isSparse && v.id !== controlId}
-          showCopyButton={false}
         />
       )}
     </Frame>

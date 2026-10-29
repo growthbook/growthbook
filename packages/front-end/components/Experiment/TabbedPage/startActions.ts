@@ -1,8 +1,10 @@
 import { format } from "date-fns-tz";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { hasPendingScheduledStart } from "shared/util";
 import type { ApiErrorDetails } from "shared/validators";
+import { scheduleToStartLabel } from "@/components/Reviews/reviewAndPublishState";
 
-export type StartSchedule = "none" | "future" | "past";
+type StartSchedule = "none" | "future" | "past";
 
 export function getStartSchedule(
   scheduledStartAt: Date | null,
@@ -21,29 +23,32 @@ export function getExperimentReviewTitle(
     : "Review & publish value changes";
 }
 
-/** The start popover's title: starting now, or approving a future start. */
+/**
+ * What starting does: start now, or approve a future start. A button label in
+ * sentence case, or with `heading`, the popover's Title Case heading.
+ */
 export function getStartTitle(
   experiment: Pick<
     ExperimentInterfaceStringDates,
     "type" | "statusUpdateSchedule" | "nextScheduledStatusUpdate"
   >,
   now: Date,
+  heading = false,
 ): string {
   const startAt = experiment.statusUpdateSchedule?.startAt;
-  const startApproved = experiment.nextScheduledStatusUpdate?.type === "start";
+  const startApproved = hasPendingScheduledStart(experiment);
   if (
     !startApproved &&
     getStartSchedule(startAt ? new Date(startAt) : null, now) === "future"
   ) {
-    return "Approve scheduled start";
+    return heading ? "Schedule Start" : "Schedule start";
   }
   // Bandit is a named resource; experiment is a common noun.
-  return experiment.type === "multi-armed-bandit"
-    ? "Start Bandit"
-    : "Start experiment";
+  if (experiment.type === "multi-armed-bandit") return "Start Bandit";
+  return heading ? "Start Experiment" : "Start experiment";
 }
 
-export type StartChecklist = {
+type StartChecklist = {
   loading: boolean;
   remaining: number;
   blocking: number;
@@ -54,11 +59,8 @@ export type StartChecklist = {
 export type ServerChecklistItem =
   ApiErrorDetails<"checklist_incomplete">["remainingChecklistItems"][number];
 
-/**
- * Adds the soft items a refused start named, which the page may lack (a custom
- * checklist that didn't load). Hard items are rows the page builds itself, so
- * its live rows govern.
- */
+// Counts the soft items a refused start named, which the page may lack (a
+// custom checklist that didn't load); hard items are rows the page builds.
 export function withServerChecklist(
   checklist: StartChecklist,
   serverItems: ServerChecklistItem[],
@@ -82,6 +84,9 @@ export type StartActions = {
   waivesApproval: boolean;
   // Left even after the bypass.
   hardBlocked: boolean;
+  // Every must-resolve item is done, without anyone's bypass: the start reads
+  // as the next step.
+  ready: boolean;
   disabled: boolean;
 };
 
@@ -101,12 +106,9 @@ function bypassLabel({
   return `Bypass ${skipped.join(" and ")} and ${then}`;
 }
 
-/**
- * The start button and its bypass. Anyone who can start may go ahead without
- * a soft item; an admin who may bypass flag approvals also without approval
- * and stale values, but never on a scheduled start. Nothing gets past any
- * other hard blocker, and loading never counts as done.
- */
+// Anyone who can start may skip soft items; an admin who may bypass flag
+// approvals may also skip approval and stale values. Loading never counts as
+// done.
 export function getStartActions({
   scheduledStartAt,
   now,
@@ -126,8 +128,7 @@ export function getStartActions({
     getStartSchedule(scheduledStartAt, now) === "future"
       ? scheduledStartAt
       : null;
-  const waivesApproval =
-    !futureStart && canBypassApproval && checklist.approval > 0;
+  const waivesApproval = canBypassApproval && checklist.approval > 0;
   const hardBlocked =
     checklist.loading ||
     needsUpgrade ||
@@ -136,7 +137,7 @@ export function getStartActions({
   return {
     action: futureStart ? "approve-schedule" : "start",
     label: futureStart
-      ? `Start ${format(futureStart, "MMM d, yyyy 'at' h:mm a")}`
+      ? scheduleToStartLabel(format(futureStart, "MMM d"))
       : "Start now",
     bypassLabel: bypassable
       ? bypassLabel({
@@ -147,6 +148,7 @@ export function getStartActions({
       : null,
     waivesApproval,
     hardBlocked,
+    ready: !hardBlocked && checklist.blocking === 0,
     disabled: hardBlocked || (checklist.remaining > 0 && !bypassed),
   };
 }

@@ -4,31 +4,24 @@ import {
 } from "shared/types/experiment";
 import { FeatureInterface } from "shared/types/feature";
 import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import {
-  PiArrowSquareOut,
-  PiCaretDown,
-  PiCaretRight,
-  PiCheckBold,
-} from "react-icons/pi";
-import { ExperimentLaunchChecklistInterface } from "shared/types/experimentLaunchChecklist";
-import { format } from "date-fns-tz";
+import { PiArrowSquareOut, PiCheckBold } from "react-icons/pi";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Flex, Separator } from "@radix-ui/themes";
+import NextLink from "next/link";
 import Link from "@/ui/Link";
 import useApi from "@/hooks/useApi";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import useSDKConnections from "@/hooks/useSDKConnections";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import Callout from "@/ui/Callout";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import Checkbox from "@/ui/Checkbox";
-import Badge from "@/ui/Badge";
-import Switch from "@/ui/Switch";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 import styles from "./PreLaunchChecklist.module.scss";
 import {
   useChecklistSummary,
+  useLaunchChecklistData,
   usePreLaunchChecklist,
 } from "./PreLaunchChecklistProvider";
 import {
@@ -51,7 +44,6 @@ export type ChecklistReadyStatus = {
   loading: boolean;
 };
 
-// The rail's type scale, or a modal's and a page's.
 type ChecklistSize = "sm" | "md";
 
 const TIER_TITLES: Record<ChecklistTier, string> = {
@@ -60,24 +52,40 @@ const TIER_TITLES: Record<ChecklistTier, string> = {
   optional: "Optional",
 };
 
-function ChecklistActionLink({
+const loadErrorNotice = (
+  <HelperText status="warning" size="sm">
+    Couldn&apos;t load the custom checklist. Built-in items are shown.
+  </HelperText>
+);
+
+// Stretched over its row, so the whole row takes the action.
+function ChecklistRowAction({
   action,
   children,
 }: {
   action: ChecklistAction;
   children: ReactNode;
 }) {
+  const attrs = { className: styles.rowAction, "data-checklist-action": "" };
   if ("onClick" in action) {
-    return <Link onClick={action.onClick}>{children}</Link>;
-  }
-  if (!action.external) return <Link href={action.href}>{children}</Link>;
-  return (
-    <Link href={action.href} external>
-      <Flex as="span" display="inline-flex" align="center" gap="1">
+    return (
+      <button type="button" {...attrs} onClick={action.onClick}>
         {children}
-        <PiArrowSquareOut style={{ flexShrink: 0 }} />
-      </Flex>
-    </Link>
+      </button>
+    );
+  }
+  if (!action.external) {
+    return (
+      <NextLink href={action.href} {...attrs}>
+        {children}
+      </NextLink>
+    );
+  }
+  return (
+    <a href={action.href} target="_blank" rel="noopener noreferrer" {...attrs}>
+      {children}
+      <PiArrowSquareOut className={styles.externalIcon} />
+    </a>
   );
 }
 
@@ -85,58 +93,130 @@ function ChecklistRow({
   item,
   size,
   onToggleManual,
+  onFaded = null,
+  readOnly = false,
 }: {
   item: CheckListItem;
   size: ChecklistSize;
   onToggleManual: ((manualKey: string, checked: boolean) => void) | null;
+  // Fades the row out, then calls this.
+  onFaded?: (() => void) | null;
+  readOnly?: boolean;
 }) {
   const complete = item.status === "complete";
-  const manualKey = item.type === "manual" ? item.manualKey : undefined;
+  const manualKey = item.manualKey;
   const toggle =
-    manualKey && onToggleManual
+    manualKey && onToggleManual && !readOnly
       ? (checked: boolean) => onToggleManual(manualKey, checked)
       : null;
-  const action = !complete || item.warning ? item.action : undefined;
+  const action =
+    !readOnly && (!complete || item.warning) ? item.action : undefined;
   return (
-    <Checkbox
-      size={size}
-      labelSize={size}
-      weight="regular"
-      value={complete}
-      setValue={(checked) => toggle?.(checked)}
-      readOnly={!toggle}
-      checkboxTooltip={
-        item.type === "auto" && !complete
-          ? "Automatically detected and marked as 'complete' when task is finished"
-          : undefined
-      }
-      containerClassName={clsx({
-        [styles.readonly]: !toggle,
-        [styles.readonlyIncomplete]: !toggle && !complete,
-      })}
-      label={
-        <span
-          className={clsx({
-            [styles.completedLabel]: complete && !item.warning,
-          })}
-        >
-          {action ? (
-            <ChecklistActionLink action={action}>
+    <div
+      className={clsx(styles.row, onFaded && styles.fading)}
+      onAnimationEnd={(e) => {
+        if (e.target === e.currentTarget) onFaded?.();
+      }}
+    >
+      <Checkbox
+        size={size}
+        labelSize={size}
+        weight="regular"
+        value={complete}
+        setValue={(checked) => toggle?.(checked)}
+        readOnly={!toggle}
+        checkboxTooltip={
+          item.type === "auto" && !complete && !readOnly
+            ? "Checked automatically when this task is finished."
+            : undefined
+        }
+        containerClassName={clsx({
+          [styles.interactive]: !!toggle || !!action,
+          [styles.actionable]: !!action,
+          [styles.readonly]: !toggle,
+          [styles.readonlyIncomplete]: !toggle && !complete,
+        })}
+        label={
+          action ? (
+            <ChecklistRowAction action={action}>
               {item.display}
-            </ChecklistActionLink>
+            </ChecklistRowAction>
           ) : (
             item.display
-          )}
-        </span>
-      }
-      description={complete ? undefined : item.description}
-      error={item.warning}
-      errorLevel="warning"
-    />
+          )
+        }
+        description={complete ? undefined : item.description}
+        error={item.warning}
+        errorLevel="warning"
+      />
+    </div>
   );
 }
 
-// Done items, folded away behind their count.
+type FadingItem = { key: string; tier: ChecklistTier; index: number };
+
+// Items just ticked off stay in their sections, ticked, until they've faded
+// out of them. They're under Completed from the start.
+function useFadingCompletions(
+  lists: Record<ChecklistTier, CheckListItem[]>,
+  complete: CheckListItem[],
+) {
+  const signature = CHECKLIST_TIERS.map((tier) =>
+    lists[tier].map((item) => item.key).join("\n"),
+  ).join("\n\n");
+  const [prev, setPrev] = useState({ signature, lists });
+  const [fading, setFading] = useState<FadingItem[]>([]);
+  if (signature !== prev.signature) {
+    const listed = new Set(
+      CHECKLIST_TIERS.flatMap((tier) => lists[tier].map((item) => item.key)),
+    );
+    const done = new Set(complete.map((item) => item.key));
+    const justDone = (key: string) => done.has(key) && !listed.has(key);
+    setPrev({ signature, lists });
+    setFading([
+      ...fading.filter((item) => justDone(item.key)),
+      ...CHECKLIST_TIERS.flatMap((tier) =>
+        prev.lists[tier].flatMap((item, index) =>
+          justDone(item.key) ? [{ key: item.key, tier, index }] : [],
+        ),
+      ),
+    ]);
+  }
+
+  const doneByKey = new Map(complete.map((item) => [item.key, item]));
+  const withFading = (tier: ChecklistTier) => {
+    const items = [...lists[tier]];
+    fading
+      .filter((item) => item.tier === tier)
+      .sort((a, b) => a.index - b.index)
+      .forEach(({ key, index }) => {
+        const item = doneByKey.get(key);
+        if (item) items.splice(Math.min(index, items.length), 0, item);
+      });
+    return items;
+  };
+  const isFading = (key: string) => fading.some((item) => item.key === key);
+  const faded = (key: string) =>
+    setFading((items) => items.filter((item) => item.key !== key));
+  return { withFading, isFading, faded };
+}
+
+export function ReadOnlyChecklistRows({ items }: { items: CheckListItem[] }) {
+  return (
+    <Flex direction="column" gap="2">
+      {items.map((item) => (
+        <ChecklistRow
+          key={item.key}
+          item={item}
+          size="sm"
+          onToggleManual={null}
+          readOnly
+        />
+      ))}
+    </Flex>
+  );
+}
+
 function CompletedItems({
   items,
   size,
@@ -148,27 +228,25 @@ function CompletedItems({
 }) {
   const [expanded, setExpanded] = useState(false);
   return (
-    <Flex direction="column" gap="2" align="start">
-      {/* Inline, since an underline doesn't reach into a flex box. */}
-      <Link onClick={() => setExpanded((v) => !v)} aria-expanded={expanded}>
-        {expanded ? (
-          <PiCaretDown style={{ verticalAlign: "-0.125em", marginRight: 4 }} />
-        ) : (
-          <PiCaretRight style={{ verticalAlign: "-0.125em", marginRight: 4 }} />
-        )}
-        {items.length} completed
-      </Link>
-      {expanded
-        ? items.map((item) => (
+    <div>
+      <CollapseTrigger open={expanded} onOpenChange={setExpanded}>
+        <Text size="sm" weight="semibold" color="text-high">
+          Completed ({items.length})
+        </Text>
+      </CollapseTrigger>
+      <Collapse open={expanded}>
+        <Flex direction="column" gap="2" pt="3">
+          {items.map((item) => (
             <ChecklistRow
               key={item.key}
               item={item}
               size={size}
               onToggleManual={onToggleManual}
             />
-          ))
-        : null}
-    </Flex>
+          ))}
+        </Flex>
+      </Collapse>
+    </div>
   );
 }
 
@@ -176,32 +254,33 @@ function CompletedItems({
 export function ChecklistItems({
   summary,
   size,
-  completed = "hidden",
+  showCompleted = false,
   onToggleManual = null,
 }: {
   summary: ChecklistSummary;
   size: ChecklistSize;
-  // Listed as their own group, folded behind their count, or left out.
-  completed?: "shown" | "folded" | "hidden";
+  showCompleted?: boolean;
   // null when the viewer can't check tasks off.
   onToggleManual?: ((manualKey: string, checked: boolean) => void) | null;
 }) {
-  const sections: { key: string; title: string; items: CheckListItem[] }[] =
-    CHECKLIST_TIERS.map((tier) => ({
-      key: tier,
-      title: TIER_TITLES[tier],
-      items: [
-        ...summary.incomplete[tier],
-        ...summary.flagged.filter((item) => getChecklistTier(item) === tier),
-      ],
-    }));
-  if (completed === "shown") {
-    sections.push({
-      key: "completed",
-      title: "Completed",
-      items: summary.complete,
-    });
-  }
+  const listed = (tier: ChecklistTier) => [
+    ...summary.incomplete[tier],
+    ...summary.flagged.filter((item) => getChecklistTier(item) === tier),
+  ];
+  const lists = {
+    blocking: listed("blocking"),
+    recommended: listed("recommended"),
+    optional: listed("optional"),
+  };
+  const { withFading, isFading, faded } = useFadingCompletions(
+    lists,
+    summary.complete,
+  );
+  const sections = CHECKLIST_TIERS.map((tier) => ({
+    key: tier,
+    title: TIER_TITLES[tier],
+    items: withFading(tier),
+  }));
 
   return (
     <Flex direction="column" gap="4">
@@ -218,11 +297,12 @@ export function ChecklistItems({
                 item={item}
                 size={size}
                 onToggleManual={onToggleManual}
+                onFaded={isFading(item.key) ? () => faded(item.key) : null}
               />
             ))}
           </Flex>
         ))}
-      {completed === "folded" && summary.complete.length > 0 ? (
+      {showCompleted && summary.complete.length > 0 ? (
         <CompletedItems
           items={summary.complete}
           size={size}
@@ -233,80 +313,49 @@ export function ChecklistItems({
   );
 }
 
-export function ChecklistCountBadge({
+export const todoTitle = (remaining: number | null) =>
+  remaining ? `To do (${remaining})` : "To do";
+
+export function ChecklistTodoHeading({
   remaining,
-  blocking,
 }: {
-  // null while loading.
   remaining: number | null;
-  blocking: boolean;
 }) {
-  if ((remaining ?? 0) === 0) return null;
   return (
-    <Badge
-      size="xs"
-      color={blocking ? "red" : "amber"}
-      radius="full"
-      label={`${remaining}`}
-      style={{ justifyContent: "center", textAlign: "center" }}
-    />
+    <Text size="sm" weight="medium" color="text-low" textTransform="uppercase">
+      {todoTitle(remaining)}
+    </Text>
   );
 }
 
-/** The details rail's To Do tab, or the start popover's To Do. */
 export function PreLaunchChecklistPanel({
-  size = "sm",
-  foldCompleted = false,
-  omit,
+  omit = null,
 }: {
-  size?: ChecklistSize;
-  // Done items behind their count instead of a switch, where room is short.
-  foldCompleted?: boolean;
   // Rows the surface shows its own way, e.g. the start popover's values.
-  omit?: (item: CheckListItem) => boolean;
+  omit?: ((item: CheckListItem) => boolean) | null;
 }) {
   const {
-    experiment,
     summary: fullSummary,
     loading,
     loadError,
     toggleManualItem,
     toggleError,
   } = usePreLaunchChecklist();
-  const [showCompleted, setShowCompleted] = useState(false);
   const summary = useChecklistSummary(omit);
-
   if (loading) return <LoadingSpinner />;
 
-  const scheduledStart =
-    experiment.nextScheduledStatusUpdate?.type === "start" &&
-    experiment.nextScheduledStatusUpdate.date
-      ? new Date(experiment.nextScheduledStatusUpdate.date)
-      : null;
-
   return (
-    <>
-      {summary.complete.length > 0 && !foldCompleted ? (
-        <Switch
-          size={size}
-          value={showCompleted}
-          onChange={setShowCompleted}
-          label="Show completed"
-          weight="regular"
-        />
-      ) : null}
-      {scheduledStart ? (
-        <Callout status="info" size={size}>
-          Scheduled to start{" "}
-          {format(scheduledStart, "MMM d, yyyy 'at' h:mm a (z)")}. Editing the
-          schedule clears this approval.
-        </Callout>
-      ) : loadError ? (
-        <HelperText status="warning" size={size}>
-          Couldn&apos;t load the custom checklist. Built-in items are shown.
-        </HelperText>
+    <Flex direction="column" gap="3">
+      {loadError ? (
+        loadErrorNotice
       ) : summary.remaining === 0 ? (
-        <Callout status="success" size="sm" icon={<PiCheckBold />}>
+        <Callout
+          status="success"
+          size="sm"
+          icon={<PiCheckBold />}
+          mt="-1"
+          mb="1"
+        >
           {/* What's shown apart from here still counts. */}
           {fullSummary.remaining > 0
             ? "No other unresolved items remain."
@@ -315,18 +364,16 @@ export function PreLaunchChecklistPanel({
       ) : null}
       <ChecklistItems
         summary={summary}
-        size={size}
-        completed={
-          foldCompleted ? "folded" : showCompleted ? "shown" : "hidden"
-        }
+        size="sm"
+        showCompleted
         onToggleManual={toggleManualItem}
       />
       {toggleError ? (
-        <HelperText status="error" size={size}>
+        <HelperText status="error" size="sm">
           {toggleError}
         </HelperText>
       ) : null}
-    </>
+    </Flex>
   );
 }
 
@@ -335,52 +382,45 @@ export function PreLaunchChecklistForDraftFeature({
   feature,
   mutateExperiment,
   onReady,
+  details,
 }: {
   experiment: ExperimentInterfaceStringDates;
   feature: FeatureInterface;
   mutateExperiment: () => unknown | Promise<unknown>;
   onReady?: (status: ChecklistReadyStatus) => void;
+  // Under the name, as the start popover has its schedule.
+  details: ReactNode;
 }) {
-  const { data: checklistData, error: checklistError } = useApi<{
-    checklist: ExperimentLaunchChecklistInterface;
-  }>(`/experiment/${experiment.id}/launch-checklist`);
+  const {
+    checklist: customChecklist,
+    connections,
+    loading: checklistLoading,
+    loadError,
+  } = useLaunchChecklistData(experiment);
 
   const { data: experimentData, error: experimentError } = useApi<{
     linkedFeatures: LinkedFeatureInfo[];
   }>(`/experiment/${experiment.id}`);
 
-  const { data: sdkConnectionsData, error: sdkError } = useSDKConnections();
-  const connections = useMemo(
+  const isLoading = checklistLoading || (!experimentData && !experimentError);
+
+  const summary = useMemo(
     () =>
-      (sdkConnectionsData?.connections ?? []).filter(
-        (c) =>
-          !c.projects.length || c.projects.includes(experiment.project || ""),
+      summarizeChecklist(
+        getChecklistItems({
+          experiment,
+          linkedFeatures: experimentData?.linkedFeatures ?? [],
+          visualChangesets: [],
+          checklist: customChecklist,
+          connections,
+          publishingFeatureId: feature.id,
+        }),
       ),
-    [sdkConnectionsData, experiment.project],
+    [experiment, experimentData, customChecklist, connections, feature.id],
   );
-
-  const isLoading =
-    (!checklistData && !checklistError) ||
-    (!experimentData && !experimentError) ||
-    (!sdkConnectionsData && !sdkError);
-
-  const checklist = useMemo(
-    () =>
-      getChecklistItems({
-        experiment,
-        linkedFeatures: experimentData?.linkedFeatures ?? [],
-        visualChangesets: [],
-        checklist: checklistData?.checklist,
-        connections,
-        publishingFeatureId: feature.id,
-      }),
-    [experiment, experimentData, checklistData, connections, feature.id],
-  );
-  const summary = useMemo(() => summarizeChecklist(checklist), [checklist]);
 
   const hasHardBlockers = summary.blocking > 0;
-  // Optional items don't hold the publish back here.
-  const hasSoftBlockers = summary.incomplete.recommended.length > 0;
+  const hasSoftBlockers = summary.remaining > summary.blocking;
 
   const onReadyRef = useRef(onReady);
   onReadyRef.current = onReady;
@@ -402,48 +442,36 @@ export function PreLaunchChecklistForDraftFeature({
     return <LoadingSpinner />;
   }
 
+  const showTodo =
+    experiment.status === "draft" &&
+    (summary.remaining > 0 || loadError || summary.flagged.length > 0);
+
   return (
-    <>
-      {experiment.status === "draft" ? (
+    <Flex direction="column" gap="3">
+      <Heading as="h4" size="sm" mb="0">
+        <Link href={`/experiment/${experiment.id}`} external>
+          {experiment.name}
+        </Link>
+      </Heading>
+      {details}
+      {showTodo ? (
         <>
-          <Flex align="center" gap="2" mb="3">
-            <Heading as="h4" size="sm" mb="0">
-              <Link href={`/experiment/${experiment.id}`} external>
-                {experiment.name}
-              </Link>
-            </Heading>
-            <ChecklistCountBadge
-              remaining={summary.remaining}
-              blocking={hasHardBlockers}
-            />
-          </Flex>
+          <Separator size="4" />
+          <ChecklistTodoHeading remaining={summary.remaining} />
+          {loadError ? loadErrorNotice : null}
           <ChecklistItems
             summary={summary}
-            size="md"
+            size="sm"
+            showCompleted
             onToggleManual={canEdit ? toggle : null}
           />
         </>
       ) : null}
       {toggleError ? (
-        <HelperText status="error" mt="2">
+        <HelperText status="error" size="sm">
           {toggleError}
         </HelperText>
       ) : null}
-      {hasHardBlockers ? (
-        <Callout status="error" my="3">
-          Please complete all required items to publish and start this
-          experiment.
-        </Callout>
-      ) : hasSoftBlockers ? (
-        <Callout status="warning" my="3">
-          Some recommended items are incomplete. Complete them first, or
-          acknowledge them to continue.
-        </Callout>
-      ) : (
-        <Callout status="success" my="3">
-          All required items are complete. The experiment is ready to start.
-        </Callout>
-      )}
-    </>
+    </Flex>
   );
 }

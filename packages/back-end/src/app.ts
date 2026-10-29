@@ -40,6 +40,7 @@ import { wrapController } from "./routers/wrapController";
 import apiRouter from "./api/api.router";
 import scimRouter from "./scim/scim.router";
 import { getBuild } from "./util/build";
+import { trimTrailingSlashes } from "./util/http.util";
 import {
   oauthAsAuthedRouter,
   oauthAsPublicRouter,
@@ -154,7 +155,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -296,10 +296,10 @@ app.get("/", (req, res) => {
     res.json({
       name: "GrowthBook API",
       production: ENVIRONMENT === "production",
-      api_host: (
+      api_host: trimTrailingSlashes(
         process.env.API_HOST ||
-        req.protocol + "://" + req.hostname + ":" + app.get("port")
-      ).replace(/\/+$/, ""),
+          req.protocol + "://" + req.hostname + ":" + app.get("port"),
+      ),
       app_origin: APP_ORIGIN,
       config_source: usingFileConfig() ? "file" : "db",
       email_enabled: isEmailEnabled(),
@@ -802,10 +802,6 @@ app.get(
   experimentsController.getExperimentIncrementalRefresh,
 );
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
-app.post(
-  "/experiment/:id/targeting",
-  experimentsController.postExperimentTargeting,
-);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.post(
   "/experiment/:id/approve-scheduled-start",
@@ -910,9 +906,6 @@ app.use("/templates", templateRouter);
 
 // Decision Criteria
 app.use("/decision-criteria", decisionCriteriaRouter);
-
-// URL Redirects
-app.use("/url-redirects", urlRedirectRouter);
 
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
@@ -1046,10 +1039,6 @@ app.post(
 app.post(
   "/feature/:id/:version/contextual-bandit",
   featuresController.postFeatureContextualBanditRefRule,
-);
-app.delete(
-  "/experiment/:id/linked-feature/:featureId",
-  experimentsController.deleteExperimentLinkedFeature,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
@@ -1280,8 +1269,16 @@ app.put(
   adminController._dangerousAdminEnableOrganization,
 );
 app.get(
+  "/admin/organization/:orgId",
+  adminController._dangerousAdminGetOrganization,
+);
+app.get(
   "/admin/organization/:orgId/members",
   adminController._dangerousAdminGetOrganizationMembers,
+);
+app.get(
+  "/admin/organization/:orgId/license",
+  adminController._dangerousAdminGetOrganizationLicense,
 );
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
 app.put("/admin/member", adminController._dangerousAdminPutMember);

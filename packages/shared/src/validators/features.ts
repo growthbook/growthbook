@@ -1,7 +1,13 @@
+import pickBy from "lodash/pickBy";
 import { z } from "zod";
-import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  statsEngines,
+  MAX_DESCRIPTION_LENGTH,
+  FEATURE_KEY_PATTERN,
+} from "shared/constants";
 import { eventUser } from "./event-user";
 import {
+  allowUnscopedRulesBodyField,
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
@@ -37,11 +43,21 @@ import { featureManagedByValidator } from "./managed-by";
 import { namedSchema } from "./openapi-helpers";
 import {
   experimentAnalysisSettingsDraft,
+  experimentInterface,
   implementationType,
+  statusUpdateScheduleInput,
+  experimentPhase,
   variation,
 } from "./experiments";
 import { stagedUrlRedirect } from "./url-redirects";
 import { visualChangesetEdit } from "./visual-changesets";
+import {
+  FEATURE_DESCRIPTION,
+  FEATURE_KEY_DESCRIPTION,
+  RULE_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
+} from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const simpleSchemaFieldValidator = z.object({
@@ -156,6 +172,7 @@ export const rolloutRule = baseRule
     sparse: sparseRuleField,
     coverage: z.number(),
     hashAttribute: z.string(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
@@ -297,11 +314,7 @@ export function stripUnknownRuleFields<T extends { type?: string }>(
   );
   if (!schema) return rule;
   const allowed = new Set(Object.keys(schema.shape));
-  const out: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(rule)) {
-    if (allowed.has(k)) out[k] = v;
-  }
-  return out as T;
+  return pickBy(rule, (value, key) => allowed.has(key)) as T;
 }
 
 // Env-level settings only (kill switch + prerequisites). Rules live on
@@ -1008,6 +1021,10 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
         .optional(),
       coverage: z.coerce.number().gte(0).lte(1),
       hashAttribute: z.string(),
+      fallbackAttribute: z
+        .string()
+        .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
+        .optional(),
       seed: z
         .string()
         .describe(
@@ -1492,7 +1509,11 @@ const postFeatureForceRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1512,7 +1533,11 @@ const postFeatureRolloutRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1531,6 +1556,10 @@ const postFeatureRolloutRule = z
         "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
       ),
     hashAttribute: z.string(),
+    fallbackAttribute: z
+      .string()
+      .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
+      .optional(),
     seed: z.string().optional(),
     hashVersion: z
       .union([z.literal(1), z.literal(2)])
@@ -1545,7 +1574,11 @@ const postFeatureExperimentRefRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     id: z.string().optional(),
     enabled: z.boolean().describe("Enabled by default").optional(),
     type: z.literal("experiment-ref"),
@@ -1570,7 +1603,11 @@ const postFeatureExperimentRuleFields = {
   ...postFeatureRuleProjectScopeShape,
   ...v1RuleReadOnlyEcho,
   ...v1RuleSavedGroupInput,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(RULE_DESCRIPTION)
+    .optional(),
   condition: z.string(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1680,14 +1717,13 @@ const postFeatureBody = z
     id: z
       .string()
       .min(1)
-      .describe(
-        "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
-      ),
+      .meta({ pattern: FEATURE_KEY_PATTERN })
+      .describe(FEATURE_KEY_DESCRIPTION),
     archived: z.boolean().optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
@@ -1718,7 +1754,7 @@ const postFeatureBody = z
         'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config; `defaultValue` and rule values become override patches on top. null or omitted for a plain flag.',
       )
       .optional(),
-    tags: z.array(z.string()).describe("List of associated tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
@@ -1752,7 +1788,7 @@ const updateFeatureBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
@@ -1779,9 +1815,7 @@ const updateFeatureBody = z
       .optional(),
     tags: z
       .array(z.string())
-      .describe(
-        "List of associated tags. Will override tags completely with submitted list",
-      )
+      .describe(`${TAGS_DESCRIPTION} Replaces the existing tags completely.`)
       .optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
@@ -2222,22 +2256,62 @@ export type ExperimentRuleEnvironments = z.infer<
   typeof experimentRuleEnvironments
 >;
 
+const share = z.number().min(0).max(1);
+
 const experimentChangesFields = experimentAnalysisSettingsDraft
   .extend({
     name: z.string().min(1),
     description: z.string(),
     hypothesis: z.string(),
     variations: z.array(variation),
-    variationWeights: z.array(z.number()),
-    coverage: z.number().min(0).max(1),
     // A managed flag is converted, deleted or created to match, as the save lands.
     implementationType: z.enum(implementationType),
-    // "" leaves the current holdout.
+    // "" clears the holdout.
     holdoutId: z.string(),
+    // Targeting. The phase's fields are written to the latest one, or to a new
+    // one the save's `release` starts.
+    ...experimentPhase.pick({
+      condition: true,
+      savedGroups: true,
+      prerequisites: true,
+      seed: true,
+    }).shape,
+    coverage: share,
+    variationWeights: z.array(share),
+    // Either format, as the targeting form writes it.
+    namespace: z
+      .object({
+        enabled: z.boolean(),
+        name: z.string(),
+        range: z.tuple([z.number(), z.number()]).optional(),
+        ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
+        hashAttribute: z.string().optional(),
+        hashVersion: z.number().optional(),
+        format: z.enum(["legacy", "multiRange"]).optional(),
+      })
+      .strict(),
+    ...experimentInterface.pick({
+      hashAttribute: true,
+      fallbackAttribute: true,
+      attributeScopeAllProjects: true,
+      hashVersion: true,
+      disableStickyBucketing: true,
+      bucketVersion: true,
+      minBucketVersion: true,
+    }).shape,
+    // Null clears it.
+    statusUpdateSchedule: statusUpdateScheduleInput.nullable(),
   })
   .partial()
   .strict();
 export type ExperimentChangesFields = z.infer<typeof experimentChangesFields>;
+
+// A flag's rule on the experiment, as linking one gives it.
+const experimentLinkFields = {
+  variations: z.array(experimentRefVariation),
+  sparse: z.boolean().optional(),
+  environments: experimentRuleEnvironments.optional(),
+};
 
 export const experimentChangesBody = z
   .object({
@@ -2261,6 +2335,9 @@ export const experimentChangesBody = z
             sparse: z.boolean().optional(),
             // The rule's environment scope. Omitted leaves it as it is.
             environments: experimentRuleEnvironments.optional(),
+            // Only these of the experiment's rules, when its rules on the flag
+            // disagree. Omitted writes every one of them.
+            ruleIds: z.array(z.string()).min(1).optional(),
             // The revision the values were loaded from: the live version starts
             // a new draft (dateUpdated unused), a draft version writes into it.
             revision: z
@@ -2279,9 +2356,38 @@ export const experimentChangesBody = z
         z
           .object({
             featureId: z.string(),
-            variations: z.array(experimentRefVariation),
-            sparse: z.boolean().optional(),
-            environments: experimentRuleEnvironments.optional(),
+            ...experimentLinkFields,
+          })
+          .strict(),
+      )
+      .optional(),
+    // Flags to create, then link as linkFeatures links one once the experiment
+    // lands, so their values can name variations this save adds.
+    createFeatures: z
+      .array(
+        z
+          .object({
+            feature: z
+              .object({
+                id: z.string(),
+                valueType: z.enum(featureValueType),
+                defaultValue: z.string(),
+                description: z.string().optional(),
+                owner: ownerField.optional(),
+                project: z.string().optional(),
+                tags: z.array(z.string()).optional(),
+                environmentSettings: z.record(
+                  z.string(),
+                  z.object({ enabled: z.boolean() }).strict(),
+                ),
+                holdout: z
+                  .object({ id: z.string(), value: z.string() })
+                  .strict()
+                  .optional(),
+                customFields: z.record(z.string(), z.unknown()).optional(),
+              })
+              .strict(),
+            ...experimentLinkFields,
           })
           .strict(),
       )
@@ -2329,8 +2435,19 @@ export const experimentChangesBody = z
       )
       .optional(),
     removeVisualChangesets: z.array(z.string()).optional(),
+    // Without one, what a running experiment serves can't change in place.
+    release: z
+      .object({
+        // Ends the latest phase and starts another with the targeting.
+        newPhase: z.boolean(),
+        // The new phase gets a new seed, so everyone is assigned again.
+        reseed: z.boolean(),
+      })
+      .strict()
+      .optional(),
     // Runs every check the save would and writes nothing.
     dryRun: z.boolean().optional(),
+    allowUnscopedRules: allowUnscopedRulesBodyField,
   })
   .strict();
 export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;

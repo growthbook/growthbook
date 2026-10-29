@@ -24,6 +24,16 @@ import {
 } from "./revisions";
 import { ownerInputField } from "./owner-field";
 import { namedSchema } from "./openapi-helpers";
+import {
+  NEW_DRAFT_COMMENT_DESCRIPTION,
+  NEW_DRAFT_TITLE_DESCRIPTION,
+  REVERT_COMMENT_IGNORED_DESCRIPTION,
+  REVIEW_COMMENT_DESCRIPTION,
+  REVISION_COMMENT_DESCRIPTION,
+  REVISION_TITLE_DESCRIPTION,
+  SAVED_GROUP_DESCRIPTION,
+  SAVED_GROUP_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
@@ -47,8 +57,11 @@ const revisionParamsStrict = savedGroupIdParams.extend({
 // Optional metadata applied when an endpoint auto-creates a draft via
 // `version: "new"`. Ignored when editing an existing revision.
 const newDraftMetadataFields = {
-  revisionTitle: z.string().optional(),
-  revisionComment: z.string().optional(),
+  revisionTitle: z.string().describe(NEW_DRAFT_TITLE_DESCRIPTION).optional(),
+  revisionComment: z
+    .string()
+    .describe(NEW_DRAFT_COMMENT_DESCRIPTION)
+    .optional(),
 };
 
 // ---- Shared response schemas ----
@@ -320,8 +333,8 @@ export const postSavedGroupRevisionValidator = {
   paramsSchema: savedGroupIdParams,
   bodySchema: z
     .object({
-      title: z.string().optional(),
-      comment: z.string().optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      comment: z.string().describe(REVISION_COMMENT_DESCRIPTION).optional(),
     })
     .strict(),
   querySchema: z.never(),
@@ -399,8 +412,11 @@ export const postSavedGroupRevisionRevertValidator = {
         .describe(
           "Whether to stage the revert as a draft or publish it immediately. Defaults to `draft`, or to `publish` when the org enables 'reverts bypass approval'.",
         ),
-      title: z.string().optional(),
-      comment: z.string().optional(),
+      title: z.string().describe(REVISION_TITLE_DESCRIPTION).optional(),
+      comment: z
+        .string()
+        .describe(REVERT_COMMENT_IGNORED_DESCRIPTION)
+        .optional(),
       // `ignoreWarnings` ALONE on every Saved Group body: the dependents guard
       // soft-warns and asks for this acknowledgment, and a strict body must
       // accept the retry. Saved Groups have no schema or validation hooks, so
@@ -475,7 +491,7 @@ export const postSavedGroupRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       decision: z.enum(reviewDecision),
-      comment: z.string().optional(),
+      comment: z.string().describe(REVIEW_COMMENT_DESCRIPTION).optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -500,9 +516,9 @@ export const putSavedGroupRevisionMetadataValidator = {
   bodySchema: z
     .object({
       ...newDraftMetadataFields,
-      name: z.string().optional(),
+      name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION).optional(),
       owner: ownerInputField.optional(),
-      description: z.string().optional(),
+      description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
       projects: z.array(z.string()).optional(),
     })
     .strict(),
@@ -546,6 +562,30 @@ export const putSavedGroupRevisionValuesValidator = {
     .object({
       ...newDraftMetadataFields,
       values: z.array(z.string()),
+    })
+    .strict(),
+  querySchema: z.never(),
+  responseSchema: revisionResponse,
+};
+
+export const putSavedGroupRevisionUploadVersionValidator = {
+  method: "put" as const,
+  path: "/saved-groups-revisions/:savedGroupId/:version/upload-version",
+  confirmation: ["savedGroup.draft"] as const,
+  operationId: "putSavedGroupRevisionUploadVersion",
+  summary: "Set the upload a remote saved group draft revision uses",
+  description:
+    'Stages which upload the group uses. Only valid for `remote` saved groups, and the upload must be valid. Pass `version: "new"` to auto-create a draft.',
+  tags: ["saved-group-revisions"],
+  paramsSchema: revisionParams,
+  bodySchema: z
+    .object({
+      ...newDraftMetadataFields,
+      currentUploadVersion: z
+        .number()
+        .int()
+        .positive()
+        .describe("The version of the upload the group uses"),
     })
     .strict(),
   querySchema: z.never(),

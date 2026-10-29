@@ -1,7 +1,11 @@
 import isEqual from "lodash/isEqual";
 import pick from "lodash/pick";
 import { z } from "zod";
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  syncedDestinationURLs,
+} from "shared/experiments";
+import { isScheduledToStart } from "shared/util";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ExperimentInterface } from "shared/types/experiment";
 import { URLRedirectInterface } from "shared/types/url-redirect";
@@ -16,7 +20,6 @@ import {
   assertNoRedirectLoop,
   assertRedirectDestinations,
   assertRedirectOrigin,
-  syncedDestinationURLs,
 } from "back-end/src/models/UrlRedirectModel";
 import {
   deleteVisualChangesetById,
@@ -28,8 +31,18 @@ import {
   assertCanRunLinkedChanges,
   auditVisualChangeEditAfterStart,
 } from "back-end/src/services/experiments";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { asJson, changedSinceLoaded, isoOrNull } from "./loadedBase";
+import {
+  BadRequestError,
+  ChangesConflictError,
+  NotFoundError,
+} from "back-end/src/util/errors";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
+import {
+  asJson,
+  assertBaseCoversChanges,
+  changedSinceLoaded,
+  isoOrNull,
+} from "./loadedBase";
 import type { ExperimentUpdatePlan } from "./planExperimentUpdate";
 
 type RedirectAdd = NonNullable<
@@ -62,7 +75,7 @@ const redirectName = (redirect: { urlPattern: string }) =>
   `The URL Redirect from ${redirect.urlPattern}`;
 
 const visualName = (changeset: VisualChangesetInterface) =>
-  `The Visual Editor change for ${changeset.editorUrl}`;
+  `The AI Visual Editor change for ${changeset.editorUrl}`;
 
 function assertListedOnce(ids: string[], what: string) {
   if (new Set(ids).size !== ids.length) {
@@ -94,29 +107,24 @@ const editableParts = (change: {
     domMutations: change.domMutations ?? [],
   });
 
-function assertVisualBaseMatches(
+function visualBaseMoved(
   current: VisualChangesetInterface,
   { changes, base }: VisualEdit,
-) {
-  for (const key of Object.keys(changes)) {
-    if (!(key in base)) {
-      throw new BadRequestError(`base is missing the loaded value of ${key}`);
-    }
-  }
-  const moved = () => changedSinceLoaded(visualName(current));
+): boolean {
+  assertBaseCoversChanges(changes, base);
   for (const key of ["editorUrl", "urlPatterns"] as const) {
     if (key in changes && !isEqual(asJson(current[key]), asJson(base[key]))) {
-      throw moved();
+      return true;
     }
   }
-  if (!changes.visualChanges) return;
+  if (!changes.visualChanges) return false;
   const loaded = loadedVisualChanges.safeParse(base.visualChanges);
   if (!loaded.success) {
     throw new BadRequestError(
       "base is missing the loaded value of visualChanges",
     );
   }
-  for (const { id } of changes.visualChanges) {
+  return changes.visualChanges.some(({ id }) => {
     const was = loaded.data.find((c) => c.id === id);
     if (!was) {
       throw new BadRequestError(
@@ -124,10 +132,8 @@ function assertVisualBaseMatches(
       );
     }
     const now = current.visualChanges.find((c) => c.id === id);
-    if (!now || !isEqual(editableParts(now), editableParts(was))) {
-      throw moved();
-    }
-  }
+    return !now || !isEqual(editableParts(now), editableParts(was));
+  });
 }
 
 // Every check, with no writes, judged against the variations the save leaves.
@@ -148,23 +154,23 @@ export async function planLinkedChanges(
 
   if (experiment.type === "holdout") {
     throw new BadRequestError(
-      "A holdout has no URL Redirects or Visual Editor changes.",
+      "A holdout has no URL Redirects or AI Visual Editor changes.",
     );
   }
   if (experiment.archived) {
     throw new BadRequestError(
-      "Unarchive the experiment to change its URL Redirects or Visual Editor changes.",
+      "Unarchive the experiment to change its URL Redirects or AI Visual Editor changes.",
     );
   }
   assertListedOnce([...edits.map((e) => e.id), ...removes], "URL Redirect");
   assertListedOnce(
     [...visualEdits.map((e) => e.id), ...visualRemoves],
-    "Visual Editor change",
+    "AI Visual Editor change",
   );
 
   const changes = experimentPlan?.changes ?? {};
   if (touchesRedirects) {
-    if (experiment.status !== "draft" || experiment.nextScheduledStatusUpdate) {
+    if (experiment.status !== "draft" || isScheduledToStart(experiment)) {
       throw new BadRequestError(
         "URL Redirects can only change while the experiment is a draft with no scheduled start.",
       );
@@ -195,20 +201,46 @@ export async function planLinkedChanges(
     variationsChange: !!changes.variations,
   };
 
-  if (touchesRedirects) {
-    const stored = await context.models.urlRedirects.findByExperiment(
-      experiment.id,
-    );
-    const byId = new Map(stored.map((r) => [r.id, r]));
-    plan.removeRedirects = removes.flatMap((id) => byId.get(id) ?? []);
-    plan.editRedirects = edits.map((edit) => {
-      const loaded = byId.get(edit.id);
-      if (!loaded || isoOrNull(loaded.dateUpdated) !== edit.dateUpdated) {
-        throw changedSinceLoaded(redirectName(loaded ?? edit));
-      }
-      return { loaded, edit };
+  // Every edit whose base moved is named at once, before any other check.
+  const urlRedirectIds: string[] = [];
+  const visualChangesetIds: string[] = [];
+  const storedRedirects = touchesRedirects
+    ? await context.models.urlRedirects.findByExperiment(experiment.id)
+    : [];
+  const redirectsById = new Map(storedRedirects.map((r) => [r.id, r]));
+  plan.removeRedirects = removes.flatMap((id) => redirectsById.get(id) ?? []);
+  plan.editRedirects = edits.flatMap((edit) => {
+    const loaded = redirectsById.get(edit.id);
+    if (!loaded || isoOrNull(loaded.dateUpdated) !== edit.dateUpdated) {
+      urlRedirectIds.push(edit.id);
+      return [];
+    }
+    return [{ loaded, edit }];
+  });
+  if (touchesVisual) {
+    assertScheduledStartAllows(experiment, "AI Visual Editor changes");
+  }
+  const storedVisual = touchesVisual
+    ? await findVisualChangesetsByExperiment(experiment.id, context.org.id)
+    : [];
+  const visualById = new Map(storedVisual.map((c) => [c.id, c]));
+  plan.removeVisual = visualRemoves.filter((id) => visualById.has(id));
+  for (const edit of visualEdits) {
+    const current = visualById.get(edit.id);
+    if (!current || visualBaseMoved(current, edit)) {
+      visualChangesetIds.push(edit.id);
+    }
+  }
+  if (urlRedirectIds.length || visualChangesetIds.length) {
+    throw new ChangesConflictError({
+      fields: [],
+      featureIds: [],
+      urlRedirectIds,
+      visualChangesetIds,
     });
+  }
 
+  if (touchesRedirects) {
     const staged = [...adds, ...edits];
     for (const redirect of staged) {
       assertRedirectOrigin(redirect);
@@ -220,7 +252,9 @@ export async function planLinkedChanges(
       // too: a draft isn't served yet, but they all go live together.
       const served = await context.models.urlRedirects.getServedRedirects();
       const kept = [
-        ...new Map([...served, ...stored].map((r) => [r.id, r])).values(),
+        ...new Map(
+          [...served, ...storedRedirects].map((r) => [r.id, r]),
+        ).values(),
       ].filter((r) => !replaced.has(r.id));
       for (const redirect of staged) {
         if (!redirect.checkCircularDependencies) continue;
@@ -232,29 +266,20 @@ export async function planLinkedChanges(
     }
   }
 
-  if (touchesVisual) {
-    const stored = await findVisualChangesetsByExperiment(
-      experiment.id,
-      context.org.id,
+  for (const edit of visualEdits) {
+    const current = visualById.get(edit.id);
+    if (!current) continue;
+    const staged = edit.changes.visualChanges ?? [];
+    assertListedOnce(
+      staged.map((c) => c.id),
+      "visual change",
     );
-    const byId = new Map(stored.map((c) => [c.id, c]));
-    plan.removeVisual = visualRemoves.filter((id) => byId.has(id));
-    for (const edit of visualEdits) {
-      const current = byId.get(edit.id);
-      if (!current) throw changedSinceLoaded("A Visual Editor change");
-      const staged = edit.changes.visualChanges ?? [];
-      assertListedOnce(
-        staged.map((c) => c.id),
-        "visual change",
-      );
-      assertVisualBaseMatches(current, edit);
-      for (const { id } of staged) {
-        const change = current.visualChanges.find((c) => c.id === id);
-        if (!change || !variationIds.includes(change.variation)) {
-          throw new BadRequestError(
-            `${visualName(current)} edits a variation this save removes. Discard that edit, or keep the variation.`,
-          );
-        }
+    for (const { id } of staged) {
+      const change = current.visualChanges.find((c) => c.id === id);
+      if (!change || !variationIds.includes(change.variation)) {
+        throw new BadRequestError(
+          `${visualName(current)} edits a variation this save removes. Discard that edit, or keep the variation.`,
+        );
       }
     }
   }
@@ -307,18 +332,21 @@ async function writeEach({
   for (const edit of plan.editVisual) {
     const current = await findVisualChangesetById(edit.id, context.org.id);
     if (!current || current.experiment !== experimentId) {
-      throw changedSinceLoaded("A Visual Editor change");
+      throw changedSinceLoaded("An AI Visual Editor change");
     }
     // The Visual Editor may have written since the plan.
-    assertVisualBaseMatches(current, edit);
+    if (visualBaseMoved(current, edit)) {
+      throw changedSinceLoaded(visualName(current));
+    }
     const staged = new Map(
       (edit.changes.visualChanges ?? []).map((c) => [c.id, c]),
     );
     const experiment = await read();
-    await updateVisualChangeset({
+    const { matched } = await updateVisualChangeset({
       visualChangeset: current,
       owner: new ExperimentChangesetOwner(context, experiment),
       context,
+      guarded: true,
       updates: {
         ...pick(edit.changes, ["editorUrl", "urlPatterns"]),
         ...(edit.changes.visualChanges && {
@@ -329,6 +357,8 @@ async function writeEach({
         }),
       },
     });
+    // The Visual Editor wrote between the check above and this write.
+    if (!matched) throw changedSinceLoaded(visualName(current));
     if (experiment.status !== "draft") {
       await auditVisualChangeEditAfterStart(audit, experiment, current.id);
     }

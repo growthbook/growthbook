@@ -1,10 +1,7 @@
-import { ReactNode, useEffect, useState } from "react";
+import { ReactNode, useEffect, useRef, useState } from "react";
 import type { Ace } from "ace-builds";
 import { Box, Flex } from "@radix-ui/themes";
-import { FaMagic } from "react-icons/fa";
-import clsx from "clsx";
 import { FeatureValueType } from "shared/types/feature";
-import { formatJSON } from "@/services/features";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import { Size } from "@/ui/sizes";
 import CodeTextArea, {
@@ -13,6 +10,8 @@ import CodeTextArea, {
 import Button from "@/ui/Button";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { SparsePatchIndicator } from "@/components/Features/SparsePatchToggle";
+import { useReportedJsonValue } from "@/components/Features/ValueDiffContext";
+import FormatJsonAction from "@/components/Features/FormatJsonAction";
 
 // Edit/Preview tabs for a sparse JSON rule value. The Edit tab is the JSON code
 // editor; the Preview tab shows the expanded value (default + patch) with the
@@ -27,7 +26,6 @@ export default function SparseTabbedEditor({
   disabled = false,
   defaultHeight,
   condensed = false,
-  fontSize,
   headerLeft,
   headerRight,
   onEditorLoad,
@@ -45,8 +43,6 @@ export default function SparseTabbedEditor({
   // Tighter layout for embedded contexts like ramp step editors: smaller tabs
   // and a shorter default editor height.
   condensed?: boolean;
-  // Code font size for both tabs.
-  fontSize?: string;
   // Rendered on the tab row, either side of the tabs.
   headerLeft?: ReactNode;
   headerRight?: ReactNode;
@@ -58,6 +54,13 @@ export default function SparseTabbedEditor({
   usedConstantTags?: ReactNode;
 }) {
   const [tab, setTab] = useState<"edit" | "preview">("edit");
+  const editorRef = useRef<Ace.Editor | null>(null);
+  // Preview takes the Edit box's height, resized or not, so switching tabs
+  // doesn't jump.
+  const [previewHeight, setPreviewHeight] = useState<number | null>(null);
+  // The patch is already just the changes, so only Preview marks where the
+  // variations differ.
+  useReportedJsonValue(value, defaultValue ?? "");
   const [fullscreen, setFullscreen] = useState(false);
 
   // Sparse patches are small, so default to ~half the normal editor height
@@ -93,28 +96,17 @@ export default function SparseTabbedEditor({
     };
   }, [fullscreen]);
 
-  const formatted = formatJSON(value);
-  const formatJSONButton = (
-    <a
-      href="#"
-      className={clsx("text-purple", {
-        "text-muted cursor-default no-underline":
-          !formatted || formatted === value,
-      })}
-      onClick={(e) => {
-        e.preventDefault();
-        if (formatted && formatted !== value) setValue(formatted);
-      }}
-      style={{ whiteSpace: "nowrap" }}
-    >
-      <FaMagic /> Format JSON
-    </a>
-  );
-
   const tabs = (
     <Tabs
       value={tab}
-      onValueChange={(t) => setTab(t === "preview" ? "preview" : "edit")}
+      onValueChange={(t) => {
+        if (t === "preview") {
+          setPreviewHeight(
+            editorRef.current?.container.parentElement?.offsetHeight ?? null,
+          );
+        }
+        setTab(t === "preview" ? "preview" : "edit");
+      }}
       // Let the editor tab fill the fullscreen overlay.
       style={
         fullscreen
@@ -157,14 +149,10 @@ export default function SparseTabbedEditor({
             language="json"
             value={value}
             setValue={setValue}
-            helpText={
-              fullscreen ? undefined : (
-                <Flex align="start" justify="between" gap="3" width="100%">
-                  <Box flexGrow="1" style={{ minWidth: 0 }}>
-                    {usedConstantTags}
-                  </Box>
-                  <Box flexShrink="0">{formatJSONButton}</Box>
-                </Flex>
+            helpText={fullscreen ? undefined : usedConstantTags}
+            actions={
+              disabled ? null : (
+                <FormatJsonAction value={value} setValue={setValue} />
               )
             }
             placeholder={placeholder}
@@ -172,28 +160,44 @@ export default function SparseTabbedEditor({
             resizable={!fullscreen}
             fullHeight={fullscreen}
             defaultHeight={sparseDefaultHeight}
-            fontSize={fontSize}
             slimGutter
             showCopyButton={true}
             showFullscreenButton={!fullscreen}
             onRequestFullscreen={() => setFullscreen(true)}
-            onEditorLoad={onEditorLoad}
+            onEditorLoad={(e) => {
+              editorRef.current = e;
+              onEditorLoad?.(e);
+            }}
+            matchValueDisplay
           />
         </TabsContent>
         <TabsContent value="preview">
-          <ValueDisplay
-            value={value}
-            type={valueType}
-            sparse={true}
-            defaultValue={defaultValue}
-            full={true}
-            fontSize={fontSize}
-            fullStyle={
-              fullscreen
-                ? { minHeight: 300, maxWidth: "100%" }
-                : { maxHeight: 150, overflowY: "auto", maxWidth: "100%" }
-            }
-          />
+          {/* In the Edit box's frame, so the tabs read as one view. */}
+          <Box
+            px="1"
+            style={{
+              background: "var(--color-panel-solid)",
+              border: "1px solid var(--border-color-200)",
+              borderRadius: "0.25rem",
+            }}
+          >
+            <ValueDisplay
+              value={value}
+              type={valueType}
+              sparse={true}
+              defaultValue={defaultValue}
+              full={true}
+              fullStyle={
+                fullscreen
+                  ? { minHeight: 300, maxWidth: "100%" }
+                  : {
+                      // Inside its 1px borders.
+                      height: (previewHeight ?? sparseDefaultHeight) - 2,
+                      maxWidth: "100%",
+                    }
+              }
+            />
+          </Box>
         </TabsContent>
       </Box>
     </Tabs>

@@ -98,7 +98,7 @@ import {
   ExperimentFeatureLinkResult,
   linkFeatureToExperiment,
   updateExperimentRefVariations,
-  validateExperimentFeatureUpdates,
+  validateExperimentFeatureUpdate,
 } from "back-end/src/services/experiment-feature";
 import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
 
@@ -1089,24 +1089,19 @@ export async function updateManagedVariationValues({
     return { feature, version: linked.version };
   }
 
-  const plans = await validateExperimentFeatureUpdates({
+  const plan = await validateExperimentFeatureUpdate({
     context,
     experiment,
-    linkedFeatures: [feature],
-    features: {
-      [feature.id]: {
-        variations: values,
-        ...(sparse === undefined ? {} : { sparse }),
-        ...(typeChanged ? { valueType: targetType } : {}),
-        revisionOptions: openDraft
-          ? { targetVersion: openDraft.version }
-          : { forceNewDraft: true },
-      },
+    feature,
+    update: {
+      variations: values,
+      ...(sparse === undefined ? {} : { sparse }),
+      ...(typeChanged ? { valueType: targetType } : {}),
+      targetVersion: openDraft ? openDraft.version : null,
     },
   });
 
   // No plan: the values already match.
-  const plan = plans[0];
   if (!plan) {
     return { feature, version: openDraft?.version ?? feature.version };
   }

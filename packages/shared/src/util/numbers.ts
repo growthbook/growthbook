@@ -61,18 +61,57 @@ export function parseEnvInt(
   opts: ParseEnvIntOptions,
 ): number {
   if (value === undefined) return defaultValue;
-  const n = parseOptionalInt(value);
-  const invalid =
-    n === undefined ||
-    (opts.min !== undefined && n < opts.min) ||
-    (opts.max !== undefined && n > opts.max);
-  if (invalid) {
+  const n = parseEnvIntValue(value, opts);
+  if (n === undefined) {
     // eslint-disable-next-line no-console -- shared does not import app loggers
     console.warn(
       `WARNING! Invalid value for ${opts.name}: "${value ?? ""}". Falling back to default: ${defaultValue}`,
     );
     return defaultValue;
   }
+  return n;
+}
+
+/**
+ * Parse `name:integer` pairs separated by commas (`key_a:120, key_b:30`) from a
+ * Node `process.env` entry. Invalid or out-of-range entries are skipped with a
+ * **`console.warn`**; a repeated name keeps its last value.
+ */
+export function parseEnvIntMap(
+  value: string | undefined,
+  opts: ParseEnvIntOptions,
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const raw of (value ?? "").split(",")) {
+    const entry = raw.trim();
+    if (!entry) continue;
+    // The first colon, so a mistyped separator (`a:1;b:2`) fails the integer
+    // check instead of silently becoming a name.
+    const separator = entry.indexOf(":");
+    const name = separator > 0 ? entry.slice(0, separator).trim() : "";
+    const n = name
+      ? parseEnvIntValue(entry.slice(separator + 1), opts)
+      : undefined;
+    if (n === undefined) {
+      // eslint-disable-next-line no-console -- shared does not import app loggers
+      console.warn(
+        `WARNING! Invalid entry in ${opts.name}: "${entry}". Ignoring it.`,
+      );
+      continue;
+    }
+    map.set(name, n);
+  }
+  return map;
+}
+
+function parseEnvIntValue(
+  value: string,
+  opts: ParseEnvIntOptions,
+): number | undefined {
+  const n = parseOptionalInt(value);
+  if (n === undefined) return undefined;
+  if (opts.min !== undefined && n < opts.min) return undefined;
+  if (opts.max !== undefined && n > opts.max) return undefined;
   return n;
 }
 

@@ -1,14 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
-import { PiCaretDownFill, PiLockSimple, PiPencilSimple } from "react-icons/pi";
 import isEqual from "lodash/isEqual";
-import { getMetricLink } from "shared/experiments";
+import { datasourceChangeDrops } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
   ExperimentAnalysisSettingsDraft,
   experimentAnalysisSettingsDraft,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
+import {
+  hasPendingScheduledStart,
+  isProjectListValidForProject,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -16,95 +28,161 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SelectField from "@/components/Forms/SelectField";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
 import {
+  METRIC_ROWS,
+  useMetricDisabledInfo,
+} from "@/components/Experiment/ExperimentMetricsSelector";
+import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
 } from "@/components/Experiment/SimpleNewExperimentForm";
-import { getExposureQueriesForAttribute } from "@/services/datasources";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import {
+  followAssignmentAttribute,
+  getExposureQueriesInScope,
+  getHashAttributeIdentifierTypeMap,
+  resolveAssignmentIdentifier,
+} from "@/services/datasources";
+import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
+import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
+import AssignmentQueryFields, {
+  useAssignmentQuerySelection,
+} from "@/components/Experiment/AssignmentQueryFields";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import Tooltip from "@/ui/Tooltip";
-import Button from "@/ui/Button";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import {
-  DropdownMenu,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-} from "@/ui/DropdownMenu";
-import {
-  experimentFieldChanges,
-  useRegisterExperimentEdit,
+  useExperimentFieldEdit,
+  useHoldEditBases,
+  useStagedState,
 } from "./ExperimentEdits";
 import SetupFieldRow from "./SetupFieldRow";
+import { RestrictedValue } from "./ProjectTagBar";
 import { useDecisionFrameworkApplies } from "./DecisionMakingSettings";
+import AnalysisPlanAdvanced from "./AnalysisPlanAdvanced";
+import DecisionPlan from "./DecisionPlan";
+import { QuickEditRow } from "./QuickEditButton";
+import type { TargetingDraft } from "./TrafficAllocationFunnel";
 
 type MetricField = "goalMetrics" | "secondaryMetrics" | "guardrailMetrics";
-type PlanField = "datasource" | "exposureQueryId" | MetricField;
+type PlanField =
+  | "datasource"
+  | "exposureQueryId"
+  | "exposureQueryIdentifierType"
+  | MetricField;
+
+type AssignmentSelection = {
+  datasource: string;
+  exposureQueryId: string;
+  // "" leaves it to the query's first declared identifier.
+  identifierType: string;
+};
+
+export const DATASOURCE_CHANGE_NOTE =
+  "Metrics and segments that aren't from the new Data Source are removed.";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
-  mutate: () => void;
+  datasourceMissing?: boolean;
   canEdit: boolean;
-  /** Passed through to the advanced settings modal. */
-  envs: string[];
-  /** The settings modal's open state; other parts of the page open it too. */
+  // The start checklist points at a field here; no field means the advanced
+  // settings.
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
+  settingsFocus?: AnalysisFormFocus | null;
+  // Holds the assignment attribute until the page saves.
+  targetingDraft?: TargetingDraft;
+  canEditTargeting?: boolean;
+  canEditSchedule: boolean;
+  mutate: () => void;
+  envs: string[];
 }
 
-/**
- * How the experiment will be analysed: where the data comes from, what counts
- * as a participant, and which metrics are being watched. Held as a draft and
- * written by the page's save bar.
- */
 export default function AnalysisPlan({
   experiment,
-  mutate,
+  datasourceMissing = false,
   canEdit,
-  envs,
   settingsOpen,
   setSettingsOpen,
+  settingsFocus = null,
+  targetingDraft,
+  canEditTargeting = false,
+  canEditSchedule,
+  mutate,
+  envs,
 }: Props) {
   const {
     datasources,
     getDatasourceById,
     getExperimentMetricById,
+    getMetricGroupById,
     getSegmentById,
     getProjectById,
   } = useDefinitions();
   const { organization } = useUser();
   const { defaultDataSource } = useOrgSettings();
   const { demoDataSourceId } = useDemoDataSourceProject();
+  const targetingDefaults = useTargetingDefaults(experiment);
 
-  // What the settings modal staged, beyond the fields this section holds in its
-  // own state.
+  const hashAttribute =
+    targetingDraft?.value?.hashAttribute || experiment.hashAttribute || "id";
+  // Before it runs, the analysis and the assignment attribute follow each
+  // other; after, a new attribute would re-randomize.
+  const bound =
+    canEdit &&
+    experiment.status === "draft" &&
+    !hasPendingScheduledStart(experiment);
+  const stageHashAttribute =
+    bound && canEditTargeting && targetingDraft
+      ? (attribute: string) =>
+          targetingDraft.set((prev) => ({
+            ...(prev ?? targetingDefaults),
+            hashAttribute: attribute,
+          }))
+      : null;
+
+  // Settings beyond the fields held in their own state below.
   const [advanced, setAdvanced] =
-    useState<ExperimentAnalysisSettingsDraft | null>(null);
+    useStagedState<ExperimentAnalysisSettingsDraft | null>(
+      "analysis-plan:advanced",
+      null,
+    );
+  // A setting put back to what's saved is no longer an edit.
+  const stage = useCallback(
+    (changes: ExperimentAnalysisSettingsDraft) =>
+      setAdvanced((prev) => {
+        const next: Record<string, unknown> = { ...prev, ...changes };
+        Object.keys(next).forEach((key) => {
+          const saved = (experiment as Record<string, unknown>)[key];
+          if (isEqual(next[key] ?? null, saved ?? null)) delete next[key];
+        });
+        return Object.keys(next).length ? next : null;
+      }),
+    [setAdvanced, experiment],
+  );
+  // Open when it filters who's counted, so that isn't hidden.
+  const [advancedOpen, setAdvancedOpen] = useState(
+    !!experiment.activationMetric || !!experiment.segment,
+  );
 
-  const metricOverrides =
-    (advanced && "metricOverrides" in advanced
-      ? advanced.metricOverrides
-      : experiment.metricOverrides) ?? [];
-  const decisionFrameworkSettings =
-    advanced && "decisionFrameworkSettings" in advanced
-      ? advanced.decisionFrameworkSettings
-      : experiment.decisionFrameworkSettings;
+  const effective = useMemo(
+    () => ({ ...experiment, ...advanced }),
+    [experiment, advanced],
+  );
+  const metricOverrides = effective.metricOverrides ?? [];
+  const decisionFrameworkSettings = effective.decisionFrameworkSettings;
   const targetMDEOverrides = useDecisionFrameworkApplies(experiment)
     ? (decisionFrameworkSettings?.decisionFrameworkMetricOverrides ?? [])
     : undefined;
   const statsEngine = getScopedSettings({
     organization,
     project: getProjectById(experiment.project || "") ?? undefined,
-    experiment:
-      advanced && "statsEngine" in advanced
-        ? { ...experiment, statsEngine: advanced.statsEngine }
-        : experiment,
+    experiment: effective,
   }).settings.statsEngine.value;
   const settingsScope = useMemo(
-    () => ({ experiment: { ...experiment, ...advanced }, statsEngine }),
-    [experiment, advanced, statsEngine],
+    () => ({ experiment: effective, statsEngine }),
+    [effective, statsEngine],
   );
   const [overridesFor, setOverridesFor] = useState<string[] | null>(null);
 
@@ -119,48 +197,123 @@ export default function AnalysisPlan({
     [datasources, demoDataSourceId, defaultDataSource, experiment.project],
   );
 
-  const [datasource, setDatasource] = useState(
+  const [datasource, setDatasource] = useStagedState(
+    "analysis-plan:datasource",
     experiment.datasource || suggestedDatasource,
   );
-  const [exposureQueryId, setExposureQueryId] = useState(
+  const [exposureQueryId, setExposureQueryId] = useStagedState(
+    "analysis-plan:exposureQueryId",
     experiment.exposureQueryId || "",
   );
-  const [goalMetrics, setGoalMetrics] = useState(experiment.goalMetrics || []);
-  const [secondaryMetrics, setSecondaryMetrics] = useState(
+  const [identifierType, setIdentifierType] = useStagedState(
+    "analysis-plan:exposureQueryIdentifierType",
+    experiment.exposureQueryIdentifierType || "",
+  );
+  const [goalMetrics, setGoalMetrics] = useStagedState(
+    "analysis-plan:goalMetrics",
+    experiment.goalMetrics || [],
+  );
+  const [secondaryMetrics, setSecondaryMetrics] = useStagedState(
+    "analysis-plan:secondaryMetrics",
     experiment.secondaryMetrics || [],
   );
-  const [guardrailMetrics, setGuardrailMetrics] = useState(
+  const [guardrailMetrics, setGuardrailMetrics] = useStagedState(
+    "analysis-plan:guardrailMetrics",
     experiment.guardrailMetrics || [],
   );
-  // Only what someone changed here is sent, so a write from elsewhere on the
-  // page isn't reverted by the copy this section holds. A suggested datasource
-  // isn't a change until touched, or every load would raise the save bar.
-  const [touched, setTouched] = useState<ReadonlySet<PlanField>>(new Set());
-  const touch = (...fields: PlanField[]) =>
-    setTouched((prev) => new Set([...prev, ...fields]));
+  // Only touched fields are sent, so this section's copy can't revert a write
+  // from elsewhere, and a suggested datasource doesn't raise the save bar.
+  const [touchedFields, setTouchedFields] = useStagedState<PlanField[]>(
+    "analysis-plan:touched",
+    [],
+  );
+  const touched: ReadonlySet<PlanField> = useMemo(
+    () => new Set(touchedFields),
+    [touchedFields],
+  );
+  const touch = useCallback(
+    (...fields: PlanField[]) =>
+      setTouchedFields((prev) => [...new Set([...prev, ...fields])]),
+    [setTouchedFields],
+  );
+  // What belongs to the old source goes with it.
+  const changeDatasource = (id: string) => {
+    if (id === datasource) return;
+    touch("datasource", "exposureQueryId", "exposureQueryIdentifierType");
+    setDatasource(id);
+    setExposureQueryId("");
+    setIdentifierType("");
+    // Cleared, the rest stays for switching back.
+    if (!id) return;
+    const {
+      goalMetrics: keptGoals,
+      secondaryMetrics: keptSecondaries,
+      guardrailMetrics: keptGuardrails,
+      ...advancedDrops
+    } = datasourceChangeDrops(
+      { ...effective, goalMetrics, secondaryMetrics, guardrailMetrics },
+      {
+        metricFromSource: (metricId) =>
+          (getExperimentMetricById(metricId) ?? getMetricGroupById(metricId))
+            ?.datasource === id,
+        segmentFromSource: (segmentId) =>
+          getSegmentById(segmentId)?.datasource === id,
+      },
+    );
+    (
+      [
+        ["goalMetrics", keptGoals, setGoalMetrics],
+        ["secondaryMetrics", keptSecondaries, setSecondaryMetrics],
+        ["guardrailMetrics", keptGuardrails, setGuardrailMetrics],
+      ] as const
+    ).forEach(([field, kept, set]) => {
+      if (!kept) return;
+      touch(field);
+      set(kept);
+    });
+    stage(advancedDrops);
+  };
+  const changeSelection = (next: AssignmentSelection) => {
+    touch("datasource", "exposureQueryId", "exposureQueryIdentifierType");
+    changeDatasource(next.datasource);
+    setExposureQueryId(next.exposureQueryId);
+    setIdentifierType(next.identifierType);
+    // A table or identifier picked by hand brings its assignment attribute.
+    const { attribute } = resolveSelection(
+      getDatasourceById(next.datasource),
+      next.exposureQueryId,
+      next.identifierType,
+      hashAttribute,
+    );
+    if (attribute) stageHashAttribute?.(attribute);
+  };
   const current = {
     datasource,
     exposureQueryId,
+    exposureQueryIdentifierType: identifierType,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
   };
   const stored = (field: PlanField) =>
-    experiment[field] ??
-    (field === "datasource" || field === "exposureQueryId" ? "" : []);
+    experiment[field] ?? (field.endsWith("Metrics") ? [] : "");
   const edited = [...touched].filter(
     (field) => !isEqual(current[field], stored(field)),
   );
   const dirty = advanced !== null || edited.length > 0;
-  // What the page filled in where the experiment has nothing goes with any
-  // edit, since it shows as chosen.
+  // Values the page filled in where the experiment has none show as chosen, so
+  // they go with any edit.
   const sent = dirty
     ? [
         ...new Set([
           ...edited,
-          ...(["datasource", "exposureQueryId"] as const).filter(
-            (field) => !experiment[field] && !!current[field],
-          ),
+          ...(
+            [
+              "datasource",
+              "exposureQueryId",
+              "exposureQueryIdentifierType",
+            ] as const
+          ).filter((field) => !experiment[field] && !!current[field]),
         ]),
       ]
     : [];
@@ -174,9 +327,16 @@ export default function AnalysisPlan({
         setDatasource(experiment.datasource || suggestedDatasource);
       }
       // A query the page filled in where the experiment has none stays.
+      const keep = keepFilled && !experiment.exposureQueryId;
       if (!except.has("exposureQueryId")) {
         setExposureQueryId(
-          (prev) => experiment.exposureQueryId || (keepFilled ? prev : ""),
+          (prev) => experiment.exposureQueryId || (keep ? prev : ""),
+        );
+      }
+      if (!except.has("exposureQueryIdentifierType")) {
+        setIdentifierType(
+          (prev) =>
+            experiment.exposureQueryIdentifierType || (keep ? prev : ""),
         );
       }
       if (!except.has("goalMetrics")) {
@@ -192,109 +352,193 @@ export default function AnalysisPlan({
     [
       experiment.datasource,
       experiment.exposureQueryId,
+      experiment.exposureQueryIdentifierType,
       experiment.goalMetrics,
       experiment.secondaryMetrics,
       experiment.guardrailMetrics,
       suggestedDatasource,
+      setDatasource,
+      setExposureQueryId,
+      setIdentifierType,
+      setGoalMetrics,
+      setSecondaryMetrics,
+      setGuardrailMetrics,
     ],
   );
   useEffect(() => resync(touchedRef.current), [resync]);
 
-  useRegisterExperimentEdit("analysis-plan", dirty, {
-    changes: () =>
-      experimentFieldChanges(experiment, {
-        ...advanced,
-        ...Object.fromEntries(sent.map((field) => [field, current[field]])),
-      }),
+  useExperimentFieldEdit("analysis-plan", dirty, experiment, {
+    label: "Analysis plan",
+    fields: () => ({
+      ...advanced,
+      ...Object.fromEntries(
+        sent.map((field) => [
+          field,
+          // Unset, the server takes the query's first identifier.
+          field === "exposureQueryIdentifierType"
+            ? current[field] || undefined
+            : current[field],
+        ]),
+      ),
+    }),
     onSaved: () => {
-      setTouched(new Set());
+      setTouchedFields([]);
       setAdvanced(null);
     },
     discard: () => {
       setAdvanced(null);
-      setTouched(new Set());
+      setTouchedFields([]);
       resync(new Set(), false);
     },
   });
 
   const selectedDatasource = getDatasourceById(datasource);
+  const deletedDatasource =
+    datasourceMissing && datasource === experiment.datasource;
   // Set, but in a project the viewer can't see; so is its assignment query.
-  const hiddenDatasource = !!datasource && !selectedDatasource;
-  const restricted = (
-    <Tooltip content="This data source is in a project you don't have access to.">
-      <Flex as="span" align="center" gap="1" style={{ display: "inline-flex" }}>
-        <PiLockSimple />
-        <em>Restricted</em>
-      </Flex>
-    </Tooltip>
-  );
-  const datasourceLabel = selectedDatasource
-    ? selectedDatasource.name
-    : hiddenDatasource
-      ? restricted
-      : "None";
-  const exposureQueries = selectedDatasource?.settings?.queries?.exposure ?? [];
-  const exposureQuery = exposureQueries.find((q) => q.id === exposureQueryId);
-
-  const hashAttribute = experiment.hashAttribute || "";
-  const { matching, other, linked } = useMemo(
+  const hiddenDatasource =
+    !!datasource && !selectedDatasource && !deletedDatasource;
+  const hashAttributeIdentifierTypeMap = useMemo(
     () =>
-      getExposureQueriesForAttribute(
-        selectedDatasource?.settings,
-        hashAttribute,
+      getHashAttributeIdentifierTypeMap(
+        selectedDatasource?.settings?.userIdTypes,
       ),
-    [selectedDatasource?.settings, hashAttribute],
+    [selectedDatasource?.settings?.userIdTypes],
   );
-  const mismatched =
-    linked &&
-    !!exposureQueryId &&
-    !matching.some((q) => q.id === exposureQueryId);
-
-  // Follow the assignment attribute: when the query it leaves behind cannot
-  // analyse the experiment, take the one that can — but only where the
-  // attribute names a single query, and never over a deliberate choice that
-  // still works.
-  const autoAppliedFor = useRef<string | null>(null);
-  useEffect(() => {
-    if (!canEdit || !selectedDatasource) return;
-    const key = `${datasource}:${hashAttribute}`;
-    if (autoAppliedFor.current === key) return;
-    autoAppliedFor.current = key;
-    if (exposureQueryId && !mismatched) return;
-    const suggestion = getAutoExposureQueryId({
-      datasource: selectedDatasource,
+  const resolution = resolveSelection(
+    selectedDatasource,
+    exposureQueryId,
+    identifierType,
+    hashAttribute,
+  );
+  const scopedQueries = useMemo(
+    () =>
+      selectedDatasource
+        ? getExposureQueriesInScope(selectedDatasource, experiment.project)
+        : [],
+    [selectedDatasource, experiment.project],
+  );
+  const followed = useMemo(
+    () =>
+      followAssignmentAttribute({
+        queries: scopedQueries,
+        hashAttribute,
+        hashAttributeIdentifierTypeMap,
+        exposureQueryId,
+        identifierType,
+      }),
+    [
+      scopedQueries,
       hashAttribute,
-    });
-    if (!suggestion || suggestion === exposureQueryId) return;
-    setExposureQueryId(suggestion);
+      hashAttributeIdentifierTypeMap,
+      exposureQueryId,
+      identifierType,
+    ],
+  );
+  // Before it runs, an empty selection fills in and a new assignment attribute
+  // brings its table and identifier; otherwise a conflict is only flagged.
+  const followedFor = useRef<{
+    datasource: string;
+    hashAttribute: string;
+  } | null>(null);
+  useEffect(() => {
+    if (!bound || !selectedDatasource) return;
+    const prev = followedFor.current;
+    if (
+      prev?.datasource === datasource &&
+      prev.hashAttribute === hashAttribute
+    ) {
+      return;
+    }
+    followedFor.current = { datasource, hashAttribute };
+    const attributeChanged = !!prev && prev.hashAttribute !== hashAttribute;
+    if (exposureQueryId && !attributeChanged) return;
+    const next =
+      followed ??
+      (exposureQueryId
+        ? null
+        : {
+            exposureQueryId: getAutoExposureQueryId({
+              datasource: selectedDatasource,
+              hashAttribute,
+              project: experiment.project,
+            }),
+            identifierType: "",
+          });
+    if (!next?.exposureQueryId) return;
+    setExposureQueryId(next.exposureQueryId);
+    setIdentifierType(next.identifierType);
     // An empty field filling itself in is a default; replacing a saved query
     // is a change, and the save bar has to say so.
-    if (experiment.exposureQueryId) touch("exposureQueryId");
+    if (experiment.exposureQueryId) {
+      touch("exposureQueryId", "exposureQueryIdentifierType");
+    }
   }, [
-    canEdit,
+    bound,
     selectedDatasource,
     datasource,
     hashAttribute,
     exposureQueryId,
-    mismatched,
+    followed,
     experiment.exposureQueryId,
+    experiment.project,
+    setExposureQueryId,
+    setIdentifierType,
+    touch,
   ]);
 
-  const activationMetric =
-    advanced && "activationMetric" in advanced
-      ? advanced.activationMetric
-      : experiment.activationMetric;
-  const segment =
-    advanced && "segment" in advanced ? advanced.segment : experiment.segment;
+  const { activationMetric } = effective;
+  const datasourceOptions = datasources
+    .filter(
+      (d) =>
+        d.id === datasource ||
+        (d.id !== demoDataSourceId &&
+          isProjectListValidForProject(d.projects, experiment.project)),
+    )
+    .map((d) => ({ value: d.id, label: d.name }));
 
+  const [editingDatasource, setEditingDatasource] = useState(false);
+  useHoldEditBases(overridesFor !== null || editingDatasource);
+  const editDatasource =
+    canEdit && !hiddenDatasource ? () => setEditingDatasource(true) : null;
+
+  // Pointed at from elsewhere: bring the field into view, or open the place
+  // it's edited.
+  useEffect(() => {
+    if (!settingsOpen) return;
+    setSettingsOpen(false);
+    if (!settingsFocus) setAdvancedOpen(true);
+    const inModal =
+      settingsFocus === "datasource" || settingsFocus === "exposureQuery";
+    if (inModal && canEdit) setEditingDatasource(true);
+    const id = inModal
+      ? "analysis-plan-datasource"
+      : settingsFocus
+        ? `analysis-plan-${settingsFocus}`
+        : "analysis-plan-advanced";
+    requestAnimationFrame(() => {
+      const row = document.getElementById(id);
+      row?.scrollIntoView({ behavior: "smooth", block: "center" });
+      row?.querySelector("input")?.focus({ preventScroll: true });
+    });
+  }, [settingsOpen, settingsFocus, setSettingsOpen, canEdit]);
+
+  // Metrics an experiment can't use show disabled, with the reason.
+  const getMetricDisabledInfo = useMetricDisabledInfo(
+    datasource,
+    experiment.id,
+    experiment.type,
+  );
   const metricRow = (
-    label: string,
-    tooltip: string,
     field: MetricField,
     selected: string[],
     onChange: (ids: string[]) => void,
   ) => (
-    <SetupFieldRow label={label} tooltip={tooltip}>
+    <SetupFieldRow
+      id={`analysis-plan-${field}`}
+      label={METRIC_ROWS[field].label}
+      tooltip={METRIC_ROWS[field].tooltip}
+    >
       <MetricsSelector
         selected={selected}
         onChange={(ids) => {
@@ -303,9 +547,11 @@ export default function AnalysisPlan({
         }}
         datasource={datasource}
         exposureQueryId={exposureQueryId}
+        exposureQueryIdentifierType={identifierType || undefined}
         project={experiment.project}
         includeFacts
         includeGroups
+        getMetricDisabledInfo={getMetricDisabledInfo}
         metricOverrides={metricOverrides}
         targetMDEOverrides={
           field === "goalMetrics" ? targetMDEOverrides : undefined
@@ -341,8 +587,7 @@ export default function AnalysisPlan({
           targetMDEOverrides={targetMDEOverrides}
           close={() => setOverridesFor(null)}
           stageChanges={(next, nextTargetMDEs) => {
-            // The same bounds the full settings modal stages through, so only
-            // well-formed overrides reach the draft.
+            // The same bounds the full settings modal stages through.
             const parsed = experimentAnalysisSettingsDraft.parse({
               metricOverrides: next,
               ...(nextTargetMDEs
@@ -354,252 +599,271 @@ export default function AnalysisPlan({
                   }
                 : {}),
             });
-            setAdvanced((prev) => ({ ...(prev ?? {}), ...parsed }));
+            stage(parsed);
             setOverridesFor(null);
           }}
         />
       ) : null}
-      {settingsOpen ? (
-        <AnalysisForm
-          cancel={() => setSettingsOpen(false)}
-          // Opens on the page's draft, so confirming hands back what it shows.
-          experiment={{ ...settingsScope.experiment, ...current }}
-          mutate={mutate}
-          phase={experiment.phases.length - 1}
-          // Dates are a phase edit, not an analysis setting: they have no place
-          // in this draft, so the modal does not offer them here.
-          editDates={false}
-          editVariationIds={false}
-          editMetrics={true}
-          source="analysis-plan"
-          envs={envs}
-          stageChanges={(changes) => {
-            const {
-              datasource: nextDatasource,
-              exposureQueryId: nextExposureQueryId,
-              goalMetrics: nextGoalMetrics,
-              secondaryMetrics: nextSecondaryMetrics,
-              guardrailMetrics: nextGuardrailMetrics,
-              ...rest
-            } = changes;
-            if (nextDatasource !== undefined) {
-              touch("datasource");
-              setDatasource(nextDatasource);
-            }
-            if (nextExposureQueryId !== undefined) {
-              touch("exposureQueryId");
-              setExposureQueryId(nextExposureQueryId);
-            }
-            if (nextGoalMetrics) {
-              touch("goalMetrics");
-              setGoalMetrics(nextGoalMetrics);
-            }
-            if (nextSecondaryMetrics) {
-              touch("secondaryMetrics");
-              setSecondaryMetrics(nextSecondaryMetrics);
-            }
-            if (nextGuardrailMetrics) {
-              touch("guardrailMetrics");
-              setGuardrailMetrics(nextGuardrailMetrics);
-            }
-            setAdvanced((prev) => ({ ...(prev ?? {}), ...rest }));
-            setSettingsOpen(false);
-          }}
+      {editingDatasource ? (
+        <DataSourceModal
+          experiment={experiment}
+          hashAttribute={hashAttribute}
+          stagesAttribute={!!stageHashAttribute}
+          value={{ datasource, exposureQueryId, identifierType }}
+          suggested={!experiment.datasource}
+          options={datasourceOptions}
+          close={() => setEditingDatasource(false)}
+          change={changeSelection}
         />
       ) : null}
       <Separator size="4" my="2" />
       <Box py="4">
-        <Flex align="center" justify="between" mb="1">
-          <Heading color="text-high" as="h4" size="sm" mb="0">
-            Analysis Plan
-          </Heading>
-          <Flex align="center" gap="3">
-            <Flex align="center" gap="1">
-              <Text as="label" weight="medium" color="text-low" mb="0">
-                Data source:
-              </Text>
-              {canEdit ? (
-                <DropdownMenu
-                  menuPlacement="end"
-                  variant="soft"
-                  trigger={
-                    <Link
-                      type="button"
-                      style={{ color: "var(--color-text-high)" }}
-                    >
-                      <Text mr="1">{datasourceLabel}</Text>
-                      <PiCaretDownFill />
-                    </Link>
+        <Heading color="text-high" as="h4" size="sm" mb="1">
+          Analysis Plan
+        </Heading>
+
+        {/* The assignment query reads back in the details panel. */}
+        <SetupFieldRow
+          id="analysis-plan-datasource"
+          label="Data Source"
+          content="text"
+        >
+          <QuickEditRow label="Edit Data Source" onEdit={editDatasource}>
+            <Text color="text-high">
+              {hiddenDatasource ? (
+                <RestrictedValue />
+              ) : (
+                (selectedDatasource?.name ??
+                (deletedDatasource ? <em>Deleted</em> : <em>None</em>))
+              )}
+            </Text>
+          </QuickEditRow>
+          {resolution.conflict && resolution.identifierType ? (
+            <AttributeConflict
+              hashAttribute={hashAttribute}
+              identifierType={resolution.identifierType}
+            >
+              {canEdit && followed ? (
+                <Link
+                  onClick={() => changeSelection({ datasource, ...followed })}
+                >
+                  Analyze per {followed.identifierType}
+                </Link>
+              ) : null}
+              {stageHashAttribute && resolution.attribute ? (
+                <Link
+                  onClick={() =>
+                    resolution.attribute &&
+                    stageHashAttribute(resolution.attribute)
                   }
                 >
-                  <DropdownMenuGroup>
-                    {[
-                      { id: "", name: "None" },
-                      ...datasources.filter((d) => d.id !== demoDataSourceId),
-                    ].map((d) => (
-                      <DropdownMenuItem
-                        key={d.id || "none"}
-                        onClick={() => {
-                          if (d.id === datasource) return;
-                          touch("datasource", "exposureQueryId");
-                          setDatasource(d.id);
-                          // The old query belongs to the old source.
-                          setExposureQueryId("");
-                        }}
-                      >
-                        {d.name}
-                      </DropdownMenuItem>
-                    ))}
-                  </DropdownMenuGroup>
-                </DropdownMenu>
-              ) : (
-                <Text color="text-high">{datasourceLabel}</Text>
-              )}
-            </Flex>
-            {canEdit ? (
-              <Button
-                variant="ghost"
-                icon={<PiPencilSimple />}
-                onClick={() => setSettingsOpen(true)}
-              >
-                Additional settings
-              </Button>
-            ) : null}
-          </Flex>
-        </Flex>
-
-        <SetupFieldRow
-          label="Assignment Query"
-          tooltip="Defines who is in the experiment and how they are identified."
-          content={hiddenDatasource ? "text" : undefined}
-        >
-          {hiddenDatasource ? (
-            <Text color="text-high">
-              {exposureQueryId ? restricted : <em>None</em>}
-            </Text>
-          ) : (
-            <SelectField
-              value={exposureQueryId}
-              onChange={(value) => {
-                touch("exposureQueryId");
-                setExposureQueryId(value);
-              }}
-              required
-              sort={false}
-              // Without this a discard leaves the old name in the closed
-              // control: react-select goes uncontrolled on an undefined value.
-              forceUndefinedValueToNull
-              placeholder="Select assignment query..."
-              options={
-                linked && matching.length > 0
-                  ? [
-                      {
-                        label: `Keyed to ${hashAttribute}`,
-                        options: matching.map((q) => ({
-                          value: q.id,
-                          label: q.name,
-                        })),
-                      },
-                      ...(other.length > 0
-                        ? [
-                            {
-                              label: "Other assignment queries",
-                              options: other.map((q) => ({
-                                value: q.id,
-                                label: q.name,
-                              })),
-                            },
-                          ]
-                        : []),
-                    ]
-                  : exposureQueries.map((q) => ({
-                      value: q.id,
-                      label: q.name,
-                    }))
-              }
-              formatOptionLabel={({ label, value }) => {
-                const userIdType = exposureQueries.find(
-                  (e) => e.id === value,
-                )?.userIdType;
-                return (
-                  <>
-                    {label}
-                    {userIdType ? (
-                      <span
-                        className="text-muted small float-right position-relative"
-                        style={{ top: 3 }}
-                      >
-                        Identifier Type: <code>{userIdType}</code>
-                      </span>
-                    ) : null}
-                  </>
-                );
-              }}
-              disabled={!canEdit || !selectedDatasource}
-            />
-          )}
-          {mismatched ? (
-            <HelperText status="warning" size="sm" mt="1">
-              This experiment buckets on <code>{hashAttribute}</code>, which is
-              not linked to this query&apos;s identifier type
-              {exposureQuery?.userIdType ? (
-                <>
-                  {" "}
-                  (<code>{exposureQuery.userIdType}</code>)
-                </>
+                  Assign by {resolution.attribute}
+                </Link>
               ) : null}
-              .
+              {editDatasource ? (
+                <Link onClick={editDatasource}>Choose another</Link>
+              ) : null}
+            </AttributeConflict>
+          ) : resolution.choose &&
+            resolution.identifierType !== identifierType ? (
+            // Left unset, the table's first identifier is the one analyzed.
+            <HelperText status="info" size="sm" mt="1">
+              <span>
+                The assignment query has several identifier types, and the
+                assignment attribute doesn&apos;t settle which.{" "}
+                {editDatasource ? (
+                  <Link onClick={editDatasource}>Choose one</Link>
+                ) : null}
+              </span>
             </HelperText>
           ) : null}
         </SetupFieldRow>
 
-        {activationMetric ? (
-          <SetupFieldRow
-            label="Activation metric"
-            tooltip="Only users who convert on this metric are included in the analysis."
-            content="text"
-          >
-            <Link href={getMetricLink(activationMetric)}>
-              {getExperimentMetricById(activationMetric)?.name ||
-                activationMetric}
-            </Link>
-          </SetupFieldRow>
-        ) : null}
+        {metricRow("goalMetrics", goalMetrics, setGoalMetrics)}
+        {metricRow("secondaryMetrics", secondaryMetrics, setSecondaryMetrics)}
+        {metricRow("guardrailMetrics", guardrailMetrics, setGuardrailMetrics)}
 
-        {segment ? (
-          <SetupFieldRow
-            label="Segment"
-            tooltip="Limits the analysis to users in this segment."
-            content="text"
-          >
-            <Text color="text-high">
-              {getSegmentById(segment)?.name || segment}
-            </Text>
-          </SetupFieldRow>
-        ) : null}
+        <DecisionPlan
+          experiment={effective}
+          stage={stage}
+          canEdit={canEdit}
+          canEditSchedule={canEditSchedule}
+          mutate={mutate}
+          envs={envs}
+        />
 
-        {metricRow(
-          "Goal metrics",
-          "What this experiment is trying to improve.",
-          "goalMetrics",
-          goalMetrics,
-          setGoalMetrics,
-        )}
-        {metricRow(
-          "Secondary metrics",
-          "Extra metrics to learn from, but not the objective.",
-          "secondaryMetrics",
-          secondaryMetrics,
-          setSecondaryMetrics,
-        )}
-        {metricRow(
-          "Guardrail metrics",
-          "Metrics to watch for harm, not to improve.",
-          "guardrailMetrics",
-          guardrailMetrics,
-          setGuardrailMetrics,
-        )}
+        <AnalysisPlanAdvanced
+          open={advancedOpen}
+          setOpen={setAdvancedOpen}
+          experiment={effective}
+          datasourceId={datasource}
+          exposureQueryId={exposureQueryId}
+          identifierType={resolution.identifierType}
+          metrics={{ goalMetrics, secondaryMetrics, guardrailMetrics }}
+          stage={stage}
+          manageOverrides={
+            canEdit
+              ? () =>
+                  setOverridesFor([
+                    ...goalMetrics,
+                    ...secondaryMetrics,
+                    ...guardrailMetrics,
+                  ])
+              : undefined
+          }
+          canEdit={canEdit}
+        />
       </Box>
     </>
+  );
+}
+
+function DataSourceModal({
+  experiment,
+  hashAttribute,
+  stagesAttribute,
+  value,
+  suggested,
+  options,
+  close,
+  change,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  hashAttribute: string;
+  // Confirming also stages the attribute the chosen identifier leads to.
+  stagesAttribute: boolean;
+  value: AssignmentSelection;
+  // Filled in by the page rather than saved, so confirming it is a change.
+  suggested: boolean;
+  options: { value: string; label: string }[];
+  close: () => void;
+  change: (next: AssignmentSelection) => void;
+}) {
+  const { getDatasourceById } = useDefinitions();
+  // An experiment saved before identifiers were stored shows the one it uses.
+  const storedQuery = getDatasourceById(
+    value.datasource,
+  )?.settings?.queries?.exposure?.find((q) => q.id === value.exposureQueryId);
+  const initialIdentifier =
+    value.identifierType ||
+    (storedQuery ? resolveAnalysisIdentifierType(storedQuery, undefined) : "");
+  const [datasource, setDatasource] = useState(value.datasource);
+  const [exposureQueryId, setExposureQueryId] = useState(value.exposureQueryId);
+  const [identifierType, setIdentifierType] = useState<string | undefined>(
+    initialIdentifier || undefined,
+  );
+  const selected = getDatasourceById(datasource);
+  const sameSource = datasource === value.datasource;
+  const selection = useAssignmentQuerySelection({
+    datasource: selected,
+    project: experiment.project,
+    hashAttribute,
+    exposureQueryId,
+    identifierType,
+    setExposureQueryId,
+    setIdentifierType,
+    // A new source starts from its defaults; the saved one shows as it is.
+    autoRepair: !sameSource,
+    keepCurrentSelection: sameSource,
+  });
+  const resolution = resolveSelection(
+    selected,
+    exposureQueryId,
+    identifierType,
+    hashAttribute,
+  );
+  const changed =
+    suggested ||
+    !sameSource ||
+    exposureQueryId !== value.exposureQueryId ||
+    (identifierType ?? "") !== initialIdentifier;
+  return (
+    <ModalStandard
+      open
+      header="Data Source"
+      close={close}
+      cta="Confirm"
+      ctaEnabled={changed}
+      trackingEventModalType="experiment-data-source"
+      submit={() => {
+        change({
+          datasource,
+          exposureQueryId,
+          identifierType: identifierType ?? "",
+        });
+        close();
+      }}
+    >
+      <SelectField
+        label="Data Source"
+        labelClassName="font-weight-bold"
+        value={datasource}
+        onChange={setDatasource}
+        initialOption="None"
+        options={options}
+        helpText={
+          !sameSource && value.datasource ? DATASOURCE_CHANGE_NOTE : undefined
+        }
+      />
+      {selected?.properties?.exposureQueries ? (
+        <AssignmentQueryFields
+          selection={selection}
+          placeholder="Choose..."
+          progressive
+        />
+      ) : null}
+      {stagesAttribute && resolution.attribute ? (
+        <HelperText status="info" size="sm">
+          The assignment attribute changes to{" "}
+          <code>{resolution.attribute}</code> to match.
+        </HelperText>
+      ) : resolution.conflict && resolution.identifierType ? (
+        <AttributeConflict
+          hashAttribute={hashAttribute}
+          identifierType={resolution.identifierType}
+        />
+      ) : null}
+    </ModalStandard>
+  );
+}
+
+function resolveSelection(
+  datasource: DataSourceInterfaceWithParams | null,
+  exposureQueryId: string,
+  identifierType: string | undefined,
+  hashAttribute: string,
+) {
+  const settings = datasource?.settings;
+  return resolveAssignmentIdentifier({
+    query: settings?.queries?.exposure?.find((q) => q.id === exposureQueryId),
+    identifierType,
+    hashAttribute,
+    hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+      settings?.userIdTypes,
+    ),
+  });
+}
+
+function AttributeConflict({
+  hashAttribute,
+  identifierType,
+  children,
+}: {
+  hashAttribute: string;
+  identifierType: string;
+  // Ways out, where there are any.
+  children?: ReactNode;
+}) {
+  return (
+    <HelperText status="warning" size="sm" mt="1">
+      <span>
+        This experiment assigns by <code>{hashAttribute}</code> but is analyzed
+        per <code>{identifierType}</code>, which the assignment attribute
+        isn&apos;t linked to.{" "}
+        <Flex as="span" gap="3" display="inline-flex">
+          {children}
+        </Flex>
+      </span>
+    </HelperText>
   );
 }

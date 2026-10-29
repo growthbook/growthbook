@@ -1,6 +1,7 @@
 import { Flex } from "@radix-ui/themes";
 import type { Size } from "@/ui/Avatar";
 import Text, { TextProps } from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 import { useUser } from "@/services/UserContext";
 import UserAvatar from "./UserAvatar";
 
@@ -36,15 +37,16 @@ export default function Owner({
       minWidth={truncate ? "0" : undefined}
     >
       <UserAvatar name={display} size={size} variant="soft" />
-      <Text
-        weight={weight}
-        color={textColor}
-        size={textSize}
-        truncate={truncate}
-        title={truncate ? display : undefined}
-      >
-        {display || "None"}
-      </Text>
+      <Tooltip content={display} enabled={truncate && !!display}>
+        <Text
+          weight={weight}
+          color={textColor}
+          size={textSize}
+          truncate={truncate}
+        >
+          {display || "None"}
+        </Text>
+      </Tooltip>
     </Flex>
   );
 }

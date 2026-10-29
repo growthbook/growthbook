@@ -1,79 +1,241 @@
 import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import { date, daysBetween } from "shared/dates";
-import {
-  PiPencilSimple,
-  PiPlus,
-  PiWarning,
-  PiWarningFill,
-} from "react-icons/pi";
+import { PiLockSimple, PiWarning } from "react-icons/pi";
 import {
   HoldoutInterfaceStringDates,
   ImplementationType,
 } from "shared/validators";
-import { getImplementationType, isAnalysisOnly } from "shared/util";
+import {
+  getExposureQueryIdentifierTypes,
+  getImplementationType,
+  isAnalysisOnly,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
+import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import Text from "@/ui/Text";
 import SortedTags from "@/components/Tags/SortedTags";
 import { tagLinkProps } from "@/services/search";
 import Tooltip from "@/components/Tooltip/Tooltip";
+import UITooltip from "@/ui/Tooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Owner from "@/components/Avatar/Owner";
 import Metadata from "@/ui/Metadata";
-import RunningScheduleLink, {
-  hasStatusSchedule,
-  scheduledEnd,
-  scheduledTime,
-} from "@/components/Experiment/TabbedPage/RunningScheduleLink";
 import Link from "@/ui/Link";
-import { ManagedFlagLink } from "@/components/Experiment/ManagedFlagName";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
-import { getHealthStateFromDetailedStatus } from "@/services/experiments";
 import ProjectBadges from "@/components/ProjectBadges";
+import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
+import { useStagedState } from "./ExperimentEdits";
 
 export type QuickEditField = "project" | "trackingKey" | "owner" | "tags";
 
-export interface Props {
-  /** The managed Feature Flag the experiment owns, if any. */
-  managedFlagId?: string | null;
-  /** An implementation type staged for the page's Save, shown in place of the stored one. */
-  stagedImplementationType?: ImplementationType | null;
-  /** A staged holdout ("" to leave), shown in place of the stored one. */
-  stagedHoldoutId?: string | null;
-  /** Opens the schedule editor, where the schedule can change. */
-  editSchedule?: (() => void) | null;
-  experiment: ExperimentInterfaceStringDates;
-  holdout?: HoldoutInterfaceStringDates;
-  /**
-   * Which of the side panel's blocks to render: who and what the experiment
-   * is and when it ran, or how it is set up.
-   */
-  panel: "about" | "details";
-  /** The quick-edit button for one field's row, where that field is editable. */
-  fieldAction?: (field: QuickEditField) => ReactNode;
-}
+// The quick-edit button for one field's row, where that field is editable.
+type FieldAction = ((field: QuickEditField) => ReactNode) | null;
 
 const toUTCDate = (dateValue: string | Date) => date(dateValue, "UTC");
 
-const empty = (label = "None") => (
-  <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
-    {label}
-  </Text>
-);
+export function EmptyValue({ label = "None" }: { label?: string }) {
+  return (
+    <Text weight="regular" color="text-mid" size="sm" fontStyle="italic">
+      {label}
+    </Text>
+  );
+}
+
+export function RestrictedValue() {
+  return (
+    <UITooltip content="This Data Source is in a Project you don't have access to.">
+      {/* Focusable, so the reason reaches the keyboard too. */}
+      <Flex
+        as="span"
+        align="center"
+        gap="1"
+        tabIndex={0}
+        style={{ display: "inline-flex" }}
+      >
+        <PiLockSimple />
+        <em>Restricted</em>
+      </Flex>
+    </UITooltip>
+  );
+}
+
+export function ExperimentDataFields({
+  experiment,
+  datasourceMissing = false,
+  managedFlagId = null,
+  stagedImplementationType = null,
+  stagedHoldoutId = null,
+  fieldAction = null,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  datasourceMissing?: boolean;
+  // The managed Feature Flag the experiment owns, if any.
+  managedFlagId?: string | null;
+  // An implementation type staged for the page's Save, shown in place of the
+  // stored one.
+  stagedImplementationType?: ImplementationType | null;
+  // A staged holdout ("" to leave), shown in place of the stored one.
+  stagedHoldoutId?: string | null;
+  fieldAction?: FieldAction;
+}) {
+  const holdoutId = stagedHoldoutId ?? experiment.holdoutId ?? "";
+  // Only needed to name the holdout this experiment belongs to.
+  const { holdoutsMap } = useHoldouts(undefined, false, {
+    enabled: !!holdoutId,
+  });
+  const { useStickyBucketing } = useOrgSettings();
+  const { getDatasourceById } = useDefinitions();
+  // The Analysis Plan's staged changes, until they're saved.
+  const [datasourceId] = useStagedState(
+    "analysis-plan:datasource",
+    experiment.datasource || "",
+  );
+  const [exposureQueryId] = useStagedState(
+    "analysis-plan:exposureQueryId",
+    experiment.exposureQueryId || "",
+  );
+  const [identifierType] = useStagedState(
+    "analysis-plan:exposureQueryIdentifierType",
+    experiment.exposureQueryIdentifierType || "",
+  );
+  const datasource = getDatasourceById(datasourceId);
+  const deletedDatasource =
+    datasourceMissing && datasourceId === experiment.datasource;
+  const exposureQuery = datasource?.settings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
+  );
+  const isHoldout = experiment.type === "holdout";
+  // Experiments adopted before the type was stored only carry the flag's marker.
+  const implementationType =
+    stagedImplementationType ||
+    (managedFlagId ? "values" : getImplementationType(experiment));
+
+  return (
+    <Flex direction="column" gap="3">
+      {!isHoldout && (
+        <Metadata
+          size="sm"
+          stacked
+          label="Experiment key"
+          action={fieldAction?.("trackingKey")}
+          value={experiment.trackingKey || <EmptyValue />}
+        />
+      )}
+      {!isHoldout && (
+        <Metadata
+          size="sm"
+          stacked
+          label="Implementation"
+          value={
+            implementationType ? (
+              IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
+            ) : (
+              <EmptyValue label="Not set" />
+            )
+          }
+        />
+      )}
+      {!isHoldout && implementationType === "values" && managedFlagId ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Managed Feature Flag"
+          value={<ManagedFlagLink featureId={managedFlagId} />}
+        />
+      ) : null}
+      <Metadata
+        size="sm"
+        stacked
+        label="Data Source"
+        value={
+          datasourceId ? (
+            datasource?.name ||
+            (deletedDatasource ? <em>Deleted</em> : <RestrictedValue />)
+          ) : (
+            <EmptyValue />
+          )
+        }
+      />
+      {datasourceId ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Assignment query"
+          value={
+            exposureQueryId ? (
+              (exposureQuery?.name ??
+              (datasource || deletedDatasource ? (
+                <em>Not found</em>
+              ) : (
+                <RestrictedValue />
+              )))
+            ) : (
+              <EmptyValue />
+            )
+          }
+        />
+      ) : null}
+      {/* A table with one identifier type implies it. */}
+      {exposureQuery &&
+      getExposureQueryIdentifierTypes(exposureQuery).length > 1 ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Identifier type"
+          value={resolveAnalysisIdentifierType(
+            exposureQuery,
+            identifierType || undefined,
+          )}
+        />
+      ) : null}
+      {holdoutId && (
+        <Metadata
+          size="sm"
+          stacked
+          label="Holdout"
+          value={
+            <Link href={`/holdout/${holdoutId}`}>
+              {holdoutsMap.get(holdoutId)?.name}
+            </Link>
+          }
+        />
+      )}
+      <Metadata
+        size="sm"
+        stacked
+        label="Assignment attribute"
+        value={
+          experiment.fallbackAttribute
+            ? `${experiment.hashAttribute}, falling back to ${experiment.fallbackAttribute}`
+            : experiment.hashAttribute || "id"
+        }
+      />
+      {!isHoldout && useStickyBucketing && !isAnalysisOnly(experiment) ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Sticky bucketing"
+          value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
+        />
+      ) : null}
+    </Flex>
+  );
+}
 
 export default function ProjectTagBar({
   experiment,
   holdout,
-  managedFlagId = null,
-  stagedImplementationType = null,
-  stagedHoldoutId = null,
-  editSchedule = null,
-  panel,
-  fieldAction,
-}: Props) {
+  fieldAction = null,
+}: {
+  experiment: ExperimentInterfaceStringDates;
+  holdout?: HoldoutInterfaceStringDates;
+  fieldAction?: FieldAction;
+}) {
   const {
     projects,
     project: currentProject,
@@ -83,93 +245,6 @@ export default function ProjectTagBar({
   const projectId = experiment.project;
   const projectName = getProjectById(experiment.project || "")?.name || null;
   const projectIsDeReferenced = projectId && !projectName;
-
-  const holdoutId = stagedHoldoutId ?? experiment.holdoutId ?? "";
-  // Only needed to name the holdout this experiment belongs to.
-  const { holdoutsMap } = useHoldouts(undefined, false, {
-    enabled: !!holdoutId,
-  });
-
-  const statusIndicator = useExperimentStatusIndicator()(experiment);
-  const { useStickyBucketing } = useOrgSettings();
-  // A data problem shows as a health badge below, so the status leaves it out.
-  const statusDetail = getHealthStateFromDetailedStatus(
-    statusIndicator.detailedStatus,
-  )
-    ? null
-    : statusIndicator.detailedStatus;
-  const isHoldout = experiment.type === "holdout";
-  // Experiments adopted before the type was stored only carry the flag's marker.
-  const implementationType =
-    stagedImplementationType ||
-    (managedFlagId ? "values" : getImplementationType(experiment));
-
-  if (panel === "details") {
-    return (
-      <Flex direction="column" gap="3">
-        {!isHoldout && (
-          <Metadata
-            size="sm"
-            stacked
-            label="Implementation"
-            value={
-              implementationType
-                ? IMPLEMENTATION_TYPE_OPTIONS[implementationType].header
-                : empty("Not set")
-            }
-          />
-        )}
-        {!isHoldout && implementationType === "values" && managedFlagId ? (
-          <Metadata
-            size="sm"
-            stacked
-            label="Managed flag"
-            value={<ManagedFlagLink featureId={managedFlagId} />}
-          />
-        ) : null}
-        {!isHoldout && useStickyBucketing && !isAnalysisOnly(experiment) ? (
-          <Metadata
-            size="sm"
-            stacked
-            label="Sticky bucketing"
-            value={experiment.disableStickyBucketing ? "Disabled" : "Enabled"}
-          />
-        ) : null}
-        {!isHoldout && (
-          <Metadata
-            size="sm"
-            stacked
-            label="Experiment Key"
-            actionPlacement="value"
-            action={fieldAction?.("trackingKey")}
-            value={experiment.trackingKey || empty()}
-          />
-        )}
-        {holdoutId && (
-          <Metadata
-            size="sm"
-            stacked
-            label="Holdout"
-            value={
-              <Link href={`/holdout/${holdoutId}`}>
-                {holdoutsMap.get(holdoutId)?.name}
-              </Link>
-            }
-          />
-        )}
-        <Metadata
-          size="sm"
-          stacked
-          label="Assignment attribute"
-          value={
-            experiment.fallbackAttribute
-              ? `${experiment.hashAttribute}, falling back to ${experiment.fallbackAttribute}`
-              : experiment.hashAttribute || "id"
-          }
-        />
-      </Flex>
-    );
-  }
 
   const projectValue = projectIsDeReferenced ? (
     <Tooltip
@@ -184,7 +259,7 @@ export default function ProjectTagBar({
       </span>
     </Tooltip>
   ) : !projectId ? (
-    empty()
+    <EmptyValue />
   ) : currentProject && currentProject !== experiment.project ? (
     <Tooltip body={<>This experiment is not in your current project.</>}>
       <strong>{projectName}</strong> <PiWarning className="text-warning" />
@@ -201,7 +276,6 @@ export default function ProjectTagBar({
         size="sm"
         stacked
         label="Owner"
-        actionPlacement="value"
         action={fieldAction?.("owner")}
         value={
           <Owner
@@ -226,7 +300,7 @@ export default function ProjectTagBar({
                 projectIds={holdout.projects}
               />
             ) : (
-              empty()
+              <EmptyValue />
             )
           }
         />
@@ -235,7 +309,6 @@ export default function ProjectTagBar({
           size="sm"
           stacked
           label="Project"
-          actionPlacement="value"
           action={fieldAction?.("project")}
           value={projectValue}
         />
@@ -244,7 +317,6 @@ export default function ProjectTagBar({
         size="sm"
         stacked
         label="Tags"
-        actionPlacement="value"
         action={fieldAction?.("tags")}
         value={
           experiment.tags?.length > 0 ? (
@@ -256,115 +328,50 @@ export default function ProjectTagBar({
               {...tagLinkProps("experiments")}
             />
           ) : (
-            empty()
+            <EmptyValue />
           )
         }
       />
-      <Metadata
-        size="sm"
-        stacked
-        label="Status"
-        value={
-          <Text size="sm" color="text-high">
-            {statusIndicator.status}
-            {statusDetail ? (
-              <Text size="sm" color="text-mid">
-                {" "}
-                · {statusDetail}
-              </Text>
-            ) : null}
-          </Text>
-        }
-      />
-      {/* Spaced like the rail's other items; a schedule link sits close
-          under the date it edits. */}
-      <Flex direction="column" gap="3">
-        <ExperimentDates experiment={experiment} />
-        {experiment.status === "draft" && !isHoldout ? (
-          <DraftSchedule
-            experiment={experiment}
-            // Once the start is confirmed, it changes from the header.
-            editSchedule={
-              experiment.nextScheduledStatusUpdate || experiment.archived
-                ? null
-                : editSchedule
-            }
-          />
-        ) : null}
-        {editSchedule &&
-        experiment.status === "running" &&
-        !isHoldout &&
-        experiment.type !== "multi-armed-bandit" &&
-        !experiment.archived ? (
-          <Box mt="-2">
-            <RunningScheduleLink
-              experiment={experiment}
-              editSchedule={editSchedule}
-            />
-          </Box>
-        ) : null}
-      </Flex>
     </Flex>
   );
 }
 
-/** A draft's scheduled start and end, with the way to set them. */
-function DraftSchedule({
+export function ExperimentStatusField({
   experiment,
-  editSchedule,
 }: {
   experiment: ExperimentInterfaceStringDates;
-  editSchedule: (() => void) | null;
 }) {
-  const schedule = experiment.statusUpdateSchedule;
-  const hasSchedule = hasStatusSchedule(experiment);
-  const startPassed =
-    !!schedule?.startAt && new Date(schedule.startAt) < new Date();
-  const end = scheduledEnd(schedule);
+  const statusIndicator = useExperimentStatusIndicator()(experiment);
+  const statusDetail = statusIndicator.detailedStatus;
+  const result =
+    experiment.status === "stopped" && statusDetail
+      ? experiment.results
+      : undefined;
+
   return (
-    <>
-      {schedule?.startAt ? (
-        <Metadata
-          size="sm"
-          stacked
-          label="Scheduled start"
-          value={
-            <Flex align="center" gap="1">
-              {startPassed ? (
-                <Tooltip body="This start time has passed. Edit the schedule to set a new one.">
-                  <PiWarningFill color="var(--warning)" />
-                </Tooltip>
-              ) : null}
-              <Text size="sm" color="text-high">
-                {scheduledTime(schedule.startAt)}
-              </Text>
-            </Flex>
-          }
-        />
-      ) : null}
-      {end ? (
-        <Metadata size="sm" stacked label="Scheduled end" value={end} />
-      ) : null}
-      {editSchedule ? (
-        <Link onClick={editSchedule} mt="-2">
-          <Flex align="center" gap="1">
-            {!hasSchedule && <PiPlus size="12" />}
-            <Text size="sm">
-              {hasSchedule ? "Edit Schedule" : "Add Schedule"}
+    <Metadata
+      size="sm"
+      stacked
+      label="Status"
+      value={
+        <Flex align="baseline" gap={result ? "2" : "1"}>
+          <Text size="sm" color="text-high">
+            {statusIndicator.status}
+          </Text>
+          {result ? (
+            <ResultsIndicator results={result} size="xs" />
+          ) : statusDetail ? (
+            <Text size="sm" color="text-mid">
+              · {statusDetail}
             </Text>
-            {hasSchedule && <PiPencilSimple size="12" />}
-          </Flex>
-        </Link>
-      ) : null}
-    </>
+          ) : null}
+        </Flex>
+      }
+    />
   );
 }
 
-/**
- * When the experiment ran, as far as it has. A holdout counts from its first
- * phase; anything else from its latest.
- */
-function ExperimentDates({
+export function ExperimentDates({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;

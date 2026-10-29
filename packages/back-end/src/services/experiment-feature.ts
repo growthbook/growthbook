@@ -3,8 +3,8 @@ import omit from "lodash/omit";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DRAFT_REVISION_STATUSES,
-  autoMerge,
   AutoMergeResult,
+  checkIfRevisionNeedsReview,
   getEffectiveRevisionHoldout,
   getMatchingRules,
   isManagedByExperiment,
@@ -12,7 +12,6 @@ import {
   liveRevisionFromFeature,
   MatchingRule,
   mergeResultHasChanges,
-  reconcileMergeBaselines,
 } from "shared/util";
 import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
@@ -30,18 +29,20 @@ import {
 } from "shared/validators";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { ApiReqContext } from "back-end/types/api";
-import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
+import {
+  getEnvironmentIdsFromOrg,
+  getEnvironments,
+} from "back-end/src/util/organization.util";
 import {
   assessRevisionApproval,
-  featureReviewRequired,
+  flagBypass,
   mergeDraftForAutoPublish,
 } from "back-end/src/services/featurePublishGates";
 import {
   addLinkedExperiment,
   editFeatureRules,
-  featureIdExists,
   getFeature,
-  getManagedFlagIdsUnfiltered,
+  getFeatureProjectsByIds,
   prevalidatePublishRevision,
   publishRevision,
   updateFeature,
@@ -52,8 +53,13 @@ import {
   getFeatureRevisionsByStatus,
   getLinkageSyncRevisionSummaries,
   getRevision,
+  initialRevision,
+  prepareFeatureRevision,
+  prevalidateRevisionUpdate,
+  RevisionContentChangedError,
   updateRevision,
 } from "back-end/src/models/FeatureRevisionModel";
+import { customHooksActive } from "back-end/src/enterprise/sandbox/sandbox-eval";
 import {
   draftTakesRuleOut,
   getLaunchDraftVersion,
@@ -73,9 +79,14 @@ import {
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { recordRevisionUpdate } from "back-end/src/services/featureRevisionEvents";
 import { resolveHoldoutExperimentToLink } from "back-end/src/services/holdouts";
-import { stampRuleForEnvs } from "back-end/src/util/revisionRuleOps";
+import {
+  enableFootprintEnvironments,
+  resolveLinkTargetVersion,
+  scopeLinkedRefRule,
+} from "back-end/src/util/revisionRuleOps";
 import {
   assertValidRuleWrite,
+  discardIfJustCreated,
   withStagedSchema,
 } from "back-end/src/api/features/validations";
 import { ReqContext } from "back-end/types/request";
@@ -90,11 +101,12 @@ import {
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
 import { assertConfigBackedFeatureValuesValid } from "back-end/src/services/configValidation";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
+import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
 
 export type ExperimentFeatureLinkResult = {
   version: number;
   published: boolean;
-  ruleId: string;
 };
 
 type ExperimentFeatureLinkOptions = {
@@ -104,50 +116,10 @@ type ExperimentFeatureLinkOptions = {
   rule: ExperimentRefRule;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
-  /** Land the rule immediately instead of leaving it staged in a draft. */
   autoPublish?: boolean;
-  /** Bundle into this open draft rather than starting a new one. */
   draftVersion?: number;
-  /** Start a new draft off live rather than reusing an open one. */
   forceNewDraft?: boolean;
 };
-
-/**
- * Unlinks a flag from the experiment. Needs feature-side edit rights too:
- * unlinking cancels a queued autopublish the feature team may be managing.
- * Edit-class, not publish, since nothing reaches the payload.
- */
-export async function unlinkFlagFromExperiment(
-  context: ReqContext | ApiReqContext,
-  experimentId: string,
-  featureId: string,
-): Promise<void> {
-  const feature = await getFeature(context, featureId);
-  // Only a flag that's gone is pruned unseen; one the caller can't read isn't.
-  if (!feature && (await featureIdExists(context, featureId))) {
-    context.permissions.throwPermissionError();
-  }
-  await assertFlagUnlinkable(context, experimentId, featureId, feature);
-  await unlinkFeatureFromExperiment(context, experimentId, featureId);
-}
-
-async function assertFlagUnlinkable(
-  context: ReqContext | ApiReqContext,
-  experimentId: string,
-  featureId: string,
-  feature: FeatureInterface | null,
-): Promise<void> {
-  if (feature && !context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
-  }
-  // Unfiltered: an unreadable flag is still managed.
-  const managedIds = await getManagedFlagIdsUnfiltered(context, experimentId);
-  if (managedIds.includes(featureId)) {
-    throw new BadRequestError(
-      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
-    );
-  }
-}
 
 // Another experiment's managed flag serves only that experiment.
 export function assertNotManagedElsewhere(
@@ -158,23 +130,32 @@ export function assertNotManagedElsewhere(
   assertLoadedFeatureNotManaged(feature);
 }
 
-// Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
-export async function linkFeatureToExperiment({
+type ExperimentFeatureLinkCheck = Omit<
+  ExperimentFeatureLinkOptions,
+  "eventAudit" | "audit"
+>;
+
+// `experiment` may be the state a save leaves it in, e.g. with a variation the
+// same save adds.
+export async function assertFlagLinkable({
   context,
   experiment,
   feature,
   rule,
-  eventAudit,
-  audit,
   autoPublish,
   draftVersion,
   forceNewDraft,
-}: ExperimentFeatureLinkOptions): Promise<ExperimentFeatureLinkResult> {
+}: ExperimentFeatureLinkCheck): Promise<{
+  scopedRule: FeatureRule;
+  ruleEnvFootprint: string[];
+  targetVersion: number;
+  target: FeatureRevisionInterface | null;
+}> {
   const { environments } = context;
 
   if (
     rule.type !== "experiment-ref" ||
-    !rule.experimentId ||
+    rule.experimentId !== experiment.id ||
     !rule.variations ||
     !rule.variations.length
   ) {
@@ -192,42 +173,36 @@ export async function linkFeatureToExperiment({
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
+  assertScheduledStartAllows(experiment, "linked Feature Flags");
 
-  // allEnvironments strips any stale environments[].
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
+  const targetVersion = resolveLinkTargetVersion(feature, {
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
+  });
+  // Null when the rule lands on a new draft cut from live.
+  const target =
+    targetVersion === feature.version
+      ? null
+      : await getRevision({
+          context,
+          organization: context.org.id,
+          featureId: feature.id,
+          feature,
+          version: targetVersion,
+        });
+
+  const scopedRule = scopeLinkedRefRule(
+    { ...rule, id: generateRuleId() } as FeatureRule,
+    environments,
+  );
 
   await assertValidRuleWrite(
     context,
-    withStagedSchema(
-      feature,
-      draftVersion
-        ? await getRevision({
-            context,
-            organization: context.org.id,
-            featureId: feature.id,
-            feature,
-            version: draftVersion,
-          })
-        : null,
-    ),
+    withStagedSchema(feature, target),
     scopedRule,
+    undefined,
+    [experiment],
   );
   const ruleEnvFootprint = scopedRule.allEnvironments
     ? environments
@@ -246,35 +221,113 @@ export async function linkFeatureToExperiment({
     rules: [scopedRule],
   });
 
-  // autoPublish always starts from live so the merge stays clean.
-  const targetVersion =
-    autoPublish || forceNewDraft
-      ? feature.version
-      : (draftVersion ?? feature.version);
-
-  const revision = await getDraftRevision(context, feature, targetVersion);
-
-  // If posting to a different revision, use the holdout from that revision
-  // to check compatibility
-  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-
+  // A draft cut from live carries live's holdout.
   await resolveHoldoutExperimentToLink({
     context,
     feature,
     experiment,
-    effectiveHoldout,
+    effectiveHoldout: getEffectiveRevisionHoldout(target ?? {}, feature),
   });
 
+  return { scopedRule, ruleEnvFootprint, targetVersion, target };
+}
+
+// Runs the validation hooks on the draft this link would write, before the
+// save writes anything; linking runs them again. `unsaved`: a flag the same
+// save creates.
+export async function prevalidateFlagLink(
+  check: ExperimentFeatureLinkCheck,
+  { unsaved = false }: { unsaved?: boolean } = {},
+): Promise<void> {
+  const { scopedRule, ruleEnvFootprint, target } =
+    await assertFlagLinkable(check);
+  const { context, feature } = check;
+  if (!customHooksActive(context)) return;
+  const user = context.auditUser;
+  const environments = getEnvironmentIdsFromOrg(context.org);
+  // Cut from live as getDraftRevision cuts one, so by whoever is saving.
+  const draft =
+    target ??
+    (
+      await prepareFeatureRevision({
+        context,
+        feature,
+        user,
+        environments,
+        baseVersion: feature.version,
+        ...(unsaved && {
+          unsavedLive: initialRevision(feature, user, environments),
+        }),
+      })
+    ).revision;
+  await prevalidateRevisionUpdate(
+    context,
+    feature,
+    draft,
+    linkDraftChanges(
+      context.environments,
+      feature,
+      draft,
+      scopedRule,
+      ruleEnvFootprint,
+    ),
+  );
+}
+
+function linkDraftChanges(
+  environments: string[],
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  scopedRule: FeatureRule,
+  footprint: string[],
+): Partial<FeatureRevisionInterface> {
   const environmentsEnabled = enableFootprintEnvironments(
     feature,
     revision,
     environments,
-    ruleEnvFootprint,
+    footprint,
   );
-  const combinedChanges: Partial<FeatureRevisionInterface> = {
+  return {
     rules: [...cloneDeep(revision.rules ?? []), scopedRule],
     ...(environmentsEnabled && { environmentsEnabled }),
   };
+}
+
+// Stage (or land) an experiment-ref rule. Mirrors `linkFeatureToContextualBandit`.
+export async function linkFeatureToExperiment({
+  context,
+  experiment,
+  feature,
+  rule,
+  eventAudit,
+  audit,
+  autoPublish,
+  draftVersion,
+  forceNewDraft,
+}: ExperimentFeatureLinkOptions): Promise<ExperimentFeatureLinkResult> {
+  const { environments } = context;
+  const { scopedRule, ruleEnvFootprint, targetVersion } =
+    await assertFlagLinkable({
+      context,
+      experiment,
+      feature,
+      rule,
+      autoPublish,
+      draftVersion,
+      forceNewDraft,
+    });
+
+  // A draft opened off live is this call's to discard if it can't finish.
+  const created = targetVersion === feature.version;
+  const revision = await getDraftRevision(context, feature, targetVersion);
+
+  const combinedChanges = linkDraftChanges(
+    environments,
+    feature,
+    revision,
+    scopedRule,
+    ruleEnvFootprint,
+  );
   // Title fresh drafts only — don't clobber a user's title on an existing draft.
   const bundlingIntoExistingDraft =
     !!draftVersion && !forceNewDraft && !autoPublish;
@@ -288,31 +341,37 @@ export async function linkFeatureToExperiment({
   const auditSubject = scopedRule.allEnvironments
     ? "to all environments"
     : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-  const updatedRevision =
-    (await updateRevision(context, feature, revision, combinedChanges, {
-      user: eventAudit,
-      action: "add experiment rule",
-      subject: auditSubject,
-      value: JSON.stringify(scopedRule),
-    })) ?? revision;
-  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
-    environments: ruleEnvFootprint,
-  });
+  let updatedRevision = revision;
+  let updatedFeature: FeatureInterface | null = null;
+  try {
+    updatedRevision =
+      (await updateRevision(context, feature, revision, combinedChanges, {
+        user: eventAudit,
+        action: "add experiment rule",
+        subject: auditSubject,
+        value: JSON.stringify(scopedRule),
+      })) ?? revision;
+    await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
+      environments: ruleEnvFootprint,
+    });
+    if (autoPublish) {
+      await assertCanAutoPublish(context, feature, updatedRevision);
+      updatedFeature = await mergeAndPublishRevision({
+        context,
+        feature,
+        revision: updatedRevision,
+        comment: `Add experiment rule for "${experiment.name}"`,
+        bypassLockdown: flagBypass(context, feature, { optIn: true }).lockdown,
+        conflictMessage: `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
+      });
+    }
+  } catch (err) {
+    await discardIfJustCreated(context, revision, created);
+    throw err;
+  }
 
   let published = false;
-  if (autoPublish) {
-    await assertCanAutoPublish(context, feature, updatedRevision);
-    const updatedFeature = await mergeAndPublishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-        feature,
-        "feature",
-      ),
-      conflictMessage: `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-    });
+  if (updatedFeature) {
     await audit({
       event: "feature.publish",
       entity: { object: "feature", id: feature.id },
@@ -342,37 +401,7 @@ export async function linkFeatureToExperiment({
     experiment,
   );
 
-  return {
-    version: updatedRevision.version,
-    published,
-    ruleId: scopedRule.id,
-  };
-}
-
-// One-way: a footprint environment that is off switches on; none switches off.
-function enableFootprintEnvironments(
-  feature: FeatureInterface,
-  revision: Pick<FeatureRevisionInterface, "environmentsEnabled">,
-  orgEnvironments: string[],
-  footprint: string[],
-): Record<string, boolean> | null {
-  const enabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      orgEnvironments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const toggles = Object.fromEntries(
-    footprint
-      .filter((e) => orgEnvironments.includes(e) && !enabled[e])
-      .map((e) => [e, true]),
-  );
-  return Object.keys(toggles).length
-    ? { ...(revision.environmentsEnabled ?? {}), ...toggles }
-    : null;
+  return { version: updatedRevision.version, published };
 }
 
 async function mergeAndPublishRevision({
@@ -390,23 +419,7 @@ async function mergeAndPublishRevision({
   bypassLockdown: boolean;
   conflictMessage: string;
 }) {
-  const { live, base } = await getLiveAndBaseRevisionsForFeature({
-    context,
-    feature,
-    revision,
-  });
-  const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-    feature,
-    live,
-    base,
-  );
-  const mergeResult = autoMerge(
-    mergeLive,
-    mergeBase,
-    revision,
-    context.environments,
-    {},
-  );
+  const mergeResult = await mergeOntoLive(context, feature, revision);
   if (!mergeResult.success) throw new Error(conflictMessage);
   return publishRevision({
     context,
@@ -418,106 +431,82 @@ async function mergeAndPublishRevision({
   });
 }
 
+async function mergeOntoLive(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+) {
+  const { live, base } = await getLiveAndBaseRevisionsForFeature({
+    context,
+    feature,
+    revision,
+  });
+  return mergeDraftForAutoPublish(context, feature, revision, live, base)
+    .mergeResult;
+}
+
 export type ExperimentFeatureUpdatePlan = {
   feature: FeatureInterface;
   existingRevision?: FeatureRevisionInterface;
   matchingRules: MatchingRule[];
 };
 
-export type ExperimentFeatureValueRevisionOptions = {
-  targetVersion?: number;
-  autoPublish?: boolean;
-  forceNewDraft?: boolean;
-};
-
 export type ExperimentLinkedFeatureValueUpdate = {
   variations: ExperimentRefVariation[];
-  // JSON features only. When provided, sets the matching experiment-ref rule's
-  // sparse flag (the variation values are partial objects merged onto the
-  // feature default). Omitted = leave the rule's existing sparse flag untouched.
+  // JSON only: values are partial objects merged onto the default. Omitted keeps
+  // the rule's own sparse flag.
   sparse?: boolean;
-  /** Managed flags only. */
+  // Managed flags only.
   valueType?: FeatureValueType;
-  /** Re-scopes the rule; omitted leaves its environments as they are. */
+  // Omitted leaves the rule's environments as they are.
   environments?: ExperimentRuleEnvironments;
-  revisionOptions: ExperimentFeatureValueRevisionOptions;
+  // Omitted means all of the experiment's rules.
+  ruleIds?: string[];
+  // Null starts a new draft off live.
+  targetVersion: number | null;
 };
 
-function assertLinkedFeatureRevisionOptions(
-  featureId: string,
-  revisionOptions: ExperimentFeatureValueRevisionOptions | undefined,
-): asserts revisionOptions is ExperimentFeatureValueRevisionOptions {
-  if (revisionOptions === undefined) {
-    throw new Error(`Feature ${featureId}: revisionOptions is required`);
-  }
-  if (
-    revisionOptions.targetVersion === undefined &&
-    revisionOptions.autoPublish === undefined &&
-    revisionOptions.forceNewDraft === undefined
-  ) {
-    throw new Error(
-      `Feature ${featureId}: revisionOptions must set at least one of targetVersion, autoPublish, or forceNewDraft`,
-    );
-  }
-}
-
+// One flag's values against the experiment's variations and weights.
 export function validateExperimentFeatureVariations({
   variations,
   variationWeights,
-  experiment,
-  features,
+  experimentType,
+  featureId,
+  update,
 }: {
   variations: Variation[];
   variationWeights: number[];
-  experiment: ExperimentInterface;
-  features: Record<string, ExperimentLinkedFeatureValueUpdate>;
+  experimentType: ExperimentInterface["type"];
+  featureId: string;
+  update: Pick<ExperimentLinkedFeatureValueUpdate, "variations">;
 }) {
-  const existingVariations = experiment.variations;
-
-  if (variations.length !== variationWeights.length) {
-    throw new Error("variations and variationWeights must be the same length.");
-  }
-  if (!isVariationWeightsSumValid(variationWeights)) {
-    throw new Error("variationWeights must add up to 1.");
-  }
-  if (variations.length < existingVariations.length) {
-    throw new Error("Existing experiment variations cannot be removed.");
-  }
-  for (let i = 0; i < existingVariations.length; i++) {
-    const existingVariation = existingVariations[i];
-    const incomingVariation = variations[i];
-    if (
-      existingVariation?.id &&
-      (!incomingVariation || incomingVariation.id !== existingVariation.id)
-    ) {
+  // A bandit sets its own weights, so they don't gate its values.
+  if (experimentType !== "multi-armed-bandit") {
+    if (variations.length !== variationWeights.length) {
       throw new Error(
-        "Existing experiment variation IDs must remain unchanged. Only new variations can be added.",
+        "variations and variationWeights must be the same length.",
       );
     }
-  }
-  if (
-    Object.values(features).some(
-      (v) => v.variations.length !== variations.length,
-    )
-  ) {
-    throw new Error("All features must specify values for all variations.");
-  }
-  for (const [featureId, entry] of Object.entries(features)) {
-    const refVariations = entry.variations;
-    for (let i = 0; i < refVariations.length; i++) {
-      const expectedVariationId = variations[i]?.id;
-      if (!expectedVariationId) {
-        throw new Error(
-          `Variation at index ${i} is missing an id; ensure variations are normalized before validation.`,
-        );
-      }
-      if (refVariations[i].variationId !== expectedVariationId) {
-        throw new Error(
-          `Feature ${featureId}: experiment ref variation at index ${i} must use variationId "${expectedVariationId}".`,
-        );
-      }
+    if (!isVariationWeightsSumValid(variationWeights)) {
+      throw new Error("variationWeights must add up to 1.");
     }
   }
+  if (update.variations.length !== variations.length) {
+    throw new Error("All features must specify values for all variations.");
+  }
+  update.variations.forEach((refVariation, i) => {
+    const expectedVariationId = variations[i]?.id;
+    if (!expectedVariationId) {
+      throw new Error(
+        `Variation at index ${i} is missing an id; ensure variations are normalized before validation.`,
+      );
+    }
+    if (refVariation.variationId !== expectedVariationId) {
+      throw new Error(
+        `Feature ${featureId}: experiment ref variation at index ${i} must use variationId "${expectedVariationId}".`,
+      );
+    }
+  });
 }
 
 export async function updateExperimentRefVariations({
@@ -529,7 +518,6 @@ export async function updateExperimentRefVariations({
   sparse,
   ruleUpdates,
   user,
-  guardDateUpdated = false,
 }: {
   context: ReqContext;
   feature: FeatureInterface;
@@ -540,7 +528,6 @@ export async function updateExperimentRefVariations({
   // Other rule fields written with the values, e.g. its environment scope.
   ruleUpdates?: Partial<ExperimentRefRule>;
   user: EventUser;
-  guardDateUpdated?: boolean;
 }): Promise<FeatureRevisionInterface> {
   // Experiment-served values must satisfy the backing Config's schema +
   // invariants, the same as a direct feature publish — enforced here at
@@ -579,7 +566,7 @@ export async function updateExperimentRefVariations({
       ...(sparse !== undefined && { sparse }),
     },
     user,
-    { guardDateUpdated },
+    { guardDateUpdated: true },
   );
 
   if (!updatedRevision) {
@@ -603,110 +590,77 @@ function sameRuleEnvironments(
   );
 }
 
-export async function validateExperimentFeatureUpdates({
+// Null when the flag already holds these values.
+export async function validateExperimentFeatureUpdate({
   experiment,
-  features,
-  linkedFeatures,
+  feature,
+  update,
   context,
 }: {
   experiment: ExperimentInterface;
-  features: Record<string, ExperimentLinkedFeatureValueUpdate>;
-  linkedFeatures: FeatureInterface[];
+  feature: FeatureInterface;
+  update: ExperimentLinkedFeatureValueUpdate;
   context: ReqContext;
-}): Promise<ExperimentFeatureUpdatePlan[]> {
-  const plans: ExperimentFeatureUpdatePlan[] = [];
-
-  for (const feature of linkedFeatures) {
-    const entry = features[feature.id];
-    if (!entry) {
-      throw new Error(
-        `No feature value update provided for feature ${feature.id}`,
-      );
-    }
-    assertLinkedFeatureRevisionOptions(feature.id, entry.revisionOptions);
-    const { targetVersion, autoPublish, forceNewDraft } = entry.revisionOptions;
-
-    const useExistingRevision = targetVersion && !forceNewDraft && !autoPublish;
-
-    const revision = useExistingRevision
+}): Promise<ExperimentFeatureUpdatePlan | null> {
+  const { targetVersion } = update;
+  const revision =
+    targetVersion !== null
       ? await getDraftRevision(context, feature, targetVersion)
       : await getLiveRevisionForFeature(context, feature);
 
-    const matchingRules = getMatchingRules(
-      feature,
-      (r: FeatureRule) =>
-        r.type === "experiment-ref" && r.experimentId === experiment.id,
-      context.environments,
-      revision,
+  const onlyRuleIds = update.ruleIds;
+  const matchingRules = getMatchingRules(
+    feature,
+    (r: FeatureRule) =>
+      r.type === "experiment-ref" &&
+      r.experimentId === experiment.id &&
+      (!onlyRuleIds || onlyRuleIds.includes(r.id)),
+    context.environments,
+    revision,
+  );
+
+  if (!matchingRules.length)
+    throw new Error(
+      `No experiment-ref rules found for this experiment on feature ${feature.id}, version ${revision.version}`,
     );
-
-    if (!matchingRules.length)
-      throw new Error(
-        `No experiment-ref rules found for this experiment on feature ${feature.id}, version ${revision.version}`,
-      );
-
-    const baselineVariations = (matchingRules[0].rule as ExperimentRefRule)
-      .variations;
-
-    for (let i = 1; i < matchingRules.length; i++) {
-      const rule = matchingRules[i].rule as ExperimentRefRule;
-      if (!isEqual(rule.variations, baselineVariations)) {
-        throw new Error(
-          `Feature ${feature.id}: variation values must be identical across all environments to edit feature values on an experiment.`,
-        );
-      }
-    }
-
-    const updatedVariationValues = entry.variations;
-    const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
-      if (m.rule.type !== "experiment-ref") return false;
-      return (
-        !isEqual(m.rule.variations, updatedVariationValues) ||
-        (entry.sparse !== undefined && entry.sparse !== !!m.rule.sparse) ||
-        (!!entry.environments &&
-          !sameRuleEnvironments(m.rule, entry.environments))
-      );
-    });
-
-    // A type change counts even when every value reads the same under both types.
-    const typeChanging =
-      !!entry.valueType &&
-      entry.valueType !== (revision.metadata?.valueType ?? feature.valueType);
-    if (!featureNeedsUpdate && !typeChanging) continue;
-
-    if (autoPublish) {
-      if (
-        !context.permissions.canPublishFeature(
-          feature,
-          matchingRules.map((m) => m.environmentId),
-        )
-      ) {
-        context.permissions.throwPermissionError();
-      }
-
-      const ruleIds = Array.from(
-        new Set(
-          matchingRules
-            .map((m) => m.rule.id)
-            .filter((id): id is string => !!id),
-        ),
-      );
-      const projectedRevision = applyPartialFeatureRuleUpdatesToRevision(
-        revision,
-        ruleIds,
-        { variations: updatedVariationValues },
-      );
-      await assertCanAutoPublish(context, feature, projectedRevision);
-    }
-
-    plans.push({
-      feature,
-      existingRevision: useExistingRevision ? revision : undefined,
-      matchingRules,
-    });
+  if (onlyRuleIds?.some((id) => !matchingRules.some((m) => m.rule.id === id))) {
+    throw new Error(
+      `Feature ${feature.id}: one of the experiment's rules is no longer on version ${revision.version}.`,
+    );
   }
 
-  return plans;
+  const baselineVariations = (matchingRules[0].rule as ExperimentRefRule)
+    .variations;
+
+  for (let i = 1; i < matchingRules.length; i++) {
+    const rule = matchingRules[i].rule as ExperimentRefRule;
+    if (!isEqual(rule.variations, baselineVariations)) {
+      throw new Error(
+        `Feature ${feature.id}: variation values must be identical across all environments to edit feature values on an experiment.`,
+      );
+    }
+  }
+
+  const featureNeedsUpdate = matchingRules.some((m: MatchingRule) => {
+    if (m.rule.type !== "experiment-ref") return false;
+    return (
+      !isEqual(m.rule.variations, update.variations) ||
+      (update.sparse !== undefined && update.sparse !== !!m.rule.sparse) ||
+      (!!update.environments &&
+        !sameRuleEnvironments(m.rule, update.environments))
+    );
+  });
+  // A type change counts even when every value reads the same under both types.
+  const typeChanging =
+    !!update.valueType &&
+    update.valueType !== (revision.metadata?.valueType ?? feature.valueType);
+  if (!featureNeedsUpdate && !typeChanging) return null;
+
+  return {
+    feature,
+    existingRevision: targetVersion !== null ? revision : undefined,
+    matchingRules,
+  };
 }
 
 export type PendingDraftFailureReason =
@@ -806,23 +760,19 @@ type ReadyDraft = ResolvedDraft & {
   feature: FeatureInterface;
   revision: FeatureRevisionInterface;
   mergeResult: AutoMergeResult;
+  bypassLockdown: boolean;
 };
 
-// Publishes one draft per linked feature on experiment start, halting on the
-// first merge conflict or publish error so the caller can abort the start.
-export async function publishPendingFeatureDraftsForExperiment(
+// The one draft per linked flag that starting the experiment publishes.
+export async function getLaunchDrafts(
   context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
-  bypassLockdown = false,
-  // The org lets REST calls skip approval, as the publish endpoints do.
-  restApiBypassesReviews = false,
-): Promise<PendingDraftPublishResult> {
-  const queued = experiment.pendingFeatureDrafts ?? [];
-  if (!queued.length) return { published: [], failed: [] };
-
-  // ── Phase 0: exactly one draft per feature ────────────────────────────────
-  const drafts: { featureId: string; revisionVersion: number }[] = [];
-  for (const featureId of new Set(queued.map((d) => d.featureId))) {
+  experiment: Pick<ExperimentInterface, "id" | "pendingFeatureDrafts">,
+): Promise<ResolvedDraft[]> {
+  const launches: ResolvedDraft[] = [];
+  const featureIds = new Set(
+    (experiment.pendingFeatureDrafts ?? []).map((d) => d.featureId),
+  );
+  for (const featureId of featureIds) {
     const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
       context.org.id,
       featureId,
@@ -832,18 +782,37 @@ export async function publishPendingFeatureDraftsForExperiment(
       openDrafts,
       liveRevision,
     );
-    for (const entry of queued) {
-      if (entry.featureId !== featureId || entry.revisionVersion === launch) {
-        continue;
-      }
-      await removePendingFeatureDraftFromExperiment(
-        context,
-        experiment.id,
-        featureId,
-        entry.revisionVersion,
-      );
-    }
-    if (launch !== null) drafts.push({ featureId, revisionVersion: launch });
+    if (launch !== null) launches.push({ featureId, revisionVersion: launch });
+  }
+  return launches;
+}
+
+// Publishes one draft per linked feature on experiment start, halting on the
+// first merge conflict or publish error so the caller can abort the start.
+export async function publishPendingFeatureDraftsForExperiment(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  bypassLockdown = false,
+  restApiBypassesReviews = false,
+): Promise<PendingDraftPublishResult> {
+  const queued = experiment.pendingFeatureDrafts ?? [];
+  if (!queued.length) return { published: [], failed: [] };
+
+  // ── Phase 0: exactly one draft per feature ────────────────────────────────
+  const drafts = await getLaunchDrafts(context, experiment);
+  for (const entry of queued) {
+    const launches = drafts.some(
+      (d) =>
+        d.featureId === entry.featureId &&
+        d.revisionVersion === entry.revisionVersion,
+    );
+    if (launches) continue;
+    await removePendingFeatureDraftFromExperiment(
+      context,
+      experiment.id,
+      entry.featureId,
+      entry.revisionVersion,
+    );
   }
   if (!drafts.length) return { published: [], failed: [] };
 
@@ -855,7 +824,9 @@ export async function publishPendingFeatureDraftsForExperiment(
     const feature = await getFeature(context, featureId);
     if (!feature) {
       // Pruned only when deleted; unreadable fails the start.
-      if (await featureIdExists(context, featureId)) {
+      if (
+        (await getFeatureProjectsByIds(context, [featureId])).has(featureId)
+      ) {
         failed.push({ featureId, revisionVersion, reason: "publish-error" });
         continue;
       }
@@ -902,10 +873,15 @@ export async function publishPendingFeatureDraftsForExperiment(
       base,
     );
     // Re-derived per feature: the caller's opt-in is not authority on its own.
-    const bypassApproval =
-      restApiBypassesReviews ||
-      (bypassLockdown &&
-        context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+    const { approval: bypassApproval, lockdown: bypassFlagLockdown } =
+      flagBypass(context, feature, {
+        optIn: bypassLockdown,
+        restApiBypassesReviews,
+      });
+    // Refused before anything publishes rather than partway through.
+    if (!bypassFlagLockdown) {
+      await assertFeatureNotLockedByRamp(context, featureId);
+    }
     // The same question the publish button and the REST endpoint ask, so an
     // autostart can never land a draft either of those would refuse.
     const approval = await assessRevisionApprovalForAutoPublish(
@@ -942,7 +918,14 @@ export async function publishPendingFeatureDraftsForExperiment(
       failed.push({ featureId, revisionVersion, reason: "needs-rebase" });
       continue;
     }
-    ready.push({ featureId, revisionVersion, feature, revision, mergeResult });
+    ready.push({
+      featureId,
+      revisionVersion,
+      feature,
+      revision,
+      mergeResult,
+      bypassLockdown: bypassFlagLockdown,
+    });
   }
 
   if (failed.length > 0) {
@@ -966,10 +949,14 @@ export async function publishPendingFeatureDraftsForExperiment(
   // ── Phase 2: publish ──────────────────────────────────────────────────────
   const published: ResolvedDraft[] = [];
 
-  for (const entry of ready) {
-    const { featureId, revisionVersion, feature, revision, mergeResult } =
-      entry;
-
+  for (const {
+    featureId,
+    revisionVersion,
+    feature,
+    revision,
+    mergeResult,
+    bypassLockdown: bypassFlagLockdown,
+  } of ready) {
     if (!mergeResult.success) {
       logger.warn(
         {
@@ -1020,7 +1007,7 @@ export async function publishPendingFeatureDraftsForExperiment(
         revision,
         result: mergeResult.result,
         comment: `Experiment "${experiment.name}" started`,
-        bypassLockdown,
+        bypassLockdown: bypassFlagLockdown,
       });
       // Belt-and-suspenders: publishRevision's sweep keys off the revision's
       // own experiment-ref rules and would miss entries if those were deleted
@@ -1222,11 +1209,7 @@ export async function publishPendingFeatureDraftsForContextualBandit(
   return { published, failed };
 }
 
-/**
- * What re-scoping an experiment's rule changes on a revision: the rule's own
- * environment fields, and the flag environments it switches on. Leaving the
- * footprint only loses the rule.
- */
+// The rule's own environment fields, and the flag environments it switches on.
 export function planExperimentRuleEnvironments({
   feature,
   revision,
@@ -1254,6 +1237,12 @@ export function planExperimentRuleEnvironments({
   if (!hasRule) {
     throw new BadRequestError(
       `No experiment rule found on "${feature.id}" to re-scope. It may have been removed; set variation values first to recreate it.`,
+    );
+  }
+  // A rule in no environment serves nothing and drops off the experiment's page.
+  if (!scopedEnvironments.length) {
+    throw new BadRequestError(
+      `Choose at least one environment for the experiment's rule on "${feature.id}", or remove the Feature Flag from the experiment.`,
     );
   }
   return {
@@ -1356,6 +1345,56 @@ const openDraftsOf = (
     skipPagination: true,
   });
 
+// Whether the flag serves the experiment, or will once its launch draft
+// publishes; a draft carrying the rule unchanged from its base doesn't add it.
+export async function flagHoldsExperimentRule(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  experimentId: string,
+): Promise<boolean> {
+  if (holdsRule(experimentRuleFor(experimentId))(feature.rules)) return true;
+  const { openDrafts, liveRevision } = await getLinkageSyncRevisionSummaries(
+    context.org.id,
+    feature.id,
+  );
+  return getLaunchDraftVersion(experimentId, openDrafts, liveRevision) !== null;
+}
+
+// Guarded, and retried from a fresh read, so an edit landing in between is
+// kept; a draft published or discarded meanwhile is never written.
+async function updateDraftRules(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  draft: FeatureRevisionInterface,
+  changes: (rules: FeatureRule[]) => Parameters<typeof updateRevision>[3],
+  log: Parameters<typeof updateRevision>[4],
+): Promise<FeatureRevisionInterface> {
+  let current = draft;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await updateRevision(
+        context,
+        feature,
+        current,
+        changes(current.rules ?? []),
+        log,
+        { guardDateUpdated: true },
+      );
+    } catch (e) {
+      if (!(e instanceof RevisionContentChangedError) || attempt >= 3) throw e;
+      const fresh = await getRevision({
+        context,
+        organization: context.org.id,
+        featureId: feature.id,
+        feature,
+        version: current.version,
+      });
+      if (!fresh || !DRAFT_REVISION_STATUSES.includes(fresh.status)) throw e;
+      current = fresh;
+    }
+  }
+}
+
 // Rewrites the experiment's rules in every open draft of the flag holding one,
 // returning those drafts as they were.
 async function rewriteExperimentRulesInDrafts({
@@ -1368,18 +1407,18 @@ async function rewriteExperimentRulesInDrafts({
   context: ReqContext | ApiReqContext;
   feature: FeatureInterface;
   refersToExperiment: (r: FeatureRule) => boolean;
-  rewrite: (rules: FeatureRule[]) => FeatureRule[];
+  rewrite: (rules: FeatureRule[], featureId: string) => FeatureRule[];
   logEntry: (touched: FeatureRule[]) => Parameters<typeof updateRevision>[4];
 }): Promise<FeatureRevisionInterface[]> {
   const rewritten: FeatureRevisionInterface[] = [];
   for (const draft of await openDraftsOf(context, feature)) {
     const touched = (draft.rules ?? []).filter(refersToExperiment);
     if (!touched.length) continue;
-    await updateRevision(
+    await updateDraftRules(
       context,
       feature,
       draft,
-      { rules: rewrite(draft.rules ?? []) },
+      (rules) => ({ rules: rewrite(rules, feature.id) }),
       logEntry(touched),
     );
     rewritten.push(draft);
@@ -1441,15 +1480,18 @@ function assertDraftsEditable(drafts: FeatureRevisionInterface[]) {
   }
 }
 
+// Returns the open drafts holding the rule.
 async function assertDraftsWithRuleEditable(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   refersToExperiment: (r: FeatureRule) => boolean,
-): Promise<void> {
+): Promise<FeatureRevisionInterface[]> {
   const hasRule = holdsRule(refersToExperiment);
-  assertDraftsEditable(
-    (await openDraftsOf(context, feature)).filter((d) => hasRule(d.rules)),
+  const drafts = (await openDraftsOf(context, feature)).filter((d) =>
+    hasRule(d.rules),
   );
+  assertDraftsEditable(drafts);
+  return drafts;
 }
 
 const removalLog =
@@ -1464,17 +1506,20 @@ const removalLog =
 const removalTitle = (experiment: ExperimentInterface) =>
   `Remove from experiment "${experiment.name}"`;
 
-/**
- * Refuses taking a flag off the experiment: without draft rights, for the flag
- * the experiment manages, over a draft locked for a scheduled publish, or while
- * it runs and the flag serves the rule or a draft would add it.
- */
 export async function assertFlagRemovable(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   feature: FeatureInterface,
 ): Promise<void> {
-  await assertFlagUnlinkable(context, experiment.id, feature.id, feature);
+  if (!context.permissions.canEditFeatureDrafts(feature)) {
+    context.permissions.throwPermissionError();
+  }
+  if (isManagedByExperiment(feature, experiment.id)) {
+    throw new BadRequestError(
+      "This Feature Flag is managed by the experiment. Eject it first to unlink it.",
+    );
+  }
+  assertScheduledStartAllows(experiment, "linked Feature Flags");
   const refersToExperiment = experimentRuleFor(experiment.id);
   await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
   if (experiment.status !== "running") return;
@@ -1488,12 +1533,11 @@ export async function assertFlagRemovable(
     getLaunchDraftVersion(experiment.id, openDrafts, liveRevision) !== null
   ) {
     throw new BadRequestError(
-      "Set the experiment's status back to Draft to remove this Feature Flag.",
+      "Set the experiment's status back to draft to remove this Feature Flag.",
     );
   }
 }
 
-/** Refuses keeping a flag whose drafts the undo can't write. */
 export async function assertFlagKeepable(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
@@ -1501,6 +1545,11 @@ export async function assertFlagKeepable(
 ): Promise<void> {
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
+  }
+  if (!experiment.pendingFeatureUnlinks?.includes(feature.id)) {
+    throw new BadRequestError(
+      `Feature Flag "${feature.id}" is not being removed from this experiment, so there is nothing to keep.`,
+    );
   }
   assertDraftsEditable(
     await draftsTakingRuleOut(
@@ -1511,11 +1560,8 @@ export async function assertFlagKeepable(
   );
 }
 
-/**
- * Takes a flag off the experiment along with its rule. Open drafts lose the
- * rule now; a live rule leaves through a draft, and the flag unlinks once
- * nothing live or open has it (settlePendingFeatureUnlinks).
- */
+// Open drafts lose the rule now; a live rule leaves through a draft, and the
+// flag unlinks once nothing live or open has it (settlePendingFeatureUnlinks).
 export async function removeFlagFromExperiment({
   context,
   experiment,
@@ -1529,7 +1575,11 @@ export async function removeFlagFromExperiment({
 }): Promise<void> {
   const feature = await getFeature(context, featureId);
   if (!feature) {
-    await unlinkFlagFromExperiment(context, experiment.id, featureId);
+    // Only a flag that's gone is pruned unseen; one the caller can't read isn't.
+    if ((await getFeatureProjectsByIds(context, [featureId])).has(featureId)) {
+      context.permissions.throwPermissionError();
+    }
+    await unlinkFeatureFromExperiment(context, experiment.id, featureId);
     return;
   }
   await assertFlagRemovable(context, experiment, feature);
@@ -1578,11 +1628,8 @@ export async function removeFlagFromExperiment({
   await setPendingFeatureUnlink(context, experiment.id, featureId, true);
 }
 
-/**
- * Undoes a pending removal: each open draft taking the live rule out gets it
- * back beside the rules live has around it. The draft the removal started
- * goes once it has nothing left to publish; a teammate's stays.
- */
+// Undoes a pending removal. The draft the removal started is discarded once it
+// has nothing left to publish; a teammate's stays.
 export async function keepFlagInExperiment({
   context,
   experiment,
@@ -1606,12 +1653,8 @@ export async function keepFlagInExperiment({
     eventAudit,
     "restore experiment rule",
   );
-  for (const draft of await draftsTakingRuleOut(
-    context,
-    feature,
-    refersToExperiment,
-  )) {
-    const rules = [...(draft.rules ?? [])];
+  const withLiveRules = (draftRules: FeatureRule[]) => {
+    const rules = [...draftRules];
     live.forEach((rule, i) => {
       if (!refersToExperiment(rule) || rules.some((r) => r.id === rule.id)) {
         return;
@@ -1631,15 +1674,22 @@ export async function keepFlagInExperiment({
           : Math.min(i, rules.length);
       rules.splice(at, 0, rule);
     });
+    return rules;
+  };
+  for (const draft of await draftsTakingRuleOut(
+    context,
+    feature,
+    refersToExperiment,
+  )) {
     const startedByRemoval = draft.title === removalTitle(experiment);
-    const restored = await updateRevision(
+    const restored = await updateDraftRules(
       context,
       feature,
       draft,
-      {
-        rules,
+      (rules) => ({
+        rules: withLiveRules(rules),
         ...(startedByRemoval && { title: "" }),
-      },
+      }),
       logEntry(live.filter(refersToExperiment)),
     );
     if (startedByRemoval) {
@@ -1660,7 +1710,6 @@ type CleanupArgs = {
   features: FeatureInterface[];
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
-  /** A REST call in an org that lets the REST API skip approval. */
   restApiBypassesReviews?: boolean;
 };
 
@@ -1676,15 +1725,18 @@ async function resolveRulesForExperiment({
   comment,
   restApiBypassesReviews = false,
 }: CleanupArgs & {
-  replacement: (rule: ExperimentRefRule) => FeatureRule | null;
+  replacement: (
+    rule: ExperimentRefRule,
+    featureId: string,
+  ) => FeatureRule | null;
   action: string;
   comment: string;
 }): Promise<void> {
   const refersToExperiment = experimentRuleFor(experiment.id);
-  const rewrite = (rules: FeatureRule[]) =>
+  const rewrite = (rules: FeatureRule[], featureId: string) =>
     rules.flatMap((r) => {
       if (!refersToExperiment(r)) return [r];
-      const next = replacement(r);
+      const next = replacement(r, featureId);
       return next ? [next] : [];
     });
   const logEntry = removalLog(experiment, eventAudit, action);
@@ -1718,17 +1770,45 @@ async function resolveRulesForExperiment({
   const bypassFor = new Map<string, boolean>();
   for (const feature of features) {
     // A locked draft would refuse its rewrite after live has landed.
-    await assertDraftsWithRuleEditable(context, feature, refersToExperiment);
-    if (!(feature.rules ?? []).some(refersToExperiment)) continue;
+    const draftsWithRule = await assertDraftsWithRuleEditable(
+      context,
+      feature,
+      refersToExperiment,
+    );
+    const liveHasRule = (feature.rules ?? []).some(refersToExperiment);
+    // The cleanup rewrites the drafts of every flag holding the rule.
+    if (
+      (liveHasRule || draftsWithRule.length) &&
+      !context.permissions.canEditFeatureDrafts(feature)
+    ) {
+      throw refuse(feature, "no authority to edit its drafts");
+    }
+    if (!liveHasRule) continue;
     const envs = Array.from(
       getEnabledEnvironments(feature, context.environments),
     );
-    const bypass =
-      restApiBypassesReviews ||
-      context.permissions.canBypassFlagApprovalChecks(feature, "feature");
+    // Cleaning up after the experiment is the caller's own call to make.
+    const bypass = flagBypass(context, feature, {
+      optIn: true,
+      restApiBypassesReviews,
+    }).approval;
+    // As publishing the rewrite would judge it: every project governing the
+    // flag, and the environments the rewrite touches.
+    const live = await getLiveRevisionForFeature(context, feature);
+    const reviewRequired =
+      !bypass &&
+      checkIfRevisionNeedsReview({
+        feature,
+        baseRevision: live,
+        revision: { ...live, rules: rewrite(live.rules ?? [], feature.id) },
+        orgEnvironments: getEnvironments(context.org),
+        settings: context.org.settings,
+        requireApprovalsLicensed:
+          context.hasPremiumFeature("require-approvals"),
+      });
     if (
       !context.permissions.canPublishFeature(feature, envs) ||
-      (!bypass && featureReviewRequired(context, feature))
+      reviewRequired
     ) {
       throw refuse(feature, "no authority to publish the change");
     }
@@ -1752,7 +1832,10 @@ async function resolveRulesForExperiment({
             context,
             feature,
             cleanupDraft,
-            { rules: rewrite(cleanupDraft.rules ?? []), title: comment },
+            {
+              rules: rewrite(cleanupDraft.rules ?? [], feature.id),
+              title: comment,
+            },
             logEntry(liveTouched),
           )) ?? cleanupDraft;
         current = await mergeAndPublishRevision({
@@ -1791,7 +1874,12 @@ async function resolveRulesForExperiment({
           cleanupDraft,
           eventAudit,
           feature.version,
-        ).catch(() => undefined);
+        ).catch((err) =>
+          logger.error(
+            { err, featureId: feature.id },
+            "Failed to discard an experiment cleanup draft",
+          ),
+        );
       }
       throw refuse(feature, e instanceof Error ? e.message : String(e));
     }
@@ -1820,7 +1908,67 @@ export async function removeRulesForDeletedExperiment({
   });
 }
 
-// Freezes the temporary rollout into a permanent rule with the phase's targeting.
+// The permanent rule serving the temporary rollout's value, with the phase's
+// targeting, to the same users.
+export function keptExperimentRule(
+  experiment: ExperimentInterface,
+  rule: ExperimentRefRule,
+  featureId: string,
+): FeatureRule | null {
+  const releasedId = experiment.releasedVariationId;
+  const value = rule.variations.find(
+    (v) => v.variationId === releasedId,
+  )?.value;
+  // The payload skips a rule whose released arm has no value, so dropping it
+  // changes nothing.
+  if (value === undefined) return null;
+  const phase = experiment.phases[experiment.phases.length - 1];
+  const coverage = phase?.coverage ?? 1;
+  const released = experiment.variations.find((v) => v.id === releasedId);
+  const kept = {
+    // A sparse arm stays a patch over the default, as it was served; the
+    // payload served the phase's targeting, never the rule's own.
+    ...omit(rule, [
+      "type",
+      "experimentId",
+      "variations",
+      "condition",
+      "savedGroups",
+      "prerequisites",
+    ]),
+    value,
+    description: `Released from experiment "${experiment.name}"${
+      released ? ` (${released.name})` : ""
+    }`,
+    ...(phase?.condition && phase.condition !== "{}"
+      ? { condition: phase.condition }
+      : {}),
+    ...(phase?.savedGroups?.length ? { savedGroups: phase.savedGroups } : {}),
+    ...(phase?.prerequisites?.length
+      ? { prerequisites: phase.prerequisites }
+      : {}),
+  };
+  // The payload applies the phase's coverage to the released value too,
+  // hashed the same way, so the same users keep it.
+  return coverage < 1
+    ? {
+        ...kept,
+        type: "rollout",
+        coverage,
+        hashAttribute: experiment.hashAttribute,
+        ...(experiment.fallbackAttribute && !experiment.disableStickyBucketing
+          ? { fallbackAttribute: experiment.fallbackAttribute }
+          : {}),
+        // The SDK seeds a seedless rollout with the flag key.
+        seed: phase?.seed || featureId,
+        ...(experiment.hashVersion
+          ? { hashVersion: experiment.hashVersion }
+          : {}),
+      }
+    : { ...kept, type: "force" };
+}
+
+// Freezes the temporary rollout into a permanent rule.
 export async function materializeExperimentRules({
   context,
   experiment,
@@ -1829,21 +1977,14 @@ export async function materializeExperimentRules({
   audit,
   restApiBypassesReviews,
 }: CleanupArgs): Promise<void> {
-  const releasedId = experiment.releasedVariationId;
-  if (!releasedId) {
+  if (!experiment.releasedVariationId) {
     throw new Error("The experiment has no released variation to keep.");
   }
-  const phase = experiment.phases[experiment.phases.length - 1];
-  if (phase?.namespace?.enabled) {
+  if (experiment.phases[experiment.phases.length - 1]?.namespace?.enabled) {
     throw new Error(
       "A namespaced experiment cannot be kept as a permanent rule; stop the temporary rollout instead.",
     );
   }
-  const coverage = phase?.coverage ?? 1;
-  const released = experiment.variations.find((v) => v.id === releasedId);
-  const description = `Released from experiment "${experiment.name}"${
-    released ? ` (${released.name})` : ""
-  }`;
 
   await resolveRulesForExperiment({
     context,
@@ -1854,42 +1995,7 @@ export async function materializeExperimentRules({
     restApiBypassesReviews,
     action: "replace experiment rule with a permanent rule",
     comment: `Keep the released variation of "${experiment.name}"`,
-    replacement: (rule) => {
-      const value = rule.variations.find(
-        (v) => v.variationId === releasedId,
-      )?.value;
-      // The payload skips a rule whose released arm has no value, so dropping
-      // it changes nothing.
-      if (value === undefined) return null;
-      const kept = {
-        // A sparse arm stays a patch over the default, as it was served.
-        ...omit(rule, ["type", "experimentId", "variations"]),
-        value,
-        description,
-        ...(phase?.condition && phase.condition !== "{}"
-          ? { condition: phase.condition }
-          : {}),
-        ...(phase?.savedGroups?.length
-          ? { savedGroups: phase.savedGroups }
-          : {}),
-        ...(phase?.prerequisites?.length
-          ? { prerequisites: phase.prerequisites }
-          : {}),
-      };
-      // The payload applies the phase's coverage to the released value too,
-      // hashed the same way, so the same users keep it.
-      return coverage < 1
-        ? {
-            ...kept,
-            type: "rollout" as const,
-            coverage,
-            hashAttribute: experiment.hashAttribute,
-            ...(phase?.seed ? { seed: phase.seed } : {}),
-            ...(experiment.hashVersion
-              ? { hashVersion: experiment.hashVersion }
-              : {}),
-          }
-        : { ...kept, type: "force" as const };
-    },
+    replacement: (rule, featureId) =>
+      keptExperimentRule(experiment, rule, featureId),
   });
 }

@@ -27,15 +27,19 @@ describe("parseAttributionCookie", () => {
     ).toEqual({});
   });
 
-  it("parses known fields including li_fat_id and passes through extras", () => {
+  it("parses known fields including Google braid tags and li_fat_id and passes through extras", () => {
     const raw = JSON.stringify({
       utm_source: "linkedin",
       li_fat_id: "abc123",
+      gbraid: "gb1",
+      wbraid: "wb1",
       extra: "kept",
     });
     expect(parseAttributionCookie({ cookies: { gb_attr: raw } })).toEqual({
       utm_source: "linkedin",
       li_fat_id: "abc123",
+      gbraid: "gb1",
+      wbraid: "wb1",
       extra: "kept",
     });
   });

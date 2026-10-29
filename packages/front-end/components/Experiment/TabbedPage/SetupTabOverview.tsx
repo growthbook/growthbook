@@ -5,12 +5,13 @@ import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperime
 import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import HoldoutTimeline from "@/components/Experiment/holdout/HoldoutTimeline";
-import HypothesisField from "@/components/Experiment/TabbedPage/HypothesisField";
+import ExperimentTextField from "@/components/Experiment/TabbedPage/ExperimentTextField";
 import DeleteButton from "@/components/DeleteButton/DeleteButton";
 import { useAuth } from "@/services/auth";
 import { HoldoutSchedule } from "@/components/Holdout/HoldoutSchedule";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
+import { hasStatusSchedule } from "@/components/Experiment/TabbedPage/statusSchedule";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -33,6 +34,7 @@ export default function SetupTabOverview({
   const { canEdit: canEditExperiment, editInline } = useExperimentEditing(
     experiment,
     disableEditing,
+    holdout,
   );
 
   const isBandit = experiment.type === "multi-armed-bandit";
@@ -46,23 +48,16 @@ export default function SetupTabOverview({
     new Date(experiment.phases[0].dateStarted) &&
     holdoutExperiments.length > 0 &&
     holdoutExperiments.some((e) => e.status !== "draft");
-  const canEditSchedule = !isBandit && canEditExperiment && editSchedule;
-  const holdoutHasSchedule =
-    isHoldout &&
-    holdout &&
-    Object.values(holdout.statusUpdateSchedule ?? {}).some(
-      (value) => value !== null,
-    );
   return (
     <div>
-      {isHoldout && holdout && holdoutHasSchedule && editSchedule ? (
+      {isHoldout && holdout && hasStatusSchedule(holdout) && editSchedule ? (
         <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
           <Flex align="center" justify="between" className="text-dark">
             <Heading color="text-high" mb="0" as="h4" size="sm">
               Holdout Schedule
             </Heading>
             <Flex align="center" gap="2">
-              {canEditSchedule ? (
+              {canEditExperiment ? (
                 <>
                   <DeleteButton
                     text="Delete"
@@ -118,12 +113,20 @@ export default function SetupTabOverview({
       )}
 
       {!isBandit && !isHoldout && (
-        <HypothesisField
+        <ExperimentTextField
           experiment={experiment}
+          field="hypothesis"
           editable={editInline}
           canEdit={canEditExperiment}
         />
       )}
+      <ExperimentTextField
+        experiment={experiment}
+        field="description"
+        // A bandit has no hypothesis, so its description is what's written.
+        editable={isBandit && editInline}
+        canEdit={canEditExperiment}
+      />
     </div>
   );
 }

@@ -4,12 +4,9 @@ import {
   LinkedFeatureEnvInputs,
   LinkedFeatureEnvState,
 } from "shared/types/experiment";
-import type {
-  ExperimentRuleEnvironments,
-  ExperimentStatus,
-} from "shared/validators";
+import type { ExperimentRuleEnvironments } from "shared/validators";
 import { PiCaretDown, PiCaretRight } from "react-icons/pi";
-import { forwardRef, Fragment, HTMLAttributes, useState } from "react";
+import { Fragment, ReactNode, useState } from "react";
 import {
   FaCircleCheck,
   FaCircleXmark,
@@ -30,112 +27,26 @@ type EnvironmentState = {
 };
 
 // The flag's environment toggle AND the rule's presence and enablement.
-type FeatureEnvironmentState = EnvironmentState & {
+type FeatureEnvironmentState = {
+  env: string;
   state: LinkedFeatureEnvState;
+  isActive: boolean;
 };
 
-// Why a state is not yet true: not started, or shown from an unpublished
-// draft. false: a running experiment's live states. "rule" and
-// "rule-published": the rule as it stands or will once published, for an
-// experiment that publishing alone won't make active.
-type EnvironmentStateTense =
-  | false
-  | "started"
-  | "published"
-  | "rule"
-  | "rule-published";
-
-/** How a flag's environment states read, from what they show. */
-export function environmentStateTense({
-  status,
-  unpublished,
-  launches,
-  liveView,
-}: {
-  status: ExperimentStatus;
-  // A draft's states, or an unsaved scope over them.
-  unpublished: boolean;
-  // Shows the draft a draft experiment publishes when it starts.
-  launches: boolean;
-  liveView: boolean;
-}): EnvironmentStateTense {
-  if (unpublished) {
-    if (status === "running") return "published";
-    return status === "draft" && launches ? "started" : "rule-published";
-  }
-  if (status === "running") return false;
-  // Unless a draft changes them, starting keeps live's.
-  return status === "draft" && !liveView ? "started" : "rule";
-}
-
-function environmentStateTooltip(
-  state: LinkedFeatureEnvState,
-  future: EnvironmentStateTense,
-): string {
-  const once = future === "started" ? " once started" : " once published";
-  if (future === "rule" || future === "rule-published") {
-    const pending = future === "rule-published";
-    switch (state) {
-      case "active":
-        return pending
-          ? "The experiment's rule will be on in this environment once published"
-          : "The experiment's rule is on in this environment";
-      case "disabled-env":
-        return pending
-          ? "The Feature Flag will be disabled in this environment once published, so the experiment's rule won't apply"
-          : "The Feature Flag is disabled in this environment, so the experiment's rule doesn't apply";
-      case "disabled-rule":
-        return pending
-          ? "The experiment's rule will be off in this environment once published"
-          : "The experiment's rule is off in this environment";
-      case "missing":
-        return pending
-          ? "The experiment won't be in this environment once published"
-          : "The experiment isn't in this environment";
-    }
-  }
-  switch (state) {
-    case "active":
-      return future
-        ? `The experiment will be active in this environment${once}`
-        : "The experiment is active in this environment";
-    case "disabled-env":
-      return future
-        ? `The Feature Flag is disabled in this environment, so the experiment won't be active here${once}`
-        : "The Feature Flag is disabled in this environment, so the experiment isn't active here";
-    case "disabled-rule":
-      return future
-        ? `The experiment is disabled in this environment and won't be active${once}`
-        : "The experiment is disabled in this environment and isn't active";
-    case "missing":
-      return future
-        ? `The experiment won't be in this environment${once}`
-        : "The experiment isn't in this environment";
-    default: {
-      const _exhaustiveCheck: never = state;
-      return _exhaustiveCheck;
-    }
-  }
-}
-
-export function getEnvironmentStates(
-  source: {
-    environmentStates?: Record<string, LinkedFeatureEnvState>;
-  },
-  { future = false }: { future?: EnvironmentStateTense } = {},
-): FeatureEnvironmentState[] {
+export function getEnvironmentStates(source: {
+  environmentStates?: Record<string, LinkedFeatureEnvState>;
+}): FeatureEnvironmentState[] {
   return Object.entries(source.environmentStates || {}).map(([env, state]) => ({
     env,
     state,
     isActive: state === "active",
-    tooltip: environmentStateTooltip(state, future),
   }));
 }
 
 const inScope = (scope: ExperimentRuleEnvironments, env: string) =>
   scope.allEnvironments || scope.environments.includes(env);
 
-/** What the rule's settings become under a staged scope: entering switches the environment on. */
+// The rule's settings under a staged scope: entering switches the environment on.
 export function stageEnvironmentInputs(
   inputs: Record<string, LinkedFeatureEnvInputs>,
   scope: ExperimentRuleEnvironments | null,
@@ -154,35 +65,35 @@ export function stageEnvironmentInputs(
   );
 }
 
-/** The states those settings add up to. */
-export function statesFromInputs(
-  inputs: Record<string, LinkedFeatureEnvInputs>,
-): Record<string, LinkedFeatureEnvState> {
-  return Object.fromEntries(
-    Object.entries(inputs).map(([env, { flagEnabled, rule }]) => [
-      env,
-      rule === "missing"
-        ? "missing"
-        : !flagEnabled
-          ? "disabled-env"
-          : rule === "on"
-            ? "active"
-            : "disabled-rule",
-    ]),
-  );
-}
-
-/** A scope as the environments modal edits it. */
+/**
+ * A scope as the environments modal edits it. `allEnvironments` is the stored
+ * rule's; only when it's unknown does covering every environment read as all.
+ */
 export function scopeFromStates(
   states: Record<string, LinkedFeatureEnvState>,
   orgEnvironments: string[],
+  allEnvironments: boolean | null = null,
 ): ExperimentRuleEnvironments {
   const covered = Object.entries(states)
     .filter(([, state]) => state !== "missing")
     .map(([env]) => env);
-  return orgEnvironments.every((e) => covered.includes(e))
+  return (allEnvironments ?? orgEnvironments.every((e) => covered.includes(e)))
     ? { allEnvironments: true, environments: [] }
     : { allEnvironments: false, environments: covered };
+}
+
+/** Whether two scopes are the same setting, ignoring environment order. */
+export function sameScope(
+  a: ExperimentRuleEnvironments,
+  b: ExperimentRuleEnvironments,
+): boolean {
+  if (a.allEnvironments || b.allEnvironments) {
+    return a.allEnvironments === b.allEnvironments;
+  }
+  return (
+    a.environments.length === b.environments.length &&
+    a.environments.every((e) => b.environments.includes(e))
+  );
 }
 
 const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
@@ -192,7 +103,6 @@ const ENVIRONMENT_STATE_LABELS: Record<LinkedFeatureEnvState, string> = {
   missing: "Not included",
 };
 
-/** Whether the experiment is active in an environment. */
 function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
   return (
     <Box
@@ -204,27 +114,6 @@ function EnvironmentStateIcon({ isActive }: { isActive: boolean }) {
     >
       {isActive ? <FaCircleCheck size={14} /> : <FaCircleXmark size={14} />}
     </Box>
-  );
-}
-
-// The inline row: every environment with its state, wherever there is room to
-// show them all at once.
-export function EnvironmentStateChips({
-  states,
-}: {
-  states: EnvironmentState[];
-}) {
-  return (
-    <Flex gap="4" wrap="wrap">
-      {states.map(({ env, isActive, tooltip }) => (
-        <Tooltip key={env} content={tooltip} side="top">
-          <Flex align="center" gap="1" minWidth="0">
-            <EnvironmentStateIcon isActive={isActive} />
-            <Text weight="medium">{env}</Text>
-          </Flex>
-        </Tooltip>
-      ))}
-    </Flex>
   );
 }
 
@@ -338,99 +227,113 @@ export function EnvironmentInputsPopover({
   environmentStates,
   environmentInputs,
   note,
+  onEdit = null,
 }: {
   environmentStates: FeatureEnvironmentState[];
   environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   note?: string | null;
+  onEdit?: (() => void) | null;
 }) {
-  const active = environmentStates.filter((e) => e.isActive).length;
   return (
-    <Popover
-      openOnHover
-      side="top"
-      align="end"
-      avoidCollisions={false}
-      trigger={
-        <EnvironmentsCount active={active} total={environmentStates.length} />
-      }
+    <EnvironmentsPopover
+      active={environmentStates.filter((e) => e.isActive).length}
+      total={environmentStates.length}
       content={
-        // The two settings get fixed columns so their marks line up.
-        <Grid
-          columns="max-content 40px 40px max-content"
-          gapX="4"
-          gapY="2"
-          align="center"
-        >
-          <Box />
-          <Flex justify="center">
-            <Text size="sm" color="text-low">
-              Flag
-            </Text>
-          </Flex>
-          <Flex justify="center">
-            <Text size="sm" color="text-low">
-              Rule
-            </Text>
-          </Flex>
-          <Box />
-          {environmentStates.map(({ env, state, isActive }) => {
-            const input = environmentInputs?.[env];
-            return (
-              <Fragment key={env}>
-                <EnvironmentName env={env} isActive={isActive} />
-                <EnvironmentSetting value={input ? input.flagEnabled : null} />
-                {/* A rule that doesn't target the environment is off there too. */}
-                <EnvironmentSetting
-                  value={input ? input.rule === "on" : null}
-                />
-                <Flex align="center" gap="1">
-                  <EnvironmentStateIcon isActive={isActive} />
-                  <Text size="sm" weight="medium">
-                    {ENVIRONMENT_STATE_LABELS[state]}
-                  </Text>
-                </Flex>
-              </Fragment>
-            );
-          })}
-          {note ? (
-            <Box gridColumn="1 / -1" mt="1">
+        <Flex direction="column" gap="2" width="fit-content">
+          <Grid
+            columns="max-content 40px 40px max-content"
+            gapX="4"
+            gapY="2"
+            align="center"
+          >
+            <Box />
+            <Flex justify="center">
               <Text size="sm" color="text-low">
+                Flag
+              </Text>
+            </Flex>
+            <Flex justify="center">
+              <Text size="sm" color="text-low">
+                Rule
+              </Text>
+            </Flex>
+            <Box />
+            {environmentStates.map(({ env, state, isActive }) => {
+              const input = environmentInputs?.[env];
+              return (
+                <Fragment key={env}>
+                  <EnvironmentName env={env} isActive={isActive} />
+                  <EnvironmentSetting
+                    value={input ? input.flagEnabled : null}
+                  />
+                  <EnvironmentSetting
+                    value={input ? input.rule === "on" : null}
+                  />
+                  <Flex align="center" gap="1">
+                    <EnvironmentStateIcon isActive={isActive} />
+                    <Text size="sm" weight="medium">
+                      {ENVIRONMENT_STATE_LABELS[state]}
+                    </Text>
+                  </Flex>
+                </Fragment>
+              );
+            })}
+          </Grid>
+          {note ? (
+            <Box width="0" minWidth="100%">
+              <Text as="div" size="sm">
                 {note}
               </Text>
             </Box>
           ) : null}
-        </Grid>
+          {onEdit ? (
+            <Text size="sm">
+              <Link underline="hover" onClick={onEdit}>
+                Edit environments
+              </Link>
+            </Text>
+          ) : null}
+        </Flex>
       }
     />
   );
 }
 
-// The popover's trigger: it hands over its hover handlers and ref, so they
-// land on the span.
-const EnvironmentsCount = forwardRef<
-  HTMLSpanElement,
-  HTMLAttributes<HTMLSpanElement> & {
-    active: number;
-    total: number;
-  }
->(function EnvironmentsCount({ active, total, ...props }, ref) {
+// "Environments n/m", opening on hover to `content`.
+function EnvironmentsPopover({
+  active,
+  total,
+  content,
+}: {
+  active: number;
+  total: number;
+  content: ReactNode;
+}) {
   return (
-    <span
-      ref={ref}
-      {...props}
-      style={{
-        cursor: "default",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: "var(--space-1)",
-      }}
-    >
-      <Text size="sm" color="text-low">
-        Environments {active}/{total}
-      </Text>
-    </span>
+    <Popover
+      openOnHover
+      side="bottom"
+      align="start"
+      avoidCollisions={false}
+      trigger={
+        <span
+          style={{
+            cursor: "default",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "var(--space-1)",
+            flexShrink: 0,
+          }}
+        >
+          <Text size="sm" color="text-low" whiteSpace="nowrap">
+            Environments {active}/{total}
+          </Text>
+        </span>
+      }
+      content={content}
+    />
   );
-});
+}
 
 /**
  * "Environments n/m" for changes the SDK applies itself, opening on hover to
@@ -453,12 +356,9 @@ export function SdkConnectionEnvironmentsPopover({
   if (!entries.length) return null;
   const active = entries.filter(([, state]) => state === "active").length;
   return (
-    <Popover
-      openOnHover
-      side="top"
-      align="end"
-      avoidCollisions={false}
-      trigger={<EnvironmentsCount active={active} total={entries.length} />}
+    <EnvironmentsPopover
+      active={active}
+      total={entries.length}
       content={
         <Flex direction="column" gap="3" style={{ maxWidth: 300 }}>
           <Text size="sm" color="text-mid">

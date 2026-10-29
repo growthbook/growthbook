@@ -1,6 +1,8 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import { z } from "zod";
+import { MAX_SAVED_GROUP_DESCRIPTION_LENGTH } from "shared/constants";
 import type { Response } from "express";
-import { isEqual } from "lodash";
+import { isEqual, omit } from "lodash";
 import {
   draftValuesEqual,
   formatByteSizeString,
@@ -22,6 +24,11 @@ import {
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { DraftConflict } from "shared/types/draft-conflict";
+import {
+  paginationQueryFields,
+  type ApiSavedGroupUpload,
+  type SavedGroupUploadDetails,
+} from "shared/validators";
 import { findAllReferencedSavedGroupIds } from "shared/sdk-versioning";
 import {
   canStageArchiveDraft,
@@ -33,8 +40,19 @@ import {
 } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
+import { validatePagination } from "back-end/src/util/handler";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
+import {
+  assertUsableUploadVersion,
+  createRemoteSavedGroupUpload,
+  deleteRemoteSavedGroupUpload,
+  getRemoteSavedGroupUploadDetails,
+  getRemoteSavedGroupUploadDownloadUrl,
+  getRemoteSavedGroupUploadUrl,
+  listRemoteSavedGroupUploads,
+} from "back-end/src/services/remoteSavedGroups";
 import {
   isRevisionRequired,
   createOrUpdateRevision,
@@ -142,8 +160,13 @@ export const postSavedGroup = async (
       context.permissions.canBypassSavedGroupSizeLimit(projects),
     );
   }
-  if (typeof description === "string" && description.length > 100) {
-    throw new Error("Description must be at most 100 characters");
+  if (
+    typeof description === "string" &&
+    description.length > MAX_SAVED_GROUP_DESCRIPTION_LENGTH
+  ) {
+    throw new Error(
+      `Description must be at most ${MAX_SAVED_GROUP_DESCRIPTION_LENGTH} characters`,
+    );
   }
 
   const savedGroup = await context.models.savedGroups.create({
@@ -540,6 +563,7 @@ export const putSavedGroup = async (
     owner,
     values,
     condition,
+    currentUploadVersion,
     description,
     projects,
     archived,
@@ -648,6 +672,7 @@ export const putSavedGroup = async (
       owner,
       values,
       condition,
+      currentUploadVersion,
       description,
       projects,
     };
@@ -760,9 +785,28 @@ export const putSavedGroup = async (
 
     fieldsToUpdate.condition = condition;
   }
+  if (
+    savedGroup.type === "remote" &&
+    currentUploadVersion !== undefined &&
+    hasChanged(currentUploadVersion, comparisonBase.currentUploadVersion)
+  ) {
+    // Checked now too, since a draft doesn't write the group until it's
+    // published
+    await assertUsableUploadVersion(
+      context,
+      savedGroup.id,
+      currentUploadVersion,
+    );
+    fieldsToUpdate.currentUploadVersion = currentUploadVersion;
+  }
   if (hasChanged(description, comparisonBase.description)) {
-    if (typeof description === "string" && description.length > 100) {
-      throw new Error("Description must be at most 100 characters");
+    if (
+      typeof description === "string" &&
+      description.length > MAX_SAVED_GROUP_DESCRIPTION_LENGTH
+    ) {
+      throw new Error(
+        `Description must be at most ${MAX_SAVED_GROUP_DESCRIPTION_LENGTH} characters`,
+      );
     }
     fieldsToUpdate.description = description;
   }
@@ -1177,6 +1221,8 @@ type SavedGroupReferencesResponse =
         project?: string;
         projects?: string[];
       }[];
+      contextualBandits: { id: string; name: string; project?: string }[];
+      interleavings: { id: string; name: string; project?: string }[];
       savedGroups: { id: string; groupName: string; projects?: string[] }[];
     }
   | { message: string };
@@ -1236,9 +1282,7 @@ export const getSavedGroupDraftStates = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
-  const groupIds = req.query.ids
-    ? req.query.ids.split(",").filter(Boolean)
-    : undefined;
+  const groupIds = parseIdsQuery(req.query.ids);
   const groups = await context.models.revisions.getActiveDraftStates(
     "saved-group",
     groupIds,
@@ -1261,7 +1305,7 @@ export const getSavedGroupsMetadata = async (
   }>,
 ) => {
   const context = getContextFromReq(req);
-  const ids = [...new Set(req.query.ids.split(",").filter(Boolean))];
+  const ids = [...new Set(parseIdsQuery(req.query.ids))];
   const savedGroups =
     await context.models.savedGroups.getMetadataWithNested(ids);
   const missingIds = await context.models.savedGroups.getMissingIds([
@@ -1274,3 +1318,99 @@ export const getSavedGroupsMetadata = async (
 };
 
 // endregion GET /saved-groups/metadata
+
+// region remote saved group uploads
+
+export const getSavedGroupUploads = async (
+  req: AuthRequest<
+    never,
+    { id: string },
+    { limit?: string; offset?: string; versions?: string }
+  >,
+  res: Response<{ status: 200; uploads: ApiSavedGroupUpload[]; total: number }>,
+) => {
+  const context = getContextFromReq(req);
+  const { limit, offset } = validatePagination(
+    z.object(paginationQueryFields).parse(omit(req.query, "versions")),
+  );
+  const { uploads, total } = await listRemoteSavedGroupUploads(
+    context,
+    req.params.id,
+    {
+      limit,
+      offset,
+      // Checked by the router as comma-separated numbers
+      versions: req.query.versions?.split(",").map(Number),
+    },
+  );
+  return res.status(200).json({ status: 200, uploads, total });
+};
+
+export const postSavedGroupUploadUrl = async (
+  req: AuthRequest<never, { id: string }>,
+  res: Response<
+    { status: 200 } & Awaited<ReturnType<typeof getRemoteSavedGroupUploadUrl>>
+  >,
+) => {
+  const context = getContextFromReq(req);
+  const upload = await getRemoteSavedGroupUploadUrl(context, req.params.id);
+  return res.status(200).json({ status: 200, ...upload });
+};
+
+export const postSavedGroupUpload = async (
+  req: AuthRequest<{ fileKey: string; fileName?: string }, { id: string }>,
+  res: Response<{ status: 200; upload: ApiSavedGroupUpload }>,
+) => {
+  const context = getContextFromReq(req);
+  const upload = await createRemoteSavedGroupUpload(
+    context,
+    req.params.id,
+    req.body.fileKey,
+    req.body.fileName,
+  );
+  return res.status(200).json({ status: 200, upload });
+};
+
+export const getSavedGroupUpload = async (
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200 } & SavedGroupUploadDetails>,
+) => {
+  const context = getContextFromReq(req);
+  const details = await getRemoteSavedGroupUploadDetails(
+    context,
+    req.params.id,
+    // Checked by the router as a positive integer
+    Number(req.params.version),
+  );
+  return res.status(200).json({ status: 200, ...details });
+};
+
+export const getSavedGroupUploadDownloadUrl = async (
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200; url: string }>,
+) => {
+  const context = getContextFromReq(req);
+  const url = await getRemoteSavedGroupUploadDownloadUrl(
+    context,
+    req.params.id,
+    // Checked by the router as a positive integer
+    Number(req.params.version),
+  );
+  return res.status(200).json({ status: 200, url });
+};
+
+export const deleteSavedGroupUpload = async (
+  req: AuthRequest<never, { id: string; version: string }>,
+  res: Response<{ status: 200 }>,
+) => {
+  const context = getContextFromReq(req);
+  await deleteRemoteSavedGroupUpload(
+    context,
+    req.params.id,
+    // Checked by the router as a positive integer
+    Number(req.params.version),
+  );
+  return res.status(200).json({ status: 200 });
+};
+
+// endregion remote saved group uploads

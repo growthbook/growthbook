@@ -15,6 +15,7 @@ import { FaExternalLinkAlt } from "react-icons/fa";
 import Collapsible from "react-collapsible";
 import { PiArrowSquareOut, PiCaretRightFill } from "react-icons/pi";
 import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
+import { isExternallyManaged } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -46,6 +47,7 @@ export interface Props {
   close: () => void;
   duplicate?: boolean;
   onCreate?: (factTable: FactTableInterface) => void;
+  initialDatasource?: string;
 }
 
 export default function FactTableModal({
@@ -53,6 +55,7 @@ export default function FactTableModal({
   close,
   duplicate = false,
   onCreate,
+  initialDatasource,
 }: Props) {
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
@@ -79,6 +82,7 @@ export default function FactTableModal({
     defaultValues: {
       datasource:
         existing?.datasource ||
+        initialDatasource ||
         getNewExperimentDatasourceDefaults({ datasources, settings, project })
           .datasource,
       description: existing?.description || "",
@@ -323,7 +327,7 @@ export default function FactTableModal({
           <div className="mt-4">
             <Checkbox
               label="Mark as Official Fact Table"
-              disabled={form.watch("managedBy") === "api"}
+              disabled={isExternallyManaged(form.watch("managedBy"))}
               disabledMessage="This Fact Table is managed by the API, so it can not be edited in the UI."
               description="Official Fact Tables can only be modified by Admins or users with the ManageOfficialResources policy."
               value={form.watch("managedBy") === "admin"}

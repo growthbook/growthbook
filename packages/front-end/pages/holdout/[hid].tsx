@@ -11,8 +11,6 @@ import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
-import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
-import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -31,8 +29,6 @@ const HoldoutPage = (): ReactElement => {
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
-  const [editPhasesOpen, setEditPhasesOpen] = useState(false);
-  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
   const [editHoldoutScheduleModalOpen, setEditHoldoutScheduleModalOpen] =
@@ -103,10 +99,6 @@ const HoldoutPage = (): ReactElement => {
     ? () => setDuplicateModalOpen(true)
     : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
-  const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canRunExperiment
-    ? (i: number | null) => setEditPhaseId(i)
-    : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
@@ -155,25 +147,6 @@ const HoldoutPage = (): ReactElement => {
           source="hid"
         />
       )}
-      {editPhaseId !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseId(null)}
-          experiment={experiment}
-          mutate={mutate}
-          i={editPhaseId}
-          editTargeting={editTargeting}
-          source="hid"
-        />
-      )}
-      {editPhasesOpen && (
-        <EditPhasesModal
-          close={() => setEditPhasesOpen(false)}
-          mutateExperiment={mutate}
-          experiment={experiment}
-          editTargeting={editTargeting}
-          source="hid"
-        />
-      )}
       {targetingModalOpen && (
         <EditHoldoutTargetingModal
           close={() => setTargetingModalOpen(false)}
@@ -214,8 +187,6 @@ const HoldoutPage = (): ReactElement => {
           editResult={editResult}
           duplicate={duplicate}
           newPhase={newPhase}
-          editPhases={editPhases}
-          editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
           editTraffic={editTargeting}

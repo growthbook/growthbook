@@ -1,18 +1,7 @@
 import { LinkedFeatureInfo } from "shared/types/experiment";
-import {
-  environmentStatesDiffer,
-  getVariationValueChanges,
-} from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
+import { hasUnpublishedChanges } from "@/components/Experiment/LinkedChanges/linkedFeatureDiff";
 
 type PendingDraft = NonNullable<LinkedFeatureInfo["pendingDraft"]>;
-type DiffInfo = Pick<
-  LinkedFeatureInfo,
-  "values" | "liveValues" | "pendingDraft"
->;
-type EnvInfo = Pick<
-  LinkedFeatureInfo,
-  "liveEnvironmentStates" | "pendingDraft"
->;
 
 const draft = (overrides: Partial<PendingDraft>): PendingDraft =>
   ({
@@ -20,111 +9,152 @@ const draft = (overrides: Partial<PendingDraft>): PendingDraft =>
     status: "draft",
     values: [],
     environmentStates: {},
+    sparse: false,
+    defaultValue: "{}",
     ...overrides,
   }) as PendingDraft;
 
-describe("getVariationValueChanges", () => {
-  it("diffs the draft against live per variation", () => {
-    const info: DiffInfo = {
-      values: [],
-      liveValues: [
+describe("hasUnpublishedChanges", () => {
+  const live = [
+    { variationId: "a", value: "1" },
+    { variationId: "b", value: "2" },
+  ];
+  const prod: PendingDraft["environmentStates"] = { prod: "active" };
+
+  it.each([
+    {
+      name: "is false without a draft",
+      liveValues: live,
+      liveEnvs: prod,
+      expected: false,
+    },
+    {
+      name: "is false for a draft that moves no value or environment",
+      liveValues: live,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: prod,
+      expected: false,
+    },
+    {
+      name: "is true when a draft value moves against live",
+      liveValues: live,
+      liveEnvs: prod,
+      draftValues: [
         { variationId: "a", value: "1" },
-        { variationId: "b", value: "2" },
+        { variationId: "b", value: "3" },
       ],
-      pendingDraft: draft({
-        values: [
-          { variationId: "a", value: "1" },
-          { variationId: "b", value: "3" },
-        ],
-      }),
-    };
-    expect(getVariationValueChanges(info, ["a", "b"])).toEqual([
-      {
-        variationId: "a",
-        before: "1",
-        after: "1",
-        changed: false,
-        unpublished: false,
-      },
-      {
-        variationId: "b",
-        before: "2",
-        after: "3",
-        changed: true,
-        unpublished: true,
-      },
-    ]);
-  });
-
-  it("marks values unpublished when nothing is live yet", () => {
-    const info: DiffInfo = {
-      values: [{ variationId: "a", value: "x" }],
-      liveValues: undefined,
-      pendingDraft: undefined,
-    };
-    expect(getVariationValueChanges(info, ["a", "missing"])).toEqual([
-      {
-        variationId: "a",
-        before: undefined,
-        after: "x",
-        changed: false,
-        unpublished: true,
-      },
-      {
-        variationId: "missing",
-        before: undefined,
-        after: "",
-        changed: false,
-        unpublished: true,
-      },
-    ]);
-  });
-
-  it("reads the rule's own values when there is no draft", () => {
-    const info: DiffInfo = {
-      values: [{ variationId: "a", value: "live" }],
-      liveValues: [{ variationId: "a", value: "live" }],
-      pendingDraft: undefined,
-    };
-    expect(getVariationValueChanges(info, ["a"])[0]).toMatchObject({
-      after: "live",
-      changed: false,
-      unpublished: false,
-    });
-  });
-});
-
-describe("environmentStatesDiffer", () => {
-  it("is false without a draft", () => {
-    const info: EnvInfo = {
-      liveEnvironmentStates: { prod: "active" },
-      pendingDraft: undefined,
-    };
-    expect(environmentStatesDiffer(info)).toBe(false);
-  });
-
-  it("is true when the draft is the first thing to set environments", () => {
-    const info: EnvInfo = {
-      liveEnvironmentStates: undefined,
-      pendingDraft: draft({ environmentStates: { prod: "active" } }),
-    };
-    expect(environmentStatesDiffer(info)).toBe(true);
-  });
-
-  it("compares the draft's environments against live", () => {
-    const same: EnvInfo = {
-      liveEnvironmentStates: { prod: "active", dev: "disabled-env" },
-      pendingDraft: draft({
-        environmentStates: { prod: "active", dev: "disabled-env" },
-      }),
-    };
-    const moved: EnvInfo = {
-      liveEnvironmentStates: { prod: "active", dev: "disabled-env" },
-      pendingDraft: draft({
-        environmentStates: { prod: "active", dev: "active" },
-      }),
-    };
-    expect(environmentStatesDiffer(same)).toBe(false);
-    expect(environmentStatesDiffer(moved)).toBe(true);
-  });
+      draftEnvs: prod,
+      expected: true,
+    },
+    {
+      name: "is true when nothing is live yet",
+      liveEnvs: prod,
+      draftValues: [{ variationId: "a", value: "x" }],
+      draftEnvs: prod,
+      expected: true,
+    },
+    {
+      name: "is true when only the environments move",
+      liveValues: live,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: { prod: "disabled-env" },
+      expected: true,
+    },
+    {
+      name: "is true when the draft is the first to set environments",
+      liveValues: live,
+      draftValues: live,
+      draftEnvs: prod,
+      expected: true,
+    },
+    {
+      name: "is true when only sparse turns on",
+      liveValues: live,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: prod,
+      draftSparse: true,
+      expected: true,
+    },
+    {
+      name: "is true when only sparse turns off",
+      liveValues: live,
+      liveSparse: true,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: prod,
+      expected: true,
+    },
+    {
+      name: "is true when only the default under sparse values moves",
+      liveValues: live,
+      liveSparse: true,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: prod,
+      draftSparse: true,
+      draftDefault: '{"color":"blue"}',
+      expected: true,
+    },
+    {
+      name: "is false when sparse values merge onto the same default",
+      liveValues: live,
+      liveSparse: true,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: prod,
+      draftSparse: true,
+      expected: false,
+    },
+    {
+      name: "is false when only the default moves under whole values",
+      liveValues: live,
+      liveEnvs: prod,
+      draftValues: live,
+      draftEnvs: prod,
+      draftDefault: '{"color":"blue"}',
+      expected: false,
+    },
+  ] as {
+    name: string;
+    liveValues?: LinkedFeatureInfo["liveValues"];
+    liveSparse?: boolean;
+    liveEnvs?: LinkedFeatureInfo["liveEnvironmentStates"];
+    draftValues?: PendingDraft["values"];
+    draftEnvs?: PendingDraft["environmentStates"];
+    draftSparse?: boolean;
+    draftDefault?: string;
+    expected: boolean;
+  }[])(
+    "$name",
+    ({
+      liveValues,
+      liveSparse,
+      liveEnvs,
+      draftValues,
+      draftEnvs,
+      draftSparse = false,
+      draftDefault = "{}",
+      expected,
+    }) => {
+      expect(
+        hasUnpublishedChanges({
+          feature: { defaultValue: "{}" },
+          liveValues,
+          liveSparse,
+          liveEnvironmentStates: liveEnvs,
+          pendingDraft: draftValues
+            ? draft({
+                values: draftValues,
+                environmentStates: draftEnvs,
+                sparse: draftSparse,
+                defaultValue: draftDefault,
+              })
+            : undefined,
+        }),
+      ).toBe(expected);
+    },
+  );
 });

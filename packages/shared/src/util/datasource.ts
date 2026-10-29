@@ -38,6 +38,13 @@ export type {
   ParamSensitivity,
 } from "./datasource-params";
 
+export {
+  USER_ID_TYPE_NAME_PATTERN,
+  USER_ID_TYPE_NAME_RULE,
+  attributeToUserIdTypeName,
+  isValidUserIdTypeName,
+} from "./user-id-types";
+
 export type { DataRegion } from "./data-regions";
 
 export {

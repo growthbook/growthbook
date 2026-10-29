@@ -8,6 +8,7 @@ import type {
   FactTableValue,
   DataSourceValue,
   SqlValue,
+  PopulationValue,
   ProductAnalyticsValue,
   DatasetType,
   ExplorationDataset,
@@ -488,6 +489,14 @@ export function createEmptyValue(type: DatasetType): ProductAnalyticsValue {
         valueColumn: null,
         unit: null,
       } as SqlValue;
+    case "population":
+      return {
+        ...base,
+        name: generateUniqueValueName("Population", []),
+        type: "population",
+        unit: null,
+        source: { type: "factTable", factTableId: "" },
+      } as PopulationValue;
     case "funnel":
       // The funnel sidebar manages steps directly; nothing in the codebase
       // should ask for a "value" on a funnel dataset.

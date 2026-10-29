@@ -11,7 +11,7 @@ const ManagePersonalAccessTokensPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
   if (
     !permissionsUtils.canManageOrgSettings() &&
-    !permissionsUtils.canDeleteApiKey()
+    !permissionsUtils.canManagePersonalAccessTokens()
   ) {
     return (
       <div className="container pagecontents">

@@ -149,6 +149,15 @@ const draftFeatureIds: FieldRewrite = (value, { from, to }) =>
       }
     : { value, changed: false };
 
+// A scheduled start's pinned drafts, which sit inside the schedule.
+const scheduledStartPins: FieldRewrite = (value, at) => {
+  if (!isPlainObject(value)) return { value, changed: false };
+  const pins = draftFeatureIds(value.pinnedDrafts, at);
+  return pins.changed
+    ? { value: { ...value, pinnedDrafts: pins.value }, changed: true }
+    : { value, changed: false };
+};
+
 function whenEntityIsFeature(typeField: string): FieldRewrite {
   return (value, at) =>
     at.doc[typeField] === "feature"
@@ -263,6 +272,7 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
       "linkedFeatures",
       "pendingFeatureDrafts.[].featureId",
       "phases.[].prerequisites",
+      "nextScheduledStatusUpdate.pinnedDrafts.[].featureId",
     ],
     filter: ({ from }) =>
       anyOf(
@@ -270,6 +280,7 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
           "linkedFeatures",
           "pendingFeatureDrafts.featureId",
           "phases.prerequisites.id",
+          "nextScheduledStatusUpdate.pinnedDrafts.featureId",
         ],
         from,
       ),
@@ -277,6 +288,7 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
       linkedFeatures: idList,
       pendingFeatureDrafts: draftFeatureIds,
       phases: prerequisites,
+      nextScheduledStatusUpdate: scheduledStartPins,
     }),
   },
   {
@@ -303,21 +315,9 @@ export const FEATURE_ID_REFERENCES: FeatureIdReference[] = [
   },
   {
     collection: "interleavings",
-    covers: ["prerequisites", "environmentSettings.{}.prerequisites"],
-    filter: ({ from, environments }) =>
-      anyOf(
-        [
-          "prerequisites.id",
-          ...environments.map(
-            (env) => `environmentSettings.${env}.prerequisites.id`,
-          ),
-        ],
-        from,
-      ),
-    rewrite: rewriteFields({
-      prerequisites,
-      environmentSettings: prerequisites,
-    }),
+    covers: ["prerequisites"],
+    filter: ({ from }) => anyOf(["prerequisites.id"], from),
+    rewrite: rewriteFields({ prerequisites }),
   },
   {
     // Linked features are keyed by id, and each entry repeats it.

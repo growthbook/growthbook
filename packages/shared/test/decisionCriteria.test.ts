@@ -7,16 +7,20 @@ import {
   ExperimentDataForStatus,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
+import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
   getVariationDecisions,
   getEarlyStoppingVariationDecisions,
+  getContextualBanditResultStatus,
   resolveScheduledShipDecision,
+  clearLeader,
   getExperimentResultStatus,
   getSafeRolloutResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
 import { PRESET_DECISION_CRITERIA } from "../src/enterprise/decision-criteria/constants";
+import { getStatusIndicatorData } from "../src/enterprise/decision-criteria/statusIndicatorData";
 import { MetricGroupInterface } from "../types/metric-groups";
 import { SafeRolloutInterface } from "../types/safe-rollout";
 
@@ -1455,6 +1459,96 @@ describe("getDecisionFrameworkStatus Handles Super Stat Sig Correctly", () => {
   });
 });
 
+describe("getContextualBanditResultStatus", () => {
+  const healthSettings: ExperimentHealthSettings = {
+    decisionFrameworkEnabled: false,
+    experimentMinLengthDays: 3,
+    srmThreshold: 0.001,
+    multipleExposureMinPercent: 0.01,
+  };
+
+  it("flags SRM when the p-value is below the threshold", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.0001,
+      totalUsers: 10000,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("unhealthy");
+    expect(status?.status === "unhealthy" && status.unhealthyData.srm).toBe(
+      true,
+    );
+    expect(status?.tooltip).toBe("SRM");
+  });
+
+  it("returns undefined when healthy", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.9,
+      totalUsers: 10000,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status).toBeUndefined();
+  });
+
+  it("returns no-data when there is no traffic", () => {
+    const status = getContextualBanditResultStatus({
+      srm: null,
+      totalUsers: 0,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("no-data");
+  });
+
+  it("flags multiple exposures above the threshold", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.9,
+      totalUsers: 10000,
+      // 2% > 1% threshold
+      multipleExposures: 200,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("unhealthy");
+    expect(
+      status?.status === "unhealthy" &&
+        !!status.unhealthyData.multipleExposures,
+    ).toBe(true);
+    expect(status?.tooltip).toBe("Multiple exposures");
+  });
+
+  it("stays healthy when multiple exposures are below the threshold", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.9,
+      totalUsers: 10000,
+      // 0.1% < 1% threshold
+      multipleExposures: 10,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status).toBeUndefined();
+  });
+
+  it("reports both SRM and multiple exposures when both are unhealthy", () => {
+    const status = getContextualBanditResultStatus({
+      srm: 0.0001,
+      totalUsers: 10000,
+      multipleExposures: 200,
+      numOfVariations: 2,
+      healthSettings,
+    });
+
+    expect(status?.status).toBe("unhealthy");
+    expect(status?.tooltip).toBe("SRM, Multiple exposures");
+  });
+});
+
 describe("resolveScheduledShipDecision", () => {
   it("ships a single clear winner", () => {
     expect(
@@ -2187,5 +2281,126 @@ describe("getExperimentResultStatus schedule-driven states", () => {
       status: "data-incomplete",
       erroredMetrics: ["metric-1"],
     });
+  });
+});
+
+describe("getStatusIndicatorData for contextual Bandits", () => {
+  const healthSettings: ExperimentHealthSettings = {
+    decisionFrameworkEnabled: false,
+    experimentMinLengthDays: 3,
+    srmThreshold: 0.001,
+    multipleExposureMinPercent: 0.01,
+  };
+
+  function cbStatus(
+    health?: NonNullable<ExperimentDataForStatus["analysisSummary"]>["health"],
+  ) {
+    const experimentData = {
+      type: "contextual-bandit",
+      status: "running",
+      archived: false,
+      variations: [{ id: "v0" }, { id: "v1" }],
+      phases: [],
+      dismissedWarnings: [],
+      goalMetrics: [],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      datasource: "ds_1",
+      nextScheduledStatusUpdate: null,
+      analysisSummary: health ? { snapshotId: "cbs_1", health } : undefined,
+    } as unknown as ExperimentDataForStatus;
+    return getStatusIndicatorData({
+      experimentData,
+      skipArchived: false,
+      healthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA[0],
+      metricGroups: [],
+    });
+  }
+
+  it("shows plain Running when there is no health summary yet", () => {
+    expect(cbStatus()).toEqual({
+      color: "indigo",
+      status: "Running",
+      sortOrder: 7,
+    });
+  });
+
+  it("shows plain Running when the health checks pass", () => {
+    expect(
+      cbStatus({ srm: 0.5, totalUsers: 10000, multipleExposures: 0 }),
+    ).toEqual({ color: "indigo", status: "Running", sortOrder: 7 });
+  });
+
+  it("flags multiple exposures even when there is no SRM p-value", () => {
+    const status = cbStatus({
+      srm: null,
+      totalUsers: 10000,
+      multipleExposures: 500,
+    });
+    expect(status.detailedStatus).toBe("Unhealthy");
+    expect(status.needsAttention).toBe(true);
+    expect(status.tooltip).toBe("Multiple exposures");
+  });
+
+  it("flags an SRM failure", () => {
+    const status = cbStatus({
+      srm: 0.0001,
+      totalUsers: 10000,
+      multipleExposures: 0,
+    });
+    expect(status.detailedStatus).toBe("Unhealthy");
+    expect(status.tooltip).toBe("SRM");
+  });
+});
+
+describe("clearLeader", () => {
+  const snapshot = (cis: ([number, number] | undefined)[]) => ({
+    variations: cis.map((ci) => ({
+      users: 0,
+      metrics: ci ? { m: { value: 0, cr: 0, users: 0, ci } } : {},
+    })) as unknown as SnapshotVariation[],
+    variationIds: cis.map((_, i) => String(i)),
+  });
+
+  it("picks the variation whose interval clears every other tied one", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.01, 0.03], [0.04, 0.08]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBe("2");
+  });
+
+  it("finds none while the intervals overlap", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.01, 0.05], [0.04, 0.08]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBeNull();
+  });
+
+  it("reads a lower-is-better metric the other way", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [-0.08, -0.04], [-0.03, -0.01]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+        inverse: true,
+      }),
+    ).toBe("1");
+  });
+
+  it("finds none when a tied variation has no interval", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.04, 0.08], undefined]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBeNull();
   });
 });

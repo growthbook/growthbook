@@ -1,7 +1,6 @@
 import { FC, useState } from "react";
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
 import { isURLTargeted } from "@growthbook/growthbook";
 import { FaExclamationCircle } from "react-icons/fa";
 import { getConnectionsSDKCapabilities } from "shared/sdk-versioning";
@@ -11,6 +10,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { DocLink } from "@/components/DocLink";
 import Checkbox from "@/ui/Checkbox";
@@ -20,6 +20,7 @@ import Callout from "@/ui/Callout";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import { RedirectFields } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
+import { ShownVariation } from "@/components/Experiment/TabbedPage/ImplementationColumn";
 
 function validateUrl(urlString: string): {
   isValid: boolean;
@@ -48,8 +49,6 @@ function validateUrl(urlString: string): {
     return { isValid: false, message: "Invalid URL" };
   }
 }
-
-type ShownVariation = ReturnType<typeof getLatestPhaseVariations>[number];
 
 const UrlRedirectModal: FC<{
   mode: "add" | "edit";
@@ -97,7 +96,7 @@ const UrlRedirectModal: FC<{
         },
   );
 
-  const onSubmit = form.handleSubmit(async (value) => {
+  const onSubmit = validatedSubmit(form, async (value) => {
     await stage({
       urlPattern: value.originUrl,
       destinationURLs: [

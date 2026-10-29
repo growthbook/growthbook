@@ -3,7 +3,6 @@ import { Box, Flex } from "@radix-ui/themes";
 import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import Text from "@/ui/Text";
 
-/** A block of a start modal: an optional title over the panel that holds it. */
 export default function StartModalSection({
   title,
   icon,

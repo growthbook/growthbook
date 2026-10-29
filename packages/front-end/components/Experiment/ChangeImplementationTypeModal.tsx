@@ -20,7 +20,9 @@ import Checkbox from "@/ui/Checkbox";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { getEnabledEnvironments, useEnvironments } from "@/services/features";
 import { IMPLEMENTATION_TYPE_OPTIONS } from "@/components/Experiment/ImplementationTypeSelect";
-import { capitalizeFirstLetter, joinAnd } from "@/services/utils";
+import { capitalizeFirstLetter } from "@/services/utils";
+
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 /**
  * Why the implementation type can't change right now, or null when it can. The
@@ -54,21 +56,21 @@ export function implementationTypeLockedReason(
     ...(experiment.hasURLRedirects ? ["the URL Redirects"] : []),
   ];
   const actions = [
-    ...(blockers.length ? [`remove ${joinAnd(blockers)}`] : []),
+    ...(blockers.length ? [`remove ${listFormat.format(blockers)}`] : []),
     ...(leaving.length
       ? [
           leaving.length > 2
             ? `publish the drafts removing ${leaving.length} Feature Flags`
-            : `publish ${joinAnd(leaving)}`,
+            : `publish ${listFormat.format(leaving)}`,
         ]
       : []),
   ];
   // Both apply: an implementation outlives setting the status back.
   if (experiment.status !== "draft") {
-    return `${joinAnd(["Set the experiment's status back to Draft", ...actions])} to change its type.`;
+    return `${listFormat.format(["Set the experiment's status back to Draft", ...actions])} to change its type.`;
   }
   if (!actions.length) return null;
-  return `${capitalizeFirstLetter(joinAnd(actions))} first.`;
+  return `${capitalizeFirstLetter(listFormat.format(actions))} first.`;
 }
 
 /**

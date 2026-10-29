@@ -145,7 +145,7 @@ const OptInModal = ({
     if (!res || res.status !== 200) {
       throw new Error("Failed to log your agreement");
     }
-    // they agreed to the terms... if this is the AI agreement, we need to update the user settings
+    // Agreeing to the AI terms also turns AI on for the organization.
     if (agreement === "ai") {
       await apiCall(`/organization`, {
         method: "PUT",
@@ -167,7 +167,7 @@ const OptInModal = ({
     <ModalStandard
       trackingEventModalType="modal-opt-in"
       open={true}
-      header={(isAdmin ? title : noPermissionTitle) ?? title}
+      header={isAdmin ? title : (noPermissionTitle ?? title)}
       submit={isAdmin ? logAgree : undefined}
       close={() => onClose?.()}
       size="lg"

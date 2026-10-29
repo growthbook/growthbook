@@ -4,16 +4,10 @@ import {
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
 
-/**
- * The attributes an experiment may bucket on. Where the org has marked some
- * attributes as hash attributes, only those are offered.
- *
- * `current` is kept in the list even when it no longer qualifies — archived, or
- * out of the experiment's projects since it was chosen — so opening a picker
- * can't silently drop what the experiment already uses.
- */
+// Only the flagged hash attributes when the org flags any. `current` stays even
+// once archived or out of scope, so opening a picker can't silently drop it.
 export default function useHashAttributeOptions(
-  attributeProjects: string[] | null | undefined,
+  attributeProjects: string | string[] | null | undefined,
   current: string | undefined,
 ): AttributeOptionForTooltip[] {
   const attributeSchema = useAttributeSchema(false, attributeProjects);
@@ -26,16 +20,12 @@ export default function useHashAttributeOptions(
     .map(toAttributeOption);
 
   if (current && !options.find((o) => o.value === current)) {
-    const full = allAttributeSchema.find((s) => s.property === current);
-    options.push({
-      label: current,
-      value: current,
-      description: full?.description,
-      tags: full?.tags,
-      datatype: full?.datatype,
-      hashAttribute: full?.hashAttribute,
-      projects: full?.projects,
-    });
+    options.push(
+      toAttributeOption({
+        ...allAttributeSchema.find((s) => s.property === current),
+        property: current,
+      }),
+    );
   }
 
   return options;

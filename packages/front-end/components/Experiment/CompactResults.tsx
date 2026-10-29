@@ -85,6 +85,8 @@ const CompactResults: FC<{
   isTabActive: boolean;
   setTab?: (tab: ExperimentTab) => void;
   mainTableOnly?: boolean;
+  // Off where the page already reports the experiment's health.
+  showHealthWarnings?: boolean;
   noStickyHeader?: boolean;
   noTooltip?: boolean;
   experimentType?: ExperimentType;
@@ -147,6 +149,7 @@ const CompactResults: FC<{
   isTabActive,
   setTab,
   mainTableOnly,
+  showHealthWarnings = true,
   noStickyHeader,
   noTooltip,
   experimentType,
@@ -342,7 +345,7 @@ const CompactResults: FC<{
 
   return (
     <>
-      {!mainTableOnly && (
+      {!mainTableOnly && showHealthWarnings && (
         <>
           <Flex direction="column" gap="2" mx="3">
             {experimentType !== "multi-armed-bandit" && (

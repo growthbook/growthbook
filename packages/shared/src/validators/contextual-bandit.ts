@@ -2,9 +2,26 @@ import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { banditStageType, screenshot, variation } from "./experiments";
 import { namedSchema } from "./openapi-helpers";
+import {
+  apiVisualChangesetValidator,
+  postVisualChangesetBody,
+} from "./visual-changesets";
 import { apiRuleConfigField } from "./features-v2";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
-import { featurePrerequisite, savedGroupTargeting } from "./shared";
+import {
+  allowUnscopedRulesBodyField,
+  featurePrerequisite,
+  savedGroupTargeting,
+} from "./shared";
+import {
+  BANDIT_TRACKING_KEY_DESCRIPTION,
+  GENERIC_NAME_DESCRIPTION,
+  MARKDOWN_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  VARIATION_DESCRIPTION,
+  VARIATION_KEY_DESCRIPTION,
+  VARIATION_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 
 export const MAX_CONTEXTUAL_BANDIT_LEAVES = 12;
 
@@ -23,6 +40,27 @@ export type LeafWeight = z.infer<typeof leafWeightValidator>;
 
 export const contextualBanditStatus = ["draft", "running", "stopped"] as const;
 export type ContextualBanditStatus = (typeof contextualBanditStatus)[number];
+
+/**
+ * Lightweight health summary persisted on the CB doc after each successful
+ * results run.
+ */
+export const contextualBanditAnalysisSummaryValidator = z.object({
+  snapshotId: z.string(),
+  health: z
+    .object({
+      srm: z.number().nullable(),
+      totalUsers: z.number(),
+      /** Distinct users who saw more than one variation within one leaf and bandit period. */
+      multipleExposures: z.number().optional(),
+      /** Variations frozen by the run, so health thresholds use the same count the run did. */
+      variationIds: z.array(z.string()).optional(),
+    })
+    .optional(),
+});
+export type ContextualBanditAnalysisSummary = z.infer<
+  typeof contextualBanditAnalysisSummaryValidator
+>;
 
 // Absent = "active". See contextual-bandit-variation-changes.ts for semantics.
 const contextualBanditVariationStatus = [
@@ -86,6 +124,7 @@ export const contextualBanditValidator = baseSchema
     banditModelVersion: z.number().int().nonnegative(),
 
     linkedFeatures: z.array(z.string()).optional(),
+    hasVisualChangesets: z.boolean().optional(),
 
     pendingFeatureDrafts: z
       .array(
@@ -108,6 +147,7 @@ export const contextualBanditValidator = baseSchema
     autoSnapshots: z.boolean().optional(),
     lastSnapshotAttempt: z.date().optional(),
     nextSnapshotAttempt: z.date().optional(),
+    analysisSummary: contextualBanditAnalysisSummaryValidator.optional(),
   })
   .strict();
 
@@ -170,8 +210,10 @@ export const apiContextualBanditValidator = namedSchema(
     conversionWindowUnit: z.enum(["hours", "days"]).optional().nullable(),
     stage: z.enum(banditStageType).optional(),
     stageDateStarted: z.iso.datetime().optional(),
+    analysisSummary: contextualBanditAnalysisSummaryValidator.optional(),
     autoSnapshots: z.boolean().optional(),
     nextSnapshotAttempt: z.iso.datetime().optional(),
+    hasVisualChangesets: z.boolean().optional(),
   }),
 );
 
@@ -190,22 +232,22 @@ export const apiListContextualBanditsValidator = {
 };
 
 export const apiCreateContextualBanditBody = z.strictObject({
-  name: z.string(),
-  description: z.string().optional(),
+  name: z.string().describe(GENERIC_NAME_DESCRIPTION),
+  description: z.string().describe(MARKDOWN_DESCRIPTION).optional(),
   project: z.string().optional(),
   owner: ownerInputField.optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
 
-  trackingKey: z.string(),
+  trackingKey: z.string().describe(BANDIT_TRACKING_KEY_DESCRIPTION),
   hashAttribute: z.string().optional(),
 
   decisionMetric: z.string(),
 
   variations: z.array(
     z.object({
-      key: z.string(),
-      name: z.string(),
-      description: z.string().optional(),
+      key: z.string().describe(VARIATION_KEY_DESCRIPTION),
+      name: z.string().describe(VARIATION_NAME_DESCRIPTION),
+      description: z.string().describe(VARIATION_DESCRIPTION).optional(),
     }),
   ),
 
@@ -241,7 +283,7 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   owner: ownerInputField.optional(),
   tags: z.array(z.string()).optional(),
 
-  trackingKey: z.string().optional(),
+  trackingKey: z.string().describe(BANDIT_TRACKING_KEY_DESCRIPTION).optional(),
   hashAttribute: z.string().optional(),
 
   datasource: z.string().optional(),
@@ -423,6 +465,30 @@ export const apiContextualBanditCancelReturn = z
   })
   .describe("Contextual Bandit snapshot refresh canceled");
 
+export const apiContextualBanditPostVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: postVisualChangesetBody,
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditPostVisualChangesetsReturn = z.object({
+  visualChangeset: apiVisualChangesetValidator,
+});
+
+export const apiContextualBanditListVisualChangesetsValidator = {
+  paramsSchema: z.strictObject({
+    id: z.string().describe("The Contextual Bandit id"),
+  }),
+  bodySchema: z.never(),
+  querySchema: z.never(),
+};
+
+export const apiContextualBanditListVisualChangesetsReturn = z.object({
+  visualChangesets: z.array(apiVisualChangesetValidator),
+});
+
 export const contextualBanditIdAndSnapshotParam = z
   .object({
     id: z.string().describe("The Contextual Bandit id"),
@@ -504,6 +570,7 @@ export const contextualBanditLinkedFeatureRuleFields = {
     .describe(
       "Publish the resulting revision immediately instead of leaving it as a draft.",
     ),
+  allowUnscopedRules: allowUnscopedRulesBodyField,
 };
 
 export const contextualBanditLinkedFeatureDraftVersionField = z.coerce

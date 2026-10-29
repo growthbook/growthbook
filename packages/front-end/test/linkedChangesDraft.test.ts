@@ -7,7 +7,9 @@ import {
   hasSetAsideVisualChanges,
   LinkedChangesDraft,
   linkedChangesBody,
+  newRedirectKey,
   pruneLinkedChanges,
+  rebaseLinkedChanges,
   RedirectFields,
   removeRedirect,
   removeVisual,
@@ -16,6 +18,7 @@ import {
   stageVisualChange,
   stageVisualTargeting,
   undoRedirect,
+  visualServedValues,
 } from "@/components/Experiment/TabbedPage/linkedChangesDraft";
 
 const LOADED = "2026-01-02T00:00:00.000Z";
@@ -112,6 +115,14 @@ describe("linkedChangesDraft", () => {
     expect(removeRedirect(draft, added)).toEqual(EMPTY);
   });
 
+  it("keys a new redirect apart from every one still staged", () => {
+    let draft = addRedirect(EMPTY, newRedirectKey(EMPTY), fields());
+    draft = addRedirect(draft, newRedirectKey(draft), fields());
+    const [first] = shownUrlRedirects(draft, []);
+    draft = removeRedirect(draft, first);
+    expect(newRedirectKey(draft)).not.toBe(draft.addedRedirects[0].key);
+  });
+
   it("removing a redirect drops its edit, and Undo takes both back", () => {
     const removed = removeRedirect(
       editRedirect(EMPTY, onStored, fields({ persistQueryString: false })),
@@ -140,6 +151,40 @@ describe("linkedChangesDraft", () => {
       { ...c0, css: ".a{color:red}" },
     );
     expect(visual.editedVisual[vc.id].changes.c0.base.css).toBe("");
+  });
+
+  it("Keep mine stages each edit over what's stored now, and drops one that now matches", () => {
+    const draft = stageVisualChange(
+      stageVisualChange(
+        editRedirect(EMPTY, onStored, fields({ persistQueryString: false })),
+        vc,
+        { ...c0, css: ".a{}" },
+      ),
+      vc,
+      { ...c1, css: ".mine{}" },
+    );
+    const moved = { ...stored, dateUpdated: new Date("2026-02-01") };
+    // Someone else saved c0 as this edit has it, and moved c1.
+    const movedVc = {
+      ...vc,
+      visualChanges: [
+        { ...c0, css: ".a{}" },
+        { ...c1, css: ".theirs{}" },
+      ],
+    };
+
+    const rebased = rebaseLinkedChanges(draft, [moved], [movedVc]);
+
+    expect(rebased.editedRedirects[stored.id].dateUpdated).toBe(
+      "2026-02-01T00:00:00.000Z",
+    );
+    expect(rebased.editedVisual[vc.id].changes).toEqual({
+      c1: {
+        variation: "v1",
+        value: expect.objectContaining({ css: ".mine{}" }),
+        base: expect.objectContaining({ css: ".theirs{}" }),
+      },
+    });
   });
 
   it("sends only what's touched, each beside its base, with js always a string", () => {
@@ -220,7 +265,7 @@ describe("linkedChangesDraft", () => {
     ).toEqual(["c1"]);
   });
 
-  it("shows what's stored with what's staged over it", () => {
+  it("shows what's stored with what's staged over it, less what's removed", () => {
     const other = redirect("url_2");
     let draft = addRedirect(EMPTY, "new-1", fields());
     draft = removeRedirect(draft, { key: other.id, stored: other });
@@ -237,7 +282,6 @@ describe("linkedChangesDraft", () => {
       ]),
     ).toEqual([
       ["url_1", "edited", false],
-      ["url_2", "removed", true],
       ["new-1", "added", true],
     ]);
 
@@ -251,8 +295,14 @@ describe("linkedChangesDraft", () => {
       ".b{}",
     ]);
     expect(edited.stored).toBe(vc);
-    expect(
-      shownVisualChangesets(removeVisual(EMPTY, vc.id), [vc])[0].staged,
-    ).toBe("removed");
+    expect(shownVisualChangesets(removeVisual(EMPTY, vc.id), [vc])).toEqual([]);
+  });
+
+  it("reads an empty visual change as no change", () => {
+    expect(visualServedValues(vc, [...variationIds, "v2"])).toEqual({
+      v0: "",
+      v1: expect.stringContaining(".b{}"),
+      v2: "",
+    });
   });
 });

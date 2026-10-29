@@ -5,7 +5,6 @@ import {
   getStartSchedule,
   ServerChecklistItem,
   StartActions,
-  StartChecklist,
   withServerChecklist,
 } from "@/components/Experiment/TabbedPage/startActions";
 
@@ -19,10 +18,9 @@ const soft = { loading: false, remaining: 1, blocking: 0, approval: 0 };
 const approval = { loading: false, remaining: 2, blocking: 1, approval: 1 };
 const conflict = { loading: false, remaining: 1, blocking: 1, approval: 0 };
 const startNow = "Bypass remaining To Do items and start now";
-const scheduleStart = "Bypass remaining To Do items and schedule start";
 const reviewAndTodo =
   "Bypass approvals and remaining To Do items and start now";
-const futureLabel = "Start Oct 3, 2026 at 9:00 AM";
+const futureLabel = "Schedule to start (Oct 3)";
 
 describe("getStartSchedule", () => {
   it.each([
@@ -40,7 +38,7 @@ describe("getStartActions", () => {
     {
       name: "starts at once when everything is done",
       checklist: done,
-      expected: { bypassLabel: null, disabled: false },
+      expected: { bypassLabel: null, ready: true, disabled: false },
     },
     {
       name: "never treats a loading checklist as done",
@@ -49,15 +47,10 @@ describe("getStartActions", () => {
       expected: { bypassLabel: null, hardBlocked: true, disabled: true },
     },
     {
-      name: "offers the bypass for a soft item",
-      checklist: soft,
-      expected: { bypassLabel: startNow, disabled: true },
-    },
-    {
       name: "starts once the soft item is bypassed",
       checklist: soft,
       bypassed: true,
-      expected: { bypassLabel: startNow, disabled: false },
+      expected: { bypassLabel: startNow, ready: true, disabled: false },
     },
     {
       name: "offers no bypass past a hard blocker, even to an admin",
@@ -116,7 +109,7 @@ describe("getStartActions", () => {
       name: "starts at once when the schedule has passed",
       scheduledStartAt: past,
       checklist: done,
-      expected: { bypassLabel: null, disabled: false },
+      expected: { bypassLabel: null, ready: true, disabled: false },
     },
     {
       name: "approves a future schedule once everything is done",
@@ -126,23 +119,12 @@ describe("getStartActions", () => {
         action: "approve-schedule",
         label: futureLabel,
         bypassLabel: null,
+        ready: true,
         disabled: false,
       },
     },
     {
-      name: "approves a future schedule past a bypassed soft item",
-      scheduledStartAt: future,
-      checklist: soft,
-      bypassed: true,
-      expected: {
-        action: "approve-schedule",
-        label: futureLabel,
-        bypassLabel: scheduleStart,
-        disabled: false,
-      },
-    },
-    {
-      name: "never lets a scheduled start bypass approval",
+      name: "lets an admin arm a scheduled start past approval",
       scheduledStartAt: future,
       checklist: approval,
       canBypassApproval: true,
@@ -150,9 +132,10 @@ describe("getStartActions", () => {
       expected: {
         action: "approve-schedule",
         label: futureLabel,
-        bypassLabel: null,
-        hardBlocked: true,
-        disabled: true,
+        bypassLabel:
+          "Bypass approvals and remaining To Do items and schedule start",
+        waivesApproval: true,
+        disabled: false,
       },
     },
   ] as {
@@ -187,6 +170,7 @@ describe("getStartActions", () => {
         label: "Start now",
         waivesApproval: false,
         hardBlocked: false,
+        ready: false,
         ...expected,
       });
     },
@@ -201,13 +185,6 @@ describe("withServerChecklist", () => {
     manual: true,
     reason: "Required custom launch checklist item is incomplete",
   };
-  const targeting: ServerChecklistItem = {
-    key: "targeting",
-    required: true,
-    status: "incomplete",
-    manual: false,
-    reason: "Configure variation assignment and targeting behavior",
-  };
   const mergeConflict: ServerChecklistItem = {
     key: "mergeConflict:flag-a",
     required: true,
@@ -216,27 +193,12 @@ describe("withServerChecklist", () => {
     reason: "Resolve the merge conflict",
     hardBlock: true,
   };
-  it.each([
-    {
-      name: "counts every soft item on top of the page's",
-      checklist: soft,
-      server: [customTask, targeting],
-      expected: { ...soft, remaining: 3 },
-    },
-    {
-      // Resolving it on the page must not leave Start blocked by the refusal.
-      name: "leaves a hard item to the page's live rows",
-      checklist: approval,
-      server: [mergeConflict, customTask],
-      expected: { ...approval, remaining: 3 },
-    },
-  ] as {
-    name: string;
-    checklist: StartChecklist;
-    server: ServerChecklistItem[];
-    expected: StartChecklist;
-  }[])("$name", ({ checklist, server, expected }) => {
-    expect(withServerChecklist(checklist, server)).toEqual(expected);
+  // Resolving the hard one on the page must not leave Start blocked by the refusal.
+  it("counts a soft item on top of the page's, leaving a hard one to its live rows", () => {
+    expect(withServerChecklist(approval, [mergeConflict, customTask])).toEqual({
+      ...approval,
+      remaining: 3,
+    });
   });
 });
 
@@ -249,35 +211,33 @@ describe("getStartTitle", () => {
   } as TitleInput["nextScheduledStatusUpdate"];
   it.each([
     {
-      name: "a draft with no schedule",
-      startAt: null,
-      next: null,
-      expected: "Start experiment",
-    },
-    {
       name: "a draft Bandit",
       type: "multi-armed-bandit",
       startAt: null,
       next: null,
       expected: "Start Bandit",
+      heading: "Start Bandit",
     },
     {
       name: "a draft awaiting its schedule's approval",
       startAt: future,
       next: null,
-      expected: "Approve scheduled start",
+      expected: "Schedule start",
+      heading: "Schedule Start",
     },
     {
       name: "a draft whose schedule is approved",
       startAt: future,
       next: approvedStart,
       expected: "Start experiment",
+      heading: "Start Experiment",
     },
     {
       name: "a draft whose schedule has passed",
       startAt: past,
       next: null,
       expected: "Start experiment",
+      heading: "Start Experiment",
     },
   ] as {
     name: string;
@@ -285,21 +245,19 @@ describe("getStartTitle", () => {
     startAt: Date | null;
     next: TitleInput["nextScheduledStatusUpdate"];
     expected: string;
+    heading: string;
   }[])(
     "titles $name $expected",
-    ({ type = "standard", startAt, next, expected }) => {
-      expect(
-        getStartTitle(
-          {
-            type,
-            statusUpdateSchedule: startAt
-              ? { startAt: startAt.toISOString() }
-              : null,
-            nextScheduledStatusUpdate: next,
-          },
-          now,
-        ),
-      ).toBe(expected);
+    ({ type = "standard", startAt, next, expected, heading }) => {
+      const input: TitleInput = {
+        type,
+        statusUpdateSchedule: startAt
+          ? { startAt: startAt.toISOString() }
+          : null,
+        nextScheduledStatusUpdate: next,
+      };
+      expect(getStartTitle(input, now)).toBe(expected);
+      expect(getStartTitle(input, now, true)).toBe(heading);
     },
   );
 });

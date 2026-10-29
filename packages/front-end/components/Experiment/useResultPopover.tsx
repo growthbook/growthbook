@@ -10,7 +10,7 @@ import { DifferenceType, StatsEngine } from "shared/types/stats";
 import { ExperimentMetricDefinition } from "shared/experiments";
 import { RowResults } from "@/services/experiments";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
-import { useHoverTooltip } from "@/hooks/useHoverTooltip";
+import { HoverAnchor, useHoverTooltip } from "@/hooks/useHoverTooltip";
 import { PopoverContent } from "@/ui/Popover";
 import ExperimentResultTooltipContent, {
   StatusLabels,
@@ -39,6 +39,8 @@ interface ResultPopoverData {
 interface UseResultPopoverOptions {
   enabled: boolean;
   positioning?: "element" | "cursor";
+  // On the CI graph: stands over the row's mean, with a tail pointing at it.
+  pointsAtMean?: boolean;
   data: ResultPopoverData;
 }
 
@@ -84,14 +86,31 @@ function ResultPopoverTrigger({
   );
 }
 
+// Over the mean on its row's graph: against the graph's edge when the mean is
+// off it, and over the trigger when it's unknown.
+function meanAnchor(trigger: HTMLElement): HoverAnchor | null {
+  const graph = trigger
+    .closest("tr")
+    ?.querySelector<SVGSVGElement>("svg[data-mean-x]");
+  const meanX = Number(graph?.dataset.meanX);
+  if (!graph || !Number.isFinite(meanX)) return null;
+  const rect = graph.getBoundingClientRect();
+  if (meanX < 0) return { x: rect.left, align: "start" };
+  if (meanX > rect.width) return { x: rect.right, align: "end" };
+  return { x: rect.left + meanX, align: "center" };
+}
+
 export function useResultPopover({
   enabled,
   positioning = "element",
+  pointsAtMean = false,
   data,
 }: UseResultPopoverOptions) {
   const { triggerProps, isVisible, renderTooltip, close } = useHoverTooltip({
     enabled,
     positioning,
+    arrow: pointsAtMean,
+    anchor: pointsAtMean ? meanAnchor : undefined,
   });
 
   // Wrapper to make handleMouseLeave callable without arguments for backward compatibility

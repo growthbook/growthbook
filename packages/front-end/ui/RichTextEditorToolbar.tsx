@@ -50,12 +50,11 @@ import RichTextEditorLinkEditor, {
 } from "./RichTextEditorLinkEditor";
 import styles from "./RichTextEditor.module.scss";
 
-/** Which controls are lit for the current selection. */
+// Which controls are lit for the current selection.
 interface ActiveState {
   formats: Set<TextFormatType>;
   block: string;
-  /** URL of the link the caret sits in, or null when it is not in one. */
-  linkUrl: string | null;
+  inLink: boolean;
 }
 
 const TEXT_FORMATS: {
@@ -90,10 +89,7 @@ export default function RichTextEditorToolbar({
 }: {
   /** Omit to leave the image button out. */
   onPickImage?: () => void;
-  /**
-   * The short ribbon: no headings or strikethrough, for a field where a
-   * comment is the unit rather than a document.
-   */
+  /** The short ribbon: no headings or strikethrough. */
   simple?: boolean;
   /** Leave room at the end of the row for the editor's own corner button. */
   inset?: boolean;
@@ -102,7 +98,7 @@ export default function RichTextEditorToolbar({
   const [active, setActive] = useState<ActiveState>({
     formats: new Set(),
     block: "paragraph",
-    linkUrl: null,
+    inLink: false,
   });
 
   const [linkTarget, setLinkTarget] = useState<LinkTarget | null>(null);
@@ -137,7 +133,7 @@ export default function RichTextEditorToolbar({
     setActive({
       formats,
       block: blockType,
-      linkUrl: $findMatchingParent(anchorNode, $isLinkNode)?.getURL() ?? null,
+      inLink: $findMatchingParent(anchorNode, $isLinkNode) !== null,
     });
   }, []);
 
@@ -185,10 +181,11 @@ export default function RichTextEditorToolbar({
   // Hovering a link shows its address; clicking follows it. Editing is one
   // step further in, from the card.
   useEffect(() => {
-    const anchorUnder = (node: EventTarget | null) => {
-      const anchor = (node as HTMLElement | null)?.closest?.("a");
-      const root = editor.getRootElement();
-      return anchor && root?.contains(anchor) ? (anchor as HTMLElement) : null;
+    const anchorUnder = (target: EventTarget | null) => {
+      const anchor = target instanceof Element ? target.closest("a") : null;
+      return anchor && editor.getRootElement()?.contains(anchor)
+        ? anchor
+        : null;
     };
 
     const onClick = (e: MouseEvent) => {
@@ -215,7 +212,8 @@ export default function RichTextEditorToolbar({
       // The card is portalled, so match its Radix wrapper as well as our own
       // marker: the padding around the content belongs to the wrapper.
       if (
-        (e.target as HTMLElement | null)?.closest?.(
+        e.target instanceof Element &&
+        e.target.closest(
           "[data-link-card], [data-radix-popper-content-wrapper]",
         )
       ) {
@@ -330,7 +328,7 @@ export default function RichTextEditorToolbar({
       {button(
         "link",
         linkTarget?.node ? "Edit link" : "Link",
-        !!active.linkUrl,
+        active.inLink,
         () => setLinkTarget(fromSelection()),
         PiLinkBold,
       )}

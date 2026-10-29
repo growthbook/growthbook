@@ -11,9 +11,11 @@ import ProjectRuleFields from "./ProjectRuleFields";
 const ChangeProjectRoleModal: FC<{
   memberName: string;
   projectRole: ProjectMemberRole;
+  // A global admin's project roles have no effect.
+  adminEverywhere?: boolean;
   close: () => void;
   onConfirm: (data: ProjectMemberRole) => Promise<void>;
-}> = ({ memberName, projectRole, close, onConfirm }) => {
+}> = ({ memberName, projectRole, adminEverywhere, close, onConfirm }) => {
   const [value, setValue] = useState(projectRole);
   const { getProjectById } = useDefinitions();
   const { organization } = useUser();
@@ -45,7 +47,9 @@ const ChangeProjectRoleModal: FC<{
           {getProjectById(value.project)?.name ?? value.project}
         </Text>
         <Text size="sm" color="text-low">
-          replaces the All Projects rules inside it
+          {adminEverywhere
+            ? "Has no effect for a global Admin."
+            : "Replaces the All Projects rules inside it"}
         </Text>
       </Flex>
       <ProjectRuleFields rule={value} setRule={setValue} />

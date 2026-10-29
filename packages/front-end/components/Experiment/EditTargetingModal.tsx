@@ -6,6 +6,8 @@ import {
 import { hasAttributeCondition } from "shared/experiments";
 import { isAnalysisOnly } from "shared/util";
 import { Box } from "@radix-ui/themes";
+import LinkHashAttributeCallout from "@/components/Experiment/LinkHashAttributeCallout";
+import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAttributeSchema, useEnvironments } from "@/services/features";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import FallbackAttributeSelector from "@/components/Features/FallbackAttributeSelector";
@@ -15,9 +17,18 @@ import StickyBucketingToggle from "@/components/Experiment/StickyBucketingToggle
 import useOrgSettings from "@/hooks/useOrgSettings";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import {
+  followAssignmentAttribute,
+  getExposureQueriesInScope,
+  getExposureQuery,
+  getHashAttributeIdentifierTypeMap,
+} from "@/services/datasources";
 import track from "@/services/track";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
+import NamespaceSelector from "@/components/Features/NamespaceSelector";
+import type { StageTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import HashVersionSelector, {
   allConnectionsSupportBucketingV2,
 } from "./HashVersionSelector";
@@ -30,18 +41,20 @@ import { useExperimentTargetingForm } from "./useExperimentTargetingForm";
 import useHashAttributeOptions from "./useHashAttributeOptions";
 
 export interface Props {
+  section?: "targeting" | "namespace";
   close: () => void;
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures?: LinkedFeatureInfo[];
   mutate: () => void;
   safeToEdit: boolean;
   /** Stages the confirmed change instead of writing it. */
-  stageChanges?: (value: ExperimentTargetingData) => void;
+  stageChanges?: StageTargeting;
   /** Targeting already staged, which the form opens on. */
   draft?: ExperimentTargetingData | null;
 }
 
 export default function EditTargetingModal({
+  section = "targeting",
   close,
   experiment,
   linkedFeatures,
@@ -111,12 +124,57 @@ export default function EditTargetingModal({
   );
 
   const disableStickyBucketing = !!form.watch("disableStickyBucketing");
+  const { getDatasourceById } = useDefinitions();
+  const datasource = experiment.datasource
+    ? getDatasourceById(experiment.datasource)
+    : null;
+
+  // Staged, a new assignment attribute brings the analysis the assignment
+  // table and identifier type it's linked to, as the Data Source modal says.
+  const hashAttribute = form.watch("hashAttribute");
+  const followed =
+    stageChanges && datasource && hashAttribute !== experiment.hashAttribute
+      ? followAssignmentAttribute({
+          queries: getExposureQueriesInScope(datasource, experiment.project),
+          hashAttribute,
+          hashAttributeIdentifierTypeMap: getHashAttributeIdentifierTypeMap(
+            datasource.settings?.userIdTypes,
+          ),
+          exposureQueryId: experiment.exposureQueryId ?? "",
+          identifierType: experiment.exposureQueryIdentifierType ?? "",
+        })
+      : null;
 
   const settings = useOrgSettings();
 
   const orgStickyBucketing = !!settings.useStickyBucketing;
   // Served elsewhere, so the SDK-only settings don't apply.
   const analysisOnly = isAnalysisOnly(experiment);
+
+  if (safeToEdit && section === "namespace") {
+    return (
+      <ModalStandard
+        trackingEventModalType="edit-namespace-modal"
+        open={true}
+        close={close}
+        header="Edit Namespace"
+        subheader="Run mutually exclusive experiments within a shared namespace."
+        ctaEnabled={canSubmit}
+        cta={stageChanges ? "Confirm" : "Save"}
+        submit={onSubmit(mutate, "namespace", stageChanges)}
+        size="lg"
+      >
+        <NamespaceSelector
+          form={form}
+          featureId={experiment.trackingKey}
+          trackingKey={experiment.trackingKey}
+          experimentHashAttribute={form.watch("hashAttribute")}
+          fallbackAttribute={form.watch("fallbackAttribute")}
+          hideEnableToggle
+        />
+      </ModalStandard>
+    );
+  }
 
   if (safeToEdit) {
     return (
@@ -175,6 +233,29 @@ export default function EditTargetingModal({
                 ? "The attribute your own system assigns variations by."
                 : "Will be hashed together with the Tracking Key to determine which variation to assign"
             }
+          />
+          {followed ? (
+            <HelperText status="warning" size="sm" mt="2">
+              {followed.exposureQueryId !== experiment.exposureQueryId ? (
+                <>
+                  The experiment assignment table changes to{" "}
+                  {getExposureQuery(
+                    datasource?.settings,
+                    followed.exposureQueryId,
+                  )?.name ?? followed.exposureQueryId}{" "}
+                  and the identifier type to{" "}
+                </>
+              ) : (
+                "The identifier type changes to "
+              )}
+              <code>{followed.identifierType}</code> to match.
+            </HelperText>
+          ) : null}
+          <LinkHashAttributeCallout
+            experimentId={experiment.id}
+            datasource={datasource}
+            hashAttribute={form.watch("hashAttribute")}
+            source="Edit Targeting"
           />
           {orgStickyBucketing && !analysisOnly ? (
             <StickyBucketingToggle

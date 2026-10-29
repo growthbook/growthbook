@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentTargetingData,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -16,35 +15,22 @@ import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
-import EditProjectForm from "@/components/Experiment/EditProjectForm";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
-import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
-import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
-import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import { useStagedTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { useAuth } from "@/services/auth";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import Callout from "@/ui/Callout";
 
 const BanditExperimentPage = (): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
-  const { apiCall } = useAuth();
   const router = useRouter();
   const { bid } = router.query;
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [projectModalOpen, setProjectModalOpen] = useState(false);
-  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
-  const [editPhasesOpen, setEditPhasesOpen] = useState(false);
-  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  const [targetingDraft, setTargetingDraft] =
-    useState<ExperimentTargetingData | null>(null);
 
   const { data, error, mutate } = useApi<{
     experiment: ExperimentInterfaceStringDates;
@@ -55,7 +41,9 @@ const BanditExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
+    datasourceMissing?: boolean;
   }>(`/experiment/${bid}`);
+  const targeting = useStagedTargeting(data?.experiment);
 
   useSwitchOrg(data?.experiment?.organization ?? null);
 
@@ -105,11 +93,6 @@ const BanditExperimentPage = (): ReactElement => {
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
-    : null;
-  const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
-  const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canRunExperiment
-    ? (i: number | null) => setEditPhaseId(i)
     : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
@@ -162,73 +145,6 @@ const BanditExperimentPage = (): ReactElement => {
           source="duplicate-bid"
         />
       )}
-      {projectModalOpen && (
-        <EditProjectForm
-          label={
-            <>
-              Projects{" "}
-              <Tooltip
-                body={
-                  "The dropdown below has been filtered to only include projects where you have permission to update Experiments"
-                }
-              />
-            </>
-          }
-          cancel={() => setProjectModalOpen(false)}
-          permissionRequired={(project) =>
-            permissionsUtil.canUpdateExperiment({ project }, {})
-          }
-          mutate={mutate}
-          current={experiment.project}
-          save={(project) =>
-            apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ project }),
-            })
-          }
-          additionalMessage={
-            experiment.status !== "draft" &&
-            (experiment.linkedFeatures?.length ||
-              experiment.hasVisualChangesets ||
-              experiment.hasURLRedirects) ? (
-              <Callout status="error">
-                Changing the project may prevent your linked Feature Flags,
-                Visual Changes, and URL Redirects from being sent to users.
-              </Callout>
-            ) : null
-          }
-          source="bid"
-        />
-      )}
-      {phaseModalOpen && (
-        <NewPhaseForm
-          close={() => setPhaseModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          source="bid"
-        />
-      )}
-      {editPhaseId !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseId(null)}
-          experiment={experiment}
-          mutate={mutate}
-          i={editPhaseId}
-          editTargeting={editTargeting}
-          source="bid"
-        />
-      )}
-      {editPhasesOpen && (
-        <EditPhasesModal
-          close={() => setEditPhasesOpen(false)}
-          mutateExperiment={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          editTargeting={editTargeting}
-          source="bid"
-        />
-      )}
       {targetingModalOpen && (
         <EditTargetingModal
           close={() => setTargetingModalOpen(false)}
@@ -236,8 +152,8 @@ const BanditExperimentPage = (): ReactElement => {
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
-          stageChanges={setTargetingDraft}
-          draft={targetingDraft}
+          stageChanges={targeting.stage}
+          draft={targeting.value}
           // source="bid"
         />
       )}
@@ -255,6 +171,7 @@ const BanditExperimentPage = (): ReactElement => {
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
           experiment={experiment}
+          datasourceMissing={!!data?.datasourceMissing}
           linkedFeatures={linkedFeatures}
           mutate={mutate}
           visualChangesets={visualChangesets}
@@ -262,12 +179,9 @@ const BanditExperimentPage = (): ReactElement => {
           editMetrics={editMetrics}
           editResult={editResult}
           duplicate={duplicate}
-          newPhase={newPhase}
-          editPhases={editPhases}
-          editPhase={editPhase}
           envs={data.envs}
           editTargeting={editTargeting}
-          targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}
+          targetingDraft={targeting}
           canAddVariation={canRunExperiment}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}

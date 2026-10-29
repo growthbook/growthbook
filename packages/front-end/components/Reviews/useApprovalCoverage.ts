@@ -167,13 +167,17 @@ export function useApprovalCoverage({
           ? [approver.roleInfo]
           : [approver.roleInfo, approver.assumingKeyRole]
         : [];
+      // The approver may be a member or an org key; an assuming key is a key.
+      const isMember = !!organization.members?.some((m) => m.id === approverId);
       const perms = roles.map(
-        (roleInfo) =>
+        (roleInfo, i) =>
           roleInfo &&
           getRolePermissions(
             roleInfo,
             organization as OrganizationInterface,
             (teams ?? []) as TeamInterface[],
+            undefined,
+            { member: i === 0 && isMember },
           ),
       );
       const held = envIds.filter(

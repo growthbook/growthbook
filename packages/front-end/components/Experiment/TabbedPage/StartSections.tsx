@@ -1,25 +1,25 @@
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { hasAttributeCondition } from "shared/experiments";
 import { ReactNode } from "react";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { PiArrowSquareOut } from "react-icons/pi";
 import PremiumCallout from "@/ui/PremiumCallout";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
-import {
-  formatTrafficSplit,
-  getHoldoutTrafficBreakdown,
-} from "@/services/utils";
+import HoldoutTrafficBreakdown from "@/components/Holdout/HoldoutTrafficBreakdown";
 import ConditionDisplay from "@/components/Features/ConditionDisplay";
 import SavedGroupTargetingDisplay from "@/components/Features/SavedGroupTargetingDisplay";
 import { getNamespaceDisplayData } from "@/components/Features/NamespaceSelectorUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
+import { ReadOnlyChecklistRows } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
+import type { CheckListItem } from "@/components/PreLaunchChecklist/PreLaunchChecklistItems";
+import { percentFormatter } from "./DecisionMakingSettings";
 import { ServerChecklistItem } from "./startActions";
+import { revisionHref } from "./draftPicks";
 import { StartUpgrade } from "./useStartGate";
 import { PendingDraftFailure } from "./useStartExperiment";
 
-// "needs-rebase" is the no-conflict case: the draft is merely behind live.
 const PENDING_DRAFT_FAILURE_LABELS: Record<
   PendingDraftFailure["reason"],
   string
@@ -31,10 +31,38 @@ const PENDING_DRAFT_FAILURE_LABELS: Record<
   "publish-error": "Publish failed unexpectedly",
 };
 
-const percentFormatter = new Intl.NumberFormat(undefined, {
-  style: "percent",
-  maximumFractionDigits: 2,
-});
+/** Label/value rows, such as when an experiment starts and ends. */
+export function SummaryGrid({ children }: { children: ReactNode }) {
+  return (
+    <Grid columns="max-content minmax(0, 1fr)" gapX="4" gapY="2" align="start">
+      {children}
+    </Grid>
+  );
+}
+
+export function SummaryRow({
+  label,
+  children,
+  action = null,
+}: {
+  label: string;
+  children: ReactNode;
+  action?: ReactNode;
+}) {
+  return (
+    <>
+      <Text size="sm" color="text-mid">
+        {label}
+      </Text>
+      <Flex justify="between" align="baseline" gap="3">
+        <Text size="sm" color="text-high">
+          {children}
+        </Text>
+        {action}
+      </Flex>
+    </>
+  );
+}
 
 export function StartFailures({
   failures,
@@ -62,13 +90,17 @@ export function StartFailures({
             {/* The flag page refuses writes on a managed flag; the To Do
                 links to where its values are resolved. */}
             {managedFeatureId === failure.featureId ? (
-              <Text weight="semibold">Variation values</Text>
+              <Text size="sm" weight="semibold">
+                Variation values
+              </Text>
             ) : (
               <Link
-                href={`/features/${failure.featureId}?v=${failure.revisionVersion}`}
+                href={revisionHref(failure.featureId, failure.revisionVersion)}
                 target="_blank"
               >
-                <Text weight="semibold">{failure.featureId}</Text>
+                <Text size="sm" weight="semibold">
+                  {failure.featureId}
+                </Text>
                 <PiArrowSquareOut className="ml-1" />
               </Link>
             )}
@@ -106,148 +138,111 @@ export function StartChecklistFailures({
   );
 }
 
-export type StartSummaryRow = {
-  key: string;
+export function TargetingSummaryRow({
+  label,
+  inline = false,
+  children,
+}: {
   label: string;
-  value: ReactNode;
   // Short enough to sit beside its label.
-  inline: boolean;
-};
-
-/** Traffic and targeting as they will start. Empty before the first phase. */
-export function useStartSummaryRows(
-  experiment: ExperimentInterfaceStringDates,
-): StartSummaryRow[] {
-  const { namespaces } = useOrgSettings();
-  const latestPhase = experiment.phases?.[experiment.phases.length - 1];
-  const { coverage: namespaceCoverage, name: namespaceName } =
-    getNamespaceDisplayData(latestPhase?.namespace, namespaces);
-  if (!latestPhase) return [];
-
-  const isHoldout = experiment.type === "holdout";
-  const isBandit = experiment.type === "multi-armed-bandit";
-  const holdoutTraffic = getHoldoutTrafficBreakdown(latestPhase);
-  const rows: StartSummaryRow[] = [];
-  if (latestPhase.namespace?.enabled) {
-    rows.push({
-      key: "namespace",
-      label: "Namespace",
-      inline: true,
-      value: (
-        <Text>
-          {percentFormatter.format(namespaceCoverage)} of {namespaceName}
-        </Text>
-      ),
-    });
-  }
-  rows.push({
-    key: "traffic",
-    label: "Traffic",
-    inline: !isHoldout,
-    value: isHoldout ? (
-      <Flex direction="column" gap="1">
-        <Text>{holdoutTraffic.inHoldoutPercent}% in holdout</Text>
-        <Text>
-          {holdoutTraffic.forMeasurementPercent}% not in holdout (for
-          measurement)
-        </Text>
-        <Text>
-          {holdoutTraffic.notForMeasurementPercent}% not in holdout (not for
-          measurement)
-        </Text>
-      </Flex>
-    ) : (
-      <Text>
-        {Math.floor(latestPhase.coverage * 100)}% included
-        {!isBandit && (
-          <>
-            ,{" "}
-            {formatTrafficSplit(latestPhase.variationWeights, 2, {
-              trim: true,
-            })}{" "}
-            split
-          </>
-        )}
+  inline?: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Flex
+      direction={inline ? "row" : "column"}
+      gap={inline ? "2" : "1"}
+      align={inline ? "baseline" : "stretch"}
+    >
+      <Text size="md" weight="semibold" color="text-high">
+        {label}:
       </Text>
-    ),
-  });
-  if (hasAttributeCondition(latestPhase.condition)) {
-    rows.push({
-      key: "attributeTargeting",
-      label: "Attribute targeting",
-      inline: false,
-      value: <ConditionDisplay condition={latestPhase.condition} />,
-    });
-  }
-  if (latestPhase.savedGroups?.length) {
-    rows.push({
-      key: "savedGroupTargeting",
-      label: "Saved Group targeting",
-      inline: false,
-      value: (
-        <SavedGroupTargetingDisplay savedGroups={latestPhase.savedGroups} />
-      ),
-    });
-  }
-  if (latestPhase.prerequisites?.length && !isHoldout) {
-    rows.push({
-      key: "prerequisites",
-      label: "Prerequisites",
-      inline: false,
-      value: <ConditionDisplay prerequisites={latestPhase.prerequisites} />,
-    });
-  }
-  return rows;
+      <Box>{children}</Box>
+    </Flex>
+  );
 }
 
+/** A holdout's traffic and targeting as it will start. */
 export function StartSummary({
   experiment,
 }: {
   experiment: ExperimentInterfaceStringDates;
 }) {
-  const rows = useStartSummaryRows(experiment);
-  if (!rows.length) return null;
+  const { namespaces } = useOrgSettings();
+  const latestPhase = experiment.phases.at(-1);
+  if (!latestPhase) return null;
+  const { coverage: namespaceCoverage, name: namespaceName } =
+    getNamespaceDisplayData(latestPhase.namespace, namespaces);
+
   return (
     <Flex direction="column" gap="4">
-      {rows.map((row) => (
-        <Flex
-          key={row.key}
-          direction={row.inline ? "row" : "column"}
-          gap={row.inline ? "2" : "1"}
-          align={row.inline ? "baseline" : "stretch"}
-        >
-          <Text size="md" weight="semibold" color="text-high">
-            {row.label}:
+      {latestPhase.namespace?.enabled ? (
+        <TargetingSummaryRow label="Namespace" inline>
+          <Text>
+            {percentFormatter.format(namespaceCoverage)} of {namespaceName}
           </Text>
-          <Box>{row.value}</Box>
-        </Flex>
-      ))}
+        </TargetingSummaryRow>
+      ) : null}
+      <TargetingSummaryRow label="Traffic">
+        <HoldoutTrafficBreakdown phase={latestPhase} />
+      </TargetingSummaryRow>
+      {hasAttributeCondition(latestPhase.condition) ? (
+        <TargetingSummaryRow label="Attribute targeting">
+          <ConditionDisplay condition={latestPhase.condition} />
+        </TargetingSummaryRow>
+      ) : null}
+      {latestPhase.savedGroups?.length ? (
+        <TargetingSummaryRow label="Saved Group targeting">
+          <SavedGroupTargetingDisplay savedGroups={latestPhase.savedGroups} />
+        </TargetingSummaryRow>
+      ) : null}
     </Flex>
   );
 }
+
+const UPGRADE_REASONS: Record<StartUpgrade, string> = {
+  "visual-editor":
+    "This experiment contains AI Visual Editor changes, which require a paid plan.",
+  redirects:
+    "This experiment contains URL redirects, which require a paid plan.",
+};
 
 export function StartUpgradeCallout({
   upgrade,
 }: {
   upgrade: StartUpgrade | null;
 }) {
-  if (upgrade === "visual-editor") {
-    return (
-      <PremiumCallout
-        commercialFeature="visual-editor"
-        id="start-experiment-modal"
-      >
-        This experiment contains AI Visual Editor changes, which require a paid
-        plan.
-      </PremiumCallout>
-    );
-  }
-  if (upgrade === "redirects") {
-    return (
-      <PremiumCallout commercialFeature="redirects" id="start-experiment-modal">
-        This experiment contains URL redirects, which require a paid plan.
-      </PremiumCallout>
-    );
-  }
-  return null;
+  if (!upgrade) return null;
+  return (
+    <PremiumCallout
+      commercialFeature={upgrade}
+      id="start-experiment-modal"
+      size="sm"
+    >
+      {UPGRADE_REASONS[upgrade]}
+    </PremiumCallout>
+  );
+}
+
+/** What blocks a start the viewer can't bypass, read only. */
+export function StartBlockers({
+  items,
+  upgrade,
+}: {
+  items: CheckListItem[];
+  upgrade: StartUpgrade | null;
+}) {
+  return (
+    <Flex direction="column" gap="2">
+      <Text size="sm" weight="semibold" color="text-high">
+        Resolve before starting
+      </Text>
+      {upgrade ? (
+        <Text size="sm" color="text-mid">
+          {UPGRADE_REASONS[upgrade]}
+        </Text>
+      ) : null}
+      <ReadOnlyChecklistRows items={items} />
+    </Flex>
+  );
 }

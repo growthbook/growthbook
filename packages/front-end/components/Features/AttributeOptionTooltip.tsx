@@ -5,7 +5,6 @@ import {
   OptionLabel,
   OptionMenuRow,
   OptionPopover,
-  type OptionPopoverSide,
   OptionProjectsLabel,
   OptionTooltipDescription,
   OptionTooltipProjectsRow,
@@ -79,30 +78,14 @@ export function AttributeOptionProjectsLabel({
   return <OptionProjectsLabel names={names} />;
 }
 
-/**
- * `valueSide` moves the closed control's popover, for a control too narrow to
- * fit it above.
- */
-export function attributeOptionLabelFormatter(valueSide?: OptionPopoverSide) {
-  return (o: { label: string }, meta: { context: string }) =>
-    renderAttributeOptionLabel(o, meta, valueSide);
-}
-
-export const formatAttributeOptionLabel = attributeOptionLabelFormatter();
-
-function renderAttributeOptionLabel(
+export function formatAttributeOptionLabel(
   o: { label: string },
   meta: { context: string },
-  valueSide?: OptionPopoverSide,
 ) {
   const option = o as AttributeOptionForTooltip;
   const context: OptionContext = meta.context === "value" ? "value" : "menu";
   return (
-    <AttributeOptionWithTooltip
-      option={option}
-      context={context}
-      side={context === "value" ? valueSide : undefined}
-    >
+    <AttributeOptionWithTooltip option={option} context={context}>
       {context === "menu" ? (
         <OptionMenuRow
           label={o.label}
@@ -118,18 +101,15 @@ function renderAttributeOptionLabel(
 export function AttributeOptionWithTooltip({
   option,
   context = "menu",
-  side,
   children,
 }: {
   option: AttributeOptionForTooltip;
   context?: OptionContext;
-  side?: OptionPopoverSide;
   children: React.ReactNode;
 }) {
   return (
     <OptionPopover
       context={context}
-      side={side}
       content={<AttributeOptionTooltipContent option={option} />}
     >
       {children}

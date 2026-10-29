@@ -3,6 +3,7 @@ import { ago } from "shared/dates";
 import { isExpired } from "shared/api-key-expiration";
 import Text from "@/ui/Text";
 import { useUser } from "@/services/UserContext";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { AppNotice } from "./notices";
 
@@ -12,19 +13,26 @@ type ExpiringKey = ReturnType<typeof useUser>["expiringApiKeys"][number];
 // organization's keys, that lapse soon or lapsed but are still in use. Expiry
 // events go only to org webhooks, so this is how people hear about them.
 export default function useKeyExpiryNotices(): AppNotice[] {
-  const { expiringPersonalAccessTokens, expiringApiKeys } = useUser();
+  const { expiringPersonalAccessTokens, expiringApiKeys, settings } = useUser();
+  const canReplaceApiKeys = usePermissionsUtil().canCreateApiKey();
   return [
-    expiryNotice(expiringPersonalAccessTokens, {
-      id: "personal-access-token-expiry",
-      noun: "personal access token",
-      href: "/account/personal-access-tokens",
-      fix: "on your Personal Access Tokens page",
-    }),
+    // Disabled tokens fail at authentication whatever their expiry.
+    expiryNotice(
+      settings?.disablePersonalAccessTokens ? [] : expiringPersonalAccessTokens,
+      {
+        id: "personal-access-token-expiry",
+        noun: "personal access token",
+        href: "/account/personal-access-tokens",
+        fix: "on your Personal Access Tokens page",
+        canReplace: true,
+      },
+    ),
     expiryNotice(expiringApiKeys, {
       id: "api-key-expiry",
       noun: "API key",
       href: "/settings/keys",
       fix: "on the API Keys page",
+      canReplace: canReplaceApiKeys,
     }),
   ].filter((notice): notice is AppNotice => !!notice);
 }
@@ -36,7 +44,14 @@ function expiryNotice(
     noun,
     href,
     fix,
-  }: { id: string; noun: string; href: string; fix: string },
+    canReplace,
+  }: {
+    id: string;
+    noun: string;
+    href: string;
+    fix: string;
+    canReplace: boolean;
+  },
 ): AppNotice | null {
   if (!keys.length) return null;
   const expiredCount = keys.filter((k) => isExpired(k.expiresAt)).length;
@@ -63,7 +78,19 @@ function expiryNotice(
           </Text>
         ))}
         <Text as="div" size="inherit">
-          To replace one, use <strong>Copy settings to new key</strong> {fix}.
+          {canReplace ? (
+            <>
+              To replace one, use <strong>Copy settings to new key</strong>{" "}
+              {fix}.
+            </>
+          ) : (
+            <>
+              To extend one that hasn&apos;t expired, use{" "}
+              <strong>Edit key</strong> {fix}. An expired {noun} can&apos;t be
+              extended, and replacing it requires permission to create a new
+              one.
+            </>
+          )}
         </Text>
       </Flex>
     ),

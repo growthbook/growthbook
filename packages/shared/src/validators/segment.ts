@@ -4,6 +4,7 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { GENERIC_NAME_DESCRIPTION } from "./api-field-descriptions";
 
 const TYPES = ["SQL", "FACT"] as const;
 
@@ -77,7 +78,7 @@ export type ApiSegment = z.infer<typeof apiSegmentValidator>;
 // Corresponds to payload-schemas/PostSegmentPayload.yaml
 const postSegmentBody = z
   .object({
-    name: z.string().describe("Name of the segment"),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     owner: ownerInputField.optional(),
     description: z
       .string()

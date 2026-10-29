@@ -4,6 +4,7 @@ import { Flex } from "@radix-ui/themes";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isProjectListValidForProject } from "shared/util";
 import { CommercialFeature } from "shared/enterprise";
+import { duplicateFactMetric } from "@/services/metrics";
 import { getSafeReturnUrl } from "@/services/returnUrl";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
@@ -97,25 +98,14 @@ export default function NewFactMetricPage() {
     );
   }
 
-  // Matches the old modal's duplicate normalization (FactMetricList.tsx,
-  // pre-migration): only "admin" managedBy carries over, and only if this
-  // user could create it themselves - otherwise a copy of an API-managed or
-  // admin-managed metric would be rejected outright by the backend instead
-  // of saving as an ordinary metric.
-  const duplicatedManagedBy: "" | "admin" =
-    duplicateSource?.managedBy === "admin" &&
-    permissionsUtil.canCreateOfficialResources(duplicateSource)
-      ? "admin"
-      : "";
-  const duplicateFrom = template
-    ? template
-    : duplicateSource
-      ? {
-          ...duplicateSource,
-          name: duplicateSource.name + " (copy)",
-          managedBy: duplicatedManagedBy,
-        }
-      : null;
+  const duplicateFrom =
+    template ??
+    (duplicateSource
+      ? duplicateFactMetric(
+          duplicateSource,
+          permissionsUtil.canCreateOfficialResources(duplicateSource),
+        )
+      : null);
 
   // Check the Projects the new metric will actually get (MetricWorkspace
   // copies them from its fact table), not just the Project picked in the

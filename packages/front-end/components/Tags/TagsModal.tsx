@@ -7,6 +7,7 @@ import Field from "@/components/Forms/Field";
 import { RadixColor } from "@/ui/HelperText";
 import { Select, SelectItem } from "@/ui/Select";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Tag from "./Tag";
 
 export const TAG_COLORS = [
@@ -51,7 +52,7 @@ export default function TagsModal({
       close={close}
       cta={existing?.id ? "Save Changes" : "Create Tag"}
       header={existing?.id ? `Edit Tag: ${existing.id}` : "Create Tag"}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await apiCall(`/tag`, {
           method: "POST",
           body: JSON.stringify(value),

@@ -3,7 +3,7 @@ import type {
   LinkedFeaturePendingDraft,
 } from "shared/types/experiment";
 import type { EventUser } from "shared/types/events/event-types";
-import { draftApprovalSatisfied } from "@/components/Reviews/reviewAndPublishState";
+import { pendingDraftApproved } from "shared/util";
 
 type StatusDraft = Pick<
   LinkedFeaturePendingDraft,
@@ -34,7 +34,7 @@ export function getValuesDraftStage(draft: StatusDraft): ValuesDraftStage {
   if (draft.status === "pending-review") return "pending-review";
   if (draft.status === "changes-requested") return "changes-requested";
   if (draft.status === "approved") {
-    return draftApprovalSatisfied(draft) ? "approved" : "short-of-approval";
+    return pendingDraftApproved(draft) ? "approved" : "short-of-approval";
   }
   return "unsent";
 }

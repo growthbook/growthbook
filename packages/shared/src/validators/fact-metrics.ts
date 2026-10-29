@@ -4,11 +4,17 @@ import { MAX_FUNNEL_STEPS } from "shared/funnels";
 import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 import {
+  factManagedByValidator,
   isValidRowFilterRangeLength,
   ROW_FILTER_RANGE_LENGTH_MESSAGE,
 } from "./fact-table";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  MARKDOWN_DESCRIPTION,
+  METRIC_NAME_DESCRIPTION,
+  TAGS_DESCRIPTION,
+} from "./api-field-descriptions";
 
 // Shared sub-schemas for fact metric column references
 
@@ -368,11 +374,9 @@ export const apiFactMetricValidator = namedSchema(
       maxPercentChange: z.coerce.number(),
       minSampleSize: z.coerce.number(),
       targetMDE: z.coerce.number(),
-      managedBy: z
-        .enum(["", "api", "admin"])
-        .describe(
-          "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
-        ),
+      managedBy: factManagedByValidator.describe(
+        "Where this fact metric must be managed from. If not set (empty string), it can be managed from anywhere.",
+      ),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       archived: z.boolean().optional(),
@@ -653,11 +657,15 @@ export const factMetricCreateArchivedField = z
 
 // Corresponds to payload-schemas/PostFactMetricPayload.yaml
 export const postFactMetricBodyFields = z.object({
-  name: z.string(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  name: z.string().describe(METRIC_NAME_DESCRIPTION),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(MARKDOWN_DESCRIPTION)
+    .optional(),
   owner: ownerInputField.optional(),
   projects: z.array(z.string()).optional(),
-  tags: z.array(z.string()).optional(),
+  tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
   metricType: apiMetricTypeEnum,
   numerator: postNumeratorRef.nullable().optional(),
   denominator: postDenominatorRef.optional(),
@@ -727,9 +735,10 @@ export const postFactMetricBodyFields = z.object({
       'The percentage change that you want to reliably detect before ending an experiment, as a proportion (e.g. put 0.1 for 10%). This is used to estimate the "Days Left" for running experiments.',
     )
     .optional(),
-  managedBy: z
-    .enum(["", "api", "admin"])
-    .describe('Set this to "api" to disable editing in the GrowthBook UI')
+  managedBy: factManagedByValidator
+    .describe(
+      'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+    )
     .optional(),
   metricAutoSlices: z
     .array(z.string())

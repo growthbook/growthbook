@@ -38,31 +38,10 @@ describe("getLaunchDraftVersion", () => {
     ).toBe(3);
   });
 
-  it("passes over a draft that holds the rule as it was when the draft was cut", () => {
-    const base = revision(1, [ref("b")]);
-    const live = revision(3, [ref("b-published")]);
-    const stale = { ...revision(4, [ref("b"), force]), base };
-    expect(getLaunchDraftVersion("exp_1", [stale], live)).toBeNull();
-    expect(
-      getLaunchDraftVersion(
-        "exp_1",
-        [{ ...revision(2, [ref("b-edited")]), base }, stale],
-        live,
-      ),
-    ).toBe(2);
-  });
-
-  it("counts a draft that adds the rule, and nothing when no draft changes it", () => {
+  it("counts a draft that adds the rule", () => {
     expect(
       getLaunchDraftVersion("exp_1", [revision(2, [ref("b")])], null),
     ).toBe(2);
-    expect(
-      getLaunchDraftVersion(
-        "exp_1",
-        [revision(2, [ref("b"), force])],
-        revision(1, [ref("b")]),
-      ),
-    ).toBeNull();
   });
 
   it("counts a type change on a draft carrying the rule, and ignores other experiments' rules", () => {

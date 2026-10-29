@@ -2,6 +2,7 @@ import * as React from "react";
 import { render, renderHook } from "@testing-library/react";
 import {
   FeatureRevisionDiffInput,
+  legacyEnvironmentRefs,
   useFeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 
@@ -209,16 +210,16 @@ describe("useFeatureRevisionDiff", () => {
     expect(html).not.toContain('["production","dev"]');
   });
 
-  it("emits an env-toggle diff only for envs that actually changed", () => {
+  it("titles a single toggled environment in the singular", () => {
     const current: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [],
-      environmentsEnabled: { production: false, staging: false },
+      environmentsEnabled: { production: false },
     };
     const draft: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [],
-      environmentsEnabled: { production: true, staging: false, dev: false },
+      environmentsEnabled: { production: true },
     };
 
     const { result } = renderHook(() =>
@@ -230,8 +231,6 @@ describe("useFeatureRevisionDiff", () => {
     );
     expect(toggleDiffs).toHaveLength(1);
     expect(toggleDiffs[0].title).toBe("Environment");
-    expect(JSON.parse(toggleDiffs[0].a)).toEqual({ production: false });
-    expect(JSON.parse(toggleDiffs[0].b)).toEqual({ production: true });
   });
 
   it("ignores rule fields the rule type does not declare", () => {
@@ -297,5 +296,24 @@ describe("useFeatureRevisionDiff", () => {
       "Toggled production on",
       "Toggled staging off",
     ]);
+  });
+
+  it("points per-environment comment refs at their line in the merged section", () => {
+    const a = JSON.stringify({ production: false, staging: true }, null, 2);
+    const b = JSON.stringify({ production: true, staging: false }, null, 2);
+
+    const refs = legacyEnvironmentRefs(a, b);
+
+    expect(refs.get("environmentsEnabled.production:R1")).toEqual({
+      sectionKey: "environmentsEnabled",
+      side: "R",
+      line: 2,
+    });
+    expect(refs.get("environmentsEnabled.staging:L1")).toEqual({
+      sectionKey: "environmentsEnabled",
+      side: "L",
+      line: 3,
+    });
+    expect(refs.has("environmentsEnabled.dev:R1")).toBe(false);
   });
 });

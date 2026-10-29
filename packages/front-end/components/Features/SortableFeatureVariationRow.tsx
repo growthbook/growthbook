@@ -1,6 +1,5 @@
 import { forwardRef, useEffect, useState } from "react";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
-import { BsThreeDotsVertical } from "react-icons/bs";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { RiDraggable } from "react-icons/ri";
 import { PiCaretDown, PiCaretUp } from "react-icons/pi";
 import {
@@ -9,10 +8,12 @@ import {
   FeatureValueType,
 } from "shared/types/feature";
 import {
+  capTypedPercent,
   decimalToPercent,
   distributeWeights,
   floatRound,
   rebalance,
+  VARIATION_WEIGHT_DECIMALS,
 } from "@/services/utils";
 import { getVariationDefaultName } from "@/services/features";
 import Field from "@/components/Forms/Field";
@@ -22,16 +23,20 @@ import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  MoreMenuTrigger,
 } from "@/ui/DropdownMenu";
 import Text from "@/ui/Text";
 import useSortableItem from "@/hooks/useSortableItem";
+import TruncatedText from "@/ui/TruncatedText";
 import FeatureValueField from "./FeatureValueField";
+import { reorderVariations } from "./SortableVariationsList";
 import styles from "./VariationsInput.module.scss";
 
-/** The one column template the header row and every variation row share. */
+// The column template the header row and every variation row share.
 export function gridColumns({
   hideVariationIds,
   hideValueField,
+  valueWidth = null,
   showDescription,
   hideSplit,
   isJson,
@@ -39,6 +44,8 @@ export function gridColumns({
 }: {
   hideVariationIds?: boolean;
   hideValueField?: boolean;
+  // A fixed width for plain-text values, the same in every row.
+  valueWidth?: string | null;
   showDescription?: boolean;
   hideSplit?: boolean;
   isJson?: boolean;
@@ -46,12 +53,13 @@ export function gridColumns({
 }): string {
   return [
     showDragHandle ? "16px" : undefined,
-    hideVariationIds ? undefined : "16px",
+    // Alone, the numbers are headed "Key": room for that word.
+    hideVariationIds ? undefined : hideValueField ? "32px" : "16px",
     hideValueField
       ? undefined
       : isJson
         ? "minmax(300px, 2fr)"
-        : "minmax(120px, 1fr)",
+        : (valueWidth ?? "minmax(120px, 1fr)"),
     "minmax(160px, 1fr)",
     showDescription ? "minmax(140px, 1fr)" : undefined,
     hideSplit ? undefined : "100px",
@@ -60,6 +68,17 @@ export function gridColumns({
   ]
     .filter(Boolean)
     .join(" ");
+}
+
+// A feature rule forces values; everywhere else the column holds variation keys.
+export function valueColumnIsKey({
+  valueAsId,
+  hideVariationIds,
+}: {
+  valueAsId: boolean;
+  hideVariationIds?: boolean;
+}): boolean {
+  return valueAsId || !hideVariationIds;
 }
 
 export type SortableVariation = ExperimentValue & {
@@ -74,20 +93,19 @@ interface SortableProps {
   valueType?: FeatureValueType;
   hideVariationIds?: boolean;
   hideValueField?: boolean;
+  valueWidth?: string | null;
   setVariations?: (value: ExperimentValue[]) => void;
   setWeight?: (i: number, weight: number) => void;
   customSplit: boolean;
   hideSplit: boolean;
   valueAsId: boolean;
-  /** The value column holds the variation's key, not a value to force. */
-  valueIsKey?: boolean;
+  // Renumber keys to their new positions on reorder, as a drag does.
+  renumberKeysOnReorder?: boolean;
   feature?: FeatureInterface;
   showDescription?: boolean;
   showDragHandle?: boolean;
   dragging?: boolean;
   onlySafeToEditVariationMetadata?: boolean;
-  // Auto-focus this variation's Name field on mount.
-  autoFocusName?: boolean;
   // JSON features only. Renders the value as a sparse patch (merged onto the
   // feature default) in the value editor.
   sparse?: boolean;
@@ -106,11 +124,12 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       variation,
       handle,
       valueAsId,
-      valueIsKey,
+      renumberKeysOnReorder = false,
       setVariations,
       valueType,
       hideVariationIds,
       hideValueField,
+      valueWidth = null,
       onlySafeToEditVariationMetadata,
       customSplit,
       hideSplit,
@@ -119,7 +138,6 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       showDescription,
       showDragHandle,
       dragging,
-      autoFocusName,
       sparse,
       ...props
     },
@@ -130,7 +148,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
     const weightPercent = floatRound(weight * 100, 2);
     const [val, setVal] = useState<number>(weightPercent);
     useEffect(() => {
-      if (val !== weight) {
+      if (val !== weightPercent) {
         setVal(weightPercent);
       }
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,13 +167,17 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
       });
     };
 
-    const move = (to: number) => {
-      if (!setVariations) return;
-      const newValues = [...variations];
-      const [row] = newValues.splice(i, 1);
-      newValues.splice(to, 0, row);
-      setVariations(newValues);
+    const valueIsKey = valueColumnIsKey({ valueAsId, hideVariationIds });
+    const update = (patch: Partial<SortableVariation>) => {
+      const newVariations = [...variations];
+      newVariations[i] = { ...variation, ...patch };
+      setVariations?.(newVariations);
     };
+
+    const move = (to: number) =>
+      setVariations?.(
+        reorderVariations(variations, i, to, renumberKeysOnReorder),
+      );
 
     return (
       <Box
@@ -176,6 +198,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
           columns={gridColumns({
             hideVariationIds,
             hideValueField,
+            valueWidth,
             showDescription,
             hideSplit,
             isJson: valueType === "json",
@@ -199,7 +222,11 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
             </Box>
           )}
 
-          {!hideVariationIds && <VariationNumber number={i} />}
+          {!hideVariationIds && (
+            <Flex justify="center">
+              <VariationNumber number={i} />
+            </Flex>
+          )}
 
           {!hideValueField &&
             (setVariations && !onlySafeToEditVariationMetadata ? (
@@ -209,11 +236,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   id={`value_${i}`}
                   value={variation.value}
                   placeholder={valueAsId ? i + "" : ""}
-                  onChange={(e) => {
-                    const newVariations = [...variations];
-                    newVariations[i] = { ...variation, value: e.target.value };
-                    setVariations(newVariations);
-                  }}
+                  onChange={(e) => update({ value: e.target.value })}
                 />
               ) : (
                 <div className={styles.tightValueCell}>
@@ -222,18 +245,10 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                     id={`value_${i}`}
                     value={variation.value}
                     placeholder={valueAsId ? i + "" : ""}
-                    setValue={(value) => {
-                      const newVariations = [...variations];
-                      newVariations[i] = {
-                        ...variation,
-                        value,
-                      };
-                      setVariations(newVariations);
-                    }}
+                    setValue={(value) => update({ value })}
                     valueType={valueType}
                     feature={feature}
                     renderJSONInline={false}
-                    useCodeInput={true}
                     showFullscreenButton={true}
                     codeInputDefaultHeight={FIVE_LINES_HEIGHT}
                     sparse={sparse}
@@ -241,26 +256,21 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 </div>
               )
             ) : (
-              <>{variation.value}</>
+              <TruncatedText text={variation.value} />
             ))}
 
           {setVariations ? (
             <Field
               size="md"
-              autoFocus={autoFocusName}
               placeholder={`${getVariationDefaultName(
                 variation,
                 valueType ?? "string",
               )}`}
               value={variation.name || ""}
-              onChange={(e) => {
-                const newVariations = [...variations];
-                newVariations[i] = { ...variation, name: e.target.value };
-                setVariations(newVariations);
-              }}
+              onChange={(e) => update({ name: e.target.value })}
             />
           ) : (
-            <strong>{variation.name || ""}</strong>
+            <TruncatedText text={variation.name || ""} />
           )}
 
           {showDescription &&
@@ -269,14 +279,7 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                 <Field
                   size="md"
                   value={variation.description || ""}
-                  onChange={(e) => {
-                    const newVariations = [...variations];
-                    newVariations[i] = {
-                      ...variation,
-                      description: e.target.value,
-                    };
-                    setVariations(newVariations);
-                  }}
+                  onChange={(e) => update({ description: e.target.value })}
                   textarea
                   minRows={1}
                 />
@@ -292,9 +295,21 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
                   size="md"
                   id={`${variation.id}__${i}__3__input`}
                   value={val}
-                  onChange={(e) => setVal(parseFloat(e.target.value))}
+                  onChange={(e) =>
+                    setVal(
+                      parseFloat(
+                        capTypedPercent(
+                          e.target.value,
+                          VARIATION_WEIGHT_DECIMALS,
+                        ),
+                      ),
+                    )
+                  }
                   onBlur={() => {
-                    const decimal = (val >= 0 ? val : 0) / 100;
+                    const decimal = floatRound(
+                      (val >= 0 ? val : 0) / 100,
+                      VARIATION_WEIGHT_DECIMALS + 2,
+                    );
                     rebalanceAndUpdate(i, decimal);
                   }}
                   type="number"
@@ -313,16 +328,10 @@ export const VariationRow = forwardRef<HTMLDivElement, VariationProps>(
             {setVariations && !onlySafeToEditVariationMetadata ? (
               <DropdownMenu
                 trigger={
-                  <IconButton
-                    variant="ghost"
-                    color="gray"
-                    radius="full"
-                    size="2"
-                    highContrast
+                  <MoreMenuTrigger
+                    label="Variation actions"
                     style={{ margin: 0 }}
-                  >
-                    <BsThreeDotsVertical size={16} />
-                  </IconButton>
+                  />
                 }
                 menuPlacement="end"
                 variant="soft"

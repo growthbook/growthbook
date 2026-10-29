@@ -9,11 +9,16 @@ import { createApiRequestHandler } from "back-end/src/util/handler";
 import { auditDetailsDelete } from "back-end/src/services/audit";
 import {
   archiveExperimentWithCleanup,
-  assertCanChangeServing,
   deleteExperimentWithCleanup,
   unarchiveExperimentWithCleanup,
 } from "back-end/src/services/experimentRemoval";
+import { assertCanRunExperimentInAffectedEnvironments } from "back-end/src/services/experiments";
 import { canUseRestApiBypassSetting } from "back-end/src/api/features/reviewBypass";
+import {
+  confirmationLink,
+  requireConfirmation,
+  unarchiveActions,
+} from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
 import { requireExperiment } from "./requireExperiment";
 
@@ -24,7 +29,7 @@ export const postExperimentArchive = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
-  await assertCanChangeServing(req.context, experiment);
+  await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
 
   const updated = await archiveExperimentWithCleanup({
     context: req.context,
@@ -53,7 +58,14 @@ export const postExperimentUnarchive = createApiRequestHandler(
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
-  await assertCanChangeServing(req.context, experiment);
+  await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+  await requireConfirmation(req.context, {
+    actions: unarchiveActions(experiment),
+    project: experiment.project,
+    summary: `Unarchive ${experiment.name}`,
+    links: [confirmationLink("experiment", experiment.id, experiment.name)],
+    pin: [experiment.status, experiment.archived],
+  });
   const updated = await unarchiveExperimentWithCleanup({
     context: req.context,
     experiment,
@@ -77,7 +89,7 @@ export const deleteExperiment = createApiRequestHandler(
   if (!req.context.permissions.canDeleteExperiment(experiment)) {
     req.context.permissions.throwPermissionError();
   }
-  await assertCanChangeServing(req.context, experiment);
+  await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
   const restApiBypassesReviews = canUseRestApiBypassSetting(req);
   // Same rule as Feature Flags: archive first, unless the org lets the REST
   // API act on live objects outright.

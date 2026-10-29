@@ -53,6 +53,9 @@ function toApiInterface(
   exploration: ProductAnalyticsExploration,
 ): ApiAnalyticsExploration {
   const client = toClientJourneyExploration(exploration, exploration.config);
+  if (client.config.type === "population") {
+    throw new Error("Population previews are not part of the REST API");
+  }
   return {
     id: client.id,
     dateCreated: client.dateCreated.toISOString(),
@@ -155,7 +158,9 @@ const BaseClass = MakeModelClass({
           const exploration = await analyticsExplorations.getById(
             req.params.id,
           );
-          if (!exploration) return req.context.throwNotFoundError();
+          if (!exploration || exploration.config.type === "population") {
+            return req.context.throwNotFoundError();
+          }
           const queryId = exploration.queries?.[0]?.query;
           const query = queryId
             ? await getQueryById(req.context, queryId)

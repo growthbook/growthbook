@@ -8,12 +8,14 @@ import { expandMetricGroups } from "shared/experiments";
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Callout from "@/ui/Callout";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
-import { toPercentField } from "@/services/metricOverrides";
+import { decimalToPercent } from "@/services/utils";
+import { withoutDeprecatedOverrideFields } from "@/services/metricOverrides";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import {
   EditMetricsFormInterface,
@@ -104,7 +106,7 @@ export default function MetricOverridesModal({
         settings,
       ),
       targetMDEs: Object.fromEntries(
-        goalTargetMDEs.map((o) => [o.id, toPercentField(o.targetMDE)]),
+        goalTargetMDEs.map((o) => [o.id, decimalToPercent(o.targetMDE, 11)]),
       ),
     },
   });
@@ -135,8 +137,8 @@ export default function MetricOverridesModal({
       cta="Confirm"
       ctaEnabled={canOverride}
       size="lg"
-      submit={form.handleSubmit(async (value) => {
-        const next = value.metricOverrides ?? [];
+      submit={validatedSubmit(form, async (value) => {
+        const next = withoutDeprecatedOverrideFields(value.metricOverrides);
         fixMetricOverridesBeforeSaving(next);
         stageChanges(
           next,
@@ -145,7 +147,7 @@ export default function MetricOverridesModal({
                 // A metric that's no longer a goal keeps what it had.
                 ...targetMDEOverrides.filter((o) => !goalIds.includes(o.id)),
                 ...goalIds.flatMap((id) => {
-                  const percent = value.targetMDEs?.[id];
+                  const percent = value.targetMDEs[id];
                   return percent === undefined || Number.isNaN(percent)
                     ? []
                     : [{ id, targetMDE: percent / 100 }];

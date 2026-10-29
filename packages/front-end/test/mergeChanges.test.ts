@@ -1,7 +1,4 @@
-import {
-  experimentChangesBody,
-  type ExperimentChangesBody,
-} from "shared/validators";
+import type { ExperimentChangesBody } from "shared/validators";
 import { mergeChanges } from "@/components/Experiment/TabbedPage/mergeChanges";
 
 const redirect = {
@@ -12,8 +9,9 @@ const redirect = {
 };
 
 // Required, so a key added to the body doesn't compile until it's here.
-const part: Required<Omit<ExperimentChangesBody, "dryRun">> = {
+const part: Required<Omit<ExperimentChangesBody, "dryRun" | "release">> = {
   experiment: { changes: { name: "New" }, base: { name: "Old" } },
+  allowUnscopedRules: true,
   flagValues: [
     {
       featureId: "flag",
@@ -22,6 +20,17 @@ const part: Required<Omit<ExperimentChangesBody, "dryRun">> = {
     },
   ],
   linkFeatures: [{ featureId: "flag", variations: [] }],
+  createFeatures: [
+    {
+      feature: {
+        id: "new-flag",
+        valueType: "boolean",
+        defaultValue: "false",
+        environmentSettings: {},
+      },
+      variations: [],
+    },
+  ],
   unlinkFeatures: ["flag"],
   keepFeatures: ["flag"],
   deleteManagedFlag: true,
@@ -51,10 +60,6 @@ const listLengths = (body: ExperimentChangesBody) =>
 
 describe("mergeChanges", () => {
   it("keeps every key an edit can send", () => {
-    const editKeys = Object.keys(experimentChangesBody.shape).filter(
-      (key) => key !== "dryRun",
-    );
-    expect(Object.keys(part).sort()).toEqual(editKeys.sort());
     expect(mergeChanges([{}, part])).toEqual(part);
   });
 

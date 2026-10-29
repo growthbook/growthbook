@@ -2,7 +2,11 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
 
-const router = vi.hoisted(() => ({ push: vi.fn() }));
+const router = vi.hoisted(() => ({
+  push: vi.fn(),
+  asPath: "/",
+  events: { on: vi.fn(), off: vi.fn(), emit: vi.fn() },
+}));
 vi.mock("next/router", () => ({ useRouter: () => router }));
 
 function clickLink({

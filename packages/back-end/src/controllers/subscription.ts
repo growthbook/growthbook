@@ -495,6 +495,7 @@ export async function getUsage(
       requests: cdnRequests,
       bandwidth: cdnBandwidth,
       managedClickhouseEvents,
+      eventForwarderEvents,
     },
   } = await getOrgUsage(org);
 
@@ -505,6 +506,7 @@ export async function getUsage(
       cdnRequests,
       cdnBandwidth,
       managedClickhouseEvents,
+      eventForwarderEvents,
     },
   });
 }

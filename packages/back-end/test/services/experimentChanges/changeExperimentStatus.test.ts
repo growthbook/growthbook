@@ -2,6 +2,8 @@
 // ProjectModel / request-context import cycle from the wrong end.
 import "back-end/src/services/features";
 import { ExperimentInterface } from "shared/types/experiment";
+import { getScopedSettings } from "shared/settings";
+import { builtInChecklistItemKeyValidator } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
@@ -16,36 +18,53 @@ import {
 } from "back-end/src/util/errors";
 import {
   assertScheduledStartNotHardBlocked,
-  executeExperimentStart,
+  assertStartNotBlocked,
   getExperimentStartChecklistStatus,
+  type StartPlan,
   startExperiment,
+  startResult,
+  statusChangeEffects,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
   getExperimentById: jest.fn(),
-  updateExperiment: jest.fn(async ({ experiment, changes }) => ({
-    ...experiment,
-    ...changes,
-  })),
+  updateExperiment: jest.fn(),
 }));
 jest.mock("back-end/src/services/experiment-feature", () => ({
-  publishPendingFeatureDraftsForExperiment: jest.fn(async () => ({
-    published: [],
-    failed: [],
-  })),
+  publishPendingFeatureDraftsForExperiment: jest.fn(),
   formatPendingDraftFailureMessage: jest.fn(),
+  getLaunchDrafts: jest.fn(async () => []),
 }));
 jest.mock("back-end/src/services/experiments", () => ({
   assertCanPublishPendingFeatureDrafts: jest.fn(),
   assertCanRunExperimentInAffectedEnvironments: jest.fn(),
-  getChangesToStartExperiment: jest.fn(async () => ({ status: "running" })),
+  getChangesToStartExperiment: jest.fn(),
   getLinkedFeatureInfo: jest.fn(),
+  resetExperimentBanditSettings: jest.fn(() => ({ banditStage: "explore" })),
 }));
 jest.mock("back-end/src/services/growthbook", () => ({
   trackEventForContext: jest.fn(),
 }));
+// Import cycle: a lazy Proxy defers requireActual to first property access.
+const getFeaturesByIdsMock = jest.fn();
+jest.mock(
+  "back-end/src/models/FeatureModel",
+  () =>
+    new Proxy(
+      {},
+      {
+        get: (_t, prop: string) =>
+          prop === "getFeaturesByIds"
+            ? getFeaturesByIdsMock
+            : jest.requireActual("back-end/src/models/FeatureModel")[prop],
+      },
+    ),
+);
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   findSDKConnectionsByOrganization: jest.fn(),
+}));
+jest.mock("back-end/src/models/VisualChangesetModel", () => ({
+  findVisualChangesetsByExperiment: jest.fn(async () => []),
 }));
 jest.mock("back-end/src/models/ExperimentLaunchChecklistModel", () => ({
   getExperimentLaunchChecklist: jest.fn(),
@@ -72,6 +91,7 @@ const context = {
   org: { id: "org_1" },
   userId: "u_1",
   permissions: { canUpdateExperiment: () => true },
+  models: { urlRedirects: { findByExperiment: async () => [] } },
 } as unknown as ReqContext;
 const draftFlag = {
   feature: { id: "flag_1" },
@@ -87,40 +107,10 @@ beforeEach(() => {
   (getExperimentById as jest.Mock).mockResolvedValue(draft);
   (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([]);
   (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([
-    { id: "sdk_1" },
+    { id: "sdk_1", projects: [] },
   ]);
   (getExperimentLaunchChecklist as jest.Mock).mockResolvedValue(null);
-});
-
-describe("executeExperimentStart", () => {
-  it("stages the scheduled stop on the authority of whoever started the experiment", async () => {
-    const experiment = {
-      id: "exp_1",
-      status: "draft",
-      owner: "u_owner",
-      variations: [{ id: "v0" }, { id: "v1" }],
-      phases: [{ variationWeights: [0.5, 0.5] }],
-      statusUpdateSchedule: { stopAt: new Date(Date.now() + 60 * 60 * 1000) },
-    } as unknown as ExperimentInterface;
-    const context = {
-      org: { id: "org_1" },
-      userId: "u_scheduler",
-      armer: { userId: "u_scheduler" },
-    } as unknown as ReqContext;
-
-    await executeExperimentStart(context, experiment);
-
-    expect(updateExperiment).toHaveBeenCalledWith(
-      expect.objectContaining({
-        changes: expect.objectContaining({
-          nextScheduledStatusUpdate: expect.objectContaining({
-            type: "stop",
-            scheduledBy: "u_scheduler",
-          }),
-        }),
-      }),
-    );
-  });
+  getFeaturesByIdsMock.mockResolvedValue([]);
 });
 
 describe("startExperiment", () => {
@@ -151,11 +141,87 @@ describe("startExperiment", () => {
   });
 });
 
+describe("getExperimentStartChecklistStatus", () => {
+  it("asks for what the app's checklist asks for", async () => {
+    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([
+      { id: "sdk_other", projects: ["prj_other"] },
+    ]);
+
+    const statuses = Object.fromEntries(
+      (await getExperimentStartChecklistStatus(context, draft)).map((item) => [
+        item.key,
+        item.status,
+      ]),
+    );
+
+    expect(statuses).toMatchObject({
+      datasource: "incomplete",
+      exposureQuery: "incomplete",
+      // Only a connection that serves the experiment's Project counts.
+      sdkConnection: "incomplete",
+    });
+  });
+});
+
+describe("statusChangeEffects", () => {
+  const { settings } = getScopedSettings({
+    organization: { settings: {} } as never,
+  });
+  const ran = {
+    ...draft,
+    phases: [{ variationWeights: [0.5, 0.5], dateStarted: new Date(0) }],
+  } as unknown as ExperimentInterface;
+
+  it("ends the phase on a stop, and reopens it on a restart", () => {
+    const stop = statusChangeEffects({
+      experiment: { ...ran, status: "running" },
+      status: "stopped",
+      settings,
+      reason: "Done",
+    });
+    expect(stop.phases?.[0]).toMatchObject({
+      reason: "Done",
+      dateEnded: expect.any(Date),
+    });
+
+    const restart = statusChangeEffects({
+      experiment: { ...ran, status: "stopped", phases: stop.phases ?? [] },
+      status: "running",
+      settings,
+    });
+    expect(restart.phases?.[0].dateEnded).toBeUndefined();
+  });
+
+  it("restarts a bandit on a fresh phase with fresh buckets", () => {
+    const restart = statusChangeEffects({
+      experiment: {
+        ...ran,
+        type: "multi-armed-bandit",
+        status: "stopped",
+        bucketVersion: 2,
+      },
+      status: "running",
+      settings,
+    });
+    expect(restart.phases).toHaveLength(2);
+    expect(restart.phases?.[0].dateEnded).toEqual(expect.any(Date));
+    expect(restart).toMatchObject({
+      bucketVersion: 3,
+      minBucketVersion: 3,
+      banditStage: "explore",
+    });
+  });
+});
+
 describe("custom launch checklist tasks", () => {
+  const builtIn = new Set<string>([
+    ...builtInChecklistItemKeyValidator.options,
+    "banditGoalMetric",
+  ]);
   const customStatuses = async (experiment: ExperimentInterface) =>
     Object.fromEntries(
       (await getExperimentStartChecklistStatus(context, experiment))
-        .filter((item) => item.reason.startsWith("Required custom"))
+        .filter((item) => !builtIn.has(item.key))
         .map((item) => [item.key, item.status]),
     );
 
@@ -218,20 +284,20 @@ describe("custom launch checklist tasks", () => {
 describe("assertScheduledStartNotHardBlocked", () => {
   it.each([
     {
-      name: "an unrelated draft change",
-      facts: { hasUnrelatedDraftChanges: true },
-      key: "unrelatedDraftChanges:flag_1",
+      name: "a merge conflict",
+      flag: { hasMergeConflict: true },
+      key: "mergeConflict:flag_1",
     },
     {
-      name: "a merge conflict",
-      facts: { hasMergeConflict: true },
-      key: "mergeConflict:flag_1",
+      name: "a removal still in its draft",
+      flag: { pendingRemoval: { version: 3, status: "draft" } },
+      key: "pendingRemoval:flag_1",
     },
   ])(
     "refuses to fire with $name, as a retryable failure",
-    async ({ facts, key }) => {
+    async ({ flag, key }) => {
       (getLinkedFeatureInfo as jest.Mock).mockResolvedValue([
-        { ...draftFlag, ...facts },
+        { ...draftFlag, ...flag },
       ]);
 
       const error = await assertScheduledStartNotHardBlocked(
@@ -246,12 +312,73 @@ describe("assertScheduledStartNotHardBlocked", () => {
       ]);
     },
   );
+});
 
-  it("fires with only soft items open", async () => {
-    (findSDKConnectionsByOrganization as jest.Mock).mockResolvedValue([]);
+describe("assertStartNotBlocked and startResult", () => {
+  const gate = (key: string, override: "skipChecklist" | null) => ({
+    key,
+    type: "checklist-item",
+    severity: override ? ("warning" as const) : ("blocker" as const),
+    messages: [`${key} is open`],
+    override,
+    requiresPermission: null,
+    resolution: null,
+  });
+  const plan = (blocking: ReturnType<typeof gate>[]): StartPlan => ({
+    checklistItems: blocking.map((g) => ({
+      key: g.key,
+      required: true,
+      status: "incomplete",
+      manual: false,
+      reason: g.messages[0],
+    })),
+    gates: blocking,
+    blocking,
+    bypassed: [],
+    skipped: [],
+  });
+  const message = (p: StartPlan) => {
+    try {
+      assertStartNotBlocked(p);
+      return null;
+    } catch (e) {
+      return (e as Error).message;
+    }
+  };
 
-    await expect(
-      assertScheduledStartNotHardBlocked(context, draft),
-    ).resolves.toBeUndefined();
+  it.each([
+    [[], null],
+    [[gate("goalMetric", "skipChecklist")], "required checklist items"],
+    [[gate("targeting", null)], "targeting is open"],
+    [[gate("a", null), gate("b", null)], "cannot be bypassed"],
+  ])("refuses with what blocks it (%#)", (blocking, expected) => {
+    const refusal = message(plan(blocking));
+    if (expected === null) expect(refusal).toBeNull();
+    else expect(refusal).toContain(expected);
+  });
+
+  it("reports what a start got past and published", () => {
+    expect(
+      startResult(
+        {
+          ...plan([]),
+          skipped: [
+            { ...gate("goalMetric", "skipChecklist"), via: "skipChecklist" },
+          ],
+        },
+        [{ featureId: "flag_1", revisionVersion: 3 }],
+      ),
+    ).toEqual({
+      bypassedGates: [
+        {
+          key: "goalMetric",
+          type: "checklist-item",
+          outcome: "bypassed",
+          via: "skipChecklist",
+        },
+      ],
+      publishedFeatureDrafts: [{ featureId: "flag_1", revisionVersion: 3 }],
+    });
+    expect(startResult(plan([]))).toEqual({});
   });
 });

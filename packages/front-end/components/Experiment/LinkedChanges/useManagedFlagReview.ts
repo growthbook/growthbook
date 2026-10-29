@@ -7,6 +7,7 @@ import {
   getReviewSetting,
   liveRevisionFromFeature,
   requireFreshBaseForPublish,
+  pendingDraftApproved,
 } from "shared/util";
 import {
   ExperimentInterfaceStringDates,
@@ -22,10 +23,7 @@ import {
   isInReviewCycle,
 } from "shared/enterprise";
 import { RampScheduleInterface } from "shared/validators";
-import {
-  draftApprovalSatisfied,
-  getReviewAndPublishState,
-} from "@/components/Reviews/reviewAndPublishState";
+import { getReviewAndPublishState } from "@/components/Reviews/reviewAndPublishState";
 import {
   findActiveVerdict,
   scanVerdictRetractions,
@@ -201,7 +199,7 @@ export default function useManagedFlagReview({
   const adminBypassAvailable =
     !publishIsLaunch &&
     requireReviews &&
-    (!draftApprovalSatisfied({ approval, status }) ||
+    (!pendingDraftApproved({ approval, status }) ||
       !!governance?.rebaseRequired) &&
     mergeSuccess &&
     hasChanges &&
@@ -232,6 +230,7 @@ export default function useManagedFlagReview({
     // The experiment's own start runs the pre-launch checklist.
     hasSelectedExperiments: false,
     onlyScheduledSelected: false,
+    scheduledStartDay: null,
     experimentsStep: false,
     featureLockedByRamp,
     featureLockedBySchedule,

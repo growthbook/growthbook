@@ -182,8 +182,7 @@ export default function BaselineChooserColumnLabel({
           ) : (
             <Box
               style={{
-                width: labelMaxWidth + 20,
-                maxWidth: "100%",
+                maxWidth: `min(${labelMaxWidth + 20}px, 100%)`,
                 minWidth: 0,
                 marginLeft: -4,
               }}
@@ -193,6 +192,7 @@ export default function BaselineChooserColumnLabel({
                 name={baselineVariation.name}
                 size="sm"
                 disableTooltip
+                fadeOverflow
               />
             </Box>
           )}

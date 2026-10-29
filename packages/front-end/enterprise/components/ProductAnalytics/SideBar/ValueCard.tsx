@@ -156,6 +156,9 @@ export default function ValueCard({
       }
       break;
     }
+    case "population":
+      supportsUnitSelection = true;
+      break;
     case "funnel":
     case "journey":
       break;

@@ -1,7 +1,6 @@
 import { useRouter } from "next/router";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentTargetingData,
   LinkedChangeEnvStates,
   LinkedFeatureInfo,
 } from "shared/types/experiment";
@@ -17,12 +16,10 @@ import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
-import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
 import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
-import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
-import EditNamespaceModal from "@/components/Experiment/EditNamespaceModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
+import { useStagedTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
@@ -37,14 +34,10 @@ const ExperimentPage = (): ReactElement => {
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [phaseModalOpen, setPhaseModalOpen] = useState(false);
   const [editPhasesOpen, setEditPhasesOpen] = useState(false);
-  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
-  const [targetingModalOpen, setTargetingModalOpen] = useState(false);
-  // Staged targeting edits, saved by the setup tab's save bar.
-  const [targetingDraft, setTargetingDraft] =
-    useState<ExperimentTargetingData | null>(null);
-  const [namespaceModalOpen, setNamespaceModalOpen] = useState(false);
+  const [targetingModal, setTargetingModal] = useState<
+    null | "targeting" | "namespace"
+  >(null);
   const [editScheduleModalOpen, setEditScheduleModalOpen] = useState(false);
 
   const { data, error, mutate } = useApi<{
@@ -56,7 +49,9 @@ const ExperimentPage = (): ReactElement => {
     urlRedirects: URLRedirectInterface[];
     visualChangesetEnvStates?: LinkedChangeEnvStates;
     urlRedirectEnvStates?: LinkedChangeEnvStates;
+    datasourceMissing?: boolean;
   }>(`/experiment/${eid}`);
+  const targeting = useStagedTargeting(data?.experiment);
 
   const { getDecisionCriteria, getRunningExperimentResultStatus } =
     useRunningExperimentStatus();
@@ -121,16 +116,12 @@ const ExperimentPage = (): ReactElement => {
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
-  const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
   const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canRunExperiment
-    ? (i: number | null) => setEditPhaseId(i)
-    : null;
   const editTargeting = canRunExperiment
-    ? () => setTargetingModalOpen(true)
+    ? () => setTargetingModal("targeting")
     : null;
   const editNamespace = canRunExperiment
-    ? () => setNamespaceModalOpen(true)
+    ? () => setTargetingModal("namespace")
     : null;
   const editSchedule = canEditExperiment
     ? () => setEditScheduleModalOpen(true)
@@ -148,16 +139,6 @@ const ExperimentPage = (): ReactElement => {
           source="eid"
         />
       )}
-      {stopModalOpen && (
-        <StopExperimentForm
-          close={() => setStopModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          runningExperimentStatus={runningExperimentStatus}
-          decisionCriteria={decisionCriteria}
-          source="eid"
-        />
-      )}
       {duplicateModalOpen && (
         <NewExperimentForm
           onClose={() => setDuplicateModalOpen(false)}
@@ -170,25 +151,6 @@ const ExperimentPage = (): ReactElement => {
           duplicate={true}
         />
       )}
-      {phaseModalOpen && (
-        <NewPhaseForm
-          close={() => setPhaseModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          source="eid"
-        />
-      )}
-      {editPhaseId !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseId(null)}
-          experiment={experiment}
-          mutate={mutate}
-          i={editPhaseId}
-          editTargeting={editTargeting}
-          source="eid"
-        />
-      )}
       {editPhasesOpen && (
         <EditPhasesModal
           close={() => setEditPhasesOpen(false)}
@@ -199,27 +161,16 @@ const ExperimentPage = (): ReactElement => {
           source="eid"
         />
       )}
-      {targetingModalOpen && (
+      {targetingModal && (
         <EditTargetingModal
-          close={() => setTargetingModalOpen(false)}
+          section={targetingModal}
+          close={() => setTargetingModal(null)}
           mutate={mutate}
           experiment={experiment}
           linkedFeatures={linkedFeatures}
           safeToEdit={safeToEdit}
-          stageChanges={setTargetingDraft}
-          draft={targetingDraft}
-          // source="eid"
-        />
-      )}
-      {namespaceModalOpen && (
-        <EditNamespaceModal
-          close={() => setNamespaceModalOpen(false)}
-          mutate={mutate}
-          experiment={experiment}
-          linkedFeatures={linkedFeatures}
-          safeToEdit={safeToEdit}
-          stageChanges={setTargetingDraft}
-          draft={targetingDraft}
+          stageChanges={targeting.stage}
+          draft={targeting.value}
         />
       )}
       {editScheduleModalOpen && (
@@ -244,6 +195,7 @@ const ExperimentPage = (): ReactElement => {
       <SnapshotProvider experiment={experiment}>
         <TabbedPage
           experiment={experiment}
+          datasourceMissing={!!data?.datasourceMissing}
           linkedFeatures={linkedFeatures}
           mutate={mutate}
           visualChangesets={visualChangesets}
@@ -251,18 +203,26 @@ const ExperimentPage = (): ReactElement => {
           editMetrics={editMetrics}
           editResult={editResult}
           duplicate={duplicate}
-          newPhase={newPhase}
           editPhases={editPhases}
-          editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
-          targetingDraft={{ value: targetingDraft, set: setTargetingDraft }}
+          targetingDraft={targeting}
           canAddVariation={canRunExperiment}
           editNamespace={editNamespace}
           visualChangesetEnvStates={visualChangesetEnvStates}
           urlRedirectEnvStates={urlRedirectEnvStates}
           editSchedule={editSchedule}
         />
+        {stopModalOpen && (
+          <StopExperimentForm
+            close={() => setStopModalOpen(false)}
+            mutate={mutate}
+            experiment={experiment}
+            runningExperimentStatus={runningExperimentStatus}
+            decisionCriteria={decisionCriteria}
+            source="eid"
+          />
+        )}
       </SnapshotProvider>
     </>
   );

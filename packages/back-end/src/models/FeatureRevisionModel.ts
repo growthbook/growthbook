@@ -7,6 +7,7 @@ import {
   featureMetadataEnvelope,
   fillRevisionFromFeature,
   getApplicableEnvIds,
+  getExperimentIdsFromRules,
   getRevisionReviewRequirement,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
@@ -582,20 +583,12 @@ export async function getLinkageSyncRevisionSummaries(
   };
 }
 
-/**
- * Reconcile both linkage projections after a write that only moves drafts
- * around, so there is no publish to gate.
- *
- * Bandit linkage is awaited, so the response the caller returns already reflects
- * it, but only when a bandit rule is involved on either side of the write —
- * which is also the only way linkage can go stale, since a bandit that drops out
- * of every revision was referenced by the pre-write rules. Experiment linkage
- * keeps its existing fire-and-forget behaviour.
- */
+// Re-syncs both linkage projections after a draft-only write, awaiting each one
+// a rule of its kind touches so a start right after sees it.
 async function syncLinkagesAfterDraftWrite(
   context: ReqContext | ApiReqContext,
   revision: Pick<FeatureRevisionInterface, "organization" | "featureId">,
-  banditRuleSets: unknown[],
+  ruleSets: unknown[],
   label: string,
 ): Promise<void> {
   const summaries = getLinkageSyncRevisionSummaries(
@@ -603,7 +596,7 @@ async function syncLinkagesAfterDraftWrite(
     revision.featureId,
   );
 
-  summaries
+  const experimentSync = summaries
     .then(({ openDrafts, liveRevision }) =>
       syncFeatureExperimentLinkages(
         context,
@@ -615,8 +608,11 @@ async function syncLinkagesAfterDraftWrite(
     .catch((e) => {
       logger.error(e, `experiment linkage sync failed in ${label}`);
     });
+  if (ruleSets.some((rules) => getExperimentIdsFromRules(rules).length > 0)) {
+    await experimentSync;
+  }
 
-  if (!banditRuleSets.some(referencesAnyContextualBandit)) return;
+  if (!ruleSets.some(referencesAnyContextualBandit)) return;
 
   try {
     const { openDrafts, liveRevision } = await summaries;
@@ -755,6 +751,19 @@ export async function getOpenDraftRules(
     { rules: 1, _id: 0 },
   ).lean();
   return docs.map((d) => d.rules);
+}
+
+export async function getActiveDraftVersions(
+  organization: string,
+  featureId: string,
+): Promise<number[]> {
+  const docs = await FeatureRevisionModel.find(
+    { organization, featureId, status: { $in: ACTIVE_DRAFT_STATUSES } },
+    { version: 1, _id: 0 },
+  )
+    .sort({ version: 1 })
+    .lean();
+  return docs.map((d) => d.version);
 }
 
 export async function hasDraft(
@@ -1026,14 +1035,14 @@ export function normalizeRulesInputToV2(
   return deduped;
 }
 
-export async function createInitialRevision(
-  context: ReqContext | ApiReqContext,
+// The published revision a new flag starts on, unsaved.
+export function initialRevision(
   feature: FeatureInterface,
   user: EventUser | null,
   environments: string[],
-  date?: Date,
+  date: Date = new Date(),
   comment?: string,
-) {
+): FeatureRevisionInterface {
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
     .map((r) => upgradeFeatureRule(r));
@@ -1043,9 +1052,7 @@ export async function createInitialRevision(
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
 
-  date = date || new Date();
-
-  const doc = await FeatureRevisionModel.create({
+  return {
     organization: feature.organization,
     featureId: feature.id,
     version: 1,
@@ -1066,8 +1073,20 @@ export async function createInitialRevision(
     // left revision 1 disagreeing with the feature document.
     holdout: feature.holdout ?? null,
     metadata: featureMetadataEnvelope(feature),
-  });
+  };
+}
 
+export async function createInitialRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  user: EventUser | null,
+  environments: string[],
+  date?: Date,
+  comment?: string,
+) {
+  const doc = await FeatureRevisionModel.create(
+    initialRevision(feature, user, environments, date, comment),
+  );
   return toInterface(doc, context, feature);
 }
 
@@ -1119,13 +1138,17 @@ export async function prepareFeatureRevision({
   revertedFrom,
   comment,
   title,
-}: PrepareFeatureRevisionParams): Promise<{
+  unsavedLive,
+}: PrepareFeatureRevisionParams & {
+  // A flag not saved yet: the revision it will start on.
+  unsavedLive?: FeatureRevisionInterface;
+}): Promise<{
   revision: FeatureRevisionInterface;
   baseRevision: FeatureRevisionInterface;
   baseVersion: number;
 }> {
   // createRevision may reassign this initial version if a concurrent insert wins.
-  const lastRevision = await getLastRevision(context, feature);
+  const lastRevision = unsavedLive ?? (await getLastRevision(context, feature));
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
   const defaultValue =
@@ -1374,6 +1397,25 @@ function changeResetsApproval(
   return rules.some(
     (rule) =>
       "resetReviewOnChange" in rule && rule.resetReviewOnChange === true,
+  );
+}
+
+// An armed draft that gains a draft experiment's rule can't land it: its publish
+// would leave the experiment unstarted. The edit disarms it instead.
+async function editMakesArmedDraftLaunch(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  proposed: FeatureRevisionInterface,
+  changes: RevisionChanges,
+): Promise<boolean> {
+  if (!revision.autoPublishOnApproval || !("rules" in changes)) return false;
+  // Imported late: the armed-publish module imports this one.
+  const { draftExperimentsLaunchedBy } = await import(
+    "back-end/src/api/features/autoPublishOnApproval"
+  );
+  return (
+    (await draftExperimentsLaunchedBy(context, feature, proposed)).length > 0
   );
 }
 
@@ -1648,7 +1690,23 @@ export async function updateRevision(
     revision: proposedRevision,
     original: revision,
   });
-  const disarm = editDisarmsFeatureDraft(context, proposedRevision);
+  const disarm =
+    editDisarmsFeatureDraft(context, proposedRevision) ||
+    (await editMakesArmedDraftLaunch(
+      context,
+      feature,
+      revision,
+      proposedRevision,
+      normalizedChanges,
+    ));
+  // The bypass was given for the draft as it was armed; a gated edit since
+  // takes it back, leaving the publish to wait on approval like any other.
+  const dropsBypass =
+    !disarm &&
+    !!revision.scheduledPublishBypassApproval &&
+    !rebase &&
+    REVISION_CONTENT_FIELDS.some((f) => f in normalizedChanges) &&
+    editResetsApproval(context, feature, revision, normalizedChanges);
 
   // Track contributors by identity, and the key behind an edit in either mode,
   // via atomic $addToSet.
@@ -1661,6 +1719,7 @@ export async function updateRevision(
   const unset = {
     ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
     ...(disarm ? { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 } : {}),
+    ...(dropsBypass ? { scheduledPublishBypassApproval: 1 } : {}),
   };
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the
@@ -3336,14 +3395,13 @@ export async function getFeatureRevisionsByFeatureIds(
   // and v2 inheritance expansion per revision so a feature scoped to a
   // project that excludes some envs doesn't surface dead rules in those envs.
   featuresByFeatureId: Record<string, RevisionFeatureContext | undefined>,
-  statuses: readonly FeatureRevisionInterface["status"][] = ACTIVE_DRAFT_STATUSES,
 ): Promise<Record<string, FeatureRevisionInterface[]>> {
   const revisionsByFeatureId: Record<string, FeatureRevisionInterface[]> = {};
 
   if (featureIds.length) {
     const revisions = await FeatureRevisionModel.find({
       organization,
-      status: { $in: statuses },
+      status: { $in: ACTIVE_DRAFT_STATUSES },
       featureId: { $in: featureIds },
     })
       // Uncapped: a shared cap starves some flags of the draft holding their
@@ -3362,8 +3420,29 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
+// Matches both stored rule shapes: the flat list and the legacy per-environment map.
+export async function getNewestDiscardedRevisionWithExperimentRule(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  experimentId: string,
+): Promise<FeatureRevisionInterface | null> {
+  const ruleMatch = { $elemMatch: { type: "experiment-ref", experimentId } };
+  const doc = await FeatureRevisionModel.findOne({
+    organization: context.org.id,
+    featureId: feature.id,
+    status: "discarded",
+    $or: [
+      { rules: ruleMatch },
+      ...context.environments.map((env) => ({ [`rules.${env}`]: ruleMatch })),
+    ],
+  })
+    .select("-log")
+    .sort({ version: -1 });
+  return doc ? toInterface(doc, context, feature) : null;
+}
+
 // Staged targeting metadata for every active draft of the given features.
-// Lean and uncapped, unlike getFeatureRevisionsByFeatureIds.
+// Lean, unlike getFeatureRevisionsByFeatureIds.
 export async function getActiveDraftMetadataByFeatureIds(
   organization: string,
   featureIds: string[],
@@ -3426,22 +3505,30 @@ export async function getActiveDraftStates(
  * published history. Keyed by exact identity; only called by the flow that just
  * created the revision. Its log rows go with it — a later revision REUSES the
  * freed version number and would otherwise adopt this landing's history.
+ * With `writtenDateUpdated`, deletes only an unpublished revision nothing but
+ * the caller has written since; false means someone else's write landed.
  */
 export async function deleteRevisionForFailedLanding(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
   version: number,
-) {
-  await FeatureRevisionModel.deleteOne({
+  writtenDateUpdated?: Date,
+): Promise<boolean> {
+  const { deletedCount } = await FeatureRevisionModel.deleteOne({
     organization,
     featureId,
     version,
+    ...(writtenDateUpdated
+      ? { dateUpdated: writtenDateUpdated, status: { $ne: "published" } }
+      : {}),
   });
+  if (!deletedCount) return false;
   await context.models.featureRevisionLogs.deleteAllByFeatureIdAndVersion(
     featureId,
     version,
   );
+  return true;
 }
 
 // Stored shape, read past mongoose: the interface is env-filtered and

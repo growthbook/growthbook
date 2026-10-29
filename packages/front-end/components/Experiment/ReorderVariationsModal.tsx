@@ -5,12 +5,12 @@ import {
   ExperimentInterfaceStringDates,
   Variation,
 } from "shared/types/experiment";
-import { getLatestPhaseVariations } from "shared/experiments";
+import { getStorableVariations } from "shared/experiments";
 import Text from "@/ui/Text";
 import { SortableVariation } from "@/components/Features/SortableFeatureVariationRow";
 import SortableVariationsList from "@/components/Features/SortableVariationsList";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import VariationNumber from "@/ui/VariationNumber";
+import VariationLabel from "@/ui/VariationLabel";
 import useSortableItem from "@/hooks/useSortableItem";
 
 type Row = SortableVariation & Pick<Variation, "description" | "screenshots">;
@@ -40,16 +40,14 @@ function SortableRow({ row, i }: { row: Row; i: number }) {
       >
         <RiDraggable size={16} />
       </Flex>
-      <VariationNumber number={i} />
       <Box flexGrow="1" minWidth="0">
-        <Text truncate>{row.name}</Text>
+        <VariationLabel number={i} name={row.name ?? ""} />
       </Box>
       <Text color="text-low">{Math.round(row.weight * 1000) / 10}%</Text>
     </Flex>
   );
 }
 
-/** Reorders the variations, carrying each one's split and values with it. */
 export default function ReorderVariationsModal({
   experiment,
   weights,
@@ -62,16 +60,11 @@ export default function ReorderVariationsModal({
   stage: (variations: Variation[], weights: number[]) => void;
 }) {
   const [rows, setRows] = useState<Row[]>(() =>
-    getLatestPhaseVariations(experiment).map(
-      ({ id, key, name, description, screenshots }, i) => ({
-        id,
-        value: key,
-        name,
-        description,
-        screenshots,
-        weight: weights[i] ?? 0,
-      }),
-    ),
+    getStorableVariations(experiment).map(({ key, ...v }, i) => ({
+      ...v,
+      value: key,
+      weight: weights[i] ?? 0,
+    })),
   );
   // Default keys follow their position; bespoke ones travel with their variation.
   const keysMatchIndexes = rows.every((r, i) => r.value === i + "");

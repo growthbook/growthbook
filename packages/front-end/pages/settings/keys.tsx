@@ -5,10 +5,7 @@ import Callout from "@/ui/Callout";
 
 const ApiKeysPage: FC = () => {
   const permissionsUtils = usePermissionsUtil();
-  if (
-    !permissionsUtils.canCreateApiKey() &&
-    !permissionsUtils.canDeleteApiKey()
-  ) {
+  if (!permissionsUtils.canViewApiKeys()) {
     return (
       <div className="container pagecontents">
         <Callout status="error">

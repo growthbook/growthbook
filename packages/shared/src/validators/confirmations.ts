@@ -7,7 +7,8 @@ import { namedSchema } from "./openapi-helpers";
 // `model.action`, model-first like webhook events. `override.*` actions are the
 // checks a request skips, whatever it changes. `draft` is a change that doesn't
 // reach users yet; `review` approves or rejects one. `experiment.visualEditor`
-// edits what a visual experiment's variations show.
+// edits what a visual experiment's variations show; `experiment.checklist`
+// marks manual launch checklist items complete.
 export const CONFIRM_ACTIONS = [
   "feature.create",
   "feature.draft",
@@ -24,6 +25,7 @@ export const CONFIRM_ACTIONS = [
   "experiment.traffic",
   "experiment.phases",
   "experiment.visualEditor",
+  "experiment.checklist",
   "experiment.other",
   "savedGroup.create",
   "savedGroup.draft",
@@ -96,19 +98,22 @@ export const CONFIRM_ACTIONS = [
   "override.draftLimit",
   "override.skipChecklist",
   "override.bypassDuplicateKeyCheck",
+  "override.unscopedRules",
   "other.write",
 ] as const;
 export type ConfirmAction = (typeof CONFIRM_ACTIONS)[number];
 
 // The "recommended" rule: everything but creating things, drafting, visual
-// editor changes (made with a person at the editor), and writes with no model
-// of their own.
+// editor changes (made with a person at the editor), ticking manual checklist
+// items (generated ones still gate a start), and writes with no model of their
+// own.
 export const RECOMMENDED_CONFIRM_ACTIONS: readonly ConfirmAction[] =
   CONFIRM_ACTIONS.filter(
     (action) =>
       !action.endsWith(".create") &&
       !action.endsWith(".draft") &&
       action !== "experiment.visualEditor" &&
+      action !== "experiment.checklist" &&
       action !== "other.write",
   );
 
@@ -122,7 +127,22 @@ export const CONFIRM_OVERRIDE_FLAGS = {
   overrideDraftLimit: "override.draftLimit",
   skipChecklist: "override.skipChecklist",
   bypassDuplicateKeyCheck: "override.bypassDuplicateKeyCheck",
+  allowUnscopedRules: "override.unscopedRules",
 } as const satisfies Record<string, ConfirmAction>;
+
+// The override a bypassed check counts as; null when no override covers it.
+export const BYPASS_OVERRIDE_ACTIONS: Record<
+  (typeof bypassViaValues)[number],
+  ConfirmAction | null
+> = {
+  ignoreWarnings: "override.ignoreWarnings",
+  skipSchemaValidation: "override.skipSchemaValidation",
+  skipHooks: "override.skipHooks",
+  bypassApprovalPermission: "override.bypassApproval",
+  restApiBypassesReviews: "override.restBypassesReviews",
+  revertsBypassApproval: null,
+  skipChecklist: "override.skipChecklist",
+};
 
 // The checks a publishing write can ask to skip.
 export const PUBLISH_OVERRIDE_ACTIONS = [
@@ -214,6 +234,7 @@ export const confirmationLinkValidator = z.strictObject({
   type: z.enum([
     "feature",
     "experiment",
+    "contextualBandit",
     "savedGroup",
     "constant",
     "config",
@@ -255,6 +276,9 @@ export const confirmationValidator = baseSchema.safeExtend({
   requestedBy: eventUserRequestedBy.nullable(),
   assumedRole: z.boolean(),
   apiKeyId: z.string(),
+  // The OAuth app whose sign-in sent it. Its tokens last an hour, so a confirm
+  // replays the request as whichever token the grant holds by then.
+  oauthClientId: z.string().optional(),
   project: z.string(),
   method: z.string(),
   path: z.string(),

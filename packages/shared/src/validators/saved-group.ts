@@ -1,5 +1,8 @@
 import { z } from "zod";
-import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  MAX_DESCRIPTION_LENGTH,
+  MAX_SAVED_GROUP_DESCRIPTION_LENGTH,
+} from "shared/constants";
 import {
   ownerEmailField,
   ownerField,
@@ -14,9 +17,47 @@ import {
 } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  SAVED_GROUP_DESCRIPTION,
+  SAVED_GROUP_NAME_DESCRIPTION,
+} from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
-export const savedGroupTypeValidator = z.enum(["condition", "list"]);
+export const savedGroupTypeValidator = z.enum(["condition", "list", "remote"]);
+
+// Empty values or condition count as unset.
+function refineRemoteSavedGroupBody(
+  body: {
+    type?: z.infer<typeof savedGroupTypeValidator>;
+    attributeKey?: string;
+    values?: string[];
+    condition?: string;
+  },
+  ctx: z.RefinementCtx,
+): void {
+  if (body.type !== "remote") return;
+  if (!body.attributeKey) {
+    ctx.addIssue({
+      code: "custom",
+      message: "attributeKey is required for remote Saved Groups",
+      path: ["attributeKey"],
+    });
+  }
+  if (body.values?.length) {
+    ctx.addIssue({
+      code: "custom",
+      message: "values are not allowed for remote Saved Groups",
+      path: ["values"],
+    });
+  }
+  if (body.condition) {
+    ctx.addIssue({
+      code: "custom",
+      message: "condition is not allowed for remote Saved Groups",
+      path: ["condition"],
+    });
+  }
+}
 
 export const savedGroupValidator = z
   .object({
@@ -34,6 +75,8 @@ export const savedGroupValidator = z
     projects: z.array(z.string()).optional(),
     useEmptyListGroup: z.boolean().optional(),
     archived: z.boolean().optional(),
+    // Remote groups: the upload whose IDs the group uses
+    currentUploadVersion: z.number().int().positive().optional(),
   })
   .strict();
 
@@ -50,24 +93,28 @@ export const savedGroupUpdatableFieldsSchema = savedGroupValidator.pick({
   projects: true,
   useEmptyListGroup: true,
   archived: true,
+  currentUploadVersion: true,
 });
 
-export const postSavedGroupBodyValidator = z.object({
-  groupName: z.string(),
-  owner: ownerInputField,
-  type: savedGroupTypeValidator,
-  condition: z.string().optional(),
-  attributeKey: z.string().optional(),
-  values: z.string().array().optional(),
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
-  projects: z.string().array().optional(),
-});
+export const postSavedGroupBodyValidator = z
+  .object({
+    groupName: z.string(),
+    owner: ownerInputField,
+    type: savedGroupTypeValidator,
+    condition: z.string().optional(),
+    attributeKey: z.string().optional(),
+    values: z.string().array().optional(),
+    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    projects: z.string().array().optional(),
+  })
+  .superRefine(refineRemoteSavedGroupBody);
 
 export const putSavedGroupBodyValidator = z.object({
   groupName: z.string().optional(),
   owner: ownerInputField.optional(),
   values: z.string().array().optional(),
   condition: z.string().optional(),
+  currentUploadVersion: z.number().int().positive().optional(),
   description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
   projects: z.string().array().optional(),
   archived: z.boolean().optional(),
@@ -80,6 +127,8 @@ export const putSavedGroupBodyValidator = z.object({
       owner: ownerInputField,
       values: z.string().array(),
       condition: z.string(),
+      // null when the group didn't use an upload yet
+      currentUploadVersion: z.number().int().positive().nullable(),
       description: z.string(),
       projects: z.string().array(),
     })
@@ -95,7 +144,7 @@ export const apiSavedGroupValidator = namedSchema(
   z
     .object({
       id: z.string(),
-      type: z.enum(["condition", "list"]),
+      type: savedGroupTypeValidator,
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
       name: z.string(),
@@ -110,7 +159,7 @@ export const apiSavedGroupValidator = namedSchema(
       attributeKey: z
         .string()
         .describe(
-          "When type = 'list', this is the attribute key the group is based on",
+          "When type = 'list' or 'remote', this is the attribute key the group is based on",
         )
         .optional(),
       values: z
@@ -123,6 +172,28 @@ export const apiSavedGroupValidator = namedSchema(
       projects: z.array(z.string()).optional(),
       archived: z.boolean().optional(),
       useEmptyListGroup: z.boolean().optional(),
+      currentUploadVersion: z
+        .number()
+        .int()
+        .describe(
+          "When type = 'remote', the version of the upload the group uses. Absent when it uses none.",
+        )
+        .optional(),
+      currentUpload: z
+        .object({
+          version: z.number().int(),
+          dateCreated: z.string().meta({ format: "date-time" }),
+          numeric: z
+            .boolean()
+            .describe(
+              "Whether the group's attribute is a number. Loaders store number IDs in their shortest form, String(Number(id)).",
+            ),
+        })
+        .nullable()
+        .describe(
+          "When type = 'remote', the upload whose IDs the group uses, or null if it has none. Loaders load this version.",
+        )
+        .optional(),
     })
     .strict(),
 );
@@ -132,9 +203,13 @@ export type ApiSavedGroup = z.infer<typeof apiSavedGroupValidator>;
 // Post body from postSavedGroup.yaml requestBody
 const postSavedGroupBody = z
   .object({
-    name: z.string().describe("The display name of the Saved Group"),
-    type: z
-      .enum(["condition", "list"])
+    name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION),
+    description: z
+      .string()
+      .max(MAX_SAVED_GROUP_DESCRIPTION_LENGTH)
+      .describe(SAVED_GROUP_DESCRIPTION)
+      .optional(),
+    type: savedGroupTypeValidator
       .describe(
         "The type of Saved Group (inferred from other arguments if missing)",
       )
@@ -148,7 +223,7 @@ const postSavedGroupBody = z
     attributeKey: z
       .string()
       .describe(
-        "When type = 'list', this is the attribute key the group is based on",
+        "When type = 'list' or 'remote', this is the attribute key the group is based on",
       )
       .optional(),
     values: z
@@ -166,12 +241,16 @@ const postSavedGroupBody = z
       )
       .optional(),
   })
-  .strict();
+  .strict()
+  .superRefine(refineRemoteSavedGroupBody);
 
 // Update body from updateSavedGroup.yaml requestBody
 const updateSavedGroupBody = z
   .object({
-    name: z.string().describe("The display name of the Saved Group").optional(),
+    name: z.string().describe(SAVED_GROUP_NAME_DESCRIPTION).optional(),
+    // No `.max()`: the handler only checks a changed description, so a client
+    // echoing back an older, longer description still succeeds.
+    description: z.string().describe(SAVED_GROUP_DESCRIPTION).optional(),
     condition: z
       .string()
       .describe(
@@ -186,6 +265,14 @@ const updateSavedGroupBody = z
       .optional(),
     owner: ownerInputField.optional(),
     projects: z.array(z.string()).optional(),
+    currentUploadVersion: z
+      .number()
+      .int()
+      .positive()
+      .describe(
+        "When type = 'remote', the upload whose IDs the group uses. Must be a valid upload of this group.",
+      )
+      .optional(),
     bypassApproval: z
       .boolean()
       .describe(
@@ -206,6 +293,9 @@ export const listSavedGroupsValidator = {
   querySchema: z
     .object({
       ...paginationQueryFields,
+      type: savedGroupTypeValidator
+        .describe("Only list Saved Groups of this type")
+        .optional(),
     })
     .strict(),
   paramsSchema: z.never(),
@@ -239,7 +329,7 @@ export const postSavedGroupValidator = {
   path: "/saved-groups",
   exampleRequest: {
     body: {
-      name: "internal-users",
+      name: "Internal users",
       values: ["userId-123", "userId-345", "userId-678"],
       attributeKey: "userId",
       owner: "",
@@ -352,8 +442,8 @@ export const deleteSavedGroupValidator = {
   exampleRequest: { params: { id: "abc123" } },
 };
 
-// Features and contextual bandits share this shape; named so the generated
-// spec does not label one after the other.
+// Features, contextual bandits and interleavings share this shape; named so the
+// generated spec does not label one after the other.
 const savedGroupReferenceResource = namedSchema(
   "SavedGroupReferenceResource",
   z
@@ -381,6 +471,7 @@ export const apiSavedGroupReferencesValidator = namedSchema(
           .strict(),
       ),
       contextualBandits: z.array(savedGroupReferenceResource),
+      interleavings: z.array(savedGroupReferenceResource),
       savedGroups: z.array(
         z
           .object({

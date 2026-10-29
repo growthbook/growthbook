@@ -20,9 +20,15 @@ import {
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 import { getLinkedFeatureInfo } from "back-end/src/services/experiments";
+import { removeRulesForDeletedExperiment } from "back-end/src/services/experiment-feature";
 import { applyExperimentChanges } from "back-end/src/services/experimentChanges/applyExperimentChanges";
+import { runInSandbox } from "back-end/src/enterprise/sandbox/sandbox-pool";
 import { planExperimentUpdate } from "back-end/src/services/experimentChanges/planExperimentUpdate";
 import { setupApp } from "./api.setup";
+
+jest.mock("back-end/src/enterprise/sandbox/sandbox-pool", () => ({
+  runInSandbox: jest.fn(),
+}));
 
 // Stands in for the experiment write; `write` runs the real one.
 let mockWriteExperiment:
@@ -78,6 +84,16 @@ const seededPhases = (dateStarted: Date) => [
   },
 ];
 const collection = (name: string) => mongoose.connection.collection(name);
+// The flag with this experiment's rule gone, live and in every revision.
+const dropRule = async () => {
+  await collection("features").updateOne({ id: FLAG }, { $set: { rules: [] } });
+  await collection("featurerevisions").updateMany(
+    { featureId: FLAG },
+    { $set: { rules: [] } },
+  );
+};
+const setExperiment = (fields: Record<string, unknown>) =>
+  collection("experiments").updateOne({ id: EXP }, { $set: fields });
 const arms = (a: string, b: string) => [
   { variationId: "v0", value: a },
   { variationId: "v1", value: b },
@@ -133,6 +149,20 @@ async function seed({ withDraft }: { withDraft: boolean }) {
   }
 }
 
+// The sandbox mock answers for it.
+const seedRevisionHook = () =>
+  collection("customhooks").insertOne({
+    id: "hook_revisions",
+    organization: ORG_ID,
+    dateCreated: new Date(),
+    dateUpdated: new Date(),
+    enabled: true,
+    projects: [],
+    name: "Judges drafts",
+    hook: "validateFeatureRevision",
+    code: "",
+  });
+
 function revisionDoc(version: number, date: Date) {
   return {
     id: `frev_${version}`,
@@ -164,12 +194,11 @@ async function makeFlagManaged() {
 
 const LOADED = "2026-01-01T00:00:00.000Z";
 
+const storedRevision = (version: number) =>
+  collection("featurerevisions").findOne({ featureId: FLAG, version });
+
 async function revisionRules(version: number) {
-  const doc = await collection("featurerevisions").findOne({
-    featureId: FLAG,
-    version,
-  });
-  return doc?.rules?.[0]?.variations ?? null;
+  return (await storedRevision(version))?.rules?.[0]?.variations ?? null;
 }
 
 async function refRules(status: string) {
@@ -186,18 +215,33 @@ describe("applyExperimentChanges", () => {
   const { isReady } = setupApp();
   let context: ReqContextClass;
 
+  const storedExperiment = async () => {
+    const experiment = await getExperimentById(context, EXP);
+    if (!experiment) throw new Error("missing experiment");
+    return experiment;
+  };
+
   const run = async (
     body: ExperimentChangesBody,
     audit: (data: AuditInterfaceInput) => Promise<void> = async () => undefined,
-  ) => {
-    const experiment = await getExperimentById(context, EXP);
-    if (!experiment) throw new Error("missing experiment");
-    return applyExperimentChanges({
+  ) =>
+    applyExperimentChanges({
       context,
-      experiment,
+      experiment: await storedExperiment(),
       body,
       audit,
       eventAudit: { type: "api_key", apiKey: "key" },
+    });
+
+  const removeForDeletedExperiment = async () => {
+    const feature = await getFeature(context, FLAG);
+    if (!feature) throw new Error("missing feature");
+    return removeRulesForDeletedExperiment({
+      context,
+      experiment: await storedExperiment(),
+      features: [feature],
+      eventAudit: { type: "api_key", apiKey: "key" },
+      audit: async () => undefined,
     });
   };
 
@@ -205,16 +249,43 @@ describe("applyExperimentChanges", () => {
     changes: { hypothesis: "new" },
     base: { hypothesis: base },
   });
+  const draftValues = (
+    variations: ReturnType<typeof arms>,
+    extra: Partial<
+      NonNullable<ExperimentChangesBody["flagValues"]>[number]
+    > = {},
+  ) => ({
+    featureId: FLAG,
+    variations,
+    revision: { version: 2, dateUpdated: LOADED },
+    ...extra,
+  });
+
+  const makeContext = ({
+    settings = {},
+    role = "admin",
+    apiKeyData,
+    body = {},
+  }: {
+    settings?: OrganizationInterface["settings"];
+    role?: string;
+    apiKeyData?: ApiKeyInterface;
+    body?: Record<string, unknown>;
+  } = {}) => {
+    const made = new ReqContextClass({
+      org: { ...org, settings: { ...org.settings, ...settings } },
+      auditUser: { type: "api_key", apiKey: "key" },
+      role,
+      apiKeyData,
+      req: { query: {}, headers: {}, body } as unknown as Request,
+    });
+    made.hasPremiumFeature = () => true;
+    return made;
+  };
 
   beforeEach(async () => {
     await isReady;
-    context = new ReqContextClass({
-      org,
-      auditUser: { type: "api_key", apiKey: "key" },
-      role: "admin",
-      req: { query: {}, headers: {}, body: {} } as unknown as Request,
-    });
-    context.hasPremiumFeature = () => true;
+    context = makeContext();
   });
 
   afterEach(() => {
@@ -223,10 +294,10 @@ describe("applyExperimentChanges", () => {
 
   it("refuses to start a draft through a plain field write", async () => {
     await seed({ withDraft: false });
-    const experiment = await getExperimentById(context, EXP);
-    if (!experiment) throw new Error("missing experiment");
     await expect(
-      planExperimentUpdate(context, experiment, { status: "running" }),
+      planExperimentUpdate(context, await storedExperiment(), {
+        status: "running",
+      }),
     ).rejects.toThrow("Start this experiment instead");
   });
 
@@ -234,13 +305,7 @@ describe("applyExperimentChanges", () => {
     await seed({ withDraft: true });
     const result = await run({
       experiment: hypothesisChange("old"),
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "new"),
-          revision: { version: 2, dateUpdated: LOADED },
-        },
-      ],
+      flagValues: [draftValues(arms("a", "new"))],
     });
     expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
     expect(result.experiment.hypothesis).toBe("new");
@@ -251,18 +316,12 @@ describe("applyExperimentChanges", () => {
     await seed({ withDraft: true });
     await run({
       flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "draft"),
+        draftValues(arms("a", "draft"), {
           environments: { allEnvironments: false, environments: ["staging"] },
-          revision: { version: 2, dateUpdated: LOADED },
-        },
+        }),
       ],
     });
-    const draft = await collection("featurerevisions").findOne({
-      featureId: FLAG,
-      version: 2,
-    });
+    const draft = await storedRevision(2);
     expect(draft?.rules?.[0]).toMatchObject({
       allEnvironments: false,
       environments: ["staging"],
@@ -270,38 +329,41 @@ describe("applyExperimentChanges", () => {
     expect(draft?.environmentsEnabled).toEqual({ staging: true });
   });
 
-  it("starts a new draft when the values were loaded from live", async () => {
-    await seed({ withDraft: false });
-    const result = await run({
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "new"),
-          revision: { version: 1, dateUpdated: LOADED },
-        },
-      ],
-    });
-    expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
-    expect(await revisionRules(1)).toEqual(arms("a", "b"));
-    expect(await revisionRules(2)).toEqual(arms("a", "new"));
+  it.each([
+    {
+      name: "a bandit's values save",
+      type: "multi-armed-bandit",
+      refusal: null,
+    },
+    {
+      name: "a standard experiment's are refused",
+      type: "standard",
+      refusal: "variations and variationWeights must be the same length.",
+    },
+  ])("$name though its phase has no weights", async ({ type, refusal }) => {
+    await seed({ withDraft: true });
+    await setExperiment({ type, "phases.0.variationWeights": [] });
+    const save = run({ flagValues: [draftValues(arms("a", "new"))] });
+    if (refusal) {
+      await expect(save).rejects.toThrow(refusal);
+    } else {
+      await save;
+      expect(await revisionRules(2)).toEqual(arms("a", "new"));
+    }
   });
 
   it("writes a sparse-only change, and refuses a type change on a flag it doesn't manage", async () => {
     await seed({ withDraft: true });
-    const entry = {
-      featureId: FLAG,
-      variations: arms("a", "draft"),
-      revision: { version: 2, dateUpdated: LOADED },
-    };
     await expect(
-      run({ flagValues: [{ ...entry, valueType: "number" }] }),
+      run({
+        flagValues: [draftValues(arms("a", "draft"), { valueType: "number" })],
+      }),
     ).rejects.toThrow(/only a Feature Flag managed by this experiment/);
 
-    await run({ flagValues: [{ ...entry, sparse: true }] });
-    const draft = await collection("featurerevisions").findOne({
-      featureId: FLAG,
-      version: 2,
+    await run({
+      flagValues: [draftValues(arms("a", "draft"), { sparse: true })],
     });
+    const draft = await storedRevision(2);
     expect(draft?.rules[0]).toMatchObject({
       sparse: true,
       variations: arms("a", "draft"),
@@ -314,18 +376,7 @@ describe("applyExperimentChanges", () => {
       { id: FLAG },
       { $set: { valueType: "json", defaultValue: "{}" } },
     );
-    await run({
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: [
-            { variationId: "v0", value: "{}" },
-            { variationId: "v1", value: '{"layout":"grid"}}' },
-          ],
-          revision: { version: 2, dateUpdated: LOADED },
-        },
-      ],
-    });
+    await run({ flagValues: [draftValues(arms("{}", '{"layout":"grid"}}'))] });
     const values = await revisionRules(2);
     expect(values.map((v: { value: string }) => JSON.parse(v.value))).toEqual([
       {},
@@ -333,34 +384,105 @@ describe("applyExperimentChanges", () => {
     ]);
   });
 
+  const valuesFrom = (dateUpdated: string) => ({
+    flagValues: [
+      draftValues(arms("a", "new"), { revision: { version: 2, dateUpdated } }),
+    ],
+  });
   it.each([
-    [
-      "an experiment field",
-      {
-        experiment: hypothesisChange("something else"),
+    {
+      name: "an experiment field",
+      body: { experiment: hypothesisChange("something else") },
+      details: { fields: ["hypothesis"], featureIds: [] },
+    },
+    {
+      name: "a flag draft",
+      body: valuesFrom("2025-12-31T00:00:00.000Z"),
+      details: { fields: [], featureIds: [FLAG] },
+    },
+    {
+      name: "a flag draft published since",
+      publish: true,
+      body: valuesFrom(LOADED),
+      details: { fields: [], featureIds: [FLAG] },
+    },
+    {
+      name: "a targeting field",
+      stored: { "phases.0.condition": '{"country":"CA"}' },
+      body: {
+        experiment: {
+          changes: { condition: '{"country":"US"}' },
+          base: { condition: "" },
+        },
       },
-    ],
-    [
-      "a flag draft",
-      {
-        flagValues: [
-          {
-            featureId: FLAG,
-            variations: arms("a", "new"),
-            revision: { version: 2, dateUpdated: "2025-12-31T00:00:00.000Z" },
-          },
-        ],
-      },
-    ],
+      details: { fields: ["condition"], featureIds: [] },
+    },
   ])(
-    "refuses with 409 and writes nothing when %s moved since it was loaded",
-    async (_label, body) => {
+    "names what moved and writes nothing when $name changed since it was loaded",
+    async ({ body, details, publish, stored }) => {
       await seed({ withDraft: true });
-      await expect(run(body)).rejects.toMatchObject({ status: 409 });
+      if (stored) {
+        await setExperiment(stored);
+      }
+      if (publish) {
+        await collection("featurerevisions").updateOne(
+          { featureId: FLAG, version: 2 },
+          { $set: { status: "published" } },
+        );
+        await collection("features").updateOne(
+          { id: FLAG },
+          { $set: { version: 2 } },
+        );
+      }
+      await expect(run(body)).rejects.toMatchObject({
+        status: 409,
+        code: "changes_conflict",
+        details,
+      });
       expect(await revisionRules(2)).toEqual(arms("a", "draft"));
-      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
+      expect((await storedExperiment()).hypothesis).toBe("old");
     },
   );
+
+  it("takes a field stored in another shape of the same value", async () => {
+    await seed({ withDraft: false });
+    // As another endpoint writes it: its own key order and empty fields.
+    await setExperiment({
+      variations: seededVariations().map(({ id, key, name }) => ({
+        screenshots: [],
+        dom: [],
+        name,
+        key,
+        id,
+      })),
+    });
+    await run({
+      experiment: {
+        changes: {
+          variations: seededVariations().map((v) => ({ ...v, name: "new" })),
+        },
+        base: { variations: seededVariations() },
+      },
+    });
+    expect((await storedExperiment()).variations.map((v) => v.name)).toEqual([
+      "new",
+      "new",
+    ]);
+  });
+
+  it("refuses a variation added without a split for it", async () => {
+    await seed({ withDraft: false });
+    await expect(
+      run({
+        experiment: {
+          changes: {
+            variations: [...seededVariations(), variation("v2", 2)],
+          },
+          base: { variations: seededVariations() },
+        },
+      }),
+    ).rejects.toThrow("one weight per variation");
+  });
 
   it("rolls the drafts back when the experiment write fails", async () => {
     await seed({ withDraft: true });
@@ -370,25 +492,29 @@ describe("applyExperimentChanges", () => {
     await expect(
       run({
         experiment: hypothesisChange("old"),
-        flagValues: [
-          {
-            featureId: FLAG,
-            variations: arms("a", "new"),
-            revision: { version: 2, dateUpdated: LOADED },
-          },
-        ],
+        flagValues: [draftValues(arms("a", "new"))],
       }),
     ).rejects.toThrow("lost race");
-    const draft = await collection("featurerevisions").findOne({
-      featureId: FLAG,
-      version: 2,
-    });
-    expect(draft?.rules[0].variations).toEqual(arms("a", "draft"));
-    expect(draft?.dateUpdated).toEqual(new Date(LOADED));
+    expect(await revisionRules(2)).toEqual(arms("a", "draft"));
+    expect((await storedRevision(2))?.dateUpdated).toEqual(new Date(LOADED));
   });
 
-  it("deletes a draft it created, and reports a draft someone else edited meanwhile", async () => {
+  it("deletes a draft it created, and leaves and reports a draft someone else edited meanwhile", async () => {
     await seed({ withDraft: false });
+    const body = {
+      experiment: hypothesisChange("old"),
+      flagValues: [
+        draftValues(arms("a", "new"), {
+          revision: { version: 1, dateUpdated: null },
+        }),
+      ],
+    };
+    mockWriteExperiment = async () => {
+      throw new Error("lost race");
+    };
+    await expect(run(body)).rejects.toThrow("lost race");
+    expect(await revisionRules(2)).toBeNull();
+
     mockWriteExperiment = async () => {
       await collection("featurerevisions").updateOne(
         { featureId: FLAG, version: 2 },
@@ -396,50 +522,159 @@ describe("applyExperimentChanges", () => {
       );
       throw new Error("lost race");
     };
-    const body = {
-      experiment: hypothesisChange("old"),
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: arms("a", "new"),
-          revision: { version: 1, dateUpdated: LOADED },
-        },
-      ],
-    };
-    // A created draft is deleted by identity, so an edit to it does not block the undo.
-    await expect(run(body)).rejects.toThrow("lost race");
-    expect(await revisionRules(2)).toBeNull();
+    await expect(run(body)).rejects.toMatchObject({
+      status: 500,
+      message: expect.stringContaining(`${FLAG} (draft v2)`),
+    });
+    expect(await revisionRules(2)).toEqual(arms("a", "new"));
 
+    await collection("featurerevisions").deleteOne({
+      featureId: FLAG,
+      version: 2,
+    });
     await collection("featurerevisions").insertOne(
       revisionDoc(2, new Date(LOADED)),
     );
     await expect(
-      run({
-        ...body,
-        flagValues: [
-          {
-            ...body.flagValues[0],
-            revision: { version: 2, dateUpdated: LOADED },
-          },
-        ],
-      }),
+      run({ ...body, flagValues: [draftValues(arms("a", "new"))] }),
     ).rejects.toMatchObject({
       status: 500,
       message: expect.stringContaining(`${FLAG} (draft v2)`),
     });
   });
 
-  it("links a flag again with the values sent", async () => {
+  it("links a flag again with the values sent, once its rule is gone", async () => {
     await seed({ withDraft: false });
-    await run({
+    const body: ExperimentChangesBody = {
       linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
-    });
+    };
+    await expect(run(body)).rejects.toThrow(
+      `${FLAG} is already linked to this experiment.`,
+    );
+    await dropRule();
+    await run(body);
     const added = await refRules("draft");
     expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
   });
 
+  it("links a flag again past a draft that only carries its old rule", async () => {
+    await seed({ withDraft: true });
+    const date = new Date("2026-01-01T00:00:00Z");
+    // v3 took the rule out and published; v2 still has it, as its base did.
+    await collection("featurerevisions").updateOne(
+      { featureId: FLAG, version: 2 },
+      { $set: { rules: [expRule(arms("a", "b"))] } },
+    );
+    await collection("featurerevisions").insertOne({
+      ...revisionDoc(3, date),
+      baseVersion: 1,
+      status: "published",
+      rules: [],
+      datePublished: date,
+    });
+    await collection("features").updateOne(
+      { id: FLAG },
+      { $set: { rules: [], version: 3 } },
+    );
+    await run({
+      linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+    });
+  });
+
+  it("shows validation hooks the person saving as the author of a flag's new draft", async () => {
+    await seed({ withDraft: false });
+    await dropRule();
+    await collection("featurerevisions").updateOne(
+      { featureId: FLAG, version: 1 },
+      { $set: { createdBy: { type: "api_key", apiKey: "someone_else" } } },
+    );
+    await seedRevisionHook();
+    jest.mocked(runInSandbox).mockResolvedValue({ ok: true, warnings: [] });
+    await run({
+      experiment: hypothesisChange("old"),
+      linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+    });
+    const authors = jest
+      .mocked(runInSandbox)
+      .mock.calls.map(
+        ([, args]) => (args.revision as { createdBy?: unknown }).createdBy,
+      );
+    expect(authors.length).toBeGreaterThan(0);
+    expect(authors).toEqual(
+      authors.map(() => ({ type: "api_key", apiKey: "key" })),
+    );
+  });
+
+  describe("when the organization requires scoped rules", () => {
+    const requireScoped = (body: Record<string, unknown> = {}) => {
+      context = makeContext({
+        settings: { requireScopedFeatureRules: true },
+        body,
+      });
+    };
+
+    it("refuses widening a rule to every environment unless the save allows it", async () => {
+      await seed({ withDraft: true });
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 2 },
+        {
+          $set: {
+            "rules.0.allEnvironments": false,
+            "rules.0.environments": ["staging"],
+          },
+        },
+      );
+      const body: ExperimentChangesBody = {
+        flagValues: [
+          draftValues(arms("a", "wide"), {
+            environments: { allEnvironments: true, environments: [] },
+          }),
+        ],
+      };
+      requireScoped();
+      await expect(run(body)).rejects.toMatchObject({ code: "unscoped_rule" });
+      expect(await revisionRules(2)).toEqual(arms("a", "draft"));
+
+      requireScoped({ allowUnscopedRules: true });
+      await run({ ...body, allowUnscopedRules: true });
+      expect(await revisionRules(2)).toEqual(arms("a", "wide"));
+    });
+
+    it("refuses scoping a rule to no environment, which would leave it unreachable", async () => {
+      await seed({ withDraft: true });
+      await expect(
+        run({
+          flagValues: [
+            draftValues(arms("a", "none"), {
+              environments: { allEnvironments: false, environments: [] },
+            }),
+          ],
+        }),
+      ).rejects.toThrow("Choose at least one environment");
+      expect(await revisionRules(2)).toEqual(arms("a", "draft"));
+    });
+
+    it("refuses linking a flag again everywhere before writing anything, unless the save allows it", async () => {
+      await seed({ withDraft: false });
+      await dropRule();
+      const body: ExperimentChangesBody = {
+        experiment: hypothesisChange("old"),
+        linkFeatures: [{ featureId: FLAG, variations: arms("p", "q") }],
+      };
+      requireScoped();
+      await expect(run(body)).rejects.toMatchObject({ code: "unscoped_rule" });
+      expect((await storedExperiment()).hypothesis).toBe("old");
+
+      requireScoped({ allowUnscopedRules: true });
+      await run({ ...body, allowUnscopedRules: true });
+      const added = await refRules("draft");
+      expect(added[added.length - 1]?.variations).toEqual(arms("p", "q"));
+    });
+  });
+
   it("refuses to link a flag another experiment manages", async () => {
     await seed({ withDraft: false });
+    await dropRule();
     await collection("features").updateOne(
       { id: FLAG },
       {
@@ -574,24 +809,14 @@ describe("applyExperimentChanges", () => {
 
       const result = await run({ keepFeatures: [FLAG] });
       expect(result.experiment.pendingFeatureUnlinks).toEqual([]);
-      expect(
-        (
-          await collection("featurerevisions").findOne({
-            featureId: FLAG,
-            version: 2,
-          })
-        )?.status,
-      ).toBe("discarded");
+      expect((await storedRevision(2))?.status).toBe("discarded");
     });
 
     it("refuses while the experiment runs", async () => {
       await seed({ withDraft: false });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { status: "running" } },
-      );
+      await setExperiment({ status: "running" });
       await expect(run({ unlinkFeatures: [FLAG] })).rejects.toThrow(
-        "Set the experiment's status back to Draft to remove this Feature Flag.",
+        "Set the experiment's status back to draft to remove this Feature Flag.",
       );
       expect(
         await collection("featurerevisions").countDocuments({
@@ -599,9 +824,7 @@ describe("applyExperimentChanges", () => {
           status: "draft",
         }),
       ).toBe(0);
-      expect((await getExperimentById(context, EXP))?.linkedFeatures).toEqual([
-        FLAG,
-      ]);
+      expect((await storedExperiment()).linkedFeatures).toEqual([FLAG]);
     });
   });
 
@@ -671,47 +894,140 @@ describe("applyExperimentChanges", () => {
     ).toBeUndefined();
   });
 
-  it("adds a variation and its flag value in one save", async () => {
-    await seed({ withDraft: false });
-    const stored = await getExperimentById(context, EXP);
-    if (!stored) throw new Error("missing experiment");
-    const variations = [...stored.variations, variation("v2", 2)];
-
-    await run({
-      experiment: {
-        changes: { variations, variationWeights: [0.34, 0.33, 0.33] },
-        base: { variations: stored.variations, variationWeights: [0.5, 0.5] },
+  describe("a save adding a variation", () => {
+    const addV2 = (stored: {
+      variations: ReturnType<typeof seededVariations>;
+    }) => ({
+      changes: {
+        variations: [...stored.variations, variation("v2", 2)],
+        variationWeights: [0.34, 0.33, 0.33],
       },
-      flagValues: [
-        {
-          featureId: FLAG,
-          variations: [...arms("a", "b"), { variationId: "v2", value: "c" }],
-          revision: { version: 1, dateUpdated: LOADED },
-        },
-      ],
+      base: { variations: stored.variations, variationWeights: [0.5, 0.5] },
     });
-    expect(
-      (await getExperimentById(context, EXP))?.variations.map((v) => v.id),
-    ).toEqual(["v0", "v1", "v2"]);
-    expect(await revisionRules(2)).toEqual([
+    const armsWithV2 = () => [
       ...arms("a", "b"),
       { variationId: "v2", value: "c" },
-    ]);
+    ];
+    const newFlag = (id: string) => ({
+      feature: {
+        id,
+        valueType: "string" as const,
+        defaultValue: "a",
+        environmentSettings: {},
+      },
+      variations: armsWithV2(),
+    });
+
+    it("saves with each linked flag's value for it", async () => {
+      await seed({ withDraft: false });
+      const result = await run({
+        experiment: addV2(await storedExperiment()),
+        flagValues: [
+          {
+            featureId: FLAG,
+            variations: armsWithV2(),
+            revision: { version: 1, dateUpdated: null },
+          },
+        ],
+      });
+      expect((await storedExperiment()).variations.map((v) => v.id)).toEqual([
+        "v0",
+        "v1",
+        "v2",
+      ]);
+      // Loaded from live, so the values start a new draft and live is untouched.
+      expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
+      expect(await revisionRules(1)).toEqual(arms("a", "b"));
+      expect(await revisionRules(2)).toEqual(armsWithV2());
+    });
+
+    it("refuses while a linked flag has no value for it", async () => {
+      await seed({ withDraft: false });
+      await expect(
+        run({ experiment: addV2(await storedExperiment()) }),
+      ).rejects.toThrow(
+        `Give each linked Feature Flag a value for the new variations: ${FLAG}.`,
+      );
+      expect((await storedExperiment()).variations).toHaveLength(2);
+    });
+
+    it("creates a flag whose values name the variation it adds", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [] });
+
+      await run({
+        experiment: addV2(await storedExperiment()),
+        createFeatures: [newFlag("flag_created")],
+      });
+      expect((await storedExperiment()).linkedFeatures).toEqual([
+        "flag_created",
+      ]);
+      // A new flag's rule lands in a draft, as adding one from the page does.
+      const draft = await collection("featurerevisions").findOne({
+        featureId: "flag_created",
+        status: "draft",
+      });
+      expect(draft?.rules?.[0]?.variations).toEqual(armsWithV2());
+    });
+
+    it("refuses a new flag's draft a validation hook rejects, before saving anything", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [] });
+      await seedRevisionHook();
+      jest.mocked(runInSandbox).mockResolvedValue({
+        ok: false,
+        rejected: true,
+        error: "Rejected by hook",
+        warnings: [],
+      });
+      await expect(
+        run({
+          experiment: addV2(await storedExperiment()),
+          createFeatures: [newFlag("flag_created")],
+        }),
+      ).rejects.toThrow("Rejected by hook");
+      expect((await storedExperiment()).variations).toHaveLength(2);
+      expect(await getFeature(context, "flag_created")).toBeNull();
+    });
+
+    it("checks a new flag's key in a dry run, writing nothing", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [] });
+      await expect(
+        run({
+          experiment: addV2(await storedExperiment()),
+          createFeatures: [newFlag(FLAG)],
+          dryRun: true,
+        }),
+      ).rejects.toThrow("This feature key already exists");
+      expect((await storedExperiment()).variations).toHaveLength(2);
+    });
+
+    it("starts a draft's first phase with the variations it saves", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ linkedFeatures: [], phases: [] });
+      const added = addV2(await storedExperiment());
+      // No phase, so no split was loaded.
+      await run({
+        experiment: {
+          ...added,
+          base: { ...added.base, variationWeights: null },
+        },
+      });
+      expect(
+        (await storedExperiment()).phases[0]?.variations.map((v) => v.id),
+      ).toEqual(["v0", "v1", "v2"]);
+    });
   });
 
   it("changes a running bandit's coverage without restarting it, and refuses coverage that moved", async () => {
     await seed({ withDraft: false });
-    await collection("experiments").updateOne(
-      { id: EXP },
-      {
-        $set: {
-          type: "multi-armed-bandit",
-          status: "running",
-          linkedFeatures: [],
-          banditStage: "exploit",
-        },
-      },
-    );
+    await setExperiment({
+      type: "multi-armed-bandit",
+      status: "running",
+      linkedFeatures: [],
+      banditStage: "exploit",
+    });
 
     await run({
       experiment: { changes: { coverage: 0.4 }, base: { coverage: 1 } },
@@ -724,7 +1040,176 @@ describe("applyExperimentChanges", () => {
       run({
         experiment: { changes: { coverage: 0.5 }, base: { coverage: 1 } },
       }),
-    ).rejects.toThrow("changed since you loaded it");
+    ).rejects.toThrow("Traffic percent changed since you loaded it");
+  });
+
+  it("refuses taking a live rule out when a targeting Project's review rule governs the flag", async () => {
+    await seed({ withDraft: false });
+    // The flag's own Project has no rule; the Project it targets does.
+    await collection("features").updateOne(
+      { id: FLAG },
+      { $set: { targetingProjects: ["prj_targeted"] } },
+    );
+    context = makeContext({
+      role: "engineer",
+      settings: {
+        requireReviews: [
+          {
+            requireReviewOn: true,
+            resetReviewOnChange: false,
+            environments: [],
+            projects: ["prj_targeted"],
+          },
+        ],
+      } as unknown as OrganizationInterface["settings"],
+    });
+    await expect(removeForDeletedExperiment()).rejects.toThrow(
+      "no authority to publish the change",
+    );
+    expect((await getFeature(context, FLAG))?.rules).toEqual([
+      expect.objectContaining({ experimentId: EXP }),
+    ]);
+  });
+
+  it("refuses rewriting a rule only drafts hold for someone who can't edit them", async () => {
+    await seed({ withDraft: true });
+    await collection("features").updateOne(
+      { id: FLAG },
+      { $set: { rules: [] } },
+    );
+    await collection("featurerevisions").updateOne(
+      { featureId: FLAG, version: 1 },
+      { $set: { rules: [] } },
+    );
+    context = makeContext({ role: "readonly" });
+    await expect(removeForDeletedExperiment()).rejects.toThrow(
+      "no authority to edit its drafts",
+    );
+    expect(await refRules("draft")).toEqual([
+      expect.objectContaining({ experimentId: EXP }),
+    ]);
+  });
+
+  describe("targeting", () => {
+    const US = '{"country":"US"}';
+
+    it("writes the latest phase and the experiment, keeping what someone else changed elsewhere", async () => {
+      await seed({ withDraft: false });
+      // Someone else's save: a new size, and the empty condition's other form.
+      await setExperiment({
+        "phases.0.coverage": 0.7,
+        "phases.0.condition": "{}",
+      });
+      await run({
+        experiment: {
+          changes: { condition: US, hashAttribute: "device" },
+          base: { condition: "", hashAttribute: null },
+        },
+      });
+      const { phases, hashAttribute } = await storedExperiment();
+      expect(phases).toHaveLength(1);
+      expect(phases[0]).toMatchObject({ condition: US, coverage: 0.7 });
+      expect(hashAttribute).toBe("device");
+    });
+
+    it("creates the first phase on an experiment with none", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ phases: [] });
+      await run({
+        experiment: { changes: { condition: US }, base: { condition: null } },
+      });
+      const { phases } = await storedExperiment();
+      expect(phases).toHaveLength(1);
+      expect(phases[0]).toMatchObject({
+        condition: US,
+        coverage: 1,
+        variationWeights: [0.5, 0.5],
+        variations: [
+          { id: "v0", status: "active" },
+          { id: "v1", status: "active" },
+        ],
+      });
+    });
+
+    it("changes what a live experiment serves only with a release, in place or in a new phase", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({ status: "running" });
+      const coverage = (to: number, from: number) => ({
+        changes: { coverage: to },
+        base: { coverage: from },
+      });
+
+      await expect(run({ experiment: coverage(0.5, 1) })).rejects.toThrow(
+        "while the experiment is running and live",
+      );
+
+      await run({
+        experiment: coverage(0.5, 1),
+        release: { newPhase: false, reseed: false },
+      });
+      expect((await storedExperiment()).phases.map((p) => p.coverage)).toEqual([
+        0.5,
+      ]);
+
+      await run({
+        experiment: coverage(0.4, 0.5),
+        release: { newPhase: true, reseed: true },
+      });
+      const { phases } = await storedExperiment();
+      expect(phases.map((p) => p.coverage)).toEqual([0.5, 0.4]);
+      expect(phases[0].dateEnded).toBeInstanceOf(Date);
+      expect(phases[1]).toMatchObject({
+        variationWeights: [0.5, 0.5],
+        seed: expect.any(String),
+      });
+    });
+
+    it("restarts a running bandit once who it targets changes", async () => {
+      await seed({ withDraft: false });
+      await setExperiment({
+        type: "multi-armed-bandit",
+        status: "running",
+        linkedFeatures: [],
+        banditStage: "exploit",
+      });
+      await run({
+        experiment: { changes: { condition: US }, base: { condition: "" } },
+      });
+      expect((await storedExperiment()).banditStage).toBe("explore");
+    });
+
+    it("keeps a holdout's targeting the same in every phase, and refuses what a holdout doesn't target", async () => {
+      await seed({ withDraft: false });
+      const [phase] = seededPhases(new Date("2026-01-01T00:00:00Z"));
+      await setExperiment({ type: "holdout", linkedFeatures: [] });
+      await setExperiment({ phases: [phase, { ...phase, name: "Analysis" }] });
+
+      await run({
+        experiment: {
+          changes: { condition: US, coverage: 0.1 },
+          base: { condition: "", coverage: 1 },
+        },
+        release: { newPhase: false, reseed: false },
+      });
+      expect(
+        (await storedExperiment()).phases.map(({ condition, coverage }) => ({
+          condition,
+          coverage,
+        })),
+      ).toEqual([
+        { condition: US, coverage: 0.1 },
+        { condition: US, coverage: 0.1 },
+      ]);
+
+      await expect(
+        run({
+          experiment: {
+            changes: { prerequisites: [{ id: FLAG, condition: "{}" }] },
+            base: { prerequisites: null },
+          },
+        }),
+      ).rejects.toThrow("A holdout's targeting");
+    });
   });
 
   it("converts a Values experiment's flag to unmanaged alongside another edit", async () => {
@@ -1008,10 +1493,7 @@ describe("applyExperimentChanges", () => {
 
     async function seedLinked(status = "draft") {
       await seed({ withDraft: false });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { linkedFeatures: [], status } },
-      );
+      await setExperiment({ linkedFeatures: [], status });
     }
     // Raw writes, so no model cache holds what a later save reads.
     async function seedRedirect(id: string, urlPattern: string) {
@@ -1025,10 +1507,7 @@ describe("applyExperimentChanges", () => {
         dateCreated: new Date(LOADED),
         dateUpdated: new Date(LOADED),
       });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { hasURLRedirects: true } },
-      );
+      await setExperiment({ hasURLRedirects: true });
     }
     async function seedChangeset() {
       await collection("visualchangesets").insertOne({
@@ -1042,10 +1521,7 @@ describe("applyExperimentChanges", () => {
           { ...loadedChange, id: "vc1", variation: "v1", css: ".loaded{}" },
         ],
       });
-      await collection("experiments").updateOne(
-        { id: EXP },
-        { $set: { hasVisualChangesets: true } },
-      );
+      await setExperiment({ hasVisualChangesets: true });
     }
     const storedRedirects = () =>
       collection("urlredirects")
@@ -1085,18 +1561,14 @@ describe("applyExperimentChanges", () => {
 
     // Not admin: an admin role ignores an environment limit.
     const limitedTo = (environments: string[]) => {
-      context = new ReqContextClass({
-        org,
-        auditUser: { type: "api_key", apiKey: "key" },
+      context = makeContext({
         role: "experimenter",
         apiKeyData: {
           role: "experimenter",
           limitAccessByEnvironment: true,
           environments,
         } as ApiKeyInterface,
-        req: { query: {}, headers: {}, body: {} } as unknown as Request,
       });
-      context.hasPremiumFeature = () => true;
     };
 
     it("adds a first URL Redirect for someone who can run the experiment in every environment", async () => {
@@ -1115,6 +1587,23 @@ describe("applyExperimentChanges", () => {
         hasURLRedirects: true,
         implementationType: "urlredirect",
       });
+    });
+
+    it("adds no URL Redirect once the experiment started after it was loaded", async () => {
+      await seedLinked();
+      const loaded = await storedExperiment();
+      await setExperiment({ status: "running" });
+
+      await expect(
+        applyExperimentChanges({
+          context,
+          experiment: loaded,
+          body: { addUrlRedirects: [staged(A)] },
+          audit: async () => undefined,
+          eventAudit: { type: "api_key", apiKey: "key" },
+        }),
+      ).rejects.toThrow("The experiment changed since you loaded it");
+      expect(await storedRedirects()).toEqual([]);
     });
 
     it("edits a URL Redirect and a Visual Editor change in a save that swaps a variation", async () => {
@@ -1164,7 +1653,11 @@ describe("applyExperimentChanges", () => {
           addUrlRedirects: [staged(A)],
           editVisualChangesets: [editVc0],
         }),
-      ).rejects.toMatchObject({ status: 409 });
+      ).rejects.toMatchObject({
+        status: 409,
+        message: expect.stringContaining("The experiment's changes saved"),
+      });
+      expect((await storedExperiment()).hypothesis).toBe("new");
       expect(await storedRedirects()).toEqual([]);
       expect(await storedVisualChanges()).toEqual([
         ["v0", ".extension{}", undefined],
@@ -1173,10 +1666,10 @@ describe("applyExperimentChanges", () => {
     });
 
     it.each([
-      [
-        "a URL Redirect edited since it was loaded",
-        () => seedRedirect("url_a", A),
-        {
+      {
+        name: "a URL Redirect edited since it was loaded",
+        setup: () => seedRedirect("url_a", A),
+        body: {
           editUrlRedirects: [
             {
               ...staged(A),
@@ -1185,12 +1678,14 @@ describe("applyExperimentChanges", () => {
             },
           ],
         },
-        { status: 409, message: `The URL Redirect from ${A} changed since` },
-      ],
-      [
-        "two staged URL Redirects that chain",
-        async () => undefined,
-        {
+        refusal: {
+          status: 409,
+          message: "URL Redirect url_a changed since you loaded it",
+        },
+      },
+      {
+        name: "two staged URL Redirects that chain",
+        body: {
           addUrlRedirects: [
             staged(A, {
               destinationURLs: [
@@ -1202,36 +1697,28 @@ describe("applyExperimentChanges", () => {
             staged(B),
           ],
         },
-        {
+        refusal: {
           status: 400,
           message: `A destination of the URL Redirect from ${A} matches the origin of the one from ${B}.`,
         },
-      ],
-      [
-        "a URL Redirect missing a variation's destination",
-        async () => undefined,
-        {
-          addUrlRedirects: [
-            staged(A, { destinationURLs: destinations(A, ["v0"]) }),
-          ],
-        },
-        { status: 400, message: "needs one destination for each variation" },
-      ],
-      [
-        "a URL Redirect keeping a destination for a variation the save removes",
-        async () => undefined,
-        {
+      },
+      {
+        name: "a URL Redirect keeping a destination for a variation the save removes",
+        body: {
           experiment: swapV1ForV2(),
           addUrlRedirects: [
             staged(A, { destinationURLs: destinations(A, ["v0", "v1", "v2"]) }),
           ],
         },
-        { status: 400, message: "needs one destination for each variation" },
-      ],
-      [
-        "a Visual Editor edit for a variation the save removes",
-        seedChangeset,
-        {
+        refusal: {
+          status: 400,
+          message: "needs one destination for each variation",
+        },
+      },
+      {
+        name: "a Visual Editor edit for a variation the save removes",
+        setup: seedChangeset,
+        body: {
           experiment: swapV1ForV2(),
           editVisualChangesets: [
             {
@@ -1254,58 +1741,60 @@ describe("applyExperimentChanges", () => {
             },
           ],
         },
-        { status: 400, message: "edits a variation this save removes" },
-      ],
-      [
-        "a new URL Redirect beside an implementation type change",
-        async () => undefined,
-        {
+        refusal: {
+          status: 400,
+          message: "edits a variation this save removes",
+        },
+      },
+      {
+        name: "a new URL Redirect beside an implementation type change",
+        body: {
           experiment: {
             changes: { implementationType: "urlredirect", hypothesis: "new" },
             base: { implementationType: null, hypothesis: "old" },
           },
           addUrlRedirects: [staged(A)],
         },
-        { status: 400, message: "not both in one save" },
-      ],
-      [
-        "a URL Redirect on a running experiment",
-        () =>
-          collection("experiments")
-            .updateOne({ id: EXP }, { $set: { status: "running" } })
-            .then(() => undefined),
-        { addUrlRedirects: [staged(A)] },
-        { status: 400, message: "only change while the experiment is a draft" },
-      ],
-      [
-        "a first URL Redirect from someone who can run the experiment in only some environments",
-        async () => limitedTo(["staging"]),
-        { addUrlRedirects: [staged(A)] },
-        { status: 403, message: "" },
-      ],
-    ] as [
-      string,
-      () => Promise<void>,
-      ExperimentChangesBody,
-      { status: number; message: string },
-    ][])(
-      "refuses %s before writing anything",
-      async (_label, setup, body, { status, message }) => {
+        refusal: { status: 400, message: "not both in one save" },
+      },
+      {
+        name: "a URL Redirect on a running experiment",
+        setup: () => setExperiment({ status: "running" }),
+        body: { addUrlRedirects: [staged(A)] },
+        refusal: {
+          status: 400,
+          message: "only change while the experiment is a draft",
+        },
+      },
+      {
+        name: "a first URL Redirect from someone who can run the experiment in only some environments",
+        setup: async () => limitedTo(["staging"]),
+        body: { addUrlRedirects: [staged(A)] },
+        refusal: { status: 403, message: "" },
+      },
+    ] as {
+      name: string;
+      setup?: () => Promise<unknown>;
+      body: ExperimentChangesBody;
+      refusal: { status: number; message: string };
+    }[])(
+      "refuses $name before writing anything",
+      async ({ setup, body, refusal: { status, message } }) => {
         await seedLinked();
-        await setup();
-        const stored = async () => ({
+        await setup?.();
+        const snapshot = async () => ({
           experiment: await collection("experiments").findOne({ id: EXP }),
           redirects: await storedRedirects(),
           visualChanges: await storedVisualChanges(),
         });
-        const before = await stored();
+        const before = await snapshot();
         await expect(
           run({ experiment: hypothesisChange("old"), ...body }),
         ).rejects.toMatchObject({
           status,
           message: expect.stringContaining(message),
         });
-        expect(await stored()).toEqual(before);
+        expect(await snapshot()).toEqual(before);
       },
     );
 
@@ -1327,7 +1816,7 @@ describe("applyExperimentChanges", () => {
         }),
       ).rejects.toThrow(`matches the origin of the one from ${A}/v0.`);
       expect(await storedRedirects()).toEqual([]);
-      expect((await getExperimentById(context, EXP))?.hypothesis).toBe("old");
+      expect((await storedExperiment()).hypothesis).toBe("old");
     });
 
     it("edits one variation's Visual Editor changes on a stopped experiment, keeping the others as the Visual Editor left them", async () => {
@@ -1355,7 +1844,209 @@ describe("applyExperimentChanges", () => {
       // Its own base is stale now.
       await expect(
         run({ editVisualChangesets: [editVc0] }),
-      ).rejects.toMatchObject({ status: 409 });
+      ).rejects.toMatchObject({
+        status: 409,
+        code: "changes_conflict",
+        details: { urlRedirectIds: [], visualChangesetIds: ["vcs_1"] },
+      });
+    });
+  });
+
+  describe("rules that disagree", () => {
+    const groupRule = (
+      id: string,
+      environment: string,
+      variations: ReturnType<typeof arms>,
+    ) => ({
+      ...expRule(variations),
+      id,
+      allEnvironments: false,
+      environments: [environment],
+    });
+    const splitRules = [
+      groupRule("fr_prod", "production", arms("a", "b")),
+      groupRule("fr_stage", "staging", arms("a", "c")),
+    ];
+    const LIVE = { version: 1, dateUpdated: null };
+
+    async function seedSplit() {
+      await seed({ withDraft: false });
+      await collection("features").updateOne(
+        { id: FLAG },
+        {
+          $set: {
+            rules: splitRules,
+            environmentSettings: {
+              production: { enabled: true, rules: [] },
+              staging: { enabled: true, rules: [] },
+            },
+          },
+        },
+      );
+      await collection("featurerevisions").updateOne(
+        { featureId: FLAG, version: 1 },
+        { $set: { rules: splitRules } },
+      );
+    }
+
+    const draftValuesByRule = async () =>
+      Object.fromEntries(
+        (await refRules("draft")).map(
+          (r: { id: string; variations: ReturnType<typeof arms> }) => [
+            r.id,
+            r.variations,
+          ],
+        ),
+      );
+
+    it("shows each set of values as its own group", async () => {
+      await seedSplit();
+      const experiment = await storedExperiment();
+      const [info] = await getLinkedFeatureInfo(context, experiment, {
+        includeValueGroups: true,
+      });
+      expect(info.inconsistentValues).toBe(true);
+      expect(
+        info.valueGroups?.map((g) => ({
+          ruleIds: g.ruleIds,
+          environments: g.environments,
+          values: g.values,
+          inconsistentValues: g.inconsistentValues,
+        })),
+      ).toEqual([
+        {
+          ruleIds: ["fr_prod"],
+          environments: ["production"],
+          values: arms("a", "b"),
+          inconsistentValues: false,
+        },
+        {
+          ruleIds: ["fr_stage"],
+          environments: ["staging"],
+          values: arms("a", "c"),
+          inconsistentValues: false,
+        },
+      ]);
+
+      const [plain] = await getLinkedFeatureInfo(context, experiment);
+      expect(plain.valueGroups).toBeUndefined();
+    });
+
+    it.each([
+      {
+        name: "each group's values to its own rules, in one draft",
+        flagValues: [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod"],
+            variations: arms("a", "prod"),
+            revision: LIVE,
+          },
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_stage"],
+            variations: arms("a", "stage"),
+            revision: LIVE,
+          },
+        ],
+        expected: { fr_prod: arms("a", "prod"), fr_stage: arms("a", "stage") },
+      },
+      {
+        name: "one group's values, leaving the other group's rules alone",
+        flagValues: [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_stage"],
+            variations: arms("a", "stage"),
+            revision: LIVE,
+          },
+        ],
+        expected: { fr_prod: arms("a", "b"), fr_stage: arms("a", "stage") },
+      },
+    ])("writes $name", async ({ flagValues, expected }) => {
+      await seedSplit();
+      const result = await run({ flagValues });
+      expect(result.flags).toEqual([{ featureId: FLAG, version: 2 }]);
+      expect(await draftValuesByRule()).toEqual(expected);
+    });
+
+    it.each([
+      {
+        name: "without naming the rules",
+        flagValues: [
+          { featureId: FLAG, variations: arms("a", "x"), revision: LIVE },
+        ],
+        message: "variation values must be identical",
+      },
+      {
+        name: "twice without separate groups",
+        flagValues: [
+          { featureId: FLAG, variations: arms("a", "x"), revision: LIVE },
+          { featureId: FLAG, variations: arms("a", "y"), revision: LIVE },
+        ],
+        message: "only to set values for separate groups",
+      },
+      {
+        name: "with a rule in two groups",
+        flagValues: [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod"],
+            variations: arms("a", "x"),
+            revision: LIVE,
+          },
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod", "fr_stage"],
+            variations: arms("a", "y"),
+            revision: LIVE,
+          },
+        ],
+        message: "is in more than one group",
+      },
+      {
+        name: "re-scoping environments for some of the rules",
+        flagValues: [
+          {
+            featureId: FLAG,
+            ruleIds: ["fr_prod"],
+            variations: arms("a", "x"),
+            environments: { allEnvironments: true, environments: [] },
+            revision: LIVE,
+          },
+        ],
+        message: "environments can only change for all",
+      },
+    ])("refuses values $name", async ({ flagValues, message }) => {
+      await seedSplit();
+      await expect(run({ flagValues })).rejects.toThrow(message);
+      expect(await refRules("draft")).toEqual([]);
+    });
+
+    it("names the flag as moved when its groups were loaded from different revisions", async () => {
+      await seedSplit();
+      await expect(
+        run({
+          flagValues: [
+            {
+              featureId: FLAG,
+              ruleIds: ["fr_prod"],
+              variations: arms("a", "prod"),
+              revision: LIVE,
+            },
+            {
+              featureId: FLAG,
+              ruleIds: ["fr_stage"],
+              variations: arms("a", "stage"),
+              revision: { version: 2, dateUpdated: LOADED },
+            },
+          ],
+        }),
+      ).rejects.toMatchObject({
+        code: "changes_conflict",
+        details: { featureIds: [FLAG] },
+      });
+      expect(await refRules("draft")).toEqual([]);
     });
   });
 });

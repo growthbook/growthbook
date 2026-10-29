@@ -1,29 +1,25 @@
+import isEqual from "lodash/isEqual";
 import {
-  getLatestPhaseVariations,
   getAllVariations,
+  getLaunchChecklistItems,
+  sdkConnectionServesProject,
   withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
+import { v4 as uuidv4 } from "uuid";
+import { ScopedSettings } from "shared/settings";
 import {
   ExperimentInterface,
-  LinkedFeatureInfo,
   Changeset,
   ExperimentResultsType,
 } from "shared/types/experiment";
+import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
-  BuiltInChecklistItemKey,
   ChecklistStatus,
   ExperimentStartChecklistStatus,
-  getHiddenBuiltInChecklistItems,
 } from "shared/validators";
-import {
-  experimentHasLiveLinkedChanges,
-  getImplementationType,
-  getManagedValueProblems,
-  hasStartReadyManagedFlag,
-  isManagedByExperiment,
-  PENDING_APPROVAL_ITEM_PREFIX,
-} from "shared/util";
+import { hasPendingScheduledStart, startBypassCovers } from "shared/util";
+import { canBypassStartApproval } from "shared/permissions";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import {
   customHooksActive,
@@ -35,28 +31,45 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import { findVisualChangesetsByExperiment } from "back-end/src/models/VisualChangesetModel";
 import { ReqContext } from "back-end/types/request";
+import { flagBypass } from "back-end/src/services/featurePublishGates";
+import {
+  evaluateStartGates,
+  rampLockedGate,
+  startChecklistGates,
+  type StartGate,
+} from "back-end/src/services/experimentChanges/startGates";
 import { ApiReqContext } from "back-end/types/api";
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentInAffectedEnvironments,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
+  resetExperimentBanditSettings,
 } from "back-end/src/services/experiments";
 import {
   formatPendingDraftFailureMessage,
+  getLaunchDrafts,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
+import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
+import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import {
   BadRequestError,
   ChecklistIncompleteError,
+  ConflictError,
   InvalidStatusError,
   PendingDraftPublishFailedError,
 } from "back-end/src/util/errors";
-import { assertFeatureNotLockedByRamp } from "back-end/src/services/rampSchedule";
+import {
+  assertFeatureNotLockedByRamp,
+  RampLockdownError,
+} from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
 import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
+import { assertScheduledStartAllowsChange } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
 export type StartChecklistItemStatus = {
   key: string;
@@ -65,11 +78,13 @@ export type StartChecklistItemStatus = {
   manual: boolean;
   reason: string;
   hardBlock?: boolean;
+  featureId?: string;
 };
 
 export type ExperimentStartChecklistResult = {
   experiment: ExperimentInterface;
   checklistItems: StartChecklistItemStatus[];
+  gates: StartGate[];
   status: ExperimentStartChecklistStatus;
 };
 
@@ -83,12 +98,12 @@ export async function validateExperimentChange({
   experiment: ExperimentInterface;
   changes: Changeset;
 }): Promise<void> {
+  assertScheduledStartAllowsChange(experiment, changes);
   if (!customHooksActive(context) || experiment.type === "holdout") return;
 
   const merged = { ...experiment, ...changes };
   const willRun =
-    merged.status === "running" ||
-    merged.nextScheduledStatusUpdate?.type === "start";
+    merged.status === "running" || hasPendingScheduledStart(merged);
 
   const effectiveChanges =
     willRun && experiment.status !== "running"
@@ -102,7 +117,9 @@ export async function validateExperimentChange({
   });
 }
 
-export async function completeExperimentStartChecklistItems({
+// Runs every check that can refuse and returns the change without writing it,
+// so a caller can hold for confirmation first.
+export async function planChecklistCompletion({
   context,
   experiment,
   keys,
@@ -110,7 +127,7 @@ export async function completeExperimentStartChecklistItems({
   context: ReqContext;
   experiment: ExperimentInterface;
   keys: string[];
-}): Promise<ExperimentInterface> {
+}): Promise<Changeset> {
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();
   }
@@ -153,11 +170,7 @@ export async function completeExperimentStartChecklistItems({
 
   const changes: Changeset = { manualLaunchChecklist };
   await validateExperimentChange({ context, experiment, changes });
-  return await updateExperiment({
-    context,
-    experiment,
-    changes,
-  });
+  return changes;
 }
 
 export type StopExperimentInput = {
@@ -180,71 +193,22 @@ export type ModifyTemporaryRolloutInput = {
   releasedVariationId?: string;
 };
 
-function getHasLinkedChanges(
-  experiment: ExperimentInterface,
-  linkedFeatures: LinkedFeatureInfo[],
-): boolean {
-  return !!(
-    linkedFeatures.some((f) => f.state === "live" || f.state === "draft") ||
-    experiment.hasVisualChangesets ||
-    experiment.hasURLRedirects
-  );
-}
-
-function isManualTaskComplete(
-  experiment: ExperimentInterface,
-  key: string,
-): boolean {
-  return (
-    experiment.manualLaunchChecklist?.find((task) => task.key === key)
-      ?.status === "complete"
-  );
-}
-
-function isAutoTaskComplete(
-  experiment: ExperimentInterface,
-  propertyKey: string,
-  customFieldId?: string,
-): boolean {
-  switch (propertyKey) {
-    case "hypothesis":
-      return !!experiment.hypothesis;
-    case "screenshots":
-      return getLatestPhaseVariations(experiment).every(
-        (v) => !!v.screenshots.length,
-      );
-    case "description":
-      return !!experiment.description;
-    case "project":
-      return !!experiment.project;
-    case "tag":
-      return (experiment.tags?.length ?? 0) > 0;
-    case "customField":
-      return customFieldId ? !!experiment.customFields?.[customFieldId] : false;
-    case "prerequisiteTargeting": {
-      const prerequisites =
-        experiment.phases?.[experiment.phases.length - 1]?.prerequisites;
-      return !!prerequisites && prerequisites.length > 0;
-    }
-    case "schedule":
-      return !!experiment.statusUpdateSchedule?.startAt;
-    default:
-      return isManualTaskComplete(experiment, propertyKey);
-  }
-}
-
 export async function getExperimentStartChecklistStatus(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
   { arming = false }: { arming?: boolean } = {},
 ): Promise<StartChecklistItemStatus[]> {
-  const linkedFeatures = await getLinkedFeatureInfo(
-    context,
-    experiment,
-    arming ? { publisher: context } : {},
-  );
-  const sdkConnections = await findSDKConnectionsByOrganization(context);
-  const isBandit = experiment.type === "multi-armed-bandit";
+  const [linkedFeatures, sdkConnections, visualChangesets, urlRedirects] =
+    await Promise.all([
+      getLinkedFeatureInfo(
+        context,
+        experiment,
+        arming ? { publisher: context } : {},
+      ),
+      findSDKConnectionsByOrganization(context),
+      findVisualChangesetsByExperiment(experiment.id, context.org.id),
+      context.models.urlRedirects.findByExperiment(experiment.id),
+    ]);
   const checklist = orgHasPremiumFeature(context.org, "custom-launch-checklist")
     ? (experiment.project &&
         (await getExperimentLaunchChecklist(
@@ -253,219 +217,25 @@ export async function getExperimentStartChecklistStatus(
         ))) ||
       (await getExperimentLaunchChecklist(context.org.id, ""))
     : null;
-  const hidden = getHiddenBuiltInChecklistItems(checklist, experiment);
 
-  const items: StartChecklistItemStatus[] = [];
-  const pushBuiltIn = (
-    item: StartChecklistItemStatus & { key: BuiltInChecklistItemKey },
-  ) => {
-    if (!hidden.has(item.key)) items.push(item);
-  };
-
-  const isManaged = (f: LinkedFeatureInfo) =>
-    isManagedByExperiment(f.feature, experiment.id);
-  const implementationType = getImplementationType(experiment);
-  const valuesMode =
-    linkedFeatures.some(isManaged) || implementationType === "values";
-
-  if (implementationType !== "none") {
-    pushBuiltIn({
-      key: "linkedChanges",
-      required: true,
-      status:
-        (isBandit &&
-          (hasStartReadyManagedFlag(experiment.id, linkedFeatures) ||
-            experimentHasLiveLinkedChanges(experiment, linkedFeatures))) ||
-        (!isBandit && getHasLinkedChanges(experiment, linkedFeatures))
-          ? "complete"
-          : "incomplete",
-      manual: false,
-      reason: valuesMode
-        ? "Add variation values before starting."
-        : isBandit
-          ? "Add at least one live linked change before starting a bandit."
-          : "Add at least one linked feature, visual changeset, or URL redirect before starting.",
-    });
-  }
-
-  if (isBandit) {
-    items.push({
-      key: "banditGoalMetric",
-      required: true,
-      status: experiment.goalMetrics?.[0] ? "complete" : "incomplete",
-      manual: false,
-      reason: "Bandits require a goal metric before starting.",
-    });
-  }
-
-  pushBuiltIn({
-    key: "targeting",
-    required: true,
-    status: experiment.phases.length > 0 ? "complete" : "incomplete",
-    manual: false,
-    reason: "Configure at least one phase with assignment/targeting settings.",
-  });
-
-  pushBuiltIn({
-    key: "sdkConnection",
-    required: true,
-    status: sdkConnections.length > 0 ? "complete" : "incomplete",
-    manual: false,
-    reason: "Add an SDK connection before starting.",
-  });
-
-  const latestVariations = getLatestPhaseVariations(experiment);
-  linkedFeatures
-    .filter((f) => f.state !== "discarded" && f.state !== "archived")
-    .forEach((f) => {
-      if (isManaged(f)) {
-        const problems = getManagedValueProblems({
-          variations: latestVariations,
-          values: f.pendingDraft?.values ?? f.values,
-          valueType: f.pendingDraft?.valueType ?? f.feature.valueType,
-        });
-        if (problems.some((p) => p.problem === "missing")) {
-          items.push({
-            key: `missingVariationValues:${f.feature.id}`,
-            required: true,
-            status: "incomplete",
-            manual: false,
-            reason: "Fill in the missing variation values before starting.",
-          });
-        }
-        const malformed = problems.filter((p) => p.problem === "malformed");
-        if (malformed.length) {
-          items.push({
-            key: `malformedVariationValues:${f.feature.id}`,
-            required: true,
-            status: "incomplete",
-            manual: false,
-            hardBlock: true,
-            reason: `Fix the variation values before starting: ${malformed
-              .map((p) => `${p.variationName}: ${p.detail}`)
-              .join("; ")}`,
-          });
-        }
-        return;
-      }
-      const configuredVariationIds = new Set(
-        f.values.map((v) => v.variationId),
-      );
-      const hasMissingValues = latestVariations.some(
-        (v) => !configuredVariationIds.has(v.id),
-      );
-      if (hasMissingValues) {
-        items.push({
-          key: `missingVariationValues:${f.feature.id}`,
-          required: true,
-          status: "incomplete",
-          manual: false,
-          reason: `Fill in missing variation values for linked feature ${f.feature.id} before starting.`,
-        });
-      }
-    });
-
-  linkedFeatures
-    .filter((f) => f.state === "draft" && f.hasMergeConflict)
-    .forEach((f) => {
-      items.push({
-        key: `mergeConflict:${f.feature.id}`,
-        required: true,
-        status: "incomplete",
-        manual: false,
-        hardBlock: true,
-        reason: isManaged(f)
-          ? "Resolve the merge conflict in this experiment's variation values before starting."
-          : `Resolve the merge conflict in linked feature ${f.feature.id} before starting.`,
-      });
-    });
-
-  linkedFeatures
-    .filter((f) => f.state === "draft" && f.cannotPublish)
-    .forEach((f) => {
-      items.push({
-        key: `publishPermission:${f.feature.id}`,
-        required: true,
-        status: "incomplete",
-        manual: false,
-        hardBlock: true,
-        reason: `Permission to publish linked feature ${f.feature.id} is needed before starting.`,
-      });
-    });
-  linkedFeatures
-    .filter((f) => f.pendingApproval && !f.hasUnrelatedDraftChanges)
-    .forEach((f) => {
-      items.push({
-        key: `${PENDING_APPROVAL_ITEM_PREFIX}${f.feature.id}`,
-        required: true,
-        status:
-          (f.draftApprovalSatisfied ?? f.draftRevisionStatus === "approved")
-            ? "complete"
-            : "incomplete",
-        manual: false,
-        hardBlock: true,
-        reason: isManaged(f)
-          ? "The variation values need approval before starting."
-          : `Approve the draft revision for linked feature ${f.feature.id} before starting.`,
-      });
-    });
-
-  linkedFeatures
-    .filter(
-      (f) =>
-        f.state === "draft" &&
-        f.hasUnrelatedDraftChanges &&
-        !f.hasMergeConflict,
-    )
-    .forEach((f) => {
-      items.push({
-        key: `unrelatedDraftChanges:${f.feature.id}`,
-        required: true,
-        status: "incomplete",
-        manual: false,
-        hardBlock: true,
-        reason: `Remove unrelated changes to the experiment in linked feature ${f.feature.id} to auto-publish or manually publish the draft.`,
-      });
-    });
-
-  if (checklist) {
-    checklist.tasks?.forEach((task) => {
-      if (task.completionType === "auto" && task.propertyKey) {
-        // Bandits have no hypothesis and never schedule a start.
-        if (
-          isBandit &&
-          (task.propertyKey === "hypothesis" || task.propertyKey === "schedule")
-        ) {
-          return;
-        }
-        items.push({
-          key: task.task,
-          required: true,
-          status: isAutoTaskComplete(
-            experiment,
-            task.propertyKey,
-            task.customFieldId,
-          )
-            ? "complete"
-            : "incomplete",
-          manual: false,
-          reason: `Required custom launch checklist item is incomplete: ${task.task}`,
-        });
-      } else if (task.completionType === "manual") {
-        items.push({
-          key: task.task,
-          required: true,
-          status: isManualTaskComplete(experiment, task.task)
-            ? "complete"
-            : "incomplete",
-          manual: true,
-          reason: `Required custom launch checklist item is incomplete: ${task.task}`,
-        });
-      }
-    });
-  }
-
-  return items;
+  return getLaunchChecklistItems({
+    experiment,
+    linkedFeatures,
+    visualChangesets,
+    urlRedirects,
+    sdkConnections: sdkConnections.filter((c) =>
+      sdkConnectionServesProject(c, experiment.project),
+    ),
+    checklist,
+  }).map(({ key, required, status, manual, label, hardBlock, featureId }) => ({
+    key,
+    required,
+    status,
+    manual,
+    reason: label,
+    ...(hardBlock ? { hardBlock } : {}),
+    ...(featureId ? { featureId } : {}),
+  }));
 }
 
 async function loadAndValidateExperimentForStatusChange(
@@ -492,6 +262,74 @@ async function loadAndValidateExperimentForStatusChange(
   return experiment;
 }
 
+// A stop ends the latest phase; a stopped experiment that runs or drafts again
+// reopens it, or for a bandit starts a fresh phase with fresh buckets.
+export function statusChangeEffects({
+  experiment,
+  status,
+  settings,
+  reason = "",
+  dateEnded,
+}: {
+  experiment: ExperimentInterface;
+  status: ExperimentInterface["status"];
+  settings: ScopedSettings;
+  reason?: string;
+  dateEnded?: Date;
+}): Changeset {
+  const phases = [...experiment.phases];
+  const last = phases.length - 1;
+  if (last < 0) return {};
+  if (
+    experiment.status === "running" &&
+    status === "stopped" &&
+    !phases[last].dateEnded
+  ) {
+    phases[last] = {
+      ...phases[last],
+      reason,
+      dateEnded: dateEnded ?? new Date(),
+    };
+    return { phases };
+  }
+  if (
+    experiment.status !== "stopped" ||
+    (status !== "running" && status !== "draft")
+  ) {
+    return {};
+  }
+  const reopened = { ...phases[last] };
+  delete reopened.dateEnded;
+  if (experiment.type !== "multi-armed-bandit") {
+    phases[last] = reopened;
+    return { phases };
+  }
+  phases[last] = { ...reopened, dateEnded: new Date() };
+  phases.push({
+    condition: reopened.condition,
+    savedGroups: reopened.savedGroups,
+    prerequisites: reopened.prerequisites,
+    coverage: reopened.coverage,
+    dateStarted: new Date(),
+    name: "Main",
+    namespace: reopened.namespace,
+    reason: "",
+    variationWeights: reopened.variationWeights,
+    variations: reopened.variations,
+    seed: uuidv4(),
+  });
+  const changes: Changeset = {
+    phases,
+    // Flush the sticky buckets.
+    bucketVersion: (experiment.bucketVersion ?? 0) + 1,
+    minBucketVersion: (experiment.bucketVersion ?? 0) + 1,
+  };
+  return {
+    ...changes,
+    ...resetExperimentBanditSettings({ experiment, changes, settings }),
+  };
+}
+
 /**
  * Core experiment start — no permission checks, works from any context
  * (HTTP request or Agenda job). Publishes pending linked feature drafts
@@ -506,6 +344,25 @@ export async function executeExperimentStart(
   updated: ExperimentInterface;
   publishResult: PendingDraftPublishResult;
 }> {
+  // Every linked flag, not only those with a draft to publish, as a scheduled
+  // start fires here too. The bypass holds per flag.
+  const linkedIds = experiment.linkedFeatures ?? [];
+  const linked = bypassLockdown
+    ? new Map(
+        (await getFeaturesByIds(context, linkedIds)).map((f) => [f.id, f]),
+      )
+    : null;
+  for (const fid of linkedIds) {
+    const feature = linked?.get(fid);
+    const bypass =
+      !!feature &&
+      flagBypass(context, feature, {
+        optIn: bypassLockdown,
+        restApiBypassesReviews,
+      }).lockdown;
+    if (!bypass) await assertFeatureNotLockedByRamp(context, fid);
+  }
+
   const publishResult = await publishPendingFeatureDraftsForExperiment(
     context,
     experiment,
@@ -612,49 +469,205 @@ export async function executeExperimentStart(
 export async function getExperimentStartChecklist({
   context,
   experiment,
-  arming,
 }: {
   context: ReqContext;
   experiment: ExperimentInterface;
-  arming?: boolean;
 }): Promise<ExperimentStartChecklistResult> {
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-    { arming },
-  );
-  const hasIncompleteRequiredItems = checklistItems.some(
-    (item) => item.required && item.status === "incomplete",
-  );
-
+  // An armed start is judged as it will be when it fires, as its armer.
+  const { checklistItems, gates } = await planStartGates(context, experiment, {
+    when: hasPendingScheduledStart(experiment) ? "fire" : "now",
+  });
   return {
     experiment,
     checklistItems,
-    status: hasIncompleteRequiredItems ? "notReady" : "ready",
+    gates,
+    status: gates.length ? "notReady" : "ready",
   };
 }
 
-function assertNoIncompleteHardBlockers(
-  checklistItems: StartChecklistItemStatus[],
-): void {
-  const incompleteHardBlockers = checklistItems.filter(
-    (item) => item.hardBlock && item.status === "incomplete",
-  );
-  if (incompleteHardBlockers.length > 0) {
-    throw new ChecklistIncompleteError(
-      "Experiment cannot be started: linked feature draft issues must be resolved and cannot be bypassed",
-      incompleteHardBlockers,
-    );
+// The drafts a start would publish, each with its revision as it stands now.
+async function launchDraftRevisions(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  const drafts: {
+    featureId: string;
+    revisionVersion: number;
+    revision: FeatureRevisionInterface | null;
+  }[] = [];
+  for (const draft of await getLaunchDrafts(context, experiment)) {
+    const revision = await getRevision({
+      context,
+      organization: context.org.id,
+      featureId: draft.featureId,
+      feature: undefined,
+      version: draft.revisionVersion,
+    });
+    drafts.push({ ...draft, revision });
   }
+  return drafts;
+}
+
+async function pinLaunchDrafts(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  return (await launchDraftRevisions(context, experiment)).flatMap(
+    ({ featureId, revisionVersion, revision }) =>
+      revision
+        ? [{ featureId, revisionVersion, dateUpdated: revision.dateUpdated }]
+        : [],
+  );
+}
+
+// The armer may still bypass, and each draft it would publish is the one pinned
+// when armed. A draft that changed since needs approving like any other.
+export async function armedStartBypassStands(
+  armer: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+): Promise<boolean> {
+  const staged = experiment.nextScheduledStatusUpdate;
+  if (staged?.type !== "start" || !staged.bypassApproval) return false;
+  if (!armer.permissions.canBypassFlagApprovalChecks(experiment, "feature")) {
+    return false;
+  }
+  return (await launchDraftRevisions(armer, experiment)).every(
+    ({ featureId, revisionVersion, revision }) =>
+      startBypassCovers(experiment, featureId, {
+        version: revisionVersion,
+        dateUpdated: revision?.dateUpdated,
+      }),
+  );
+}
+
+export type StartPlan = {
+  checklistItems: StartChecklistItemStatus[];
+  gates: StartGate[];
+} & ReturnType<typeof evaluateStartGates>;
+
+// What starting now, arming a scheduled start, or that start firing faces, as
+// publish gates.
+export async function planStartGates(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  {
+    when,
+    skipChecklist = false,
+    bypassApproval = false,
+    restApiBypassesReviews = false,
+  }: {
+    when: "now" | "arm" | "fire";
+    skipChecklist?: boolean;
+    // Asks for the caller's approval bypass, judged per flag.
+    bypassApproval?: boolean;
+    // Starting now only: it doesn't carry to a staged start.
+    restApiBypassesReviews?: boolean;
+  },
+): Promise<StartPlan> {
+  const checklistItems = await getExperimentStartChecklistStatus(
+    context,
+    experiment,
+    { arming: when !== "fire" },
+  );
+  const gates = startChecklistGates(
+    experiment.id,
+    checklistItems,
+    new Map(
+      (await getLaunchDrafts(context, experiment)).map((d) => [
+        d.featureId,
+        d.revisionVersion,
+      ]),
+    ),
+  );
+  for (const featureId of experiment.linkedFeatures ?? []) {
+    try {
+      await assertFeatureNotLockedByRamp(context, featureId);
+    } catch (e) {
+      if (!(e instanceof RampLockdownError)) throw e;
+      gates.push(rampLockedGate(featureId, e.message));
+    }
+  }
+  const flagIds = [...new Set(gates.flatMap((g) => g.featureId ?? []))];
+  const features = new Map(
+    bypassApproval && flagIds.length
+      ? (await getFeaturesByIds(context, flagIds)).map((f) => [f.id, f])
+      : [],
+  );
+  return {
+    checklistItems,
+    gates,
+    ...evaluateStartGates(gates, {
+      skipChecklist,
+      canBypassFlag: (featureId) => {
+        const feature = features.get(featureId);
+        return (
+          !!feature &&
+          canBypassStartApproval(context.permissions, experiment, feature)
+        );
+      },
+      restApiBypassesReviews: when === "now" && restApiBypassesReviews,
+    }),
+  };
+}
+
+// What a REST start reports: what it got past, and the drafts it published.
+export function startResult(
+  plan: StartPlan,
+  publishedFeatureDrafts: { featureId: string; revisionVersion: number }[] = [],
+) {
+  return {
+    ...(plan.skipped.length
+      ? {
+          bypassedGates: plan.skipped.map(({ key, type, via }) => ({
+            key,
+            type,
+            outcome: "bypassed" as const,
+            via,
+          })),
+        }
+      : {}),
+    ...(publishedFeatureDrafts.length ? { publishedFeatureDrafts } : {}),
+  };
+}
+
+export function assertStartNotBlocked(plan: StartPlan): void {
+  if (!plan.blocking.length) return;
+  const keys = new Set(plan.blocking.map((gate) => gate.key));
+  const hard = plan.blocking.filter((gate) => !gate.override);
+  throw new ChecklistIncompleteError(
+    hard.length === 1
+      ? `Experiment cannot be started: ${hard[0].messages[0]}`
+      : hard.length
+        ? "Experiment cannot be started: linked feature draft issues must be resolved and cannot be bypassed"
+        : "Experiment cannot be started: required checklist items are incomplete",
+    plan.checklistItems.filter((item) => keys.has(item.key)),
+    plan.blocking,
+  );
+}
+
+export async function assertStartAllowed(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  options: Parameters<typeof planStartGates>[2],
+): Promise<StartPlan> {
+  await assertCanPublishPendingFeatureDrafts(context, experiment);
+  const plan = await planStartGates(context, experiment, options);
+  assertStartNotBlocked(plan);
+  return plan;
 }
 
 // Run when a scheduled start fires. The approver already acknowledged the soft items.
 export async function assertScheduledStartNotHardBlocked(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
+  bypassApproval = false,
 ): Promise<void> {
-  assertNoIncompleteHardBlockers(
-    await getExperimentStartChecklistStatus(context, experiment),
+  assertStartNotBlocked(
+    await planStartGates(context, experiment, {
+      when: "fire",
+      skipChecklist: true,
+      bypassApproval,
+    }),
   );
 }
 
@@ -683,32 +696,21 @@ export async function startExperiment({
   skipChecklist = false,
   bypassLockdown = false,
   restApiBypassesReviews = false,
+  plan: checked,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
-  /** A REST call in an org that lets the REST API skip approval. */
   restApiBypassesReviews?: boolean;
-  /**
-   * When true, skip ramp-schedule lockdown enforcement on linked features and
-   * forward the bypass through to pending feature-draft publishing, which
-   * re-checks bypass authority per feature. Caller must verify admin-bypass
-   * permissions before passing true.
-   */
+  // Caller must verify admin-bypass permissions first; it is re-checked per flag.
   bypassLockdown?: boolean;
+  // What the caller checked and confirmed; the start may bypass no more.
+  plan?: StartPlan;
 }) {
-  const loadedExperiment = await loadAndValidateExperimentForStatusChange(
+  const experiment = await loadAndValidateExperimentForStatusChange(
     context,
     experimentId,
   );
-  await assertCanPublishPendingFeatureDrafts(context, loadedExperiment);
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    loadedExperiment,
-    { arming: true },
-  );
-
-  const experiment = loadedExperiment;
   if (experiment.status !== "draft") {
     throw new InvalidStatusError(
       "Experiment must be in draft status",
@@ -716,39 +718,34 @@ export async function startExperiment({
       ["draft"],
     );
   }
-
-  // Safe to waive here: the publish path re-checks bypass authority per feature.
-  const remainingItems = bypassLockdown
-    ? checklistItems.filter(
-        (item) => !item.key.startsWith(PENDING_APPROVAL_ITEM_PREFIX),
-      )
-    : checklistItems;
-  assertNoIncompleteHardBlockers(remainingItems);
-
-  const incompleteRequiredItems = remainingItems.filter(
-    (item) => item.required && item.status === "incomplete",
-  );
-  if (incompleteRequiredItems.length > 0 && !skipChecklist) {
-    throw new ChecklistIncompleteError(
-      "Experiment cannot be started: required checklist items are incomplete",
-      incompleteRequiredItems,
+  // Planned on what it publishes now, even after the caller's check: a draft
+  // changed since can't ride along unchecked, nor bypass more than it did.
+  const plan = await assertStartAllowed(context, experiment, {
+    when: "now",
+    skipChecklist,
+    bypassApproval: bypassLockdown,
+    restApiBypassesReviews,
+  });
+  if (checked && !isEqual(plan.bypassed, checked.bypassed)) {
+    throw new ConflictError(
+      "Its Feature Flag drafts changed while it was starting. Try again.",
     );
   }
 
-  if (!bypassLockdown) {
-    for (const fid of experiment.linkedFeatures ?? []) {
-      await assertFeatureNotLockedByRamp(context, fid);
-    }
-  }
-
-  const { updated } = await executeExperimentStart(
+  const { updated, publishResult } = await executeExperimentStart(
     context,
     experiment,
     bypassLockdown,
     restApiBypassesReviews,
   );
 
-  return { experiment, updated, checklistItems };
+  return {
+    experiment,
+    updated,
+    checklistItems: plan.checklistItems,
+    plan,
+    publishedFeatureDrafts: publishResult.published,
+  };
 }
 
 /**
@@ -762,10 +759,16 @@ export async function approveScheduledExperimentStart({
   context,
   experimentId,
   skipChecklist = false,
+  bypassApproval = false,
+  plan: checked,
 }: {
   context: ReqContext;
   experimentId: string;
   skipChecklist?: boolean;
+  // Arms the start past its flag drafts' approvals, where the armer may bypass.
+  bypassApproval?: boolean;
+  // What the caller already checked this arming against, in this request.
+  plan?: StartPlan;
 }) {
   const experiment = await loadAndValidateExperimentForStatusChange(
     context,
@@ -789,26 +792,16 @@ export async function approveScheduledExperimentStart({
     );
   }
 
-  await assertCanPublishPendingFeatureDrafts(context, experiment);
-  const checklistItems = await getExperimentStartChecklistStatus(
-    context,
-    experiment,
-    { arming: true },
-  );
-
-  assertNoIncompleteHardBlockers(checklistItems);
-
-  if (!skipChecklist) {
-    const incompleteRequired = checklistItems.filter(
-      (item) => item.required && item.status === "incomplete",
-    );
-    if (incompleteRequired.length > 0) {
-      throw new ChecklistIncompleteError(
-        "Experiment cannot be started: required checklist items are incomplete",
-        incompleteRequired,
-      );
-    }
-  }
+  const bypass =
+    bypassApproval &&
+    context.permissions.canBypassFlagApprovalChecks(experiment, "feature");
+  const plan =
+    checked ??
+    (await assertStartAllowed(context, experiment, {
+      when: "arm",
+      skipChecklist,
+      bypassApproval: bypass,
+    }));
 
   // The fire runs as the armer, so there has to be one to record.
   if (!context.userId && !isArmingApiKeyId(context.apiKey)) {
@@ -818,7 +811,16 @@ export async function approveScheduledExperimentStart({
   }
   const changes: Changeset = {
     nextScheduledStatusUpdate: withScheduledBy(
-      { type: "start" as const, date: startAt },
+      {
+        type: "start" as const,
+        date: startAt,
+        ...(bypass
+          ? {
+              bypassApproval: true,
+              pinnedDrafts: await pinLaunchDrafts(context, experiment),
+            }
+          : {}),
+      },
       context.armer,
     ),
   };
@@ -829,7 +831,13 @@ export async function approveScheduledExperimentStart({
     changes,
   });
 
-  return { experiment, updated, checklistItems };
+  return {
+    experiment,
+    updated,
+    checklistItems: plan.checklistItems,
+    plan,
+    bypassApproval: bypass,
+  };
 }
 
 /**

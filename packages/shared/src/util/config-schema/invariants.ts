@@ -90,7 +90,6 @@ export function evaluateInvariants(
       satisfied = evalCondition(
         canonicalValue,
         condition as Parameters<typeof evalCondition>[1],
-        {},
       );
     } catch {
       violations.push({ name: inv.name, message: inv.message });
@@ -310,7 +309,6 @@ export function apiInvariantsToStored(
       evalCondition(
         {},
         resolveRuleRefs(mongo, {}) as Parameters<typeof evalCondition>[1],
-        {},
       );
     } catch (e) {
       throw new Error(

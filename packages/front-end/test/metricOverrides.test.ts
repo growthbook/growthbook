@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
+import { experimentAnalysisSettingsDraft } from "shared/validators";
 import {
   describeMetricOverride,
   describeMetricSettings,
   getOverriddenMetricIds,
   MetricSettingsInput,
+  withoutDeprecatedOverrideFields,
 } from "@/services/metricOverrides";
 
 describe("describeMetricOverride", () => {
@@ -84,27 +86,18 @@ describe("describeMetricOverride", () => {
 });
 
 describe("getOverriddenMetricIds", () => {
-  it("keeps only metrics with something overridden", () => {
-    expect(
-      getOverriddenMetricIds([
-        { id: "met_a", delayHours: 2 },
-        { id: "met_b" },
-        { id: "met_c", regressionAdjustmentOverride: false },
-      ]),
-    ).toEqual(new Set(["met_a"]));
-  });
-
-  it("is empty without overrides", () => {
-    expect(getOverriddenMetricIds(undefined)).toEqual(new Set());
-  });
-
-  it("counts a target MDE override alone", () => {
+  it("keeps only metrics with something overridden, a target MDE alone included", () => {
     expect(
       getOverriddenMetricIds(
-        [{ id: "met_a" }],
-        [{ id: "met_a", targetMDE: 0.05 }, { id: "met_b" }],
+        [
+          { id: "met_a", delayHours: 2 },
+          { id: "met_b" },
+          { id: "met_c", regressionAdjustmentOverride: false },
+        ],
+        [{ id: "met_d", targetMDE: 0.05 }, { id: "met_e" }],
       ),
-    ).toEqual(new Set(["met_a"]));
+    ).toEqual(new Set(["met_a", "met_d"]));
+    expect(getOverriddenMetricIds(undefined)).toEqual(new Set());
   });
 });
 
@@ -192,5 +185,30 @@ describe("describeMetricSettings", () => {
         regressionAdjustmentEnabled: false,
       }).map((r) => r.key),
     ).toEqual(["winRisk", "loseRisk", "prior"]);
+  });
+});
+
+describe("withoutDeprecatedOverrideFields", () => {
+  it("lets a legacy override through the draft schema, keeping its settings", () => {
+    const legacy = {
+      id: "met_a",
+      windowType: "conversion" as const,
+      windowHours: 72,
+      delayHours: 1,
+      conversionWindowHours: 72,
+      conversionDelayHours: 1,
+    };
+    expect(() =>
+      experimentAnalysisSettingsDraft.parse({ metricOverrides: [legacy] }),
+    ).toThrow();
+
+    expect(
+      experimentAnalysisSettingsDraft.parse({
+        metricOverrides: withoutDeprecatedOverrideFields([legacy]),
+      }).metricOverrides,
+    ).toEqual([
+      { id: "met_a", windowType: "conversion", windowHours: 72, delayHours: 1 },
+    ]);
+    expect(legacy.conversionWindowHours).toBe(72);
   });
 });

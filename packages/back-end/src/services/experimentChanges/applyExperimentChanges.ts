@@ -1,18 +1,12 @@
 import isEqual from "lodash/isEqual";
-import {
-  experimentHasLinkedChanges,
-  isManagedByExperiment,
-  validateFeatureValue,
-} from "shared/util";
+import { isManagedByExperiment, validateFeatureValue } from "shared/util";
+import { conflictingFields } from "shared/experiments";
 import { ExperimentInterface } from "shared/types/experiment";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { EventUser } from "shared/types/events/event-types";
-import {
-  ACTIVE_DRAFT_STATUSES,
-  ExperimentChangesBody,
-  ExperimentRefRule,
-} from "shared/validators";
+import { ExperimentChangesBody, ExperimentRefRule } from "shared/validators";
+import { FeatureInterface } from "shared/types/feature";
 import { ReqContext } from "back-end/types/request";
 import {
   getExperimentById,
@@ -22,6 +16,7 @@ import { getFeature, getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   deleteRevisionForFailedLanding,
   getActiveDraft,
+  getLinkageSyncRevisionSummaries,
   getRevision,
   getRevisionSnapshot,
   prevalidateRevisionUpdate,
@@ -33,17 +28,20 @@ import {
   getDraftRevision,
   getLiveRevisionForFeature,
 } from "back-end/src/services/features";
+import { syncFeatureExperimentLinkages } from "back-end/src/util/featureExperimentSync";
 import {
   ExperimentFeatureUpdatePlan,
   ExperimentLinkedFeatureValueUpdate,
   planExperimentRuleEnvironments,
   updateExperimentRefVariations,
-  validateExperimentFeatureUpdates,
+  validateExperimentFeatureUpdate,
   validateExperimentFeatureVariations,
   linkFeatureToExperiment,
+  assertFlagLinkable,
+  prevalidateFlagLink,
+  flagHoldsExperimentRule,
   assertFlagKeepable,
   assertFlagRemovable,
-  assertNotManagedElsewhere,
   keepFlagInExperiment,
   removeFlagFromExperiment,
 } from "back-end/src/services/experiment-feature";
@@ -54,16 +52,25 @@ import {
   getManagedFeatureForExperiment,
 } from "back-end/src/services/managedFeatures";
 import {
+  assertScopedRules,
   assertValidRuleWrite,
+  isDraftStatus,
   withStagedSchema,
 } from "back-end/src/api/features/validations";
 import { applyPartialFeatureRuleUpdatesToRevision } from "back-end/src/util/featureRevision.util";
 import {
   BadRequestError,
+  ChangesConflictError,
+  ConflictError,
   InternalServerError,
   NotFoundError,
 } from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
+import { runValidateFeatureHooks } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import {
+  insertNewFeature,
+  prepareNewFeature,
+} from "back-end/src/services/featureCreate";
 import {
   assertManagedFlagRenamable,
   renameManagedFlag,
@@ -79,7 +86,12 @@ import {
   planLinkedChanges,
   writeLinkedChanges,
 } from "./linkedChanges";
-import { asJson, changedSinceLoaded, isoOrNull } from "./loadedBase";
+import {
+  asJson,
+  assertBaseCoversChanges,
+  changedSinceLoaded,
+  isoOrNull,
+} from "./loadedBase";
 
 // A dry run writes nothing: `experiment` is as loaded and `flags` is empty.
 export type ExperimentChangesResult = {
@@ -88,11 +100,59 @@ export type ExperimentChangesResult = {
   flags: { featureId: string; version: number }[];
 };
 
-type FlagValuesPlan = ExperimentFeatureUpdatePlan & {
+type FlagValuesGroupPlan = Pick<
+  ExperimentFeatureUpdatePlan,
+  "matchingRules"
+> & {
   update: ExperimentLinkedFeatureValueUpdate;
-  managed: boolean;
   scope: ReturnType<typeof planExperimentRuleEnvironments> | null;
 };
+
+// One flag's values, written into one draft: all of its experiment rules, or
+// several groups of them when those rules disagree.
+type FlagValuesPlan = Omit<ExperimentFeatureUpdatePlan, "matchingRules"> & {
+  groups: FlagValuesGroupPlan[];
+  managed: boolean;
+};
+
+type FlagValuesEntry = NonNullable<ExperimentChangesBody["flagValues"]>[number];
+type LinkFeatureEntry = NonNullable<
+  ExperimentChangesBody["linkFeatures"]
+>[number];
+type CreateFeatureEntry = NonNullable<
+  ExperimentChangesBody["createFeatures"]
+>[number];
+type PlannedCreate = { feature: FeatureInterface; entry: CreateFeatureEntry };
+
+function assertFlagValuesEntries(
+  featureId: string,
+  entries: FlagValuesEntry[],
+) {
+  if (entries.length === 1) {
+    if (entries[0].ruleIds && entries[0].environments) {
+      throw new BadRequestError(
+        `Feature Flag ${featureId}: environments can only change for all of the experiment's rules at once.`,
+      );
+    }
+    return;
+  }
+  const seen = new Set<string>();
+  for (const entry of entries) {
+    if (!entry.ruleIds || entry.environments) {
+      throw new BadRequestError(
+        `Feature Flag ${featureId} can appear more than once only to set values for separate groups of its rules.`,
+      );
+    }
+    for (const id of entry.ruleIds) {
+      if (seen.has(id)) {
+        throw new BadRequestError(
+          `Feature Flag ${featureId}: rule ${id} is in more than one group.`,
+        );
+      }
+      seen.add(id);
+    }
+  }
+}
 
 type Compensation = {
   featureId: string;
@@ -111,28 +171,16 @@ const PLAN_INPUT_FIELDS: (keyof ExperimentInterface)[] = [
   "datasource",
   "variations",
   "linkedFeatures",
+  "nextScheduledStatusUpdate",
 ];
 
-function latestWeights(experiment: Pick<ExperimentInterface, "phases">) {
-  return experiment.phases[experiment.phases.length - 1]?.variationWeights;
-}
-
-function assertExperimentBaseMatches(
+// Someone else changed it since it was loaded, to something this save doesn't set.
+function experimentFieldConflicts(
   experiment: ExperimentInterface,
-  { changes, base }: NonNullable<ExperimentChangesBody["experiment"]>,
-) {
-  for (const key of Object.keys(changes)) {
-    if (!(key in base)) {
-      throw new BadRequestError(`base is missing the loaded value of ${key}`);
-    }
-    const current =
-      key === "variationWeights" || key === "coverage"
-        ? experiment.phases[experiment.phases.length - 1]?.[key]
-        : experiment[key as keyof ExperimentInterface];
-    if (!isEqual(asJson(current), asJson(base[key]))) {
-      throw changedSinceLoaded("The experiment");
-    }
-  }
+  body: NonNullable<ExperimentChangesBody["experiment"]>,
+): string[] {
+  assertBaseCoversChanges(body.changes, body.base);
+  return conflictingFields(experiment, body);
 }
 
 async function planFlagValues(
@@ -140,11 +188,18 @@ async function planFlagValues(
   experiment: ExperimentInterface,
   experimentPlan: ExperimentUpdatePlan | null,
   flagValues: NonNullable<ExperimentChangesBody["flagValues"]>,
-): Promise<FlagValuesPlan[]> {
-  const ids = flagValues.map((f) => f.featureId);
-  if (new Set(ids).size !== ids.length) {
-    throw new BadRequestError("Each Feature Flag can appear only once.");
+): Promise<{ plans: FlagValuesPlan[]; conflicts: string[] }> {
+  const entriesByFeature = new Map<string, FlagValuesEntry[]>();
+  for (const entry of flagValues) {
+    entriesByFeature.set(entry.featureId, [
+      ...(entriesByFeature.get(entry.featureId) ?? []),
+      entry,
+    ]);
   }
+  entriesByFeature.forEach((entries, featureId) =>
+    assertFlagValuesEntries(featureId, entries),
+  );
+  const ids = [...entriesByFeature.keys()];
   const linked = experiment.linkedFeatures ?? [];
   const unlinked = ids.find((id) => !linked.includes(id));
   if (unlinked) {
@@ -155,160 +210,180 @@ async function planFlagValues(
   const features = await getFeaturesByIds(context, ids);
   const byId = new Map(features.map((f) => [f.id, f]));
 
-  const updates: Record<string, ExperimentLinkedFeatureValueUpdate> = {};
-  const checked = new Map<
-    string,
-    { entry: (typeof flagValues)[number]; managed: boolean }
-  >();
-  for (const entry of flagValues) {
-    const feature = byId.get(entry.featureId);
-    if (!feature) throw new NotFoundError(`Feature Flag ${entry.featureId}`);
+  const nextExperiment = { ...experiment, ...experimentPlan?.changes };
+  const nextWeights =
+    nextExperiment.phases[nextExperiment.phases.length - 1]?.variationWeights;
+  if (!nextWeights) {
+    throw new BadRequestError("Experiment must have at least one phase");
+  }
+
+  const result: FlagValuesPlan[] = [];
+  const conflicts: string[] = [];
+  features: for (const [featureId, entries] of entriesByFeature) {
+    const feature = byId.get(featureId);
+    if (!feature)
+      throw new NotFoundError(`Feature Flag ${featureId} not found`);
     if (!context.permissions.canEditFeatureDrafts(feature)) {
       context.permissions.throwPermissionError();
     }
 
     const managed = isManagedByExperiment(feature, experiment.id);
-    if (entry.valueType && entry.valueType !== feature.valueType && !managed) {
+    if (
+      !managed &&
+      entries.some((e) => e.valueType && e.valueType !== feature.valueType)
+    ) {
       throw new BadRequestError(
         `Feature ${feature.id}: only a Feature Flag managed by this experiment can change its value type here.`,
       );
     }
 
+    const loadedFrom = entries[0].revision;
+    // Groups staged on either side of someone else's save disagree.
+    const loadedApart = entries.some(
+      ({ revision }) =>
+        revision.version !== loadedFrom.version ||
+        revision.dateUpdated !== loadedFrom.dateUpdated,
+    );
     const loaded = await getRevision({
       context,
       organization: feature.organization,
       featureId: feature.id,
       feature,
-      version: entry.revision.version,
+      version: loadedFrom.version,
     });
-    // A published revision never changes, so its version alone pins it.
-    const startsDraft = entry.revision.version === feature.version;
+    // Loaded from live, which never changes, so its version alone pins it. A
+    // draft loaded and published since is no longer a draft, so it conflicts.
+    const startsDraft =
+      loadedFrom.dateUpdated === null && loadedFrom.version === feature.version;
     if (
+      loadedApart ||
       !loaded ||
       (!startsDraft &&
-        (isoOrNull(loaded.dateUpdated) !== entry.revision.dateUpdated ||
-          !isEditableDraft(loaded)))
+        (isoOrNull(loaded.dateUpdated) !== loadedFrom.dateUpdated ||
+          !isDraftStatus(loaded.status)))
     ) {
-      throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+      conflicts.push(feature.id);
+      continue;
     }
     // A managed flag has one draft; writing beside it would fork its review.
     if (managed) {
       const activeDraft = await getActiveDraft(context, feature);
       if ((activeDraft?.version ?? feature.version) !== loaded.version) {
-        throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+        conflicts.push(feature.id);
+        continue;
       }
     }
 
-    checked.set(feature.id, { entry, managed });
-    updates[feature.id] = {
-      variations: entry.variations,
-      ...(entry.valueType && { valueType: entry.valueType }),
-      ...(entry.sparse !== undefined && { sparse: entry.sparse }),
-      ...(entry.environments && { environments: entry.environments }),
-      revisionOptions: startsDraft
-        ? { forceNewDraft: true }
-        : { targetVersion: loaded.version },
-    };
-  }
-
-  const nextExperiment = { ...experiment, ...experimentPlan?.changes };
-  const nextWeights = latestWeights(nextExperiment);
-  if (!nextWeights) {
-    throw new BadRequestError("Experiment must have at least one phase");
-  }
-  // Against the variations this save leaves, which the plan already vetted.
-  validateExperimentFeatureVariations({
-    variations: nextExperiment.variations,
-    variationWeights: nextWeights,
-    experiment: nextExperiment,
-    features: updates,
-  });
-
-  const plans = await validateExperimentFeatureUpdates({
-    experiment,
-    features: updates,
-    linkedFeatures: features,
-    context,
-  });
-
-  const result: FlagValuesPlan[] = [];
-  for (const plan of plans) {
-    const { feature, existingRevision, matchingRules } = plan;
-    const update = updates[feature.id];
-    const { entry, managed } = checked.get(feature.id)!;
-    // Re-read inside validateExperimentFeatureUpdates; it must still be the one checked above.
-    if (
-      existingRevision &&
-      isoOrNull(existingRevision.dateUpdated) !== entry.revision.dateUpdated
-    ) {
-      throw changedSinceLoaded(`Feature Flag ${feature.id}`);
-    }
-    const base =
-      existingRevision ?? (await getLiveRevisionForFeature(context, feature));
-
-    const landingType =
-      update.valueType ?? base.metadata?.valueType ?? feature.valueType;
-    const judgedFeature = {
-      ...withStagedSchema(feature, base),
-      valueType: landingType,
-    };
-    // Normalizes too: loose JSON is repaired rather than stored malformed.
-    update.variations.forEach((v, i) => {
-      v.value = validateFeatureValue(judgedFeature, v.value, `Variation ${i}`);
-    });
-
-    // One rule can match in several environments.
-    const rules = [
-      ...new Map(matchingRules.map(({ rule }) => [rule.id, rule])).values(),
-    ];
-    const scope = update.environments
-      ? planExperimentRuleEnvironments({
-          feature,
-          revision: base,
-          experimentId: experiment.id,
-          orgEnvironments: context.environments,
-          scope: update.environments,
-        })
-      : null;
-    const ruleUpdate = {
-      variations: update.variations,
-      ...(update.sparse !== undefined && { sparse: update.sparse }),
-      ...scope?.ruleUpdate,
-    };
-    const projected = applyPartialFeatureRuleUpdatesToRevision(
-      base,
-      rules.map((r) => r.id),
-      ruleUpdate,
-    );
-    for (const rule of rules) {
-      await assertValidRuleWrite(
+    let existingRevision: FeatureRevisionInterface | undefined;
+    let startingRevision: FeatureRevisionInterface | undefined;
+    let projected: FeatureRevisionInterface | undefined;
+    const groups: FlagValuesGroupPlan[] = [];
+    for (const entry of entries) {
+      const update: ExperimentLinkedFeatureValueUpdate = {
+        variations: entry.variations,
+        ...(entry.valueType && { valueType: entry.valueType }),
+        ...(entry.sparse !== undefined && { sparse: entry.sparse }),
+        ...(entry.environments && { environments: entry.environments }),
+        ...(entry.ruleIds && { ruleIds: entry.ruleIds }),
+        targetVersion: startsDraft ? null : loaded.version,
+      };
+      // Against the variations this save leaves, which the plan already vetted.
+      validateExperimentFeatureVariations({
+        variations: nextExperiment.variations,
+        variationWeights: nextWeights,
+        experimentType: nextExperiment.type,
+        featureId: feature.id,
+        update,
+      });
+      const plan = await validateExperimentFeatureUpdate({
+        experiment,
+        feature,
+        update,
         context,
-        judgedFeature,
-        { ...rule, ...ruleUpdate } as ExperimentRefRule,
-        rule,
-        [nextExperiment],
+      });
+      if (!plan) continue;
+      // Re-read inside validateExperimentFeatureUpdate; it must still be the one checked above.
+      if (
+        plan.existingRevision &&
+        isoOrNull(plan.existingRevision.dateUpdated) !== loadedFrom.dateUpdated
+      ) {
+        conflicts.push(feature.id);
+        continue features;
+      }
+      existingRevision = plan.existingRevision;
+      startingRevision ??=
+        existingRevision ?? (await getLiveRevisionForFeature(context, feature));
+      const base = projected ?? startingRevision;
+
+      const landingType =
+        update.valueType ?? base.metadata?.valueType ?? feature.valueType;
+      const judgedFeature = {
+        ...withStagedSchema(feature, base),
+        valueType: landingType,
+      };
+      // Normalizes too: loose JSON is repaired rather than stored malformed.
+      update.variations.forEach((v, i) => {
+        v.value = validateFeatureValue(
+          judgedFeature,
+          v.value,
+          `Variation ${i}`,
+        );
+      });
+
+      // One rule can match in several environments.
+      const rules = [
+        ...new Map(
+          plan.matchingRules.map(({ rule }) => [rule.id, rule]),
+        ).values(),
+      ];
+      const scope = update.environments
+        ? planExperimentRuleEnvironments({
+            feature,
+            revision: base,
+            experimentId: experiment.id,
+            orgEnvironments: context.environments,
+            scope: update.environments,
+          })
+        : null;
+      const ruleUpdate = {
+        variations: update.variations,
+        ...(update.sparse !== undefined && { sparse: update.sparse }),
+        ...scope?.ruleUpdate,
+      };
+      projected = applyPartialFeatureRuleUpdatesToRevision(
+        base,
+        rules.map((r) => r.id),
+        ruleUpdate,
       );
+      for (const rule of rules) {
+        await assertValidRuleWrite(
+          context,
+          judgedFeature,
+          { ...rule, ...ruleUpdate } as ExperimentRefRule,
+          rule,
+          [nextExperiment],
+        );
+      }
+      groups.push({ matchingRules: plan.matchingRules, update, scope });
     }
+    if (!projected || !startingRevision) continue;
+
+    const environmentsEnabled = groups.find((g) => g.scope?.environmentsEnabled)
+      ?.scope?.environmentsEnabled;
     // Off live, the values land on a new draft cut from it.
     await prevalidateRevisionUpdate(
       context,
       feature,
-      existingRevision ?? { ...base, status: "draft" },
+      existingRevision ?? { ...startingRevision, status: "draft" },
       {
         rules: projected.rules ?? [],
-        ...(scope?.environmentsEnabled && {
-          environmentsEnabled: scope.environmentsEnabled,
-        }),
+        ...(environmentsEnabled && { environmentsEnabled }),
       },
     );
 
-    result.push({ ...plan, update, managed, scope });
+    result.push({ feature, existingRevision, groups, managed });
   }
-  return result;
-}
-
-function isEditableDraft(revision: FeatureRevisionInterface) {
-  return (ACTIVE_DRAFT_STATUSES as readonly string[]).includes(revision.status);
+  return { plans: result, conflicts };
 }
 
 async function writeFlagValues({
@@ -322,8 +397,7 @@ async function writeFlagValues({
   eventAudit: EventUser;
   compensations: Compensation[];
 }): Promise<{ featureId: string; version: number }> {
-  const { feature, existingRevision, matchingRules, update, managed, scope } =
-    plan;
+  const { feature, existingRevision, groups, managed } = plan;
 
   let snapshot: RevisionSnapshot | null = null;
   if (existingRevision) {
@@ -332,7 +406,14 @@ async function writeFlagValues({
       feature.id,
       existingRevision.version,
     );
-    if (!snapshot) throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+    // Moved since it was planned: nothing is written, so there's nothing to undo.
+    if (
+      !snapshot ||
+      isoOrNull(snapshot.dateUpdated) !==
+        isoOrNull(existingRevision.dateUpdated)
+    ) {
+      throw changedSinceLoaded(`Feature Flag ${feature.id}`);
+    }
   }
   let revision: FeatureRevisionInterface =
     existingRevision ??
@@ -343,52 +424,58 @@ async function writeFlagValues({
     snapshot,
     writtenDateUpdated: revision.dateUpdated,
   };
-  compensations.push(compensation);
+  // A draft this save created goes if anything fails; an existing one only
+  // needs restoring once this save has written to it.
+  if (!snapshot) compensations.push(compensation);
 
   if (managed) {
+    const valueType = groups.find((g) => g.update.valueType)?.update.valueType;
     // Control drives a managed flag's default.
     revision = await stageManagedFeatureFields({
       context,
       feature,
       revision,
-      ...(update.valueType && { valueType: update.valueType }),
-      defaultValue: update.variations[0].value,
+      ...(valueType && { valueType }),
+      defaultValue: groups[0].update.variations[0].value,
       eventAudit,
       guardDateUpdated: true,
     });
+    if (!compensations.includes(compensation)) compensations.push(compensation);
     compensation.writtenDateUpdated = revision.dateUpdated;
   }
 
-  revision = await updateExperimentRefVariations({
-    context,
-    feature,
-    revision,
-    matchingRules,
-    updatedVariationValues: update.variations,
-    sparse: update.sparse,
-    ruleUpdates: scope?.ruleUpdate,
-    user: eventAudit,
-    guardDateUpdated: true,
-  });
-  compensation.writtenDateUpdated = revision.dateUpdated;
-
-  // The rule's new footprint switches its environments on, one way.
-  if (scope?.environmentsEnabled) {
-    revision =
-      (await updateRevision(
-        context,
-        feature,
-        revision,
-        { environmentsEnabled: scope.environmentsEnabled },
-        {
-          user: eventAudit,
-          action: "update experiment environments",
-          subject: `to ${scope.scopedEnvironments.join(", ") || "no environments"}`,
-          value: JSON.stringify(update.environments),
-        },
-        { guardDateUpdated: true },
-      )) ?? revision;
+  for (const { matchingRules, update, scope } of groups) {
+    revision = await updateExperimentRefVariations({
+      context,
+      feature,
+      revision,
+      matchingRules,
+      updatedVariationValues: update.variations,
+      sparse: update.sparse,
+      ruleUpdates: scope?.ruleUpdate,
+      user: eventAudit,
+    });
+    if (!compensations.includes(compensation)) compensations.push(compensation);
     compensation.writtenDateUpdated = revision.dateUpdated;
+
+    // The rule's new footprint switches its environments on, one way.
+    if (scope?.environmentsEnabled) {
+      revision =
+        (await updateRevision(
+          context,
+          feature,
+          revision,
+          { environmentsEnabled: scope.environmentsEnabled },
+          {
+            user: eventAudit,
+            action: "update experiment environments",
+            subject: `to ${scope.scopedEnvironments.join(", ")}`,
+            value: JSON.stringify(update.environments),
+          },
+          { guardDateUpdated: true },
+        )) ?? revision;
+      compensation.writtenDateUpdated = revision.dateUpdated;
+    }
   }
 
   let version = revision.version;
@@ -422,44 +509,42 @@ async function compensate(
   const failed: string[] = [];
   for (const c of [...compensations].reverse()) {
     try {
-      if (c.snapshot) {
-        const restored = await restoreRevisionSnapshot(
-          c.snapshot,
-          c.writtenDateUpdated,
-        );
-        if (!restored) failed.push(`${c.featureId} (draft v${c.version})`);
-      } else {
-        await deleteRevisionForFailedLanding(
-          context,
-          context.org.id,
-          c.featureId,
-          c.version,
-        );
-      }
+      const undone = c.snapshot
+        ? await restoreRevisionSnapshot(c.snapshot, c.writtenDateUpdated)
+        : await deleteRevisionForFailedLanding(
+            context,
+            context.org.id,
+            c.featureId,
+            c.version,
+            c.writtenDateUpdated,
+          );
+      if (!undone) failed.push(`${c.featureId} (draft v${c.version})`);
     } catch (e) {
       logger.error(e, `Could not roll back ${c.featureId} v${c.version}`);
       failed.push(`${c.featureId} (draft v${c.version})`);
     }
   }
-  return failed;
-}
-
-// Joining a holdout is refused on the same terms the planner refuses leaving one.
-function assertHoldoutChangeAllowed(
-  experiment: ExperimentInterface,
-  holdoutId: string | undefined,
-) {
-  if (holdoutId === undefined) return;
-  if ((holdoutId || "") === (experiment.holdoutId || "")) return;
-  if (
-    experiment.status === "draft" &&
-    !experimentHasLinkedChanges(experiment)
-  ) {
-    return;
-  }
-  throw new BadRequestError(
-    "A holdout can only change while the experiment is a draft with nothing linked. Discard the holdout change, or set the status back to Draft and remove its linked changes.",
+  // A restored or deleted draft changes what each experiment queues to
+  // publish; rebuilt before the failure returns, so a start right after sees it.
+  await Promise.all(
+    [...new Set(compensations.map((c) => c.featureId))].map(
+      async (featureId) => {
+        try {
+          const { openDrafts, liveRevision } =
+            await getLinkageSyncRevisionSummaries(context.org.id, featureId);
+          await syncFeatureExperimentLinkages(
+            context,
+            featureId,
+            openDrafts,
+            liveRevision,
+          );
+        } catch (e) {
+          logger.error(e, `Could not resync ${featureId} after rolling back`);
+        }
+      },
+    ),
   );
+  return failed;
 }
 
 // Drafts land first and the experiment last; a failure anywhere before the
@@ -482,18 +567,28 @@ export async function applyExperimentChanges({
     context.permissions.throwPermissionError();
   }
   let experimentPlan: ExperimentUpdatePlan | null = null;
-  if (body.experiment) {
-    assertExperimentBaseMatches(experiment, body.experiment);
-    assertHoldoutChangeAllowed(experiment, body.experiment.changes.holdoutId);
+  const fieldConflicts = body.experiment
+    ? experimentFieldConflicts(experiment, body.experiment)
+    : [];
+  if (body.experiment || body.release) {
     experimentPlan = await planExperimentUpdate(
       context,
       experiment,
-      body.experiment.changes,
+      body.experiment?.changes ?? {},
+      { release: body.release },
     );
   }
-  const flagPlans = body.flagValues?.length
+  const { plans: flagPlans, conflicts: flagConflicts } = body.flagValues?.length
     ? await planFlagValues(context, experiment, experimentPlan, body.flagValues)
-    : [];
+    : { plans: [], conflicts: [] };
+  if (fieldConflicts.length || flagConflicts.length) {
+    throw new ChangesConflictError({
+      fields: fieldConflicts,
+      featureIds: flagConflicts,
+      urlRedirectIds: [],
+      visualChangesetIds: [],
+    });
+  }
   if (body.renameManagedFlag) {
     // Leaving Values deletes or releases the flag the rename would move.
     if (experimentPlan?.releaseManagedFlagFor) {
@@ -523,10 +618,47 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, featureId);
     if (feature) await assertFlagKeepable(context, experiment, feature);
   }
-  for (const { featureId } of body.linkFeatures ?? []) {
-    const feature = await getFeature(context, featureId);
-    if (feature) assertNotManagedElsewhere(feature, experiment.id);
+  // Each link's own checks, against the experiment this save leaves, with the
+  // other flags it links too.
+  const plannedExperiment: ExperimentInterface = {
+    ...experiment,
+    ...experimentPlan?.changes,
+    linkedFeatures: [
+      ...new Set([
+        ...(experiment.linkedFeatures ?? []),
+        ...(body.linkFeatures ?? []).map((link) => link.featureId),
+        ...(body.createFeatures ?? []).map((c) => c.feature.id),
+      ]),
+    ],
+  };
+  await assertNewVariationsCovered(
+    context,
+    experiment,
+    plannedExperiment,
+    body,
+  );
+  for (const link of body.linkFeatures ?? []) {
+    assertScopedRules(context, [{ id: "", ...linkRuleScope(link) }], []);
+    const feature = await getFeature(context, link.featureId);
+    if (!feature)
+      throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
+    // Linked again only once its rule is gone, or leaving: a second rule would
+    // serve the experiment twice.
+    if (
+      !experiment.pendingFeatureUnlinks?.includes(link.featureId) &&
+      (await flagHoldsExperimentRule(context, feature, experiment.id))
+    ) {
+      throw new BadRequestError(
+        `${link.featureId} is already linked to this experiment.`,
+      );
+    }
+    await prevalidateFlagLink(
+      linkCheck(context, plannedExperiment, feature, link),
+    );
   }
+  const creates = await planCreates(context, plannedExperiment, body, {
+    runHooks: true,
+  });
   const linkedPlan = await planLinkedChanges(
     context,
     experiment,
@@ -548,25 +680,14 @@ export async function applyExperimentChanges({
       );
     }
 
-    if (!experimentPlan || !Object.keys(experimentPlan.changes).length) {
-      return {
-        dryRun: false,
-        experiment: await finishFlags({
-          context,
-          experiment,
-          body,
-          linkedPlan,
-          eventAudit,
-          audit,
-        }),
-        flags,
-      };
-    }
-
+    // Every save, linked changes alone too, lands only on the experiment it
+    // was planned against: started or scheduled since, it stops here.
     const fresh = await getExperimentById(context, experiment.id);
     const readSet = new Set([
       ...PLAN_INPUT_FIELDS,
-      ...(Object.keys(experimentPlan.changes) as (keyof ExperimentInterface)[]),
+      ...(Object.keys(
+        experimentPlan?.changes ?? {},
+      ) as (keyof ExperimentInterface)[]),
     ]);
     if (
       !fresh ||
@@ -576,6 +697,28 @@ export async function applyExperimentChanges({
     ) {
       throw changedSinceLoaded("The experiment");
     }
+
+    if (!experimentPlan || !Object.keys(experimentPlan.changes).length) {
+      return {
+        dryRun: false,
+        experiment: await finishFlags({
+          context,
+          experiment,
+          body,
+          linkedPlan,
+          creates,
+          eventAudit,
+          audit,
+        }),
+        flags,
+      };
+    }
+    // Nothing rolls back once the experiment lands, so the linked changes'
+    // bases and the new flags are checked again first.
+    if (linkedPlan) {
+      await planLinkedChanges(context, experiment, experimentPlan, body);
+    }
+    await planCreates(context, plannedExperiment, body, { runHooks: false });
     // Pins the short window since the re-read; the field check above covers the rest.
     written = await writeExperimentUpdatePlan({
       context,
@@ -601,28 +744,145 @@ export async function applyExperimentChanges({
     plan: experimentPlan,
     audit,
   });
+  try {
+    return {
+      dryRun: false,
+      experiment: await finishFlags({
+        context,
+        experiment: written.updated,
+        body,
+        linkedPlan,
+        creates,
+        eventAudit,
+        audit,
+      }),
+      flags,
+    };
+  } catch (e) {
+    const message = `The experiment's changes saved, but not all of its linked changes did: ${
+      e instanceof Error ? e.message : String(e)
+    }`;
+    throw e instanceof ConflictError
+      ? new ConflictError(message)
+      : new InternalServerError(message);
+  }
+}
+
+// Every flag serving the experiment needs a value for a variation this save
+// adds, or serves it null; a kept flag's restored rule predates the new ones.
+async function assertNewVariationsCovered(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  planned: ExperimentInterface,
+  body: ExperimentChangesBody,
+) {
+  const before = new Set(experiment.variations.map((v) => v.id));
+  if (planned.variations.every((v) => before.has(v.id))) return;
+  if (body.keepFeatures?.length) {
+    throw new BadRequestError(
+      "Keep a Feature Flag in a save of its own, before adding variations.",
+    );
+  }
+  const covered = new Set([
+    ...(body.flagValues ?? []).map((f) => f.featureId),
+    ...(body.linkFeatures ?? []).map((f) => f.featureId),
+    ...(body.unlinkFeatures ?? []),
+  ]);
+  const missing: string[] = [];
+  for (const id of experiment.linkedFeatures ?? []) {
+    if (covered.has(id)) continue;
+    const feature = await getFeature(context, id);
+    if (
+      feature &&
+      (await flagHoldsExperimentRule(context, feature, experiment.id))
+    ) {
+      missing.push(id);
+    }
+  }
+  if (missing.length) {
+    throw new BadRequestError(
+      `Give each linked Feature Flag a value for the new variations: ${missing.join(", ")}.`,
+    );
+  }
+}
+
+// Each new flag checked as POST /feature checks one, with its values checked
+// against the experiment this save leaves. Writes nothing.
+async function planCreates(
+  context: ReqContext,
+  planned: ExperimentInterface,
+  body: ExperimentChangesBody,
+  { runHooks }: { runHooks: boolean },
+): Promise<PlannedCreate[]> {
+  const entries = body.createFeatures ?? [];
+  const ids = entries.map((entry) => entry.feature.id);
+  if (new Set(ids).size !== ids.length) {
+    throw new BadRequestError("Each new Feature Flag needs its own key.");
+  }
+  const creates: PlannedCreate[] = [];
+  for (const entry of entries) {
+    assertScopedRules(context, [{ id: "", ...linkRuleScope(entry) }], []);
+    const feature = await prepareNewFeature(context, entry.feature);
+    const check = linkCheck(context, planned, feature, entry);
+    if (runHooks) {
+      await runValidateFeatureHooks({ context, feature, original: null });
+      await prevalidateFlagLink(check, { unsaved: true });
+    } else {
+      await assertFlagLinkable(check);
+    }
+    creates.push({ feature, entry });
+  }
+  return creates;
+}
+
+// Where a flag linked again runs: every environment unless the link names some.
+function linkRuleScope(link: LinkFeatureEntry | CreateFeatureEntry) {
+  return link.environments && !link.environments.allEnvironments
+    ? { allEnvironments: false, environments: link.environments.environments }
+    : { allEnvironments: true };
+}
+
+function linkRule(
+  experimentId: string,
+  link: LinkFeatureEntry | CreateFeatureEntry,
+): ExperimentRefRule {
   return {
-    dryRun: false,
-    experiment: await finishFlags({
-      context,
-      experiment: written.updated,
-      body,
-      linkedPlan,
-      eventAudit,
-      audit,
-    }),
-    flags,
+    type: "experiment-ref",
+    id: "",
+    description: "",
+    enabled: true,
+    experimentId,
+    variations: link.variations,
+    ...(link.sparse && { sparse: true }),
+    ...linkRuleScope(link),
   };
 }
 
-// Once the values and experiment have landed: flags linked again or unlinked,
-// then Visual Editor changes and URL Redirects, then the managed flag if one
-// is missing.
+// A flag's link always lands on a new draft.
+function linkCheck(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  feature: FeatureInterface,
+  link: LinkFeatureEntry | CreateFeatureEntry,
+) {
+  return {
+    context,
+    experiment,
+    feature,
+    rule: linkRule(experiment.id, link),
+    forceNewDraft: true,
+  };
+}
+
+// Once the values and experiment have landed: flags created, linked again,
+// unlinked or kept, then Visual Editor changes and URL Redirects, then the
+// managed flag if one is missing.
 async function finishFlags({
   context,
   experiment,
   body,
   linkedPlan,
+  creates,
   eventAudit,
   audit,
 }: {
@@ -630,35 +890,26 @@ async function finishFlags({
   experiment: ExperimentInterface;
   body: ExperimentChangesBody;
   linkedPlan: LinkedChangesPlan | null;
+  creates: PlannedCreate[];
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
 }): Promise<ExperimentInterface> {
-  for (const link of body.linkFeatures ?? []) {
-    const feature = await getFeature(context, link.featureId);
-    if (!feature) throw new NotFoundError(`Feature Flag ${link.featureId}`);
-    const scope = link.environments ?? {
-      allEnvironments: true,
-      environments: [],
-    };
+  for (const { feature, entry } of creates) {
+    await insertNewFeature(context, feature, audit);
     await linkFeatureToExperiment({
-      context,
-      experiment,
-      feature,
-      rule: {
-        type: "experiment-ref",
-        id: "",
-        description: "",
-        enabled: true,
-        experimentId: experiment.id,
-        variations: link.variations,
-        ...(link.sparse && { sparse: true }),
-        ...(scope.allEnvironments
-          ? { allEnvironments: true }
-          : { allEnvironments: false, environments: scope.environments }),
-      },
+      ...linkCheck(context, experiment, feature, entry),
       eventAudit,
       audit,
-      forceNewDraft: true,
+    });
+  }
+  for (const link of body.linkFeatures ?? []) {
+    const feature = await getFeature(context, link.featureId);
+    if (!feature)
+      throw new NotFoundError(`Feature Flag ${link.featureId} not found`);
+    await linkFeatureToExperiment({
+      ...linkCheck(context, experiment, feature, link),
+      eventAudit,
+      audit,
     });
     // Linked again, so a removal it was waiting on no longer applies.
     await setPendingFeatureUnlink(
@@ -688,6 +939,7 @@ async function finishFlags({
     });
   }
   const linked =
+    creates.length ||
     body.linkFeatures?.length ||
     body.unlinkFeatures?.length ||
     body.keepFeatures?.length ||

@@ -11,7 +11,7 @@ import {
   DEFAULT_SRM_MINIMINUM_COUNT_PER_VARIATION,
   DEFAULT_SRM_THRESHOLD,
 } from "shared/constants";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiCaretRight } from "react-icons/pi";
 import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
@@ -23,6 +23,7 @@ import {
   HealthTabConfigParams,
   HealthTabOnboardingModal,
 } from "@/components/Experiment/TabbedPage/HealthTabOnboardingModal";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import { EXPERIMENT_DIMENSION_PREFIX } from "./SRMCard";
@@ -248,7 +249,7 @@ export const DimensionIssues = ({
                           variations={variations}
                           srm={d.srm}
                         />
-                        <div className="mt-3">
+                        <Box mt="3">
                           {d.health !== "not-enough-traffic" ? (
                             <SRMWarning
                               srm={d.srm}
@@ -266,7 +267,7 @@ export const DimensionIssues = ({
                               </b>
                             </Callout>
                           )}
-                        </div>
+                        </Box>
                       </div>
                     </div>
                   </HealthCard>
@@ -359,21 +360,19 @@ export const DimensionIssues = ({
             canConfigHealthTab &&
             exposureQuery.dimensions.length > 0 &&
             healthTabConfigParams ? (
-              <div className="pt-4 d-flex justify-content-center">
-                <div>
-                  <a
-                    href="#"
-                    className="btn btn-outline-primary"
-                    onClick={() => {
-                      track("Health Tab Onboarding Opened", {
-                        source: "dimension-issues",
-                      });
-                      setSetupModalOpen(true);
-                    }}
-                  >
-                    Configure experiment dimension slices
-                  </a>
-                </div>
+              <Flex justify="center" pt="4" px="4">
+                <Button
+                  variant="outline"
+                  wrap
+                  onClick={() => {
+                    track("Health Tab Onboarding Opened", {
+                      source: "dimension-issues",
+                    });
+                    setSetupModalOpen(true);
+                  }}
+                >
+                  Configure dimension slices
+                </Button>
                 {setupModalOpen ? (
                   <HealthTabOnboardingModal
                     open={setupModalOpen}
@@ -384,7 +383,7 @@ export const DimensionIssues = ({
                     healthTabOnboardingPurpose={"dimensions"}
                   />
                 ) : null}
-              </div>
+              </Flex>
             ) : null}
           </>
         )}

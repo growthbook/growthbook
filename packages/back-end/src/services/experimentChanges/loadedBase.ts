@@ -1,4 +1,4 @@
-import { ConflictError } from "back-end/src/util/errors";
+import { BadRequestError, ConflictError } from "back-end/src/util/errors";
 
 export const changedSinceLoaded = (what: string) =>
   new ConflictError(
@@ -10,3 +10,13 @@ export const asJson = (value: unknown) =>
 
 export const isoOrNull = (date: Date | undefined | null) =>
   date ? new Date(date).toISOString() : null;
+
+export function assertBaseCoversChanges(
+  changes: object,
+  base: Record<string, unknown>,
+) {
+  const missing = Object.keys(changes).find((key) => !(key in base));
+  if (missing) {
+    throw new BadRequestError(`base is missing the loaded value of ${missing}`);
+  }
+}

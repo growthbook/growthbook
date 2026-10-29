@@ -1,7 +1,8 @@
 import {
   autoMerge,
   AutoMergeResult,
-  getReviewSetting,
+  checkIfRevisionNeedsReview,
+  isManagedFeature,
   reconcileMergeBaselines,
   requireFreshBaseForPublish,
   getRevisionReviewRequirement,
@@ -549,7 +550,7 @@ export async function collectFeaturePublishGates({
     return gates;
   }
 
-  const { proposedFeature, defaultToCheck, rulesToCheck } =
+  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
     computeProposedFeatureForValidation(
       context,
       feature,
@@ -588,10 +589,10 @@ export async function collectFeaturePublishGates({
     ...collectFeatureValueErrorsForPublish(
       proposedFeature,
       {
-        defaultValue: plan.mergeResult.defaultValue,
-        rules: plan.mergeResult.rules,
+        defaultValue: proposedFeature.defaultValue,
+        rules: proposedFeature.rules,
       },
-      feature,
+      valueSchemaChanged ? undefined : feature,
     ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
@@ -686,16 +687,21 @@ export async function collectFeaturePublishGates({
   return gates;
 }
 
-export function featureReviewRequired(
-  context: ReqContext | ApiReqContext,
+// What a caller skips on one linked flag when an experiment publishes to it. The
+// org's REST setting waives approval outright; the caller's own needs the opt-in.
+export function flagBypass(
+  context: Context,
   feature: FeatureInterface,
-): boolean {
-  if (!context.hasPremiumFeature("require-approvals")) return false;
-  const requireReviews = context.org.settings?.requireReviews;
-  if (requireReviews === true) return true;
-  return Array.isArray(requireReviews)
-    ? !!getReviewSetting(requireReviews, feature)?.requireReviewOn
-    : false;
+  {
+    optIn,
+    restApiBypassesReviews = false,
+  }: { optIn: boolean; restApiBypassesReviews?: boolean },
+): { approval: boolean; lockdown: boolean } {
+  const approval =
+    restApiBypassesReviews ||
+    (optIn &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+  return { approval, lockdown: optIn && approval };
 }
 
 // The merge an unattended publish lands, under the governance the publish button
@@ -733,7 +739,18 @@ export function mergeDraftForAutoPublish(
     approvedBaseVersion: revision.approvedBaseVersion ?? null,
     requireRebaseBeforePublish: requireFreshBaseForPublish({
       feature,
-      reviewRequired: featureReviewRequired(context, feature),
+      // Only a managed flag consults it, so only its drafts pay for the diff.
+      reviewRequired:
+        isManagedFeature(feature) &&
+        checkIfRevisionNeedsReview({
+          feature,
+          baseRevision: base,
+          revision,
+          orgEnvironments: getEnvironments(context.org),
+          settings: context.org.settings,
+          requireApprovalsLicensed:
+            context.hasPremiumFeature("require-approvals"),
+        }),
       orgSetting: !!context.org.settings?.requireRebaseBeforePublish,
     }),
   });

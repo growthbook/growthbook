@@ -79,6 +79,7 @@ export type PostFeatureRuleBody = {
   // Insert the new rule directly above this rule; appends when the id is
   // missing from the revision.
   insertBeforeRuleId?: string;
+  allowUnscopedRules?: boolean;
 };
 
 export type PutFeatureRuleConflict = DraftConflict<FeatureRule>;
@@ -96,4 +97,5 @@ export type PutFeatureRuleBody = {
     | InlineRampScheduleUpdate
     | InlineRampScheduleDetach
     | InlineRampScheduleClear;
+  allowUnscopedRules?: boolean;
 };

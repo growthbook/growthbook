@@ -70,7 +70,6 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-select-wrapper--x-small,
 .gb-select-wrapper--xs {
   .gb-select__control {
     min-height: 24px !important;
@@ -101,7 +100,28 @@
   }
 }
 
-.gb-select-wrapper--small,
+.gb-select-wrapper--sm {
+  .gb-select__control {
+    min-height: 28px !important;
+    border-radius: var(--radius-2) !important;
+  }
+  .gb-select__value-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .gb-select__input-container {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .gb-select__indicator {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+  .gb-select__input {
+    font-size: var(--font-size-2) !important;
+  }
+}
+
 .gb-select-wrapper--md {
   .gb-select__control {
     min-height: 32px !important;
@@ -116,7 +136,6 @@
   }
 }
 
-.gb-select-wrapper--medium,
 .gb-select-wrapper--lg {
   .gb-select__control {
     min-height: 40px !important;
@@ -279,12 +298,10 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--small .gb-select__multi-value,
 .gb-select-wrapper--md .gb-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--medium .gb-select__multi-value,
 .gb-select-wrapper--lg .gb-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
@@ -295,7 +312,6 @@
   font-weight: 500;
   font-size: var(--font-size-1) !important;
 }
-.gb-select-wrapper--medium .gb-select__multi-value__label,
 .gb-select-wrapper--lg .gb-select__multi-value__label {
   font-size: var(--font-size-2) !important;
 }
@@ -355,7 +371,8 @@
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
 .gb-multi-select__tag-button,
-.gb-select__scope-toggle {
+.gb-select__scope-toggle,
+.gb-field-indicator {
   width: 22px;
   height: 22px;
   margin: 0 1px;
@@ -379,7 +396,8 @@
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
 .gb-multi-select__tag-button,
-.gb-select__scope-toggle {
+.gb-select__scope-toggle,
+.gb-field-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -398,6 +416,30 @@
     height: 14px;
     fill: currentColor;
   }
+}
+
+// Those grays run the wrong way on a dark background, brightening as they
+// fade; there they start faded and brighten on hover.
+.dark-theme {
+  .gb-select__clear-indicator,
+  .gb-multi-select__clear-indicator,
+  .gb-select__raw-text-mode-indicator,
+  .gb-select__copy-button,
+  .gb-multi-select__copy-button,
+  .gb-multi-select__tag-button,
+  .gb-select__scope-toggle:not(.gb-select__scope-toggle--filtering),
+  .gb-field-indicator {
+    color: var(--gray-a9) !important;
+
+    &:hover {
+      color: var(--gray-12) !important;
+    }
+  }
+}
+
+.gb-field-indicator:hover .gb-field-indicator__accent,
+.gb-field-indicator[data-state="open"] .gb-field-indicator__accent {
+  color: var(--ruby-11);
 }
 
 .gb-select__control--is-focused .gb-select__raw-text-mode-indicator,

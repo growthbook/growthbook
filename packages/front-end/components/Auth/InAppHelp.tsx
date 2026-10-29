@@ -15,10 +15,11 @@ import { GBPremiumBadge } from "@/components/Icons";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import styles from "./InAppHelp.module.scss";
 
-/** Pylon's launcher is a third-party iframe, so its footprint can't be measured. */
+// Pylon's launcher is a third-party iframe, so its footprint can't be measured.
 const PYLON_CLEARANCE_PX = 76;
 
 const LAUNCHER_SIZE_PX = 56;
+const LAUNCHER_BOTTOM_PX = 10;
 
 export default function InAppHelp() {
   const router = useRouter();
@@ -56,36 +57,19 @@ export default function InAppHelp() {
 
   // Publish the launcher's footprint so bottom-right overlays can clear it.
   useEffect(() => {
-    const root = document.documentElement;
     const publish = (px: number) =>
-      root.style.setProperty("--help-launcher-clearance", `${px}px`);
-
-    if (window["pylon"]) {
-      publish(PYLON_CLEARANCE_PX);
-      return () => publish(0);
-    }
-
-    const el = launcher.current;
-    if (!el) {
-      publish(0);
-      return;
-    }
-    const measure = () =>
-      publish(
-        Math.max(
-          0,
-          Math.round(window.innerHeight - el.getBoundingClientRect().top),
-        ),
+      document.documentElement.style.setProperty(
+        "--help-launcher-clearance",
+        `${px}px`,
       );
-    measure();
-    const observer = new ResizeObserver(measure);
-    observer.observe(el);
-    window.addEventListener("resize", measure);
-    return () => {
-      observer.disconnect();
-      window.removeEventListener("resize", measure);
-      publish(0);
-    };
+    publish(
+      window["pylon"]
+        ? PYLON_CLEARANCE_PX
+        : launcher.current
+          ? LAUNCHER_BOTTOM_PX + LAUNCHER_SIZE_PX
+          : 0,
+    );
+    return () => publish(0);
   });
 
   // Hide on presentation view (fullscreen present mode)
@@ -122,7 +106,11 @@ export default function InAppHelp() {
             className={
               showFreeHelpWidget ? styles.closeLauncher : styles.chatLauncher
             }
-            style={{ width: LAUNCHER_SIZE_PX, height: LAUNCHER_SIZE_PX }}
+            style={{
+              bottom: LAUNCHER_BOTTOM_PX,
+              width: LAUNCHER_SIZE_PX,
+              height: LAUNCHER_SIZE_PX,
+            }}
             aria-label={showFreeHelpWidget ? "Close help" : "Help"}
           >
             {showFreeHelpWidget ? (
@@ -153,7 +141,7 @@ export default function InAppHelp() {
                 style={{ height: 22 }}
               />
               <Heading as="h4" size="sm" mb="0">
-                How can we help?
+                How Can We Help?
               </Heading>
             </Flex>
             <Flex direction="column" gap="3" p="4">

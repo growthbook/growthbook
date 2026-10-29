@@ -16,6 +16,7 @@ import Button from "@/ui/Button";
 import { Popover } from "@/ui/Popover";
 import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
+import { urlFromText } from "./RichTextEditorAutoLink";
 import styles from "./RichTextEditor.module.scss";
 
 export interface LinkTarget {
@@ -25,30 +26,27 @@ export interface LinkTarget {
   url: string;
   /** The link being edited, if there already is one. */
   node: LinkNode | null;
-  /** What was selected when the card opened. Focus moves to the fields, so the
-   *  live selection is no longer the one the link should replace. */
+  // The selection when the card opened; focus then moves to its fields, so the
+  // live selection is no longer the one the link replaces.
   selection: RangeSelection | null;
   /** Hovering shows the address; editing shows the fields. */
   mode: "preview" | "edit";
 }
 
-/** A bare domain or address, with or without a scheme. */
-const URL_LIKE = /^(https?:\/\/\S+|(www\.)?[\w-]+(\.[\w-]+)+([/?#]\S*)?)$/i;
-
-/**
- * Treats a link-shaped selection as the destination, so selecting an address
- * and reaching for the link button fills the URL in rather than asking twice.
- */
-function urlFromText(text: string): string {
-  const trimmed = text.trim();
-  if (!URL_LIKE.test(trimmed)) return "";
-  return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+// Inserted text merges into the text around it, so select just what was
+// inserted, ready to link.
+export function $insertTextSelected(selection: RangeSelection, text: string) {
+  selection.insertText(text);
+  const caret = selection.anchor;
+  selection.anchor.set(
+    caret.key,
+    Math.max(0, caret.offset - text.length),
+    caret.type,
+  );
 }
 
-/**
- * Reads whatever link a selection or an element sits in, so the toolbar
- * button, a hover and a click all open the same card with the same content.
- */
+// The link a selection or element sits in, so the toolbar button and a hover
+// open the same card.
 export function useLinkTarget() {
   const [editor] = useLexicalComposerContext();
 
@@ -68,6 +66,7 @@ export function useLinkTarget() {
         mode: "edit",
         selection: selection.clone(),
         node: link,
+        // A selected address fills the URL in, rather than asking twice.
         url: link ? link.getURL() : urlFromText(selected),
         title: link ? link.getTextContent() : selected,
       };
@@ -99,10 +98,8 @@ export function useLinkTarget() {
   return { fromSelection, fromElement };
 }
 
-/**
- * A card floating under a link: its address on hover, its address and title
- * when editing. Edits land as you leave, so there is nothing to confirm.
- */
+// A card under a link: its address on hover, address and title fields when
+// editing. Edits apply on leaving the card.
 export default function RichTextEditorLinkEditor({
   target,
   onEdit,
@@ -120,10 +117,15 @@ export default function RichTextEditorLinkEditor({
   // A ref, so dismissing always commits the latest values.
   const commit = useRef<() => void>(() => undefined);
   commit.current = () => {
-    const nextUrl = url.trim();
-    if (!nextUrl || (nextUrl === target.url && title.trim() === target.title)) {
+    const typedUrl = url.trim();
+    if (
+      !typedUrl ||
+      (typedUrl === target.url && title.trim() === target.title)
+    ) {
       return;
     }
+    // Without a scheme a domain would save as a path relative to the page.
+    const nextUrl = urlFromText(typedUrl) || typedUrl;
     const nextTitle = title.trim() || nextUrl;
 
     editor.update(() => {
@@ -139,14 +141,8 @@ export default function RichTextEditorLinkEditor({
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
       // Insert the title as text, then link it: inserting a built link node
-      // duplicated its text.
-      selection.insertText(nextTitle);
-      const caret = selection.anchor;
-      selection.anchor.set(
-        caret.key,
-        Math.max(0, caret.offset - nextTitle.length),
-        caret.type,
-      );
+      // would duplicate its text.
+      $insertTextSelected(selection, nextTitle);
       $toggleLink(nextUrl);
     });
   };
@@ -178,13 +174,19 @@ export default function RichTextEditorLinkEditor({
       e.preventDefault();
       close(true);
     }
-    if (e.key === "Escape") onClose();
   };
+
+  // Radix reports outside clicks and focus here before dismissing, and
+  // Escape not at all: only leaving the card saves, Escape discards.
+  const leftCard = useRef(false);
 
   return (
     <Popover
       open
-      onOpenChange={(open) => !open && close(editing)}
+      onOpenChange={(open) => !open && close(editing && leftCard.current)}
+      onInteractOutside={() => {
+        leftCard.current = true;
+      }}
       anchorOnly
       triggerAsChild
       side="bottom"

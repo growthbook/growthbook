@@ -24,8 +24,8 @@ We support both the HTTP Basic and Bearer authentication schemes for convenience
 
 You first need to generate a new API Key in GrowthBook. Different keys have different permissions:
 
-- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization, or less if the token's permissions are limited. These can be created by going to `Personal Access Tokens` under your user menu. Admins with the `manageApiKeys` permission can disable a member's token under `Settings -> Manage PATs`, and require new tokens to expire within a maximum lifetime.
-- **Secret Keys**: These are sensitive and provide the level of access of the role they are given, which can be any built-in or custom role, with optional per-project role overrides and environment limits. Only Admins with the `manageApiKeys` permission can manage Secret Keys on behalf of an organization. These can be created by going to `Settings -> API Keys`, where Admins can also require new Secret Keys to expire within a maximum lifetime.
+- **Personal Access Tokens**: These are sensitive and provide the same level of access as the user has to an organization, or less if the token's permissions are limited. These can be created by going to `Personal Access Tokens` under your user menu. Members with the API Keys **Manage members' tokens** permission can disable a member's token under `Settings -> Manage PATs`, and admins can require new tokens to expire within a maximum lifetime.
+- **Secret Keys**: These are sensitive and provide the level of access of the role they are given, which can be any built-in or custom role, with optional per-project role overrides and environment limits. Managing Secret Keys on behalf of an organization takes the [API Keys permissions](/account/user-permissions). These can be created by going to `Settings -> API Keys`, where Admins can also require new Secret Keys to expire within a maximum lifetime.
 
 If using HTTP Basic auth, pass the Secret Key as the username and leave the password blank (when using curl, add `:` at the end of the secret to indicate an empty password)
 
@@ -47,20 +47,29 @@ If a key has an expiration date, every response includes it in the `X-GrowthBook
 
 Requests made with a Secret Key may add an `X-GrowthBook-Requested-By` header naming the organization member who asked for the change, as a user id or an email address. History, revision logs and webhooks show that member next to the key.
 
-Each key's settings under `Settings -> API Keys`:
+Each key acts as **System** (the default) or **User**, set under `Settings -> API Keys`:
 
-- **Header**: **Optional** (the default) uses the header when it's sent, **Required** rejects requests without it, and **Rejected** rejects requests that send it, each with a 400.
-- **Permissions**, when a member is named:
-  - **Assume member's role** (the default): the request acts as that member, with only what both the key and the member can do, so the header can narrow a key but never widen it. Drafts, owners, `mine` filters and reviews are the member's. The member's rights over their own drafts, comments and verdicts apply only where the key's own role allows the same action.
-  - **Use key's role**: the key acts as itself, with its own permissions, and the name is only recorded in history. Drafts, verdicts and ownership are the key's, as when no member is named.
+- **System**: the header is optional. The key acts as itself, with its own permissions, and the named member is only recorded in history.
+- **User**: a request without the header is rejected with a 400. The request acts as the named member, with only what both the key and the member can do, so the header can narrow a key but never widen it. Drafts, owners, `mine` filters and reviews are the member's. The member's rights over their own drafts, comments and verdicts apply only where the key's own role allows the same action.
 
-A key that names no one, or uses its own role, acts as itself: it can draft and review with its own permissions, and its verdicts are judged on its role. A key belongs to no team, so its approval never satisfies a rule that requires approval from a team. No one can rule on a draft they created, and a key acting as itself can't rule on a draft it created or edited in either mode. An approval a key gives while assuming a member counts only where both the key and the member could approve, and stops counting if the key is disabled, expires or is deleted. Because the header isn't verified, whoever holds the key can act as any member. A value that does not match a member of the organization is rejected with a 400. A create request that omits `owner` defaults it to the member whose role the key assumes. Scheduled and auto-publishes run later with the permissions of the request that armed them, and don't run if that member has left the organization, the key has expired, or the key no longer assumes members' roles. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
+A System key, or any key that names no one, acts as itself: it can draft and review with its own permissions, and its verdicts are judged on its role. A key belongs to no team, so its approval never satisfies a rule that requires approval from a team. No one can rule on a draft they created, and a key acting as itself can't rule on a draft it created or edited. An approval a User key gives counts only where both the key and the member could approve, and stops counting if the key is disabled, expires or is deleted. Because the header isn't verified, whoever holds the key can act as any member. A value that does not match a member of the organization is rejected with a 400. A create request that omits `owner` defaults it to the member a User key names. Scheduled and auto-publishes run later with the permissions of the request that armed them, and don't run if that member has left the organization, the key has expired, or the key no longer acts as User. Personal Access Tokens and OAuth tokens already act as their user and reject the header.
 
 ```bash
 curl https://api.growthbook.io/api/v1/features \
 -H "Authorization: Bearer secret_abc123DEF456" \
 -H "X-GrowthBook-Requested-By: alice@example.com"
 ```
+
+## Naming and human review
+
+People review what the API creates in the GrowthBook UI.
+
+- Keep keys and names short (2-5 words). Follow your organization's Feature Flag key format (`featureRegexValidator` and `featureKeyExample` in `GET /v1/settings`), or use kebab-case if it has none. Feature Flag keys can't be changed after creation, and an experiment's tracking key shouldn't change after launch.
+- Put context (why, plan, tickets, links) in `description`, not in names or keys.
+- Group with `tags`, not name prefixes. Projects (`project` or `projects`) control access and where a resource can be used, so set them deliberately instead of using them as labels.
+- To create a Feature Flag disabled with `POST /v2/features`, list every environment in `environments` with `enabled: false` (on `POST /v1/features`, each entry also needs `rules: []`). An environment you leave out uses its default state, which may be enabled.
+- Leave publishing and production changes to a person unless asked.
+- If a request is blocked (an approval requirement, a warning, a Custom Hook, schema validation or a permission error), stop and ask a person. Don't retry with an override field, a different key or another workaround unless a person asked you to. If a write answers `202` with a `confirmation`, give a person its `url` and wait (see [Waiting for confirmation](#waiting-for-confirmation)).
 
 ## Waiting for confirmation
 
@@ -116,8 +125,9 @@ The API may return the following error status codes:
 - **402** - Request Failed - The parameters are valid, but the request failed
 - **403** - Forbidden - Provided API key does not have the required access
 - **404** - Not Found - Unknown API route or requested resource
+- **409** - Conflict - The resource changed since it was read, or its state blocks the request, such as an experiment start's checklist. `code` names which.
 - **422** - Unprocessable Entity - The request is valid, but a warning, validation rule, approval requirement, or another publishing gate blocked it. Do not assume that `ignoreWarnings` clears every 422 response.
-- **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute. Try again later.
+- **429** - Too Many Requests - You exceeded the rate limit of 60 requests per minute, or the limit your self-hosted server sets. Try again later.
 - **5XX** - Server Error - Something went wrong on GrowthBook's end (these are rare)
 
 The response body will be a JSON object with the following properties:
@@ -126,13 +136,28 @@ The response body will be a JSON object with the following properties:
 
 ### Publishing gates
 
-Publish responses include a `gates` array that explains every blocker:
+Automated callers, including AI agents, should report a blocked response to a person instead of retrying with an override. Use an override only when a person has explicitly asked for it.
+
+Publish and experiment start responses include a `gates` array that explains every blocker:
 
 - `type`, `severity`, and `messages` identify the problem.
-- `override` names the request-body field that can bypass it. This is `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and invariant failures, or `skipHooks` for Custom Hook rejections. A value of `null` means there is no request-body override.
+- `override` names the request-body field that can bypass it. This is `ignoreWarnings` for warnings, `skipSchemaValidation` for schema and invariant failures, `skipHooks` for Custom Hook rejections, or `skipChecklist` for an experiment start's launch checklist items. A value of `null` means there is no request-body override.
 - `requiresPermission` identifies any additional permission needed to use the override.
 - `resolution` provides an API action, method, and path when the blocker must be resolved another way.
 
 For example, an approval gate is cleared by approving the revision or by using a caller with **Bypass draft approvals** access. A Config lock is cleared through the unlock route in `resolution`.
 
-When a successful publish bypasses a gate, the response includes `bypassedGates`. Each entry reports the gate `type` and how it was bypassed in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `bypassApprovalPermission`, `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This field is omitted when no gates were bypassed.
+When a successful publish bypasses a gate, the response includes `bypassedGates`. Each entry reports the gate `type` and how it was bypassed in `via`, which is one of `ignoreWarnings`, `skipSchemaValidation`, `skipHooks`, `skipChecklist`, `bypassApprovalPermission`, `restApiBypassesReviews`, or `revertsBypassApproval` (reverts only). This field is omitted when no gates were bypassed.
+
+### Request flags
+
+Every refusal a request can get past with a flag:
+
+| Flag                      | Where        | Gets past                                                                                                    |
+| ------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------ |
+| `ignoreWarnings`          | Body         | Warnings (`422`)                                                                                             |
+| `skipSchemaValidation`    | Body         | Schema and invariant failures, with **Bypass draft approvals** access                                        |
+| `skipHooks`               | Body         | Custom Hook rejections                                                                                       |
+| `skipChecklist`           | Body         | An experiment start's incomplete launch checklist items (`409` `checklist_incomplete`), but not its blockers |
+| `allowUnscopedRules`      | Body         | A rule for All Environments and All Projects where the organization requires a scope (`422` `unscoped_rule`) |
+| `overrideDraftLimit=true` | Query string | Creating a draft past the draft limit                                                                        |

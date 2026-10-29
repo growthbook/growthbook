@@ -143,6 +143,17 @@ function auditVerb(action: string): string {
   );
 }
 
+// Icons and colors mirror RevisionStatusBadge so the timeline and the
+// actions-column header speak the same visual language.
+/** The comment a log entry carries, if its value is JSON with one. */
+export function logComment(log: { value: string }): string | undefined {
+  try {
+    return JSON.parse(log.value)?.comment;
+  } catch (e) {
+    return undefined;
+  }
+}
+
 /** A verdict's colour; null for anything that isn't one. */
 export function verdictColor(action: string): "green" | "red" | null {
   return action === "Approved"
@@ -152,24 +163,6 @@ export function verdictColor(action: string): "green" | "red" | null {
       : null;
 }
 
-/** The comment a log entry carries, if its value is JSON with one. */
-export function logComment(log: { value: string }): string | undefined {
-  try {
-    return JSON.parse(log.value)?.comment;
-  } catch {
-    return undefined;
-  }
-}
-
-/** Oldest first. */
-export function sortRevisionLog<T extends { timestamp: unknown }>(log: T[]) {
-  return [...log].sort((a, b) =>
-    String(a.timestamp).localeCompare(String(b.timestamp)),
-  );
-}
-
-// Icons and colors mirror RevisionStatusBadge so the timeline and the
-// actions-column header speak the same visual language.
 export function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
@@ -185,7 +178,7 @@ export function rowVisual(action: string): RowVisual {
         color: "green",
         // Standalone glyph — the surrounding circle (solid verdict avatar or
         // soft inline badge) acts as the check's container.
-        verb: "approved",
+        verb: "approved these changes",
         icon: <PiCheckBold />,
         showCommentBody: true,
         showAuditDetails: false,
@@ -201,7 +194,7 @@ export function rowVisual(action: string): RowVisual {
     case "Review Requested":
       return {
         color: "orange",
-        verb: "requested review",
+        verb: "requested a review",
         // Spinner glyph (not a clock) — distinct from the scheduled-publish clock.
         icon: <PiSpinnerGap />,
         showCommentBody: false,
@@ -596,15 +589,54 @@ type TimelineBlock =
   | ({ type: "date" } & TimelineDateGroup)
   | { type: "collapsed"; id: string; groups: TimelineDateGroup[] };
 
-/**
- * Which verdicts no longer stand, and why. A verdict is invalidated by the
- * first of: the same user's `Undo Review`, anyone's `Recall Review`, or that
- * user's own newer verdict (superseded, no badge). A later `Review Requested`
- * starts a fresh cycle.
- */
+function buildTimelineBlocks(
+  sorted: RevisionLog[],
+  collapseFilter?: (log: RevisionLog) => boolean,
+): TimelineBlock[] {
+  const blocks: TimelineBlock[] = [];
+  sorted.forEach((log, i) => {
+    const key = log.id ?? `log-${i}`;
+    const entry: TimelineEntry = { log, key };
+    const d = date(log.timestamp);
+    const last = blocks[blocks.length - 1];
+    if (!collapseFilter || collapseFilter(log)) {
+      if (last && last.type === "date" && last.date === d)
+        last.logs.push(entry);
+      else blocks.push({ type: "date", date: d, logs: [entry] });
+    } else if (last && last.type === "collapsed") {
+      const lastGroup = last.groups[last.groups.length - 1];
+      if (lastGroup.date === d) lastGroup.logs.push(entry);
+      else last.groups.push({ date: d, logs: [entry] });
+    } else {
+      blocks.push({
+        type: "collapsed",
+        id: `run-${key}`,
+        groups: [{ date: d, logs: [entry] }],
+      });
+    }
+  });
+  return blocks;
+}
+
+/** Chronological, newest last. */
+export function sortRevisionLog(logs: RevisionLog[]): RevisionLog[] {
+  return [...logs].sort((a, b) =>
+    (a.timestamp as unknown as string).localeCompare(
+      b.timestamp as unknown as string,
+    ),
+  );
+}
+
+// A verdict (Approved / Requested Changes) is invalidated by the FIRST of the
+// following events to appear after it:
+//   - same-user `Undo Review`           → "Retracted"
+//   - any-user `Recall Review`          → "Discarded by {recaller}"
+//   - same-user new verdict             → superseded (no badge)
+// A subsequent `Review Requested` resets the window — verdicts after that
+// point are fresh decisions on the re-requested review.
 export function scanVerdictRetractions(
   sorted: RevisionLog[],
-  userId?: string | null,
+  userId: string | undefined,
 ): WeakMap<RevisionLog, VerdictRetraction> {
   const retractions = new WeakMap<RevisionLog, VerdictRetraction>();
   for (let i = 0; i < sorted.length; i++) {
@@ -616,7 +648,9 @@ export function scanVerdictRetractions(
     for (let j = i + 1; j < sorted.length; j++) {
       const next = sorted[j];
       if (next.action === "Review Requested") {
-        // A new cycle: earlier verdicts are historical, not retracted.
+        // New review cycle started; previous verdicts are historical but not
+        // marked retracted/discarded by this scan — only events between i and
+        // the recall/undo count.
         break;
       }
       if (next.action === "Recall Review") {
@@ -646,13 +680,11 @@ export function scanVerdictRetractions(
   return retractions;
 }
 
-/**
- * The current user's standing verdict — the only one `undo-review` can act on,
- * so it is the only row that should offer to retract.
- */
+// The current user's most recent active verdict (not retracted and not
+// superseded): the row that gets the "Retract review" item.
 export function findActiveVerdict(
   sorted: RevisionLog[],
-  userId: string | null | undefined,
+  userId: string | undefined,
   retractions: WeakMap<RevisionLog, VerdictRetraction>,
 ): RevisionLog | null {
   for (let i = sorted.length - 1; i >= 0; i--) {
@@ -665,35 +697,6 @@ export function findActiveVerdict(
     return entry;
   }
   return null;
-}
-
-function buildTimelineBlocks(
-  sorted: RevisionLog[],
-  collapseFilter?: (log: RevisionLog) => boolean,
-): TimelineBlock[] {
-  const blocks: TimelineBlock[] = [];
-  sorted.forEach((log, i) => {
-    const key = log.id ?? `log-${i}`;
-    const entry: TimelineEntry = { log, key };
-    const d = date(log.timestamp);
-    const last = blocks[blocks.length - 1];
-    if (!collapseFilter || collapseFilter(log)) {
-      if (last && last.type === "date" && last.date === d)
-        last.logs.push(entry);
-      else blocks.push({ type: "date", date: d, logs: [entry] });
-    } else if (last && last.type === "collapsed") {
-      const lastGroup = last.groups[last.groups.length - 1];
-      if (lastGroup.date === d) lastGroup.logs.push(entry);
-      else last.groups.push({ date: d, logs: [entry] });
-    } else {
-      blocks.push({
-        type: "collapsed",
-        id: `run-${key}`,
-        groups: [{ date: d, logs: [entry] }],
-      });
-    }
-  });
-  return blocks;
 }
 
 export default function RevisionTimeline({

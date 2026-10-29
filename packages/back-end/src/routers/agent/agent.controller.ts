@@ -53,6 +53,14 @@ The user's current page in the GrowthBook app is given as a path: /features/<key
 Ground the continuation in what this organization actually has, listed below. Refer to those data sources, feature flags, experiments and metrics by their real names. Never invent a metric, flag, experiment or table that isn't listed; if nothing listed fits, keep the continuation generic.
 Reply with the draft unchanged if there is no good continuation.`;
 
+// Empty composer after an assistant turn: what the user most likely says next.
+const NO_REPLY = "NONE";
+const REPLY_INSTRUCTIONS = `You suggest the user's next message to GrowthBook's AI assistant, given the conversation so far.
+Reply with ONLY that message, under 12 words, in the user's voice. No quotes, no explanation.
+If the assistant's last message offers to do something ("I can chart it if you'd like"), accept it ("Yes, chart it over time").
+If it asks whether it understood the question correctly, confirm or pick the likeliest reading.
+Reply with exactly ${NO_REPLY} when the assistant asks for something only the user knows (a name, key, value, or a choice it did not recommend), or when nothing follows naturally. Never make such details up.`;
+
 const ORG_CONTEXT_LIMIT = 15;
 
 type ContextKind = "datasources" | "features" | "experiments" | "metrics";
@@ -350,7 +358,7 @@ export function cleanCompletion(
       break;
     }
   }
-  message ??= d + (d === d.trimEnd() ? " " : "") + output;
+  message ??= d + (d && d === d.trimEnd() ? " " : "") + output;
 
   // Only names the user had started typing, so a generic word the model
   // chose isn't turned into a name that happens to begin with it.
@@ -384,6 +392,15 @@ export const postAutocomplete = async (
   res: Response,
 ) => {
   const context = getContextFromReq(req);
+  const send = (completion: string) =>
+    res.status(200).json({ status: 200, completion });
+  // The composer aborts its fetch when the draft changes. Listen before the
+  // first await so an early close is seen, and stop the model call rather
+  // than pay for a reply nobody will read.
+  const abort = new AbortController();
+  res.on("close", () => {
+    if (!res.writableFinished) abort.abort();
+  });
   if (!(await runAIEnabledGates(context, res))) return;
   // Opt-out separate from AI as a whole: every pause in typing is a call.
   if (context.org.settings?.aiAutocompleteEnabled === false) {
@@ -416,14 +433,55 @@ export const postAutocomplete = async (
     (m): m is AIChatUserMessage | AIChatAssistantMessage =>
       m.role === "user" || m.role === "assistant",
   );
+  // The latest turn gets more room: it is what a reply or continuation answers.
   const history = turns
     .slice(-6)
-    .map((m) => `${m.role}: ${getMessageText(m).slice(0, 500)}`)
+    .map(
+      (m, i, all) =>
+        `${m.role}: ${getMessageText(m).slice(0, i === all.length - 1 ? 1500 : 500)}`,
+    )
     .join("\n");
+  const complete = async (args: {
+    instructions: string;
+    prompt: string;
+    maxOutputTokens: number;
+  }) => {
+    if (abort.signal.aborted) return null;
+    return simpleCompletion({
+      context,
+      type: "chat-autocomplete",
+      isDefaultPrompt: true,
+      resolvedModel: autocompleteAIModel,
+      temperature: 0.2,
+      abortSignal: abort.signal,
+      // Thinking first would eat a budget this small and return nothing.
+      lowEffort: true,
+      ...args,
+    }).catch((e) => {
+      // Nobody is listening; nothing to answer or log.
+      if (abort.signal.aborted) return null;
+      throw e;
+    });
+  };
+
+  if (!text.trim()) {
+    // Nothing typed yet: suggest a reply to the assistant's last message,
+    // e.g. accepting an offer. Only once it has spoken.
+    const last = turns[turns.length - 1];
+    if (last?.role !== "assistant") return send("");
+    const raw = await complete({
+      instructions: REPLY_INSTRUCTIONS,
+      prompt: `Conversation:\n${history}`,
+      maxOutputTokens: 120,
+    });
+    if (raw === null) return;
+    return send(raw.trim() === NO_REPLY ? "" : cleanCompletion(raw, ""));
+  }
+
   const kinds = contextKindsFor({ currentPage, text, historyText: history });
   // Nothing to ground a suggestion in yet: no telling page, draft or
   // conversation. Guessing here is what produced invented metrics.
-  if (!kinds) return res.status(200).json({ status: 200, completion: "" });
+  if (!kinds) return send("");
 
   const lists = await entityNames(context, { datasourceId, kinds });
   const orgContext = lists
@@ -432,25 +490,19 @@ export const postAutocomplete = async (
   // Only enabled skills in the domains the context points at.
   const skills = skillsForPrompt(context.org, kinds);
 
-  const raw = await simpleCompletion({
-    context,
-    type: "chat-autocomplete",
-    isDefaultPrompt: true,
-    resolvedModel: autocompleteAIModel,
-    temperature: 0.2,
-    // Room to echo the draft (~3 chars per token, generous) plus a short
-    // phrase; anything longer is the model rambling.
-    maxOutputTokens: Math.ceil(text.length / 3) + 24,
+  const raw = await complete({
     instructions: AUTOCOMPLETE_INSTRUCTIONS,
     prompt: `Assistant skills:\n${skills}\n\nThis organization has:\n${orgContext}\n\nCurrent page: ${currentPage?.trim() || "(unknown)"}\n\nRecent conversation:\n${history || "(none)"}\n\nDraft:\n${text}`,
+    // Room to echo the draft (~3 chars per token, generous), a short phrase,
+    // and a little reasoning on models that still do some at low effort.
+    maxOutputTokens: Math.ceil(text.length / 3) + 120,
   });
-
-  return res.status(200).json({
-    status: 200,
-    completion: cleanCompletion(
+  if (raw === null) return;
+  return send(
+    cleanCompletion(
       raw,
       text,
       lists.flatMap(([, names]) => names),
     ),
-  });
+  );
 };

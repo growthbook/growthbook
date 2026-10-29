@@ -11,7 +11,7 @@ import {
 import {
   linkFeatureToExperiment,
   updateExperimentRefVariations,
-  validateExperimentFeatureUpdates,
+  validateExperimentFeatureUpdate,
 } from "back-end/src/services/experiment-feature";
 import { mergeDraftForAutoPublish } from "back-end/src/services/featurePublishGates";
 import {
@@ -39,7 +39,7 @@ jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
 jest.mock("back-end/src/services/experiment-feature", () => ({
   linkFeatureToExperiment: jest.fn(),
   updateExperimentRefVariations: jest.fn(),
-  validateExperimentFeatureUpdates: jest.fn(),
+  validateExperimentFeatureUpdate: jest.fn(),
 }));
 jest.mock("back-end/src/services/featurePublishGates", () => ({
   ...jest.requireActual("back-end/src/services/featurePublishGates"),
@@ -59,7 +59,7 @@ jest.mock("back-end/src/services/organizations", () => ({
 
 const mockGetFeature = getFeature as jest.Mock;
 const mockActiveDraft = getActiveDraft as jest.Mock;
-const mockValidate = validateExperimentFeatureUpdates as jest.Mock;
+const mockValidate = validateExperimentFeatureUpdate as jest.Mock;
 const mockUpdateRefs = updateExperimentRefVariations as jest.Mock;
 const mockDraftRevision = getDraftRevision as jest.Mock;
 const mockUpdateRevision = updateRevision as jest.Mock;
@@ -100,16 +100,17 @@ const values = [
   { variationId: "v1", value: "b" },
 ];
 
-/** The `features` entry the planner was given. */
-const plannedUpdate = () =>
-  mockValidate.mock.calls[0][0].features["checkout-test"];
+/** The update the planner was given. */
+const plannedUpdate = () => mockValidate.mock.calls[0][0].update;
 
 /** An open draft the planner resolves the update onto. */
 const withOpenDraft = (draft: Record<string, unknown>) => {
   mockActiveDraft.mockResolvedValue(draft);
-  mockValidate.mockResolvedValue([
-    { feature: managedFeature(), existingRevision: draft, matchingRules: [] },
-  ]);
+  mockValidate.mockResolvedValue({
+    feature: managedFeature(),
+    existingRevision: draft,
+    matchingRules: [],
+  });
 };
 
 const update = (over: Record<string, unknown> = {}) =>
@@ -130,13 +131,11 @@ beforeEach(() => {
   mockLinkedInfo.mockResolvedValue([
     { feature: managedFeature(), liveHasMatchingRule: true },
   ]);
-  mockValidate.mockResolvedValue([
-    {
-      feature: managedFeature(),
-      existingRevision: undefined,
-      matchingRules: [],
-    },
-  ]);
+  mockValidate.mockResolvedValue({
+    feature: managedFeature(),
+    existingRevision: undefined,
+    matchingRules: [],
+  });
   mockUpdateRefs.mockResolvedValue({ version: 8 });
   mockDraftRevision.mockResolvedValue({ version: 8 });
   mockUpdateRevision.mockResolvedValue({ version: 8 });
@@ -206,7 +205,7 @@ describe("updateManagedVariationValues revision choice", () => {
 
     const result = await update();
 
-    expect(plannedUpdate().revisionOptions).toEqual({ targetVersion: 8 });
+    expect(plannedUpdate().targetVersion).toBe(8);
     // The open draft is reused, not replaced by a fresh one off live.
     expect(mockDraftRevision).not.toHaveBeenCalled();
     expect(mockUpdateRefs).toHaveBeenCalledWith(
@@ -218,7 +217,7 @@ describe("updateManagedVariationValues revision choice", () => {
   it("starts a draft when nothing is pending", async () => {
     const result = await update();
 
-    expect(plannedUpdate().revisionOptions).toEqual({ forceNewDraft: true });
+    expect(plannedUpdate().targetVersion).toBeNull();
     expect(mockDraftRevision).toHaveBeenCalledWith(
       context,
       expect.objectContaining({ id: "checkout-test" }),
@@ -229,7 +228,7 @@ describe("updateManagedVariationValues revision choice", () => {
 
   it("writes nothing when the values already match", async () => {
     mockActiveDraft.mockResolvedValue({ version: 8 });
-    mockValidate.mockResolvedValue([]);
+    mockValidate.mockResolvedValue(null);
 
     const result = await update();
 
@@ -239,7 +238,7 @@ describe("updateManagedVariationValues revision choice", () => {
   });
 
   it("reports the live version when nothing matches and nothing is pending", async () => {
-    mockValidate.mockResolvedValue([]);
+    mockValidate.mockResolvedValue(null);
 
     expect((await update()).version).toBe(7);
   });
@@ -337,16 +336,14 @@ describe("updateManagedVariationValues value type", () => {
       version: 8,
       metadata: { description: "staged earlier", owner: "u_1" },
     });
-    mockValidate.mockResolvedValue([
-      {
-        feature: managedFeature(),
-        existingRevision: {
-          version: 8,
-          metadata: { description: "staged earlier" },
-        },
-        matchingRules: [],
+    mockValidate.mockResolvedValue({
+      feature: managedFeature(),
+      existingRevision: {
+        version: 8,
+        metadata: { description: "staged earlier" },
       },
-    ]);
+      matchingRules: [],
+    });
 
     await update({
       valueType: "number",

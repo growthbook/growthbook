@@ -112,10 +112,12 @@ function historyQuery(
 
 export async function insertAudit(
   data: Omit<AuditInterface, "id">,
+  // A fixed id makes the insert idempotent: a repeat fails as a duplicate key.
+  id: string = generateId("aud_"),
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
-    id: generateId("aud_"),
+    id,
   });
   return toInterface(auditDoc);
 }
@@ -198,6 +200,24 @@ export async function countAuditByEntity(
   return await AuditModel.countDocuments(
     historyQuery(organization, "entity", type, id, filters),
   );
+}
+
+// Which audited keys were personal access tokens and which org keys. Their
+// audits record a token's owner as `userId`, null for an org key; older audits
+// record neither, so those keys are in `all` only.
+export async function getAuditedApiKeyKinds(organization: string) {
+  const ids = async (details?: string): Promise<string[]> =>
+    AuditModel.distinct("entity.id", {
+      organization,
+      "entity.object": "apiKey",
+      ...(details && { details: { $regex: details } }),
+    });
+  const [all, tokens, orgKeys] = await Promise.all([
+    ids(),
+    ids('"userId":"'),
+    ids('"userId":null'),
+  ]);
+  return { all, tokens: new Set(tokens), orgKeys: new Set(orgKeys) };
 }
 
 // A page of audits newest first, with the total that matches the filters on any page.

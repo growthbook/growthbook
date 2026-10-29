@@ -30,6 +30,7 @@ import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import {
   createFactTable,
   buildColumnInterface,
@@ -104,7 +105,7 @@ export const getFactTables = async (
   if (req.query.ids !== undefined) {
     const factTables = await getFactTablesByIds(
       context,
-      req.query.ids.split(",").filter(Boolean),
+      parseIdsQuery(req.query.ids) ?? [],
     );
     return res.status(200).json({
       status: 200,

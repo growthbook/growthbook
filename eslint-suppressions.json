@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Admin/EditOrganization.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Archetype/ArchetypeAttributesModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -227,14 +222,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/CustomMetricSlicesSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "packages/front-end/components/Experiment/DifferenceTypeChooserChangeColumnLabel.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -253,7 +240,7 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditPhaseModal.tsx": {
+  "packages/front-end/components/Experiment/EditPhasesModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
     }
@@ -266,11 +253,6 @@
   "packages/front-end/components/Experiment/EditStatusModal.tsx": {
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/ExperimentGraph.tsx": {
@@ -349,7 +331,7 @@
   },
   "packages/front-end/components/Experiment/PhaseSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/QueryModal.tsx": {
@@ -408,11 +390,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/ExperimentDecisionExplanation.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -428,19 +405,6 @@
   },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/TargetMDEModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -562,7 +526,7 @@
   },
   "packages/front-end/components/Features/ConditionInput.tsx": {
     "no-restricted-syntax": {
-      "count": 7
+      "count": 6
     }
   },
   "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
@@ -645,7 +609,7 @@
   },
   "packages/front-end/components/Features/FeatureVariationsInput.tsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/components/Features/FeaturesOverview.tsx": {
@@ -701,11 +665,6 @@
   "packages/front-end/components/Features/RolloutPercentInput.tsx": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/BanditRefFields.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/RuleModal/BanditRefNewFields.tsx": {
@@ -1149,11 +1108,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Metrics/FactMetricTypeDisplayName.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Metrics/MetricForm/MetricDelaySettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -1494,14 +1448,6 @@
     }
   },
   "packages/front-end/components/Settings/EditDataSource/DimensionMetadata/DimensionSlicesRunner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal.tsx": {
     "no-restricted-imports": {
       "count": 1
     },
@@ -1899,14 +1845,6 @@
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/pages/admin.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
     }
   },
   "packages/front-end/pages/attributes.tsx": {

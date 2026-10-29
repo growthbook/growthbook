@@ -1,6 +1,5 @@
 import {
   canMaterializeLinkedChanges,
-  getAffectedEnvsForExperiment,
   getExperimentLinkageBlocker,
   isManagedByExperiment,
   type ExperimentLinkageBlocker,
@@ -32,40 +31,15 @@ import {
   clearManagedMarkersForExperiment,
 } from "./managedFeatures";
 
-export class LinkedChangesBlockedError extends BadRequestError {
-  blocker: ExperimentLinkageBlocker;
-  constructor(blocker: ExperimentLinkageBlocker, verb: string) {
-    super(
-      blocker === "temporary-rollout"
-        ? `This experiment's temporary rollout is still serving through its linked Feature Flags. Pass linkedChanges: "materialize" to keep the released variation as a permanent rule, or "remove" to stop serving it, before you ${verb} it.`
-        : `This experiment is running. Pass linkedChanges: "remove" to acknowledge that its linked changes stop serving when you ${verb} it.`,
-    );
-    this.blocker = blocker;
-  }
-}
-
-// Taking an experiment out of the payload, or putting it back, is a run-class
-// change on every environment its linked changes reach.
-export async function assertCanChangeServing(
-  context: ReqContext | ApiReqContext,
-  experiment: ExperimentInterface,
-): Promise<void> {
-  const linkedFeatures = await getFeaturesByIds(
-    context,
-    experiment.linkedFeatures ?? [],
+const linkedChangesBlocked = (
+  blocker: ExperimentLinkageBlocker,
+  verb: string,
+) =>
+  new BadRequestError(
+    blocker === "temporary-rollout"
+      ? `This experiment's temporary rollout is still serving through its linked Feature Flags. Pass linkedChanges: "materialize" to keep the released variation as a permanent rule, or "remove" to stop serving it, before you ${verb} it.`
+      : `This experiment is running. Pass linkedChanges: "remove" to acknowledge that its linked changes stop serving when you ${verb} it.`,
   );
-  const envs = getAffectedEnvsForExperiment({
-    experiment,
-    orgEnvironments: context.org.settings?.environments || [],
-    linkedFeatures,
-  });
-  if (
-    envs.length > 0 &&
-    !context.permissions.canRunExperiment(experiment, envs)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-}
 
 type Args = {
   context: ReqContext | ApiReqContext;
@@ -73,35 +47,49 @@ type Args = {
   linkedChanges?: LinkedChangesResolution;
   eventAudit: EventUser;
   audit: (data: AuditInterfaceInput) => Promise<void>;
-  /** A REST call in an org that lets the REST API skip approval. */
   restApiBypassesReviews?: boolean;
 };
 
+async function assertLinkedChangesResolvable(
+  {
+    context,
+    experiment,
+    linkedChanges,
+  }: Pick<Args, "context" | "experiment" | "linkedChanges">,
+  verb: string,
+): Promise<void> {
+  // The blocker and the cleanup only see readable flags.
+  await assertLinkedFlagsReadable(context, experiment);
+  const info = await getLinkedFeatureInfo(context, experiment);
+  const blocker = getExperimentLinkageBlocker(experiment, info);
+  if (blocker && !linkedChanges) {
+    throw linkedChangesBlocked(blocker, verb);
+  }
+  if (
+    linkedChanges === "materialize" &&
+    !canMaterializeLinkedChanges(experiment, blocker)
+  ) {
+    throw new BadRequestError(
+      "Only a stopped experiment with a temporary rollout on Feature Flags, and no namespace, can keep its released variation as a permanent rule.",
+    );
+  }
+}
+
 // Returns true when the rules were frozen in place.
 async function resolveLinkedChanges(
-  {
+  args: Args,
+  verb: string,
+): Promise<boolean> {
+  const {
     context,
     experiment,
     linkedChanges,
     eventAudit,
     audit,
     restApiBypassesReviews,
-  }: Args,
-  verb: string,
-): Promise<boolean> {
-  // The blocker and the cleanup only see readable flags.
-  await assertLinkedFlagsReadable(context, experiment);
-  const info = await getLinkedFeatureInfo(context, experiment);
-  const blocker = getExperimentLinkageBlocker(experiment, info);
-  if (blocker && !linkedChanges) {
-    throw new LinkedChangesBlockedError(blocker, verb);
-  }
+  } = args;
+  await assertLinkedChangesResolvable(args, verb);
   if (linkedChanges !== "materialize") return false;
-  if (!canMaterializeLinkedChanges(experiment, blocker)) {
-    throw new BadRequestError(
-      "Only a stopped experiment with a temporary rollout on Feature Flags, and no namespace, can keep its released variation as a permanent rule.",
-    );
-  }
   await materializeExperimentRules({
     context,
     experiment,
@@ -160,15 +148,24 @@ export async function deleteExperimentWithCleanup(args: Args): Promise<void> {
   }
 }
 
+// Everything an archive can refuse on, for a caller that checks before writing.
+export async function assertCanArchive(
+  args: Pick<Args, "context" | "experiment" | "linkedChanges">,
+): Promise<void> {
+  await validateExperimentChange({
+    context: args.context,
+    experiment: args.experiment,
+    changes: { archived: true },
+  });
+  await assertLinkedChangesResolvable(args, "archive");
+}
+
 export async function archiveExperimentWithCleanup(
   args: Args,
 ): Promise<ExperimentInterface> {
   const { context, experiment } = args;
-  await validateExperimentChange({
-    context,
-    experiment,
-    changes: { archived: true },
-  });
+  const changes = { archived: true };
+  await validateExperimentChange({ context, experiment, changes });
   const materialized = await resolveLinkedChanges(args, "archive");
   // The released flag is an ordinary linked flag now, as after an eject.
   const released = materialized && experiment.implementationType === "values";
@@ -176,7 +173,7 @@ export async function archiveExperimentWithCleanup(
     context,
     experiment,
     changes: {
-      archived: true,
+      ...changes,
       ...(released && { implementationType: "feature" as const }),
     },
   });

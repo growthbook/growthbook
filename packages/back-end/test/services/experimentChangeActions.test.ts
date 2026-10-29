@@ -42,6 +42,12 @@ describe("experimentChangeActions", () => {
     ).toEqual(["experiment.other"]);
   });
 
+  it("names a live tracking key change as re-randomizing", () => {
+    expect(
+      experimentChangeActions(running, { trackingKey: "renamed" }),
+    ).toEqual(["experiment.phases"]);
+  });
+
   it("names an edit to a draft armed to start as the start", () => {
     const draft = {
       ...running,
@@ -147,9 +153,6 @@ describe("experimentChangeActions", () => {
     expect(experimentChangeActions(running, { archived: true })).toEqual([
       "experiment.other",
     ]);
-    expect(
-      experimentChangeActions(running, { trackingKey: "new-key" }),
-    ).toEqual(["experiment.other"]);
     expect(
       experimentChangeActions(
         { ...running, status: "draft" },

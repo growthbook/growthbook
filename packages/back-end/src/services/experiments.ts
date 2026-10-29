@@ -34,6 +34,8 @@ import {
   getNamespaceRanges,
   isManagedFeature,
   getSnapshotAnalysis,
+  getSnapshotCutoffDate,
+  hasPendingScheduledStart,
   isAnalysisAllowed,
   isDefined,
   liveRevisionFromFeature,
@@ -43,6 +45,8 @@ import {
   assertExposureQueryDeclaresIdentifierType,
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
+  linkedFeatureEnvStates,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   getBanditSRMValue,
@@ -77,6 +81,7 @@ import {
   getPhaseVariations,
   isVariationWeightsSumValid,
   scheduleWriteNeedsRunPermission,
+  sdkConnectionServesProject,
   withScheduledBy,
 } from "shared/experiments";
 import { getValidDate, hoursBetween, resolveScheduledStop } from "shared/dates";
@@ -134,7 +139,6 @@ import {
   LinkedChangeEnvState,
   LinkedChangeEnvStates,
   LinkedFeatureEnvInputs,
-  LinkedFeatureEnvState,
   LinkedFeatureInfo,
   LinkedFeaturePendingDraft,
   LinkedFeatureState,
@@ -208,7 +212,6 @@ import { logger } from "back-end/src/util/logger";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
 import {
-  featureReviewRequired,
   mergeDraftForAutoPublish,
   type RevisionApprovalState,
 } from "back-end/src/services/featurePublishGates";
@@ -231,12 +234,16 @@ import {
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
 import {
   getRevision,
-  getRevisionsByVersions,
   getActiveDraftMetadataByFeatureIds,
   getFeatureRevisionsByFeatureIds,
+  getLinkageSyncRevisionSummaries,
+  getNewestDiscardedRevisionWithExperimentRule,
 } from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
-import { draftTakesRuleOut } from "back-end/src/util/featureExperimentSync";
+import {
+  draftTakesRuleOut,
+  getRuleChangingDraftVersions,
+} from "back-end/src/util/featureExperimentSync";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
@@ -255,6 +262,8 @@ import {
   ExperimentIncrementalPipelineRequiresFullRefreshError,
   InvalidTrackingKeyError,
 } from "back-end/src/util/errors";
+import { assertScheduledStartAllows } from "back-end/src/services/experimentChanges/scheduledStartLock";
+import { isoOrNull } from "back-end/src/services/experimentChanges/loadedBase";
 import {
   getExperimentSettingsHashForIncrementalRefresh,
   legacyDocDescribesPhase,
@@ -266,6 +275,7 @@ import {
   ExperimentUpdateExecutionLogger,
 } from "back-end/src/services/experimentUpdateExecutionLogger";
 import { PAYLOAD_AFFECTING_EXPERIMENT_FIELDS } from "back-end/src/services/experimentPayloadFields";
+import { getScheduledAnalysisEndDate } from "back-end/src/services/scheduledAnalysisEndDate";
 import { getMetricForSnapshot } from "./reports";
 import {
   getIntegrationFromDatasourceId,
@@ -631,6 +641,7 @@ export function getSnapshotSettings({
   datasource,
   useStickyBucketing,
   eligiblePrecomputedUnitDimensionIds = [],
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   phaseIndex: number;
@@ -649,6 +660,7 @@ export function getSnapshotSettings({
   datasource?: DataSourceInterface;
   useStickyBucketing?: boolean;
   eligiblePrecomputedUnitDimensionIds?: string[];
+  cutoff?: Date | null;
 }): ExperimentSnapshotSettings {
   const phase = experiment.phases[phaseIndex];
   if (!phase) {
@@ -770,8 +782,13 @@ export function getSnapshotSettings({
     guardrailMetrics = [];
   }
 
-  // Set currentDate in a const to use the same date for all metric settings
+  // Lookback windows are counted back from the analysis end date, so they are
+  // sized from it too.
   const currentDate = new Date();
+  const analysisEndDate = phase.dateEnded || cutoff || currentDate;
+  // A stopped holdout still sizes its window from now. Sizing it from its end
+  // date changes results for every org, so that fix ships on its own.
+  const holdoutWindowEndDate = phase.dateEnded ? currentDate : analysisEndDate;
 
   // Expand all derived metrics (slices and funnel steps) into the metricMap
   expandDerivedMetricsInMap({
@@ -781,7 +798,6 @@ export function getSnapshotSettings({
     metricGroups,
   });
 
-  const phaseEndDate = phase.dateEnded || currentDate;
   const lookbackOverride = getEffectiveLookbackOverride(
     experiment.attributionModel,
     experiment.lookbackOverride,
@@ -797,7 +813,7 @@ export function getSnapshotSettings({
         ? {
             value: Math.max(
               0,
-              differenceInMinutes(phaseEndDate, lookbackOverride.value, {
+              differenceInMinutes(analysisEndDate, lookbackOverride.value, {
                 roundingMethod: "ceil",
               }),
             ),
@@ -805,11 +821,15 @@ export function getSnapshotSettings({
           }
         : experiment.type === "holdout" &&
             phase.lookbackStartDate &&
-            phase.lookbackStartDate < currentDate
+            phase.lookbackStartDate < holdoutWindowEndDate
           ? {
-              value: differenceInMinutes(currentDate, phase.lookbackStartDate, {
-                roundingMethod: "ceil",
-              }),
+              value: differenceInMinutes(
+                holdoutWindowEndDate,
+                phase.lookbackStartDate,
+                {
+                  roundingMethod: "ceil",
+                },
+              ),
               unit: "minutes" as const,
             }
           : undefined;
@@ -917,7 +937,7 @@ export function getSnapshotSettings({
     dimensions: dimensions,
     precomputedUnitDimensionIds,
     startDate: phase.dateStarted,
-    endDate: phase.dateEnded || new Date(),
+    endDate: analysisEndDate,
     experimentId: experiment.trackingKey || experiment.id,
     phase: {
       index: phaseIndex + "",
@@ -937,6 +957,7 @@ export function getSnapshotSettings({
     })),
     coverage: phase.coverage ?? 1,
     banditSettings,
+    ...(cutoff && !phase.dateEnded ? { endDateIsCutoff: true } : {}),
   };
 }
 
@@ -1028,6 +1049,21 @@ export function determineNextDate(schedule: ExperimentUpdateSchedule | null) {
   if (hours < 1) hours = 1;
   if (hours > 168) hours = 168;
   return new Date(Date.now() + hours * 60 * 60 * 1000);
+}
+
+/**
+ * Latest fact timestamp an incremental refresh may load into its metric
+ * sources. The scan's MAX(timestamp) becomes the source watermark, so a running
+ * phase must stop at its analysis end date: rows past a lagged cutoff belong to
+ * units that aren't in the units table yet, and the next refresh would skip
+ * them. An ended phase scans to now so conversion windows can close.
+ */
+export function getIncrementalMetricScanEnd(
+  phase: Pick<ExperimentPhase, "dateEnded"> | undefined,
+  settings: Pick<ExperimentSnapshotSettings, "endDate">,
+  now: Date = new Date(),
+): Date {
+  return phase?.dateEnded ? now : settings.endDate;
 }
 
 export function determineNextBanditSchedule(exp: ExperimentInterface): Date {
@@ -1259,40 +1295,6 @@ export async function syncVisualChangesetsAndUrlRedirectsForExperiment({
       ),
     );
   }
-}
-
-/**
- * Persists experiment changes and syncs linked visual changesets and URL
- * redirects when `variations` are in the changeset.
- */
-export async function updateExperimentAndSync({
-  context,
-  experiment,
-  changes,
-  bypassWebhooks = false,
-}: {
-  context: ReqContext | ApiReqContext;
-  experiment: ExperimentInterface;
-  changes: Changeset;
-  bypassWebhooks?: boolean;
-}): Promise<ExperimentInterface> {
-  const updated = await updateExperiment({
-    context,
-    experiment,
-    changes,
-    bypassWebhooks,
-  });
-
-  const shouldSyncLinked = changes.variations && updated;
-
-  if (shouldSyncLinked) {
-    await syncVisualChangesetsAndUrlRedirectsForExperiment({
-      context,
-      updated,
-    });
-  }
-
-  return updated;
 }
 
 export function updateExperimentBanditSettings({
@@ -1872,6 +1874,7 @@ export async function planSnapshot({
   factTableMap,
   reweight,
   throwIfRequiresFullRefresh,
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -1886,6 +1889,7 @@ export async function planSnapshot({
   factTableMap: FactTableMap;
   reweight?: boolean;
   throwIfRequiresFullRefresh?: boolean;
+  cutoff?: Date | null;
 }): Promise<PlannedExperimentSnapshot> {
   const { org: organization } = context;
   const dimension = defaultAnalysisSettings.dimensions[0] || null;
@@ -1908,6 +1912,15 @@ export async function planSnapshot({
         })
       : [];
 
+  const phase = experiment.phases[phaseIndex];
+  const scheduledCutoff =
+    triggeredBy === "schedule" &&
+    type === "standard" &&
+    experiment.type !== "multi-armed-bandit"
+      ? getScheduledAnalysisEndDate(
+          organization.settings?.updateSchedule ?? null,
+        )
+      : null;
   const snapshotSettingsArgs = {
     experiment,
     phaseIndex,
@@ -1927,6 +1940,17 @@ export async function planSnapshot({
       organization.settings?.useStickyBucketing &&
       !experiment.disableStickyBucketing,
     eligiblePrecomputedUnitDimensionIds,
+    // `null` is a decided "no cutoff"; only an omitted one is derived here, so
+    // the scheduled job's own cutoff and clock are kept. The job skips a cutoff
+    // before the phase started; a REST call analyzes through now instead.
+    cutoff:
+      cutoff !== undefined
+        ? cutoff
+        : scheduledCutoff &&
+            phase &&
+            scheduledCutoff > (phase.lookbackStartDate ?? phase.dateStarted)
+          ? scheduledCutoff
+          : null,
   };
 
   const incrementalRefresh = useCache
@@ -2063,6 +2087,18 @@ export async function planSnapshot({
     if (sourceSnapshot) {
       data.sourceSnapshotId = sourceSnapshot.id;
       data.sourceSnapshotDateCreated = sourceSnapshot.dateCreated;
+      // The source's data ends at its cutoff, otherwise at its run time.
+      const sourceCutoff = getSnapshotCutoffDate(sourceSnapshot.settings);
+      data.sourceSnapshotEndDate = sourceCutoff ?? sourceSnapshot.dateCreated;
+      // The tables hold nothing past the source's cutoff, so daily rates and
+      // lookback windows must be sized from it too, not from now.
+      if (sourceCutoff && !snapshotSettingsArgs.cutoff) {
+        data.settings = getSnapshotSettings({
+          ...snapshotSettingsArgs,
+          incrementalRefreshModel,
+          cutoff: sourceCutoff,
+        });
+      }
     } else if (materializedBySnapshotId) {
       logger.error(
         { experimentId: experiment.id, phaseIndex, materializedBySnapshotId },
@@ -2253,7 +2289,10 @@ export async function createSnapshotFromPlan({
       ).startAnalysis({
         ...analysisProps,
         experimentId: experiment.id,
-        incrementalRefreshStartTime: new Date(),
+        incrementalRefreshStartTime: getIncrementalMetricScanEnd(
+          experiment.phases[plan.snapshot.phase],
+          plan.snapshot.settings,
+        ),
         fullRefresh: runnerKind === "incremental-full",
       });
     } else if (runnerKind === "incremental-exploratory") {
@@ -2340,6 +2379,7 @@ export async function createSnapshot({
   metricMap,
   factTableMap,
   reweight,
+  cutoff,
 }: {
   experiment: ExperimentInterface;
   context: ReqContext | ApiReqContext;
@@ -2353,6 +2393,7 @@ export async function createSnapshot({
   metricMap: Map<string, ExperimentMetricInterface>;
   factTableMap: FactTableMap;
   reweight?: boolean;
+  cutoff?: Date | null;
 }): Promise<ExperimentSnapshotQueryRunner> {
   const plan = await planSnapshot({
     experiment,
@@ -2367,6 +2408,7 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
     reweight,
+    cutoff,
   });
 
   return createSnapshotFromPlan({
@@ -2376,39 +2418,6 @@ export async function createSnapshot({
     metricMap,
     factTableMap,
   });
-}
-
-// Assigns a monotonic, non-colliding numeric `key` to any variation arriving
-// with an empty key. Existing (non-empty) keys are left untouched.
-// `existingKeys` is the set of keys already in use on the experiment.
-export function fillEmptyVariationKeys(
-  variations: Variation[],
-  existingKeys: Iterable<string>,
-): void {
-  if (!variations.some((v) => !v.key)) return;
-
-  const usedKeys = new Set(existingKeys);
-  let largestNumeric = -1;
-  for (const k of usedKeys) {
-    const n = Number(k);
-    if (
-      Number.isInteger(n) &&
-      n >= 0 &&
-      String(n) === k &&
-      n > largestNumeric
-    ) {
-      largestNumeric = n;
-    }
-  }
-  let nextKey = largestNumeric + 1;
-  for (const v of variations) {
-    if (!v.key) {
-      while (usedKeys.has(String(nextKey))) nextKey++;
-      v.key = String(nextKey);
-      usedKeys.add(v.key);
-      nextKey++;
-    }
-  }
 }
 
 const inUnitInterval = (n: number) => n >= 0 && n <= 1;
@@ -2644,15 +2653,22 @@ export function auditVisualChangeEditAfterStart(
   );
 }
 
-// Visual Editor changes stay editable once the experiment starts or stops.
+// Visual Editor changes stay editable once the experiment starts or stops,
+// but not while its start is scheduled.
 export function assertVisualChangesEditable(
-  experiment: Pick<ExperimentInterface, "archived">,
+  context: ReqContext | ApiReqContext,
+  experiment: Pick<
+    ExperimentInterface,
+    "archived" | "status" | "nextScheduledStatusUpdate" | "project"
+  >,
 ): void {
   if (experiment.archived) {
     throw new BadRequestError(
-      "Unarchive the experiment to change its Visual Editor changes.",
+      "Unarchive the experiment to change its AI Visual Editor changes.",
     );
   }
+  assertScheduledStartAllows(experiment, "AI Visual Editor changes");
+  assertCanRunLinkedChanges(context, experiment);
 }
 
 type ReleasedVariationFields = Pick<
@@ -4919,16 +4935,9 @@ export function postExperimentApiPayloadToInterface(
     previewURL: "",
     targetURLRegex: "",
     ideaSource: "",
-    sequentialTestingEnabled:
-      payload.sequentialTestingEnabled ??
-      !!organization?.settings?.sequentialTestingEnabled,
-    sequentialTestingTuningParameter:
-      payload.sequentialTestingTuningParameter ??
-      organization?.settings?.sequentialTestingTuningParameter ??
-      DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-    regressionAdjustmentEnabled:
-      payload.regressionAdjustmentEnabled ??
-      !!organization?.settings?.regressionAdjustmentEnabled,
+    sequentialTestingEnabled: payload.sequentialTestingEnabled,
+    sequentialTestingTuningParameter: payload.sequentialTestingTuningParameter,
+    regressionAdjustmentEnabled: payload.regressionAdjustmentEnabled,
     ...(payload.postStratificationEnabled !== undefined
       ? { postStratificationEnabled: payload.postStratificationEnabled }
       : {}),
@@ -5092,6 +5101,11 @@ function resolveExperimentUpdateVariationsAndPhases(
         ? {
             ...phase,
             variations: syncedPhaseVariations,
+            // A variation added or removed evens out the split.
+            ...(phase.variationWeights.length !==
+              syncedPhaseVariations.length && {
+              variationWeights: getEqualWeights(syncedPhaseVariations.length),
+            }),
           }
         : phase,
     );
@@ -5109,7 +5123,7 @@ function resolveExperimentUpdateVariationsAndPhases(
  *  - Explicit null clears both the schedule and any staged start.
  *  - An object resolves `startAt` via getValidDate; missing startAt is treated
  *    as "clear the schedule"; any existing staged start is reset so the schedule
- *    must be re-staged.
+ *    must be re-staged. An unchanged schedule is no change: a staged start stays.
  *  - If `statusUpdateSchedule` is not in the payload but `status` is moving out
  *    of draft, clear any pending staged start so the agenda job won't fire it.
  */
@@ -5157,13 +5171,21 @@ export function normalizeStatusUpdateScheduleChanges(
                 : {}),
             }
           : null;
-
-      // Re-stage the single pending action from the new schedule:
-      //  - running experiment: (re)stage the stop from the resolved stopAt
-      //  - otherwise (draft): clear any staged start; it must be re-approved
-      changes.nextScheduledStatusUpdate = withScheduledBy(stagedStop, by);
+      if (
+        isEqual(changes.statusUpdateSchedule, experiment.statusUpdateSchedule)
+      ) {
+        // An echoed schedule is no change, and leaves an armed start armed.
+        delete changes.statusUpdateSchedule;
+      } else {
+        // Re-stage the single pending action from the new schedule:
+        //  - running experiment: (re)stage the stop from the resolved stopAt
+        //  - otherwise (draft): clear any staged start; it must be re-approved
+        changes.nextScheduledStatusUpdate = withScheduledBy(stagedStop, by);
+      }
     }
-  } else if (
+  }
+  if (
+    !("statusUpdateSchedule" in changes) &&
     changes.status &&
     changes.status !== "draft" &&
     experiment.nextScheduledStatusUpdate
@@ -5461,31 +5483,34 @@ export async function getRefLinkedFeatureInfo({
   linkedFeatureIds,
   refIsDraft,
   matchRule,
-  pendingFeatureDrafts,
   pendingUnlinks = [],
   includeOtherPendingDrafts = false,
+  includeValueGroups = false,
+  relinkExperimentId,
   publisher = context,
 }: {
   context: ReqContext | ApiReqContext;
   linkedFeatureIds: string[];
   refIsDraft: boolean;
   matchRule: (rule: FeatureRule) => boolean;
-  pendingFeatureDrafts?: { featureId: string; revisionVersion: number }[];
   // Flags the experiment is removing, waiting on a draft to take the rule out.
   pendingUnlinks?: string[];
   // Only the Setup page chooses between drafts; each one costs a merge.
   includeOtherPendingDrafts?: boolean;
+  // Only the Setup page shows disagreeing rules as separate groups.
+  includeValueGroups?: boolean;
+  // Only the Setup page links a removed flag again, from this experiment's rule.
+  relinkExperimentId?: string;
   // Who a start would publish each draft as; null when nobody can be resolved.
   publisher?: ReqContext | ApiReqContext | null;
 }): Promise<LinkedFeatureInfo[]> {
   if (!linkedFeatureIds.length) return [];
-
-  const pendingVersionsByFeatureId = new Map<string, Set<number>>();
-  (pendingFeatureDrafts ?? []).forEach(({ featureId, revisionVersion }) => {
-    const versions = pendingVersionsByFeatureId.get(featureId) ?? new Set();
-    versions.add(revisionVersion);
-    pendingVersionsByFeatureId.set(featureId, versions);
-  });
+  // Assessing a draft's approval costs a lookup; with no review rule on
+  // anywhere, none can need it.
+  const anyReviewRequired = orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
+  );
 
   const features = await getFeaturesByIds(context, linkedFeatureIds);
 
@@ -5514,83 +5539,43 @@ export async function getRefLinkedFeatureInfo({
       const liveMatches = getMatchingRules(feature, matchRule, environments);
       const liveRefRules = refRulesForEntity(feature.rules);
 
-      // Walk draft revisions newest-first and pick:
-      //   1. (preferred) a draft that changes this experiment's rule: its
-      //      slice differs from live, and from the revision it was cut from.
-      //      Used to flip state to "draft" even when live already has a
-      //      matching rule.
-      //   2. (fallback) while live has the rule, the first draft with any
-      //      match, even one that only carries it along. Over an empty live,
-      //      a draft that only carries an old copy adds nothing.
       const activeDrafts = revisions
         .filter((r) => DRAFT_REVISION_STATUSES.includes(r.status))
         .sort((a, b) => b.version - a.version);
-
+      const withMatches = (revision: (typeof revisions)[0]) => ({
+        revision,
+        matches: getMatchingRules(feature, matchRule, environments, revision),
+      });
       const draftsWithMatches = activeDrafts
-        .map((r) => ({
-          revision: r,
-          matches: getMatchingRules(feature, matchRule, environments, r),
-        }))
+        .map(withMatches)
         .filter(({ matches }) => matches.length > 0);
-      const otherDraftCount = Math.max(0, draftsWithMatches.length - 1);
 
-      // A re-type is a change even when values read the same.
-      const changesRefFrom = (
-        revision: (typeof revisions)[0],
-        rules: FeatureRule[],
-        valueType: FeatureInterface["valueType"],
-      ) =>
-        (isManagedFeature(feature) &&
-          revision.metadata?.valueType !== undefined &&
-          revision.metadata.valueType !== valueType) ||
-        !isEqual(refRulesForEntity(revision.rules), rules);
-      const differsFromLive = draftsWithMatches.filter(({ revision }) =>
-        changesRefFrom(revision, liveRefRules, feature.valueType),
-      );
+      // The drafts that change the rule, newest first, judged on what a start
+      // reads so the page offers exactly the draft that launches.
+      const { openDrafts, liveRevision } =
+        await getLinkageSyncRevisionSummaries(context.org.id, feature.id);
+      const differingDrafts = getRuleChangingDraftVersions(
+        matchRule,
+        openDrafts,
+        liveRevision,
+      ).flatMap((version) => {
+        const revision = activeDrafts.find((r) => r.version === version);
+        return revision ? [withMatches(revision)] : [];
+      });
       // Drafts without the rule while live has it, for a removal in progress.
       const withoutRule =
         pendingUnlinks.includes(feature.id) && liveRefRules.length > 0
           ? activeDrafts.filter((r) => !refRulesForEntity(r.rules).length)
           : [];
-      // A draft cut before live last changed the rule still holds the old
-      // copy; it only changes the rule if it also differs from its own base.
-      const staleBaseVersions = [
-        ...new Set(
-          [...differsFromLive.map(({ revision }) => revision), ...withoutRule]
-            .map((revision) => revision.baseVersion)
-            .filter((v) => v !== feature.version),
-        ),
-      ];
-      const basesByVersion = new Map(
-        (staleBaseVersions.length
-          ? await getRevisionsByVersions({
-              context,
-              organization: context.org.id,
-              featureId: feature.id,
-              feature,
-              versions: staleBaseVersions,
-            })
-          : []
-        ).map((base) => [base.version, base]),
-      );
       const removalDraft = withoutRule.find((revision) =>
         draftTakesRuleOut(
           (rules) => refRulesForEntity(rules).length > 0,
           revision,
-          basesByVersion.get(revision.baseVersion),
+          openDrafts.find((d) => d.version === revision.version)?.base,
         ),
       );
-      const differingDrafts = differsFromLive.filter(({ revision }) => {
-        const base = basesByVersion.get(revision.baseVersion);
-        return (
-          !base ||
-          changesRefFrom(
-            revision,
-            refRulesForEntity(base.rules),
-            base.metadata?.valueType ?? feature.valueType,
-          )
-        );
-      });
+      // Without a changing draft, while live has the rule: the newest draft
+      // carrying it. Over an empty live, an old copy adds nothing.
       const chosenDraft =
         differingDrafts[0] ??
         (liveRefRules.length > 0 ? draftsWithMatches[0] : undefined);
@@ -5614,23 +5599,16 @@ export async function getRefLinkedFeatureInfo({
         matches = draftMatches;
       }
 
-      // Rare, so looked up only here: the newest discarded draft that still
-      // holds this rule, to link the flag again as it was.
+      // The newest discarded draft that still holds this rule, to link the
+      // flag again as it was.
       let relinkFrom: LinkedFeatureInfo["relinkFrom"];
-      if (state === "discarded") {
-        const discarded =
-          (
-            await getFeatureRevisionsByFeatureIds(
-              context,
-              context.org.id,
-              [feature.id],
-              { [feature.id]: feature },
-              ["discarded"],
-            )
-          )[feature.id] ?? [];
-        const rule = discarded
-          .map((r) => getMatchingRules(feature, matchRule, environments, r))
-          .find((m) => m.length > 0)?.[0]?.rule;
+      if (state === "discarded" && relinkExperimentId) {
+        const discarded = await getNewestDiscardedRevisionWithExperimentRule(
+          context,
+          feature,
+          relinkExperimentId,
+        );
+        const rule = refRulesForEntity(discarded?.rules)[0];
         if (rule?.type === "experiment-ref") {
           relinkFrom = {
             values: rule.variations,
@@ -5641,17 +5619,9 @@ export async function getRefLinkedFeatureInfo({
         }
       }
 
-      // Feature-scope approval check: requires review AND draft not yet approved.
       // Also when `state` is "draft": the two can disagree when a live rule is
       // scoped to a deleted environment.
       const needsDraftFacts = hasPendingDraft || state === "draft";
-      const reviewRequired =
-        needsDraftFacts && featureReviewRequired(context, feature);
-      // Keyed on `state`: the checklist filters this without a state gate.
-      const pendingApproval =
-        state === "draft" && matchedDraftRevision && reviewRequired
-          ? true
-          : undefined;
 
       type DraftFacts = {
         hasChanges: boolean;
@@ -5668,13 +5638,14 @@ export async function getRefLinkedFeatureInfo({
       const draftFacts = async (
         revision: (typeof revisions)[0],
       ): Promise<DraftFacts> => {
-        // The publish gate's own test.
-        let draftHasChanges = true;
-        let draftHasMergeConflict = false;
-        let draftChangesOutsideRef = false;
-        let draftRebaseRequired = false;
-        let draftStaleApproval = false;
-        let draftApproval: RevisionApprovalState | undefined;
+        const result: DraftFacts = {
+          hasChanges: true,
+          hasMergeConflict: false,
+          hasUnrelatedDraftChanges: false,
+          changesOutsideRef: false,
+          rebaseRequired: false,
+          staleApproval: false,
+        };
         try {
           const { live, base } = await getLiveAndBaseRevisionsForFeature({
             context,
@@ -5683,21 +5654,25 @@ export async function getRefLinkedFeatureInfo({
           });
           const { mergeResult, rebaseRequired, staleApproval } =
             mergeDraftForAutoPublish(context, feature, revision, live, base);
-          draftHasChanges = mergeResultHasChanges(mergeResult);
-          draftRebaseRequired = rebaseRequired;
-          draftStaleApproval = staleApproval;
+          // The publish gate's own test.
+          result.hasChanges = mergeResultHasChanges(mergeResult);
+          result.rebaseRequired = rebaseRequired;
+          result.staleApproval = staleApproval;
           if (!mergeResult.success) {
-            draftHasMergeConflict = true;
+            result.hasMergeConflict = true;
           } else {
-            draftChangesOutsideRef = draftHasChangesOutsideTargetRef(
+            result.changesOutsideRef = draftHasChangesOutsideTargetRef(
               revision,
               liveRevisionFromFeature(live, feature),
               matchRule,
             );
+            // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
+            result.hasUnrelatedDraftChanges =
+              !isManagedFeature(feature) && result.changesOutsideRef;
           }
           // Last: a failure here must not cost the conflict flags above.
-          if (reviewRequired) {
-            draftApproval = await assessRevisionApprovalForAutoPublish(
+          if (anyReviewRequired) {
+            result.approval = await assessRevisionApprovalForAutoPublish(
               context,
               feature,
               revision,
@@ -5712,39 +5687,26 @@ export async function getRefLinkedFeatureInfo({
             "[getRefLinkedFeatureInfo] draft cleanliness check failed",
           );
         }
-        return {
-          hasChanges: draftHasChanges,
-          hasMergeConflict: draftHasMergeConflict,
-          // Guards a shared flag: a managed flag has nothing that isn't the experiment's.
-          hasUnrelatedDraftChanges:
-            !isManagedFeature(feature) && draftChangesOutsideRef,
-          changesOutsideRef: draftChangesOutsideRef,
-          rebaseRequired: draftRebaseRequired,
-          staleApproval: draftStaleApproval,
-          approval: draftApproval,
-        };
+        return result;
       };
       const facts: DraftFacts | null =
         needsDraftFacts && matchedDraftRevision
           ? await draftFacts(matchedDraftRevision)
           : null;
-      const draftHasMergeConflict = !!facts?.hasMergeConflict;
-      const draftHasUnrelatedChanges = !!facts?.hasUnrelatedDraftChanges;
-      const draftApproval = facts?.approval;
+      // Keyed on `state`: the checklist filters this without a state gate.
+      const pendingApproval =
+        state === "draft" && facts?.approval?.requiresReview ? true : undefined;
 
       const refRuleValues = (rule: FeatureRule | undefined) =>
         (rule as ExperimentRefRule | ContextualBanditRefRule | undefined)
           ?.variations || [];
 
-      const uniqueValues: Set<string> = new Set(
-        matches.map((m) =>
-          JSON.stringify(
-            [...refRuleValues(m.rule)].sort((a, b) =>
-              b.variationId.localeCompare(a.variationId),
-            ),
+      const valuesKey = (rule: FeatureRule) =>
+        JSON.stringify(
+          [...refRuleValues(rule)].sort((a, b) =>
+            b.variationId.localeCompare(a.variationId),
           ),
-        ),
-      );
+        );
 
       // `getMatchingRules` reports live enablement even for a revision, which stages its own.
       const envEnabledIn = (
@@ -5774,188 +5736,211 @@ export async function getRefLinkedFeatureInfo({
         });
         return inputs;
       };
-      // The state each environment's inputs add up to.
       const buildEnvironmentStates = (
         from: MatchingRule[],
         revision?: FeatureRevisionInterface,
-      ) =>
-        Object.fromEntries(
-          Object.entries(buildEnvironmentInputs(from, revision)).map(
-            ([env, { flagEnabled, rule }]): [string, LinkedFeatureEnvState] => [
-              env,
-              rule === "missing"
-                ? "missing"
-                : !flagEnabled
-                  ? "disabled-env"
-                  : rule === "on"
-                    ? "active"
-                    : "disabled-rule",
-            ],
-          ),
-        );
+      ) => linkedFeatureEnvStates(buildEnvironmentInputs(from, revision));
       // Only a draft the feature actually resolved to stages its own enablement.
       const statesRevision =
         state === "draft" ? matchedDraftRevision : undefined;
-      const environmentStates = buildEnvironmentStates(matches, statesRevision);
-      const cannotPublish =
-        state === "draft" && !!matchedDraftRevision
-          ? !publisher ||
-            !publisher.permissions.canPublishFeature(
-              feature,
-              matches
-                .filter((m) => envEnabledIn(m.environmentId, statesRevision))
-                .map((m) => m.environmentId),
-            )
-          : undefined;
-
-      const stagedDrafts: StagedRefDraft[] =
-        state === "live"
-          ? differingDrafts.map((d) => ({
-              version: d.revision.version,
-              status: d.revision.status,
-              values: refRuleValues(d.matches[0]?.rule),
-            }))
-          : [];
-      // The first staged draft is the chosen one, so its facts are in hand.
-      if (stagedDrafts.length > 0 && facts) {
-        if (facts.hasMergeConflict) {
-          stagedDrafts[0].hasMergeConflict = true;
-        } else if (facts.changesOutsideRef) {
-          stagedDrafts[0].hasUnrelatedDraftChanges = true;
-        }
-      }
-
-      // Envs the pending draft will turn on when it's auto-published on start.
-      let environmentsToEnable: string[] | undefined;
-      if (
-        state === "draft" &&
-        matchedDraftRevision &&
-        pendingVersionsByFeatureId
-          .get(feature.id)
-          ?.has(matchedDraftRevision.version)
-      ) {
-        const enabled = new Set<string>();
-        matches.forEach((match) => {
-          if (
-            envEnabledIn(match.environmentId, statesRevision) &&
-            !feature.environmentSettings?.[match.environmentId]?.enabled
-          ) {
-            enabled.add(match.environmentId);
-          }
-        });
-        if (enabled.size > 0) environmentsToEnable = [...enabled];
-      }
-
       const attributeScopeProjects = getFeatureAttributeScopeWithDrafts(
         feature,
         draftMetadataByFeatureId[feature.id] || [],
       );
+
+      // A draft whose rule runs in no environment still launches it.
+      const ruleShown = (
+        from: MatchingRule[],
+        revision: FeatureRevisionInterface | undefined,
+      ) =>
+        from[0]?.rule ??
+        (revision && !withMatches(revision).matches.length
+          ? refRulesForEntity(revision.rules)[0]
+          : undefined);
 
       // What the page shows and saves against for one open draft of the rule.
       const pendingDraftFor = (
         revision: (typeof revisions)[0],
         revisionMatches: MatchingRule[],
         draftFactsOf: DraftFacts,
-      ): LinkedFeaturePendingDraft => ({
-        version: revision.version,
-        dateUpdated: revision.dateUpdated
-          ? new Date(revision.dateUpdated).toISOString()
-          : null,
-        lockedBySchedule: isRevisionEditLockedBySchedule(revision),
-        status: revision.status,
-        values: refRuleValues(revisionMatches[0]?.rule),
-        sparse: !!(revisionMatches[0]?.rule as ExperimentRefRule)?.sparse,
-        allEnvironments: !!(revisionMatches[0]?.rule as ExperimentRefRule)
-          ?.allEnvironments,
-        title: revision.title,
-        otherDraftCount,
-        pendingApproval: reviewRequired,
-        // A re-typed draft restates the default.
-        valueType: revision.metadata?.valueType ?? feature.valueType,
-        defaultValue: revision.defaultValue,
-        ...(draftFactsOf.approval && {
-          approval: {
-            satisfied: draftFactsOf.approval.satisfied,
-            footprint: draftFactsOf.approval.footprint,
-            unmetTeams: draftFactsOf.approval.requiredApproverTeams.unmet,
-            insufficientApprovers: draftFactsOf.approval.insufficientApprovers,
-            hasCoveringApproval: draftFactsOf.approval.hasCoveringApproval,
-          },
-        }),
-        hasChanges: draftFactsOf.hasChanges,
-        hasMergeConflict: draftFactsOf.hasMergeConflict,
-        hasUnrelatedDraftChanges: draftFactsOf.hasUnrelatedDraftChanges,
-        rebaseRequired: draftFactsOf.rebaseRequired,
-        staleApproval: draftFactsOf.staleApproval,
-        // From the draft's matches: where the unpublished edit would run.
-        environmentStates: buildEnvironmentStates(revisionMatches, revision),
-        environmentInputs: buildEnvironmentInputs(revisionMatches, revision),
-      });
-      const pendingDraft =
-        hasPendingDraft && matchedDraftRevision && facts
-          ? pendingDraftFor(matchedDraftRevision, draftMatches, facts)
-          : undefined;
-      const otherPendingDrafts: LinkedFeaturePendingDraft[] =
-        includeOtherPendingDrafts && pendingDraft
+      ): LinkedFeaturePendingDraft => {
+        const rule = ruleShown(revisionMatches, revision) as
+          | ExperimentRefRule
+          | undefined;
+        return {
+          version: revision.version,
+          dateUpdated: isoOrNull(revision.dateUpdated),
+          lockedBySchedule: isRevisionEditLockedBySchedule(revision),
+          status: revision.status,
+          values: refRuleValues(rule),
+          sparse: !!rule?.sparse,
+          allEnvironments: !!rule?.allEnvironments,
+          title: revision.title,
+          pendingApproval: !!draftFactsOf.approval?.requiresReview,
+          // A re-typed draft restates the default.
+          valueType: revision.metadata?.valueType ?? feature.valueType,
+          defaultValue: revision.defaultValue,
+          ...(draftFactsOf.approval && {
+            approval: {
+              satisfied: draftFactsOf.approval.satisfied,
+              footprint: draftFactsOf.approval.footprint,
+              unmetTeams: draftFactsOf.approval.requiredApproverTeams.unmet,
+              insufficientApprovers:
+                draftFactsOf.approval.insufficientApprovers,
+              hasCoveringApproval: draftFactsOf.approval.hasCoveringApproval,
+            },
+          }),
+          hasChanges: draftFactsOf.hasChanges,
+          hasMergeConflict: draftFactsOf.hasMergeConflict,
+          hasUnrelatedDraftChanges: draftFactsOf.hasUnrelatedDraftChanges,
+          rebaseRequired: draftFactsOf.rebaseRequired,
+          staleApproval: draftFactsOf.staleApproval,
+          // From the draft's matches: where the unpublished edit would run.
+          environmentStates: buildEnvironmentStates(revisionMatches, revision),
+          environmentInputs: buildEnvironmentInputs(revisionMatches, revision),
+        };
+      };
+      // Each one costs a merge, so read once for every group below.
+      const otherDrafts =
+        includeOtherPendingDrafts &&
+        hasPendingDraft &&
+        matchedDraftRevision &&
+        facts
           ? await Promise.all(
               differingDrafts
                 .filter((d) => d.revision !== matchedDraftRevision)
-                .map(async (d) =>
-                  pendingDraftFor(
-                    d.revision,
-                    d.matches,
-                    await draftFacts(d.revision),
-                  ),
-                ),
+                .map(async (d) => ({
+                  ...d,
+                  facts: await draftFacts(d.revision),
+                })),
             )
           : [];
 
-      const info: LinkedFeatureInfo = {
-        feature,
-        state,
-        environmentStates,
-        environmentInputs: buildEnvironmentInputs(matches, statesRevision),
-        attributeScopeProjects,
-        values: refRuleValues(matches[0]?.rule),
-        sparse: !!(matches[0]?.rule as ExperimentRefRule)?.sparse,
-        valuesFrom: matches[0]?.environmentId || "",
-        ...(relinkFrom && { relinkFrom }),
-        rulesAbove: matches.some((m) => m.i > 0),
-        inconsistentValues: uniqueValues.size > 1,
-        liveHasMatchingRule: liveMatches.length > 0,
-        ...(liveMatches.length > 0 && {
-          liveValues: refRuleValues(liveMatches[0]?.rule),
-          liveSparse: !!(liveMatches[0]?.rule as ExperimentRefRule)?.sparse,
-          liveAllEnvironments: !!(liveMatches[0]?.rule as ExperimentRefRule)
-            ?.allEnvironments,
-          liveEnvironmentStates: buildEnvironmentStates(liveMatches),
-          liveEnvironmentInputs: buildEnvironmentInputs(liveMatches),
-        }),
-        ...(pendingDraft && { pendingDraft }),
-        ...(otherPendingDrafts.length > 0 && { otherPendingDrafts }),
-        ...(removalDraft && {
-          pendingRemoval: {
-            version: removalDraft.version,
-            status: removalDraft.status,
-          },
-        }),
-        ...(pendingApproval !== undefined && { pendingApproval }),
-        ...(matchedDraftRevision &&
-          state === "draft" && {
-            draftRevisionVersion: matchedDraftRevision.version,
-            draftRevisionStatus: matchedDraftRevision.status,
-            ...(draftApproval && {
-              draftApprovalSatisfied: draftApproval.satisfied,
-            }),
+      // What the page shows for the experiment's rules, or a group of them.
+      const buildInfo = (
+        keep: (match: MatchingRule) => boolean,
+      ): Omit<LinkedFeatureInfo, "feature"> => {
+        const scoped = matches.filter(keep);
+        const shownRule = ruleShown(scoped, statesRevision);
+        const scopedLive = liveMatches.filter(keep);
+        const uniqueValues = new Set(scoped.map((m) => valuesKey(m.rule)));
+        const environmentStates = buildEnvironmentStates(
+          scoped,
+          statesRevision,
+        );
+        const cannotPublish =
+          state === "draft" && !!matchedDraftRevision
+            ? !publisher ||
+              !publisher.permissions.canPublishFeature(
+                feature,
+                scoped
+                  .filter((m) => envEnabledIn(m.environmentId, statesRevision))
+                  .map((m) => m.environmentId),
+              )
+            : undefined;
+
+        const stagedDrafts: StagedRefDraft[] =
+          state === "live"
+            ? differingDrafts.map((d) => ({
+                version: d.revision.version,
+                status: d.revision.status,
+                values: refRuleValues(
+                  ruleShown(d.matches.filter(keep), d.revision),
+                ),
+              }))
+            : [];
+        // The first staged draft is the chosen one, so its facts are in hand.
+        if (stagedDrafts.length > 0 && facts) {
+          if (facts.hasMergeConflict) {
+            stagedDrafts[0].hasMergeConflict = true;
+          } else if (facts.changesOutsideRef) {
+            stagedDrafts[0].hasUnrelatedDraftChanges = true;
+          }
+        }
+
+        const pendingDraft =
+          hasPendingDraft && matchedDraftRevision && facts
+            ? pendingDraftFor(
+                matchedDraftRevision,
+                draftMatches.filter(keep),
+                facts,
+              )
+            : undefined;
+        const otherPendingDrafts = pendingDraft
+          ? otherDrafts.map((d) =>
+              pendingDraftFor(d.revision, d.matches.filter(keep), d.facts),
+            )
+          : [];
+
+        return {
+          state,
+          environmentStates,
+          environmentInputs: buildEnvironmentInputs(scoped, statesRevision),
+          attributeScopeProjects,
+          values: refRuleValues(shownRule),
+          sparse: !!(shownRule as ExperimentRefRule | undefined)?.sparse,
+          valuesFrom: scoped[0]?.environmentId || "",
+          ...(relinkFrom && { relinkFrom }),
+          rulesAbove: scoped.some((m) => m.i > 0),
+          inconsistentValues: uniqueValues.size > 1,
+          liveHasMatchingRule: scopedLive.length > 0,
+          ...(scopedLive.length > 0 && {
+            liveValues: refRuleValues(scopedLive[0].rule),
+            liveSparse: !!(scopedLive[0].rule as ExperimentRefRule).sparse,
+            liveAllEnvironments: !!(scopedLive[0].rule as ExperimentRefRule)
+              .allEnvironments,
+            liveEnvironmentStates: buildEnvironmentStates(scopedLive),
+            liveEnvironmentInputs: buildEnvironmentInputs(scopedLive),
           }),
-        ...(state === "draft" &&
-          draftHasMergeConflict && { hasMergeConflict: true }),
-        ...(state === "draft" &&
-          draftHasUnrelatedChanges && { hasUnrelatedDraftChanges: true }),
-        ...(stagedDrafts.length > 0 && { stagedDrafts }),
-        ...(cannotPublish !== undefined && { cannotPublish }),
-        ...(environmentsToEnable !== undefined && { environmentsToEnable }),
+          ...(pendingDraft && { pendingDraft }),
+          ...(otherPendingDrafts.length > 0 && { otherPendingDrafts }),
+          ...(removalDraft && {
+            pendingRemoval: {
+              version: removalDraft.version,
+              status: removalDraft.status,
+            },
+          }),
+          ...(pendingApproval !== undefined && { pendingApproval }),
+          ...(matchedDraftRevision &&
+            state === "draft" && {
+              draftRevisionVersion: matchedDraftRevision.version,
+              draftRevisionStatus: matchedDraftRevision.status,
+              ...(facts?.approval && {
+                draftApprovalSatisfied: facts.approval.satisfied,
+              }),
+            }),
+          ...(state === "draft" &&
+            facts?.hasMergeConflict && { hasMergeConflict: true }),
+          ...(state === "draft" &&
+            facts?.hasUnrelatedDraftChanges && {
+              hasUnrelatedDraftChanges: true,
+            }),
+          ...(stagedDrafts.length > 0 && { stagedDrafts }),
+          ...(cannotPublish !== undefined && { cannotPublish }),
+        };
       };
+
+      const info: LinkedFeatureInfo = { feature, ...buildInfo(() => true) };
+      if (includeValueGroups && info.inconsistentValues) {
+        const ruleIdsByValues = new Map<string, Set<string>>();
+        matches.forEach((m) => {
+          const key = valuesKey(m.rule);
+          ruleIdsByValues.set(
+            key,
+            (ruleIdsByValues.get(key) ?? new Set()).add(m.rule.id),
+          );
+        });
+        info.valueGroups = [...ruleIdsByValues.values()].map((ruleIds) => {
+          const keep = (m: MatchingRule) => ruleIds.has(m.rule.id);
+          return {
+            ...buildInfo(keep),
+            ruleIds: [...ruleIds],
+            environments: [
+              ...new Set(matches.filter(keep).map((m) => m.environmentId)),
+            ],
+          };
+        });
+      }
 
       return info;
     }),
@@ -5969,9 +5954,13 @@ export async function getLinkedFeatureInfo(
   experiment: ExperimentInterface,
   {
     includeOtherPendingDrafts = false,
+    includeValueGroups = false,
+    includeRelinkFrom = false,
     publisher,
   }: {
     includeOtherPendingDrafts?: boolean;
+    includeValueGroups?: boolean;
+    includeRelinkFrom?: boolean;
     publisher?: ReqContext | ApiReqContext;
   } = {},
 ) {
@@ -5979,7 +5968,7 @@ export async function getLinkedFeatureInfo(
   // a caller about to arm replaces the armer and is judged as itself.
   const judgedAs =
     publisher ??
-    (experiment.nextScheduledStatusUpdate?.type === "start"
+    (hasPendingScheduledStart(experiment)
       ? await getScheduledStatusContext(context, experiment)
       : context);
   return getRefLinkedFeatureInfo({
@@ -5988,9 +5977,10 @@ export async function getLinkedFeatureInfo(
     refIsDraft: experiment.status === "draft",
     matchRule: (rule) =>
       rule.type === "experiment-ref" && rule.experimentId === experiment.id,
-    pendingFeatureDrafts: experiment.pendingFeatureDrafts,
     pendingUnlinks: experiment.pendingFeatureUnlinks,
     includeOtherPendingDrafts,
+    includeValueGroups,
+    ...(includeRelinkFrom && { relinkExperimentId: experiment.id }),
     publisher: judgedAs,
   });
 }
@@ -6044,12 +6034,6 @@ export async function getLinkedChangeEnvironmentStates(
 }> {
   const environments = getEnvironmentIdsFromOrg(context.org);
   const connections = await findSDKConnectionsByOrganization(context);
-  const experimentProject = experiment.project || "";
-
-  const connectionCoversProject = (c: { projects?: string[] }) => {
-    if (!c.projects || c.projects.length === 0) return true;
-    return c.projects.includes(experimentProject);
-  };
 
   const visualChangesetEnvStates: Record<string, LinkedChangeEnvState> = {};
   const urlRedirectEnvStates: Record<string, LinkedChangeEnvState> = {};
@@ -6057,34 +6041,22 @@ export async function getLinkedChangeEnvironmentStates(
   for (const env of environments) {
     const envConnections = connections.filter((c) => c.environment === env);
     visualChangesetEnvStates[env] = envConnections.some(
-      (c) => c.includeVisualExperiments && connectionCoversProject(c),
+      (c) =>
+        c.includeVisualExperiments &&
+        sdkConnectionServesProject(c, experiment.project),
     )
       ? "active"
       : "no-sdk-connection";
     urlRedirectEnvStates[env] = envConnections.some(
-      (c) => c.includeRedirectExperiments && connectionCoversProject(c),
+      (c) =>
+        c.includeRedirectExperiments &&
+        sdkConnectionServesProject(c, experiment.project),
     )
       ? "active"
       : "no-sdk-connection";
   }
 
   return { visualChangesetEnvStates, urlRedirectEnvStates };
-}
-
-/**
- * Returns a new phases array with the latest phase's `variationWeights` set to the given values.
- */
-export function applyVariationWeightsToLatestPhase(
-  experiment: ExperimentInterface,
-  variationWeights: number[],
-): ExperimentPhase[] {
-  const phases = [...experiment.phases];
-  const lastIndex = phases.length - 1;
-  phases[lastIndex] = {
-    ...phases[lastIndex],
-    variationWeights,
-  };
-  return phases;
 }
 
 export async function getChangesToStartExperiment(

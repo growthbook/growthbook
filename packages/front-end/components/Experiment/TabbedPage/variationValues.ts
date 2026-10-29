@@ -25,20 +25,39 @@ function servedKey(
   }
 }
 
-/** Variations that serve the same value as another; missing values are skipped. */
-export function getDuplicateVariationIds(
+/** What each variation serves, keyed so equal values match; missing values are left out. */
+export function servedValues(
   values: { variationId: string; value: string | undefined }[],
   valueType: FeatureValueType,
   sparse = false,
   sparseBase = "",
-): Set<string> {
-  const byKey = new Map<string, string[]>();
-  for (const { variationId, value } of values) {
-    if (value === undefined) continue;
-    const key = servedKey(value, valueType, sparse, sparseBase);
-    byKey.set(key, [...(byKey.get(key) ?? []), variationId]);
+): Record<string, string> {
+  return Object.fromEntries(
+    values.flatMap(({ variationId, value }) =>
+      value === undefined
+        ? []
+        : [[variationId, servedKey(value, valueType, sparse, sparseBase)]],
+    ),
+  );
+}
+
+/**
+ * Groups of variations that serve the same as each other in every column, so
+ * nothing tells them apart. Matching in one column alone is how a factorial
+ * test pairs values. A variation some column has no value for is left out.
+ */
+export function getDuplicateRows(
+  variationIds: string[],
+  columns: Record<string, string>[],
+): string[][] {
+  if (!columns.length) return [];
+  const byRow = new Map<string, string[]>();
+  for (const id of variationIds) {
+    if (columns.some((column) => !(id in column))) continue;
+    const row = JSON.stringify(columns.map((column) => column[id]));
+    byRow.set(row, [...(byRow.get(row) ?? []), id]);
   }
-  return new Set([...byKey.values()].filter((ids) => ids.length > 1).flat());
+  return [...byRow.values()].filter((ids) => ids.length > 1);
 }
 
 type LabeledVariation = { id: string; name?: string; index: number };

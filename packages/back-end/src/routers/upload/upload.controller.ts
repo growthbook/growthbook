@@ -207,13 +207,14 @@ export async function getSignedPublicImageToken(
   res: Response<SignedImageUrlResponse | { status: number; message: string }>,
 ) {
   // Get the shareUid and shareType from query parameters
-  const shareUid = req.query.shareUid as string | undefined;
+  const { shareUid } = req.query;
   const shareType = req.query.shareType as "experiment" | "report" | undefined;
 
-  if (!shareUid) {
+  // An object would reach the database filter and act as a query operator.
+  if (!shareUid || typeof shareUid !== "string") {
     res.status(400).json({
       status: 400,
-      message: "Missing shareUid query parameter",
+      message: "Invalid or missing shareUid query parameter",
     });
     return;
   }
@@ -351,11 +352,12 @@ export async function getSignedPublicImageToken(
       }
     }
 
-    // Check experiment description for image references
+    // The description and hypothesis, which the public page shows
     if (
       !imageFound &&
-      experiment.description &&
-      experiment.description.includes(fullPath)
+      [experiment.description, experiment.hypothesis].some((text) =>
+        text?.includes(fullPath),
+      )
     ) {
       imageFound = true;
     }

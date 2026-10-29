@@ -11,6 +11,7 @@ import {
   bypassApprovalPublishBodyField,
   ignoreWarningsBodyField,
   publishBypassedGatesField,
+  HUMAN_OVERRIDE_NOTE,
 } from "./shared";
 import {
   apiRevisionRampCreateAction,
@@ -21,6 +22,10 @@ import {
   FEATURE_V1_DEPRECATED,
 } from "./features";
 import { ownerInputField } from "./owner-field";
+import {
+  REVIEW_ACTION_DESCRIPTION,
+  RULE_DESCRIPTION,
+} from "./api-field-descriptions";
 import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 // ---- Shared param schemas ----
@@ -158,6 +163,7 @@ export const postFeatureRevisionValidator = {
   method: "post" as const,
   path: "/features/:id/revisions",
   confirmation: ["feature.draft"] as const,
+  confirmationInHandler: true,
   operationId: "postFeatureRevision",
   summary: "Create a draft revision",
   description:
@@ -176,7 +182,7 @@ export const postFeatureRevisionValidator = {
   querySchema: z
     .object({
       overrideDraftLimit: booleanQueryField.describe(
-        "If the organization caps concurrent drafts per feature (`maxConcurrentDrafts` setting), requests at or over the cap are rejected with a 409. Pass `true` to create the draft anyway.",
+        `If the organization caps concurrent drafts per feature (\`maxConcurrentDrafts\` setting), requests at or over the cap are rejected with a 409. Pass \`true\` to create the draft anyway. ${HUMAN_OVERRIDE_NOTE}`,
       ),
     })
     .strict(),
@@ -359,7 +365,10 @@ export const postFeatureRevisionSubmitReviewValidator = {
   bodySchema: z
     .object({
       comment: z.string().optional(),
-      action: z.enum(["approve", "request-changes", "comment"]).optional(),
+      action: z
+        .enum(["approve", "request-changes", "comment"])
+        .describe(REVIEW_ACTION_DESCRIPTION)
+        .optional(),
       skipAutoPublish: z.boolean().optional(),
     })
     .strict(),
@@ -386,7 +395,7 @@ const scheduleShorthand = z
   .strict();
 
 const commonRuleFields = {
-  description: z.string().optional(),
+  description: z.string().describe(RULE_DESCRIPTION).optional(),
   enabled: z.boolean().optional(),
   condition: z.string().optional(),
   savedGroups: z.array(savedGroupTargeting).optional(),
@@ -403,6 +412,7 @@ const forceRolloutCreateInput = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
@@ -520,7 +530,7 @@ export const postFeatureRevisionRulesReorderValidator = {
 // them in a patch.
 const rulePatchSchema = z
   .object({
-    description: z.string().optional(),
+    description: z.string().describe(RULE_DESCRIPTION).optional(),
     enabled: z.boolean().optional(),
     condition: z.string().optional(),
     savedGroups: z.array(savedGroupTargeting).optional(),
@@ -534,6 +544,7 @@ const rulePatchSchema = z
     sparse: z.boolean().optional(),
     coverage: z.number().min(0).max(1).optional(),
     hashAttribute: z.string().optional(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
     experimentId: z.string().optional(),

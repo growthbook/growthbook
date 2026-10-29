@@ -57,7 +57,6 @@ describe("summarizeChecklist", () => {
     expect(summary.blocking).toBe(3);
   });
 
-  // A conflict is never the admin's to override.
   it("lets an admin's start bypass waive only approval and stale values", () => {
     expect(keys(items.filter(isBypassableStartItem))).toEqual([
       "pendingApproval:f1",
@@ -149,17 +148,26 @@ const connection = (connected: boolean) =>
 const find = (items: CheckListItem[], key: string) =>
   items.find((i) => i.key === key);
 
+const checklistItems = (
+  args: Partial<Parameters<typeof getChecklistItems>[0]>,
+) =>
+  getChecklistItems({
+    experiment: experiment(),
+    linkedFeatures: [],
+    visualChangesets: [],
+    connections: [],
+    ...args,
+  });
+
 describe("getChecklistItems", () => {
   it("keys every row uniquely", () => {
     const blocked = { state: "draft" as const, hasMergeConflict: true };
-    const items = getChecklistItems({
+    const items = checklistItems({
       experiment: experiment({ linkedFeatures: ["f1", "f2"] }),
       linkedFeatures: [
         flag("f1", { ...blocked, pendingApproval: true }),
         flag("f2", { ...blocked, pendingApproval: true }),
       ],
-      visualChangesets: [],
-      connections: [],
       checklist: {
         tasks: [
           { task: "Sign off", completionType: "manual" },
@@ -179,12 +187,7 @@ describe("getChecklistItems", () => {
     { name: "is done with one", over: {}, hardBlock: false },
   ])("targeting $name", ({ over, hardBlock }) => {
     const targeting = find(
-      getChecklistItems({
-        experiment: experiment(over),
-        linkedFeatures: [],
-        visualChangesets: [],
-        connections: [],
-      }),
+      checklistItems({ experiment: experiment(over) }),
       "targeting",
     );
     expect(targeting?.status).toBe(hardBlock ? "incomplete" : "complete");
@@ -194,37 +197,20 @@ describe("getChecklistItems", () => {
   const conflicted = flag("f1", { state: "draft", hasMergeConflict: true });
   const onClick = () => undefined;
   it.each([
-    {
-      name: "no page to fix things on",
-      callbacks: {},
-      over: {},
-      clicks: false,
-    },
-    {
-      name: "an approved scheduled start",
-      callbacks: { editTargeting: onClick, openAnalysisSettings: onClick },
-      over: {
-        nextScheduledStatusUpdate: { type: "start", date: "2026-10-01" },
-      },
-      clicks: false,
-    },
+    { name: "no page to fix things on", callbacks: {}, clicks: false },
     {
       name: "the experiment page",
       callbacks: { editTargeting: onClick, openAnalysisSettings: onClick },
-      over: {},
       clicks: true,
     },
-  ] as const)("with $name, keeps links", ({ callbacks, over, clicks }) => {
-    const items = getChecklistItems({
+  ] as const)("with $name, keeps links", ({ callbacks, clicks }) => {
+    const items = checklistItems({
       experiment: experiment({
-        ...over,
         datasource: "",
         phases: [],
         linkedFeatures: ["f1"],
-      } as Partial<ExperimentInterfaceStringDates>),
+      }),
       linkedFeatures: [conflicted],
-      visualChangesets: [],
-      connections: [],
       ...callbacks,
     });
     const actions = items.map((i) => i.action).filter((a) => !!a);
@@ -232,6 +218,22 @@ describe("getChecklistItems", () => {
     expect(find(items, "mergeConflict:f1")?.action).toEqual({
       href: "/features/f1?v=3",
       external: true,
+    });
+  });
+
+  it("with an approved scheduled start, opens analysis settings but not targeting", () => {
+    const items = checklistItems({
+      experiment: experiment({
+        nextScheduledStatusUpdate: { type: "start", date: "2026-10-01" },
+        datasource: "",
+        phases: [],
+      } as Partial<ExperimentInterfaceStringDates>),
+      editTargeting: onClick,
+      openAnalysisSettings: onClick,
+    });
+    expect(find(items, "targeting")?.action).toBeUndefined();
+    expect(find(items, "datasource")?.action).toEqual({
+      onClick: expect.any(Function),
     });
   });
 
@@ -264,13 +266,7 @@ describe("getChecklistItems", () => {
     "SDK Connection row with $name",
     ({ connections, create, status, action, warned }) => {
       const sdk = find(
-        getChecklistItems({
-          experiment: experiment(),
-          linkedFeatures: [],
-          visualChangesets: [],
-          connections,
-          createSdkConnection: create,
-        }),
+        checklistItems({ connections, createSdkConnection: create }),
         "sdkConnection",
       );
       expect(sdk?.status).toBe(status);
@@ -287,14 +283,12 @@ describe("getChecklistItems", () => {
     { name: "publishing another flag", publishing: "f2", tier: "recommended" },
   ])("Bandit live-change row on $name", ({ publishing, tier }) => {
     const linked = find(
-      getChecklistItems({
+      checklistItems({
         experiment: experiment({
           type: "multi-armed-bandit",
           linkedFeatures: ["f1"],
         }),
         linkedFeatures: [flag("f1", { state: "draft" })],
-        visualChangesets: [],
-        connections: [],
         publishingFeatureId: publishing,
       }),
       "linkedChanges",
@@ -332,11 +326,9 @@ describe("getChecklistItems", () => {
   const openReview = () => undefined;
   const editValues = () => undefined;
   const itemsFor = (info: LinkedFeatureInfo) =>
-    getChecklistItems({
+    checklistItems({
       experiment: experiment({ linkedFeatures: ["f1"] }),
       linkedFeatures: [info],
-      visualChangesets: [],
-      connections: [],
       openManagedApproval: openReview,
       editVariationValues: editValues,
     });
@@ -388,13 +380,11 @@ describe("getChecklistItems", () => {
 
   it("makes an empty Visual Editor changeset optional", () => {
     const visual = find(
-      getChecklistItems({
+      checklistItems({
         experiment: experiment({ hasVisualChangesets: true }),
-        linkedFeatures: [],
         visualChangesets: [
           { id: "vc_1", visualChanges: [] },
         ] as unknown as VisualChangesetInterface[],
-        connections: [],
       }),
       "visualEditorChanges",
     );

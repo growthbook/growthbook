@@ -5,6 +5,7 @@ import { postProjectValidator, putProjectValidator } from "shared/validators";
 import { useRestApiCall } from "@/services/restApi";
 import Field from "@/components/Forms/Field";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import SelectOwner from "@/components/Owner/SelectOwner";
 
 export default function ProjectModal({
@@ -32,7 +33,7 @@ export default function ProjectModal({
       open={true}
       close={close}
       header={existing.id ? "Edit Project" : "Create Project"}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const body = {
           name: value.name || "",
           description: value.description,

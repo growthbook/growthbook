@@ -172,6 +172,74 @@ describe("featuresWithPrerequisiteClosure", () => {
     expect(result.features.map((f) => f.id)).toEqual(["child"]);
   });
 
+  // Visual experiments and interleavings gate on flags too, but this walk only
+  // reaches features, so their parents arrive as seeds.
+  it("carries a seeded parent no feature names", () => {
+    const unrelated = feature("unrelated", "prj_b");
+    const root = feature("root", "prj_a");
+
+    const result = featuresWithPrerequisiteClosure(
+      [unrelated],
+      mapOf([unrelated, root]),
+      undefined,
+      ["root"],
+    );
+
+    expect(result.features.map((f) => f.id).sort()).toEqual([
+      "root",
+      "unrelated",
+    ]);
+    expect([...result.carried]).toEqual(["root"]);
+  });
+
+  it("carries seed prerequisites and their own parents", () => {
+    const child = feature("child", "prj_b");
+    const parent = feature("parent", "prj_a", { prerequisites: ["grandpa"] });
+    const grandpa = feature("grandpa", "prj_a");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child, parent, grandpa]),
+      undefined,
+      ["parent"],
+    );
+
+    expect(result.features.map((f) => f.id).sort()).toEqual([
+      "child",
+      "grandpa",
+      "parent",
+    ]);
+    expect([...result.carried].sort()).toEqual(["grandpa", "parent"]);
+  });
+
+  it("ignores a dangling seed", () => {
+    const unrelated = feature("unrelated", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [unrelated],
+      mapOf([unrelated]),
+      undefined,
+      ["gone"],
+    );
+
+    expect(result.carried.size).toBe(0);
+    expect(result.features.map((f) => f.id)).toEqual(["unrelated"]);
+  });
+
+  it("does not carry a seed that is already delivered", () => {
+    const child = feature("child", "prj_b");
+
+    const result = featuresWithPrerequisiteClosure(
+      [child],
+      mapOf([child]),
+      undefined,
+      ["child"],
+    );
+
+    expect(result.carried.size).toBe(0);
+    expect(result.features).toEqual([child]);
+  });
+
   it("terminates on a prerequisite cycle", () => {
     const a = feature("a", "prj_b", { prerequisites: ["b"] });
     const b = feature("b", "prj_a", { prerequisites: ["a"] });
@@ -255,6 +323,30 @@ describe("buildPrerequisiteProjectReach", () => {
     const reach = buildPrerequisiteProjectReach([child, root]);
 
     expect([...(reach.get("") ?? [])]).toEqual(["prj_b"]);
+  });
+
+  it("maps a parent's project to the projects of other dependents", () => {
+    const root = feature("root", "prj_a");
+
+    const reach = buildPrerequisiteProjectReach([root], [], undefined, [
+      { projects: ["prj_b"], prerequisiteIds: ["root"] },
+    ]);
+
+    expect([...(reach.get("prj_a") ?? [])]).toEqual(["prj_b"]);
+  });
+
+  it("closes over chains that start at another dependent", () => {
+    const parent = feature("parent", "prj_b", { prerequisites: ["grandpa"] });
+    const grandpa = feature("grandpa", "prj_a");
+
+    const reach = buildPrerequisiteProjectReach(
+      [parent, grandpa],
+      [],
+      undefined,
+      [{ projects: ["prj_c"], prerequisiteIds: ["parent"] }],
+    );
+
+    expect([...(reach.get("prj_a") ?? [])].sort()).toEqual(["prj_b", "prj_c"]);
   });
 
   it("is empty when no prerequisite crosses a project boundary", () => {

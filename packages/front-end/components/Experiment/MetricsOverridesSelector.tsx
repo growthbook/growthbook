@@ -2,13 +2,12 @@ import React, { ReactNode, useMemo } from "react";
 import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
 import { PiInfo, PiXBold } from "react-icons/pi";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { useFieldArray, UseFormReturn } from "react-hook-form";
+import { FieldValues, useFieldArray, UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
-import { isUndefined } from "lodash";
 import {
   ExperimentMetricDefinition,
   expandMetricGroups,
@@ -20,6 +19,7 @@ import {
 } from "shared/experiments";
 import { OrganizationSettings } from "shared/types/organization";
 import { StatsEngine } from "shared/types/stats";
+import { MetricOverride } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
@@ -37,7 +37,7 @@ import Table, {
 import TextField, { TextFieldProps } from "@/ui/TextField";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
-import { toPercentField } from "@/services/metricOverrides";
+import { decimalToPercent } from "@/services/utils";
 import { getDefaultMetricOverridesFormValue } from "./EditMetricsForm";
 import MetricSelector from "./MetricSelector";
 import styles from "./MetricsOverridesSelector.module.scss";
@@ -76,10 +76,7 @@ export default function MetricsOverridesSelector({
   statsEngine: StatsEngine;
   /** A metric whose card is outlined for a moment as it opens. */
   highlightMetricId?: string | null;
-  /**
-   * Given, these goal metrics' cards lead with their target MDE, kept in the
-   * form's `targetMDEs` apart from the other overrides.
-   */
+  /** Goal metrics whose cards lead with a target MDE, kept in `targetMDEs`. */
   targetMDEGoalIds?: string[];
 }) {
   const {
@@ -123,14 +120,14 @@ export default function MetricsOverridesSelector({
     (m) => !usedMetrics.has(m),
   );
 
-  const addOverride = (id: string) => {
-    const metricOverride = getDefaultMetricOverridesFormValue(
-      [{ id }],
-      getExperimentMetricById,
-      settings,
-    )?.[0];
-    if (metricOverride) metricOverrides.append(metricOverride);
-  };
+  const addOverride = (id: string) =>
+    metricOverrides.append(
+      getDefaultMetricOverridesFormValue(
+        [{ id }],
+        getExperimentMetricById,
+        settings,
+      )[0],
+    );
 
   return (
     <Flex direction="column" gap="3">
@@ -214,8 +211,8 @@ function OverrideCard({
   path: string;
   // A goal metric's target MDE, in percent, where the decision framework runs.
   targetMDEPath: string | null;
-  // eslint-disable-next-line
-  form: UseFormReturn<any>;
+  // Any form: `path` locates the override, wherever the host keeps it.
+  form: UseFormReturn<FieldValues>;
   metricDefinition: ExperimentMetricDefinition | null;
   allMetricDefinitions: ExperimentMetricDefinition[];
   highlighted: boolean;
@@ -229,13 +226,14 @@ function OverrideCard({
     Object.entries(values).forEach(([name, value]) =>
       form.setValue(field(name), value),
     );
-  const mo = form.watch(path);
+  const mo: MetricOverride = form.watch(path);
   const targetMDE: number | undefined = targetMDEPath
     ? form.watch(targetMDEPath)
     : undefined;
   const targetMDEOverridden = !!targetMDEPath && targetMDE !== undefined;
-  const defaultTargetMDE = toPercentField(
+  const defaultTargetMDE = decimalToPercent(
     metricDefinition?.targetMDE ?? DEFAULT_TARGET_MDE,
+    11,
   );
   const retention = !!metricDefinition && isRetentionMetric(metricDefinition);
   const minWindow =
@@ -298,9 +296,9 @@ function OverrideCard({
   const cupedOverridden = !!mo.regressionAdjustmentOverride;
   const days: number | undefined = mo.regressionAdjustmentDays;
   const daysWarning =
-    !isUndefined(days) && days > 28
+    days !== undefined && days > 28
       ? "Longer lookback periods can sometimes be useful, but also will reduce query performance and may incorporate less useful data"
-      : !isUndefined(days) && days < 7
+      : days !== undefined && days < 7
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : null;
 
@@ -344,6 +342,7 @@ function OverrideCard({
         label={label}
         placeholder={placeholder}
         append={unit ? <Text color="text-low">{unit}</Text> : undefined}
+        error={form.getFieldState(field(name), form.formState).error?.message}
         {...extra}
         {...form.register(field(name), { valueAsNumber: true, ...rules })}
       />
@@ -522,7 +521,10 @@ function OverrideCard({
                     `Default ${defaultPrior.stddev}`,
                     {
                       disabled: !bayesian,
-                      rules: { validate: (v) => !((v ?? 0) <= 0) },
+                      rules: {
+                        validate: (v) =>
+                          !((v ?? 0) <= 0) || "Must be greater than 0",
+                      },
                     },
                   )}
                 </>
@@ -572,7 +574,14 @@ function OverrideCard({
                     min: 0,
                     step: undefined,
                     disabled: !hasRegressionAdjustmentFeature,
-                    rules: { validate: (v) => v === undefined || v > 0 },
+                    // Left empty, it follows the default.
+                    rules: {
+                      validate: (v) =>
+                        v === undefined ||
+                        Number.isNaN(v) ||
+                        v > 0 ||
+                        "Must be greater than 0",
+                    },
                   },
                 )
               ) : null}

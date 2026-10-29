@@ -6,7 +6,8 @@ import clsx from "clsx";
 import { FiChevronRight } from "react-icons/fi";
 import { GrowthBook, useGrowthBook } from "@growthbook/growthbook-react";
 import { GlobalPermission } from "shared/types/organization";
-import { Permissions } from "shared/permissions";
+import { Permissions, hasSuperAdminPermission } from "shared/permissions";
+import { SuperAdmin } from "shared/validators";
 import { SegmentInterface } from "shared/types/segment";
 import { AppFeatures } from "shared/types/app-features";
 import { isCloud, isMultiOrg } from "@/services/env";
@@ -47,7 +48,7 @@ export type SidebarLinkProps = {
 export function buildSidebarLinkFilterProps(input: {
   permissionsUtils: Permissions;
   permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
-  superAdmin: boolean | undefined;
+  superAdmin: SuperAdmin | undefined;
   gb: GrowthBook<AppFeatures> | undefined;
   project: string | undefined;
   segments: SegmentInterface[];
@@ -55,7 +56,8 @@ export function buildSidebarLinkFilterProps(input: {
   return {
     permissionsUtils: input.permissionsUtils,
     permissions: input.permissions,
-    superAdmin: !!input.superAdmin,
+    // Any super admin permission includes the admin page
+    superAdmin: hasSuperAdminPermission(input.superAdmin, "view"),
     isCloud: isCloud(),
     isMultiOrg: isMultiOrg(),
     gb: input.gb,

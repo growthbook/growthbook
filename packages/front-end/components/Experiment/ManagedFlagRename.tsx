@@ -82,6 +82,7 @@ export function ManagedFlagRenameProvider({
   }, [released]);
 
   useRegisterExperimentEdit("managedFlagId", !!staged && staged !== landedId, {
+    label: "Feature Flag key",
     changes: () => (staged ? { renameManagedFlag: { to: staged } } : {}),
     onSaved: () => setLandedId(staged),
     discard: () => setStaged(null),

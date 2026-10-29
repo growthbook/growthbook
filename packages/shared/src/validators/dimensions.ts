@@ -4,6 +4,7 @@ import { ownerEmailField, ownerField, ownerInputField } from "./owner-field";
 import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
+import { GENERIC_NAME_DESCRIPTION } from "./api-field-descriptions";
 
 // Corresponds to schemas/Dimension.yaml
 export const apiDimensionValidator = namedSchema(
@@ -35,7 +36,7 @@ export type ApiDimension = z.infer<typeof apiDimensionValidator>;
 // Corresponds to payload-schemas/PostDimensionPayload.yaml
 const postDimensionBody = z
   .object({
-    name: z.string().describe("Name of the dimension"),
+    name: z.string().describe(GENERIC_NAME_DESCRIPTION),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)

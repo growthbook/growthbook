@@ -7,7 +7,10 @@ import { Revision, getApprovalFlowSettings } from "shared/enterprise";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useUser } from "@/services/UserContext";
-import { useSavedGroupReferences } from "@/hooks/useSavedGroupReferences";
+import {
+  totalSavedGroupReferences,
+  useSavedGroupReferences,
+} from "@/hooks/useSavedGroupReferences";
 import ArchiveModal from "@/components/Revision/ArchiveModal";
 import SavedGroupDraftSelectorForChanges from "@/components/SavedGroups/SavedGroupDraftSelectorForChanges";
 import SavedGroupReferencesList from "./SavedGroupReferencesList";
@@ -42,11 +45,7 @@ export default function SavedGroupArchiveModal({
   const { references, loading } = useSavedGroupReferences(
     isArchived ? null : savedGroup.id,
   );
-  const totalReferences =
-    (references?.features.length ?? 0) +
-    (references?.experiments.length ?? 0) +
-    (references?.contextualBandits.length ?? 0) +
-    (references?.savedGroups.length ?? 0);
+  const totalReferences = totalSavedGroupReferences(references);
 
   const canBypass =
     savedGroup.projects && savedGroup.projects.length > 0
@@ -94,6 +93,7 @@ export default function SavedGroupArchiveModal({
           features={references?.features ?? []}
           experiments={references?.experiments ?? []}
           contextualBandits={references?.contextualBandits ?? []}
+          interleavings={references?.interleavings ?? []}
           savedGroups={references?.savedGroups ?? []}
         />
       }

@@ -29,8 +29,6 @@ import RecommendedFactMetricsModal, {
 } from "@/components/FactTables/RecommendedFactMetricsModal";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
-import LinkButton from "@/ui/LinkButton";
 import useFactMetricFlow from "@/hooks/useFactMetricFlow";
 import {
   DropdownMenu,
@@ -67,10 +65,7 @@ function FactMetricRowMenu({
     canEdit && !metric.archived && !editDisabledReason && !!onEdit;
   const canShowDisabledEdit =
     canEdit && !metric.archived && !!editDisabledReason;
-  // Duplicate uses the same FactMetricModal as Edit, so anything that locks
-  // editing to the REST API also has to lock Duplicate — otherwise a user
-  // could open a half-broken modal pre-filled with values the picker can no
-  // longer represent.
+  // Neither editor can represent metrics restricted to REST API editing.
   const canDuplicateMenu = canDuplicate && !editDisabledReason;
   const canShowDisabledDuplicate = canDuplicate && !!editDisabledReason;
 
@@ -199,7 +194,7 @@ export default function FactMetricList({
     let canEdit = permissionsUtil.canUpdateFactMetric(factMetric, {});
     if (
       factMetric.managedBy &&
-      ["api", "config"].includes(factMetric.managedBy)
+      ["api", "dbt", "config"].includes(factMetric.managedBy)
     ) {
       canEdit = false;
     }
@@ -209,7 +204,7 @@ export default function FactMetricList({
     let canDelete = permissionsUtil.canDeleteFactMetric(factMetric);
     if (
       factMetric.managedBy &&
-      ["api", "config"].includes(factMetric.managedBy)
+      ["api", "dbt", "config"].includes(factMetric.managedBy)
     ) {
       canDelete = false;
     }
@@ -355,31 +350,7 @@ export default function FactMetricList({
           </>
         )}
         <Box ml="auto">
-          <Tooltip
-            content="You don't have permission to add Fact Metrics to this fact table."
-            enabled={!canCreateMetrics}
-          >
-            {!canCreateMetrics ? (
-              // A disabled button gets no hover, so the span shows the tooltip.
-              <span style={{ cursor: "not-allowed" }}>
-                <Button disabled style={{ pointerEvents: "none" }}>
-                  Add metric
-                </Button>
-              </span>
-            ) : factMetricFlow.newFlow ? (
-              <LinkButton
-                href={factMetricFlow.href({ factTable: factTable.id })}
-              >
-                Add metric
-              </LinkButton>
-            ) : (
-              <Button
-                onClick={() => factMetricFlow.open({ factTable: factTable.id })}
-              >
-                Add metric
-              </Button>
-            )}
-          </Tooltip>
+          {factMetricFlow.createButton({ factTable: factTable.id })}
         </Box>
       </Flex>
       {metrics.length > 0 && (
@@ -418,7 +389,7 @@ export default function FactMetricList({
                     </Link>
                   </td>
                   <td>
-                    <FactMetricTypeDisplayName type={metric.metricType} />
+                    <FactMetricTypeDisplayName metric={metric} />
                   </td>
                   {shouldShowSliceAnalysisColumn && (
                     <td>

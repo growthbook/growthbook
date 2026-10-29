@@ -219,3 +219,17 @@ export function hasNarrowedRanges(
   }
   return false;
 }
+
+// With a fallback attribute only legacy namespaces can take the experiment; a
+// multi-range one needs the experiment's hash attribute.
+export function isNamespaceSelectable(
+  namespace: Namespaces,
+  {
+    hashAttribute,
+    fallbackAttribute,
+  }: { hashAttribute: string; fallbackAttribute: string },
+): boolean {
+  if (namespace.status === "inactive") return false;
+  if (namespace.format !== "multiRange") return true;
+  return !fallbackAttribute.trim() && namespace.hashAttribute === hashAttribute;
+}

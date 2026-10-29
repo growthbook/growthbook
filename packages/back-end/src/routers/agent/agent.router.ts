@@ -50,7 +50,8 @@ router.post(
   validateRequestMiddleware({
     body: z
       .object({
-        text: z.string().min(1).max(2000),
+        // Empty asks for a reply to the assistant's last message.
+        text: z.string().max(2000),
         conversationId: z.string().min(1).optional(),
         currentPage: z.string().max(2048).optional(),
         datasourceId: z.string().min(1).optional(),

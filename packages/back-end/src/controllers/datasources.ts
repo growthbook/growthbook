@@ -1,3 +1,4 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import pick from "lodash/pick";
@@ -56,6 +57,7 @@ import {
   testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
+  assertNoEventForwarderInOrg,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
   syncEventForwarderConfigFromDatasource,
@@ -252,6 +254,9 @@ export async function postDataSources(
   }
 
   try {
+    // Before the save, so a refused forwarder leaves no orphan Data Source
+    if (eventForwarderConfig) await assertNoEventForwarderInOrg(context);
+
     // Set default event properties and queries
     settings.events = {
       experimentEvent: "$experiment_started",
@@ -327,7 +332,7 @@ export async function postManagedWarehouse(
   const context = getContextFromReq(req);
 
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canCreateDataSource({ type: "growthbook_clickhouse" })
   ) {
     context.permissions.throwPermissionError();
@@ -862,7 +867,7 @@ export async function deleteEventForwarderForDataSource(
   }
 
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canUpdateDataSourceSettings(datasource)
   ) {
     context.permissions.throwPermissionError();
@@ -879,7 +884,7 @@ export async function deleteEventForwarderForDataSource(
     });
   }
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
   ) {
     context.permissions.throwPermissionError();
@@ -1876,7 +1881,7 @@ export async function postRecreateManagedWarehouse(
   const context = getContextFromReq(req);
 
   // Escape hatch for super admins to re-generate the database and backfill data
-  if (!context.superAdmin) {
+  if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
     throw new Error(
       "You must be a super admin to recreate a Managed Warehouse datasource",
     );

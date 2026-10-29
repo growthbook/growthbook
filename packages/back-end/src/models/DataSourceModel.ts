@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
@@ -12,6 +13,8 @@ import {
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
@@ -273,6 +276,18 @@ export async function getDataSourceById(
   return context.permissions.canReadMultiProjectResource(datasource.projects)
     ? datasource
     : null;
+}
+
+// Whether it exists at all, readable or not: a reference to a deleted one
+// shouldn't read as restricted.
+export async function dataSourceExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  if (usingFileConfig()) {
+    return getConfigDatasources(context.org.id).some((d) => d.id === id);
+  }
+  return !!(await DataSourceModel.exists({ id, organization: context.org.id }));
 }
 
 export async function getDataSourcesByIds(
@@ -647,6 +662,17 @@ export async function validateExposureQueriesAndAddMissingIds(
             }" must declare at least one identifier type`,
           );
         }
+        const quotedColumns = findColumnsNeedingQuotes(
+          exposure,
+          getDataSourceSqlDialect(datasource.type)?.unquotedIdentifierFold,
+        );
+        if (quotedColumns.length) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }": ${getColumnsNeedingQuotesMessage(quotedColumns)}`,
+          );
+        }
         // The legacy identifier is frozen once the query exists, so ignore
         // whatever the client echoes back.
         exposure.userIdType =
@@ -916,6 +942,7 @@ export function toDataSourceApiInterface(
       dimensionColumns: q.dimensions,
       error: q.error,
       projects: q.projects || [],
+      ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({

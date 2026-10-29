@@ -6,7 +6,7 @@ import addMonths from "date-fns/addMonths";
 import addDays from "date-fns/addDays";
 import addHours from "date-fns/addHours";
 import formatRelative from "date-fns/formatRelative";
-import { formatInTimeZone } from "date-fns-tz";
+import { format as formatWithZone, formatInTimeZone } from "date-fns-tz";
 
 export function dateNoYear(date: string | Date): string {
   if (!date) return "";
@@ -29,6 +29,11 @@ export function datetime(date: string | Date, inTimezone?: string): string {
   return inTimezone
     ? formatInTimeZone(d, inTimezone, formatStr)
     : format(d, formatStr);
+}
+// The viewer's local time with its zone, e.g. "Oct 21, 2026 at 12:00 PM GMT+9".
+export function datetimeWithZone(date: string | Date): string {
+  if (!date) return "";
+  return formatWithZone(getValidDate(date), "MMM d, yyyy 'at' h:mm a z");
 }
 export function datetimeAt(date: string | Date, inTimezone?: string): string {
   if (!date) return "";
