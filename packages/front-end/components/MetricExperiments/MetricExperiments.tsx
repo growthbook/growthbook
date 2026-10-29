@@ -117,7 +117,8 @@ interface Props {
 
 export interface MetricExperimentData {
   id: string;
-  date: string;
+  // undefined for a stopped experiment whose last phase has no end date
+  date: string | undefined;
   name: string;
   status: ExperimentStatus;
   results?: ExperimentResultsType;
@@ -323,15 +324,21 @@ function MetricExperimentResultTab({
         );
       case "date":
         return (
-          <td className="nowrap" title={datetime(e.date)}>
-            {e.status === "running"
-              ? "started"
-              : e.status === "draft"
-                ? "created"
-                : e.status === "stopped"
-                  ? "ended"
-                  : ""}{" "}
-            {date(e.date)}
+          <td className="nowrap" title={e.date ? datetime(e.date) : undefined}>
+            {e.date ? (
+              <>
+                {e.status === "running"
+                  ? "started"
+                  : e.status === "draft"
+                    ? "created"
+                    : e.status === "stopped"
+                      ? "ended"
+                      : ""}{" "}
+                {date(e.date)}
+              </>
+            ) : e.status === "stopped" ? (
+              <em>no end date</em>
+            ) : null}
           </td>
         );
       case "status":
