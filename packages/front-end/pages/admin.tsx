@@ -14,6 +14,7 @@ import { useUser } from "@/services/UserContext";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PageHead from "@/components/Layout/PageHead";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import { GBEdit } from "@/components/Icons";
@@ -618,6 +619,7 @@ export default function Admin() {
 
   return (
     <Box className="pagecontents" p="3">
+      <PageHead breadcrumb={[{ display: "Admin" }]} />
       <Heading as="h1" size="xl" mb="4">
         GrowthBook Admin
       </Heading>
