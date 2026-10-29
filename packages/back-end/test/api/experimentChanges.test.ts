@@ -337,6 +337,28 @@ describe("applyExperimentChanges", () => {
     }
   });
 
+  it("saves values though the stored weights don't add up to 100%", async () => {
+    await seed({ withDraft: true });
+    await setExperiment({ "phases.0.variationWeights": [0.53, 0.5] });
+    await run({ flagValues: [draftValues(arms("a", "new"))] });
+    expect(await revisionRules(2)).toEqual(arms("a", "new"));
+  });
+
+  it("refuses values saved with weights that don't add up to 100%, leaving the draft", async () => {
+    await seed({ withDraft: true });
+    const before = await revisionRules(2);
+    await expect(
+      run({
+        experiment: {
+          changes: { variationWeights: [0.6, 0.6] },
+          base: { variationWeights: [0.5, 0.5] },
+        },
+        flagValues: [draftValues(arms("a", "new"))],
+      }),
+    ).rejects.toThrow("invalid_variation_weights");
+    expect(await revisionRules(2)).toEqual(before);
+  });
+
   it("writes a sparse-only change", async () => {
     await seed({ withDraft: true });
     await run({
