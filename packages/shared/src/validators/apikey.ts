@@ -64,6 +64,9 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
     ),
   projectRoles: z
     .array(projectMemberRole)
+    .refine(hasNoDuplicateProjects, {
+      message: DUPLICATE_PROJECT_ROLES_MESSAGE,
+    })
     .optional()
     .describe(
       "Org API keys and scoped PATs. Project-specific role overrides, same shape as member projectRoles",
@@ -176,7 +179,7 @@ export const apiApiKeyValidator = namedSchema(
     type: z
       .enum(["organization", "personal"])
       .describe(
-        "`organization` for a secret API key, `personal` for a personal access token",
+        "`organization` for a secret API key, `personal` for a personal access token.",
       ),
     description: z.string(),
     userId: z
@@ -198,7 +201,7 @@ export const apiApiKeyValidator = namedSchema(
     role: z
       .string()
       .optional()
-      .describe("Absent for an unscoped personal access token"),
+      .describe("Absent for an unscoped personal access token."),
     limitAccessByEnvironment: z.boolean(),
     environments: z.array(z.string()),
     additionalRoles: z.array(roleRule).optional(),
@@ -210,8 +213,8 @@ export const apiApiKeyValidator = namedSchema(
       ),
     disabled: z.boolean(),
     disabledBy: z.string().optional(),
-    dateCreated: z.string().meta({ format: "date-time" }).optional(),
-    dateUpdated: z.string().meta({ format: "date-time" }).optional(),
+    dateCreated: z.iso.datetime(),
+    dateUpdated: z.iso.datetime(),
     lastUsed: z
       .string()
       .meta({ format: "date-time" })
@@ -223,23 +226,16 @@ export const apiApiKeyValidator = namedSchema(
       .string()
       .meta({ format: "date-time" })
       .nullable()
-      .describe("Null if the key does not expire"),
+      .describe("Null if the key does not expire."),
   }),
 );
 export type ApiApiKey = z.infer<typeof apiApiKeyValidator>;
 
 const apiKeyIdParams = z.strictObject({
-  id: z.string().describe("The id of the API key or personal access token"),
+  id: z.string().describe("The id of the API key or personal access token."),
 });
 
 export const listApiKeysValidator = {
-  method: "get" as const,
-  path: "/api-keys",
-  operationId: "listApiKeys",
-  summary: "Get all API keys",
-  description:
-    "Lists the secret API keys and personal access tokens the caller can see, without their values. Needs permission to view API keys. Other members' personal access tokens are only listed with permission to manage members' tokens.",
-  tags: ["api-keys"],
   paramsSchema: z.never(),
   bodySchema: z.never(),
   querySchema: z.strictObject({
@@ -247,50 +243,38 @@ export const listApiKeysValidator = {
     type: z
       .enum(["organization", "personal"])
       .optional()
-      .describe("Only organization keys or only personal access tokens"),
+      .describe("Only organization keys or only personal access tokens."),
     userId: z
       .string()
       .optional()
-      .describe("Only personal access tokens owned by this member"),
+      .describe("Only personal access tokens owned by this member."),
   }),
-  responseSchema: z.intersection(
-    z.object({ apiKeys: z.array(apiApiKeyValidator) }),
-    apiPaginationFieldsValidator,
-  ),
 };
+export const listApiKeysResponse = z.intersection(
+  z.object({ apiKeys: z.array(apiApiKeyValidator) }),
+  apiPaginationFieldsValidator,
+);
 
 export const getApiKeyValidator = {
-  method: "get" as const,
-  path: "/api-keys/:id",
-  operationId: "getApiKey",
-  summary: "Get a single API key",
-  description:
-    "Looks up a secret API key or personal access token by id, without its value. Needs permission to view API keys. Another member's personal access token is a 404 without permission to manage members' tokens.",
-  tags: ["api-keys"],
   paramsSchema: apiKeyIdParams,
   bodySchema: z.never(),
   querySchema: z.never(),
-  responseSchema: z.strictObject({ apiKey: apiApiKeyValidator }),
 };
+export const getApiKeyResponse = z.strictObject({
+  apiKey: apiApiKeyValidator,
+});
 
 export const putApiKeyRolesValidator = {
-  method: "put" as const,
-  path: "/api-keys/:id/roles",
-  operationId: "putApiKeyRoles",
-  summary: "Replace an API key's roles",
-  description:
-    "Replaces an organization API key's roles and environment limits with the body. The key's value, description, expiry and disabled state are left alone. Needs permission to edit and create API keys. A personal access token id is a 400, or a 404 when it's another member's token the caller can't read. A key can't change its own roles, and can't grant `admin`, or a role that can manage members, custom roles, API keys, organization settings or Projects. These refusals are checked before comparing with the key, so a body naming one is refused even when the key already has it (for example, an existing admin key).",
-  tags: ["api-keys"],
-  confirmation: ["access.apiKeys"] as const,
-  confirmationInHandler: true,
   paramsSchema: apiKeyIdParams,
   bodySchema: z.strictObject({
     role: z.string().min(1),
     limitAccessByEnvironment: z.boolean(),
     environments: z
       .array(z.string())
-      .describe("Each id must exist, even when the limit is off"),
-    additionalRoles: z.array(roleRule).describe("`[]` for none"),
+      .describe(
+        "Stored even when the limit is off. Like every role and Project here, each id is checked against the organization when the request changes the key.",
+      ),
+    additionalRoles: z.array(roleRule).describe("`[]` for none."),
     projectRoles: z
       .array(apiProjectRoleRule)
       .refine(hasNoDuplicateProjects, {
@@ -299,19 +283,22 @@ export const putApiKeyRolesValidator = {
       .describe("`[]` for none. At most one rule per Project."),
     actAs: actAsValidator
       .optional()
-      .describe("Leave out to keep the key's current setting"),
+      .describe("Leave out to keep the key's current setting."),
     dryRun: z
       .boolean()
       .optional()
-      .describe("Run every check and return the result without saving it"),
+      .describe("Run every check and return the result without saving it."),
   }),
   querySchema: z.never(),
-  responseSchema: z.strictObject({
-    apiKey: apiApiKeyValidator,
-    changed: z
-      .boolean()
-      .describe(
-        "False when the key already had these roles. With `dryRun`, whether saving would change it.",
-      ),
-  }),
 };
+export const putApiKeyRolesResponse = z.strictObject({
+  apiKey: apiApiKeyValidator,
+  changed: z
+    .boolean()
+    .describe(
+      "False when the key already had these roles. With `dryRun`, whether saving would change it.",
+    ),
+});
+export type ListApiKeysResponse = z.infer<typeof listApiKeysResponse>;
+export type GetApiKeyResponse = z.infer<typeof getApiKeyResponse>;
+export type PutApiKeyRolesResponse = z.infer<typeof putApiKeyRolesResponse>;

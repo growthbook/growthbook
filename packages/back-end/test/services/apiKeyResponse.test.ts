@@ -1,5 +1,15 @@
 import { ApiKeyInterface } from "shared/types/apikey";
-import { toApiKey, toApiKeys } from "back-end/src/services/apiKeyResponse";
+import {
+  loadApiKeys,
+  toApiKey,
+  toApiKeys,
+} from "back-end/src/services/apiKeyResponse";
+import { getUsersByIds } from "back-end/src/models/UserModel";
+import { ReqContext } from "back-end/types/request";
+
+jest.mock("back-end/src/models/UserModel", () => ({
+  getUsersByIds: jest.fn(),
+}));
 
 const base: ApiKeyInterface = {
   id: "key_1",
@@ -134,5 +144,42 @@ describe("toApiKeys", () => {
     const [apiKey] = toApiKeys([pat], new Set(), emails);
     expect(apiKey).not.toHaveProperty("userEmail");
     expect(apiKey.userId).toBe("u_1");
+  });
+});
+
+describe("loadApiKeys", () => {
+  const getUsers = getUsersByIds as jest.MockedFunction<typeof getUsersByIds>;
+  const context = (memberIds: string[]) =>
+    ({
+      org: { members: memberIds.map((id) => ({ id })) },
+    }) as unknown as ReqContext;
+
+  beforeEach(() => {
+    getUsers.mockReset();
+    getUsers.mockImplementation(async (ids) =>
+      ids.map((id) => ({
+        id,
+        email: `${id}@example.com`,
+        name: id,
+        verified: true,
+      })),
+    );
+  });
+
+  it("looks up only current members' emails", async () => {
+    const formerPat = { ...pat, id: "key_former", userId: "u_gone" };
+    const apiKeys = await loadApiKeys(context(["u_1"]), [base, pat, formerPat]);
+    expect(getUsers).toHaveBeenCalledWith(["u_1"]);
+    expect(apiKeys.map((k) => k.userEmail)).toEqual([
+      undefined,
+      "u_1@example.com",
+      undefined,
+    ]);
+    expect(apiKeys[2].userId).toBe("u_gone");
+  });
+
+  it("skips the lookup when no key has a member owner", async () => {
+    await loadApiKeys(context([]), [base, pat]);
+    expect(getUsers).not.toHaveBeenCalled();
   });
 });

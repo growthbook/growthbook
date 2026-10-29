@@ -3,8 +3,12 @@ import omit from "lodash/omit";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import {
+  ApiApiKey,
   apiKeySchema,
   ConfirmRule,
+  GetApiKeyResponse,
+  ListApiKeysResponse,
+  PutApiKeyRolesResponse,
   OAuthTokenPermissions,
 } from "shared/validators";
 import {
@@ -38,6 +42,15 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  apiKeyApiSpec,
+  getApiKeyEndpoint,
+  listApiKeysEndpoint,
+  putApiKeyRolesEndpoint,
+} from "back-end/src/api/specs/api-key.spec";
+import { applyPagination } from "back-end/src/util/handler";
+import { loadApiKeys, toApiKey } from "back-end/src/services/apiKeyResponse";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { requireConfirmation } from "back-end/src/services/confirmations";
 import { MakeModelClass } from "./BaseModel";
@@ -74,12 +87,62 @@ const BaseClass = MakeModelClass({
     },
   ],
   skipDateUpdatedFields: ["lastUsed"],
+  apiConfig: {
+    modelKey: "apiKeys",
+    openApiSpec: apiKeyApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...listApiKeysEndpoint,
+        reqHandler: async (req): Promise<ListApiKeysResponse> => {
+          const { type, userId } = req.query;
+          const keys = (await req.context.models.apiKeys.getApiKeysForApi())
+            .filter(
+              (key) =>
+                (!type || (type === "personal") === !!key.userId) &&
+                (!userId || key.userId === userId),
+            )
+            .sort((a, b) => (a.id ?? "").localeCompare(b.id ?? ""));
+          const { filtered, returnFields } = applyPagination(keys, req.query);
+          return {
+            apiKeys: await loadApiKeys(req.context, filtered),
+            ...returnFields,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getApiKeyEndpoint,
+        reqHandler: async (req): Promise<GetApiKeyResponse> => {
+          const key = await req.context.models.apiKeys.getApiKeyForApi(
+            req.params.id,
+          );
+          const [apiKey] = await loadApiKeys(req.context, [key]);
+          return { apiKey };
+        },
+      }),
+      defineCustomApiHandler({
+        ...putApiKeyRolesEndpoint,
+        reqHandler: async (req): Promise<PutApiKeyRolesResponse> => {
+          const { dryRun, ...roles } = req.body;
+          const { key, changed } =
+            await req.context.models.apiKeys.replaceRolesForApi(
+              req.params.id,
+              roles,
+              !!dryRun,
+            );
+          const [apiKey] = await loadApiKeys(req.context, [key]);
+          return { apiKey, changed };
+        },
+      }),
+    ],
+  },
   defaultValues: {
     limitAccessByEnvironment: false,
     environments: [],
     lastUsed: null,
   },
 });
+
+type SaveOptions = { dryRun?: boolean; guard?: Record<string, unknown> };
 
 const toTime = (d: ExpiresAt) => (d ? new Date(d).getTime() : null);
 
@@ -631,7 +694,7 @@ export class ApiKeyModel extends BaseClass {
       expiresAt?: Date | null;
       confirmRules?: ConfirmRule[] | null;
     },
-    { dryRun = false }: { dryRun?: boolean } = {},
+    options: SaveOptions = {},
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
@@ -668,7 +731,7 @@ export class ApiKeyModel extends BaseClass {
           ...(expiresAt !== undefined && { expiresAt }),
           ...(confirmRules !== undefined && { confirmRules }),
         },
-        dryRun,
+        options,
       );
     }
 
@@ -718,22 +781,26 @@ export class ApiKeyModel extends BaseClass {
         ...(description !== undefined && { description }),
         ...(expiresAt !== undefined && { expiresAt }),
       },
-      dryRun,
+      options,
     );
   }
 
-  // A dry run runs the same checks as a save, and writes nothing.
+  // A dry run runs the same checks as a save, and writes nothing. A guard
+  // makes the write fail with a 409 if the key changed since it was read.
   private async saveSecretApiKeyPermissions(
     doc: ApiKeyInterface,
     updates: Parameters<ApiKeyModel["_updateOne"]>[1],
-    dryRun: boolean,
+    { dryRun, guard }: SaveOptions,
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     if (dryRun) {
       const after = { ...doc, ...updates };
       await this.customValidation(after, doc);
       return { before: doc, after };
     }
-    const after = await this._updateOne(doc, updates, { forceCanUpdate: true });
+    const after = await this._updateOne(doc, updates, {
+      forceCanUpdate: true,
+      guard,
+    });
     return { before: doc, after };
   }
 
@@ -1033,6 +1100,10 @@ export class ApiKeyModel extends BaseClass {
 
   // A 403 rather than an empty list, so a caller can tell "no keys" from "no
   // permission". Other members' PATs stay hidden by canRead.
+  protected toApiInterface(doc: ApiKeyInterface): ApiApiKey {
+    return toApiKey(doc);
+  }
+
   private assertCanViewApiKeys() {
     if (!this.context.permissions.canViewApiKeys()) {
       this.context.permissions.throwPermissionError(
@@ -1064,7 +1135,7 @@ export class ApiKeyModel extends BaseClass {
     const key = await this.findSecretApiKey(id);
     if (!key) {
       this.context.throwNotFoundError(
-        "Could not find an API key or personal access token with that id",
+        "Could not find an API key or personal access token with that id.",
       );
     }
     return key;
@@ -1096,7 +1167,7 @@ export class ApiKeyModel extends BaseClass {
     const key = await this.findSecretApiKey(id);
     if (!key) {
       this.context.throwNotFoundError(
-        "Could not find an organization API key with that id",
+        "Could not find an organization API key with that id.",
       );
     }
     if (key.userId) {
@@ -1137,9 +1208,12 @@ export class ApiKeyModel extends BaseClass {
       links: [],
       pin: key.dateUpdated,
     });
+    // Guarded on the version the checks and confirmation saw, so a key
+    // deleted or edited since then is a 404 or 409, with nothing audited.
     const { before, after } = await this.updateSecretApiKeyPermissions(
       id,
       updates,
+      { guard: { dateUpdated: key.dateUpdated } },
     );
     await this.context.auditLog({
       event: "apiKey.update",

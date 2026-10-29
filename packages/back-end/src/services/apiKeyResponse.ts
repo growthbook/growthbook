@@ -35,8 +35,8 @@ export function toApiKey(key: ApiKeyInterface, userEmail?: string): ApiApiKey {
     ...(!key.userId && { actAs: key.actAs ?? "system" }),
     disabled: !!key.disabled,
     ...(key.disabledBy && { disabledBy: key.disabledBy }),
-    ...(key.dateCreated && { dateCreated: key.dateCreated.toISOString() }),
-    ...(key.dateUpdated && { dateUpdated: key.dateUpdated.toISOString() }),
+    dateCreated: key.dateCreated.toISOString(),
+    dateUpdated: key.dateUpdated.toISOString(),
     lastUsed: iso(key.lastUsed),
     expiresAt: iso(key.expiresAt),
   };
