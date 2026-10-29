@@ -7,7 +7,7 @@ type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;
   icon: string;
   // Logos with black or white parts ship an `${icon}-dark.svg` for dark mode
-  hasDarkIcon?: boolean;
+  hasDarkIcon: boolean;
   // Services with a self-serve importer link to their import page
   path?: string;
   // Services without one open a "request migration help" modal instead

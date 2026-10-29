@@ -17,6 +17,7 @@ const supportedServices = [
   {
     service: "Statsig",
     icon: "statsig",
+    hasDarkIcon: false,
     path: "statsig",
     text: "Import your projects, features, environments, and metrics from Statsig.",
   },
@@ -39,6 +40,7 @@ const upcomingServices = [
     service: "Optimizely",
     slug: "optimizely",
     icon: "optimizely",
+    hasDarkIcon: false,
     text: "Migrate your Feature Experimentation flags, audiences, and experiments.",
   },
   {
@@ -52,6 +54,7 @@ const upcomingServices = [
     service: "Split (Harness FME)",
     slug: "split",
     icon: "split",
+    hasDarkIcon: false,
     text: "Migrate your feature flags, segments, and targeting rules.",
   },
   {
@@ -79,18 +82,21 @@ const upcomingServices = [
     service: "Flagsmith",
     slug: "flagsmith",
     icon: "flagsmith",
+    hasDarkIcon: false,
     text: "Migrate your flags, segments, and multivariate tests.",
   },
   {
     service: "ConfigCat",
     slug: "configcat",
     icon: "configcat",
+    hasDarkIcon: false,
     text: "Migrate your settings, targeting rules, and percentage rollouts.",
   },
   {
     service: "Firebase Remote Config",
     slug: "firebase",
     icon: "firebase",
+    hasDarkIcon: false,
     text: "Migrate your parameters, conditions, and A/B tests.",
   },
 ];
