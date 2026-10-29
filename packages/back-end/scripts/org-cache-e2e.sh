@@ -43,7 +43,7 @@ fail() {
   exit 1
 }
 
-docker run -d --rm --name "$CONTAINER" -p "$MONGO_PORT:27017" mongo:7 >/dev/null
+docker run -d --rm --name "$CONTAINER" -p "127.0.0.1:$MONGO_PORT:27017" mongo:7 >/dev/null
 for _ in $(seq 1 120); do
   docker exec "$CONTAINER" mongosh --quiet --eval 'db.runCommand({ping:1}).ok' >/dev/null 2>&1 && break
   [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER" 2>/dev/null)" = true ] || fail "mongo container exited"
@@ -131,14 +131,15 @@ has_attr viaApp || fail "app write not visible: $(attrs)"
 
 echo "2b. REST write is visible on the next GET"
 rest POST /attributes '{"property":"viaRest","datatype":"string"}' >/dev/null
+# This GET caches a fresh copy, which may then be reused for MAX_AGE_MS. The
+# clock starts before it, so step 3 can't count from after the copy was loaded.
+START=$(date +%s)
 has_attr viaRest || fail "REST write not visible: $(attrs)"
 
 echo "3. direct DB edit is stale until max age, then fresh"
-# mongosh through docker exec takes a second or two, so the stamp is read
-# before the cached copy is refreshed and the clock starts.
+# The copy cached in step 2b was loaded after START, so it can't expire before
+# START + MAX_AGE_MS. The edit goes straight to Mongo and leaves the stamp alone.
 STAMP_BEFORE=$(mongo 'db.organizations.findOne({}, {changeStamp: 1}).changeStamp')
-START=$(date +%s)
-attrs >/dev/null # cache a copy now; it may be reused for MAX_AGE_MS
 # shellcheck disable=SC2016 # $push is a Mongo operator, not a shell variable
 mongo 'db.organizations.updateOne({}, {$push: {"settings.attributeSchema": {property: "viaDb", datatype: "string"}}})' >/dev/null
 STAMP_AFTER=$(mongo 'db.organizations.findOne({}, {changeStamp: 1}).changeStamp')
