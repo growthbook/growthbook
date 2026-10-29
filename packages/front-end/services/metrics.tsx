@@ -48,9 +48,8 @@ export function resolveFactMetricCreation(
   embedded = false,
 ): "pending" | "page" | "fact-table" | "inline" {
   if (!ready) return "pending";
-  if (!embedded) return "page";
   if (!hasFactTable) return "fact-table";
-  return "inline";
+  return embedded ? "inline" : "page";
 }
 
 export function duplicateFactMetric(

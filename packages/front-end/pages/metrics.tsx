@@ -35,6 +35,9 @@ const MetricsPage = (): React.ReactElement => {
           <p>
             Metrics are defined with SQL on top of your data warehouse. Use them
             as goals and guardrails in experiments to measure success.
+            {hasDatasource &&
+              factMetricFlow.creation().mode === "fact-table" &&
+              " A fact table provides the shared SQL query for your Fact Metrics."}
           </p>
           <Box mt="3">
             {!hasDatasource ? (

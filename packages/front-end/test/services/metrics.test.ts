@@ -453,7 +453,7 @@ describe("fact metric creation flow", () => {
   it.each([
     [false, false, "pending"],
     [false, true, "pending"],
-    [true, false, "page"],
+    [true, false, "fact-table"],
     [true, true, "page"],
   ] as const)(
     "resolves ready=%s, fact table=%s to %s",
