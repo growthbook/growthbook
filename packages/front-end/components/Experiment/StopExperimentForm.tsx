@@ -172,40 +172,38 @@ const StopExperimentForm: FC<{
       : visual
         ? "visual changes"
         : "URL redirects";
+  const pageStops = visual && !redirects ? "stop showing" : "stop";
+  const pageSeen =
+    visual && redirects
+      ? "see the original pages"
+      : visual
+        ? "see the page without them"
+        : "stay on the original URL";
+  const oneFlag = flags.length === 1;
   const withoutRollout =
     flags.length || pageChanges ? (
       <>
-        {flags.length === 1 ? (
+        {flags.length ? (
           <>
-            Without a Temporary Rollout, the linked Feature Flag{" "}
-            <strong>{flags[0]}</strong> stops serving this {noun} when you
-            submit. For users in the {noun}, the flag then checks the rules
-            below this {noun}&apos;s rule, in order. Users who match none of
-            them get the flag&apos;s default value.
-          </>
-        ) : flags.length > 1 ? (
-          <>
-            Without a Temporary Rollout, the {flags.length} linked Feature Flags
-            stop serving this {noun} when you submit. For users in the {noun},
-            each flag then checks the rules below this {noun}&apos;s rule, in
-            order. Users who match none of them get that flag&apos;s default
-            value.
-          </>
-        ) : null}
-        {pageChanges ? (
-          <>
-            {flags.length ? " " : ""}
-            {flags.length
-              ? `The ${noun}'s ${pageKinds} stop${visual && !redirects ? " showing" : ""} too.`
-              : `Without a Temporary Rollout, this ${noun}'s ${pageKinds} stop${visual && !redirects ? " showing" : ""} when you submit.`}{" "}
-            {flags.length ? "Users" : `Users in the ${noun}`}{" "}
-            {visual && redirects
-              ? "see the original pages."
-              : visual
-                ? "see the page without them."
-                : "stay on the original URL."}
+            Without a Temporary Rollout,{" "}
+            {oneFlag ? (
+              <>
+                the linked Feature Flag <strong>{flags[0]}</strong> stops
+              </>
+            ) : (
+              `the ${flags.length} linked Feature Flags stop`
+            )}{" "}
+            serving this {noun} when you submit. For users in the {noun},{" "}
+            {oneFlag ? "the" : "each"} flag then checks the rules below this{" "}
+            {noun}&apos;s rule, in order. Users who match none of them get{" "}
+            {oneFlag ? "the" : "that"} flag&apos;s default value.
           </>
         ) : null}
+        {pageChanges
+          ? flags.length
+            ? ` The ${noun}'s ${pageKinds} ${pageStops} too. Users ${pageSeen}.`
+            : `Without a Temporary Rollout, this ${noun}'s ${pageKinds} ${pageStops} when you submit. Users in the ${noun} ${pageSeen}.`
+          : null}
       </>
     ) : null;
 
@@ -436,8 +434,8 @@ const StopExperimentForm: FC<{
                     helpText={
                       // Body size, past the legacy field's small print.
                       <Text size="md" color="text-mid">
-                        Served to every user who meets the{" "}
-                        {isBandit ? "Bandit" : "experiment"}&apos;s targeting.
+                        Served to every user who meets the {noun}&apos;s
+                        targeting.
                       </Text>
                     }
                     placeholder="Pick one..."

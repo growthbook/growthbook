@@ -125,7 +125,7 @@ function useShipLean(
     };
   }
 
-  const goals = expandMetricGroups(experiment.goalMetrics ?? [], metricGroups);
+  const goals = expandMetricGroups(experiment.goalMetrics, metricGroups);
   if (goals.length !== 1) return null;
   const metric = getExperimentMetricById(goals[0]);
   const winnerId = clearLeader({
@@ -217,25 +217,15 @@ const cautionsFor = (
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 
-function useGoalMetricCount(experiment: ExperimentInterfaceStringDates) {
-  const { metricGroups } = useDefinitions();
-  return expandMetricGroups(experiment.goalMetrics, metricGroups).length;
-}
-
 // What each decided variation's goal and guardrail results came to, one line
 // each: what a default decision falls back from.
-function useVariationOutcomes(
+function variationOutcomes(
   experiment: ExperimentInterfaceStringDates,
-  status: ExperimentResultStatusData,
+  status: Decision,
+  names: Record<string, JSX.Element>,
+  goalIds: string[],
+  guardrailIds: string[],
 ): Record<string, JSX.Element> {
-  const { metricGroups } = useDefinitions();
-  if (!isDecision(status)) return {};
-  const goalIds = expandMetricGroups(experiment.goalMetrics, metricGroups);
-  const guardrailIds = expandMetricGroups(
-    experiment.guardrailMetrics ?? [],
-    metricGroups,
-  );
-  const names = variationLabels(experiment);
   const summaries = experiment.analysisSummary?.resultsStatus?.variations ?? [];
   return Object.fromEntries(
     status.variations.flatMap(({ variationId }) => {
@@ -308,6 +298,38 @@ const tieRow = (
   };
 };
 
+// What a recommendation's details say, the same in the banner and the stop
+// form, with the lean and labels its headline reads.
+function useDecisionDetails(
+  experiment: ExperimentInterfaceStringDates,
+  status: ExperimentResultStatusData,
+  decisionCriteria: DecisionCriteriaData,
+) {
+  const lean = useShipLean(experiment, status);
+  const suspicious = useSuspiciousResults(experiment, status);
+  const { metricGroups } = useDefinitions();
+  const names = variationLabels(experiment);
+  const goalIds = expandMetricGroups(experiment.goalMetrics, metricGroups);
+  const guardrailIds = expandMetricGroups(
+    experiment.guardrailMetrics ?? [],
+    metricGroups,
+  );
+  return {
+    lean,
+    names,
+    details: {
+      variationNames: names,
+      criteriaName: decisionCriteria.name,
+      goalMetricCount: goalIds.length,
+      outcomes: isDecision(status)
+        ? variationOutcomes(experiment, status, names, goalIds, guardrailIds)
+        : {},
+      tie: isDecision(status) ? tieRow(status, lean, names) : null,
+      cautions: cautionsFor(suspicious, names),
+    },
+  };
+}
+
 /** The variation a ship recommends: its only winner, or the tiebreaker's pick. */
 export function useRecommendedShip(
   experiment: ExperimentInterfaceStringDates,
@@ -365,13 +387,15 @@ function RecommendationLine({
   experiment,
   status,
   decided,
+  lean,
+  names,
 }: {
   experiment: ExperimentInterfaceStringDates;
   status: Decision;
   decided: VariationWithIndex[];
+  lean: ShipLean | null;
+  names: Record<string, JSX.Element>;
 }) {
-  const lean = useShipLean(experiment, status);
-  const names = variationLabels(experiment);
   const labels = decided.map((v) => names[v.id]);
   const shipping = shipped(decided, lean).map((id) => names[id]);
   const control = getLatestPhaseVariations(experiment)[0];
@@ -423,10 +447,11 @@ export default function RunningExperimentDecisionBanner({
 }: Props) {
   const [showDecisionCriteria, setShowDecisionCriteria] = useState(false);
   const blockedReason = useEditsBlockedReason();
-  const lean = useShipLean(experiment, runningExperimentStatus);
-  const suspicious = useSuspiciousResults(experiment, runningExperimentStatus);
-  const outcomes = useVariationOutcomes(experiment, runningExperimentStatus);
-  const goalMetricCount = useGoalMetricCount(experiment);
+  const { lean, names, details } = useDecisionDetails(
+    experiment,
+    runningExperimentStatus,
+    decisionCriteria,
+  );
 
   const decided = decidedVariations(experiment, runningExperimentStatus);
   if (!isDecision(runningExperimentStatus) || !decided.length) return null;
@@ -439,22 +464,15 @@ export default function RunningExperimentDecisionBanner({
           experiment={experiment}
           status={runningExperimentStatus}
           decided={decided}
+          lean={lean}
+          names={names}
         />
       }
       details={
         <ExperimentDecisionExplanation
           status={runningExperimentStatus}
           variations={runningExperimentStatus.variations}
-          variationNames={variationLabels(experiment)}
-          criteriaName={decisionCriteria.name}
-          goalMetricCount={goalMetricCount}
-          outcomes={outcomes}
-          tie={tieRow(
-            runningExperimentStatus,
-            lean,
-            variationLabels(experiment),
-          )}
-          cautions={cautionsFor(suspicious, variationLabels(experiment))}
+          {...details}
           showDecisionCriteria={showDecisionCriteria}
           setShowDecisionCriteria={setShowDecisionCriteria}
           showDecisionCriteriaLink={showDecisionCriteriaLink}
@@ -493,9 +511,8 @@ export default function RunningExperimentDecisionBanner({
 }
 
 // A variation's label, in a run of text.
-const inline = (label: JSX.Element | undefined, key?: string) => (
+const inline = (label: JSX.Element | undefined) => (
   <span
-    key={key}
     style={{
       display: "inline-flex",
       verticalAlign: "bottom",
@@ -530,15 +547,15 @@ export function DecisionRecommendation({
   runningExperimentStatus: ExperimentResultStatusData;
   decisionCriteria: DecisionCriteriaData;
 }) {
-  const lean = useShipLean(experiment, runningExperimentStatus);
-  const suspicious = useSuspiciousResults(experiment, runningExperimentStatus);
-  const outcomes = useVariationOutcomes(experiment, runningExperimentStatus);
-  const goalMetricCount = useGoalMetricCount(experiment);
+  const { lean, names, details } = useDecisionDetails(
+    experiment,
+    runningExperimentStatus,
+    decisionCriteria,
+  );
   const decided = decidedVariations(experiment, runningExperimentStatus);
   if (!isDecision(runningExperimentStatus) || !decided.length) return null;
   const { status } = runningExperimentStatus;
 
-  const names = variationLabels(experiment);
   const labels = decided.map((v) => names[v.id]);
   const shipping = shipped(decided, lean).map((id) => names[id]);
   const control = getLatestPhaseVariations(experiment)[0];
@@ -578,12 +595,7 @@ export function DecisionRecommendation({
       <ExperimentDecisionExplanation
         status={runningExperimentStatus}
         variations={runningExperimentStatus.variations}
-        variationNames={names}
-        criteriaName={decisionCriteria.name}
-        goalMetricCount={goalMetricCount}
-        outcomes={outcomes}
-        tie={tieRow(runningExperimentStatus, lean, names)}
-        cautions={cautionsFor(suspicious, names)}
+        {...details}
         showDecisionCriteria={false}
         setShowDecisionCriteria={() => {}}
         showDecisionCriteriaLink={false}

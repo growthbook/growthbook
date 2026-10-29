@@ -1006,8 +1006,8 @@ export function getPresetDecisionCriteriaForOrg(
 // Pure mapping of a snapshot dimension's variations to their tiebreaker-metric
 // relative lift, keyed by the snapshot's own variation ids (index-aligned with
 // the analysis results). Callers own loading the snapshot/metric.
-// `variationIds` names each of `variations` (index-aligned) as the decision
-// status does: the experiment's latest-phase variation ids.
+// `variationIds` names each of `variations` as the decision status does;
+// `snapshotColumnVariationIds` gives them for a snapshot's columns.
 export function buildTiebreakerLiftMap({
   variations,
   variationIds,
@@ -1050,17 +1050,15 @@ export function clearLeader({
   metricId: string;
   inverse?: boolean;
 }): string | null {
-  const intervals = tiedVariationIds.map((id) => {
+  const intervals = tiedVariationIds.flatMap((id) => {
     const ci = variations[variationIds.indexOf(id)]?.metrics?.[metricId]?.ci;
-    return ci ? { id, ci: inverse ? [-ci[1], -ci[0]] : ci } : null;
+    return ci ? [{ id, ci: inverse ? [-ci[1], -ci[0]] : ci }] : [];
   });
-  if (intervals.length < 2 || intervals.some((v) => v === null)) return null;
-  const leader = intervals.find(
-    (v) =>
-      v &&
-      intervals.every(
-        (other) => other === v || (other && v.ci[0] > other.ci[1]),
-      ),
+  if (intervals.length < 2 || intervals.length < tiedVariationIds.length) {
+    return null;
+  }
+  const leader = intervals.find((v) =>
+    intervals.every((other) => other === v || v.ci[0] > other.ci[1]),
   );
   return leader?.id ?? null;
 }
