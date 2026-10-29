@@ -1,5 +1,6 @@
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { FactTableInterface } from "shared/types/fact-table";
+import type { EventForwarderStatus } from "shared/types/event-forwarder";
 import * as SharedUtil from "shared/util";
 import {
   ensureEventForwarderEventsFactTable,
@@ -523,13 +524,16 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
       mockedCreateFactTable.mockResolvedValue(eventsFactTable() as never);
     });
 
-    async function sync(sinkType: "bigquery" | "snowflake" | "databricks") {
+    async function sync(
+      sinkType: "bigquery" | "snowflake" | "databricks",
+      status: EventForwarderStatus,
+    ) {
       const ctx = context();
       ctx.models.eventForwarderConfigs.getAll.mockResolvedValue([
         {
           datasourceId: "ds_1",
           sinkType,
-          status: "error",
+          status,
           config: "encrypted",
         },
       ]);
@@ -542,7 +546,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
         tablePrefix: "gb",
       });
 
-      await sync("bigquery");
+      await sync("bigquery", "pending");
 
       expect(mockedCreateFactTable).toHaveBeenCalledWith(
         expect.anything(),
@@ -555,7 +559,18 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
     it("skips an empty failed BigQuery configuration", async () => {
       mockedDecrypt.mockReturnValue({ dataset: "  ", tablePrefix: "gb" });
 
-      await sync("bigquery");
+      await sync("bigquery", "error");
+
+      expect(mockedCreateFactTable).not.toHaveBeenCalled();
+    });
+
+    it("skips a failed BigQuery configuration even with a saved destination", async () => {
+      mockedDecrypt.mockReturnValue({
+        dataset: "analytics_123",
+        tablePrefix: "gb",
+      });
+
+      await sync("bigquery", "error");
 
       expect(mockedCreateFactTable).not.toHaveBeenCalled();
     });
@@ -567,7 +582,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
         tablePrefix: "GB",
       });
 
-      await sync("snowflake");
+      await sync("snowflake", "pending");
 
       expect(mockedCreateFactTable).toHaveBeenCalledWith(
         expect.anything(),
@@ -584,7 +599,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
         tablePrefix: "GB",
       });
 
-      await sync("snowflake");
+      await sync("snowflake", "error");
 
       expect(mockedCreateFactTable).not.toHaveBeenCalled();
     });
@@ -596,7 +611,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
         tablePrefix: "GB",
       });
 
-      await sync("snowflake");
+      await sync("snowflake", "error");
 
       expect(mockedCreateFactTable).not.toHaveBeenCalled();
     });
@@ -608,7 +623,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
         tablePrefix: "gb",
       });
 
-      await sync("databricks");
+      await sync("databricks", "pending");
 
       expect(mockedCreateFactTable).toHaveBeenCalledWith(
         expect.anything(),
@@ -625,7 +640,7 @@ WHERE received_at BETWEEN '{{startDate}}' AND '{{endDate}}'`;
         tablePrefix: "gb",
       });
 
-      await sync("databricks");
+      await sync("databricks", "error");
 
       expect(mockedCreateFactTable).not.toHaveBeenCalled();
     });

@@ -240,7 +240,15 @@ export async function syncEventForwarderEventsFactTableMetadata(
       datasource,
     );
     if (!factTable) {
-      if (!eventForwarderHasDestination(eventForwarderConfig)) {
+      // `status: "error"` means the last provisioning attempt failed, so the
+      // saved destination (or warehouse objects it names) may be stale or
+      // never actually created. Creating the fact table now would lock in
+      // broken SQL that a later successful retry can't fix (`ensure...`
+      // below returns the existing table as soon as one exists).
+      if (
+        eventForwarderConfig.status === "error" ||
+        !eventForwarderHasDestination(eventForwarderConfig)
+      ) {
         continue;
       }
       try {

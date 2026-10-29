@@ -322,6 +322,10 @@ const bigquerySteps: StepBuilder<"bigquery"> = (
   const projectId = field(p, "projectId", "YOUR_PROJECT");
   const sa = `growthbook@${projectId}.iam.gserviceaccount.com`;
   const member = `--member="serviceAccount:${sa}"`;
+  // GrowthBook queries `defaultProject`, which can differ from the service
+  // account's own home project (`projectId`). The write-access dataset must
+  // live there too, or the grant lands in the wrong project.
+  const destinationProjectId = field(p, "defaultProject", projectId);
   // Falls back to the form's own default only when the destination isn't
   // known yet; once chosen, the grant must match exactly or the write test fails.
   const efDataset =
@@ -360,10 +364,10 @@ gcloud projects add-iam-policy-binding ${projectId} \\
       title: "Grant write access for Event Forwarder",
       description:
         "Create the dataset in the same region as your event data (BigQuery cannot join across regions), then grant BigQuery Data Editor on it.",
-      code: `CREATE SCHEMA \`${projectId}\`.${efDataset}
+      code: `CREATE SCHEMA \`${destinationProjectId}\`.${efDataset}
   OPTIONS (location = "<region>");
 GRANT \`roles/bigquery.dataEditor\`
-  ON SCHEMA \`${projectId}\`.${efDataset}
+  ON SCHEMA \`${destinationProjectId}\`.${efDataset}
   TO "serviceAccount:${sa}";`,
     });
   }
