@@ -74,18 +74,37 @@ function TruncatedName({ name, current }: { name: string; current: boolean }) {
   // The text itself truncates; the span around it is the tooltip's trigger.
   const ref = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
+  const timer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const isTruncated = () => {
+    const el = ref.current;
+    return !!el && el.scrollWidth > el.clientWidth;
+  };
   return (
     <Tooltip
       content={name}
       side="right"
       delayDuration={NAME_TOOLTIP_DELAY_MS}
       open={open}
-      onOpenChange={(next) => {
-        const el = ref.current;
-        setOpen(next && !!el && el.scrollWidth > el.clientWidth);
-      }}
+      onOpenChange={(next) => setOpen(next && isTruncated())}
     >
-      <span className={styles.projectOptionName}>
+      <span
+        className={styles.projectOptionName}
+        // Opened on entering, not by the tooltip's own pointer handling: while
+        // the search field keeps focus, the menu cancels pointer moves
+        // (keepSearchFocus), which the tooltip's trigger then ignores.
+        onPointerEnter={(e) => {
+          if (e.pointerType === "touch") return;
+          window.clearTimeout(timer.current);
+          timer.current = window.setTimeout(() => {
+            if (isTruncated()) setOpen(true);
+          }, NAME_TOOLTIP_DELAY_MS);
+        }}
+        onPointerLeave={() => {
+          window.clearTimeout(timer.current);
+          setOpen(false);
+        }}
+      >
         <Text ref={ref} weight={current ? "semibold" : "regular"} truncate>
           {name}
         </Text>
