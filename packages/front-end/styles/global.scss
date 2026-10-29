@@ -236,7 +236,8 @@ html.app-drawer-open body {
 
 // From the header to a wrapped page's first item. Things that line up with
 // that first item (the design system's and the config page's sidebars) read
-// it too.
+// it too. 20px is the design's: Radix's scale has no step between 16px
+// (--space-4) and 24px (--space-5), so it's a raw value.
 :root {
   --page-top-padding: 20px;
 }
