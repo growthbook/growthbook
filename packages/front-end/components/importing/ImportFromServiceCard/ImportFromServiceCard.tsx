@@ -4,11 +4,13 @@ import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 
 type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;
   icon: string;
-  accentColor: string;
+  // Logos with black or white parts ship an `${icon}-dark.svg` for dark mode
+  hasDarkIcon: boolean;
   // Services with a self-serve importer link to their import page
   path?: string;
   // Services without one open a "request migration help" modal instead
@@ -19,10 +21,13 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
   icon,
   service,
   path,
-  accentColor,
+  hasDarkIcon,
   onRequest,
   children,
 }) => {
+  const { theme } = useAppearanceUITheme();
+  const iconFile = hasDarkIcon && theme === "dark" ? `${icon}-dark` : icon;
+
   return (
     <Box className="appbox" mb="0" p="4">
       <Flex align="center" gap="4">
@@ -32,11 +37,17 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
           flexShrink="0"
           width="40px"
           height="40px"
-          style={{ backgroundColor: accentColor, borderRadius: 6 }}
+          style={{
+            backgroundColor: "var(--color-panel-solid)",
+            border: "1px solid var(--gray-a5)",
+            borderRadius: 6,
+          }}
         >
           <img
-            src={`/images/3rd-party-logos/importing/icons/${icon}.svg`}
+            src={`/images/3rd-party-logos/importing/icons/${iconFile}.svg`}
             width={26}
+            height={26}
+            style={{ objectFit: "contain" }}
             alt={`${service} logo`}
           />
         </Flex>
