@@ -591,6 +591,13 @@ export async function getAllExperiments(
   return await findExperiments(context, query, limit, sortBy);
 }
 
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountExperimentsByOrganization(
+  organization: string,
+): Promise<number> {
+  return ExperimentModel.countDocuments({ organization });
+}
+
 // What `countActiveExperimentsUsingNamespace` reads: the projected fields
 // `experimentAllocatesTrafficInNamespace` needs, plus the ones it filters on.
 // Typed on `getCollection` so neither the filter nor the result needs a cast.
@@ -613,13 +620,6 @@ type NamespaceUsageExperimentDoc = NamespaceUsageExperiment & {
 // `releasedVariationId` is derived by that migration, and
 // `experimentAllocatesTrafficInNamespace` mirrors its backfill, which is why
 // `results`, `winner` and `variations.id` are projected.
-// For super admin views of another org, which have no ReqContext for it
-export async function _dangerousCountExperimentsByOrganization(
-  organization: string,
-): Promise<number> {
-  return ExperimentModel.countDocuments({ organization });
-}
-
 export async function countActiveExperimentsUsingNamespace(
   context: ReqContext | ApiReqContext,
   namespaceId: string,
