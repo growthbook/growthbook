@@ -8,18 +8,10 @@ import { usePageHead } from "./PageHead";
 import { navlinks } from "./sidebarNav";
 import styles from "./HeaderBreadcrumb.module.scss";
 
-// From <PageHead breadcrumb>: the first crumb is the section, the last the
-// object; any between them, such as a report's experiment, sit in between.
-// The project selector is in the side nav (and its drawer), so a list page
-// shows its own name as the one, current crumb, and a detail page starts at
-// its section (a link), at every width.
-
-// The side nav's name for the page at this route (e.g. Experiments); null for
-// a page that isn't in it.
 function sideNavPageName(route: string): string | null {
   for (const link of navlinks) {
-    // The Settings page takes the side nav item's name (AppRail.tsx shows
-    // Settings as one item), not its first page's, General.
+    // The side nav shows Settings as one item, so use that name, not its
+    // first page's ("General").
     if (link.name === "Settings" && route === link.href.substring(1)) {
       return link.name;
     }
@@ -50,10 +42,14 @@ function Separator({
   );
 }
 
+/**
+ * Renders <PageHead breadcrumb>: the section first, the object last. A list
+ * page shows only its own name.
+ */
 export default function HeaderBreadcrumb({
   pageTitle,
 }: {
-  // The page's name when it sets no crumb (Layout.tsx), e.g. Home.
+  /** Fallback when the page sets no breadcrumb, e.g. Home (Layout.tsx). */
   pageTitle?: string;
 }) {
   const { breadcrumb } = usePageHead();
@@ -86,7 +82,7 @@ export default function HeaderBreadcrumb({
     parts.push(
       crumb.href ? (
         <LinkButton key={key} href={crumb.href} {...crumbButtonProps}>
-          <span className={styles.projectName}>{crumb.display}</span>
+          <span className={styles.crumbLinkText}>{crumb.display}</span>
         </LinkButton>
       ) : (
         <span key={key} className={styles.sectionText}>
@@ -98,7 +94,7 @@ export default function HeaderBreadcrumb({
   if (section) pushCrumb(section, "section");
   middle.forEach((crumb, i) => pushCrumb(crumb, `middle-${i}`));
   if (object) {
-    // Not a button: it isn't an action.
+    // Spaced like a button, but plain text: it isn't an action.
     buttonParts.add(parts.length);
     parts.push(
       <span

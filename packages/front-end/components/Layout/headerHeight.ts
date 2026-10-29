@@ -1,13 +1,10 @@
 import { useSyncExternalStore } from "react";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
 
-// The app header's height (TopNav and TopNavLite). Keep in sync with
-// --header-height in global.scss.
+/** Keep in sync with --header-height in global.scss. */
 export const HEADER_HEIGHT_PX = 44;
 
-// Below 1180px, beside the side nav's drawer: two rows (TopNav.module.scss).
-export const HEADER_HEIGHT_TWO_ROWS_PX = 80;
-
-const TWO_ROWS_QUERY = "(max-width: 1180px)";
+const TWO_ROWS_QUERY = `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`;
 
 function readHeaderHeight() {
   const height = parseFloat(
@@ -18,7 +15,7 @@ function readHeaderHeight() {
   return Number.isFinite(height) ? height : HEADER_HEIGHT_PX;
 }
 
-// The header's height now: taller below 1180px on pages with the side nav.
+/** Taller below 1180px on pages with the side nav (two rows). */
 export function useHeaderHeight(): number {
   return useSyncExternalStore(
     (listener) => {
@@ -31,8 +28,18 @@ export function useHeaderHeight(): number {
   );
 }
 
-// Where page tabs pin: 1px under the header, so they cover its edge. Keep in
-// sync with --tabs-top in global.scss.
+/**
+ * 1px under the header, so pinned tabs cover its edge. Keep in sync with
+ * --tabs-top in global.scss.
+ */
 export function useTabsTop(): number {
   return useHeaderHeight() - 1;
+}
+
+/** Keep in sync with --tabs-bar-height in global.scss. */
+const TABS_BAR_HEIGHT_PX = 40;
+
+/** Keep in sync with --tabs-bottom in global.scss. */
+export function useTabsBottom(): number {
+  return useTabsTop() + TABS_BAR_HEIGHT_PX;
 }

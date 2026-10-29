@@ -98,7 +98,11 @@ function ResourceSection({
   );
 
   return (
-    <Frame id={sectionId} mb="0" style={{ scrollMarginTop: 80 }}>
+    <Frame
+      id={sectionId}
+      mb="0"
+      style={{ scrollMarginTop: "calc(var(--header-height) + 24px)" }}
+    >
       <Flex align="center" gap="3" wrap="wrap" mb="3">
         <Flex align="center" gap="2">
           <SectionIcon>{icon}</SectionIcon>

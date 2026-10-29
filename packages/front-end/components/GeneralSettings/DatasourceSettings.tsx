@@ -16,7 +16,10 @@ export default function DatasourceSettings() {
   const { datasources } = useDefinitions();
 
   return (
-    <Frame id="data-source-settings" style={{ scrollMarginTop: 100 }}>
+    <Frame
+      id="data-source-settings"
+      style={{ scrollMarginTop: "calc(var(--header-height) + 44px)" }}
+    >
       <Flex gap="4">
         <Box width="220px" flexShrink="0">
           <Heading size="4" as="h4">
@@ -73,7 +76,7 @@ export default function DatasourceSettings() {
             id="top-values-lookback"
             mb="6"
             width="100%"
-            style={{ scrollMarginTop: 100 }}
+            style={{ scrollMarginTop: "calc(var(--header-height) + 44px)" }}
           >
             <Text as="label" className="font-weight-semibold" size="3">
               Top values lookback window

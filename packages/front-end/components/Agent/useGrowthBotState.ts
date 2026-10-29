@@ -4,7 +4,7 @@ import { useAITokenUsage } from "@/enterprise/hooks/useAITokenUsage";
 import { useAgentPanel } from "./AgentPanelContext";
 import { getGrowthBotState, GrowthBotState } from "./growthBotState";
 
-// Past the reset time, so the server has reset the count when we ask.
+/** Waits past the reset time, so the server has reset the count when we ask. */
 const RESET_REFRESH_DELAY_MS = 1000;
 
 export function useGrowthBotState(): {
@@ -14,8 +14,8 @@ export function useGrowthBotState(): {
 } {
   const { available } = useAgentPanel();
   const { effectiveAccountPlan } = useUser();
-  // Only while AI is available, and only Cloud plans other than Enterprise
-  // have a daily limit (getDailyTokenLimit in the back-end).
+  // Only non-Enterprise Cloud plans have a daily limit (getDailyTokenLimit in
+  // the back-end).
   const { data: tokenUsage, refresh: refreshUsage } = useAITokenUsage({
     enabled:
       available &&
@@ -25,8 +25,8 @@ export function useGrowthBotState(): {
   const state = getGrowthBotState({ tokenUsage });
   const resetsAt = state === "limit" ? (tokenUsage?.nextResetAt ?? null) : null;
 
-  // The usage is only fetched on load and focus, so a tab left open at the
-  // limit would stay blocked past the reset without this.
+  // Usage is only fetched on load and focus, so a tab left open at the limit
+  // would stay blocked past the reset.
   useEffect(() => {
     if (resetsAt === null) return;
     const timer = window.setTimeout(

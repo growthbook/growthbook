@@ -82,7 +82,6 @@ export default function Table({
     const header = wrapper.querySelector(".rt-TableHeader");
     if (!header) return;
 
-    // Without an offset, the header sticks under the app header.
     const topOffset = stickyTopOffset ?? headerHeight;
 
     const check = () => {

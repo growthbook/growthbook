@@ -59,7 +59,6 @@ type StoryEntry = {
 
 const PAGE_TOP_PADDING = 24;
 const PAGE_BOTTOM_PADDING = 16;
-// Under the header, whose height is --header-height (global.scss).
 const SIDEBAR_TOP_OFFSET = `calc(var(--header-height) + ${PAGE_TOP_PADDING}px)`;
 const SIDEBAR_MAX_HEIGHT = `calc(100vh - var(--header-height) - ${
   PAGE_TOP_PADDING + PAGE_BOTTOM_PADDING
@@ -198,7 +197,10 @@ export default function DesignSystemPage() {
           <h1 className="mb-4">GrowthBook Design System</h1>
           <div className="pagecontents">
             <Flex gap="4" direction="column">
-              <Frame id="size-cohesion" style={{ scrollMarginTop: 90 }}>
+              <Frame
+                id="size-cohesion"
+                style={{ scrollMarginTop: "calc(var(--header-height) + 34px)" }}
+              >
                 <Flex direction="column" gap="3">
                   <h3 className="mb-1">Size cohesion</h3>
                   <Text>
@@ -214,7 +216,13 @@ export default function DesignSystemPage() {
                 </Flex>
               </Frame>
               {entries.map(({ name, description, Stories, id }) => (
-                <Frame key={id} id={id} style={{ scrollMarginTop: 90 }}>
+                <Frame
+                  key={id}
+                  id={id}
+                  style={{
+                    scrollMarginTop: "calc(var(--header-height) + 34px)",
+                  }}
+                >
                   <Flex direction="column" gap="3">
                     <h3 className="mb-1">{name}</h3>
                     <Text>{description}</Text>

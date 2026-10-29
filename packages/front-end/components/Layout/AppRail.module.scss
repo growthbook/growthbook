@@ -19,8 +19,6 @@
   width: var(--app-rail-width, 240px);
   display: flex;
   flex-direction: column;
-  // The same layout collapsed and expanded, so the logo and icons stay put
-  // as the rail resizes.
   gap: var(--space-2);
   padding: var(--space-2) var(--space-2) var(--space-3);
   box-sizing: border-box;
@@ -104,7 +102,6 @@
   }
 }
 
-// No box of its own; hidden while a menu is open in its place.
 .navBody {
   display: contents;
 }
@@ -121,7 +118,6 @@
   overflow-y: auto;
 }
 
-// Dark mode: translucent white lines, which take the panel's navy beneath.
 :global(.dark-theme) .rail {
   --rail-border: var(--slate-a4);
   --rail-divider: var(--slate-a5);
@@ -136,7 +132,6 @@
   display: flex;
   align-items: center;
   flex-shrink: 0;
-  // Sized so the focus ring wraps the logo evenly.
   align-self: flex-start;
   padding: 3px 5px;
   margin-bottom: 5px;
@@ -162,9 +157,8 @@
   fill: #151e3d;
 }
 
-// As the rail narrows the wordmark fades out before its edge reaches it,
-// rather than being cut off letter by letter. The mark stays put. Only while
-// the rail moves (resizing), so reduced motion stays instant.
+// Fades out before the narrowing rail's edge cuts into it. Only while the
+// rail moves, so reduced motion stays instant.
 .collapsing .brandWordmark {
   opacity: 0;
   transition: opacity 80ms ease-out;
@@ -216,7 +210,6 @@
   margin: var(--space-1) -8px;
 }
 
-// Shrinks to scroll once the open sections outgrow the window.
 .sections {
   display: flex;
   flex-direction: column;
@@ -227,8 +220,7 @@
   overflow-y: auto;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  // As the docked GrowthBot panel's conversation: a mask, so it fades to
-  // whatever is behind it, in either theme.
+  // A mask, so it fades to whatever is behind it in either theme.
   mask-image: linear-gradient(
     to bottom,
     #000 calc(100% - 48px),
@@ -250,14 +242,13 @@
   padding-bottom: var(--space-6);
 }
 
-// Expanded, the scrollbar's space is kept whether or not the sections scroll,
-// so opening one that starts them scrolling doesn't shift the rows sideways
-// under the pointer. Collapsed, the icons fill the width, so there's none.
+// Opening a section that starts the list scrolling mustn't shift the rows
+// sideways under the pointer.
 .rail:not(.collapsed) .sections {
   scrollbar-gutter: stable;
 }
 
-// Registered, so the fade can ease in and out: 1 is no fade.
+// Registered so the fade can transition; 1 is no fade.
 @property --rail-fade-bottom {
   syntax: "<number>";
   inherits: false;
@@ -271,7 +262,6 @@
   margin: -6px 0;
 }
 
-// Upgrade, Settings, Profile and Help.
 .bottomGroup {
   flex-shrink: 0;
   align-self: stretch;
@@ -392,8 +382,7 @@
   }
 }
 
-// Held while its menu shows, so it stays tied to the menu as the pointer
-// moves into it.
+// Keeps the hover look while the pointer moves into its menu.
 .menuShowing.menuShowing:not(.active) {
   background: var(--rail-hover);
   color: var(--rail-text-strong);
@@ -420,8 +409,8 @@
   }
 }
 
-// The row and its chevron are separate targets: the chevron's 28px button
-// sits over the row's right end, where the chevron always was.
+// The row and its chevron are separate targets: the chevron's button sits
+// over the row's right end.
 .sectionHeader {
   position: relative;
   flex-shrink: 0;
@@ -431,7 +420,7 @@
   padding-right: 34px;
 }
 
-// Over the chevron too, the row shows its hover.
+// Hovering the chevron still highlights the row.
 .sectionHeader:hover > .sectionRow:not(.active) {
   background: var(--rail-hover);
   color: var(--rail-text-strong);
@@ -472,8 +461,7 @@
   }
 }
 
-// Gone while the rail resizes, and fading back once it's wide, so it never
-// slides over its row's icon: the icon stays put, as a plain row's does.
+// Hidden while the rail resizes, so it never slides over its row's icon.
 .resizing .chevronButton {
   opacity: 0;
   pointer-events: none;
@@ -589,10 +577,8 @@
   line-height: var(--line-height-1);
 }
 
-// The project selector (RailProjectSelector.tsx). Its avatar (a 26px box,
-// shown at 22px) on the icon column: centered where the 18px icons are (16px
-// in), so expanded its box starts 3px in, and the name starts where the
-// other rows' labels do.
+// RailProjectSelector.tsx: the avatar centers on the icon column, and the
+// name lines up with the other rows' labels.
 .row.projectItem {
   padding-left: 3px;
 
@@ -609,10 +595,8 @@
   flex-shrink: 0;
   margin-right: -8px;
 
-  // Shown at 22px, nearer the rows' 18px icons: LetterAvatar's small (26px)
-  // scaled here, corners and initials with it, so the component and the
-  // menu's avatars are unchanged. Scaled about its middle, it keeps its
-  // 26px place in the layout, so it stays centered where it was.
+  // LetterAvatar's 26px size shown at 22px, nearer the 18px icons, without
+  // changing the component. A transform keeps its 26px layout box.
   > * {
     transform: scale(calc(22 / 26));
   }
@@ -628,8 +612,6 @@
   }
 }
 
-// Violet text and icon, with no border, expanded and collapsed; the rows'
-// hover fill and focus ring.
 .upgrade.upgrade {
   margin-top: var(--space-2);
   color: var(--violet-a11);
@@ -654,7 +636,6 @@
 
 // Tripled, to outrank Popover's own animation rules.
 .popover.popover.popover {
-  width: 220px;
   box-sizing: border-box;
 
   &[data-state="open"] {
@@ -694,7 +675,10 @@
   }
 }
 
-// Padding on the list, so the whole popover counts as hovering it.
+.sectionPopover {
+  width: 220px;
+}
+
 .popoverBody {
   padding: var(--space-2) var(--space-3) var(--space-3);
 }
@@ -717,10 +701,12 @@
   line-height: 14px;
 }
 
+// --popover-item-inset: the Help menu's rows start further left
+// (HelpMenu.module.scss).
 .popoverItem {
   display: flex;
   align-items: center;
-  padding: 6px 10px 6px var(--space-4);
+  padding: 6px 10px 6px var(--popover-item-inset, var(--space-4));
   border-radius: var(--radius-3);
   color: color-mix(in srgb, var(--slate-12) 90%, var(--slate-11));
   font-size: var(--font-size-2);

@@ -1,6 +1,6 @@
 .floatingActions {
   position: fixed;
-  top: 72px;
+  top: calc(var(--header-height) + 16px);
   right: 16px;
   width: 380px;
   max-width: calc(100vw - 32px);

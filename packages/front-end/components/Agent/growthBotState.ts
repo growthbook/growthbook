@@ -1,11 +1,13 @@
-// "limit" is Cloud's daily cap. The header button and the panel only exist
-// while AI is available (AgentPanelContext), so there's no other state.
+/**
+ * "limit" is Cloud's daily cap. The panel only exists while AI is available, so
+ * there's no other state.
+ */
 export type GrowthBotState = "default" | "limit";
 
 export function getGrowthBotState({
   tokenUsage,
 }: {
-  // null: no daily limit.
+  /** A null dailyLimit means no daily limit. */
   tokenUsage?: { numTokensUsed: number; dailyLimit: number | null } | null;
 }): GrowthBotState {
   if (
@@ -18,7 +20,7 @@ export function getGrowthBotState({
   return "default";
 }
 
-// Always within a day, so never a date.
+/** The reset is always within a day, so this never formats a date. */
 export function formatResetsIn(resetsAtMs: number, nowMs: number): string {
   const minutes = Math.ceil(Math.max(0, resetsAtMs - nowMs) / 60_000);
   if (minutes < 1) return "in less than a minute";

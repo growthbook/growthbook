@@ -6,10 +6,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { formatResetsIn } from "./growthBotState";
 import styles from "./GrowthBotStateNotice.module.scss";
 
-// As the upgrade modal's Enterprise path.
+/** Same as the upgrade modal's Enterprise path. */
 const CONTACT_SALES_URL = "https://www.growthbook.io/demo";
 
-// The panel's message at the daily limit (Cloud).
+/** The panel's message at Cloud's daily AI limit. */
 export default function GrowthBotStateNotice({
   resetsAt,
   centered = false,

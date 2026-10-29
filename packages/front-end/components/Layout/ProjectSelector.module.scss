@@ -1,0 +1,73 @@
+// Pinned while the list scrolls: pulled up over the menu's top padding and
+// padded by as much. Contained, so a long name truncates instead of
+// scrolling the menu sideways.
+.projectSearch {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  margin-top: calc(-1 * var(--base-menu-content-padding));
+  padding: calc(var(--base-menu-content-padding) + var(--space-1))
+    var(--space-1) var(--space-2);
+  background: var(--color-panel-solid);
+  contain: inline-size;
+}
+
+// Radix sets overflow on the inner viewport, which would stop the search row
+// from pinning.
+.projectMenuWithSearch :global(.rt-BaseMenuViewport) {
+  overflow: visible;
+}
+
+// Items scrolled to stop below the pinned search row, not under it.
+.projectMenuWithSearch :global(.rt-ScrollAreaViewport) {
+  scroll-padding-top: calc(
+    var(--base-menu-content-padding) + var(--space-1) + var(--space-6) +
+      var(--space-2)
+  );
+}
+
+.projectList {
+  contain: inline-size;
+}
+
+// Also while the search field keeps focus (ProjectSelector.tsx).
+.projectItem:hover {
+  background-color: var(--accent-a4);
+}
+
+.projectOption {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.projectOptionName {
+  display: flex;
+  min-width: 0;
+}
+
+// 10px to the name: the 8px gap plus 2px of LetterAvatar's 8px margin.
+.projectOptionAvatar {
+  display: flex;
+  flex-shrink: 0;
+  margin-right: -6px;
+}
+
+// Pinned right under Back while the list scrolls, its top padding over
+// Back's 4px margin so nothing shows between them.
+.projectSearchInPlace {
+  position: sticky;
+  top: var(--space-6);
+  z-index: 1;
+  margin-top: calc(-1 * var(--space-1));
+  padding: var(--space-1) 0 var(--space-2);
+  background: var(--rail-bg, var(--color-panel-solid));
+}
+
+// The avatar lines up with the drawer's project row; scrolled-to items stop
+// below Back and the pinned search row.
+.projectInPlaceItem.projectInPlaceItem {
+  padding-left: 3px;
+  scroll-margin-top: calc(var(--space-6) * 2 + var(--space-1) + var(--space-2));
+}

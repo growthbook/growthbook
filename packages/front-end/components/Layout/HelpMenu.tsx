@@ -52,7 +52,7 @@ type HelpItem = {
   label: string;
   trailing?: ReactNode;
   srSuffix?: ReactNode;
-  // Right after the label (8px), not at the row's end.
+  /** Puts `trailing` right after the label instead of at the row's end. */
   trailingAfterLabel?: boolean;
   onSelect: () => void;
 };
@@ -75,8 +75,6 @@ function helpLink(
   };
 }
 
-// Chat with support opens the upgrade window, as the old floating help
-// panel's Upgrade Now did.
 export default function HelpMenu({
   collapsed = false,
   iconSize = 16,
@@ -86,14 +84,16 @@ export default function HelpMenu({
   labelClassName,
   inPlace,
 }: {
-  // Without these, the header's Help (pages without the side nav).
+  /**
+   * Set in the side nav; without the trigger props, it's the header's button.
+   */
   collapsed?: boolean;
   iconSize?: number;
   triggerClassName?: string;
   openClassName?: string;
   iconClassName?: string;
   labelClassName?: string;
-  // In the narrow drawer: its menu drawn in place (AppRail.tsx).
+  /** In the drawer, the menu is drawn in place (AppRail.tsx). */
   inPlace?: RailMenuInPlace;
 }) {
   const inRail = triggerClassName !== undefined;
@@ -118,16 +118,13 @@ export default function HelpMenu({
               <PaidFeatureBadge commercialFeature="livechat" useTip={false} />
             ),
             trailingAfterLabel: true,
-            onSelect: () => {
-              setOpen(false);
-              setUpgradeOpen(true);
-            },
+            onSelect: () => setUpgradeOpen(true),
           },
         ]
       : []),
   ];
 
-  // The menu stays open, to show "Copied".
+  // The menu stays open to show "Copied".
   const copyVersion = () => {
     if (version) performCopy(version);
   };
@@ -189,7 +186,7 @@ export default function HelpMenu({
       : []),
   ];
 
-  // Opened with a click, focus stays put, as the section menus.
+  // Opened with a click, focus stays on the trigger, as in the section menus.
   const openedByPointer = useRef(false);
 
   const tooltip = useMenuTriggerTooltip({
@@ -290,14 +287,14 @@ export default function HelpMenu({
         open={open}
         onOpenChange={setOpen}
         trigger={trigger}
-        // In the side nav, clear of its edge (the item sits 8px inside it).
+        // 8px past the side nav's edge: the item sits 8px inside it.
         side={inRail ? "right" : "bottom"}
         align="end"
         sideOffset={inRail ? 16 : 8}
         showArrow={false}
         contentClassName={clsx(railStyles.popover, styles.popover)}
-        // The padding is on the list inside (.popoverBody), as the section
-        // menus'.
+        // The padding is on the list inside (.popoverBody), as in the
+        // section menus.
         contentStyle={{ padding: 0 }}
         onOpenAutoFocus={(e) => {
           if (openedByPointer.current) e.preventDefault();
@@ -334,7 +331,11 @@ export default function HelpMenu({
                   </span>
                   {item.trailing}
                 </>,
-                item.onSelect,
+                () => {
+                  setOpen(false);
+                  item.onSelect();
+                },
+                styles.popoverIconRow,
               ),
             )}
             {version ? (

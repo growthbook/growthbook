@@ -12,11 +12,6 @@ import { RailMenuInPlace } from "./railMenu";
 import { useMenuTriggerTooltip } from "./railTooltips";
 import styles from "./AppRail.module.scss";
 
-// The project selector in the side nav: a row under the logo with the
-// project's avatar (main's, "ALL" for All Projects) and its name, opening
-// the project menu to the side nav's right. Collapsed, the avatar alone in
-// the same place, its name in a tooltip. In the drawer (below 1180px), the
-// same row, its menu drawn in the drawer's place (ProjectMenuInPlace).
 export default function RailProjectSelector({
   collapsed,
   inPlace,
@@ -31,8 +26,7 @@ export default function RailProjectSelector({
     setOpen(false);
   }, [collapsed]);
 
-  // Expanded, a name cut off by the row shows in full in its tooltip, as it
-  // always does collapsed.
+  // A truncated name gets a tooltip, as the collapsed avatar always does.
   const triggerRef = useRef<HTMLButtonElement>(null);
   const labelRef = useRef<HTMLSpanElement>(null);
   const [truncated, setTruncated] = useState(false);
@@ -55,11 +49,8 @@ export default function RailProjectSelector({
     menuOpen: open,
   });
 
-  // As main's: nothing to pick from, no selector.
   if (!projects.length) return null;
 
-  // Its own 8px right margin taken back, so it centers in the collapsed
-  // icon's box and sits on the icon column expanded.
   const avatar = (
     <span className={styles.projectAvatar} aria-hidden="true">
       <LetterAvatar
@@ -89,7 +80,6 @@ export default function RailProjectSelector({
     styles.projectItem,
   );
 
-  // Held to one project: its name, with no menu to open.
   if (heldToOneProject) {
     return (
       <div className={clsx(className, styles.projectStatic)}>
@@ -108,7 +98,7 @@ export default function RailProjectSelector({
           className={clsx(className, inPlace.open && styles.menuOpen)}
           aria-label={`Project: ${name}`}
           aria-expanded={inPlace.open}
-          // Where focus goes back to from the menu (AppRail.tsx).
+          // Focus returns here from the menu (AppRail.tsx).
           data-rail-menu-trigger="project"
           onClick={(e) => inPlace.onOpen(e.detail === 0)}
           {...tooltip.triggerProps}
@@ -125,7 +115,7 @@ export default function RailProjectSelector({
       open={open}
       onOpenChange={setOpen}
       menuSide="right"
-      // Clear of the side nav's edge (the item sits 8px inside it).
+      // 8px past the side nav's edge: the item sits 8px inside it.
       menuSideOffset={16}
       alignFirstRow
       anchorRef={triggerRef}

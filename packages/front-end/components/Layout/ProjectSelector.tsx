@@ -13,21 +13,20 @@ import { TextField } from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import LetterAvatar from "./LetterAvatar";
 import { InPlaceMenu, RailMenuEntry, RailMenuInPlace } from "./railMenu";
-import styles from "./HeaderBreadcrumb.module.scss";
+import styles from "./ProjectSelector.module.scss";
 
-// Up to this many projects fit the menu at a glance, without a search field.
+/** Above this many projects, the menu gets a search field. */
 const PROJECT_SEARCH_THRESHOLD = 15;
-// The menu's distance from the window's edge (Radix Themes' collision
-// padding).
+/** Radix Themes' collision padding. */
 const MENU_EDGE_MARGIN = 10;
-// The menu's 8px padding, and the search row's 4px above the field.
+/** The menu's top padding. */
 const MENU_FIRST_ROW_OFFSET = 8;
+/** The menu's top padding plus the search row's 4px above the field. */
 const MENU_SEARCH_ROW_OFFSET = 12;
-// Truncated names' tooltips show after a brief pause, as the side nav's.
+/** Matches the side nav's tooltip delay. */
 const NAME_TOOLTIP_DELAY_MS = 300;
 
 const DEMO_BADGE_TITLE = "This is a demo project with sample data";
-// main's Demo badge color.
 const DEMO_BADGE_COLOR = "#EB8045";
 
 export function DemoBadge() {
@@ -43,8 +42,7 @@ export function DemoBadge() {
   );
 }
 
-// What the header's and the side nav's selectors share: the projects, the
-// current one, and whether the user is held to one (no menu, then).
+/** Shared by the header's and the side nav's selectors. */
 export function useProjectSelector() {
   const { projects, project, getProjectById, setProject } = useDefinitions();
   const { orgId } = useAuth();
@@ -70,9 +68,8 @@ export function useProjectSelector() {
   };
 }
 
-// A project's name in the menu, its full name in a tooltip once it's cut off.
+/** Shows the full name in a tooltip once it's cut off. */
 function TruncatedName({ name, current }: { name: string; current: boolean }) {
-  // The text itself truncates; the span around it is the tooltip's trigger.
   const ref = useRef<HTMLSpanElement>(null);
   const [open, setOpen] = useState(false);
   const timer = useRef<number | undefined>(undefined);
@@ -114,25 +111,20 @@ function TruncatedName({ name, current }: { name: string; current: boolean }) {
   );
 }
 
-// The menu's projects, sorted by name and filtered by its search, which shows
-// past 15 projects.
 function useProjectMenuItems() {
   const { projects } = useDefinitions();
+  const showSearch = projects.length > PROJECT_SEARCH_THRESHOLD;
   const { items, searchInputProps } = useSearch({
     items: projects.slice().sort((a, b) => (a.name > b.name ? 1 : -1)),
     defaultSortField: "name",
     localStorageKey: "project-selector",
     searchFields: ["name^3", "description"],
+    // Without a search field, the page's ?q= would filter the menu unseen.
+    disableUrlSearchTerm: !showSearch,
   });
-  return {
-    items,
-    searchInputProps,
-    showSearch: projects.length > PROJECT_SEARCH_THRESHOLD,
-  };
+  return { items, searchInputProps, showSearch };
 }
 
-// One project in the menu: main's avatar ("ALL" for All Projects), its name
-// and, for the demo project, its badge.
 function ProjectOptionContent({
   id,
   label,
@@ -144,7 +136,7 @@ function ProjectOptionContent({
   label: string;
   current: boolean;
   isDemo: boolean;
-  // The selected project's, to scroll it into view as the menu opens.
+  /** Set on the selected project, to scroll it into view as the menu opens. */
   optionRef?: RefObject<HTMLSpanElement>;
 }) {
   return (
@@ -162,8 +154,6 @@ function ProjectOptionContent({
   );
 }
 
-// The project menu: All Projects and each project, each with its avatar,
-// under a search field once there are more than 15.
 export function ProjectMenu({
   open,
   onOpenChange,
@@ -178,11 +168,12 @@ export function ProjectMenu({
   trigger: ReactNode;
   menuSide?: "bottom" | "right";
   menuSideOffset?: number;
-  // Opening to the trigger's side: raised so its first row (the search
-  // field, or All Projects) lines up with the trigger.
+  /** Raises a side-opening menu so its first row lines up with the trigger. */
   alignFirstRow?: boolean;
-  // With alignFirstRow, the trigger: the menu is capped to the space below
-  // it, so a long list scrolls inside the menu rather than pushing it up.
+  /**
+   * With alignFirstRow, caps the menu to the space below this element, so a
+   * long list scrolls instead of pushing the menu up.
+   */
   anchorRef?: RefObject<HTMLElement>;
 }) {
   const { project, setProject } = useDefinitions();
@@ -222,8 +213,8 @@ export function ProjectMenu({
     return () => window.clearTimeout(t);
   }, [open, showSearch]);
 
-  // Keeps focus in the search field: the menu would move it to the item
-  // under the pointer unless pointermove's default is prevented.
+  // The menu moves focus to the item under the pointer unless pointermove's
+  // default is prevented.
   const keepSearchFocus = (e: React.PointerEvent) => {
     if (document.activeElement === searchRef.current) e.preventDefault();
   };
@@ -255,7 +246,6 @@ export function ProjectMenu({
       menuAlignOffset={alignOffset}
       menuMaxHeight={alignFirstRow ? maxHeight : undefined}
       menuClassName={showSearch ? styles.projectMenuWithSearch : undefined}
-      // As the profile menu's.
       menuWidth={280}
       variant="soft"
       trigger={trigger}
@@ -268,9 +258,8 @@ export function ProjectMenu({
             type="search"
             aria-label="Search Projects"
             prepend={<PiMagnifyingGlassBold size={14} />}
-            // Keys the menu would take for its own navigation stay with the
-            // field (typing, Space, Home and End); Down moves into the
-            // projects, and Esc still closes the menu.
+            // Typing, Space, Home and End stay with the field; Down moves
+            // into the projects, and Esc still closes the menu.
             onKeyDown={(e) => {
               if (e.key.length === 1 || e.key === "Home" || e.key === "End") {
                 e.stopPropagation();
@@ -298,11 +287,10 @@ export function ProjectMenu({
   );
 }
 
-// Below 1180px, the drawer's project menu, drawn in its place as the
-// profile and Help menus are there (railMenu.tsx): Back and the search
-// field past 15 projects (both pinned while the list scrolls), then the
-// projects.
-// Choosing one closes the drawer.
+/**
+ * The drawer's project menu, drawn in place like its profile and Help menus
+ * (railMenu.tsx).
+ */
 export function ProjectMenuInPlace({ inPlace }: { inPlace: RailMenuInPlace }) {
   const { project, setProject } = useDefinitions();
   const { isDemo } = useProjectSelector();

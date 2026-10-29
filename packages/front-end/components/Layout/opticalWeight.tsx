@@ -1,9 +1,9 @@
 import { IconType } from "react-icons";
 
-// Some Phosphor icons' round outlines read lighter than the straighter ones
-// at the side nav's 18px. This adds 0.2px to their lines: a stroke in the
-// icon's color around its filled shape, which in the 256-unit grid is
-// 0.2 × 256 / 18 ≈ 2.84.
+/**
+ * Adds 0.2px at 18px to Phosphor icons whose round outlines read light: 0.2 ×
+ * 256 / 18 in the 256-unit grid.
+ */
 export const OPTICAL_STROKE = 2.84;
 
 export function withOpticalWeight(Icon: IconType): IconType {

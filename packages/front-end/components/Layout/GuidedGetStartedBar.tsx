@@ -29,7 +29,7 @@ const GuidedGetStartedBar = () => {
         color: "#FFFFFF",
         height: "50px",
         position: "sticky",
-        paddingLeft: 32,
+        paddingLeft: "var(--space-6)",
       }}
     >
       <span>

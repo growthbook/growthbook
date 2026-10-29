@@ -26,8 +26,8 @@ export interface Props {
   // Sticks to the bottom of the content column; a floating panel ends above it.
   footer?: ReactNode;
   open: boolean;
-  // Where the panel sticks, below any fixed page header: a CSS length,
-  // e.g. "var(--tabs-bottom)".
+  // CSS length the panel sticks to, below any fixed page header, e.g.
+  // "var(--tabs-bottom)".
   top?: string;
   // Fixed so the panel does not stretch on wide screens.
   width?: number;

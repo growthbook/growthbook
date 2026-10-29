@@ -2,12 +2,16 @@ import { FocusEvent, ReactNode, useEffect, useState } from "react";
 import Tooltip from "@/ui/Tooltip";
 import styles from "./AppRail.module.scss";
 
-// The side nav's Search and bottom items' tooltips show after a brief
-// pause, so they don't flash up as the pointer passes by.
+/**
+ * Delays the side nav's Search and bottom-item tooltips, so they don't flash as
+ * the pointer passes.
+ */
 export const BOTTOM_TOOLTIP_DELAY_MS = 300;
 
-// The item is the menu's trigger, so the tooltip anchors on a layer over it
-// (`anchor`, the item's last child).
+/**
+ * The item is already the menu's trigger, so render `anchor` as its last child
+ * for the tooltip to attach to.
+ */
 export function useMenuTriggerTooltip({
   label,
   enabled,

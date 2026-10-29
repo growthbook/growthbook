@@ -68,14 +68,14 @@ export default function ProfileMenu({
   railIconClassName,
   inPlace,
 }: {
-  // The side nav's item styles; without them, the header's button.
+  /** Set in the side nav; without the rail* props, it's the header's button. */
   railCollapsed?: boolean;
   railClassName?: string;
   railOpenClassName?: string;
   railLabelClassName?: string;
   railIconSize?: number;
   railIconClassName?: string;
-  // In the narrow drawer: its menu drawn in place (AppRail.tsx).
+  /** In the drawer, the menu is drawn in place (AppRail.tsx). */
   inPlace?: RailMenuInPlace;
 } = {}) {
   const inRail = railCollapsed !== undefined;
@@ -89,7 +89,6 @@ export default function ProfileMenu({
   const [editProfileOpen, setEditProfileOpen] = useState(false);
 
   const hasApprovalFlows = hasCommercialFeature("require-approvals");
-  // Lightweight count endpoint, filtered server-side to open revisions.
   const { count: openRevisionCount } = useOpenRevisionCount();
   const pendingReviewCount = hasApprovalFlows ? openRevisionCount : 0;
 
@@ -121,8 +120,7 @@ export default function ProfileMenu({
     setOpen(false);
     void router.push(href);
   };
-  const themeKey = (preferredTheme ?? "system") as keyof typeof THEME_LABELS;
-  const ThemeIcon = THEME_ICONS[themeKey] ?? PiCircleHalf;
+  const ThemeIcon = THEME_ICONS[preferredTheme];
 
   const accountLabel = [
     "Profile",
@@ -154,7 +152,6 @@ export default function ProfileMenu({
       content: (
         <span className={styles.identityContent}>
           <VisuallyHidden>Edit profile: </VisuallyHidden>
-          {/* As main's header avatar. */}
           <UserAvatar name={name || ""} email={email || ""} variant="soft" />
           <span className={styles.identityText}>
             {name ? (
@@ -272,7 +269,7 @@ export default function ProfileMenu({
           label="Theme"
           trailing={
             <Text size="sm" color="text-low">
-              {THEME_LABELS[themeKey] ?? "System"}
+              {THEME_LABELS[preferredTheme]}
             </Text>
           }
         />
@@ -299,9 +296,8 @@ export default function ProfileMenu({
     ),
   ];
 
-  // The side nav profile item's tooltip: with several organizations, the
-  // name and the current one, "Name (Org)", expanded and collapsed; with one,
-  // the name, collapsed only.
+  // With several organizations the tooltip always shows "Name (Org)";
+  // otherwise just the name, and only when collapsed.
   const railName = name || email || "Account";
   const railOrgName = inRail && showOrgPicker && orgName ? orgName : null;
   const tooltip = useMenuTriggerTooltip({
@@ -347,7 +343,7 @@ export default function ProfileMenu({
       {tooltip.anchor}
     </button>
   ) : (
-    // An icon button's size 2 is 24px, as the GrowthBot button's small size.
+    // Size 2 is 24px, matching the GrowthBot button.
     <IconButton
       variant="ghost"
       color="gray"
@@ -396,7 +392,7 @@ export default function ProfileMenu({
         onOpenChange={setOpen}
         menuPlacement="end"
         menuSide={inRail ? "right" : "bottom"}
-        // In the side nav, clear of its edge (the item sits 8px inside it).
+        // 8px past the side nav's edge: the item sits 8px inside it.
         menuSideOffset={inRail ? 16 : undefined}
         // Room for the name, email and organization.
         menuWidth={280}

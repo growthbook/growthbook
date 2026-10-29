@@ -17,7 +17,7 @@ import GrowthBotButton from "./GrowthBotButton";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
-  // Whether the side nav's drawer (below 1180px) is open.
+  /** Whether the side nav's drawer (below 1180px) is open. */
   menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
@@ -87,7 +87,6 @@ const TopNav: FC<{
             </div>
           ) : null}
           {renderTitleOrBreadCrumb()}
-          {/* Beside the title, or its own row's right end below 1180px. */}
           <div className={styles.actions}>
             {showNotices && (
               <div className="nav-link">

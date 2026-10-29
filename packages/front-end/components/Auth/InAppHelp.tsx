@@ -6,7 +6,7 @@ import { isCloud } from "@/services/env";
 // Pylon's launcher is a third-party iframe, so its footprint can't be measured.
 const PYLON_CLEARANCE_PX = 76;
 
-// Pylon draws its own chat bubble; Help itself is in HelpMenu.
+/** Loads Pylon, which draws its own chat bubble; the Help menu is HelpMenu. */
 export default function InAppHelp() {
   const config = useFeature("pylon-config").value;
   const {

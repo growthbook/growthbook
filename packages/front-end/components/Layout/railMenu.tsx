@@ -11,8 +11,10 @@ import {
 } from "@/ui/DropdownMenu";
 import styles from "./RailMenu.module.scss";
 
-// Written once, so the desktop popover and the drawer's in-place menu show
-// the same items with the same actions.
+/**
+ * One definition drives both the desktop dropdown and the drawer's in-place
+ * menu.
+ */
 export type RailMenuEntry =
   | {
       type: "item";
@@ -20,13 +22,15 @@ export type RailMenuEntry =
       content: ReactNode;
       onSelect: () => void;
       className?: string;
-      // Stays open after it's chosen, e.g. to show a result in place.
+      /** Stays open after it's chosen, e.g. to show a result in place. */
       keepOpen?: boolean;
     }
   | { type: "separator"; key: string }
   | { type: "label"; key: string; label: string }
-  // Anything else in the menu (the organization picker), in reach of the
-  // dropdown's arrow keys.
+  /**
+   * Arbitrary content (e.g. the organization picker), reachable by the
+   * dropdown's arrow keys.
+   */
   | { type: "node"; key: string; node: ReactNode }
   | {
       type: "submenu";
@@ -36,8 +40,6 @@ export type RailMenuEntry =
       entries: RailMenuEntry[];
     };
 
-// 16px icons, as the design system's menus; 18px in the drawer, as the
-// side nav's rows.
 export function MenuItemContent({
   Icon,
   label,
@@ -58,11 +60,10 @@ export function MenuItemContent({
 
 export type RailMenuInPlace = {
   open: boolean;
-  // Whether it was opened from the keyboard (its first item then shows its
-  // focus ring).
+  /** From the keyboard, the first item shows its focus ring. */
   onOpen: (fromKeyboard: boolean) => void;
   onBack: (fromKeyboard: boolean) => void;
-  // After an item's own action: closes the drawer, as picking a page does.
+  /** Runs after an item's action; closes the drawer, as picking a page does. */
   onDone: () => void;
   host: HTMLElement | null;
   fromKeyboard: boolean;
@@ -113,8 +114,10 @@ export function DropdownEntries({ entries }: { entries: RailMenuEntry[] }) {
   );
 }
 
-// Focus goes to the first item as a view opens, and back to a submenu's
-// row on returning from it.
+/**
+ * Focus goes to the first item as a view opens, and back to a submenu's row on
+ * returning from it.
+ */
 export function InPlaceMenu({
   label,
   entries,
@@ -124,7 +127,7 @@ export function InPlaceMenu({
   label: string;
   entries: RailMenuEntry[];
   inPlace: RailMenuInPlace;
-  // For a long list: Back stays at the top while it scrolls.
+  /** Keeps Back at the top while a long list scrolls. */
   pinBack?: boolean;
 }) {
   const [stack, setStack] = useState<string[]>([]);
@@ -176,7 +179,7 @@ export function InPlaceMenu({
       role="group"
       aria-label={viewLabel}
       onKeyDown={(e) => {
-        // Not one a layer inside it (e.g. a Select) already handled.
+        // Skip an Escape a nested layer (e.g. a Select) already handled.
         if (e.key !== "Escape" || e.defaultPrevented) return;
         e.preventDefault();
         back(true);

@@ -31,6 +31,7 @@ import { AppFeatures } from "shared/types/app-features";
 import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { Popover } from "@/ui/Popover";
 import Tooltip from "@/ui/Tooltip";
@@ -49,17 +50,17 @@ import {
 import { navlinks } from "./sidebarNav";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import { RailMenuInPlace } from "./railMenu";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
 import styles from "./AppRail.module.scss";
-
-// Sections and pages come from sidebarNav.ts, so permission and flag
-// filters, beta badges and ⌘K search stay in sync with it.
 
 const SearchIcon = withOpticalWeight(PiMagnifyingGlass);
 const SettingsIcon = withOpticalWeight(PiGearSix);
 const UpgradeIcon = withOpticalWeight(PiArrowCircleUp);
 
-// Phosphor's regular lightbulb without the highlight inside the bulb,
-// thickened as withOpticalWeight does.
+/**
+ * Phosphor's regular lightbulb without the inner highlight, thickened like
+ * withOpticalWeight.
+ */
 const LightbulbNoHighlight: IconType = GenIcon({
   tag: "svg",
   attr: { viewBox: "0 0 256 256", fill: "currentColor" },
@@ -88,23 +89,32 @@ const SECTION_ICONS: Record<string, IconType> = {
 const RAIL_SECTIONS = navlinks.filter((l) => !!SECTION_ICONS[l.name]);
 const SETTINGS_LINK = navlinks.find((l) => l.name === "Settings");
 
+/** On <html>; sets --app-rail-width (global.scss). */
 const COLLAPSED_CLASS = "app-rail-collapsed";
-// Long enough for what follows the switch (the drawer closing, menus moving)
-// to land while it's on.
 const BREAKPOINT_SWITCH_CLASS = "app-breakpoint-switch";
+/**
+ * Long enough for the drawer closing and menus moving to land while transitions
+ * are off.
+ */
 const BREAKPOINT_SWITCH_MS = 150;
-// While a saved collapsed rail is restored on load: no transition runs, so
-// it's drawn collapsed from the start instead of sliding shut (global.scss).
+/**
+ * Turns transitions off while a saved collapsed rail is restored, so it doesn't
+ * slide shut on load (global.scss).
+ */
 const RAIL_RESTORE_CLASS = "app-rail-restore";
-// Matches .rail's width transition (AppRail.module.scss).
+/** Matches .rail's width transition (AppRail.module.scss). */
 const RAIL_WIDTH_TRANSITION_MS = 200;
 const ICON_SIZE = 18;
-// Leaving a collapsed section waits a moment, so the pointer can cross the
-// gap into its popover.
+/**
+ * Lets the pointer cross the gap from a collapsed section's icon into its
+ * popover.
+ */
 const HOVER_CLOSE_DELAY_MS = 150;
 
-// Runs before paint in the browser, so a saved collapsed rail never flashes
-// open, and as a plain effect on the server.
+/**
+ * Runs before paint in the browser, so a saved collapsed rail never flashes
+ * open.
+ */
 const useIsomorphicLayoutEffect =
   typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -112,7 +122,6 @@ const isMac = () =>
   typeof navigator !== "undefined" &&
   /Mac|iPhone|iPad/.test(navigator.userAgent);
 
-// Sets --app-rail-width (global.scss) through .app-rail-collapsed on <html>.
 function useRailCollapsed(): [boolean, () => void] {
   const { userId } = useUser();
   const key = userId ? `gb-app-rail-collapsed:${userId}` : null;
@@ -130,9 +139,8 @@ function useRailCollapsed(): [boolean, () => void] {
       setCollapsed(false);
       return;
     }
-    // Something earlier in the load may already have measured the rail open,
-    // so without this its width would ease from there. Two frames: the next
-    // render applies the collapsed width, the one after paints it.
+    // Something earlier in the load may have measured the rail open, so its
+    // width would ease from there. Two frames: one renders collapsed, one paints.
     const root = document.documentElement;
     root.classList.add(RAIL_RESTORE_CLASS);
     let frame = requestAnimationFrame(() => {
@@ -161,9 +169,9 @@ function useRailCollapsed(): [boolean, () => void] {
   return [collapsed, toggle];
 }
 
-// A closed section's pages are already hidden and out of the tab order.
 const FOCUSABLE =
   "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])";
+/** Skips hidden elements, such as a closed section's pages. */
 function drawerFocusables(nav: HTMLElement): HTMLElement[] {
   return Array.from(nav.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(
     (el) =>
@@ -197,8 +205,10 @@ function permittedSections(filterProps: SidebarLinkFilterProps): Section[] {
   });
 }
 
-// Cmd/Ctrl/Shift-click or a middle click opens a link in a new tab or window:
-// the browser's to handle.
+/**
+ * Cmd/Ctrl/Shift-click or middle click: the browser opens the link in a new tab
+ * or window.
+ */
 function opensElsewhere(e: ReactMouseEvent) {
   return e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1;
 }
@@ -209,7 +219,9 @@ function PageBadge({ page }: { page: SidebarLinkProps }) {
   ) : null;
 }
 
-// One section's popover shows at a time: the rail holds which.
+/**
+ * One section's popover shows at a time, so the rail holds which one is open.
+ */
 function CollapsedSection({
   section,
   active,
@@ -223,8 +235,10 @@ function CollapsedSection({
   route: string;
   openMenu: string | null;
   setOpenMenu: Dispatch<SetStateAction<string | null>>;
-  // On a touch screen, with no hover to show the menu: a tap opens it (and
-  // a second closes it) instead of going to the first page.
+  /**
+   * For touch screens: a tap toggles the menu instead of going to the first
+   * page.
+   */
   tapOpens?: boolean;
 }) {
   const router = useRouter();
@@ -233,15 +247,13 @@ function CollapsedSection({
   const setOpen = (next: boolean) =>
     // Closing only closes this one, never another that has taken over.
     setOpenMenu((current) => (next ? name : current === name ? null : current));
-  // Whether to move focus into the list as it opens (keyboard only).
   const focusOnOpen = useRef(false);
   // Opened by a click or the keyboard: stays open when the pointer leaves.
   const pinned = useRef(false);
   // Opened from the keyboard: focus returns to the icon on close.
   const keyboardOpened = useRef(false);
-  // Closing it from the keyboard (Escape) puts focus back on the icon,
-  // without reopening it.
   const triggerRef = useRef<HTMLAnchorElement>(null);
+  // Returning focus to the icon on close mustn't reopen it.
   const focusReturning = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimer = () => {
@@ -278,7 +290,7 @@ function CollapsedSection({
   };
 
   const { Icon } = section;
-  // A link to the section's first page, so it opens in a new tab as well.
+  // A link, so the first page can open in a new tab.
   const first = section.pages[0];
   const trigger = (
     <Link
@@ -352,7 +364,7 @@ function CollapsedSection({
       // 8px past the rail's edge: the icon sits 8px inside it.
       sideOffset={16}
       showArrow={false}
-      contentClassName={styles.popover}
+      contentClassName={clsx(styles.popover, styles.sectionPopover)}
       // The padding is on the list inside (.popoverBody), so the whole
       // popover counts as hovering it.
       contentStyle={{ padding: 0 }}
@@ -407,8 +419,10 @@ function ExpandedSection({
   section: Section;
   active: boolean;
   open: boolean;
-  // The row also goes to the section's first page; the chevron only expands
-  // or collapses it.
+  /**
+   * `navigate` is true from the row, which also goes to the first page; the
+   * chevron only toggles.
+   */
   onToggle: (navigate: boolean) => void;
   route: string;
 }) {
@@ -417,7 +431,7 @@ function ExpandedSection({
   return (
     <div className={styles.sectionGroup}>
       <div className={styles.sectionHeader}>
-        {/* A link to the first page, so it opens in a new tab as well. */}
+        {/* A link, so the first page can open in a new tab. */}
         <Link
           href={section.pages[0].href}
           className={clsx(
@@ -551,12 +565,13 @@ export default function AppRail() {
   const { open: drawerOpen, setOpen: setDrawerOpen } = useSidebarOpen();
   const [collapsedPref, toggleCollapsed] = useRailCollapsed();
 
-  // Below 1180px the rail is a drawer, always expanded. Crossing it by
-  // resizing switches at once: for a moment no transition runs (global.scss),
-  // so nothing slides as the layout changes; one under way ends.
+  // Below 1180px the rail is a drawer, always expanded. Crossing that width
+  // briefly turns transitions off (global.scss), so nothing slides.
   const [isNarrow, setIsNarrow] = useState(false);
   useEffect(() => {
-    const mq = window.matchMedia("(max-width: 1180px)");
+    const mq = window.matchMedia(
+      `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
+    );
     const root = document.documentElement;
     let timer = 0;
     const update = () => setIsNarrow(mq.matches);
@@ -579,7 +594,6 @@ export default function AppRail() {
   }, []);
   const collapsed = collapsedPref && !isNarrow;
 
-  // Widening past 1180px closes the drawer.
   const navRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawer = isNarrow && drawerOpen;
@@ -628,7 +642,8 @@ export default function AppRail() {
           fromKeyboard: menuByKeyboard,
         }
       : undefined;
-  // Only on widening: isNarrow starts false until the window is measured.
+  // Widening past 1180px closes the drawer. Only on widening: isNarrow starts
+  // false until the window is measured.
   const wasNarrow = useRef(false);
   useEffect(() => {
     if (wasNarrow.current && !isNarrow) setDrawerOpen(false);
@@ -704,14 +719,7 @@ export default function AppRail() {
     [],
   );
 
-  const [noHover, setNoHover] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia("(hover: none)");
-    const update = () => setNoHover(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
+  const noHover = useMediaQuery("(hover: none)");
 
   // Collapsing, the labels stay while the rail narrows; expanding, they
   // follow at once.
@@ -812,13 +820,11 @@ export default function AppRail() {
     permissionsUtils.canManageBilling() &&
     !organization.isVercelIntegration;
 
-  // Whether the sections run on below what's shown, for the fade above the
-  // bottom group. Checked on scroll and as sections open and close.
+  // Drives the fade above the bottom group.
   const sectionsRef = useRef<HTMLDivElement>(null);
   const [moreBelow, setMoreBelow] = useState(false);
-  // Whether they scroll at all: then 32px of padding after the last one
-  // keeps it clear of the bottom group once scrolled to the end. Measured
-  // without that padding, so adding it never decides whether they scroll.
+  // Adds bottom padding when the sections scroll. Measured without that
+  // padding, so adding it never decides whether they scroll.
   const [overflowing, setOverflowing] = useState(false);
   const checkMoreBelow = () => {
     const el = sectionsRef.current;
@@ -864,7 +870,6 @@ export default function AppRail() {
         className={clsx(styles.rail, {
           [styles.collapsed]: contentCollapsed,
           [styles.resizing]: resizing,
-          // For the logo's wordmark (AppRail.module.scss).
           [styles.collapsing]: resizing && collapsed,
           [styles.drawerOpen]: drawer,
         })}
@@ -906,8 +911,7 @@ export default function AppRail() {
           </IconButton>
         ) : null}
 
-        {/* Kept mounted while a menu is open in its place: the menus are drawn by
-          their rows here. */}
+        {/* Kept mounted while a menu is open in its place: its row draws it. */}
         <div className={drawerMenu ? styles.navHidden : styles.navBody}>
           <RailProjectSelector
             collapsed={contentCollapsed}
@@ -997,7 +1001,6 @@ export default function AppRail() {
 
           <div className={styles.spacer} />
 
-          {/* 4px apart, closer than the sections' 8px. */}
           <div className={styles.bottomGroup}>
             {showUpgrade ? (
               <RailItem

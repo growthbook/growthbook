@@ -687,8 +687,7 @@ export default function AgentPanel({
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
-      {/* The panel sits above the app's own layer, out of the drawer veil's reach,
-        so it draws its own. */}
+      {/* The panel sits above the drawer's veil, so it draws its own. */}
       <div
         className={styles.navDrawerVeil}
         aria-hidden="true"
@@ -957,8 +956,8 @@ export default function AgentPanel({
         </Flex>
       </Box>
 
-      {/* Stop stays while an answer streams: the limit can be reached mid-answer,
-        by anyone in the org. */}
+      {/* Keeps Stop while an answer streams: anyone in the org can hit the
+        limit mid-answer. */}
       {limitEmptyState ? null : limitReached && !isLocalStream ? (
         <Box
           role="status"

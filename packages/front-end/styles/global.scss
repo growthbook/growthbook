@@ -10,27 +10,22 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
-// The app header's height (TopNav, TopNavLite). Keep in sync with
-// HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
+// Keep in sync with HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
 :root {
   --header-height: 44px;
 }
-// Below 1180px, beside the side nav's drawer, the header takes two rows: the
-// menu, notices and GrowthBot, then the breadcrumb (TopNav.module.scss). Keep
-// in sync with HEADER_HEIGHT_TWO_ROWS_PX.
+// Two rows below 1180px on pages with the side nav (TopNav.module.scss).
 @media (max-width: 1180px) {
   :root:has(#main-menu-toggle) {
     --header-height: 80px;
   }
 }
 
-// Sticky page tabs (.experiment-tabs, .feature-tabs, StickyTabsList) pin 1px
-// under the header, so they cover its edge. Keep --tabs-top in sync with
-// useTabsTop in components/Layout/headerHeight.ts.
+// Sticky page tabs pin 1px under the header to cover its edge. Keep in sync
+// with components/Layout/headerHeight.ts.
 :root {
   --tabs-top: calc(var(--header-height) - 1px);
   --tabs-bar-height: 40px;
-  // Where what pins under the tabs starts.
   --tabs-bottom: calc(var(--tabs-top) + var(--tabs-bar-height));
 }
 
@@ -69,7 +64,6 @@ body {
   z-index: 990;
 }
 
-// 240px expanded, 48px collapsed; below 1180px the side nav is a drawer.
 :root {
   --app-rail-width: 240px;
 }
@@ -81,9 +75,8 @@ html.app-rail-collapsed {
     --app-rail-width: 240px;
   }
 }
-// Crossing 1180px by resizing, or restoring a saved collapsed side nav on load
-// (AppRail.tsx): no transition runs, and one under way ends, so the layout
-// switches at once.
+// Set briefly by AppRail.tsx when crossing 1180px or restoring a collapsed
+// side nav, so the layout switches without animating.
 html.app-breakpoint-switch,
 html.app-breakpoint-switch *,
 html.app-breakpoint-switch *::before,
@@ -94,7 +87,6 @@ html.app-rail-restore *::before,
 html.app-rail-restore *::after {
   transition: none !important;
 }
-// While the side nav's drawer is open, the page behind it doesn't scroll.
 html.app-drawer-open,
 html.app-drawer-open body {
   overflow: hidden;

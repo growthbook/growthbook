@@ -78,14 +78,13 @@
   margin-bottom: var(--space-1);
 }
 
-// On the drawer's background, over the list scrolling under it.
 .back.backPinned {
   position: sticky;
   top: 0;
   z-index: 2;
   background: var(--rail-bg, var(--color-panel-solid));
 
-  // The hover fill is translucent: over the background, not the list.
+  // The hover fill is translucent, so layer it over the background.
   &:hover {
     background:
       linear-gradient(
@@ -121,9 +120,11 @@
   line-height: 14px;
 }
 
+// --separator-inset: the Help popover's runs edge to edge
+// (HelpMenu.module.scss).
 .separator {
   flex-shrink: 0;
   height: 1px;
-  margin: 6px var(--space-1);
+  margin: 6px var(--separator-inset, var(--space-1));
   background: var(--rail-divider, var(--slate-4));
 }
