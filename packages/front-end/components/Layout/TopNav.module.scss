@@ -162,21 +162,6 @@ $sidebarwidth: var(--app-rail-width, 240px);
   }
 }
 
-// The notices' right padding spaces them from the GrowthBot button. While the
-// docked panel hides the button it goes too, so the notices end 32px from the
-// panel, in step with the button narrowing (GrowthBotButton.module.scss).
-.actions > :global(.nav-link) {
-  transition: padding-right var(--agent-dock-duration) var(--agent-dock-easing);
-
-  @media (prefers-reduced-motion: reduce) {
-    transition: none;
-  }
-}
-
-:global(html.agent-dock-full) .actions > :global(.nav-link) {
-  padding-right: 0;
-}
-
 // The ghost AI Assistant button, its label's end on the content's right edge:
 // the whole button shifts right by its padding, so its hover and open fills
 // keep their full padding past the edge, as the breadcrumb's first item does
