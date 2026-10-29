@@ -57,6 +57,12 @@ if (typeof window === "undefined") React.useLayoutEffect = React.useEffect;
 
 // If loading a variable font, you don't need to specify the font weight
 const inter = Inter({ subsets: ["latin"] });
+// The system's own monospace font on each platform, never a browser default.
+const CODE_FONT_FAMILY =
+  'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace';
+// Their lowercase runs from Consolas's short to Menlo's tall; sized by it, code
+// reads the same whichever one the platform has.
+const CODE_FONT_X_HEIGHT = 0.5;
 
 type ModAppProps = AppProps & {
   Component: {
@@ -186,12 +192,19 @@ function App({
         html {
           font-family: var(--default-font-family);
           --default-font-family: ${inter.style.fontFamily};
+          --code-font-family: ${CODE_FONT_FAMILY};
+          --code-font-x-height: ${CODE_FONT_X_HEIGHT};
         }
         body {
           font-family: var(--default-font-family);
         }
         .radix-themes {
           --default-font-family: ${inter.style.fontFamily};
+          --code-font-family: ${CODE_FONT_FAMILY};
+        }
+        code[class*="language-"],
+        pre[class*="language-"] {
+          font-size-adjust: var(--code-font-x-height);
         }
       `}</style>
       <Head>

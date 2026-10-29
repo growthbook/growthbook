@@ -10,6 +10,7 @@ import { TextField } from "@/ui/TextField";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Tag from "./Tag";
 import styles from "./TagsModal.module.scss";
 
@@ -75,7 +76,7 @@ export default function TagsModal({
       header={isEdit ? "Edit Tag" : "Create Tag"}
       cta={isEdit ? "Save changes" : "Create tag"}
       ctaEnabled={isEdit || (name.length >= 2 && !duplicate)}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await apiCall(`/tag`, {
           method: "POST",
           body: JSON.stringify({

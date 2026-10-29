@@ -3,6 +3,7 @@ import {
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
+import { DecisionFrameworkMetricOverrides } from "shared/types/experiment";
 import {
   ExperimentMetricDefinition,
   getFactMetricFactTableIds,
@@ -18,20 +19,36 @@ import {
   FactMetricType,
   FactTableDefinition,
 } from "shared/types/fact-table";
-import { PiInfo } from "react-icons/pi";
+import { PiInfo, PiTag } from "react-icons/pi";
+import { MetricOverride } from "shared/validators";
 import Text from "@/ui/Text";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
 import SelectField, {
+  ReactSelectProps,
   GroupedValue,
   SingleValue,
 } from "@/components/Forms/SelectField";
+import { OptionPopover } from "@/components/Features/OptionTooltipShell";
+import {
+  MetricOverrideTooltipContent,
+  MetricSettingsScope,
+} from "@/components/Experiment/MetricOverrideTooltip";
+import {
+  getOverriddenMetricIds,
+  METRIC_OVERRIDE_BORDER_COLOR,
+} from "@/services/metricOverrides";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import UITooltip from "@/ui/Tooltip";
 import MetricName from "@/components/Metrics/MetricName";
 import { useUser } from "@/services/UserContext";
 import MetricGroupInlineForm from "@/enterprise/components/MetricGroupInlineForm";
 import Link from "@/ui/Link";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+} from "@/ui/DropdownMenu";
 
 type MetricOption = {
   id: string;
@@ -49,6 +66,51 @@ type MetricOption = {
   disabledReason?: string;
   archivedReason?: string;
 };
+
+function MetricTagPicker({
+  tagCounts,
+  onSelect,
+}: {
+  tagCounts: Record<string, number>;
+  onSelect: (tag: string) => void;
+}) {
+  return (
+    <DropdownMenu
+      menuPlacement="end"
+      variant="soft"
+      trigger={
+        <button
+          type="button"
+          className="gb-multi-select__tag-button"
+          aria-label="Add metrics by tag"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <UITooltip content={<Text align="left">Add metrics by tag</Text>}>
+            <span style={{ display: "flex" }}>
+              <PiTag />
+            </span>
+          </UITooltip>
+        </button>
+      }
+    >
+      <DropdownMenuLabel>Add metrics by tag</DropdownMenuLabel>
+      {Object.keys(tagCounts)
+        .sort((a, b) => a.localeCompare(b))
+        .map((tag) => (
+          <DropdownMenuItem key={tag} onClick={() => onSelect(tag)}>
+            <Flex align="center" gap="2" justify="between" width="100%">
+              <span>{tag}</span>
+              <Text color="text-low">{tagCounts[tag]}</Text>
+            </Flex>
+          </DropdownMenuItem>
+        ))}
+    </DropdownMenu>
+  );
+}
 
 export const ARCHIVED_METRIC_REASON = "This metric is archived.";
 
@@ -192,6 +254,14 @@ const MetricsSelector: FC<{
     reason?: string;
   };
   requireDatasource?: boolean;
+  /** Gives each chosen metric a hover card and outlines overridden ones. */
+  metricOverrides?: MetricOverride[];
+  /** Opens an override editor on the metrics a card was opened for. */
+  onManageOverrides?: (metricIds: string[]) => void;
+  /** Lets a chosen metric's card list the settings it's analysed with. */
+  settingsScope?: MetricSettingsScope;
+  /** Goal metrics' target MDEs, which count as overrides here. */
+  targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
 }> = ({
   datasource,
   project,
@@ -213,6 +283,10 @@ const MetricsSelector: FC<{
   groupOptions = true,
   getMetricDisabledInfo,
   requireDatasource = false,
+  metricOverrides,
+  onManageOverrides,
+  settingsScope,
+  targetMDEOverrides,
 }) => {
   const [createMetricGroup, setCreateMetricGroup] = useState(false);
   const {
@@ -224,9 +298,24 @@ const MetricsSelector: FC<{
     getExperimentMetricById,
     getFactTableById,
     getDatasourceById,
+    getMetricGroupById,
     mutateDefinitions,
   } = useDefinitions();
   const { hasCommercialFeature } = useUser();
+
+  const overriddenChips = useMemo(() => {
+    const overridden = getOverriddenMetricIds(
+      metricOverrides,
+      targetMDEOverrides,
+    );
+    return new Set(
+      selected.filter((id) =>
+        (getMetricGroupById(id)?.metrics ?? [id]).some((mid) =>
+          overridden.has(mid),
+        ),
+      ),
+    );
+  }, [metricOverrides, targetMDEOverrides, selected, getMetricGroupById]);
 
   const metricListContainsGroup = selected.some((metric) =>
     isMetricGroupId(metric),
@@ -476,7 +565,7 @@ const MetricsSelector: FC<{
     const counts: Record<string, number> = {};
     const selectedSet = new Set(selected);
     filteredOptions.forEach((m) => {
-      if (!selectedSet.has(m.id) && m.tags) {
+      if (!selectedSet.has(m.id) && !m.disabled && m.tags) {
         m.tags.forEach((t) => {
           counts[t] = (counts[t] || 0) + 1;
         });
@@ -617,7 +706,9 @@ const MetricsSelector: FC<{
       const metricsWithJoinableStatus = isGroup
         ? groupMetricsJoinableMap.get(value) || []
         : [];
-      return (
+      // The card replaces the group tooltip rather than opening on top of it.
+      const withCard = context === "value" && !!metricOverrides;
+      const name = (
         <ArchivedLabel
           archived={!!option?.archivedReason}
           alignRight={context !== "value"}
@@ -628,6 +719,7 @@ const MetricsSelector: FC<{
             isGroup={isGroup}
             metrics={metricsWithJoinableStatus}
             filterConversionWindowMetrics={filterConversionWindowMetrics}
+            hideGroupTooltip={withCard}
             badgeColor={
               context !== "value" ? "var(--blue-11)" : "var(--violet-11)"
             }
@@ -635,11 +727,35 @@ const MetricsSelector: FC<{
           />
         </ArchivedLabel>
       );
+      if (!withCard) return name;
+      return (
+        <OptionPopover
+          context="value"
+          side="bottom"
+          content={
+            <MetricOverrideTooltipContent
+              id={value}
+              overrides={metricOverrides}
+              onManageOverrides={onManageOverrides}
+              settingsScope={settingsScope}
+              targetMDEOverrides={targetMDEOverrides}
+              members={metricsWithJoinableStatus}
+              filterConversionWindowMetrics={filterConversionWindowMetrics}
+            />
+          }
+        >
+          {name}
+        </OptionPopover>
+      );
     },
     [
       filteredOptionsMap,
       groupMetricsJoinableMap,
       filterConversionWindowMetrics,
+      metricOverrides,
+      onManageOverrides,
+      settingsScope,
+      targetMDEOverrides,
     ],
   );
 
@@ -687,6 +803,22 @@ const MetricsSelector: FC<{
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
+      // The card names the chip, so a native title would only cover it.
+      valueTitles={!metricOverrides}
+      customStyles={
+        overriddenChips.size
+          ? {
+              multiValue: (base, state) => ({
+                ...ReactSelectProps.styles.multiValue(base),
+                ...(overriddenChips.has(state.data.value)
+                  ? {
+                      boxShadow: `inset 0 0 0 1px ${METRIC_OVERRIDE_BORDER_COLOR}`,
+                    }
+                  : {}),
+              }),
+            }
+          : undefined
+      }
       disabled={selectorDisabled}
       helpText={
         <>
@@ -726,59 +858,23 @@ const MetricsSelector: FC<{
               )}
             </Flex>
           ) : null}
-          <div className="d-flex align-items-center justify-content-end">
-            <div>
-              {!forceSingleMetric &&
-                filteredOptions.length > 0 &&
-                !disabled && (
-                  <div className="metric-from-tag text-muted form-inline">
-                    <span
-                      style={{
-                        color: "var(--color-text-low)",
-                        fontWeight: 500,
-                      }}
-                    >
-                      Select metric by tag
-                      <Tooltip body="Metrics can be tagged for grouping. Select any tag to add all metrics associated with that tag.">
-                        <PiInfo
-                          color="var(--color-text-low)"
-                          className="ml-1"
-                        />
-                      </Tooltip>
-                    </span>
-                    <SelectField
-                      size="legacy"
-                      value="choose"
-                      placeholder="choose"
-                      className="ml-3"
-                      containerClassName="select-dropdown-underline"
-                      style={{ minWidth: 140 }}
-                      onChange={(v) => {
-                        const newValue = new Set(selected);
-                        const tag = v;
-                        filteredOptions.forEach((m) => {
-                          if (m.tags && m.tags.includes(tag)) {
-                            newValue.add(m.id);
-                          }
-                        });
-                        onChange(Array.from(newValue));
-                      }}
-                      options={[
-                        {
-                          value: "...",
-                          label: "...",
-                        },
-                        ...Object.keys(tagCounts).map((k) => ({
-                          value: k,
-                          label: `${k} (${tagCounts[k]})`,
-                        })),
-                      ]}
-                    />
-                  </div>
-                )}
-            </div>
-          </div>
         </>
+      }
+      extraIndicator={
+        !disabled && Object.keys(tagCounts).length > 0 ? (
+          <MetricTagPicker
+            tagCounts={tagCounts}
+            onSelect={(tag) => {
+              const newValue = new Set(selected);
+              filteredOptions.forEach((m) => {
+                if (!m.disabled && m.tags?.includes(tag)) {
+                  newValue.add(m.id);
+                }
+              });
+              onChange(Array.from(newValue));
+            }}
+          />
+        ) : null
       }
     />
   ) : (

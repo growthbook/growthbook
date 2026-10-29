@@ -1,4 +1,4 @@
-import { CSSProperties, ReactNode } from "react";
+import { ComponentProps, CSSProperties, ReactNode } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { PiX } from "react-icons/pi";
 import Button from "@/ui/Button";
@@ -76,6 +76,8 @@ export type Props = TrackingEventModalProps & {
   ctaEnabled?: boolean;
   size?: Size;
   compact?: boolean;
+  /** Replaces the default of focusing the first field. */
+  onOpenAutoFocus?: ComponentProps<typeof Modal.Root>["onOpenAutoFocus"];
   submit?: () => void | Promise<void>;
   trackOnSubmit?: boolean;
   dismissible?: boolean;
@@ -87,6 +89,30 @@ export type Props = TrackingEventModalProps & {
   close: () => void;
   closeCta?: string;
   children: ReactNode;
+};
+
+// Radix focuses the first tabbable node, which pops an icon button's tooltip.
+// Prefer the first field to type into, else the dialog itself.
+const focusFirstField: NonNullable<
+  ComponentProps<typeof Modal.Root>["onOpenAutoFocus"]
+> = (e) => {
+  const content = e.currentTarget as HTMLElement;
+  e.preventDefault();
+  const fields = content.querySelectorAll<HTMLElement>(
+    "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([disabled]), textarea:not([disabled]), [contenteditable='true']",
+  );
+  for (const field of Array.from(fields)) {
+    // Skips what keyboard focus skips, such as a dropzone's hidden input.
+    if (
+      field.getAttribute("tabindex")?.trim().startsWith("-") ||
+      !field.getClientRects().length
+    ) {
+      continue;
+    }
+    field.focus({ preventScroll: true });
+    if (document.activeElement === field) return;
+  }
+  content.focus({ preventScroll: true });
 };
 
 // ModalStandard is the opinionated wrapper around the composable Modal
@@ -101,6 +127,7 @@ export default function ModalStandard({
   cta = "Save",
   ctaColor = "violet",
   ctaEnabled = true,
+  onOpenAutoFocus,
   size = "md",
   compact,
   submit,
@@ -135,8 +162,14 @@ export default function ModalStandard({
           {aboveFooterContent}
         </Box>
       ) : null}
-      <Modal.Footer justify={secondaryAction ? "between" : "end"}>
-        {secondaryAction ? <Box>{secondaryAction}</Box> : null}
+      <Modal.Footer
+        justify={secondaryAction ? "between" : "end"}
+        align={secondaryAction ? "center" : undefined}
+      >
+        {secondaryAction ? (
+          // Offsets the footer's leftward pull so this lines up with the body.
+          <Box ml="3">{secondaryAction}</Box>
+        ) : null}
         <Flex gap="3" align="center">
           <CloseButton closeCta={closeCta} close={close} />
           {submit && (
@@ -161,6 +194,7 @@ export default function ModalStandard({
       compact={compact}
       dismissible={dismissible ?? !submit}
       hasDescription={!!subheader}
+      onOpenAutoFocus={onOpenAutoFocus ?? focusFirstField}
       trackingEventModalType={trackingEventModalType}
       trackingEventModalSource={trackingEventModalSource}
       allowlistedTrackingEventProps={allowlistedTrackingEventProps}

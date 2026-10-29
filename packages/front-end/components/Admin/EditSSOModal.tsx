@@ -14,6 +14,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 function generateSSOConnection(
   data: SSOConnectionInterface,
@@ -188,7 +189,7 @@ export default function EditSSOModal({
   return (
     <ModalStandard
       trackingEventModalType=""
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         const payload = generateSSOConnection({
           ...data,
           metadata: jsonSafeParse(data.metadata) || {},

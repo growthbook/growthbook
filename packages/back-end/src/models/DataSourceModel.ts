@@ -278,6 +278,18 @@ export async function getDataSourceById(
     : null;
 }
 
+// Whether it exists at all, readable or not: a reference to a deleted one
+// shouldn't read as restricted.
+export async function dataSourceExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  if (usingFileConfig()) {
+    return getConfigDatasources(context.org.id).some((d) => d.id === id);
+  }
+  return !!(await DataSourceModel.exists({ id, organization: context.org.id }));
+}
+
 export async function getDataSourcesByIds(
   context: ReqContext | ApiReqContext,
   ids: string[],

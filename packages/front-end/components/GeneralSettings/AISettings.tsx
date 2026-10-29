@@ -366,7 +366,7 @@ export default function AISettings({
       {canChooseModels && (
         <Box mb="2">
           <SelectField
-            size="medium"
+            size="lg"
             id={`${prompt.promptType}-model`}
             label="Model"
             disabled={!canEdit}
@@ -520,7 +520,7 @@ export default function AISettings({
                 help="Used by every AI feature that doesn't override it."
               >
                 <SelectField
-                  size="medium"
+                  size="lg"
                   id="defaultAIModel"
                   containerClassName="mb-0"
                   disabled={!canEdit}
@@ -553,7 +553,7 @@ export default function AISettings({
                 help="Used for semantic search across experiments. Supports OpenAI, Mistral, and Google. Default is text-embedding-ada-002."
               >
                 <SelectField
-                  size="medium"
+                  size="lg"
                   id="embeddingModel"
                   containerClassName="mb-0"
                   disabled={!canEdit}
@@ -586,7 +586,7 @@ export default function AISettings({
                 help="Used for voice dictation in AI chat. Supports OpenAI, xAI, and Mistral."
               >
                 <SelectField
-                  size="medium"
+                  size="lg"
                   id="sttModel"
                   containerClassName="mb-0"
                   disabled={!canEdit}
@@ -615,7 +615,7 @@ export default function AISettings({
                   help="Used for AI Assistant suggestions as users type. A small, fast model keeps them cheap and quick."
                 >
                   <SelectField
-                    size="medium"
+                    size="lg"
                     id="aiAutocompleteModel"
                     containerClassName="mb-0"
                     disabled={!canEdit}
@@ -703,7 +703,7 @@ export default function AISettings({
                   help="Used for AI chat edits and AI suggestions in the extension. Leave blank to use the Default AI model."
                 >
                   <SelectField
-                    size="medium"
+                    size="lg"
                     id="visualEditorAIModel"
                     containerClassName="mb-0"
                     disabled={!canEdit}
@@ -732,7 +732,7 @@ export default function AISettings({
                   help="Models that support reference images can use an existing image as visual context (the Visual Editor's “use current image” flow). Text-only models generate from the prompt alone."
                 >
                   <SelectField
-                    size="medium"
+                    size="lg"
                     id="visualEditorImageModel"
                     containerClassName="mb-0"
                     disabled={!canEdit}

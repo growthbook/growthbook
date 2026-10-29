@@ -3,6 +3,7 @@ import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 
@@ -45,7 +46,7 @@ export const AddMembersModal = ({
       open={open}
       close={() => handleClose()}
       header="Add Team Members"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await apiCall(`/teams/${team?.id}/members`, {
           method: "POST",
           body: JSON.stringify({

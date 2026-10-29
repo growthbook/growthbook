@@ -15,12 +15,15 @@ export default function RevisionLabel({
   numbered = true,
   minWidth = "1.9em",
   numberSize = "sm",
+  inheritNumberColor = false,
 }: {
   version: number;
   title?: string | null;
   numbered?: boolean;
   minWidth?: string | number;
   numberSize?: Size<"sm" | "md" | "lg" | "xl"> | "inherit";
+  // Follow the surrounding text's colour, e.g. on a dark tooltip.
+  inheritNumberColor?: boolean;
 }) {
   return (
     <>
@@ -33,7 +36,11 @@ export default function RevisionLabel({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          <Text as="span" color="text-mid" size={numberSize}>
+          <Text
+            as="span"
+            color={inheritNumberColor ? undefined : "text-mid"}
+            size={numberSize}
+          >
             {version}.
           </Text>
         </span>

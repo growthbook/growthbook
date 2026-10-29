@@ -1,12 +1,13 @@
 import { act, cleanup, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import useSlackNavigationGuard from "@/components/SlackIntegrations/useSlackNavigationGuard";
+import { runConfirmedNavigation } from "@/components/FactTables/MetricEditor/navigationCancellation";
 
 const router = vi.hoisted(() => {
   const handlers = new Set<(url: string) => void>();
   return {
     push: vi.fn(),
-    pathname: "/integrations/slack",
+    asPath: "/integrations/slack",
     events: {
       on: (_: string, h: (url: string) => void) => handlers.add(h),
       off: (_: string, h: (url: string) => void) => handlers.delete(h),
@@ -201,6 +202,17 @@ describe("Slack unsaved navigation guard", () => {
     });
     expect(cancelled).toBe(true);
     expect(result.current.pendingHref).toBe("/settings#ai");
+  });
+
+  it("lets through a navigation another guard already confirmed", async () => {
+    const { result } = renderHook(useSlackNavigationGuard);
+    act(() => result.current.setWorkspaceDirty("workspace-a", true));
+    let cancelled = true;
+    await runConfirmedNavigation(async () => {
+      cancelled = router.startRouteChange("/settings#ai");
+    });
+    expect(cancelled).toBe(false);
+    expect(result.current.pendingHref).toBeNull();
   });
 
   it("removes its listeners on unmount", () => {
