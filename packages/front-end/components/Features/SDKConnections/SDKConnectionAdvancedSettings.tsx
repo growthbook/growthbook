@@ -40,6 +40,207 @@ function Category({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+type GroupProps = {
+  value: SDKConnectionAdvancedValue;
+  onChange: (patch: Partial<SDKConnectionAdvancedValue>) => void;
+  disabled?: boolean;
+};
+
+function useCapabilities(languages: SDKLanguage[], sdkVersion?: string) {
+  const currentCaps = getConnectionSDKCapabilities(
+    { languages, sdkVersion },
+    "min-ver-intersection",
+  );
+  const latestCaps = getConnectionSDKCapabilities(
+    { languages, sdkVersion },
+    "max-ver-intersection",
+  );
+  return {
+    showVisualEditor: latestCaps.includes("visualEditor"),
+    showRedirects: latestCaps.includes("redirects"),
+    showSavedGroups: currentCaps.includes("savedGroupReferences"),
+  };
+}
+
+export function ExperimentSettings({
+  value,
+  onChange,
+  disabled,
+  languages,
+  sdkVersion,
+}: GroupProps & { languages: SDKLanguage[]; sdkVersion?: string }) {
+  const { showVisualEditor, showRedirects } = useCapabilities(
+    languages,
+    sdkVersion,
+  );
+  return (
+    <>
+      {showVisualEditor && (
+        <Checkbox
+          weight="regular"
+          disabled={disabled}
+          value={value.includeVisualExperiments}
+          setValue={(v) => onChange({ includeVisualExperiments: v })}
+          label={<VisualEditorLabel />}
+        />
+      )}
+      {showRedirects && (
+        <Checkbox
+          weight="regular"
+          disabled={disabled}
+          value={value.includeRedirectExperiments}
+          setValue={(v) => onChange({ includeRedirectExperiments: v })}
+          label={<UrlRedirectLabel />}
+        />
+      )}
+      <Checkbox
+        weight="regular"
+        disabled={disabled}
+        value={!value.includeExperimentNames}
+        setValue={(v) => onChange({ includeExperimentNames: !v })}
+        label={<HideNamesLabel />}
+      />
+    </>
+  );
+}
+
+export function MetadataSettings({ value, onChange, disabled }: GroupProps) {
+  const customFields = useCustomFields();
+  return (
+    <>
+      <Checkbox
+        weight="regular"
+        disabled={disabled}
+        value={value.includeProjectIdInMetadata}
+        setValue={(v) => onChange({ includeProjectIdInMetadata: v })}
+        label={<ProjectIdsLabel />}
+      />
+      <Box>
+        <Checkbox
+          weight="regular"
+          disabled={disabled}
+          label={<CustomFieldsLabel />}
+          value={value.includeCustomFieldsInMetadata}
+          setValue={(v) =>
+            onChange({
+              includeCustomFieldsInMetadata: v,
+              ...(v ? {} : { allowedCustomFieldsInMetadata: [] }),
+            })
+          }
+        />
+        {value.includeCustomFieldsInMetadata && (
+          <Box mt="2">
+            <MultiSelectField
+              size="md"
+              disabled={disabled}
+              placeholder="No fields included"
+              value={value.allowedCustomFieldsInMetadata}
+              onChange={(fields) =>
+                onChange({ allowedCustomFieldsInMetadata: fields })
+              }
+              options={(customFields || []).map((cf) => ({
+                label: cf.name,
+                value: cf.id,
+              }))}
+              sort={false}
+              closeMenuOnSelect={true}
+            />
+          </Box>
+        )}
+      </Box>
+      <Checkbox
+        weight="regular"
+        disabled={disabled}
+        value={value.includeTagsInMetadata}
+        setValue={(v) => onChange({ includeTagsInMetadata: v })}
+        label={<TagsLabel />}
+      />
+      <Checkbox
+        weight="regular"
+        disabled={disabled}
+        value={value.includeExperimentScheduleInMetadata}
+        setValue={(v) => onChange({ includeExperimentScheduleInMetadata: v })}
+        label={<ScheduleDatesLabel />}
+      />
+    </>
+  );
+}
+
+export function ObservabilitySettings({
+  value,
+  onChange,
+  disabled,
+  languages,
+  sdkVersion,
+}: GroupProps & { languages: SDKLanguage[]; sdkVersion?: string }) {
+  const { showVisualEditor, showRedirects } = useCapabilities(
+    languages,
+    sdkVersion,
+  );
+  return (
+    <>
+      <Checkbox
+        weight="regular"
+        disabled={disabled}
+        label={SETTING_TITLES.ruleIds}
+        value={value.includeRuleIds}
+        setValue={(v) => onChange({ includeRuleIds: v })}
+      />
+      <Checkbox
+        weight="regular"
+        disabled={disabled}
+        value={value.includeDraftExperimentRefs}
+        setValue={(v) => onChange({ includeDraftExperimentRefs: v })}
+        label={<DraftRulesLabel />}
+      />
+      {(showVisualEditor || showRedirects) && (
+        <Checkbox
+          weight="regular"
+          disabled={disabled}
+          value={value.includeDraftExperiments}
+          setValue={(v) => onChange({ includeDraftExperiments: v })}
+          label={<DraftExperimentsLabel />}
+        />
+      )}
+    </>
+  );
+}
+
+// Self-hosted configures the proxy via env vars, so this is cloud-only.
+export function ProxySettings({ value, onChange, disabled }: GroupProps) {
+  const proxyHostId = useId();
+  return (
+    <>
+      <Checkbox
+        weight="regular"
+        disabled={disabled}
+        label={SETTING_TITLES.useProxy}
+        value={value.proxyEnabled}
+        setValue={(v) => onChange({ proxyEnabled: v })}
+      />
+      {value.proxyEnabled && (
+        <TextField
+          id={proxyHostId}
+          type="url"
+          placeholder="https://"
+          disabled={disabled}
+          value={value.proxyHost}
+          onChange={(e) => onChange({ proxyHost: e.target.value })}
+          label={
+            <Text as="label" htmlFor={proxyHostId} weight="semibold">
+              {SETTING_TITLES.proxyHost}{" "}
+              <Text size="sm" weight="regular" color="text-mid">
+                (optional)
+              </Text>{" "}
+              <ProxyHostTooltip />
+            </Text>
+          }
+        />
+      )}
+    </>
+  );
+}
+
 export default function SDKConnectionAdvancedSettings({
   value,
   onChange,
@@ -55,23 +256,10 @@ export default function SDKConnectionAdvancedSettings({
   remoteEvalEnabled: boolean;
   storedSavedGroupFormat?: SavedGroupFormat;
 }) {
-  const customFields = useCustomFields();
-
-  const currentCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "min-ver-intersection",
-  );
-  const latestCaps = getConnectionSDKCapabilities(
-    { languages, sdkVersion },
-    "max-ver-intersection",
-  );
-  const showVisualEditor = latestCaps.includes("visualEditor");
-  const showRedirects = latestCaps.includes("redirects");
-  const showSavedGroups = currentCaps.includes("savedGroupReferences");
+  const { showSavedGroups } = useCapabilities(languages, sdkVersion);
 
   const [open, setOpen] = useState(false);
   const panelId = useId();
-  const proxyHostId = useId();
   const ref = useRef<HTMLDivElement>(null);
   // Scrolls only the modal's scroll viewport: `scrollIntoView` also scrolls the
   // scroll area's clipped root, shifting the viewport and leaving a blank band.
@@ -100,33 +288,9 @@ export default function SDKConnectionAdvancedSettings({
 
   return (
     <>
-      {/* Self-hosted configures the proxy via env vars. */}
       {isCloud() && (
         <Category title={CATEGORY_TITLES.proxy}>
-          <Checkbox
-            weight="regular"
-            label={SETTING_TITLES.useProxy}
-            value={value.proxyEnabled}
-            setValue={(v) => onChange({ proxyEnabled: v })}
-          />
-          {value.proxyEnabled && (
-            <TextField
-              id={proxyHostId}
-              type="url"
-              placeholder="https://"
-              value={value.proxyHost}
-              onChange={(e) => onChange({ proxyHost: e.target.value })}
-              label={
-                <Text as="label" htmlFor={proxyHostId} weight="semibold">
-                  {SETTING_TITLES.proxyHost}{" "}
-                  <Text size="sm" weight="regular" color="text-mid">
-                    (optional)
-                  </Text>{" "}
-                  <ProxyHostTooltip />
-                </Text>
-              }
-            />
-          )}
+          <ProxySettings value={value} onChange={onChange} />
         </Category>
       )}
 
@@ -187,27 +351,11 @@ export default function SDKConnectionAdvancedSettings({
         <Box id={panelId} p="3" hidden={!open}>
           <Flex direction="column" gap="5">
             <Category title={CATEGORY_TITLES.experiments}>
-              {showVisualEditor && (
-                <Checkbox
-                  weight="regular"
-                  value={value.includeVisualExperiments}
-                  setValue={(v) => onChange({ includeVisualExperiments: v })}
-                  label={<VisualEditorLabel />}
-                />
-              )}
-              {showRedirects && (
-                <Checkbox
-                  weight="regular"
-                  value={value.includeRedirectExperiments}
-                  setValue={(v) => onChange({ includeRedirectExperiments: v })}
-                  label={<UrlRedirectLabel />}
-                />
-              )}
-              <Checkbox
-                weight="regular"
-                value={!value.includeExperimentNames}
-                setValue={(v) => onChange({ includeExperimentNames: !v })}
-                label={<HideNamesLabel />}
+              <ExperimentSettings
+                value={value}
+                onChange={onChange}
+                languages={languages}
+                sdkVersion={sdkVersion}
               />
             </Category>
 
@@ -227,89 +375,16 @@ export default function SDKConnectionAdvancedSettings({
             )}
 
             <Category title={CATEGORY_TITLES.payloadMetadata}>
-              <Checkbox
-                weight="regular"
-                value={value.includeProjectIdInMetadata}
-                setValue={(v) => onChange({ includeProjectIdInMetadata: v })}
-                label={<ProjectIdsLabel />}
-              />
-              <Box>
-                <Checkbox
-                  weight="regular"
-                  label={<CustomFieldsLabel />}
-                  value={value.includeCustomFieldsInMetadata}
-                  setValue={(v) =>
-                    onChange({
-                      includeCustomFieldsInMetadata: v,
-                      ...(v ? {} : { allowedCustomFieldsInMetadata: [] }),
-                    })
-                  }
-                />
-                {value.includeCustomFieldsInMetadata && (
-                  <Box mt="2">
-                    <MultiSelectField
-                      size="md"
-                      placeholder="No fields included"
-                      value={value.allowedCustomFieldsInMetadata}
-                      onChange={(fields) =>
-                        onChange({ allowedCustomFieldsInMetadata: fields })
-                      }
-                      options={(customFields || []).map((cf) => ({
-                        label: cf.name,
-                        value: cf.id,
-                      }))}
-                      sort={false}
-                      closeMenuOnSelect={true}
-                    />
-                  </Box>
-                )}
-              </Box>
-              <Checkbox
-                weight="regular"
-                value={value.includeTagsInMetadata}
-                setValue={(v) => onChange({ includeTagsInMetadata: v })}
-                label={<TagsLabel />}
-              />
-              <Checkbox
-                weight="regular"
-                value={value.includeExperimentScheduleInMetadata}
-                setValue={(v) =>
-                  onChange({ includeExperimentScheduleInMetadata: v })
-                }
-                label={<ScheduleDatesLabel />}
-              />
+              <MetadataSettings value={value} onChange={onChange} />
             </Category>
 
             <Category title={CATEGORY_TITLES.observability}>
-              <Checkbox
-                weight="regular"
-                label={SETTING_TITLES.ruleIds}
-                value={value.includeRuleIds}
-                setValue={(v) => onChange({ includeRuleIds: v })}
+              <ObservabilitySettings
+                value={value}
+                onChange={onChange}
+                languages={languages}
+                sdkVersion={sdkVersion}
               />
-              <Box>
-                <Text as="div" size="md" weight="medium" mb="2">
-                  Draft mode experiments
-                </Text>
-                <Flex direction="column" gap="2">
-                  <Checkbox
-                    weight="regular"
-                    value={value.includeDraftExperimentRefs}
-                    setValue={(v) =>
-                      onChange({ includeDraftExperimentRefs: v })
-                    }
-                    label={<DraftRulesLabel />}
-                  />
-                  {(showVisualEditor || showRedirects) && (
-                    <Checkbox
-                      weight="regular"
-                      value={value.includeDraftExperiments}
-                      setValue={(v) => onChange({ includeDraftExperiments: v })}
-                      label={<DraftExperimentsLabel />}
-                    />
-                  )}
-                </Flex>
-              </Box>
             </Category>
           </Flex>
         </Box>

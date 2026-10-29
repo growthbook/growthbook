@@ -46,52 +46,93 @@ export type SDKConnectionFieldsValue = PayloadSecurityValue & {
   includeReferencedPrerequisites: boolean;
 };
 
-export default function SDKConnectionFields({
-  value,
-  onChange,
-  languageFilter,
-  setLanguageFilter,
-  languageError,
-  environmentError,
-  edit,
-  managedByVercel = false,
-  requireProjectSelection = false,
-}: {
+type FieldsProps = {
   value: SDKConnectionFieldsValue;
   onChange: (patch: Partial<SDKConnectionFieldsValue>) => void;
-  languageFilter: LanguageFilter;
-  setLanguageFilter: (f: LanguageFilter) => void;
-  languageError?: string | null;
-  environmentError?: string | null;
-  edit: boolean;
-  managedByVercel?: boolean;
-  requireProjectSelection?: boolean;
-}) {
-  const { projects, getProjectById } = useDefinitions();
-  const environments = useEnvironments();
-  const permissionsUtil = usePermissionsUtil();
+  // Inline rows supply their own label.
+  hideLabel?: boolean;
+  disabled?: boolean;
+};
 
+export function SDKVersionField({
+  value,
+  onChange,
+  hideLabel,
+  disabled,
+}: FieldsProps) {
   const singleLanguage =
     value.languages.length === 1 ? value.languages[0] : undefined;
-  const showVersionPicker =
-    !!singleLanguage && !/^(other|nocode-.*)$/.test(singleLanguage);
-  const latestVersion = singleLanguage
-    ? getLatestSDKVersion(singleLanguage)
-    : undefined;
-  const usingLatestVersion =
-    !singleLanguage || !isSDKOutdated(singleLanguage, value.sdkVersion);
-  const packageUrl = singleLanguage
-    ? languageMapping[singleLanguage]?.packageUrl
-    : undefined;
-  const packageName = singleLanguage
-    ? languageMapping[singleLanguage]?.packageName
-    : undefined;
+  if (!singleLanguage || /^(other|nocode-.*)$/.test(singleLanguage)) {
+    return null;
+  }
+  const latestVersion = getLatestSDKVersion(singleLanguage);
+  const usingLatestVersion = !isSDKOutdated(singleLanguage, value.sdkVersion);
+  const packageUrl = languageMapping[singleLanguage]?.packageUrl;
+  const packageName = languageMapping[singleLanguage]?.packageName;
 
-  const selectedEnvironment = environments.find(
-    (e) => e.id === value.environment,
+  return (
+    <Box>
+      {/* Stays on the legacy select: the version list must accept a
+          typed-in version that isn't in the list yet. */}
+      <SelectField
+        size="small"
+        label={hideLabel ? undefined : "SDK version"}
+        aria-label="SDK version"
+        sort={false}
+        placeholder="0.0.0"
+        options={getSDKVersions(singleLanguage).map((ver) => ({
+          label: ver,
+          value: ver,
+        }))}
+        createable={true}
+        isClearable={false}
+        disabled={disabled}
+        value={value.sdkVersion || getDefaultSDKVersion(singleLanguage)}
+        onChange={(v) => onChange({ sdkVersion: v })}
+        formatOptionLabel={({ label }) => (
+          <Flex align="center" justify="between" gap="2">
+            <span>{label}</span>
+            {label === latestVersion ? (
+              <Badge color="gray" variant="soft" label="LATEST" />
+            ) : null}
+          </Flex>
+        )}
+      />
+      <Flex align="start" gap="4" wrap="wrap">
+        {!usingLatestVersion && latestVersion && !disabled ? (
+          <Link onClick={() => onChange({ sdkVersion: latestVersion })}>
+            <Text size="sm">Use latest</Text>
+          </Link>
+        ) : null}
+        {packageUrl ? (
+          <Box>
+            <Link href={packageUrl} target="_blank" rel="noreferrer">
+              <Text size="sm">
+                <PiPackage style={{ verticalAlign: "-0.15em" }} />{" "}
+                {getPackageRepositoryName(packageUrl)}
+              </Text>
+            </Link>
+            {packageName ? (
+              <Text as="div" size="sm" color="text-mid">
+                <code>{packageName}</code>
+              </Text>
+            ) : null}
+          </Box>
+        ) : null}
+      </Flex>
+    </Box>
   );
-  const environmentHasProjects =
-    (selectedEnvironment?.projects?.length ?? 0) > 0;
+}
+
+export function EnvironmentField({
+  value,
+  onChange,
+  hideLabel,
+  disabled,
+  error,
+  managedByVercel = false,
+}: FieldsProps & { error?: string | null; managedByVercel?: boolean }) {
+  const environments = useEnvironments();
   const filteredEnvironments = managedByVercel
     ? environments.filter(
         (e) =>
@@ -100,6 +141,63 @@ export default function SDKConnectionFields({
       )
     : environments;
 
+  return (
+    <Select
+      label={hideLabel ? undefined : "Environment"}
+      aria-label="Environment"
+      placeholder="Choose one..."
+      error={error ?? undefined}
+      disabled={disabled}
+      value={value.environment}
+      setValue={(env) =>
+        onChange(
+          managedByVercel
+            ? { environment: env }
+            : { environment: env, projects: [] },
+        )
+      }
+    >
+      {filteredEnvironments.map((env) => {
+        const numProjects = env.projects?.length ?? 0;
+        return (
+          <SelectItem key={env.id} value={env.id}>
+            {env.id}
+            <Text size="sm" color="text-mid" ml="2">
+              {numProjects > 0 ? (
+                `Includes ${numProjects} project${numProjects === 1 ? "" : "s"}`
+              ) : (
+                <em>Includes all projects</em>
+              )}
+            </Text>
+          </SelectItem>
+        );
+      })}
+    </Select>
+  );
+}
+
+export function ProjectsField({
+  value,
+  onChange,
+  hideLabel,
+  disabled,
+  edit,
+  managedByVercel = false,
+  requireProjectSelection = false,
+}: FieldsProps & {
+  edit: boolean;
+  managedByVercel?: boolean;
+  requireProjectSelection?: boolean;
+}) {
+  const { projects, getProjectById } = useDefinitions();
+  const environments = useEnvironments();
+  const permissionsUtil = usePermissionsUtil();
+
+  const selectedEnvironment = environments.find(
+    (e) => e.id === value.environment,
+  );
+  const environmentHasProjects =
+    (selectedEnvironment?.projects?.length ?? 0) > 0;
   const filteredProjectIds = filterProjectsByEnvironment(
     projects.map((p) => p.id),
     selectedEnvironment,
@@ -134,6 +232,102 @@ export default function SDKConnectionFields({
       .filter((p) => !getProjectById(p))
       .map((p) => ({ label: "Invalid project", value: p })),
   ];
+
+  return (
+    <Box>
+      <MultiSelectField
+        size="md"
+        label={
+          hideLabel ? undefined : (
+            <Flex align="center" gap="1" as="span">
+              Filter by Projects
+              <Tooltip
+                body={`The dropdown below has been filtered to only include projects where you have permission to ${
+                  edit ? "update" : "create"
+                } SDK Connections.`}
+              />
+            </Flex>
+          )
+        }
+        aria-label="Projects"
+        placeholder={
+          environmentHasProjects ? "All Environment Projects" : "All Projects"
+        }
+        value={value.projects}
+        onChange={(p) => onChange({ projects: p })}
+        options={projectsOptions}
+        disabled={managedByVercel || disabled}
+        required={requireProjectSelection}
+        sort={false}
+        closeMenuOnSelect={true}
+        formatOptionLabel={({ value: id, label }) =>
+          disallowedProjects.some((p) => p.id === id) ? (
+            <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
+              <del style={{ color: "var(--red-11)" }}>
+                <FaExclamationTriangle /> {label}
+              </del>
+            </Tooltip>
+          ) : (
+            label
+          )
+        }
+      />
+      {requireProjectSelection && (
+        <HelperText status="info" size="sm" mt="2">
+          Your organization requires SDK Connections to belong to at least one
+          project.
+        </HelperText>
+      )}
+      {disallowedProjects.length > 0 && (
+        <HelperText status="error" size="sm" mt="2">
+          This SDK Connection references {disallowedProjects.length} project
+          {disallowedProjects.length !== 1 && "s"} that{" "}
+          {disallowedProjects.length === 1 ? "is" : "are"} not allowed in the
+          selected environment. This may have occurred as a result of a project
+          being removed from the selected environment.
+        </HelperText>
+      )}
+    </Box>
+  );
+}
+
+export function PrerequisitesField({ value, onChange, disabled }: FieldsProps) {
+  return (
+    <Checkbox
+      weight="regular"
+      disabled={disabled}
+      value={value.includeReferencedPrerequisites}
+      setValue={(val) => onChange({ includeReferencedPrerequisites: val })}
+      label={<PrerequisitesLabel />}
+    />
+  );
+}
+
+export default function SDKConnectionFields({
+  value,
+  onChange,
+  languageFilter,
+  setLanguageFilter,
+  languageError,
+  environmentError,
+  edit,
+  managedByVercel = false,
+  requireProjectSelection = false,
+}: {
+  value: SDKConnectionFieldsValue;
+  onChange: (patch: Partial<SDKConnectionFieldsValue>) => void;
+  languageFilter: LanguageFilter;
+  setLanguageFilter: (f: LanguageFilter) => void;
+  languageError?: string | null;
+  environmentError?: string | null;
+  edit: boolean;
+  managedByVercel?: boolean;
+  requireProjectSelection?: boolean;
+}) {
+  const singleLanguage =
+    value.languages.length === 1 ? value.languages[0] : undefined;
+  const showVersionPicker =
+    !!singleLanguage && !/^(other|nocode-.*)$/.test(singleLanguage);
 
   return (
     <Flex direction="column" gap="4">
@@ -180,148 +374,25 @@ export default function SDKConnectionFields({
         columns={{ initial: "1", sm: showVersionPicker ? "2" : "1" }}
         gap="4"
       >
-        {showVersionPicker && singleLanguage ? (
-          <Box>
-            {/* Stays on the legacy select: the version list must accept a
-                typed-in version that isn't in the list yet. */}
-            <SelectField
-              size="small"
-              label="SDK version"
-              sort={false}
-              placeholder="0.0.0"
-              options={getSDKVersions(singleLanguage).map((ver) => ({
-                label: ver,
-                value: ver,
-              }))}
-              createable={true}
-              isClearable={false}
-              value={value.sdkVersion || getDefaultSDKVersion(singleLanguage)}
-              onChange={(v) => onChange({ sdkVersion: v })}
-              formatOptionLabel={({ label }) => (
-                <Flex align="center" justify="between" gap="2">
-                  <span>{label}</span>
-                  {label === latestVersion ? (
-                    <Badge color="gray" variant="soft" label="LATEST" />
-                  ) : null}
-                </Flex>
-              )}
-            />
-            <Flex align="start" gap="4" wrap="wrap">
-              {!usingLatestVersion && latestVersion ? (
-                <Link onClick={() => onChange({ sdkVersion: latestVersion })}>
-                  <Text size="sm">Use latest</Text>
-                </Link>
-              ) : null}
-              {packageUrl ? (
-                <Box>
-                  <Link href={packageUrl} target="_blank" rel="noreferrer">
-                    <Text size="sm">
-                      <PiPackage style={{ verticalAlign: "-0.15em" }} />{" "}
-                      {getPackageRepositoryName(packageUrl)}
-                    </Text>
-                  </Link>
-                  {packageName ? (
-                    <Text as="div" size="sm" color="text-mid">
-                      <code>{packageName}</code>
-                    </Text>
-                  ) : null}
-                </Box>
-              ) : null}
-            </Flex>
-          </Box>
-        ) : null}
-        <Select
-          label="Environment"
-          placeholder="Choose one..."
-          error={environmentError ?? undefined}
-          value={value.environment}
-          setValue={(env) =>
-            onChange(
-              managedByVercel
-                ? { environment: env }
-                : { environment: env, projects: [] },
-            )
-          }
-        >
-          {filteredEnvironments.map((env) => {
-            const numProjects = env.projects?.length ?? 0;
-            return (
-              <SelectItem key={env.id} value={env.id}>
-                {env.id}
-                <Text size="sm" color="text-mid" ml="2">
-                  {numProjects > 0 ? (
-                    `Includes ${numProjects} project${
-                      numProjects === 1 ? "" : "s"
-                    }`
-                  ) : (
-                    <em>Includes all projects</em>
-                  )}
-                </Text>
-              </SelectItem>
-            );
-          })}
-        </Select>
+        <SDKVersionField value={value} onChange={onChange} />
+        <EnvironmentField
+          value={value}
+          onChange={onChange}
+          error={environmentError}
+          managedByVercel={managedByVercel}
+        />
       </Grid>
 
       <Box>
-        <MultiSelectField
-          size="md"
-          label={
-            <Flex align="center" gap="1" as="span">
-              Filter by Projects
-              <Tooltip
-                body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                  edit ? "update" : "create"
-                } SDK Connections.`}
-              />
-            </Flex>
-          }
-          placeholder={
-            environmentHasProjects ? "All Environment Projects" : "All Projects"
-          }
-          value={value.projects}
-          onChange={(p) => onChange({ projects: p })}
-          options={projectsOptions}
-          disabled={managedByVercel}
-          required={requireProjectSelection}
-          sort={false}
-          closeMenuOnSelect={true}
-          formatOptionLabel={({ value: id, label }) =>
-            disallowedProjects.some((p) => p.id === id) ? (
-              <Tooltip body="This project is not allowed in the selected environment and will not be included in the SDK payload.">
-                <del style={{ color: "var(--red-11)" }}>
-                  <FaExclamationTriangle /> {label}
-                </del>
-              </Tooltip>
-            ) : (
-              label
-            )
-          }
+        <ProjectsField
+          value={value}
+          onChange={onChange}
+          edit={edit}
+          managedByVercel={managedByVercel}
+          requireProjectSelection={requireProjectSelection}
         />
-        {requireProjectSelection && (
-          <HelperText status="info" size="sm" mt="2">
-            Your organization requires SDK Connections to belong to at least one
-            project.
-          </HelperText>
-        )}
-        {disallowedProjects.length > 0 && (
-          <HelperText status="error" size="sm" mt="2">
-            This SDK Connection references {disallowedProjects.length} project
-            {disallowedProjects.length !== 1 && "s"} that{" "}
-            {disallowedProjects.length === 1 ? "is" : "are"} not allowed in the
-            selected environment. This may have occurred as a result of a
-            project being removed from the selected environment.
-          </HelperText>
-        )}
         <Box mt="3">
-          <Checkbox
-            weight="regular"
-            value={value.includeReferencedPrerequisites}
-            setValue={(val) =>
-              onChange({ includeReferencedPrerequisites: val })
-            }
-            label={<PrerequisitesLabel />}
-          />
+          <PrerequisitesField value={value} onChange={onChange} />
         </Box>
       </Box>
 

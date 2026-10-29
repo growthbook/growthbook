@@ -35,14 +35,8 @@ import SdkWebhooks from "@/components/Features/SDKConnections/SdkWebhooks";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
-import { isCloud } from "@/services/env";
-import SDKConnectionSettingsCards from "@/components/Features/SDKConnections/SDKConnectionSettingsCards";
-import SDKConnectionHeaderMeta from "@/components/Features/SDKConnections/SDKConnectionHeaderMeta";
 import SDKConnectionCredentialsCard from "@/components/Features/SDKConnections/SDKConnectionCredentialsCard";
-import EditSDKOverviewModal from "@/components/Features/SDKConnections/edit-modals/EditSDKOverviewModal";
-import EditSDKSettingsModal, {
-  SDKConnectionEditSection,
-} from "@/components/Features/SDKConnections/edit-modals/EditSDKSettingsModal";
+import SDKConnectionSetup from "@/components/Features/SDKConnections/SDKConnectionSetup";
 import { canBypassSdkConnectionApproval } from "@/components/Features/SDKConnections/edit-modals/useSdkConnectionRevisionFlow";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
@@ -215,9 +209,6 @@ export default function SDKConnectionPage() {
     null,
   );
   const [activeTab, setActiveTab] = useState<string>("overview");
-  const [editSection, setEditSection] = useState<
-    SDKConnectionEditSection | "all" | "overview" | null
-  >(null);
 
   const connection: SDKConnectionInterface | undefined =
     data?.connections?.find((conn) => conn.id === sdkid);
@@ -384,8 +375,6 @@ export default function SDKConnectionPage() {
     ? languageMapping[displayedConn.languages[0]]?.docs
     : undefined;
 
-  const closeEditSection = () => setEditSection(null);
-
   return (
     <div className="contents container pagecontents">
       {duplicateSource && (
@@ -526,19 +515,8 @@ export default function SDKConnectionPage() {
               open={dropdownOpen}
               onOpenChange={setDropdownOpen}
             >
-              {canUpdate && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setEditSection("overview");
-                    setDropdownOpen(false);
-                  }}
-                >
-                  Edit
-                </DropdownMenuItem>
-              )}
               {canDuplicate && (
                 <>
-                  {canUpdate && <DropdownMenuSeparator />}
                   <DropdownMenuItem
                     onClick={() => {
                       setDuplicateSource(connection);
@@ -588,12 +566,6 @@ export default function SDKConnectionPage() {
           )}
         </Flex>
       </Flex>
-
-      <SDKConnectionHeaderMeta
-        connection={displayedConn}
-        canUpdate={canUpdate}
-        onEditProjects={() => setEditSection("overview")}
-      />
 
       <PayloadSizeCallout connection={connection} mt="3" mb="0" />
       {!supportsBucketingV2 && (
@@ -645,25 +617,31 @@ export default function SDKConnectionPage() {
         )}
         <TabsContent value="overview">
           <Box mt="5">
-            <Flex align="center" justify="between" gap="2" mb="3">
-              <Heading size="lg" as="h2" mb="0">
-                Connection Details
-              </Heading>
-              {canUpdate && isCloud() && (
-                <Link onClick={() => setEditSection("proxy")}>Edit</Link>
-              )}
-            </Flex>
+            <Heading size="lg" as="h2" mb="3">
+              Keys
+            </Heading>
             <SDKConnectionCredentialsCard
               connection={displayedConn}
               canUpdate={canUpdate}
               mutate={mutate}
             />
           </Box>
-          <Box mt="5">
-            <SDKConnectionSettingsCards
+          <Box mt="6">
+            <SDKConnectionSetup
+              // Starts over from the viewed state when the revision or the
+              // saved connection changes.
+              key={`${selectedRevisionId ?? "live"}-${String(displayedConn.dateUpdated)}`}
               connection={displayedConn}
+              mutate={mutate}
               canUpdate={canUpdate}
-              onEdit={() => setEditSection("all")}
+              onRevisionCreated={onRevisionCreated}
+              openRevisions={openRevisions}
+              allRevisions={allRevisions}
+              selectedRevision={selectedRevision}
+              onSelectRevision={selectFlow}
+              approvalRequired={approvalRequired}
+              canAutoPublish={canAutoPublish}
+              metadataReviewRequired={metadataReviewRequired}
             />
           </Box>
         </TabsContent>
@@ -723,38 +701,6 @@ export default function SDKConnectionPage() {
           </Box>
         </TabsContent>
       </Tabs>
-
-      {editSection === "overview" && (
-        <EditSDKOverviewModal
-          connection={displayedConn}
-          close={closeEditSection}
-          mutate={mutate}
-          onRevisionCreated={onRevisionCreated}
-          openRevisions={openRevisions}
-          allRevisions={allRevisions}
-          selectedRevision={selectedRevision}
-          onSelectRevision={selectFlow}
-          approvalRequired={approvalRequired}
-          canAutoPublish={canAutoPublish}
-          metadataReviewRequired={metadataReviewRequired}
-        />
-      )}
-      {editSection !== null && editSection !== "overview" && (
-        <EditSDKSettingsModal
-          connection={displayedConn}
-          close={closeEditSection}
-          mutate={mutate}
-          section={editSection}
-          onRevisionCreated={onRevisionCreated}
-          openRevisions={openRevisions}
-          allRevisions={allRevisions}
-          selectedRevision={selectedRevision}
-          onSelectRevision={selectFlow}
-          approvalRequired={approvalRequired}
-          canAutoPublish={canAutoPublish}
-          metadataReviewRequired={metadataReviewRequired}
-        />
-      )}
     </div>
   );
 }

@@ -36,12 +36,15 @@ export default function PayloadSecurityField({
   languages,
   sdkVersion,
   hideLabel = false,
+  disabled = false,
 }: {
   value: PayloadSecurityValue;
   onChange: (patch: Partial<PayloadSecurityValue>) => void;
   languages: SDKLanguage[];
   sdkVersion?: string;
   hideLabel?: boolean;
+  // Read-only: the caller can't edit this connection.
+  disabled?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasEncryptionFeature = hasCommercialFeature(
@@ -100,7 +103,7 @@ export default function PayloadSecurityField({
           <Checkbox
             weight="regular"
             value={value.encryptPayload}
-            disabled={!hasEncryptionFeature}
+            disabled={disabled || !hasEncryptionFeature}
             setValue={(v) => onChange({ encryptPayload: v })}
             label={
               <PremiumTooltip
@@ -133,7 +136,7 @@ export default function PayloadSecurityField({
         <Checkbox
           weight="regular"
           value={value.hashSecureAttributes}
-          disabled={!hasSecureAttributesFeature}
+          disabled={disabled || !hasSecureAttributesFeature}
           setValue={(v) => onChange({ hashSecureAttributes: v })}
           label={
             <PremiumTooltip
@@ -223,7 +226,9 @@ export default function PayloadSecurityField({
       <Checkbox
         weight="regular"
         value={value.delivery === "remote"}
-        disabled={!hasRemoteEvaluationFeature || !remoteEvalLatestSupported}
+        disabled={
+          disabled || !hasRemoteEvaluationFeature || !remoteEvalLatestSupported
+        }
         setValue={(v) =>
           onChange({
             delivery: v
@@ -362,6 +367,7 @@ export default function PayloadSecurityField({
         </Flex>
       )}
       <RadioGroup
+        disabled={disabled}
         value={value.delivery}
         setValue={(v) => {
           const mode = v as DeliveryMode;

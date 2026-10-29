@@ -16,6 +16,8 @@ export default function SavedGroupFormatField({
   sdkVersion,
   remoteEvalEnabled,
   storedFormat,
+  hideLabel = false,
+  disabled = false,
 }: {
   value: SavedGroupFormat;
   onChange: (format: SavedGroupFormat) => void;
@@ -23,6 +25,9 @@ export default function SavedGroupFormatField({
   sdkVersion?: string;
   remoteEvalEnabled: boolean;
   storedFormat?: SavedGroupFormat;
+  // Inline rows supply their own label.
+  hideLabel?: boolean;
+  disabled?: boolean;
 }) {
   const { hasCommercialFeature } = useUser();
   const hasLargeSavedGroupFeature = hasCommercialFeature("large-saved-groups");
@@ -50,8 +55,12 @@ export default function SavedGroupFormatField({
     <SelectField
       size="small"
       label={
-        <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
+        hideLabel ? undefined : (
+          <SavedGroupReferencesLabel remoteEvalEnabled={remoteEvalEnabled} />
+        )
       }
+      aria-label="Pass Saved Groups by reference"
+      disabled={disabled}
       sort={false}
       isClearable={false}
       isSearchable={false}
