@@ -70,7 +70,7 @@ import Field from "@/components/Forms/Field";
 import {
   capTypedPercent,
   COVERAGE_DECIMALS,
-  decimalToPercent,
+  coverageToPercent,
   percentToDecimalForNumber,
 } from "@/services/utils";
 import DatePicker from "@/components/DatePicker";
@@ -4367,7 +4367,7 @@ export function reconstructUIPatch(
   if (!patch) return {};
   const p: UIStepPatch = {};
   if ((patch.coverage ?? null) !== null)
-    p.coverage = decimalToPercent(patch.coverage!, COVERAGE_DECIMALS + 2);
+    p.coverage = coverageToPercent(patch.coverage!);
   if ("condition" in patch) {
     const condition = patch.condition;
     p.condition =

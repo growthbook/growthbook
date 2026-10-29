@@ -294,7 +294,7 @@ export default function DashboardWorkspace({
     setStagedInsert(undefined);
     setEditingBlockIndex(undefined);
     setStagedEditBlock(undefined);
-    setStagedLayouts(undefined);
+    setStagedLayouts(null);
     setEditSidebarDirty(false);
     setFocusedBlockIndex(undefined);
   };
@@ -322,8 +322,8 @@ export default function DashboardWorkspace({
   // Where the other blocks moved to make way for the one being edited; saved
   // and discarded with it.
   const [stagedLayouts, setStagedLayouts] = useState<
-    (BlockLayout | undefined)[] | undefined
-  >(undefined);
+    (BlockLayout | undefined)[] | null
+  >(null);
 
   useEffect(() => {
     const activeKeys = DASHBOARD_GLOBAL_FILTER_KEYS.filter((key) =>
@@ -451,7 +451,7 @@ export default function DashboardWorkspace({
     setEditingBlockIndex(i);
     setEditSidebarDirty(true);
     setStagedEditBlock(effectiveBlocks[i]);
-    setStagedLayouts(undefined);
+    setStagedLayouts(null);
   };
 
   const deleteBlock = (i: number) => {

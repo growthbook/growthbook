@@ -7,12 +7,7 @@ import Collapsible from "react-collapsible";
 import styles from "@/components/Features/VariationsInput.module.scss";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import {
-  capTypedPercent,
-  COVERAGE_DECIMALS,
-  decimalToPercent,
-  percentToDecimal,
-} from "@/services/utils";
+import { coverageToPercent, typedPercentToCoverage } from "@/services/utils";
 import Text from "@/ui/Text";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -319,17 +314,10 @@ export default function RolloutPercentInput({
             size="legacy"
             style={{ width: 95 }}
             disabled={locked}
-            value={
-              isNaN(value ?? 0)
-                ? ""
-                : decimalToPercent(value ?? 0, COVERAGE_DECIMALS + 2)
-            }
+            value={isNaN(value ?? 0) ? "" : coverageToPercent(value ?? 0)}
             step="any"
             onChange={(e) => {
-              let decimal = percentToDecimal(
-                capTypedPercent(e.target.value, COVERAGE_DECIMALS),
-                COVERAGE_DECIMALS + 2,
-              );
+              let decimal = typedPercentToCoverage(e.target.value);
               if (decimal > 1) decimal = 1;
               if (decimal < 0) decimal = 0;
               setValue(decimal);

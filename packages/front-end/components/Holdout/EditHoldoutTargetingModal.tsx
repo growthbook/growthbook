@@ -29,10 +29,9 @@ import Field from "@/components/Forms/Field";
 import track from "@/services/track";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import {
-  capTypedPercent,
-  COVERAGE_DECIMALS,
+  coverageToPercent,
   decimalToPercent,
-  percentToDecimal,
+  typedPercentToCoverage,
 } from "@/services/utils";
 
 export interface Props {
@@ -153,16 +152,12 @@ function TargetingForm({
               value={
                 isNaN(form.watch("coverage") ?? 0)
                   ? "5"
-                  : decimalToPercent(
+                  : coverageToPercent(
                       coverageToHoldoutSize(form.watch("coverage") ?? 0),
-                      COVERAGE_DECIMALS + 2,
                     )
               }
               onChange={(e) => {
-                let holdoutSize = percentToDecimal(
-                  capTypedPercent(e.target.value, COVERAGE_DECIMALS),
-                  COVERAGE_DECIMALS + 2,
-                );
+                let holdoutSize = typedPercentToCoverage(e.target.value);
                 if (holdoutSize > MAX_HOLDOUT_SIZE)
                   holdoutSize = MAX_HOLDOUT_SIZE;
                 if (holdoutSize < 0) holdoutSize = 0;

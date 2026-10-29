@@ -412,7 +412,6 @@ export function ExperimentEditsProvider({
       setSaving(true);
       savingNow.current = true;
       setError(null);
-      setRefreshFailed(false);
       setConflicts([]);
       const pending = [...edits.current.entries()];
       // A refused save keeps each edit's base, so a retry can't quietly

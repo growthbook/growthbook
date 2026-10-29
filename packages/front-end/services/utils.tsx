@@ -96,14 +96,8 @@ export function getHoldoutTrafficBreakdown(
 } {
   const coverage = phase?.coverage ?? 0;
   const weights = phase?.variationWeights ?? [];
-  const inHoldoutPercent = decimalToPercent(
-    coverage * (weights[0] ?? 0),
-    COVERAGE_DECIMALS + 2,
-  );
-  const forMeasurementPercent = decimalToPercent(
-    coverage * (weights[1] ?? 0),
-    COVERAGE_DECIMALS + 2,
-  );
+  const inHoldoutPercent = coverageToPercent(coverage * (weights[0] ?? 0));
+  const forMeasurementPercent = coverageToPercent(coverage * (weights[1] ?? 0));
 
   return {
     inHoldoutPercent,
@@ -180,6 +174,17 @@ export function percentToDecimal(val: string, precision: number = 4): number {
 // Decimal places a typed percent keeps.
 export const VARIATION_WEIGHT_DECIMALS = 2;
 export const COVERAGE_DECIMALS = 4;
+
+// A coverage decimal as the percent its inputs show.
+export const coverageToPercent = (decimal: number) =>
+  decimalToPercent(decimal, COVERAGE_DECIMALS + 2);
+
+// What's typed in a coverage input, as a decimal.
+export const typedPercentToCoverage = (raw: string) =>
+  percentToDecimal(
+    capTypedPercent(raw, COVERAGE_DECIMALS),
+    COVERAGE_DECIMALS + 2,
+  );
 
 // A traffic share, to the precision its inputs take.
 export const coveragePercentFormatter = new Intl.NumberFormat(undefined, {

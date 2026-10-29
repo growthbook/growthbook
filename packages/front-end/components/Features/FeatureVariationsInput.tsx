@@ -8,13 +8,12 @@ import {
   PiPlusBold,
 } from "react-icons/pi";
 import {
-  capTypedPercent,
-  COVERAGE_DECIMALS,
+  coverageToPercent,
   decimalToPercent,
   distributeWeights,
   isEqualSplit,
-  percentToDecimal,
   percentToDecimalForNumber,
+  typedPercentToCoverage,
 } from "@/services/utils";
 import {
   generateVariationId,
@@ -525,19 +524,8 @@ function CoverageField({
             <Field
               size="legacy"
               style={{ width: 95 }}
-              value={
-                unset
-                  ? ""
-                  : decimalToPercent(coverage ?? 0, COVERAGE_DECIMALS + 2)
-              }
-              onChange={(e) =>
-                set(
-                  percentToDecimal(
-                    capTypedPercent(e.target.value, COVERAGE_DECIMALS),
-                    COVERAGE_DECIMALS + 2,
-                  ),
-                )
-              }
+              value={unset ? "" : coverageToPercent(coverage ?? 0)}
+              onChange={(e) => set(typedPercentToCoverage(e.target.value))}
               type="number"
               min={0}
               max={100}
