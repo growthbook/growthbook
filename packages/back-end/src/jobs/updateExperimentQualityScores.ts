@@ -2,11 +2,9 @@ import Agenda from "agenda";
 import {
   EXPERIMENT_PROCESS_RULES_VERSION,
   EXPERIMENT_QUALITY_PROMPT_VERSION,
+  EXPERIMENT_QUALITY_SCORE_VERSION,
 } from "shared/enterprise";
-import {
-  getAISettingsForOrg,
-  getContextForAgendaJobByOrgId,
-} from "back-end/src/services/organizations";
+import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
 import { logger } from "back-end/src/util/logger";
 import {
   getExperimentById,
@@ -16,10 +14,11 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { queueExperimentProcessScoreBackfill } from "back-end/src/jobs/updateExperimentProcessScores";
 import {
-  AIQualityOutcome,
   computeAndStoreAIQualityChecks,
   getQualityScopeFilter,
   loadAIQualityInputs,
+  loadQualityScoreInputs,
+  storeQualityScore,
 } from "back-end/src/enterprise/services/experimentQualityScore";
 import { EXPERIMENTATION_HEALTH_SETTINGS_COLLECTION } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
 import {
@@ -32,7 +31,7 @@ import {
 } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { getCollection } from "back-end/src/util/mongo.util";
 
-// Edits, settings saves and turning AI on queue their own updates; this
+// Edits, settings saves and turning AI on or off queue their own updates; this
 // daily pass only catches what those can't: results from an older release
 // of the checks, and stopped experiments without process results.
 const DAILY_QUALITY_CHECK = "dailyExperimentQualityCheck";
@@ -87,8 +86,8 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
   const context = await getContextForAgendaJobByOrgId(organization);
   if (!context.hasPremiumFeature("experiment-quality-score")) return;
   const records = await context.models.experimentationHealthSettings.getAll();
+  // Null when scoring is off everywhere
   const scope = getQualityScopeFilter(records);
-  if (!scope) return;
   // Built-in AI checks need a hypothesis; custom ones can apply without
   const hasCustomChecks = records.some((r) =>
     r.quality?.config?.customAiChecks?.some((c) => c.enabled !== false),
@@ -96,7 +95,7 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
 
   // Once per pass: process results for experiments stopped before scoring
   // was turned on, or before a release changed the rules
-  if (!after) {
+  if (!after && scope) {
     const processIds = await getExperimentIdsNeedingProcessResults(
       organization,
       EXPERIMENT_PROCESS_RULES_VERSION,
@@ -106,28 +105,43 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
     }
   }
 
-  if (
-    !context.org.settings?.aiEnabled ||
-    !(await getAISettingsForOrg(context)).aiEnabled
-  ) {
-    return;
-  }
+  const scoreInputs = await loadQualityScoreInputs(context);
+  // The daily pass only refreshes results from an older release
+  if (outdatedOnly && !scope) return;
 
   const ids = await getExperimentIdsPage(organization, {
     after,
     limit: PAGE_SIZE,
     filter: {
       $and: [
-        scope,
         project ? { project } : {},
         outdatedOnly
           ? {
-              ...(hasCustomChecks ? {} : { hypothesis: { $nin: ["", null] } }),
-              "aiQualityResults.version": {
-                $ne: EXPERIMENT_QUALITY_PROMPT_VERSION,
-              },
+              ...scope,
+              $or: [
+                ...(scoreInputs.aiEnabled
+                  ? [
+                      {
+                        ...(hasCustomChecks
+                          ? {}
+                          : { hypothesis: { $nin: ["", null] } }),
+                        "aiQualityResults.version": {
+                          $ne: EXPERIMENT_QUALITY_PROMPT_VERSION,
+                        },
+                      },
+                    ]
+                  : []),
+                {
+                  "qualityScore.version": {
+                    $ne: EXPERIMENT_QUALITY_SCORE_VERSION,
+                  },
+                },
+              ],
             }
-          : {},
+          : // Scored experiments, plus stored scores to clear where it's off
+            {
+              $or: [...(scope ? [scope] : []), { qualityScore: { $ne: null } }],
+            },
       ],
     },
   });
@@ -141,29 +155,32 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
   );
 
   for (const experiment of experiments) {
-    let outcome: AIQualityOutcome;
     try {
-      outcome = await computeAndStoreAIQualityChecks({
+      const outcome = await computeAndStoreAIQualityChecks({
         context,
         experiment,
         force,
         inputs,
       });
-    } catch (e) {
-      logger.error(e, `AI quality recheck failed for ${experiment.id}`);
-      continue;
-    }
-    if (outcome.status === "rate-limited") {
-      // Resume from this experiment once the limit resets
-      const index = experiments.indexOf(experiment);
-      await queueExperimentQualityRecheck(
-        { ...data, after: index ? experiments[index - 1].id : after },
-        { delayMs: outcome.retryInSeconds * 1000, dedupe: false },
+      if (outcome.status === "rate-limited") {
+        // Resume from this experiment once the limit resets
+        const index = experiments.indexOf(experiment);
+        await queueExperimentQualityRecheck(
+          { ...data, after: index ? experiments[index - 1].id : after },
+          { delayMs: outcome.retryInSeconds * 1000, dedupe: false },
+        );
+        return;
+      }
+      if (outcome.status === "failed") {
+        await retryFailedAICall(organization, experiment.id);
+      }
+      await storeQualityScore(
+        context,
+        "experiment" in outcome ? outcome.experiment : experiment,
+        scoreInputs,
       );
-      return;
-    }
-    if (outcome.status === "failed") {
-      await retryFailedAICall(organization, experiment.id);
+    } catch (e) {
+      logger.error(e, `Quality recheck failed for ${experiment.id}`);
     }
   }
 
@@ -190,6 +207,11 @@ const updateSingleExperimentQuality = async (
     experiment,
     force,
   });
+  await storeQualityScore(
+    context,
+    "experiment" in outcome ? outcome.experiment : experiment,
+    await loadQualityScoreInputs(context),
+  );
   if (outcome.status === "rate-limited") {
     await queueExperimentQualityScoreUpdate({
       experimentId,

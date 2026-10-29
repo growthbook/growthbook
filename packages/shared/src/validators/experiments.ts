@@ -457,6 +457,24 @@ export type ExperimentQualityScoreOverride = z.infer<
   typeof experimentQualityScoreOverride
 >;
 
+// The quality score as last computed on the server, so it can be queried;
+// null when scoring is off for the experiment's scope
+export const experimentStoredQualityScore = z
+  .object({
+    // The override when set, else the computed score
+    score: z.number().nullable(),
+    computedScore: z.number().nullable(),
+    // Some applicable AI check has no fresh verdict yet
+    pending: z.boolean(),
+    // EXPERIMENT_QUALITY_SCORE_VERSION when computed
+    version: z.number(),
+    dateComputed: z.date(),
+  })
+  .strict();
+export type ExperimentStoredQualityScore = z.infer<
+  typeof experimentStoredQualityScore
+>;
+
 // Cached process-rule results, computed from the experiment's change
 // history when it stops. Recomputed when `version` falls behind the rules.
 export const experimentProcessResults = z
@@ -643,6 +661,7 @@ export const experimentInterface = z
     analysisSummary: experimentAnalysisSummary.optional(),
     aiQualityResults: experimentAIQualityResults.optional(),
     qualityScoreOverride: experimentQualityScoreOverride.optional().nullable(),
+    qualityScore: experimentStoredQualityScore.optional().nullable(),
     processResults: experimentProcessResults.optional(),
     dismissedWarnings: z.array(z.enum(["low-power"])).optional(),
     holdoutId: z.string().optional(),

@@ -11,7 +11,6 @@ import {
   generateTrackingKey,
   getLatestPhaseVariations,
 } from "shared/experiments";
-import { haveAIQualityInputsChanged } from "shared/enterprise";
 import { v4 as uuidv4 } from "uuid";
 import {
   VisualChange,
@@ -100,8 +99,8 @@ import { getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION = "experiments";
 
-// Lets a burst of edits finish before the AI quality checks re-run
-const AI_QUALITY_EDIT_DELAY_MS = 60 * 1000;
+// Lets a burst of edits finish before the quality score is updated
+const QUALITY_EDIT_DELAY_MS = 60 * 1000;
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -397,6 +396,14 @@ const experimentSchema = new mongoose.Schema({
     userName: String,
     dateOverridden: Date,
     reason: String,
+  },
+  qualityScore: {
+    _id: false,
+    score: Number,
+    computedScore: Number,
+    pending: Boolean,
+    version: Number,
+    dateComputed: Date,
   },
   processResults: {
     _id: false,
@@ -1290,6 +1297,27 @@ export async function getExperimentIdsNeedingProcessResults(
     .toArray();
 
   return experiments.map((exp) => exp.id);
+}
+
+// Background quality results aren't edits, so they skip dateUpdated, the
+// audit log and the update hooks
+export async function setExperimentQualityCache(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  changes: Partial<
+    Pick<
+      ExperimentInterface,
+      "aiQualityResults" | "processResults" | "qualityScore"
+    >
+  >,
+  // Skips the write unless these fields still match
+  guard: Record<string, unknown> = {},
+): Promise<boolean> {
+  const { matchedCount } = await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id, ...guard },
+    { $set: changes },
+  );
+  return matchedCount > 0;
 }
 
 export function countUnarchivedExperimentsByOrganization(
@@ -2519,16 +2547,14 @@ const hasChangesForSDKPayloadRefresh = (
   return !isEqual(oldChanges, newChanges);
 };
 
-// AI quality checks judge experiments in any status, so they run when an
-// experiment is created and whenever what they read changes. The job
-// re-checks every gate and the cache.
-function queueAIQualityChecks(
+// Any edit can change the stored quality score, and some re-run the AI
+// checks. The job re-checks every gate and skips AI calls whose inputs match.
+function queueQualityScoreUpdate(
   context: ReqContext | ApiReqContext,
   experiment: ExperimentInterface,
 ) {
   if (
     !context.hasPremiumFeature("experiment-quality-score") ||
-    !context.org.settings?.aiEnabled ||
     experiment.archived
   ) {
     return;
@@ -2536,7 +2562,7 @@ function queueAIQualityChecks(
   queueExperimentQualityScoreUpdate({
     experimentId: experiment.id,
     organization: experiment.organization,
-    delayMs: AI_QUALITY_EDIT_DELAY_MS,
+    delayMs: QUALITY_EDIT_DELAY_MS,
   }).catch((e) =>
     logger.error(e, `Failed to queue AI quality checks for ${experiment.id}`),
   );
@@ -2557,7 +2583,7 @@ const onExperimentCreate = async ({
     logger.error(error, "Failed to notify experiment creation"),
   );
 
-  queueAIQualityChecks(context, experiment);
+  queueQualityScoreUpdate(context, experiment);
 
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({
@@ -2644,12 +2670,7 @@ const onExperimentUpdate = async ({
 
   notifyAlerts();
 
-  if (
-    haveAIQualityInputsChanged(oldExperiment, newExperiment) ||
-    (oldExperiment.archived && !newExperiment.archived)
-  ) {
-    queueAIQualityChecks(context, newExperiment);
-  }
+  queueQualityScoreUpdate(context, newExperiment);
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromExperiment({

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { isEqual, pick } from "lodash";
 import {
   AIExperimentQualityCheckKey,
   ExperimentAIQualityResults,
@@ -9,9 +10,11 @@ import {
 } from "shared/validators";
 import {
   EXPERIMENT_QUALITY_PROMPT_VERSION,
+  EXPERIMENT_QUALITY_SCORE_VERSION,
   customQualityCheckKey,
   getAIQualityInputsHash,
   getExperimentDigestForCustomRules,
+  getExperimentQualityScore,
   getGoalMetricNames,
   isAICheckApplicable,
   resolveExperimentQualitySettings,
@@ -26,7 +29,7 @@ import {
 import { getExperimentMetricsByIds } from "back-end/src/services/experiments";
 import {
   getExperimentById,
-  updateExperiment,
+  setExperimentQualityCache,
 } from "back-end/src/models/ExperimentModel";
 import {
   isDecisionModelConfigured,
@@ -302,10 +305,10 @@ async function judgeWithChatModel({
 export type AIQualityOutcome =
   // Nothing to do: scoring or AI is off, no checks apply, or it's fresh
   | { status: "skipped" }
-  | { status: "updated" }
+  | { status: "updated"; experiment: ExperimentInterface }
   | { status: "rate-limited"; retryInSeconds: number }
   // The error is also stored on the experiment
-  | { status: "failed" };
+  | { status: "failed"; experiment: ExperimentInterface };
 
 /**
  * Runs the AI quality checks for an experiment and caches the verdicts on
@@ -443,11 +446,82 @@ export async function computeAndStoreAIQualityChecks({
     return { status: "skipped" };
   }
 
-  await updateExperiment({
+  await setExperimentQualityCache(context, latest.id, { aiQualityResults });
+  return {
+    status: aiQualityResults.error ? "failed" : "updated",
+    experiment: { ...latest, aiQualityResults },
+  };
+}
+
+// What the stored quality score reads besides the experiment, loaded once
+// for any number of the org's experiments
+export async function loadQualityScoreInputs(context: ReqContext) {
+  const [records, aiSettings] = await Promise.all([
+    context.models.experimentationHealthSettings.getAll(),
+    getAISettingsForOrg(context),
+  ]);
+  return {
+    recordsByProject: new Map(records.map((r) => [r.project, r])),
+    aiEnabled: aiSettings.aiEnabled,
+  };
+}
+
+export type QualityScoreInputs = Awaited<
+  ReturnType<typeof loadQualityScoreInputs>
+>;
+
+// Recomputes the experiment's stored quality score, writing only when it
+// changed; null when scoring is off for the experiment's scope
+export async function storeQualityScore(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  inputs: QualityScoreInputs,
+  attempt = 0,
+): Promise<void> {
+  const settings = context.hasPremiumFeature("experiment-quality-score")
+    ? resolveExperimentQualitySettings({
+        orgRecord: inputs.recordsByProject.get(ORG_DEFAULT_SCOPE),
+        projectRecord: experiment.project
+          ? inputs.recordsByProject.get(experiment.project)
+          : null,
+        aiEnabled: inputs.aiEnabled,
+      })
+    : null;
+  const result = settings
+    ? getExperimentQualityScore({ experiment, settings })
+    : null;
+  const next = result
+    ? {
+        ...pick(result, ["score", "computedScore", "pending"]),
+        version: EXPERIMENT_QUALITY_SCORE_VERSION,
+      }
+    : null;
+  const current = experiment.qualityScore
+    ? pick(experiment.qualityScore, [
+        "score",
+        "computedScore",
+        "pending",
+        "version",
+      ])
+    : null;
+  if (isEqual(next, current)) return;
+
+  // Only lands if what it read is still current; otherwise starts over
+  // from the latest experiment
+  const stored = await setExperimentQualityCache(
     context,
-    experiment: latest,
-    changes: { aiQualityResults },
-    bypassWebhooks: true,
-  });
-  return { status: aiQualityResults.error ? "failed" : "updated" };
+    experiment.id,
+    { qualityScore: next && { ...next, dateComputed: new Date() } },
+    {
+      dateUpdated: experiment.dateUpdated ?? null,
+      "aiQualityResults.dateComputed":
+        experiment.aiQualityResults?.dateComputed ?? null,
+      "processResults.dateComputed":
+        experiment.processResults?.dateComputed ?? null,
+    },
+  );
+  if (!stored && attempt < 2) {
+    const latest = await getExperimentById(context, experiment.id);
+    if (latest) await storeQualityScore(context, latest, inputs, attempt + 1);
+  }
 }

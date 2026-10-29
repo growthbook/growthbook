@@ -1818,10 +1818,11 @@ export async function putOrganization(
 
     await updateOrganization(org.id, updates);
 
-    // Turning AI on starts the AI quality checks for existing experiments
+    // Turning AI on starts the AI quality checks for existing experiments,
+    // and either way changes which checks count in stored scores
     if (
-      !org.settings?.aiEnabled &&
-      updates.settings?.aiEnabled &&
+      updates.settings &&
+      !!org.settings?.aiEnabled !== !!updates.settings.aiEnabled &&
       context.hasPremiumFeature("experiment-quality-score")
     ) {
       queueExperimentQualityRecheck({ organization: org.id }).catch((e) =>
