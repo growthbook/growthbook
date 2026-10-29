@@ -77,7 +77,7 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
-  isVariationWeightsSumValid,
+  areVariationWeightsValid,
   scheduleWriteNeedsRunPermission,
   sdkConnectionServesProject,
   withScheduledBy,
@@ -2439,8 +2439,7 @@ export function assertValidExperimentPhases(
     }
     const weights = phase.variationWeights;
     if (
-      (!weights.every(inUnitInterval) ||
-        !isVariationWeightsSumValid(weights)) &&
+      !areVariationWeightsValid(weights) &&
       !existing.some((p) => isEqual(p.variationWeights, weights))
     ) {
       throw new BadRequestError(

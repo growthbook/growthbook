@@ -1,8 +1,10 @@
 import { UseFormReturn, useWatch } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
+  ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
+import { areVariationWeightsValid } from "shared/experiments";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { Fragment, ReactNode, useEffect, useState } from "react";
@@ -14,6 +16,7 @@ import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
@@ -280,6 +283,17 @@ function ChangeTypeSelector({
 }) {
   const { namespaces } = useOrgSettings();
 
+  const lastPhase: ExperimentPhaseStringDates | undefined =
+    experiment.phases[experiment.phases.length - 1];
+  const invalidWeightsPercent =
+    experiment.type !== "multi-armed-bandit" &&
+    lastPhase &&
+    !areVariationWeightsValid(lastPhase.variationWeights)
+      ? Math.round(
+          lastPhase.variationWeights.reduce((total, w) => total + w, 0) * 100,
+        )
+      : null;
+
   const options: RadioOptions = [
     { label: "Start a new phase", value: "phase" },
     {
@@ -310,12 +324,24 @@ function ChangeTypeSelector({
 
   return (
     <div>
+      {invalidWeightsPercent !== null && (
+        <Callout status="warning" mb="4">
+          The current variation weights add up to {invalidWeightsPercent}%, so
+          SDKs ignore them and split traffic equally. Fix the weights to make
+          other changes.
+        </Callout>
+      )}
       <h5>What do you want to change?</h5>
       <div className="mt-3">
         <RadioGroup
           value={changeType || ""}
           setValue={(v: ChangeType) => setChangeType(v)}
-          options={options.filter((o) => !o.disabled)}
+          options={options.filter(
+            (o) =>
+              !o.disabled &&
+              (invalidWeightsPercent === null ||
+                ["weights", "advanced"].includes(o.value)),
+          )}
         />
       </div>
     </div>
