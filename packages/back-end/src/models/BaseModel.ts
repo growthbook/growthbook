@@ -1894,6 +1894,12 @@ export const MakeModelClass = <
     static getModelConfig(): ModelConfig<T, E, ApiT, PKey> {
       return config as ModelConfig<T, E, ApiT, PKey>;
     }
+    // For super admin views of another org, which have no ReqContext for it
+    static _dangerousCountByOrganization(organization: string) {
+      return mongoose.connection.db
+        .collection(config.collectionName)
+        .countDocuments({ organization });
+    }
     getCreateValidator() {
       return createValidator;
     }
