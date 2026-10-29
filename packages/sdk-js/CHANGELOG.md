@@ -2,26 +2,18 @@
 
 ## **2.0.0** - Oct 29, 2026
 
+- Add Remote Saved Groups support - a new type of saved group where values are managed in an external data store, rather than in the payload
+- Add `reducePayload` - a new SDK function that shrinks the size of the payload by filters when hydrating to a client-side SDK
+- Add `interleavePlugin` for testing ranking algorithms
+- Add Contextual Bandit support for visual and URL redirect experiments
+- Various fixes for condition operators and evaluation edge cases
+
 **Breaking changes.** See [Updating to 2.0.0](https://docs.growthbook.io/lib/js#updating-to-2-0-0).
 
-- Targeting conditions are strict about types. Values are no longer converted between types, and negated operators always give the opposite result of their positive form
-- Only strings and numbers can be hash attributes. Other values count as missing
-- Percentage rollouts no longer include one extra hash bucket, so users in that bucket (about 1 in 10,000) leave the rollout
-- Conditions that use an operator or Saved Group type the SDK doesn't support always fail
-- Evaluating a condition directly takes its options as one object instead of separate arguments
-
-**New features**
-
-- Remote Saved Groups, whose members are looked up outside the payload
-- Interleaving experiments
-- Contextual Bandits for visual and URL redirect experiments
-- Shrink a server-rendered payload to only the features and experiments each user needs
-- More operators for matching items in array attributes
-- Debug logging for type mismatches in conditions
-
-**Fixes**
-
-- Fixes for malformed prerequisite conditions and attributes named like built-in properties
+- Comparison operators no longer do implicit type conversions
+- Tighten attribute hashing logic to only accept strings and number values
+- Fix fence post bug with rollout bucketing logic, affecting a tiny minority of users
+- Missing or unrecognized saved groups always fail closed
 
 ## **1.8.0** - Sep 29, 2026
 
