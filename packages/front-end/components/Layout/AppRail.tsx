@@ -1,5 +1,6 @@
 import {
   Dispatch,
+  MouseEvent as ReactMouseEvent,
   ReactNode,
   SetStateAction,
   useEffect,
@@ -196,6 +197,12 @@ function permittedSections(filterProps: SidebarLinkFilterProps): Section[] {
   });
 }
 
+// Cmd/Ctrl/Shift-click or a middle click opens a link in a new tab or window:
+// the browser's to handle.
+function opensElsewhere(e: ReactMouseEvent) {
+  return e.metaKey || e.ctrlKey || e.shiftKey || e.button === 1;
+}
+
 function PageBadge({ page }: { page: SidebarLinkProps }) {
   return page.beta ? (
     <Badge color="indigo" label="Beta" variant="soft" size="xs" ml="1" />
@@ -234,7 +241,7 @@ function CollapsedSection({
   const keyboardOpened = useRef(false);
   // Closing it from the keyboard (Escape) puts focus back on the icon,
   // without reopening it.
-  const triggerRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLAnchorElement>(null);
   const focusReturning = useRef(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clearTimer = () => {
@@ -271,10 +278,12 @@ function CollapsedSection({
   };
 
   const { Icon } = section;
+  // A link to the section's first page, so it opens in a new tab as well.
+  const first = section.pages[0];
   const trigger = (
-    <button
+    <Link
       ref={triggerRef}
-      type="button"
+      href={first.href}
       className={clsx(
         styles.iconItem,
         active && styles.active,
@@ -298,10 +307,10 @@ function CollapsedSection({
         }
       }}
       onClick={(e) => {
+        if (opensElsewhere(e)) return;
         // The popover is handled here, not by Radix's toggle.
         e.preventDefault();
-        const first = section.pages[0];
-        if (first && !tapOpens) {
+        if (!tapOpens) {
           setOpenState(false);
           void router.push(first.href);
           return;
@@ -330,7 +339,7 @@ function CollapsedSection({
       }}
     >
       <Icon size={ICON_SIZE} />
-    </button>
+    </Link>
   );
 
   return (
@@ -408,8 +417,9 @@ function ExpandedSection({
   return (
     <div className={styles.sectionGroup}>
       <div className={styles.sectionHeader}>
-        <button
-          type="button"
+        {/* A link to the first page, so it opens in a new tab as well. */}
+        <Link
+          href={section.pages[0].href}
           className={clsx(
             styles.row,
             styles.sectionRow,
@@ -418,11 +428,15 @@ function ExpandedSection({
           )}
           aria-expanded={open}
           aria-controls={listId}
-          onClick={() => onToggle(true)}
+          onClick={(e) => {
+            if (opensElsewhere(e)) return;
+            e.preventDefault();
+            onToggle(true);
+          }}
         >
           <Icon size={ICON_SIZE} className={styles.rowIcon} />
           <span className={styles.rowLabel}>{section.link.name}</span>
-        </button>
+        </Link>
         <button
           type="button"
           className={styles.chevronButton}
@@ -507,7 +521,9 @@ function RailItem({
     "aria-current": active ? ("page" as const) : undefined,
   };
   const element = href ? (
-    <Link href={href} className={classes} {...a11y}>
+    // In the tab order even where Tab skips links (Safari's default), like
+    // the buttons around it.
+    <Link href={href} className={classes} tabIndex={0} {...a11y}>
       {contents}
     </Link>
   ) : (
