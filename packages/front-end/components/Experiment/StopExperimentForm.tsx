@@ -159,26 +159,44 @@ const StopExperimentForm: FC<{
     variations?.[form.watch("winner")]?.id !== recommendedReleaseVariationId;
   const { apiCall } = useAuth();
 
-  // What its users get once it stops serving: a flag's rule stays on the flag
-  // but leaves the payload, and visual changes and redirects drop out.
+  // What users in it get once it stops serving: a flag's rule stays on the
+  // flag but leaves the payload, and visual changes and redirects drop out.
   const noun = isBandit ? "Bandit" : "experiment";
-  const flagCount = experiment.linkedFeatures?.length ?? 0;
+  const flags = experiment.linkedFeatures ?? [];
   const pageChanges =
     experiment.hasVisualChangesets || experiment.hasURLRedirects;
-  const withoutRollout = [
-    flagCount === 1
-      ? `Without a Temporary Rollout, its Feature Flag stops serving this ${noun} when you submit; its users get the flag's next rule or default value.`
-      : flagCount > 1
-        ? `Without a Temporary Rollout, its ${flagCount} Feature Flags stop serving this ${noun} when you submit; its users get each flag's next rule or default value.`
-        : "",
-    pageChanges
-      ? flagCount
-        ? "Its visual changes and redirects stop showing too."
-        : "Without a Temporary Rollout, its visual changes and redirects stop showing when you submit."
-      : "",
-  ]
-    .filter(Boolean)
-    .join(" ");
+  const withoutRollout =
+    flags.length || pageChanges ? (
+      <>
+        {flags.length === 1 ? (
+          <>
+            Without a Temporary Rollout, the linked Feature Flag{" "}
+            <strong>{flags[0]}</strong> stops serving this {noun} when you
+            submit. Users in the {noun} get the flag&apos;s next rule or its
+            default value.
+          </>
+        ) : flags.length > 1 ? (
+          <>
+            Without a Temporary Rollout, the {flags.length} linked Feature Flags
+            stop serving this {noun} when you submit. Users in the {noun} get
+            each flag&apos;s next rule or its default value.
+          </>
+        ) : null}
+        {pageChanges ? (
+          flags.length ? (
+            <>
+              {" "}
+              The {noun}&apos;s visual changes and redirects stop showing too.
+            </>
+          ) : (
+            <>
+              Without a Temporary Rollout, this {noun}&apos;s visual changes and
+              redirects stop showing when you submit.
+            </>
+          )
+        ) : null}
+      </>
+    ) : null;
 
   const variationOption = (index: number) =>
     variations[index] ? (
