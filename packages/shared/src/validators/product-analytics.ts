@@ -547,16 +547,15 @@ export const productAnalyticsResultRowValidator = z.object({
         metricId: z.string(),
         numerator: z.number().nullable(),
         denominator: z.number().nullable(),
-        populationCount: z
-          .number()
-          .nullable()
-          .optional()
-          .describe(
-            "**Beta** — this field is new and may change in backwards-incompatible ways. Number of units in the dataset's population for this row. Only present when the request has a population; numerator and denominator keep their usual meaning, limited to population members.",
-          ),
       }),
     )
     .optional(),
+  populationCount: z
+    .number()
+    .optional()
+    .describe(
+      "**Beta** — this field is new and may change in backwards-incompatible ways. Number of units in the dataset's population for this row. Only present when the request has a population; each value's numerator and denominator keep their usual meaning, limited to population members.",
+    ),
   steps: z.array(productAnalyticsFunnelStepResultValidator).optional(),
   journey: productAnalyticsJourneyRowValidator.optional(),
 });

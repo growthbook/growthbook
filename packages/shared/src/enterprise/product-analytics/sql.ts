@@ -135,8 +135,8 @@ function isManagedWarehousePerOrgTable(path: string): boolean {
 // What a series contributes to the result:
 // - value: a returned value (a metric, or a fact table / data source / Population value)
 // - denominator: the denominator half of a ratio metric
-// - populationCount: the Population's member count, reported as every
-//   metric's `populationCount` rather than returned as a value
+// - populationCount: the Population's member count, reported as each row's
+//   `populationCount` rather than returned as a value
 type SeriesRole = "value" | "denominator" | "populationCount";
 interface Series {
   metric: MinimalMetric;
@@ -2368,10 +2368,6 @@ function parseNumberValue(value: unknown): number | null {
   return null;
 }
 
-type ProductAnalyticsResultValue = NonNullable<
-  ProductAnalyticsResultRow["values"]
->[number];
-
 // The Population's member count for a row, or null when the request has no
 // Population.
 function getPopulationCount(
@@ -2382,20 +2378,6 @@ function getPopulationCount(
     return null;
   }
   return parseNumberValue(row[getValueColumn(POPULATION_COUNT_ALIAS)]) ?? 0;
-}
-
-// Reports a metric's value alongside the Population's size. When no member had
-// any activity for the metric, its total is 0 rather than unknown.
-function withPopulationCount(
-  value: ProductAnalyticsResultValue,
-  populationCount: number,
-): ProductAnalyticsResultValue {
-  const noMemberActivity = value.numerator === null && value.denominator === 0;
-  return {
-    ...value,
-    numerator: noMemberActivity ? 0 : value.numerator,
-    populationCount,
-  };
 }
 
 export function transformProductAnalyticsRowsToResult(
@@ -2421,9 +2403,11 @@ export function transformProductAnalyticsRowsToResult(
   };
 
   for (const row of rows) {
+    const populationCount = getPopulationCount(config, row);
     const resultRow: ProductAnalyticsResultRow = {
       dimensions: [],
       values: [],
+      ...(populationCount === null ? {} : { populationCount }),
     };
     result.rows.push(resultRow);
 
@@ -2431,19 +2415,13 @@ export function transformProductAnalyticsRowsToResult(
       const alias = `dimension${i}`;
       resultRow.dimensions.push(parseStringValue(row[alias]));
     });
-    const populationCount = getPopulationCount(config, row);
     orderedMetricIds.forEach((metricId, index) => {
       const aliases = getMetricAliases(index);
-      const value: ProductAnalyticsResultValue = {
+      resultRow.values?.push({
         metricId,
         numerator: parseNumberValue(row[aliases.numerator]),
         denominator: parseNumberValue(row[aliases.denominator]),
-      };
-      resultRow.values?.push(
-        populationCount === null
-          ? value
-          : withPopulationCount(value, populationCount),
-      );
+      });
     });
   }
 

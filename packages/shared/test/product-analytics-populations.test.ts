@@ -249,9 +249,12 @@ function generate(config: MetricExplorationConfig) {
   );
 }
 
-// Each metric's result per bucket: [numerator, denominator, populationCount],
-// with populationCount omitted when the request has no population.
-type Results = Record<string, (number | null)[][]>;
+// Per bucket: each metric's [numerator, denominator], plus the population count
+// when the request has a population.
+type Results = Record<
+  string,
+  { populationCount?: number; values: (number | null)[][] }
+>;
 
 function run(config: MetricExplorationConfig): Results {
   const db = new DatabaseSync(":memory:");
@@ -270,11 +273,12 @@ function run(config: MetricExplorationConfig): Results {
     return Object.fromEntries(
       rows.map((row) => [
         row.dimensions[0] ?? "overall",
-        (row.values ?? []).map((v) =>
-          "populationCount" in v
-            ? [v.numerator, v.denominator, v.populationCount ?? null]
-            : [v.numerator, v.denominator],
-        ),
+        {
+          ...("populationCount" in row
+            ? { populationCount: row.populationCount }
+            : {}),
+          values: (row.values ?? []).map((v) => [v.numerator, v.denominator]),
+        },
       ]),
     );
   } finally {
@@ -283,9 +287,9 @@ function run(config: MetricExplorationConfig): Results {
 }
 
 describe("metric explorations with a population", () => {
-  // Proportions report: numerator = members who converted, denominator =
-  // members with any matching activity (as without a population), and
-  // populationCount = all members in the bucket.
+  // Proportions report: numerator = members who converted (null when none did,
+  // as without a population), denominator = members with any matching
+  // activity, and populationCount = all members in the bucket.
   it.each<[string, MetricExplorationConfig, Results]>([
     [
       "applies one population to every metric (mobile users spending over $10 that day)",
@@ -295,20 +299,29 @@ describe("metric explorations with a population", () => {
       }),
       {
         // Member: Alice ($12). She purchased but didn't log in.
-        "2026-09-01": [
-          [1, 1, 1],
-          [0, 0, 1],
-        ],
+        "2026-09-01": {
+          populationCount: 1,
+          values: [
+            [1, 1],
+            [null, 0],
+          ],
+        },
         // Members: Erin ($20, purchased) and Gina ($15, logged in).
-        "2026-09-02": [
-          [1, 1, 2],
-          [1, 1, 2],
-        ],
+        "2026-09-02": {
+          populationCount: 2,
+          values: [
+            [1, 1],
+            [1, 1],
+          ],
+        },
         // Frank has events but spent $0: the day is kept, with no members.
-        "2026-09-03": [
-          [0, 0, 0],
-          [0, 0, 0],
-        ],
+        "2026-09-03": {
+          populationCount: 0,
+          values: [
+            [null, 0],
+            [null, 0],
+          ],
+        },
       },
     ],
     [
@@ -321,10 +334,13 @@ describe("metric explorations with a population", () => {
       {
         // Members: Alice ($12), Erin ($20), Gina ($15). Bob's $5 doesn't qualify.
         // Purchased: Alice, Erin. Logged in: Alice, Gina.
-        overall: [
-          [2, 2, 3],
-          [2, 2, 3],
-        ],
+        overall: {
+          populationCount: 3,
+          values: [
+            [2, 2],
+            [2, 2],
+          ],
+        },
       },
     ],
     [
@@ -332,11 +348,11 @@ describe("metric explorations with a population", () => {
       explore({ metrics: [purchasers], population: mobileUsers() }),
       {
         // Members: Alice, Bob (the $99 NULL-user row doesn't count). Alice purchased.
-        "2026-09-01": [[1, 1, 2]],
+        "2026-09-01": { populationCount: 2, values: [[1, 1]] },
         // Members: Alice, Bob, Erin, Gina. Bob and Erin purchased.
-        "2026-09-02": [[2, 2, 4]],
+        "2026-09-02": { populationCount: 4, values: [[2, 2]] },
         // Member: Frank, who didn't purchase.
-        "2026-09-03": [[0, 0, 1]],
+        "2026-09-03": { populationCount: 1, values: [[null, 0]] },
       },
     ],
     [
@@ -349,9 +365,9 @@ describe("metric explorations with a population", () => {
         }),
       }),
       {
-        "2026-09-01": [[1, 1, 1]], // Alice (2 purchases)
-        "2026-09-02": [[1, 1, 1]], // Bob (login + purchase)
-        "2026-09-03": [[0, 0, 0]],
+        "2026-09-01": { populationCount: 1, values: [[1, 1]] }, // Alice (2 purchases)
+        "2026-09-02": { populationCount: 1, values: [[1, 1]] }, // Bob (login + purchase)
+        "2026-09-03": { populationCount: 0, values: [[null, 0]] },
       },
     ],
     [
@@ -365,9 +381,9 @@ describe("metric explorations with a population", () => {
       }),
       {
         // Bob qualifies; Carol's desktop-only $0 doesn't make her a member.
-        "2026-09-01": [[0, 0, 1]],
-        "2026-09-02": [[0, 0, 1]], // Alice ($0 login)
-        "2026-09-03": [[0, 0, 1]], // Frank ($0 login)
+        "2026-09-01": { populationCount: 1, values: [[null, 0]] },
+        "2026-09-02": { populationCount: 1, values: [[null, 0]] }, // Alice ($0 login)
+        "2026-09-03": { populationCount: 1, values: [[null, 0]] }, // Frank ($0 login)
       },
     ],
     [
@@ -375,10 +391,10 @@ describe("metric explorations with a population", () => {
       explore({ metrics: [repeatPurchasers], population: mobileUsers() }),
       {
         // Alice made 2 purchases. Dylan made 6 but on desktop, so isn't a member.
-        "2026-09-01": [[1, 1, 2]],
+        "2026-09-01": { populationCount: 2, values: [[1, 1]] },
         // Bob and Erin made one purchase each.
-        "2026-09-02": [[0, 0, 4]],
-        "2026-09-03": [[0, 0, 1]],
+        "2026-09-02": { populationCount: 4, values: [[null, 0]] },
+        "2026-09-03": { populationCount: 1, values: [[null, 0]] },
       },
     ],
     [
@@ -393,7 +409,7 @@ describe("metric explorations with a population", () => {
           endDate: "2025-01-02",
         },
       }),
-      { overall: [[0, 0, 0]] },
+      { overall: { populationCount: 0, values: [[null, 0]] } },
     ],
   ])("%s", (_, config, expected) => {
     expect(run(config)).toEqual(expected);
@@ -622,32 +638,32 @@ describe("metric explorations without a population", () => {
       "proportion",
       purchasers,
       {
-        "2026-09-01": [[3, 3]], // Alice, Dylan, NULL user
-        "2026-09-02": [[2, 2]], // Bob, Erin
+        "2026-09-01": { values: [[3, 3]] }, // Alice, Dylan, NULL user
+        "2026-09-02": { values: [[2, 2]] }, // Bob, Erin
       },
     ],
     [
       "sum mean",
       revenue,
       {
-        "2026-09-01": [[132, 3]], // $12 + $21 + $99 over 3 purchasers
-        "2026-09-02": [[25, 2]], // $5 + $20
+        "2026-09-01": { values: [[132, 3]] }, // $12 + $21 + $99 over 3 purchasers
+        "2026-09-02": { values: [[25, 2]] }, // $5 + $20
       },
     ],
     [
       "distinct-count mean",
       purchaseDevices,
       {
-        "2026-09-01": [[3, 3]],
-        "2026-09-02": [[2, 2]],
+        "2026-09-01": { values: [[3, 3]] },
+        "2026-09-02": { values: [[2, 2]] },
       },
     ],
     [
       "ratio",
       revenuePerPurchase,
       {
-        "2026-09-01": [[132, 9]], // $132 over 9 purchases
-        "2026-09-02": [[25, 2]],
+        "2026-09-01": { values: [[132, 9]] }, // $132 over 9 purchases
+        "2026-09-02": { values: [[25, 2]] },
       },
     ],
   ])("reports a %s metric", (_, metric, expected) => {
@@ -659,12 +675,12 @@ describe("metric explorations without a population", () => {
     const together = run(explore({ metrics }));
     metrics.forEach((metric, i) => {
       const alone = run(explore({ metrics: [metric] }));
-      Object.entries(alone).forEach(([day, [values]]) => {
-        expect(together[day][i]).toEqual(values);
+      Object.entries(alone).forEach(([day, { values }]) => {
+        expect(together[day].values[i]).toEqual(values[0]);
       });
     });
     // Login-only users (Carol, Gina, Frank) must not count as zero-device
     // purchasers once login rows are in the same scan.
-    expect(together["2026-09-01"][3]).toEqual([3, 3]);
+    expect(together["2026-09-01"].values[3]).toEqual([3, 3]);
   });
 });
