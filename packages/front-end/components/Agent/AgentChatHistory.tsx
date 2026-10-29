@@ -2,10 +2,10 @@ import { useCallback } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import {
   PiCaretDownBold,
-  PiRobotBold,
   PiChatCircleDots,
   PiClockCounterClockwise,
   PiPlus,
+  PiSparkle,
 } from "react-icons/pi";
 import { datetime, formatShortAgo } from "shared/dates";
 import useApi from "@/hooks/useApi";
@@ -100,7 +100,7 @@ export default function AgentChatHistory({
             {/* On one line with the title: Button wraps its children, where they'd
               stack. */}
             <Flex as="span" align="center" gap="2" minWidth="0">
-              <PiRobotBold
+              <PiSparkle
                 size={16}
                 aria-hidden="true"
                 style={{ flexShrink: 0 }}
