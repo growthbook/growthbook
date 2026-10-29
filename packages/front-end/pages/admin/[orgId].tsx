@@ -703,7 +703,8 @@ function OrganizationDetail({
             )}
             {licenseError && (
               <Callout status="error" mb="3">
-                {licenseError.message}
+                Plan, status and seats are from the cached license.
+                Couldn&apos;t load the live one: {licenseError.message}
               </Callout>
             )}
             <KeyValues
@@ -731,7 +732,11 @@ function OrganizationDetail({
                         label: "Expires",
                         value: license?.dateExpires
                           ? date(license.dateExpires)
-                          : "-",
+                          : !org.licenseKey || licenseData
+                            ? "-"
+                            : licenseError
+                              ? "Unavailable"
+                              : "Loading...",
                       },
                       {
                         label: "Seats",
