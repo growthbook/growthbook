@@ -18,6 +18,7 @@ import {
   getLatestPhaseVariations,
 } from "shared/experiments";
 import { useAuth } from "@/services/auth";
+import { variationWeightsTotalPercent } from "@/services/utils";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
@@ -109,10 +110,6 @@ const NewPhaseForm: FC<{
 
   const variationWeights = form.watch("variationWeights");
   const isValid = areVariationWeightsValid(variationWeights);
-  const totalWeights = variationWeights.reduce(
-    (total: number, weight: number) => total + weight,
-    0,
-  );
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
@@ -230,8 +227,9 @@ const NewPhaseForm: FC<{
       />
       {!isValid && (
         <Callout status="warning" mb="3">
-          Variation weights add up to {Math.round(totalWeights * 100)}%. Adjust
-          them to add up to 100% to start the new phase.
+          Variation weights add up to{" "}
+          {variationWeightsTotalPercent(variationWeights)}%. Adjust them to add
+          up to 100% to start the new phase.
         </Callout>
       )}
       {hasLinkedChanges && (

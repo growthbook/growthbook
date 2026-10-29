@@ -2423,16 +2423,18 @@ const inUnitInterval = (n: number) => n >= 0 && n <= 1;
 // A write may keep an invalid value the experiment already stores but not
 // introduce one, so legacy data never blocks stopping the experiment, ending a
 // phase or editing one. Matched by value, not index, so deleting a phase
-// doesn't re-check the rest. Phases from `startsServingFrom` on get no pass:
-// appended ones, and the latest one when the experiment starts or resumes.
+// doesn't re-check the rest. A phase that starts serving gets no pass: an
+// appended one, or the latest one when the experiment starts or resumes.
 // Every path that does either lets the user fix the values.
 export function assertValidExperimentPhases(
   phases: ExperimentPhase[],
   existing: ExperimentPhase[] = [],
-  startsServingFrom = existing.length,
+  startsRunning = false,
 ): void {
   phases.forEach((phase, i) => {
-    const stored = i < startsServingFrom ? existing : [];
+    const startsServing =
+      i >= existing.length || (startsRunning && i === phases.length - 1);
+    const stored = startsServing ? [] : existing;
     if (
       !inUnitInterval(phase.coverage) &&
       !stored.some((p) => p.coverage === phase.coverage)

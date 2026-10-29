@@ -1,7 +1,6 @@
 import { UseFormReturn, useWatch } from "react-hook-form";
 import {
   ExperimentInterfaceStringDates,
-  ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
 import { areVariationWeightsValid } from "shared/experiments";
@@ -15,6 +14,7 @@ import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
+import { variationWeightsTotalPercent } from "@/services/utils";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
@@ -283,16 +283,12 @@ function ChangeTypeSelector({
 }) {
   const { namespaces } = useOrgSettings();
 
-  const lastPhase: ExperimentPhaseStringDates | undefined =
-    experiment.phases[experiment.phases.length - 1];
-  const invalidWeightsPercent =
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights;
+  const invalidWeights =
     experiment.type !== "multi-armed-bandit" &&
-    lastPhase &&
-    !areVariationWeightsValid(lastPhase.variationWeights)
-      ? Math.round(
-          lastPhase.variationWeights.reduce((total, w) => total + w, 0) * 100,
-        )
-      : null;
+    !!weights &&
+    !areVariationWeightsValid(weights);
 
   const options: RadioOptions = [
     { label: "Start a new phase", value: "phase" },
@@ -324,11 +320,11 @@ function ChangeTypeSelector({
 
   return (
     <div>
-      {invalidWeightsPercent !== null && (
+      {invalidWeights && (
         <Callout status="warning" mb="4">
-          The current variation weights add up to {invalidWeightsPercent}%, so
-          SDKs ignore them and split traffic equally. Fix the weights to make
-          other changes.
+          The current variation weights add up to{" "}
+          {variationWeightsTotalPercent(weights)}%, so SDKs ignore them and
+          split traffic equally. Fix the weights to make other changes.
         </Callout>
       )}
       <h5>What do you want to change?</h5>
@@ -339,8 +335,7 @@ function ChangeTypeSelector({
           options={options
             .filter((o) => !o.disabled)
             .map((o) =>
-              invalidWeightsPercent === null ||
-              ["weights", "advanced"].includes(o.value)
+              !invalidWeights || ["weights", "advanced"].includes(o.value)
                 ? o
                 : {
                     ...o,

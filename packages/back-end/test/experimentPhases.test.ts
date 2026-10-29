@@ -52,20 +52,20 @@ describe("assertValidExperimentPhases", () => {
     it("rejects them on a phase that starts serving again", () => {
       const restarted = { ...stale, dateStarted: new Date() };
       expect(() =>
-        assertValidExperimentPhases([restarted], [stale], 0),
+        assertValidExperimentPhases([restarted], [stale], true),
       ).toThrow(/invalid_coverage: phase 0/);
       expect(() =>
         assertValidExperimentPhases(
           [{ ...restarted, coverage: 1 }],
           [{ ...stale, coverage: 1 }],
-          0,
+          true,
         ),
       ).toThrow(/invalid_variation_weights: phase 0/);
     });
 
     it("lets earlier phases keep them when the latest starts serving", () => {
       expect(() =>
-        assertValidExperimentPhases([stale, phase()], [stale, phase()], 1),
+        assertValidExperimentPhases([stale, phase()], [stale, phase()], true),
       ).not.toThrow();
     });
 

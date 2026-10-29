@@ -1033,16 +1033,13 @@ export async function updateExperiment({
     throw new Error("Cannot set empty name for experiment!");
 
   validateMetricOverrides(allChanges.metricOverrides);
-  const phases = allChanges.phases ?? experiment.phases;
-  const startsServing =
+  const startsRunning =
     allChanges.status === "running" && experiment.status !== "running";
-  if (allChanges.phases || startsServing) {
+  if (allChanges.phases || startsRunning) {
     assertValidExperimentPhases(
-      phases,
+      allChanges.phases ?? experiment.phases,
       experiment.phases,
-      startsServing
-        ? Math.min(experiment.phases.length, phases.length - 1)
-        : experiment.phases.length,
+      startsRunning,
     );
   }
   assertValidReleasedVariationId({ ...experiment, ...allChanges }, experiment);
