@@ -147,7 +147,11 @@ export default function ExperimentReportsList({
               <TableCell style={{ padding: "var(--space-0)" }}>
                 <Link
                   href={`/report/${row.id}`}
-                  style={{ padding: "var(--space-3)", display: "block" }}
+                  style={{
+                    padding: "var(--space-3)",
+                    display: "block",
+                    color: "var(--color-text-high)",
+                  }}
                 >
                   <Flex align="center" gap="2">
                     {row.report.type === "experiment" && row.report.error ? (

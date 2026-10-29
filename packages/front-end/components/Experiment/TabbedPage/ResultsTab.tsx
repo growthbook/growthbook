@@ -419,7 +419,7 @@ export default function ResultsTab({
             holdoutProjects={holdoutProjects}
           />
         ) : null}
-        <div className="mb-2" style={{ overflowX: "initial" }}>
+        <div style={{ overflowX: "initial" }}>
           <AnalysisSettingsSummary
             experiment={experiment}
             mutate={mutate}
@@ -518,7 +518,7 @@ export default function ResultsTab({
         </div>
       </div>
       {snapshot && !isDemoExperiment && (
-        <div className="appbox mt-4">
+        <Box className="appbox" mt="7">
           <div className="row mx-2 py-3 d-flex align-items-center">
             <div className="col ml-2">
               <div className="h3">Custom Reports</div>
@@ -555,7 +555,7 @@ export default function ResultsTab({
             </div>
           </div>
           <ExperimentReportsList experiment={experiment} />
-        </div>
+        </Box>
       )}
     </div>
   );
