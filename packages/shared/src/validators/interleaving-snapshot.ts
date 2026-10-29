@@ -64,9 +64,6 @@ const interleavingTestResultValidator = z
       ),
     expected: z.number(),
     ci: z.tuple([z.number().nullable(), z.number().nullable()]),
-    uplift: z
-      .object({ dist: z.string(), mean: z.number(), stddev: z.number() })
-      .strict(),
     pValue: z.number().nullable(),
     errorMessage: z.string().nullable(),
     pValueErrorMessage: z

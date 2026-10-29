@@ -84366,20 +84366,6 @@ components:
                       - anyOf:
                           - type: number
                           - type: 'null'
-                  uplift:
-                    type: object
-                    properties:
-                      dist:
-                        type: string
-                      mean:
-                        type: number
-                      stddev:
-                        type: number
-                    required:
-                      - dist
-                      - mean
-                      - stddev
-                    additionalProperties: false
                   pValue:
                     anyOf:
                       - type: number
@@ -84399,7 +84385,6 @@ components:
                   - method
                   - expected
                   - ci
-                  - uplift
                   - pValue
                   - errorMessage
                   - pValueErrorMessage

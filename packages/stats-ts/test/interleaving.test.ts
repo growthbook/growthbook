@@ -24,7 +24,6 @@ describe("pairedDeltaTest", () => {
     expect(res.method).toBe("paired_delta_t");
     expect(res.errorMessage).toBeNull();
     expect(res.expected).toBeCloseTo(0.1495726496, 9);
-    expect(res.uplift.stddev).toBeCloseTo(0.0514565834, 9);
     expect(res.pValue).toBeCloseTo(0.0059939522, 9);
     expect(res.ci[0]).toBeCloseTo(0.0454918856, 9);
     expect(res.ci[1]).toBeCloseTo(0.2536534135, 9);
@@ -45,13 +44,12 @@ describe("pairedDeltaTest", () => {
       control_exposures_sum_product: 61,
     });
     expect(res.expected).toBeCloseTo(0.875, 9);
-    expect(res.uplift.stddev).toBeCloseTo(0.2934924539, 9);
     expect(res.pValue).toBeCloseTo(0.004924666, 8);
     expect(res.ci[0]).toBeCloseTo(0.2813554783, 8);
     expect(res.ci[1]).toBeCloseTo(1.4686445217, 8);
   });
 
-  it("positive X/Y covariance shrinks the SE vs zero covariance", () => {
+  it("positive X/Y covariance narrows the CI vs zero covariance", () => {
     const base = { ...R_FIXTURE };
     // remove the pairing benefit: set treatment_control_sum_product to the independence value users*mean(t)*mean(c)
     const independent = {
@@ -61,7 +59,9 @@ describe("pairedDeltaTest", () => {
     };
     const paired = pairedDeltaTest(base);
     const unpaired = pairedDeltaTest(independent);
-    expect(paired.uplift.stddev).toBeLessThan(unpaired.uplift.stddev);
+    const width = (r: { ci: (number | null)[] }) =>
+      (r.ci[1] ?? NaN) - (r.ci[0] ?? NaN);
+    expect(width(paired)).toBeLessThan(width(unpaired));
   });
 
   it("guards degenerate inputs", () => {
@@ -102,8 +102,6 @@ describe("preferenceSignTest", () => {
     // Clopper-Pearson on the 30/48 non-tied proportion, mapped by tau = 2p - 1.
     expect(res.ci[0]).toBeCloseTo(-0.0529884788, 8);
     expect(res.ci[1]).toBeCloseTo(0.5209551931, 8);
-    // stddev is the CI half-width over z, not the Wald SE (0.1397542486)
-    expect(res.uplift.stddev).toBeCloseTo(0.1464168924, 9);
   });
 
   it("is symmetric: swapping T and C flips the sign", () => {
@@ -144,9 +142,6 @@ describe("preferenceSignTest", () => {
     expect(res.pValue).toBeCloseTo(0.5, 10);
     expect(res.ci[0]).toBeCloseTo(-0.683772234, 8);
     expect(res.ci[1]).toBeCloseTo(1, 10);
-    // The Wald SE would be 0 here; the half-width-derived stddev is not
-    expect(res.uplift.stddev).toBeCloseTo(0.4295416261, 9);
-    expect(res.uplift.stddev).toBeGreaterThan(0);
   });
 
   it("agrees with the exact p-value about whether zero is excluded", () => {

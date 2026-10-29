@@ -1,10 +1,11 @@
 import binomial from "@stdlib/stats/base/dists/binomial";
 import { InterleavingTestMethod, InterleavingTestResult } from "./results";
-import { betaQuantile, normQuantile, tCdf, tQuantile } from "./utils";
+import { betaQuantile, tCdf, tQuantile } from "./utils";
 
 // ---------------------------------------------------------------------------
-// Estimators for interleaving experiments. Both return the standard
-// FrequentistTestResult shape, tagged with `method` so consumers can tell
+// Estimators for interleaving experiments. Both return the frequentist result
+// shape without `uplift` (the CI and p-value are the uncertainty statement;
+// see InterleavingTestResult), tagged with `method` so consumers can tell
 // which test produced it.
 //
 // pairedDeltaTest: Paired delta-method t-test. Requires engagement events
@@ -50,7 +51,6 @@ function errorResult(
     method,
     expected: 0,
     ci: [null, null],
-    uplift: { dist: "normal", mean: 0, stddev: 0 },
     errorMessage,
     pValue: null,
     pValueErrorMessage: null,
@@ -125,7 +125,6 @@ export function pairedDeltaTest(
     method,
     expected: est,
     ci: [est - halfWidth, est + halfWidth],
-    uplift: { dist: "normal", mean: est, stddev: se },
     errorMessage: null,
     pValue,
     pValueErrorMessage: null,
@@ -157,19 +156,14 @@ export function preferenceSignTest(
   const pLo = nT === 0 ? 0 : betaQuantile(alpha / 2, nT, m - nT + 1);
   const pHi = nT === m ? 1 : betaQuantile(1 - alpha / 2, nT + 1, m - nT);
 
+  // Asymmetric, and the Wald SE would be 0 when every non-tied user agrees, so
+  // the result carries no normal summary; this interval is authoritative.
   const ci: [number, number] = [2 * pLo - 1, 2 * pHi - 1];
-
-  // Asymmetric, so no single stddev describes it. For consumers that need a
-  // normal summary, report the stddev whose normal interval has the same
-  // width as the exact one. The Wald SE would be 0 when every non-tied user
-  // agrees, contradicting the wide interval above; the CI is authoritative.
-  const seTau = (ci[1] - ci[0]) / (2 * normQuantile(1 - alpha / 2));
 
   return {
     method,
     expected: est,
     ci,
-    uplift: { dist: "normal", mean: est, stddev: seTau },
     errorMessage: null,
     pValue,
     pValueErrorMessage: null,

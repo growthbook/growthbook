@@ -33,11 +33,16 @@ export interface FrequentistTestResult extends TestResult {
 }
 
 // Which test produced an interleaving result. The analysis type alone does not
-// say: both tests return the same FrequentistTestResult shape, but the sign
-// test's interval is exact (not Wald) and its estimand is conditional on
-// non-tied users, so consumers need to know which one they are reading.
+// say: both tests return the same shape, but the sign test's interval is exact
+// (not Wald) and its estimand is conditional on non-tied users, so consumers
+// need to know which one they are reading.
 export type InterleavingTestMethod = "paired_delta_t" | "exact_binomial_sign";
 
-export interface InterleavingTestResult extends FrequentistTestResult {
+// Interleaving results are CI-first by design and carry no `uplift`. The sign
+// test's Clopper-Pearson interval is asymmetric, so no single stddev describes
+// it, and the paired interval is a t-interval (dof = users - 1), not a normal.
+// The CI and p-value are the uncertainty statement.
+export interface InterleavingTestResult
+  extends Omit<FrequentistTestResult, "uplift"> {
   method: InterleavingTestMethod;
 }
