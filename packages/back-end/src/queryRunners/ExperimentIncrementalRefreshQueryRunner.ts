@@ -1260,6 +1260,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
   private variationNames: string[] = [];
   private metricMap: Map<string, ExperimentMetricInterface> = new Map();
   private writeSourceLists = createOrderedWriter();
+  // Every query started so far, even if planning the rest then throws.
+  public startedQueries: Queries = [];
 
   checkPermissions(): boolean {
     return this.context.permissions.canRunExperimentQueries(
@@ -1336,7 +1338,11 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       this.context,
       params,
       this.integration,
-      this.startQuery.bind(this),
+      async (queryParams) => {
+        const pointer = await this.startQuery(queryParams);
+        this.startedQueries.push(pointer);
+        return pointer;
+      },
       this.experimentUpdateExecutionLogger,
       this.writeSourceLists,
     );
