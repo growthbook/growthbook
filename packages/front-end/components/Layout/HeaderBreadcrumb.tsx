@@ -78,7 +78,9 @@ export default function HeaderBreadcrumb({
     className: styles.headerButton,
   } as const;
   const pushCrumb = (crumb: BreadcrumbItem, key: string) => {
-    if (crumb.href) buttonParts.add(parts.length);
+    // Plain-text crumbs are padded like the buttons (HeaderBreadcrumb.module
+    // .scss), so they're spaced the same.
+    buttonParts.add(parts.length);
     parts.push(
       crumb.href ? (
         <LinkButton key={key} href={crumb.href} {...crumbButtonProps}>

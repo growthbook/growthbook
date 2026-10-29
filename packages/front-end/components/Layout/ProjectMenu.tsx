@@ -79,6 +79,24 @@ function TruncatedName({ name, current }: { name: string; current: boolean }) {
     const el = ref.current;
     return !!el && el.scrollWidth > el.clientWidth;
   };
+  // Reached from the keyboard, a cut-off name shows in full too: on its
+  // row's focus, in the dropdown and in the drawer alike.
+  useEffect(() => {
+    const row = ref.current?.closest<HTMLElement>(
+      "[role=menuitem], [data-menu-entry]",
+    );
+    if (!row) return;
+    const onFocus = () => {
+      if (row.matches(":focus-visible") && isTruncated()) setOpen(true);
+    };
+    const onBlur = () => setOpen(false);
+    row.addEventListener("focus", onFocus);
+    row.addEventListener("blur", onBlur);
+    return () => {
+      row.removeEventListener("focus", onFocus);
+      row.removeEventListener("blur", onBlur);
+    };
+  }, []);
   return (
     <Tooltip
       content={name}

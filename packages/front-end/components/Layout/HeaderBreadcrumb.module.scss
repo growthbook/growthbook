@@ -46,11 +46,15 @@
   white-space: nowrap;
 }
 
+// A crumb that isn't a link (Settings' "Settings" and "Organization") reads
+// as the link crumbs do, the ghost button's text, padding and all.
 .sectionText {
   flex-shrink: 0;
-  color: var(--gray-12);
-  font-size: 13px;
+  padding: 0 var(--space-2);
+  color: var(--gray-a11);
+  font-size: var(--font-size-1);
   font-weight: var(--font-weight-medium);
+  line-height: 24px;
   white-space: nowrap;
 }
 
