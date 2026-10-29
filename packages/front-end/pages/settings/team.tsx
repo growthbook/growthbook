@@ -11,7 +11,10 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import LinkButton from "@/ui/LinkButton";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import Callout from "@/ui/Callout";
+import SettingsPage, {
+  SettingsNoAccess,
+  SettingsPageHeader,
+} from "@/components/Layout/SettingsPage";
 
 const TeamPage: FC = () => {
   const { refreshOrganization, hasCommercialFeature } = useUser();
@@ -21,17 +24,11 @@ const TeamPage: FC = () => {
   const hasCustomRolesFeature = hasCommercialFeature("custom-roles");
 
   if (!permissionsUtil.canManageTeam()) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </div>
-    );
+    return <SettingsNoAccess title="Members" />;
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage title="Members">
       <Tabs defaultValue="members" persistInURL>
         <Box mb="5">
           <TabsList>
@@ -54,30 +51,21 @@ const TeamPage: FC = () => {
                 onSuccess={() => refreshOrganization()}
               />
             )}
-            <div className="filters md-form row mb-1 align-items-center">
-              <div className="col-auto d-flex align-items-end">
-                <div>
-                  <h1>
-                    <PremiumTooltip commercialFeature="teams">
-                      Teams
-                    </PremiumTooltip>
-                  </h1>
-                  <div className="text-muted mb-2">
-                    Place organization members into teams to grant permissions
-                    by group.
-                  </div>
-                </div>
-              </div>
-              <div style={{ flex: 1 }} />
-              <div className="col-auto">
+            <SettingsPageHeader
+              as="h2"
+              title={
+                <PremiumTooltip commercialFeature="teams">Teams</PremiumTooltip>
+              }
+              description="Place organization members into teams to grant permissions by group."
+              actions={
                 <Button
                   disabled={!hasTeamsFeature}
                   onClick={() => setModalOpen({})}
                 >
-                  Create Team
+                  Create team
                 </Button>
-              </div>
-            </div>
+              }
+            />
             {hasTeamsFeature ? (
               <TeamsList
                 onDuplicate={(team) =>
@@ -106,29 +94,22 @@ const TeamPage: FC = () => {
 
         <TabsContent value="roles">
           <>
-            <div className="filters md-form row mb-1 align-items-center">
-              <div className="col-auto d-flex align-items-end">
-                <div>
-                  <h1>
-                    <PremiumTooltip commercialFeature="custom-roles">
-                      Roles
-                    </PremiumTooltip>
-                  </h1>
-                  <div className="text-muted mb-2">
-                    Create and update roles to customize permissions for your
-                    organization&apos;s users and teams.
-                  </div>
-                </div>
-              </div>
-              <div style={{ flex: 1 }} />
-              <div className="col-auto">
-                {hasCustomRolesFeature ? (
+            <SettingsPageHeader
+              as="h2"
+              title={
+                <PremiumTooltip commercialFeature="custom-roles">
+                  Roles
+                </PremiumTooltip>
+              }
+              description="Create and update roles to customize permissions for your organization's users and teams."
+              actions={
+                hasCustomRolesFeature ? (
                   <LinkButton href="/settings/role/new">
-                    Create Custom Role
+                    Create custom role
                   </LinkButton>
-                ) : null}
-              </div>
-            </div>
+                ) : null
+              }
+            />
             {hasCustomRolesFeature ? (
               <RoleList />
             ) : (
@@ -142,7 +123,7 @@ const TeamPage: FC = () => {
           </>
         </TabsContent>
       </Tabs>
-    </div>
+    </SettingsPage>
   );
 };
 export default TeamPage;
