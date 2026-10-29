@@ -37,6 +37,12 @@ const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   grant: "Grant super admin access",
 };
 
+export function formatSuperAdmin(superAdmin: SuperAdmin | undefined) {
+  const normalized = normalizeSuperAdmin(superAdmin);
+  if (normalized === true) return "Full access";
+  return normalized ? normalized.join(", ") : "-";
+}
+
 const EditMember: FC<{
   onEdit: () => void;
   close: () => void;

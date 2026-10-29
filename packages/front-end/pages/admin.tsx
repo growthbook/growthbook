@@ -1,28 +1,17 @@
-import {
-  Dispatch,
-  Fragment,
-  SetStateAction,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import { OrganizationInterface } from "shared/types/organization";
-import { Box, Flex, IconButton } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { PiCaretDown, PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
+import { PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
 import { date } from "shared/dates";
-import { SuperAdmin } from "shared/validators";
-import {
-  hasSuperAdminPermission,
-  normalizeSuperAdmin,
-} from "shared/permissions";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { AdminOrgSummary } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
-import EditMember, { AdminMember } from "@/components/Admin/EditMember";
+import { AdminMember, formatSuperAdmin } from "@/components/Admin/EditMember";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import useApi from "@/hooks/useApi";
@@ -45,14 +34,6 @@ import Table, {
 } from "@/ui/Table";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
-
-interface memberOrgProps {
-  id: string;
-  name: string;
-  members: number;
-  role: string;
-  lastLoginDate?: string;
-}
 
 const numberFormatter = new Intl.NumberFormat();
 
@@ -120,12 +101,6 @@ function optionItems(options: FilterOptions = []) {
       {label}
     </SelectItem>
   ));
-}
-
-function formatSuperAdmin(superAdmin: SuperAdmin | undefined) {
-  const normalized = normalizeSuperAdmin(superAdmin);
-  if (normalized === true) return "Full access";
-  return normalized ? normalized.join(", ") : "-";
 }
 
 type OrgFilters = {
@@ -379,7 +354,7 @@ function OrganizationList({
                   onClick={(e) => {
                     // The caret link handles its own clicks, including Cmd/Ctrl-click
                     if ((e.target as HTMLElement).closest("a")) return;
-                    router.push(`/admin/${o.id}`);
+                    router.push(`/admin/org/${o.id}`);
                   }}
                   style={{ cursor: "pointer" }}
                 >
@@ -410,7 +385,7 @@ function OrganizationList({
                   )}
                   <TableCell style={{ textAlign: "right" }}>
                     <Link
-                      href={`/admin/${o.id}`}
+                      href={`/admin/org/${o.id}`}
                       color="gray"
                       aria-label={`Open ${o.name}`}
                     >
@@ -460,33 +435,20 @@ function MemberList({
   filters: MemberFilters;
   setFilters: Dispatch<SetStateAction<MemberFilters>>;
 }) {
-  const { superAdmin } = useUser();
-  const canEdit =
-    hasSuperAdminPermission(superAdmin, "users") ||
-    hasSuperAdminPermission(superAdmin, "grant");
+  const router = useRouter();
   const { page, search, superAdminsOnly } = filters;
   const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
-  const [editMember, setEditMember] = useState<AdminMember | null>(null);
-  const [expanded, setExpanded] = useState<string[]>([]);
 
   const params = new URLSearchParams({ page: String(page), search });
   if (superAdminsOnly) params.set("superAdmins", "1");
 
-  const { data, error, mutate } = useApi<{
+  const { data, error } = useApi<{
     members: AdminMember[];
     total: number;
-    memberOrgs: Record<string, memberOrgProps[]>;
   }>(`/admin/members?${params.toString()}`);
 
   return (
     <>
-      {editMember && (
-        <EditMember
-          member={editMember}
-          onEdit={() => mutate()}
-          close={() => setEditMember(null)}
-        />
-      )}
       <Flex gap="4" wrap="wrap" align="center" mb="3">
         <Box flexGrow="0" flexShrink="1" flexBasis="360px" minWidth="240px">
           <TextField
@@ -525,7 +487,6 @@ function MemberList({
             <TableRow>
               <TableColumnHeader>Name</TableColumnHeader>
               <TableColumnHeader>Email</TableColumnHeader>
-              <TableColumnHeader>ID</TableColumnHeader>
               <TableColumnHeader>Created</TableColumnHeader>
               <TableColumnHeader>Verified</TableColumnHeader>
               <TableColumnHeader>Super admin</TableColumnHeader>
@@ -533,118 +494,48 @@ function MemberList({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data?.members.map((m) => {
-              const orgs = data.memberOrgs[m.id] ?? [];
-              const isExpanded = expanded.includes(m.id);
-              const toggle = () =>
-                setExpanded((ids) =>
-                  isExpanded ? ids.filter((id) => id !== m.id) : [...ids, m.id],
-                );
-              return (
-                <Fragment key={m.id}>
-                  <TableRow
-                    onClick={(e) => {
-                      // The caret button handles its own clicks
-                      if ((e.target as HTMLElement).closest("button")) return;
-                      toggle();
-                    }}
-                    style={{ cursor: "pointer" }}
+            {data?.members.map((m) => (
+              <TableRow
+                key={m.id}
+                onClick={(e) => {
+                  // The caret link handles its own clicks, including Cmd/Ctrl-click
+                  if ((e.target as HTMLElement).closest("a")) return;
+                  router.push(`/admin/user/${m.id}`);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <TableCell maxWidth="200px" style={WRAP}>
+                  {m.name}
+                </TableCell>
+                <TableCell maxWidth="300px" style={WRAP}>
+                  {m.email}
+                </TableCell>
+                <TableCell>
+                  {m.dateCreated ? date(m.dateCreated) : "-"}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    label={m.verified ? "Verified" : "Unverified"}
+                    color={m.verified ? "green" : "amber"}
+                  />
+                </TableCell>
+                <TableCell maxWidth="200px" style={WRAP}>
+                  {formatSuperAdmin(m.superAdmin)}
+                </TableCell>
+                <TableCell style={{ textAlign: "right" }}>
+                  <Link
+                    href={`/admin/user/${m.id}`}
+                    color="gray"
+                    aria-label={`Open ${m.name || m.email}`}
                   >
-                    <TableCell maxWidth="200px" style={WRAP}>
-                      {m.name}
-                    </TableCell>
-                    <TableCell maxWidth="300px" style={WRAP}>
-                      {m.email}
-                    </TableCell>
-                    <TableCell style={WRAP}>
-                      <code>{m.id}</code>
-                    </TableCell>
-                    <TableCell>
-                      {m.dateCreated ? date(m.dateCreated) : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        label={m.verified ? "Verified" : "Unverified"}
-                        color={m.verified ? "green" : "amber"}
-                      />
-                    </TableCell>
-                    <TableCell maxWidth="200px" style={WRAP}>
-                      {formatSuperAdmin(m.superAdmin)}
-                    </TableCell>
-                    <TableCell style={{ textAlign: "right" }}>
-                      <IconButton
-                        variant="ghost"
-                        color="gray"
-                        size="1"
-                        aria-expanded={isExpanded}
-                        aria-label={`${isExpanded ? "Hide" : "Show"} details for ${m.name || m.email}`}
-                        onClick={toggle}
-                      >
-                        {isExpanded ? <PiCaretDown /> : <PiCaretRight />}
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                  {isExpanded && (
-                    <TableRow>
-                      <TableCell colSpan={7}>
-                        <Flex gap="4" align="start" pl="6" pb="3">
-                          <Box flexGrow="1" minWidth="0">
-                            {orgs.length ? (
-                              <Table variant="ghost" size="sm">
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableColumnHeader>
-                                      Organization
-                                    </TableColumnHeader>
-                                    <TableColumnHeader>Role</TableColumnHeader>
-                                    <TableColumnHeader>
-                                      Last login
-                                    </TableColumnHeader>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {orgs.map((o) => (
-                                    <TableRow key={o.id}>
-                                      <TableCell maxWidth="400px" style={WRAP}>
-                                        <Link href={`/admin/${o.id}`}>
-                                          {o.name}
-                                        </Link>
-                                      </TableCell>
-                                      <TableCell>{o.role}</TableCell>
-                                      <TableCell>
-                                        {o.lastLoginDate
-                                          ? date(o.lastLoginDate)
-                                          : "-"}
-                                      </TableCell>
-                                    </TableRow>
-                                  ))}
-                                </TableBody>
-                              </Table>
-                            ) : (
-                              <Text color="text-mid">
-                                Not a member of any organization
-                              </Text>
-                            )}
-                          </Box>
-                          {canEdit && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => setEditMember(m)}
-                            >
-                              Edit member
-                            </Button>
-                          )}
-                        </Flex>
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              );
-            })}
+                    <PiCaretRight />
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))}
             {data?.members.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7}>
+                <TableCell colSpan={6}>
                   <Text color="text-mid">No members found</Text>
                 </TableCell>
               </TableRow>
@@ -700,18 +591,24 @@ export default function Admin() {
       <Heading as="h1" size="xl" mb="4">
         GrowthBook Admin
       </Heading>
-      {!isCloud() && (
-        <Frame>
-          <ShowLicenseInfo showInput={false} />
-        </Frame>
-      )}
-      <Tabs defaultValue="organizations" persistInURL={true}>
+      <Tabs
+        defaultValue={isCloud() ? "organizations" : "license"}
+        persistInURL={true}
+      >
         <Box mb="4">
           <TabsList>
+            {!isCloud() && <TabsTrigger value="license">License</TabsTrigger>}
             <TabsTrigger value="organizations">Organizations</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
           </TabsList>
         </Box>
+        {!isCloud() && (
+          <TabsContent value="license">
+            <Frame>
+              <ShowLicenseInfo showInput={false} />
+            </Frame>
+          </TabsContent>
+        )}
         <TabsContent value="organizations">
           <OrganizationList filters={orgFilters} setFilters={setOrgFilters} />
         </TabsContent>

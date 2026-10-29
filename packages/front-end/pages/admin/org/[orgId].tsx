@@ -1,4 +1,4 @@
-import { Fragment, ReactNode, useState } from "react";
+import { ReactNode, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
@@ -37,6 +37,7 @@ import EditOrganization from "@/components/Admin/EditOrganization";
 import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
+import KeyValues from "@/components/Admin/KeyValues";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -585,7 +586,9 @@ function OrganizationDetail({
                   filteredMembers.map((m) => (
                     <TableRow key={m.id}>
                       <TableCell style={{ overflowWrap: "anywhere" }}>
-                        {m.name || "-"}
+                        <Link href={`/admin/user/${m.id}`}>
+                          {m.name || "-"}
+                        </Link>
                       </TableCell>
                       <TableCell style={{ overflowWrap: "anywhere" }}>
                         {m.email || "-"}
@@ -902,22 +905,5 @@ function OrganizationDetail({
         </Flex>
       </Flex>
     </Box>
-  );
-}
-
-function KeyValues({
-  items,
-}: {
-  items: { label: string; value: ReactNode }[];
-}) {
-  return (
-    <Grid columns="max-content minmax(0, 1fr)" gapX="4" gapY="2" align="center">
-      {items.map(({ label, value }) => (
-        <Fragment key={label}>
-          <Text color="text-mid">{label}</Text>
-          <Box style={{ overflowWrap: "anywhere" }}>{value}</Box>
-        </Fragment>
-      ))}
-    </Grid>
   );
 }

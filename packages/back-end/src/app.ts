@@ -1284,6 +1284,7 @@ app.get(
   adminController._dangerousAdminGetOrganizationLicense,
 );
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.get("/admin/user/:userId", adminController._dangerousAdminGetUser);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
 app.post(
   "/admin/sso-connection",

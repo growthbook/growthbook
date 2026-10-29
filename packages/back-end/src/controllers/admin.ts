@@ -504,44 +504,49 @@ export async function _dangerousAdminGetMembers(
   const { page, search } = req.query;
   const superAdminsOnly = req.query.superAdmins === "1";
 
-  const organizationInfo: Record<string, object> = {};
   const filteredUsers = await getAllUsersFiltered(
     parseIntWithDefault(page, 1),
     search,
     superAdminsOnly,
   );
-  if (filteredUsers?.length > 0) {
-    const memberOrgs = await findOrganizationsByMemberIds(
-      filteredUsers.map((u) => u.id),
-    );
-    // create a map of all the orgs mapped to the member id to make the step below easier
-    const orgMembers = new Map();
-    memberOrgs.forEach((mo) => {
-      mo.members.forEach((u) => {
-        const condensedOrg = {
-          id: mo.id,
-          name: mo.name,
-          members: mo.members.length,
-          role: u.role,
-          lastLoginDate: u.lastLoginDate,
-        };
-        if (orgMembers.has(u.id)) {
-          orgMembers.set(u.id, [...orgMembers.get(u.id), condensedOrg]);
-        } else {
-          orgMembers.set(u.id, [condensedOrg]);
-        }
-      });
-    });
-    filteredUsers.forEach((user) => {
-      organizationInfo[user.id] = orgMembers.get(user.id) ?? [];
-    });
-  }
 
   return res.status(200).json({
     status: 200,
     members: filteredUsers,
     total: await getTotalNumUsers(search, superAdminsOnly),
-    memberOrgs: organizationInfo,
+  });
+}
+
+export async function _dangerousAdminGetUser(
+  req: AuthRequest<null, { userId: string }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
+  }
+
+  const user = await getUserById(req.params.userId);
+  if (!user) {
+    return res.status(404).json({
+      status: 404,
+      message: "User not found",
+    });
+  }
+
+  const orgs = await findOrganizationsByMemberIds([user.id]);
+
+  return res.status(200).json({
+    status: 200,
+    user: { ...user, passwordHash: "" },
+    organizations: orgs.map((org) => {
+      const member = org.members.find((m) => m.id === user.id);
+      return {
+        id: org.id,
+        name: org.name,
+        role: member?.role,
+        lastLoginDate: member?.lastLoginDate,
+      };
+    }),
   });
 }
 
