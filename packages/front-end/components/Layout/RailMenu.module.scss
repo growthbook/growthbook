@@ -78,6 +78,24 @@
   margin-bottom: var(--space-1);
 }
 
+// On the drawer's background, over the list scrolling under it.
+.back.backPinned {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--rail-bg, var(--color-panel-solid));
+
+  // The hover fill is translucent: over the background, not the list.
+  &:hover {
+    background:
+      linear-gradient(
+        var(--rail-hover, var(--slate-a3)),
+        var(--rail-hover, var(--slate-a3))
+      ),
+      var(--rail-bg, var(--color-panel-solid));
+  }
+}
+
 .backContent {
   display: flex;
   align-items: center;

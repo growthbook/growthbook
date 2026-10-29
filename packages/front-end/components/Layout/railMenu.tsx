@@ -113,10 +113,13 @@ export function InPlaceMenu({
   label,
   entries,
   inPlace,
+  pinBack = false,
 }: {
   label: string;
   entries: RailMenuEntry[];
   inPlace: RailMenuInPlace;
+  // For a long list: Back stays at the top while it scrolls.
+  pinBack?: boolean;
 }) {
   const [stack, setStack] = useState<string[]>([]);
   const focusTarget = useRef<string | null>(null);
@@ -174,7 +177,11 @@ export function InPlaceMenu({
     >
       <button
         type="button"
-        className={clsx(styles.entry, styles.back)}
+        className={clsx(
+          styles.entry,
+          styles.back,
+          pinBack && styles.backPinned,
+        )}
         onClick={(e) => back(e.detail === 0)}
       >
         <span className={styles.backContent}>
