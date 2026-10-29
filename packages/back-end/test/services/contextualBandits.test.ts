@@ -264,23 +264,23 @@ describe("buildContextualBanditSnapshotSettings", () => {
     );
   });
 
-  it("defaults periodWeighting to enabled and honors an explicit false", () => {
+  it("defaults periodWeighting to disabled and honors an explicit true", () => {
     expect(
       buildContextualBanditSnapshotSettings(
         makeCb(),
         makeExposureQuery(),
         schema("country", "device"),
       ).periodWeighting,
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       buildContextualBanditSnapshotSettings(
         makeCb(),
         makeExposureQuery(),
         schema("country", "device"),
-        false,
+        true,
       ).periodWeighting,
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("disables period weighting for bandits that predate the feature (no eligibility flag)", () => {

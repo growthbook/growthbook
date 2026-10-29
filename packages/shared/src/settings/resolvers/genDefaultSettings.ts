@@ -50,7 +50,7 @@ export const DEFAULT_BANDIT_SCHEDULE_VALUE = 1;
 export const DEFAULT_BANDIT_SCHEDULE_UNIT = "days";
 export const DEFAULT_BANDIT_BURN_IN_VALUE = 1;
 export const DEFAULT_BANDIT_BURN_IN_UNIT = "days";
-export const DEFAULT_BANDIT_PERIOD_WEIGHTING = true;
+export const DEFAULT_BANDIT_PERIOD_WEIGHTING = false;
 
 export const DEFAULT_METRIC_DEFAULTS: MetricDefaults = {
   maxPercentageChange: 0.5,

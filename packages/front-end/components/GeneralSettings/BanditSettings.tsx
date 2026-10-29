@@ -218,7 +218,7 @@ export default function BanditSettings({
                   />
                 }
                 description="Reduce bias in Contextual Bandit decision metric estimates due to changing traffic over time. This applies to every Contextual Bandit in the organization and cannot be changed per experiment."
-                value={form.watch("banditPeriodWeighting") ?? true}
+                value={form.watch("banditPeriodWeighting") ?? false}
                 setValue={(value) =>
                   form.setValue("banditPeriodWeighting", value, {
                     shouldDirty: true,

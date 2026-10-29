@@ -1732,7 +1732,7 @@ export async function runContextualBanditSnapshot(
     updatedCb,
     cbQuery,
     context.org.settings?.attributeSchema,
-    context.org.settings?.banditPeriodWeighting !== false,
+    context.org.settings?.banditPeriodWeighting === true,
   );
 
   const droppedContextualAttributes = updatedCb.contextualAttributes.filter(
@@ -2074,7 +2074,7 @@ export function buildContextualBanditSnapshotSettings(
   cb: ContextualBanditInterface,
   cbQuery: ContextualBanditQueryInterface,
   attributeSchema: SDKAttributeSchema | undefined,
-  periodWeighting = true,
+  periodWeighting = false,
 ): ContextualBanditSnapshotSettings {
   // Only active arms are analyzed; pending/deactivated hold no weight.
   const activeVariations = getActiveVariations(cb.variations ?? []);

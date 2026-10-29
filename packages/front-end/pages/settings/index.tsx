@@ -193,7 +193,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
       banditScheduleUnit: settings.banditScheduleUnit ?? "days",
       banditBurnInValue: settings.banditBurnInValue ?? 1,
       banditBurnInUnit: settings.banditBurnInUnit ?? "days",
-      banditPeriodWeighting: settings.banditPeriodWeighting ?? true,
+      banditPeriodWeighting: settings.banditPeriodWeighting ?? false,
       requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
       requireUniqueExperimentTrackingKeys:
         settings.requireUniqueExperimentTrackingKeys ?? false,
