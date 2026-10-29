@@ -1448,11 +1448,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/Team/InviteModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/UpdateOrbSubscriptionModal.tsx": {
     "no-restricted-imports": {
       "count": 2
