@@ -431,7 +431,7 @@ const StopExperimentForm: FC<{
                   </Callout>
                 ) : null}
               </>
-            ) : form.watch("results") === "won" ? (
+            ) : withoutRollout ? (
               <Callout status="info" mb="3" mt="-2">
                 {withoutRollout}
               </Callout>
