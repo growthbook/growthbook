@@ -43,7 +43,7 @@ interface Props {
 
 const REASONS_HEADING = {
   "ship-now": "Reasons to ship:",
-  "ready-for-review": "Why no recommendation:",
+  "ready-for-review": "Why there's no clear winner:",
   "rollback-now": "Reasons to roll back:",
 } as const;
 
