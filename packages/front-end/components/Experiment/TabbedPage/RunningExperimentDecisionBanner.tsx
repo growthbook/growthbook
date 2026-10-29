@@ -527,31 +527,33 @@ export function DecisionRecommendation({
   const controlLabel = inline(control ? names[control.id] : undefined);
 
   return (
-    <Flex direction="column" gap="3">
+    <Flex direction="column" gap="4">
       <Reason color={DECISIONS[status].color} icon={<PiArrowRightBold />}>
-        {status === "ship-now" ? (
-          <>
-            Ship {shipping.length > 1 ? "one of " : ""}
-            {sentenceList(shipping, "or")}.
-          </>
-        ) : status === "rollback-now" ? (
-          <>Roll back to {controlLabel}.</>
-        ) : (
-          <>
-            Decide now:{" "}
-            {runningExperimentStatus.powerReached
-              ? "it has enough data to detect its target effect"
-              : runningExperimentStatus.scheduledEndPassed
-                ? "its scheduled end has passed"
-                : "sequential testing allows it"}
-            , but there&apos;s no clear winner among{" "}
-            {sentenceList(
-              control ? [...labels, names[control.id]] : labels,
-              "and",
-            )}
-            .
-          </>
-        )}
+        <Text weight="semibold">
+          {status === "ship-now" ? (
+            <>
+              Ship {shipping.length > 1 ? "one of " : ""}
+              {sentenceList(shipping, "or")}.
+            </>
+          ) : status === "rollback-now" ? (
+            <>Roll back to {controlLabel}.</>
+          ) : (
+            <>
+              Decide now:{" "}
+              {runningExperimentStatus.powerReached
+                ? "it has enough data to detect its target effect"
+                : runningExperimentStatus.scheduledEndPassed
+                  ? "its scheduled end has passed"
+                  : "sequential testing allows it"}
+              , but there&apos;s no clear winner among{" "}
+              {sentenceList(
+                control ? [...labels, names[control.id]] : labels,
+                "and",
+              )}
+              .
+            </>
+          )}
+        </Text>
       </Reason>
       <ExperimentDecisionExplanation
         status={runningExperimentStatus}
