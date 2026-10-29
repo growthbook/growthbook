@@ -156,7 +156,10 @@ export default function SettingsNav() {
           <nav aria-label="General settings sections" className={styles.group}>
             <div className={styles.groupLabel}>General</div>
             {sections.map((s) => {
-              const active = onGeneral && s.id === activeSection;
+              // The importer pages belong to Import & Export, which links to them.
+              const active =
+                (onGeneral && s.id === activeSection) ||
+                (s.id === "import" && router.route.startsWith("/importing"));
               return (
                 <button
                   key={s.id}

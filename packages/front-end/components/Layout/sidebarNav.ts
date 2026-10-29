@@ -338,7 +338,7 @@ export const navlinks: SidebarLinkProps[] = [
       },
       {
         // The importer lives in General; this reaches it for roles that can't see General.
-        name: "Import your data",
+        name: "Import Your Data",
         href: "/importing",
         path: /^importing/,
         filter: ({ permissionsUtils }) =>

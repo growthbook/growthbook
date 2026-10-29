@@ -1,6 +1,7 @@
 import React, { FC, PropsWithChildren } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
 import Text from "@/ui/Text";
@@ -29,7 +30,7 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
   const iconFile = hasDarkIcon && theme === "dark" ? `${icon}-dark` : icon;
 
   return (
-    <Box className="appbox" mb="0" p="4">
+    <Frame mb="0" py="4" px="4">
       <Flex align="center" gap="4">
         <Flex
           align="center"
@@ -59,7 +60,8 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
             {children}
           </Text>
         </Box>
-        <Box flexShrink="0">
+        {/* One shared width keeps the description column even down the stack. */}
+        <Flex flexShrink="0" minWidth="200px" justify="end">
           {path ? (
             <LinkButton href={`importing/${path}`}>
               Import from {service}
@@ -69,8 +71,8 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
               Get migration help
             </Button>
           )}
-        </Box>
+        </Flex>
       </Flex>
-    </Box>
+    </Frame>
   );
 };
