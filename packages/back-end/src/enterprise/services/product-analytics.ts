@@ -126,51 +126,6 @@ export async function runProductAnalyticsExploration(
     context.permissions.throwPermissionError();
   }
 
-  let metricsWithPopulations: FactMetricInterface[] = [];
-  let metricsWithPopulationsFactTables: FactTableInterface[] = [];
-  if (dataset.type === "metric" && dataset.population) {
-    // The population applies to every metric, so validate them all before
-    // cache lookup and reject the request if any one is incompatible.
-    const population = dataset.population;
-    if (dataset.values.some((value) => value.draftMetric)) {
-      throw new BadRequestError(
-        "Metrics with populations require a saved metric.",
-      );
-    }
-    metricsWithPopulations = await context.models.factMetrics.getByIds(
-      dataset.values.map((v) => v.metricId),
-    );
-    metricsWithPopulationsFactTables = await getFactTablesByIds(context, [
-      ...new Set(
-        metricsWithPopulations.flatMap((m) =>
-          m.numerator ? [m.numerator.factTableId] : [],
-        ),
-      ),
-    ]);
-    for (const value of dataset.values) {
-      const metric = metricsWithPopulations.find(
-        (m) => m.id === value.metricId,
-      );
-      const table = metricsWithPopulationsFactTables.find(
-        (t) => t.id === metric?.numerator?.factTableId,
-      );
-      if (!metric || !table) {
-        throw new NotFoundError("Metric or Fact Table not found");
-      }
-      try {
-        validatePopulationMetricCompatibility(
-          config,
-          value,
-          metric,
-          population,
-          table,
-        );
-      } catch (e) {
-        throw new BadRequestError(e instanceof Error ? e.message : String(e));
-      }
-    }
-  }
-
   if (options.cache !== "never") {
     const existing =
       await context.models.analyticsExplorations.findLatestByConfig(config, {
@@ -216,29 +171,25 @@ export async function runProductAnalyticsExploration(
     if (!metricIds.length) {
       throw new BadRequestError("No metrics provided");
     }
+    const hasDraftMetric = dataset.values.some((value) => value.draftMetric);
     if (
-      dataset.values.some((value) => value.draftMetric) &&
+      hasDraftMetric &&
       (dataset.values.length !== 1 || metricIds[0] !== "fact__preview")
     ) {
       throw new BadRequestError(
         "A draft preview must contain only fact__preview",
       );
     }
-    const metricsWithPopulationsMetricIds = new Set(
-      metricsWithPopulations.map((m) => m.id),
+    if (hasDraftMetric && dataset.population) {
+      throw new BadRequestError(
+        "Metrics with populations require a saved metric.",
+      );
+    }
+    const factMetrics = await context.models.factMetrics.getByIds(
+      dataset.values
+        .filter((value) => !value.draftMetric)
+        .map((value) => value.metricId),
     );
-    const factMetrics = [
-      ...metricsWithPopulations,
-      ...(await context.models.factMetrics.getByIds(
-        dataset.values
-          .filter(
-            (value) =>
-              !value.draftMetric &&
-              !metricsWithPopulationsMetricIds.has(value.metricId),
-          )
-          .map((value) => value.metricId),
-      )),
-    ];
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;
       factMetrics.push(
@@ -270,19 +221,35 @@ export async function runProductAnalyticsExploration(
         factTableIds.add(fm.denominator.factTableId);
       }
     });
-    const populationFactTableIds = new Set(
-      metricsWithPopulationsFactTables.map((t) => t.id),
+    const factTables = await getFactTablesByIds(
+      context,
+      Array.from(factTableIds),
     );
-    const factTables = [
-      ...metricsWithPopulationsFactTables,
-      ...(await getFactTablesByIds(
-        context,
-        Array.from(factTableIds).filter(
-          (id) => !populationFactTableIds.has(id),
-        ),
-      )),
-    ];
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
+
+    // The population applies to every metric, so one incompatible metric
+    // rejects the request before any warehouse query.
+    const population = dataset.population;
+    if (population) {
+      for (const value of dataset.values) {
+        const metric = metricMap.get(value.metricId);
+        const table = factTableMap.get(metric?.numerator?.factTableId ?? "");
+        if (!metric || !table) {
+          throw new NotFoundError("Metric or Fact Table not found");
+        }
+        try {
+          validatePopulationMetricCompatibility(
+            config,
+            value,
+            metric,
+            population,
+            table,
+          );
+        } catch (e) {
+          throw new BadRequestError(e instanceof Error ? e.message : String(e));
+        }
+      }
+    }
 
     for (const value of dataset.values) {
       if (!value.draftMetric) continue;

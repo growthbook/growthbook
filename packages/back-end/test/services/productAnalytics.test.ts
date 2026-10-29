@@ -243,7 +243,7 @@ describe("draft metric explorations", () => {
   });
   const internal = { cache: "never", allowDraftMetrics: true } as const;
 
-  it("rejects a draft with a population before saved-definition or cache lookups", async () => {
+  it("rejects a draft with a population before loading saved definitions", async () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric");
@@ -262,7 +262,6 @@ describe("draft metric explorations", () => {
     );
     expect(getByIds).not.toHaveBeenCalled();
     expect(getFactTablesByIdsMock).not.toHaveBeenCalled();
-    expect(findLatestByConfig).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
 
@@ -337,7 +336,7 @@ describe("draft metric explorations", () => {
   });
 });
 
-describe("inline population validation before exploration cache lookup", () => {
+describe("metric dataset population validation", () => {
   const population = {
     source: { type: "factTable" as const, factTableId: "ft_1" },
     rowFilters: [],
@@ -369,12 +368,13 @@ describe("inline population validation before exploration cache lookup", () => {
     },
   };
   const findLatestByConfig = jest.fn();
+  const create = jest.fn();
   const permissions = makePermissions();
   const context = {
     permissions,
     models: {
       factMetrics: { getByIds: jest.fn(async () => [metric]) },
-      analyticsExplorations: { findLatestByConfig },
+      analyticsExplorations: { findLatestByConfig, create },
     },
   } as unknown as ReqContext;
   beforeEach(() => {
@@ -388,6 +388,9 @@ describe("inline population validation before exploration cache lookup", () => {
   });
   const run = (c = config) =>
     runProductAnalyticsExploration(context, c, { cache: "required" });
+  // Validation runs with the metric load after a cache miss.
+  const runUncached = (c = config) =>
+    runProductAnalyticsExploration(context, c, { cache: "never" });
   it("passes the supplied population rules to cache lookup", async () => {
     await expect(run()).resolves.toBeNull();
     expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
@@ -403,7 +406,7 @@ describe("inline population validation before exploration cache lookup", () => {
     expect(findLatestByConfig.mock.calls[1][0]).toEqual(testConfig);
     expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
   });
-  it("rejects an incompatible fact table before reading the cache", async () => {
+  it("rejects an incompatible fact table before creating an exploration", async () => {
     const testConfig = structuredClone(config);
     if (testConfig.dataset.type !== "metric")
       throw new Error("Expected metric dataset");
@@ -411,8 +414,10 @@ describe("inline population validation before exploration cache lookup", () => {
       ...population,
       source: { type: "factTable", factTableId: "other" },
     };
-    await expect(run(testConfig)).rejects.toThrow("same Fact Table");
-    expect(findLatestByConfig).not.toHaveBeenCalled();
+    const result = runUncached(testConfig);
+    await expect(result).rejects.toThrow(BadRequestError);
+    await expect(result).rejects.toThrow("same Fact Table");
+    expect(create).not.toHaveBeenCalled();
   });
   it("rejects the request when any metric is incompatible with the population", async () => {
     const mean = {
@@ -432,13 +437,16 @@ describe("inline population validation before exploration cache lookup", () => {
       metricId: mean.id,
       name: "Revenue",
     });
-    const result = run(testConfig);
+    const result = runUncached(testConfig);
     await expect(result).rejects.toThrow(BadRequestError);
     await expect(result).rejects.toThrow(
       'Metric "Revenue" can\'t be combined with a Population.',
     );
+    // Metrics and Fact Tables are loaded once, together.
+    expect(getByIds).toHaveBeenCalledTimes(1);
     expect(getByIds).toHaveBeenCalledWith(["fact_1", "fact_2"]);
-    expect(findLatestByConfig).not.toHaveBeenCalled();
+    expect(getFactTablesByIdsMock).toHaveBeenCalledTimes(1);
+    expect(create).not.toHaveBeenCalled();
   });
   it("checks datasource query permission even for cache-only requests", async () => {
     permissions.canRunProductAnalyticsExplorationQueries.mockReturnValue(false);
