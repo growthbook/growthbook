@@ -486,7 +486,7 @@ const DataSourcePage: FC = () => {
           ? {
               display: "flex",
               flexDirection: "column",
-              height: pageHeight ?? "calc(100vh - 56px)",
+              height: pageHeight ?? "calc(100vh - var(--header-height))",
               overflow: "hidden",
               boxSizing: "border-box",
             }

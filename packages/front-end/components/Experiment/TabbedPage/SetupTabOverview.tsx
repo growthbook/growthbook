@@ -51,7 +51,12 @@ export default function SetupTabOverview({
   return (
     <div>
       {isHoldout && holdout && hasStatusSchedule(holdout) && editSchedule ? (
-        <Frame id="holdout-schedule" style={{ scrollMarginTop: "100px" }}>
+        <Frame
+          id="holdout-schedule"
+          style={{
+            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+          }}
+        >
           <Flex align="center" justify="between" className="text-dark">
             <Heading color="text-high" mb="0" as="h4" size="sm">
               Holdout Schedule

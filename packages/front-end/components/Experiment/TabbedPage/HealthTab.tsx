@@ -377,7 +377,10 @@ function HealthSnapshotCards({
         variations={variations}
         isBandit={isBandit}
       />
-      <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
+      <div
+        id="balanceCheck"
+        style={{ scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))" }}
+      >
         {!isBandit ? (
           <SRMCard
             traffic={traffic}
@@ -400,7 +403,12 @@ function HealthSnapshotCards({
         )}
       </div>
       {!isBandit && (
-        <div id="covariateBalanceCheck" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="covariateBalanceCheck"
+          style={{
+            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+          }}
+        >
           <CovariateImbalanceCard
             experiment={experiment}
             variations={variations}
@@ -410,7 +418,12 @@ function HealthSnapshotCards({
         </div>
       )}
       {showMultipleExposures && (
-        <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
+        <div
+          id="multipleExposures"
+          style={{
+            scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))",
+          }}
+        >
           <MultipleExposuresCard
             totalUsers={totalUsers}
             onNotify={handleHealthNotification}

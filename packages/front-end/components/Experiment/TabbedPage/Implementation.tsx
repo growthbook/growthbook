@@ -503,7 +503,7 @@ export default function Implementation({
       <div
         id={IMPLEMENTATION_ID}
         className="my-4"
-        style={{ scrollMarginTop: "100px" }}
+        style={{ scrollMarginTop: "calc(var(--tabs-bottom) + var(--space-1))" }}
       >
         <Heading as="h4" size="sm" color="text-high" mb="2">
           Implementation
