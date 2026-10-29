@@ -38,7 +38,6 @@ import {
 import { dataSourceConnections } from "@/services/eventSchema";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
-import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
@@ -416,6 +415,15 @@ export default function FinishSettingUp({
     );
     if (!draft) return;
     setQueryModal({ index: null, draft });
+  };
+
+  const openCustomQuery = () => {
+    setQueryModal({
+      index: null,
+      identifierTypes: uncoveredIdentifierTypes.length
+        ? uncoveredIdentifierTypes
+        : identifierTypes.map((t) => t.userIdType),
+    });
   };
 
   const saveQuery = async (exposureQuery: ExposureQuery) => {
@@ -804,27 +812,6 @@ export default function FinishSettingUp({
             completion.forwarder ||
             completion.queries) && (
             <Box mt="3">
-              {canOfferGoogleAnalytics4 && canEdit && (
-                <Callout
-                  status="info"
-                  mb="3"
-                  action={
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      color="inherit"
-                      onClick={openGoogleAnalytics4}
-                    >
-                      Create query
-                    </Button>
-                  }
-                >
-                  Using Google Analytics 4? GrowthBook can prefill an exposure
-                  query from your GA4 events and add the{" "}
-                  <Text mono>anonymous_id</Text> and <Text mono>user_id</Text>{" "}
-                  identifier types.
-                </Callout>
-              )}
               <Box
                 style={{
                   border: "1px solid var(--gray-a5)",
@@ -875,29 +862,69 @@ export default function FinishSettingUp({
                     )}
                   </Flex>
                 ))}
+                {canOfferGoogleAnalytics4 && canEdit && (
+                  <Grid columns="2" style={IDENTIFIER_ROW_BORDER}>
+                    <Flex
+                      direction="column"
+                      align="start"
+                      gap="3"
+                      px="4"
+                      py="4"
+                      minWidth="0"
+                      style={{ borderRight: "1px solid var(--gray-a5)" }}
+                    >
+                      <Button onClick={openGoogleAnalytics4}>
+                        Create GA4 query
+                      </Button>
+                      <Text as="p" size="sm" color="text-mid" mb="0">
+                        Prefill an exposure query from your GA4 events and add
+                        the <Text mono>anonymous_id</Text> and{" "}
+                        <Text mono>user_id</Text> identifier types.
+                      </Text>
+                    </Flex>
+                    <Flex
+                      direction="column"
+                      align="start"
+                      gap="3"
+                      px="4"
+                      py="4"
+                      minWidth="0"
+                    >
+                      <Button
+                        variant="outline"
+                        icon={<PiPlus />}
+                        disabled={!hasIdentifiers}
+                        onClick={openCustomQuery}
+                      >
+                        Add query
+                      </Button>
+                      <Text as="p" size="sm" color="text-mid" mb="0">
+                        Write your own SQL for any data source or identifier
+                        type.
+                      </Text>
+                      {!hasIdentifiers && (
+                        <HelperText status="info" size="sm">
+                          Add an identifier type first, or use the Google
+                          Analytics 4 query.
+                        </HelperText>
+                      )}
+                    </Flex>
+                  </Grid>
+                )}
               </Box>
-              {canEdit && (
+              {canEdit && !canOfferGoogleAnalytics4 && (
                 <Flex align="center" gap="2" mt="2" wrap="wrap">
                   <Button
                     variant="ghost"
                     icon={<PiPlus />}
                     disabled={!hasIdentifiers}
-                    onClick={() =>
-                      setQueryModal({
-                        index: null,
-                        identifierTypes: uncoveredIdentifierTypes.length
-                          ? uncoveredIdentifierTypes
-                          : identifierTypes.map((t) => t.userIdType),
-                      })
-                    }
+                    onClick={openCustomQuery}
                   >
                     Add query
                   </Button>
                   {!hasIdentifiers && (
                     <HelperText status="info" size="sm">
-                      {canOfferGoogleAnalytics4
-                        ? "Add an identifier type first, or use the Google Analytics 4 query above."
-                        : "Add an identifier type first."}
+                      Add an identifier type first.
                     </HelperText>
                   )}
                 </Flex>
