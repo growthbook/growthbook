@@ -102,6 +102,7 @@ export interface Props {
 // Heights of the whole control, toolbar included. One ladder serves both the
 // resting height and the cap, so a field can't get a mismatched pair.
 const RICH_TEXT_HEIGHTS = {
+  xs: 64,
   sm: 110,
   md: 150,
   lg: 220,

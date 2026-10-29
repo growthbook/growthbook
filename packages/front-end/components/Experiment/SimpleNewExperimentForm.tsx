@@ -14,7 +14,7 @@ import {
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
 } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -27,6 +27,7 @@ import {
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
@@ -703,13 +704,18 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         formType="experiment"
       />
 
-      <Field
-        label="Hypothesis"
-        textarea
-        minRows={2}
-        placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-        {...form.register("hypothesis")}
-      />
+      <Box mb="3">
+        <Text as="label" weight="semibold" mb="1">
+          Hypothesis
+        </Text>
+        <AIRichTextField
+          value={form.watch("hypothesis") ?? ""}
+          onChange={(hypothesis) => form.setValue("hypothesis", hypothesis)}
+          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+          height="xs"
+          collapsibleToolbar
+        />
+      </Box>
 
       {askHashAttribute && (
         <SelectField
