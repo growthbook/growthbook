@@ -9,6 +9,7 @@ import {
   getAutoDatasourceId,
   getAutoExposureQueryId,
   resolveTemplateAssignment,
+  defaultHashAttributeOf,
 } from "@/components/Experiment/SimpleNewExperimentForm";
 
 // ---------------------------------------------------------------------------
@@ -407,5 +408,31 @@ describe("resolveTemplateAssignment", () => {
       identifierType: "anonymous_id",
       outOfScope: true,
     });
+  });
+});
+
+describe("defaultHashAttributeOf", () => {
+  const attrs = (...flags: [string, boolean][]) =>
+    flags.map(([property, hashAttribute]) => ({ property, hashAttribute }));
+  it.each([
+    ["id when it's flagged", attrs(["id", true], ["deviceId", true]), "id"],
+    [
+      "the only flagged one",
+      attrs(["id", false], ["deviceId", true]),
+      "deviceId",
+    ],
+    [
+      "nothing when several are flagged without id",
+      attrs(["userId", true], ["deviceId", true]),
+      "",
+    ],
+    ["id when none are flagged but it's declared", attrs(["id", false]), "id"],
+    [
+      "nothing when none are flagged and id isn't declared",
+      attrs(["userId", false]),
+      "",
+    ],
+  ])("%s", (_, schema, expected) => {
+    expect(defaultHashAttributeOf(schema)).toBe(expected);
   });
 });

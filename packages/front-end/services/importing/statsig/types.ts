@@ -469,20 +469,3 @@ export type StatsigMetricAggregation =
   | "retention"
   | "max"
   | "min";
-
-// API Response types
-export type StatsigFeatureGatesResponse = {
-  gates: StatsigFeatureGate[];
-};
-
-export type StatsigDynamicConfigsResponse = {
-  configs: StatsigDynamicConfig[];
-};
-
-export type StatsigExperimentsResponse = {
-  experiments: StatsigExperiment[];
-};
-
-export type StatsigSavedGroupsResponse = {
-  groups: StatsigSavedGroup[];
-};

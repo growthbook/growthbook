@@ -1,10 +1,13 @@
 import { ExperimentResultStatusData } from "shared/types/experiment";
 import { HoldoutStage } from "shared/util";
+import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Tooltip from "@/ui/Tooltip";
 
 export interface Props {
   editResult?: () => void;
   editTargeting?: (() => void) | null;
+  blockedReason?: string | null;
   isBandit?: boolean;
   runningExperimentStatus?: ExperimentResultStatusData;
   holdoutStage?: HoldoutStage;
@@ -13,6 +16,7 @@ export interface Props {
 export default function ExperimentActionButtons({
   editResult,
   editTargeting,
+  blockedReason = null,
   isBandit,
   runningExperimentStatus,
   holdoutStage,
@@ -31,32 +35,39 @@ export default function ExperimentActionButtons({
         : "Start Analysis Phase";
     }
     if (readyForDecision) {
-      return "Make Decision";
+      return "Make decision";
     } else if (isBandit) {
       return "Stop Bandit";
     } else {
       return "Stop Experiment";
     }
   };
+  // Hidden without permission to run them, as on the feature page.
+  if (!editResult && (holdoutStage || !editTargeting)) return null;
   return (
-    <div className="d-flex ml-2">
-      {!holdoutStage && (
-        <Button
-          variant={readyForDecision ? "outline" : "solid"}
-          mr="3"
-          disabled={!editTargeting}
-          onClick={() => editTargeting?.()}
-        >
-          Make Changes
-        </Button>
-      )}
-      <Button
-        variant={readyForDecision ? "solid" : "outline"}
-        onClick={() => editResult?.()}
-        disabled={!editResult}
-      >
-        {displayCTAText()}
-      </Button>
-    </div>
+    <Flex ml="2" gap="3">
+      {!holdoutStage && editTargeting ? (
+        <Tooltip content={blockedReason} enabled={!!blockedReason}>
+          <Button
+            variant={readyForDecision ? "outline" : "solid"}
+            onClick={editTargeting}
+            disabled={!!blockedReason}
+          >
+            Make Changes
+          </Button>
+        </Tooltip>
+      ) : null}
+      {editResult ? (
+        <Tooltip content={blockedReason} enabled={!!blockedReason}>
+          <Button
+            variant={readyForDecision ? "solid" : "outline"}
+            onClick={editResult}
+            disabled={!!blockedReason}
+          >
+            {displayCTAText()}
+          </Button>
+        </Tooltip>
+      ) : null}
+    </Flex>
   );
 }

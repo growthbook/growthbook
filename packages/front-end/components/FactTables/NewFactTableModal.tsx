@@ -654,7 +654,7 @@ export default function NewFactTableModal({
                         </Box>
                       );
                     }}
-                    size="small"
+                    size="md"
                     sort={false}
                     isSearchable={false}
                   />

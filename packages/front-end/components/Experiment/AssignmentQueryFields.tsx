@@ -26,6 +26,8 @@ import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
+import HelperText from "@/ui/HelperText";
+import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 
 type Selection = {
   exposureQueryId: string | undefined;
@@ -281,15 +283,15 @@ function getDriftNotice({
   if (identifierUndeclared) {
     return {
       status: "warning",
-      message: `The assignment query no longer declares the "${identifierType}" identifier type, so results can't update until another identifier or query is chosen.`,
+      message: `This assignment query no longer declares "${identifierType}", so results can't update.`,
     };
   }
   if (outOfScope) {
     return {
       status: "info",
       message: holdoutProjects
-        ? "The selected assignment query isn't available to every Project this Holdout covers. Results will still update, but you may want to switch to one that is."
-        : "The selected assignment query isn't scoped to this Project. Results will still update, but you may want to switch to one that is.",
+        ? "This assignment query isn't available to every Project in this Holdout. Results still update."
+        : "This assignment query isn't scoped to this Project. Results still update.",
     };
   }
   return null;
@@ -322,13 +324,20 @@ export function getNoAssignmentQueriesMessage({
 
 export function AssignmentQueryDriftWarning({
   selection,
+  as = "callout",
 }: {
   selection: DriftState;
+  // Under the assignment query field rather than above the form.
+  as?: "callout" | "helperText";
 }) {
   const drift = getDriftNotice(selection);
   if (!drift) return null;
-  return (
-    <Callout status={drift.status} mb="3">
+  return as === "helperText" ? (
+    <HelperText status={drift.status} size="sm" mt="2">
+      {drift.message}
+    </HelperText>
+  ) : (
+    <Callout status={drift.status} size="sm" mb="3">
       {drift.message}
     </Callout>
   );
@@ -352,6 +361,11 @@ export function AssignmentQueryDriftIcon({
   );
 }
 
+const IDENTIFIER_TYPE_TIP =
+  "The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment.";
+const ASSIGNMENT_TABLE_TIP =
+  "The query that records which units saw which variation.";
+
 export default function AssignmentQueryFields({
   selection,
   initialOption,
@@ -359,6 +373,9 @@ export default function AssignmentQueryFields({
   size,
   disabled,
   notice,
+  autoFocus = false,
+  progressive = false,
+  asRows = false,
 }: {
   selection: Selection;
   initialOption?: string;
@@ -366,6 +383,12 @@ export default function AssignmentQueryFields({
   size?: "legacy";
   disabled?: boolean;
   notice?: AssignmentQueryNotice | null;
+  /** Focuses the assignment table when it mounts. */
+  autoFocus?: boolean;
+  /** Holds the assignment table back until an identifier type is chosen. */
+  progressive?: boolean;
+  /** Each field beside its label, as on the experiment's setup page. */
+  asRows?: boolean;
 }) {
   const {
     exposureQueryId,
@@ -376,60 +399,92 @@ export default function AssignmentQueryFields({
     setExposureQueryId,
     changeIdentifierType,
   } = selection;
+  const field = (
+    label: string,
+    tooltip: string,
+    select: ReactNode,
+    note?: ReactNode,
+  ) =>
+    asRows ? (
+      <SetupFieldRow label={label} tooltip={tooltip}>
+        {select}
+        {note}
+      </SetupFieldRow>
+    ) : (
+      select
+    );
   return (
     <>
-      <AssignmentQueryDriftWarning selection={selection} />
+      {asRows ? null : <AssignmentQueryDriftWarning selection={selection} />}
       {notice ? (
         <Callout status={notice.status} mb="3">
           {notice.message}
         </Callout>
       ) : null}
-      <SelectField
-        size={size}
-        label={
-          <>
-            Identifier Type{" "}
-            <Tooltip body="The unit this experiment is analyzed on. Should correspond to the attribute used to randomize units for this experiment." />
-          </>
-        }
-        labelClassName="font-weight-bold"
-        helpText={
-          identifierTypes.length === 0
-            ? getNoAssignmentQueriesMessage(selection)
-            : undefined
-        }
-        value={identifierType ?? ""}
-        onChange={changeIdentifierType}
-        initialOption={initialOption}
-        placeholder={placeholder}
-        required
-        disabled={disabled}
-        sort={false}
-        options={groupedIdentifierTypes}
-      />
-      <SelectField
-        size={size}
-        label={
-          <>
-            Experiment Assignment Table{" "}
-            <Tooltip body="The query that records which units saw which variation." />
-          </>
-        }
-        labelClassName="font-weight-bold"
-        helpText={
-          identifierType && exposureQueryOptions.length === 0
-            ? `No assignment queries declare the "${identifierType}" identifier type.`
-            : undefined
-        }
-        value={exposureQueryId ?? ""}
-        onChange={setExposureQueryId}
-        initialOption={initialOption}
-        placeholder={placeholder}
-        required
-        disabled={disabled}
-        sort={false}
-        options={exposureQueryOptions}
-      />
+      {field(
+        "Identifier type",
+        IDENTIFIER_TYPE_TIP,
+        <SelectField
+          size={size}
+          label={
+            asRows ? undefined : (
+              <>
+                Identifier Type <Tooltip body={IDENTIFIER_TYPE_TIP} />
+              </>
+            )
+          }
+          labelClassName="font-weight-bold"
+          helpText={
+            identifierTypes.length === 0
+              ? getNoAssignmentQueriesMessage(selection)
+              : undefined
+          }
+          value={identifierType ?? ""}
+          onChange={changeIdentifierType}
+          initialOption={initialOption}
+          placeholder={placeholder}
+          required
+          disabled={disabled}
+          sort={false}
+          options={groupedIdentifierTypes}
+        />,
+      )}
+      {progressive && !identifierType
+        ? null
+        : field(
+            "Assignment query",
+            ASSIGNMENT_TABLE_TIP,
+            <SelectField
+              size={size}
+              label={
+                asRows ? undefined : (
+                  <>
+                    Experiment Assignment Table{" "}
+                    <Tooltip body={ASSIGNMENT_TABLE_TIP} />
+                  </>
+                )
+              }
+              labelClassName="font-weight-bold"
+              helpText={
+                identifierType && exposureQueryOptions.length === 0
+                  ? `No assignment queries declare the "${identifierType}" identifier type.`
+                  : undefined
+              }
+              value={exposureQueryId ?? ""}
+              onChange={setExposureQueryId}
+              autoFocus={autoFocus}
+              initialOption={initialOption}
+              placeholder={placeholder}
+              required
+              disabled={disabled}
+              sort={false}
+              options={exposureQueryOptions}
+            />,
+            <AssignmentQueryDriftWarning
+              selection={selection}
+              as="helperText"
+            />,
+          )}
     </>
   );
 }
