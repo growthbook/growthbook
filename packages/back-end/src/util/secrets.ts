@@ -400,6 +400,8 @@ export const GOOGLE_AI_API_KEY = process.env.GOOGLE_AI_API_KEY || "";
 // speaks the same System One API, such as a self-hosted Kev.
 export const TYPESAFE_API_KEY = process.env.TYPESAFE_API_KEY || "";
 export const TYPESAFE_BASE_URL = process.env.TYPESAFE_BASE_URL || "";
+// Pins a Jev version, such as jev-1.13.0; unset follows jev-latest
+export const TYPESAFE_DEFAULT_MODEL = process.env.TYPESAFE_DEFAULT_MODEL || "";
 // Gemini (Google AI Studio) — used by the visual editor's image-gen endpoint.
 // GEMINI_API_KEY is the legacy name for GOOGLE_AI_API_KEY.
 export const GEMINI_API_KEY = process.env.GEMINI_API_KEY || "";
