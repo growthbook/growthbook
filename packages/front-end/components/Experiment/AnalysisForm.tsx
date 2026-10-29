@@ -384,27 +384,53 @@ const AnalysisForm: FC<{
   const secondaryMetrics = form.watch("secondaryMetrics");
   const guardrailMetrics = form.watch("guardrailMetrics");
   // Same inputs as the metric pickers, so both agree on what's eligible.
-  const ineligibleClusterMetricNames = useMemo(() => {
+  const ineligibleClusterMetrics = useMemo(() => {
+    const ineligible = {
+      droppedIds: new Set<string>(),
+      droppedNames: [] as string[],
+      groupNames: [] as string[],
+    };
     const clusterSubUnit = getClusterSubUnit({
       isClusterExperiment,
       clusterSubUnitIdentifier,
     });
-    if (!clusterSubUnit || !exposureQuery) return [];
-    return getAllMetricIdsFromExperiment(
-      { goalMetrics, secondaryMetrics, guardrailMetrics },
-      false,
-      metricGroups,
-    ).flatMap((id) => {
+    if (!clusterSubUnit || !exposureQuery) return ineligible;
+    const isEligible = (id: string) => {
       const metric = getExperimentMetricById(id);
-      if (!metric) return [];
-      const eligibility = getClusterExperimentMetricEligibility(metric, {
-        clusterIdentifier: exposureQueryIdentifierType,
-        clusterSubUnitIdentifier: clusterSubUnit,
-        getFactTable: getFactTableById,
-        datasourceSettings: datasource?.settings,
-      });
-      return eligibility.allowed ? [] : [metric.name];
+      return (
+        !metric ||
+        getClusterExperimentMetricEligibility(metric, {
+          clusterIdentifier: exposureQueryIdentifierType,
+          clusterSubUnitIdentifier: clusterSubUnit,
+          getFactTable: getFactTableById,
+          datasourceSettings: datasource?.settings,
+        }).allowed
+      );
+    };
+    const selectedIds = new Set([
+      ...goalMetrics,
+      ...secondaryMetrics,
+      ...guardrailMetrics,
+    ]);
+    selectedIds.forEach((id) => {
+      const group = metricGroups.find((mg) => mg.id === id);
+      if (group) {
+        // Dropping part of a group isn't possible, so groups are removed by hand.
+        if (
+          !getAllMetricIdsFromExperiment(
+            { goalMetrics: [id] },
+            false,
+            metricGroups,
+          ).every(isEligible)
+        ) {
+          ineligible.groupNames.push(group.name);
+        }
+      } else if (!isEligible(id)) {
+        ineligible.droppedIds.add(id);
+        ineligible.droppedNames.push(getExperimentMetricById(id)?.name ?? id);
+      }
     });
+    return ineligible;
   }, [
     isClusterExperiment,
     exposureQueryIdentifierType,
@@ -537,6 +563,15 @@ const AnalysisForm: FC<{
         };
 
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
+
+        const { droppedIds } = ineligibleClusterMetrics;
+        if (droppedIds.size) {
+          const keep = (ids?: string[]) =>
+            ids?.filter((id) => !droppedIds.has(id));
+          body.goalMetrics = keep(body.goalMetrics);
+          body.secondaryMetrics = keep(body.secondaryMetrics);
+          body.guardrailMetrics = keep(body.guardrailMetrics);
+        }
 
         if (!body.isClusterExperiment) {
           delete body.clusterSubUnitIdentifier;
@@ -1118,9 +1153,14 @@ const AnalysisForm: FC<{
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
               </>
             )}
-            {ineligibleClusterMetricNames.length > 0 && (
+            {ineligibleClusterMetrics.droppedNames.length > 0 && (
+              <Callout status="info" mb="3">
+                {`Saving will remove metrics that cluster experiments can't analyze: ${ineligibleClusterMetrics.droppedNames.join(", ")}.`}
+              </Callout>
+            )}
+            {ineligibleClusterMetrics.groupNames.length > 0 && (
               <Callout status="warning" mb="3">
-                {`Remove these metrics before saving. Cluster experiments can't analyze them: ${ineligibleClusterMetricNames.join(", ")}.`}
+                {`Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${ineligibleClusterMetrics.groupNames.join(", ")}.`}
               </Callout>
             )}
             <ExperimentMetricsSelector
