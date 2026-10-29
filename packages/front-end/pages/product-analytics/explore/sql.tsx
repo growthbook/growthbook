@@ -18,15 +18,17 @@ export default function SqlExplorePage() {
   return (
     <Box
       className="position-relative page-sides"
-      // The page's side padding, less the explorer's own 8px inside, and its
-      // 24px from the header to the explorer's first row: here the data
-      // source picker, with 4px of its own (no actions row above it).
+      // The page's side padding, less the explorer's own 8px inside, and the
+      // wrapper's top padding from the header to the explorer's first row:
+      // here the data source picker, with 4px of its own (no actions row
+      // above it).
       style={{
-        paddingTop: "20px",
+        paddingTop: "calc(var(--page-top-padding) - var(--space-1))",
         paddingBottom: "8px",
         ...({
           "--page-sides-inset": "var(--space-2)",
-          "--explorer-frame-y": "28px",
+          "--explorer-frame-y":
+            "calc(var(--page-top-padding) + var(--space-1))",
         } as React.CSSProperties),
       }}
     >

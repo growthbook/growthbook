@@ -31,8 +31,8 @@ export default function ExplorePage() {
         display: "flex",
         flex: 1,
         flexDirection: "column",
-        // 24px under the header, as on pages in the wrapper.
-        paddingTop: "24px",
+        // The wrapper's top padding under the header, as on pages in it.
+        paddingTop: "var(--page-top-padding)",
         paddingBottom: "15px",
       }}
     >
