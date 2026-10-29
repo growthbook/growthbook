@@ -71,4 +71,21 @@ router.put(
   projectController.putProjectSettings,
 );
 
+router.put(
+  "/:id/default-dashboard",
+  validateRequestMiddleware({
+    params: z
+      .object({
+        id: z.string(),
+      })
+      .strict(),
+    body: z
+      .object({
+        defaultDashboardId: z.string().min(1).nullable(),
+      })
+      .strict(),
+  }),
+  projectController.putProjectDefaultDashboard,
+);
+
 export { router as projectRouter };

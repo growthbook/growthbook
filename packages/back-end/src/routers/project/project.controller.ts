@@ -374,10 +374,55 @@ export const putProjectSettings = async (
 
   const { settings } = req.body;
 
-  await context.models.projects.update(project, { settings });
+  // The dedicated endpoint owns this field. Preserve its current value even
+  // when a stale settings form is saved concurrently with a dashboard change.
+  const updated = await context.models.projects.updateWithCas(
+    id,
+    ["settings"],
+    (current) => ({
+      settings: {
+        ...settings,
+        defaultDashboardId: current.settings?.defaultDashboardId,
+      },
+    }),
+  );
 
   res.status(200).json({
     status: 200,
-    settings,
+    settings: updated?.settings ?? {},
   });
+};
+
+type PutProjectDefaultDashboardRequest = AuthRequest<
+  { defaultDashboardId: string | null },
+  { id: string }
+>;
+type PutProjectDefaultDashboardResponse = {
+  status: 200;
+  settings: ProjectSettings;
+};
+export const putProjectDefaultDashboard = async (
+  req: PutProjectDefaultDashboardRequest,
+  res: Response<PutProjectDefaultDashboardResponse | ApiErrorResponse>,
+) => {
+  const { id } = req.params;
+  const context = getContextFromReq(req);
+
+  if (!context.permissions.canUpdateProject(id)) {
+    context.permissions.throwPermissionError();
+  }
+
+  const project = await context.models.projects.getById(id);
+  if (!project) {
+    res.status(404).json({
+      message: "Could not find project",
+    });
+    return;
+  }
+
+  const updated = await context.models.projects.setDefaultDashboard(
+    project,
+    req.body.defaultDashboardId,
+  );
+  res.status(200).json({ status: 200, settings: updated.settings ?? {} });
 };
