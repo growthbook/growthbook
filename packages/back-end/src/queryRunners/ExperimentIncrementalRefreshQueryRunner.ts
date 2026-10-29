@@ -78,10 +78,11 @@ import { ExperimentUpdateExecutionLogger } from "back-end/src/services/experimen
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import { applyMetricOverrides } from "back-end/src/util/integration";
 import {
+  INTERRUPTED_UPDATE_REASON,
   LOCK_LOST_ERROR,
   RESULTS_SUPERSEDED_ERROR,
   stopIncrementalRefresh,
-} from "back-end/src/jobs/interruptedRefresh";
+} from "back-end/src/services/interruptedRefresh";
 import {
   SnapshotResult,
   TRAFFIC_QUERY_NAME,
@@ -138,7 +139,6 @@ export interface MetricSourceGroups {
  * A run that stopped while changing the units table left it marked; only a
  * full refresh rebuilds it.
  */
-export const UNITS_TABLE_MARKED_REASON = "An earlier update stopped part-way";
 
 export function runsAsFullRefresh(
   fullRefresh: boolean,
@@ -1373,7 +1373,7 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
           "incremental-full";
         this.experimentUpdateExecutionLogger.plan.fullRefresh = true;
         this.experimentUpdateExecutionLogger.plan.fullRefreshReason =
-          UNITS_TABLE_MARKED_REASON;
+          INTERRUPTED_UPDATE_REASON;
       }
     }
     const incrementalRefreshModel = params.fullRefresh ? null : lockedState;
@@ -1642,14 +1642,21 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
     if (snapshotStatus !== "running") {
       // Only a snapshot saved as a success may be what the tables point at.
       if (committed) {
-        await this.context.models.incrementalRefresh
+        const marked = await this.context.models.incrementalRefresh
           .markMaterialized(this.model.experiment, this.model.id)
-          .catch((e) =>
+          .catch((e) => {
             this.context.logger.warn(
               e,
               "Failed to record pipeline tables snapshot id on success",
-            ),
+            );
+            return true;
+          });
+        if (!marked) {
+          this.context.logger.warn(
+            { experimentId: this.model.experiment, snapshotId: this.model.id },
+            "Pipeline tables not pointed at this snapshot: another run took the lock after it committed",
           );
+        }
       }
       await this.stop();
     }

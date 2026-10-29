@@ -4,7 +4,7 @@ import {
   NOT_RUN_QUERY_ERROR,
   RESULTS_SUPERSEDED_ERROR,
   stopIncrementalRefresh,
-} from "back-end/src/jobs/interruptedRefresh";
+} from "back-end/src/services/interruptedRefresh";
 import {
   failQueuedQueries,
   getQueryStatusesByIds,

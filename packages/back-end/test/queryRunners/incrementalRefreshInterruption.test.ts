@@ -1,4 +1,3 @@
-import mongoose from "mongoose";
 import type { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import type {
   FactMetricInterface,
@@ -11,15 +10,7 @@ import type {
 } from "shared/types/query";
 import type { ExposureQuery } from "shared/types/datasource";
 import type { IncrementalRefreshInterface } from "shared/validators";
-import {
-  connectTestMongo,
-  disconnectTestMongo,
-} from "back-end/test/test-helpers";
-import {
-  COLLECTION_NAME,
-  IncrementalRefreshModel,
-} from "back-end/src/models/IncrementalRefreshModel";
-import type { Context } from "back-end/src/models/BaseModel";
+import type { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshModel";
 import {
   getQueryStatusesByIds,
   failQueuedQueries,
@@ -38,7 +29,7 @@ import {
 import {
   RESULTS_SUPERSEDED_ERROR,
   stopIncrementalRefresh,
-} from "back-end/src/jobs/interruptedRefresh";
+} from "back-end/src/services/interruptedRefresh";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ApiReqContext } from "back-end/types/api";
 import { factMetricFactory } from "../factories/FactMetric.factory";
@@ -657,8 +648,7 @@ function buildMetrics({ groups, covariates }: Config) {
 let model: IncrementalRefreshModel;
 const pendingWrites = new Set<Promise<unknown>>();
 
-// Same lock semantics as IncrementalRefreshModel, without Mongo, so the full
-// sweep stays fast. The Mongo-backed sweeps below check it agrees.
+// The lock semantics of IncrementalRefreshModel's fenced writes, in memory.
 class InMemoryIncrementalRefreshModel {
   docs = new Map<string, IncrementalRefreshInterface>();
 
@@ -717,6 +707,7 @@ class InMemoryIncrementalRefreshModel {
           experimentSettingsHash: null,
         } as IncrementalRefreshInterface)),
       currentExecutionSnapshotId: snapshotId,
+      lastCommittedSnapshotId: null,
       lockHeartbeatAt: new Date(),
     });
     return true;
@@ -760,9 +751,9 @@ class InMemoryIncrementalRefreshModel {
   async markMaterialized(experimentId: string, snapshotId: string) {
     this.maybeFail("markMaterialized");
     const doc = this.docs.get(experimentId);
-    if (doc?.lastCommittedSnapshotId === snapshotId) {
-      doc.materializedBySnapshotId = snapshotId;
-    }
+    if (doc?.lastCommittedSnapshotId !== snapshotId) return false;
+    doc.materializedBySnapshotId = snapshotId;
+    return true;
   }
 }
 
@@ -772,16 +763,9 @@ async function drainWrites() {
   }
 }
 
-function createModel(backend: "memory" | "mongo") {
-  const modelContext = {
-    org: { id: ORG },
-    populateForeignRefs: jest.fn().mockResolvedValue(undefined),
-    models: {},
-  } as unknown as Context;
+function createModel() {
   const m =
-    backend === "mongo"
-      ? new IncrementalRefreshModel(modelContext)
-      : (new InMemoryIncrementalRefreshModel() as unknown as IncrementalRefreshModel);
+    new InMemoryIncrementalRefreshModel() as unknown as IncrementalRefreshModel;
   const write = m.updateByExperimentIdIfCurrentExecution.bind(m);
   m.updateByExperimentIdIfCurrentExecution = (...args) => {
     const p = write(...args);
@@ -1348,9 +1332,6 @@ async function sweepConcludeRetries(config: Config, fullRefresh: boolean) {
     const { run } = await exp.startRun({ now: INTERRUPTED_AT, fullRefresh });
     const where = `${failStep} failing once`;
     try {
-      if (failStep !== "save" && model instanceof IncrementalRefreshModel) {
-        continue;
-      }
       if (failStep !== "save") memoryModel().failOnce = failStep;
       const firstAttempt = await exp
         .conclude(run, { saveFails: failStep === "save" })
@@ -1438,9 +1419,9 @@ async function expectBreakdownLockNeverForcesFullRefresh(config: Config) {
   expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
 }
 
-describe("incremental refresh interruption (in-memory lock state)", () => {
+describe("incremental refresh interruption", () => {
   beforeAll(() => {
-    model = createModel("memory");
+    model = createModel();
   });
 
   it.each(configs)(
@@ -1454,6 +1435,30 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       expect((await getDoc(exp.id))?.unitsDirtyBy ?? null).toBeNull();
     },
   );
+
+  it("refuses a retried commit once another run has taken the lock", async () => {
+    const exp = await setUpExperiment({ groups: 1, covariates: false });
+    const before = (await getDoc(exp.id))?.materializedBySnapshotId;
+    const { run } = await exp.startRun({
+      now: INTERRUPTED_AT,
+      fullRefresh: false,
+    });
+    expect(await model.commitRunResults(exp.id, run.snapshotId)).toBe(true);
+    // Its save stalls past the lock's expiry, and another run takes over.
+    await model.releaseLock(exp.id, run.snapshotId);
+    const { run: newer } = await exp.startRun({
+      now: INTERRUPTED_AT + 50,
+      fullRefresh: false,
+    });
+
+    expect(await model.commitRunResults(exp.id, run.snapshotId)).toBe(false);
+    expect(await model.markMaterialized(exp.id, run.snapshotId)).toBe(false);
+    expect((await getDoc(exp.id))?.materializedBySnapshotId).toBe(before);
+    await exp.conclude(newer);
+    expect((await getDoc(exp.id))?.materializedBySnapshotId).toBe(
+      newer.snapshotId,
+    );
+  });
 
   it.each(configs)(
     "keeps Updates incremental after a breakdown's lock goes stale ($groups, $covariates)",
@@ -1511,44 +1516,4 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       },
     );
   });
-});
-
-// One source with covariates still exercises every write against Mongo; the
-// wider matrix runs on the in-memory lock state above.
-const MONGO_CONFIG: Config = { groups: 1, covariates: true };
-
-describe("incremental refresh interruption (Mongo lock state)", () => {
-  beforeAll(async () => {
-    await connectTestMongo();
-    model = createModel("mongo");
-  }, 60000);
-
-  afterAll(async () => {
-    await mongoose.connection.db!.collection(COLLECTION_NAME).deleteMany({});
-    await disconnectTestMongo();
-  });
-
-  it("keeps Updates incremental after a breakdown's lock goes stale", () =>
-    expectBreakdownLockNeverForcesFullRefresh(MONGO_CONFIG));
-
-  it.each(modes)(
-    "recovers from a stop at every step: $mode",
-    async ({ fullRefresh }) => {
-      expect(await sweep(MONGO_CONFIG, fullRefresh, ["serial"])).toEqual([]);
-    },
-  );
-
-  it.each(modes)(
-    "recovers when the lock goes stale at every step: $mode",
-    async ({ fullRefresh }) => {
-      expect(await sweepLostLock(MONGO_CONFIG, fullRefresh, false)).toEqual([]);
-    },
-  );
-
-  it.each(modes)(
-    "keeps its results when saving fails once: $mode",
-    async ({ fullRefresh }) => {
-      expect(await sweepConcludeRetries(MONGO_CONFIG, fullRefresh)).toEqual([]);
-    },
-  );
 });

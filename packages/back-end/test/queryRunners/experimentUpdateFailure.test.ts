@@ -8,7 +8,7 @@ import {
   failQueuedQueries,
   getQueryStatusesByIds,
 } from "back-end/src/models/QueryModel";
-import { RESULTS_SUPERSEDED_ERROR } from "back-end/src/jobs/interruptedRefresh";
+import { RESULTS_SUPERSEDED_ERROR } from "back-end/src/services/interruptedRefresh";
 import type { OrderedWriter } from "back-end/src/queryRunners/orderedWriter";
 import type { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import type { ReqContext } from "back-end/types/request";
@@ -29,7 +29,7 @@ const context = {
     incrementalRefresh: {
       releaseLock: jest.fn().mockResolvedValue(undefined),
       commitRunResults: jest.fn().mockResolvedValue(true),
-      markMaterialized: jest.fn().mockResolvedValue(undefined),
+      markMaterialized: jest.fn().mockResolvedValue(true),
     },
   },
 } as unknown as ReqContext;

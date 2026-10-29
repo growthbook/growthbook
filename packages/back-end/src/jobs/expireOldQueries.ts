@@ -44,9 +44,9 @@ import { MetricAnalysisModel } from "back-end/src/models/MetricAnalysisModel";
 import { getCollection } from "back-end/src/util/mongo.util";
 import { ApiReqContext } from "back-end/types/api";
 import {
+  failNotStartedQueries,
   isIncrementalRefreshRun,
-  stopIncrementalRefresh,
-} from "back-end/src/jobs/interruptedRefresh";
+} from "back-end/src/services/interruptedRefresh";
 
 const JOB_NAME = "expireOldQueries";
 
@@ -106,7 +106,7 @@ const expireOldQueries = async () => {
     // An incremental refresh's queued queries are stopped too, so none starts
     // after the run is released.
     if (isIncrementalRefreshRun(snapshot)) {
-      const notRunQueryIds = await stopIncrementalRefresh(context, snapshot);
+      const notRunQueryIds = await failNotStartedQueries(context, snapshot);
       notRunQueryIds.forEach((id) => failedQueryIds.add(id));
     }
     updateQueryStatus(snapshot.queries, failedQueryIds);

@@ -17,7 +17,7 @@ import {
   findSnapshotById,
   updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { NOT_RUN_QUERY_ERROR } from "back-end/src/jobs/interruptedRefresh";
+import { NOT_RUN_QUERY_ERROR } from "back-end/src/services/interruptedRefresh";
 import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
 import {
   failQueuedQueries,
@@ -822,6 +822,10 @@ describe("expireOldQueries stalled snapshot reaper", () => {
       NOT_RUN_QUERY_ERROR,
     );
     expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+    // The snapshot is errored before its lock is released.
+    expect(
+      (updateSnapshot as jest.Mock).mock.invocationCallOrder[0],
+    ).toBeLessThan(releaseLock.mock.invocationCallOrder[0]);
     expect(updateSnapshot).toHaveBeenCalledWith(
       expect.objectContaining({
         updates: expect.objectContaining({

@@ -33,7 +33,7 @@ import {
 } from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
-import { LOCK_LOST_ERROR } from "back-end/src/jobs/interruptedRefresh";
+import { LOCK_LOST_ERROR } from "back-end/src/services/interruptedRefresh";
 import {
   ExperimentUpdateExecutionLogger,
   ExperimentUpdateTimingPhase,

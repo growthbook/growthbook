@@ -937,6 +937,38 @@ describe("tables a stopped run left marked", () => {
     ).toBe(true);
   });
 
+  it("are rebuilt by an Update, so a breakdown waits for one instead of a full refresh", async () => {
+    const markedSource = makeIncrementalRefreshModel({
+      metricSources: [
+        {
+          ...makeMetricSource("g1", "ft_a", [{ id: "m1", settingsHash: "h" }]),
+          dirtyBy: "snp_stopped",
+        },
+      ],
+    });
+    const result = assertIncrementalRefreshPrerequisites({
+      org: { id: "org_123" } as OrganizationInterface,
+      integration: makeIntegration(),
+      snapshotSettings: makeSnapshotSettings(),
+      metricMap: new Map([[metric.id, metric]]),
+      experiment: { id: "exp_123" } as ExperimentInterface,
+      incrementalRefreshModel: markedSource,
+      analysisType: "exploratory",
+    });
+    await expect(result).rejects.toThrow("update results");
+    await expect(result).rejects.not.toBeInstanceOf(
+      ExperimentIncrementalPipelineRequiresFullRefreshError,
+    );
+    expect(
+      exploratoryOverallRequiresFullRefresh({
+        exposureQueries: [],
+        snapshotSettings: makeSnapshotSettings(),
+        incrementalRefreshModel: markedSource,
+        latestOverallSnapshotId: null,
+      }),
+    ).toBe(false);
+  });
+
   it("include any marked source but not unmarked ones", () => {
     expect(hasTablesMarkedDirty(makeIncrementalRefreshModel())).toBe(false);
     expect(hasTablesMarkedDirty(marked)).toBe(true);

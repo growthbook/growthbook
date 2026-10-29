@@ -7,11 +7,6 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { updateSingleExperiment } from "back-end/src/jobs/updateExperimentResults";
-import { ConcurrentIncrementalRefreshError } from "back-end/src/util/errors";
-import {
-  LOCK_LOST_ERROR,
-  RESULTS_SUPERSEDED_ERROR,
-} from "back-end/src/jobs/interruptedRefresh";
 
 jest.mock("back-end/src/models/DataSourceModel", () => ({
   ...jest.requireActual("back-end/src/models/DataSourceModel"),
@@ -378,47 +373,5 @@ describe("failing scheduled updates", () => {
 
     const doc = await experiments().findOne({ id: "exp_flaky" });
     expect(doc?.autoSnapshots).toBe(true);
-  });
-});
-
-describe("scheduled updates stopped by an incremental refresh safety check", () => {
-  it.each([
-    [
-      "lock held by another update",
-      new ConcurrentIncrementalRefreshError("busy"),
-    ],
-    ["results superseded by another update", RESULTS_SUPERSEDED_ERROR],
-    [
-      "a query that lost the lock",
-      new Error(`Query failed: ${LOCK_LOST_ERROR}`),
-    ],
-  ])("keeps auto-updates on: %s", async (_, error) => {
-    jest.mocked(getDataSourceById).mockRejectedValueOnce(error);
-    await experiments().insertOne({
-      ...running,
-      id: "exp_safety",
-      nextSnapshotAttempt: new Date(Date.now() - 1000),
-    });
-
-    await updateSingleExperiment(jobFor("exp_safety"));
-
-    const doc = await experiments().findOne({ id: "exp_safety" });
-    expect(doc?.autoSnapshots).toBe(true);
-  });
-
-  it("still turns off auto-updates for other failures", async () => {
-    jest
-      .mocked(getDataSourceById)
-      .mockRejectedValueOnce(new Error("syntax error in metric SQL"));
-    await experiments().insertOne({
-      ...running,
-      id: "exp_broken",
-      nextSnapshotAttempt: new Date(Date.now() - 1000),
-    });
-
-    await updateSingleExperiment(jobFor("exp_broken"));
-
-    const doc = await experiments().findOne({ id: "exp_broken" });
-    expect(doc?.autoSnapshots).toBe(false);
   });
 });

@@ -227,6 +227,7 @@ import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/feature
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { INTERRUPTED_UPDATE_REASON } from "back-end/src/services/interruptedRefresh";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -1565,8 +1566,7 @@ function resolveFullRefresh(
   if (incrementalRefreshModel.unitsDirtyBy) {
     return {
       fullRefresh: true,
-      fullRefreshReason:
-        "An earlier update stopped while changing the units table.",
+      fullRefreshReason: INTERRUPTED_UPDATE_REASON,
     };
   }
 

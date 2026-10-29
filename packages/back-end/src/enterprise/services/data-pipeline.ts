@@ -40,6 +40,7 @@ import {
 } from "shared/types/fact-table";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import { INTERRUPTED_UPDATE_REASON } from "back-end/src/services/interruptedRefresh";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
@@ -93,6 +94,22 @@ export async function assertIncrementalRefreshPrerequisites({
     throw new Error(unsupportedReason);
   }
 
+  // A breakdown reads the tables as they are, so it can't use any a stopped
+  // run left marked. A marked units table needs a full refresh; marked
+  // sources are rebuilt by the next Update.
+  if (analysisType === "exploratory" && incrementalRefreshModel) {
+    if (incrementalRefreshModel.unitsDirtyBy) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        `${INTERRUPTED_UPDATE_REASON}. Please run a Full Refresh.`,
+      );
+    }
+    if (hasTablesMarkedDirty(incrementalRefreshModel)) {
+      throw new Error(
+        `${INTERRUPTED_UPDATE_REASON}. Please update results before viewing dimensions.`,
+      );
+    }
+  }
+
   // If not forcing a full refresh and we have a previous run, ensure the
   // experiment-level configuration matches what the incremental pipeline was
   // built with. Experiment-level changes (attribution model, exposure query,
@@ -104,18 +121,6 @@ export async function assertIncrementalRefreshPrerequisites({
   // detects the metric-source hash drift (see getFactTablesNeedingRebuild) and
   // rebuilds only that metric's fact-table cache, leaving the units table and
   // every unaffected metric cache on the incremental path.
-  // A breakdown reads the tables as they are, so it can't use any a stopped
-  // run left marked. An Update rebuilds those itself.
-  if (
-    analysisType === "exploratory" &&
-    incrementalRefreshModel &&
-    hasTablesMarkedDirty(incrementalRefreshModel)
-  ) {
-    throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
-      INTERRUPTED_UPDATE_FULL_REFRESH_REASON,
-    );
-  }
-
   if (analysisType === "main-update" && incrementalRefreshModel) {
     const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
       snapshotSettings,
@@ -624,11 +629,6 @@ export function getAggregatedFactTableRestateReason({
   return null;
 }
 
-// True when a dimension breakdown would read a units table built under different
-// experiment-level settings.
-export const INTERRUPTED_UPDATE_FULL_REFRESH_REASON =
-  "An earlier update stopped part-way. Run a full refresh.";
-
 // True when a stopped run left a table marked that it may have changed.
 export function hasTablesMarkedDirty(
   incrementalRefreshModel: Pick<
@@ -649,6 +649,8 @@ export function hasTablesMarkedDirty(
   );
 }
 
+// True when a dimension breakdown would read a units table built under different
+// experiment-level settings, or one a stopped run left marked.
 export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
   exposureQueries,
@@ -660,7 +662,7 @@ export function exploratoryOverallRequiresFullRefresh({
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
-  if (hasTablesMarkedDirty(incrementalRefreshModel)) return true;
+  if (incrementalRefreshModel.unitsDirtyBy) return true;
 
   const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
     snapshotSettings,

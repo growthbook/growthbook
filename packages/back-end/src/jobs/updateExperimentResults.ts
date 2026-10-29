@@ -24,7 +24,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications";
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
-import { isSupersededRefreshError } from "back-end/src/jobs/interruptedRefresh";
+import { isSupersededRefreshError } from "back-end/src/services/interruptedRefresh";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 
 // Time between experiment result updates (default 6 hours)

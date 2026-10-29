@@ -14,7 +14,7 @@ import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
   isSupersededRefreshError,
   LOCK_LOST_ERROR,
-} from "back-end/src/jobs/interruptedRefresh";
+} from "back-end/src/services/interruptedRefresh";
 import {
   countRunningQueries,
   getQueriesByIds,
