@@ -55,13 +55,11 @@ exports[`metric explorations with a population generated SQL matches the snapsho
     SELECT
       dimension0,
       CASE
-        WHEN population_count IS NOT NULL
-        AND unit0 IS NOT NULL THEN m0
+        WHEN population_count IS NOT NULL THEN m0
         ELSE NULL
       END AS m0,
       CASE
-        WHEN population_count IS NOT NULL
-        AND unit0 IS NOT NULL THEN population_count
+        WHEN population_count IS NOT NULL THEN population_count
         ELSE NULL
       END AS population_count
     FROM

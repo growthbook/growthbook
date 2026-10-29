@@ -1486,7 +1486,7 @@ function generatePopulationMembersCTE(
   unitIndex: number,
   includedMetrics: MetricData[],
 ): CTE {
-  const isMember = `${POPULATION_COUNT_ALIAS} IS NOT NULL AND unit${unitIndex} IS NOT NULL`;
+  const isMember = `${POPULATION_COUNT_ALIAS} IS NOT NULL`;
   const selects = [
     ...dimensions.map((d) => d.alias),
     ...includedMetrics.map(

@@ -32,7 +32,8 @@ import { SqlDialect } from "shared/types/sql";
  *   Bob    9/1 mobile login ($0)                     9/2 mobile login, mobile purchase ($5)
  *   Carol  9/1 desktop login ($0)
  *   Dylan  9/1 six desktop purchases ($1..$6)
- *   (none) 9/1 mobile purchase ($99) with a NULL user_id
+ *   (none) 9/1 mobile purchase ($99) with a NULL user_id, which counts as one
+ *          unit, with or without a population
  *   Erin                                             9/2 mobile purchase ($20)
  *   Gina                                             9/2 mobile login ($15)
  *   Frank                                                                    9/3 mobile login ($0)
@@ -311,11 +312,12 @@ describe("metric explorations with a population", () => {
         population: mobileRevenueOver10,
       }),
       {
-        // Member: Alice ($12). She purchased but didn't log in.
+        // Members: Alice ($12) and the NULL user ($99). Both purchased; neither
+        // logged in.
         "2026-09-01": {
-          populationCount: 1,
+          populationCount: 2,
           values: [
-            [1, 1],
+            [2, 2],
             [null, 0],
           ],
         },
@@ -345,23 +347,24 @@ describe("metric explorations with a population", () => {
         overall: true,
       }),
       {
-        // Members: Alice ($12), Erin ($20), Gina ($15). Bob's $5 doesn't qualify.
-        // Purchased: Alice, Erin. Logged in: Alice, Gina.
+        // Members: Alice ($12), Erin ($20), Gina ($15), the NULL user ($99).
+        // Bob's $5 doesn't qualify.
+        // Purchased: Alice, Erin, NULL user. Logged in: Alice, Gina.
         overall: {
-          populationCount: 3,
+          populationCount: 4,
           values: [
-            [2, 2],
+            [3, 3],
             [2, 2],
           ],
         },
       },
     ],
     [
-      "uses row filters alone when there's no aggregate condition, never counting a NULL user_id",
+      "uses row filters alone when there's no aggregate condition",
       explore({ metrics: [purchasers], population: mobileUsers() }),
       {
-        // Members: Alice, Bob (the $99 NULL-user row doesn't count). Alice purchased.
-        "2026-09-01": { populationCount: 2, values: [[1, 1]] },
+        // Members: Alice, Bob, NULL user. Alice and the NULL user purchased.
+        "2026-09-01": { populationCount: 3, values: [[2, 2]] },
         // Members: Alice, Bob, Erin, Gina. Bob and Erin purchased.
         "2026-09-02": { populationCount: 4, values: [[2, 2]] },
         // Member: Frank, who didn't purchase.
@@ -403,8 +406,9 @@ describe("metric explorations with a population", () => {
       "still applies the metric's own conditions within the population",
       explore({ metrics: [repeatPurchasers], population: mobileUsers() }),
       {
-        // Alice made 2 purchases. Dylan made 6 but on desktop, so isn't a member.
-        "2026-09-01": { populationCount: 2, values: [[1, 1]] },
+        // Members: Alice, Bob, NULL user. Only Alice made 2 purchases. Dylan
+        // made 6 but on desktop, so isn't a member.
+        "2026-09-01": { populationCount: 3, values: [[1, 1]] },
         // Bob and Erin made one purchase each.
         "2026-09-02": { populationCount: 4, values: [[null, 0]] },
         "2026-09-03": { populationCount: 1, values: [[null, 0]] },
@@ -617,9 +621,7 @@ describe("metric explorations with a population", () => {
       // Each metric is read only for members, in a named CTE; no joins.
       expect(sql).toContain("_factTable0_unit0_members AS");
       expect(
-        sql.match(
-          /WHEN population_count IS NOT NULL\s+AND unit0 IS NOT NULL THEN m[01]\s/g,
-        ),
+        sql.match(/WHEN population_count IS NOT NULL THEN m[01]\s/g),
       ).toHaveLength(2);
       expect(sql).not.toContain("JOIN");
     });
@@ -637,8 +639,7 @@ describe("metric explorations with a population", () => {
 
 describe("metric explorations without a population", () => {
   // Hand-checked results for each metric type, to show the population changes
-  // didn't affect requests without one. Without a population, the NULL user_id
-  // row counts as one unit; that's existing behavior.
+  // didn't affect requests without one.
   it.each<[string, FactMetricInterface, Results]>([
     [
       "proportion",
