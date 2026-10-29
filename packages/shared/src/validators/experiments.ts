@@ -244,7 +244,7 @@ export function isUnsupportedClusterBanditCombination({
 }
 
 export const CLUSTER_CONFIG_LOCKED_MESSAGE =
-  "Cluster randomization and its sub-unit can't be changed once GrowthBook is assigning this experiment's traffic. Move it back to draft first.";
+  "Cluster experiment and the subunit identifier type can't be changed once GrowthBook is assigning this experiment's traffic. Move it back to draft first.";
 
 // Once GrowthBook launches an experiment through linked changes, its SDK has
 // randomized on the cluster (or not), so neither setting can change. Experiments

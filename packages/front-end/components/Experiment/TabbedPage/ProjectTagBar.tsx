@@ -165,7 +165,7 @@ export function ExperimentDataFields({
         <Metadata
           size="sm"
           stacked
-          label="Cluster subunit"
+          label="Subunit identifier type"
           value={clusterSubUnitIdentifier || <EmptyValue />}
         />
       ) : null}

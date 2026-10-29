@@ -573,7 +573,14 @@ export function ClusterExperimentFields({
           : premiumLabel("Cluster experiment")
       }
       weight={asRows ? "regular" : undefined}
-      description={asRows ? undefined : explanation}
+      // Stays on screen, unlike a tooltip, so the lock reads as a lock.
+      description={
+        locked
+          ? CLUSTER_CONFIG_LOCKED_MESSAGE
+          : asRows
+            ? undefined
+            : explanation
+      }
       value={isClusterExperiment}
       setValue={(value) => {
         setIsClusterExperiment(value);
@@ -586,7 +593,6 @@ export function ClusterExperimentFields({
         locked ||
         (!isClusterExperiment && !hasCommercialFeature("cluster-experiments"))
       }
-      disabledMessage={locked ? CLUSTER_CONFIG_LOCKED_MESSAGE : undefined}
     />
   );
   const subUnitSelect = (
@@ -594,7 +600,7 @@ export function ClusterExperimentFields({
       label={
         asRows ? undefined : (
           <>
-            Subunit Identifier Type <Tooltip body={SUBUNIT_TIP} />
+            Subunit identifier type <Tooltip body={SUBUNIT_TIP} />
           </>
         )
       }
@@ -610,9 +616,7 @@ export function ClusterExperimentFields({
         value: type,
       }))}
       helpText={
-        locked ? (
-          CLUSTER_CONFIG_LOCKED_MESSAGE
-        ) : subUnitOptions.length ? (
+        subUnitOptions.length ? (
           <>
             Lists the other identifier types in {exposureQuery?.name}. Metrics
             are analyzed per{" "}
