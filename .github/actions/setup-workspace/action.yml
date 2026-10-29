@@ -18,7 +18,7 @@ runs:
       uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
 
     - name: Setup Node
-      uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: "24"
         cache: "pnpm"
@@ -47,7 +47,7 @@ runs:
     - name: Cache SDK builds
       if: inputs.build-deps != 'false'
       id: cache-sdk
-      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           packages/sdk-js/dist
@@ -65,7 +65,7 @@ runs:
     - name: Cache shared build
       if: inputs.build-deps == 'true'
       id: cache-shared
-      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: packages/shared/dist
         key: ${{ steps.keys.outputs.shared }}
@@ -81,7 +81,7 @@ runs:
     - name: Cache stats-ts build
       if: inputs.build-deps == 'true'
       id: cache-stats-ts
-      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: packages/stats-ts/dist
         key: ${{ steps.keys.outputs.stats }}

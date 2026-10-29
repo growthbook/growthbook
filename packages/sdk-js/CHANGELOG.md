@@ -16,6 +16,7 @@
 - `$elemMatch` now supports `$or`, `$and`, `$nor`, and `$savedGroup` operators
 - Fix bug with attributes named like built-in properties (e.g. `constructor`, `toString`)
 - Added `reducePayload` method to shrink SSR-bootstrapped payloads to just the features, rules, and experiments relevant to each user.
+- Add `interleavePlugin` and `interleave()` for interleaving experiments
 
 ## **1.8.0** - Sep 29, 2026
 
