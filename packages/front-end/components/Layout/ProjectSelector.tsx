@@ -266,7 +266,7 @@ export function ProjectMenu({
             ref={searchRef}
             placeholder="Search"
             type="search"
-            aria-label="Search projects"
+            aria-label="Search Projects"
             prepend={<PiMagnifyingGlassBold size={14} />}
             // Keys the menu would take for its own navigation stay with the
             // field (typing, Space, Home and End); Down moves into the
@@ -339,7 +339,7 @@ export function ProjectMenuInPlace({ inPlace }: { inPlace: RailMenuInPlace }) {
                   ref={searchRef}
                   placeholder="Search"
                   type="search"
-                  aria-label="Search projects"
+                  aria-label="Search Projects"
                   prepend={<PiMagnifyingGlassBold size={14} />}
                   // Down moves into the projects; Esc goes back (InPlaceMenu).
                   onKeyDown={(e) => {
