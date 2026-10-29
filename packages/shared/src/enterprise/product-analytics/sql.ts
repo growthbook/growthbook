@@ -136,12 +136,19 @@ function isManagedWarehousePerOrgTable(path: string): boolean {
 // - populationCount: the Population's member count, reported as each row's
 //   `populationCount` rather than returned as a value
 type SeriesRole = "value" | "denominator" | "populationCount";
-interface Series {
-  metric: MinimalMetric;
-  unit?: string;
-  index: number;
-  role: SeriesRole;
-}
+type Series =
+  | {
+      role: "value" | "denominator";
+      metric: MinimalMetric;
+      unit?: string;
+      // The metric's position in the result
+      index: number;
+    }
+  | {
+      role: "populationCount";
+      metric: MinimalMetric;
+      unit: string;
+    };
 interface FactTableGroup {
   index: number;
   factTable: MinimalFactTable;
@@ -149,6 +156,7 @@ interface FactTableGroup {
   units: string[];
 }
 interface MetricData {
+  role: SeriesRole;
   unit: string | null;
   alias: string;
   percentileCapValueExpr: string | null;
@@ -190,16 +198,15 @@ function getMetricAliases(index: number) {
 }
 
 function getSeriesAlias(series: Series): string {
-  const aliases = getMetricAliases(series.index);
   switch (series.role) {
     case "value":
-      return aliases.base;
+      return getMetricAliases(series.index).base;
     case "denominator":
-      return aliases.denominator;
+      return getMetricAliases(series.index).denominator;
     case "populationCount":
       return POPULATION_COUNT_ALIAS;
   }
-  return assertNever(series.role);
+  return assertNever(series);
 }
 
 // The rollup column holding a series' value
@@ -271,10 +278,8 @@ function createPopulationMetric(
 // The Population count series, placed after a metric dataset's metrics.
 function createPopulationCountSeries(
   population: ExplorationPopulation,
-  index: number,
 ): Series {
   return {
-    index,
     metric: createPopulationMetric(population, "population", "Population"),
     unit: population.unit,
     role: "populationCount",
@@ -502,9 +507,7 @@ function getFactTableGroups({
               `Fact table ${population.source.factTableId} not found`,
             );
           }
-          group.metrics.push(
-            createPopulationCountSeries(population, metricIndex),
-          );
+          group.metrics.push(createPopulationCountSeries(population));
         }
         return Object.values(groups);
       })();
@@ -1125,6 +1128,7 @@ function getMetricData(
   );
 
   return {
+    role,
     unit: selectedUnit,
     alias,
     percentileCapValueExpr:
@@ -2245,7 +2249,7 @@ export function generateProductAnalyticsSQL(
       ctes.push(unitAggregationCTE);
 
       let rollupSourceCTE = unitAggregationCTE;
-      if (metrics.some((m) => m.alias === POPULATION_COUNT_ALIAS)) {
+      if (metrics.some((m) => m.role === "populationCount")) {
         rollupSourceCTE = generatePopulationMembersCTE(
           factTableGroup,
           unitAggregationCTE,
