@@ -33,7 +33,7 @@ export default function ExplorePage() {
         flexDirection: "column",
         // The wrapper's top padding under the header, as on pages in it.
         paddingTop: "var(--page-top-padding)",
-        paddingBottom: "15px",
+        paddingBottom: "var(--space-4)",
       }}
     >
       <Box
