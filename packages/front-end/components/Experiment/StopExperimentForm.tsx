@@ -349,8 +349,8 @@ const StopExperimentForm: FC<{
                 />
 
                 <small className="form-text text-muted">
-                  Keep the {isBandit ? "Bandit" : "Experiment"} running until
-                  you can implement the changes in code.{" "}
+                  GrowthBook keeps serving the variation below until you ship
+                  the change in code and end the rollout.{" "}
                   <DocLink useRadix={false} docSection="temporaryRollout">
                     Learn more
                   </DocLink>
@@ -382,7 +382,7 @@ const StopExperimentForm: FC<{
                     onChange={(v) => {
                       form.setValue("releasedVariationId", v);
                     }}
-                    helpText="Send 100% of experiment traffic to this variation"
+                    helpText={`Served to everyone the ${isBandit ? "Bandit" : "experiment"} includes (its targeting and rollout percentage).`}
                     placeholder="Pick one..."
                     required
                     options={variations.map((v) => {
