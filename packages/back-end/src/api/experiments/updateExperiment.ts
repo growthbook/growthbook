@@ -335,6 +335,7 @@ export const updateExperiment = createApiRequestHandler(
     datasource,
     current: {
       isClusterExperiment: effectiveIsClusterExperiment,
+      datasource: datasourceId,
       exposureQueryId: payload.assignmentQueryId ?? experiment.exposureQueryId,
       exposureQueryIdentifierType,
       clusterSubUnitIdentifier:
@@ -345,6 +346,7 @@ export const updateExperiment = createApiRequestHandler(
     },
     previous: {
       isClusterExperiment: experiment.isClusterExperiment,
+      datasource: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId,
       exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
       clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,

@@ -593,6 +593,7 @@ export async function planExperimentUpdate(
     datasource: clusterDatasource,
     current: {
       isClusterExperiment: effectiveIsClusterExperiment,
+      datasource: clusterDatasourceId,
       exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
       exposureQueryIdentifierType:
         changes.exposureQueryIdentifierType ??
@@ -605,6 +606,7 @@ export async function planExperimentUpdate(
     },
     previous: {
       isClusterExperiment: experiment.isClusterExperiment,
+      datasource: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId,
       exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
       clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,

@@ -4981,6 +4981,7 @@ export function assertClusterExperimentMetricsSupported({
 
 export type ClusterExperimentConfigFields = {
   isClusterExperiment?: boolean | null;
+  datasource?: string | null;
   exposureQueryId?: string;
   exposureQueryIdentifierType?: string;
   clusterSubUnitIdentifier?: string | null;
@@ -5004,6 +5005,7 @@ function clusterConfigRequiresRevalidation(
 ): boolean {
   return (
     !!current.isClusterExperiment !== !!previous.isClusterExperiment ||
+    (current.datasource ?? null) !== (previous.datasource ?? null) ||
     (current.clusterSubUnitIdentifier ?? null) !==
       (previous.clusterSubUnitIdentifier ?? null) ||
     (current.exposureQueryId ?? null) !== (previous.exposureQueryId ?? null) ||
