@@ -13,7 +13,7 @@ import { logger } from "back-end/src/util/logger";
 
 // Pinned, so answers and thresholds don't shift when TypeSafe moves its
 // jev-latest alias
-export const QUALITY_DECISION_MODEL = "jev-1.13.0";
+const QUALITY_DECISION_MODEL = "jev-1.13.0";
 
 let client: TypeSafeClient | null = null;
 
@@ -36,21 +36,18 @@ function getClient(): TypeSafeClient {
 // decision-model request
 export async function judgeQualityWithDecisionModel(
   input: Parameters<typeof buildQualityDecisionRequest>[0],
-): Promise<{ verdicts: QualityDecisionVerdicts; inputTokens: number }> {
+): Promise<QualityDecisionVerdicts> {
   const response = await getClient().systemOne({
     model: QUALITY_DECISION_MODEL,
     ...buildQualityDecisionRequest(input),
   });
-  return {
-    verdicts: interpretQualityDecisions(
-      response.answers as Record<string, QualityDecisionAnswer>,
-      {
-        builtInChecks: input.builtInChecks,
-        customKeys: input.customChecks?.map((c) => c.key),
-      },
-    ),
-    inputTokens: response.usage.input_tokens ?? 0,
-  };
+  return interpretQualityDecisions(
+    response.answers as Record<string, QualityDecisionAnswer>,
+    {
+      builtInChecks: input.builtInChecks,
+      customKeys: input.customChecks?.map((c) => c.key),
+    },
+  );
 }
 
 // Which model should judge a custom rule; the chat model when unsure or
