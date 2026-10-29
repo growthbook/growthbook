@@ -44,13 +44,14 @@ export default function CommentComposer({
   const buttonSize = compact ? "sm" : "md";
   const [value, setValue] = useState(initialValue);
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   return (
     <form
       onSubmit={async (e) => {
         e.preventDefault();
-        if (loading || value.trim().length < 1) return;
+        if (loading || uploading || value.trim().length < 1) return;
         setLoading(true);
         setError(null);
         try {
@@ -76,6 +77,7 @@ export default function CommentComposer({
         autoFocusAtEnd={autofocusAtEnd}
         simpleToolbar
         collapsibleToolbar
+        onUploadingChange={setUploading}
       />
       {/* Left aligned: the bottom-right corner belongs to the help launcher. */}
       <Flex align="center" mt="3" gap="2">
@@ -83,7 +85,7 @@ export default function CommentComposer({
           <Button
             type="submit"
             size={buttonSize}
-            disabled={value.trim().length < 1}
+            disabled={uploading || value.trim().length < 1}
           >
             {cta}
           </Button>

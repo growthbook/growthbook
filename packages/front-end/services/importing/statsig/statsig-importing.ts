@@ -1780,22 +1780,23 @@ export async function runImport(options: RunImportOptions) {
             ? existingExperimentsMap.get(transformedExperiment.trackingKey)
             : undefined;
           const isUpdate = !!existingExperiment;
+          // An update can't start a draft; it's started once its companion
+          // flag is saved.
+          const startsDraft =
+            existingExperiment?.status === "draft" &&
+            transformedExperiment.status === "running";
 
           // Create or update the experiment
           let experimentRes: { experiment: ExperimentInterfaceStringDates };
           if (isUpdate && existingExperiment) {
-            // Use POST to update existing experiment (POST /experiment/:id).
-            // Starting a draft runs its checklist, so it stays a draft here.
-            const { status: importedStatus, ...withoutStatus } =
-              transformedExperiment;
+            // Use POST to update existing experiment (POST /experiment/:id)
             experimentRes = await apiCall(
               `/experiment/${existingExperiment.id}`,
               {
                 method: "POST",
                 body: JSON.stringify(
-                  existingExperiment.status === "draft" &&
-                    importedStatus === "running"
-                    ? withoutStatus
+                  startsDraft
+                    ? { ...transformedExperiment, status: undefined }
                     : transformedExperiment,
                 ),
               },
@@ -1886,6 +1887,29 @@ export async function runImport(options: RunImportOptions) {
               body: JSON.stringify(transformedFeature),
             },
           );
+
+          if (startsDraft) {
+            // Records a start Statsig already made, so no start checklist. A
+            // refused start leaves the import done, as a draft.
+            try {
+              await apiCall(
+                `/experiment/${experimentRes.experiment.id}/status`,
+                {
+                  method: "POST",
+                  body: JSON.stringify({
+                    status: "running",
+                    skipChecklist: true,
+                  }),
+                },
+              );
+              experimentRes.experiment = {
+                ...experimentRes.experiment,
+                status: "running",
+              };
+            } catch (e) {
+              experiment.error = `Updated as a draft; start it from its page. ${e.message}`;
+            }
+          }
 
           const experimentIsUpdate = !!existingExperiment;
           experiment.status = "completed";

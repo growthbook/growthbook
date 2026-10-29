@@ -95,6 +95,8 @@ export interface Props {
   collapsibleToolbar?: boolean;
   /** Put the caret after the value rather than before it. */
   autoFocusAtEnd?: boolean;
+  /** While true, a dropped or pasted image isn't in `value` yet. */
+  onUploadingChange?: (uploading: boolean) => void;
 }
 
 // Heights of the whole control, toolbar included. One ladder serves both the
@@ -348,6 +350,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     simpleToolbar = false,
     collapsibleToolbar = false,
     autoFocusAtEnd = false,
+    onUploadingChange,
   },
   ref,
 ) {
@@ -359,6 +362,10 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
   // What the editor last held, so a value we emitted doesn't loop back in.
   const lastMarkdown = useRef(value);
   const [uploading, setUploading] = useState(false);
+  useEffect(
+    () => onUploadingChange?.(uploading),
+    [uploading, onUploadingChange],
+  );
   const [uploadError, setUploadError] = useState<string | null>(null);
   const { blockFileUploads } = useOrgSettings();
   const allowImages = !blockFileUploads;

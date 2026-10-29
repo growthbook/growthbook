@@ -132,6 +132,7 @@ export default function ReviewCommentPopover({
       "Comment",
   );
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Persist the in-progress draft as it changes. An empty/default draft is
@@ -162,7 +163,8 @@ export default function ReviewCommentPopover({
 
   // Verdicts (Approve / Request changes) may stand alone, but a plain
   // "Comment" decision with no text would create an empty log entry.
-  const canSubmit = decision !== "Comment" || comment.trim().length > 0;
+  const canSubmit =
+    !uploading && (decision !== "Comment" || comment.trim().length > 0);
 
   const isApproval = decision === "Approved";
   // A future-dated schedule fires later, so approving it isn't an immediate publish.
@@ -226,6 +228,7 @@ export default function ReviewCommentPopover({
         maxHeight="xl"
         simpleToolbar
         collapsibleToolbar
+        onUploadingChange={setUploading}
       />
 
       <Box mt="5">
