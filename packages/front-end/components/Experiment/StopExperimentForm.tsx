@@ -163,8 +163,15 @@ const StopExperimentForm: FC<{
   // flag but leaves the payload, and visual changes and redirects drop out.
   const noun = isBandit ? "Bandit" : "experiment";
   const flags = experiment.linkedFeatures ?? [];
-  const pageChanges =
-    experiment.hasVisualChangesets || experiment.hasURLRedirects;
+  const visual = !!experiment.hasVisualChangesets;
+  const redirects = !!experiment.hasURLRedirects;
+  const pageChanges = visual || redirects;
+  const pageKinds =
+    visual && redirects
+      ? "visual changes and URL redirects"
+      : visual
+        ? "visual changes"
+        : "URL redirects";
   const withoutRollout =
     flags.length || pageChanges ? (
       <>
@@ -186,17 +193,18 @@ const StopExperimentForm: FC<{
           </>
         ) : null}
         {pageChanges ? (
-          flags.length ? (
-            <>
-              {" "}
-              The {noun}&apos;s visual changes and redirects stop showing too.
-            </>
-          ) : (
-            <>
-              Without a Temporary Rollout, this {noun}&apos;s visual changes and
-              redirects stop showing when you submit.
-            </>
-          )
+          <>
+            {flags.length ? " " : ""}
+            {flags.length
+              ? `The ${noun}'s ${pageKinds} stop${visual && !redirects ? " showing" : ""} too.`
+              : `Without a Temporary Rollout, this ${noun}'s ${pageKinds} stop${visual && !redirects ? " showing" : ""} when you submit.`}{" "}
+            {flags.length ? "Users" : `Users in the ${noun}`}{" "}
+            {visual && redirects
+              ? "see the original pages."
+              : visual
+                ? "see the page without them."
+                : "stay on the original URL."}
+          </>
         ) : null}
       </>
     ) : null;
