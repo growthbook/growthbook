@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useRouter } from "next/router";
-import { Box, Flex, Separator } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   PiArrowRight,
-  PiArrowSquareOut,
   PiChartBar,
   PiCode,
   PiDatabase,
@@ -12,14 +11,15 @@ import {
 import { DataSourceType } from "shared/types/datasource";
 import { EventForwarderSinkType } from "shared/types/event-forwarder";
 import { dataSourceConnections } from "@/services/eventSchema";
-import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
-import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import Link from "@/ui/Link";
-import Modal from "@/ui/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { StopSubmit } from "@/ui/Modal/StopSubmit";
 import RadioCards from "@/ui/RadioCards";
 import Text from "@/ui/Text";
+import DataSourceOptionPricing from "./DataSourceOptionPricing";
+import DataSourceTermsCheckbox from "./DataSourceTermsCheckbox";
 import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 
 const HOW_IT_WORKS: {
@@ -80,7 +80,7 @@ export default function EventForwarderModal({
   const [agree, setAgree] = useState(false);
 
   const continueToConnect = async () => {
-    if (!warehouse || !agree) return;
+    if (!warehouse || !agree) throw new StopSubmit();
     const params = new URLSearchParams({
       type: warehouse,
       setup: "event_forwarder",
@@ -89,164 +89,103 @@ export default function EventForwarderModal({
   };
 
   return (
-    <Modal.Root
+    <ModalStandard
       open={true}
-      onOpenChange={(open) => {
-        if (!open) close();
-      }}
-      size="lg"
+      header="Set Up Event Forwarder"
+      cta="Continue to connect"
+      ctaIcon={<PiArrowRight />}
+      ctaIconPosition="right"
+      ctaEnabled={!!warehouse && agree}
+      submit={continueToConnect}
+      close={close}
       dismissible
+      size="lg"
       trackingEventModalType="event-forwarder-setup"
       trackingEventModalSource={source}
     >
-      <Modal.Header>
-        <Modal.Title>Set Up Event Forwarder</Modal.Title>
-      </Modal.Header>
-      <Modal.Body>
-        <Heading as="h3" size="sm" mb="3">
-          How It Works
-        </Heading>
-        <Flex direction="column" gap="3">
-          {HOW_IT_WORKS.map((item) => {
-            const Icon = item.icon;
-            return (
-              <Flex key={item.title} gap="3" align="start">
-                <Flex
-                  align="center"
-                  justify="center"
-                  flexShrink="0"
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: "var(--radius-2)",
-                    background: "var(--violet-a3)",
-                    color: "var(--violet-11)",
-                  }}
-                >
-                  <Icon size={14} />
-                </Flex>
-                <Box>
-                  <Text as="div" weight="semibold">
-                    {item.title}
-                  </Text>
-                  <Text as="p" size="sm" color="text-low" mb="0">
-                    {item.description}
-                  </Text>
-                </Box>
+      <Heading as="h3" size="sm" mb="3">
+        How It Works
+      </Heading>
+      <Flex direction="column" gap="3">
+        {HOW_IT_WORKS.map((item) => {
+          const Icon = item.icon;
+          return (
+            <Flex key={item.title} gap="3" align="start">
+              <Flex
+                align="center"
+                justify="center"
+                flexShrink="0"
+                style={{
+                  width: 28,
+                  height: 28,
+                  borderRadius: "var(--radius-2)",
+                  background: "var(--violet-a3)",
+                  color: "var(--violet-11)",
+                }}
+              >
+                <Icon size={14} />
               </Flex>
-            );
-          })}
-        </Flex>
-
-        <Heading as="h3" size="sm" mt="5" mb="3">
-          Choose Your Warehouse
-        </Heading>
-        <RadioCards
-          columns="3"
-          width="100%"
-          align="center"
-          labelSize="md"
-          labelWeight="medium"
-          value={warehouse ?? ""}
-          setValue={(value) => {
-            if (isEventForwarderWarehouse(value as DataSourceType)) {
-              setWarehouse(value as EventForwarderSinkType);
-            }
-          }}
-          options={WAREHOUSES.map((connection) => ({
-            value: connection.type,
-            label: connection.display,
-            avatar: (
-              <Flex align="center" flexShrink="0" style={{ fontSize: 28 }}>
-                {connection.icon}
-              </Flex>
-            ),
-          }))}
-        />
-        <Callout status="info" mt="3" icon={<PiInfo />}>
-          Using Redshift, ClickHouse, Athena, or another warehouse? Event
-          Forwarder does not support it yet.{" "}
-          <Link
-            onClick={() => {
-              close();
-              onSwitchToCustom();
-            }}
-          >
-            Switch to a custom setup
-          </Link>
-          , which works with any SQL source.
-        </Callout>
-
-        {showPricing ? (
-          <>
-            <Heading as="h3" size="sm" mt="5" mb="2">
-              Pricing
-            </Heading>
-            <Flex
-              align="center"
-              justify="between"
-              gap="3"
-              wrap="wrap"
-              p="3"
-              style={{
-                background: "var(--violet-a2)",
-                border: "1px solid var(--gray-a5)",
-                borderRadius: "var(--radius-3)",
-              }}
-            >
               <Box>
                 <Text as="div" weight="semibold">
-                  {headline}
+                  {item.title}
                 </Text>
-                {detail ? (
-                  <Text as="div" color="text-mid">
-                    {detail}
-                  </Text>
-                ) : null}
+                <Text as="p" size="sm" color="text-low" mb="0">
+                  {item.description}
+                </Text>
               </Box>
-              <Link href="https://www.growthbook.io/pricing" external>
-                Pricing details <PiArrowSquareOut />
-              </Link>
             </Flex>
-            {pricingFootnote ? (
-              <Text as="p" size="sm" color="text-mid" mt="2">
-                {pricingFootnote}
-              </Text>
-            ) : null}
-          </>
-        ) : null}
+          );
+        })}
+      </Flex>
 
-        <Separator size="4" my="5" />
-        <Checkbox
-          value={agree}
-          setValue={setAgree}
-          required
-          label={
-            <>
-              I agree to the{" "}
-              <Link href="https://www.growthbook.io/legal" external>
-                terms and conditions
-              </Link>
-            </>
+      <Heading as="h3" size="sm" mt="5" mb="3">
+        Choose Your Warehouse
+      </Heading>
+      <RadioCards
+        columns="3"
+        width="100%"
+        align="center"
+        labelSize="md"
+        labelWeight="medium"
+        value={warehouse ?? ""}
+        setValue={(value) => {
+          if (isEventForwarderWarehouse(value as DataSourceType)) {
+            setWarehouse(value as EventForwarderSinkType);
           }
-          description="Do not include any sensitive or regulated personal data in your analytics events unless it is properly de-identified in accordance with applicable legal standards."
-        />
-      </Modal.Body>
-      <Modal.Footer justify="end">
-        <Modal.Close>
-          <Button variant="ghost" onClick={close}>
-            Cancel
-          </Button>
-        </Modal.Close>
-        <Button
-          disabled={!warehouse || !agree}
-          icon={<PiArrowRight />}
-          iconPosition="right"
-          onClick={continueToConnect}
+        }}
+        options={WAREHOUSES.map((connection) => ({
+          value: connection.type,
+          label: connection.display,
+          avatar: (
+            <Flex align="center" flexShrink="0" style={{ fontSize: 28 }}>
+              {connection.icon}
+            </Flex>
+          ),
+        }))}
+      />
+      <Callout status="info" mt="3" icon={<PiInfo />}>
+        Using Redshift, ClickHouse, Athena, or another warehouse? Event
+        Forwarder does not support it yet.{" "}
+        <Link
+          onClick={() => {
+            close();
+            onSwitchToCustom();
+          }}
         >
-          Continue to connect
-        </Button>
-      </Modal.Footer>
-    </Modal.Root>
+          Switch to a custom setup
+        </Link>
+        , which works with any SQL source.
+      </Callout>
+
+      {showPricing ? (
+        <DataSourceOptionPricing
+          headline={headline}
+          detail={detail}
+          footnote={pricingFootnote}
+        />
+      ) : null}
+
+      <DataSourceTermsCheckbox value={agree} setValue={setAgree} />
+    </ModalStandard>
   );
 }

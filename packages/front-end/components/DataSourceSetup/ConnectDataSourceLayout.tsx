@@ -857,6 +857,7 @@ export default function ConnectDataSourceLayout({
             onZerobusEndpointChange={(zerobusEndpoint) =>
               updateEventDestination({ zerobusEndpoint })
             }
+            schemaDefaultsToConnection={type === "snowflake"}
             disabled={isSampleData}
           />
         ) : null}

@@ -1,5 +1,7 @@
-import { FC, useRef, ChangeEvent, useState } from "react";
+import { ChangeEvent, FC, useRef, useState } from "react";
+import clsx from "clsx";
 import Button from "@/ui/Button";
+import styles from "./FileInput.module.scss";
 
 interface FileInputProps {
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -33,7 +35,7 @@ const FileInput: FC<FileInputProps> = ({
       <label
         htmlFor={name}
         onClick={handleClick}
-        className="form-control gb-file-input"
+        className={styles.control}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
@@ -54,11 +56,7 @@ const FileInput: FC<FileInputProps> = ({
           Browse...
         </Button>
         <span
-          className={
-            fileName === null
-              ? "gb-file-input__name gb-file-input__name--placeholder"
-              : "gb-file-input__name"
-          }
+          className={clsx(styles.name, fileName === null && styles.placeholder)}
         >
           {fileName || placeholder}
         </span>
@@ -70,8 +68,7 @@ const FileInput: FC<FileInputProps> = ({
         accept={accept}
         required={required}
         name={name}
-        // NB: Using display: none hides the native required message from the browser
-        style={{ display: "block", height: 0, width: 0, opacity: 0 }}
+        className={styles.native}
         tabIndex={-1}
       />
     </div>

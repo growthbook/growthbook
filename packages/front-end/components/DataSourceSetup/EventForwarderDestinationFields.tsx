@@ -12,7 +12,6 @@ import { DatabricksConnectionParams } from "shared/types/integrations/databricks
 import { DocLink } from "@/components/DocLink";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
-import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
 export type EventForwarderDestination = {
@@ -100,6 +99,7 @@ export default function EventForwarderDestinationFields({
   onZerobusEndpointChange,
   disabled = false,
   embedded = false,
+  schemaDefaultsToConnection = false,
 }: {
   type: DataSourceType;
   params: Partial<DataSourceParams> | undefined;
@@ -111,6 +111,8 @@ export default function EventForwarderDestinationFields({
   onZerobusEndpointChange: (value: string) => void;
   disabled?: boolean;
   embedded?: boolean;
+  /** Snowflake connect form fills an unedited schema from the connection. */
+  schemaDefaultsToConnection?: boolean;
 }) {
   const isBigQuery = type === "bigquery";
   const databricksHost =
@@ -141,7 +143,9 @@ export default function EventForwarderDestinationFields({
           helpText={
             isBigQuery
               ? "The dataset GrowthBook writes forwarded events to."
-              : "The schema GrowthBook writes forwarded events to."
+              : type === "snowflake" && schemaDefaultsToConnection
+                ? "Defaults to your connection schema. Use a dedicated schema, such as GROWTHBOOK_EVENTS, if forwarded events should be stored separately."
+                : "The schema GrowthBook writes forwarded events to."
           }
         />
         <TextField
@@ -194,52 +198,4 @@ export default function EventForwarderDestinationFields({
 
   if (embedded) return <Box>{fields}</Box>;
   return <Frame mb="4">{fields}</Frame>;
-}
-
-export function EventForwarderDestinationSummary({
-  dataSource,
-}: {
-  dataSource: DataSourceInterfaceWithParams;
-}) {
-  const destination = eventForwarderDestinationFromDatasource(dataSource);
-  const locationLabel = dataSource.type === "bigquery" ? "Dataset" : "Schema";
-
-  return (
-    <Frame mb="0">
-      <Heading as="h2" size="md" mb="1">
-        Event Destination
-      </Heading>
-      <Text as="p" color="text-mid" mb="3">
-        GrowthBook writes forwarded events here.
-      </Text>
-      <Grid columns={{ initial: "1", sm: "2" }} gap="3" maxWidth="480px">
-        <Box>
-          <Text as="p" size="sm" color="text-mid" mb="1">
-            {locationLabel}
-          </Text>
-          <Text as="p" mb="0">
-            {destination.location}
-          </Text>
-        </Box>
-        <Box>
-          <Text as="p" size="sm" color="text-mid" mb="1">
-            Table prefix
-          </Text>
-          <Text as="p" mb="0">
-            {destination.tablePrefix}
-          </Text>
-        </Box>
-        {dataSource.type === "databricks" ? (
-          <Box style={{ gridColumn: "1 / -1" }}>
-            <Text as="p" size="sm" color="text-mid" mb="1">
-              Zerobus endpoint
-            </Text>
-            <Text as="p" mb="0">
-              {destination.zerobusEndpoint}
-            </Text>
-          </Box>
-        ) : null}
-      </Grid>
-    </Frame>
-  );
 }

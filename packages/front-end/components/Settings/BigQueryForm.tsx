@@ -9,6 +9,9 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import SelectField from "@/components/Forms/SelectField";
 import Button from "@/components/Button";
 import Callout from "@/ui/Callout";
+import FileInput from "@/ui/FileInput";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import { useCanKeepExistingCredentials } from "@/components/Forms/secretInput";
 
@@ -83,6 +86,7 @@ const BigQueryForm: FC<{
     existing,
     authType,
   );
+  const [keyFileInvalid, setKeyFileInvalid] = useState(false);
   const [testConnectionResults, setTestConnectionResults] = useState<{
     status: "success" | "warning" | "danger";
     message: string;
@@ -178,65 +182,76 @@ const BigQueryForm: FC<{
       {(cloud || authType !== "auto") && (
         <>
           <div className="form-group col-md-12">
-            <div className="custom-file">
-              <input
-                type="file"
-                required={!canKeepExistingCredentials}
-                className="custom-file-input"
-                id="bigQueryFileInput"
-                accept="application/json"
-                onChange={(e) => {
-                  connectionTest.current?.abort();
-                  setTestConnectionResults(null);
-                  const file: File | undefined = e.target?.files?.[0];
-                  if (!file) {
+            <FileInput
+              name="bigQueryKeyFile"
+              accept="application/json"
+              required={!canKeepExistingCredentials}
+              placeholder={
+                canKeepExistingCredentials
+                  ? "Upload a new key file..."
+                  : "Upload key file..."
+              }
+              onChange={(e) => {
+                connectionTest.current?.abort();
+                setTestConnectionResults(null);
+                const file: File | undefined = e.target?.files?.[0];
+                if (!file) {
+                  return;
+                }
+
+                const reader = new FileReader();
+                reader.onload = () => {
+                  const str = reader.result;
+                  if (typeof str !== "string") {
+                    setKeyFileInvalid(true);
                     return;
                   }
-
-                  const reader = new FileReader();
-                  reader.onload = function (e) {
-                    try {
-                      const str = e.target?.result;
-                      if (typeof str !== "string") {
-                        return;
-                      }
-                      const raw = stripLeadingUtf8ByteOrderMark(str);
-                      const json: {
-                        project_id: string;
-                        private_key: string;
-                        client_email: string;
-                      } = JSON.parse(raw);
-
-                      if (
-                        json.project_id &&
-                        json.private_key &&
-                        json.client_email
-                      ) {
-                        setParams({
-                          privateKey: json.private_key,
-                          projectId: json.project_id,
-                          clientEmail: json.client_email,
-                          defaultProject: json.project_id,
-                          serviceAccountJson: raw,
-                        });
-                      }
-                    } catch (e) {
-                      console.error(e);
+                  try {
+                    const raw = stripLeadingUtf8ByteOrderMark(str);
+                    const parsed: unknown = JSON.parse(raw);
+                    const json =
+                      typeof parsed === "object" && parsed !== null
+                        ? (parsed as Record<string, unknown>)
+                        : null;
+                    const projectId = json?.project_id;
+                    const privateKey = json?.private_key;
+                    const clientEmail = json?.client_email;
+                    if (
+                      typeof projectId !== "string" ||
+                      !projectId ||
+                      typeof privateKey !== "string" ||
+                      !privateKey ||
+                      typeof clientEmail !== "string" ||
+                      !clientEmail
+                    ) {
+                      setKeyFileInvalid(true);
                       return;
                     }
-                  };
-                  reader.readAsText(file);
-                }}
-              />
-              <label className="custom-file-label" htmlFor="bigQueryFileInput">
-                {canKeepExistingCredentials
-                  ? "Upload a new key file..."
-                  : "Upload key file..."}
-              </label>
-              {canKeepExistingCredentials ? (
-                <small>Leave blank to keep the existing credentials.</small>
-              ) : null}
-            </div>
+                    setKeyFileInvalid(false);
+                    setParams({
+                      privateKey,
+                      projectId,
+                      clientEmail,
+                      defaultProject: projectId,
+                      serviceAccountJson: raw,
+                    });
+                  } catch {
+                    setKeyFileInvalid(true);
+                  }
+                };
+                reader.onerror = () => setKeyFileInvalid(true);
+                reader.readAsText(file);
+              }}
+            />
+            {keyFileInvalid ? (
+              <HelperText status="error" size="sm" mt="1">
+                This file isn&apos;t a valid service account JSON key.
+              </HelperText>
+            ) : canKeepExistingCredentials ? (
+              <Text as="p" size="sm" color="text-mid" mt="1" mb="0">
+                Leave blank to keep the existing credentials.
+              </Text>
+            ) : null}
           </div>
           <div className="form-group col-md-12">
             {params && params.projectId ? (
@@ -264,7 +279,7 @@ const BigQueryForm: FC<{
                   </Callout>
                 ) : null}
               </>
-            ) : (
+            ) : keyFileInvalid ? null : (
               <Callout status="info">
                 Your connection info will appear here when you select a valid
                 JSON key file.
