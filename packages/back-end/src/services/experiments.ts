@@ -227,7 +227,6 @@ import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/feature
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { ExperimentIncrementalRefreshQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
-import { stopIncrementalRefresh } from "back-end/src/jobs/interruptedRefresh";
 import { getSignedImageUrl } from "back-end/src/services/files";
 import { updateExperimentDashboards } from "back-end/src/enterprise/services/dashboards";
 import { ExperimentIncrementalRefreshExploratoryQueryRunner } from "back-end/src/queryRunners/ExperimentIncrementalRefreshExploratoryQueryRunner";
@@ -2360,10 +2359,7 @@ export async function createSnapshotFromPlan({
     // Queries without dependencies start as soon as they are created, so
     // stop the ones that have not started before releasing.
     if (hasIncrementalRefreshLock && incrementalRunner) {
-      await stopIncrementalRefresh(context, {
-        ...plan.snapshot,
-        queries: incrementalRunner.startedQueries,
-      });
+      await incrementalRunner.stopAfterFailedStart();
     } else if (hasIncrementalRefreshLock) {
       await context.models.incrementalRefresh
         .releaseLock(experiment.id, plan.snapshot.id)

@@ -138,6 +138,8 @@ export interface MetricSourceGroups {
  * A run that stopped while changing the units table left it marked; only a
  * full refresh rebuilds it.
  */
+export const UNITS_TABLE_MARKED_REASON = "An earlier update stopped part-way";
+
 export function runsAsFullRefresh(
   fullRefresh: boolean,
   state: Pick<IncrementalRefreshInterface, "unitsDirtyBy"> | null,
@@ -673,6 +675,11 @@ export const startExperimentIncrementalRefreshQueries = async (
     integration,
     snapshotSettings,
   });
+  // A covariate source belongs to a metric source; one left without it is
+  // dropped rather than kept, marked or not.
+  existingCovariateSources = existingCovariateSources.filter((covariate) =>
+    existingSources.some((source) => source.groupId === covariate.groupId),
+  );
   let runningSourceData = existingSources ?? [];
   let runningCovariateSourceData = existingCovariateSources ?? [];
 
@@ -1104,26 +1111,6 @@ export const startExperimentIncrementalRefreshQueries = async (
         );
         return result;
       },
-      onFailure: async () => {
-        // Remove the source from the running data if max timestamp fails
-        runningSourceData = runningSourceData.filter(
-          (s) => s.groupId !== group.groupId,
-        );
-        // Note: onFailure is not awaited by QueryRunner, so we must catch
-        // errors here to avoid unhandled promise rejections.
-        writeSourceLists(() =>
-          context.models.incrementalRefresh.updateByExperimentIdIfCurrentExecution(
-            experimentId,
-            executionId,
-            { metricSources: runningSourceData },
-          ),
-        ).catch((e) =>
-          context.logger.error(
-            e,
-            "Failed to update metric sources on query failure",
-          ),
-        );
-      },
       metadata: { factTableIds: [group.factTableId] },
       queryType: "experimentIncrementalRefreshMaxTimestampMetricsSource",
     });
@@ -1378,10 +1365,17 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       );
     // Read after taking the lock, so it also covers marks a stale run wrote
     // after this one was planned.
-    params = {
-      ...params,
-      fullRefresh: runsAsFullRefresh(params.fullRefresh, lockedState),
-    };
+    if (!params.fullRefresh && runsAsFullRefresh(false, lockedState)) {
+      params = { ...params, fullRefresh: true };
+      this.model.runnerKind = "incremental-full";
+      if (this.experimentUpdateExecutionLogger) {
+        this.experimentUpdateExecutionLogger.plan.runnerKind =
+          "incremental-full";
+        this.experimentUpdateExecutionLogger.plan.fullRefresh = true;
+        this.experimentUpdateExecutionLogger.plan.fullRefreshReason =
+          UNITS_TABLE_MARKED_REASON;
+      }
+    }
     const incrementalRefreshModel = params.fullRefresh ? null : lockedState;
 
     const experiment = await getExperimentById(
@@ -1561,9 +1555,15 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
 
   // Lands queued source-list writes, then fails the queries that have not
   // started and releases the lock. Whatever the run changed is still marked.
-  private async stop() {
+  private async stop(queries: Queries = this.model.queries) {
     await this.writeSourceLists.flush();
-    await stopIncrementalRefresh(this.context, this.model);
+    await stopIncrementalRefresh(this.context, { ...this.model, queries });
+  }
+
+  // For snapshot creation failing after queries started: those were never
+  // recorded on the snapshot.
+  public async stopAfterFailedStart() {
+    await this.stop(this.startedQueries);
   }
 
   protected override refusedResultsError(): string | null {
@@ -1618,6 +1618,9 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
       error,
       ...result,
       status: snapshotStatus,
+      // An Update turns into a full refresh once the lock shows a marked
+      // units table.
+      ...(this.model.runnerKind ? { runnerKind: this.model.runnerKind } : {}),
     };
     await updateSnapshot({
       context: this.context,

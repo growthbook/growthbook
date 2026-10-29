@@ -33,6 +33,7 @@ import {
 } from "back-end/src/services/queryCancellation";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
+import { LOCK_LOST_ERROR } from "back-end/src/jobs/interruptedRefresh";
 import {
   ExperimentUpdateExecutionLogger,
   ExperimentUpdateTimingPhase,
@@ -131,14 +132,22 @@ export const QUERY_CANCELLED_BY_USER_ERROR = "Query cancelled by user";
 export function getQueryFailureCause(
   queryMap: QueryMap,
 ): QueryRunnerFailureCause {
+  const failed = Array.from(queryMap.values()).filter(
+    (query) => query.status === "failed",
+  );
   // A separate runner can observe cancellation before the snapshot is marked terminal.
-  return Array.from(queryMap.values()).some(
-    (query) =>
-      query.status === "failed" &&
-      !!query.error?.startsWith(QUERY_CANCELLED_BY_USER_ERROR),
-  )
-    ? "cancelled"
-    : "query";
+  if (
+    failed.some((query) =>
+      query.error?.startsWith(QUERY_CANCELLED_BY_USER_ERROR),
+    )
+  ) {
+    return "cancelled";
+  }
+  // Another update took over the run's lock: nothing was wrong with it.
+  if (failed.some((query) => query.error?.includes(LOCK_LOST_ERROR))) {
+    return "superseded";
+  }
+  return "query";
 }
 
 /**
@@ -669,8 +678,11 @@ export abstract class QueryRunner<
     } else if (queryStatus === "failed") {
       this.experimentUpdateExecutionLogger?.endPhase("runQueries");
       logger.debug(this.model.id + " runner: Query failed immediately");
-      error = "Error running one or more database queries";
       failureCause = getQueryFailureCause(await this.getQueryMap(queries));
+      error =
+        failureCause === "superseded"
+          ? LOCK_LOST_ERROR
+          : "Error running one or more database queries";
     }
 
     const newModel = await this.updateModel({
@@ -946,8 +958,11 @@ export abstract class QueryRunner<
       }
     }
 
-    if (error && getQueryFailureCause(queryMap) === "cancelled") {
-      failureCause = "cancelled";
+    const queryFailureCause = error ? getQueryFailureCause(queryMap) : null;
+    if (queryFailureCause === "cancelled") failureCause = "cancelled";
+    if (queryFailureCause === "superseded") {
+      failureCause = "superseded";
+      error = LOCK_LOST_ERROR;
     }
 
     const newModel = await this.updateModel({

@@ -940,19 +940,29 @@ describe("tables a stopped run left marked", () => {
   it("include any marked source but not unmarked ones", () => {
     expect(hasTablesMarkedDirty(makeIncrementalRefreshModel())).toBe(false);
     expect(hasTablesMarkedDirty(marked)).toBe(true);
+    const markedCovariate = {
+      groupId: "g1",
+      tableFullName: "t",
+      lastSuccessfulMaxTimestamp: null,
+      dirtyBy: "snp_stopped",
+    };
     expect(
       hasTablesMarkedDirty(
         makeIncrementalRefreshModel({
-          metricCovariateSources: [
-            {
-              groupId: "g1",
-              tableFullName: "t",
-              lastSuccessfulMaxTimestamp: null,
-              dirtyBy: "snp_stopped",
-            },
+          metricSources: [
+            makeMetricSource("g1", "ft_a", [{ id: "m1", settingsHash: "h" }]),
           ],
+          metricCovariateSources: [markedCovariate],
         }),
       ),
     ).toBe(true);
+    // A covariate source without its metric source is never read.
+    expect(
+      hasTablesMarkedDirty(
+        makeIncrementalRefreshModel({
+          metricCovariateSources: [markedCovariate],
+        }),
+      ),
+    ).toBe(false);
   });
 });

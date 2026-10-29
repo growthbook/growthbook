@@ -430,7 +430,7 @@ class SimRun {
     private readonly sim: ReturnType<typeof createIntegration>,
     private readonly warehouse: Warehouse,
     private readonly stopAfter: number | null,
-    private readonly failQueryIndex: number | null,
+    private readonly failQueryIndex: number | number[] | null,
   ) {}
 
   startQuery = async (
@@ -505,7 +505,12 @@ class SimRun {
 
   private async start(q: SimQuery) {
     await this.step();
-    if (this.queries.indexOf(q) === this.failQueryIndex) {
+    const index = this.queries.indexOf(q);
+    if (
+      Array.isArray(this.failQueryIndex)
+        ? this.failQueryIndex.includes(index)
+        : index === this.failQueryIndex
+    ) {
       this.fail(q);
       return;
     }
@@ -833,7 +838,7 @@ class Experiment {
     now: number;
     fullRefresh: boolean;
     stopAfter?: number | null;
-    failQueryIndex?: number | null;
+    failQueryIndex?: number | number[] | null;
     schedule?: Schedule;
     loseLockAfter?: number | null;
     failPlanningAt?: number | null;
@@ -1095,6 +1100,15 @@ async function nextRefresh(exp: Experiment, fullRefresh = false) {
   );
   expect(run.failures).toEqual([]);
   expect(committed(run)).toBe(true);
+  // The recovering refresh leaves nothing marked.
+  const after = await getDoc(exp.id);
+  expect(after?.unitsDirtyBy ?? null).toBeNull();
+  expect(
+    [
+      ...(after?.metricSources ?? []),
+      ...(after?.metricCovariateSources ?? []),
+    ].filter((s) => s.dirtyBy),
+  ).toEqual([]);
 }
 
 const configs: Config[] = [1, 2, 3].flatMap((groups) =>
@@ -1269,6 +1283,54 @@ async function sweepQueryFailures(config: Config, fullRefresh: boolean) {
   return failures;
 }
 
+// A group's timestamp query and its covariate insert both fail.
+async function sweepGroupFailures(config: Config, fullRefresh: boolean) {
+  const failures: string[] = [];
+  const names = (
+    await (
+      await setUpExperiment(config)
+    ).startRun({ now: INTERRUPTED_AT, fullRefresh })
+  ).run.queries.map((q) => q.name);
+  const groupIds = names
+    .filter((n) => n.startsWith("max_timestamp_metrics_source_"))
+    .map((n) => n.replace("max_timestamp_metrics_source_", ""));
+  for (const groupIndex of groupIds.keys()) {
+    const exp = await setUpExperiment(config);
+    const { run: probe } = await exp.startRun({
+      now: INTERRUPTED_AT,
+      fullRefresh,
+      stopAfter: 0,
+    });
+    await stop("reaper", exp.id, probe);
+    // Group ids are random per run, so find this run's by position.
+    const groupId = probe.queries
+      .map((q) => q.name)
+      .filter((n) => n.startsWith("max_timestamp_metrics_source_"))
+      .map((n) => n.replace("max_timestamp_metrics_source_", ""))[groupIndex];
+    const failQueryIndex = probe.queries
+      .map((q, i) => ({ name: q.name, i }))
+      .filter(
+        (q) =>
+          q.name === `max_timestamp_metrics_source_${groupId}` ||
+          q.name === `insert_metrics_covariate_data_${groupId}`,
+      )
+      .map((q) => q.i);
+    const { run } = await exp.startRun({
+      now: INTERRUPTED_AT,
+      fullRefresh,
+      failQueryIndex,
+    });
+    try {
+      await exp.conclude(run);
+      await nextRefresh(exp);
+      expect(await exp.contents()).toEqual(expectedContents(config, NEXT_AT));
+    } catch (e) {
+      failures.push(failureText(`group ${groupIndex} failed`, e));
+    }
+  }
+  return failures;
+}
+
 // Each step of concluding a finished run fails once, and the runner retries.
 // The run keeps its results, the tables point at its snapshot only once it
 // is saved, and the lock is released.
@@ -1425,6 +1487,13 @@ describe("incremental refresh interruption (in-memory lock state)", () => {
       "recovers from any one query failing: %s",
       async (_, config) => {
         expect(await sweepQueryFailures(config, fullRefresh)).toEqual([]);
+      },
+    );
+
+    it.each(configs.map((c) => [label(c), c] as const))(
+      "recovers when a group's timestamp query and covariate insert both fail: %s",
+      async (_, config) => {
+        expect(await sweepGroupFailures(config, fullRefresh)).toEqual([]);
       },
     );
 

@@ -636,12 +636,16 @@ export function hasTablesMarkedDirty(
     "unitsDirtyBy" | "metricSources" | "metricCovariateSources"
   >,
 ): boolean {
+  const groupIds = new Set(
+    incrementalRefreshModel.metricSources.map((source) => source.groupId),
+  );
   return (
     !!incrementalRefreshModel.unitsDirtyBy ||
-    [
-      ...incrementalRefreshModel.metricSources,
-      ...incrementalRefreshModel.metricCovariateSources,
-    ].some((source) => !!source.dirtyBy)
+    incrementalRefreshModel.metricSources.some((source) => !!source.dirtyBy) ||
+    // A covariate source without its metric source is never read.
+    incrementalRefreshModel.metricCovariateSources.some(
+      (source) => !!source.dirtyBy && groupIds.has(source.groupId),
+    )
   );
 }
 

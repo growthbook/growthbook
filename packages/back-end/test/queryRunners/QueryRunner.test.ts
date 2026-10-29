@@ -12,6 +12,10 @@ import {
 } from "back-end/src/queryRunners/QueryRunner";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import {
+  isSupersededRefreshError,
+  LOCK_LOST_ERROR,
+} from "back-end/src/jobs/interruptedRefresh";
+import {
   countRunningQueries,
   getQueriesByIds,
   getQueryStatusesByIds,
@@ -719,6 +723,39 @@ describe("QueryRunner", () => {
 
       async onQueryFinish() {}
     }
+
+    it("ends a run whose query lost the lock as superseded, not a query failure", async () => {
+      const runner = new RaceTestQueryRunner(
+        mockContext,
+        {
+          id: "test-model",
+          organization: "test-org",
+          queries: [],
+          runStarted: new Date(),
+        },
+        mockIntegration,
+      );
+      (getQueriesByIds as jest.Mock).mockResolvedValue([
+        { ...createMockQuery("qry_a", "failed"), error: LOCK_LOST_ERROR },
+        createMockQuery("qry_b", "failed"),
+      ]);
+
+      await runner.startAnalysis({
+        pointers: [
+          { name: "a", query: "qry_a", status: "failed" },
+          { name: "b", query: "qry_b", status: "failed" },
+        ],
+      });
+
+      expect(runner.updateModelSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          status: "failed",
+          failureCause: "superseded",
+        }),
+      );
+      const error = await runner.waitForResults().catch((e) => e);
+      expect(isSupersededRefreshError(error)).toBe(true);
+    });
 
     it("finishes with the error saved in place of refused results", async () => {
       class RefusingQueryRunner extends RaceTestQueryRunner {
