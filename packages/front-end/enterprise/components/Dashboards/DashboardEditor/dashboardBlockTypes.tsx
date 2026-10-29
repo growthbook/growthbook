@@ -86,6 +86,7 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
     icon: <PiFileSqlDuotone />,
     description: "Shows an analysis of a single Fact Metric.",
     deprecated: true,
+    fills: true,
   },
   "metric-exploration": {
     name: "Metric Explorer",

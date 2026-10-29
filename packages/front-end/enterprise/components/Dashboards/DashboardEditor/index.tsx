@@ -796,10 +796,12 @@ function DashboardGrid({
       RGL_COLS[RGL_CANONICAL_BREAKPOINT],
     );
     if (!isDefined(stagedBlockIndex) || isAddingBlock) return nextLayout;
-    return nextLayout.map((item, index) => ({
-      ...item,
-      static: index !== stagedBlockIndex,
-    }));
+    // Only the block being edited moves; the rest still make way for it.
+    return nextLayout.map((item, index) =>
+      index === stagedBlockIndex
+        ? item
+        : { ...item, isDraggable: false, isResizable: false },
+    );
   }, [blocks, isAddingBlock, stagedBlockIndex]);
   const gaps = useMemo(() => {
     if (

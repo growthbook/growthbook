@@ -10,6 +10,8 @@ import {
   isDashboardGlobalControlSupportedBlock,
   isDashboardExperimentBlock,
   experimentBlockOptedOutOfGlobalFilters,
+  getBlockSizeBounds,
+  DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -49,6 +51,7 @@ import ScrollArea from "@/ui/ScrollArea";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import { DashboardBlockTypeMenuItems } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlockTypeMenu";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
+import { gridRowsToPixels } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardLayout";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
@@ -153,7 +156,8 @@ const BLOCK_COMPONENTS: {
   "funnel-exploration": ProductAnalyticsExplorerBlock,
 };
 
-const FILL_MIN_HEIGHT = "240px";
+// The title and padding around a block's content.
+const BLOCK_CHROME_PX = 60;
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
@@ -743,11 +747,16 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
       {/* The title and its menu stay put while the content scrolls, unless
           the block's own content does. */}
       {fills ? (
-        // Sized to the block, down to a few rows; a block saved smaller
-        // scrolls.
+        // Sized to the block, down to what its type's minimum height leaves;
+        // a block drawn smaller scrolls.
         <ScrollArea
           fill
-          fillMinHeight={FILL_MIN_HEIGHT}
+          fillMinHeight={`${
+            gridRowsToPixels(
+              getBlockSizeBounds(block.type).minH,
+              DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
+            ) - BLOCK_CHROME_PX
+          }px`}
           edgeCue="fade"
           style={{ flex: 1, minHeight: 0 }}
         >
