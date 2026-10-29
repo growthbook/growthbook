@@ -14,10 +14,7 @@ import { AuditInterface } from "shared/types/audit";
 import { ReqContext } from "back-end/types/request";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
 import { setExperimentQualityCache } from "back-end/src/models/ExperimentModel";
-import {
-  loadQualityScoreInputs,
-  storeQualityScore,
-} from "back-end/src/enterprise/services/experimentQualityScore";
+import { storeQualityScore } from "back-end/src/enterprise/services/experimentQualityScore";
 
 // Audit events that record the experiment before and after the change
 const HISTORY_EVENTS = [
@@ -61,7 +58,6 @@ export async function computeAndStoreProcessResults(
   const judgeable = experiments.filter(canJudgeProcess);
   const orgSequentialTestingEnabled =
     !!context.org.settings?.sequentialTestingEnabled;
-  const scoreInputs = await loadQualityScoreInputs(context);
 
   for (let i = 0; i < judgeable.length; i += HISTORY_BATCH_SIZE) {
     const batch = judgeable.slice(i, i + HISTORY_BATCH_SIZE);
@@ -93,11 +89,7 @@ export async function computeAndStoreProcessResults(
       await setExperimentQualityCache(context, experiment.id, {
         processResults,
       });
-      await storeQualityScore(
-        context,
-        { ...experiment, processResults },
-        scoreInputs,
-      );
+      await storeQualityScore(context, { ...experiment, processResults });
     }
   }
 }
