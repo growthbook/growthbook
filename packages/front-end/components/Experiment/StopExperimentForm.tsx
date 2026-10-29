@@ -172,14 +172,17 @@ const StopExperimentForm: FC<{
           <>
             Without a Temporary Rollout, the linked Feature Flag{" "}
             <strong>{flags[0]}</strong> stops serving this {noun} when you
-            submit. Users in the {noun} get the flag&apos;s next rule or its
-            default value.
+            submit. For users in the {noun}, the flag then checks the rules
+            below this {noun}&apos;s rule, in order. Users who match none of
+            them get the flag&apos;s default value.
           </>
         ) : flags.length > 1 ? (
           <>
             Without a Temporary Rollout, the {flags.length} linked Feature Flags
-            stop serving this {noun} when you submit. Users in the {noun} get
-            each flag&apos;s next rule or its default value.
+            stop serving this {noun} when you submit. For users in the {noun},
+            each flag then checks the rules below this {noun}&apos;s rule, in
+            order. Users who match none of them get that flag&apos;s default
+            value.
           </>
         ) : null}
         {pageChanges ? (
