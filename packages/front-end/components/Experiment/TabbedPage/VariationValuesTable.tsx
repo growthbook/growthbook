@@ -938,6 +938,7 @@ function FlagColumn({
     action?: ReactNode;
   }[] = [];
   const draftNotes: string[] = [];
+  let unrelatedChangesBlock = false;
   // Otherwise the header's mark says it.
   if (archivedServing) {
     notices.push({
@@ -961,6 +962,7 @@ function FlagColumn({
       action: draftLink("Review draft"),
     });
   } else if (draftLaunches && shownDraft?.hasUnrelatedDraftChanges) {
+    unrelatedChangesBlock = true;
     notices.push({
       status: "error",
       text: "Draft has unrelated changes, which block experiment start.",
@@ -998,7 +1000,8 @@ function FlagColumn({
       text: `This experiment has more than one rule here, with different values. Showing the ones from ${info.valuesFrom}.`,
     });
   }
-  if (onFlag && describesShown && info.rulesAbove) {
+  // Rules above the experiment's are among the unrelated changes that error names.
+  if (onFlag && describesShown && info.rulesAbove && !unrelatedChangesBlock) {
     notices.push({
       status: "info",
       text: "Feature Flag has rules above the experiment's rule.",
