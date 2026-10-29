@@ -466,18 +466,15 @@ export async function loadQualityScoreInputs(context: ReqContext) {
   };
 }
 
-export type QualityScoreInputs = Awaited<
-  ReturnType<typeof loadQualityScoreInputs>
->;
-
 // Recomputes the experiment's stored quality score, writing only when it
 // changed; null when scoring is off for the experiment's scope
 export async function storeQualityScore(
   context: ReqContext,
   experiment: ExperimentInterface,
-  inputs: QualityScoreInputs,
   attempt = 0,
 ): Promise<void> {
+  // Read just before saving, so settings changed during an AI call count
+  const inputs = await loadQualityScoreInputs(context);
   const settings = context.hasPremiumFeature("experiment-quality-score")
     ? resolveExperimentQualitySettings({
         orgRecord: inputs.recordsByProject.get(ORG_DEFAULT_SCOPE),
@@ -518,10 +515,13 @@ export async function storeQualityScore(
         experiment.aiQualityResults?.dateComputed ?? null,
       "processResults.dateComputed":
         experiment.processResults?.dateComputed ?? null,
+      // A score saved since this run read the experiment is newer
+      "qualityScore.dateComputed":
+        experiment.qualityScore?.dateComputed ?? null,
     },
   );
   if (!stored && attempt < 2) {
     const latest = await getExperimentById(context, experiment.id);
-    if (latest) await storeQualityScore(context, latest, inputs, attempt + 1);
+    if (latest) await storeQualityScore(context, latest, attempt + 1);
   }
 }
