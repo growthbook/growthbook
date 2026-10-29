@@ -13,7 +13,11 @@ import {
 import { AuditInterface } from "shared/types/audit";
 import { ReqContext } from "back-end/types/request";
 import { findAuditByEntityList } from "back-end/src/models/AuditModel";
-import { updateExperiment } from "back-end/src/models/ExperimentModel";
+import { setExperimentQualityCache } from "back-end/src/models/ExperimentModel";
+import {
+  loadQualityScoreInputs,
+  storeQualityScore,
+} from "back-end/src/enterprise/services/experimentQualityScore";
 
 // Audit events that record the experiment before and after the change
 const HISTORY_EVENTS = [
@@ -57,6 +61,7 @@ export async function computeAndStoreProcessResults(
   const judgeable = experiments.filter(canJudgeProcess);
   const orgSequentialTestingEnabled =
     !!context.org.settings?.sequentialTestingEnabled;
+  const scoreInputs = await loadQualityScoreInputs(context);
 
   for (let i = 0; i < judgeable.length; i += HISTORY_BATCH_SIZE) {
     const batch = judgeable.slice(i, i + HISTORY_BATCH_SIZE);
@@ -77,21 +82,22 @@ export async function computeAndStoreProcessResults(
     }
 
     for (const experiment of batch) {
-      await updateExperiment({
-        context,
-        experiment,
-        changes: {
-          processResults: {
-            version: EXPERIMENT_PROCESS_RULES_VERSION,
-            dateComputed: new Date(),
-            rules: evaluateProcessRules({
-              history: historyById.get(experiment.id) ?? [],
-              orgSequentialTestingEnabled,
-            }),
-          },
-        },
-        bypassWebhooks: true,
+      const processResults = {
+        version: EXPERIMENT_PROCESS_RULES_VERSION,
+        dateComputed: new Date(),
+        rules: evaluateProcessRules({
+          history: historyById.get(experiment.id) ?? [],
+          orgSequentialTestingEnabled,
+        }),
+      };
+      await setExperimentQualityCache(context, experiment.id, {
+        processResults,
       });
+      await storeQualityScore(
+        context,
+        { ...experiment, processResults },
+        scoreInputs,
+      );
     }
   }
 }
