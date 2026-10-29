@@ -346,15 +346,16 @@ const StopExperimentForm: FC<{
                   setValue={(includeInPayload) => {
                     form.setValue("excludeFromPayload", !includeInPayload);
                   }}
+                  description={
+                    <>
+                      GrowthBook keeps serving the variation below until you
+                      ship the change in code and end the rollout.{" "}
+                      <DocLink useRadix={false} docSection="temporaryRollout">
+                        Learn more
+                      </DocLink>
+                    </>
+                  }
                 />
-
-                <small className="form-text text-muted">
-                  GrowthBook keeps serving the variation below until you ship
-                  the change in code and end the rollout.{" "}
-                  <DocLink useRadix={false} docSection="temporaryRollout">
-                    Learn more
-                  </DocLink>
-                </small>
               </div>
             </div>
 
@@ -382,7 +383,14 @@ const StopExperimentForm: FC<{
                     onChange={(v) => {
                       form.setValue("releasedVariationId", v);
                     }}
-                    helpText={`Served to everyone the ${isBandit ? "Bandit" : "experiment"} includes (its targeting and rollout percentage).`}
+                    helpText={
+                      // Body size, past the legacy field's small print.
+                      <Text size="md" color="text-mid">
+                        Served to everyone the{" "}
+                        {isBandit ? "Bandit" : "experiment"} includes (its
+                        targeting and rollout percentage).
+                      </Text>
+                    }
                     placeholder="Pick one..."
                     required
                     options={variations.map((v) => {
