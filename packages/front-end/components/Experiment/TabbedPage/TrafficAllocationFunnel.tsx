@@ -42,7 +42,7 @@ import { PercentField } from "@/components/Forms/PercentSliderField";
 import EditTrafficModal from "@/components/Experiment/EditTrafficModal";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import AddToHoldoutModal from "@/components/Experiment/holdout/AddToHoldoutModal";
-import { useHoldouts } from "@/hooks/useHoldouts";
+import { holdoutSizeTip, useHoldouts } from "@/hooks/useHoldouts";
 import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
 import Badge from "@/ui/Badge";
 import { selectableHoldouts } from "@/components/Holdout/HoldoutSelect";
@@ -640,12 +640,6 @@ export default function TrafficAllocationFunnel({
       </Flex>
     </Frame>
   );
-}
-
-// The holdout measures its held-out share against a comparison group as big.
-function holdoutSizeTip(size: number) {
-  const pct = (n: number) => coveragePercentFormatter.format(n);
-  return `Of users the holdout targets, ${pct(size)} are held out and never reach this experiment. Another ${pct(size)} reach it as the holdout's comparison group, and the other ${pct(1 - 2 * size)} reach it unmeasured.`;
 }
 
 function Audience({
