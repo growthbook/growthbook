@@ -11,6 +11,9 @@
  * Record<string, unknown> here; the pricing config is schema-validated with
  * zod at the read site (back-end services/plan-limits.ts).
  *
+ * Exception: "experiment-ideas" is added ahead of the flag's creation; it
+ * gates the new Experiment Ideas backlog during internal rollout.
+ *
  * Exception: "new-metric-creation-flow" is added ahead of the flag's creation
  * for the metric editor experiment (front-end hooks/useFactMetricFlow.tsx).
  */
@@ -133,6 +136,7 @@ export type AppFeatures = {
   "managed-warehouse-diagnostics": boolean;
   "managed-warehouse-json-ergonomics-sweep": boolean;
   "session-replays": boolean;
+  "experiment-ideas": boolean;
   "login-page-content": Record<string, unknown>;
   "slackbot-enabled": boolean;
   "slackbot-config": Record<string, unknown>;

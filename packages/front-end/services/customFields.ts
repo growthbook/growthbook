@@ -96,6 +96,23 @@ export function reconcileCustomFieldValues(
   return reconciled;
 }
 
+/**
+ * Values to hand from one entity to another (Idea → Experiment): only fields
+ * defined for the destination section. Project fit is reconciled by the form.
+ */
+export function pickCustomFieldValuesForSection(
+  customFields: CustomField[] | undefined,
+  values: Record<string, unknown> | undefined,
+  section: CustomFieldSection,
+): Record<string, string> {
+  const normalized = normalizeCustomFieldValues(values);
+  const picked: Record<string, string> = {};
+  filterCustomFieldsForSection(customFields, section)?.forEach((f) => {
+    if (normalized[f.id] !== undefined) picked[f.id] = normalized[f.id];
+  });
+  return picked;
+}
+
 export function customFieldValuesEqual(
   a: Record<string, string>,
   b: Record<string, string>,

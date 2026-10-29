@@ -47,7 +47,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Experimentation",
     href: "/experiments",
-    path: /^(experiments|experiment\/|bandit|contextual-bandit|namespaces|power-calculator)/,
+    path: /^(experiments|experiment\/|experiment-ideas|bandit|contextual-bandit|namespaces|power-calculator)/,
     Icon: GBExperiment,
     navigateOnExpand: true,
     subLinks: [
@@ -55,6 +55,13 @@ export const navlinks: SidebarLinkProps[] = [
         name: "Experiments",
         href: "/experiments",
         path: /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
+      },
+      {
+        name: "Ideas",
+        href: "/experiment-ideas",
+        path: /^experiment-ideas/,
+        beta: true,
+        filter: ({ gb }) => !!gb?.isOn("experiment-ideas"),
       },
       {
         name: "Bandits",

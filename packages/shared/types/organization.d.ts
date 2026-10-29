@@ -419,6 +419,8 @@ export interface OrganizationSettings {
   postStratificationEnabled?: boolean;
   approvalFlows?: ApprovalFlowConfigurations;
   learningStatuses?: LearningStatus[];
+  experimentIdeaStages?: ExperimentIdeaStage[];
+  defaultExperimentIdeaStage?: string;
   // When true, members can't create user-attributed API tokens and existing
   // ones are rejected at authentication. Covers Personal Access Tokens and
   // OAuth-issued access tokens; app-issued Visual Editor keys are unaffected.
@@ -449,6 +451,15 @@ export interface LearningStatus {
   id: string;
   label: string;
   color?: LearningStatusColor;
+}
+
+// Stage IDs are persisted on each Experiment Idea and never change; labels,
+// colors and order are freely editable.
+export interface ExperimentIdeaStage {
+  id: string;
+  label: string;
+  color?: LearningStatusColor;
+  description?: string;
 }
 
 export interface OrganizationConnections {

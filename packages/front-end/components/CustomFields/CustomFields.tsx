@@ -149,7 +149,13 @@ function CustomFieldsTable({
   );
 }
 
-const TAB_VALUES = ["all", "feature", "experiment", "attribute"] as const;
+const TAB_VALUES = [
+  "all",
+  "feature",
+  "experiment",
+  "attribute",
+  "experiment-idea",
+] as const;
 
 const CustomFields: FC = () => {
   const [activeFilter, setActiveFilter] = useURLHash(TAB_VALUES);
@@ -281,8 +287,9 @@ const CustomFields: FC = () => {
           )}
         </div>
         <p className="text-gray mb-4">
-          Add custom metadata to feature flags, experiments, and targeting
-          attributes. Choose which of those each field applies to.
+          Add custom metadata to Feature Flags, experiments, targeting
+          attributes, and Experiment Ideas. Choose which of those each field
+          applies to.
         </p>
         <DndContext
           sensors={sensors}
@@ -301,6 +308,9 @@ const CustomFields: FC = () => {
                 <TabsTrigger value="feature">Feature</TabsTrigger>
                 <TabsTrigger value="experiment">Experiment</TabsTrigger>
                 <TabsTrigger value="attribute">Attribute</TabsTrigger>
+                <TabsTrigger value="experiment-idea">
+                  Experiment Idea
+                </TabsTrigger>
               </TabsList>
             </Box>
             <TabsContent value="all">
@@ -348,6 +358,20 @@ const CustomFields: FC = () => {
             <TabsContent value="attribute">
               <CustomFieldsTable
                 filter="attribute"
+                items={items}
+                duplicateIds={duplicateIds}
+                showRequired={true}
+                deleteCustomField={deleteCustomField}
+                toggleCustomField={toggleCustomField}
+                setModalOpen={setModalOpen}
+                handleMoveUp={handleMoveUp}
+                handleMoveDown={handleMoveDown}
+                canManage={canManage}
+              />
+            </TabsContent>
+            <TabsContent value="experiment-idea">
+              <CustomFieldsTable
+                filter="experiment-idea"
                 items={items}
                 duplicateIds={duplicateIds}
                 showRequired={true}

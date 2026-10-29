@@ -1,7 +1,5 @@
 import React, { FC, useState } from "react";
-import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { CustomFieldSection } from "shared/types/custom-fields";
-import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import { useCustomFields } from "@/hooks/useCustomFields";
@@ -14,6 +12,7 @@ import Text from "@/ui/Text";
 import { customFieldDataListItems } from "./renderCustomFieldValue";
 import CustomFieldEditModal, {
   CustomFieldDraftInfo,
+  CustomFieldTarget,
 } from "./CustomFieldEditModal";
 
 const CustomFieldDisplay: FC<{
@@ -22,7 +21,7 @@ const CustomFieldDisplay: FC<{
   mutate?: () => void;
   className?: string;
   section: CustomFieldSection;
-  target: ExperimentInterfaceStringDates | FeatureInterface;
+  target: CustomFieldTarget;
   mt?: "1" | "2" | "3" | "4" | "5" | "6";
   /** When provided, the edit modal shows a draft callout and "Save to Draft" CTA. */
   draftInfo?: CustomFieldDraftInfo;

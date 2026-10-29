@@ -7,6 +7,7 @@ export const customFieldSectionValues = [
   "feature",
   "experiment",
   "attribute",
+  "experiment-idea",
 ] as const;
 export const customFieldSectionTypes = z.enum(customFieldSectionValues);
 // All valid sections — use as the default when no section is specified.

@@ -112,6 +112,16 @@ export async function getProjectsByParentId(
       return learning.projects || [];
     }
 
+    case "experimentIdea": {
+      const idea = await context.models.experimentIdeas.getById(parentId);
+
+      if (!idea) {
+        throw new Error("Experiment Idea not found");
+      }
+
+      return idea.project ? [idea.project] : [];
+    }
+
     default: {
       // Compile-time proof that the switch covers every DiscussionParentType:
       // adding a member to the union without a case here fails the build.

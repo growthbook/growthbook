@@ -26,9 +26,15 @@ export interface CustomFieldDraftInfo {
   onDraftCreated: (version: number) => void;
 }
 
+/** Any entity that carries custom fields: experiments, features, experiment ideas. */
+export type CustomFieldTarget = Pick<
+  ExperimentInterfaceStringDates | FeatureInterface,
+  "id" | "project" | "customFields"
+>;
+
 const CustomFieldEditModal: FC<{
   section: CustomFieldSection;
-  target: ExperimentInterfaceStringDates | FeatureInterface;
+  target: CustomFieldTarget;
   close: () => void;
   mutate?: () => void;
   /** When provided, the modal shows a draft callout and "Save to Draft" CTA. */
@@ -105,6 +111,11 @@ const CustomFieldEditModal: FC<{
       if (res?.draftVersion !== undefined && draftInfo) {
         draftInfo.onDraftCreated(res.draftVersion);
       }
+    } else if (section === "experiment-idea") {
+      await apiCall(`/experiment-ideas/${target.id}`, {
+        method: "PUT",
+        body: JSON.stringify({ ...value }),
+      });
     }
     if (mutate) mutate();
   };
