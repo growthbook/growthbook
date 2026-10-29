@@ -1,7 +1,7 @@
 import type {
-  ExplorationConfig,
-  MetricValue,
   ExplorationPopulation,
+  MetricDataset,
+  ProductAnalyticsDimension,
 } from "shared/validators";
 import { getPopulationRuleViolations } from "shared/populations";
 import type {
@@ -21,48 +21,67 @@ function isSupportedWithPopulation(
   return POPULATION_METRIC_TYPES.has(metric.metricType);
 }
 
-// A dataset-level population applies to every metric in the request, so each
-// metric must be compatible with it; one unsupported metric rejects the request.
-export function validatePopulationMetricCompatibility(
-  config: Pick<ExplorationConfig, "datasource" | "dimensions">,
-  metricValue: MetricValue,
-  metric: FactMetricInterface,
-  population: ExplorationPopulation,
-  factTable: FactTableInterface,
-): void {
-  if (!isSupportedWithPopulation(metric)) {
-    const supported = [...POPULATION_METRIC_TYPES].join(", ");
-    throw new Error(
-      `Metric "${metric.name}" can't be combined with a Population. Populations currently support only ${supported} metrics, and the Population applies to every metric in the request.`,
-    );
+// Rules that depend only on the request, so they can be checked before any
+// metrics or Fact Tables are loaded.
+export function getPopulationDatasetViolations(
+  dataset: MetricDataset,
+  dimensions: ProductAnalyticsDimension[],
+): string[] {
+  if (!dataset.population) return [];
+  const violations: string[] = [];
+  if (dataset.values.some((value) => value.draftMetric)) {
+    violations.push("Metrics with populations require a saved metric.");
   }
-  if (config.dimensions.some((d) => d.dimensionType !== "date")) {
-    throw new Error("Metrics with populations can only be grouped by date.");
+  if (dimensions.some((d) => d.dimensionType !== "date")) {
+    violations.push("Metrics with populations can only be grouped by date.");
   }
-  if (
-    metric.datasource !== config.datasource ||
-    population.source.factTableId !== metric.numerator.factTableId ||
-    factTable.id !== metric.numerator.factTableId
-  ) {
-    throw new Error(
-      "The population and metric must use the same Fact Table and Data Source.",
-    );
+  return violations;
+}
+
+// The population applies to every metric in the request, so one incompatible
+// metric rejects the request.
+export function getPopulationMetricViolations({
+  population,
+  datasource,
+  values,
+  metricMap,
+  factTableMap,
+}: {
+  population: ExplorationPopulation;
+  datasource: string;
+  values: MetricDataset["values"];
+  metricMap: Map<string, FactMetricInterface>;
+  factTableMap: Map<string, FactTableInterface>;
+}): string[] {
+  const violations: string[] = [];
+  for (const value of values) {
+    const metric = metricMap.get(value.metricId);
+    if (!metric) continue;
+    if (!isSupportedWithPopulation(metric)) {
+      const supported = [...POPULATION_METRIC_TYPES].join(", ");
+      violations.push(
+        `Metric "${metric.name}" can't be combined with a Population. Populations currently support only ${supported} metrics, and the Population applies to every metric in the request.`,
+      );
+      continue;
+    }
+    if (metric.numerator.factTableId !== population.source.factTableId) {
+      violations.push(
+        `Metric "${metric.name}" must use the same Fact Table as the Population.`,
+      );
+    }
+    if (value.unit !== population.unit) {
+      violations.push(
+        `Metric "${metric.name}" must use the population's identifier type "${population.unit}".`,
+      );
+    }
   }
-  if (!factTable.userIdTypes.includes(population.unit)) {
-    throw new Error(
-      `The population's identifier type "${population.unit}" isn't supported by the Fact Table.`,
-    );
-  }
-  if (metricValue.unit !== population.unit) {
-    throw new Error(
-      `Metric "${metric.name}" must use the population's identifier type "${population.unit}".`,
-    );
-  }
-  const violations = getPopulationRuleViolations({
-    datasource: config.datasource,
-    userIdTypes: [population.unit],
-    steps: [population],
-    factTables: [factTable],
-  });
-  if (violations.length) throw new Error(violations.join(" "));
+  return [
+    ...violations,
+    ...getPopulationRuleViolations({
+      datasource,
+      userIdTypes: [population.unit],
+      steps: [population],
+      factTables: [...factTableMap.values()],
+    }),
+  ];
 }

@@ -4,7 +4,7 @@ import {
   transformProductAnalyticsRowsToResult,
   encodeExplorationConfig,
   decodeExplorationConfigJson,
-  validatePopulationMetricCompatibility,
+  getPopulationMetricViolations,
 } from "shared/enterprise";
 import { createLikeStringMatchFn } from "shared/sql";
 import {
@@ -449,7 +449,7 @@ describe("metric explorations with a population", () => {
             source: { type: "factTable", factTableId: "other" },
           }),
         }),
-        "The population and metric must use the same Fact Table and Data Source.",
+        'Metric "Purchasers" must use the same Fact Table as the Population.',
       ],
       [
         "a population unit the Fact Table doesn't have",
@@ -457,7 +457,7 @@ describe("metric explorations with a population", () => {
           metrics: [purchasers],
           population: mobileUsers({ unit: "anonymous_id" }),
         }),
-        "The population's identifier type \"anonymous_id\" isn't supported by the Fact Table.",
+        "does not support identifier types: anonymous_id",
       ],
       [
         "a metric unit that doesn't match the population",
@@ -510,19 +510,20 @@ describe("metric explorations with a population", () => {
         metrics: [purchasers],
         population: mobileRevenueOver10,
       });
-      expect(() =>
-        validatePopulationMetricCompatibility(
-          config,
-          config.dataset.values[0],
-          {
-            ...purchasers,
-            metricType,
-            numerator: metricType === "funnel" ? null : purchasers.numerator,
-          } as FactMetricInterface,
-          mobileRevenueOver10,
-          table,
-        ),
-      ).toThrow("Populations currently support only proportion metrics");
+      const metric = {
+        ...purchasers,
+        metricType,
+        numerator: metricType === "funnel" ? null : purchasers.numerator,
+      } as FactMetricInterface;
+      expect(
+        getPopulationMetricViolations({
+          population: mobileRevenueOver10,
+          datasource: config.datasource,
+          values: config.dataset.values,
+          metricMap: new Map([[metric.id, metric]]),
+          factTableMap: new Map([[table.id, table]]),
+        }).join(" "),
+      ).toContain("Populations currently support only proportion metrics");
     });
   });
 

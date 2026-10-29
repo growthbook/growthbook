@@ -17,7 +17,8 @@ import {
   hasTimestampColumn,
   isFunnelSupportedDatasourceType,
   isJourneySupportedDatasourceType,
-  validatePopulationMetricCompatibility,
+  getPopulationDatasetViolations,
+  getPopulationMetricViolations,
 } from "shared/enterprise";
 import { isReadOnlySQL } from "shared/sql";
 import {
@@ -180,10 +181,12 @@ export async function runProductAnalyticsExploration(
         "A draft preview must contain only fact__preview",
       );
     }
-    if (hasDraftMetric && dataset.population) {
-      throw new BadRequestError(
-        "Metrics with populations require a saved metric.",
-      );
+    const populationDatasetViolations = getPopulationDatasetViolations(
+      dataset,
+      config.dimensions,
+    );
+    if (populationDatasetViolations.length) {
+      throw new BadRequestError(populationDatasetViolations.join(" "));
     }
     const factMetrics = await context.models.factMetrics.getByIds(
       dataset.values
@@ -227,27 +230,16 @@ export async function runProductAnalyticsExploration(
     );
     factTables.forEach((ft) => factTableMap.set(ft.id, ft));
 
-    // The population applies to every metric, so one incompatible metric
-    // rejects the request before any warehouse query.
-    const population = dataset.population;
-    if (population) {
-      for (const value of dataset.values) {
-        const metric = metricMap.get(value.metricId);
-        const table = factTableMap.get(metric?.numerator?.factTableId ?? "");
-        if (!metric || !table) {
-          throw new NotFoundError("Metric or Fact Table not found");
-        }
-        try {
-          validatePopulationMetricCompatibility(
-            config,
-            value,
-            metric,
-            population,
-            table,
-          );
-        } catch (e) {
-          throw new BadRequestError(e instanceof Error ? e.message : String(e));
-        }
+    if (dataset.population) {
+      const violations = getPopulationMetricViolations({
+        population: dataset.population,
+        datasource: datasource.id,
+        values: dataset.values,
+        metricMap,
+        factTableMap,
+      });
+      if (violations.length) {
+        throw new BadRequestError(violations.join(" "));
       }
     }
 
