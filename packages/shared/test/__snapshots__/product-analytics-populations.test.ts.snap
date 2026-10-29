@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`population-backed proportions generated daily SQL (SQLite) matches the query with the mobile revenue population 1`] = `
+exports[`metric explorations with a population generated SQL matches the snapshot with a population 1`] = `
 "WITH
   _factTable0 AS (
     SELECT
@@ -14,8 +14,8 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
           events
       ) t
     WHERE
-      timestamp >= '2026-09-01'
-      AND timestamp <= '2026-09-03'
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 23:59:59'
       AND (
         (event_name = 'Purchase')
         OR (device_type = 'mobile')
@@ -102,7 +102,7 @@ FROM
   _factTable0_unit0_rollup"
 `;
 
-exports[`population-backed proportions generated daily SQL (SQLite) matches the query without a population 1`] = `
+exports[`metric explorations with a population generated SQL matches the snapshot without a population 1`] = `
 "WITH
   _factTable0 AS (
     SELECT
@@ -116,8 +116,8 @@ exports[`population-backed proportions generated daily SQL (SQLite) matches the 
           events
       ) t
     WHERE
-      timestamp >= '2026-09-01'
-      AND timestamp <= '2026-09-03'
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 23:59:59'
       AND (event_name = 'Purchase')
   ),
   _factTable0_rows AS (
