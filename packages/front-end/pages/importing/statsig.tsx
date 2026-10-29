@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { NextPage } from "next";
 import ImportFromStatsig from "@/components/importing/ImportFromStatsig/ImportFromStatsig";
 import track from "@/services/track";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 const ImportFromStatsigPage: NextPage = () => {
   useEffect(() => {
@@ -9,9 +10,16 @@ const ImportFromStatsigPage: NextPage = () => {
   }, []);
 
   return (
-    <div className="contents container pagecontents">
+    <SettingsPage
+      title="Statsig Importer"
+      breadcrumb={[
+        { display: "Settings" },
+        { display: "Import Your Data", href: "/importing" },
+        { display: "Statsig Importer" },
+      ]}
+    >
       <ImportFromStatsig />
-    </div>
+    </SettingsPage>
   );
 };
 

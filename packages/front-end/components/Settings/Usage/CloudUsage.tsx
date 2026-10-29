@@ -20,13 +20,12 @@ import {
   PiArrowSquareOut,
   PiCaretLeft,
   PiCaretRight,
-  PiCaretDown,
+  PiDownloadSimple,
 } from "react-icons/pi";
 import useApi from "@/hooks/useApi";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
-import Frame from "@/ui/Frame";
 import Link from "@/ui/Link";
 import Table, {
   TableBody,
@@ -43,8 +42,10 @@ import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
 import Heading from "@/ui/Heading";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
+import Metadata from "@/ui/Metadata";
 import track from "@/services/track";
 import { docUrl } from "@/components/DocLink";
 
@@ -335,110 +336,114 @@ export default function CloudUsage() {
   const maxMonthsAgo = monthOptions.length - 1;
 
   return (
-    <Frame style={{ position: "relative" }}>
+    <Box position="relative">
       {!usage.length && <LoadingOverlay />}
-      <Flex gap="2" align="center" mb="4">
-        <h2 className="mr-4 mb-0">CDN Usage</h2>
-        <Flex ml="auto" gap="3" align="center">
-          <DropdownMenu
-            disabled={!usage.length}
-            menuPlacement="end"
-            trigger={
-              <Button
-                variant="ghost"
-                icon={<PiCaretDown />}
-                iconPosition="right"
-                disabled={!usage.length}
+      <SettingsPageHeader
+        title="CDN Usage"
+        actions={
+          <Flex gap="4" align="center">
+            <DropdownMenu
+              disabled={!usage.length}
+              menuPlacement="end"
+              trigger={
+                <Button
+                  variant="ghost"
+                  icon={<PiDownloadSimple />}
+                  disabled={!usage.length}
+                >
+                  Export CSV
+                </Button>
+              }
+            >
+              <DropdownMenuItem
+                onClick={() => {
+                  downloadCsv(
+                    usage.map((u) => ({
+                      // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
+                      date: u.date.substring(0, 10),
+                      requests: u.requests,
+                      // Raw bytes: full precision, unlike the page's rounded display
+                      bandwidth_bytes: u.bandwidth,
+                      managed_clickhouse_events: u.managedClickhouseEvents,
+                      event_forwarder_events: u.eventForwarderEvents,
+                    })),
+                    `cdn-usage-${month}.csv`,
+                  );
+                  track("Exported CDN Usage CSV", { breakdown: "totals" });
+                }}
               >
-                Export CSV
-              </Button>
-            }
-          >
-            <DropdownMenuItem
-              onClick={() => {
-                downloadCsv(
-                  usage.map((u) => ({
-                    // Trimmed, not re-parsed: the API sends "YYYY-MM-DD HH:mm:ss", which Date reads as local time
-                    date: u.date.substring(0, 10),
-                    requests: u.requests,
-                    // Raw bytes: full precision, unlike the page's rounded display
-                    bandwidth_bytes: u.bandwidth,
-                    managed_clickhouse_events: u.managedClickhouseEvents,
-                    event_forwarder_events: u.eventForwarderEvents,
-                  })),
-                  `cdn-usage-${month}.csv`,
-                );
-                track("Exported CDN Usage CSV", { breakdown: "totals" });
-              }}
-            >
-              Daily totals
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={!csvRows?.length}
-              onClick={() => {
-                if (!csvRows) return;
-                downloadCsv(
-                  csvRows.map((r) => {
-                    const connection = connectionsByKey.get(r.key);
-                    return {
-                      date: r.date.substring(0, 10),
-                      source:
-                        r.key === IMAGES_KEY
-                          ? "Visual Editor images"
-                          : (connection?.name ?? r.key),
-                      sdk_key: r.key === IMAGES_KEY ? "" : r.key,
-                      environment: connection?.environment ?? "",
-                      projects: !connection
-                        ? ""
-                        : connection.projects.length
-                          ? getProjectNames(connection.projects).join("; ")
-                          : "All Projects",
-                      type: r.type,
-                      requests: r.requests,
-                      bandwidth_bytes: r.bandwidth,
-                    };
-                  }),
-                  `cdn-usage-by-source-${month}.csv`,
-                );
-                track("Exported CDN Usage CSV", { breakdown: "source" });
-              }}
-            >
-              Daily by source
-            </DropdownMenuItem>
-          </DropdownMenu>
-          <SelectField
-            size="legacy"
-            options={monthOptions}
-            value={monthsAgo + ""}
-            onChange={(value) => setMonthsAgo(parseInt(value))}
-            sort={false}
-          />
-        </Flex>
-      </Flex>
-      <Flex gap="5" align="center" mb="4">
-        <div>
-          <strong>Total requests: </strong>
-          <span>{requestsFormatter.format(totalRequests)}</span>
-        </div>
-        <div>
-          <strong>Total bandwidth: </strong>
-          <span>{formatBandwidth(totalBandwidth)}</span>
-        </div>
-        <div>
-          <strong>Total managed Clickhouse events: </strong>
-          <span>{requestsFormatter.format(totalManagedClickhouseEvents)}</span>
-        </div>
-        <div>
-          <strong>Total Event Forwarder events: </strong>
-          <span>{requestsFormatter.format(totalEventForwarderEvents)}</span>
-        </div>
+                Daily totals
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!csvRows?.length}
+                onClick={() => {
+                  if (!csvRows) return;
+                  downloadCsv(
+                    csvRows.map((r) => {
+                      const connection = connectionsByKey.get(r.key);
+                      return {
+                        date: r.date.substring(0, 10),
+                        source:
+                          r.key === IMAGES_KEY
+                            ? "Visual Editor images"
+                            : (connection?.name ?? r.key),
+                        sdk_key: r.key === IMAGES_KEY ? "" : r.key,
+                        environment: connection?.environment ?? "",
+                        projects: !connection
+                          ? ""
+                          : connection.projects.length
+                            ? getProjectNames(connection.projects).join("; ")
+                            : "All Projects",
+                        type: r.type,
+                        requests: r.requests,
+                        bandwidth_bytes: r.bandwidth,
+                      };
+                    }),
+                    `cdn-usage-by-source-${month}.csv`,
+                  );
+                  track("Exported CDN Usage CSV", { breakdown: "source" });
+                }}
+              >
+                Daily by source
+              </DropdownMenuItem>
+            </DropdownMenu>
+            <Box width="160px">
+              <SelectField
+                size="md"
+                containerClassName="mb-0"
+                options={monthOptions}
+                value={monthsAgo + ""}
+                onChange={(value) => setMonthsAgo(parseInt(value))}
+                sort={false}
+              />
+            </Box>
+          </Flex>
+        }
+      />
+      <Flex gap="5" align="center" wrap="wrap" mb="4">
+        <Metadata
+          label="Total requests"
+          value={requestsFormatter.format(totalRequests)}
+        />
+        <Metadata
+          label="Total bandwidth"
+          value={formatBandwidth(totalBandwidth)}
+        />
+        <Metadata
+          label="Total managed ClickHouse events"
+          value={requestsFormatter.format(totalManagedClickhouseEvents)}
+        />
+        <Metadata
+          label="Total Event Forwarder events"
+          value={requestsFormatter.format(totalEventForwarderEvents)}
+        />
         {isFiltered && (
           <Text color="text-low">
             Totals include all {breakdowns[breakdown].noun}
           </Text>
         )}
         {useDummyData && <Badge label="Dummy Data" color="amber" />}
-        <Flex className="ml-auto" gap="2">
+        <Flex ml="auto" gap="2">
           <Button
             variant="ghost"
             onClick={() => {
@@ -566,7 +571,7 @@ export default function CloudUsage() {
       {totalManagedClickhouseEvents > 0 && (
         <Box mt="5">
           <Heading as="h3" size="sm" mb="2">
-            Managed Clickhouse Events
+            Managed ClickHouse Events
           </Heading>
           <DailyGraph
             data={usage.map((u) => ({
@@ -617,17 +622,16 @@ export default function CloudUsage() {
         <Link
           href={docUrl("cloudCdnUsageLimits")}
           external
-          underline="none"
-          weight="bold"
+          weight="medium"
           onClick={() => {
             track("Clicked Read About CDN Limits Link");
           }}
         >
           Read about CDN limits and techniques to reduce usage{" "}
-          <PiArrowSquareOut style={{ position: "relative", top: "-2px" }} />
+          <PiArrowSquareOut style={{ verticalAlign: "-2px" }} />
         </Link>
       </Box>
-    </Frame>
+    </Box>
   );
 }
 
@@ -720,9 +724,10 @@ function DailyGraph({
 
             return (
               <div
-                className="rounded"
                 style={{
-                  border: "1px solid var(--slate-a5)",
+                  border: "1px solid var(--slate-a4)",
+                  borderRadius: "var(--radius-4)",
+                  background: "var(--color-panel-solid)",
                   position: "relative",
                 }}
               >
