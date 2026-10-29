@@ -1,17 +1,19 @@
 import { z } from "zod";
+import type { FrequentistTestResult } from "../../types/stats-engine";
 import { baseSchema } from "./base-model";
 import {
   interleavingAnalysisValidator,
   interleavingMetricConfigValidator,
+  interleavingRunValidator,
   interleavingVariationValidator,
 } from "./interleaving";
 import { namedSchema } from "./openapi-helpers";
 import { queryPointerValidator } from "./queries";
 
 /**
- * Frozen, self-contained settings for a single interleaving snapshot run,
- * copied from the parent Interleaving and its Interleaving Exposure Query
- * (contextual-bandit-snapshot pattern: `.strict()` and feature-specific).
+ * Self-contained settings for a single interleaving snapshot run, copied from
+ * the parent Interleaving and its Interleaving Exposure Query when the
+ * snapshot is created so later edits cannot reinterpret an existing result.
  */
 export const interleavingSnapshotSettingsValidator = z
   .object({
@@ -19,7 +21,7 @@ export const interleavingSnapshotSettingsValidator = z
     trackingKey: z.string(),
     datasourceId: z.string(),
     interleavingExposureQueryId: z.string(),
-    exposureQuery: z.string(),
+    interleavingExposureQuerySql: z.string(),
     userIdType: z.string(),
     // Control first. `key` is matched against the exposure items' `variation`;
     // `name` is what results display.
@@ -28,8 +30,13 @@ export const interleavingSnapshotSettingsValidator = z
       interleavingVariationValidator.pick({ id: true, key: true, name: true }),
     ]),
     metrics: z.array(interleavingMetricConfigValidator),
+    // Frozen so a later org-settings change cannot reinterpret this result.
+    // Drives the test alpha, and the results table colours significance by
+    // the same number.
+    pValueThreshold: z.number(),
+    runs: z.array(interleavingRunValidator.required({ dateEnded: true })),
     startDate: z.date(),
-    endDate: z.date().nullable(),
+    endDate: z.date(),
   })
   .strict();
 
@@ -46,7 +53,8 @@ const interleavingResultSideValidator = z
   .strict();
 
 // Treatment vs control, as returned by stats-ts (pairedDeltaTest or
-// preferenceSignTest). `ci` bounds are null when unbounded.
+// preferenceSignTest). The `satisfies` is the point: it fails to compile if
+// this drifts from the engine's FrequentistTestResult.
 const interleavingTestResultValidator = z
   .object({
     expected: z.number(),
@@ -56,9 +64,14 @@ const interleavingTestResultValidator = z
       .strict(),
     pValue: z.number().nullable(),
     errorMessage: z.string().nullable(),
-    pValueErrorMessage: z.string().nullable(),
+    pValueErrorMessage: z
+      .enum([
+        "NUMERICAL_PVALUE_NOT_CONVERGED",
+        "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST",
+      ])
+      .nullable(),
   })
-  .strict();
+  .strict() satisfies z.ZodType<FrequentistTestResult>;
 
 /** Result of one (metric, analysis) pair. */
 export const interleavingMetricResultValidator = z
@@ -69,7 +82,7 @@ export const interleavingMetricResultValidator = z
     users: z.number(),
     // What each side's `cr` divides `value` by: competitive treatment-drafted
     // exposures in engaged impressions (paired) or non-tied users (preference)
-    denominator: z.number().optional(),
+    denominator: z.number(),
     control: interleavingResultSideValidator,
     treatment: interleavingResultSideValidator,
     test: interleavingTestResultValidator,
@@ -82,11 +95,11 @@ export type InterleavingMetricResult = z.infer<
 export const interleavingSnapshotValidator = baseSchema
   .extend({
     interleavingId: z.string(),
-    status: z.enum(["pending", "running", "success", "error"]),
+    status: z.enum(["running", "success", "error"]),
     error: z.string().optional(),
     runStarted: z.date().nullable(),
     queries: z.array(queryPointerValidator),
-    frozenSettings: interleavingSnapshotSettingsValidator,
+    settings: interleavingSnapshotSettingsValidator,
     results: z.array(interleavingMetricResultValidator).optional(),
   })
   .strict();
@@ -111,13 +124,22 @@ export const apiInterleavingSnapshotValidator = namedSchema(
       settings: interleavingSnapshotSettingsValidator
         .omit({
           interleavingId: true,
-          exposureQuery: true,
+          interleavingExposureQuerySql: true,
+          runs: true,
           startDate: true,
           endDate: true,
         })
         .extend({
+          runs: z
+            .array(
+              z.strictObject({
+                dateStarted: z.iso.datetime(),
+                dateEnded: z.iso.datetime(),
+              }),
+            )
+            .describe("The run windows these results count exposures from"),
           startDate: z.iso.datetime(),
-          endDate: z.iso.datetime().nullable(),
+          endDate: z.iso.datetime(),
         }),
       results: z
         .array(interleavingMetricResultValidator)

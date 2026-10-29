@@ -101,6 +101,7 @@ const BaseClass = MakeModelClass({
     tags: [],
     archived: false,
     metrics: [],
+    runs: [],
     jsonSchema: null,
     environmentSettings: {},
   },
@@ -329,6 +330,8 @@ export class InterleavingModel extends BaseClass {
       ] as InterleavingInterface["variations"],
       jsonSchema: toJSONSchema(body.jsonSchema),
       metrics: body.metrics ?? [],
+      // Created as a draft, so it has not run yet.
+      runs: [],
       environmentSettings: body.environmentSettings ?? {},
     };
   }
@@ -457,6 +460,29 @@ export class InterleavingModel extends BaseClass {
       !doc.trackingKey.trim()
     ) {
       throw new Error("Interleaving tracking key cannot be empty.");
+    }
+
+    // These decide which users see which ranker, so changing them mid-flight
+    // invalidates the experiment rather than adjusting it. Analysis inputs
+    // (datasource, exposure query, metrics) stay editable: each snapshot
+    // freezes its own copy, so an edit only affects the next refresh.
+    if (previousDoc?.status === "running") {
+      const locked = (
+        [
+          ["seed", "seed"],
+          ["hashAttribute", "assignment attribute"],
+          ["trackingKey", "tracking key"],
+        ] as const
+      )
+        .filter(([field]) => doc[field] !== previousDoc[field])
+        .map(([, label]) => label);
+      if (locked.length) {
+        throw new Error(
+          `Stop this interleaving experiment before changing its ${locked.join(
+            ", ",
+          )}.`,
+        );
+      }
     }
 
     if (
@@ -608,6 +634,11 @@ export class InterleavingModel extends BaseClass {
 
   protected async afterDelete(doc: InterleavingInterface) {
     this.refreshSDKPayload([doc], "deleted");
+    // Orphaned snapshots are not just dead weight: the reapers scan the
+    // collection by status with no parent check, so a running one is retried
+    // forever. Deleted unchecked because `delete()` enforces
+    // canRunExperimentQueries, which the user deleting the parent may not hold
+    // — and throwing here would strand them after the parent is already gone.
     await this.context.models.interleavingSnapshots.deleteAllForInterleaving(
       doc.id,
     );

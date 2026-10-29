@@ -19,7 +19,7 @@ describe("interleavingResultToSnapshotMetrics", () => {
         uplift: { dist: "normal", mean: 0.05, stddev: 0.02 },
         pValue: null,
         errorMessage: null,
-        pValueErrorMessage: "too few users",
+        pValueErrorMessage: "NUMERICAL_PVALUE_NOT_CONVERGED",
       },
     });
     expect(control).toEqual({

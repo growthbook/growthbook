@@ -7,6 +7,7 @@ import { useUser } from "@/services/UserContext";
 import SelectField from "@/components/Forms/SelectField";
 import { isCloud, isMultiOrg } from "@/services/env";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 
 const EditOrganizationModal: FC<{
   name: string;
@@ -43,7 +44,7 @@ const EditOrganizationModal: FC<{
       header="Edit Organization"
       open={true}
       close={close}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         if (!canEdit) {
           throw new Error(
             "You do not have permissions to edit this organization",

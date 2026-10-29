@@ -20,6 +20,7 @@ import type { FeatureRevisionInterface } from "shared/types/feature-revision";
 import {
   armedActions,
   capitalizeFirstCharacter,
+  hasPendingScheduledStart,
   matchConfirmRules,
   proposedArchivedValue,
   routeConfirmation,
@@ -831,6 +832,8 @@ const PHASE_ACTIONS = Object.entries(PHASE_FIELD_ACTIONS).flatMap(
     action ? [[field as keyof ExperimentPhase, action] as const] : [],
 );
 const RERANDOMIZE_FIELDS = [
+  // The seed when a phase has none of its own, as bandits treat it.
+  "trackingKey",
   "hashAttribute",
   "fallbackAttribute",
   "hashVersion",
@@ -921,6 +924,17 @@ const statusActions = (
     ? (["experiment.stop"] as const)
     : []),
 ];
+
+// Unarchiving puts a live experiment back in the payload, and gives a draft back
+// the start armed before it was archived, which publishes its flags' drafts.
+export function unarchiveActions(
+  experiment: Pick<ExperimentInterface, "status" | "nextScheduledStatusUpdate">,
+): ConfirmAction[] {
+  if (experiment.status !== "draft") return ["experiment.start"];
+  return hasPendingScheduledStart(experiment)
+    ? ["experiment.start", "feature.publish"]
+    : ["experiment.draft"];
+}
 
 // What an update does to a live experiment, in the Make Changes flow's terms.
 // Edits to a draft aren't live, so only starting it counts.
@@ -1014,9 +1028,22 @@ export function contextualBanditChangeActions(
 ): ConfirmAction[] {
   const actions = new Set(statusActions(existing.status, changes.status));
   if (existing.status !== "draft") {
+    if (
+      changes.archived !== undefined &&
+      changes.archived !== !!existing.archived
+    ) {
+      actions.add(
+        existing.status !== "running"
+          ? "experiment.other"
+          : changes.archived
+            ? "experiment.stop"
+            : "experiment.start",
+      );
+    }
     const before = existing as Record<string, unknown>;
     for (const [field, after] of Object.entries(changes)) {
-      if (field === "status" || !changed(before[field], after)) continue;
+      if (field === "status" || field === "archived") continue;
+      if (!changed(before[field], after)) continue;
       const action =
         BANDIT_FIELD_ACTIONS[field as keyof ContextualBanditInterface];
       if (action !== null) actions.add(action ?? "experiment.other");

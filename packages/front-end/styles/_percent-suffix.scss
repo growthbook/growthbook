@@ -1,0 +1,43 @@
+// A "%" inside a number field. The value stops short of it, and where the
+// browser allows, the spinner keeps to the field's right edge past it; where
+// it can't be moved, it's hidden.
+$suffix-room: 1.25em;
+$spinner-width: 14px;
+$spinner-inset: 2px;
+
+@mixin percent-suffix($padding-x: var(--space-2)) {
+  position: relative;
+
+  input {
+    padding-right: calc(#{$padding-x} + #{$suffix-room});
+  }
+
+  span {
+    position: absolute;
+    top: 50%;
+    right: $padding-x;
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+
+  @supports not selector(::-webkit-inner-spin-button) {
+    input {
+      appearance: textfield;
+    }
+  }
+
+  @supports selector(::-webkit-inner-spin-button) {
+    input {
+      padding-right: $spinner-inset;
+    }
+
+    input::-webkit-inner-spin-button {
+      width: $spinner-width;
+      margin-left: $suffix-room;
+    }
+
+    span {
+      right: calc(#{$spinner-inset} + #{$spinner-width} + 0.25em);
+    }
+  }
+}

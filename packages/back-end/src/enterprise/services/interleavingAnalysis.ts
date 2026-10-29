@@ -3,6 +3,8 @@ import {
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
 } from "shared/validators";
+import { getScopedSettings } from "shared/settings";
+import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -60,17 +62,33 @@ async function getInterleavingSnapshotSettings(
       "Add at least one metric to this interleaving experiment before updating results",
     );
   }
-  if (!interleaving.dateStarted) {
+  if (!interleaving.dateStarted || interleaving.runs.length === 0) {
     throw new Error(
       "Start this interleaving experiment before updating results",
     );
   }
   const endDate = interleaving.dateStopped ?? new Date();
 
+  // Freeze the run windows with the currently open one closed at endDate.
+  const runs = interleaving.runs.map((r) => ({
+    dateStarted: r.dateStarted,
+    dateEnded: r.dateEnded ?? endDate,
+  }));
+
   const interleavingExposureQuery = await resolveInterleavingExposureQuery(
     context,
     interleaving,
   );
+
+  // Project-scoped, matching how the results table resolves the same number.
+  // Inlined rather than via getPValueThresholdForProject: importing
+  // services/organizations here pulls in the model graph and cycles.
+  const project = interleaving.project
+    ? (await context.getProjects()).find((p) => p.id === interleaving.project)
+    : undefined;
+  const pValueThreshold =
+    getScopedSettings({ organization: context.org, project }).settings
+      .pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
 
   const [a, b] = interleaving.variations;
   return {
@@ -78,13 +96,15 @@ async function getInterleavingSnapshotSettings(
     trackingKey: interleaving.trackingKey,
     datasourceId: interleaving.datasource,
     interleavingExposureQueryId: interleavingExposureQuery.id,
-    exposureQuery: interleavingExposureQuery.query,
+    interleavingExposureQuerySql: interleavingExposureQuery.query,
     userIdType: interleaving.userIdType,
     variations: [
       { id: a.id, key: a.key, name: a.name },
       { id: b.id, key: b.key, name: b.name },
     ],
     metrics: interleaving.metrics,
+    pValueThreshold,
+    runs,
     startDate: interleaving.dateStarted,
     endDate,
   };
@@ -125,7 +145,7 @@ export async function runInterleavingSnapshot(
     status: "running",
     queries: [],
     runStarted: null,
-    frozenSettings: settings,
+    settings,
   });
 
   const runner = new InterleavingResultsQueryRunner(
@@ -152,13 +172,13 @@ export async function cancelInterleavingSnapshot(
   context: Context,
   snapshot: InterleavingSnapshotInterface,
 ): Promise<boolean> {
-  if (snapshot.status !== "running" && snapshot.status !== "pending") {
+  if (snapshot.status !== "running") {
     return false;
   }
   const runner = new InterleavingResultsQueryRunner(
     context,
     snapshot,
-    await getIntegration(context, snapshot.frozenSettings.datasourceId),
+    await getIntegration(context, snapshot.settings.datasourceId),
     false,
   );
   await runner.cancelQueries();

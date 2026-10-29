@@ -71,9 +71,7 @@ export function useInterleavingResults(id: string | undefined) {
           d?.latest,
           heavyData?.latest ?? null,
         );
-        return latest?.status === "running" || latest?.status === "pending"
-          ? 2000
-          : 0;
+        return latest?.status === "running" ? 2000 : 0;
       },
     },
   );
@@ -119,7 +117,7 @@ export function useInterleavingResults(id: string | undefined) {
     loading: !!id && !error && !heavyData,
     snapshot,
     latest,
-    running: latest?.status === "running" || latest?.status === "pending",
+    running: latest?.status === "running",
     error,
     statusError,
     mutate,

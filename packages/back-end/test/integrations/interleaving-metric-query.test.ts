@@ -58,13 +58,22 @@ const metricOn = (
   });
 };
 
+// Output columns are keyed by each metric's position in the snapshot's
+// frozen metric list; these fixtures stand in for that list.
+const withIndices = (
+  metrics: { metric: FactMetricInterface; analyses: InterleavingAnalysis[] }[],
+) => metrics.map((m, index) => ({ ...m, index }));
+
 const baseParams = {
-  exposureQuery: EXPOSURE_QUERY,
+  interleavingExposureQuerySql: EXPOSURE_QUERY,
   userIdType: "user_id",
   trackingKey: "featured-products-ranker",
   variationKeys: ["buyers-picks", "price-low"] as [string, string],
+  runs: [
+    { dateStarted: new Date("2020-01-01"), dateEnded: new Date("2020-12-31") },
+  ],
   startDate: new Date("2020-01-01"),
-  endDate: null,
+  endDate: new Date("2020-12-31"),
   factTable: cartTable,
 };
 const PAIRED: InterleavingAnalysis = { type: "paired" };
@@ -78,32 +87,32 @@ describe("getInterleavingMetricQuery", () => {
   it("emits paired and preference CTEs only when requested", () => {
     const paired = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PAIRED] }],
+      metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
     });
     const preference = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PREFERENCE] }],
+      metrics: withIndices([{ metric: proportion, analyses: [PREFERENCE] }]),
     });
     const both = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PAIRED, PREFERENCE] }],
+      metrics: withIndices([
+        { metric: proportion, analyses: [PAIRED, PREFERENCE] },
+      ]),
     });
 
     expect(paired).toContain("__exposures");
     expect(paired).toContain("jsonb_array_elements");
     expect(paired).toContain("__credited");
     expect(paired).toContain("__pairedUser");
-    expect(paired).toContain(
-      "fact__proportion_count_treatment_control_sum_product",
-    );
+    expect(paired).toContain("m0_treatment_control_sum_product");
     expect(paired).not.toContain("users_pref_treatment");
     expect(paired).not.toContain("__share");
     expect(paired).not.toContain("first_exposure_timestamp");
     expect(paired).toContain("'featured-products-ranker'");
     expect(preference).toContain("__share");
-    expect(preference).toContain("fact__proportion_count_users_pref_treatment");
+    expect(preference).toContain("m0_users_pref_treatment");
     expect(preference).toMatch(
-      /WHEN pref\.wins_t_0 = pref\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS fact__proportion_count_users_tied/,
+      /WHEN pref\.wins_t_0 = pref\.wins_c_0 THEN 1\s+ELSE 0\s+END\s*\)\s*\) AS m0_users_tied/,
     );
     expect(preference).not.toContain("__credited");
     // Preference has its own post-exposure event aggregation at item grain
@@ -125,10 +134,8 @@ describe("getInterleavingMetricQuery", () => {
     );
     // Mixed: both chains aggregate one filtered event-row source at their own
     // grains; output columns are keyed by metric id
-    expect(both).toContain(
-      "fact__proportion_count_treatment_control_sum_product",
-    );
-    expect(both).toContain("fact__proportion_count_users_pref_treatment");
+    expect(both).toContain("m0_treatment_control_sum_product");
+    expect(both).toContain("m0_users_pref_treatment");
     expect(both).not.toContain("value_1");
     expect(both).toContain("__eventRows");
     expect(both).toContain("__preferenceEvents");
@@ -167,7 +174,7 @@ describe("getInterleavingMetricQuery", () => {
     // Variation keys are escaped through the dialect
     const quoted = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PREFERENCE] }],
+      metrics: withIndices([{ metric: proportion, analyses: [PREFERENCE] }]),
       variationKeys: ["o'brien", "control"] as [string, string],
     });
     expect(quoted).toContain("'o''brien'");
@@ -176,7 +183,7 @@ describe("getInterleavingMetricQuery", () => {
   it("resolves numerators like experiment fact metrics", () => {
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [
+      metrics: withIndices([
         // proportion: existence per group
         { metric: proportion, analyses: [PAIRED] },
         // mean of a row count: COUNT, not existence
@@ -195,7 +202,7 @@ describe("getInterleavingMetricQuery", () => {
             ],
           }),
         },
-      ],
+      ]),
     });
     expect(sql).toMatch(/COALESCE\(MAX\(1\), 0\) AS value_0/);
     expect(sql).toMatch(/COUNT\(1\) AS value_1/);
@@ -205,7 +212,7 @@ describe("getInterleavingMetricQuery", () => {
     // Rows matching no metric's filters are dropped; metric 0/1 have none, so
     // the shared event-row source only has the date filter.
     expect(sql).toMatch(
-      /__eventRows AS \([\s\S]*WHERE\s+m\.timestamp >= '2020-01-01 00:00:00'\s*\)/,
+      /__eventRows AS \([\s\S]*WHERE\s+\(\s+\(\s+m\.timestamp >= '2020-01-01 00:00:00'\s+AND m\.timestamp <= '2020-12-31 00:00:00'\s+\)\s+\)/,
     );
     expect(sql).toMatch(
       /__preferenceEvents AS \([\s\S]*m\.timestamp >= m\.__gb_first_exposure_timestamp[\s\S]*GROUP BY\s+m\.user_id,\s+cast\(m\.item_id as varchar\)/,
@@ -218,7 +225,9 @@ describe("getInterleavingMetricQuery", () => {
   it("casts item_id and ranking_id to string on both sides of the join", () => {
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PAIRED, PREFERENCE] }],
+      metrics: withIndices([
+        { metric: proportion, analyses: [PAIRED, PREFERENCE] },
+      ]),
     });
 
     expect(sql).toContain("cast(item ->> 'itemId' as varchar) AS item_id");
@@ -239,6 +248,63 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).toContain("ev.item_id = e.item_id");
     expect(sql).toContain("ev.ranking_id = e.ranking_id");
     expect(sql).toContain("ev.item_id = s.item_id");
+  });
+
+  // castToString is varchar(256) on SQL Server, which would merge two ids
+  // sharing a 256-character prefix into one group/join key. Item ids come from
+  // the customer's catalog and have no length bound.
+  it("does not truncate join keys on SQL Server", () => {
+    const sql = getInterleavingMetricQuery(mssqlDialect, {
+      ...baseParams,
+      metrics: withIndices([
+        { metric: proportion, analyses: [PAIRED, PREFERENCE] },
+      ]),
+    });
+
+    expect(sql).not.toContain("varchar(256)");
+    expect(sql).toContain("as varchar(8000)) AS item_id");
+    expect(sql).toContain("as varchar(8000)) AS ranking_id");
+  });
+
+  // A stopped experiment's tracking key can be reused, so a single window
+  // spanning a stop/restart would also count whatever ran under that key in
+  // between. Each run is filtered separately instead.
+  it("counts only the experiment's own run windows", () => {
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      runs: [
+        {
+          dateStarted: new Date("2020-01-01"),
+          dateEnded: new Date("2020-02-01"),
+        },
+        {
+          dateStarted: new Date("2020-06-01"),
+          dateEnded: new Date("2020-07-01"),
+        },
+      ],
+      metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
+    });
+    const squashed = sql.replace(/\s+/g, " ");
+
+    // Both windows present, OR'd, in the exposure and the event filters
+    expect(squashed).toContain(
+      "( e.timestamp >= '2020-01-01 00:00:00' AND e.timestamp <= '2020-02-01 00:00:00' ) OR ( e.timestamp >= '2020-06-01 00:00:00' AND e.timestamp <= '2020-07-01 00:00:00' )",
+    );
+    expect(squashed).toContain(
+      "( m.timestamp >= '2020-01-01 00:00:00' AND m.timestamp <= '2020-02-01 00:00:00' ) OR ( m.timestamp >= '2020-06-01 00:00:00' AND m.timestamp <= '2020-07-01 00:00:00' )",
+    );
+    // The dormant gap is never a bound of either range
+    expect(squashed).not.toContain("'2020-02-01 00:00:00' AND");
+  });
+
+  it("rejects a query with no run windows", () => {
+    expect(() =>
+      getInterleavingMetricQuery(postgresDialect, {
+        ...baseParams,
+        runs: [],
+        metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
+      }),
+    ).toThrow("at least one run");
   });
 
   it("resolves a virtual item_id through getColumnExpression", () => {
@@ -265,7 +331,9 @@ describe("getInterleavingMetricQuery", () => {
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
       factTable: virtualTable,
-      metrics: [{ metric: metricOn("ft_virtual"), analyses: [PREFERENCE] }],
+      metrics: withIndices([
+        { metric: metricOn("ft_virtual"), analyses: [PREFERENCE] },
+      ]),
     });
 
     expect(sql).toContain("sku");
@@ -275,7 +343,7 @@ describe("getInterleavingMetricQuery", () => {
   it("gates engaged impressions on event existence, not on the metric value", () => {
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [
+      metrics: withIndices([
         {
           analyses: [PAIRED],
           metric: metricOn("ft_cart", {
@@ -286,7 +354,7 @@ describe("getInterleavingMetricQuery", () => {
             ],
           }),
         },
-      ],
+      ]),
     });
 
     // The credit gate reads this metric's own earliest matching row
@@ -306,7 +374,7 @@ describe("getInterleavingMetricQuery", () => {
   it("takes the whole group's first event when the metric has no row filters", () => {
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PAIRED] }],
+      metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
     });
     const squashed = sql.replace(/\s+/g, " ");
     expect(squashed).toContain("MIN(m.timestamp) AS first_event_ts_0");
@@ -322,10 +390,10 @@ describe("getInterleavingMetricQuery", () => {
       });
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [
+      metrics: withIndices([
         { analyses: [PAIRED], metric: filtered("view") },
         { analyses: [PAIRED], metric: filtered("purchase") },
-      ],
+      ]),
     });
     const squashed = sql.replace(/\s+/g, " ");
 
@@ -348,14 +416,14 @@ describe("getInterleavingMetricQuery", () => {
   it("does not thread the engagement indicator through the preference chain", () => {
     const sql = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
-      metrics: [{ metric: proportion, analyses: [PREFERENCE] }],
+      metrics: withIndices([{ metric: proportion, analyses: [PREFERENCE] }]),
     });
     expect(sql).not.toContain("has_event_");
     expect(sql).not.toContain("first_event_ts_");
   });
 
   it("casts the per-user paired aggregates so integer dialects cannot overflow", () => {
-    const metrics = [{ metric: proportion, analyses: [PAIRED] }];
+    const metrics = withIndices([{ metric: proportion, analyses: [PAIRED] }]);
     const mssql = getInterleavingMetricQuery(mssqlDialect, {
       ...baseParams,
       metrics,
@@ -375,7 +443,9 @@ describe("getInterleavingMetricQuery", () => {
 });
 
 describe("getInterleavingMetricQuery dialects", () => {
-  const metrics = [{ metric: proportion, analyses: [PAIRED, PREFERENCE] }];
+  const metrics = withIndices([
+    { metric: proportion, analyses: [PAIRED, PREFERENCE] },
+  ]);
   // Trino/Presto cannot cast a JSON array to VARCHAR, so the probe tries that
   // cast first (identity for a text column) and falls back to json_format.
   const TRINO_UNNEST =
@@ -432,11 +502,11 @@ describe("getInterleavingMetricQuery dialects", () => {
     // The competitive filter and item grouping go through fieldText
     expect(squashed).toContain("= 'true'");
     expect(squashed).toContain("AS item_id");
-    expect(squashed).toContain("fact__proportion_count_treatment_sum");
+    expect(squashed).toContain("m0_treatment_sum");
     // The engagement indicator and the per-user cast reach every dialect
     expect(squashed).toContain("AS has_event_0");
     expect(squashed).toContain("AS exposures_0");
-    expect(squashed).toContain("fact__proportion_count_users_tied");
+    expect(squashed).toContain("m0_users_tied");
     // Equi-join only; the timestamp test is in the credited value
     expect(squashed).not.toMatch(/ON \([^)]*>=/);
   });

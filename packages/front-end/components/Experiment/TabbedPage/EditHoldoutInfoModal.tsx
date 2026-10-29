@@ -12,14 +12,12 @@ import Callout from "@/ui/Callout";
 import { useAuth } from "@/services/auth";
 import SelectOwner from "@/components/Owner/SelectOwner";
 import MultiSelectField from "@/ui/MultiSelectField";
-import { FocusSelector } from "./EditExperimentInfoModal";
 
 interface Props {
   experiment: ExperimentInterfaceStringDates;
   holdout: HoldoutInterfaceStringDates;
   setShowEditInfoModal: (value: boolean) => void;
   mutate: () => void;
-  focusSelector?: FocusSelector;
 }
 
 export default function EditHoldoutInfoModal({
@@ -27,7 +25,6 @@ export default function EditHoldoutInfoModal({
   holdout,
   setShowEditInfoModal,
   mutate,
-  focusSelector = "name",
 }: Props) {
   const { apiCall } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -69,7 +66,7 @@ export default function EditHoldoutInfoModal({
     >
       <Field
         size="legacy"
-        autoFocus={focusSelector === "name"}
+        autoFocus
         label="Experiment Name"
         {...form.register("name")}
         required
@@ -81,7 +78,6 @@ export default function EditHoldoutInfoModal({
       <div className="form-group">
         <label>Tags</label>
         <TagsInput
-          autoFocus={focusSelector === "tags"}
           value={form.watch("tags") ?? []}
           onChange={(tags) => form.setValue("tags", tags)}
         />
@@ -100,7 +96,6 @@ export default function EditHoldoutInfoModal({
           </>
         }
         placeholder="All Projects"
-        autoFocus={focusSelector === "projects"}
         value={form.watch("projects") || []}
         // A Holdout's scope lives on the Holdout, not on its underlying
         // Experiment, which is always created with an empty project.

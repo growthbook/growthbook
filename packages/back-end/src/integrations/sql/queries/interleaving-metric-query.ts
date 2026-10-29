@@ -30,15 +30,15 @@ import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
-import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 
 /**
- * Output column for one statistic of one metric. Keyed by metric id (not
- * position) so the analysis can read results from the frozen metric list
- * without re-resolving metrics or depending on how queries were grouped.
+ * Output column for one statistic of one metric, keyed by the metric's
+ * position in the snapshot's frozen metric list. Positional rather than by
+ * metric id because ids allow uppercase and hyphens, which warehouses fold or
+ * reject as identifiers; the caller guarantees the same list in and out.
  */
-export function interleavingMetricColumn(metricId: string, stat: string) {
-  return `${encodeMetricIdForColumnName(metricId)}_${stat}`;
+export function interleavingMetricColumn(metricIndex: number, stat: string) {
+  return `m${metricIndex}_${stat}`;
 }
 
 /**
@@ -141,7 +141,7 @@ function buildPlan(
 ): Plan {
   const filterGroups: string[][] = [];
 
-  const entries = metrics.map(({ analyses, metric }, i): PlanEntry => {
+  const entries = metrics.map(({ analyses, metric, index }, i): PlanEntry => {
     const has: Record<InterleavingAnalysis["type"], boolean> = {
       paired: false,
       preference: false,
@@ -164,7 +164,7 @@ function buildPlan(
     });
     return {
       i,
-      out: (stat) => interleavingMetricColumn(metric.id, stat),
+      out: (stat) => interleavingMetricColumn(index, stat),
       ...has,
       value: agg.fullAggregationFunction(
         filterSql
@@ -190,10 +190,14 @@ export function getInterleavingMetricQuery(
   dialect: SqlDialect,
   params: InterleavingMetricQueryParams,
 ): string {
-  const { userIdType, trackingKey, variationKeys, startDate, endDate } = params;
+  const { userIdType, trackingKey, variationKeys, runs, startDate, endDate } =
+    params;
 
   if (params.metrics.length === 0) {
     throw new Error("Interleaving metric query requires at least one metric");
+  }
+  if (runs.length === 0) {
+    throw new Error("Interleaving metric query requires at least one run");
   }
   const { jsonArray } = dialect;
   if (!jsonArray) {
@@ -209,17 +213,20 @@ export function getInterleavingMetricQuery(
   const includePaired = plan.paired.length > 0;
   const includePreference = plan.preference.length > 0;
 
-  const compiled = {
-    startDate,
-    endDate: endDate ?? undefined,
-    experimentId: trackingKey,
-  };
+  const compiled = { startDate, endDate, experimentId: trackingKey };
   const [controlKey, treatmentKey] = variationKeys;
   const ts = INTERLEAVING_TIMESTAMP_COLUMN;
   const lit = (value: string) => `'${dialect.escapeStringLiteral(value)}'`;
+  // One range per run, OR'd. Parenthesised because both callers AND this into
+  // a WHERE clause, where a bare OR would widen the whole predicate.
   const dateFilter = (col: string) =>
-    `${col} >= ${dialect.toTimestamp(startDate)}` +
-    (endDate ? ` AND ${col} <= ${dialect.toTimestamp(endDate)}` : "");
+    `(${runs
+      .map(
+        (r) =>
+          `(${col} >= ${dialect.toTimestamp(r.dateStarted)}` +
+          ` AND ${col} <= ${dialect.toTimestamp(r.dateEnded)})`,
+      )
+      .join("\n          OR ")})`;
   const item = (field: string) => jsonArray.fieldText("item", field);
   const cols = (parts: string[]) => parts.join(",\n        ");
 
@@ -238,10 +245,15 @@ export function getInterleavingMetricQuery(
   // fail the join outright (Postgres: "operator does not exist: integer =
   // text"). Casting happens in the projecting CTE, not the ON clause, so
   // ClickHouse still sees an equi-join.
-  const itemId = dialect.castToString(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
-  const exposureRankingId = dialect.castToString(
-    `e.${INTERLEAVING_RANKING_ID_COLUMN}`,
-  );
+  //
+  // The wider cast matters here: `castToString` is varchar(256) on SQL Server,
+  // which would silently merge two ids sharing a 256-character prefix into one
+  // group/join key. Item ids come from the customer's catalog and have no
+  // length bound. Named for filters, but this is the same "must not truncate"
+  // requirement.
+  const castKey = dialect.castToFilterString ?? dialect.castToString;
+  const itemId = castKey(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
+  const exposureRankingId = castKey(`e.${INTERLEAVING_RANKING_ID_COLUMN}`);
 
   // One row per (user, ranking, competitive item). Grouping collapses
   // double-logged impressions (SDK retries) and repeated items in a list.
@@ -256,7 +268,7 @@ export function getInterleavingMetricQuery(
           `MIN(e.${ts}) AS exposure_timestamp`,
         ])}
       FROM (
-        ${compileSqlTemplate(params.exposureQuery, compiled)}
+        ${compileSqlTemplate(params.interleavingExposureQuerySql, compiled)}
       ) e
       ${jsonArray.unnest(`e.${INTERLEAVING_ITEMS_COLUMN}`, "item")}
       WHERE e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${lit(trackingKey)}
@@ -291,7 +303,7 @@ export function getInterleavingMetricQuery(
   // Resolved like every other fact-table column so virtual columns and JSON
   // paths work, then cast to match the exposure side's string keys.
   const eventColumn = (column: string) =>
-    dialect.castToString(
+    castKey(
       getColumnExpression(
         column,
         factTable,

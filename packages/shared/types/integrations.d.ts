@@ -1117,6 +1117,10 @@ export type FeatureUsageLookback = "15minute" | "hour" | "day" | "week";
 // experiment fact metrics.
 export interface InterleavingMetricQueryMetric {
   metric: FactMetricInterface;
+  // Position in the snapshot's frozen metric list, which names this metric's
+  // output columns. Not the position within this query: metrics are split
+  // across one query per fact table and the results merge into one row.
+  index: number;
   // "paired" needs ranking_id on the metric's fact table; preference only
   // needs item_id.
   analyses: InterleavingAnalysis[];
@@ -1125,17 +1129,18 @@ export interface InterleavingMetricQueryMetric {
 export interface InterleavingMetricQueryParams {
   // The interleaving exposure query SQL (one row per impression, nested
   // items JSON column)
-  exposureQuery: string;
+  interleavingExposureQuerySql: string;
   userIdType: string;
   trackingKey: string;
   // Control first; matched against the exposure items' `variation` values
   variationKeys: [string, string];
+  runs: { dateStarted: Date; dateEnded: Date }[];
   startDate: Date;
-  endDate: Date | null;
+  endDate: Date;
   // One query analyzes all metrics whose numerator reads this fact table;
-  // output columns are prefixed m{i}_ by array index, with each analysis's
-  // columns under the same prefix. Paired/preference CTEs are only included
-  // when at least one metric requests them.
+  // output columns are prefixed m{index}_ using each metric's `index`, with
+  // every analysis's columns under the same prefix. Paired/preference CTEs
+  // are only included when at least one metric requests them.
   factTable: FactTableInterface;
   metrics: InterleavingMetricQueryMetric[];
 }

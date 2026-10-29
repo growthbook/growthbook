@@ -744,7 +744,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     });
     mockCandidates([...live, dead]);
     (getQueryStatusesByIds as jest.Mock).mockImplementation(
-      async (_org: string, ids: string[]) =>
+      async (...[, ids]: [string, string[]]) =>
         ids.map((id) => ({
           id,
           status: "queued",
@@ -1003,7 +1003,7 @@ describe("expireOldQueries interleaving snapshots", () => {
     ];
     // Every healthy snapshot still has a running query, so each is skipped.
     (getQueryStatusesByIds as jest.Mock).mockImplementation(
-      async (_org: string, ids: string[]) =>
+      async (...[, ids]: [string, string[]]) =>
         ids.map((id) => ({ id, status: "running" })),
     );
 

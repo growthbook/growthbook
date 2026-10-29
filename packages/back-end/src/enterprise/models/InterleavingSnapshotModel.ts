@@ -26,10 +26,11 @@ export class InterleavingSnapshotModel extends BaseClass {
     return true;
   }
 
+  // The datasource id is nested in settings, so BaseModel wouldn't detect it
+  // on its own.
   protected override getForeignKeys(doc: InterleavingSnapshotInterface) {
     const keys = super.getForeignKeys(doc);
-    const datasource = doc.frozenSettings?.datasourceId;
-    return datasource ? { ...keys, datasource } : keys;
+    return { ...keys, datasource: doc.settings.datasourceId };
   }
 
   private canRunQueries(doc: InterleavingSnapshotInterface): boolean {
@@ -63,6 +64,7 @@ export class InterleavingSnapshotModel extends BaseClass {
     return snapshots[0] || null;
   }
 
+  // Capped at 100 regardless of what the caller asks for.
   public listForInterleaving(
     interleavingId: string,
     limit: number = 20,

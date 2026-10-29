@@ -9,7 +9,7 @@ import type {
 export function toApiInterleavingSnapshot(
   doc: InterleavingSnapshotInterface,
 ): ApiInterleavingSnapshotInterface {
-  const { frozenSettings: s } = doc;
+  const { settings: s } = doc;
   return {
     id: doc.id,
     interleavingId: doc.interleavingId,
@@ -24,8 +24,13 @@ export function toApiInterleavingSnapshot(
       userIdType: s.userIdType,
       variations: s.variations,
       metrics: s.metrics,
+      pValueThreshold: s.pValueThreshold,
+      runs: s.runs.map((r) => ({
+        dateStarted: r.dateStarted.toISOString(),
+        dateEnded: r.dateEnded.toISOString(),
+      })),
       startDate: s.startDate.toISOString(),
-      endDate: s.endDate?.toISOString() ?? null,
+      endDate: s.endDate.toISOString(),
     },
     results: doc.results,
   };
@@ -43,6 +48,18 @@ export function toApiInterleavingSnapshotStatus(
     queries: doc.queries,
   };
 }
+
+type ApiVariation = ApiInterleavingInterface["variations"][number];
+
+const apiVariation = (
+  v: InterleavingInterface["variations"][number],
+): ApiVariation => ({
+  id: v.id,
+  key: v.key,
+  name: v.name,
+  description: v.description,
+  config: v.config,
+});
 
 export function toApiInterleaving(
   doc: InterleavingInterface,
@@ -64,13 +81,10 @@ export function toApiInterleaving(
     trackingKey: doc.trackingKey,
     hashAttribute: doc.hashAttribute,
     seed: doc.seed,
-    variations: doc.variations.map((v) => ({
-      id: v.id,
-      key: v.key,
-      name: v.name,
-      description: v.description,
-      config: v.config,
-    })),
+    variations: [
+      apiVariation(doc.variations[0]),
+      apiVariation(doc.variations[1]),
+    ],
     jsonSchema: doc.jsonSchema
       ? { ...doc.jsonSchema, date: doc.jsonSchema.date.toISOString() }
       : null,
