@@ -62,6 +62,9 @@ const EditOrganization: FC<{
   const [autoApproveMembers, setAutoApproveMembers] = useState(
     currentOrg.autoApproveMembers || false,
   );
+  const [restrictLoginMethod, setRestrictLoginMethod] = useState(
+    currentOrg.restrictLoginMethod || "",
+  );
   const [disableSelfServeBilling, setDisableSelfServeBilling] = useState(
     currentOrg.disableSelfServeBilling || false,
   );
@@ -83,6 +86,7 @@ const EditOrganization: FC<{
     ownerEmail: owner,
     verifiedDomain,
     autoApproveMembers,
+    restrictLoginMethod,
     enterprise: legacyEnterprise,
     freeSeats,
     disableSelfServeBilling,
@@ -239,6 +243,15 @@ const EditOrganization: FC<{
         />
         {isCloud() ? (
           <>
+            {!currentOrg.restrictLoginMethod?.startsWith("vercel:") && (
+              <TextField
+                label="Required SSO connection ID"
+                value={restrictLoginMethod}
+                placeholder="None"
+                disabled={!canSso}
+                onChange={(e) => setRestrictLoginMethod(e.target.value)}
+              />
+            )}
             <TextField
               label="Free seats"
               type="number"

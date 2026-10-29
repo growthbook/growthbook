@@ -87,6 +87,7 @@ const ORG_FIELD_PERMISSIONS: {
   // Both control who can join the org, so they sit with SSO
   verifiedDomain: "sso",
   autoApproveMembers: "sso",
+  restrictLoginMethod: "sso",
   licenseKey: "billing",
   enterprise: "billing",
   freeSeats: "billing",
@@ -213,6 +214,7 @@ export async function _dangerousAdminPutOrganization(
     ownerEmail?: string;
     verifiedDomain?: string;
     autoApproveMembers?: boolean;
+    restrictLoginMethod?: string;
     enterprise?: boolean;
     freeSeats?: number;
     disableSelfServeBilling?: boolean;
@@ -233,6 +235,7 @@ export async function _dangerousAdminPutOrganization(
     ownerEmail,
     verifiedDomain,
     autoApproveMembers,
+    restrictLoginMethod,
     enterprise,
     freeSeats,
     disableSelfServeBilling,
@@ -274,6 +277,34 @@ export async function _dangerousAdminPutOrganization(
     autoApproveMembers !== (org.autoApproveMembers ?? false)
   ) {
     updates.autoApproveMembers = autoApproveMembers;
+  }
+  if (
+    restrictLoginMethod !== undefined &&
+    restrictLoginMethod.trim() !== (org.restrictLoginMethod ?? "")
+  ) {
+    const connectionId = restrictLoginMethod.trim();
+    // Vercel orgs are bound to their installation
+    if (
+      org.restrictLoginMethod?.startsWith("vercel:") ||
+      connectionId.startsWith("vercel:")
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message: "The login method of a Vercel organization can't be changed.",
+      });
+    }
+    // Can be another org's connection, e.g. a subsidiary that signs in
+    // through its parent company's SSO
+    if (connectionId) {
+      const sso = await _dangerousGetSSOConnectionById(connectionId);
+      if (!sso || sso.disabled) {
+        return res.status(400).json({
+          status: 400,
+          message: `No active SSO connection with the ID "${connectionId}".`,
+        });
+      }
+    }
+    updates.restrictLoginMethod = connectionId;
   }
   if (enterprise !== undefined && enterprise !== (org.enterprise ?? false)) {
     updates.enterprise = enterprise;
@@ -491,7 +522,8 @@ export async function _dangerousAdminGetMembers(
           id: mo.id,
           name: mo.name,
           members: mo.members.length,
-          role: mo.members.find((m) => m.id === u.id)?.role,
+          role: u.role,
+          lastLoginDate: u.lastLoginDate,
         };
         if (orgMembers.has(u.id)) {
           orgMembers.set(u.id, [...orgMembers.get(u.id), condensedOrg]);

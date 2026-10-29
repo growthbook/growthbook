@@ -1,8 +1,15 @@
-import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
+import {
+  Dispatch,
+  Fragment,
+  SetStateAction,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import { OrganizationInterface } from "shared/types/organization";
-import { Box, Flex } from "@radix-ui/themes";
+import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useRouter } from "next/router";
-import { PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
 import { date } from "shared/dates";
 import { SuperAdmin } from "shared/validators";
 import {
@@ -16,7 +23,6 @@ import { isCloud, isMultiOrg } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
 import EditMember, { AdminMember } from "@/components/Admin/EditMember";
-import { GBEdit } from "@/components/Icons";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import useApi from "@/hooks/useApi";
@@ -45,17 +51,22 @@ interface memberOrgProps {
   name: string;
   members: number;
   role: string;
+  lastLoginDate?: string;
 }
 
 const numberFormatter = new Intl.NumberFormat();
+
+// For names, emails and IDs, which have few spaces to wrap at
+const WRAP = { overflowWrap: "anywhere" } as const;
 
 const MEMBER_RANGES: Record<
   string,
   { min?: number; max?: number; label: string }
 > = {
-  "1-9": { min: 1, max: 9, label: "1–9 members" },
-  "10-49": { min: 10, max: 49, label: "10–49 members" },
-  "50+": { min: 50, label: "50+ members" },
+  "1-3": { min: 1, max: 3, label: "1–3 members" },
+  "4-10": { min: 4, max: 10, label: "4–10 members" },
+  "11-30": { min: 11, max: 30, label: "11–30 members" },
+  "31+": { min: 31, label: "31+ members" },
 };
 
 type FilterOptions = [value: string, label: string][];
@@ -80,6 +91,7 @@ function getOrgFilterOptions() {
       ...(cloud ? cloudStatuses : []),
       ["suspended", "Suspended"],
       ["disabled", "Disabled"],
+      ["has_banner", "Has banner"],
     ],
     members: Object.entries(MEMBER_RANGES).map(([value, r]) => [
       value,
@@ -369,12 +381,12 @@ function OrganizationList({
                     if ((e.target as HTMLElement).closest("a")) return;
                     router.push(`/admin/${o.id}`);
                   }}
-                  style={{ whiteSpace: "nowrap", cursor: "pointer" }}
+                  style={{ cursor: "pointer" }}
                 >
-                  <TableCell>
+                  <TableCell maxWidth="280px" style={WRAP}>
                     <Text weight="semibold">{o.name}</Text>
                   </TableCell>
-                  <TableCell>
+                  <TableCell style={WRAP}>
                     <code>{o.id}</code>
                   </TableCell>
                   {isCloud() && (
@@ -390,8 +402,12 @@ function OrganizationList({
                     {summary.seats ? ` / ${summary.seats}` : ""}
                   </TableCell>
                   <TableCell>{date(o.dateCreated)}</TableCell>
-                  <TableCell>{o.ownerEmail}</TableCell>
-                  {!isCloud() && <TableCell>{o.externalId}</TableCell>}
+                  <TableCell maxWidth="280px" style={WRAP}>
+                    {o.ownerEmail}
+                  </TableCell>
+                  {!isCloud() && (
+                    <TableCell style={WRAP}>{o.externalId}</TableCell>
+                  )}
                   <TableCell style={{ textAlign: "right" }}>
                     <Link
                       href={`/admin/${o.id}`}
@@ -451,6 +467,7 @@ function MemberList({
   const { page, search, superAdminsOnly } = filters;
   const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
   const [editMember, setEditMember] = useState<AdminMember | null>(null);
+  const [expanded, setExpanded] = useState<string[]>([]);
 
   const params = new URLSearchParams({ page: String(page), search });
   if (superAdminsOnly) params.set("superAdmins", "1");
@@ -512,60 +529,122 @@ function MemberList({
               <TableColumnHeader>Created</TableColumnHeader>
               <TableColumnHeader>Verified</TableColumnHeader>
               <TableColumnHeader>Super admin</TableColumnHeader>
-              <TableColumnHeader>Organizations</TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
             {data?.members.map((m) => {
               const orgs = data.memberOrgs[m.id] ?? [];
+              const isExpanded = expanded.includes(m.id);
+              const toggle = () =>
+                setExpanded((ids) =>
+                  isExpanded ? ids.filter((id) => id !== m.id) : [...ids, m.id],
+                );
               return (
-                <TableRow key={m.id} style={{ whiteSpace: "nowrap" }}>
-                  <TableCell>{m.name}</TableCell>
-                  <TableCell>{m.email}</TableCell>
-                  <TableCell>
-                    <code>{m.id}</code>
-                  </TableCell>
-                  <TableCell>
-                    {m.dateCreated ? date(m.dateCreated) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      label={m.verified ? "Verified" : "Unverified"}
-                      color={m.verified ? "green" : "amber"}
-                    />
-                  </TableCell>
-                  <TableCell>{formatSuperAdmin(m.superAdmin)}</TableCell>
-                  <TableCell>
-                    {orgs.length
-                      ? orgs.map((o, i) => (
-                          <span key={o.id}>
-                            {i > 0 && ", "}
-                            <Link href={`/admin/${o.id}`}>{o.name}</Link> (
-                            {o.role})
-                          </span>
-                        ))
-                      : "-"}
-                  </TableCell>
-                  <TableCell style={{ textAlign: "right" }}>
-                    {canEdit && (
-                      <Link
-                        aria-label={`Edit ${m.name || m.email}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditMember(m);
-                        }}
+                <Fragment key={m.id}>
+                  <TableRow
+                    onClick={(e) => {
+                      // The caret button handles its own clicks
+                      if ((e.target as HTMLElement).closest("button")) return;
+                      toggle();
+                    }}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <TableCell maxWidth="200px" style={WRAP}>
+                      {m.name}
+                    </TableCell>
+                    <TableCell maxWidth="300px" style={WRAP}>
+                      {m.email}
+                    </TableCell>
+                    <TableCell style={WRAP}>
+                      <code>{m.id}</code>
+                    </TableCell>
+                    <TableCell>
+                      {m.dateCreated ? date(m.dateCreated) : "-"}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        label={m.verified ? "Verified" : "Unverified"}
+                        color={m.verified ? "green" : "amber"}
+                      />
+                    </TableCell>
+                    <TableCell maxWidth="200px" style={WRAP}>
+                      {formatSuperAdmin(m.superAdmin)}
+                    </TableCell>
+                    <TableCell style={{ textAlign: "right" }}>
+                      <IconButton
+                        variant="ghost"
+                        color="gray"
+                        size="1"
+                        aria-expanded={isExpanded}
+                        aria-label={`${isExpanded ? "Hide" : "Show"} details for ${m.name || m.email}`}
+                        onClick={toggle}
                       >
-                        <GBEdit />
-                      </Link>
-                    )}
-                  </TableCell>
-                </TableRow>
+                        {isExpanded ? <PiCaretDown /> : <PiCaretRight />}
+                      </IconButton>
+                    </TableCell>
+                  </TableRow>
+                  {isExpanded && (
+                    <TableRow>
+                      <TableCell colSpan={7}>
+                        <Flex gap="4" align="start" pl="6" pb="3">
+                          <Box flexGrow="1" minWidth="0">
+                            {orgs.length ? (
+                              <Table variant="ghost" size="sm">
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableColumnHeader>
+                                      Organization
+                                    </TableColumnHeader>
+                                    <TableColumnHeader>Role</TableColumnHeader>
+                                    <TableColumnHeader>
+                                      Last login
+                                    </TableColumnHeader>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {orgs.map((o) => (
+                                    <TableRow key={o.id}>
+                                      <TableCell maxWidth="400px" style={WRAP}>
+                                        <Link href={`/admin/${o.id}`}>
+                                          {o.name}
+                                        </Link>
+                                      </TableCell>
+                                      <TableCell>{o.role}</TableCell>
+                                      <TableCell>
+                                        {o.lastLoginDate
+                                          ? date(o.lastLoginDate)
+                                          : "-"}
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            ) : (
+                              <Text color="text-mid">
+                                Not a member of any organization
+                              </Text>
+                            )}
+                          </Box>
+                          {canEdit && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setEditMember(m)}
+                            >
+                              Edit member
+                            </Button>
+                          )}
+                        </Flex>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </Fragment>
               );
             })}
             {data?.members.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8}>
+                <TableCell colSpan={7}>
                   <Text color="text-mid">No members found</Text>
                 </TableCell>
               </TableRow>

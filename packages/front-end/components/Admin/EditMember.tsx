@@ -33,7 +33,7 @@ const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   metadata: "Edit organization details",
   suspend: "Suspend and disable organizations",
   create: "Create organizations",
-  users: "Edit user names, mark emails verified, and reset sign-in methods",
+  users: "Edit user names and login methods",
   grant: "Grant super admin access",
 };
 
