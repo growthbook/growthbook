@@ -89,6 +89,14 @@ export function ExperimentDataFields({
     "analysis-plan:exposureQueryIdentifierType",
     experiment.exposureQueryIdentifierType || "",
   );
+  const [isClusterExperiment] = useStagedState(
+    "analysis-plan:isClusterExperiment",
+    !!experiment.isClusterExperiment,
+  );
+  const [clusterSubUnitIdentifier] = useStagedState(
+    "analysis-plan:clusterSubUnitIdentifier",
+    experiment.clusterSubUnitIdentifier || "",
+  );
   const datasource = getDatasourceById(datasourceId);
   const deletedDatasource =
     datasourceMissing && datasourceId === experiment.datasource;
@@ -151,6 +159,14 @@ export function ExperimentDataFields({
             exposureQuery,
             identifierType || undefined,
           )}
+        />
+      ) : null}
+      {isClusterExperiment ? (
+        <Metadata
+          size="sm"
+          stacked
+          label="Cluster subunit"
+          value={clusterSubUnitIdentifier || <EmptyValue />}
         />
       ) : null}
       {holdoutId && (

@@ -38,6 +38,7 @@ import {
 import {
   ExperimentMetricDefinition,
   getAllMetricIdsFromExperiment,
+  getClusterExperimentMetricEligibility,
   getEqualWeights,
   getFunnelStepMetric,
   getLatestPhaseVariations,
@@ -1534,6 +1535,54 @@ export function getUnitDisplayName(identifierType: string | undefined) {
   return identifierType
     ? startCase(identifierType.split("_").join(" ")) + "s"
     : "Units";
+}
+
+/**
+ * Selected metrics a cluster experiment can't analyze. Metrics picked on their
+ * own are dropped on save; part of a group can't be, so groups are named for
+ * the user to remove.
+ */
+export function getIneligibleClusterMetrics(
+  selectedIds: string[],
+  {
+    metricGroups,
+    getExperimentMetricById,
+    ...eligibilityOptions
+  }: Parameters<typeof getClusterExperimentMetricEligibility>[1] & {
+    metricGroups: MetricGroupInterface[];
+    getExperimentMetricById: (id: string) => ExperimentMetricDefinition | null;
+  },
+) {
+  const ineligible = {
+    droppedIds: new Set<string>(),
+    droppedNames: [] as string[],
+    groupNames: [] as string[],
+  };
+  const isEligible = (id: string) => {
+    const metric = getExperimentMetricById(id);
+    return (
+      !metric ||
+      getClusterExperimentMetricEligibility(metric, eligibilityOptions).allowed
+    );
+  };
+  new Set(selectedIds).forEach((id) => {
+    const group = metricGroups.find((mg) => mg.id === id);
+    if (group) {
+      if (
+        !getAllMetricIdsFromExperiment(
+          { goalMetrics: [id] },
+          false,
+          metricGroups,
+        ).every(isEligible)
+      ) {
+        ineligible.groupNames.push(group.name);
+      }
+    } else if (!isEligible(id)) {
+      ineligible.droppedIds.add(id);
+      ineligible.droppedNames.push(getExperimentMetricById(id)?.name ?? id);
+    }
+  });
+  return ineligible;
 }
 
 /**

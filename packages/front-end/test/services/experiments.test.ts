@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import type { MetricInterface } from "shared/types/metric";
+import type { MetricGroupInterface } from "shared/types/metric-groups";
 import {
   convertExperimentToTemplate,
   getClusterUnitsLabel,
+  getIneligibleClusterMetrics,
   getUnitDisplayName,
 } from "@/services/experiments";
 
@@ -54,5 +57,35 @@ describe("getClusterUnitsLabel", () => {
     expect(
       getClusterUnitsLabel({ ...cluster, clusterSubUnitIdentifier: undefined }),
     ).toBeUndefined();
+  });
+});
+
+describe("getIneligibleClusterMetrics", () => {
+  // Cluster experiments only support fact metrics, so a legacy one is ineligible.
+  const legacy = { id: "met_legacy", name: "Legacy" } as MetricInterface;
+  const group = {
+    id: "mg_group",
+    name: "Group",
+    metrics: ["met_legacy"],
+  } as MetricGroupInterface;
+  const options = {
+    clusterIdentifier: "region_id",
+    clusterSubUnitIdentifier: "user_id",
+    getFactTable: () => null,
+    metricGroups: [group],
+    getExperimentMetricById: (id: string) => (id === legacy.id ? legacy : null),
+  };
+
+  it("drops a metric picked on its own", () => {
+    const result = getIneligibleClusterMetrics(["met_legacy"], options);
+    expect([...result.droppedIds]).toEqual(["met_legacy"]);
+    expect(result.droppedNames).toEqual(["Legacy"]);
+    expect(result.groupNames).toEqual([]);
+  });
+
+  it("names a group holding one instead of dropping it", () => {
+    const result = getIneligibleClusterMetrics(["mg_group"], options);
+    expect(result.droppedIds.size).toBe(0);
+    expect(result.groupNames).toEqual(["Group"]);
   });
 });

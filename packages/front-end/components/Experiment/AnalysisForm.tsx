@@ -18,8 +18,6 @@ import {
 } from "shared/util";
 import { getScopedSettings, getUnsetAnalysisSettings } from "shared/settings";
 import {
-  getAllMetricIdsFromExperiment,
-  getClusterExperimentMetricEligibility,
   getClusterSubUnit,
   getLatestPhaseVariations,
 } from "shared/experiments";
@@ -55,6 +53,7 @@ import Callout from "@/ui/Callout";
 import DatePicker from "@/components/DatePicker";
 import {
   datasourceHasWritableEphemeralPipeline,
+  getIneligibleClusterMetrics,
   getIsExperimentIncludedInIncrementalRefresh,
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -83,6 +82,27 @@ import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
+
+export function IneligibleClusterMetricsCallouts({
+  ineligible,
+}: {
+  ineligible: ReturnType<typeof getIneligibleClusterMetrics>;
+}) {
+  return (
+    <>
+      {ineligible.droppedNames.length > 0 && (
+        <Callout status="info" mb="3">
+          {`Saving will remove metrics that cluster experiments can't analyze: ${ineligible.droppedNames.join(", ")}.`}
+        </Callout>
+      )}
+      {ineligible.groupNames.length > 0 && (
+        <Callout status="warning" mb="3">
+          {`Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${ineligible.groupNames.join(", ")}.`}
+        </Callout>
+      )}
+    </>
+  );
+}
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -355,52 +375,23 @@ const AnalysisForm: FC<{
   const guardrailMetrics = form.watch("guardrailMetrics");
   // Same inputs as the metric pickers, so both agree on what's eligible.
   const ineligibleClusterMetrics = useMemo(() => {
-    const ineligible = {
-      droppedIds: new Set<string>(),
-      droppedNames: [] as string[],
-      groupNames: [] as string[],
-    };
     const clusterSubUnit = getClusterSubUnit({
       isClusterExperiment,
       clusterSubUnitIdentifier,
     });
-    if (!clusterSubUnit || !exposureQuery) return ineligible;
-    const isEligible = (id: string) => {
-      const metric = getExperimentMetricById(id);
-      return (
-        !metric ||
-        getClusterExperimentMetricEligibility(metric, {
-          clusterIdentifier: exposureQueryIdentifierType,
-          clusterSubUnitIdentifier: clusterSubUnit,
-          getFactTable: getFactTableById,
-          datasourceSettings: datasource?.settings,
-        }).allowed
-      );
-    };
-    const selectedIds = new Set([
-      ...goalMetrics,
-      ...secondaryMetrics,
-      ...guardrailMetrics,
-    ]);
-    selectedIds.forEach((id) => {
-      const group = metricGroups.find((mg) => mg.id === id);
-      if (group) {
-        // Dropping part of a group isn't possible, so groups are removed by hand.
-        if (
-          !getAllMetricIdsFromExperiment(
-            { goalMetrics: [id] },
-            false,
-            metricGroups,
-          ).every(isEligible)
-        ) {
-          ineligible.groupNames.push(group.name);
-        }
-      } else if (!isEligible(id)) {
-        ineligible.droppedIds.add(id);
-        ineligible.droppedNames.push(getExperimentMetricById(id)?.name ?? id);
-      }
-    });
-    return ineligible;
+    return getIneligibleClusterMetrics(
+      clusterSubUnit && exposureQuery
+        ? [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics]
+        : [],
+      {
+        clusterIdentifier: exposureQueryIdentifierType,
+        clusterSubUnitIdentifier: clusterSubUnit,
+        getFactTable: getFactTableById,
+        datasourceSettings: datasource?.settings,
+        metricGroups,
+        getExperimentMetricById,
+      },
+    );
   }, [
     isClusterExperiment,
     exposureQueryIdentifierType,
@@ -1015,16 +1006,9 @@ const AnalysisForm: FC<{
                 {experiment.status !== "draft" && <Separator my="5" size="4" />}
               </>
             )}
-            {ineligibleClusterMetrics.droppedNames.length > 0 && (
-              <Callout status="info" mb="3">
-                {`Saving will remove metrics that cluster experiments can't analyze: ${ineligibleClusterMetrics.droppedNames.join(", ")}.`}
-              </Callout>
-            )}
-            {ineligibleClusterMetrics.groupNames.length > 0 && (
-              <Callout status="warning" mb="3">
-                {`Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${ineligibleClusterMetrics.groupNames.join(", ")}.`}
-              </Callout>
-            )}
+            <IneligibleClusterMetricsCallouts
+              ineligible={ineligibleClusterMetrics}
+            />
             <ExperimentMetricsSelector
               asRows
               autoFocus={focus === "goalMetrics"}
