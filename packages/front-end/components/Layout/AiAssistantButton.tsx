@@ -1,6 +1,8 @@
+import clsx from "clsx";
 import { PiSparkleBold } from "react-icons/pi";
 import Button from "@/ui/Button";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
+import styles from "./AiAssistantButton.module.scss";
 
 export default function AiAssistantButton({
   className,
@@ -25,6 +27,7 @@ export default function AiAssistantButton({
         variant="ghost"
         color="gray"
         size="sm"
+        className={clsx(agentOpen && styles.panelOpen)}
         icon={<PiSparkleBold />}
         onClick={toggleAgentPanel}
         aria-label={

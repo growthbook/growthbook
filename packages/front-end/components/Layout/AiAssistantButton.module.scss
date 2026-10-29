@@ -1,0 +1,12 @@
+// As the side nav's current page.
+.panelOpen.panelOpen.panelOpen {
+  background-color: var(--slate-a3);
+
+  :global(.rt-Text) {
+    font-weight: 500;
+  }
+
+  &:hover {
+    background-color: var(--slate-a4);
+  }
+}
