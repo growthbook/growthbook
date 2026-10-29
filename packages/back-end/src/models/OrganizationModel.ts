@@ -1,3 +1,4 @@
+import { randomUUID } from "crypto";
 import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import escapeRegExp from "lodash/escapeRegExp";
@@ -17,6 +18,7 @@ import {
 import { ApiOrganization } from "shared/validators";
 import { getStampedOrgLimits } from "back-end/src/services/plan-limits";
 import { upgradeOrganizationDoc } from "back-end/src/util/migrations";
+import { withChangeStamp } from "back-end/src/util/changeStamp";
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   ToInterface,
@@ -168,9 +170,22 @@ const organizationSchema = new mongoose.Schema({
     customEnvironments: Boolean,
     roleManagement: Boolean,
   },
+  changeStamp: String,
 });
 
 organizationSchema.index({ "members.id": 1 });
+
+// Lets cached copies of an org detect any write. Writes that skip these hooks
+// (save, replaceOne, the raw collection) must set changeStamp themselves, and
+// so must findOneAndUpdate(..., { overwrite: true }): the $set added here
+// makes Mongo reject a replacement document. updateMany gives every matched
+// org the same stamp, which is fine since stamps are only compared per org.
+organizationSchema.pre(
+  ["updateOne", "updateMany", "findOneAndUpdate"],
+  function () {
+    this.setUpdate(withChangeStamp(this.getUpdate(), randomUUID()));
+  },
+);
 
 const OrganizationModel = mongoose.model<OrganizationInterface>(
   "Organization",
@@ -178,8 +193,18 @@ const OrganizationModel = mongoose.model<OrganizationInterface>(
 );
 const COLLECTION = "organizations";
 
-const toInterface: ToInterface<OrganizationInterface> = (doc) =>
-  upgradeOrganizationDoc(removeMongooseFields(doc));
+const toInterface: ToInterface<OrganizationInterface> = (doc) => {
+  const org = removeMongooseFields<
+    OrganizationInterface & { changeStamp?: string }
+  >(doc);
+  delete org.changeStamp;
+  return upgradeOrganizationDoc(org);
+};
+
+// "" for an org that has not been written since changeStamp was added
+function readChangeStamp(doc: Record<string, unknown>): string {
+  return typeof doc.changeStamp === "string" ? doc.changeStamp : "";
+}
 
 export async function createOrganization({
   email,
@@ -347,6 +372,21 @@ async function findPageByMemberCount(
 export async function findOrganizationById(id: string) {
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
+}
+
+export async function findOrganizationChangeStamp(
+  id: string,
+): Promise<string | null> {
+  const doc = await getCollection(COLLECTION).findOne(
+    { id },
+    { projection: { _id: 0, changeStamp: 1 } },
+  );
+  return doc ? readChangeStamp(doc) : null;
+}
+
+export async function findOrganizationByIdWithChangeStamp(id: string) {
+  const doc = await getCollection(COLLECTION).findOne({ id });
+  return doc ? { value: toInterface(doc), stamp: readChangeStamp(doc) } : null;
 }
 
 type DeletableKeys = Extract<

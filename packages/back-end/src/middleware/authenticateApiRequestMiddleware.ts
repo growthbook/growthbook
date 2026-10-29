@@ -22,6 +22,7 @@ import { ApiRequestLocals } from "back-end/types/api";
 import {
   getContextFromReq,
   getOrganizationById,
+  getOrganizationForRestRead,
 } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
 import { BadRequestError } from "back-end/src/util/errors";
@@ -49,10 +50,31 @@ import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import { getAuthConnection, processJWT } from "back-end/src/services/auth";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 
+type ApiRequest = Request & ApiRequestLocals;
+type ApiResponse = Response & { log: Request["log"] };
+
+// REST API reads may get a cached, frozen organization.
 export default function authenticateApiRequestMiddleware(
-  req: Request & ApiRequestLocals,
-  res: Response & { log: Request["log"] },
+  req: ApiRequest,
+  res: ApiResponse,
   next: NextFunction,
+) {
+  return authenticateApiRequest(req, res, next, true);
+}
+
+export function authenticateScimRequestMiddleware(
+  req: ApiRequest,
+  res: ApiResponse,
+  next: NextFunction,
+) {
+  return authenticateApiRequest(req, res, next, false);
+}
+
+function authenticateApiRequest(
+  req: ApiRequest,
+  res: ApiResponse,
+  next: NextFunction,
+  cacheOrgForReads: boolean,
 ) {
   // Get secret key from Authorization header and store in req
   const authHeader = req.headers.authorization;
@@ -81,7 +103,9 @@ export default function authenticateApiRequestMiddleware(
     return authenticateWithJwt(req, res, next);
   }
 
-  return authenticateWithApiKey(req, res, next, scheme, value);
+  const useOrgCache =
+    cacheOrgForReads && (req.method === "GET" || req.method === "HEAD");
+  return authenticateWithApiKey(req, res, next, scheme, value, useOrgCache);
 }
 
 function authenticateWithJwt(
@@ -219,6 +243,7 @@ function authenticateWithApiKey(
   next: NextFunction,
   scheme: string,
   value: string,
+  useOrgCache: boolean,
 ) {
   const xOrganizationHeader = req.headers["x-organization"] as string;
 
@@ -295,7 +320,9 @@ function authenticateWithApiKey(
       }
 
       // Organization for key
-      const org = await getOrganizationById(asOrg);
+      const org = await (
+        useOrgCache ? getOrganizationForRestRead : getOrganizationById
+      )(asOrg);
       if (!org) {
         if (xOrganizationHeader) {
           throw new Error(
