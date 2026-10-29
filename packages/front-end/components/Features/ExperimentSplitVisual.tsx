@@ -65,7 +65,7 @@ export default function ExperimentSplitVisual({
           className={styles.segmentLabel}
           style={{ left: left + width / 2 + "%" }}
         >
-          {parseFloat(width.toPrecision(4)) + "%"}
+          {percentFormatter.format(width / 100)}
           {showValues && (
             <>
               {" "}
