@@ -30,15 +30,15 @@ import type { SqlDialect } from "shared/types/sql";
 import { compileSqlTemplate } from "back-end/src/util/sql";
 import { getFactMetricColumn } from "back-end/src/integrations/sql/columns/fact-metric-column";
 import { getAggregationMetadata } from "back-end/src/integrations/sql/fact-metrics/aggregation-metadata";
-import { encodeMetricIdForColumnName } from "back-end/src/integrations/sql/fact-metrics/encode-metric-id-for-column-name";
 
 /**
- * Output column for one statistic of one metric. Keyed by metric id (not
- * position) so the analysis can read results from the frozen metric list
- * without re-resolving metrics or depending on how queries were grouped.
+ * Output column for one statistic of one metric, keyed by the metric's
+ * position in the snapshot's frozen metric list. Positional rather than by
+ * metric id because ids allow uppercase and hyphens, which warehouses fold or
+ * reject as identifiers; the caller guarantees the same list in and out.
  */
-export function interleavingMetricColumn(metricId: string, stat: string) {
-  return `${encodeMetricIdForColumnName(metricId)}_${stat}`;
+export function interleavingMetricColumn(metricIndex: number, stat: string) {
+  return `m${metricIndex}_${stat}`;
 }
 
 /**
@@ -138,7 +138,7 @@ function buildPlan(
 ): Plan {
   const filterGroups: string[][] = [];
 
-  const entries = metrics.map(({ analyses, metric }, i): PlanEntry => {
+  const entries = metrics.map(({ analyses, metric, index }, i): PlanEntry => {
     const has: Record<InterleavingAnalysis["type"], boolean> = {
       paired: false,
       preference: false,
@@ -161,7 +161,7 @@ function buildPlan(
     });
     return {
       i,
-      out: (stat) => interleavingMetricColumn(metric.id, stat),
+      out: (stat) => interleavingMetricColumn(index, stat),
       ...has,
       value: agg.fullAggregationFunction(
         filterSql
@@ -206,17 +206,13 @@ export function getInterleavingMetricQuery(
   const includePaired = plan.paired.length > 0;
   const includePreference = plan.preference.length > 0;
 
-  const compiled = {
-    startDate,
-    endDate: endDate ?? undefined,
-    experimentId: trackingKey,
-  };
+  const compiled = { startDate, endDate, experimentId: trackingKey };
   const [controlKey, treatmentKey] = variationKeys;
   const ts = INTERLEAVING_TIMESTAMP_COLUMN;
   const lit = (value: string) => `'${dialect.escapeStringLiteral(value)}'`;
   const dateFilter = (col: string) =>
     `${col} >= ${dialect.toTimestamp(startDate)}` +
-    (endDate ? ` AND ${col} <= ${dialect.toTimestamp(endDate)}` : "");
+    ` AND ${col} <= ${dialect.toTimestamp(endDate)}`;
   const item = (field: string) => jsonArray.fieldText("item", field);
   const cols = (parts: string[]) => parts.join(",\n        ");
 
@@ -253,7 +249,7 @@ export function getInterleavingMetricQuery(
           `MIN(e.${ts}) AS exposure_timestamp`,
         ])}
       FROM (
-        ${compileSqlTemplate(params.exposureQuery, compiled)}
+        ${compileSqlTemplate(params.interleavingExposureQuerySql, compiled)}
       ) e
       ${jsonArray.unnest(`e.${INTERLEAVING_ITEMS_COLUMN}`, "item")}
       WHERE e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${lit(trackingKey)}

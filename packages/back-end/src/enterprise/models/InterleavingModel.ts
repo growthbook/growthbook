@@ -433,6 +433,29 @@ export class InterleavingModel extends BaseClass {
       throw new Error("Interleaving tracking key cannot be empty.");
     }
 
+    // These decide which users see which ranker, so changing them mid-flight
+    // invalidates the experiment rather than adjusting it. Analysis inputs
+    // (datasource, exposure query, metrics) stay editable: each snapshot
+    // freezes its own copy, so an edit only affects the next refresh.
+    if (previousDoc?.status === "running") {
+      const locked = (
+        [
+          ["seed", "seed"],
+          ["hashAttribute", "assignment attribute"],
+          ["trackingKey", "tracking key"],
+        ] as const
+      )
+        .filter(([field]) => doc[field] !== previousDoc[field])
+        .map(([, label]) => label);
+      if (locked.length) {
+        throw new Error(
+          `Stop this interleaving experiment before changing its ${locked.join(
+            ", ",
+          )}.`,
+        );
+      }
+    }
+
     if (
       !previousDoc ||
       !isEqual(doc.variations, previousDoc.variations) ||
@@ -551,6 +574,12 @@ export class InterleavingModel extends BaseClass {
   }
 
   protected async afterDelete(doc: InterleavingInterface) {
+    // Orphaned snapshots are not just dead weight: the reapers scan the
+    // collection by status with no parent check, so a running one is retried
+    // forever.
+    await this.context.models.interleavingSnapshots.deleteForInterleaving(
+      doc.id,
+    );
     this.refreshSDKPayload([doc], "deleted");
   }
 

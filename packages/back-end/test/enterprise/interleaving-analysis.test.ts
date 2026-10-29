@@ -88,6 +88,8 @@ function makeContext({
   const create = jest.fn(async (doc) => ({ id: "ilsnp_1", ...doc }));
   const updateById = jest.fn(async () => undefined);
   const context = {
+    org: { id: "org_1", settings: {} },
+    getProjects: async () => [],
     hasPremiumFeature: () => premium,
     throwPlanDoesNotAllowError: (message: string) => {
       throw new PlanError(message);
@@ -172,9 +174,10 @@ describe("runInterleavingSnapshot", () => {
     const doc = create.mock.calls[0][0];
     expect(doc.status).toBe("running");
     expect(doc.queries).toEqual([]);
-    expect(doc.frozenSettings.interleavingExposureQueryId).toBe("ileq_1");
-    expect(doc.frozenSettings.exposureQuery).toBe("SELECT 1");
-    expect(doc.frozenSettings.variations.map((v) => v.key)).toEqual([
+    expect(doc.settings.interleavingExposureQueryId).toBe("ileq_1");
+    expect(doc.settings.pValueThreshold).toBe(0.05);
+    expect(doc.settings.interleavingExposureQuerySql).toBe("SELECT 1");
+    expect(doc.settings.variations.map((v) => v.key)).toEqual([
       "popular",
       "buyers-pick",
     ]);
@@ -189,7 +192,7 @@ describe("runInterleavingSnapshot", () => {
 
     await runInterleavingSnapshot(context, "il_1");
 
-    expect(create.mock.calls[0][0].frozenSettings.endDate).toEqual(dateStopped);
+    expect(create.mock.calls[0][0].settings.endDate).toEqual(dateStopped);
   });
 
   it("requires the interleaving premium feature", async () => {

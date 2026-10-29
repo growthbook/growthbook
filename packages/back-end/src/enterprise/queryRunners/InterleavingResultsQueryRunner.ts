@@ -51,8 +51,16 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
     const runInterleavingMetricQuery =
       integration.runInterleavingMetricQuery.bind(integration);
 
-    // One query per fact table; output columns are keyed by metric id, so
-    // the grouping is an execution detail the analysis never sees
+    // Output columns are keyed by each metric's position in the frozen
+    // settings list, which runAnalysis walks in the same order. Metric ids are
+    // unique (validator), so this lookup is exact and survives any reordering
+    // resolveInterleavingMetrics might introduce.
+    const indexByMetricId = new Map(
+      settings.metrics.map((m, index) => [m.id, index]),
+    );
+
+    // One query per fact table; the grouping is an execution detail the
+    // analysis never sees, since column names carry the global position
     const byFactTable = new Map<string, ResolvedInterleavingMetric[]>();
     for (const m of params.metrics) {
       byFactTable.set(m.factTable.id, [
@@ -70,7 +78,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       pending.push({
         factTableId,
         sql: integration.getInterleavingMetricQuery({
-          exposureQuery: settings.exposureQuery,
+          interleavingExposureQuerySql: settings.interleavingExposureQuerySql,
           userIdType: settings.userIdType,
           trackingKey: settings.trackingKey,
           variationKeys: [
@@ -80,10 +88,15 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
           startDate: settings.startDate,
           endDate: settings.endDate,
           factTable: group[0].factTable,
-          metrics: group.map(({ config, metric }) => ({
-            metric,
-            analyses: config.analyses,
-          })),
+          metrics: group.map(({ config, metric }) => {
+            const index = indexByMetricId.get(config.id);
+            if (index === undefined) {
+              throw new Error(
+                `Interleaving metric ${config.id} is not in the snapshot settings`,
+              );
+            }
+            return { metric, index, analyses: config.analyses };
+          }),
         }),
       });
     }
@@ -131,8 +144,9 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
 
   async runAnalysis(queryMap: QueryMap): Promise<InterleavingQueryRunResult> {
     // Each query returns one aggregate row whose metric columns are keyed by
-    // metric id, so the rows merge into one record. `users_exposed` is the
-    // same in every query (same exposure CTE), so overwriting it is harmless.
+    // the metric's position in the frozen settings list, so the rows merge
+    // into one record without colliding across fact tables. `users_exposed` is
+    // the same in every query (same exposure CTE), so overwriting is harmless.
     // QueryMap is untyped at this boundary.
     const row: Record<string, number> = {};
     for (const [name, query] of queryMap) {
@@ -151,12 +165,16 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       return value;
     };
     const usersExposed = read("users_exposed");
+    // Interval alpha, so the CI and the table's significance colouring agree
+    const { pValueThreshold } = this.model.settings;
 
     const results: InterleavingMetricResult[] = [];
-    for (const { id: metricId, analyses } of this.model.frozenSettings
-      .metrics) {
+    for (const [
+      metricIndex,
+      { id: metricId, analyses },
+    ] of this.model.settings.metrics.entries()) {
       const col = (stat: string) =>
-        read(interleavingMetricColumn(metricId, stat));
+        read(interleavingMetricColumn(metricIndex, stat));
       for (const analysis of analyses) {
         switch (analysis.type) {
           case "paired": {
@@ -193,7 +211,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
                 value: stats.treatment_sum,
                 cr: perExposure(stats.treatment_sum),
               },
-              test: pairedDeltaTest(stats),
+              test: pairedDeltaTest(stats, pValueThreshold),
             });
             break;
           }
@@ -210,11 +228,14 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
               denominator: nonTiedUsers,
               control: { value: prefC, cr: perUser(prefC) },
               treatment: { value: prefT, cr: perUser(prefT) },
-              test: preferenceSignTest({
-                users_pref_treatment: prefT,
-                users_pref_control: prefC,
-                users_tied: col("users_tied"),
-              }),
+              test: preferenceSignTest(
+                {
+                  users_pref_treatment: prefT,
+                  users_pref_control: prefC,
+                  users_tied: col("users_tied"),
+                },
+                pValueThreshold,
+              ),
             });
             break;
           }

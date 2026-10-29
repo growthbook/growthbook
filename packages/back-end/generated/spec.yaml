@@ -83407,27 +83407,47 @@ components:
         seed:
           type: string
         variations:
+          description: Exactly two rankers. Control (the default ranker) is first.
           type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: string
-              key:
-                type: string
-              name:
-                type: string
-              description:
-                type: string
-              config:
-                description: The ranker's config, as a JSON string
-                type: string
-            required:
-              - id
-              - key
-              - name
-              - config
-            additionalProperties: false
+          prefixItems:
+            - type: object
+              properties:
+                id:
+                  type: string
+                key:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                config:
+                  description: The ranker's config, as a JSON string
+                  type: string
+              required:
+                - id
+                - key
+                - name
+                - config
+              additionalProperties: false
+            - type: object
+              properties:
+                id:
+                  type: string
+                key:
+                  type: string
+                name:
+                  type: string
+                description:
+                  type: string
+                config:
+                  description: The ranker's config, as a JSON string
+                  type: string
+              required:
+                - id
+                - key
+                - name
+                - config
+              additionalProperties: false
         jsonSchema:
           anyOf:
             - description: Validation schema for the rankers' configs
@@ -83656,7 +83676,6 @@ components:
         status:
           type: string
           enum:
-            - pending
             - running
             - success
             - error
@@ -83749,14 +83768,14 @@ components:
                   - id
                   - analyses
                 additionalProperties: false
+            pValueThreshold:
+              type: number
             startDate:
               type: string
               format: date-time
             endDate:
-              anyOf:
-                - type: string
-                  format: date-time
-                - type: 'null'
+              type: string
+              format: date-time
           required:
             - trackingKey
             - datasourceId
@@ -83764,6 +83783,7 @@ components:
             - userIdType
             - variations
             - metrics
+            - pValueThreshold
             - startDate
             - endDate
           additionalProperties: false
@@ -83863,6 +83883,9 @@ components:
                   pValueErrorMessage:
                     anyOf:
                       - type: string
+                        enum:
+                          - NUMERICAL_PVALUE_NOT_CONVERGED
+                          - ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST
                       - type: 'null'
                 required:
                   - expected
@@ -83876,6 +83899,7 @@ components:
               - metricId
               - analysis
               - users
+              - denominator
               - control
               - treatment
               - test

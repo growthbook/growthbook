@@ -6,20 +6,23 @@ export interface EffectMomentsResult {
   post_stratification_applied: boolean;
 }
 
-export interface Uplift {
-  dist: string;
-  mean: number;
-  stddev: number;
-}
+// Owned by shared so the back-end can validate persisted results against the
+// same shape; re-exported here because stats-ts is where consumers expect them.
+import type {
+  Uplift,
+  ResponseCI,
+  TestResult,
+  PValueErrorMessage,
+  FrequentistTestResult,
+} from "shared/types/stats-engine";
 
-export type ResponseCI = [number | null, number | null];
-
-export interface TestResult {
-  expected: number;
-  ci: ResponseCI;
-  uplift: Uplift;
-  errorMessage: string | null;
-}
+export type {
+  Uplift,
+  ResponseCI,
+  TestResult,
+  PValueErrorMessage,
+  FrequentistTestResult,
+};
 
 export type RiskType = "absolute" | "relative";
 
@@ -28,10 +31,6 @@ export interface BayesianTestResult extends TestResult {
   risk: number[];
   riskType: RiskType;
 }
-
-export type PValueErrorMessage =
-  | "NUMERICAL_PVALUE_NOT_CONVERGED"
-  | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
 
 export interface PValueResult {
   p_value?: number | null;
@@ -146,11 +145,6 @@ export interface PowerResponse {
   priorLiftVariance: number | null;
   upperBoundAchieved: boolean | null;
   scalingFactor: number | null;
-}
-
-export interface FrequentistTestResult extends TestResult {
-  pValue: number | null;
-  pValueErrorMessage: PValueErrorMessage | null;
 }
 
 export interface BayesianVariationResponseIndividual

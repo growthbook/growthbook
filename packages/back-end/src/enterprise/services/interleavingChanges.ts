@@ -27,6 +27,11 @@ export async function startInterleaving(
     );
   }
 
+  // A restart continues the original window, matching how experiments resume a
+  // stopped phase (controllers/experiments.ts clears dateEnded and keeps
+  // dateStarted). Bandits restart the window instead because their weights
+  // adapt; interleaving's draft is fixed-seed, so continuing is safe and keeps
+  // the pre-stop data. The dormant gap is included — phases would be the fix.
   const updated = await context.models.interleavings.update(interleaving, {
     status: "running",
     dateStarted: interleaving.dateStarted ?? new Date(),

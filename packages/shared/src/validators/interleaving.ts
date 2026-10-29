@@ -182,7 +182,10 @@ export const apiInterleavingValidator = namedSchema(
       .describe("The `experiment_id` recorded in exposures"),
     hashAttribute: z.string(),
     seed: z.string(),
-    variations: z.array(apiInterleavingVariation),
+    // Tuple, like the input: the arity is part of the contract both ways.
+    variations: z
+      .tuple([apiInterleavingVariation, apiInterleavingVariation])
+      .describe("Exactly two rankers. Control (the default ranker) is first."),
     jsonSchema: apiJSONSchemaDefInput
       .safeExtend({ date: z.iso.datetime() })
       .describe("Validation schema for the rankers' configs")

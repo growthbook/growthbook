@@ -31,15 +31,19 @@ const settings = (): InterleavingSnapshotSettings => ({
   trackingKey: "search-ranking",
   datasourceId: "ds_1",
   interleavingExposureQueryId: "ileq_1",
-  exposureQuery: "SELECT 1",
+  interleavingExposureQuerySql: "SELECT 1",
   userIdType: "user_id",
   variations: [
     { id: "v0", key: "popular", name: "Popular" },
     { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
   ],
-  metrics: [],
+  metrics: [
+    { id: "fact__m0", analyses: [{ type: "paired" }] },
+    { id: "fact__m1", analyses: [{ type: "paired" }] },
+  ],
+  pValueThreshold: 0.05,
   startDate: new Date("2026-10-01T00:00:00Z"),
-  endDate: null,
+  endDate: new Date("2026-10-08T00:00:00Z"),
 });
 
 // One metric per fact table, so startQueries makes two startQuery calls
@@ -53,10 +57,12 @@ const metricsOnTwoFactTables = () =>
       }) as unknown as ResolvedInterleavingMetric,
   );
 
+const getInterleavingMetricQuery = jest.fn(() => "SELECT 1");
+
 const makeIntegration = () =>
   ({
     datasource: { id: "ds_1", projects: [] },
-    getInterleavingMetricQuery: () => "SELECT 1",
+    getInterleavingMetricQuery,
     runInterleavingMetricQuery: async () => ({ rows: [] }),
   }) as unknown as SourceIntegrationInterface;
 
@@ -74,7 +80,7 @@ const makeModel = () =>
     status: "running",
     queries: [],
     runStarted: null,
-    frozenSettings: settings(),
+    settings: settings(),
   }) as unknown as InterleavingSnapshotInterface;
 
 // Typed view over the inherited `startQuery` seam, so the test can fail one
@@ -159,6 +165,31 @@ describe("InterleavingResultsQueryRunner.startQueries", () => {
 
     expect(mockMarkFailed).not.toHaveBeenCalled();
     expect(mockCancelExternal).not.toHaveBeenCalled();
+  });
+
+  // One query per fact table, but output columns are keyed by position in the
+  // frozen metric list. Numbering per query instead would emit m0_* twice and
+  // the single merged result row would lose one fact table's metrics.
+  it("numbers output columns across fact tables, not within a query", async () => {
+    const { internals } = newRunner();
+    internals.startQuery = async ({ name }) => ({
+      name,
+      query: `qry_${name}`,
+      status: "running",
+    });
+
+    await internals.startQueries({
+      snapshotSettings: settings(),
+      metrics: metricsOnTwoFactTables(),
+    });
+
+    expect(getInterleavingMetricQuery).toHaveBeenCalledTimes(2);
+    const indexes = getInterleavingMetricQuery.mock.calls.map(
+      (call) =>
+        (call[0] as unknown as { metrics: { index: number }[] }).metrics[0]
+          .index,
+    );
+    expect(indexes).toEqual([0, 1]);
   });
 
   it("returns every pointer and cancels nothing on success", async () => {

@@ -104,20 +104,21 @@ describe("toApiInterleavingSnapshot", () => {
       status: "running",
       runStarted: null,
       queries: [{ query: "q_1", status: "running", name: "ft_1" }],
-      frozenSettings: {
+      settings: {
         interleavingId: il.id,
         trackingKey: il.trackingKey,
         datasourceId: il.datasource,
         interleavingExposureQueryId: il.interleavingExposureQueryId,
-        exposureQuery: "SELECT 1",
+        interleavingExposureQuerySql: "SELECT 1",
         userIdType: il.userIdType,
         variations: [
           { id: "v0", key: "popular", name: "Popular" },
           { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
         ],
         metrics: [{ id: "fact__1", analyses: [{ type: "paired" }] }],
+        pValueThreshold: 0.05,
         startDate: new Date("2026-10-01T00:00:00Z"),
-        endDate: null,
+        endDate: new Date("2026-10-07T00:00:00Z"),
       },
     };
     const api = toApiInterleavingSnapshot(snapshot);
@@ -125,8 +126,8 @@ describe("toApiInterleavingSnapshot", () => {
     expect(api.dateCreated).toBe("2026-10-07T00:00:00.000Z");
     expect(api.runStarted).toBeNull();
     expect(api.settings.startDate).toBe("2026-10-01T00:00:00.000Z");
-    expect(api.settings.endDate).toBeNull();
-    expect(api.settings).not.toHaveProperty("exposureQuery");
+    expect(api.settings.endDate).toBe("2026-10-07T00:00:00.000Z");
+    expect(api.settings).not.toHaveProperty("interleavingExposureQuerySql");
     expect(api).not.toHaveProperty("queries");
   });
 });

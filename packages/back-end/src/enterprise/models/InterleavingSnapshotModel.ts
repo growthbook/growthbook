@@ -29,12 +29,11 @@ export class InterleavingSnapshotModel extends BaseClass {
     return true;
   }
 
-  // The datasource id is nested in frozenSettings, so BaseModel wouldn't
-  // detect it on its own.
+  // The datasource id is nested in settings, so BaseModel wouldn't detect it
+  // on its own.
   protected override getForeignKeys(doc: InterleavingSnapshotInterface) {
     const keys = super.getForeignKeys(doc);
-    const datasource = doc.frozenSettings?.datasourceId;
-    return datasource ? { ...keys, datasource } : keys;
+    return { ...keys, datasource: doc.settings.datasourceId };
   }
 
   // Refreshing results is a query, not an analysis edit. canCreateExperimentSnapshot
@@ -69,6 +68,11 @@ export class InterleavingSnapshotModel extends BaseClass {
       { sort: { dateCreated: -1 }, limit: 1 },
     );
     return snapshots[0] || null;
+  }
+
+  public async deleteForInterleaving(interleavingId: string): Promise<void> {
+    const snapshots = await this._find({ interleavingId });
+    await Promise.all(snapshots.map((snapshot) => this.delete(snapshot)));
   }
 
   // Capped at 100 regardless of what the caller asks for.
