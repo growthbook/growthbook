@@ -181,7 +181,7 @@ async function judgeWithDecisionModel({
     hypothesisPrompt && !hypothesisPrompt.isDefaultPrompt
       ? hypothesisPrompt.prompt.trim()
       : "";
-  const { verdicts } = await judgeQualityWithDecisionModel({
+  const verdicts = await judgeQualityWithDecisionModel({
     hypothesis: experiment.hypothesis ?? "",
     goalMetricNames,
     hypothesisGuidance:
