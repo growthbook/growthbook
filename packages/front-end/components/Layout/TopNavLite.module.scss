@@ -1,0 +1,43 @@
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--header-height);
+  z-index: 1010;
+  background-color: var(--color-surface-solid);
+  border-bottom: 1px solid var(--slate-a3);
+  padding: 0 16px;
+  @media (max-width: 520px) {
+    padding: 0 8px;
+  }
+}
+
+.pagetitle {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: inline-block;
+  white-space: nowrap;
+  vertical-align: middle;
+  // Fades a title that runs out of room instead of cutting it hard.
+  -webkit-mask-image: linear-gradient(
+    to right,
+    #000 calc(100% - 32px),
+    transparent
+  );
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent);
+}
+
+.dropdownItemIconColor {
+  &:focus {
+    svg {
+      color: white;
+    }
+  }
+  svg {
+    color: var(--text-color-muted);
+  }
+}

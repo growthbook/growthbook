@@ -37,54 +37,6 @@
   visibility: visible;
 }
 
-.popoverRow {
-  width: 100%;
-  border: 0;
-  background: transparent;
-  font-family: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-
-.popover {
-  min-width: 220px;
-}
-
-.popoverLabel {
-  flex: 1;
-  min-width: 0;
-  white-space: nowrap;
-}
-
-// Only as wide as its text, so the plan badge sits 8px after it.
-.popoverLabelFit {
-  flex: 0 1 auto;
-}
-
-// Icons line up with the menu's header.
-.popoverIconRow {
-  gap: var(--space-2);
-  --popover-item-inset: 10px;
-}
-
-.popoverIcon {
-  flex-shrink: 0;
-  color: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
-}
-
-.popoverRow:hover .popoverIcon {
-  color: var(--slate-12);
-}
-
-.popoverDivider {
-  --separator-inset: 0;
-}
-
-// In line with the labels: the 16px icon and its 8px gap.
-.popoverVersion {
-  --popover-item-inset: calc(10px + 16px + var(--space-2));
-}
-
 .headerButton.headerButton {
   flex-shrink: 0;
   margin: 0 0 0 var(--space-3);

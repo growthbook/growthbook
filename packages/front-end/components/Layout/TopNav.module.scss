@@ -1,5 +1,3 @@
-@use "../../styles/colors.scss";
-
 .topbar {
   display: flex;
   justify-content: space-between;
@@ -50,32 +48,6 @@
       }
     }
   }
-}
-.topbarlite {
-  display: flex;
-  justify-content: space-between;
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: var(--header-height);
-  z-index: 1010;
-  background-color: var(--color-surface-solid);
-  border-bottom: 1px solid var(--slate-a3);
-  padding: 0 16px;
-  @media (max-width: 520px) {
-    padding: 0 8px;
-  }
-}
-.guidedstepbar {
-  display: flex;
-  justify-content: space-between;
-  position: fixed;
-  top: var(--header-height);
-  left: var(--sidebar-width, 240px);
-  right: 0;
-  height: 56px;
-  z-index: 995;
 }
 .pagetitle {
   flex: 1;
@@ -136,15 +108,4 @@
   flex-shrink: 0;
   margin-right: calc(-1 * var(--space-2));
   margin-left: 12px;
-}
-
-.dropdownItemIconColor {
-  &:focus {
-    svg {
-      color: white;
-    }
-  }
-  svg {
-    color: var(--text-color-muted);
-  }
 }

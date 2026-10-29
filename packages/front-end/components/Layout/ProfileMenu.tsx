@@ -40,6 +40,8 @@ import {
   DropdownEntries,
   InPlaceMenu,
   MenuItemContent,
+  SIDEBAR_ICON_SIZE,
+  SidebarItemLook,
   SidebarMenuEntry,
   SidebarMenuInPlace,
 } from "./SidebarMenu";
@@ -60,25 +62,14 @@ const THEME_ICONS: Record<keyof typeof THEME_LABELS, IconType> = {
 };
 
 export default function ProfileMenu({
-  sidebarCollapsed,
-  sidebarClassName,
-  sidebarOpenClassName,
-  sidebarLabelClassName,
-  sidebarIconSize = 18,
-  sidebarIconClassName,
+  sidebarItem,
   inPlace,
 }: {
-  /** Set in the sidebar; without the sidebar* props, it's the header's button. */
-  sidebarCollapsed?: boolean;
-  sidebarClassName?: string;
-  sidebarOpenClassName?: string;
-  sidebarLabelClassName?: string;
-  sidebarIconSize?: number;
-  sidebarIconClassName?: string;
+  /** Set in the sidebar; without it, it's the header's button. */
+  sidebarItem?: SidebarItemLook;
   /** In the drawer, the menu is drawn in place (Sidebar.tsx). */
   inPlace?: SidebarMenuInPlace;
 } = {}) {
-  const inSidebar = sidebarCollapsed !== undefined;
   const router = useRouter();
   const { name, email, organization, hasCommercialFeature } = useUser();
   const { logout, orgId, setOrgId } = useAuth();
@@ -299,10 +290,11 @@ export default function ProfileMenu({
   // With several organizations the tooltip always shows "Name (Org)";
   // otherwise just the name, and only when collapsed.
   const sidebarName = name || email || "Account";
-  const sidebarOrgName = inSidebar && showOrgPicker && orgName ? orgName : null;
+  const sidebarOrgName =
+    sidebarItem && showOrgPicker && orgName ? orgName : null;
   const tooltip = useMenuTriggerTooltip({
     label: sidebarOrgName ? `${sidebarName} (${sidebarOrgName})` : sidebarName,
-    enabled: !inPlace && (!!sidebarCollapsed || !!sidebarOrgName),
+    enabled: !inPlace && (!!sidebarItem?.collapsed || !!sidebarOrgName),
     menuOpen: open,
   });
 
@@ -311,13 +303,13 @@ export default function ProfileMenu({
       <span className={styles.reviewDot} aria-hidden="true" />
     ) : null;
 
-  const trigger = inSidebar ? (
+  const trigger = sidebarItem ? (
     <button
       type="button"
       className={clsx(
-        sidebarClassName,
+        sidebarItem.className,
         styles.sidebarItem,
-        (open || inPlace?.open) && sidebarOpenClassName,
+        (open || inPlace?.open) && sidebarItem.openClassName,
       )}
       aria-label={accountLabel}
       data-sidebar-menu-trigger="profile"
@@ -331,14 +323,14 @@ export default function ProfileMenu({
     >
       <span className={styles.avatarWrap}>
         <ProfileIcon
-          size={sidebarIconSize}
-          className={sidebarIconClassName}
+          size={SIDEBAR_ICON_SIZE}
+          className={sidebarItem.iconClassName}
           aria-hidden="true"
         />
         {reviewDot}
       </span>
-      {sidebarCollapsed ? null : (
-        <span className={sidebarLabelClassName}>{sidebarName}</span>
+      {sidebarItem.collapsed ? null : (
+        <span className={sidebarItem.labelClassName}>{sidebarName}</span>
       )}
       {tooltip.anchor}
     </button>
@@ -391,9 +383,9 @@ export default function ProfileMenu({
         open={open}
         onOpenChange={setOpen}
         menuPlacement="end"
-        menuSide={inSidebar ? "right" : "bottom"}
+        menuSide={sidebarItem ? "right" : "bottom"}
         // 8px past the sidebar's edge: the item sits 8px inside it.
-        menuSideOffset={inSidebar ? 16 : undefined}
+        menuSideOffset={sidebarItem ? 16 : undefined}
         // Room for the name, email and organization.
         menuWidth={280}
         variant="soft"

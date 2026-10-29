@@ -1,12 +1,40 @@
 import { FocusEvent, ReactNode, useEffect, useState } from "react";
 import Tooltip from "@/ui/Tooltip";
-import styles from "./Sidebar.module.scss";
+import styles from "./SidebarTooltip.module.scss";
 
 /**
  * Delays the sidebar's Search and bottom-item tooltips, so they don't flash as
  * the pointer passes.
  */
 export const BOTTOM_TOOLTIP_DELAY_MS = 300;
+
+/** A sidebar item's label, shown beside it. */
+export function SidebarTooltip({
+  content,
+  delayDuration = 0,
+  open,
+  onOpenChange,
+  children,
+}: {
+  content: string;
+  delayDuration?: number;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip
+      content={content}
+      side="right"
+      delayDuration={delayDuration}
+      className={styles.tooltip}
+      open={open}
+      onOpenChange={onOpenChange}
+    >
+      {children}
+    </Tooltip>
+  );
+}
 
 /**
  * The item is already the menu's trigger, so render `anchor` as its last child
@@ -35,16 +63,14 @@ export function useMenuTriggerTooltip({
   if (!enabled) return { anchor: null, triggerProps: {} };
   return {
     anchor: (
-      <Tooltip
+      <SidebarTooltip
         content={label}
-        side="right"
         delayDuration={BOTTOM_TOOLTIP_DELAY_MS}
-        className={styles.sidebarTooltip}
         open={open && !menuOpen}
         onOpenChange={setOpen}
       >
-        <span className={styles.tooltipAnchor} aria-hidden="true" />
-      </Tooltip>
+        <span className={styles.anchor} aria-hidden="true" />
+      </SidebarTooltip>
     ),
     triggerProps: {
       onFocus: (e) => {

@@ -8,17 +8,18 @@ import {
   ProjectMenuInPlace,
   useProjectSelector,
 } from "./ProjectMenu";
-import { SidebarMenuInPlace } from "./SidebarMenu";
+import { SidebarItemLook, SidebarMenuInPlace } from "./SidebarMenu";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
-import styles from "./Sidebar.module.scss";
+import styles from "./SidebarProjectSelector.module.scss";
 
 export default function SidebarProjectSelector({
-  collapsed,
+  sidebarItem,
   inPlace,
 }: {
-  collapsed: boolean;
+  sidebarItem: SidebarItemLook;
   inPlace?: SidebarMenuInPlace;
 }) {
+  const { collapsed } = sidebarItem;
   const { projects, current, heldToOneProject, isDemo, name } =
     useProjectSelector();
   const [open, setOpen] = useState(false);
@@ -52,7 +53,7 @@ export default function SidebarProjectSelector({
   if (!projects.length) return null;
 
   const avatar = (
-    <span className={styles.projectAvatar} aria-hidden="true">
+    <span className={styles.avatar} aria-hidden="true">
       <LetterAvatar
         name={current?.name ?? ""}
         defaultInitials="ALL"
@@ -68,21 +69,18 @@ export default function SidebarProjectSelector({
   ) : (
     <>
       {avatar}
-      <span ref={labelRef} className={styles.rowLabel}>
+      <span ref={labelRef} className={sidebarItem.labelClassName}>
         {name}
       </span>
       {current && isDemo(current.id) ? <DemoBadge /> : null}
       {tooltip.anchor}
     </>
   );
-  const className = clsx(
-    collapsed ? styles.iconItem : styles.row,
-    styles.projectItem,
-  );
+  const className = clsx(sidebarItem.className, !collapsed && styles.expanded);
 
   if (heldToOneProject) {
     return (
-      <div className={clsx(className, styles.projectStatic)}>
+      <div className={clsx(className, styles.static)}>
         <VisuallyHidden>Project: </VisuallyHidden>
         {collapsed ? <VisuallyHidden>{name}</VisuallyHidden> : null}
         {contents}
@@ -95,7 +93,7 @@ export default function SidebarProjectSelector({
       <>
         <button
           type="button"
-          className={clsx(className, inPlace.open && styles.menuOpen)}
+          className={clsx(className, inPlace.open && sidebarItem.openClassName)}
           aria-label={`Project: ${name}`}
           aria-expanded={inPlace.open}
           // Focus returns here from the menu (Sidebar.tsx).
@@ -119,7 +117,7 @@ export default function SidebarProjectSelector({
         <button
           ref={triggerRef}
           type="button"
-          className={clsx(className, open && styles.menuShowing)}
+          className={clsx(className, open && sidebarItem.openClassName)}
           aria-label={`Project: ${name}`}
           {...tooltip.triggerProps}
         >

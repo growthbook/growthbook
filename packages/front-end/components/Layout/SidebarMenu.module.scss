@@ -120,11 +120,9 @@
   line-height: 14px;
 }
 
-// --separator-inset: the Help popover's runs edge to edge
-// (HelpMenu.module.scss).
 .separator {
   flex-shrink: 0;
   height: 1px;
-  margin: 6px var(--separator-inset, var(--space-1));
+  margin: 6px var(--space-1);
   background: var(--sidebar-divider, var(--slate-4));
 }

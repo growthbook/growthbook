@@ -58,6 +58,23 @@ export function MenuItemContent({
   );
 }
 
+/** The sidebar's icon size, on its own items and its menus' triggers. */
+export const SIDEBAR_ICON_SIZE = 18;
+
+/**
+ * How a menu's trigger looks as a sidebar item. The sidebar passes its own
+ * classes, so each menu keeps to its own stylesheet.
+ */
+export type SidebarItemLook = {
+  collapsed: boolean;
+  /** The row, or the icon alone when collapsed. */
+  className: string;
+  /** While the item's menu is open. */
+  openClassName: string;
+  labelClassName: string;
+  iconClassName?: string;
+};
+
 export type SidebarMenuInPlace = {
   open: boolean;
   /** From the keyboard, the first item shows its focus ring. */

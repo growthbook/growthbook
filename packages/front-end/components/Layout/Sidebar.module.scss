@@ -577,41 +577,6 @@
   line-height: var(--line-height-1);
 }
 
-// SidebarProjectSelector.tsx: the avatar centers on the icon column, and the
-// name lines up with the other rows' labels.
-.row.projectItem {
-  padding-left: 3px;
-
-  .projectAvatar {
-    // Its own 8px margin and 4px more, so the name sits 6px after it.
-    margin-right: -12px;
-  }
-}
-
-// The avatar's own 8px right margin (LetterAvatar) taken back, so it
-// centers in the collapsed icon's box.
-.projectAvatar {
-  display: flex;
-  flex-shrink: 0;
-  margin-right: -8px;
-
-  // LetterAvatar's 26px size shown at 22px, nearer the 18px icons, without
-  // changing the component. A transform keeps its 26px layout box.
-  > * {
-    transform: scale(calc(22 / 26));
-  }
-}
-
-// Held to one project: nothing to open.
-.projectStatic.projectStatic {
-  cursor: default;
-
-  &:hover {
-    background: transparent;
-    color: var(--sidebar-text);
-  }
-}
-
 .upgrade.upgrade {
   margin-top: var(--space-2);
   color: var(--violet-a11);
@@ -701,12 +666,10 @@
   line-height: 14px;
 }
 
-// --popover-item-inset: the Help menu's rows start further left
-// (HelpMenu.module.scss).
 .popoverItem {
   display: flex;
   align-items: center;
-  padding: 6px 10px 6px var(--popover-item-inset, var(--space-4));
+  padding: 6px 10px 6px var(--space-4);
   border-radius: var(--radius-3);
   color: color-mix(in srgb, var(--slate-12) 90%, var(--slate-11));
   font-size: var(--font-size-2);
@@ -722,47 +685,5 @@
   &:focus-visible {
     outline: 2px solid var(--focus-8);
     outline-offset: -2px;
-  }
-}
-
-// A layer over the whole item, so the tooltip sits where the other items' do.
-.tooltipAnchor {
-  position: absolute;
-  inset: 0;
-}
-
-// Tripled, to outrank Radix Themes' animation.
-.sidebarTooltip.sidebarTooltip.sidebarTooltip {
-  &[data-state="delayed-open"],
-  &[data-state="instant-open"] {
-    animation: sidebar-tooltip-in 120ms ease-out both;
-  }
-
-  &[data-state="closed"] {
-    animation: sidebar-tooltip-out 100ms ease-in both;
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    &[data-state] {
-      animation: none;
-    }
-  }
-}
-
-@keyframes sidebar-tooltip-in {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-@keyframes sidebar-tooltip-out {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
   }
 }

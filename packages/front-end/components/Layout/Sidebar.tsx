@@ -35,9 +35,8 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useMediaQuery from "@/hooks/useMediaQuery";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import { Popover } from "@/ui/Popover";
-import Tooltip from "@/ui/Tooltip";
 import Badge from "@/ui/Badge";
-import { BOTTOM_TOOLTIP_DELAY_MS } from "./SidebarTooltip";
+import { BOTTOM_TOOLTIP_DELAY_MS, SidebarTooltip } from "./SidebarTooltip";
 import GrowthBookLogo from "./GrowthBookLogo";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
@@ -51,7 +50,11 @@ import {
   SidebarLinkProps,
 } from "./sidebarNav";
 import { useSidebarOpen } from "./SidebarOpenProvider";
-import { SidebarMenuInPlace } from "./SidebarMenu";
+import {
+  SIDEBAR_ICON_SIZE,
+  SidebarItemLook,
+  SidebarMenuInPlace,
+} from "./SidebarMenu";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
 import styles from "./Sidebar.module.scss";
 
@@ -106,7 +109,6 @@ const BREAKPOINT_SWITCH_MS = 150;
 const SIDEBAR_RESTORE_CLASS = "app-sidebar-restore";
 /** Matches .sidebar's width transition (Sidebar.module.scss). */
 const SIDEBAR_WIDTH_TRANSITION_MS = 200;
-const ICON_SIZE = 18;
 /**
  * Lets the pointer cross the gap from a collapsed section's icon into its
  * popover.
@@ -353,7 +355,7 @@ function CollapsedSection({
         }
       }}
     >
-      <Icon size={ICON_SIZE} />
+      <Icon size={SIDEBAR_ICON_SIZE} />
     </Link>
   );
 
@@ -451,7 +453,7 @@ function ExpandedSection({
             onToggle(true);
           }}
         >
-          <Icon size={ICON_SIZE} className={styles.rowIcon} />
+          <Icon size={SIDEBAR_ICON_SIZE} className={styles.rowIcon} />
           <span className={styles.rowLabel}>{section.link.name}</span>
         </Link>
         <button
@@ -525,10 +527,10 @@ function SidebarItem({
     className,
   );
   const contents = collapsed ? (
-    <Icon size={ICON_SIZE} />
+    <Icon size={SIDEBAR_ICON_SIZE} />
   ) : (
     <>
-      <Icon size={ICON_SIZE} className={styles.rowIcon} />
+      <Icon size={SIDEBAR_ICON_SIZE} className={styles.rowIcon} />
       <span className={styles.rowLabel}>{label}</span>
       {trailing}
     </>
@@ -549,14 +551,9 @@ function SidebarItem({
     </button>
   );
   return collapsed ? (
-    <Tooltip
-      content={tooltip ?? label}
-      side="right"
-      delayDuration={tooltipDelay}
-      className={styles.sidebarTooltip}
-    >
+    <SidebarTooltip content={tooltip ?? label} delayDuration={tooltipDelay}>
       {element}
-    </Tooltip>
+    </SidebarTooltip>
   ) : (
     element
   );
@@ -850,6 +847,15 @@ export default function Sidebar() {
     return () => observer.disconnect();
   }, [contentCollapsed]);
 
+  // The project, profile and Help menus' triggers look like the other items.
+  const sidebarItem: SidebarItemLook = {
+    collapsed: contentCollapsed,
+    className: contentCollapsed ? styles.iconItem : styles.row,
+    openClassName: styles.menuOpen,
+    labelClassName: styles.rowLabel,
+    iconClassName: contentCollapsed ? undefined : styles.rowIcon,
+  };
+
   // Each sweep finishes; the next hover plays it again.
   const [logoPlaying, setLogoPlaying] = useState(false);
 
@@ -911,14 +917,14 @@ export default function Sidebar() {
             aria-label="Close main menu"
             onClick={() => setDrawerOpen(false)}
           >
-            <PiX size={ICON_SIZE} />
+            <PiX size={SIDEBAR_ICON_SIZE} />
           </IconButton>
         ) : null}
 
         {/* Kept mounted while a menu is open in its place: its row draws it. */}
         <div className={drawerMenu ? styles.navHidden : styles.navBody}>
           <SidebarProjectSelector
-            collapsed={contentCollapsed}
+            sidebarItem={sidebarItem}
             inPlace={menuInPlace("project")}
           />
           <SidebarItem
@@ -1038,25 +1044,10 @@ export default function Sidebar() {
               />
             ) : null}
             <ProfileMenu
+              sidebarItem={sidebarItem}
               inPlace={menuInPlace("profile")}
-              sidebarCollapsed={contentCollapsed}
-              sidebarClassName={contentCollapsed ? styles.iconItem : styles.row}
-              sidebarOpenClassName={styles.menuOpen}
-              sidebarLabelClassName={styles.rowLabel}
-              sidebarIconSize={ICON_SIZE}
-              sidebarIconClassName={
-                contentCollapsed ? undefined : styles.rowIcon
-              }
             />
-            <HelpMenu
-              inPlace={menuInPlace("help")}
-              collapsed={contentCollapsed}
-              iconSize={ICON_SIZE}
-              triggerClassName={contentCollapsed ? styles.iconItem : styles.row}
-              openClassName={styles.menuOpen}
-              iconClassName={contentCollapsed ? undefined : styles.rowIcon}
-              labelClassName={styles.rowLabel}
-            />
+            <HelpMenu sidebarItem={sidebarItem} inPlace={menuInPlace("help")} />
           </div>
           {!isNarrow ? (
             <>
