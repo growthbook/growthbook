@@ -1,6 +1,9 @@
 import React, { FC, PropsWithChildren } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
+import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
+import Text from "@/ui/Text";
 
 type ImportFromServiceCardProps = PropsWithChildren<{
   service: string;
@@ -21,47 +24,42 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
   children,
 }) => {
   return (
-    <div className="appbox p-3 mb-0">
-      <div className="d-flex align-items-center">
-        <div
-          className="d-flex justify-content-center align-items-center mr-3"
-          style={{
-            backgroundColor: accentColor,
-            width: 60,
-            height: 60,
-            borderRadius: 6,
-          }}
+    <Box className="appbox" mb="0" p="4">
+      <Flex align="center" gap="4">
+        <Flex
+          align="center"
+          justify="center"
+          flexShrink="0"
+          width="40px"
+          height="40px"
+          style={{ backgroundColor: accentColor, borderRadius: 6 }}
         >
           <img
             src={`/images/3rd-party-logos/importing/icons/${icon}.svg`}
-            style={{
-              width: 40,
-            }}
+            width={26}
             alt={`${service} logo`}
           />
-        </div>
-
-        <div className="flex-grow-1">
-          <h2>{service}</h2>
-          <div className="my-2">{children}</div>
-        </div>
-
-        <div>
+        </Flex>
+        <Box flexGrow="1">
+          <Heading as="h2" size="sm" mb="1">
+            {service}
+          </Heading>
+          <Text as="p" color="text-mid" m="0">
+            {children}
+          </Text>
+        </Box>
+        <Box flexShrink="0">
           {path ? (
-            <LinkButton href={`importing/${path}`} style={{ minWidth: 200 }}>
+            <LinkButton href={`importing/${path}`}>
               Import from {service}
             </LinkButton>
           ) : (
-            <Button
-              variant="outline"
-              onClick={() => onRequest?.()}
-              style={{ minWidth: 200 }}
-            >
+            <Button variant="outline" onClick={() => onRequest?.()}>
               Get migration help
             </Button>
           )}
-        </div>
-      </div>
-    </div>
+        </Box>
+      </Flex>
+    </Box>
   );
 };

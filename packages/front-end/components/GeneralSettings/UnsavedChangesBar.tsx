@@ -109,6 +109,10 @@ export default function UnsavedChangesBar() {
                     contentStyle={{
                       width: 640,
                       maxWidth: "90vw",
+                      // Expanded diffs can outgrow a short window, so the list scrolls.
+                      maxHeight:
+                        "var(--radix-popover-content-available-height)",
+                      overflowY: "auto",
                       padding: "var(--space-3) var(--space-4)",
                     }}
                     trigger={

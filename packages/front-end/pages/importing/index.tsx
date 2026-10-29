@@ -1,6 +1,7 @@
 import React from "react";
 import { NextPage } from "next";
 import { ImportYourData } from "@/components/importing/ImportYourData/ImportYourData";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 /**
  * A page to host all "Import from X" sections. To start, since we only have one,
@@ -9,9 +10,12 @@ import { ImportYourData } from "@/components/importing/ImportYourData/ImportYour
  */
 const ImportingFromExternalServicesPage: NextPage = () => {
   return (
-    <div className="contents container pagecontents">
+    <SettingsPage
+      title="Import Your Data"
+      description="Bring in data from another feature flag or experimentation service."
+    >
       <ImportYourData />
-    </div>
+    </SettingsPage>
   );
 };
 

@@ -337,6 +337,20 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canManageIntegrations(),
       },
       {
+        // The importer lives in General; this reaches it for roles that can't see General.
+        name: "Import your data",
+        href: "/importing",
+        path: /^importing/,
+        filter: ({ permissionsUtils }) =>
+          !permissionsUtils.canManageOrgSettings() &&
+          permissionsUtils.canViewFeatureModal() &&
+          permissionsUtils.canCreateEnvironment({
+            projects: [],
+            id: "",
+          }) &&
+          permissionsUtils.canCreateProjects(),
+      },
+      {
         name: "Usage",
         href: "/settings/usage",
         path: /^settings\/usage/,
