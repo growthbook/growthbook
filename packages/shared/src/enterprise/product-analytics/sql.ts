@@ -151,8 +151,6 @@ interface FactTableGroup {
   factTable: MinimalFactTable;
   metrics: MetricWithMetadata[];
   units: string[];
-  // Alias of the population series; when set, unit rollups only count members.
-  populationAlias?: string;
 }
 interface MetricData {
   unit: string | null;
@@ -181,6 +179,12 @@ export interface DateRange {
 
 function assertNever(value: never): never {
   throw new Error(`Unexpected value: ${value}`);
+}
+
+// Alias of the group's Population count series, if it has one.
+function getPopulationAlias(factTableGroup: FactTableGroup): string | null {
+  const series = factTableGroup.metrics.find((m) => m.isPopulationCount);
+  return series ? getMetricAliases(series.index).base : null;
 }
 
 function getMetricAliases(index: number) {
@@ -492,7 +496,6 @@ function getFactTableGroups({
             unit: population.unit,
             isPopulationCount: true,
           });
-          group.populationAlias = getMetricAliases(metricIndex).base;
         }
         return Object.values(groups);
       })();
@@ -1107,7 +1110,7 @@ function getMetricData(
     (columnRef.aggregation === "count distinct" ||
       columnRef.aggregation === "hll merge" ||
       columnRef.column === "$$distinctDates" ||
-      !!factTableGroup.populationAlias);
+      getPopulationAlias(factTableGroup) !== null);
   const presenceExpr = requiresMetricPresence
     ? getEventValueExpr(
         { ...columnRef, column: "$$count" },
@@ -1480,7 +1483,7 @@ function getPopulationMembersSource(
   unitIndex: number,
   includedMetrics: MetricData[],
 ): string {
-  const { populationAlias } = factTableGroup;
+  const populationAlias = getPopulationAlias(factTableGroup);
   if (!populationAlias) return sourceCTE.name;
   const isMember = `${populationAlias} = 1 AND unit${unitIndex} IS NOT NULL`;
   const columns = [
