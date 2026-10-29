@@ -1,0 +1,8 @@
+// Beside the content, the docs card starts level with Recent's cards, under
+// its heading (its line and 12px). Without Recent, it starts level with the
+// first heading. Stacked under the content, it needs neither.
+@media (min-width: 768px) {
+  .content:has(:global(.recent-items-container)) .docsColumn {
+    margin-top: 38px;
+  }
+}

@@ -36,6 +36,7 @@ import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
 import useApi from "@/hooks/useApi";
 import useAgentOnboarding from "@/hooks/useAgentOnboarding";
+import styles from "./GetStarted.module.scss";
 
 type AdvancedFeature = (
   | { docSection: DocSection; href?: never }
@@ -234,41 +235,38 @@ const GetStartedAndHomePage = ({
 
       <Box py={{ initial: "1", xs: "3", sm: "6" }}>
         {showMarketingBanner && <HomeMarketingBanner />}
-        <Grid columns={`minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`}>
-          <Text size="7" weight="regular" mb="5" as="div">
-            Home
-          </Text>
-          {orgHasConnectedSDK && (canCreateFeature || canCreateExperiment) && (
-            <Flex justify={{ initial: "end", sm: "start" }} align="center">
-              <DropdownMenu
-                trigger={
-                  <Button icon={<PiCaretDownFill />} iconPosition="right">
-                    Create
-                  </Button>
-                }
-              >
-                {canCreateFeature && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setOpenNewFeatureFlagModal(true);
-                    }}
-                  >
-                    Feature Flag
-                  </DropdownMenuItem>
-                )}
-                {canCreateExperiment && (
-                  <DropdownMenuItem
-                    onClick={() => {
-                      setOpenNewExperimentModal(true);
-                    }}
-                  >
-                    Experiment
-                  </DropdownMenuItem>
-                )}
-              </DropdownMenu>
-            </Flex>
-          )}
-        </Grid>
+        {/* No title: the breadcrumb names the page. Create gets its own row,
+            on the right, only when it shows. */}
+        {orgHasConnectedSDK && (canCreateFeature || canCreateExperiment) && (
+          <Flex justify="end" align="center" mb="3">
+            <DropdownMenu
+              trigger={
+                <Button icon={<PiCaretDownFill />} iconPosition="right">
+                  Create
+                </Button>
+              }
+            >
+              {canCreateFeature && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOpenNewFeatureFlagModal(true);
+                  }}
+                >
+                  Feature Flag
+                </DropdownMenuItem>
+              )}
+              {canCreateExperiment && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setOpenNewExperimentModal(true);
+                  }}
+                >
+                  Experiment
+                </DropdownMenuItem>
+              )}
+            </DropdownMenu>
+          </Flex>
+        )}
 
         {!orgIsUsingFeatureOrExperiment && (
           <Text size="4" weight="medium" mb="3" as="div">
@@ -276,6 +274,7 @@ const GetStartedAndHomePage = ({
           </Text>
         )}
         <Grid
+          className={styles.content}
           columns={{
             initial: "1fr",
             sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
@@ -425,13 +424,7 @@ const GetStartedAndHomePage = ({
               )}
             </Box>
           </Box>
-          <Box
-            mt={
-              orgIsUsingFeatureOrExperiment
-                ? { initial: "0", sm: "37px" }
-                : undefined
-            }
-          >
+          <Box className={styles.docsColumn}>
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"

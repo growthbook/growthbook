@@ -353,6 +353,7 @@ const NeedingAttention = (): React.ReactElement | null => {
       </Box>
     ) : null;
   };
+  const showsRecent = Object.keys(getRecentlyUsedFeatures()).length > 0;
   const displayExperimentsRequiringAttention = () => {
     const ITEMS_PER_PAGE = 5;
     const startIndex = (experimentsPage - 1) * ITEMS_PER_PAGE;
@@ -363,7 +364,8 @@ const NeedingAttention = (): React.ReactElement | null => {
     );
 
     return (
-      <Box className="mt-5">
+      // Spaced from Recent; first on the page without it.
+      <Box className={showsRecent ? "mt-5" : undefined}>
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
             Experiments requiring attention
