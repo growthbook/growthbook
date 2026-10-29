@@ -277,6 +277,8 @@ const EditOrganization: FC<{
                 <Spinner size="1" />
                 <Text color="text-mid">Loading event forwarders...</Text>
               </Flex>
+            ) : eventForwardersError && eventForwarders.length === 0 ? (
+              <Callout status="error">{eventForwardersError}</Callout>
             ) : eventForwarders.length > 0 ? (
               <Flex direction="column" gap="2">
                 <Text weight="semibold">Event forwarders</Text>

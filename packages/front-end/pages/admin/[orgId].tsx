@@ -905,9 +905,9 @@ function StatCard({
         {label}
       </Text>
       <Flex align="baseline" gap="2">
-        <Heading as="h3" size="lg" mb="0">
+        <Text size="xl" weight="semibold">
           {value.toLocaleString()}
-        </Heading>
+        </Text>
         {suffix && (
           <Text color="text-mid" size="sm">
             {suffix}

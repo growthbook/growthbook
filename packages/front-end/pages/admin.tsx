@@ -176,14 +176,22 @@ function OrganizationList({
           />
         </Box>
         {isCloud() && (
-          <Select value={plan} setValue={filterSetter("plan")}>
+          <Select
+            aria-label="Plan"
+            value={plan}
+            setValue={filterSetter("plan")}
+          >
             <SelectItem value="all">All plans</SelectItem>
             <SelectItem value="starter">Starter</SelectItem>
             <SelectItem value="pro">Pro</SelectItem>
             <SelectItem value="enterprise">Enterprise</SelectItem>
           </Select>
         )}
-        <Select value={status} setValue={filterSetter("status")}>
+        <Select
+          aria-label="Status"
+          value={status}
+          setValue={filterSetter("status")}
+        >
           <SelectItem value="all">All statuses</SelectItem>
           {isCloud() && <SelectItem value="trialing">Trial</SelectItem>}
           {isCloud() && <SelectItem value="past_due">Past due</SelectItem>}
@@ -191,13 +199,21 @@ function OrganizationList({
           <SelectItem value="suspended">Suspended</SelectItem>
           <SelectItem value="disabled">Disabled</SelectItem>
         </Select>
-        <Select value={members} setValue={filterSetter("members")}>
+        <Select
+          aria-label="Members"
+          value={members}
+          setValue={filterSetter("members")}
+        >
           <SelectItem value="all">Any number of members</SelectItem>
           <SelectItem value="1-9">1–9 members</SelectItem>
           <SelectItem value="10-49">10–49 members</SelectItem>
           <SelectItem value="50+">50+ members</SelectItem>
         </Select>
-        <Select value={createdDays} setValue={filterSetter("createdDays")}>
+        <Select
+          aria-label="Created"
+          value={createdDays}
+          setValue={filterSetter("createdDays")}
+        >
           <SelectItem value="all">Created any time</SelectItem>
           <SelectItem value="7">Created in the last 7 days</SelectItem>
           <SelectItem value="30">Created in the last 30 days</SelectItem>
@@ -205,7 +221,11 @@ function OrganizationList({
           <SelectItem value="365">Created in the last year</SelectItem>
         </Select>
         {isCloud() && (
-          <Select value={loginMethod} setValue={filterSetter("loginMethod")}>
+          <Select
+            aria-label="Login method"
+            value={loginMethod}
+            setValue={filterSetter("loginMethod")}
+          >
             <SelectItem value="all">Any login method</SelectItem>
             <SelectItem value="sso">SSO</SelectItem>
             <SelectItem value="sso_required">SSO required</SelectItem>
