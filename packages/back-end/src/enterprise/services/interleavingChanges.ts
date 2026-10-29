@@ -27,15 +27,16 @@ export async function startInterleaving(
     );
   }
 
-  // A restart continues the original window, matching how experiments resume a
-  // stopped phase (controllers/experiments.ts clears dateEnded and keeps
-  // dateStarted). Bandits restart the window instead because their weights
-  // adapt; interleaving's draft is fixed-seed, so continuing is safe and keeps
-  // the pre-stop data. The dormant gap is included — phases would be the fix.
+  // Each start opens a new run rather than extending the old window. Tracking
+  // keys may be reused once an experiment stops, so a window spanning the
+  // dormant gap would also pull in whatever ran under the same key meanwhile.
+  // dateStarted stays at the first run for display.
+  const now = new Date();
   const updated = await context.models.interleavings.update(interleaving, {
     status: "running",
-    dateStarted: interleaving.dateStarted ?? new Date(),
+    dateStarted: interleaving.dateStarted ?? now,
     dateStopped: undefined,
+    runs: [...interleaving.runs, { dateStarted: now }],
   });
   await context.auditLog({
     event: "interleaving.start",
@@ -56,9 +57,16 @@ export async function stopInterleaving(
     );
   }
 
+  const stoppedAt = new Date();
+  const runs = [...interleaving.runs];
+  const open = runs.length - 1;
+  if (open >= 0 && !runs[open].dateEnded) {
+    runs[open] = { ...runs[open], dateEnded: stoppedAt };
+  }
   const updated = await context.models.interleavings.update(interleaving, {
     status: "stopped",
-    dateStopped: new Date(),
+    dateStopped: stoppedAt,
+    runs,
   });
   await context.auditLog({
     event: "interleaving.stop",

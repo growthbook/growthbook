@@ -85,6 +85,7 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
             settings.variations[0].key,
             settings.variations[1].key,
           ],
+          runs: settings.runs,
           startDate: settings.startDate,
           endDate: settings.endDate,
           factTable: group[0].factTable,

@@ -97,6 +97,7 @@ const BaseClass = MakeModelClass({
     tags: [],
     archived: false,
     metrics: [],
+    runs: [],
     jsonSchema: null,
     environmentSettings: {},
   },
@@ -298,6 +299,8 @@ export class InterleavingModel extends BaseClass {
       ] as InterleavingInterface["variations"],
       jsonSchema: toJSONSchema(body.jsonSchema),
       metrics: body.metrics ?? [],
+      // Created as a draft, so it has not run yet.
+      runs: [],
       environmentSettings: body.environmentSettings ?? {},
     };
   }

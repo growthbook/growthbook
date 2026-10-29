@@ -4,6 +4,7 @@ import { baseSchema } from "./base-model";
 import {
   interleavingAnalysisValidator,
   interleavingMetricConfigValidator,
+  interleavingRunValidator,
   interleavingVariationValidator,
 } from "./interleaving";
 import { namedSchema } from "./openapi-helpers";
@@ -33,6 +34,7 @@ export const interleavingSnapshotSettingsValidator = z
     // Drives the test alpha, and the results table colours significance by
     // the same number.
     pValueThreshold: z.number(),
+    runs: z.array(interleavingRunValidator.required({ dateEnded: true })),
     startDate: z.date(),
     endDate: z.date(),
   })
@@ -123,10 +125,19 @@ export const apiInterleavingSnapshotValidator = namedSchema(
         .omit({
           interleavingId: true,
           interleavingExposureQuerySql: true,
+          runs: true,
           startDate: true,
           endDate: true,
         })
         .extend({
+          runs: z
+            .array(
+              z.strictObject({
+                dateStarted: z.iso.datetime(),
+                dateEnded: z.iso.datetime(),
+              }),
+            )
+            .describe("The run windows these results count exposures from"),
           startDate: z.iso.datetime(),
           endDate: z.iso.datetime(),
         }),
