@@ -132,24 +132,22 @@ function isManagedWarehousePerOrgTable(path: string): boolean {
   const table = path.replace(/`/g, "").split(".").pop()?.trim().toLowerCase();
   return table !== undefined && MANAGED_WAREHOUSE_PER_ORG_TABLES.has(table);
 }
-// A series the query computes. Despite the name, not always a Fact Metric:
-// fact table / data source values, Population previews, the denominator half
-// of a ratio, and a metric dataset's Population count are all represented
-// this way.
-interface MetricWithMetadata {
+// What a series contributes to the result:
+// - value: a returned value (a metric, or a fact table / data source / Population value)
+// - denominator: the denominator half of a ratio metric
+// - populationCount: the Population's member count, reported as every
+//   metric's `populationCount` rather than returned as a value
+type SeriesRole = "value" | "denominator" | "populationCount";
+interface Series {
   metric: MinimalMetric;
   unit?: string;
   index: number;
-  useDenominator?: boolean;
-  // When true, this series counts the Population's members. There's one per
-  // request; its count is reported as every metric's `populationCount`, and
-  // the series itself isn't returned as a metric.
-  isPopulationCount?: boolean;
+  role: SeriesRole;
 }
 interface FactTableGroup {
   index: number;
   factTable: MinimalFactTable;
-  metrics: MetricWithMetadata[];
+  metrics: Series[];
   units: string[];
 }
 interface MetricData {
@@ -185,10 +183,6 @@ function assertNever(value: never): never {
 // name rather than by position among the metrics.
 const POPULATION_COUNT_ALIAS = "population_count";
 
-function hasPopulationCountSeries(factTableGroup: FactTableGroup): boolean {
-  return factTableGroup.metrics.some((m) => m.isPopulationCount);
-}
-
 function getMetricAliases(index: number) {
   return {
     base: `m${index}`,
@@ -197,16 +191,34 @@ function getMetricAliases(index: number) {
   };
 }
 
+function getSeriesAlias(series: Series): string {
+  const aliases = getMetricAliases(series.index);
+  switch (series.role) {
+    case "value":
+      return aliases.base;
+    case "denominator":
+      return aliases.denominator;
+    case "populationCount":
+      return POPULATION_COUNT_ALIAS;
+  }
+  return assertNever(series.role);
+}
+
+// The rollup column holding a series' value
+function getValueColumn(alias: string): string {
+  return alias.endsWith("_denominator") ? alias : `${alias}_numerator`;
+}
+
 // Helpers to convert to internal types
 function getMetricsAndUnitsFromValues(
   values:
     | FactTableDataset["values"]
     | DataSourceDataset["values"]
     | SqlDataset["values"],
-): { metrics: MetricWithMetadata[]; units: string[] } {
+): { metrics: Series[]; units: string[] } {
   const units = new Set<string>();
 
-  const metrics: MetricWithMetadata[] = [];
+  const metrics: Series[] = [];
   let index = 0;
   for (const value of values) {
     const metric = createSimpleMetric(
@@ -219,6 +231,7 @@ function getMetricsAndUnitsFromValues(
       metric,
       index: index++,
       unit: value.unit || undefined,
+      role: "value",
     });
 
     if (value.unit) {
@@ -261,12 +274,12 @@ function createPopulationMetric(
 function createPopulationCountSeries(
   population: ExplorationPopulation,
   index: number,
-): MetricWithMetadata {
+): Series {
   return {
     index,
     metric: createPopulationMetric(population, "population", "Population"),
     unit: population.unit,
-    isPopulationCount: true,
+    role: "populationCount",
   };
 }
 
@@ -297,6 +310,7 @@ function getPopulationFactTableGroups(
       index,
       unit: value.unit,
       metric: createPopulationMetric(value, `population_${index}`, value.name),
+      role: "value",
     });
     if (!group.units.includes(value.unit)) group.units.push(value.unit);
   });
@@ -453,6 +467,7 @@ function getFactTableGroups({
             index: metricIndex,
             metric,
             unit: value.unit || undefined,
+            role: "value",
           });
           if (value.unit && !group.units.includes(value.unit)) {
             group.units.push(value.unit);
@@ -480,7 +495,7 @@ function getFactTableGroups({
               index: metricIndex,
               metric,
               unit: value.denominatorUnit || undefined,
-              useDenominator: true,
+              role: "denominator",
             });
             if (
               value.denominatorUnit &&
@@ -1032,29 +1047,19 @@ function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
 
 // Generate metric value expression from metric with metadata
 function getMetricData(
-  metricWithMetadata: MetricWithMetadata,
+  series: Series,
   factTable: MinimalFactTable,
   helpers: SqlDialect,
 ): MetricData {
-  const {
-    index: metricIndex,
-    metric,
-    unit,
-    useDenominator,
-    isPopulationCount,
-  } = metricWithMetadata;
-  const columnRef = useDenominator ? metric.denominator : metric.numerator;
+  const { metric, unit, role } = series;
+  const columnRef =
+    role === "denominator" ? metric.denominator : metric.numerator;
 
   if (!columnRef) {
     throw new Error(`Column ref not found for metric ${metric.id}`);
   }
 
-  const aliases = getMetricAliases(metricIndex);
-  const alias = isPopulationCount
-    ? POPULATION_COUNT_ALIAS
-    : useDenominator
-      ? aliases.denominator
-      : aliases.base;
+  const alias = getSeriesAlias(series);
 
   const skipUnitAggregation =
     metric.metricType === "quantile" &&
@@ -1097,6 +1102,7 @@ function getMetricData(
   let rollupCountExpr: string | null = null;
   if (
     selectedUnit &&
+    role !== "populationCount" &&
     metric.metricType !== "ratio" &&
     metric.metricType !== "quantile"
   ) {
@@ -1294,9 +1300,8 @@ function generateFactTableCTE(
   // Get a de-duped list of all filters across all metrics
   const allMetricFilters: string[][] = [];
   factTableGroup.metrics.forEach((m) => {
-    const columnRef = m.useDenominator
-      ? m.metric.denominator
-      : m.metric.numerator;
+    const columnRef =
+      m.role === "denominator" ? m.metric.denominator : m.metric.numerator;
 
     if (!columnRef) return;
 
@@ -1449,9 +1454,7 @@ function generateUnitAggregationRollupCTE(
   // Add metrics
   allMetrics.forEach((alias) => {
     const metricData = includedMetrics.find((m) => m.alias === alias);
-    const valueAlias = alias.endsWith("_denominator")
-      ? alias
-      : `${alias}_numerator`;
+    const valueAlias = getValueColumn(alias);
 
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
@@ -1470,21 +1473,12 @@ function generateUnitAggregationRollupCTE(
     }
   });
 
-  const from = hasPopulationCountSeries(factTableGroup)
-    ? getPopulationMembersOnlySubquery(
-        sourceCTE,
-        dimensions,
-        unitIndex,
-        includedMetrics,
-      )
-    : sourceCTE.name;
-
   return {
     name: `_factTable${factTableGroup.index}_unit${unitIndex}_rollup`,
     sql: `
     SELECT
       ${selects.join(",\n  ")}
-    FROM ${from}
+    FROM ${sourceCTE.name}
     ${groupBys.length ? `GROUP BY ${groupBys.join(", ")}` : ""}
   `,
   };
@@ -1492,21 +1486,29 @@ function generateUnitAggregationRollupCTE(
 
 // Restricts each metric to the Population's members. Non-members' values are
 // nulled rather than filtered out, so buckets with no members still return a row.
-function getPopulationMembersOnlySubquery(
+function generatePopulationMembersCTE(
+  factTableGroup: FactTableGroup,
   sourceCTE: CTE,
   dimensions: DimensionData[],
   unitIndex: number,
   includedMetrics: MetricData[],
-): string {
-  const isMember = `${POPULATION_COUNT_ALIAS} = 1 AND unit${unitIndex} IS NOT NULL`;
-  const columns = [
+): CTE {
+  const isMember = `${POPULATION_COUNT_ALIAS} IS NOT NULL AND unit${unitIndex} IS NOT NULL`;
+  const selects = [
     ...dimensions.map((d) => d.alias),
     ...includedMetrics.map(
       (m) =>
         `CASE WHEN ${isMember} THEN ${m.alias} ELSE NULL END AS ${m.alias}`,
     ),
   ];
-  return `(SELECT ${columns.join(", ")} FROM ${sourceCTE.name}) members`;
+  return {
+    name: `_factTable${factTableGroup.index}_unit${unitIndex}_members`,
+    sql: `
+    SELECT
+      ${selects.join(",\n  ")}
+    FROM ${sourceCTE.name}
+  `,
+  };
 }
 
 function generateEventRollupCTE(
@@ -1530,9 +1532,7 @@ function generateEventRollupCTE(
   // Add metrics
   allMetrics.forEach((alias) => {
     const metricData = includedMetrics.find((m) => m.alias === alias);
-    const valueAlias = alias.endsWith("_denominator")
-      ? alias
-      : `${alias}_numerator`;
+    const valueAlias = getValueColumn(alias);
     if (metricData && metricData.rollupAggregationExpr) {
       selects.push(
         `${dialect.castToFloat(metricData.rollupAggregationExpr || "NULL")} AS ${valueAlias}`,
@@ -1583,9 +1583,7 @@ function generateFinalSelect(
     }
   });
   allMetrics.forEach((m) => {
-    const valueAlias = m.alias.endsWith("_denominator")
-      ? m.alias
-      : `${m.alias}_numerator`;
+    const valueAlias = getValueColumn(m.alias);
     selects.push(
       needsReaggregation
         ? `MAX(${valueAlias}) AS ${valueAlias}`
@@ -2118,7 +2116,7 @@ export function generateProductAnalyticsSQL(
       const data = getMetricData(m, f.factTable, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
-      if (!m.useDenominator && !m.isPopulationCount) {
+      if (m.role === "value") {
         orderedMetricIds[m.index] = m.metric.id;
       }
     });
@@ -2257,10 +2255,22 @@ export function generateProductAnalyticsSQL(
       );
       ctes.push(unitAggregationCTE);
 
+      let rollupSourceCTE = unitAggregationCTE;
+      if (metrics.some((m) => m.alias === POPULATION_COUNT_ALIAS)) {
+        rollupSourceCTE = generatePopulationMembersCTE(
+          factTableGroup,
+          unitAggregationCTE,
+          groupDimensions,
+          unitIndex,
+          metrics,
+        );
+        ctes.push(rollupSourceCTE);
+      }
+
       // Unit rollup
       const unitRollupCTE = generateUnitAggregationRollupCTE(
         factTableGroup,
-        unitAggregationCTE,
+        rollupSourceCTE,
         groupDimensions,
         unitIndex,
         metrics,
@@ -2371,7 +2381,7 @@ function getPopulationCount(
   if (config.dataset.type !== "metric" || !config.dataset.population) {
     return null;
   }
-  return parseNumberValue(row[`${POPULATION_COUNT_ALIAS}_numerator`]) ?? 0;
+  return parseNumberValue(row[getValueColumn(POPULATION_COUNT_ALIAS)]) ?? 0;
 }
 
 // Reports a metric's value alongside the Population's size. When no member had

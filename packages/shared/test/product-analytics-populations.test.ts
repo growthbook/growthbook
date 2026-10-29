@@ -590,10 +590,13 @@ describe("metric explorations with a population", () => {
       // named, not numbered after the metrics.
       expect(orderedMetricIds).toEqual([purchasers.id, loggedIn.id]);
       expect(sql).not.toMatch(/\bm2\b/);
-      // Each metric is read only for members; no joins.
+      // The population count has no denominator column.
+      expect(sql).not.toContain("population_count_denominator");
+      // Each metric is read only for members, in a named CTE; no joins.
+      expect(sql).toContain("_factTable0_unit0_members AS");
       expect(
         sql.match(
-          /WHEN population_count = 1\s+AND unit0 IS NOT NULL THEN m[01]\s/g,
+          /WHEN population_count IS NOT NULL\s+AND unit0 IS NOT NULL THEN m[01]\s/g,
         ),
       ).toHaveLength(2);
       expect(sql).not.toContain("JOIN");
