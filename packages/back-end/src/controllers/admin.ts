@@ -579,6 +579,7 @@ export async function _dangerousAdminPutMember(
     email: string;
     verified: boolean;
     superAdmin?: unknown;
+    resetAuthSubject?: boolean;
   }>,
   res: Response,
 ) {
@@ -586,7 +587,8 @@ export async function _dangerousAdminPutMember(
     return permissionDenied(res, "view");
   }
 
-  const { userId, email, verified, name, superAdmin } = req.body;
+  const { userId, email, verified, name, superAdmin, resetAuthSubject } =
+    req.body;
   const updates: Partial<UserInterface> = {};
   const member = await getUserById(userId);
   if (!member) {
@@ -606,6 +608,13 @@ export async function _dangerousAdminPutMember(
     verified !== (member.verified ?? false)
   ) {
     updates.verified = verified;
+  }
+  // The bound identity belongs to the old email, so a new email starts unbound too
+  if (
+    (resetAuthSubject === true || updates.email !== undefined) &&
+    member.authSubject
+  ) {
+    updates.authSubject = "";
   }
   // Changing anyone's email lets you reset their password and take over the
   // account, so only full super admins can do it

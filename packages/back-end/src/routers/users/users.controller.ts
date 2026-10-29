@@ -28,6 +28,8 @@ import {
   addMemberFromSSOConnection,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
+  isOrgScopedLogin,
+  isValidLoginMethod,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -95,7 +97,11 @@ export async function getUser(req: AuthRequest, res: Response) {
 
   // If the user is not in an organization yet and is using SSO
   // Check to see if they should be auto-added to one based on their email domain
-  if (!orgs.length) {
+  // An SSO login only reaches its own org, so also check when the user only has others (e.g. a personal org)
+  if (
+    !orgs.length ||
+    (isOrgScopedLogin(req) && !orgs.some((org) => isValidLoginMethod(org, req)))
+  ) {
     const autoOrg = await addMemberFromSSOConnection(req);
     if (autoOrg) {
       orgs.push(autoOrg);
@@ -115,7 +121,8 @@ export async function getUser(req: AuthRequest, res: Response) {
   });
 
   // If all of a user's orgs were filtered out, throw an error
-  if (orgs.length && !validOrgs.length) {
+  // An SSO login gets onboarding instead, so it can still accept an invite or see a pending request
+  if (orgs.length && !validOrgs.length && !isOrgScopedLogin(req)) {
     throw new Error(lastError || "Must log in with SSO");
   }
 
@@ -402,8 +409,12 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
   const orgs = await findVerifiedOrgsForNewUser(email);
 
   // Filter out orgs that the user is already a member of
+  // An SSO or Vercel login only vouches for the email within its own org
   const joinableOrgs = orgs?.filter((org) => {
-    return !org.members.find((m) => m.id === user.id);
+    return (
+      !org.members.find((m) => m.id === user.id) &&
+      (!isOrgScopedLogin(req) || isValidLoginMethod(org, req))
+    );
   });
 
   if (joinableOrgs) {

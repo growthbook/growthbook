@@ -27,6 +27,7 @@ const userSchema = new mongoose.Schema({
   // `true` or an array of SuperAdminPermission
   superAdmin: mongoose.Schema.Types.Mixed,
   verified: Boolean,
+  authSubject: String,
   agreedToTerms: Boolean,
   npsSurveyStatus: String,
   npsSurveyAt: Date,
@@ -52,6 +53,10 @@ export async function markUserAsVerified(id: string) {
       },
     },
   );
+}
+
+export async function setAuthSubject(id: string, authSubject: string) {
+  await UserModel.updateOne({ id }, { $set: { authSubject } });
 }
 
 export async function getAllUsers(): Promise<UserInterface[]> {
