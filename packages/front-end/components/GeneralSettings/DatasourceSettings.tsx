@@ -3,6 +3,7 @@ import { DEFAULT_TEST_QUERY_DAYS } from "shared/constants";
 import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import { Box, Flex } from "@radix-ui/themes";
 import React from "react";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import SelectField from "@/components/Forms/SelectField";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { hasFileConfig } from "@/services/env";
@@ -13,6 +14,7 @@ import { SettingsField, SettingsGroup } from "./SettingsGroup";
 
 export default function DatasourceSettings() {
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
   const { datasources } = useDefinitions();
 
   return (
@@ -57,6 +59,7 @@ export default function DatasourceSettings() {
             min="1"
             append="days"
             containerClassName="mb-0"
+            placeholder={defaultFor("testQueryDays")}
             {...form.register("testQueryDays", {
               valueAsNumber: true,
             })}
@@ -94,6 +97,7 @@ export default function DatasourceSettings() {
               step="1"
               containerClassName="mb-0"
               disabled={hasFileConfig()}
+              placeholder={defaultFor("topValuesLookbackValue")}
               {...form.register("topValuesLookbackValue", {
                 valueAsNumber: true,
                 min: 1,

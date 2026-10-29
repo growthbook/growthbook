@@ -2,6 +2,7 @@ import { useFormContext } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
 import React from "react";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import { hasFileConfig } from "@/services/env";
 import { supportedCurrencies } from "@/services/settings";
 import Field from "@/components/Forms/Field";
@@ -14,6 +15,7 @@ import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function MetricsSettings() {
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
   const { hasCommercialFeature } = useUser();
   const metricAnalysisDays = form.watch("metricAnalysisDays");
   const metricAnalysisDaysWarningMsg =
@@ -43,6 +45,7 @@ export default function MetricsSettings() {
         max={options.max}
         step={options.step}
         disabled={hasFileConfig()}
+        placeholder={defaultFor(name)}
         {...form.register(name, {
           valueAsNumber: true,
           min: options.min,
@@ -184,6 +187,7 @@ export default function MetricsSettings() {
               disabled={
                 hasFileConfig() || !hasCommercialFeature("metric-slices")
               }
+              placeholder={defaultFor("maxMetricSliceLevels")}
               {...form.register("maxMetricSliceLevels", {
                 valueAsNumber: true,
                 min: 0,

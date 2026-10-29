@@ -11,6 +11,7 @@ import {
 import { StatsEngine, PValueCorrection } from "shared/types/stats";
 import { MetricDefaults } from "shared/types/organization";
 import { Box, Flex } from "@radix-ui/themes";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
@@ -54,6 +55,7 @@ const percentFormatter = new Intl.NumberFormat(undefined, {
 
 export default function StatsEngineSettings() {
   const form = useFormContext<FormValues>();
+  const { defaultFor } = useSettingsForm();
   const { hasCommercialFeature } = useUser();
   const locked = hasFileConfig();
 
@@ -133,6 +135,7 @@ export default function StatsEngineSettings() {
               containerClassName="mb-0"
               style={highlight(confidence.highlightColor)}
               disabled={locked}
+              placeholder={defaultFor("confidenceLevel")}
               {...form.register("confidenceLevel", {
                 valueAsNumber: true,
                 min: 70,
@@ -176,6 +179,9 @@ export default function StatsEngineSettings() {
                     containerClassName="mb-0"
                     disabled={locked}
                     required
+                    placeholder={defaultFor(
+                      "metricDefaults.priorSettings.mean",
+                    )}
                     {...form.register("metricDefaults.priorSettings.mean", {
                       valueAsNumber: true,
                     })}
@@ -198,6 +204,9 @@ export default function StatsEngineSettings() {
                     containerClassName="mb-0"
                     disabled={locked}
                     required
+                    placeholder={defaultFor(
+                      "metricDefaults.priorSettings.stddev",
+                    )}
                     {...form.register("metricDefaults.priorSettings.stddev", {
                       valueAsNumber: true,
                       validate: (v) => {
@@ -236,6 +245,7 @@ export default function StatsEngineSettings() {
               containerClassName="mb-0"
               style={highlight(pValue.highlightColor)}
               disabled={locked}
+              placeholder={defaultFor("pValueThreshold")}
               {...form.register("pValueThreshold", {
                 valueAsNumber: true,
                 validate: (v) => v > 0 && v <= 0.5,
@@ -319,6 +329,7 @@ export default function StatsEngineSettings() {
                     disabled={
                       !hasCommercialFeature("sequential-testing") || locked
                     }
+                    placeholder={defaultFor("sequentialTestingTuningParameter")}
                     {...form.register("sequentialTestingTuningParameter", {
                       valueAsNumber: true,
                       validate: (v) => {
@@ -378,6 +389,7 @@ export default function StatsEngineSettings() {
                     disabled={
                       !hasCommercialFeature("regression-adjustment") || locked
                     }
+                    placeholder={defaultFor("regressionAdjustmentDays")}
                     {...form.register("regressionAdjustmentDays", {
                       valueAsNumber: true,
                       validate: (v) => {

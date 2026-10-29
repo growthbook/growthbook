@@ -56,7 +56,7 @@ import useApi from "@/hooks/useApi";
 import { applyApprovalFlowEntitlements } from "@/hooks/useOrgSettings";
 import {
   OrganizationSettingsWithMetricDefaults,
-  useOrganizationMetricDefaults,
+  METRIC_DEFAULTS,
 } from "@/hooks/useOrganizationMetricDefaults";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
 import {
@@ -105,6 +105,8 @@ type SettingsFormContextValue = {
   // Paths into the settings form, or "org.<field>" and "prompt.<field>".
   isFieldDirty: (path: string) => boolean;
   savedSettings: OrganizationSettings;
+  // The product default at a settings path, as placeholder text.
+  defaultFor: (path: string) => string;
   changes: SettingsChange[];
   savedCount: number;
   setSavedCount: (value: number) => void;
@@ -184,7 +186,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
     orgForm.reset(JSON.parse(orgKey), { keepDirtyValues: true });
   }, [orgKey, orgForm]);
 
-  const { metricDefaults } = useOrganizationMetricDefaults();
+  // Product defaults only; the reload effect lays the saved values over them.
   const form = useForm<OrganizationSettingsWithMetricDefaults>({
     defaultValues: {
       visualEditorEnabled: false,
@@ -200,11 +202,11 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         //startDate?: Date;
       },
       metricDefaults: {
-        priorSettings: metricDefaults.priorSettings,
-        minimumSampleSize: metricDefaults.minimumSampleSize,
-        maxPercentageChange: toPercent(metricDefaults.maxPercentageChange),
-        minPercentageChange: toPercent(metricDefaults.minPercentageChange),
-        targetMDE: toPercent(metricDefaults.targetMDE),
+        priorSettings: METRIC_DEFAULTS.priorSettings,
+        minimumSampleSize: METRIC_DEFAULTS.minimumSampleSize,
+        maxPercentageChange: toPercent(METRIC_DEFAULTS.maxPercentageChange),
+        minPercentageChange: toPercent(METRIC_DEFAULTS.minPercentageChange),
+        targetMDE: toPercent(METRIC_DEFAULTS.targetMDE),
       },
       updateSchedule: {
         type: "stale",
@@ -213,8 +215,8 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       },
       runHealthTrafficQuery: false,
       srmThreshold: DEFAULT_SRM_THRESHOLD,
-      multipleExposureMinPercent: 0.01,
-      confidenceLevel: 0.95,
+      multipleExposureMinPercent: 1,
+      confidenceLevel: 95,
       pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
       pValueCorrection: null,
       statsEngine: DEFAULT_STATS_ENGINE,
@@ -237,19 +239,17 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
           featureRequireMetadataReview: true,
         },
       ],
-      targetingReviewMode: settings.targetingReviewMode ?? [],
-      restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
-      requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
-      revertsBypassApproval: settings.revertsBypassApproval ?? false,
-      configsExtensibleByDefault: settings.configsExtensibleByDefault ?? true,
-      configExperimentGuardDefault:
-        settings.configExperimentGuardDefault ?? false,
-      blockPublishOnSchemaError: settings.blockPublishOnSchemaError ?? true,
-      maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
-      defaultDataSource: settings.defaultDataSource || "",
+      targetingReviewMode: [],
+      restApiBypassesReviews: false,
+      requireRebaseBeforePublish: false,
+      revertsBypassApproval: false,
+      configsExtensibleByDefault: true,
+      configExperimentGuardDefault: false,
+      blockPublishOnSchemaError: true,
+      maxConcurrentDrafts: 0,
+      defaultDataSource: "",
       testQueryDays: DEFAULT_TEST_QUERY_DAYS,
-      disablePrecomputedDimensions:
-        settings.disablePrecomputedDimensions ?? true,
+      disablePrecomputedDimensions: true,
       useStickyBucketing: false,
       stickyBucketingOnByDefault: false,
       useFallbackAttributes: false,
@@ -259,72 +259,55 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
       featureKeyExample: "",
       featureRegexValidator: "",
       sparseJSONRulesByDefault: false,
-      featureListMarkdown: settings.featureListMarkdown || "",
-      featurePageMarkdown: settings.featurePageMarkdown || "",
-      experimentListMarkdown: settings.experimentListMarkdown || "",
-      experimentPageMarkdown: settings.experimentPageMarkdown || "",
-      metricListMarkdown: settings.metricListMarkdown || "",
-      metricPageMarkdown: settings.metricPageMarkdown || "",
-      banditScheduleValue: settings.banditScheduleValue ?? 1,
-      banditScheduleUnit: settings.banditScheduleUnit ?? "days",
-      banditBurnInValue: settings.banditBurnInValue ?? 1,
-      banditBurnInUnit: settings.banditBurnInUnit ?? "days",
-      requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
-      requireUniqueExperimentTrackingKeys:
-        settings.requireUniqueExperimentTrackingKeys ?? false,
-      experimentKeyExample: settings.experimentKeyExample ?? "",
-      experimentKeyRegexValidator: settings.experimentKeyRegexValidator ?? "",
-      experimentMinLengthDays:
-        settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
-      experimentMaxLengthDays:
-        settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
-      decisionFrameworkEnabled:
-        settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
-      defaultDecisionCriteriaId:
-        settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
-      blockFileUploads: settings.blockFileUploads ?? false,
-      requireProjectForFeatures:
-        settings.requireProjectForFeatures ??
-        DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
+      featureListMarkdown: "",
+      featurePageMarkdown: "",
+      experimentListMarkdown: "",
+      experimentPageMarkdown: "",
+      metricListMarkdown: "",
+      metricPageMarkdown: "",
+      banditScheduleValue: 1,
+      banditScheduleUnit: "days",
+      banditBurnInValue: 1,
+      banditBurnInUnit: "days",
+      requireExperimentTemplates: false,
+      requireUniqueExperimentTrackingKeys: false,
+      experimentKeyExample: "",
+      experimentKeyRegexValidator: "",
+      experimentMinLengthDays: DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
+      experimentMaxLengthDays: DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
+      decisionFrameworkEnabled: DEFAULT_DECISION_FRAMEWORK_ENABLED,
+      defaultDecisionCriteriaId: PRESET_DECISION_CRITERIA.id,
+      blockFileUploads: false,
+      requireProjectForFeatures: DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
       requireProjectForSdkConnections:
-        settings.requireProjectForSdkConnections ??
         DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
-      requireRegisteredAttributes: getRequireRegisteredAttributesSettings(
-        settings.requireRegisteredAttributes,
-      ),
-      aiEnabled: settings.aiEnabled ?? false,
-      aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
-      aiAutocompleteEnabled: settings.aiAutocompleteEnabled ?? true,
-      aiAutocompleteModel: knownTextModel(settings.aiAutocompleteModel),
-      disabledAgentSkills: settings.disabledAgentSkills ?? [],
+      requireRegisteredAttributes:
+        getRequireRegisteredAttributesSettings(undefined),
+      aiEnabled: false,
+      aiAskDataEnabled: false,
+      aiAutocompleteEnabled: true,
+      aiAutocompleteModel: undefined,
+      disabledAgentSkills: [],
       // On Cloud a seeded model would be saved later and leave the managed default.
-      defaultAIModel:
-        knownTextModel(settings.defaultAIModel) ||
-        (isCloud() ? undefined : "gpt-4o-mini"),
-      embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
-      sttModel: settings.sttModel,
-      visualEditorAIModel: knownTextModel(settings.visualEditorAIModel),
-      visualEditorImageModel: settings.visualEditorImageModel || "",
-      visualEditorAIContext: settings.visualEditorAIContext || "",
-      disableLegacyMetricCreation:
-        settings.disableLegacyMetricCreation ?? false,
-      requireScopedFeatureRules: settings.requireScopedFeatureRules ?? false,
-      preferredEnvironment: settings.preferredEnvironment || "",
-      maxMetricSliceLevels:
-        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
-      topValuesLookbackValue:
-        settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
+      defaultAIModel: isCloud() ? undefined : "gpt-4o-mini",
+      embeddingModel: "text-embedding-ada-002",
+      sttModel: undefined,
+      visualEditorAIModel: undefined,
+      visualEditorImageModel: "",
+      visualEditorAIContext: "",
+      disableLegacyMetricCreation: false,
+      requireScopedFeatureRules: false,
+      preferredEnvironment: "",
+      maxMetricSliceLevels: DEFAULT_MAX_METRIC_SLICE_LEVELS,
+      topValuesLookbackValue: DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
       savedGroupSizeLimit: undefined,
-      enforceSavedGroupProjectScope:
-        settings.enforceSavedGroupProjectScope ?? false,
-      postStratificationEnabled:
-        settings.postStratificationEnabled ??
-        DEFAULT_POST_STRATIFICATION_ENABLED,
+      enforceSavedGroupProjectScope: false,
+      postStratificationEnabled: DEFAULT_POST_STRATIFICATION_ENABLED,
       approvalFlows: applyApprovalFlowEntitlements(
-        settings.approvalFlows,
+        undefined,
         hasRequireApprovals,
       ),
-      learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
+      learningStatuses: DEFAULT_LEARNING_STATUSES,
     },
   });
   const initialValues = useRef(form.getValues());
@@ -501,12 +484,14 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
   // handleSubmit resolves without saving when a field is invalid, so callers pass onInvalid.
   const saveSettings = (onInvalid: (errors: FieldErrors) => void) =>
     form.handleSubmit(async (value) => {
-      // A cleared number input reads NaN; it saves as the default and shows it.
+      // A cleared number input reads NaN and saves as null, which means the
+      // default; the form shows that default so it reads as saved.
       dirtyFields.forEach((path) => {
         if (!Number.isNaN(get(value, path))) return;
-        const fallback = get(initialValues.current, path);
-        set(value, path, fallback);
-        form.setValue(path as Parameters<typeof form.setValue>[0], fallback);
+        form.setValue(
+          path as Parameters<typeof form.setValue>[0],
+          get(initialValues.current, path),
+        );
       });
       const transformedOrgSettings = {
         ...value,
@@ -705,6 +690,7 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         dirtySectionIds,
         isFieldDirty,
         savedSettings: originalValue,
+        defaultFor: (path) => String(get(initialValues.current, path) ?? ""),
         changes,
         savedCount,
         setSavedCount,

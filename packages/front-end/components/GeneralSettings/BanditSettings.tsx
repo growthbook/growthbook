@@ -1,6 +1,7 @@
 import { useFormContext } from "react-hook-form";
 import { ScopedSettings } from "shared/settings";
 import { Box, Flex, Grid } from "@radix-ui/themes";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import { useUser } from "@/services/UserContext";
@@ -18,6 +19,7 @@ export default function BanditSettings({
 }) {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
   const hasBandits = hasCommercialFeature("multi-armed-bandits");
 
   const scheduleHours =
@@ -47,6 +49,7 @@ export default function BanditSettings({
                 <Box>
                   <Field
                     size="legacy"
+                    placeholder={defaultFor("banditBurnInValue")}
                     {...form.register("banditBurnInValue", {
                       valueAsNumber: true,
                     })}
@@ -114,6 +117,7 @@ export default function BanditSettings({
                 <Box>
                   <Field
                     size="legacy"
+                    placeholder={defaultFor("banditScheduleValue")}
                     {...form.register("banditScheduleValue", {
                       valueAsNumber: true,
                     })}

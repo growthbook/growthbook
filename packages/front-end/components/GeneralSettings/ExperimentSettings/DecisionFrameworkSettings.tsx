@@ -7,6 +7,7 @@ import {
   PRESET_DECISION_CRITERIA,
   PRESET_DECISION_CRITERIAS,
 } from "shared/enterprise";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Checkbox from "@/ui/Checkbox";
 import Button from "@/ui/Button";
 import Field from "@/components/Forms/Field";
@@ -25,6 +26,7 @@ import { useAuth } from "@/services/auth";
 const DecisionFrameworkSettings = () => {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
 
   const { data, mutate } = useApi<{
     status: number;
@@ -137,6 +139,7 @@ const DecisionFrameworkSettings = () => {
                     !form.watch("decisionFrameworkEnabled") ||
                     !hasCommercialFeature("decision-framework")
                   }
+                  placeholder={defaultFor("experimentMinLengthDays")}
                   {...form.register("experimentMinLengthDays", {
                     valueAsNumber: true,
                   })}

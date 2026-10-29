@@ -2,6 +2,7 @@ import cronstrue from "cronstrue";
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
 import { Box } from "@radix-ui/themes";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -25,6 +26,7 @@ import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 export default function ExperimentSettings() {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
   const cron = form.watch("updateSchedule.cron") || "";
   const cronString = cron
     ? `${cronstrue.toString(cron, { throwExceptionOnParseError: false, verbose: true })} (UTC time)`
@@ -398,6 +400,7 @@ export default function ExperimentSettings() {
               max="31"
               containerClassName="mb-0"
               disabled={hasFileConfig()}
+              placeholder={defaultFor("pastExperimentsMinLength")}
               {...form.register("pastExperimentsMinLength", {
                 valueAsNumber: true,
                 min: 0,
@@ -455,6 +458,7 @@ export default function ExperimentSettings() {
               min="0.00001"
               containerClassName="mb-0"
               disabled={hasFileConfig()}
+              placeholder={defaultFor("srmThreshold")}
               {...form.register("srmThreshold", {
                 valueAsNumber: true,
                 min: 0,
@@ -486,6 +490,7 @@ export default function ExperimentSettings() {
               append="%"
               containerClassName="mb-0"
               disabled={hasFileConfig()}
+              placeholder={defaultFor("multipleExposureMinPercent")}
               {...form.register("multipleExposureMinPercent", {
                 valueAsNumber: true,
                 min: 0,
