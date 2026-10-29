@@ -294,9 +294,17 @@ export function getBanditStatisticsFactMetricCTE(
       ${metricData
         .map((data) => {
           const alias = data.alias + "_";
+          // Context-specific mean imputation for (period, variation, context) rows with no users.
+          // the renormalized weight is variation-specific, using the period weights only for the variation's observed periods.
+          const renorm = `(${renormalizedWeight})`;
+          const imputedMean = (sumCol: string) =>
+            `(SUM(${renorm} * bps.${sumCol} / bps.users) + SUM(bps.${sumCol}) / NULLIF(SUM(bps.users), 0) * (1 - SUM(${renorm})))`;
+          const imputedMainMean = imputedMean(`${alias}main_sum`);
+          const imputedDenominatorMean = imputedMean(`${alias}denominator_sum`);
+          const imputedCovariateMean = imputedMean(`${alias}covariate_sum`);
           return `
       , ${dialect.castToString(`'${data.id}'`)} as ${alias}id
-      , SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users) * SUM(bps.users) AS ${alias}main_sum
+      , ${imputedMainMean} * SUM(bps.users) AS ${alias}main_sum
       , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
@@ -305,11 +313,11 @@ export function getBanditStatisticsFactMetricCTE(
           bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
         ) / (bps.users - 1)) / bps.users
       `,
-        )}) * (SUM(bps.users) - 1) + POWER(SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users), 2)) as ${alias}main_sum_squares
+        )}) * (SUM(bps.users) - 1) + POWER(${imputedMainMean}, 2)) as ${alias}main_sum_squares
       ${
         data.ratioMetric
           ? `
-        , SUM((${renormalizedWeight}) * bps.${alias}denominator_sum / bps.users) * SUM(bps.users) AS ${alias}denominator_sum
+        , ${imputedDenominatorMean} * SUM(bps.users) AS ${alias}denominator_sum
         , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
@@ -319,7 +327,7 @@ export function getBanditStatisticsFactMetricCTE(
           ) / bps.users
         `,
         )}) * (SUM(bps.users) - 1) + POWER(
-          SUM((${renormalizedWeight}) * bps.${alias}denominator_sum / bps.users), 2)
+          ${imputedDenominatorMean}, 2)
         ) AS ${alias}denominator_sum_squares
         , SUM(bps.users) * (
             (SUM(bps.users) - 1) * SUM(
@@ -333,7 +341,7 @@ export function getBanditStatisticsFactMetricCTE(
             `,
               )}) +
             (
-              SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users) * SUM((${renormalizedWeight}) * bps.${alias}denominator_sum / bps.users)
+              ${imputedMainMean} * ${imputedDenominatorMean}
             )
           ) AS ${alias}main_denominator_sum_product`
           : ""
@@ -341,7 +349,7 @@ export function getBanditStatisticsFactMetricCTE(
       ${
         data.regressionAdjusted
           ? `
-        , SUM((${renormalizedWeight}) * bps.${alias}covariate_sum / bps.users) * SUM(bps.users) AS ${alias}covariate_sum
+        , ${imputedCovariateMean} * SUM(bps.users) AS ${alias}covariate_sum
         , SUM(bps.users) * (SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
@@ -350,7 +358,7 @@ export function getBanditStatisticsFactMetricCTE(
             (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1))
           ) / bps.users
         `,
-        )}) * (SUM(bps.users) - 1) + POWER(SUM((${renormalizedWeight}) * bps.${alias}covariate_sum / bps.users), 2)) AS ${alias}covariate_sum_squares
+        )}) * (SUM(bps.users) - 1) + POWER(${imputedCovariateMean}, 2)) AS ${alias}covariate_sum_squares
         , SUM(bps.users) * (
             (SUM(bps.users) - 1) * SUM(
               ${dialect.ifElse(
@@ -363,7 +371,7 @@ export function getBanditStatisticsFactMetricCTE(
             `,
               )}) +
             (
-              SUM((${renormalizedWeight}) * bps.${alias}main_sum / bps.users) * SUM((${renormalizedWeight}) * bps.${alias}covariate_sum / bps.users)
+              ${imputedMainMean} * ${imputedCovariateMean}
             )
           ) AS ${alias}main_covariate_sum_product
         , MAX(t.${alias}theta) AS ${alias}theta

@@ -155,6 +155,10 @@ describe("getExperimentFactMetricsQuery contextual bandit period weighting", () 
     // contributing zero variance and hiding uncertainty).
     expect(c).toContain("__variationPooledStats");
     expect(c).toContain("pooled_main_variance/bps.users");
+    // Eligible-but-locally-missing periods are imputed at the variation's
+    // context-specific mean (their combined weight is 1 - SUM(renormalized
+    // weight)), rather than treated as zero conversions.
+    expect(c).toContain("/NULLIF(SUM(bps.users),0)*(1-SUM(");
     // Context attribute remains a real dimension column (no dummy 'All').
     expect(c).toContain("attr_cb_country");
     expect(c).not.toContain("'All'ASdimension");
