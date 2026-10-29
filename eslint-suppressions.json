@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Admin/EditOrganization.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Archetype/ArchetypeAttributesModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1809,14 +1804,6 @@
   "packages/front-end/enterprise/components/feature-promos/ExperimentTemplatePromoCard.tsx": {
     "no-restricted-imports": {
       "count": 1
-    }
-  },
-  "packages/front-end/pages/admin.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 9
     }
   },
   "packages/front-end/pages/attributes.tsx": {
