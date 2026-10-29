@@ -369,7 +369,11 @@ const AnalysisForm: FC<{
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
 
-  const isClusterExperiment = form.watch("isClusterExperiment");
+  // A data source without assignment queries can't run a cluster experiment,
+  // so switching to one turns it off.
+  const supportsClusterExperiments = !!datasource?.properties?.exposureQueries;
+  const isClusterExperiment =
+    supportsClusterExperiments && form.watch("isClusterExperiment");
   const clusterSubUnitIdentifier = form.watch("clusterSubUnitIdentifier");
   const goalMetrics = form.watch("goalMetrics");
   const secondaryMetrics = form.watch("secondaryMetrics");
@@ -538,6 +542,9 @@ const AnalysisForm: FC<{
           body.guardrailMetrics = keep(body.guardrailMetrics);
         }
 
+        if (!supportsClusterExperiments) {
+          body.isClusterExperiment = false;
+        }
         if (!body.isClusterExperiment) {
           delete body.clusterSubUnitIdentifier;
         }
@@ -781,28 +788,24 @@ const AnalysisForm: FC<{
                 disabled={isBandit && experiment.status !== "draft"}
               />
             )}
-            {/* Kept while cluster is on so it can be turned off after the
-                data source changes. */}
-            {(datasource?.properties?.exposureQueries || isClusterExperiment) &&
-              !isBandit &&
-              !isHoldout && (
-                <ClusterExperimentFields
-                  exposureQuery={exposureQuery}
-                  identifierType={exposureQueryIdentifierType}
-                  isClusterExperiment={isClusterExperiment}
-                  subUnitIdentifier={clusterSubUnitIdentifier}
-                  setIsClusterExperiment={(value) =>
-                    form.setValue("isClusterExperiment", value)
-                  }
-                  setSubUnitIdentifier={(value) =>
-                    form.setValue("clusterSubUnitIdentifier", value)
-                  }
-                  locked={
-                    experiment.status !== "draft" &&
-                    experimentHasLinkedChanges(experiment)
-                  }
-                />
-              )}
+            {supportsClusterExperiments && !isBandit && !isHoldout && (
+              <ClusterExperimentFields
+                exposureQuery={exposureQuery}
+                identifierType={exposureQueryIdentifierType}
+                isClusterExperiment={isClusterExperiment}
+                subUnitIdentifier={clusterSubUnitIdentifier}
+                setIsClusterExperiment={(value) =>
+                  form.setValue("isClusterExperiment", value)
+                }
+                setSubUnitIdentifier={(value) =>
+                  form.setValue("clusterSubUnitIdentifier", value)
+                }
+                locked={
+                  experiment.status !== "draft" &&
+                  experimentHasLinkedChanges(experiment)
+                }
+              />
+            )}
             {datasource && !isHoldout && (
               <SetupFieldRow label="Experiment key">
                 <Field

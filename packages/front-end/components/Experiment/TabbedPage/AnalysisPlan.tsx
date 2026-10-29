@@ -889,7 +889,7 @@ function DataSourceModal({
   const [identifierType, setIdentifierType] = useState<string | undefined>(
     initialIdentifier || undefined,
   );
-  const [isClusterExperiment, setIsClusterExperiment] = useState(
+  const [clusterChecked, setClusterChecked] = useState(
     cluster.isClusterExperiment,
   );
   const [clusterSubUnitIdentifier, setClusterSubUnitIdentifier] = useState(
@@ -897,6 +897,10 @@ function DataSourceModal({
   );
   const selected = getDatasourceById(datasource);
   const sameSource = datasource === value.datasource;
+  // A data source without assignment queries can't run a cluster experiment,
+  // so switching to one turns it off.
+  const supportsClusterExperiments = !!selected?.properties?.exposureQueries;
+  const isClusterExperiment = supportsClusterExperiments && clusterChecked;
   const selection = useAssignmentQuerySelection({
     datasource: selected,
     project: experiment.project,
@@ -966,9 +970,7 @@ function DataSourceModal({
           progressive
         />
       ) : null}
-      {/* Kept while cluster is on so it can be turned off after the data
-          source changes. */}
-      {selected?.properties?.exposureQueries || isClusterExperiment ? (
+      {supportsClusterExperiments ? (
         <ClusterExperimentFields
           exposureQuery={exposureQuery}
           identifierType={
@@ -978,7 +980,7 @@ function DataSourceModal({
           }
           isClusterExperiment={isClusterExperiment}
           subUnitIdentifier={clusterSubUnitIdentifier}
-          setIsClusterExperiment={setIsClusterExperiment}
+          setIsClusterExperiment={setClusterChecked}
           setSubUnitIdentifier={setClusterSubUnitIdentifier}
           locked={
             experiment.status !== "draft" &&
