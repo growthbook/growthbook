@@ -379,9 +379,10 @@ export default function TrafficAllocationFunnel({
 
   // Staged over what's stored: "" means leaving the stored holdout.
   const holdoutId = holdoutDraft?.value ?? experiment.holdoutId ?? "";
+  // Archived too, so a linked holdout that's since been archived still shows.
   const { holdouts, holdoutsMap, experimentsMap } = useHoldouts(
     undefined,
-    false,
+    true,
     { enabled: canStageHoldout || !!holdoutId },
   );
   const holdout = holdoutsMap.get(holdoutId);

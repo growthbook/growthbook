@@ -1187,6 +1187,15 @@ export async function removeHoldoutMissingLink(
   } else {
     await context.models.holdout.removeFeatureFromHoldout(holdout.id, id);
   }
+  // A publish can point it back between the check and the removal, and finds
+  // the entry still there to keep. Put it back then, or the holdout could drop
+  // out of the payload and stop holding anyone out.
+  const after = await getHoldoutLinkage(context, holdout);
+  if (kind === "experiment" && after.experiments.some((e) => e.id === id)) {
+    await context.models.holdout.addExperimentToHoldout(holdout.id, id);
+  } else if (kind === "feature" && after.features.some((f) => f.id === id)) {
+    await context.models.holdout.addFeatureToHoldout(holdout.id, id);
+  }
 }
 
 /**

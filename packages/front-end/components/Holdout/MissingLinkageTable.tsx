@@ -46,7 +46,7 @@ export default function MissingLinkageTable({
           <PiWarningFill />
         </Flex>
         <Heading as="h5" size="xs" mb="0">
-          Missing linkage ({rows.length})
+          Missing Linkage ({rows.length})
         </Heading>
       </Flex>
       <Text as="p" color="text-mid" mb="3">
