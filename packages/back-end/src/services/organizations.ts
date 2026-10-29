@@ -1866,14 +1866,21 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgsForNewUser(email: string) {
+export async function findVerifiedOrgsForNewUser(
+  email: string,
+  req: AuthRequest,
+) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
   if (isFreeDomain) {
     return null;
   }
 
-  const organizations = await findOrganizationsByDomain(domain);
+  // An SSO or Vercel login only vouches for the email within its own org.
+  // Filter before picking the largest org so a smaller owned org isn't dropped.
+  const organizations = (await findOrganizationsByDomain(domain)).filter(
+    (org) => !isOrgScopedLogin(req) || isValidLoginMethod(org, req),
+  );
   if (!organizations.length) {
     return null;
   }

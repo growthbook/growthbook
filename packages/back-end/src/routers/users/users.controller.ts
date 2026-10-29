@@ -406,15 +406,11 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
       message: "no verified user found",
     });
   }
-  const orgs = await findVerifiedOrgsForNewUser(email);
+  const orgs = await findVerifiedOrgsForNewUser(email, req);
 
   // Filter out orgs that the user is already a member of
-  // An SSO or Vercel login only vouches for the email within its own org
   const joinableOrgs = orgs?.filter((org) => {
-    return (
-      !org.members.find((m) => m.id === user.id) &&
-      (!isOrgScopedLogin(req) || isValidLoginMethod(org, req))
-    );
+    return !org.members.find((m) => m.id === user.id);
   });
 
   if (joinableOrgs) {

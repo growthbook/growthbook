@@ -584,7 +584,7 @@ export async function putMember(
   }
 
   // ensure org matches one of the calculated verified org
-  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  const organizations = await findVerifiedOrgsForNewUser(req.email, req);
   if (!organizations) {
     throw new Error("Invalid orgId");
   }
@@ -592,13 +592,6 @@ export async function putMember(
   const organization = organizations.find((o) => o.id === orgId);
   if (!organization) {
     throw new Error("Invalid orgId");
-  }
-
-  // An SSO or Vercel login only vouches for the email within its own org
-  if (isOrgScopedLogin(req) && !isValidLoginMethod(organization, req)) {
-    throw new Error(
-      "Log out and sign in with Google or email and password to join this organization.",
-    );
   }
 
   // check if user is already a member
