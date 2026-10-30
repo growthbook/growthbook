@@ -2,6 +2,7 @@ import * as React from "react";
 import { render, renderHook } from "@testing-library/react";
 import {
   FeatureRevisionDiffInput,
+  legacyEnvironmentRefs,
   useFeatureRevisionDiff,
 } from "@/hooks/useFeatureRevisionDiff";
 
@@ -158,7 +159,7 @@ describe("useFeatureRevisionDiff", () => {
     );
 
     const toggleDiffs = result.current.filter((d) =>
-      d.title.startsWith("Environment Toggle"),
+      d.title.startsWith("Environment"),
     );
     expect(toggleDiffs).toHaveLength(0);
   });
@@ -209,11 +210,64 @@ describe("useFeatureRevisionDiff", () => {
     expect(html).not.toContain('["production","dev"]');
   });
 
-  it("emits an env-toggle diff only for envs that actually changed", () => {
+  it("titles a single toggled environment in the singular", () => {
     const current: FeatureRevisionDiffInput = {
       defaultValue: "false",
       rules: [],
-      environmentsEnabled: { production: false, staging: false },
+      environmentsEnabled: { production: false },
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: { production: true },
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    const toggleDiffs = result.current.filter((d) =>
+      d.title.startsWith("Environment"),
+    );
+    expect(toggleDiffs).toHaveLength(1);
+    expect(toggleDiffs[0].title).toBe("Environment");
+  });
+
+  it("ignores rule fields the rule type does not declare", () => {
+    const rule = {
+      type: "experiment-ref",
+      id: "r1",
+      description: "",
+      enabled: true,
+      allEnvironments: true,
+      condition: "",
+      scheduleRules: [],
+      experimentId: "exp_1",
+      variations: [{ variationId: "v0", value: "a" }],
+    };
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "a",
+      rules: [rule] as never,
+    };
+    const draft: FeatureRevisionDiffInput = {
+      defaultValue: "a",
+      rules: [
+        { ...rule, hashVersion: 2, disableStickyBucketing: false },
+      ] as never,
+    };
+
+    const { result } = renderHook(() =>
+      useFeatureRevisionDiff({ current, draft }),
+    );
+
+    expect(result.current.filter((d) => d.key === "rules")).toHaveLength(0);
+  });
+
+  it("groups every toggled environment into one section", () => {
+    const current: FeatureRevisionDiffInput = {
+      defaultValue: "false",
+      rules: [],
+      environmentsEnabled: { production: false, staging: true, dev: false },
     };
     const draft: FeatureRevisionDiffInput = {
       defaultValue: "false",
@@ -226,11 +280,40 @@ describe("useFeatureRevisionDiff", () => {
     );
 
     const toggleDiffs = result.current.filter((d) =>
-      d.title.startsWith("Environment Toggle"),
+      d.title.startsWith("Environment"),
     );
     expect(toggleDiffs).toHaveLength(1);
-    expect(toggleDiffs[0].title).toBe("Environment Toggle - production");
-    expect(toggleDiffs[0].a).toBe("false");
-    expect(toggleDiffs[0].b).toBe("true");
+    expect(toggleDiffs[0].title).toBe("Environments");
+    expect(JSON.parse(toggleDiffs[0].a)).toEqual({
+      production: false,
+      staging: true,
+    });
+    expect(JSON.parse(toggleDiffs[0].b)).toEqual({
+      production: true,
+      staging: false,
+    });
+    expect(toggleDiffs[0].badges?.map((b) => b.label)).toEqual([
+      "Toggled production on",
+      "Toggled staging off",
+    ]);
+  });
+
+  it("points per-environment comment refs at their line in the merged section", () => {
+    const a = JSON.stringify({ production: false, staging: true }, null, 2);
+    const b = JSON.stringify({ production: true, staging: false }, null, 2);
+
+    const refs = legacyEnvironmentRefs(a, b);
+
+    expect(refs.get("environmentsEnabled.production:R1")).toEqual({
+      sectionKey: "environmentsEnabled",
+      side: "R",
+      line: 2,
+    });
+    expect(refs.get("environmentsEnabled.staging:L1")).toEqual({
+      sectionKey: "environmentsEnabled",
+      side: "L",
+      line: 3,
+    });
+    expect(refs.has("environmentsEnabled.dev:R1")).toBe(false);
   });
 });

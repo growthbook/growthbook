@@ -763,6 +763,7 @@ export const AI_PROMPT_TYPES = [
   "general-chat",
   "chat-autocomplete",
   "experiment-quality",
+  "experiment-quality-summary",
 ] as const;
 export type AIPromptType = (typeof AI_PROMPT_TYPES)[number];
 
@@ -810,6 +811,10 @@ export const AI_PROMPT_DEFAULTS: Record<AIPromptType, string> = {
     "\n- Hypothesis-metric alignment: do the goal metrics directly measure what the hypothesis predicts will change?" +
     "\nBe strict but fair: a score of 1 means exemplary, 0.5 means adequate but vague, 0 means missing or unrelated." +
     "\nOnly score the dimensions you are asked to score.",
+  "experiment-quality-summary":
+    "You summarize an A/B test experiment's quality score in one short, plain sentence of at most 15 words." +
+    '\nName its main strength, if any, then its biggest problems, for example: "Well documented, but the analysis changed mid-run and the hypothesis is vague."' +
+    "\nMention at most two problems. Use only the facts given. Don't mention points, scores or check names.",
 };
 
 // Prompt types that have default values and can be customized by users

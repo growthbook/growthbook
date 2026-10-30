@@ -13,6 +13,9 @@ import { Select, SelectItem } from "@/ui/Select";
 import Field from "@/components/Forms/Field";
 import { useDecisionCriteriaForm } from "@/hooks/useDecisionCriteriaForm";
 
+// One width for every row's label, so each row's field starts in line.
+const LABEL_WIDTH = "80px";
+
 // Match options
 const MATCH_OPTIONS = [
   { value: "all", label: "All" },
@@ -182,7 +185,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
           {rule.conditions.map((condition, conditionIndex) => (
             <Flex key={condition.key} direction="column">
               <Flex align="center" gap="4" width="100%">
-                <Box width="40px">
+                <Box width={LABEL_WIDTH} flexShrink="0">
                   <Text size="2" color={"gray"}>
                     {conditionIndex === 0 ? "If" : "and"}
                   </Text>
@@ -308,7 +311,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
           </Flex>
 
           <Flex gap="4" align="center" width="100%">
-            <Box width="70px">
+            <Box width={LABEL_WIDTH} flexShrink="0">
               <Text weight="medium" size="2">
                 Then
               </Text>
@@ -358,7 +361,7 @@ const DecisionCriteriaModalContent: FC<DecisionCriteriaModalContentProps> = ({
 
       <Flex direction="column" gap="1" className="appbox bg-light p-2 mb-0">
         <Flex gap="4" align="center" width="100%">
-          <Box width="70px">
+          <Box width={LABEL_WIDTH} flexShrink="0">
             <Text weight="medium" size="2">
               Otherwise
             </Text>

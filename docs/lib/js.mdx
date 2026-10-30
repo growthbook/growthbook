@@ -644,6 +644,7 @@ Other rules:
 - Strings compare as text, even when they look like numbers: `"10"` is less than `"9"`. ISO dates such as `"2026-10-20"` still compare correctly.
 - Booleans can't be compared with greater than or less than. Those comparisons always fail.
 - "Exists" and "type" checks are unchanged.
+- A hash attribute, such as `id`, must be a string or a number. Other values, such as `true` or an array, now count as missing, so the user isn't included in the experiment.
 
 To find attributes sent with the wrong type, turn on debug mode. The SDK logs `Type mismatch in condition` with the attribute path, operator and both values:
 

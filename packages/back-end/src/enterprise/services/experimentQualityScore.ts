@@ -4,6 +4,7 @@ import {
   AIExperimentQualityCheckKey,
   ExperimentAIQualityResults,
   ExperimentInterface,
+  ExperimentStoredQualityScore,
   ExperimentationHealthSettingsInterface,
   aiExperimentQualityCheckKeys,
   ORG_DEFAULT_SCOPE,
@@ -11,11 +12,14 @@ import {
 import {
   EXPERIMENT_QUALITY_PROMPT_VERSION,
   EXPERIMENT_QUALITY_SCORE_VERSION,
+  ExperimentQualityScoreResult,
+  QUALITY_CHECK_PASS_THRESHOLD,
   customQualityCheckKey,
   getAIQualityInputsHash,
   getExperimentDigestForCustomRules,
   getExperimentQualityScore,
   getGoalMetricNames,
+  getQualitySummaryKey,
   isAICheckApplicable,
   resolveExperimentQualitySettings,
 } from "shared/enterprise";
@@ -340,14 +344,29 @@ export async function computeAndStoreAIQualityChecks({
     inputs ?? (await loadAIQualityInputs(context, experiment.goalMetrics)),
   );
   if (!work) return { status: "skipped" };
-  const {
-    settings,
-    applicableChecks,
-    applicableCustomChecks,
-    goalMetricNames,
-    inputsHash,
-  } = work;
-  if (!force && experiment.aiQualityResults?.inputsHash === inputsHash) {
+  const { settings, goalMetricNames, inputsHash } = work;
+  // Fresh verdicts stay; only checks added since they were cached are judged
+  const cached = experiment.aiQualityResults;
+  const fresh = !force && cached?.inputsHash === inputsHash;
+  const applicableKeys = new Set<string>([
+    ...work.applicableChecks,
+    ...work.applicableCustomChecks.map((c) => c.key),
+  ]);
+  const keepChecks =
+    fresh && !cached.error
+      ? cached.checks.filter((c) => applicableKeys.has(c.key))
+      : [];
+  const judged = new Set(keepChecks.map((c) => c.key));
+  const applicableChecks = work.applicableChecks.filter(
+    (key) => !judged.has(key),
+  );
+  const applicableCustomChecks = work.applicableCustomChecks.filter(
+    (c) => !judged.has(c.key),
+  );
+  if (
+    (fresh && cached.error) ||
+    (!applicableChecks.length && !applicableCustomChecks.length)
+  ) {
     return { status: "skipped" };
   }
 
@@ -416,7 +435,7 @@ export async function computeAndStoreAIQualityChecks({
       inputsHash,
       version: EXPERIMENT_QUALITY_PROMPT_VERSION,
       dateComputed: new Date(),
-      checks: checks.flat(),
+      checks: [...keepChecks, ...checks.flat()],
     };
   } catch (e) {
     logger.error(
@@ -466,12 +485,57 @@ export async function loadQualityScoreInputs(context: ReqContext) {
   };
 }
 
+// One plain sentence on the score, or null when the AI can't write it now
+async function writeQualitySummary(
+  context: ReqContext,
+  experiment: ExperimentInterface,
+  result: ExperimentQualityScoreResult,
+): Promise<string | null> {
+  if ((await secondsUntilAICanBeUsedAgain(context.org)) > 0) return null;
+  const facts = result.sections
+    .filter((s) => s.enabled && s.applicable && s.possiblePoints > 0)
+    .map((s) =>
+      [
+        `${s.label}: ${Math.round((s.earnedPoints / s.possiblePoints) * 100)}%`,
+        ...s.checks
+          .filter(
+            (c) =>
+              c.applicable &&
+              c.score !== null &&
+              c.score < QUALITY_CHECK_PASS_THRESHOLD,
+          )
+          .map((c) => `- Fails "${c.label}"${c.reason ? `: ${c.reason}` : ""}`),
+      ].join("\n"),
+    )
+    .join("\n\n");
+  try {
+    const { prompt, isDefaultPrompt, overrideModel } =
+      await context.models.aiPrompts.getAIPrompt("experiment-quality-summary");
+    const { summary } = await parsePrompt({
+      context,
+      instructions: prompt,
+      prompt: `Experiment: ${experiment.name}\n\n${facts}`,
+      temperature: 0.2,
+      type: "experiment-quality-summary",
+      isDefaultPrompt,
+      zodObjectSchema: z.object({ summary: z.string() }),
+      overrideModel,
+    });
+    return summary.trim() || null;
+  } catch (e) {
+    logger.warn(e, `Couldn't summarize the quality of ${experiment.id}`);
+    return null;
+  }
+}
+
 // Recomputes the experiment's stored quality score, writing only when it
 // changed; null when scoring is off for the experiment's scope
 export async function storeQualityScore(
   context: ReqContext,
   experiment: ExperimentInterface,
   attempt = 0,
+  // A summary already written by an earlier attempt
+  written?: ExperimentStoredQualityScore["summary"],
 ): Promise<void> {
   // Read just before saving, so settings changed during an AI call count
   const inputs = await loadQualityScoreInputs(context);
@@ -487,10 +551,30 @@ export async function storeQualityScore(
   const result = settings
     ? getExperimentQualityScore({ experiment, settings })
     : null;
+
+  // Drafts aren't summarized, and a pending score keeps the last summary
+  const previous = experiment.qualityScore?.summary;
+  const summaryKey =
+    result && inputs.aiEnabled && experiment.status !== "draft"
+      ? getQualitySummaryKey(result)
+      : null;
+  let summary: ExperimentStoredQualityScore["summary"];
+  if (summaryKey && result) {
+    if (result.pending || previous?.key === summaryKey) {
+      summary = previous;
+    } else if (written?.key === summaryKey) {
+      summary = written;
+    } else {
+      const text = await writeQualitySummary(context, experiment, result);
+      summary = text ? { text, key: summaryKey } : undefined;
+    }
+  }
+
   const next = result
     ? {
         ...pick(result, ["score", "computedScore", "pending"]),
         version: EXPERIMENT_QUALITY_SCORE_VERSION,
+        ...(summary ? { summary } : {}),
       }
     : null;
   const current = experiment.qualityScore
@@ -499,6 +583,7 @@ export async function storeQualityScore(
         "computedScore",
         "pending",
         "version",
+        "summary",
       ])
     : null;
   if (isEqual(next, current)) return;
@@ -522,6 +607,6 @@ export async function storeQualityScore(
   );
   if (!stored && attempt < 2) {
     const latest = await getExperimentById(context, experiment.id);
-    if (latest) await storeQualityScore(context, latest, attempt + 1);
+    if (latest) await storeQualityScore(context, latest, attempt + 1, summary);
   }
 }

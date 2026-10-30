@@ -2,14 +2,14 @@ import { useMemo, ReactNode } from "react";
 import isEqual from "lodash/isEqual";
 import { FeatureInterface } from "shared/types/feature";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
-import { RevisionMetadata } from "shared/validators";
+import { RevisionMetadata, stripUnknownRuleFields } from "shared/validators";
 import type { MergeResultChanges } from "shared/util";
 import {
   renderFeatureDefaultValue,
   renderFeatureRules,
   normalizeFeatureRules,
   featureRuleChangeBadges,
-  renderEnvironmentsEnabled,
+  renderEnvironmentToggles,
   renderPrerequisites,
   renderRevisionMetadata,
   prerequisiteChangeBadges,
@@ -18,6 +18,10 @@ import {
   renderFeatureArchived,
 } from "@/components/Features/FeatureDiffRenders";
 import type { DiffBadge } from "@/components/AuditHistoryExplorer/types";
+import {
+  diffRefId,
+  type DiffCommentRef,
+} from "@/components/Reviews/diffCommentRefs";
 import { useEnvironments } from "@/services/features";
 import { useHoldouts, holdoutOccupiesRuleSlot } from "@/hooks/useHoldouts";
 
@@ -150,11 +154,8 @@ export type FeatureRevisionDiffInput = Pick<
 
 export type FeatureRevisionDiff = {
   title: string;
-  // Stable machine identity for this section, independent of the display
-  // title. Uses the same vocabulary as granular merge-conflict keys
-  // (`rules`, `defaultValue`, `environmentsEnabled.<env>`, ...) plus
-  // `rampAction.<id>` / `rampSchedule.<id>` for supplemental entities.
-  // Used by diff comment references (see diffCommentRefs.ts).
+  // Stable section id for diff comment refs, independent of the title:
+  // `rules`, `defaultValue`, `environmentsEnabled`, `rampAction.<id>`, ...
   key?: string;
   a: string;
   b: string;
@@ -174,6 +175,36 @@ export type FeatureRevisionDiff = {
   entityName?: string;
   entityType?: string;
 };
+
+export const ENVIRONMENT_TOGGLES_KEY = "environmentsEnabled";
+
+// Stored comments may reference the old one-section-per-env form
+// (`environmentsEnabled.<env>`, line 1): map each onto its line in `a` / `b`.
+export function legacyEnvironmentRefs(
+  a: string,
+  b: string,
+): Map<string, DiffCommentRef> {
+  const refs = new Map<string, DiffCommentRef>();
+  const sides = [
+    ["L", a],
+    ["R", b],
+  ] as const;
+  for (const [side, json] of sides) {
+    json.split("\n").forEach((text, i) => {
+      const env = /^\s*"([^"]+)":/.exec(text)?.[1];
+      if (!env) return;
+      refs.set(
+        diffRefId({
+          sectionKey: `${ENVIRONMENT_TOGGLES_KEY}.${env}`,
+          side,
+          line: 1,
+        }),
+        { sectionKey: ENVIRONMENT_TOGGLES_KEY, side, line: i + 1 },
+      );
+    });
+  }
+  return refs;
+}
 
 // Mirrors backend `applyEnvironmentInheritance`: fill missing env entries by
 // walking each env's parent chain. Avoids phantom toggle diffs on inheriting
@@ -311,27 +342,29 @@ export function useFeatureRevisionDiff({
       draft.environmentsEnabled,
       orgEnvs,
     );
-    const draftEnabledEnvs = Object.keys(draft.environmentsEnabled || {});
-    draftEnabledEnvs.forEach((envId) => {
-      const currentVal = inheritedCurrent[envId] ?? false;
-      const draftVal = inheritedDraft[envId] ?? false;
-      if (currentVal !== draftVal) {
-        const direction = draftVal ? "on" : "off";
-        diffs.push({
-          key: `environmentsEnabled.${envId}`,
-          title: `Environment Toggle - ${envId}`,
-          a: String(currentVal),
-          b: String(draftVal),
-          customRender: renderEnvironmentsEnabled(currentVal, draftVal),
-          badges: [
-            {
-              label: `Toggled ${envId} ${direction}`,
-              action: `toggle environment ${envId}`,
-            },
-          ],
-        });
-      }
-    });
+    const toggled = Object.keys(draft.environmentsEnabled || {})
+      .map((envId) => ({
+        envId,
+        from: inheritedCurrent[envId] ?? false,
+        to: inheritedDraft[envId] ?? false,
+      }))
+      .filter(({ from, to }) => from !== to);
+    // One section for every toggle, so twenty environments don't bury the diff.
+    if (toggled.length) {
+      const asMap = (side: "from" | "to") =>
+        Object.fromEntries(toggled.map((t) => [t.envId, t[side]]));
+      diffs.push({
+        key: ENVIRONMENT_TOGGLES_KEY,
+        title: toggled.length === 1 ? "Environment" : "Environments",
+        a: JSON.stringify(asMap("from"), null, 2),
+        b: JSON.stringify(asMap("to"), null, 2),
+        customRender: renderEnvironmentToggles(toggled),
+        badges: toggled.map(({ envId, to }) => ({
+          label: `Toggled ${envId} ${to ? "on" : "off"}`,
+          action: `toggle environment ${envId}`,
+        })),
+      });
+    }
 
     // 3. Prerequisites (feature-level)
     if (draft.prerequisites !== undefined) {
@@ -401,8 +434,14 @@ export function useFeatureRevisionDiff({
     // footprint is empty (`environments: []`, pending) or universal
     // (`allEnvironments: true`) — all of which were invisible in the old
     // per-env projection layout.
-    const draftRulesArr = Array.isArray(draft.rules) ? draft.rules : [];
-    const currentRulesArr = Array.isArray(current.rules) ? current.rules : [];
+
+    // Fields the rule type never declared would diff as changes nobody made.
+    const draftRulesArr = (Array.isArray(draft.rules) ? draft.rules : []).map(
+      stripUnknownRuleFields,
+    );
+    const currentRulesArr = (
+      Array.isArray(current.rules) ? current.rules : []
+    ).map(stripUnknownRuleFields);
     const draftRampActions = draft.rampActions ?? undefined;
     // Force the Rules section to render when an unchanged rule has a pending
     // ramp create action queued — without this, a draft whose only change is

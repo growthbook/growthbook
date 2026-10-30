@@ -25,20 +25,13 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import { useUser } from "@/services/UserContext";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import track from "@/services/track";
+import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Markdown from "./Markdown";
 
 const Item = ({ entity: { name, char } }) => <div>{`${name}: ${char}`}</div>;
 const Loading = () => <div>Loading</div>;
 
-//Extracts a human-readable link label from a URL for Markdown link shorthand.
-function getLinkLabelFromUrl(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "") || "Link";
-  } catch {
-    return "Link";
-  }
-}
 const MarkdownInput: FC<{
   value: string;
   setValue: (value: string) => void;

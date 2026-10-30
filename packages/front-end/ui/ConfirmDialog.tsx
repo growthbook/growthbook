@@ -12,6 +12,8 @@ type Props = {
   color?: Color;
   onConfirm: () => void | Promise<void>;
   onCancel: () => void;
+  /** Escape or a click outside; defaults to onCancel. */
+  onDismiss?: () => void;
 };
 
 export default function ConfirmDialog({
@@ -22,10 +24,16 @@ export default function ConfirmDialog({
   color = "violet",
   onConfirm,
   onCancel,
+  onDismiss = onCancel,
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   return (
-    <AlertDialog.Root open={true}>
+    <AlertDialog.Root
+      open={true}
+      onOpenChange={(open) => {
+        if (!open) onDismiss();
+      }}
+    >
       <AlertDialog.Content maxWidth="520px">
         <Flex direction="column" gap="4">
           <Box>

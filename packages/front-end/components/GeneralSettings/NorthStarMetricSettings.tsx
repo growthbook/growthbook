@@ -1,56 +1,46 @@
-import { Box, Flex, Heading } from "@radix-ui/themes";
+import { useFormContext } from "react-hook-form";
 import Field from "@/components/Forms/Field";
 import MetricsSelector from "@/components/Experiment/MetricsSelector";
-import { ConnectSettingsForm } from "@/pages/settings";
-import Frame from "@/ui/Frame";
+import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { SettingsField, SettingsGroup } from "./SettingsGroup";
 
 export default function NorthStarMetricSettings() {
+  const { watch, setValue } =
+    useFormContext<OrganizationSettingsWithMetricDefaults>();
   return (
-    <ConnectSettingsForm>
-      {({ watch, setValue }) => (
-        <Frame>
-          <Flex gap="4">
-            <Box width="220px" flexShrink="0">
-              <Heading size="4" as="h4">
-                North Star Metrics
-              </Heading>
-            </Box>
-
-            <Flex align="start" direction="column" flexGrow="1" pt="6">
-              <p>
-                North Stars are metrics your team is focused on improving. These
-                metrics are shown on the home page with the experiments that
-                have the metric as a goal.
-              </p>
-              <Box className={"form-group"} width="100%">
-                <div className="my-3">
-                  <div className="form-group">
-                    <label>Metric(s)</label>
-                    <MetricsSelector
-                      selected={watch("northStar.metricIds")}
-                      onChange={(metricIds) =>
-                        setValue("northStar.metricIds", metricIds)
-                      }
-                      includeFacts={true}
-                      includeGroups={false}
-                      excludeQuantiles={true}
-                      noManual={true}
-                    />
-                  </div>
-                  <Field
-                    size="legacy"
-                    label="Title"
-                    value={watch("northStar.title")}
-                    onChange={(e) => {
-                      setValue("northStar.title", e.target.value);
-                    }}
-                  />
-                </div>
-              </Box>
-            </Flex>
-          </Flex>
-        </Frame>
-      )}
-    </ConnectSettingsForm>
+    <>
+      <SettingsGroup
+        id="north-star"
+        title="North Star"
+        description="Shown on the home page alongside experiments that use these metrics as goals."
+        keywords="north star home page kpi goals"
+      >
+        <SettingsField name="northStar.metricIds" label="Metrics">
+          <MetricsSelector
+            selected={watch("northStar.metricIds") ?? []}
+            onChange={(metricIds) => setValue("northStar.metricIds", metricIds)}
+            includeFacts={true}
+            includeGroups={false}
+            excludeQuantiles={true}
+            noManual={true}
+          />
+        </SettingsField>
+        <SettingsField
+          name="northStar.title"
+          htmlFor="settings-northStar-title"
+          label="Title"
+        >
+          <Field
+            id="settings-northStar-title"
+            size="md"
+            containerClassName="mb-0"
+            value={watch("northStar.title")}
+            onChange={(e) => {
+              setValue("northStar.title", e.target.value);
+            }}
+          />
+        </SettingsField>
+      </SettingsGroup>
+    </>
   );
 }

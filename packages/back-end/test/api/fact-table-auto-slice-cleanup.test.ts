@@ -86,7 +86,6 @@ function makeMetric(
         rowFilters: [],
       },
       metricAutoSlices: ["country", "device"],
-      loseRisk: 0.5,
     }),
     ...overrides,
   } as FactMetricInterface;
@@ -234,6 +233,67 @@ it("background column refresh cleans API-managed metrics and still lands", async
     columnRefreshPending: false,
     columns: [{ column: "amount" }, { column: "country", deleted: true }],
   });
+  expect(await storedMetric(metric.id)).toMatchObject({
+    metricAutoSlices: ["device"],
+  });
+});
+
+it("cleans a funnel whose later step's table drops the column", async () => {
+  // The funnel's first step reads a different table, so scoping the cascade to
+  // the numerator alone would leave this slice behind.
+  const metric = makeMetric("fact__funnel_later_step", {
+    metricType: "funnel",
+    numerator: null,
+    funnelSettings: {
+      steps: [
+        {
+          name: "View",
+          factTableId: "ftb_other",
+          rowFilters: [],
+          optional: false,
+        },
+        {
+          name: "Purchase",
+          factTableId: factTable.id,
+          rowFilters: [],
+          optional: false,
+        },
+      ],
+    },
+  } as unknown as Partial<FactMetricInterface>);
+  // Both step tables have to resolve, and share a unit, for the funnel to
+  // validate on the cascade's write.
+  await mongoose.connection.db!.collection("facttables").insertMany(
+    [factTable.id, "ftb_other"].map((id) => ({
+      ...factTable,
+      id,
+      userIdTypes: ["user_id"],
+      columns: factTable.columns.map((column) => ({ ...column })),
+    })),
+  );
+  await mongoose.connection.db!.collection("factmetrics").insertMany([metric]);
+  const context = apiKeyContext();
+  jest.spyOn(context, "hasPremiumFeature").mockReturnValue(true);
+
+  const response = await disableCountrySlices();
+
+  expect(response.status).toBe(200);
+  expect(await storedMetric(metric.id)).toMatchObject({
+    metricAutoSlices: ["device"],
+  });
+});
+
+it("cleans a metric when the column changes datatype", async () => {
+  const metric = makeMetric("fact__retyped_column");
+  await seed([metric]);
+  apiKeyContext();
+
+  const response = await request(app)
+    .post(`/api/v1/fact-tables/${factTable.id}`)
+    .send({ columns: [{ column: "country", datatype: "number" }] })
+    .set("Authorization", "Bearer test-key");
+
+  expect(response.status).toBe(200);
   expect(await storedMetric(metric.id)).toMatchObject({
     metricAutoSlices: ["device"],
   });

@@ -18,6 +18,7 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraft } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { ConflictProvider } from "@/components/DraftConflicts/ConflictContext";
 import { useDraftConflict } from "@/components/DraftConflicts/useDraftConflict";
 import FeatureValueField from "./FeatureValueField";
@@ -92,7 +93,7 @@ export default function EditDefaultValueModal({
         header="Edit Default Value"
         cta="Save to draft"
         ctaEnabled={conflict.resolved}
-        submit={form.handleSubmit(async (value) => {
+        submit={validatedSubmit(form, async (value) => {
           const newDefaultValue = validateFeatureValue(
             feature,
             value?.defaultValue ?? "",
@@ -160,7 +161,6 @@ export default function EditDefaultValueModal({
           valueType={feature.valueType}
           feature={feature}
           renderJSONInline={true}
-          useCodeInput={true}
           showFullscreenButton={true}
           allowConfigBacking={isConfigBacked}
           configBackingOptionKeys={configBackingOptionKeys}

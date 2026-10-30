@@ -1,6 +1,6 @@
 import { FC, useState, useMemo, useEffect } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   getMetricLink,
   ExperimentMetricDefinition,
@@ -31,7 +31,6 @@ import {
   getHonoredPrecomputedUnitDimensionIds,
 } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
@@ -264,6 +263,10 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
+  // Opening from a funnel step row lands on that step's slices
+  const [funnelStepIndex, setFunnelStepIndex] = useState(
+    row.funnelStepIndex ?? 0,
+  );
   const hasDimensionTimeSeries =
     !dimensionInfo ||
     isDimensionPrecomputed(
@@ -374,7 +377,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           dimensionInfo={dimensionInfo}
         />
       </TabsContent>
-      {isFunnelMetric ? (
+      {isFunnelMetric && (
         <TabsContent value="funnel">
           <Box
             style={{
@@ -393,42 +396,43 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
             />
           </Box>
         </TabsContent>
-      ) : (
-        <TabsContent value="slices">
-          <MetricDrilldownSlices
-            metric={metric}
-            rows={allRows}
-            variationNames={variations.map((v) => v.name)}
-            differenceType={localDifferenceType}
-            setDifferenceType={setLocalDifferenceType}
-            statsEngine={statsEngine}
-            baselineRow={localBaselineRow}
-            setBaselineRow={setLocalBaselineRow}
-            variationFilter={localVariationFilter}
-            setVariationFilter={setLocalVariationFilter}
-            experimentId={experimentId}
-            significanceThresholds={significanceThresholds}
-            phase={phase}
-            variations={variations}
-            startDate={startDate}
-            endDate={endDate}
-            reportDate={reportDate}
-            isLatestPhase={isLatestPhase}
-            pValueCorrection={pValueCorrection}
-            sequentialTestingEnabled={sequentialTestingEnabled}
-            experimentStatus={experimentStatus}
-            initialSortBy={localSortBy}
-            initialSortDirection={localSortDirection}
-            searchTerm={sliceSearchTerm}
-            setSearchTerm={setSliceSearchTerm}
-            visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
-            setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
-            ssrPolyfills={ssrPolyfills}
-            hideTimeSeries={hideTimeSeries}
-            dimensionInfo={dimensionInfo}
-          />
-        </TabsContent>
       )}
+      <TabsContent value="slices">
+        <MetricDrilldownSlices
+          metric={metric}
+          rows={allRows}
+          results={results}
+          differenceType={localDifferenceType}
+          setDifferenceType={setLocalDifferenceType}
+          statsEngine={statsEngine}
+          baselineRow={localBaselineRow}
+          setBaselineRow={setLocalBaselineRow}
+          variationFilter={localVariationFilter}
+          setVariationFilter={setLocalVariationFilter}
+          experimentId={experimentId}
+          significanceThresholds={significanceThresholds}
+          phase={phase}
+          variations={variations}
+          startDate={startDate}
+          endDate={endDate}
+          reportDate={reportDate}
+          isLatestPhase={isLatestPhase}
+          pValueCorrection={pValueCorrection}
+          sequentialTestingEnabled={sequentialTestingEnabled}
+          experimentStatus={experimentStatus}
+          initialSortBy={localSortBy}
+          initialSortDirection={localSortDirection}
+          searchTerm={sliceSearchTerm}
+          setSearchTerm={setSliceSearchTerm}
+          funnelStepIndex={funnelStepIndex}
+          setFunnelStepIndex={setFunnelStepIndex}
+          visibleTimeSeriesRowIds={visibleSliceTimeSeriesRowIds}
+          setVisibleTimeSeriesRowIds={setVisibleSliceTimeSeriesRowIds}
+          ssrPolyfills={ssrPolyfills}
+          hideTimeSeries={hideTimeSeries}
+          dimensionInfo={dimensionInfo}
+        />
+      </TabsContent>
       <TabsContent value="debug">
         <MetricDrilldownDebug
           row={mainMetricRow}
@@ -452,7 +456,6 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           goalRows={goalRows}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
-          variationNames={variations.map((v) => v.name)}
         />
       </TabsContent>
     </>
@@ -580,11 +583,7 @@ const MetricDrilldownModal = ({
   };
 
   return (
-    <Tabs
-      defaultValue={
-        isFunnelMetric && initialTab === "slices" ? "funnel" : initialTab
-      }
-    >
+    <Tabs defaultValue={initialTab}>
       <Modal
         open={true}
         close={close}
@@ -596,17 +595,24 @@ const MetricDrilldownModal = ({
         includeCloseCta={false}
         dismissible
         header={
-          <Flex align="center" gap="0">
+          <Flex align="center" gap="3">
             <Text size="6" weight="bold">
-              <MetricName metric={metric} officialBadgePosition="right" />
+              <MetricName
+                metric={metric}
+                officialBadgePosition="right"
+                officialBadgeLeftGap={false}
+              />
             </Text>
-            <Link
-              href={getMetricLink(metric.id)}
-              target="_blank"
-              style={{ display: "inline-flex", alignItems: "center" }}
-            >
-              <PiArrowSquareOut size={16} />
-            </Link>
+            <IconButton asChild variant="ghost" radius="full" size="2">
+              <a
+                href={getMetricLink(metric.id)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open metric in a new tab"
+              >
+                <PiArrowSquareOut size={16} />
+              </a>
+            </IconButton>
           </Flex>
         }
         subHeader={
@@ -649,21 +655,20 @@ const MetricDrilldownModal = ({
 
             <TabsList mt="5">
               <TabsTrigger value="overview">Overview</TabsTrigger>
-              {isFunnelMetric ? (
+              {isFunnelMetric && (
                 <TabsTrigger value="funnel">Funnel</TabsTrigger>
-              ) : (
-                <TabsTrigger value="slices">
-                  <Flex align="center" gap="1">
-                    Slices
-                    {!ownerHasMetricSlices && (
-                      <PaidFeatureBadge
-                        commercialFeature="metric-slices"
-                        useTip={false}
-                      />
-                    )}
-                  </Flex>
-                </TabsTrigger>
               )}
+              <TabsTrigger value="slices">
+                <Flex align="center" gap="1">
+                  Slices
+                  {!ownerHasMetricSlices && (
+                    <PaidFeatureBadge
+                      commercialFeature="metric-slices"
+                      useTip={false}
+                    />
+                  )}
+                </Flex>
+              </TabsTrigger>
               <TabsTrigger value="debug">Debug</TabsTrigger>
             </TabsList>
           </Box>

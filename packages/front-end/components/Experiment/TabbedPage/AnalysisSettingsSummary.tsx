@@ -35,6 +35,7 @@ import {
 import {
   resolveAnalysisIdentifierType,
   getSnapshotAnalysis,
+  getSnapshotCutoffDate,
 } from "shared/util";
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { getValidDate } from "shared/dates";
@@ -45,7 +46,6 @@ import {
   DEFAULT_STATS_ENGINE,
 } from "shared/constants";
 import { startCase } from "lodash";
-import { PiArrowSquareOut } from "react-icons/pi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import ResultMoreMenu, {
   shouldOfferMenuRefresh,
@@ -67,6 +67,7 @@ import QueriesLastRun from "@/components/Queries/QueriesLastRun";
 import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
 import OutdatedBadge from "@/components/OutdatedBadge";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import {
   getIsExperimentIncludedInIncrementalRefresh,
@@ -77,7 +78,6 @@ import Metadata from "@/ui/Metadata";
 import ResultsFilter from "@/components/Experiment/ResultsFilter/ResultsFilter";
 import { filterMetricsByTags } from "@/hooks/useExperimentTableRows";
 import DimensionChooser from "@/components/Dimensions/DimensionChooser";
-import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import MigrateResultsToDashboardModal from "@/components/Experiment/ResultsFilter/MigrateResultsToDashboardModal";
 import UpdateDimensionBreakdownModal from "@/components/Experiment/UpdateDimensionBreakdownModal";
@@ -788,9 +788,16 @@ export default function AnalysisSettingsSummary({
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateStarted ?? ""),
         getValidDate(snapshotSettings.startDate),
       ) ||
+      // A running phase analyzed through a lagged cutoff ends before the
+      // snapshot ran, so measure its staleness from the run time.
       isDifferentDate(
         getValidDate(exp.phases?.[currentPhase ?? 0]?.dateEnded ?? ""),
-        getValidDate(snapshotSettings.endDate),
+        getValidDate(
+          !exp.phases?.[currentPhase ?? 0]?.dateEnded &&
+            snapshotSettings.endDateIsCutoff
+            ? snap?.dateCreated
+            : snapshotSettings.endDate,
+        ),
       )
     ) {
       reasons.push("Analysis dates changed");
@@ -915,6 +922,9 @@ export default function AnalysisSettingsSummary({
               <QueriesLastRun
                 status={status}
                 dateCreated={snapshot?.dateCreated}
+                cutoffDate={
+                  snapshot ? getSnapshotCutoffDate(snapshot.settings) : null
+                }
                 sourceSnapshot={sourceSnapshot}
                 latestQueryDate={latest?.dateCreated}
                 nextUpdate={experiment.nextSnapshotAttempt}
@@ -1113,10 +1123,8 @@ export default function AnalysisSettingsSummary({
           button (same `allMetrics.length > 0` gate). With no metrics there is
           nothing to rescan, and Results already shows "Add at least 1 metric". */}
       {incrementalUpdatesUnavailable && allMetrics.length > 0 && (
-        <Callout status="warning" mt="2">
-          <Text weight="semibold" size="md">
-            Updates will rescan full experiment data.
-          </Text>{" "}
+        <Callout status="warning" contentAlign="center" mt="2">
+          Updates will rescan the full experiment data.{" "}
           {incrementalPipelineUnsupportedReason}
         </Callout>
       )}
@@ -1134,29 +1142,21 @@ export default function AnalysisSettingsSummary({
 
       {viewingDimensionThatRequiresOverallFirst &&
       overallResultsRequiredBeforeDimensionRefresh ? (
-        <Callout status="warning" mt="2">
-          {overallNeedsFullRefresh ? (
-            <>
-              <Text weight="semibold" size="md">
-                Overall Results require a Full Refresh.
-              </Text>{" "}
-              Dimension Results are computed from Overall Results and would be
-              inaccurate.{" "}
-              <Link onClick={goToOverallResults}>
-                Refresh Overall Results <PiArrowSquareOut size={15} />
-              </Link>
-            </>
-          ) : (
-            <>
-              <Text weight="semibold" size="md">
-                Overall Results need to be run first.
-              </Text>{" "}
-              Dimension Results are computed from Overall Results.{" "}
-              <Link onClick={goToOverallResults}>
-                Run Overall Results <PiArrowSquareOut size={15} />
-              </Link>
-            </>
-          )}
+        <Callout
+          status="warning"
+          contentAlign="center"
+          mt="2"
+          action={
+            <Button variant="outline" size="sm" onClick={goToOverallResults}>
+              {overallNeedsFullRefresh
+                ? "Refresh overall results"
+                : "Run overall results"}
+            </Button>
+          }
+        >
+          {overallNeedsFullRefresh
+            ? "Overall results need a full refresh first. Dimension results are computed from them and would be inaccurate."
+            : "Run overall results first. Dimension results are computed from them."}
         </Callout>
       ) : null}
 
@@ -1170,23 +1170,27 @@ export default function AnalysisSettingsSummary({
       ) : null}
 
       {refreshError && (
-        <>
-          <Callout status="error" mt="2">
-            <strong>Error updating data: </strong> {refreshError}
-          </Callout>
-          {isExperimentIncludedInIncrementalRefresh && (
-            <Box mt="2" mb="2">
-              <Text size="sm" color="text-low">
-                If this error persists, you can try disabling Incremental
-                Refresh for this experiment by{" "}
-                <Link onClick={handleDisableIncrementalRefresh}>
-                  clicking here
-                </Link>
-                .
-              </Text>
-            </Box>
-          )}
-        </>
+        <Callout
+          status="error"
+          contentAlign="center"
+          mt="2"
+          action={
+            isExperimentIncludedInIncrementalRefresh ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDisableIncrementalRefresh}
+              >
+                Disable incremental refresh
+              </Button>
+            ) : null
+          }
+        >
+          Error updating data: {refreshError}
+          {isExperimentIncludedInIncrementalRefresh
+            ? " If it persists, try disabling incremental refresh for this experiment."
+            : null}
+        </Callout>
       )}
       {queriesModalOpen &&
         latest &&

@@ -9,6 +9,7 @@ import { generateTrackingKey } from "shared/experiments";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiPlus } from "react-icons/pi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -163,7 +164,7 @@ export default function ConstantModal({
       size="lg"
       close={close}
       cta={editing ? "Save" : "Create"}
-      submit={form.handleSubmit(async (values) => {
+      submit={validatedSubmit(form, async (values) => {
         if (editing && existing) {
           const res = await apiCall<{ revision?: Revision }>(
             `/constants/${existing.id}${draft.buildQueryString()}`,
@@ -311,7 +312,6 @@ export default function ConstantModal({
           value={form.watch("value")}
           setValue={(v) => form.setValue("value", v)}
           valueType={type}
-          useCodeInput={type === "json"}
           showFullscreenButton={type === "json"}
           // No cycles possible yet; just scrub a self-reference.
           constantContext={{

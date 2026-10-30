@@ -63,6 +63,8 @@ type Props = {
     candidateRanges?: Array<{ from: Date; to: Date }>;
     onDayPick: (day: Date) => void;
   };
+  // Until a date is picked, the field only opens the calendar.
+  placeholder?: string;
 };
 
 const modifiersClassNames = {
@@ -190,6 +192,7 @@ export default function DatePicker({
   required,
   timeZone,
   fixedSpanMode,
+  placeholder,
 }: Props) {
   const clock = useMemo(
     () => (timeZone === "utc" ? utcClock(precision) : localClock(precision)),
@@ -201,11 +204,12 @@ export default function DatePicker({
   const zoneId = `${fieldId}-zone`;
 
   const fixedHeight = compact || size === "md";
-  const inputHeight = fixedHeight ? 32 : 38;
+  // Legacy matches the other legacy fields and selects.
+  const inputHeight = fixedHeight ? 32 : 36;
+  // The field sits inside the bordered box, so it gets the height within it.
+  const fieldHeight = inputHeight - 2;
   const compactFieldStyle: React.CSSProperties = compact
     ? {
-        height: 32,
-        minHeight: 32,
         boxSizing: "border-box",
         padding: "0 8px",
         lineHeight: 1.25,
@@ -222,7 +226,7 @@ export default function DatePicker({
     startOfMonth(date ? clock.toCalendar(date) : new Date()),
   );
   const [open, setOpen] = useState(false);
-  const [rangeFieldFocused, setRangeFieldFocused] = useState(false);
+  const [fieldFocused, setFieldFocused] = useState(false);
   const fieldClickedTime = useRef(new Date());
 
   useEffect(() => {
@@ -287,16 +291,13 @@ export default function DatePicker({
   }
 
   const isRange = !!setDate2 || !!fixedSpanMode;
+  // A native date field can't show placeholder text, so it's plain text until
+  // set, and native again while focused so it can be typed into.
+  const showsPlaceholder = !!placeholder && !isRange && !date && !fieldFocused;
   const fieldLabel = isRange ? (label ?? label2) : label;
 
   const rangeFieldValue = useMemo(() => {
-    if (
-      isRange &&
-      precision === "date" &&
-      !rangeFieldFocused &&
-      date &&
-      date2
-    ) {
+    if (isRange && precision === "date" && !fieldFocused && date && date2) {
       return formatCompactDateRange(
         clock.toCalendar(date),
         clock.toCalendar(date2),
@@ -315,7 +316,7 @@ export default function DatePicker({
     isRange,
     clock,
     precision,
-    rangeFieldFocused,
+    fieldFocused,
   ]);
 
   const clampParsedDate = useCallback(
@@ -333,6 +334,11 @@ export default function DatePicker({
 
   const debouncedSetDate = useMemo(() => {
     return debounce((value: string) => {
+      if (!value.trim()) {
+        setDate(undefined);
+        setBufferedDate("");
+        return;
+      }
       const parsedDate = clock.fromText(value);
       const finalDate = clampInput ? clampParsedDate(parsedDate) : parsedDate;
       setDate(finalDate);
@@ -402,7 +408,6 @@ export default function DatePicker({
                   inputWidth ||
                   (wrapRangeInputs && isRange ? undefined : "100%"),
                 minWidth: isRange ? 220 : undefined,
-                height: fixedHeight ? inputHeight : undefined,
                 minHeight: inputHeight,
                 flex: wrapRangeInputs && isRange ? "1 1 220px" : undefined,
               }}
@@ -418,7 +423,8 @@ export default function DatePicker({
               ) : null}
               <Flex align="center" gap="2">
                 <div
-                  className={clsx("form-control p-0", {
+                  className={clsx("form-control p-0", styles.field, {
+                    [styles.open]: open,
                     "form-control--error": !!error,
                   })}
                   style={{
@@ -437,11 +443,13 @@ export default function DatePicker({
                     disabled={disabled}
                     required={required}
                     readOnly={!!fixedSpanMode}
+                    autoComplete="off"
                     style={{
                       border: 0,
                       marginRight: -20,
                       width: "calc(100% + 30px)",
-                      minHeight: inputHeight,
+                      height: fieldHeight,
+                      minHeight: fieldHeight,
                       cursor: "pointer",
                       ...compactFieldStyle,
                     }}
@@ -449,7 +457,7 @@ export default function DatePicker({
                       "text-muted": isRange ? !date || !date2 : !date,
                     })}
                     type={
-                      isRange
+                      isRange || showsPlaceholder
                         ? "text"
                         : precision === "datetime"
                           ? "datetime-local"
@@ -460,7 +468,9 @@ export default function DatePicker({
                         ? precision === "datetime"
                           ? `yyyy-MM-dd'T'HH:mm${RANGE_DISPLAY_SEP}yyyy-MM-dd'T'HH:mm`
                           : `yyyy-MM-dd${RANGE_DISPLAY_SEP}yyyy-MM-dd`
-                        : undefined
+                        : showsPlaceholder
+                          ? placeholder
+                          : undefined
                     }
                     value={isRange ? rangeFieldValue : bufferedDate}
                     onChange={(e) => {
@@ -477,19 +487,16 @@ export default function DatePicker({
                       }
                     }}
                     onFocus={() => {
-                      if (!isRange) return;
-                      setRangeFieldFocused(true);
-                      if (date && date2) {
+                      setFieldFocused(true);
+                      if (isRange && date && date2) {
                         setBufferedDate(clock.toText(date));
                         setBufferedDate2(clock.toText(date2));
                       }
                     }}
                     onBlur={() => {
+                      setFieldFocused(false);
                       debouncedSetDate.flush();
                       debouncedApplyRange.flush();
-                      if (isRange) {
-                        setRangeFieldFocused(false);
-                      }
                     }}
                     onClick={(e) => {
                       e.preventDefault();

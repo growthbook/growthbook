@@ -12,6 +12,7 @@ import {
   getApplicableEnvIds,
   getExperimentIdsFromRules,
   getRulesForEnvironment,
+  getValidation,
   liveRevisionFromFeature,
   rampRuleEnvKey,
   resolveTargetingProjectIds,
@@ -178,6 +179,7 @@ import {
   runValidateFeatureHooks,
   runValidateFeatureRevisionHooks,
 } from "back-end/src/enterprise/sandbox/sandbox-eval";
+import { settleFeatureRemovalsAfterPublish } from "back-end/src/util/featureExperimentSync";
 import {
   createEvent,
   hasPreviousObject,
@@ -899,6 +901,13 @@ export async function countFeatures(
   return FeatureModel.countDocuments(
     featureListQuery(context.org.id, { project, projectIds, includeArchived }),
   );
+}
+
+// For super admin views of another org, which have no ReqContext for it
+export async function _dangerousCountFeaturesByOrganization(
+  organization: string,
+): Promise<number> {
+  return FeatureModel.countDocuments({ organization });
 }
 
 export async function hasArchivedFeatures(
@@ -1877,6 +1886,7 @@ export async function editFeatureRules(
   matches: { ruleId: string; environmentId?: string }[],
   updates: Partial<FeatureRule>,
   user: EventUser,
+  { guardDateUpdated = false }: { guardDateUpdated?: boolean } = {},
 ) {
   const projected = applyPartialFeatureRuleUpdatesToRevision(
     revision,
@@ -1909,6 +1919,7 @@ export async function editFeatureRules(
       subject,
       value: JSON.stringify(updates),
     },
+    { guardDateUpdated },
   );
   return updatedRevision;
 }
@@ -3890,7 +3901,8 @@ async function cleanupOrphanedRampSchedules(
 // handler (which runs the same net non-throwing as publish gates). Only values
 // THIS publish changes are checked — a pre-existing violation must not block
 // status-only publishes (kill switches, safe-rollout rollbacks, ramp advances).
-// A baseConfig change re-checks everything (new backing schema).
+// A baseConfig change re-checks everything (new backing schema), and a
+// jsonSchema change sets `valueSchemaChanged` so every value is re-checked.
 export function computeProposedFeatureForValidation(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
@@ -3900,6 +3912,7 @@ export function computeProposedFeatureForValidation(
   proposedFeature: FeatureInterface;
   defaultToCheck: string | undefined;
   rulesToCheck: FeatureRule[];
+  valueSchemaChanged: boolean;
 } {
   const { changes, removeHoldout } = computeRevisionMergeChanges(
     context,
@@ -3941,7 +3954,16 @@ export function computeProposedFeatureForValidation(
       changes.defaultValue !== feature.defaultValue)
       ? proposedFeature.defaultValue
       : undefined;
-  return { proposedFeature, defaultToCheck, rulesToCheck };
+  const valueSchemaChanged = !isEqual(
+    effectiveValueSchema(feature),
+    effectiveValueSchema(proposedFeature),
+  );
+  return { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged };
+}
+
+function effectiveValueSchema(feature: Pick<FeatureInterface, "jsonSchema">) {
+  const { validationEnabled, schemaString } = getValidation(feature);
+  return validationEnabled ? (schemaString ?? null) : null;
 }
 
 // Best-effort early hook run; updateFeature / markRevisionAsPublished re-run hooks authoritatively.
@@ -3966,7 +3988,7 @@ export async function prevalidatePublishRevision({
   skipValidation?: boolean;
   skipValueSchemaNet?: boolean;
 }) {
-  const { proposedFeature, defaultToCheck, rulesToCheck } =
+  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
     computeProposedFeatureForValidation(context, feature, revision, result);
   await assertFeatureSavedGroupScope(context, proposedFeature, [
     feature,
@@ -3976,8 +3998,14 @@ export async function prevalidatePublishRevision({
   // Re-validate config-backed values going live: save-time validation can be
   // stale (a config's schema/invariants may tighten between draft and publish),
   // and auto-publish paths don't pass through a REST handler's own net.
+  if (!skipValueSchemaNet && valueSchemaChanged) {
+    assertFeatureValuesValidForPublish(context, proposedFeature, {
+      defaultValue: proposedFeature.defaultValue,
+      rules: proposedFeature.rules,
+    });
+  }
   if (defaultToCheck !== undefined || rulesToCheck.length) {
-    if (!skipValueSchemaNet) {
+    if (!skipValueSchemaNet && !valueSchemaChanged) {
       assertFeatureValuesValidForPublish(
         context,
         proposedFeature,
@@ -4747,6 +4775,9 @@ async function publishRevisionInner({
     );
   }
 
+  // Committed: a removal waiting on this publish can finish.
+  await settleFeatureRemovalsAfterPublish(context, updatedFeature);
+
   // Best-effort: the feature is already committed.
   await finalizeRampActionsAfterPublish(
     context,
@@ -4977,6 +5008,7 @@ export async function getFeatureMetaInfoById(
     // (potentially large) default value is fetched only when the caller asks for
     // it — the list itself never parses it.
     baseConfig: 1,
+    "holdout.id": 1,
     ...(includeDefaultValue ? { defaultValue: 1 } : {}),
   };
 
@@ -4990,7 +5022,10 @@ export async function getFeatureMetaInfoById(
     const f = features[i];
     if (!context.permissions.canReadTargetingScopedResource(f)) continue;
 
-    metaInfo.push(toFeatureMetaInfo(f, includeDefaultValue));
+    metaInfo.push({
+      ...toFeatureMetaInfo(f, includeDefaultValue),
+      holdoutId: f.holdout?.id ?? null,
+    });
   }
   return metaInfo;
 }
@@ -5020,6 +5055,7 @@ export async function getFeatureMetaInfoByIds(
       neverStale: 1,
       "jsonSchema.enabled": 1,
       revision: 1,
+      "holdout.id": 1,
     },
   );
 
@@ -5041,6 +5077,7 @@ export async function getFeatureMetaInfoByIds(
       linkedExperiments: f.linkedExperiments,
       neverStale: f.neverStale,
       revision: f.revision as FeatureMetaInfo["revision"],
+      holdoutId: f.holdout?.id ?? null,
     }));
 }
 

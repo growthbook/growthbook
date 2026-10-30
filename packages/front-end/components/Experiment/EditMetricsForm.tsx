@@ -12,24 +12,28 @@ import {
 import { OrganizationSettings } from "shared/types/organization";
 import { ExperimentMetricDefinition } from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
-import Collapsible from "react-collapsible";
-import { PiCaretRightFill } from "react-icons/pi";
+import { Box, Separator } from "@radix-ui/themes";
+import { getScopedSettings } from "shared/settings";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import track from "@/services/track";
 import PremiumCallout from "@/ui/PremiumCallout";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import { MetricsSelectorTooltip } from "./MetricsSelector";
-import MetricSelector from "./MetricSelector";
+import ActivationMetricRow from "./ActivationMetricRow";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
+import {
+  AdvancedSection,
+  SettingsCard,
+} from "./TabbedPage/AnalysisPlanAdvanced";
+import SetupFieldRow from "./TabbedPage/SetupFieldRow";
 
 export interface EditMetricsFormInterface {
   goalMetrics: string[];
@@ -49,15 +53,7 @@ export function getDefaultMetricOverridesFormValue(
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
     for (const key in defaultMetricOverrides[i]) {
       // fix fields with percentage values
-      if (
-        [
-          "winRisk",
-          "loseRisk",
-          "maxPercentChange",
-          "minPercentChange",
-          "targetMDE",
-        ].includes(key)
-      ) {
+      if (["maxPercentChange", "minPercentChange", "targetMDE"].includes(key)) {
         defaultMetricOverrides[i][key] *= 100;
       }
     }
@@ -117,15 +113,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
         continue;
       }
       // fix fields with percentage values
-      if (
-        [
-          "winRisk",
-          "loseRisk",
-          "maxPercentChange",
-          "minPercentChange",
-          "targetMDE",
-        ].includes(key)
-      ) {
+      if (["maxPercentChange", "minPercentChange", "targetMDE"].includes(key)) {
         overrides[i][key] = v / 100;
       }
     }
@@ -139,11 +127,18 @@ const EditMetricsForm: FC<{
   source?: string;
 }> = ({ experiment, cancel, mutate, source }) => {
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const settings = useOrgSettings();
-  const { hasCommercialFeature } = useUser();
+  const { organization, hasCommercialFeature } = useUser();
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
 
-  const { getDatasourceById, getExperimentMetricById } = useDefinitions();
+  const { getDatasourceById, getExperimentMetricById, getProjectById } =
+    useDefinitions();
+  const statsEngine = getScopedSettings({
+    organization,
+    project: getProjectById(experiment.project || "") ?? undefined,
+    experiment,
+  }).settings.statsEngine.value;
 
   const defaultMetricOverrides = getDefaultMetricOverridesFormValue(
     experiment.metricOverrides || [],
@@ -194,7 +189,7 @@ const EditMetricsForm: FC<{
       size="lg"
       open={true}
       close={cancel}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const payload = cloneDeep<EditMetricsFormInterface>(value);
         fixMetricOverridesBeforeSaving(value.metricOverrides || []);
         await apiCall(`/experiment/${experiment.id}`, {
@@ -205,7 +200,7 @@ const EditMetricsForm: FC<{
       })}
     >
       <ExperimentMetricsSelector
-        noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+        asRows
         datasource={experiment.datasource}
         exposureQueryId={experiment.exposureQueryId}
         exposureQueryIdentifierType={experiment.exposureQueryIdentifierType}
@@ -247,35 +242,18 @@ const EditMetricsForm: FC<{
 
       {!isHoldout && !(isBandit && experiment.status === "running") ? (
         <>
-          <div className="form-group">
-            <label className="font-weight-bold mb-1">Activation Metric</label>
-            <div className="mb-1">
-              <span className="font-italic">
-                Users must convert on this metric before being included.{" "}
-              </span>
-              <MetricsSelectorTooltip
-                onlyBinomial={true}
-                noFactFunnelMetrics={true}
-                isSingular={true}
-              />
-            </div>
-            <MetricSelector
-              initialOption="None"
-              value={form.watch("activationMetric")}
-              exposureQueryId={experiment.exposureQueryId}
-              exposureQueryIdentifierType={
-                experiment.exposureQueryIdentifierType
-              }
-              onChange={(metric) => form.setValue("activationMetric", metric)}
-              datasource={experiment.datasource}
-              project={experiment.project}
-              onlyBinomial
-              filterFactFunnelMetrics
-              includeFacts={true}
-            />
-          </div>
+          <ActivationMetricRow
+            datasource={experiment.datasource}
+            exposureQueryId={experiment.exposureQueryId}
+            exposureQueryIdentifierType={experiment.exposureQueryIdentifierType}
+            project={experiment.project}
+            value={form.watch("activationMetric")}
+            onChange={(metric) => form.setValue("activationMetric", metric)}
+            incrementalRefresh={isExperimentIncludedInIncrementalRefresh}
+          />
 
           <CustomMetricSlicesSelector
+            asRow
             goalMetrics={form.watch("goalMetrics")}
             secondaryMetrics={form.watch("secondaryMetrics")}
             guardrailMetrics={form.watch("guardrailMetrics")}
@@ -290,50 +268,35 @@ const EditMetricsForm: FC<{
             }
           />
 
-          <hr className="mt-4" />
-
-          <Collapsible
-            trigger={
-              <div className="link-purple font-weight-bold mt-4 mb-2">
-                <PiCaretRightFill className="chevron mr-1" />
-                Advanced Settings
-              </div>
-            }
-            transitionTime={100}
-          >
-            <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-              <div className="form-group mb-2">
-                <PremiumTooltip commercialFeature="override-metrics">
-                  <label className="font-weight-bold mb-1">
-                    Metric Overrides (optional)
-                  </label>
-                </PremiumTooltip>
-                <div className="mb-2 font-italic" style={{ fontSize: 12 }}>
-                  <p className="mb-0">
-                    Override metric behaviors within this experiment.
-                  </p>
-                  <p className="mb-0">
-                    Leave any fields empty that you do not want to override.
-                  </p>
-                </div>
-                <MetricsOverridesSelector
-                  experiment={experiment}
-                  form={form}
-                  disabled={
-                    !hasOverrideMetricsFeature ||
-                    isExperimentIncludedInIncrementalRefresh
-                  }
-                />
-                {!hasOverrideMetricsFeature && (
-                  <UpgradeMessage
-                    showUpgradeModal={() => setUpgradeModal(true)}
-                    commercialFeature="override-metrics"
-                    upgradeMessage="override metrics"
+          <Box>
+            <Separator size="4" my="5" />
+            <AdvancedSection open={advancedOpen} setOpen={setAdvancedOpen}>
+              <SettingsCard title="Metrics">
+                <SetupFieldRow
+                  label="Metric overrides"
+                  tooltip="Override metric behaviors within this experiment."
+                  stacked
+                >
+                  <MetricsOverridesSelector
+                    experiment={experiment}
+                    form={form}
+                    statsEngine={statsEngine}
+                    disabled={
+                      !hasOverrideMetricsFeature ||
+                      isExperimentIncludedInIncrementalRefresh
+                    }
                   />
-                )}
-              </div>
-            </div>
-          </Collapsible>
+                  {!hasOverrideMetricsFeature && (
+                    <UpgradeMessage
+                      showUpgradeModal={() => setUpgradeModal(true)}
+                      commercialFeature="override-metrics"
+                      upgradeMessage="override metrics"
+                    />
+                  )}
+                </SetupFieldRow>
+              </SettingsCard>
+            </AdvancedSection>
+          </Box>
         </>
       ) : null}
     </ModalStandard>

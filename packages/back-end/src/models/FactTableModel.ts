@@ -2,7 +2,7 @@ import mongoose, { FilterQuery } from "mongoose";
 import uniqid from "uniqid";
 import {
   getFactMetricColumnRefs,
-  getFactMetricPrimaryFactTableId,
+  getMetricAutoSliceFactTableIds,
   sqlReferencesColumn,
 } from "shared/experiments";
 import { explorationConfigReferencesColumn } from "shared/enterprise";
@@ -15,6 +15,7 @@ import {
   ColumnRef,
   FactFilterInterface,
   FactMetricInterface,
+  FactTableColumnType,
   FactTableDefinition,
   FactTableInterface,
   UpdateFactFilterProps,
@@ -26,6 +27,8 @@ import {
   ApiFactTable,
   ApiFactTableColumn,
   ApiFactTableFilter,
+  isExternallyManaged,
+  externallyManagedError,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -384,13 +387,13 @@ export async function updateFactTable(
   // system/background contexts (which have no audit user) through, e.g. the
   // event forwarder sync.
   if (
-    factTable.managedBy === "api" &&
+    isExternallyManaged(factTable.managedBy) &&
     context.auditUser?.type !== "api_key" &&
     context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
-      "Cannot update fact table managed by API if the request isn't from the API.",
+      externallyManagedError("update", "fact table", factTable.managedBy),
     );
   }
 
@@ -555,17 +558,16 @@ export async function dangerouslySyncManagedWarehouseFactTable(
 }
 
 // Detect columns that were removed or had auto slice disabled
+type AutoSliceColumnState = {
+  column: string;
+  deleted?: boolean;
+  isAutoSliceColumn?: boolean;
+  datatype?: FactTableColumnType;
+};
+
 export function detectRemovedColumns(
-  originalColumns: Array<{
-    column: string;
-    deleted?: boolean;
-    isAutoSliceColumn?: boolean;
-  }>,
-  newColumns: Array<{
-    column: string;
-    deleted?: boolean;
-    isAutoSliceColumn?: boolean;
-  }>,
+  originalColumns: AutoSliceColumnState[],
+  newColumns: AutoSliceColumnState[],
 ): string[] {
   // Find columns that were deleted (existed before but don't exist now)
   const deletedColumns = originalColumns
@@ -587,7 +589,25 @@ export function detectRemovedColumns(
       return newCol && !newCol.isAutoSliceColumn;
     });
 
-  return [...deletedColumns, ...disabledAutoSliceColumns];
+  // A column that changes datatype no longer means what the metric's slices
+  // were built against - string levels against a number column, say - so treat
+  // it the same as the column going away.
+  const retypedColumns = originalColumns
+    .filter((col) => col.isAutoSliceColumn && !col.deleted && col.datatype)
+    .map((col) => col.column)
+    .filter((columnName) => {
+      const newCol = newColumns.find((newCol) => newCol.column === columnName);
+      const original = originalColumns.find((c) => c.column === columnName);
+      return !!newCol?.datatype && newCol.datatype !== original?.datatype;
+    });
+
+  return [
+    ...new Set([
+      ...deletedColumns,
+      ...disabledAutoSliceColumns,
+      ...retypedColumns,
+    ]),
+  ];
 }
 
 // Cascade from a fact-table column change: drop metric auto slices that
@@ -617,7 +637,11 @@ export async function cleanupMetricAutoSlices({
     return;
   }
   for (const metric of allFactMetrics) {
-    if (getFactMetricPrimaryFactTableId(metric) !== factTableId) continue;
+    // Scope by the tables that back this metric's auto slices — every step for
+    // a funnel, the numerator alone otherwise — so a later step's column change
+    // cleans up without a ratio metric's denominator table clobbering a slice
+    // its numerator still supports.
+    if (!getMetricAutoSliceFactTableIds(metric).includes(factTableId)) continue;
     if (!metric.metricAutoSlices?.some((c) => removedColumns.includes(c))) {
       continue;
     }
@@ -687,11 +711,11 @@ export async function updateColumn({
     definitionsScope(factTable.projects),
   );
 
-  // Clean up auto slices from metrics if column was deleted or isAutoSliceColumn was disabled
+  // Clean up auto slices from metrics when the column can no longer back them:
+  // deleted, no longer an Auto Slice column, or retyped.
   if (
     context &&
-    (updatedColumn.deleted ||
-      (!updatedColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn))
+    detectRemovedColumns([originalColumn], [updatedColumn]).length > 0
   ) {
     await cleanupMetricAutoSlices({
       context,
@@ -1025,10 +1049,7 @@ export function mergeUpsertColumns(
     });
 
     columns[index] = nextColumn;
-    if (
-      nextColumn.deleted ||
-      (!nextColumn.isAutoSliceColumn && originalColumn.isAutoSliceColumn)
-    ) {
+    if (detectRemovedColumns([originalColumn], [nextColumn]).length > 0) {
       removedAutoSliceColumns.push(incomingColumn.column);
     }
   }
@@ -1197,11 +1218,11 @@ export async function deleteFactTable(
 ) {
   if (
     !bypassManagedByCheck &&
-    factTable.managedBy === "api" &&
+    isExternallyManaged(factTable.managedBy) &&
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error(
-      "Cannot delete fact table managed by API if the request isn't from the API.",
+      externallyManagedError("delete", "fact table", factTable.managedBy),
     );
   }
 

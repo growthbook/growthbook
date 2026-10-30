@@ -7,6 +7,7 @@ import {
   ExperimentDataForStatus,
   ExperimentHealthSettings,
 } from "shared/types/experiment";
+import { SnapshotVariation } from "shared/types/experiment-snapshot";
 import {
   getDecisionFrameworkStatus,
   evaluateDecisionRuleOnVariation,
@@ -14,6 +15,7 @@ import {
   getEarlyStoppingVariationDecisions,
   getContextualBanditResultStatus,
   resolveScheduledShipDecision,
+  clearLeader,
   getExperimentResultStatus,
   getSafeRolloutResultStatus,
 } from "../src/enterprise/decision-criteria/decisionCriteria";
@@ -2349,5 +2351,56 @@ describe("getStatusIndicatorData for contextual Bandits", () => {
     });
     expect(status.detailedStatus).toBe("Unhealthy");
     expect(status.tooltip).toBe("SRM");
+  });
+});
+
+describe("clearLeader", () => {
+  const snapshot = (cis: ([number, number] | undefined)[]) => ({
+    variations: cis.map((ci) => ({
+      users: 0,
+      metrics: ci ? { m: { value: 0, cr: 0, users: 0, ci } } : {},
+    })) as unknown as SnapshotVariation[],
+    variationIds: cis.map((_, i) => String(i)),
+  });
+
+  it("picks the variation whose interval clears every other tied one", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.01, 0.03], [0.04, 0.08]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBe("2");
+  });
+
+  it("finds none while the intervals overlap", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.01, 0.05], [0.04, 0.08]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBeNull();
+  });
+
+  it("reads a lower-is-better metric the other way", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [-0.08, -0.04], [-0.03, -0.01]]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+        inverse: true,
+      }),
+    ).toBe("1");
+  });
+
+  it("finds none when a tied variation has no interval", () => {
+    expect(
+      clearLeader({
+        ...snapshot([undefined, [0.04, 0.08], undefined]),
+        tiedVariationIds: ["1", "2"],
+        metricId: "m",
+      }),
+    ).toBeNull();
   });
 });

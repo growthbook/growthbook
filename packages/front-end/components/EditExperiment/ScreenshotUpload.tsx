@@ -4,6 +4,7 @@ import React, {
   ClipboardEvent,
   ReactElement,
   ReactNode,
+  useEffect,
   useState,
 } from "react";
 import { useDropzone } from "react-dropzone";
@@ -18,9 +19,16 @@ import styles from "./ScreenshotUpload.module.scss";
 type props = {
   experiment: string;
   variation: number;
-  onSuccess: (variation: number, screenshot: Screenshot) => void;
+  onSuccess: (screenshot: Screenshot) => void;
+  // How many files are still uploading, for a form that waits on them.
+  onPendingChange?: (pending: number) => void;
   children?: ReactNode;
-  noDrag?: boolean;
+  className?: string;
+  messageClassName?: string;
+  // Short by default: the variation card's drop target is tiny.
+  message?: ReactNode;
+  // False only stores the file, leaving `onSuccess` to stage it.
+  attach?: boolean;
 };
 
 const ScreenshotUpload = ({
@@ -28,10 +36,17 @@ const ScreenshotUpload = ({
   variation,
   onSuccess,
   children,
-  noDrag,
+  className,
+  messageClassName,
+  message = "Drop",
+  attach = true,
+  onPendingChange,
 }: props): ReactElement => {
   const { apiCall } = useAuth();
   const [loading, setLoading] = useState(0);
+  useEffect(() => {
+    onPendingChange?.(loading);
+  }, [loading, onPendingChange]);
 
   if (!children && children !== 0)
     children = (
@@ -66,19 +81,21 @@ const ScreenshotUpload = ({
       try {
         const { fileURL } = await uploadFile(apiCall, file);
 
-        await apiCall(
-          `/experiment/${experiment}/variation/${variation}/screenshot`,
-          {
-            method: "PUT",
-            body: JSON.stringify({
-              url: fileURL,
-              // TODO: allow customizing description
-              description: "",
-            }),
-          },
-        );
+        if (attach) {
+          await apiCall(
+            `/experiment/${experiment}/variation/${variation}/screenshot`,
+            {
+              method: "PUT",
+              body: JSON.stringify({
+                url: fileURL,
+                // TODO: allow customizing description
+                description: "",
+              }),
+            },
+          );
+        }
 
-        onSuccess(variation, {
+        onSuccess({
           path: fileURL,
           description: "",
         });
@@ -91,7 +108,6 @@ const ScreenshotUpload = ({
   };
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    noDrag,
   });
 
   // getRootProps assumes generic HTMLElement, but we're using HTMLDivElement
@@ -105,17 +121,17 @@ const ScreenshotUpload = ({
     <>
       <div
         {...typedRootProps}
-        onPaste={noDrag ? undefined : onPaste}
+        onPaste={onPaste}
         tabIndex={0}
-        className={clsx(styles.droparea, {
+        className={clsx(styles.droparea, className, {
           [styles.dragging]: isDragActive,
+          // Unhashed, so a caller's stylesheet can react to the drag.
+          "screenshot-dropping": isDragActive,
         })}
       >
         {loading > 0 ? <LoadingOverlay /> : ""}
         <input {...getInputProps()} />
-        {!noDrag && (
-          <div className={styles.message}>Drop or paste image here...</div>
-        )}
+        <div className={clsx(styles.message, messageClassName)}>{message}</div>
         {children}
       </div>
     </>

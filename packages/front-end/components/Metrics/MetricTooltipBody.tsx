@@ -57,11 +57,7 @@ const MetricTooltipBody = ({
       label: "Type",
       body: (
         <>
-          {isFactMetric(metric) ? (
-            <FactMetricTypeDisplayName type={metric.metricType} />
-          ) : (
-            metric.type
-          )}
+          <FactMetricTypeDisplayName metric={metric} />
           {metric.inverse ? (
             <Tooltip body="Metric is inverse, lower is better" className="ml-1">
               <span>

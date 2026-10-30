@@ -50,11 +50,7 @@ export function MetricDrilldownMetadata({
         label="Type"
         value={
           <Flex gap="1" align="center">
-            {isFactMetric(metric) ? (
-              <FactMetricTypeDisplayName type={metric.metricType} />
-            ) : (
-              metric.type
-            )}
+            <FactMetricTypeDisplayName metric={metric} />
             {metric.inverse ? (
               <Tooltip content="Metric is inverse, lower is better">
                 <span>

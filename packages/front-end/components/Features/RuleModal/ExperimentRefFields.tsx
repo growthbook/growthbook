@@ -1,10 +1,9 @@
 import { useFormContext } from "react-hook-form";
 import { MAX_DESCRIPTION_LENGTH } from "shared/constants";
 import { FeatureInterface, FeatureRule } from "shared/types/feature";
-import { FaExternalLinkAlt } from "react-icons/fa";
 import { date } from "shared/dates";
 import React from "react";
-import { PiClock } from "react-icons/pi";
+import { PiArrowSquareOut, PiClock } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import { getLatestPhaseVariations } from "shared/experiments";
 import {
@@ -39,6 +38,7 @@ import RuleProjectScopeField, {
 import SparsePatchToggle from "@/components/Features/SparsePatchToggle";
 
 export default function ExperimentRefFields({
+  kind,
   feature,
   existingRule,
   defaultValues,
@@ -49,6 +49,7 @@ export default function ExperimentRefFields({
   envScope,
   projectScope,
 }: {
+  kind: "experiment" | "bandit";
   feature: FeatureInterface;
   existingRule: boolean;
   defaultValues?: FeatureRule | NewExperimentRefRule;
@@ -60,6 +61,9 @@ export default function ExperimentRefFields({
   projectScope: ProjectScopeProps;
 }) {
   const form = useFormContext();
+  const isBandit = kind === "bandit";
+  const noun = isBandit ? "Bandit" : "Experiment";
+  const showSchedule = !isBandit && !noSchedule;
 
   const { experiments, experimentsMap } = useExperiments();
   const experimentId = form.watch("experimentId");
@@ -77,7 +81,7 @@ export default function ExperimentRefFields({
   const experimentOptions = experiments
     .filter(
       (e) =>
-        e.type !== "multi-armed-bandit" &&
+        (e.type === "multi-armed-bandit") === isBandit &&
         (e.id === experimentId ||
           (!e.archived &&
             e.status !== "stopped" &&
@@ -94,7 +98,7 @@ export default function ExperimentRefFields({
       {experimentOptions.length > 0 ? (
         <SelectField
           size="legacy"
-          label="Experiment"
+          label={noun}
           initialOption="Choose One..."
           options={experimentOptions}
           readOnly={existingRule}
@@ -140,12 +144,16 @@ export default function ExperimentRefFields({
                   <div className="ml-4 text-muted">
                     Created: {date(exp.dateCreated)}
                   </div>
-                  <div className="ml-auto d-flex align-items-center">
+                  <div
+                    className={
+                      isBandit ? "ml-auto" : "ml-auto d-flex align-items-center"
+                    }
+                  >
                     <ExperimentStatusIndicator
                       experimentData={exp}
                       labelFormat="status-only"
                     />
-                    {!noSchedule ? (
+                    {showSchedule ? (
                       <div className="small text-muted ml-3">
                         <PiClock size={14} className="mr-1" />
                         Scheduled
@@ -161,38 +169,49 @@ export default function ExperimentRefFields({
       ) : !existingRule ? (
         <Callout status="warning" mb="4">
           {experiments.length > 0
-            ? `You don't have any eligible Experiments yet.`
-            : `You don't have any existing Experiments yet.`}{" "}
+            ? `You don't have any eligible ${noun}s yet.`
+            : `You don't have any existing ${noun}s yet.`}{" "}
           <a
             role="button"
             className="link-purple"
             onClick={(e) => {
               e.preventDefault();
               changeRuleType("experiment-ref-new");
+              if (isBandit) {
+                form.setValue("experimentType", "multi-armed-bandit");
+              }
             }}
           >
-            Create New Experiment
+            Create New {noun}
           </a>
         </Callout>
       ) : (
         <Callout status="error" mb="4">
-          Could not find this Experiment. Has it been deleted?
+          Could not find this {noun}. Has it been deleted?
         </Callout>
       )}
       {selectedExperiment && existingRule && (
         <HelperText status="info" mb="5">
           <Link
-            href={`/experiment/${selectedExperiment.id}#overview`}
+            href={`/${kind}/${selectedExperiment.id}#overview`}
             target="_blank"
           >
-            View this Experiment <FaExternalLinkAlt />
+            View this {noun} <PiArrowSquareOut />
           </Link>{" "}
           to make changes to assignment or targeting conditions.
         </HelperText>
       )}
 
       {selectedExperiment && (
-        <Box pb="1" mb="4">
+        <Box
+          px={isBandit ? "5" : undefined}
+          pt={isBandit ? "5" : undefined}
+          pb="1"
+          mb="4"
+          className={
+            isBandit && !isConfigBacked ? "bg-highlight rounded" : undefined
+          }
+        >
           <Flex align="center" gap="3" mb="3">
             <label className="mb-0">Variation Values</label>
             {!isConfigBacked &&
@@ -230,7 +249,6 @@ export default function ExperimentRefFields({
               valueType={feature.valueType}
               feature={feature}
               renderJSONInline={false}
-              useCodeInput={true}
               showFullscreenButton={true}
               codeInputDefaultHeight={80}
               sparse={!!form.watch("sparse")}
@@ -256,7 +274,7 @@ export default function ExperimentRefFields({
       <RuleEnvironmentScopeField {...envScope} my="5" />
       <RuleProjectScopeField {...projectScope} mb="5" />
 
-      {!noSchedule && setScheduleToggleEnabled ? (
+      {showSchedule && setScheduleToggleEnabled ? (
         <div className="mt-4 mb-3">
           <ScheduleInputs
             defaultValue={defaultValues?.scheduleRules || []}
