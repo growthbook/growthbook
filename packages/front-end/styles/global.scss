@@ -28,13 +28,6 @@
     --header-height: 80px;
   }
 }
-// Three below 1024px on Settings pages, for SettingsJumpMenu. Keep in sync
-// with SETTINGS_NAV_MIN_WIDTH_PX in components/Layout/constants.ts.
-@media (max-width: 1023px) {
-  :root:has(#settings-jump-menu) {
-    --header-height: 132px;
-  }
-}
 
 // Sticky page tabs pin 1px under the header and any bar under it, to cover
 // its edge. Keep in sync with components/Layout/pageTopOffset.ts.
@@ -120,9 +113,15 @@ html.app-drawer-open body {
     var(--settings-nav-left) + var(--settings-nav-width)
   );
 }
-// Below 1024px the nav is in the header instead (SettingsJumpMenu).
+// Below 1024px the nav is a select at the page's top instead
+// (SettingsPageTop), pinned under the header as a 52px row; General's
+// section headings pin under it (--settings-section-top).
+:root {
+  --settings-section-top: var(--header-height);
+}
 @media (max-width: 1023px) {
   :root {
+    --settings-section-top: calc(var(--page-top-offset) + 52px);
     --settings-layout-left: 0px;
   }
 }

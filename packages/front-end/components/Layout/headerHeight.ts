@@ -1,17 +1,11 @@
 import { useSyncExternalStore } from "react";
-import {
-  NARROW_LAYOUT_BREAKPOINT_PX,
-  SETTINGS_NAV_MIN_WIDTH_PX,
-} from "./constants";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "./constants";
 
 /** Keep in sync with --header-height in global.scss. */
 const HEADER_HEIGHT_PX = 44;
 
 /** The widths where the header changes height (global.scss). */
-const HEIGHT_QUERIES = [
-  `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
-  `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
-];
+const HEIGHT_QUERIES = [`(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`];
 
 function readHeaderHeight() {
   const height = parseFloat(
@@ -22,10 +16,7 @@ function readHeaderHeight() {
   return Number.isFinite(height) ? height : HEADER_HEIGHT_PX;
 }
 
-/**
- * Taller below 1180px on pages with the sidebar (two rows), and below 1024px
- * on Settings pages (three).
- */
+/** Taller below 1180px on pages with the sidebar (two rows). */
 export function useHeaderHeight(): number {
   return useSyncExternalStore(
     (listener) => {

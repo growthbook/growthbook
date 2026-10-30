@@ -69,7 +69,7 @@ export default function DatasourceSettings() {
 
       <Box
         id="top-values-lookback"
-        style={{ scrollMarginTop: "calc(var(--header-height) + 44px)" }}
+        style={{ scrollMarginTop: "calc(var(--settings-section-top) + 44px)" }}
       >
         <SettingsField
           name="topValuesLookbackValue"

@@ -14,7 +14,6 @@ import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
 import AiAssistantButton from "./AiAssistantButton";
-import SettingsJumpMenu from "./SettingsJumpMenu";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -22,15 +21,7 @@ const TopNav: FC<{
   menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
-  /** Narrow Settings pages: the Settings nav, as a button on its own row. */
-  showSettingsJumpMenu?: boolean;
-}> = ({
-  toggleLeftMenu,
-  menuOpen,
-  pageTitle,
-  showNotices,
-  showSettingsJumpMenu,
-}) => {
+}> = ({ toggleLeftMenu, menuOpen, pageTitle, showNotices }) => {
   const { breadcrumb } = usePageHead();
   // The header's fade shows once the page has scrolled under it.
   const [scrolled, setScrolled] = useState(false);
@@ -89,11 +80,6 @@ const TopNav: FC<{
             </IconButton>
           ) : null}
           {renderTitleOrBreadCrumb()}
-          {showSettingsJumpMenu ? (
-            <div className={styles.settingsJump}>
-              <SettingsJumpMenu />
-            </div>
-          ) : null}
           <div className={styles.actions}>
             {showNotices && (
               <div className="nav-link">

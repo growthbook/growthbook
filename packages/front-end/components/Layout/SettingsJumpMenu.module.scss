@@ -3,7 +3,6 @@
   align-items: center;
   gap: var(--space-2);
   width: 100%;
-  max-width: 480px;
   height: 36px;
   padding: 0 var(--space-3);
   border: 1px solid var(--slate-a7);
@@ -47,4 +46,15 @@
   max-height: calc(100dvh - var(--header-height) - var(--space-5));
   padding-top: var(--space-3);
   font-size: 13px;
+}
+
+// Pinned under the header (and any bar under it) on the page's background,
+// which runs to the page's edges so what scrolls under it stays hidden.
+.pinned {
+  position: sticky;
+  top: var(--page-top-offset);
+  z-index: 2;
+  margin: 0 calc(-1 * var(--page-padding)) var(--space-2);
+  padding: var(--space-2) var(--page-padding);
+  background: var(--color-background);
 }

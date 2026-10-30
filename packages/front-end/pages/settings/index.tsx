@@ -167,7 +167,7 @@ const GeneralSettingsPage = (): React.ReactElement => {
     <>
       <SettingsPage
         title="Settings"
-        headerClassName={sectionStyles.wideHidden}
+        headerClassName={sectionStyles.visuallyHidden}
         breadcrumb={[
           { display: "Settings" },
           { display: "General", href: "/settings" },

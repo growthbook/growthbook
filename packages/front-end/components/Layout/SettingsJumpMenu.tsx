@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/router";
 import { VisuallyHidden } from "@radix-ui/themes";
 import { PiCaretDownBold } from "react-icons/pi";
+import Heading from "@/ui/Heading";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { Popover } from "@/ui/Popover";
 import { SETTINGS_SECTIONS } from "@/components/GeneralSettings/settingsSections";
 import {
@@ -10,6 +12,7 @@ import {
   useSettingsSearchShortcut,
 } from "./SettingsNav";
 import { useSettingsNav } from "./SettingsNavContext";
+import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
 import styles from "./SettingsJumpMenu.module.scss";
 
 /** Where the page is, as the Settings nav marks it. */
@@ -32,8 +35,8 @@ function useSettingsLocation(): string {
 }
 
 /**
- * The Settings nav below SETTINGS_NAV_MIN_WIDTH_PX: a button in the header
- * that opens it over the page.
+ * The Settings nav below SETTINGS_NAV_MIN_WIDTH_PX: a button that opens it
+ * over the page (SettingsPageTop).
  */
 export default function SettingsJumpMenu() {
   const [open, setOpen] = useState(false);
@@ -100,5 +103,28 @@ export default function SettingsJumpMenu() {
         </div>
       }
     />
+  );
+}
+
+/**
+ * Below SETTINGS_NAV_MIN_WIDTH_PX, the top of every Settings page, in the
+ * order the nav has beside it from there: the "Settings" title, then the
+ * nav, as a select the width of the page's content. The select stays pinned
+ * under the header as the page scrolls.
+ */
+export function SettingsPageTop() {
+  const narrow = useMediaQuery(
+    `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
+  );
+  if (!narrow) return null;
+  return (
+    <>
+      <Heading as="h2" size="2xl" mb="2">
+        Settings
+      </Heading>
+      <div className={styles.pinned}>
+        <SettingsJumpMenu />
+      </div>
+    </>
   );
 }

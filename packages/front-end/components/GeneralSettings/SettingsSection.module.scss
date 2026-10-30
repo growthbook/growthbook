@@ -1,12 +1,13 @@
 .section {
   padding-top: 28px;
-  // Clears the fixed top nav when scrolled to.
-  scroll-margin-top: calc(var(--header-height) + 8px);
+  // Clears the fixed top nav (and below 1024px the pinned Settings select)
+  // when scrolled to.
+  scroll-margin-top: calc(var(--settings-section-top) + 8px);
 }
 
 .header {
   position: sticky;
-  top: var(--header-height);
+  top: var(--settings-section-top);
   z-index: 6;
   background: var(--color-background);
   padding: 12px 0 6px;
@@ -127,16 +128,26 @@
 .generalContent {
   max-width: 920px;
   padding-top: var(--space-3);
+
+  // Under the pinned Settings select, the first section starts as close as
+  // a page's title does.
+  @media (max-width: 1023px) {
+    padding-top: 0;
+
+    .section:first-of-type,
+    .section:first-of-type .header {
+      padding-top: 0;
+    }
+  }
 }
 
-// The Settings nav title stands in for it from 1024px; screen readers still get the h1.
-@media (min-width: 1024px) {
-  .wideHidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+// The Settings title stands in for it, beside or above the Settings nav;
+// screen readers still get the h1.
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

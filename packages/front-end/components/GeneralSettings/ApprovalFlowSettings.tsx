@@ -253,7 +253,9 @@ export default function ApprovalFlowSettings() {
               id={`approval-override-${tab.id}`}
               p="4"
               mb="0"
-              style={{ scrollMarginTop: "calc(var(--header-height) + 24px)" }}
+              style={{
+                scrollMarginTop: "calc(var(--settings-section-top) + 24px)",
+              }}
             >
               <Flex align="end" justify="between" gap="3" mb="4" wrap="wrap">
                 <Box flexGrow="1" minWidth="240px">
