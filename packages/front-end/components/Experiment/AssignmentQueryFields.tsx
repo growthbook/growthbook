@@ -510,12 +510,10 @@ export function getClusterSubUnitOptions(
 }
 
 export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE =
-  "This data source has no assignment queries, so this experiment will no longer be analyzed as a cluster experiment. Make sure that still matches how traffic was randomized.";
+  "This Data Source has no assignment queries, so this experiment will no longer be analyzed as a cluster experiment. Make sure that still matches how traffic was randomized.";
 
 const CLUSTER_MODE_CHANGE_MESSAGE =
-  "This experiment has already started. Changing Cluster experiment changes how results are analyzed, so make sure it still matches how traffic was randomized.";
-const SUBUNIT_CHANGE_MESSAGE =
-  "This experiment has already started. Changing the subunit identifier type changes which unit its metrics are analyzed on.";
+  "This experiment has already started. Turning Cluster experiment on or off changes how results are analyzed, so make sure it still matches how traffic was randomized.";
 
 export type ClusterChangeAfterLaunch = "mode" | "subunit" | null;
 
@@ -741,7 +739,7 @@ export function ClusterExperimentFields({
       }
     />
   );
-  const launchWarning = (kind: ClusterChangeAfterLaunch, message: string) =>
+  const launchWarning = (kind: ClusterChangeAfterLaunch, message: ReactNode) =>
     changedAfterLaunch === kind ? (
       <HelperText status="warning" size="sm" mt="2">
         {message}
@@ -756,7 +754,15 @@ export function ClusterExperimentFields({
   const subUnitLockError = lockError?.field === "subunit";
   const subUnitWarning = subUnitLockError
     ? lockErrorText
-    : launchWarning("subunit", SUBUNIT_CHANGE_MESSAGE);
+    : launchWarning(
+        "subunit",
+        <>
+          This experiment has already started. Changing the subunit identifier
+          type changes which unit its metrics are analyzed on, so check that
+          they can be analyzed per{" "}
+          <IdentifierCode>{subUnitIdentifier}</IdentifierCode>.
+        </>,
+      );
   // Errors not about the sub-unit sit with the checkbox, nearest the query.
   const clusterError = subUnitLockError ? null : lockErrorText;
   const subUnitSelect = (
