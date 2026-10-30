@@ -38,7 +38,7 @@ export function canSetApiKeyDisabled(
     : permissions.canUpdateApiKey();
 }
 
-// Who may reveal or rotate a key's secret: the owner for a PAT, key creators for an org key.
+// Who may rotate a key's secret: the owner for a PAT, key creators for an org key.
 export function canManageApiKeySecret(
   permissions: Pick<Permissions, "canCreateApiKey">,
   key: Pick<ApiKeyInterface, "userId">,

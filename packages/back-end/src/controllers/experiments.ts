@@ -3236,22 +3236,8 @@ export async function findOrCreateVisualEditorToken(
 
   if (!req.userId) throw new Error("No user found");
 
-  let visualEditorKey = await context.models.apiKeys.getVisualEditorApiKey(
-    req.userId,
-  );
-
-  // if not exist, create one
-  if (!visualEditorKey) {
-    visualEditorKey = await context.models.apiKeys.createUserVisualEditorApiKey(
-      {
-        userId: req.userId,
-        description: `Created automatically for the Visual Editor`,
-      },
-    );
-  }
-
   res.status(200).json({
-    key: visualEditorKey.key,
+    key: await context.models.apiKeys.issueVisualEditorApiKey(req.userId),
   });
 }
 

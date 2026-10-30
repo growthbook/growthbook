@@ -19,6 +19,7 @@ import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import RadioCards from "@/ui/RadioCards";
 import Text from "@/ui/Text";
+import { IssuedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
 import PermissionsField, { useAllowedPermissions } from "./PermissionsField";
 import {
@@ -34,7 +35,8 @@ type ActAs = NonNullable<ApiKeyInterface["actAs"]>;
 
 const ApiKeysModal: FC<{
   close: () => void;
-  onCreate: () => void;
+  /** Gets the new secret on creation, which is the only time it's available. */
+  onCreate: (issued?: IssuedApiKey) => void;
   personalAccessToken: boolean;
   defaultDescription?: string;
   existingKey?: ApiKeyInterface;
@@ -165,13 +167,13 @@ const ApiKeysModal: FC<{
           expiresAt: expiresAt?.toISOString() ?? null,
         };
     if (!created.current) {
-      await apiCall("/keys", {
+      const issued = await apiCall<IssuedApiKey>("/keys", {
         method: "POST",
         body: JSON.stringify(key),
       });
       created.current = true;
       track("Create API Key", trackProps);
-      onCreate();
+      onCreate(issued);
     }
     if (canDeleteSource && deleteSource && onDeleteCopySource) {
       try {

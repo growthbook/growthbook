@@ -1,7 +1,6 @@
 import isEqual from "lodash/isEqual";
-import omit from "lodash/omit";
 import pick from "lodash/pick";
-import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
 import {
   apiKeySchema,
   ConfirmRule,
@@ -28,15 +27,19 @@ import {
 } from "shared/api-key-expiration";
 import { date } from "shared/dates";
 import {
+  apiKeyLookupValues,
   generateEncryptionKey,
   generateSigningKey,
+  HASHED_API_KEY,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
+import { hashToken } from "back-end/src/util/oauth-token.util";
 import {
   assertProjectRulesReferenceProjects,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -80,6 +83,12 @@ const BaseClass = MakeModelClass({
 
 const toTime = (d: ExpiresAt) => (d ? new Date(d).getTime() : null);
 
+// Secret keys are stored hashed, so the plaintext exists only in this result.
+export type IssuedApiKey = { apiKey: ApiKeyInterface; plaintextKey: string };
+
+// Long enough that a second device's extension keeps working for a while.
+const VISUAL_EDITOR_GRACE_PERIOD_HOURS = 168;
+
 export class ApiKeyModel extends BaseClass {
   protected canCreate(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
@@ -91,7 +100,7 @@ export class ApiKeyModel extends BaseClass {
   protected canRead(apiKey: ApiKeyInterface): boolean {
     if (apiKey.userId) {
       // Admins can read members' PATs, so "readable" doesn't mean "own": getApiKeys
-      // filters to the caller's userId and postApiKeyReveal checks ownership.
+      // filters to the caller's userId.
       return (
         apiKey.userId === this.context.userId ||
         this.context.permissions.canManagePersonalAccessTokens()
@@ -486,7 +495,7 @@ export class ApiKeyModel extends BaseClass {
     actAs?: ApiKeyInterface["actAs"];
     expiresAt?: Date | null;
     confirmRules?: ConfirmRule[] | null;
-  }): Promise<ApiKeyInterface> {
+  }): Promise<IssuedApiKey> {
     return await this.createApiKey({
       secret: true,
       encryptSDK: false,
@@ -525,7 +534,7 @@ export class ApiKeyModel extends BaseClass {
     projectRoles?: ApiKeyInterface["projectRoles"];
     expiresAt?: Date | null;
     confirmRules?: ConfirmRule[] | null;
-  }): Promise<ApiKeyInterface> {
+  }): Promise<IssuedApiKey> {
     return await this.createApiKey({
       userId,
       secret: true,
@@ -544,25 +553,38 @@ export class ApiKeyModel extends BaseClass {
     });
   }
 
-  public async createUserVisualEditorApiKey({
-    userId,
-    description,
-  }: {
-    userId: string;
-    description: string;
-  }): Promise<ApiKeyInterface> {
-    return await this.createApiKey({
+  // The stored secret is a hash, so each call rotates in a new one; a disabled key stays disabled.
+  public async issueVisualEditorApiKey(userId: string): Promise<string> {
+    const existing = await this._findOne(
+      {
+        userId,
+        role: "visualEditor",
+        // A user's own scoped PAT may carry this role; only the auto-created key counts.
+        scoped: { $ne: true },
+        $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
+      },
+      { bypassSanitization: true },
+    );
+    if (existing?.id) {
+      const rotated = await this.rotateSecret(
+        existing.id,
+        VISUAL_EDITOR_GRACE_PERIOD_HOURS,
+      );
+      return rotated.plaintextKey;
+    }
+    const created = await this.createApiKey({
       userId,
       secret: true,
       environment: "",
       project: "",
       encryptSDK: false,
-      description,
+      description: "Created automatically for the Visual Editor",
       role: "visualEditor",
       expiresAt: maxExpirationDate(
         this.context.org.settings?.maxPatLifetimeDays,
       ),
     });
+    return created.plaintextKey;
   }
 
   // Returns the deleted doc so callers can audit-log the removed key.
@@ -644,7 +666,7 @@ export class ApiKeyModel extends BaseClass {
       if (doc.userId !== this.context.userId) {
         this.context.throwNotFoundError(`API key not found: ${id}`);
       }
-      // Rewriting its role would orphan it from getVisualEditorApiKey.
+      // Rewriting its role would orphan it from issueVisualEditorApiKey.
       if (doc.role === "visualEditor" && !doc.scoped) {
         this.context.throwBadRequestError(
           "The visual editor's API key can't be edited.",
@@ -705,8 +727,8 @@ export class ApiKeyModel extends BaseClass {
     // runs, re-applying the same role/environment/project checks and the
     // `advanced-permissions` premium gate used at creation time.
     //
-    // The stored `key` string is left untouched so already-issued tokens keep
-    // working. Its `secret_<role>_` prefix is purely cosmetic and is
+    // The stored `key` hash is left untouched so already-issued tokens keep
+    // working. Their `secret_<role>_` prefix is purely cosmetic and is
     // intentionally left stale after a role change rather than reissuing.
     const after = await this._updateOne(
       doc,
@@ -730,17 +752,53 @@ export class ApiKeyModel extends BaseClass {
   ): Promise<void> {
     const collection = getCollection<ApiKeyInterface>(COLLECTION_NAME);
     const now = new Date();
+    const values = apiKeyLookupValues(key);
     const { matchedCount } = await collection.updateOne(
-      { key, organization },
+      { key: { $in: values }, organization },
       { $set: { lastUsed: now } },
     );
     // Otherwise it may be a rotated key's previous secret.
     if (!matchedCount) {
       await collection.updateOne(
-        { previousKey: key, organization },
+        { previousKey: { $in: values }, organization },
         { $set: { lastUsed: now, previousKeyLastUsed: now } },
       );
     }
+  }
+
+  // Hashes secrets stored before keys were hashed. Idempotent, so it runs on every boot.
+  public static async dangerousHashPlaintextSecrets(): Promise<void> {
+    const collection = getCollection<ApiKeyInterface>(COLLECTION_NAME);
+    const docs = await collection
+      .find(
+        {
+          secret: true,
+          $or: [
+            { key: { $not: HASHED_API_KEY } },
+            { previousKey: { $type: "string", $not: HASHED_API_KEY } },
+          ],
+        },
+        { projection: { _id: 1, key: 1, previousKey: 1 } },
+      )
+      .toArray();
+    if (!docs.length) return;
+    const hash = (value: string) =>
+      HASHED_API_KEY.test(value) ? value : hashToken(value);
+    // Matching the read value keeps a concurrent rotation from being overwritten.
+    await collection.bulkWrite(
+      docs.map(({ _id, key, previousKey }) => ({
+        updateOne: {
+          filter: { _id, key, ...(previousKey && { previousKey }) },
+          update: {
+            $set: {
+              key: hash(key),
+              ...(previousKey && { previousKey: hash(previousKey) }),
+            },
+          },
+        },
+      })),
+    );
+    logger.info({ count: docs.length }, "Hashed plaintext API key secrets");
   }
 
   // OAuth token endpoint has no ReqContext. These static helpers keep apikey
@@ -845,31 +903,9 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
-  // Skips an expired key so the caller mints a replacement. A disabled one is
-  // still returned: an admin switched it off on purpose.
-  public async getVisualEditorApiKey(
-    userId: string,
-  ): Promise<ApiKeyInterface | null> {
-    return await this._findOne(
-      {
-        userId,
-        role: "visualEditor",
-        // A user's own scoped PAT may carry this role; only the auto-created key counts.
-        scoped: { $ne: true },
-        $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
-      },
-      {
-        bypassSanitization: true,
-      },
-    );
-  }
-
-  // Reveals only the current secret, never a rotated-out one.
-  public async getUnredactedSecretKey(
-    id: string,
-  ): Promise<SecretApiKey | null> {
-    const doc = await this._findOne({ id }, { bypassSanitization: true });
-    return doc ? (omit(doc, "previousKey") as SecretApiKey) : null;
+  // Legacy SDK endpoint keys only: secret keys are stored hashed.
+  public async getSdkEndpointKey(id: string): Promise<ApiKeyInterface | null> {
+    return await this._findOne({ id, secret: { $ne: true } });
   }
 
   // Issues a new secret under the same id, role and settings. With a grace
@@ -877,7 +913,11 @@ export class ApiKeyModel extends BaseClass {
   public async rotateSecret(
     id: string,
     gracePeriodHours: number,
-  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+  ): Promise<{
+    before: ApiKeyInterface;
+    after: ApiKeyInterface;
+    plaintextKey: string;
+  }> {
     const doc = await this.getRotatableKey(id);
     if (isExpired(doc.expiresAt)) {
       this.context.throwBadRequestError(
@@ -886,15 +926,16 @@ export class ApiKeyModel extends BaseClass {
     }
 
     const now = new Date();
+    const plaintextKey = generateSigningKey(
+      this.prefixForApiKey({
+        environment: "",
+        secret: true,
+        userId: doc.userId,
+        role: doc.role,
+      }),
+    );
     const updates = {
-      key: generateSigningKey(
-        this.prefixForApiKey({
-          environment: "",
-          secret: true,
-          userId: doc.userId,
-          role: doc.role,
-        }),
-      ),
+      key: hashToken(plaintextKey),
       keyIssuedAt: now,
       expiresAt: rotatedExpiration(
         doc.expiresAt,
@@ -924,7 +965,7 @@ export class ApiKeyModel extends BaseClass {
       );
     }
 
-    return { before: doc, after: { ...doc, ...updates } };
+    return { before: doc, after: { ...doc, ...updates }, plaintextKey };
   }
 
   // Ends a rotation's grace period early, e.g. when the old secret leaked.
@@ -1098,7 +1139,7 @@ export class ApiKeyModel extends BaseClass {
     actAs?: ApiKeyInterface["actAs"];
     expiresAt?: Date | null;
     confirmRules?: ConfirmRule[] | null;
-  }): Promise<ApiKeyInterface> {
+  }): Promise<IssuedApiKey> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
       throw new Error("SDK Endpoints must have an environment set");
@@ -1110,13 +1151,13 @@ export class ApiKeyModel extends BaseClass {
       userId,
       role,
     });
-    const key = generateSigningKey(prefix);
+    const plaintextKey = generateSigningKey(prefix);
 
-    return await this.create({
+    const apiKey = await this.create({
       environment,
       project,
       description,
-      key,
+      key: secret ? hashToken(plaintextKey) : plaintextKey,
       secret,
       encryptSDK,
       userId,
@@ -1131,5 +1172,6 @@ export class ApiKeyModel extends BaseClass {
       expiresAt,
       ...(confirmRules ? { confirmRules } : {}),
     });
+    return { apiKey, plaintextKey };
   }
 }

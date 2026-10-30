@@ -85,7 +85,7 @@ const VisualEditorConnectPage = () => {
     setStatus("connecting");
     try {
       const res = await apiCall<{ key: string }>("/visual-editor/key", {
-        method: "GET",
+        method: "POST",
       });
       const apiKey = res?.key;
       if (!apiKey) {

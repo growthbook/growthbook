@@ -727,12 +727,12 @@ export const POLICY_METADATA_MAP: Record<
   APIKeysView: {
     displayName: "View",
     description:
-      "View API secret keys and their audit logs. Revealing a key's value requires Create.",
+      "View API secret keys and their audit logs. Rotating a key's secret requires Create.",
   },
   APIKeysCreate: {
     displayName: "Create",
     description:
-      "Create API secret keys, reveal their values, and change what a key can do: its role, scope, requester settings, or confirmations",
+      "Create and rotate API secret keys, and change what a key can do: its role, scope, requester settings, or confirmations",
   },
   APIKeysEdit: {
     displayName: "Edit",

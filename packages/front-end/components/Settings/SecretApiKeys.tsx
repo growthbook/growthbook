@@ -1,8 +1,11 @@
 import React, { FC, ReactNode, useCallback, useMemo, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
-import { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
+import {
+  IssuedApiKey,
+  IssuedApiKeyModal,
+} from "@/components/ApiKeysTable/RotateApiKeyModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
@@ -22,6 +25,7 @@ const SecretApiKeys: FC<{
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
   const [copyFrom, setCopyFrom] = useState<ApiKeyInterface | null>(null);
+  const [issued, setIssued] = useState<IssuedApiKey | null>(null);
   const [auditLog, setAuditLog] = useState<{
     keyId?: string;
     keyName?: string;
@@ -38,22 +42,12 @@ const SecretApiKeys: FC<{
     [keys],
   );
 
-  const onReveal = useCallback(
-    (keyId: string | undefined) => async (): Promise<string> => {
-      if (!keyId) return "";
-
-      const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
-        method: "POST",
-        body: JSON.stringify({
-          id: keyId,
-        }),
-      });
-      if (!res.key.key) {
-        throw new Error("Could not load the secret key");
-      }
-      return res.key.key;
+  const onCreate = useCallback(
+    (created?: IssuedApiKey) => {
+      if (created) setIssued(created);
+      mutate();
     },
-    [apiCall],
+    [mutate],
   );
 
   const onDelete = useCallback(
@@ -85,7 +79,7 @@ const SecretApiKeys: FC<{
 
   const onRotate = useCallback(
     async (keyId: string, gracePeriodHours: number) => {
-      const res = await apiCall<RotatedApiKey>(`/keys/${keyId}/rotate`, {
+      const res = await apiCall<IssuedApiKey>(`/keys/${keyId}/rotate`, {
         method: "POST",
         body: JSON.stringify({ gracePeriodHours }),
       });
@@ -108,9 +102,13 @@ const SecretApiKeys: FC<{
       {open && canCreateKeys && (
         <ApiKeysModal
           close={() => setOpen(false)}
-          onCreate={mutate}
+          onCreate={onCreate}
           personalAccessToken={false}
         />
+      )}
+
+      {issued && (
+        <IssuedApiKeyModal issued={issued} close={() => setIssued(null)} />
       )}
 
       {editingKey && canEditKeys && (
@@ -128,7 +126,7 @@ const SecretApiKeys: FC<{
       {copyFrom && canCreateKeys && (
         <ApiKeysModal
           close={() => setCopyFrom(null)}
-          onCreate={mutate}
+          onCreate={onCreate}
           personalAccessToken={false}
           copyFrom={copyFrom}
           onDeleteCopySource={
@@ -158,7 +156,6 @@ const SecretApiKeys: FC<{
             onDelete={onDelete}
             keys={organizationSecretKeys}
             canDeleteKeys={canDeleteKeys}
-            onReveal={onReveal}
             onToggleDisabled={
               canDeleteKeys || canEditKeys ? onToggleDisabled : undefined
             }

@@ -26,10 +26,16 @@ import {
   ApiKeyModel,
   COLLECTION_NAME as API_KEY_COLLECTION,
 } from "back-end/src/models/ApiKeyModel";
-import {
-  hashToken,
-  OAUTH_ACCESS_TOKEN_PREFIX,
-} from "back-end/src/util/oauth-token.util";
+import { hashToken } from "back-end/src/util/oauth-token.util";
+
+// The shape of a stored secret key hash.
+export const HASHED_API_KEY = /^[0-9a-f]{64}$/;
+
+// Stored values a presented key can match: its hash, or itself for SDK keys and
+// not-yet-hashed secrets. Never a hash as-is, so a leaked hash isn't a credential.
+export function apiKeyLookupValues(key: string): string[] {
+  return HASHED_API_KEY.test(key) ? [hashToken(key)] : [hashToken(key), key];
+}
 
 /**
  * Verifies if the provided API key is for a user in the organization.
@@ -122,14 +128,12 @@ export async function dangerousLookupOrganizationByApiKey(
     }
   }
 
-  // OAuth access tokens are stored hashed under a distinguishing prefix.
-  // Hash-then-lookup only for that prefix so classic keys stay plaintext.
-  const lookupKey = key.startsWith(OAUTH_ACCESS_TOKEN_PREFIX)
-    ? hashToken(key)
-    : key;
-
+  const lookupValues = apiKeyLookupValues(key);
   const doc = await getCollection<ApiKeyInterface>(API_KEY_COLLECTION).findOne({
-    $or: [{ key: lookupKey }, { previousKey: lookupKey }],
+    $or: [
+      { key: { $in: lookupValues } },
+      { previousKey: { $in: lookupValues } },
+    ],
   });
 
   if (!doc || !doc.organization) {
@@ -140,15 +144,15 @@ export async function dangerousLookupOrganizationByApiKey(
 
   // A rotated key's replaced secret only works until its grace period ends.
   if (
-    migrated.key !== lookupKey &&
+    !lookupValues.includes(migrated.key) &&
     !(
       migrated.previousKeyExpiresAt && !isExpired(migrated.previousKeyExpiresAt)
     )
   ) {
     throw new Error(
       migrated.userId
-        ? `This personal access token was rotated and has expired. Reveal the new one at ${APP_ORIGIN}/account/personal-access-tokens`
-        : `This API key was rotated and has expired. An admin can reveal the new one at ${APP_ORIGIN}/settings/keys`,
+        ? `This personal access token was rotated and its previous secret has expired. Use the new secret shown when it was rotated, or create a new token at ${APP_ORIGIN}/account/personal-access-tokens`
+        : `This API key was rotated and its previous secret has expired. Use the new secret shown when it was rotated, or ask an admin to create a new key at ${APP_ORIGIN}/settings/keys`,
     );
   }
 
@@ -156,7 +160,7 @@ export async function dangerousLookupOrganizationByApiKey(
   // lapsed key's `lastUsed` shows whether something still depends on it.
   if (isExpired(migrated.expiresAt)) {
     await ApiKeyModel.dangerousRecordUsageByKey(
-      lookupKey,
+      key,
       migrated.organization,
     ).catch((err) =>
       logger.warn(

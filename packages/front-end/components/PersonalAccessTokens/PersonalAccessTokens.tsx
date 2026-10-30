@@ -1,8 +1,11 @@
 import React, { FC, useCallback, useMemo, useState } from "react";
-import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
+import { ApiKeyInterface } from "shared/types/apikey";
 import Link from "@/ui/Link";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
-import { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
+import {
+  IssuedApiKey,
+  IssuedApiKeyModal,
+} from "@/components/ApiKeysTable/RotateApiKeyModal";
 import ApiKeysModal from "@/components/Settings/ApiKeysModal";
 import { useAuth } from "@/services/auth";
 import { groupApiKeysByType } from "@/services/secret-api-keys.utils";
@@ -15,20 +18,18 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 type PersonalAccessTokensProps = {
   accessTokens: ApiKeyInterface[];
   onDelete: (keyId: string | undefined) => () => Promise<void>;
-  onReveal: (keyId: string | undefined) => () => Promise<string>;
   onToggleDisabled: (
     keyId: string | undefined,
     disabled: boolean,
   ) => () => Promise<void>;
   onCreate: () => void;
-  onRotate: (keyId: string, gracePeriodHours: number) => Promise<RotatedApiKey>;
+  onRotate: (keyId: string, gracePeriodHours: number) => Promise<IssuedApiKey>;
   onRevokePrevious: (keyId: string) => Promise<void>;
 };
 
 export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   accessTokens,
   onDelete,
-  onReveal,
   onToggleDisabled,
   onCreate,
   onRotate,
@@ -37,6 +38,7 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
   const [copyFrom, setCopyFrom] = useState<ApiKeyInterface | null>(null);
+  const [issued, setIssued] = useState<IssuedApiKey | null>(null);
   const { settings } = useUser();
   const tokensDisabled = !!settings?.disablePersonalAccessTokens;
   const permissionsUtils = usePermissionsUtil();
@@ -54,11 +56,18 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             setOpen(false);
             setCopyFrom(null);
           }}
-          onCreate={onCreate}
+          onCreate={(created) => {
+            if (created) setIssued(created);
+            onCreate();
+          }}
           personalAccessToken
           copyFrom={copyFrom ?? undefined}
           onDeleteCopySource={copyFrom ? onDelete(copyFrom.id) : undefined}
         />
+      )}
+
+      {issued && (
+        <IssuedApiKeyModal issued={issued} close={() => setIssued(null)} />
       )}
 
       {editingKey && (
@@ -85,7 +94,6 @@ export const PersonalAccessTokens: FC<PersonalAccessTokensProps> = ({
             onDelete={onDelete}
             keys={accessTokens}
             canDeleteKeys
-            onReveal={onReveal}
             onToggleDisabled={onToggleDisabled}
             onEdit={(key) => setEditingKey(key)}
             onCopy={tokensDisabled ? undefined : setCopyFrom}
@@ -136,24 +144,6 @@ export const PersonalAccessTokensContainer = () => {
     return groupApiKeysByType(data.keys).user;
   }, [data?.keys]);
 
-  const onReveal = useCallback(
-    (keyId: string | undefined) => async (): Promise<string> => {
-      if (!keyId) return "";
-
-      const res = await apiCall<{ key: SecretApiKey }>(`/keys/reveal`, {
-        method: "POST",
-        body: JSON.stringify({
-          id: keyId,
-        }),
-      });
-      if (!res.key.key) {
-        throw new Error("Could not load the secret key");
-      }
-      return res.key.key;
-    },
-    [apiCall],
-  );
-
   const onDelete = useCallback(
     (keyId: string) => async () => {
       if (!keyId) return;
@@ -183,7 +173,7 @@ export const PersonalAccessTokensContainer = () => {
 
   const onRotate = useCallback(
     async (keyId: string, gracePeriodHours: number) => {
-      const res = await apiCall<RotatedApiKey>(`/keys/${keyId}/rotate`, {
+      const res = await apiCall<IssuedApiKey>(`/keys/${keyId}/rotate`, {
         method: "POST",
         body: JSON.stringify({ gracePeriodHours }),
       });
@@ -206,7 +196,6 @@ export const PersonalAccessTokensContainer = () => {
       onDelete={onDelete}
       accessTokens={userKeys}
       onCreate={mutate}
-      onReveal={onReveal}
       onToggleDisabled={onToggleDisabled}
       onRotate={onRotate}
       onRevokePrevious={onRevokePrevious}

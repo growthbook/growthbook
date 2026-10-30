@@ -9,11 +9,10 @@ import {
 } from "shared/permissions";
 import { ago, datetime, datetimeWithZone } from "shared/dates";
 import { getExpirationStatus, isExpired } from "shared/api-key-expiration";
-import ClickToReveal from "@/components/Settings/ClickToReveal";
 import {
+  IssuedApiKey,
+  IssuedApiKeyModal,
   RotateApiKeyModal,
-  RotatedApiKey,
-  RotatedApiKeyModal,
 } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import CopyableCode from "@/components/Settings/CopyableCode";
 import HumanInTheLoopIcon from "@/components/Confirmations/HumanInTheLoopIcon";
@@ -48,7 +47,6 @@ type ApiKeysTableProps = {
   onDelete: (keyId: string | undefined) => () => Promise<void>;
   keys: ApiKeyInterface[];
   canDeleteKeys: boolean;
-  onReveal: (keyId: string | undefined) => () => Promise<string>;
   onToggleDisabled?: (
     keyId: string | undefined,
     disabled: boolean,
@@ -56,10 +54,7 @@ type ApiKeysTableProps = {
   onEdit?: (key: ApiKeyInterface) => void;
   onShowAuditLog?: (key: ApiKeyInterface) => void;
   onCopy?: (key: ApiKeyInterface) => void;
-  onRotate?: (
-    keyId: string,
-    gracePeriodHours: number,
-  ) => Promise<RotatedApiKey>;
+  onRotate?: (keyId: string, gracePeriodHours: number) => Promise<IssuedApiKey>;
   onRevokePrevious?: (keyId: string) => Promise<void>;
 };
 
@@ -73,7 +68,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
   keys = [],
   onDelete,
   canDeleteKeys,
-  onReveal,
   onToggleDisabled,
   onEdit,
   onShowAuditLog,
@@ -88,7 +82,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
     null,
   );
   const [rotating, setRotating] = useState<ApiKeyInterface | null>(null);
-  const [rotated, setRotated] = useState<RotatedApiKey | null>(null);
+  const [rotated, setRotated] = useState<IssuedApiKey | null>(null);
   const isDisabledByAdmin = (key: ApiKeyInterface) =>
     !!key.userId &&
     !!key.disabled &&
@@ -152,7 +146,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         <TableHeader>
           <TableRow style={{ whiteSpace: "nowrap" }}>
             <TableColumnHeader>Name</TableColumnHeader>
-            <TableColumnHeader width="170px">Key</TableColumnHeader>
             <TableColumnHeader width="110px">
               Internal ID{" "}
               <Tooltip content="Identifies this key in logs and server settings. REST requests authenticate with the secret key, not this ID.">
@@ -182,7 +175,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
           {!visibleKeys.length && (
             <TableRow>
               <TableCell
-                colSpan={hasActions ? 8 : 7}
+                colSpan={hasActions ? 7 : 6}
                 style={{ textAlign: "center" }}
               >
                 <Text color="text-low">All of these keys have expired.</Text>
@@ -248,22 +241,6 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
                   >
                     Previous secret active
                   </KeyTrait>
-                )}
-              </TableCell>
-              <TableCell style={dimStyle(key)}>
-                {canManageSecret(key) ? (
-                  <ClickToReveal
-                    // Remounts on rotation so a revealed secret isn't the old one.
-                    key={String(key.keyIssuedAt)}
-                    valueWhenHidden="secret_abcdefghijkl"
-                    getValue={onReveal(key.id)}
-                  />
-                ) : (
-                  <Tooltip content="Revealing a key's value requires permission to create API keys.">
-                    <span>
-                      <Text color="text-low">Hidden</Text>
-                    </span>
-                  </Tooltip>
                 )}
               </TableCell>
               <TableCell style={dimStyle(key)}>
@@ -381,7 +358,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         />
       )}
       {rotated && (
-        <RotatedApiKeyModal rotated={rotated} close={() => setRotated(null)} />
+        <IssuedApiKeyModal issued={rotated} close={() => setRotated(null)} />
       )}
     </>
   );
