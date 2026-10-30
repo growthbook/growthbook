@@ -39,7 +39,10 @@ import {
   assertProjectRulesReferenceProjects,
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
-import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  getCollection,
+  removeMongooseFields,
+} from "back-end/src/util/mongo.util";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -811,6 +814,25 @@ export class ApiKeyModel extends BaseClass {
       })),
     );
     return modifiedCount;
+  }
+
+  public static async dangerousFindLegacySdkKeys(
+    limit: number,
+  ): Promise<ApiKeyInterface[]> {
+    const docs = await getCollection<ApiKeyInterface>(COLLECTION_NAME)
+      .find({ secret: { $ne: true } }, { limit })
+      .toArray();
+    return docs.map((doc) => removeMongooseFields(doc));
+  }
+
+  // Returns false if the key was already gone.
+  public static async dangerousDeleteLegacySdkKey(
+    key: string,
+  ): Promise<boolean> {
+    const { deletedCount } = await getCollection<ApiKeyInterface>(
+      COLLECTION_NAME,
+    ).deleteOne({ key, secret: { $ne: true } });
+    return deletedCount > 0;
   }
 
   // OAuth token endpoint has no ReqContext. These static helpers keep apikey

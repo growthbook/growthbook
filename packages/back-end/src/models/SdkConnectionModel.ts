@@ -18,6 +18,7 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import {
   savedGroupFormatFromConnection,
@@ -38,6 +39,7 @@ import { logger } from "back-end/src/util/logger";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -564,8 +566,62 @@ export async function deleteSDKConnectionModel(
     organization: context.org.id,
     id: sdkConnection.id,
   });
+  // A move that failed partway leaves the old key behind, still serving.
+  if (sdkConnection.languages.includes("legacy")) {
+    await ApiKeyModel.dangerousDeleteLegacySdkKey(sdkConnection.key);
+  }
 
   await audit.logDelete(context, sdkConnection);
+}
+
+// Keeps the legacy key as the connection key, so deployed SDKs keep working.
+export async function dangerousCreateLegacySDKConnection(
+  apiKey: ApiKeyInterface,
+): Promise<SDKConnectionInterface> {
+  const connection: SDKConnectionInterface = {
+    id: uniqid("sdk_"),
+    organization: apiKey.organization,
+    name: apiKey.description || "Legacy SDK Endpoint",
+    dateCreated: apiKey.dateCreated ?? new Date(),
+    dateUpdated: new Date(),
+    languages: ["legacy"],
+    sdkVersion: "0.0.0",
+    environment: apiKey.environment || "production",
+    projects: apiKey.project ? [apiKey.project] : [],
+    encryptPayload: !!apiKey.encryptSDK,
+    encryptionKey: apiKey.encryptionKey || (await generateEncryptionKey()),
+    connected: false,
+    key: apiKey.key,
+    proxy: addEnvProxySettings({
+      enabled: false,
+      host: "",
+      hostExternal: "",
+      signingKey: generateSigningKey(),
+      connected: false,
+      lastError: null,
+      version: "",
+      error: "",
+      consecutiveFailures: 0,
+    }),
+  };
+  await SDKConnectionModel.create(connection);
+  return connection;
+}
+
+// A move that failed partway leaves both records; deleting the old key removes its connection too.
+export async function deleteLegacySDKConnectionByKey(
+  context: ReqContext,
+  key: string,
+) {
+  await SDKConnectionModel.deleteOne({
+    organization: context.org.id,
+    key,
+    languages: "legacy",
+  });
+}
+
+export async function dangerousDeleteSDKConnectionById(id: string) {
+  await SDKConnectionModel.deleteOne({ id });
 }
 
 export async function markSDKConnectionUsed(key: string) {
