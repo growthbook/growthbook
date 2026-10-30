@@ -3,10 +3,10 @@ import { Box } from "@radix-ui/themes";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumEmptyState from "@/components/PremiumEmptyState";
-import Callout from "@/ui/Callout";
-import ExperimentationHealthPage from "@/components/Settings/ExperimentationHealth/ExperimentationHealthPage";
+import { SettingsNoAccess } from "@/components/Layout/SettingsPage";
+import ExperimentQualityPage from "@/components/Settings/ExperimentQuality/ExperimentQualityPage";
 
-const ExperimentationHealthSettingsPage: React.FC = () => {
+const ExperimentQualitySettingsPage: React.FC = () => {
   const { hasCommercialFeature } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
@@ -16,7 +16,7 @@ const ExperimentationHealthSettingsPage: React.FC = () => {
         <Box mt="4">
           <PremiumEmptyState
             title="Experiment Quality"
-            description="Score every experiment 0–100 on completeness and trustworthiness — hypothesis, documented decisions and learnings, health checks, and optional AI review."
+            description="Score every experiment 0–100 on how well it's documented and run."
             commercialFeature="experiment-quality-score"
             learnMoreLink="https://docs.growthbook.io/app/experiment-configuration"
           />
@@ -29,22 +29,10 @@ const ExperimentationHealthSettingsPage: React.FC = () => {
     !permissionsUtil.canManageOrgSettings() &&
     !permissionsUtil.canManageSomeProjects()
   ) {
-    return (
-      <div className="container pagecontents">
-        <Callout status="error" mt="4">
-          You do not have permission to manage Experiment Quality settings.
-        </Callout>
-      </div>
-    );
+    return <SettingsNoAccess title="Experiment Quality" />;
   }
 
-  return (
-    <div className="container pagecontents">
-      <Box pt="4" pb="6" style={{ maxWidth: 980, margin: "0 auto" }}>
-        <ExperimentationHealthPage />
-      </Box>
-    </div>
-  );
+  return <ExperimentQualityPage />;
 };
 
-export default ExperimentationHealthSettingsPage;
+export default ExperimentQualitySettingsPage;

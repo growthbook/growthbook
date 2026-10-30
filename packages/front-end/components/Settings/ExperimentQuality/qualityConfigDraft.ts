@@ -1,7 +1,8 @@
+import isEqual from "lodash/isEqual";
+import pick from "lodash/pick";
 import {
   EXPERIMENT_QUALITY_CHECKS,
   getChecksForSection,
-  reflowShares,
   resolveExperimentQualityScoreSettings,
   roundToTotal,
 } from "shared/enterprise";
@@ -14,6 +15,7 @@ import {
   experimentQualityCheckKeys,
   experimentQualitySectionKeys,
 } from "shared/validators";
+import { rebalance } from "@/services/utils";
 
 // Editable form state for one quality configuration. Section weights are
 // integer percentages that total 100 across enabled sections; checks split
@@ -167,25 +169,118 @@ export function isDegenerateDraft(draft: QualityConfigDraft): boolean {
 
 // --- Edits -------------------------------------------------------------------
 
-// Drag a section's share; the other enabled sections re-flow to total 100
-export function reflowSectionWeights(
+// Type a section's share; like a traffic split, the sections after it absorb
+// the difference so the total stays 100
+export function setSectionWeight(
   draft: QualityConfigDraft,
   section: ExperimentQualitySectionKey,
   newPct: number,
+  // The sections sharing the bar
+  enabled = getEnabledSectionKeys(draft),
 ): QualityConfigDraft {
-  const enabled = getEnabledSectionKeys(draft);
   const index = enabled.indexOf(section);
   if (index < 0) return draft;
-  const weights = reflowShares(
-    enabled.map((k) => draft.sections[k].weight),
+  const weights = rebalance(
+    enabled.map((k) => draft.sections[k].weight / 100),
     index,
-    newPct,
-  );
+    newPct / 100,
+    2,
+  ).map((w) => Math.round(w * 100));
+  return withWeights(draft, enabled, weights);
+}
+
+// Drag the divider after an enabled section to a point on the 0-100 bar; only
+// the two sections either side of it change
+export function moveSectionDivider(
+  draft: QualityConfigDraft,
+  index: number,
+  position: number,
+  enabled = getEnabledSectionKeys(draft),
+): QualityConfigDraft {
+  if (index < 0 || index >= enabled.length - 1) return draft;
+  const weights = enabled.map((k) => draft.sections[k].weight);
+  const start = weights.slice(0, index).reduce((sum, w) => sum + w, 0);
+  const pair = weights[index] + weights[index + 1];
+  const left = Math.min(Math.max(Math.round(position - start), 0), pair);
+  weights[index] = left;
+  weights[index + 1] = pair - left;
+  return withWeights(draft, enabled, weights);
+}
+
+function withWeights(
+  draft: QualityConfigDraft,
+  keys: ExperimentQualitySectionKey[],
+  weights: number[],
+): QualityConfigDraft {
   const sections = { ...draft.sections };
-  enabled.forEach((k, i) => {
+  keys.forEach((k, i) => {
     sections[k] = { weight: weights[i] };
   });
   return { ...draft, sections };
+}
+
+// --- Comparing with the organization default ----------------------------------
+
+const sectionPart = (
+  draft: QualityConfigDraft,
+  section: ExperimentQualitySectionKey,
+) => ({
+  enabled: draft.sectionEnabled[section],
+  checks: getChecksForSection(section).map((k) => ({
+    enabled: draft.checks[k].enabled,
+    params: draft.checks[k].params ?? {},
+    aiContext: draft.checks[k].aiContext?.trim() ?? "",
+  })),
+  custom:
+    section === "ai"
+      ? draft.customAiChecks.map((c) => pick(c, ["name", "rule", "enabled"]))
+      : [],
+});
+
+export function isSectionChanged(
+  draft: QualityConfigDraft,
+  base: QualityConfigDraft,
+  section: ExperimentQualitySectionKey,
+): boolean {
+  return !isEqual(sectionPart(draft, section), sectionPart(base, section));
+}
+
+export function areWeightsChanged(
+  draft: QualityConfigDraft,
+  base: QualityConfigDraft,
+): boolean {
+  return experimentQualitySectionKeys.some(
+    (k) => draft.sections[k].weight !== base.sections[k].weight,
+  );
+}
+
+// A section's checks and switch as the organization default has them
+export function resetSection(
+  draft: QualityConfigDraft,
+  base: QualityConfigDraft,
+  section: ExperimentQualitySectionKey,
+): QualityConfigDraft {
+  const checks = { ...draft.checks };
+  getChecksForSection(section).forEach((k) => {
+    checks[k] = base.checks[k];
+  });
+  return normalizeSections({
+    ...draft,
+    sectionEnabled: {
+      ...draft.sectionEnabled,
+      [section]: base.sectionEnabled[section],
+    },
+    checks,
+    customAiChecks:
+      section === "ai" ? base.customAiChecks : draft.customAiChecks,
+  });
+}
+
+export function resetWeights(
+  draft: QualityConfigDraft,
+  base: QualityConfigDraft,
+): QualityConfigDraft {
+  return normalizeSections({ ...draft, sections: base.sections });
 }
 
 export function updateCheck(

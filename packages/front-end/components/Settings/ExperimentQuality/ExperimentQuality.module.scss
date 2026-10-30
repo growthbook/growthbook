@@ -1,92 +1,94 @@
-// Share bars (Radix Slider) restyled per the design: rounded track in
-// slate-4, colored range, white thumb with a 2px ring in the bar color.
-// The bar color is passed via the --share-bar-color custom property.
-.shareBar {
-  width: 100%;
+// One segment per included section, with a divider between each pair
+.weightBar {
+  position: relative;
+  display: flex;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--slate-4);
+  touch-action: none;
 
-  :global(.rt-SliderTrack) {
-    height: 16px;
-    background-color: var(--slate-4);
-    border-radius: 9999px;
-  }
+  span {
+    height: 100%;
+    transition: width 120ms ease;
 
-  :global(.rt-SliderRange) {
-    background-color: var(--share-bar-color);
-    border-radius: 9999px;
-  }
+    &:first-child {
+      border-radius: 4px 0 0 4px;
+    }
 
-  :global(.rt-SliderThumb)::after {
-    width: 14px;
-    height: 14px;
-    background-color: #fff;
-    box-shadow: inset 0 0 0 2px var(--share-bar-color);
+    &:last-of-type {
+      border-radius: 0 4px 4px 0;
+    }
   }
 }
 
-.chevron {
-  transition: transform 200ms cubic-bezier(0.685, 0.0473, 0.346, 1);
-  color: var(--color-text-mid);
+.weightHandle {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 20px;
+  transform: translate(-50%, -50%);
+  border-radius: var(--radius-2);
+  background: var(--color-background);
+  box-shadow: 0 0 0 1px var(--gray-a7);
+  cursor: ew-resize;
 
-  &.open {
-    transform: rotate(90deg);
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 6px 4px;
+    border-inline: 1px solid var(--gray-a8);
   }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 2px;
+  }
+
+  &[aria-disabled="true"] {
+    cursor: default;
+  }
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sectionCard {
+  border: 1px solid var(--gray-a5);
+  border-radius: var(--radius-4);
+  overflow: hidden;
+  background: var(--color-panel-solid);
 }
 
 .sectionHeader {
-  display: grid;
-  grid-template-columns: 1fr 240px 52px;
-  gap: 12px;
-  align-items: center;
-  padding-bottom: 8px;
-
-  &.withBorder {
-    border-bottom: 1px solid var(--border-color-100);
-  }
-}
-
-.sectionToggle {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
+  padding: var(--space-3) var(--space-4);
+  background: var(--gray-a2);
 }
 
 .checkRow {
-  display: grid;
-  grid-template-columns: 16px 1fr;
-  gap: 10px;
-  align-items: center;
+  padding: var(--space-3) var(--space-4);
+  border-top: 1px solid var(--gray-a4);
 }
 
-.distributionStrip {
-  display: flex;
-  height: 10px;
-  border-radius: 9999px;
-  overflow: hidden;
-  gap: 2px;
+// Which experiments a check applies to
+.chip {
+  padding: 1px var(--space-2);
+  border-radius: var(--radius-2);
+  background: var(--gray-a3);
+  color: var(--color-text-mid);
+  font-size: var(--font-size-1);
+  white-space: nowrap;
 }
 
-.sectionLabel {
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sectionShare {
-  display: block;
-  text-align: right;
-  font-size: 14px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-  color: var(--color-text-high);
-
-  &.off {
-    color: var(--color-text-low);
-  }
-}
-
-.addCustomRow {
-  border-top: 1px dashed var(--border-color-100);
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 840;
+  margin-top: var(--space-5);
+  padding: var(--space-3) 0;
+  background: var(--color-background);
+  border-top: 1px solid var(--gray-a5);
 }
