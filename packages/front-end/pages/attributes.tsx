@@ -352,14 +352,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
         hideable: false,
         defaultWidth: 200,
         minWidth: 120,
-        cellProps: () => ({ className: "text-gray font-weight-bold" }),
         render: (v, width) => (
           <>
             <Link
               href={`/attributes/${encodeURIComponent(v.property)}`}
               style={{ color: "var(--gray-12)" }}
             >
-              <Text mono>
+              <Text mono weight="semibold">
                 <TruncateMiddleWithTooltip
                   text={v.property}
                   maxChars={truncateCharsForWidth(width)}
