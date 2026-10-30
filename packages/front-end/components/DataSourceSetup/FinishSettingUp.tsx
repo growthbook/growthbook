@@ -40,6 +40,7 @@ import {
 import { dataSourceConnections } from "@/services/eventSchema";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
@@ -87,7 +88,6 @@ const IDENTIFIER_COLUMNS = "24px minmax(0, 1fr) minmax(0, 2fr) 56px";
 
 const SETUP_DIVIDER = "1px solid var(--gray-a5)";
 const IDENTIFIER_ROW_BORDER = { borderTop: SETUP_DIVIDER };
-const IDENTIFIER_COLUMN_BORDER = { borderRight: SETUP_DIVIDER };
 
 const attributeKey = (property: string) => `attribute:${property}`;
 const savedTypeKey = (userIdType: string) => `type:${userIdType}`;
@@ -592,6 +592,16 @@ export default function FinishSettingUp({
                 )
         }
       >
+        {canOfferGoogleAnalytics4 && canEdit && (
+          <Callout
+            status="info"
+            mt="3"
+            action={<Button onClick={openGoogleAnalytics4}>Set up GA4</Button>}
+          >
+            Are you using Google Analytics 4 for event tracking? We can
+            streamline the setup.
+          </Callout>
+        )}
         {expandedStep === "identifiers" && (
           <Box mt="3">
             <Box
@@ -802,7 +812,7 @@ export default function FinishSettingUp({
                     "queries",
                     "Set up queries",
                     () => setExpandedStep("queries"),
-                    !canOfferGoogleAnalytics4,
+                    true,
                   )
         }
       >
@@ -861,60 +871,8 @@ export default function FinishSettingUp({
                     )}
                   </Flex>
                 ))}
-                {canOfferGoogleAnalytics4 && canEdit && (
-                  <Grid columns="2" style={IDENTIFIER_ROW_BORDER}>
-                    <Flex
-                      direction="column"
-                      align="start"
-                      gap="3"
-                      px="4"
-                      py="4"
-                      minWidth="0"
-                      style={IDENTIFIER_COLUMN_BORDER}
-                    >
-                      <Button
-                        variant={
-                          exposureQueries.length > 0 ? "outline" : "solid"
-                        }
-                        onClick={openGoogleAnalytics4}
-                      >
-                        Create GA4 query
-                      </Button>
-                      <Text as="p" size="sm" color="text-mid" mb="0">
-                        Prefill an exposure query from your GA4 events and add
-                        the <Text mono>anonymous_id</Text> and{" "}
-                        <Text mono>user_id</Text> identifier types.
-                      </Text>
-                    </Flex>
-                    <Flex
-                      direction="column"
-                      align="start"
-                      gap="3"
-                      px="4"
-                      py="4"
-                      minWidth="0"
-                    >
-                      <Button
-                        variant="outline"
-                        icon={<PiPlus />}
-                        disabled={!hasIdentifiers}
-                        onClick={openCustomQuery}
-                      >
-                        Add query
-                      </Button>
-                      <Text as="p" size="sm" color="text-mid" mb="0">
-                        Write your own SQL for any table or identifier type.
-                      </Text>
-                      {!hasIdentifiers && (
-                        <HelperText status="info" size="sm">
-                          Add an identifier type first, or use Create GA4 query.
-                        </HelperText>
-                      )}
-                    </Flex>
-                  </Grid>
-                )}
               </Box>
-              {canEdit && !canOfferGoogleAnalytics4 && (
+              {canEdit && (
                 <Flex align="center" gap="2" mt="2" wrap="wrap">
                   <Button
                     variant="ghost"
