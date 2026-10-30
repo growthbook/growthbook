@@ -2528,7 +2528,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toMatch(/GROUP BY m\.variation\s*,\s*m\.region_id/);
 
     // Converted metric denominator = count of exposed sub-units per cluster.
-    expect(normalized).toContain("COUNT(DISTINCT m.user_id) AS m0_denominator");
+    expect(normalized).toContain("COUNT(*) AS m0_denominator");
 
     // The statistics CTE reads the already-capped per-cluster rollup and emits
     // ratio columns; n = #clusters.
@@ -2617,9 +2617,7 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toContain("AS m0_covariate_value");
     // Converted mean: covariate denominator mirrors the denominator = count of
     // exposed sub-units (D_pre = D_post = cluster size).
-    expect(normalized).toMatch(
-      /COUNT\(DISTINCT m\.user_id\) AS m0_covariate_denominator/,
-    );
+    expect(normalized).toMatch(/COUNT\(\*\) AS m0_covariate_denominator/);
 
     // The statistics CTE reads the per-cluster covariate columns and emits the
     // full ratio_ra set of sum-of-products over clusters.
