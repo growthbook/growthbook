@@ -50,6 +50,7 @@ import {
 } from "shared/validators";
 import { AIProvider, STTModel } from "shared/ai";
 import { NonJsonResponseError } from "shared/util";
+import { z } from "zod";
 import { getOwnerDisplay as getOwnerDisplayName } from "@/services/owners";
 import {
   getGrowthBookBuild,
@@ -62,6 +63,7 @@ import {
 } from "@/services/env";
 import useApi from "@/hooks/useApi";
 import { useAuth, UserOrganizations } from "@/services/auth";
+import { ApiCallError } from "@/services/apiCallError";
 import { getJitsuClient, trackPageView } from "@/services/track";
 import { getOrGeneratePageId, growthbook } from "@/services/utils";
 
@@ -148,6 +150,8 @@ export interface UserContextValue {
   roles: Role[];
   teams?: Team[];
   error?: string;
+  // The Enterprise SSO connection the user's orgs require when the current login doesn't use it
+  requiredSSOConnectionId?: string;
   orgSuspended: boolean;
   hasCommercialFeature: (feature: CommercialFeature) => boolean;
   commercialFeatureLowestPlan?: Partial<Record<CommercialFeature, AccountPlan>>;
@@ -235,6 +239,16 @@ let currentUser: null | {
 } = null;
 export function getCurrentUser() {
   return currentUser;
+}
+
+function getRequiredSSOConnectionId(error: unknown) {
+  if (!(error instanceof ApiCallError) || error.code !== "sso_required") {
+    return undefined;
+  }
+  const parsed = z
+    .object({ ssoConnectionId: z.string() })
+    .safeParse(error.details);
+  return parsed.success ? parsed.data.ssoConnectionId : undefined;
 }
 
 export function UserContextProvider({ children }: { children: ReactNode }) {
@@ -637,6 +651,7 @@ export function UserContextProvider({ children }: { children: ReactNode }) {
         seatsInUse: currentOrg?.seatsInUse || 0,
         teams,
         error: error?.message || orgLoadingError?.message,
+        requiredSSOConnectionId: getRequiredSSOConnectionId(error),
         orgSuspended:
           organization?.suspended === true &&
           !hasSuperAdminPermission(data?.superAdmin, "impersonate"),

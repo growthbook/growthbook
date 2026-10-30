@@ -291,8 +291,6 @@ const baseFactMetric: Omit<
   dateCreated: new Date(),
   dateUpdated: new Date(),
 
-  winRisk: 0,
-  loseRisk: 0,
   maxPercentChange: 0,
   minPercentChange: 0,
   minSampleSize: 0,

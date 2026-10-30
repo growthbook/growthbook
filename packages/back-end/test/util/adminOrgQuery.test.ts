@@ -71,6 +71,9 @@ describe("buildAdminOrgQuery", () => {
     expect(buildAdminOrgQuery({ status: "suspended" }, {})).toEqual({
       $and: [{ suspended: true, disabled: { $ne: true } }],
     });
+    expect(buildAdminOrgQuery({ status: "has_banner" }, {})).toEqual({
+      $and: [{ "messages.0": { $exists: true } }],
+    });
   });
 
   it("combines member, date, and login filters", () => {

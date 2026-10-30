@@ -12,11 +12,9 @@ import {
 import { useFieldArray, useForm } from "react-hook-form";
 import { FaExternalLinkAlt, FaTimes } from "react-icons/fa";
 import {
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   getDefaultProjectsForNewResource,
@@ -343,8 +341,6 @@ const MetricForm: FC<MetricFormProps> = ({
               project,
               organizationId: orgId || undefined,
             }),
-      winRisk: (current.winRisk || DEFAULT_WIN_RISK_THRESHOLD) * 100,
-      loseRisk: (current.loseRisk || DEFAULT_LOSE_RISK_THRESHOLD) * 100,
       maxPercentChange: getMaxPercentageChangeForMetric(current) * 100,
       minPercentChange: getMinPercentageChangeForMetric(current) * 100,
       targetMDE: getTargetMDEForMetric(current) * 100,
@@ -384,8 +380,6 @@ const MetricForm: FC<MetricFormProps> = ({
     column: form.watch("column"),
     table: form.watch("table"),
     type,
-    winRisk: form.watch("winRisk"),
-    loseRisk: form.watch("loseRisk"),
     tags: form.watch("tags"),
     projects: form.watch("projects"),
     sql: form.watch("sql"),
@@ -516,8 +510,6 @@ const MetricForm: FC<MetricFormProps> = ({
       validateCappingSettingsValueEntered(value.cappingSettings, false);
     }
     const {
-      winRisk,
-      loseRisk,
       maxPercentChange,
       minPercentChange,
       targetMDE,
@@ -529,8 +521,6 @@ const MetricForm: FC<MetricFormProps> = ({
     const sendValue: Partial<MetricInterface> = {
       ...otherValues,
       templateVariables: { eventName, valueColumn },
-      winRisk: winRisk / 100,
-      loseRisk: loseRisk / 100,
       maxPercentChange: maxPercentChange / 100,
       minPercentChange: minPercentChange / 100,
       targetMDE: targetMDE / 100,

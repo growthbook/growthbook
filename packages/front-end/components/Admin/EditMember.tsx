@@ -20,7 +20,8 @@ import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
-export type AdminMember = ExpandedMember & Pick<UserInterface, "superAdmin">;
+export type AdminMember = ExpandedMember &
+  Pick<UserInterface, "superAdmin" | "authSubject">;
 
 const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   view: "View the admin page",
@@ -32,9 +33,15 @@ const SUPER_ADMIN_PERMISSION_LABELS: Record<SuperAdminPermission, string> = {
   metadata: "Edit organization details",
   suspend: "Suspend and disable organizations",
   create: "Create organizations",
-  users: "Edit user names and verified status",
+  users: "Edit user names and login methods",
   grant: "Grant super admin access",
 };
+
+export function formatSuperAdmin(superAdmin: SuperAdmin | undefined) {
+  const normalized = normalizeSuperAdmin(superAdmin);
+  if (normalized === true) return "Full access";
+  return normalized ? normalized.join(", ") : "-";
+}
 
 const EditMember: FC<{
   onEdit: () => void;
@@ -44,6 +51,7 @@ const EditMember: FC<{
   const [verified, setVerified] = useState(member.verified);
   const [name, setName] = useState(member.name);
   const [email, setEmail] = useState(member.email);
+  const [resetAuthSubject, setResetAuthSubject] = useState(false);
   const [memberSuperAdmin, setMemberSuperAdmin] = useState<SuperAdmin>(
     normalizeSuperAdmin(member.superAdmin),
   );
@@ -75,6 +83,7 @@ const EditMember: FC<{
         verified: verified,
         email: email,
         name: name,
+        ...(resetAuthSubject ? { resetAuthSubject: true } : {}),
         ...(canGrant && !isSelf ? { superAdmin: memberSuperAdmin } : {}),
       }),
     });
@@ -112,8 +121,29 @@ const EditMember: FC<{
           label="Verified email"
           value={verified}
           setValue={setVerified}
-          disabled={!canEditDetails}
+          disabled={!canEditDetails || (member.verified && superAdmin !== true)}
+          disabledMessage={
+            canEditDetails
+              ? "Only full super admins can clear a verified email"
+              : undefined
+          }
         />
+        {member.authSubject && (
+          <>
+            <TextField
+              label="Sign-in identity"
+              value={member.authSubject}
+              readOnly
+            />
+            <Checkbox
+              id="reset-auth-subject"
+              label="Reset sign-in identity"
+              value={resetAuthSubject}
+              setValue={setResetAuthSubject}
+              disabled={!canEditDetails}
+            />
+          </>
+        )}
         {canGrant && (
           <Flex direction="column" gap="3" mt="2">
             <Text weight="semibold">Super admin access</Text>
