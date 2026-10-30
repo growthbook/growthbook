@@ -38,24 +38,10 @@ const TILE_ASPECT = "1 / 1";
 const imageCache = {};
 
 function UploadTile({
-  experiment,
-  variationIndex,
-  onUpload,
-  setUploading,
+  upload,
 }: {
-  experiment: string;
-  variationIndex: number;
-  onUpload: (screenshot: Screenshot) => void;
-  setUploading: (pending: number) => void;
+  upload: ReturnType<typeof useScreenshotUpload>;
 }) {
-  const upload = useScreenshotUpload({
-    experiment,
-    variation: variationIndex,
-    attach: false,
-    onSuccess: onUpload,
-    onPendingChange: setUploading,
-  });
-
   return (
     <Flex
       {...upload.getRootProps()}
@@ -74,13 +60,7 @@ function UploadTile({
     >
       <input {...upload.getInputProps()} />
       <PiCameraPlusLight size={32} />
-      {upload.error ? (
-        <Box className={styles.uploadError}>
-          <ScreenshotUploadError error={upload.error} />
-        </Box>
-      ) : (
-        <span className={styles.uploadHint}>Upload image</span>
-      )}
+      <span className={styles.uploadHint}>Upload image</span>
       <ScreenshotUploadOverlay
         dragging={upload.isDragActive}
         rejecting={upload.isDragReject}
@@ -193,6 +173,14 @@ export default function VariationScreenshotManager({
     [experiment, variationIndex, screenshots],
   );
   const [lightbox, setLightbox] = useState<number | null>(null);
+  // Lives here so its error renders below the grid, not inside a tile.
+  const upload = useScreenshotUpload({
+    experiment: experiment.id,
+    variation: variationIndex,
+    attach: false,
+    onSuccess: (screenshot) => setScreenshots((prev) => [...prev, screenshot]),
+    onPendingChange: setUploading,
+  });
 
   return (
     <Box>
@@ -215,14 +203,7 @@ export default function VariationScreenshotManager({
           strategy={rectSortingStrategy}
         >
           <Grid columns="4" gap="4">
-            <UploadTile
-              experiment={experiment.id}
-              variationIndex={variationIndex}
-              onUpload={(screenshot) =>
-                setScreenshots((prev) => [...prev, screenshot])
-              }
-              setUploading={setUploading}
-            />
+            <UploadTile upload={upload} />
             {screenshots.map((s, i) => (
               <ScreenshotTile
                 key={s.path}
@@ -238,6 +219,9 @@ export default function VariationScreenshotManager({
           </Grid>
         </SortableContext>
       </DndContext>
+      <Box mt="2">
+        <ScreenshotUploadError error={upload.error} />
+      </Box>
       {lightbox !== null && variation ? (
         <ExperimentCarouselModal
           experiment={stagedExperiment}

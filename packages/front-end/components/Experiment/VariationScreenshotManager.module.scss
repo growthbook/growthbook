@@ -42,12 +42,3 @@
 .uploadTile:hover .uploadHint {
   opacity: 1;
 }
-
-// Where the hint sits, so the icon stays centered.
-.uploadError {
-  position: absolute;
-  top: 65%;
-  left: 0;
-  right: 0;
-  padding: 0 var(--space-2);
-}

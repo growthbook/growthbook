@@ -2,7 +2,7 @@ import { ClipboardEvent, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { Screenshot } from "shared/types/experiment";
 import clsx from "clsx";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { PiProhibit, PiUploadSimple } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { UPLOAD_IMAGE_TYPES, uploadFile } from "@/services/files";
@@ -90,14 +90,22 @@ export function useScreenshotUpload({
 
   const onPaste = (e: ClipboardEvent<HTMLElement>) => {
     if (disabled) return;
-    const files = Array.from(e.clipboardData.items || [])
-      .filter((item) => item.kind === "file" && isImageType(item.type))
+    const fileItems = Array.from(e.clipboardData.items || []).filter(
+      (item) => item.kind === "file",
+    );
+    // Text pastes pass through untouched.
+    if (!fileItems.length) return;
+
+    e.preventDefault();
+    const files = fileItems
+      .filter((item) => isImageType(item.type))
       .map((item) => item.getAsFile())
       .filter((file): file is File => !!file);
 
-    if (!files.length) return;
-
-    e.preventDefault();
+    if (!files.length) {
+      setError(REJECTED_TYPE_MESSAGE);
+      return;
+    }
     upload(files);
   };
 
@@ -188,9 +196,12 @@ export function ScreenshotUploadOverlay({
 
 export function ScreenshotUploadError({ error }: { error: string | null }) {
   if (!error) return null;
+  // Announced, since it often lands after the file picker has closed.
   return (
-    <HelperText status="error" size="sm">
-      {error}
-    </HelperText>
+    <Box role="alert">
+      <HelperText status="error" size="sm">
+        {error}
+      </HelperText>
+    </Box>
   );
 }
