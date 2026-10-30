@@ -492,9 +492,6 @@ export default function AssignmentQueryFields({
 export const POST_STRATIFICATION_CLUSTER_MESSAGE =
   "Post-stratification isn't supported for cluster experiments.";
 
-const SUBUNIT_TIP =
-  "The smaller unit inside each cluster that metrics are analyzed on.";
-
 /** The query's identifier types a cluster experiment can analyze on. */
 export function getClusterSubUnitOptions(
   exposureQuery: ExposureQuery | undefined,
@@ -625,13 +622,7 @@ export function ClusterExperimentFields({
   const subUnitWarning = launchWarning("subunit", SUBUNIT_CHANGE_MESSAGE);
   const subUnitSelect = (
     <SelectField
-      label={
-        asRows ? undefined : (
-          <>
-            Subunit identifier type <Tooltip body={SUBUNIT_TIP} />
-          </>
-        )
-      }
+      label={asRows ? undefined : "Subunit identifier type"}
       labelClassName={asRows ? undefined : "font-weight-bold"}
       value={subUnitIdentifier}
       onChange={setSubUnitIdentifier}
@@ -646,8 +637,7 @@ export function ClusterExperimentFields({
       helpText={
         subUnitOptions.length ? (
           <>
-            Lists the other identifier types in {exposureQuery?.name}. Metrics
-            are analyzed per{" "}
+            Metrics are analyzed per{" "}
             <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever they
             can be.
           </>
@@ -668,7 +658,7 @@ export function ClusterExperimentFields({
           {modeWarning}
         </SetupFieldRow>
         {isClusterExperiment && (
-          <SetupFieldRow label="Subunit identifier type" tooltip={SUBUNIT_TIP}>
+          <SetupFieldRow label="Subunit identifier type">
             {subUnitSelect}
             {subUnitWarning}
           </SetupFieldRow>
