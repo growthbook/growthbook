@@ -1,6 +1,6 @@
 import React, { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiPlus, PiTrash } from "react-icons/pi";
+import { PiInfo, PiPlus, PiTrash } from "react-icons/pi";
 import {
   EXPERIMENT_QUALITY_CHECKS,
   EXPERIMENT_QUALITY_SECTIONS,
@@ -42,6 +42,14 @@ import styles from "./ExperimentQuality.module.scss";
 
 const AI_CONTEXT_PLACEHOLDER =
   "Add guidance for the AI, e.g. what a good one looks like at your org";
+
+// What the built-in AI checks look for, and what helps them judge well
+const AI_CHECK_HELP: Partial<Record<ExperimentQualityCheckKey, string>> = {
+  "ai-hypothesis-quality":
+    "Checks that the hypothesis is clear, specific and testable: what will change, why, and which metric should move. Use Context to describe what a good hypothesis looks like at your organization.",
+  "ai-hypothesis-metric-alignment":
+    "Checks that the goal metrics measure what the hypothesis predicts will change. The AI only sees each metric's name, so it works best when metrics are clearly named and well defined.",
+};
 
 const JUDGE_LABELS = {
   decision: "Decision model (fast)",
@@ -141,6 +149,15 @@ function CheckRow({
           <label htmlFor={id} style={{ margin: 0 }}>
             <Text>{def.label}</Text>
           </label>
+          {AI_CHECK_HELP[checkKey] ? (
+            <Tooltip content={AI_CHECK_HELP[checkKey]}>
+              <PiInfo
+                tabIndex={0}
+                aria-label={`About ${def.label}`}
+                color="var(--gray-10)"
+              />
+            </Tooltip>
+          ) : null}
           {param && value !== null ? (
             <Flex align="center" gap="2">
               <Text color="text-mid">{param.before}</Text>
