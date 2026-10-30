@@ -35,6 +35,7 @@ import {
 } from "shared/types/organization";
 import {
   AttributionModel,
+  CustomMetricSlice,
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   LookbackOverride,
@@ -67,6 +68,7 @@ import {
   getCappingTailState,
   isCappableFactMetric,
 } from "../validators/fact-table";
+import { parseAggregateFilter } from "../aggregate-filters";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -252,6 +254,9 @@ function replaceSqlIdentifiers(
   names: string[],
   replacer: (name: string, quoted: boolean) => string,
   identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+  // When `matchQualified` is true, identifiers preceded by `.` (e.g. `e.price`)
+  // are matched too.
+  { matchQualified = false }: { matchQualified?: boolean } = {},
 ): string {
   if (!names.length) return sql;
   const nameSet = new Set(names);
@@ -348,7 +353,11 @@ function replaceSqlIdentifiers(
     // Quoted identifier in the dialect's identifier quote.
     if (c === identifierQuote) {
       const { end, inner, closed } = readQuoted(identifierQuote);
-      if (closed && !isAlreadyQualified() && nameSet.has(inner)) {
+      if (
+        closed &&
+        (matchQualified || !isAlreadyQualified()) &&
+        nameSet.has(inner)
+      ) {
         out += replacer(inner, true);
       } else {
         out += sql.slice(i, end);
@@ -372,7 +381,11 @@ function replaceSqlIdentifiers(
       const token = sql.slice(i, j);
       // A run starting with a digit is a numeric literal, not an identifier.
       const startsWithDigit = c >= "0" && c <= "9";
-      if (!startsWithDigit && !isAlreadyQualified() && nameSet.has(token)) {
+      if (
+        !startsWithDigit &&
+        (matchQualified || !isAlreadyQualified()) &&
+        nameSet.has(token)
+      ) {
         out += replacer(token, false);
       } else {
         out += token;
@@ -592,6 +605,29 @@ export function sqlReferencesColumn(
       return name;
     },
     identifierQuote,
+  );
+  return found;
+}
+
+// Like `sqlReferencesColumn`, but also matches qualified references such as
+// `e.bandit_version`. Use this when detecting whether a SELECT exposes an
+// output column (which is typically table-aliased), rather than when deciding
+// whether a bare column from the current table is depended upon.
+export function sqlReferencesColumnAllowingQualified(
+  sql: string,
+  column: string,
+  identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
+): boolean {
+  let found = false;
+  replaceSqlIdentifiers(
+    sql,
+    [column],
+    (name) => {
+      found = true;
+      return name;
+    },
+    identifierQuote,
+    { matchQualified: true },
   );
   return found;
 }
@@ -1190,23 +1226,16 @@ export function getAggregateFilters({
   // Only support distinctUsers for now
   if (columnRef.column !== "$$distinctUsers") return [];
 
-  const parts = columnRef.aggregateFilter.replace(/\s*/g, "").split(",");
+  const { conditions, invalid } = parseAggregateFilter(
+    columnRef.aggregateFilter,
+  );
+  if (invalid.length && !ignoreInvalid) {
+    throw new Error(`Invalid user filter: ${invalid[0]}`);
+  }
 
-  const filters: string[] = [];
-  parts.forEach((part) => {
-    if (!part) return;
-
-    // i.e. ">10" or "!=5.1"
-    const match = part.match(/^(=|!=|<>|<|<=|>|>=)(\d+(\.\d+)?)$/);
-    if (match) {
-      const [, operator, value] = match;
-      filters.push(`${column} ${operator} ${value}`);
-    } else if (!ignoreInvalid) {
-      throw new Error(`Invalid user filter: ${part}`);
-    }
-  });
-
-  return filters;
+  return conditions.map(
+    ({ operator, value }) => `${column} ${operator} ${value}`,
+  );
 }
 
 export function getFactTableTemplateVariables(
@@ -1330,6 +1359,13 @@ export function getFactMetricFactTableIds(m: FactMetricInterface): string[] {
           : []),
       ];
   return Array.from(new Set(ids.filter((id) => !!id)));
+}
+
+// Every fact table a group of fact metrics reads, e.g. for one combined query
+export function getFactTableIdsForMetrics(
+  metrics: FactMetricInterface[],
+): string[] {
+  return Array.from(new Set(metrics.flatMap(getFactMetricFactTableIds)));
 }
 
 /**
@@ -2579,7 +2615,7 @@ export function createCustomSliceDataForMetric({
 }: {
   metricId: string;
   metricName: string;
-  customMetricSlices?: { slices: { column: string; levels: string[] }[] }[];
+  customMetricSlices?: CustomMetricSlice[];
   factTable?: FactTableDefinition | null;
 }): SliceDataForMetric[] {
   // Sanity checks
@@ -2684,6 +2720,13 @@ export function isVariationWeightsSumValid(
 ): boolean {
   const sum = weights.reduce((acc, w) => acc + w, 0);
   return Math.abs(sum - 1) <= tolerance;
+}
+
+export function areVariationWeightsValid(weights: number[]): boolean {
+  return (
+    weights.every((w) => w >= 0 && w <= 1) &&
+    isVariationWeightsSumValid(weights)
+  );
 }
 
 // Returns n "equal" decimals rounded to 3 places that add up to 1

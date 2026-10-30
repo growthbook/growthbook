@@ -1,22 +1,27 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import React, { FC, ReactNode, useCallback, useMemo, useState } from "react";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import { useAuth } from "@/services/auth";
 import { ApiKeysTable } from "@/components/ApiKeysTable/ApiKeysTable";
+import { RotatedApiKey } from "@/components/ApiKeysTable/RotateApiKeyModal";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { SettingsPageHeader } from "@/components/Layout/SettingsPage";
 import ApiKeysModal from "./ApiKeysModal";
 
-const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
-  keys,
-  mutate,
-}) => {
+// `children` renders between the intro and the key list, for controls that
+// constrain the keys (expiration policy) and so belong above them.
+const SecretApiKeys: FC<{
+  keys: ApiKeyInterface[];
+  mutate: () => void;
+  children?: ReactNode;
+}> = ({ keys, mutate, children }) => {
   const { apiCall } = useAuth();
   const [open, setOpen] = useState(false);
   const [editingKey, setEditingKey] = useState<ApiKeyInterface | null>(null);
+  const [copyFrom, setCopyFrom] = useState<ApiKeyInterface | null>(null);
   const [auditLog, setAuditLog] = useState<{
     keyId?: string;
     keyName?: string;
@@ -24,7 +29,9 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
 
   const permissionsUtils = usePermissionsUtil();
   const canCreateKeys = permissionsUtils.canCreateApiKey();
+  const canEditKeys = permissionsUtils.canUpdateApiKey();
   const canDeleteKeys = permissionsUtils.canDeleteApiKey();
+  const canViewAuditLog = permissionsUtils.canViewApiKeys();
 
   const organizationSecretKeys = useMemo(
     () => keys.filter((k) => k.secret && !k.userId),
@@ -76,6 +83,26 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
     [apiCall, mutate],
   );
 
+  const onRotate = useCallback(
+    async (keyId: string, gracePeriodHours: number) => {
+      const res = await apiCall<RotatedApiKey>(`/keys/${keyId}/rotate`, {
+        method: "POST",
+        body: JSON.stringify({ gracePeriodHours }),
+      });
+      mutate();
+      return res;
+    },
+    [apiCall, mutate],
+  );
+
+  const onRevokePrevious = useCallback(
+    async (keyId: string) => {
+      await apiCall(`/keys/${keyId}/previous-key`, { method: "DELETE" });
+      mutate();
+    },
+    [apiCall, mutate],
+  );
+
   return (
     <div className="mb-4">
       {open && canCreateKeys && (
@@ -86,7 +113,7 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         />
       )}
 
-      {editingKey && canCreateKeys && (
+      {editingKey && canEditKeys && (
         <ApiKeysModal
           close={() => setEditingKey(null)}
           onCreate={() => {
@@ -98,28 +125,49 @@ const SecretApiKeys: FC<{ keys: ApiKeyInterface[]; mutate: () => void }> = ({
         />
       )}
 
+      {copyFrom && canCreateKeys && (
+        <ApiKeysModal
+          close={() => setCopyFrom(null)}
+          onCreate={mutate}
+          personalAccessToken={false}
+          copyFrom={copyFrom}
+          onDeleteCopySource={
+            canDeleteKeys ? onDelete(copyFrom.id || "") : undefined
+          }
+        />
+      )}
+
       <div>
-        <Flex align="center" justify="between">
-          <h1>Secret API Keys</h1>
-          {canCreateKeys && (
-            <Link onClick={() => setAuditLog({})}>Audit logs</Link>
-          )}
-        </Flex>
-        <p className="text-gray">
-          Secret keys have access to your organization. They{" "}
-          <strong>must not be exposed to users</strong>.
-        </p>
+        <SettingsPageHeader
+          title="Secret API Keys"
+          description={
+            <>
+              Secret keys have access to your organization. They{" "}
+              <strong>must not be exposed to users</strong>.
+            </>
+          }
+          actions={
+            canViewAuditLog && (
+              <Link onClick={() => setAuditLog({})}>Audit logs</Link>
+            )
+          }
+        />
+        {children}
         {organizationSecretKeys.length > 0 && (
           <ApiKeysTable
             onDelete={onDelete}
             keys={organizationSecretKeys}
-            canCreateKeys={canCreateKeys}
             canDeleteKeys={canDeleteKeys}
             onReveal={onReveal}
-            onToggleDisabled={canDeleteKeys ? onToggleDisabled : undefined}
-            onEdit={canCreateKeys ? (key) => setEditingKey(key) : undefined}
+            onToggleDisabled={
+              canDeleteKeys || canEditKeys ? onToggleDisabled : undefined
+            }
+            onEdit={canEditKeys ? (key) => setEditingKey(key) : undefined}
+            onCopy={canCreateKeys ? setCopyFrom : undefined}
+            onRotate={onRotate}
+            onRevokePrevious={onRevokePrevious}
             onShowAuditLog={
-              canCreateKeys
+              canViewAuditLog
                 ? (key) =>
                     setAuditLog({ keyId: key.id, keyName: key.description })
                 : undefined

@@ -28,6 +28,8 @@ import {
   normalizeSnowflakeEventForwarderAccessUrl,
   normalizeSnowflakeTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderDestination,
+  resolveBigQueryEventForwarderTableNames,
+  resolveSnowflakeEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
@@ -42,12 +44,25 @@ type SinkConfig =
 // instead of a per-datasource Confluent connector.
 const IN_HOUSE_CONSUMER_SINKS: ReadonlySet<EventForwarderSinkType> = new Set([
   "databricks",
+  "bigquery",
+  "snowflake",
 ]);
 
 export function isInHouseConsumerSink(
   sinkType: EventForwarderSinkType,
 ): boolean {
   return IN_HOUSE_CONSUMER_SINKS.has(sinkType);
+}
+
+// Whether an existing config is on the consumer: new configs get the shared
+// topic (or a per-org `__<orgId>` override); BigQuery configs created before
+// the consumer kept their per-datasource Confluent topic.
+// TODO: once every pre-consumer config is torn down, isInHouseConsumerSink suffices.
+export function isInHouseConsumerTopic(
+  topic: string,
+  sinkType: EventForwarderSinkType,
+): boolean {
+  return topic.split("__")[0] === getInHouseConsumerTopicName(sinkType);
 }
 
 export function getInHouseConsumerTopicName(
@@ -73,6 +88,46 @@ export function getEventForwarderTopicName(
 
 function encryptSinkConfig(config: SinkConfig): string {
   return AES.encrypt(JSON.stringify(config), ENCRYPTION_KEY).toString();
+}
+
+function emptyStoredConfig(sinkType: EventForwarderSinkType): SinkConfig {
+  const tables = {
+    events: "",
+    experiment_viewed: "",
+    feature_usage: "",
+  };
+  switch (sinkType) {
+    case "bigquery":
+      return {
+        projectId: "",
+        dataset: "",
+        tablePrefix: "",
+        serviceAccountKey: "",
+        tables,
+      };
+    case "snowflake":
+      return {
+        tablePrefix: "",
+        tables,
+        account: "",
+        username: "",
+        database: "",
+        schema: "",
+        privateKey: "",
+      };
+    case "databricks":
+      return {
+        catalog: "",
+        schema: "",
+        tablePrefix: "",
+        zerobusEndpoint: "",
+        tables,
+        host: "",
+        path: "",
+        oauthClientId: "",
+        oauthClientSecret: "",
+      };
+  }
 }
 
 function decryptSinkConfig<T extends SinkConfig>(encrypted: string): T {
@@ -121,6 +176,20 @@ export async function hasAnyEventForwarderConfig(
 ): Promise<boolean> {
   const configs = await context.models.eventForwarderConfigs.getAll();
   return configs.length > 0;
+}
+
+// One forwarder per org (usage is metered per org); org-wide so forwarders on
+// unreadable Projects count. Lift when per-destination event splitting lands.
+export async function assertNoEventForwarderInOrg(
+  context: ReqContext,
+): Promise<void> {
+  const [other] =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  if (other) {
+    throw new Error(
+      "This organization already has an Event Forwarder. Only one Event Forwarder is allowed per organization.",
+    );
+  }
 }
 
 // GCP service account key JSON for Confluent BigQuery Storage Sink (not OAuth connector mode).
@@ -229,11 +298,17 @@ function buildBigQueryStoredConfigFromDraft(
     ) ||
     "";
 
+  const names = resolveBigQueryEventForwarderTableNames(tablePrefix);
   return {
     projectId,
     dataset,
     tablePrefix,
     serviceAccountKey,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
   };
 }
 
@@ -286,12 +361,18 @@ function buildSnowflakeStoredConfigFromDraft(
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
     throw new Error(
-      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
+      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Snowpipe Streaming requires a private key.",
     );
   }
 
+  const names = resolveSnowflakeEventForwarderTableNames(tablePrefix);
   return {
     tablePrefix,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
     account:
       datasourceParams?.account?.trim() ||
       existingStored?.account?.trim() ||
@@ -447,7 +528,7 @@ function validateNormalizedSinkPayload(
       !snowflake.role?.trim()
     ) {
       throw new Error(
-        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role (required for Snowpipe Streaming schematization)",
+        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role",
       );
     }
   }
@@ -631,6 +712,76 @@ export async function getEventForwarderMetadataForDatasource(
   return toEventForwarderConfigWithMetadata(existing);
 }
 
+export async function createUnconfiguredEventForwarderConfig({
+  context,
+  datasource,
+  region,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+}): Promise<EventForwarderConfigInterface | null> {
+  const sinkType = getEventForwarderSinkTypeForDatasource(datasource);
+  if (!sinkType) {
+    return null;
+  }
+
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (existing) {
+    return existing;
+  }
+
+  return context.models.eventForwarderConfigs.create({
+    datasourceId: datasource.id,
+    projects: [...(datasource.projects ?? [])].sort(),
+    topic: isInHouseConsumerSink(sinkType)
+      ? getInHouseConsumerTopicName(sinkType)
+      : getEventForwarderTopicName(datasource.organization, datasource.id),
+    schemaId: 0,
+    sinkType,
+    region,
+    config: encryptSinkConfig(emptyStoredConfig(sinkType)),
+    status: "unconfigured",
+    connectorName: "",
+    connectorId: "",
+    lastProvisioningError: "",
+  });
+}
+
+// The Data Source already exists. Keep a config row so the Data Source page
+// can show the failure instead of looking like a normal warehouse connection.
+export async function recordEventForwarderCreateFailure({
+  context,
+  datasource,
+  region,
+  message,
+}: {
+  context: ReqContext;
+  datasource: Pick<
+    DataSourceInterface,
+    "id" | "organization" | "projects" | "type"
+  >;
+  region: "us-east-1" | "eu-west-1";
+  message: string;
+}): Promise<void> {
+  const existing =
+    (await getEventForwarderForDatasource(context, datasource.id)) ??
+    (await createUnconfiguredEventForwarderConfig({
+      context,
+      datasource,
+      region,
+    }));
+  if (!existing) return;
+
+  await context.models.eventForwarderConfigs.update(existing, {
+    status: "error",
+    lastProvisioningError: message,
+  });
+}
+
 export async function syncEventForwarderConfigFromDatasource({
   context,
   datasource,
@@ -674,6 +825,7 @@ export async function syncEventForwarderConfigFromDatasource({
   const projects = [...(datasource.projects ?? [])].sort();
 
   if (!existing) {
+    await assertNoEventForwarderInOrg(context);
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,

@@ -1,0 +1,20 @@
+.trigger {
+  all: unset;
+  display: inline-flex;
+  padding: var(--space-1);
+  border-radius: var(--radius-2);
+  color: var(--color-text-mid);
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 0.1s;
+
+  &:hover,
+  &[data-state="open"] {
+    background-color: var(--violet-a3);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--violet-8);
+    outline-offset: 2px;
+  }
+}

@@ -4,11 +4,15 @@ import { date, datetime } from "shared/dates";
 import { BsThreeDotsVertical } from "react-icons/bs";
 import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
 import { reviewScopesRequiringTeam } from "shared/util";
+import { holdsGlobalAdmin } from "shared/permissions";
 import { useAuth } from "@/services/auth";
 import TeamModal from "@/components/Teams/TeamModal";
 import { AddMembersModal } from "@/components/Teams/AddMembersModal";
 import { PermissionsModal } from "@/components/Settings/Teams/PermissionModal";
-import { RoleRuleLines } from "@/components/Settings/Team/RoleRuleLabel";
+import {
+  projectRuleRows,
+  RoleRuleLines,
+} from "@/components/Settings/Team/RoleRuleLabel";
 import Frame from "@/ui/Frame";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -18,7 +22,7 @@ import { capitalizeFirstLetter } from "@/services/utils";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
-import PageHead from "@/components/Layout/PageHead";
+import SettingsPage from "@/components/Layout/SettingsPage";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Button from "@/ui/Button";
@@ -73,7 +77,15 @@ const TeamPage: FC = () => {
 
   if (!team) {
     return (
-      <div className="container pagecontents">
+      <SettingsPage
+        title="Team"
+        breadcrumb={[
+          { display: "Settings" },
+          { display: "Organization" },
+          { display: "Teams", href: "/settings/team#teams" },
+          { display: String(tid ?? "") },
+        ]}
+      >
         <Callout status="error">
           Team{" "}
           <Text as="span" size="inherit" mono>
@@ -81,11 +93,15 @@ const TeamPage: FC = () => {
           </Text>{" "}
           does not exist.
         </Callout>
-      </div>
+      </SettingsPage>
     );
   }
 
   const memberCount = team.members?.length ?? 0;
+  // A global admin team's project rules have no effect, so they sit behind
+  // Admin's chip instead of in their own rows.
+  const adminEverywhere = holdsGlobalAdmin(team, []);
+  const projectRoles = adminEverywhere ? [] : (team.projectRoles ?? []);
   // Membership follows the team predicate, so a Project Admin who administers
   // every project a project-scoped team covers can manage its members here.
   const canManageMembers = permissionsUtil.canManageTeamMembership(team);
@@ -112,21 +128,28 @@ const TeamPage: FC = () => {
         onSuccess={() => refreshOrganization()}
       />
 
-      <PageHead
-        breadcrumb={[
+      <SettingsPage
+        title={team.name}
+        hideHeader
+        breadcrumb={
           canManageTeam
-            ? { display: "Teams", href: "/settings/team#teams" }
-            : {
-                display: crumbProject?.name ?? "Projects",
-                href: crumbProject
-                  ? `/project/${crumbProject.id}`
-                  : "/projects",
-              },
-          { display: team.name },
-        ]}
-      />
-
-      <div className="container pagecontents">
+            ? [
+                { display: "Settings" },
+                { display: "Organization" },
+                { display: "Teams", href: "/settings/team#teams" },
+                { display: team.name },
+              ]
+            : [
+                {
+                  display: crumbProject?.name ?? "Projects",
+                  href: crumbProject
+                    ? `/project/${crumbProject.id}`
+                    : "/projects",
+                },
+                { display: team.name },
+              ]
+        }
+      >
         {!isEditable && (
           <Callout status="info" mb="4">
             This team is managed by an idP. To make changes to the{" "}
@@ -212,16 +235,28 @@ const TeamPage: FC = () => {
                 <Flex align="start" gap="3" wrap="wrap">
                   <Box style={{ minWidth: 160 }}>
                     <Text weight="medium">
-                      {team.projectRoles?.length
+                      {projectRoles.length
                         ? "All other Projects"
                         : "All Projects"}
                     </Text>
                   </Box>
                   <Box>
-                    <RoleRuleLines scope={team} organization={organization} />
+                    <RoleRuleLines
+                      scope={team}
+                      organization={organization}
+                      shadowedProjects={
+                        adminEverywhere
+                          ? projectRuleRows(
+                              team.projectRoles ?? [],
+                              getProjectById,
+                              organization,
+                            )
+                          : undefined
+                      }
+                    />
                   </Box>
                 </Flex>
-                {team.projectRoles?.map((rule) => (
+                {projectRoles.map((rule) => (
                   <Flex key={rule.project} align="start" gap="3" wrap="wrap">
                     <Box style={{ minWidth: 160 }}>
                       <Link href={`/project/${rule.project}`}>
@@ -375,7 +410,7 @@ const TeamPage: FC = () => {
             )}
           </TableBody>
         </Table>
-      </div>
+      </SettingsPage>
     </>
   );
 };

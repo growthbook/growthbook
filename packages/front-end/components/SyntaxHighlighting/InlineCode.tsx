@@ -1,14 +1,11 @@
-import {
-  tomorrow as dark,
-  ghcolors as light,
-} from "react-syntax-highlighter/dist/cjs/styles/prism";
-import { Suspense, lazy } from "react";
+import { CSSProperties, Suspense, lazy } from "react";
 import cloneDeep from "lodash/cloneDeep";
 import clsx from "clsx";
 import { createElement, createElementProps } from "react-syntax-highlighter";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { Language } from "./Code";
 import PrismFallback from "./PrismFallback";
+import { CODE_FONT_SIZE, CODE_LINE_HEIGHT, getCodeTheme } from "./codeTheme";
 
 // Turn substrings of the highlighted code that match `pattern` (a regex with a
 // single capture group) into links. `getHref` receives the captured group; a
@@ -80,6 +77,11 @@ function linkifyNodes(nodes: RNode[], linkify: LinkifyConfig): RNode[] {
   });
 }
 
+const HIGHLIGHTED_LINE: CSSProperties = {
+  display: "block",
+  backgroundColor: "var(--amber-a3)",
+};
+
 // Lazy-load syntax highlighting to improve page load time
 const Prism = lazy(() => import("./Prism"));
 
@@ -88,19 +90,23 @@ export interface Props {
   language: Language;
   className?: string;
   inTooltip?: boolean;
-  // 1-based line numbers to emphasize (e.g. the overridden keys of a sparse
-  // JSON value). When set, lines are wrapped and these render heavy while the
-  // rest are de-emphasized (lightened), so the highlighted lines stand out
-  // against Prism's already-semibold baseline.
+  // 1-based line numbers to bold (e.g. the overridden keys of a sparse JSON
+  // value).
   boldLines?: number[];
+  // 1-based line numbers to tint, marking where values shown side by side
+  // differ.
+  highlightLines?: number[];
   // When set, matching substrings of the rendered code become links (see
   // LinkifyConfig). Used to make `@const:key` references clickable.
   linkify?: LinkifyConfig;
-  // Override the rendered code font size (defaults to 0.85rem).
+  // Override the rendered code font size.
   fontSize?: string;
+  // Tighter leading lets a dense surface (a variation card) fit more rows.
+  lineHeight?: number;
   // Line number of the first line of `code`, so `boldLines` still matches when
   // `code` is one slice of a longer value (see VirtualizedCode).
   firstLineNumber?: number;
+  monochrome?: boolean;
 }
 
 export default function InlineCode({
@@ -109,24 +115,32 @@ export default function InlineCode({
   className,
   inTooltip,
   boldLines,
+  highlightLines,
   linkify,
-  fontSize = "0.85rem",
+  fontSize = CODE_FONT_SIZE,
+  lineHeight = CODE_LINE_HEIGHT,
   firstLineNumber = 1,
+  monochrome = false,
 }: Props) {
   const { theme } = useAppearanceUITheme();
 
-  const style = cloneDeep(
-    theme === "light" ? (inTooltip ? dark : light) : inTooltip ? light : dark,
-  );
+  const style = cloneDeep(getCodeTheme(theme, inTooltip));
   style['code[class*="language-"]'].fontSize = fontSize;
-  style['code[class*="language-"]'].lineHeight = 1.5;
-  style['code[class*="language-"]'].fontWeight = 600;
+  style['code[class*="language-"]'].lineHeight = lineHeight;
   // this next line actually doesn't do anything- its overridden somewhere in Prism.
   style['code[class*="language-"]'].whiteSpace = "pre-wrap";
   style['pre[class*="language-"]'].whiteSpace = "pre-wrap";
   style['code[class*="language-"]'].overflowWrap = "anywhere";
+  if (monochrome) {
+    Object.values(style).forEach((s) => {
+      if (s.color) s.color = "inherit";
+    });
+  }
 
   const boldLineSet = boldLines?.length ? new Set(boldLines) : null;
+  const highlightLineSet = highlightLines?.length
+    ? new Set(highlightLines)
+    : null;
   // react-syntax-highlighter only passes a real line number to `lineProps` when
   // `showLineNumbers` is on; otherwise it passes `false`. Since `lineProps` is
   // invoked once per rendered line in top-to-bottom order, we track the line
@@ -155,7 +169,7 @@ export default function InlineCode({
         // overwrites a line's `className` (see createLineElement), so we style
         // via `style` instead — it's merged through and the JSON tokens carry
         // no font-weight of their own, so the heavier weight inherits down.
-        wrapLines={!!boldLineSet}
+        wrapLines={!!boldLineSet || !!highlightLineSet}
         // A custom renderer rebuilds the token tree, turning `@const:` references
         // into links. lineProps styling is already baked into the row nodes, so
         // delegating each row to the library's createElement preserves the
@@ -174,15 +188,16 @@ export default function InlineCode({
             : undefined
         }
         lineProps={
-          boldLineSet
+          boldLineSet || highlightLineSet
             ? () => {
                 renderedLine += 1;
-                // The Prism baseline is already semibold (600), so bolding
-                // alone barely reads. Instead, in this mode we keep the patched
-                // lines heavy and de-emphasize the rest so the overrides pop.
                 return {
                   style: {
-                    fontWeight: boldLineSet.has(renderedLine) ? 800 : 200,
+                    ...(boldLineSet?.has(renderedLine) && {
+                      fontWeight: 700,
+                    }),
+                    ...(highlightLineSet?.has(renderedLine) &&
+                      HIGHLIGHTED_LINE),
                   },
                 };
               }

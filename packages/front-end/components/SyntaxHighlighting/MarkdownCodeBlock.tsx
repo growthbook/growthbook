@@ -8,11 +8,8 @@ import {
   useMemo,
 } from "react";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  ghcolors as light,
-  tomorrow as dark,
-} from "react-syntax-highlighter/dist/cjs/styles/prism";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
+import { getCodeTheme } from "./codeTheme";
 
 // Lazy-load the highlighter (same pattern as ./Code) so surfaces that opt
 // into markdown highlighting don't pay the Prism bundle cost up front.
@@ -114,9 +111,7 @@ export default function MarkdownCodeBlock({
   );
 
   const style = useMemo(() => {
-    const style = cloneDeep(theme === "dark" ? dark : light);
-    style['code[class*="language-"]'].fontSize = "0.85rem";
-    style['code[class*="language-"]'].lineHeight = 1.5;
+    const style = cloneDeep(getCodeTheme(theme));
     style['pre[class*="language-"]'].backgroundColor =
       theme === "dark" ? "transparent" : "#fff";
     style['pre[class*="language-"]'].border = "1px solid var(--slate-a4)";

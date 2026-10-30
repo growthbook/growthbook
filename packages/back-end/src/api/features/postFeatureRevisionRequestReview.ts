@@ -17,6 +17,7 @@ import {
 import { canAdvanceFeatureDraft } from "back-end/src/revisions/featureDraftAuthority";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import {
+  assertArmDoesNotLaunchExperiments,
   canEnableFeatureAutoPublishOnApproval,
   canScheduleFeaturePublish,
   parseScheduledPublishDate,
@@ -105,6 +106,9 @@ export async function requestReview(
   ) {
     req.context.permissions.throwPermissionError();
   }
+  if (enableAutoPublish || scheduledDate !== null) {
+    await assertArmDoesNotLaunchExperiments(req.context, feature, revision);
+  }
 
   // A scheduled publish runs as a resolvable dashboard user at fire time. Reject
   // arming when there is none (e.g. an API key requesting review with a schedule
@@ -112,10 +116,7 @@ export async function requestReview(
   // "enabling user could not be resolved". Mirrors the schedule-publish endpoint.
   if (
     scheduledDate !== null &&
-    !resolveArmedPublisherId(
-      revision,
-      req.context.userId ?? req.context.apiKey ?? null,
-    )
+    !resolveArmedPublisherId(revision, req.context.armerId)
   ) {
     throw new BadRequestError(
       "Scheduled publishes must run as a user, but this request has no resolvable user actor " +

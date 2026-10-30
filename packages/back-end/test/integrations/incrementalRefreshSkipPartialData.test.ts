@@ -2,6 +2,7 @@ import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { ExposureQuery } from "shared/types/datasource";
 import BigQuery from "back-end/src/integrations/BigQuery";
 import { getIncrementalRefreshMetricSources } from "back-end/src/queryRunners/ExperimentIncrementalRefreshQueryRunner";
+import { getIncrementalMetricScanEnd } from "back-end/src/services/experiments";
 import { factTableFactory } from "../factories/FactTable.factory";
 import { factMetricFactory } from "../factories/FactMetric.factory";
 
@@ -209,6 +210,26 @@ describe("incremental refresh statistics query with skipPartialData", () => {
     expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
   });
 
+  it("judges a lagged run's units against its cutoff", () => {
+    // Running phase analyzed through 24 hours before NOW: the metric sources
+    // stop there, so a unit is complete only if its window closed by then.
+    const settings = {
+      ...baseSettings,
+      skipPartialData: true,
+      endDate: new Date("2024-02-09T12:00:00.000Z"),
+    };
+    const sql = buildSql(
+      settings,
+      [longWindowMetric],
+      getIncrementalMetricScanEnd({}, settings, NOW),
+    );
+    // 96 hours before the cutoff, not before NOW
+    const cutoff = integration
+      .getSqlDialect()
+      .toTimestamp(new Date("2024-02-05T12:00:00.000Z"));
+    expect(unitsCte(sql)).toContain(`e.first_exposure_timestamp <= ${cutoff}`);
+  });
+
   it("anchors the cutoff to cache coverage, not wall-clock now", () => {
     const coverage = new Date("2024-02-08T12:00:00.000Z");
     const sql = buildSql(
@@ -230,6 +251,8 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
   } as unknown as Parameters<
     typeof getIncrementalRefreshMetricSources
   >[0]["integration"];
+  // Fact table id plus the random suffix, so no conversion-window key in any spelling.
+  const groupIdWithoutWindowKey = /^ft_events_[a-z0-9]+$/;
 
   it("keeps metrics with different conversion windows in one cache when included", () => {
     const groups = getIncrementalRefreshMetricSources({
@@ -257,8 +280,7 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       "fact_long_window",
       "fact_short_window",
     ]);
-    expect(groups[0].groupId).not.toContain("_cw");
-    expect(groups[0].groupId).not.toContain(".");
+    expect(groups[0].groupId).toMatch(groupIdWithoutWindowKey);
   });
 
   it("does not encode a sub-hour window in the group key", () => {
@@ -285,9 +307,7 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       snapshotSettings: { ...baseSettings, skipPartialData: true },
     });
     expect(groups).toHaveLength(1);
-    expect(groups[0].groupId).toContain("ft_events_");
-    expect(groups[0].groupId).not.toContain("_cw");
-    expect(groups[0].groupId).not.toContain(".");
+    expect(groups[0].groupId).toMatch(groupIdWithoutWindowKey);
   });
 
   it("keeps same-window metrics together when excluded", () => {
@@ -306,6 +326,6 @@ describe("incremental refresh metric grouping with skipPartialData", () => {
       "fact_long_window",
       "fact_long_window_2",
     ]);
-    expect(groups[0].groupId).not.toContain("_cw");
+    expect(groups[0].groupId).toMatch(groupIdWithoutWindowKey);
   });
 });

@@ -4,17 +4,21 @@ import {
   DiscussionInterface,
   Comment,
 } from "shared/types/discussion";
-import { BsThreeDotsVertical } from "react-icons/bs";
 import { datetime } from "shared/dates";
-import { Box, Flex, IconButton, Separator } from "@radix-ui/themes";
+import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Callout from "@/ui/Callout";
+import ScrollArea from "@/ui/ScrollArea";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import { DropdownMenu, DropdownMenuItem } from "@/ui/DropdownMenu";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
 import LoadingSpinner from "./LoadingSpinner";
 import CommentCard from "./Comments/CommentCard";
 import CommentForm from "./CommentForm";
@@ -27,6 +31,9 @@ const DiscussionThread: FC<{
   allowNewComments?: boolean;
   showTitle?: boolean;
   title?: string;
+  compact?: boolean;
+  // Fill the given height: the thread scrolls above a pinned composer.
+  fillHeight?: boolean;
 }> = ({
   type,
   id,
@@ -34,6 +41,8 @@ const DiscussionThread: FC<{
   showTitle = false,
   title = "Add comment",
   projects,
+  compact = false,
+  fillHeight = false,
 }) => {
   const { apiCall } = useAuth();
   const { userId, users } = useUser();
@@ -58,62 +67,46 @@ const DiscussionThread: FC<{
 
   const comments: Comment[] = data.discussion ? data.discussion.comments : [];
 
-  return (
-    <Box>
-      {comments.length > 0 ? (
-        <Flex direction="column" gap="4">
-          {comments.map((comment, i) => {
-            const user = users.get(comment.userId);
-            const email = user ? user.email : comment.userEmail;
-            const name = user ? user.name : comment.userName;
-            const eventUser = {
-              type: "dashboard" as const,
-              id: comment.userId,
-              email: email ?? "",
-              name: name ?? "",
-            };
+  const thread =
+    comments.length > 0 ? (
+      <Flex direction="column" gap="4">
+        {comments.map((comment, i) => {
+          const user = users.get(comment.userId);
+          const email = user ? user.email : comment.userEmail;
+          const name = user ? user.name : comment.userName;
+          const eventUser = {
+            type: "dashboard" as const,
+            id: comment.userId,
+            email: email ?? "",
+            name: name ?? "",
+          };
 
-            return (
-              <Flex key={i} align="start">
-                <Box flexGrow="1">
-                  {edit === i ? (
-                    <CommentForm
-                      cta="Save"
-                      onSave={() => {
-                        mutate();
-                        setEdit(null);
-                      }}
-                      index={i}
-                      id={id}
-                      type={type}
-                      initialValue={comment.content}
-                      autofocus={true}
-                      onCancel={() => setEdit(null)}
-                    />
-                  ) : (
-                    <CommentCard
-                      user={eventUser}
-                      metadata={`commented on ${datetime(comment.date)}`}
-                      metadataExtra={
-                        comment.edited && (
-                          <Text color="text-low" size="sm" fontStyle="italic">
-                            &bull; edited
-                          </Text>
-                        )
-                      }
-                      actions={
-                        comment.userId === userId && (
+          return (
+            <Flex key={i} align="start">
+              <Box flexGrow="1">
+                <CommentCard
+                  compact={compact}
+                  user={eventUser}
+                  metadata={`commented on ${datetime(comment.date)}`}
+                  metadataExtra={
+                    comment.edited && (
+                      <Text color="text-low" size="sm" fontStyle="italic">
+                        &bull; edited
+                      </Text>
+                    )
+                  }
+                  actions={
+                    edit === i
+                      ? null
+                      : comment.userId === userId && (
                           <DropdownMenu
                             trigger={
-                              <IconButton
-                                variant="ghost"
-                                color="gray"
-                                radius="full"
-                                size="2"
-                                highContrast
-                              >
-                                <BsThreeDotsVertical size={14} />
-                              </IconButton>
+                              <MoreMenuTrigger
+                                label="Comment actions"
+                                size="sm"
+                                // Undo the ghost variant's negative margin.
+                                style={{ margin: 0 }}
+                              />
                             }
                             variant="soft"
                             menuPlacement="end"
@@ -139,28 +132,68 @@ const DiscussionThread: FC<{
                             </DropdownMenuItem>
                           </DropdownMenu>
                         )
-                      }
-                      body={
+                  }
+                  body={
+                    edit === i ? (
+                      <CommentForm
+                        cta="Save"
+                        onSave={() => {
+                          mutate();
+                          setEdit(null);
+                        }}
+                        index={i}
+                        id={id}
+                        type={type}
+                        compact={compact}
+                        initialValue={comment.content}
+                        autofocus={true}
+                        onCancel={() => setEdit(null)}
+                      />
+                    ) : (
+                      <Text as="div" size={compact ? "sm" : "md"}>
                         <Markdown className="speech-bubble">
                           {comment.content || ""}
                         </Markdown>
-                      }
-                    />
-                  )}
-                </Box>
-              </Flex>
-            );
-          })}
-        </Flex>
+                      </Text>
+                    )
+                  }
+                />
+              </Box>
+            </Flex>
+          );
+        })}
+      </Flex>
+    ) : (
+      <Text color="text-low" fontStyle="italic" size={compact ? "sm" : "md"}>
+        {allowNewComments
+          ? "No comments yet. Add the first one!"
+          : "No comments."}
+      </Text>
+    );
+
+  return (
+    <Flex
+      direction="column"
+      flexGrow={fillHeight ? "1" : undefined}
+      minHeight={fillHeight ? "0" : undefined}
+    >
+      {fillHeight ? (
+        // The thread scrolls in whatever height the composer leaves.
+        <ScrollArea style={{ flex: 1, minHeight: 0 }}>
+          <Box px="5" pt="4">
+            {thread}
+          </Box>
+        </ScrollArea>
       ) : (
-        <Text color="text-low" fontStyle="italic">
-          {allowNewComments
-            ? "No comments yet. Add the first one!"
-            : "No comments."}
-        </Text>
+        thread
       )}
       {allowNewComments && (
-        <Box mt="4">
+        <Box
+          mt="4"
+          px={fillHeight ? "5" : undefined}
+          pb={fillHeight ? "5" : undefined}
+          flexShrink={fillHeight ? "0" : undefined}
+        >
           {!showTitle ? (
             <Separator size="4" mb="4" />
           ) : (
@@ -174,10 +207,11 @@ const DiscussionThread: FC<{
             index={-1}
             id={id}
             type={type}
+            compact={compact}
           />
         </Box>
       )}
-    </Box>
+    </Flex>
   );
 };
 

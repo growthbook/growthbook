@@ -1,6 +1,14 @@
 import { Request, RequestHandler } from "express";
 import { z, ZodType, ZodNever, output, core } from "zod";
-import { ApiPaginationFields, ApiErrorCode } from "shared/validators";
+import {
+  ApiPaginationFields,
+  ApiErrorCode,
+  ConfirmAction,
+  type ConfirmationNotice,
+  SuperAdminPermission,
+} from "shared/validators";
+import { routeConfirmation } from "shared/util";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { UserInterface } from "shared/types/user";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -11,13 +19,28 @@ import {
 } from "shared/api-spec";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiErrorResponse, ApiRequestLocals } from "back-end/types/api";
-import { PublishBlockedError } from "back-end/src/revisions/publishGates";
+import {
+  formatGateLine,
+  hookErrorText,
+  PublishBlockedError,
+} from "back-end/src/revisions/publishGates";
+import {
+  gateNotices,
+  holdAtRoute,
+  recordRefusal,
+} from "back-end/src/services/confirmations";
+import { logger } from "back-end/src/util/logger";
 import {
   ApiError,
   BulkImportPartialFailureError,
   BulkPublishCommitError,
+  ChecklistIncompleteError,
+  ConfirmationRequiredError,
+  CustomHookError,
+  DraftLimitError,
   MergeConflictError,
   SoftWarningError,
+  UnscopedRuleError,
 } from "./errors";
 import { IS_MULTI_ORG } from "./secrets";
 
@@ -182,7 +205,13 @@ export async function runApiHandler(
     query?: ZodType;
   },
   handler: (req: never) => Promise<unknown>,
-): Promise<{ status: number; body: unknown }> {
+): Promise<{
+  status: number;
+  body: unknown;
+  headers?: Record<string, string>;
+  // What a handler's refusal said, for a held retry that skips past it.
+  refusal?: ConfirmationNotice[];
+}> {
   const allErrors: string[] = [];
   if (schemas.params && !(schemas.params instanceof ZodNever)) {
     const validated = validate(schemas.params, req.params);
@@ -216,7 +245,11 @@ export async function runApiHandler(
     const result = await handler(req as never);
     return { status: 200, body: result };
   } catch (e) {
+    if (e instanceof ConfirmationRequiredError) {
+      return { status: 202, body: e.body, headers: e.headers };
+    }
     const body: ApiErrorResponse = { message: e.message };
+    const { isJwtAuth } = req as unknown as ApiRequestLocals;
     if (e instanceof ApiError) {
       body.code = e.code;
       body.details = e.details;
@@ -234,6 +267,13 @@ export async function runApiHandler(
       body.gates = e.gates;
       body.warnings = e.warnings;
     }
+    // An experiment start's blockers, on the same model.
+    if (e instanceof ChecklistIncompleteError) {
+      body.gates = e.gates;
+      if (!isJwtAuth) {
+        body.message = [e.message, ...e.gates.map(formatGateLine)].join("\n");
+      }
+    }
     // Bulk-publish commit failures carry per-item outcomes so callers can see
     // which entities compensated cleanly.
     if (e instanceof BulkPublishCommitError) {
@@ -246,15 +286,54 @@ export async function runApiHandler(
     if (e instanceof SoftWarningError) {
       body.warnings = e.warnings;
       // Front-end shows a "Save anyway" dialog and doesn't need a retry hint
-      const isJwtAuth = (req as unknown as ApiRequestLocals).isJwtAuth;
       if (!isJwtAuth) {
         body.message =
           e.message +
           '\n\nEither address the warnings or re-send with `"ignoreWarnings": true` in the request body to acknowledge them and proceed.';
       }
     }
-    return { status: e.status || 400, body };
+    if (!isJwtAuth) {
+      if (e instanceof UnscopedRuleError) {
+        body.message =
+          e.message +
+          ' Set specific `environments`, or resend with `"allowUnscopedRules": true` in the request body.';
+      }
+      if (e instanceof DraftLimitError) {
+        body.message =
+          e.message +
+          " To create a new one anyway, resend with `?overrideDraftLimit=true`.";
+      }
+    }
+    const status = e.status || 400;
+    return {
+      status,
+      body,
+      ...(status < 500 && { refusal: refusalNotices(e) }),
+    };
   }
+}
+
+function refusalNotices(e: Error): ConfirmationNotice[] {
+  if (e instanceof PublishBlockedError) return gateNotices(e.gates);
+  if (e instanceof ChecklistIncompleteError) return gateNotices(e.gates);
+  if (e instanceof SoftWarningError) {
+    return [
+      { severity: "warning", messages: [e.message, ...e.warnings], via: null },
+    ];
+  }
+  if (e instanceof UnscopedRuleError || e instanceof DraftLimitError) {
+    return [{ severity: "warning", messages: [e.message], via: null }];
+  }
+  if (e instanceof CustomHookError) {
+    return [
+      {
+        severity: "error",
+        messages: [e.message, ...e.details.hooks.map(hookErrorText)],
+        via: null,
+      },
+    ];
+  }
+  return [{ severity: "error", messages: [e.message], via: null }];
 }
 
 export type OpenApiRoute<
@@ -311,6 +390,7 @@ export type OpenApiRoute<
   excludeFromSpec?: boolean;
   /** Error codes this endpoint may throw, used to generate OpenAPI error response schemas. */
   possibleErrors?: readonly ApiErrorCode[];
+  confirmation?: readonly ConfirmAction[];
 };
 
 export function createApiRequestHandler<
@@ -344,6 +424,8 @@ export function createApiRequestHandler<
     deprecated,
     deprecationDate,
     possibleErrors,
+    confirmation,
+    confirmationInHandler,
   } = data;
 
   return (
@@ -356,6 +438,26 @@ export function createApiRequestHandler<
       >,
     ) => Promise<z.infer<ResponseSchema>>,
   ) => {
+    // Every write is checked before the handler runs, for its own actions and
+    // any check it asks to skip, unless the handler holds once it knows what
+    // changes. Inside the raw handler, so replays pass the same hold.
+    const actions = routeConfirmation(method, tags, confirmation);
+    if (method !== "get" && !confirmationInHandler) {
+      const inner = handler;
+      handler = async (req) => {
+        await holdAtRoute(
+          req.context,
+          actions,
+          tags,
+          method,
+          path,
+          req,
+          summary,
+        );
+        return inner(req);
+      };
+    }
+
     const wrappedHandler: WrappedRequestHandler<
       ParamsSchema,
       BodySchema,
@@ -363,7 +465,7 @@ export function createApiRequestHandler<
       ResponseSchema
     > = async (req, res, next) => {
       try {
-        const { status, body } = await runApiHandler(
+        const { status, body, headers, refusal } = await runApiHandler(
           req,
           {
             params: paramsSchema,
@@ -372,6 +474,16 @@ export function createApiRequestHandler<
           },
           handler,
         );
+        if (refusal) {
+          const { context } = req as unknown as ApiRequestLocals;
+          await recordRefusal(context, req, refusal).catch((e) =>
+            logger.error(
+              e,
+              "Failed to keep a refused request for confirmation",
+            ),
+          );
+        }
+        if (headers) res.set(headers);
         return res
           .status(status)
           .json(body as ApiErrorResponse | z.infer<ResponseSchema>);
@@ -407,6 +519,7 @@ export function createApiRequestHandler<
       rawHandler: handler,
       excludeFromSpec,
       possibleErrors,
+      confirmation,
     };
 
     return route;
@@ -415,10 +528,13 @@ export function createApiRequestHandler<
 
 export const statusCodeReturn = z.strictObject({ status: z.number() });
 
-export async function validateIsSuperUserRequest(req: {
-  user?: UserInterface;
-  organization: OrganizationInterface;
-}) {
+export async function validateIsSuperUserRequest(
+  req: {
+    user?: UserInterface;
+    organization: OrganizationInterface;
+  },
+  permission: SuperAdminPermission,
+) {
   if (!IS_MULTI_ORG) {
     throw new Error("This endpoint requires multi-org mode.");
   }
@@ -435,9 +551,9 @@ export async function validateIsSuperUserRequest(req: {
     );
   }
 
-  if (!req.user.superAdmin) {
+  if (!hasSuperAdminPermission(req.user.superAdmin, permission)) {
     throw new Error(
-      "This endpoint requires the Personal Access Token of a super admin.",
+      `This endpoint requires the Personal Access Token of a super admin with the ${permission} permission.`,
     );
   }
 

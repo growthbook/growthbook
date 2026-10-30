@@ -1,708 +1,289 @@
-import cronstrue from "cronstrue";
-import React, { useEffect, useState } from "react";
-import { FormProvider, useForm, useFormContext } from "react-hook-form";
-import isEqual from "lodash/isEqual";
-import {
-  DEFAULT_P_VALUE_THRESHOLD,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-  DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-  DEFAULT_STATS_ENGINE,
-  DEFAULT_TEST_QUERY_DAYS,
-  DEFAULT_SRM_THRESHOLD,
-  DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
-  DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
-  DEFAULT_DECISION_FRAMEWORK_ENABLED,
-  DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
-  DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
-  DEFAULT_POST_STRATIFICATION_ENABLED,
-  DEFAULT_LEARNING_STATUSES,
-} from "shared/constants";
-import {
-  DEFAULT_MAX_METRIC_SLICE_LEVELS,
-  DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
-} from "shared/settings";
-import { OrganizationSettings } from "shared/types/organization";
-import { Box, Flex, Heading } from "@radix-ui/themes";
-import { PRESET_DECISION_CRITERIA } from "shared/enterprise";
-import { CUSTOMIZABLE_PROMPT_TYPES } from "shared/ai";
-import { getRequireRegisteredAttributesSettings } from "shared/util";
-import Link from "@/ui/Link";
-import { useAuth } from "@/services/auth";
+import React, { useEffect, useRef } from "react";
+import escapeRegExp from "lodash/escapeRegExp";
+import { Box, Flex } from "@radix-ui/themes";
 import { hasFileConfig, isCloud } from "@/services/env";
-import TempMessage from "@/components/TempMessage";
-import Button from "@/ui/Button";
-import {
-  OrganizationSettingsWithMetricDefaults,
-  useOrganizationMetricDefaults,
-} from "@/hooks/useOrganizationMetricDefaults";
 import { useUser } from "@/services/UserContext";
-import { useCurrency } from "@/hooks/useCurrency";
 import useURLHash from "@/hooks/useURLHash";
-import { applyApprovalFlowEntitlements } from "@/hooks/useOrgSettings";
 import OrganizationAndLicenseSettings from "@/components/GeneralSettings/OrganizationAndLicenseSettings";
 import ImportSettings from "@/components/GeneralSettings/ImportSettings";
 import NorthStarMetricSettings from "@/components/GeneralSettings/NorthStarMetricSettings";
 import ExperimentSettings from "@/components/GeneralSettings/ExperimentSettings";
+import StatsEngineSettings from "@/components/GeneralSettings/ExperimentSettings/StatsEngineSettings";
+import { SettingsGroup } from "@/components/GeneralSettings/SettingsGroup";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import MetricsSettings from "@/components/GeneralSettings/MetricsSettings";
 import FeatureSettings from "@/components/GeneralSettings/FeatureSettings";
 import RampScheduleTemplates from "@/components/GeneralSettings/RampScheduleTemplates";
-import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import DatasourceSettings from "@/components/GeneralSettings/DatasourceSettings";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import LearningSettings from "@/components/GeneralSettings/LearningSettings";
 import AISettings from "@/components/GeneralSettings/AISettings";
 import {
-  SETTINGS_TAB,
-  SETTINGS_TABS_ANCHOR,
-  parseSettingsHash,
+  resolveSettingsHash,
+  scrollToSettingsSection,
+  SETTINGS_SECTIONS,
+  tokenizeSettingsQuery,
 } from "@/components/GeneralSettings/settingsSections";
-import HelperText from "@/ui/HelperText";
-import { StickyTabsList, Tabs, TabsContent, TabsTrigger } from "@/ui/Tabs";
-import Frame from "@/ui/Frame";
-import useApi from "@/hooks/useApi";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
+import SettingsSection from "@/components/GeneralSettings/SettingsSection";
+import UnsavedChangesBar from "@/components/GeneralSettings/UnsavedChangesBar";
+import CustomMarkdownSettings from "@/components/GeneralSettings/CustomMarkdownSettings";
+import { useSettingsNav } from "@/components/Layout/SettingsNavContext";
+import SettingsPage from "@/components/Layout/SettingsPage";
+import Text from "@/ui/Text";
+import Button from "@/ui/Button";
+import sectionStyles from "@/components/GeneralSettings/SettingsSection.module.scss";
 import SavedGroupSettings from "@/components/GeneralSettings/SavedGroupSettings";
 import TargetingAttributesSettings from "@/components/GeneralSettings/TargetingAttributesSettings";
 import ApprovalFlowSettings from "@/components/GeneralSettings/ApprovalFlowSettings";
 import SDKConnectionSettings from "@/components/GeneralSettings/SDKConnectionSettings";
 
-export const ConnectSettingsForm = ({ children }) => {
-  const methods = useFormContext();
-  return children({ ...methods });
-};
+const SEARCH_HIGHLIGHT_CSS =
+  "::highlight(settings-search){background-color:var(--amber-a5)}";
 
-function hasChanges(
-  value: OrganizationSettings,
-  existing: OrganizationSettings,
-) {
-  if (!existing) return true;
-
-  return !isEqual(value, existing);
-}
+// The user taking over the scroll, including dragging the scrollbar.
+const USER_EVENTS = ["wheel", "touchmove", "keydown", "pointerdown"] as const;
 
 const GeneralSettingsPage = (): React.ReactElement => {
-  const { refreshOrganization, settings, organization, hasCommercialFeature } =
-    useUser();
-  // Shares the composer's cache key, so revalidating here updates its `/` menu.
-  const { mutate: mutateAgentSkills } = useApi("/agent/skills", {
-    shouldRun: () => !!settings.aiEnabled,
-  });
-  const [saveMsg, setSaveMsg] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [originalValue, setOriginalValue] = useState<OrganizationSettings>({});
-  const [cronString, setCronString] = useState("");
-  const [codeRefsBranchesToFilterStr, setCodeRefsBranchesToFilterStr] =
-    useState<string>("");
-  const displayCurrency = useCurrency();
-
-  const hasStickyBucketFeature = hasCommercialFeature("sticky-bucketing");
-  const hasRequireApprovals = hasCommercialFeature("require-approvals");
-
-  const promptForm = useForm();
-
-  const [urlHash, setUrlHash] = useURLHash();
-  const { tab: activeTab, section: deepLinkSection } =
-    parseSettingsHash(urlHash);
-  const [arrivedOnTab] = useState(() => !!urlHash && !urlHash.includes("/"));
-  const { metricDefaults } = useOrganizationMetricDefaults();
-  const form = useForm<OrganizationSettingsWithMetricDefaults>({
-    defaultValues: {
-      visualEditorEnabled: false,
-      pastExperimentsMinLength: 6,
-      metricAnalysisDays: 90,
-      // customization:
-      customized: false,
-      logoPath: "",
-      primaryColor: "#391c6d",
-      secondaryColor: "#50279a",
-      northStar: {
-        //enabled: false,
-        title: "",
-        metricIds: [],
-        //target: [],
-        //window: "",
-        //resolution?: string;
-        //startDate?: Date;
-      },
-      metricDefaults: {
-        priorSettings: metricDefaults.priorSettings,
-        minimumSampleSize: metricDefaults.minimumSampleSize,
-        maxPercentageChange: metricDefaults.maxPercentageChange * 100,
-        minPercentageChange: metricDefaults.minPercentageChange * 100,
-        targetMDE: metricDefaults.targetMDE * 100,
-      },
-      updateSchedule: {
-        type: "stale",
-        hours: 6,
-        cron: "0 */6 * * *",
-      },
-      runHealthTrafficQuery: false,
-      srmThreshold: DEFAULT_SRM_THRESHOLD,
-      multipleExposureMinPercent: 0.01,
-      confidenceLevel: 0.95,
-      pValueThreshold: DEFAULT_P_VALUE_THRESHOLD,
-      pValueCorrection: null,
-      statsEngine: DEFAULT_STATS_ENGINE,
-      regressionAdjustmentEnabled: DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-      regressionAdjustmentDays: DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-      sequentialTestingEnabled: false,
-      sequentialTestingTuningParameter:
-        DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-      attributionModel: "firstExposure",
-      displayCurrency,
-      secureAttributeSalt: "",
-      killswitchConfirmation: false,
-      requireReviews: [
-        {
-          requireReviewOn: false,
-          resetReviewOnChange: false,
-          environments: [],
-          projects: [],
-          featureRequireEnvironmentReview: true,
-          featureRequireMetadataReview: true,
-        },
-      ],
-      targetingReviewMode: settings.targetingReviewMode ?? [],
-      restApiBypassesReviews: settings.restApiBypassesReviews ?? false,
-      requireRebaseBeforePublish: settings.requireRebaseBeforePublish ?? false,
-      revertsBypassApproval: settings.revertsBypassApproval ?? false,
-      configsExtensibleByDefault: settings.configsExtensibleByDefault ?? true,
-      configExperimentGuardDefault:
-        settings.configExperimentGuardDefault ?? false,
-      blockPublishOnSchemaError: settings.blockPublishOnSchemaError ?? true,
-      maxConcurrentDrafts: settings.maxConcurrentDrafts ?? 0,
-      defaultDataSource: settings.defaultDataSource || "",
-      testQueryDays: DEFAULT_TEST_QUERY_DAYS,
-      disablePrecomputedDimensions:
-        settings.disablePrecomputedDimensions ?? true,
-      useStickyBucketing: false,
-      stickyBucketingOnByDefault: false,
-      useFallbackAttributes: false,
-      codeReferencesEnabled: false,
-      codeRefsBranchesToFilter: [],
-      codeRefsPlatformUrl: "",
-      featureKeyExample: "",
-      featureRegexValidator: "",
-      sparseJSONRulesByDefault: false,
-      featureListMarkdown: settings.featureListMarkdown || "",
-      featurePageMarkdown: settings.featurePageMarkdown || "",
-      experimentListMarkdown: settings.experimentListMarkdown || "",
-      metricListMarkdown: settings.metricListMarkdown || "",
-      metricPageMarkdown: settings.metricPageMarkdown || "",
-      banditScheduleValue: settings.banditScheduleValue ?? 1,
-      banditScheduleUnit: settings.banditScheduleUnit ?? "days",
-      banditBurnInValue: settings.banditBurnInValue ?? 1,
-      banditBurnInUnit: settings.banditBurnInUnit ?? "days",
-      requireExperimentTemplates: settings.requireExperimentTemplates ?? false,
-      requireUniqueExperimentTrackingKeys:
-        settings.requireUniqueExperimentTrackingKeys ?? false,
-      experimentKeyExample: settings.experimentKeyExample ?? "",
-      experimentKeyRegexValidator: settings.experimentKeyRegexValidator ?? "",
-      experimentMinLengthDays:
-        settings.experimentMinLengthDays ?? DEFAULT_EXPERIMENT_MIN_LENGTH_DAYS,
-      experimentMaxLengthDays:
-        settings.experimentMaxLengthDays ?? DEFAULT_EXPERIMENT_MAX_LENGTH_DAYS,
-      decisionFrameworkEnabled:
-        settings.decisionFrameworkEnabled ?? DEFAULT_DECISION_FRAMEWORK_ENABLED,
-      defaultDecisionCriteriaId:
-        settings.defaultDecisionCriteriaId ?? PRESET_DECISION_CRITERIA.id,
-      blockFileUploads: settings.blockFileUploads ?? false,
-      requireProjectForFeatures:
-        settings.requireProjectForFeatures ??
-        DEFAULT_REQUIRE_PROJECT_FOR_FEATURES,
-      requireProjectForSdkConnections:
-        settings.requireProjectForSdkConnections ??
-        DEFAULT_REQUIRE_PROJECT_FOR_SDK_CONNECTIONS,
-      requireRegisteredAttributes: getRequireRegisteredAttributesSettings(
-        settings.requireRegisteredAttributes,
-      ),
-      aiEnabled: settings.aiEnabled ?? false,
-      aiAskDataEnabled: settings.aiAskDataEnabled ?? false,
-      disabledAgentSkills: settings.disabledAgentSkills ?? [],
-      // Seeding a model on Cloud would persist it on the next save of any
-      // setting, silently taking the org off the managed default.
-      defaultAIModel:
-        settings.defaultAIModel || (isCloud() ? undefined : "gpt-4o-mini"),
-      embeddingModel: settings.embeddingModel || "text-embedding-ada-002",
-      sttModel: settings.sttModel,
-      visualEditorAIModel: settings.visualEditorAIModel,
-      visualEditorImageModel: settings.visualEditorImageModel || "",
-      visualEditorAIContext: settings.visualEditorAIContext || "",
-      disableLegacyMetricCreation:
-        settings.disableLegacyMetricCreation ?? false,
-      defaultFeatureRulesInAllEnvs:
-        settings.defaultFeatureRulesInAllEnvs ?? false,
-      preferredEnvironment: settings.preferredEnvironment || "",
-      maxMetricSliceLevels:
-        settings.maxMetricSliceLevels ?? DEFAULT_MAX_METRIC_SLICE_LEVELS,
-      topValuesLookbackValue:
-        settings.topValuesLookbackValue ?? DEFAULT_TOP_VALUES_LOOKBACK_VALUE,
-      savedGroupSizeLimit: undefined,
-      enforceSavedGroupProjectScope:
-        settings.enforceSavedGroupProjectScope ?? false,
-      postStratificationEnabled:
-        settings.postStratificationEnabled ??
-        DEFAULT_POST_STRATIFICATION_ENABLED,
-      approvalFlows: applyApprovalFlowEntitlements(
-        settings.approvalFlows,
-        hasRequireApprovals,
-      ),
-      learningStatuses: settings.learningStatuses ?? DEFAULT_LEARNING_STATUSES,
-    },
-  });
-  const { apiCall } = useAuth();
-  const value: OrganizationSettingsWithMetricDefaults = {
-    visualEditorEnabled: form.watch("visualEditorEnabled"),
-    pastExperimentsMinLength: form.watch("pastExperimentsMinLength"),
-    metricAnalysisDays: form.watch("metricAnalysisDays"),
-    metricDefaults: {
-      priorSettings: form.watch("metricDefaults.priorSettings"),
-      minimumSampleSize: form.watch("metricDefaults.minimumSampleSize"),
-      maxPercentageChange: form.watch("metricDefaults.maxPercentageChange"),
-      minPercentageChange: form.watch("metricDefaults.minPercentageChange"),
-      targetMDE: form.watch("metricDefaults.targetMDE"),
-    },
-    // customization:
-    customized: form.watch("customized"),
-    logoPath: form.watch("logoPath"),
-    primaryColor: form.watch("primaryColor"),
-    secondaryColor: form.watch("secondaryColor"),
-    northStar: form.watch("northStar"),
-    updateSchedule: form.watch("updateSchedule"),
-    runHealthTrafficQuery: form.watch("runHealthTrafficQuery"),
-    srmThreshold: form.watch("srmThreshold"),
-    multipleExposureMinPercent: form.watch("multipleExposureMinPercent"),
-    statsEngine: form.watch("statsEngine"),
-    confidenceLevel: form.watch("confidenceLevel"),
-    pValueThreshold: form.watch("pValueThreshold"),
-    pValueCorrection: form.watch("pValueCorrection"),
-    regressionAdjustmentEnabled: form.watch("regressionAdjustmentEnabled"),
-    regressionAdjustmentDays: form.watch("regressionAdjustmentDays"),
-    sequentialTestingEnabled: form.watch("sequentialTestingEnabled"),
-    sequentialTestingTuningParameter: form.watch(
-      "sequentialTestingTuningParameter",
-    ),
-    attributionModel: form.watch("attributionModel"),
-    displayCurrency: form.watch("displayCurrency"),
-    secureAttributeSalt: form.watch("secureAttributeSalt"),
-    killswitchConfirmation: form.watch("killswitchConfirmation"),
-    sparseJSONRulesByDefault: form.watch("sparseJSONRulesByDefault"),
-    defaultDataSource: form.watch("defaultDataSource"),
-    useStickyBucketing: form.watch("useStickyBucketing"),
-    stickyBucketingOnByDefault: form.watch("stickyBucketingOnByDefault"),
-    useFallbackAttributes: form.watch("useFallbackAttributes"),
-    codeReferencesEnabled: form.watch("codeReferencesEnabled"),
-    codeRefsBranchesToFilter: form.watch("codeRefsBranchesToFilter"),
-    codeRefsPlatformUrl: form.watch("codeRefsPlatformUrl"),
-    aiEnabled: form.watch("aiEnabled"),
-    aiAskDataEnabled: form.watch("aiAskDataEnabled"),
-    disabledAgentSkills: form.watch("disabledAgentSkills"),
-    defaultAIModel: form.watch("defaultAIModel"),
-    embeddingModel: form.watch("embeddingModel"),
-    sttModel: form.watch("sttModel") || undefined,
-    visualEditorAIModel: form.watch("visualEditorAIModel"),
-    visualEditorImageModel: form.watch("visualEditorImageModel"),
-    visualEditorAIContext: form.watch("visualEditorAIContext") || undefined,
-    disableLegacyMetricCreation: form.watch("disableLegacyMetricCreation"),
-    defaultFeatureRulesInAllEnvs: form.watch("defaultFeatureRulesInAllEnvs"),
-    preferredEnvironment: form.watch("preferredEnvironment") || "",
-    maxMetricSliceLevels: form.watch("maxMetricSliceLevels"),
-    topValuesLookbackValue: form.watch("topValuesLookbackValue"),
-    savedGroupSizeLimit: form.watch("savedGroupSizeLimit"),
-    enforceSavedGroupProjectScope: form.watch("enforceSavedGroupProjectScope"),
-    approvalFlows: form.watch("approvalFlows"),
-    learningStatuses: form.watch("learningStatuses"),
-    requireRegisteredAttributes: form.watch("requireRegisteredAttributes"),
-  };
-  function updateCronString(cron?: string) {
-    cron = cron || value.updateSchedule?.cron || "";
-
-    if (!cron) {
-      setCronString("");
-    }
-    setCronString(
-      `${cronstrue.toString(cron, {
-        throwExceptionOnParseError: false,
-        verbose: true,
-      })} (UTC time)`,
-    );
-  }
-
+  const [urlHash] = useURLHash();
+  const {
+    query,
+    setQuery,
+    activeSection,
+    setActiveSection,
+    pinnedSection,
+    pinSection,
+    counts,
+  } = useSettingsNav();
+  const { settings, organization, refreshOrganization } = useUser();
+  const { promptForm } = useSettingsForm();
+  const pageRef = useRef<HTMLDivElement>(null);
+  // Re-applies the hash scroll while cards above load, until the user takes over.
   useEffect(() => {
-    if (settings) {
-      const newVal = { ...form.getValues() };
-      Object.keys(newVal).forEach((k) => {
-        if (k === "metricDefaults") {
-          // Metric defaults are nested, so take existing metric defaults only if
-          // they exist and are not empty
-          const existingMaxChange = settings?.[k]?.maxPercentageChange;
-          const existingMinChange = settings?.[k]?.minPercentageChange;
-          const existingTargetMDE = settings?.[k]?.targetMDE;
-          newVal[k] = {
-            ...newVal[k],
-            ...settings?.[k],
-            // Existing values are stored as a multiplier, e.g. 50% on the UI is stored as 0.5
-            // Transform these values from the UI format
-            ...(existingMaxChange !== undefined
-              ? {
-                  maxPercentageChange: existingMaxChange * 100,
-                }
-              : {}),
-            ...(existingMinChange !== undefined
-              ? {
-                  minPercentageChange: existingMinChange * 100,
-                }
-              : {}),
-            ...(existingTargetMDE !== undefined
-              ? {
-                  targetMDE: existingTargetMDE * 100,
-                }
-              : {}),
-          };
-        } else if (k === "requireRegisteredAttributes") {
-          // Stored as either a legacy boolean or the canonical object shape;
-          // normalize to the object so the form always works with one type.
-          newVal.requireRegisteredAttributes =
-            getRequireRegisteredAttributesSettings(
-              settings?.requireRegisteredAttributes,
-            );
-        } else if (k === "enforceSavedGroupProjectScope") {
-          newVal.enforceSavedGroupProjectScope =
-            settings.enforceSavedGroupProjectScope ?? false;
-        } else if (k === "approvalFlows") {
-          newVal.approvalFlows = applyApprovalFlowEntitlements(
-            settings?.approvalFlows,
-            hasRequireApprovals,
-          );
-        } else {
-          newVal[k] = settings?.[k] || newVal[k];
-        }
+    const id = resolveSettingsHash(urlHash);
+    const root = pageRef.current;
+    if (!id || !root) return;
+    // A linked section hidden by the search would never show, so the search gives way.
+    if (document.getElementById(id)?.closest("[hidden]")) setQuery("");
+    const section = SETTINGS_SECTIONS.find(
+      (s) => s.id === id || document.getElementById(id)?.closest(`#${s.id}`),
+    );
+    if (section) pinSection(section.id);
+    // Fires once on observe, then again whenever cards above finish loading.
+    const observer = new ResizeObserver(() => scrollToSettingsSection(id));
+    observer.observe(root);
+    const stop = () => observer.disconnect();
+    USER_EVENTS.forEach((e) =>
+      window.addEventListener(e, stop, { once: true }),
+    );
+    return () => {
+      stop();
+      USER_EVENTS.forEach((e) => window.removeEventListener(e, stop));
+    };
+  }, [urlHash, pinSection, setQuery]);
 
-        if (k === "confidenceLevel" && (newVal?.confidenceLevel ?? 0.95) <= 1) {
-          newVal.confidenceLevel = (newVal.confidenceLevel ?? 0.95) * 100;
-        }
-        if (
-          k === "multipleExposureMinPercent" &&
-          (newVal?.multipleExposureMinPercent ?? 0.01) <= 1
-        ) {
-          newVal.multipleExposureMinPercent =
-            (newVal.multipleExposureMinPercent ?? 0.01) * 100;
-        }
+  // Scroll spy: the last visible section whose top has passed the sticky header is active.
+  useEffect(() => {
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      // A clicked or linked section stays active until the user scrolls themselves.
+      if (pinnedSection.current) {
+        setActiveSection(pinnedSection.current);
+        return;
+      }
+      const atBottom =
+        window.innerHeight + window.scrollY >=
+        document.documentElement.scrollHeight - 2;
+      let active = "";
+      for (const { id } of SETTINGS_SECTIONS) {
+        const el = document.getElementById(id);
+        if (!el || el.hidden) continue;
+        // A short last section never reaches the top, so the page bottom selects it.
+        if (!active || atBottom || el.getBoundingClientRect().top <= 180)
+          active = id;
+      }
+      if (active) setActiveSection(active);
+    };
+    const unpin = () => {
+      pinnedSection.current = null;
+    };
+    const onScroll = () => {
+      if (!frame) frame = window.requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    USER_EVENTS.forEach((e) =>
+      window.addEventListener(e, unpin, { passive: true }),
+    );
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      USER_EVENTS.forEach((e) => window.removeEventListener(e, unpin));
+      window.cancelAnimationFrame(frame);
+    };
+  }, [query, counts, setActiveSection, pinnedSection]);
 
-        if (k === "useStickyBucketing") {
-          newVal.useStickyBucketing = hasStickyBucketFeature
-            ? newVal.useStickyBucketing
-            : false;
+  // Browsers without the Highlight API skip this.
+  useEffect(() => {
+    if (!("highlights" in CSS)) return;
+    // Matching the original text keeps offsets valid; lowercasing can change length (e.g. "İ").
+    const patterns = tokenizeSettingsQuery(query).map(
+      (token) => new RegExp(escapeRegExp(token), "gi"),
+    );
+    const ranges: Range[] = [];
+    pageRef.current
+      ?.querySelectorAll("[data-settings-card]")
+      .forEach((card) => {
+        const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+          const text = node.textContent ?? "";
+          for (const pattern of patterns) {
+            for (const match of text.matchAll(pattern)) {
+              const range = new Range();
+              range.setStart(node, match.index);
+              range.setEnd(node, match.index + match[0].length);
+              ranges.push(range);
+            }
+          }
         }
       });
-      form.reset(newVal);
-      setOriginalValue(newVal);
-      updateCronString(newVal.updateSchedule?.cron || "");
-      if (newVal.codeRefsBranchesToFilter) {
-        setCodeRefsBranchesToFilterStr(
-          newVal.codeRefsBranchesToFilter.join(", "),
-        );
-      }
-    }
-  }, [settings, hasRequireApprovals]);
-
-  useEffect(() => {
-    form.setValue(
-      "codeRefsBranchesToFilter",
-      codeRefsBranchesToFilterStr
-        .split(",")
-        .map((s) => s.trim())
-        .filter(Boolean),
-    );
-  }, [codeRefsBranchesToFilterStr]);
-
-  useEffect(() => {
-    if (!deepLinkSection) return;
-    const frame = window.requestAnimationFrame(() => {
-      document
-        .getElementById(deepLinkSection)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [deepLinkSection]);
-
-  // Arriving on a tab deep link selects that tab, but the tabs sit below the
-  // page header, so without this you land above the thing you asked for.
-  useEffect(() => {
-    if (!arrivedOnTab) return;
-    const frame = window.requestAnimationFrame(() => {
-      document
-        .getElementById(SETTINGS_TABS_ANCHOR)
-        ?.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [arrivedOnTab]);
-
-  // I Don't think this works as intended - the hasChanges(value, originalValue) always seems to return true.
-  const ctaEnabled =
-    hasChanges(value, originalValue) || promptForm.formState.isDirty;
-
-  const savePrompts = promptForm.handleSubmit(async (promptValues) => {
-    const formattedPrompts = CUSTOMIZABLE_PROMPT_TYPES.map((type) => ({
-      type,
-      prompt: promptValues[type],
-      overrideModel: promptValues[`${type}-model`] || undefined,
-    }));
-    await apiCall(`/ai/prompts`, {
-      method: "POST",
-      body: JSON.stringify({ prompts: formattedPrompts }),
-    });
-  });
-
-  const saveSettings = form.handleSubmit(async (value) => {
-    const transformedOrgSettings = {
-      ...value,
-      metricDefaults: {
-        ...value.metricDefaults,
-        maxPercentageChange: value.metricDefaults.maxPercentageChange / 100,
-        minPercentageChange: value.metricDefaults.minPercentageChange / 100,
-        targetMDE: value.metricDefaults.targetMDE / 100,
-      },
-      confidenceLevel: (value.confidenceLevel ?? 0.95) / 100,
-      multipleExposureMinPercent:
-        (value.multipleExposureMinPercent ?? 0.01) / 100,
-      preferredEnvironment: value.preferredEnvironment || null,
-      // A cleared number input yields NaN — normalize to 0 (cap disabled)
-      maxConcurrentDrafts: value.maxConcurrentDrafts || 0,
-      approvalFlows: applyApprovalFlowEntitlements(
-        value.approvalFlows,
-        hasRequireApprovals,
-      ),
+    CSS.highlights.set("settings-search", new Highlight(...ranges));
+    return () => {
+      CSS.highlights.delete("settings-search");
     };
+  }, [query, counts]);
 
-    // Make sure the feature key example is valid
-    if (
-      transformedOrgSettings.featureKeyExample &&
-      !transformedOrgSettings.featureKeyExample.match(/^[a-zA-Z0-9_.:|-]+$/)
-    ) {
-      throw new Error(
-        "Feature key examples can only include letters, numbers, hyphens, and underscores.",
-      );
-    }
-
-    // If the regex validator exists, then the feature key example must match the regex and be valid.
-    if (transformedOrgSettings.featureRegexValidator) {
-      if (
-        !transformedOrgSettings.featureKeyExample ||
-        !transformedOrgSettings.featureRegexValidator
-      ) {
-        throw new Error(
-          "Feature key example must not be empty when a regex validator is defined.",
-        );
-      }
-
-      const regexValidator = transformedOrgSettings.featureRegexValidator;
-      if (
-        !new RegExp(regexValidator).test(
-          transformedOrgSettings.featureKeyExample,
-        )
-      ) {
-        throw new Error(
-          `Feature key example does not match the regex validator. '${transformedOrgSettings.featureRegexValidator}' Example: '${transformedOrgSettings.featureKeyExample}'`,
-        );
-      }
-    }
-
-    const { experimentKeyExample, experimentKeyRegexValidator } =
-      transformedOrgSettings;
-    if (experimentKeyRegexValidator && !experimentKeyExample) {
-      throw new Error(
-        "Experiment key example must not be empty when a regex validator is defined.",
-      );
-    }
-    if (
-      experimentKeyRegexValidator &&
-      !new RegExp(experimentKeyRegexValidator).test(experimentKeyExample ?? "")
-    ) {
-      throw new Error(
-        `Experiment key example must match the regex validator. '${experimentKeyRegexValidator}' Example: '${experimentKeyExample ?? ""}'`,
-      );
-    }
-
-    await apiCall(`/organization`, {
-      method: "PUT",
-      body: JSON.stringify({
-        settings: transformedOrgSettings,
-      }),
-    });
-    await Promise.all([refreshOrganization(), mutateAgentSkills()]);
-
-    // show the user that the settings have saved:
-    setSaveMsg(true);
-  });
+  const tokens = tokenizeSettingsQuery(query);
+  const hasQuery = tokens.length > 0;
+  const total = Object.values(counts).reduce((a, b) => a + b, 0);
+  const matchedSections = Object.values(counts).filter((n) => n > 0).length;
+  const activeTitle = SETTINGS_SECTIONS.find(
+    (s) => s.id === activeSection,
+  )?.title;
 
   return (
-    <FormProvider {...form}>
-      <Box className="container-fluid pagecontents" mb="4">
-        <Heading as="h1" size="5" mb="3">
-          General Settings
-        </Heading>
-        <Box mb="5">
-          <OrganizationAndLicenseSettings
-            org={organization}
-            refreshOrg={refreshOrganization}
-          />
-        </Box>
-
-        <Tabs
-          id={SETTINGS_TABS_ANCHOR}
-          value={activeTab}
-          onValueChange={setUrlHash}
-        >
-          <StickyTabsList>
-            <TabsTrigger value={SETTINGS_TAB.experiment}>
-              Experiments
-            </TabsTrigger>
-            <TabsTrigger value={SETTINGS_TAB.feature}>
-              Feature Flags
-            </TabsTrigger>
-            <TabsTrigger value={SETTINGS_TAB.metrics}>
-              Metrics &amp; Data
-            </TabsTrigger>
-            <TabsTrigger value={SETTINGS_TAB["approval-flow"]}>
-              <PremiumTooltip commercialFeature="require-approvals">
-                Approval Flows
-              </PremiumTooltip>
-            </TabsTrigger>
-            <TabsTrigger value={SETTINGS_TAB.sdk}>
-              SDK Configuration
-            </TabsTrigger>
-            <TabsTrigger value={SETTINGS_TAB.import}>
-              Import &amp; Export
-            </TabsTrigger>
-            <TabsTrigger value={SETTINGS_TAB.custom}>
-              <PremiumTooltip commercialFeature="custom-markdown">
-                Custom Markdown
-              </PremiumTooltip>
-            </TabsTrigger>
-            <TabsTrigger value={SETTINGS_TAB.ai}>
-              <PremiumTooltip commercialFeature="ai-suggestions">
-                AI &amp; Prompts
-              </PremiumTooltip>
-            </TabsTrigger>
-          </StickyTabsList>
-          <Box mt="4">
-            <TabsContent value={SETTINGS_TAB.experiment}>
-              <ExperimentSettings
-                cronString={cronString}
-                updateCronString={updateCronString}
-              />
-              <Frame mb="4">
-                <BanditSettings page="org-settings" />
-              </Frame>
-              <Frame mb="4">
-                <LearningSettings />
-              </Frame>
-            </TabsContent>
-
-            <TabsContent value={SETTINGS_TAB.feature}>
-              <FeatureSettings />
-              <RampScheduleTemplates />
-            </TabsContent>
-
-            <TabsContent value={SETTINGS_TAB.metrics}>
-              <>
-                <MetricsSettings />
-                <DatasourceSettings />
-                <NorthStarMetricSettings />
-              </>
-            </TabsContent>
-
-            <TabsContent value={SETTINGS_TAB.import}>
-              <ImportSettings
-                hasFileConfig={hasFileConfig()}
-                isCloud={isCloud()}
-                settings={settings}
-                refreshOrg={refreshOrganization}
-              />
-            </TabsContent>
-
-            <TabsContent value={SETTINGS_TAB.custom}>
-              <Frame>
-                <Flex>
-                  <Box width="300px">
-                    <PremiumTooltip commercialFeature="custom-markdown">
-                      Custom Markdown
-                    </PremiumTooltip>
-                  </Box>
-                  <Box>
-                    {hasCommercialFeature("custom-markdown") ? (
-                      <Link href="/settings/custom-markdown">
-                        View Custom Markdown Settings
-                      </Link>
-                    ) : (
-                      <span className="text-muted">
-                        View Custom Markdown Settings
-                      </span>
-                    )}
-                  </Box>
-                </Flex>
-              </Frame>
-            </TabsContent>
-            <TabsContent value={SETTINGS_TAB.ai}>
-              <AISettings promptForm={promptForm} />
-            </TabsContent>
-            <TabsContent value={SETTINGS_TAB.sdk}>
-              <>
-                <SDKConnectionSettings />
-                <SavedGroupSettings />
-                <TargetingAttributesSettings />
-              </>
-            </TabsContent>
-            <TabsContent value={SETTINGS_TAB["approval-flow"]}>
-              <ApprovalFlowSettings />
-            </TabsContent>
-          </Box>
-        </Tabs>
-      </Box>
-
-      <Box
-        className="bg-main-color position-sticky w-100 py-3 border-top"
-        style={{ bottom: 0, height: 70, zIndex: 840 }}
+    <>
+      <SettingsPage
+        title="General Settings"
+        description="Organization-wide defaults. Projects can override some of these."
+        headerClassName={sectionStyles.wideHidden}
+        breadcrumb={[
+          { display: "Settings" },
+          { display: "General", href: "/settings" },
+          ...(activeTitle ? [{ display: activeTitle }] : []),
+        ]}
+        contentClassName={sectionStyles.generalContent}
       >
-        <Box className="container-fluid pagecontents d-flex">
-          <Flex flexGrow="1" gap="3" align="end">
-            {submitError && (
-              <Box>
-                <HelperText status="error">{submitError}</HelperText>
+        {/* Injected at runtime: Turbopack's CSS parser rejects ::highlight(). */}
+        <style>{SEARCH_HIGHLIGHT_CSS}</style>
+        <div ref={pageRef}>
+          {hasQuery && total > 0 && (
+            <Flex align="center" gap="3" mt="3" wrap="wrap">
+              <Box flexGrow="1" aria-live="polite">
+                <Text size="sm" color="text-mid">
+                  {`${total} match${total === 1 ? "" : "es"} for "${query.trim()}" in ${matchedSections} section${matchedSections === 1 ? "" : "s"}.`}
+                </Text>
               </Box>
-            )}
-            {saveMsg && (
-              <TempMessage
-                className="mb-0 py-2"
-                close={() => {
-                  setSaveMsg(false);
-                }}
-              >
-                Settings saved
-              </TempMessage>
-            )}
-          </Flex>
-          <Box style={{ marginRight: "85px" }}>
-            <Button
-              disabled={!ctaEnabled}
-              onClick={async () => {
-                setSubmitError(null);
-                if (!ctaEnabled) return;
-                await saveSettings();
-                // Only save prompts if the prompt form has changes
-                if (promptForm.formState.isDirty) {
-                  await savePrompts();
-                }
-              }}
-              setError={setSubmitError}
+              <Button variant="ghost" onClick={() => setQuery("")}>
+                Clear search
+              </Button>
+            </Flex>
+          )}
+          {hasQuery && total === 0 && (
+            <Box className={sectionStyles.noResults} role="status">
+              <Text as="p" size="lg" weight="semibold" mb="1">
+                No settings match &quot;{query.trim()}&quot;
+              </Text>
+              <Text as="p" color="text-mid" mb="3">
+                Search matches setting names, descriptions, and keywords. Try a
+                broader term, like &quot;refresh&quot; or &quot;variance&quot;.
+              </Text>
+              <Button variant="outline" onClick={() => setQuery("")}>
+                Clear search
+              </Button>
+            </Box>
+          )}
+
+          <SettingsSection id="organization">
+            <OrganizationAndLicenseSettings org={organization} />
+          </SettingsSection>
+
+          <SettingsSection id="experiments">
+            <ExperimentSettings />
+          </SettingsSection>
+
+          <SettingsSection id="statistics">
+            <StatsEngineSettings />
+            <SettingsGroup
+              id="an-bandits"
+              title={
+                <PremiumTooltip
+                  commercialFeature="multi-armed-bandits"
+                  premiumText="Bandits are a Pro feature"
+                >
+                  Bandits
+                </PremiumTooltip>
+              }
+              description="Defaults for new Bandits. Each Bandit can override these."
+              keywords="multi-armed bandit exploratory stage update cadence burn-in weights"
             >
-              Save all
-            </Button>
-          </Box>
-        </Box>
-      </Box>
-    </FormProvider>
+              <BanditSettings page="org-settings" />
+            </SettingsGroup>
+            <SettingsGroup
+              id="an-learnings"
+              title="Learning Statuses"
+              description="Statuses available on saved Learnings. Each Learning can have one, shown as a badge. New Learnings start with no status."
+              keywords="learnings statuses badges"
+            >
+              <LearningSettings />
+            </SettingsGroup>
+          </SettingsSection>
+
+          <SettingsSection id="metrics">
+            <MetricsSettings />
+            <DatasourceSettings />
+            <NorthStarMetricSettings />
+          </SettingsSection>
+
+          <SettingsSection id="features">
+            <FeatureSettings />
+            <RampScheduleTemplates />
+          </SettingsSection>
+
+          <SettingsSection id="approvals">
+            <ApprovalFlowSettings />
+          </SettingsSection>
+
+          <SettingsSection id="sdk">
+            <SDKConnectionSettings />
+            <SavedGroupSettings />
+            <TargetingAttributesSettings />
+          </SettingsSection>
+
+          <SettingsSection id="ai">
+            <AISettings promptForm={promptForm} />
+          </SettingsSection>
+
+          <SettingsSection id="import">
+            <ImportSettings
+              hasFileConfig={hasFileConfig()}
+              isCloud={isCloud()}
+              settings={settings}
+              refreshOrg={refreshOrganization}
+            />
+          </SettingsSection>
+
+          <SettingsSection id="markdown">
+            <CustomMarkdownSettings />
+          </SettingsSection>
+
+          <div className={sectionStyles.spacer} />
+        </div>
+        <UnsavedChangesBar />
+      </SettingsPage>
+    </>
   );
 };
 

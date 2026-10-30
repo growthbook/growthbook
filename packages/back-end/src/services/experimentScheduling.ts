@@ -1,6 +1,10 @@
 import { ExperimentInterface } from "shared/types/experiment";
 import { MetricGroupInterface } from "shared/types/metric-groups";
-import { expandMetricGroups, withScheduledBy } from "shared/experiments";
+import {
+  expandMetricGroups,
+  snapshotColumnVariationIds,
+  withScheduledBy,
+} from "shared/experiments";
 import { DEFAULT_DECISION_FRAMEWORK_ENABLED } from "shared/constants";
 import {
   ExperimentType,
@@ -59,13 +63,12 @@ async function getTiebreakerLiftMap(
 
   const metric = await getExperimentMetricById(context, metricId);
 
-  // Key by the snapshot's own variation ids (index-aligned with the analysis
-  // results); experiment.variations may have been reordered since.
-  const snapshotVariationIds = snapshot.settings.variations.map((v) => v.id);
-
   return buildTiebreakerLiftMap({
     variations: dimension.variations,
-    snapshotVariationIds,
+    variationIds: snapshotColumnVariationIds(
+      experiment,
+      snapshot.settings.variations,
+    ),
     metricId,
     inverse: metric?.inverse,
   });
@@ -592,7 +595,7 @@ export async function setExperimentSchedule({
     statusUpdateSchedule: schedule,
     // Running experiments stage the stop now; drafts stage nothing here. Either
     // way any previously-staged action is reset to match the new schedule.
-    nextScheduledStatusUpdate: withScheduledBy(stagedStop, context),
+    nextScheduledStatusUpdate: withScheduledBy(stagedStop, context.armer),
   };
 
   const updated = await updateExperiment({ context, experiment, changes });

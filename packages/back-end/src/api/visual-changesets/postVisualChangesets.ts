@@ -1,10 +1,12 @@
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { postVisualChangesetsValidator } from "shared/validators";
+import { ExperimentChangesetOwner } from "back-end/src/services/changesetOwner";
 import { getExperimentById } from "back-end/src/models/ExperimentModel";
 import {
   createVisualChangeset,
   toVisualChangesetApiInterface,
 } from "back-end/src/models/VisualChangesetModel";
+import { assertVisualChangesEditable } from "back-end/src/services/experiments";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 
 export const postVisualChangesets = createApiRequestHandler(
@@ -22,6 +24,7 @@ export const postVisualChangesets = createApiRequestHandler(
   if (!req.context.permissions.canUpdateVisualChange(experiment)) {
     req.context.permissions.throwPermissionError();
   }
+  assertVisualChangesEditable(req.context, experiment);
 
   const urlPatterns: VisualChangesetURLPattern[] = req.body.urlPatterns.map(
     (p) => ({
@@ -32,7 +35,7 @@ export const postVisualChangesets = createApiRequestHandler(
   );
 
   const visualChangeset = await createVisualChangeset({
-    experiment,
+    owner: new ExperimentChangesetOwner(req.context, experiment),
     urlPatterns,
     editorUrl: req.body.editorUrl,
     context: req.context,

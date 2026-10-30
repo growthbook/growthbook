@@ -16,7 +16,6 @@ jest.mock("back-end/src/util/logger", () => ({
 // this unit test must not load. Only referenced inside dispatch functions,
 // which these tests never call.
 jest.mock("back-end/src/services/features", () => ({
-  revisionToApiInterface: jest.fn(),
   toApiRevision: jest.fn(),
 }));
 jest.mock("back-end/src/services/audit", () => ({

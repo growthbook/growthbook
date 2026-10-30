@@ -1,7 +1,12 @@
 import { z } from "zod";
-import { normalizeTargetingProjects, validateFeatureValue } from "shared/util";
+import {
+  FEATURE_KEY_PATTERN,
+  FEATURE_KEY_PATTERN_ERROR,
+} from "shared/constants";
+import { normalizeTargetingProjects } from "shared/util";
 import { postFeatureValidator } from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
+import { assertStorableFeatureValue } from "back-end/src/util/storableFeatureValue";
 import { featurePublishEnvironmentIds } from "back-end/src/services/featurePublishGates";
 import { getApiCreateEnabledEnvironments } from "back-end/src/util/features";
 import { createApiRequestHandler } from "back-end/src/util/handler";
@@ -21,6 +26,7 @@ import {
 } from "back-end/src/services/features";
 import { auditDetailsCreate } from "back-end/src/services/audit";
 import { getEnvironments } from "back-end/src/services/organizations";
+import { holdFeatureCreate } from "back-end/src/services/confirmations";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { parseApiJsonSchema } from "back-end/src/util/feature-json-schema";
@@ -84,10 +90,8 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
     throw new Error(`Feature id '${req.body.id}' already exists.`);
   }
 
-  if (!req.body.id.match(/^[a-zA-Z0-9_.:|-]+$/)) {
-    throw new Error(
-      "Feature keys can only include letters, numbers, hyphens, and underscores.",
-    );
+  if (!new RegExp(FEATURE_KEY_PATTERN).test(req.body.id)) {
+    throw new Error(FEATURE_KEY_PATTERN_ERROR);
   }
 
   const orgEnvs = getEnvironments(req.context.org);
@@ -188,7 +192,7 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
 
   // ensure default value matches value type
-  feature.defaultValue = validateFeatureValue(
+  feature.defaultValue = assertStorableFeatureValue(
     feature,
     feature.defaultValue,
     "Default value",
@@ -201,6 +205,11 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   });
   // After the gate so an unreadable id cannot be probed for existence.
   await assertValidProjectIds(req.body.targetingProjects, req.context);
+  await holdFeatureCreate(
+    req.context,
+    feature,
+    getApiCreateEnabledEnvironments(orgEnvs, req.body.environments),
+  );
 
   // AFTER every authorization: tags are a persistent org-level side effect, and
   // writing them first meant a request that then 403'd had already mutated tag state.
@@ -212,6 +221,13 @@ export const postFeature = createApiRequestHandler(postFeatureValidator)(async (
   addIdsToFlatRules(feature.rules, feature.id);
 
   await createFeature(req.context, feature, { comment: req.body.comment });
+  if (req.context.actingUserId) {
+    await req.context.models.watch.upsertWatch({
+      userId: req.context.actingUserId,
+      item: feature.id,
+      type: "features",
+    });
+  }
 
   await req.audit({
     event: "feature.create",

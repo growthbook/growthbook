@@ -124,10 +124,27 @@ import {
 
 // Re-export for consumers of shared/validators
 export { eventUser } from "./event-user";
+export {
+  apiEventUser,
+  assumingKeyOf,
+  auditUserToEventUser,
+  eventUserLabel,
+  eventUserPerson,
+  eventUserPersonId,
+  eventUserIdentity,
+  eventUserKeyName,
+  eventUserLegacyLabel,
+  eventUserCredit,
+  eventUserToApiEventUser,
+  revisionActor,
+  revisionActors,
+} from "./event-user";
 export type {
+  ApiEventUser,
   EventUser,
   EventUserLoggedIn,
   EventUserApiKey,
+  EventUserRequestedBy,
 } from "./event-user";
 
 import { eventUser, eventUserLoggedIn } from "./event-user";
@@ -149,6 +166,17 @@ export const eventData = <T extends z.ZodTypeAny>(data: T) =>
     .strict();
 
 const webhookTestEventSchema = z.object({ webhookId: z.string() }).strict();
+
+// Deliberately omits the token value and the owning user's identity: these are
+// delivered to customer-configured webhooks, so they carry only what is needed
+// to find the key in the UI.
+const apiKeyExpirationEventSchema = z
+  .object({
+    id: z.string(),
+    description: z.string().optional(),
+    expiresAt: z.string(),
+  })
+  .strict();
 
 export const notificationEvents = {
   feature: {
@@ -497,6 +525,16 @@ export const notificationEvents = {
   user: {
     login: {
       schema: userLoginInterface,
+      isDiff: false,
+    },
+  },
+  apiKey: {
+    expiring: {
+      schema: apiKeyExpirationEventSchema,
+      isDiff: false,
+    },
+    expired: {
+      schema: apiKeyExpirationEventSchema,
       isDiff: false,
     },
   },

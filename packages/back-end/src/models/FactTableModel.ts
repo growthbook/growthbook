@@ -26,6 +26,8 @@ import {
   ApiFactTable,
   ApiFactTableColumn,
   ApiFactTableFilter,
+  isExternallyManaged,
+  externallyManagedError,
 } from "shared/validators";
 import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
@@ -168,7 +170,7 @@ export function createPropsToInterface(
 ): FactTableInterface {
   const props = {
     ...rawProps,
-    owner: rawProps.owner || context.userId,
+    owner: rawProps.owner || context.actingUserId,
   };
   const id = props.id || uniqid("ftb_");
   if (!id.match(/^[-a-zA-Z0-9_]+$/)) {
@@ -384,13 +386,13 @@ export async function updateFactTable(
   // system/background contexts (which have no audit user) through, e.g. the
   // event forwarder sync.
   if (
-    factTable.managedBy === "api" &&
+    isExternallyManaged(factTable.managedBy) &&
     context.auditUser?.type !== "api_key" &&
     context.auditUser !== null &&
     Object.keys(changes).some((k) => k !== "columns")
   ) {
     throw new Error(
-      "Cannot update fact table managed by API if the request isn't from the API.",
+      externallyManagedError("update", "fact table", factTable.managedBy),
     );
   }
 
@@ -735,6 +737,10 @@ export async function createColumn(
       },
     },
   );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
+  );
 
   return column;
 }
@@ -960,6 +966,10 @@ export async function deleteColumn(
         columns,
       },
     },
+  );
+  await touchDefinitionsVersion(
+    factTable.organization,
+    definitionsScope(factTable.projects),
   );
 
   // A virtual column may be referenced by metric auto-slices; remove those.
@@ -1189,11 +1199,11 @@ export async function deleteFactTable(
 ) {
   if (
     !bypassManagedByCheck &&
-    factTable.managedBy === "api" &&
+    isExternallyManaged(factTable.managedBy) &&
     context.auditUser?.type !== "api_key"
   ) {
     throw new Error(
-      "Cannot delete fact table managed by API if the request isn't from the API.",
+      externallyManagedError("delete", "fact table", factTable.managedBy),
     );
   }
 

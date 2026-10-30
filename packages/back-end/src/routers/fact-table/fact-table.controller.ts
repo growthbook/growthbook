@@ -5,7 +5,7 @@ import {
   getFactTableTimestampColumn,
 } from "shared/experiments";
 import { DEFAULT_MAX_METRIC_SLICE_LEVELS } from "shared/settings";
-import { cloneDeep } from "lodash";
+import { cloneDeep, omit } from "lodash";
 import {
   CreateVirtualColumnProps,
   CreateFactFilterProps,
@@ -30,8 +30,10 @@ import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { ReqContext } from "back-end/types/request";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { parseIdsQuery } from "back-end/src/util/validation";
 import {
   createFactTable,
+  buildColumnInterface,
   mergeUpsertColumns,
   getAllFactTablesForOrganization,
   getFactTable,
@@ -103,7 +105,7 @@ export const getFactTables = async (
   if (req.query.ids !== undefined) {
     const factTables = await getFactTablesByIds(
       context,
-      req.query.ids.split(",").filter(Boolean),
+      parseIdsQuery(req.query.ids) ?? [],
     );
     return res.status(200).json({
       status: 200,
@@ -197,8 +199,16 @@ export async function refreshColumns(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "columns" | "userIdTypes" | "timestampColumn"
-  >,
+    | "sql"
+    | "eventName"
+    | "columns"
+    | "userIdTypes"
+    | "userIdColumns"
+    | "timestampColumn"
+  > & {
+    // null only when the fact table hasn't been created yet
+    id: string | null;
+  },
   forceColumnRefresh?: boolean,
 ): Promise<RefreshColumnsResult> {
   if (!context.permissions.canRunFactQueries(datasource)) {
@@ -226,6 +236,7 @@ export async function refreshColumns(
       sql,
       [timestampColumn],
       "factTableValidation",
+      factTable.id,
     );
 
     if (!result.columns?.length) {
@@ -266,7 +277,16 @@ export const postFactTable = async (
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
-      data as FactTableInterface,
+      {
+        // createFactTable generates the id when the request doesn't supply one
+        id: data.id || null,
+        sql: data.sql,
+        eventName: data.eventName,
+        userIdTypes: data.userIdTypes,
+        userIdColumns: data.userIdColumns,
+        timestampColumn: data.timestampColumn,
+        columns: [],
+      },
     );
 
     if (!columns.length) {
@@ -351,7 +371,12 @@ export const putFactTable = async (
   > | null = null;
 
   if (forceColumnRefresh || needsColumnRefresh(factTable, data)) {
-    const updatedFactTable = { ...factTable, ...data } as FactTableInterface;
+    const updatedFactTable = {
+      ...factTable,
+      ...data,
+      // Request columns are input-shaped; normalize them like createFactTable does
+      columns: data.columns?.map(buildColumnInterface) ?? factTable.columns,
+    };
     const { columns, needsBackgroundRefresh } = await refreshColumns(
       context,
       datasource,
@@ -1256,19 +1281,25 @@ export const getFactMetrics = async (
   });
 };
 
+// Clients loaded before risk thresholds were retired may still send them.
+function withoutRiskThresholds<T extends object>(body: T): T {
+  return omit(body, ["winRisk", "loseRisk"]) as T;
+}
+
 export const postFactMetric = async (
   req: AuthRequest<CreateProps<FactMetricInterface>>,
   res: Response<{ status: 200; factMetric: FactMetricInterface }>,
 ) => {
   const context = getContextFromReq(req);
+  const body = withoutRiskThresholds(req.body);
 
   const factMetric = await context.models.factMetrics.create({
-    ...req.body,
+    ...body,
     cappingSettings:
-      req.body.cappingSettings === undefined
+      body.cappingSettings === undefined
         ? { type: "", value: 0 }
-        : req.body.cappingSettings,
-    ...resolveCappingSettingsPatch(req.body),
+        : body.cappingSettings,
+    ...resolveCappingSettingsPatch(body),
   });
 
   res.status(200).json({
@@ -1285,9 +1316,10 @@ export const putFactMetric = async (
 
   const existing = await context.models.factMetrics.getById(req.params.id);
   if (!existing) throw new Error("Fact Metric not found");
+  const body = withoutRiskThresholds(req.body);
   await context.models.factMetrics.update(existing, {
-    ...req.body,
-    ...resolveCappingSettingsPatch(req.body, existing),
+    ...body,
+    ...resolveCappingSettingsPatch(body, existing),
   });
 
   res.status(200).json({

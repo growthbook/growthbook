@@ -194,7 +194,7 @@ export const notificationEventMetadata = {
   "feature.revision.published": {
     label: "New version published",
     description:
-      "Triggered when a draft revision is published. Overlaps with `feature.updated` but provides revision-specific context (base version, comment, author).",
+      "Triggered when a draft revision is published. Overlaps with `feature.updated` but identifies the revision and its author.",
     subtitle: "A draft becomes the live version.",
     preview: true,
   },
@@ -598,6 +598,16 @@ export const notificationEventMetadata = {
   "user.login": {
     label: "User logged in",
     description: "Triggered when a user logs in",
+  },
+  "apiKey.expiring": {
+    label: "API key expiring",
+    description:
+      "Triggered once when a secret API key is within a week of expiring",
+  },
+  "apiKey.expired": {
+    label: "API key expired",
+    description:
+      "Triggered once when a secret API key passes its expiration date",
   },
   "webhook.test": {
     label: "Webhook test",

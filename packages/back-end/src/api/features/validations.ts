@@ -1,3 +1,4 @@
+import type { ExperimentInterface } from "shared/types/experiment";
 import type {
   FeatureRule,
   FeaturePrerequisite,
@@ -16,6 +17,8 @@ import {
   rampPlanLacksHashAttribute,
   getRuleAttributeScopeProjectIds,
   findStoredRuleCounterpart,
+  getNewlyUnscopedRules,
+  FeatureRuleScope,
   stemRuleId,
   validateCondition,
   validatePrerequisiteCondition,
@@ -43,7 +46,11 @@ import {
 } from "back-end/src/models/FeatureRevisionModel";
 import { validateCustomFieldsForSection } from "back-end/src/util/custom-fields";
 import type { ReqContext } from "back-end/types/request";
-import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
+import {
+  BadRequestError,
+  NotFoundError,
+  UnscopedRuleError,
+} from "back-end/src/util/errors";
 import { logger } from "back-end/src/util/logger";
 import { getEnvironmentIdsFromOrg } from "back-end/src/util/organization.util";
 import { resolveRampTarget } from "back-end/src/util/flattenRules";
@@ -1050,16 +1057,42 @@ function checkPrerequisiteConditionKeys(
   return null;
 }
 
+export function assertScopedRules(
+  context: ReqContext | ApiReqContext,
+  rules: (FeatureRuleScope & { id: string })[],
+  stored: (FeatureRuleScope & { id: string })[],
+) {
+  if (
+    !context.org.settings?.requireScopedFeatureRules ||
+    context.allowUnscopedRules
+  ) {
+    return;
+  }
+  const unscoped = getNewlyUnscopedRules(rules, stored);
+  if (unscoped.length) {
+    throw new UnscopedRuleError(
+      unscoped.length,
+      unscoped.map((rule) => rule.id).filter(Boolean),
+    );
+  }
+}
+
 // The rule-level checks every feature write runs, dashboard and REST alike.
 // With `stored`, only what differs from the stored rule is re-checked.
 export async function assertValidFeatureRules(
   context: ReqContext | ApiReqContext,
   rules: FeatureRule[],
   stored: FeatureRule[] = [],
+  {
+    // Experiments the same save changes, judged as they will be.
+    planned = [],
+    copiesRules = false,
+  }: { planned?: ExperimentInterface[]; copiesRules?: boolean } = {},
 ): Promise<void> {
+  if (!copiesRules) assertScopedRules(context, rules, stored);
   assertValidChangedRuleEnvironments(context, rules, stored);
   await assertValidChangedRuleProjectIds(rules, stored, context);
-  await assertValidChangedRuleExperimentIds(rules, stored, context);
+  await assertValidChangedRuleExperimentIds(rules, stored, context, planned);
   await validateChangedRuleReferences(rules, stored, context);
   validateRulesScheduleRules(rules, context, stored);
 }
@@ -1071,8 +1104,11 @@ export async function assertValidRuleWrite(
   feature: FeatureInterface,
   rule: FeatureRule,
   stored?: FeatureRule,
+  planned: ExperimentInterface[] = [],
 ): Promise<void> {
-  await assertValidFeatureRules(context, [rule], stored ? [stored] : []);
+  await assertValidFeatureRules(context, [rule], stored ? [stored] : [], {
+    planned,
+  });
   if (
     !stored ||
     !isEqual(configCheckedRuleValues(stored), configCheckedRuleValues(rule))

@@ -41,8 +41,10 @@ import Field from "@/components/Forms/Field";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import Checkbox from "@/ui/Checkbox";
 import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
-import AccountPlanNotices from "@/components/Layout/AccountPlanNotices";
-import { PayloadSizeTopNavNotice } from "@/components/Features/SDKConnections/PayloadSizeNotices";
+import NoticeStack from "@/components/Notices/NoticeStack";
+import useAccountPlanNotices from "@/components/Notices/useAccountPlanNotices";
+import useKeyExpiryNotices from "@/components/Notices/useKeyExpiryNotices";
+import { usePayloadSizeNotices } from "@/components/Features/SDKConnections/PayloadSizeNotices";
 import AccountPlanBadge from "@/components/Layout/AccountPlanBadge";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import { useAgentPanel } from "@/components/Agent/AgentPanelContext";
@@ -54,7 +56,14 @@ const TopNav: FC<{
   pageTitle: string;
   showNotices?: boolean;
   showLogo?: boolean;
-}> = ({ toggleLeftMenu, pageTitle, showNotices, showLogo = true }) => {
+  mutedBreadcrumb?: boolean;
+}> = ({
+  toggleLeftMenu,
+  pageTitle,
+  showNotices,
+  showLogo = true,
+  mutedBreadcrumb = false,
+}) => {
   const [editUserOpen, setEditUserOpen] = useState(false);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const [enableCelebrations, setEnableCelebrations] =
@@ -62,6 +71,11 @@ const TopNav: FC<{
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const { breadcrumb } = usePageHead();
+  const notices = [
+    ...useAccountPlanNotices(),
+    ...usePayloadSizeNotices(),
+    ...useKeyExpiryNotices(),
+  ];
 
   const { updateUser, name, email, organization, hasCommercialFeature } =
     useUser();
@@ -401,7 +415,7 @@ const TopNav: FC<{
 
     return (
       <div className={styles.pagetitle}>
-        <Breadcrumbs items={breadcrumbItems} />
+        <Breadcrumbs items={breadcrumbItems} muted={mutedBreadcrumb} />
       </div>
     );
   };
@@ -480,10 +494,7 @@ const TopNav: FC<{
           {showNotices && (
             <>
               <div className="nav-link">
-                <AccountPlanNotices />
-              </div>
-              <div className="nav-link">
-                <PayloadSizeTopNavNotice />
+                <NoticeStack notices={notices} />
               </div>
               <div className="nav-link">
                 <AccountPlanBadge />

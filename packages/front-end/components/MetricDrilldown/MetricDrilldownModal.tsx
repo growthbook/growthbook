@@ -1,6 +1,6 @@
 import { FC, useState, useMemo, useEffect } from "react";
 import { PiArrowSquareOut } from "react-icons/pi";
-import { Box, Flex, Text } from "@radix-ui/themes";
+import { Box, Flex, IconButton, Text } from "@radix-ui/themes";
 import {
   getMetricLink,
   ExperimentMetricDefinition,
@@ -31,7 +31,6 @@ import {
   getHonoredPrecomputedUnitDimensionIds,
 } from "@/services/experiments";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/ui/Tabs";
-import Link from "@/ui/Link";
 import MetricName from "@/components/Metrics/MetricName";
 import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
@@ -255,6 +254,12 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
     return updatedRow ?? row;
   }, [allRows, metric.id, row]);
 
+  // Exclude all child rows (slices and funnel steps).
+  const goalRows = useMemo(
+    () => allRows.filter((r) => r.resultGroup === "goal" && !r.isChildRow),
+    [allRows],
+  );
+
   const [sliceSearchTerm, setSliceSearchTerm] = useState(
     initialSliceSearchTerm || "",
   );
@@ -443,6 +448,7 @@ const MetricDrilldownContent: FC<MetricDrilldownContentProps> = ({
           reportDate={reportDate}
           isLatestPhase={isLatestPhase}
           pValueCorrection={pValueCorrection}
+          goalRows={goalRows}
           sequentialTestingEnabled={sequentialTestingEnabled}
           experimentStatus={experimentStatus}
           variationNames={variations.map((v) => v.name)}
@@ -589,17 +595,24 @@ const MetricDrilldownModal = ({
         includeCloseCta={false}
         dismissible
         header={
-          <Flex align="center" gap="0">
+          <Flex align="center" gap="3">
             <Text size="6" weight="bold">
-              <MetricName metric={metric} officialBadgePosition="right" />
+              <MetricName
+                metric={metric}
+                officialBadgePosition="right"
+                officialBadgeLeftGap={false}
+              />
             </Text>
-            <Link
-              href={getMetricLink(metric.id)}
-              target="_blank"
-              style={{ display: "inline-flex", alignItems: "center" }}
-            >
-              <PiArrowSquareOut size={16} />
-            </Link>
+            <IconButton asChild variant="ghost" radius="full" size="2">
+              <a
+                href={getMetricLink(metric.id)}
+                target="_blank"
+                rel="noreferrer"
+                aria-label="Open metric in a new tab"
+              >
+                <PiArrowSquareOut size={16} />
+              </a>
+            </IconButton>
           </Flex>
         }
         subHeader={

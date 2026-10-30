@@ -4,6 +4,7 @@ import {
 } from "shared/validators";
 import { stringToBoolean } from "shared/util";
 import type { ApiReqContext } from "back-end/types/api";
+import { assertUserScopedKeyForMine } from "back-end/src/api/revisionValidations";
 import {
   getFeatureRevisionsByStatus,
   countDocuments,
@@ -56,12 +57,8 @@ export async function loadRevisionsPage(
       "`mine` and `author` are mutually exclusive. Pass one or the other.",
     );
   }
-  if (mine && !context.userId) {
-    throw new BadRequestError(
-      "`mine=true` requires a user-scoped API key (the caller must be identifiable as a user).",
-    );
-  }
-  const involvedUserId = mine ? context.userId : undefined;
+  assertUserScopedKeyForMine(context, mine);
+  const involvedUserId = mine ? context.actingUserId : undefined;
 
   const skipPagination = stringToBoolean(query.skipPagination?.toString());
   if (skipPagination && !API_ALLOW_SKIP_PAGINATION) {

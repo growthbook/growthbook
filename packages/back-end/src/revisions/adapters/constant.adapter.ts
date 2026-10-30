@@ -15,6 +15,7 @@ import {
   constantRequiresReview,
   constantResetReviewOnChange,
   getConstantReviewRequirement,
+  orgRequiresAnyReview,
 } from "shared/util";
 import {
   constantValidator,
@@ -36,11 +37,12 @@ import {
   captureConstantExperimentGuardAcknowledgment,
   constantChangeAffectsServedValue,
   constantRevisionAffectsServedValue,
-  describeConstantConflictKeys,
+  describeExperimentGuardConflicts,
   evaluateConstantExperimentGuardConflicts,
 } from "back-end/src/services/experimentGuard";
 import {
   captureConfigLockAcknowledgment,
+  describeLockedConfigs,
   evaluateConfigLockConflicts,
 } from "back-end/src/services/configLockGuard";
 import {
@@ -112,12 +114,9 @@ function constantProjects(snapshot: ConstantInterface): string[] {
 // review rule? Used for inbox/badge surfacing; the precise per-change decision
 // lives in `isApprovalRequiredForRevision`.
 function constantApprovalConfigured(context: Context): boolean {
-  if (!context.hasPremiumFeature("require-approvals")) return false;
-  const requireReviews = context.org.settings?.requireReviews;
-  if (typeof requireReviews === "boolean") return requireReviews;
-  return (
-    Array.isArray(requireReviews) &&
-    requireReviews.some((r) => r.requireReviewOn)
+  return orgRequiresAnyReview(
+    context.org.settings,
+    context.hasPremiumFeature("require-approvals"),
   );
 }
 
@@ -440,16 +439,17 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       }
     }
 
-    const experimentConflicts = [
-      ...(await evaluateConstantExperimentGuardConflicts(context, entity)),
-    ].sort();
-    if (experimentConflicts.length) {
+    const experimentConflicts = await evaluateConstantExperimentGuardConflicts(
+      context,
+      entity,
+    );
+    if (experimentConflicts.size) {
       if (override) {
         logger.info(
           {
             constantKey: entity.key,
             userId: context.userId,
-            conflictKeys: experimentConflicts,
+            conflictKeys: [...experimentConflicts.keys()].sort(),
           },
           "Constant experiment guard overridden on a direct publish",
         );
@@ -457,11 +457,10 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       gates.push({
         type: "experiment-guard",
         severity: "warning",
-        messages: [
-          `Publishing this Constant rewrites the live value served to a running experiment (${describeConstantConflictKeys(
-            experimentConflicts,
-          )}).`,
-        ],
+        messages: await describeExperimentGuardConflicts(
+          context,
+          experimentConflicts,
+        ),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,
@@ -490,11 +489,7 @@ export const constantAdapter: EntityRevisionAdapter<ConstantInterface> = {
       gates.push({
         type: "dependent-config-locked",
         severity: "warning",
-        messages: [
-          `Publishing this Constant changes the resolved value of locked Config(s): ${lockConflicts.join(
-            ", ",
-          )}.`,
-        ],
+        messages: await describeLockedConfigs(context, lockConflicts),
         override: "ignoreWarnings",
         requiresPermission: null,
         resolution: null,

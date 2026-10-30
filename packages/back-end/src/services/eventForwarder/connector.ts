@@ -29,7 +29,7 @@ import {
 import {
   decryptEventForwarderConfigModel,
   getBigQueryEventForwarderProjectId,
-  isInHouseConsumerSink,
+  isInHouseConsumerTopic,
 } from "back-end/src/services/eventForwarder/config";
 import {
   ensureEventForwarderBigQueryTables,
@@ -44,6 +44,8 @@ import {
   assertEventForwarderWriteAccessResult,
   testEventForwarderWriteAccess,
 } from "back-end/src/services/eventForwarder/writeAccess";
+// After writeAccess: the Snowflake service loads SqlIntegration, which must already be initialised.
+import { ensureEventForwarderSnowflakeTables } from "back-end/src/services/eventForwarder/snowflake";
 import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 
@@ -53,7 +55,7 @@ import { ReqContext } from "back-end/types/request";
 
 export function mapLicenseConnectorPhaseToEventForwarderStatus(
   phase: EventForwarderLicenseConnectorPhase,
-): EventForwarderStatus {
+): Exclude<EventForwarderStatus, "unconfigured"> {
   switch (phase) {
     case "ready":
       return "ready";
@@ -295,6 +297,14 @@ export async function provisionEventForwarderThroughLicenseServer(
           }),
         );
 
+        // Connector configs own their tables (Snowpipe schematization); consumer configs get them from the app.
+        if (isInHouseConsumerTopic(eventForwarderConfig.topic, "snowflake")) {
+          await ensureEventForwarderSnowflakeTables(
+            datasourceParams as SnowflakeConnectionParams,
+            decrypted,
+          );
+        }
+
         result = await postProvisionEventForwarderToLicenseServer({
           organizationId: context.org.id,
           datasourceId: eventForwarderConfig.datasourceId,
@@ -347,7 +357,8 @@ export async function provisionEventForwarderThroughLicenseServer(
 
     // In-house consumer sinks have no connector to wait on: tables exist and
     // write access passed, so they are ready now.
-    const inHouseConsumer = isInHouseConsumerSink(
+    const inHouseConsumer = isInHouseConsumerTopic(
+      eventForwarderConfig.topic,
       eventForwarderConfig.sinkType,
     );
     const currentEventForwarderConfig =

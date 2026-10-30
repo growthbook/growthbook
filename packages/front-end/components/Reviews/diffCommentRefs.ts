@@ -1,5 +1,5 @@
 import { diffLines } from "diff";
-import type { RevisionLog } from "shared/validators";
+import { eventUserCredit, type RevisionLog } from "shared/validators";
 import type { Review } from "shared/enterprise";
 
 // ── Diff comment references ──
@@ -65,8 +65,8 @@ export type DiffSnapshotEntry = DiffRefSnapshotLine & {
 };
 
 // Section keys may not contain `:` (the token delimiter). Everything we
-// generate (`rules`, `environmentsEnabled.production`, `rampAction.<id>`)
-// fits this charset.
+// generate (`rules`, `environmentsEnabled`, `rampAction.<id>`, and the older
+// `environmentsEnabled.<env>`) fits this charset.
 const REF_BLOCK_RE =
   /```diff-ref ([A-Za-z0-9_.-]+):([LR])(\d+)\n([\s\S]*?)```/g;
 // Legacy single-token form (no snapshot); still parsed, no longer emitted.
@@ -401,12 +401,9 @@ export function buildAnchoredCommentMap(
       entry.timestamp instanceof Date
         ? entry.timestamp.toISOString()
         : String(entry.timestamp);
-    const user = entry.user;
-    const userId = user && "id" in user ? user.id : undefined;
-    const userName =
-      (user && "name" in user && user.name) ||
-      (user && "email" in user && user.email) ||
-      undefined;
+    const person = eventUserCredit(entry.user ?? null);
+    const userId = person?.id;
+    const userName = person?.name || person?.email || undefined;
     for (const ref of parseDiffRefs(comment)) {
       const id = diffRefId(ref);
       const existing = map.get(id);

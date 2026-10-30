@@ -24,6 +24,16 @@ const pendingDraftFailureSchema = z.object({
   ]),
 });
 
+// `rejected`: the hook threw on purpose, so `message` is for end users; else it crashed or never ran.
+export const customHookErrorSchema = z.object({
+  hookName: z.string(),
+  rejected: z.boolean(),
+  message: z.string(),
+  stack: z.string().optional(),
+  log: z.string().optional(),
+});
+export type CustomHookErrorDetail = z.infer<typeof customHookErrorSchema>;
+
 export const apiErrorRegistry = {
   conflict: {
     status: 409,
@@ -32,7 +42,8 @@ export const apiErrorRegistry = {
   },
   checklist_incomplete: {
     status: 409,
-    description: "Required checklist items are incomplete",
+    description:
+      "An experiment start is blocked by its launch checklist or a linked Feature Flag",
     detailsSchema: z.object({
       remainingChecklistItems: z.array(checklistItemSchema),
     }),
@@ -76,6 +87,29 @@ export const apiErrorRegistry = {
       pattern: z.string(),
       example: z.string(),
     }),
+  },
+  changes_conflict: {
+    status: 409,
+    description:
+      "Values the changes were made against were saved by someone else since they were loaded",
+    detailsSchema: z.object({
+      fields: z.array(z.string()),
+      featureIds: z.array(z.string()),
+      urlRedirectIds: z.array(z.string()),
+      visualChangesetIds: z.array(z.string()),
+    }),
+  },
+  unscoped_rule: {
+    status: 422,
+    description:
+      "A rule applies to All Environments and All Projects, which the organization doesn't allow without `allowUnscopedRules`",
+    detailsSchema: z.object({ ruleIds: z.array(z.string()) }),
+  },
+  custom_hook_error: {
+    status: 400,
+    description:
+      "A custom validation hook rejected the change or failed to run",
+    detailsSchema: z.object({ hooks: z.array(customHookErrorSchema) }),
   },
 } satisfies Record<
   string,

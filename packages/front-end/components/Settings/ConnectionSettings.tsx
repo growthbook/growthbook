@@ -2,6 +2,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ChangeEventHandler, ReactNode, useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import { isCloud } from "@/services/env";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
@@ -10,7 +11,7 @@ import MixpanelForm from "./MixpanelForm";
 import MysqlForm from "./MysqlForm";
 import PostgresForm from "./PostgresForm";
 import PrestoForm from "./PrestoForm";
-import SnowflakeForm from "./SnowflakeForm";
+import SnowflakeForm, { KeyPairGenerator } from "./SnowflakeForm";
 import MssqlForm from "./MssqlForm";
 import DatabricksForm from "./DatabricksForm";
 import AdobeExperiencePlatformQueryServiceForm from "./AdobeExperiencePlatformQueryServiceForm";
@@ -23,6 +24,14 @@ export interface Props {
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
   beforeAdvancedSettings?: ReactNode;
+  /**
+   * Collect credentials only. The connection test lives outside this form and
+   * no SQL is generated on save, so BigQuery hides its Default Dataset field
+   * and inline Test Connection button.
+   */
+  connectionOnly?: boolean;
+  /** Snowflake only: offer to generate the key pair instead of uploading one. */
+  keyPairGenerator?: KeyPairGenerator;
 }
 
 export default function ConnectionSettings({
@@ -32,11 +41,18 @@ export default function ConnectionSettings({
   setDirty,
   hasError,
   beforeAdvancedSettings,
+  connectionOnly = false,
+  keyPairGenerator,
 }: Props) {
+  const bigQueryParams =
+    datasource.type === "bigquery" ? datasource.params : undefined;
   const [advancedOpen, setAdvancedOpen] = useState(
     !!datasource.settings?.maxConcurrentQueries ||
       !!datasource.settings?.queryCacheTTLMins ||
-      (datasource.type === "bigquery" && !!datasource.params?.apiEndpoint),
+      !!bigQueryParams?.apiEndpoint ||
+      !!bigQueryParams?.reservation ||
+      (!!bigQueryParams?.defaultProject &&
+        bigQueryParams.defaultProject !== bigQueryParams.projectId),
   );
 
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
@@ -182,6 +198,7 @@ export default function ConnectionSettings({
           onManualParamChange={onManualParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          keyPairGenerator={keyPairGenerator}
         />
       );
       break;
@@ -204,6 +221,7 @@ export default function ConnectionSettings({
           setParams={setParams}
           params={datasource?.params || {}}
           onParamChange={onParamChange}
+          connectionOnly={connectionOnly}
         />
       );
       break;
@@ -251,6 +269,7 @@ export default function ConnectionSettings({
               <BigQueryAdvancedSettings
                 params={datasource.params || {}}
                 onParamChange={onParamChange}
+                showProjectId={isCloud() || bigQueryParams?.authType !== "auto"}
               />
             )}
             <SharedConnectionSettings
