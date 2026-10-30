@@ -261,7 +261,7 @@ export default function IdentifierModal({
       <Grid columns={`minmax(0, 1fr) ${PANEL_WIDTH}px`} gap="6">
         <Flex direction="column" gap="5" style={{ minWidth: 0 }}>
           <TextField
-            label="Identifier"
+            label="Name"
             required
             markRequired
             autoFocus={!isEdit}

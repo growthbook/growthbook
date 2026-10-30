@@ -332,7 +332,7 @@ export default function AttributeModal({
           )}
 
           <TextField
-            label="Attribute"
+            label="Name"
             required
             markRequired
             autoFocus={!attribute}
