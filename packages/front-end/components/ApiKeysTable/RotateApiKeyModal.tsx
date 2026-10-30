@@ -114,12 +114,14 @@ export function IssuedApiKeyModal({
       close={close}
       closeCta="Done"
       dismissible={false}
+      size="lg"
     >
       <Text as="p" mb="2">
         {rotated && "Update your clients to use the new secret. "}
-        Copy it now. You won&apos;t be able to see it again.
+        Save this key somewhere safe. You won&apos;t be able to see it again
+        later.
       </Text>
-      <CopyableCode value={issued.key} />
+      <CopyableCode value={issued.key} framed />
       <Flex direction="column" gap="4" mt="4">
         {rotated && (
           <Detail label="Previous secret stops">
