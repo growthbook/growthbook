@@ -781,9 +781,12 @@ export function selectAnalysisQueryData(
       queryData,
       dimensionId,
     );
-    if (isolatedQueryData.size > 0) {
-      return isolatedQueryData;
+    if (isolatedQueryData.size === 0) {
+      throw new Error(
+        `Snapshot is missing query results for dimension "${dimensionId}". Refresh the experiment results to recompute.`,
+      );
     }
+    return isolatedQueryData;
   }
   return filterParentQueryMap(queryData);
 }

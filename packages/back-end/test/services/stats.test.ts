@@ -442,19 +442,17 @@ describe("selectAnalysisQueryData", () => {
     expect(result.get("met_revenue")).toBe(parentMetric);
   });
 
-  it("leaves an already-routed bare-key map untouched (explicit per-dimension path)", () => {
-    // getQueryMapForAnalysis pre-routes to bare keys; buildUnitDimensionQueryMap
-    // finds no `unitdim:` queries, so we fall through without dropping anything.
-    const preRouted: QueryMap = new Map([
-      ["group_0", isolatedGroup],
-      ["met_revenue", isolatedMetric],
+  it("throws when an isolated dimension has no unitdim: query results", () => {
+    // Routing now lives solely here, so a map missing the isolated dimension's
+    // `unitdim:` queries fails loud instead of silently falling back to the
+    // parent (overall) query, which would fail confusingly inside the stats
+    // engine.
+    const missingIsolated: QueryMap = new Map([
+      ["group_0", parentGroup],
+      ["met_revenue", parentMetric],
     ]);
-    const result = selectAnalysisQueryData(
-      preRouted,
-      clusterSettings,
-      "exp:browser",
-    );
-    expect(result.get("group_0")).toBe(isolatedGroup);
-    expect(result.get("met_revenue")).toBe(isolatedMetric);
+    expect(() =>
+      selectAnalysisQueryData(missingIsolated, clusterSettings, "exp:browser"),
+    ).toThrow(/missing query results for dimension "exp:browser"/);
   });
 });

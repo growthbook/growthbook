@@ -63,7 +63,6 @@ import {
   getClusterExperimentMetricEligibility,
   getClusterSubUnit,
   ClusterMetricAnalysisLevel,
-  isIsolatedDimension,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -223,11 +222,7 @@ import {
 } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
-import {
-  buildUnitDimensionQueryMap,
-  filterParentQueryMap,
-} from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,
   getFactTableMap,
@@ -3303,37 +3298,6 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
-// Loads the query results needed to run gbstats for the given analyses. For
-// unit-dimension analyses (whose queries live under a `unitdim:<dim>:` prefix
-// on the parent snapshot), the map is filtered + renamed so gbstats sees the
-// bare metric keys it expects.
-async function getQueryMapForAnalysis(
-  context: ReqContext | ApiReqContext,
-  snapshot: ExperimentSnapshotInterface,
-  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
-): Promise<QueryMap> {
-  const queryMap = await getQueryMap(context, snapshot.queries);
-  const dimensionId = analysisSettingsList[0]?.dimensions[0];
-  // Isolated dimensions (precomputed unit dimensions, plus cluster-experiment
-  // sub-unit dimensions) are stored as their own `unitdim:<id>:` queries rather
-  // than folded into the parent query, so they are analyzed from a filtered
-  // sub-map keyed on the dimension id.
-  if (dimensionId && isIsolatedDimension(snapshot.settings, dimensionId)) {
-    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
-    if (unitDimQueryMap.size === 0) {
-      // The parent snapshot lists this isolated dimension in its settings but
-      // has no `unitdim:<id>:` query results — either the snapshot predates
-      // this feature or its isolated-dimension queries were pruned/failed.
-      // Refreshing the snapshot will repopulate them.
-      throw new Error(
-        `Snapshot is missing query results for dimension "${dimensionId}". Refresh the experiment results to recompute.`,
-      );
-    }
-    return unitDimQueryMap;
-  }
-  return filterParentQueryMap(queryMap);
-}
-
 export async function createSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext,
@@ -3382,9 +3346,7 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap = await getQueryMapForAnalysis(context, snapshot, [
-    analysisSettings,
-  ]);
+  const queryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -3446,11 +3408,7 @@ export async function createSnapshotAnalysesBatched(
     }),
   );
 
-  const queryMap = await getQueryMapForAnalysis(
-    context,
-    snapshot,
-    analysisSettingsList,
-  );
+  const queryMap = await getQueryMap(context, snapshot.queries);
 
   // Single gbstats call -- all analyses share the same queryResults and
   // metric settings, so we can use a single python process
