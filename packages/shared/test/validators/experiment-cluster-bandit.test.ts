@@ -45,6 +45,12 @@ describe("isClusterConfigChangeLocked", () => {
       subUnitIdentifier: "user_id",
       nextSubUnitIdentifier: "device_id",
     },
+    {
+      ...launched,
+      isClusterExperiment: true,
+      clusterIdentifier: "region_id",
+      nextClusterIdentifier: "store_id",
+    },
   ])("locks %p", (args) => {
     expect(isClusterConfigChangeLocked(args)).toBe(true);
   });
@@ -82,6 +88,18 @@ describe("isClusterConfigChangeLocked", () => {
       isClusterExperiment: false,
       subUnitIdentifier: "",
       nextSubUnitIdentifier: "device_id",
+    },
+    {
+      ...launched,
+      isClusterExperiment: false,
+      clusterIdentifier: "user_id",
+      nextClusterIdentifier: "device_id",
+    },
+    {
+      ...launched,
+      isClusterExperiment: true,
+      clusterIdentifier: "region_id",
+      nextClusterIdentifier: "region_id",
     },
   ])("allows %p", (args) => {
     expect(isClusterConfigChangeLocked(args)).toBe(false);

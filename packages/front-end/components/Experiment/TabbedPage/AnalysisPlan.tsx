@@ -54,6 +54,7 @@ import AssignmentQueryFields, {
   getClusterSubUnitOptions,
   getClusterChangeAfterLaunch,
   getLockedClusterError,
+  getSavedClusterIdentifier,
   isClusterConfigLocked,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -936,9 +937,14 @@ function DataSourceModal({
   const lockError = getLockedClusterError({
     experiment,
     locked,
+    datasourceSelected: !!selected,
     supportsClusterExperiments,
     exposureQuery,
     identifierType: clusterIdentifier,
+    savedClusterIdentifier: getSavedClusterIdentifier(
+      experiment,
+      getDatasourceById(experiment.datasource ?? "") ?? undefined,
+    ),
   });
   const clusterChangedAfterLaunch = getClusterChangeAfterLaunch(experiment, {
     isClusterExperiment,
@@ -1011,7 +1017,7 @@ function DataSourceModal({
         />
       ) : lockError ? (
         <HelperText status="error" size="sm">
-          {lockError}
+          {lockError.content}
         </HelperText>
       ) : selected && cluster.isClusterExperiment ? (
         <HelperText status="warning" size="sm">

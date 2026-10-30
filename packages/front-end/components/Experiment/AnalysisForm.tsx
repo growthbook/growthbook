@@ -37,6 +37,7 @@ import AssignmentQueryFields, {
   CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
   getClusterChangeAfterLaunch,
   getLockedClusterError,
+  getSavedClusterIdentifier,
   isClusterConfigLocked,
   POST_STRATIFICATION_CLUSTER_MESSAGE,
   useAssignmentQuerySelection,
@@ -383,6 +384,7 @@ const AnalysisForm: FC<{
   const clusterLockError = getLockedClusterError({
     experiment,
     locked: clusterLocked,
+    datasourceSelected: !!datasource,
     supportsClusterExperiments,
     exposureQuery,
     identifierType: exposureQuery
@@ -391,6 +393,10 @@ const AnalysisForm: FC<{
           exposureQueryIdentifierType,
         )
       : undefined,
+    savedClusterIdentifier: getSavedClusterIdentifier(
+      experiment,
+      initialDatasource ?? undefined,
+    ),
   });
   const goalMetrics = form.watch("goalMetrics");
   const secondaryMetrics = form.watch("secondaryMetrics");
@@ -559,7 +565,7 @@ const AnalysisForm: FC<{
           body.guardrailMetrics = keep(body.guardrailMetrics);
         }
 
-        if (clusterLockError) throw new Error(clusterLockError);
+        if (clusterLockError) throw new Error(clusterLockError.message);
         if (!supportsClusterExperiments) {
           body.isClusterExperiment = false;
         }
@@ -796,9 +802,9 @@ const AnalysisForm: FC<{
                   experiment.datasource ? DATASOURCE_CHANGE_NOTE : undefined
                 }
               />
-              {clusterLockError && !supportsClusterExperiments ? (
+              {clusterLockError?.field === "datasource" ? (
                 <HelperText status="error" size="sm" mt="2">
-                  {clusterLockError}
+                  {clusterLockError.content}
                 </HelperText>
               ) : experiment.isClusterExperiment &&
                 datasource &&

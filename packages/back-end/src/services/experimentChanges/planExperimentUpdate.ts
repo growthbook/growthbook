@@ -18,8 +18,6 @@ import type {
 } from "shared/validators";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
-  CLUSTER_CONFIG_LOCKED_MESSAGE,
-  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
@@ -33,6 +31,7 @@ import type { AuditInterfaceInput } from "shared/types/audit";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   assertCanEnableClusterExperiment,
+  assertClusterConfigUnlocked,
   assertCanRunExperimentChanges,
   assertExperimentKeyFormat,
   assertValidClusterExperimentConfig,
@@ -577,19 +576,17 @@ export async function planExperimentUpdate(
     changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
   }
 
-  if (
-    isClusterConfigChangeLocked({
-      status: experiment.status,
-      hasLinkedChanges: experimentHasLinkedChanges(experiment),
-      nextStatus: changes.status,
-      isClusterExperiment: experiment.isClusterExperiment,
-      nextIsClusterExperiment: changes.isClusterExperiment,
-      subUnitIdentifier: experiment.clusterSubUnitIdentifier,
-      nextSubUnitIdentifier: changes.clusterSubUnitIdentifier,
-    })
-  ) {
-    throw new Error(CLUSTER_CONFIG_LOCKED_MESSAGE);
-  }
+  await assertClusterConfigUnlocked(context, experiment, {
+    status: changes.status,
+    isClusterExperiment: changes.isClusterExperiment,
+    clusterSubUnitIdentifier: changes.clusterSubUnitIdentifier,
+    datasource: changes.datasource ?? experiment.datasource ?? "",
+    exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+    exposureQueryIdentifierType:
+      "exposureQueryIdentifierType" in changes
+        ? changes.exposureQueryIdentifierType
+        : experiment.exposureQueryIdentifierType,
+  });
   if (changes.isClusterExperiment) {
     assertCanEnableClusterExperiment(context);
   }

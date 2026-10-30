@@ -47,6 +47,7 @@ import {
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
   validateClusterExperimentIdentifiers,
+  experimentHasLinkedChanges,
   linkedFeatureEnvStates,
   orgRequiresAnyReview,
 } from "shared/util";
@@ -120,6 +121,8 @@ import {
   ApiMetric,
   ScheduledStopPlan,
   resolveSavedGroupsInput,
+  CLUSTER_CONFIG_LOCKED_MESSAGE,
+  isClusterConfigChangeLocked,
 } from "shared/validators";
 import { ComboConstituent, Dimension } from "shared/types/integrations";
 import {
@@ -4890,6 +4893,69 @@ export function assertCanEnableClusterExperiment(context: ReqContext) {
     context.throwPlanDoesNotAllowError(
       "Cluster experiments require a Pro plan or higher.",
     );
+  }
+}
+
+// Queries are only loaded once the experiment is locked, so most saves skip them.
+export async function assertClusterConfigUnlocked(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  next: {
+    status?: string;
+    isClusterExperiment?: boolean | null;
+    clusterSubUnitIdentifier?: string | null;
+    datasource: string;
+    exposureQueryId: string;
+    exposureQueryIdentifierType: string | undefined;
+  },
+): Promise<void> {
+  const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+  const lockable =
+    !!experiment.isClusterExperiment &&
+    hasLinkedChanges &&
+    experiment.status !== "draft";
+  const resolveIdentifier = async (
+    datasourceId: string,
+    exposureQueryId: string,
+    stored: string | undefined,
+  ) => {
+    if (stored) return stored;
+    const datasource = datasourceId
+      ? await getDataSourceById(context, datasourceId)
+      : null;
+    return resolveAnalysisIdentifierType(
+      datasource?.settings.queries?.exposure?.find(
+        (q) => q.id === exposureQueryId,
+      ),
+      undefined,
+    );
+  };
+  if (
+    isClusterConfigChangeLocked({
+      status: experiment.status,
+      nextStatus: next.status,
+      hasLinkedChanges,
+      isClusterExperiment: experiment.isClusterExperiment,
+      nextIsClusterExperiment: next.isClusterExperiment,
+      subUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      nextSubUnitIdentifier: next.clusterSubUnitIdentifier,
+      ...(lockable
+        ? {
+            clusterIdentifier: await resolveIdentifier(
+              experiment.datasource,
+              experiment.exposureQueryId,
+              experiment.exposureQueryIdentifierType,
+            ),
+            nextClusterIdentifier: await resolveIdentifier(
+              next.datasource,
+              next.exposureQueryId,
+              next.exposureQueryIdentifierType,
+            ),
+          }
+        : {}),
+    })
+  ) {
+    throw new Error(CLUSTER_CONFIG_LOCKED_MESSAGE);
   }
 }
 

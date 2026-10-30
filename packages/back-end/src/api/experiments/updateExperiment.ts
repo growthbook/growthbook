@@ -5,15 +5,12 @@ import {
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
 import {
-  experimentHasLinkedChanges,
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
-  CLUSTER_CONFIG_LOCKED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
-  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
   updateExperimentValidator,
   postExperimentArchiveValidator,
@@ -30,6 +27,7 @@ import {
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentChanges,
+  assertClusterConfigUnlocked,
   assertValidClusterExperimentConfig,
   assertCanRunExperimentInAffectedEnvironments,
   assertExperimentKeyFormat,
@@ -202,19 +200,14 @@ export const updateExperiment = createApiRequestHandler(
   const identifierTypeChanged =
     exposureQueryIdentifierType !== experiment.exposureQueryIdentifierType;
 
-  if (
-    isClusterConfigChangeLocked({
-      status: experiment.status,
-      hasLinkedChanges: experimentHasLinkedChanges(experiment),
-      nextStatus: payload.status,
-      isClusterExperiment: experiment.isClusterExperiment,
-      nextIsClusterExperiment: payload.isClusterExperiment,
-      subUnitIdentifier: experiment.clusterSubUnitIdentifier,
-      nextSubUnitIdentifier: payload.clusterSubUnitIdentifier,
-    })
-  ) {
-    throw new Error(CLUSTER_CONFIG_LOCKED_MESSAGE);
-  }
+  await assertClusterConfigUnlocked(req.context, experiment, {
+    status: payload.status,
+    isClusterExperiment: payload.isClusterExperiment,
+    clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+    datasource: datasourceId ?? "",
+    exposureQueryId: payload.assignmentQueryId ?? experiment.exposureQueryId,
+    exposureQueryIdentifierType,
+  });
   const effectiveIsClusterExperiment =
     payload.isClusterExperiment ?? experiment.isClusterExperiment;
   const effectiveType = payload.type ?? experiment.type ?? "standard";

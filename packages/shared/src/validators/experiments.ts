@@ -246,10 +246,11 @@ export function isUnsupportedClusterBanditCombination({
 }
 
 export const CLUSTER_CONFIG_LOCKED_MESSAGE =
-  "Cluster experiment and the subunit identifier type can't be changed once GrowthBook is assigning this experiment's traffic. Move it back to draft first.";
+  "Cluster experiment, the cluster's identifier type and the subunit identifier type can't be changed once GrowthBook is assigning this experiment's traffic. Move it back to draft first.";
 
 // Once GrowthBook launches an experiment through linked changes, its SDK has
-// randomized on the cluster (or not), so neither setting can change. Experiments
+// randomized on the cluster (or not), so cluster mode, the cluster (the
+// assignment query's identifier type) and the sub-unit are fixed. Experiments
 // assigned outside GrowthBook (e.g. imported ones) only describe that setup.
 export function isClusterConfigChangeLocked({
   status,
@@ -259,6 +260,8 @@ export function isClusterConfigChangeLocked({
   nextIsClusterExperiment,
   subUnitIdentifier,
   nextSubUnitIdentifier,
+  clusterIdentifier,
+  nextClusterIdentifier,
 }: {
   status: string;
   nextStatus?: string;
@@ -267,6 +270,9 @@ export function isClusterConfigChangeLocked({
   nextIsClusterExperiment?: boolean | null;
   subUnitIdentifier?: string | null;
   nextSubUnitIdentifier?: string | null;
+  // Resolved identifier types; the cluster is whatever the query analyzes on.
+  clusterIdentifier?: string | null;
+  nextClusterIdentifier?: string | null;
 }): boolean {
   const modeChanged =
     (nextIsClusterExperiment ?? null) !== null &&
@@ -277,7 +283,12 @@ export function isClusterConfigChangeLocked({
     staysCluster &&
     nextSubUnitIdentifier !== undefined &&
     (nextSubUnitIdentifier || null) !== (subUnitIdentifier || null);
-  if (!hasLinkedChanges || (!modeChanged && !subUnitChanged)) return false;
+  const clusterChanged =
+    staysCluster &&
+    nextClusterIdentifier !== undefined &&
+    (nextClusterIdentifier || null) !== (clusterIdentifier || null);
+  if (!hasLinkedChanges || (!modeChanged && !subUnitChanged && !clusterChanged))
+    return false;
   return status !== "draft" && nextStatus !== "draft";
 }
 
