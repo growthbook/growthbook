@@ -285,6 +285,14 @@ html.app-drawer-open body {
     padding-right: max(0px, calc(var(--page-padding) - var(--space-5)));
     @include page-padding-motion(padding-right);
   }
+  // It runs to the window's bottom too: the page's 32px at the bottom is
+  // the working area's, not the wrapper's.
+  &:has(.experiment-layout) {
+    padding-bottom: 0;
+  }
+  & .experiment-layout .experiment-column {
+    padding-bottom: var(--space-6);
+  }
   // Its padding classes too, but a card's or a full-width band's.
   $card: ":not(.appbox, .card, .box, .rt-Card, .page-bleed)";
   & > :is(.p-2, .p-3, .p-4, .p-5)#{$card},
