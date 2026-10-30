@@ -1,11 +1,14 @@
 import { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   getAggregateFilters,
+  getCompatibleFunnelAutoSliceColumns,
   getSelectedColumnDatatype,
   isFactFunnelMetric,
 } from "shared/experiments";
@@ -307,6 +310,10 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
   ): FactMetricInterface {
     const newDoc = { ...doc };
 
+    // Retired risk thresholds: keep them out of responses and echoed updates.
+    delete newDoc.winRisk;
+    delete newDoc.loseRisk;
+
     if (doc.windowSettings === undefined) {
       newDoc.windowSettings = {
         type: doc.hasConversionWindow ? "conversion" : "",
@@ -543,12 +550,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
-    if (data.loseRisk < data.winRisk) {
-      throw new Error(
-        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
-      );
-    }
-
     if (data.minPercentChange >= data.maxPercentChange) {
       throw new Error(
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
@@ -606,6 +607,43 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       return factTable;
     });
 
+    // Only reject columns this write adds, the same way row filters are
+    // validated against the previous version below. A fact table change can
+    // invalidate a column that was fine when it was saved, and rejecting that
+    // here would block every later write to the metric, a rename included.
+    // Readers intersect against the fact tables anyway, so a stale column
+    // simply produces no slices until the cascade or the next edit drops it.
+    const previousStepFactTableIds =
+      existingMetric && isFactFunnelMetric(existingMetric)
+        ? existingMetric.funnelSettings.steps.map((step) => step.factTableId)
+        : null;
+    // Changing which tables the funnel reads from re-opens every column.
+    const validateAllAutoSliceColumns =
+      !previousStepFactTableIds ||
+      previousStepFactTableIds.length !== steps.length ||
+      steps.some((step, i) => step.factTableId !== previousStepFactTableIds[i]);
+    const previousAutoSliceColumns = new Set(existingMetric?.metricAutoSlices);
+    const newAutoSliceColumns = (data.metricAutoSlices ?? []).filter(
+      (column) =>
+        validateAllAutoSliceColumns || !previousAutoSliceColumns.has(column),
+    );
+    if (newAutoSliceColumns.length) {
+      const compatibleAutoSliceColumns = new Set(
+        getCompatibleFunnelAutoSliceColumns({
+          steps,
+          getFactTable: (id) => factTableMap.get(id),
+        }).map(({ column }) => column.column),
+      );
+      const invalidAutoSliceColumns = newAutoSliceColumns.filter(
+        (column) => !compatibleAutoSliceColumns.has(column),
+      );
+      if (invalidAutoSliceColumns.length) {
+        throw new Error(
+          `Invalid funnel Auto Slice columns: ${invalidAutoSliceColumns.join(", ")}. Configure matching Auto Slice columns on every step's Fact Table.`,
+        );
+      }
+    }
+
     steps.forEach((step, i) => {
       validateSavedFilterIds({
         columnRef: {
@@ -626,9 +664,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     }
     if (data.quantileSettings) {
       throw new Error("Quantile settings are not supported for funnel metrics");
-    }
-    if (data.metricAutoSlices?.length) {
-      throw new Error("Slices are not supported for funnel metrics");
     }
 
     const previousSteps =
@@ -889,16 +924,14 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       numerator,
       denominator,
       metricType,
-      loseRisk,
-      winRisk,
       targetMDE,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
-      riskThresholdDanger: loseRisk,
-      riskThresholdSuccess: winRisk,
+      riskThresholdDanger: DEFAULT_LOSE_RISK_THRESHOLD,
+      riskThresholdSuccess: DEFAULT_WIN_RISK_THRESHOLD,
       targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,

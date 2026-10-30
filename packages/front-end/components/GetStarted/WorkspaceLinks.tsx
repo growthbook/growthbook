@@ -74,7 +74,7 @@ export default function WorkspaceLinks() {
         Icon={PiWebhooksLogo}
         url="/settings/webhooks"
         text="Integrate Slack or Discord"
-        disabled={!permissionsUtils.canCreateEventWebhook()}
+        disabled={!permissionsUtils.canManageSomeEventWebhooks()}
       />
       <StyledLink
         Icon={PiTable}

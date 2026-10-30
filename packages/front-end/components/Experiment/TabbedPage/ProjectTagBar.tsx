@@ -1,7 +1,7 @@
 import { ReactNode } from "react";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Flex } from "@radix-ui/themes";
-import { date, daysBetween } from "shared/dates";
+import { date } from "shared/dates";
 import { PiLockSimple, PiWarning } from "react-icons/pi";
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import {
@@ -23,6 +23,7 @@ import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicat
 import ProjectBadges from "@/components/ProjectBadges";
 import ResultsIndicator from "@/components/Experiment/ResultsIndicator";
 import { useStagedState } from "./ExperimentEdits";
+import { runLength } from "./statusSchedule";
 
 export type QuickEditField = "project" | "trackingKey" | "owner" | "tags";
 
@@ -253,6 +254,7 @@ export default function ProjectTagBar({
           size="sm"
           stacked
           label="Projects"
+          action={fieldAction?.("project")}
           value={
             holdout.projects.length > 0 ? (
               <ProjectBadges
@@ -351,9 +353,7 @@ export function ExperimentDates({
   const running = experiment.status === "running";
   // Stopped experiments usually have an end date; older ones may not.
   const ended = running ? null : lastPhase?.dateEnded;
-  const days = daysBetween(started, ended || new Date());
-  const duration =
-    days < 1 ? "under a day" : `${days} ${days === 1 ? "day" : "days"}`;
+  const duration = runLength(started, ended || new Date());
   const latest = phases.length > 1 && experiment.type !== "holdout";
   return (
     <Metadata

@@ -52,7 +52,7 @@ import { useDropzone } from "react-dropzone";
 import { Box, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiCaretUpBold } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
-import { uploadFile } from "@/services/files";
+import { UPLOAD_IMAGE_TYPES, uploadFile } from "@/services/files";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
 import Collapse from "@/ui/Collapse";
@@ -97,11 +97,14 @@ export interface Props {
   autoFocusAtEnd?: boolean;
   /** While true, a dropped or pasted image isn't in `value` yet. */
   onUploadingChange?: (uploading: boolean) => void;
+  /** The id of the label that names the field. */
+  ariaLabelledBy?: string;
 }
 
 // Heights of the whole control, toolbar included. One ladder serves both the
 // resting height and the cap, so a field can't get a mismatched pair.
 const RICH_TEXT_HEIGHTS = {
+  xs: 64,
   sm: 110,
   md: 150,
   lg: 220,
@@ -129,8 +132,6 @@ const MARKDOWN_TRANSFORMERS = [
   AUTO_LINK_TRANSFORMER,
   ...TRANSFORMERS,
 ];
-
-const IMAGE_TYPES = "image/png, image/jpeg, image/gif";
 
 const THEME = {
   paragraph: styles.paragraph,
@@ -351,6 +352,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     collapsibleToolbar = false,
     autoFocusAtEnd = false,
     onUploadingChange,
+    ariaLabelledBy,
   },
   ref,
 ) {
@@ -386,7 +388,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     noClick: true,
     noKeyboard: true,
     disabled: !allowImages,
-    accept: IMAGE_TYPES,
+    accept: UPLOAD_IMAGE_TYPES,
   });
 
   const handleChange = useCallback(
@@ -454,6 +456,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
                 tabIndex={0}
                 className={styles.editable}
                 aria-placeholder={placeholder ?? ""}
+                aria-labelledby={ariaLabelledBy}
                 placeholder={
                   placeholder ? (
                     <div className={styles.placeholder}>{placeholder}</div>

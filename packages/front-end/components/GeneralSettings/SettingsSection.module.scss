@@ -1,0 +1,134 @@
+.section {
+  padding-top: 28px;
+  // Clears the fixed top nav when scrolled to.
+  scroll-margin-top: 64px;
+}
+
+.header {
+  position: sticky;
+  top: 56px;
+  z-index: 6;
+  background: var(--color-background);
+  padding: 12px 0 6px;
+  border-bottom: 1px solid var(--slate-a4);
+}
+
+.noResults {
+  margin-top: 16px;
+  padding: 40px 24px;
+  background: var(--color-panel-solid);
+  border: 1px solid var(--slate-a4);
+  border-radius: 8px;
+  text-align: center;
+}
+
+// Lets the last section reach the top of the viewport so scroll spy can select it.
+.spacer {
+  height: 45vh;
+}
+
+// Spans from the main sidebar to the window edge, over the sub nav.
+.unsavedBar {
+  position: fixed;
+  left: var(--settings-sidebar-width);
+  right: 0;
+  bottom: 0;
+  // Over the sub nav (999 too, but earlier in the DOM) and under the slide-out sidebar (1000).
+  z-index: 999;
+  // Lines the count up with the sub nav's content.
+  padding: var(--space-3) var(--space-3) var(--space-3)
+    calc(var(--settings-nav-inset) + var(--space-3));
+  // Ends Save at the cards' right edge: 40px page padding plus the 920px column.
+  padding-right: max(40px, calc(100% - var(--settings-layout-left) - 960px));
+  background: var(--color-panel-solid);
+  border-top: 1px solid var(--gray-a5);
+  box-shadow:
+    0 -1px 2px rgba(0, 0, 0, 0.1),
+    0 -4px 4px rgba(0, 0, 0, 0.025);
+
+  // Without the sub nav, the count lines up with the page content instead.
+  @media (max-width: 1399px) {
+    padding-left: 40px;
+  }
+  // The sidebar slides away here and the content starts at the window edge.
+  @media (max-width: 1180px) {
+    left: 0;
+    padding-right: max(40px, calc(100% - 960px));
+  }
+}
+
+// Keeps the last card clear of the fixed bar.
+.unsavedBarSpacer {
+  height: 64px;
+}
+
+.savedToastSlot {
+  position: sticky;
+  bottom: var(--space-4);
+  z-index: 30;
+  margin-top: var(--space-4);
+  pointer-events: none;
+}
+
+.savedToast {
+  padding: 12px 24px;
+  border-radius: 8px;
+  background: var(--indigo-12);
+  color: var(--indigo-1);
+  box-shadow: var(--shadow-4);
+  animation: savedToastIn 160ms ease-out;
+}
+
+.savedToastIcon {
+  color: var(--green-9);
+}
+
+@keyframes savedToastIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+.unsavedDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber-9);
+  flex-shrink: 0;
+}
+
+// Sits left of a changed field's label without shifting it.
+.fieldDot {
+  position: absolute;
+  top: 50%;
+  right: calc(100% + 6px);
+  width: 8px;
+  height: 8px;
+  transform: translateY(-50%);
+  border-radius: 50%;
+  background: var(--amber-9);
+}
+
+// Centered on a checkbox's first line.
+.checkDot {
+  composes: fieldDot;
+  top: 10px;
+}
+
+.generalContent {
+  max-width: 920px;
+  padding-top: var(--space-3);
+}
+
+// The Settings nav title stands in for it from 1400px; screen readers still get the h1.
+@media (min-width: 1400px) {
+  .wideHidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}
