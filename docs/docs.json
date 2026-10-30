@@ -1051,6 +1051,16 @@
                 ]
               },
               {
+                "group": "Interleaving Exposure Queries",
+                "pages": [
+                  "api/InterleavingExposureQueries/operation/getInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/updateInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/deleteInterleavingExposureQuery",
+                  "api/InterleavingExposureQueries/operation/listInterleavingExposureQueries",
+                  "api/InterleavingExposureQueries/operation/createInterleavingExposureQuery"
+                ]
+              },
+              {
                 "group": "Interleaving Experiments",
                 "pages": [
                   "api/Interleavings/operation/getInterleaving",
@@ -1058,7 +1068,11 @@
                   "api/Interleavings/operation/listInterleavings",
                   "api/Interleavings/operation/createInterleaving",
                   "api/Interleavings/operation/startInterleaving",
-                  "api/Interleavings/operation/stopInterleaving"
+                  "api/Interleavings/operation/stopInterleaving",
+                  "api/Interleavings/operation/refreshInterleaving",
+                  "api/Interleavings/operation/getInterleavingResults",
+                  "api/Interleavings/operation/listInterleavingSnapshots",
+                  "api/Interleavings/operation/getInterleavingSnapshot"
                 ]
               },
               {
@@ -1251,6 +1265,8 @@
               "api/InformationSchema_model",
               "api/InformationSchemaTable_model",
               "api/Interleaving_model",
+              "api/InterleavingExposureQuery_model",
+              "api/InterleavingSnapshot_model",
               "api/Learning_model",
               "api/LookbackOverride_model",
               "api/Member_model",

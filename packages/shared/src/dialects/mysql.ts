@@ -93,6 +93,14 @@ export const mysqlDialect: SqlDialect = {
     const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
     return isNumeric ? mysqlDialect.castToFloat(raw) : raw;
   },
+  // JSON_TABLE (MySQL 8.0 / MariaDB 10.6) exposes each element as a JSON
+  // column named `itemAlias`; the table alias is only there to satisfy syntax
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `CROSS JOIN JSON_TABLE(${jsonColumn}, '$[*]' COLUMNS (${itemAlias} JSON PATH '$')) AS ${itemAlias}_t`,
+    fieldText: (itemAlias, field) =>
+      `JSON_UNQUOTE(JSON_EXTRACT(${itemAlias}, '$.${field}'))`,
+  },
   // MySQL 8.0.14+ LATERAL derived table; requires MySQL 8 for window functions in top-N ranking.
   unpivotLabeledPairs: (pairs) => {
     const first = `SELECT '${pairs[0].keyLiteral}' AS column_name, ${pairs[0].valueSql} AS value`;

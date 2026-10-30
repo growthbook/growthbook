@@ -1,13 +1,22 @@
 import isEqual from "lodash/isEqual";
 import { v4 as uuidv4 } from "uuid";
+import { z } from "zod";
 import {
   apiCreateInterleavingBody,
+  apiInterleavingLifecycleReturn,
+  apiInterleavingResultsReturn,
+  apiInterleavingSnapshotReturn,
+  apiInterleavingSnapshotsReturn,
   apiUpdateInterleavingBody,
   ApiInterleavingInterface,
+  getInterleavingResultsEndpoint,
+  getInterleavingSnapshotEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
   InterleavingInterface,
   interleavingApiSpec,
   interleavingValidator,
+  listInterleavingSnapshotsEndpoint,
+  refreshInterleavingEndpoint,
   startInterleavingEndpoint,
   stopInterleavingEndpoint,
 } from "shared/validators";
@@ -16,10 +25,11 @@ import {
   generateVariationId,
   interleavingInSDKPayload,
   interleavingTargetingServes,
+  mapInterleavingVariations,
+  nextAvailableTrackingKey,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
-import { isFactMetricId } from "shared/experiments";
 import { UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
@@ -44,13 +54,21 @@ import {
   startInterleaving,
   stopInterleaving,
 } from "back-end/src/enterprise/services/interleavingChanges";
-import { toApiInterleaving } from "back-end/src/enterprise/services/interleavingApi";
+import {
+  toApiInterleaving,
+  toApiInterleavingSnapshot,
+} from "back-end/src/enterprise/services/interleavingApi";
+import {
+  resolveInterleavingExposureQuery,
+  runInterleavingSnapshot,
+} from "back-end/src/enterprise/services/interleavingAnalysis";
+import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
 
 type ApiVariationInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["variations"]
->[number];
+>["control"];
 type ApiJSONSchemaInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["jsonSchema"]
 >;
@@ -110,7 +128,9 @@ const BaseClass = MakeModelClass({
     customHandlers: [
       defineCustomApiHandler({
         ...startInterleavingEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingLifecycleReturn>> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -130,7 +150,9 @@ const BaseClass = MakeModelClass({
       }),
       defineCustomApiHandler({
         ...stopInterleavingEndpoint,
-        reqHandler: async (req) => {
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingLifecycleReturn>> => {
           const interleaving = await req.context.models.interleavings.getById(
             req.params.id,
           );
@@ -146,6 +168,87 @@ const BaseClass = MakeModelClass({
               req.context,
             ),
           };
+        },
+      }),
+      defineCustomApiHandler({
+        ...refreshInterleavingEndpoint,
+        // Existence, plan, and query permissions are checked by the service
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingSnapshotReturn>> => ({
+          snapshot: toApiInterleavingSnapshot(
+            await runInterleavingSnapshot(req.context, req.params.id),
+          ),
+        }),
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingResultsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingResultsReturn>> => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const snapshot =
+            await req.context.models.interleavingSnapshots.getLatestForInterleaving(
+              interleaving.id,
+            );
+          return {
+            snapshot: snapshot ? toApiInterleavingSnapshot(snapshot) : null,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...listInterleavingSnapshotsEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingSnapshotsReturn>> => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const snapshots =
+            await req.context.models.interleavingSnapshots.listForInterleaving(
+              interleaving.id,
+              req.query.limit,
+            );
+          return { snapshots: snapshots.map(toApiInterleavingSnapshot) };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingSnapshotEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingSnapshotReturn>> => {
+          // Load the parent first: snapshots carry no project of their own, so
+          // the interleaving's current project is what authorizes the read.
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const snapshot =
+            await req.context.models.interleavingSnapshots.getById(
+              req.params.snapshotId,
+            );
+          if (!snapshot || snapshot.interleavingId !== interleaving.id) {
+            return req.context.throwNotFoundError(
+              `Snapshot ${req.params.snapshotId} not found on interleaving experiment ${req.params.id}`,
+            );
+          }
+          return { snapshot: toApiInterleavingSnapshot(snapshot) };
         },
       }),
     ],
@@ -179,7 +282,18 @@ export class InterleavingModel extends BaseClass {
 
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateInterleavingBody.parse(rawBody);
-    const [a, b] = body.variations;
+    // An explicit tracking key is honoured as given; customValidation rejects it
+    // if taken. Otherwise suffix the code key so reusing one to iterate works.
+    const trackingKey =
+      body.trackingKey ||
+      nextAvailableTrackingKey(
+        body.key,
+        new Set(
+          (await this.scanAllInterleavings())
+            .filter((il) => il.datasource === body.datasource)
+            .map((il) => il.trackingKey),
+        ),
+      );
     return {
       ...body,
       owner: await resolveOwnerForCreate(body.owner, this.context, {
@@ -188,13 +302,13 @@ export class InterleavingModel extends BaseClass {
       tags: body.tags ?? [],
       archived: false,
       status: "draft" as const,
-      trackingKey: body.trackingKey || body.key,
+      trackingKey,
       hashAttribute: body.hashAttribute || "id",
       seed: uuidv4(),
-      variations: [
-        { ...a, id: generateVariationId() },
-        { ...b, id: generateVariationId() },
-      ] as InterleavingInterface["variations"],
+      variations: mapInterleavingVariations(body.variations, (v) => ({
+        ...v,
+        id: generateVariationId(),
+      })),
       jsonSchema: toJSONSchema(body.jsonSchema),
       metrics: body.metrics ?? [],
       environmentSettings: body.environmentSettings ?? {},
@@ -220,14 +334,13 @@ export class InterleavingModel extends BaseClass {
       changes.owner = owner;
     }
     if (body.variations) {
-      const withId = (v: ApiVariationInput, i: number) => ({
-        ...v,
-        id: existing.variations[i].id,
-      });
-      changes.variations = [
-        withId(body.variations[0], 0),
-        withId(body.variations[1], 1),
-      ];
+      changes.variations = mapInterleavingVariations(
+        body.variations,
+        (v: ApiVariationInput, role) => ({
+          ...v,
+          id: existing.variations[role].id,
+        }),
+      );
     }
     if (body.jsonSchema !== undefined) {
       changes.jsonSchema = toJSONSchema(body.jsonSchema);
@@ -273,13 +386,23 @@ export class InterleavingModel extends BaseClass {
     return this.context.hasPremiumFeature("interleaving");
   }
 
+  // Admin context so the scan is not permission-filtered: a tracking key the
+  // caller cannot read still collides.
+  private async scanAllInterleavings(): Promise<InterleavingInterface[]> {
+    return (
+      this.context.scanContextOverride ??
+      getContextForAgendaJobByOrgObject(this.context.org)
+    ).models.interleavings.getAll();
+  }
+
   protected async customValidation(
     doc: InterleavingInterface,
     previousDoc?: InterleavingInterface,
   ): Promise<void> {
     const identityChanged =
       doc.key !== previousDoc?.key ||
-      doc.trackingKey !== previousDoc?.trackingKey;
+      doc.trackingKey !== previousDoc?.trackingKey ||
+      doc.datasource !== previousDoc?.datasource;
     const servingChanged =
       doc.status !== previousDoc?.status ||
       doc.archived !== previousDoc?.archived ||
@@ -290,16 +413,15 @@ export class InterleavingModel extends BaseClass {
           existing: il,
           environmentIds: this.context.environments,
         });
-      const sharing = (
-        await (
-          this.context.scanContextOverride ??
-          getContextForAgendaJobByOrgObject(this.context.org)
-        ).models.interleavings.getAll()
-      ).filter((il) => il.id !== doc.id && il.key === doc.key);
+      const others = (await this.scanAllInterleavings()).filter(
+        (il) => il.id !== doc.id,
+      );
 
+      // Serving conflict, so only running experiments matter, and only where
+      // they actually serve.
       if (interleavingInSDKPayload(doc)) {
         const serving = new Set(servingEnvs(doc));
-        for (const other of sharing) {
+        for (const other of others.filter((il) => il.key === doc.key)) {
           if (!interleavingInSDKPayload(other)) continue;
           const overlap = servingEnvs(other).filter((env) => serving.has(env));
           if (overlap.length) {
@@ -310,9 +432,15 @@ export class InterleavingModel extends BaseClass {
         }
       }
 
-      if (sharing.some((other) => other.trackingKey === doc.trackingKey)) {
+      if (
+        others.some(
+          (other) =>
+            other.datasource === doc.datasource &&
+            other.trackingKey === doc.trackingKey,
+        )
+      ) {
         throw new Error(
-          `Another interleaving experiment with the key "${doc.key}" already reports as "${doc.trackingKey}". Set a different tracking key so their exposures can be told apart.`,
+          `Another interleaving experiment already reports as "${doc.trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`,
         );
       }
     }
@@ -324,21 +452,43 @@ export class InterleavingModel extends BaseClass {
       throw new Error("Interleaving tracking key cannot be empty.");
     }
 
+    // These rebucket every user mid-flight, which invalidates the experiment
+    // rather than adjusting it. trackingKey is deliberately not locked: it only
+    // changes which experiment_id later exposures carry, so the damage is
+    // contained to this experiment's own results.
+    if (previousDoc?.status === "running") {
+      const locked = (
+        [
+          ["seed", "seed"],
+          ["hashAttribute", "assignment attribute"],
+        ] as const
+      )
+        .filter(([field]) => doc[field] !== previousDoc[field])
+        .map(([, label]) => label);
+      if (locked.length) {
+        throw new Error(
+          `Stop this interleaving experiment before changing its ${locked.join(
+            ", ",
+          )}.`,
+        );
+      }
+    }
+
     if (
       !previousDoc ||
       !isEqual(doc.variations, previousDoc.variations) ||
       !isEqual(doc.jsonSchema, previousDoc.jsonSchema)
     ) {
-      const [a, b] = doc.variations;
-      if (a.key === b.key) {
+      const { control, treatment } = doc.variations;
+      if (control.key === treatment.key) {
         throw new Error("The two rankers must have different keys.");
       }
-      if (a.id === b.id) {
+      if (control.id === treatment.id) {
         throw new Error("The two rankers must have different ids.");
       }
       // Before the loop, so a bad schema isn't reported against a ranker.
       assertUsableRankerSchema(doc.jsonSchema);
-      for (const v of doc.variations) {
+      for (const v of [control, treatment]) {
         try {
           parseInterleavingRankerConfig(v.config, doc.jsonSchema);
         } catch (e) {
@@ -349,39 +499,32 @@ export class InterleavingModel extends BaseClass {
       }
     }
 
-    // Only re-validate metrics when they (or the datasource) change, so an
-    // experiment whose metric was deleted later can still be edited.
+    // Only re-validate metrics when they (or what they're read with) change,
+    // so an experiment whose metric was deleted later can still be edited.
     if (
       !previousDoc ||
       !isEqual(doc.metrics, previousDoc.metrics) ||
-      doc.datasource !== previousDoc.datasource
+      doc.datasource !== previousDoc.datasource ||
+      doc.userIdType !== previousDoc.userIdType
     ) {
-      const ids = doc.metrics.map((m) => m.id);
-      if (new Set(ids).size !== ids.length) {
-        throw new Error("Each metric can only be added once.");
-      }
-      for (const { id } of doc.metrics) {
-        if (!isFactMetricId(id)) {
-          throw new Error(`Interleaving metrics must be fact metrics: ${id}`);
-        }
-        const metric = await this.context.models.factMetrics.getById(id);
-        if (!metric) {
-          throw new Error(`Interleaving metric not found: ${id}`);
-        }
-        if (metric.datasource !== doc.datasource) {
-          throw new Error(
-            `Interleaving metric ${id} must belong to datasource ${doc.datasource}`,
-          );
-        }
-        if (
-          metric.metricType !== "mean" &&
-          metric.metricType !== "proportion"
-        ) {
-          throw new Error(
-            `Interleaving metrics must be mean or proportion metrics: ${id} is a ${metric.metricType} metric`,
-          );
-        }
-      }
+      await resolveInterleavingMetrics(this.context, {
+        datasourceId: doc.datasource,
+        userIdType: doc.userIdType,
+        metrics: doc.metrics,
+      });
+    }
+
+    const starting =
+      doc.status === "running" && previousDoc?.status !== "running";
+    if (
+      !previousDoc ||
+      starting ||
+      doc.interleavingExposureQueryId !==
+        previousDoc.interleavingExposureQueryId ||
+      doc.datasource !== previousDoc.datasource ||
+      doc.userIdType !== previousDoc.userIdType
+    ) {
+      await resolveInterleavingExposureQuery(this.context, doc);
     }
 
     if (
@@ -449,6 +592,12 @@ export class InterleavingModel extends BaseClass {
   }
 
   protected async afterDelete(doc: InterleavingInterface) {
+    // Orphaned snapshots are not just dead weight: the reapers scan the
+    // collection by status with no parent check, so a running one is retried
+    // forever.
+    await this.context.models.interleavingSnapshots.deleteForInterleaving(
+      doc.id,
+    );
     this.refreshSDKPayload([doc], "deleted");
   }
 
@@ -531,9 +680,29 @@ export class InterleavingModel extends BaseClass {
     });
   }
 
-  public getByInterleavingQueryId(
-    interleavingQueryId: string,
+  public getByInterleavingExposureQueryId(
+    interleavingExposureQueryId: string,
   ): Promise<InterleavingInterface[]> {
-    return this._find({ interleavingQueryId });
+    return this._find({ interleavingExposureQueryId });
+  }
+
+  // Every interleaving in the org referencing the query, ignoring the caller's
+  // read permissions. Only for authoritative dependency scans: deleting an
+  // exposure query is gated on the datasource, which is shared across projects,
+  // so missing a reference in a project the caller cannot read would let the
+  // delete through and strand that experiment. Never return these to the
+  // caller.
+  public dangerousGetAllByExposureQueryIdForDependencyScan(
+    interleavingExposureQueryId: string,
+  ): Promise<InterleavingInterface[]> {
+    return this._find(
+      { interleavingExposureQueryId },
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
+  /** Looks up an interleaving by its code-facing key (what `interleave()` receives). */
+  public getByKey(key: string): Promise<InterleavingInterface | null> {
+    return this._findOne({ key });
   }
 }

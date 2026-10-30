@@ -1,9 +1,30 @@
-import type { InterleavingInterface } from "../validators/interleaving";
+import type {
+  InterleavingInterface,
+  InterleavingVariationRole,
+} from "../validators/interleaving";
 import {
   entityTargetsProject,
   getValidation,
   validateJSONFeatureValue,
 } from "./features";
+
+// Variations are stored by role; the SDK (and anything positional, like
+// results tables) gets them as [control, treatment].
+export function interleavingVariationsList<T>(
+  variations: Record<InterleavingVariationRole, T>,
+): [T, T] {
+  return [variations.control, variations.treatment];
+}
+
+export function mapInterleavingVariations<T, U>(
+  variations: Record<InterleavingVariationRole, T>,
+  fn: (variation: T, role: InterleavingVariationRole) => U,
+): Record<InterleavingVariationRole, U> {
+  return {
+    control: fn(variations.control, "control"),
+    treatment: fn(variations.treatment, "treatment"),
+  };
+}
 
 // Key of the pseudo feature generated into SDK payloads for an interleaving.
 export function getInterleavingFeatureDefId(key: string): string {
@@ -88,4 +109,17 @@ export function parseInterleavingRankerConfig(
     throw new Error(errors.join(", "));
   }
   return parsed as Record<string, unknown>;
+}
+
+// Tracking keys must be unique per Data Source, so a later experiment reusing a
+// code key gets a suffix. Loops rather than counting collisions, so a manually
+// set `key_v1` is skipped rather than clobbered.
+export function nextAvailableTrackingKey(
+  key: string,
+  taken: Set<string>,
+): string {
+  if (!taken.has(key)) return key;
+  let i = 1;
+  while (taken.has(`${key}_v${i}`)) i++;
+  return `${key}_v${i}`;
 }

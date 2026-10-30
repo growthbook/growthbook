@@ -26,6 +26,8 @@ import {
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
 import { getContextForAgendaJobByOrgId } from "back-end/src/services/organizations";
+import { getCollection } from "back-end/src/util/mongo.util";
+import { logger } from "back-end/src/util/logger";
 
 jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   dangerousFindStalledRunningSnapshotsFromAllOrgs: jest.fn(),
@@ -742,7 +744,7 @@ describe("expireOldQueries stalled snapshot reaper", () => {
     });
     mockCandidates([...live, dead]);
     (getQueryStatusesByIds as jest.Mock).mockImplementation(
-      async (_org: string, ids: string[]) =>
+      async (...[, ids]: [string, string[]]) =>
         ids.map((id) => ({
           id,
           status: "queued",
@@ -790,5 +792,363 @@ describe("expireOldQueries stalled snapshot reaper", () => {
 
     expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
     expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+});
+
+describe("expireOldQueries interleaving snapshots", () => {
+  const HOUR = 60 * 60 * 1000;
+  const updateOne = jest.fn();
+  let interleavingDocs: Record<string, unknown>[] = [];
+
+  // Enough of a Mongo filter to make the job's own date windows load-bearing
+  // in these tests rather than assumed.
+  type TestFilter = {
+    status?: string;
+    dateCreated?: { $gt?: Date; $lt?: Date };
+    id?: { $nin: string[] };
+    queries?: { $elemMatch: { query: { $in: string[] }; status: string } };
+  };
+
+  function matches(doc: Record<string, unknown>, filter: TestFilter) {
+    const created = (doc.dateCreated as Date).getTime();
+    const range = filter.dateCreated ?? {};
+    const elem = filter.queries?.$elemMatch;
+    const queries = (doc.queries ?? []) as { query: string; status: string }[];
+    return (
+      (filter.status === undefined || doc.status === filter.status) &&
+      (range.$gt === undefined || created > range.$gt.getTime()) &&
+      (range.$lt === undefined || created < range.$lt.getTime()) &&
+      (filter.id === undefined || !filter.id.$nin.includes(doc.id as string)) &&
+      (elem === undefined ||
+        queries.some(
+          (q) => elem.query.$in.includes(q.query) && q.status === elem.status,
+        ))
+    );
+  }
+
+  // The shared getCollection mock returns empty cursors for everything; serve
+  // the interleaving collection from the fixtures this suite sets up. Sort,
+  // $nin and limit all have to behave, or the reaper's paging is untested.
+  function mockCollections() {
+    (getCollection as jest.Mock).mockImplementation((name: string) => {
+      const all = name === "interleavingsnapshots" ? interleavingDocs : [];
+      const cursor = (filter: TestFilter) => {
+        let rows = all.filter((doc) => matches(doc, filter));
+        const self = {
+          sort: jest.fn(() => {
+            rows = [...rows].sort(
+              (a, b) =>
+                (a.dateCreated as Date).getTime() -
+                (b.dateCreated as Date).getTime(),
+            );
+            return self;
+          }),
+          limit: jest.fn((n: number) => {
+            rows = rows.slice(0, n);
+            return self;
+          }),
+          toArray: jest.fn(async () => rows),
+        };
+        return self;
+      };
+      return {
+        find: jest.fn((filter = {}) => cursor(filter)),
+        updateOne:
+          name === "interleavingsnapshots"
+            ? updateOne
+            : jest.fn().mockResolvedValue({ modifiedCount: 0 }),
+      };
+    });
+  }
+
+  function snapshot(overrides: Record<string, unknown> = {}) {
+    return {
+      id: "ilsnp_1",
+      organization: "org_1",
+      interleavingId: "il_1",
+      status: "running",
+      dateCreated: new Date(Date.now() - 2 * HOUR),
+      queries: [],
+      ...overrides,
+    };
+  }
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    interleavingDocs = [];
+    updateOne.mockResolvedValue({ modifiedCount: 1 });
+    mockCollections();
+    (getStaleQueries as jest.Mock).mockResolvedValue([]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([]);
+    (markPendingQueriesAsFailed as jest.Mock).mockResolvedValue(1);
+    (getContextForAgendaJobByOrgId as jest.Mock).mockResolvedValue({
+      org: { id: "org_1" },
+    });
+    (
+      dangerousFindStalledRunningSnapshotsFromAllOrgs as jest.Mock
+    ).mockResolvedValue([]);
+  });
+
+  async function runJob() {
+    const definitions: Record<string, () => Promise<void>> = {};
+    const agenda = {
+      define: jest.fn((name: string, fn: () => Promise<void>) => {
+        definitions[name] = fn;
+      }),
+      create: jest.fn(() => ({
+        unique: jest.fn(),
+        repeatEvery: jest.fn(),
+        save: jest.fn().mockResolvedValue(undefined),
+      })),
+    };
+    await expireOldQueries(agenda as unknown as Agenda);
+    await definitions.expireOldQueries();
+  }
+
+  it("errors a stalled snapshot whose queries were never recorded", async () => {
+    interleavingDocs = [snapshot()];
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          status: "error",
+          error: expect.stringContaining("never recorded"),
+        },
+      },
+    );
+  });
+
+  it("leaves a no-query snapshot alone until the full stall threshold", async () => {
+    // A candidate by the 5-minute window, but the no-pointers branch keeps the
+    // full hour because there is nothing to classify.
+    interleavingDocs = [
+      snapshot({ dateCreated: new Date(Date.now() - 30 * 60 * 1000) }),
+    ];
+
+    await runJob();
+
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
+  it("leaves queued queries alone while their runner is still heartbeating", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "queued" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "queued",
+        createdAt,
+        // A fresh beat: the runner is alive, just waiting on warehouse
+        // concurrency. The old hand-rolled check called this orphaned.
+        heartbeat: new Date(Date.now() - 10 * 1000),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
+  it("reaps queued queries once their heartbeats go stale", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "queued" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "queued",
+        createdAt,
+        heartbeat: new Date(createdAt.getTime() + 60 * 1000),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          status: "error",
+          error: expect.stringContaining("never started"),
+          queries: [{ name: "ft_cart", query: "qry_1", status: "queued" }],
+        },
+      },
+    );
+  });
+
+  it("pages past a full page of healthy candidates to reach a stalled one", async () => {
+    const healthy = Array.from({ length: 50 }, (_, i) =>
+      snapshot({
+        id: `ilsnp_healthy_${i}`,
+        dateCreated: new Date(Date.now() - 3 * HOUR),
+        queries: [{ name: "ft", query: `qry_h${i}`, status: "running" }],
+      }),
+    );
+    interleavingDocs = [
+      ...healthy,
+      snapshot({
+        id: "ilsnp_dead",
+        dateCreated: new Date(Date.now() - 2 * HOUR),
+      }),
+    ];
+    // Every healthy snapshot still has a running query, so each is skipped.
+    (getQueryStatusesByIds as jest.Mock).mockImplementation(
+      async (...[, ids]: [string, string[]]) =>
+        ids.map((id) => ({ id, status: "running" })),
+    );
+
+    await runJob();
+
+    // Without $nin paging the 50 healthy, older candidates would fill the only
+    // page every tick and the dead one would never be examined.
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_dead", status: "running" },
+      expect.objectContaining({
+        $set: expect.objectContaining({ status: "error" }),
+      }),
+    );
+  });
+
+  it("finalizes a stalled snapshot whose queries all finished", async () => {
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "running" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - HOUR),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          status: "error",
+          error: expect.stringContaining("never finalized"),
+          queries: [{ name: "ft_cart", query: "qry_1", status: "succeeded" }],
+        },
+      },
+    );
+  });
+
+  it("errors a snapshot whose queries the stale-query sweep just failed", async () => {
+    interleavingDocs = [
+      snapshot({
+        dateCreated: new Date(Date.now() - 5 * 60 * 1000),
+        queries: [{ name: "ft_cart", query: "qry_1", status: "running" }],
+      }),
+    ];
+    (getStaleQueries as jest.Mock).mockResolvedValue([{ id: "qry_1" }]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalledWith(
+      // Guarded, so a snapshot the runner just finalized isn't clobbered
+      { id: "ilsnp_1", status: "running" },
+      {
+        $set: {
+          error: "Queries were interrupted. Please try updating results again.",
+          status: "error",
+          queries: [{ name: "ft_cart", query: "qry_1", status: "failed" }],
+        },
+      },
+    );
+  });
+
+  it("fails the orphaned queued queries once the reap wins", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [
+          { name: "ft_a", query: "qry_1", status: "queued" },
+          { name: "ft_b", query: "qry_2", status: "queued" },
+        ],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue(
+      ["qry_1", "qry_2"].map((id) => ({
+        id,
+        status: "queued",
+        createdAt,
+        heartbeat: new Date(createdAt.getTime() + 60 * 1000),
+      })),
+    );
+
+    await runJob();
+
+    // Nothing else ever cleans a queued doc up, so the reaper has to
+    expect(markPendingQueriesAsFailed).toHaveBeenCalledWith(
+      expect.anything(),
+      ["qry_1", "qry_2"],
+      expect.stringContaining("reaped as stalled"),
+    );
+  });
+
+  it("does not touch the queries when the reap loses the race", async () => {
+    const createdAt = new Date(Date.now() - 2 * HOUR);
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_a", query: "qry_1", status: "queued" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "queued",
+        createdAt,
+        heartbeat: new Date(createdAt.getTime() + 60 * 1000),
+      },
+    ]);
+    updateOne.mockResolvedValue({ modifiedCount: 0 });
+
+    await runJob();
+
+    expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+
+  it("has no queries to fail when every one already finished", async () => {
+    interleavingDocs = [
+      snapshot({
+        queries: [{ name: "ft_cart", query: "qry_1", status: "running" }],
+      }),
+    ];
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      {
+        id: "qry_1",
+        status: "succeeded",
+        finishedAt: new Date(Date.now() - HOUR),
+      },
+    ]);
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalled();
+    expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+
+  it("does not log a reap it lost the race for", async () => {
+    interleavingDocs = [snapshot()];
+    updateOne.mockResolvedValue({ modifiedCount: 0 });
+
+    await runJob();
+
+    expect(updateOne).toHaveBeenCalled();
+    expect(logger.warn).not.toHaveBeenCalled();
   });
 });

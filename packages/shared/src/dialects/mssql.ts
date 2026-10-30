@@ -38,6 +38,14 @@ export const mssqlDialect: SqlDialect = {
     const raw = `JSON_VALUE(${jsonCol}, '$.${path}')`;
     return isNumeric ? mssqlDialect.castToFloat(raw) : raw;
   },
+  // OPENJSON without a WITH clause yields (key, value, type) rows; the
+  // element's JSON text is in [value]
+  jsonArray: {
+    unnest: (jsonColumn, itemAlias) =>
+      `CROSS APPLY OPENJSON(${jsonColumn}) AS ${itemAlias}`,
+    fieldText: (itemAlias, field) =>
+      `JSON_VALUE(${itemAlias}.[value], '$.${field}')`,
+  },
   evalBoolean: (col: string, value: boolean) => `${col} = ${value ? "1" : "0"}`,
   percentileCapSelectClause: (values, metricTable, where = "") =>
     defaultPercentileCapSelectClause(mssqlDialect, values, metricTable, where),

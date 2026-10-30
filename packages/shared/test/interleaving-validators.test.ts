@@ -1,3 +1,4 @@
+import omit from "lodash/omit";
 import {
   interleavingMetricConfigValidator,
   interleavingValidator,
@@ -6,6 +7,7 @@ import {
   getInterleavingFeatureDefId,
   interleavingInSDKPayload,
   interleavingTargetingServes,
+  nextAvailableTrackingKey,
   parseInterleavingRankerConfig,
 } from "../src/util/interleaving";
 
@@ -46,13 +48,13 @@ const baseDoc = {
   trackingKey: "featured-products-ranker",
   hashAttribute: "id",
   seed: "seed",
-  variations: [
-    ranker("var_a", "buyers-pick", '{"algorithm":"buyers-pick"}'),
-    ranker("var_b", "price-first", '{"algorithm":"price-first"}'),
-  ],
+  variations: {
+    control: ranker("var_a", "buyers-pick", '{"algorithm":"buyers-pick"}'),
+    treatment: ranker("var_b", "price-first", '{"algorithm":"price-first"}'),
+  },
   jsonSchema: null,
   datasource: "ds_1",
-  interleavingQueryId: "ilq_1",
+  interleavingExposureQueryId: "ileq_1",
   userIdType: "user_id",
   metrics: [{ id: "fact__clicks", analyses: [{ type: "paired" }] }],
   environmentSettings: { production: { enabled: true } },
@@ -63,20 +65,29 @@ describe("interleavingValidator", () => {
     expect(interleavingValidator.safeParse(baseDoc).success).toBe(true);
   });
 
-  it.each([1, 3])("rejects %i rankers", (n) => {
-    const variations = Array.from({ length: n }, (_, i) =>
-      ranker(`var_${i}`, `k${i}`),
-    );
-    expect(
-      interleavingValidator.safeParse({ ...baseDoc, variations }).success,
-    ).toBe(false);
-  });
+  it.each([
+    { control: ranker("var_a", "a") },
+    { treatment: ranker("var_b", "b") },
+    [ranker("var_a", "a"), ranker("var_b", "b")],
+    {
+      control: ranker("var_a", "a"),
+      treatment: ranker("var_b", "b"),
+      extra: ranker("var_c", "c"),
+    },
+  ])(
+    "rejects rankers not keyed exactly by control/treatment: %j",
+    (variations) => {
+      expect(
+        interleavingValidator.safeParse({ ...baseDoc, variations }).success,
+      ).toBe(false);
+    },
+  );
 
   it.each(["", " ", "\t"])("rejects a blank ranker key: %j", (key) => {
     expect(
       interleavingValidator.safeParse({
         ...baseDoc,
-        variations: [ranker("var_a", key), baseDoc.variations[1]],
+        variations: { ...baseDoc.variations, control: ranker("var_a", key) },
       }).success,
     ).toBe(false);
   });
@@ -87,6 +98,14 @@ describe("interleavingValidator", () => {
         ...baseDoc,
         measurementArmPercent: 0.1,
       }).success,
+    ).toBe(false);
+  });
+
+  it("rejects the same metric added twice", () => {
+    const metric = { id: "fact__clicks", analyses: [{ type: "paired" }] };
+    expect(
+      interleavingValidator.safeParse({ ...baseDoc, metrics: [metric, metric] })
+        .success,
     ).toBe(false);
   });
 });
@@ -108,8 +127,9 @@ describe("interleaving key", () => {
   });
 
   it("is required", () => {
-    const { key: _key, ...rest } = baseDoc;
-    expect(interleavingValidator.safeParse(rest).success).toBe(false);
+    expect(
+      interleavingValidator.safeParse(omit(baseDoc, ["key"])).success,
+    ).toBe(false);
   });
 });
 
@@ -165,27 +185,19 @@ describe("interleavingMetricConfigValidator", () => {
       .success;
 
   it.each([
-    ["paired only", [{ type: "paired" }]],
-    [
-      "one ownership only",
-      [{ type: "ownership", attribution: "exposureCount" }],
-    ],
-    [
-      "both ownership attributions",
-      [
-        { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "engagementSignal" },
-      ],
-    ],
-    [
-      "every analysis at once",
-      [
+    { name: "paired only", analyses: [{ type: "paired" }] },
+    {
+      name: "one preference only",
+      analyses: [{ type: "preference", attribution: "exposureCount" }],
+    },
+    {
+      name: "every analysis at once",
+      analyses: [
         { type: "paired" },
-        { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "engagementSignal" },
+        { type: "preference", attribution: "exposureCount" },
       ],
-    ],
-  ])("accepts %s", (_label, analyses) => {
+    },
+  ])("accepts $name", ({ analyses }) => {
     expect(parse(analyses)).toBe(true);
   });
 
@@ -197,27 +209,28 @@ describe("interleavingMetricConfigValidator", () => {
     expect(parse([{ type: "paired" }, { type: "paired" }])).toBe(false);
   });
 
-  it("rejects a duplicate ownership attribution", () => {
+  it("rejects a duplicate preference attribution", () => {
     expect(
       parse([
-        { type: "ownership", attribution: "exposureCount" },
-        { type: "ownership", attribution: "exposureCount" },
+        { type: "preference", attribution: "exposureCount" },
+        { type: "preference", attribution: "exposureCount" },
       ]),
     ).toBe(false);
   });
 
-  it("rejects an unknown ownership attribution", () => {
-    expect(parse([{ type: "ownership", attribution: "lastClick" }])).toBe(
-      false,
-    );
-  });
+  it.each(["lastClick", "engagementSignal"])(
+    "rejects the unsupported preference attribution %j",
+    (attribution) => {
+      expect(parse([{ type: "preference", attribution }])).toBe(false);
+    },
+  );
 
   it("rejects an unknown analysis type", () => {
     expect(parse([{ type: "sequential" }])).toBe(false);
   });
 
-  it("rejects an ownership analysis with no attribution", () => {
-    expect(parse([{ type: "ownership" }])).toBe(false);
+  it("rejects an preference analysis with no attribution", () => {
+    expect(parse([{ type: "preference" }])).toBe(false);
   });
 });
 
@@ -268,5 +281,36 @@ describe("parseInterleavingRankerConfig", () => {
     expect(
       parseInterleavingRankerConfig("{}", schema("not json", false)),
     ).toEqual({});
+  });
+});
+
+describe("nextAvailableTrackingKey", () => {
+  it("uses the code key when nothing has claimed it", () => {
+    expect(nextAvailableTrackingKey("search", new Set())).toBe("search");
+    expect(nextAvailableTrackingKey("search", new Set(["other"]))).toBe(
+      "search",
+    );
+  });
+
+  it("suffixes when the code key is taken", () => {
+    expect(nextAvailableTrackingKey("search", new Set(["search"]))).toBe(
+      "search_v1",
+    );
+    expect(
+      nextAvailableTrackingKey("search", new Set(["search", "search_v1"])),
+    ).toBe("search_v2");
+  });
+
+  // Someone can set `search_v1` by hand, so counting collisions would collide
+  it("skips a suffix that was claimed out of order", () => {
+    expect(
+      nextAvailableTrackingKey("search", new Set(["search", "search_v2"])),
+    ).toBe("search_v1");
+    expect(
+      nextAvailableTrackingKey(
+        "search",
+        new Set(["search", "search_v1", "search_v2"]),
+      ),
+    ).toBe("search_v3");
   });
 });

@@ -1,5 +1,12 @@
-import { InterleavingInterface } from "shared/validators";
-import { toApiInterleaving } from "back-end/src/enterprise/services/interleavingApi";
+import {
+  apiInterleavingSnapshotValidator,
+  InterleavingInterface,
+  InterleavingSnapshotInterface,
+} from "shared/validators";
+import {
+  toApiInterleaving,
+  toApiInterleavingSnapshot,
+} from "back-end/src/enterprise/services/interleavingApi";
 import {
   startInterleaving,
   stopInterleaving,
@@ -25,13 +32,18 @@ function interleaving(
     trackingKey: "search-ranking",
     hashAttribute: "id",
     seed: "seed",
-    variations: [
-      { id: "v0", key: "popular", name: "Popular", config: "{}" },
-      { id: "v1", key: "buyers-pick", name: "Buyer's pick", config: "{}" },
-    ],
+    variations: {
+      control: { id: "v0", key: "popular", name: "Popular", config: "{}" },
+      treatment: {
+        id: "v1",
+        key: "buyers-pick",
+        name: "Buyer's pick",
+        config: "{}",
+      },
+    },
     jsonSchema: null,
     datasource: "ds_1",
-    interleavingQueryId: "ilq_1",
+    interleavingExposureQueryId: "ilq_1",
     userIdType: "user_id",
     metrics: [],
     environmentSettings: { production: { enabled: true } },
@@ -82,6 +94,46 @@ describe("toApiInterleaving", () => {
     expect(api.dateStarted).toBe(date.toISOString());
     expect(api.jsonSchema?.date).toBe(date.toISOString());
     expect(api.key).toBe("search-ranking");
+  });
+});
+
+describe("toApiInterleavingSnapshot", () => {
+  it("drops internal fields and serializes dates", () => {
+    const il = interleaving();
+    const snapshot: InterleavingSnapshotInterface = {
+      id: "ilsnp_1",
+      organization: "org_1",
+      dateCreated: new Date("2026-10-07T00:00:00Z"),
+      dateUpdated: new Date("2026-10-07T00:01:00Z"),
+      interleavingId: il.id,
+      status: "running",
+      runStarted: null,
+      queries: [{ query: "q_1", status: "running", name: "ft_1" }],
+      settings: {
+        interleavingId: il.id,
+        trackingKey: il.trackingKey,
+        datasourceId: il.datasource,
+        interleavingExposureQueryId: il.interleavingExposureQueryId,
+        interleavingExposureQuerySql: "SELECT 1",
+        userIdType: il.userIdType,
+        variations: {
+          control: { id: "v0", key: "popular", name: "Popular" },
+          treatment: { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
+        },
+        metrics: [{ id: "fact__1", analyses: [{ type: "paired" }] }],
+        pValueThreshold: 0.05,
+        startDate: new Date("2026-10-01T00:00:00Z"),
+        endDate: new Date("2026-10-07T00:00:00Z"),
+      },
+    };
+    const api = toApiInterleavingSnapshot(snapshot);
+    expect(apiInterleavingSnapshotValidator.safeParse(api).success).toBe(true);
+    expect(api.dateCreated).toBe("2026-10-07T00:00:00.000Z");
+    expect(api.runStarted).toBeNull();
+    expect(api.settings.startDate).toBe("2026-10-01T00:00:00.000Z");
+    expect(api.settings.endDate).toBe("2026-10-07T00:00:00.000Z");
+    expect(api.settings).not.toHaveProperty("interleavingExposureQuerySql");
+    expect(api).not.toHaveProperty("queries");
   });
 });
 

@@ -31,23 +31,23 @@ function interleaving(
     trackingKey: "search-ranking-tk",
     hashAttribute: "id",
     seed: "il-seed",
-    variations: [
-      {
+    variations: {
+      control: {
         id: "v0",
         key: "control",
         name: "Control",
         config: '{"algorithm":"popular"}',
       },
-      {
+      treatment: {
         id: "v1",
         key: "buyers-pick",
         name: "Buyer's pick",
         config: '{"algorithm":"buyers-pick","weight":0.3}',
       },
-    ],
+    },
     jsonSchema: null,
     datasource: "ds_1",
-    interleavingQueryId: "q_1",
+    interleavingExposureQueryId: "q_1",
     userIdType: "user_id",
     metrics: [],
     environmentSettings: { production: { enabled: true } },
@@ -227,9 +227,14 @@ describe("generateInterleavingsPayload", () => {
   });
 
   it("skips an interleaving whose ranker config no longer parses", () => {
-    const [a, b] = interleaving().variations;
+    const { control, treatment } = interleaving().variations;
     const out = generate([
-      interleaving({ variations: [a, { ...b, config: "{not json" }] }),
+      interleaving({
+        variations: {
+          control,
+          treatment: { ...treatment, config: "{not json" },
+        },
+      }),
     ]);
     expect(out.features).toEqual({});
     expect(out.interleavings).toBeUndefined();
