@@ -258,7 +258,11 @@ export function getInterleavingMetricQuery(
           `MIN(e.${ts}) AS exposure_timestamp`,
         ])}
       FROM (
-        ${compileSqlTemplate(params.interleavingExposureQuerySql, compiled)}
+        ${compileSqlTemplate(
+          params.interleavingExposureQuerySql,
+          compiled,
+          dialect,
+        )}
       ) e
       ${jsonArray.unnest(`e.${INTERLEAVING_ITEMS_COLUMN}`, "item")}
       WHERE e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${lit(trackingKey)}
