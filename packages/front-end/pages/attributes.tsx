@@ -619,7 +619,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   Used to assign users to experiment variations.
                 </Text>
               </Box>
-              {canCreateAttributes && (
+              {canCreateAttributes && identifiers.length > 0 && (
                 <Button
                   variant="soft"
                   size="sm"
@@ -803,7 +803,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   SDK.
                 </Text>
               </Box>
-              {canCreateAttributes && (
+              {canCreateAttributes && targetingAttributes.length > 0 && (
                 <Button
                   variant="soft"
                   size="sm"
