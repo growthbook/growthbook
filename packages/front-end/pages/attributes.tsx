@@ -358,7 +358,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
               href={`/attributes/${encodeURIComponent(v.property)}`}
               style={{ color: "var(--gray-12)" }}
             >
-              <Text mono weight="semibold">
+              <Text mono weight="medium">
                 <TruncateMiddleWithTooltip
                   text={v.property}
                   maxChars={truncateCharsForWidth(width)}
@@ -672,7 +672,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                 href={`/attributes/${encodeURIComponent(v.property)}`}
                                 style={{ color: "var(--gray-12)" }}
                               >
-                                <Text mono weight="semibold">
+                                <Text mono weight="medium">
                                   <TruncateMiddleWithTooltip
                                     text={v.property}
                                     maxChars={truncateCharsForWidth(200)}
