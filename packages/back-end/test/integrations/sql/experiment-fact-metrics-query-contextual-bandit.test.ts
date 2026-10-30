@@ -159,6 +159,14 @@ describe("getExperimentFactMetricsQuery contextual bandit period weighting", () 
     // context-specific mean (their combined weight is 1 - SUM(renormalized
     // weight)), rather than treated as zero conversions.
     expect(c).toContain("/NULLIF(SUM(bps.users),0)*(1-SUM(");
+    // Those same missing periods also contribute an imputed (pooled) variance
+    // weighted by their renormalized squared-weight mass, so sum_squares is not
+    // understated. The squared-weight total is carried on the weight-totals CTE
+    // and the imputed term multiplies the arm's pooled variance.
+    expect(c).toContain("SUM(POWER(bpw.weight,2))ASvariation_weight_sq_total");
+    expect(c).toContain(
+      "MAX(vps.m0_pooled_main_variance)*(MAX(vwt.variation_weight_sq_total)",
+    );
     // Context attribute remains a real dimension column (no dummy 'All').
     expect(c).toContain("attr_cb_country");
     expect(c).not.toContain("'All'ASdimension");

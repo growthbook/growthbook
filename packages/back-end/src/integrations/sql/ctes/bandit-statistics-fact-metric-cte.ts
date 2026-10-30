@@ -220,12 +220,13 @@ export function getBanditStatisticsFactMetricCTE(
         __banditPeriodStatistics
     )
     , __variationPeriodWeightTotals AS (
-      -- Per-variation sum of the shared period weights over the periods the
-      -- variation was eligible in, per dimension.
+      -- Per-variation sum of the shared period weights over
+      -- the periods the variation was eligible in, per dimension.
       SELECT
         vep.variation AS variation
         ${dimensionCols.map((d) => `, bpw.${d.alias} AS ${d.alias}`).join("")}
         , SUM(bpw.weight) AS variation_weight_total
+        , SUM(POWER(bpw.weight, 2)) AS variation_weight_sq_total
       FROM
         __variationEligiblePeriods vep
       JOIN __banditPeriodWeights bpw ON (
@@ -302,10 +303,13 @@ export function getBanditStatisticsFactMetricCTE(
           const imputedMainMean = imputedMean(`${alias}main_sum`);
           const imputedDenominatorMean = imputedMean(`${alias}denominator_sum`);
           const imputedCovariateMean = imputedMean(`${alias}covariate_sum`);
+          const missingPeriodWeightSqSum = `(MAX(vwt.variation_weight_sq_total) / NULLIF(POWER(MAX(vwt.variation_weight_total), 2), 0) - SUM(POWER(${renorm}, 2)))`;
+          const imputedMissingVariance = (pooledCol: string) =>
+            `MAX(vps.${pooledCol}) * ${missingPeriodWeightSqSum}`;
           return `
       , ${dialect.castToString(`'${data.id}'`)} as ${alias}id
       , ${imputedMainMean} * SUM(bps.users) AS ${alias}main_sum
-      , SUM(bps.users) * (SUM(
+      , SUM(bps.users) * ((SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
           `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_main_variance / bps.users`,
@@ -313,12 +317,14 @@ export function getBanditStatisticsFactMetricCTE(
           bps.${alias}main_sum_squares - POWER(bps.${alias}main_sum, 2) / bps.users
         ) / (bps.users - 1)) / bps.users
       `,
+        )}) + ${imputedMissingVariance(
+          `${alias}pooled_main_variance`,
         )}) * (SUM(bps.users) - 1) + POWER(${imputedMainMean}, 2)) as ${alias}main_sum_squares
       ${
         data.ratioMetric
           ? `
         , ${imputedDenominatorMean} * SUM(bps.users) AS ${alias}denominator_sum
-        , SUM(bps.users) * (SUM(
+        , SUM(bps.users) * ((SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
           `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_denominator_variance / bps.users`,
@@ -326,11 +332,13 @@ export function getBanditStatisticsFactMetricCTE(
             (bps.${alias}denominator_sum_squares - POWER(bps.${alias}denominator_sum, 2) / bps.users) / (bps.users - 1))
           ) / bps.users
         `,
+        )}) + ${imputedMissingVariance(
+          `${alias}pooled_denominator_variance`,
         )}) * (SUM(bps.users) - 1) + POWER(
           ${imputedDenominatorMean}, 2)
         ) AS ${alias}denominator_sum_squares
         , SUM(bps.users) * (
-            (SUM(bps.users) - 1) * SUM(
+            (SUM(bps.users) - 1) * (SUM(
               ${dialect.ifElse(
                 "bps.users <= 1",
                 `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_main_denominator_covariance / bps.users`,
@@ -339,6 +347,8 @@ export function getBanditStatisticsFactMetricCTE(
                 bps.${alias}main_denominator_sum_product - bps.${alias}main_sum * bps.${alias}denominator_sum / bps.users
               )
             `,
+              )}) + ${imputedMissingVariance(
+                `${alias}pooled_main_denominator_covariance`,
               )}) +
             (
               ${imputedMainMean} * ${imputedDenominatorMean}
@@ -350,7 +360,7 @@ export function getBanditStatisticsFactMetricCTE(
         data.regressionAdjusted
           ? `
         , ${imputedCovariateMean} * SUM(bps.users) AS ${alias}covariate_sum
-        , SUM(bps.users) * (SUM(
+        , SUM(bps.users) * ((SUM(
         ${dialect.ifElse(
           "bps.users <= 1",
           `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_covariate_variance / bps.users`,
@@ -358,9 +368,11 @@ export function getBanditStatisticsFactMetricCTE(
             (bps.${alias}covariate_sum_squares - POWER(bps.${alias}covariate_sum, 2) / bps.users) / (bps.users - 1))
           ) / bps.users
         `,
+        )}) + ${imputedMissingVariance(
+          `${alias}pooled_covariate_variance`,
         )}) * (SUM(bps.users) - 1) + POWER(${imputedCovariateMean}, 2)) AS ${alias}covariate_sum_squares
         , SUM(bps.users) * (
-            (SUM(bps.users) - 1) * SUM(
+            (SUM(bps.users) - 1) * (SUM(
               ${dialect.ifElse(
                 "bps.users <= 1",
                 `POWER((${renormalizedWeight}), 2) * vps.${alias}pooled_main_covariate_covariance / bps.users`,
@@ -369,6 +381,8 @@ export function getBanditStatisticsFactMetricCTE(
                 bps.${alias}main_covariate_sum_product - bps.${alias}main_sum * bps.${alias}covariate_sum / bps.users
               )
             `,
+              )}) + ${imputedMissingVariance(
+                `${alias}pooled_main_covariate_covariance`,
               )}) +
             (
               ${imputedMainMean} * ${imputedCovariateMean}
