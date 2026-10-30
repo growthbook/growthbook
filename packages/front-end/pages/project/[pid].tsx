@@ -446,7 +446,15 @@ const ProjectPage: FC = () => {
                     </Flex>
                   </Flex>
                 </Frame>
-                <Flex justify="end" align="center" gap="4">
+                <Flex
+                  justify="end"
+                  align="center"
+                  gap="4"
+                  // Clears the help launcher, which publishes its footprint (see InAppHelp).
+                  style={{
+                    paddingRight: "var(--help-launcher-clearance, 0px)",
+                  }}
+                >
                   {saveError && <Callout status="error">{saveError}</Callout>}
                   {saveMsg && (
                     <TempMessage
