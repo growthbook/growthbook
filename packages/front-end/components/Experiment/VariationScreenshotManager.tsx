@@ -219,9 +219,11 @@ export default function VariationScreenshotManager({
           </Grid>
         </SortableContext>
       </DndContext>
-      <Box mt="2">
-        <ScreenshotUploadError error={upload.error} />
-      </Box>
+      {upload.error ? (
+        <Box mt="2">
+          <ScreenshotUploadError error={upload.error} />
+        </Box>
+      ) : null}
       {lightbox !== null && variation ? (
         <ExperimentCarouselModal
           experiment={stagedExperiment}
