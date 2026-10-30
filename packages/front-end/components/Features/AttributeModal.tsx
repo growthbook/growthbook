@@ -20,7 +20,6 @@ import useProjectOptions from "@/hooks/useProjectOptions";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import TextField from "@/ui/TextField";
 import Text from "@/ui/Text";
-import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
 import HelperText from "@/ui/HelperText";
@@ -569,14 +568,15 @@ export default function AttributeModal({
         {canDisableEquality && (
           <Flex direction="column" gap="3">
             <Box>
-              <Button
-                variant="ghost"
-                icon={advancedOpen ? <PiCaretDown /> : <PiCaretRight />}
+              <Link
                 aria-expanded={advancedOpen}
                 onClick={() => setAdvancedOpen((open) => !open)}
               >
-                Advanced
-              </Button>
+                <Flex align="center" gap="1">
+                  {advancedOpen ? <PiCaretDown /> : <PiCaretRight />}
+                  <Text weight="medium">Advanced</Text>
+                </Flex>
+              </Link>
             </Box>
             {advancedOpen && (
               <Checkbox
