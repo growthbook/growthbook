@@ -67,10 +67,10 @@ const interleaving = (overrides: Partial<InterleavingInterface> = {}) =>
     metrics: [{ id: "fact__goal", analyses: [{ type: "paired" }] }],
     dateStarted: new Date("2026-10-01T00:00:00Z"),
     dateStopped: null,
-    variations: [
-      { id: "v0", key: "popular", name: "Popular" },
-      { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
-    ],
+    variations: {
+      control: { id: "v0", key: "popular", name: "Popular" },
+      treatment: { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
+    },
     ...overrides,
   }) as InterleavingInterface;
 
@@ -177,10 +177,10 @@ describe("runInterleavingSnapshot", () => {
     expect(doc.settings.interleavingExposureQueryId).toBe("ileq_1");
     expect(doc.settings.pValueThreshold).toBe(0.05);
     expect(doc.settings.interleavingExposureQuerySql).toBe("SELECT 1");
-    expect(doc.settings.variations.map((v) => v.key)).toEqual([
-      "popular",
-      "buyers-pick",
-    ]);
+    expect(doc.settings.variations).toEqual({
+      control: { id: "v0", key: "popular", name: "Popular" },
+      treatment: { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
+    });
     expect(startAnalysis).toHaveBeenCalledTimes(1);
   });
 

@@ -1,6 +1,9 @@
 import { BigQueryTimestamp } from "@google-cloud/bigquery";
 import { ExperimentMetricInterface } from "shared/experiments";
-import type { InterleavingAnalysis } from "shared/validators";
+import type {
+  InterleavingAnalysis,
+  InterleavingVariationRole,
+} from "shared/validators";
 import { MetricAnalysisSettings } from "shared/types/metric-analysis";
 import { DimensionInterface } from "shared/types/dimension";
 import { AttributionModel } from "shared/types/experiment";
@@ -1132,8 +1135,8 @@ export interface InterleavingMetricQueryParams {
   interleavingExposureQuerySql: string;
   userIdType: string;
   trackingKey: string;
-  // Control first; matched against the exposure items' `variation` values
-  variationKeys: [string, string];
+  // Matched against the exposure items' `variation` values
+  variationKeys: Record<InterleavingVariationRole, string>;
   startDate: Date;
   endDate: Date;
   // One query analyzes all metrics whose numerator reads this fact table;

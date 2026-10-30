@@ -3,6 +3,7 @@ import type {
   ApiInterleavingSnapshotInterface,
   InterleavingInterface,
   InterleavingSnapshotInterface,
+  InterleavingVariation,
 } from "shared/validators";
 
 export function toApiInterleavingSnapshot(
@@ -31,11 +32,9 @@ export function toApiInterleavingSnapshot(
   };
 }
 
-type ApiVariation = ApiInterleavingInterface["variations"][number];
+type ApiVariation = ApiInterleavingInterface["variations"]["control"];
 
-const apiVariation = (
-  v: InterleavingInterface["variations"][number],
-): ApiVariation => ({
+const apiVariation = (v: InterleavingVariation): ApiVariation => ({
   id: v.id,
   key: v.key,
   name: v.name,
@@ -63,10 +62,10 @@ export function toApiInterleaving(
     trackingKey: doc.trackingKey,
     hashAttribute: doc.hashAttribute,
     seed: doc.seed,
-    variations: [
-      apiVariation(doc.variations[0]),
-      apiVariation(doc.variations[1]),
-    ],
+    variations: {
+      control: apiVariation(doc.variations.control),
+      treatment: apiVariation(doc.variations.treatment),
+    },
     jsonSchema: doc.jsonSchema
       ? { ...doc.jsonSchema, date: doc.jsonSchema.date.toISOString() }
       : null,

@@ -2,6 +2,7 @@ import {
   InterleavingInterface,
   InterleavingSnapshotInterface,
   InterleavingSnapshotSettings,
+  InterleavingVariation,
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import { DEFAULT_P_VALUE_THRESHOLD } from "shared/constants";
@@ -84,7 +85,12 @@ async function getInterleavingSnapshotSettings(
     getScopedSettings({ organization: context.org, project }).settings
       .pValueThreshold.value ?? DEFAULT_P_VALUE_THRESHOLD;
 
-  const [a, b] = interleaving.variations;
+  const { control, treatment } = interleaving.variations;
+  const frozen = ({ id, key, name }: InterleavingVariation) => ({
+    id,
+    key,
+    name,
+  });
   return {
     interleavingId: interleaving.id,
     trackingKey: interleaving.trackingKey,
@@ -92,10 +98,7 @@ async function getInterleavingSnapshotSettings(
     interleavingExposureQueryId: interleavingExposureQuery.id,
     interleavingExposureQuerySql: interleavingExposureQuery.query,
     userIdType: interleaving.userIdType,
-    variations: [
-      { id: a.id, key: a.key, name: a.name },
-      { id: b.id, key: b.key, name: b.name },
-    ],
+    variations: { control: frozen(control), treatment: frozen(treatment) },
     metrics: interleaving.metrics,
     pValueThreshold,
     startDate: interleaving.dateStarted,

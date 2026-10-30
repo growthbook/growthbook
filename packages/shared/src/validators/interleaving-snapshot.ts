@@ -8,6 +8,9 @@ import {
 import { namedSchema } from "./openapi-helpers";
 import { queryPointerValidator } from "./queries";
 
+const interleavingSnapshotVariationValidator =
+  interleavingVariationValidator.pick({ id: true, key: true, name: true });
+
 /**
  * Self-contained settings for a single interleaving snapshot run, copied from
  * the parent Interleaving and its Interleaving Exposure Query when the
@@ -21,12 +24,14 @@ export const interleavingSnapshotSettingsValidator = z
     interleavingExposureQueryId: z.string(),
     interleavingExposureQuerySql: z.string(),
     userIdType: z.string(),
-    // Control first. `key` is matched against the exposure items' `variation`;
-    // `name` is what results display.
-    variations: z.tuple([
-      interleavingVariationValidator.pick({ id: true, key: true, name: true }),
-      interleavingVariationValidator.pick({ id: true, key: true, name: true }),
-    ]),
+    // `key` is matched against the exposure items' `variation`; `name` is what
+    // results display.
+    variations: z
+      .object({
+        control: interleavingSnapshotVariationValidator,
+        treatment: interleavingSnapshotVariationValidator,
+      })
+      .strict(),
     metrics: z.array(interleavingMetricConfigValidator),
     // Frozen so a later org-settings change cannot reinterpret this result.
     // Drives the test alpha, and the results table colours significance by

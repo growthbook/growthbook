@@ -66,6 +66,17 @@ export type InterleavingVariation = z.infer<
   typeof interleavingVariationValidator
 >;
 
+// Named rather than positional so no caller has to remember which index is
+// control. The SDK payload still serialises them as [control, treatment].
+export const interleavingVariationsValidator = z
+  .object({
+    control: interleavingVariationValidator,
+    treatment: interleavingVariationValidator,
+  })
+  .strict();
+export type InterleavingVariationRole =
+  keyof typeof interleavingVariationsValidator.shape;
+
 // Interleaving environments only carry an on/off switch — the targeting knobs on
 // featureEnvironment (rules, default value) have no meaning for a ranker.
 const interleavingEnvironment = z.object({ enabled: z.boolean() }).strict();
@@ -102,12 +113,9 @@ export const interleavingValidator = baseSchema
     hashAttribute: z.string(),
     seed: z.string(),
 
-    // Exactly two rankers. The first is the default: users who aren't
+    // Exactly two rankers. Control is the default: users who aren't
     // interleaved (targeting miss, experiment off) get its list.
-    variations: z.tuple([
-      interleavingVariationValidator,
-      interleavingVariationValidator,
-    ]),
+    variations: interleavingVariationsValidator,
 
     jsonSchema: JSONSchemaDef.nullable(),
 
@@ -154,10 +162,15 @@ const apiInterleavingVariationInput = z.strictObject({
 });
 
 const apiInterleavingVariationsInput = z
-  .tuple([apiInterleavingVariationInput, apiInterleavingVariationInput])
-  .describe(
-    "Exactly two rankers. Users who are not exposed to interleaved rankings get the first ranker's list.",
-  );
+  .strictObject({
+    control: apiInterleavingVariationInput.describe(
+      "The default ranker. Users who are not exposed to interleaved rankings get its list.",
+    ),
+    treatment: apiInterleavingVariationInput.describe(
+      "The ranker being tested against control.",
+    ),
+  })
+  .describe("Exactly two rankers, by role.");
 
 export const apiInterleavingValidator = namedSchema(
   "Interleaving",
@@ -182,10 +195,14 @@ export const apiInterleavingValidator = namedSchema(
       .describe("The `experiment_id` recorded in exposures"),
     hashAttribute: z.string(),
     seed: z.string(),
-    // Tuple, like the input: the arity is part of the contract both ways.
     variations: z
-      .tuple([apiInterleavingVariation, apiInterleavingVariation])
-      .describe("Exactly two rankers. Control (the default ranker) is first."),
+      .object({
+        control: apiInterleavingVariation.describe("The default ranker."),
+        treatment: apiInterleavingVariation.describe(
+          "The ranker being tested against control.",
+        ),
+      })
+      .describe("Exactly two rankers, by role."),
     jsonSchema: apiJSONSchemaDefInput
       .safeExtend({ date: z.iso.datetime() })
       .describe("Validation schema for the rankers' configs")
@@ -274,9 +291,7 @@ export const apiUpdateInterleavingBody = z.strictObject({
   seed: z.string().optional(),
   variations: apiInterleavingVariationsInput
     .optional()
-    .describe(
-      "Replaces both rankers. Each keeps its id by position, so the first entry updates the first ranker.",
-    ),
+    .describe("Replaces both rankers. Each keeps its id."),
   jsonSchema: apiJSONSchemaDefInput.nullable().optional(),
 
   datasource: z.string().optional(),

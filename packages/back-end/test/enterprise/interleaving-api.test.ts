@@ -32,10 +32,15 @@ function interleaving(
     trackingKey: "search-ranking",
     hashAttribute: "id",
     seed: "seed",
-    variations: [
-      { id: "v0", key: "popular", name: "Popular", config: "{}" },
-      { id: "v1", key: "buyers-pick", name: "Buyer's pick", config: "{}" },
-    ],
+    variations: {
+      control: { id: "v0", key: "popular", name: "Popular", config: "{}" },
+      treatment: {
+        id: "v1",
+        key: "buyers-pick",
+        name: "Buyer's pick",
+        config: "{}",
+      },
+    },
     jsonSchema: null,
     datasource: "ds_1",
     interleavingExposureQueryId: "ilq_1",
@@ -111,10 +116,10 @@ describe("toApiInterleavingSnapshot", () => {
         interleavingExposureQueryId: il.interleavingExposureQueryId,
         interleavingExposureQuerySql: "SELECT 1",
         userIdType: il.userIdType,
-        variations: [
-          { id: "v0", key: "popular", name: "Popular" },
-          { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
-        ],
+        variations: {
+          control: { id: "v0", key: "popular", name: "Popular" },
+          treatment: { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
+        },
         metrics: [{ id: "fact__1", analyses: [{ type: "paired" }] }],
         pValueThreshold: 0.05,
         startDate: new Date("2026-10-01T00:00:00Z"),

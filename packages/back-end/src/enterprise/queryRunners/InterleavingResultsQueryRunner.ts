@@ -81,10 +81,10 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
           interleavingExposureQuerySql: settings.interleavingExposureQuerySql,
           userIdType: settings.userIdType,
           trackingKey: settings.trackingKey,
-          variationKeys: [
-            settings.variations[0].key,
-            settings.variations[1].key,
-          ],
+          variationKeys: {
+            control: settings.variations.control.key,
+            treatment: settings.variations.treatment.key,
+          },
           startDate: settings.startDate,
           endDate: settings.endDate,
           factTable: group[0].factTable,

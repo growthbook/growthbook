@@ -56095,12 +56095,14 @@ paths:
                 seed:
                   type: string
                 variations:
-                  description: >-
-                    Replaces both rankers. Each keeps its id by position, so the
-                    first entry updates the first ranker.
-                  type: array
-                  prefixItems:
-                    - type: object
+                  description: Replaces both rankers. Each keeps its id.
+                  type: object
+                  properties:
+                    control:
+                      description: >-
+                        The default ranker. Users who are not exposed to
+                        interleaved rankings get its list.
+                      type: object
                       properties:
                         key:
                           type: string
@@ -56120,7 +56122,9 @@ paths:
                         - name
                         - config
                       additionalProperties: false
-                    - type: object
+                    treatment:
+                      description: The ranker being tested against control.
+                      type: object
                       properties:
                         key:
                           type: string
@@ -56140,6 +56144,10 @@ paths:
                         - name
                         - config
                       additionalProperties: false
+                  required:
+                    - control
+                    - treatment
+                  additionalProperties: false
                 jsonSchema:
                   anyOf:
                     - description: >-
@@ -56406,12 +56414,14 @@ paths:
                 hashAttribute:
                   type: string
                 variations:
-                  description: >-
-                    Exactly two rankers. Users who are not exposed to
-                    interleaved rankings get the first ranker's list.
-                  type: array
-                  prefixItems:
-                    - type: object
+                  description: Exactly two rankers, by role.
+                  type: object
+                  properties:
+                    control:
+                      description: >-
+                        The default ranker. Users who are not exposed to
+                        interleaved rankings get its list.
+                      type: object
                       properties:
                         key:
                           type: string
@@ -56431,7 +56441,9 @@ paths:
                         - name
                         - config
                       additionalProperties: false
-                    - type: object
+                    treatment:
+                      description: The ranker being tested against control.
+                      type: object
                       properties:
                         key:
                           type: string
@@ -56451,6 +56463,10 @@ paths:
                         - name
                         - config
                       additionalProperties: false
+                  required:
+                    - control
+                    - treatment
+                  additionalProperties: false
                 jsonSchema:
                   description: >-
                     Validation schema to stage on the draft. The server sets
@@ -83875,10 +83891,12 @@ components:
         seed:
           type: string
         variations:
-          description: Exactly two rankers. Control (the default ranker) is first.
-          type: array
-          prefixItems:
-            - type: object
+          description: Exactly two rankers, by role.
+          type: object
+          properties:
+            control:
+              description: The default ranker.
+              type: object
               properties:
                 id:
                   type: string
@@ -83897,7 +83915,9 @@ components:
                 - name
                 - config
               additionalProperties: false
-            - type: object
+            treatment:
+              description: The ranker being tested against control.
+              type: object
               properties:
                 id:
                   type: string
@@ -83916,6 +83936,10 @@ components:
                 - name
                 - config
               additionalProperties: false
+          required:
+            - control
+            - treatment
+          additionalProperties: false
         jsonSchema:
           anyOf:
             - description: Validation schema for the rankers' configs
@@ -84169,9 +84193,10 @@ components:
             userIdType:
               type: string
             variations:
-              type: array
-              prefixItems:
-                - type: object
+              type: object
+              properties:
+                control:
+                  type: object
                   properties:
                     id:
                       type: string
@@ -84185,7 +84210,8 @@ components:
                     - key
                     - name
                   additionalProperties: false
-                - type: object
+                treatment:
+                  type: object
                   properties:
                     id:
                       type: string
@@ -84199,6 +84225,10 @@ components:
                     - key
                     - name
                   additionalProperties: false
+              required:
+                - control
+                - treatment
+              additionalProperties: false
             metrics:
               type: array
               items:

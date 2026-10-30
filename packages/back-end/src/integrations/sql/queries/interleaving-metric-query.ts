@@ -211,7 +211,7 @@ export function getInterleavingMetricQuery(
   const includePreference = plan.preference.length > 0;
 
   const compiled = { startDate, endDate, experimentId: trackingKey };
-  const [controlKey, treatmentKey] = variationKeys;
+  const { control: controlKey, treatment: treatmentKey } = variationKeys;
   const ts = INTERLEAVING_TIMESTAMP_COLUMN;
   const lit = (value: string) => `'${dialect.escapeStringLiteral(value)}'`;
   const dateFilter = (col: string) =>
