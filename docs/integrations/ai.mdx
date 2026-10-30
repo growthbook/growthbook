@@ -9,6 +9,8 @@ GrowthBook supports AI integrations to enhance your experimentation and feature 
 
 AI features in GrowthBook are optional and can be enabled or disabled in the AI settings page. You can also configure the prompts used by the AI models to better suit your needs.
 
+For a chat assistant that can create flags, run experiments, and query your data from any page, see the [in-app AI assistant](/integrations/in-app-ai-assistant).
+
 <Frame>
   <img src="/static/images/integrations/ai/ai-settings-cloud.png" alt="AI Settings" width="800" />
 </Frame>
@@ -24,10 +26,10 @@ Many of the prompts used in AI integration in GrowthBook can be adjusted from th
 
 ### Generate experiment results summaries
 
-When you stop an experiment, you can generate a summary of the results using OpenAI's language models. This summary can
+When you stop an experiment, you can generate a summary of the results using your organization's AI model. This summary can
 help you quickly understand the impact of the experiment and make informed decisions.
 
-The prompt for generating this summary can be adjusted from the settings page of the OpenAI integration.
+The prompt for generating this summary can be adjusted from the AI settings page.
 
 #### Data sent:
 
@@ -99,37 +101,28 @@ changes, however, you can regenerate the embeddings for your experiments at any 
 
 ## AI Assistant Skills
 
-Skills tell the in-app AI Assistant how to carry out tasks such as creating a Feature Flag or analyzing an experiment. Admins can turn individual skills on or off for their organization under **Settings → General → AI & Prompts**. A skill that's turned off is hidden from the `/` menu in the chat composer, and the Assistant can't use it. New skills start turned on.
-
-Self-hosted installs can also add their own skills or replace the built-in ones. See [AI Assistant Skills](/self-host/env#ai-assistant-skills) in the environment variable reference.
+Skills tell the in-app AI assistant how to carry out tasks such as creating a feature flag or analyzing an experiment. Admins can turn individual skills on or off, and self-hosted installs can add their own. See [Manage skills](/integrations/in-app-ai-assistant#manage-skills).
 
 ## Self-Hosted AI Integrations
 
-Self-hosted GrowthBook instances can enable these AI features, by adding a OpenAI API key to the AI settings page.
+Self-hosted GrowthBook instances can enable these AI features by adding an API key for at least one supported AI provider:
 
-To get started with the OpenAI integration in GrowthBook, follow these steps:
-
-1. **Create an OpenAI Account**: If you don't have an OpenAI account, sign up at [OpenAI](https://www.openai.com/).
-2. **Obtain API Key**: After creating your account, obtain an API key from the OpenAI dashboard. This key will be used to authenticate your requests to the OpenAI API.
-3. **Add environment variable**: Add the OpenAI API key to your GrowthBook instance as an environment variable. The variable should be named `OPENAI_API_KEY`.
-
-   For example, if you are using Docker, you can add the following line to your `docker-compose.yml` file:
+1. **Get an API key** from OpenAI, Anthropic, Google, xAI, or Mistral.
+2. **Add it as an environment variable**: `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `GOOGLE_AI_API_KEY`, `XAI_API_KEY`, or `MISTRAL_API_KEY`. For example, with Docker Compose:
 
    ```yaml
    environment:
-     - OPENAI_API_KEY=your_openai_api_key_here
+     - ANTHROPIC_API_KEY=your_anthropic_api_key
    ```
 
-   If you are running GrowthBook in a different environment, refer to your platform's documentation on how to set environment variables.
+   If you are running GrowthBook in a different environment, refer to your platform's documentation on how to set environment variables. See [AI Provider API Keys](/self-host/env#ai-provider-api-keys) for the full list.
 
-4. **Configure GrowthBook**: In your GrowthBook settings, navigate to the AI settings tab and enable AI OpenAI integration, and configure any additional prompts as desired.
+3. **Configure GrowthBook**: Restart GrowthBook, go to **Settings → General → AI & Prompts**, turn on **Enable AI features**, and configure any additional prompts as desired.
 
-From the settings page you can also select the AI model you want to use. The default is `gpt-4o-mini`.
+From the settings page you can also choose the **Default AI model**. If you don't choose one, GrowthBook uses the first provider with a key, in this order: OpenAI (`gpt-5.4-mini`), Anthropic (`claude-sonnet-5-5`), Google (`gemini-3.5-flash`), xAI (`grok-4.3`), Mistral (`mistral-medium-latest`).
 
 <Frame>
   <img src="/static/images/integrations/ai/ai-settings-self-hosting.png" alt="AI Settings Self-hosting" width="800" />
 </Frame>
 
 <CommercialFeature feature="ai-suggestions" description="AI features for self-hosted GrowthBook instances are available on Enterprise plans." />
-
-You can learn more from the [OpenAI Documentation](https://platform.openai.com/docs/).
