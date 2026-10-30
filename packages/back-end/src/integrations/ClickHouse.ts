@@ -64,6 +64,60 @@ function normalizeManagedWarehouseDatetimes(
   }
 }
 
+// @clickhouse/client only applies `tls` to https URLs, so a scheme-less URL
+// defaults to https when SSL is required.
+export function getClickHouseUrl(
+  params: Pick<ClickHouseConnectionParams, "url" | "port" | "ssl">,
+): string | undefined {
+  const url =
+    params.ssl && params.url && !/^https?:\/\//i.test(params.url)
+      ? `https://${params.url}`
+      : params.url;
+  const host = getHost(url, params.port);
+  if (params.ssl && host?.startsWith("http://")) {
+    throw new Error(
+      "SSL is required, but the ClickHouse URL uses http://. Use an https:// URL instead.",
+    );
+  }
+  return host;
+}
+
+export function getClickHouseTLSOptions(
+  params: Pick<
+    ClickHouseConnectionParams,
+    "ssl" | "caCert" | "clientCert" | "clientKey"
+  >,
+):
+  | { ca_cert: Buffer }
+  | { ca_cert: Buffer; cert: Buffer; key: Buffer }
+  | undefined {
+  if (!params.ssl) return undefined;
+
+  const { caCert, clientCert, clientKey } = params;
+  if (!!clientCert !== !!clientKey) {
+    throw new Error("Client cert and client key must be provided together.");
+  }
+  if (!caCert) {
+    // The client has no way to send a client cert without a CA cert.
+    if (clientCert) {
+      throw new Error(
+        "A CA cert is required when using a client cert with ClickHouse.",
+      );
+    }
+    return undefined;
+  }
+
+  const ca_cert = Buffer.from(caCert);
+  if (clientCert && clientKey) {
+    return {
+      ca_cert,
+      cert: Buffer.from(clientCert),
+      key: Buffer.from(clientKey),
+    };
+  }
+  return { ca_cert };
+}
+
 export default class ClickHouse extends SqlIntegration {
   params!: ClickHouseConnectionParams;
   requiresDatabase = false;
@@ -104,8 +158,10 @@ export default class ClickHouse extends SqlIntegration {
     ) {
       throw new ManagedWarehousePendingError();
     }
+    const tls = getClickHouseTLSOptions(this.params);
     const client = createClient({
-      url: getHost(this.params.url, this.params.port),
+      url: getClickHouseUrl(this.params),
+      ...(tls ? { tls } : {}),
       username: this.params.username,
       password: this.params.password,
       database: this.params.database,
