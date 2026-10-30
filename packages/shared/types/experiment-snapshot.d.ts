@@ -185,6 +185,7 @@ export interface SnapshotBanditSettings {
   windowSettings?: MetricWindowSettings;
   contextualBandit?: boolean;
   targetingAttributeColumns?: string[];
+  periodWeighting?: boolean;
 }
 
 export interface ExperimentSnapshotSettings {
