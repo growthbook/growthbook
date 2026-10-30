@@ -2039,11 +2039,21 @@ export async function postMigrateEventForwarder(
       existing,
       datasourceParams,
     );
-    await provisionEventForwarderThroughLicenseServer(
-      context,
-      migrated,
-      datasourceParams,
-    );
+    try {
+      await provisionEventForwarderThroughLicenseServer(
+        context,
+        migrated,
+        datasourceParams,
+      );
+    } catch (e) {
+      // Put the row back on its Confluent topic so the connector keeps serving
+      // it and the migration can be retried; lastProvisioningError keeps the cause.
+      await context.models.eventForwarderConfigs.update(migrated, {
+        topic: existing.topic,
+        status: existing.status,
+      });
+      throw e;
+    }
     res.status(200).json({ status: 200 });
   } catch (e) {
     req.log.error(e, "Failed to migrate event forwarder");

@@ -662,6 +662,10 @@ export async function migrateEventForwarderToInHouseConsumer(
   if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
     throw new Error("Event forwarder is already on the in-house consumer");
   }
+  // Provisioning marks the row ready, which would silently undo a pause.
+  if (existing.status === "paused") {
+    throw new Error("Resume the event forwarder before migrating it");
+  }
   const draft = toEventForwarderConfigDraft(existing);
   if (!draft) {
     throw new Error("Cannot read event forwarder config");
