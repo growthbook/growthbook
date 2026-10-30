@@ -191,7 +191,6 @@ export default function AttributeModal({
   // Enum options constrain both scalar enums and array (list) attributes.
   const supportsEnumOptions = datatype === "enum" || isArrayDatatype;
   const canDisableEquality = datatype === "string" && !format;
-  const canBeIdentifier = HASH_ATTRIBUTE_DATA_TYPES.includes(datatype);
 
   // Constraining an in-use attribute (converting to enum or a restricted list, or tightening
   // its allowed values) restricts how existing conditions can be edited, so surface
@@ -535,7 +534,7 @@ export default function AttributeModal({
             />
           )}
 
-          {(canDisableEquality || canBeIdentifier) && (
+          {canDisableEquality && (
             <Flex direction="column" gap="3">
               <Box>
                 <Button
@@ -556,16 +555,6 @@ export default function AttributeModal({
                       value={!!form.watch("disableEqualityConditions")}
                       setValue={(value) =>
                         form.setValue("disableEqualityConditions", value)
-                      }
-                    />
-                  )}
-                  {canBeIdentifier && (
-                    <Checkbox
-                      label="Unique identifier"
-                      description="Allow attribute to be used for experiment assignment."
-                      value={!!form.watch("hashAttribute")}
-                      setValue={(value) =>
-                        form.setValue("hashAttribute", value)
                       }
                     />
                   )}
