@@ -5,49 +5,16 @@ import { useUser } from "@/services/UserContext";
 import track from "@/services/track";
 import { pValueFormatter } from "@/services/experiments";
 import Modal from "@/components/Modal";
-import Tooltip from "@/components/Tooltip/Tooltip";
-import { GBInfo } from "@/components/Icons";
+import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
 import { ExperimentTab } from "./TabbedPage";
 import { useSnapshot } from "./SnapshotProvider";
 import VariationUsersTable from "./TabbedPage/VariationUsersTable";
+import { InfoTip } from "./TabbedPage/SetupFieldRow";
 
 const NOT_ENOUGH_EVIDENCE_MESSAGE =
   "There is not enough evidence to raise an issue. Any imbalances in the percentages you see may be due to chance and aren’t cause for concern at this time.";
-
-const LearnMore = ({
-  type,
-  setOpen,
-  body,
-}: {
-  type: "simple" | "with_modal";
-  setOpen: (boolean) => void;
-  body: string | JSX.Element;
-}) => {
-  if (type === "with_modal") {
-    return (
-      <a
-        className="a"
-        role="button"
-        onClick={() => {
-          setOpen(true);
-        }}
-      >
-        Learn More {">"}
-      </a>
-    );
-  } else {
-    return (
-      <span>
-        <Tooltip body={body}>
-          <span className="a">
-            Learn More <GBInfo />
-          </span>
-        </Tooltip>
-      </span>
-    );
-  }
-};
 
 const SRMWarning: FC<{
   srm: number;
@@ -86,9 +53,29 @@ const SRMWarning: FC<{
     return null;
   }
 
-  if (!showWhenHealthy && srm >= srmThreshold) {
+  const healthy = srm >= srmThreshold;
+  if (!showWhenHealthy && healthy) {
     return null;
   }
+
+  const showHealthLink =
+    !!linkToHealthTab &&
+    !!setTab &&
+    !!snapshot?.health?.traffic.dimension?.dim_exposure_date;
+  // The modal explains in full; a compact card's tooltip in brief.
+  const learnMoreLink =
+    type === "with_modal" ? (
+      <Link onClick={() => setOpen(true)}>Learn more</Link>
+    ) : null;
+  const learnMoreTip =
+    type === "simple" ? (
+      <>
+        {" "}
+        <InfoTip
+          content={healthy ? NOT_ENOUGH_EVIDENCE_MESSAGE : srmWarningMessage}
+        />
+      </>
+    ) : null;
 
   return (
     <>
@@ -174,35 +161,24 @@ const SRMWarning: FC<{
         </Modal>
       )}
 
-      {srm >= srmThreshold ? (
-        <Callout status="success">
-          <b>
-            No Sample Ratio Mismatch (SRM) detected. P-value above{" "}
-            {srmThreshold}.{" "}
-            {!isBandit && (
-              <LearnMore
-                type={type}
-                setOpen={setOpen}
-                body={NOT_ENOUGH_EVIDENCE_MESSAGE}
-              />
-            )}
-          </b>
+      {healthy ? (
+        <Callout
+          status="success"
+          contentAlign="center"
+          action={isBandit ? null : learnMoreLink}
+        >
+          No Sample Ratio Mismatch (SRM) detected: p-value above {srmThreshold}.
+          {!isBandit ? learnMoreTip : null}
         </Callout>
       ) : (
-        <Callout status="warning">
-          <strong>
-            Sample Ratio Mismatch (SRM) detected. P-value below{" "}
-            {pValueFormatter(srmThreshold)}
-          </strong>
-          .{" "}
-          {linkToHealthTab &&
-          setTab &&
-          snapshot?.health?.traffic.dimension?.dim_exposure_date ? (
-            <p className="mb-0">
-              Results are likely untrustworthy. See the{" "}
-              <a
-                className="a"
-                role="button"
+        <Callout
+          status="warning"
+          contentAlign="center"
+          action={
+            showHealthLink ? (
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   track("Open health tab", {
                     source: "results-tab-srm-warning",
@@ -210,20 +186,19 @@ const SRMWarning: FC<{
                   setTab("health");
                 }}
               >
-                health tab
-              </a>{" "}
-              for more details.
-            </p>
-          ) : (
-            <p className="mb-0">
-              There is likely a bug in the implementation.{" "}
-              <LearnMore
-                type={type}
-                setOpen={setOpen}
-                body={srmWarningMessage}
-              />
-            </p>
-          )}
+                View health
+              </Button>
+            ) : (
+              learnMoreLink
+            )
+          }
+        >
+          Sample Ratio Mismatch (SRM) detected: p-value below{" "}
+          {pValueFormatter(srmThreshold)}.{" "}
+          {showHealthLink
+            ? "Results are likely untrustworthy."
+            : "There is likely a bug in the implementation."}
+          {showHealthLink ? null : learnMoreTip}
         </Callout>
       )}
     </>

@@ -1,5 +1,7 @@
 import { useState, FC } from "react";
+import { Flex } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
+import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 
 const CreateOrganization: FC<{
@@ -32,34 +34,28 @@ const CreateOrganization: FC<{
       trackingEventModalType=""
       submit={handleSubmit}
       open={true}
-      header={"Create New Organization"}
-      cta={"Create"}
+      header="Create Organization"
+      cta="Create"
       close={close}
     >
-      <div className="form-group">
-        Company Name
-        <input
-          type="text"
-          className="form-control"
+      <Flex direction="column" gap="4">
+        <TextField
+          label="Name"
           value={company}
           required
           minLength={3}
           onChange={(e) => setCompany(e.target.value)}
         />
         {showExternalId && (
-          <div className="mt-3">
-            External Id: Id used for the organization within your company
-            (optional)
-            <input
-              type="text"
-              className="form-control"
-              value={externalId}
-              minLength={3}
-              onChange={(e) => setExternalId(e.target.value)}
-            />
-          </div>
+          <TextField
+            label="External ID"
+            value={externalId}
+            minLength={3}
+            helpText="Identifies the organization within your company. Optional."
+            onChange={(e) => setExternalId(e.target.value)}
+          />
         )}
-      </div>
+      </Flex>
     </ModalStandard>
   );
 };

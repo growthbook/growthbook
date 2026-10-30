@@ -163,7 +163,6 @@ function OverrideValueInput({
             }
           }}
           valueType="json"
-          useCodeInput
           showFullscreenButton
           codeInputDefaultHeight={120}
           constantContext={constantContext}
@@ -273,7 +272,7 @@ function EditableKey({
         disabled={disabled}
         title={collision ? `"${trimmed}" is already in use` : undefined}
         style={{
-          fontFamily: "monospace",
+          fontFamily: "var(--code-font-family)",
           ...(invalid ? { borderColor: "var(--red-8)" } : {}),
         }}
       />
@@ -812,7 +811,6 @@ export default function ConfigOverrideEditor({
             value={patch}
             setValue={setPatch}
             valueType="json"
-            useCodeInput
             showFullscreenButton
             constantContext={constantContext}
             disabled={disabled}

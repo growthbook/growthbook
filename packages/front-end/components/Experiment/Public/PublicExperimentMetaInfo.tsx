@@ -1,12 +1,11 @@
 import { PiLink, PiCheck } from "react-icons/pi";
-import { Flex } from "@radix-ui/themes";
-import { date } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Button from "@/ui/Button";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import LinkButton from "@/ui/LinkButton";
 import track from "@/services/track";
-import Metadata from "@/ui/Metadata";
+import Heading from "@/ui/Heading";
 import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 
 export default function PublicExperimentMetaInfo({
@@ -17,11 +16,10 @@ export default function PublicExperimentMetaInfo({
   showPrivateLink?: boolean;
 }) {
   const HOST = globalThis?.window?.location?.origin;
+  const isBandit = experiment.type === "multi-armed-bandit";
   const shareableLink = experiment.uid
     ? `${HOST}/public/e/${experiment.uid}`
-    : `${HOST}/${
-        experiment?.type === "multi-armed-bandit" ? "bandit" : "experiment"
-      }/${experiment.id}`;
+    : `${HOST}/${isBandit ? "bandit" : "experiment"}/${experiment.id}`;
 
   const { performCopy, copySuccess } = useCopyToClipboard({
     timeout: 800,
@@ -44,52 +42,39 @@ export default function PublicExperimentMetaInfo({
         }}
         style={{ width: 130 }}
       >
-        Copy Link
+        Copy link
       </Button>
     );
 
   return (
-    <div className="container-fluid pagecontents d-flex my-3 px-3">
-      <div className="flex-1">
-        <h1 className="mb-3 mr-2">
-          {experiment.name}
-          <div
-            className="d-inline-block ml-2 position-relative"
-            style={{ top: -2 }}
+    <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-0">
+      <Flex direction="row" align="start" justify="between" gap="5">
+        <Flex align="center" gap="2">
+          <Heading
+            as="h1"
+            size="2xl"
+            color="text-high"
+            overflowWrap="anywhere"
+            weight="medium"
           >
+            {experiment.name}
+          </Heading>
+          <Box style={{ userSelect: "none" }}>
             <ExperimentStatusIndicator experimentData={experiment} />
-          </div>
-        </h1>
-
-        <Flex gap="3" mt="2" mb="1">
-          <Metadata
-            label="Experiment Key"
-            value={experiment.trackingKey || "None"}
-          />
-          <Metadata label="Created" value={date(experiment.dateCreated)} />
+          </Box>
         </Flex>
-      </div>
-      <div className="flex-shrink-0">
-        <div className="d-flex align-items-center" style={{ height: 40 }}>
+        <Flex direction="row" align="center" gap="2" flexShrink="0">
           {showPrivateLink && (
             <LinkButton
               variant="outline"
-              href={`/${
-                experiment?.type === "multi-armed-bandit"
-                  ? "bandit"
-                  : "experiment"
-              }/${experiment?.id}`}
-              mr={experiment.shareLevel === "public" ? "4" : "0"}
+              href={`/${isBandit ? "bandit" : "experiment"}/${experiment.id}`}
             >
-              Edit{" "}
-              {experiment?.type === "multi-armed-bandit"
-                ? "Bandit"
-                : "Experiment"}
+              Edit {isBandit ? "Bandit" : "experiment"}
             </LinkButton>
           )}
           {shareLinkButton}
-        </div>
-      </div>
+        </Flex>
+      </Flex>
     </div>
   );
 }

@@ -1,6 +1,26 @@
 import type { RevisionStatus } from "shared/validators";
+import type { ChecklistReadyStatus } from "@/components/PreLaunchChecklist/PreLaunchChecklist";
 
 export type RnPMode = "fix-conflicts" | "main";
+
+// The checklists of the experiments a publish starts, together. One that
+// hasn't reported yet counts as loading.
+export function checklistReadiness(
+  selectedIds: Iterable<string>,
+  reports: Record<string, ChecklistReadyStatus>,
+): { loading: boolean; blocked: boolean; incomplete: boolean } {
+  const shown = [...selectedIds].map((id) => reports[id] ?? null);
+  const loading = shown.some((r) => !r || r.loading);
+  const loaded = shown.filter(
+    (r): r is ChecklistReadyStatus => !!r && !r.loading,
+  );
+  const blocked = loaded.some((r) => r.hasHardBlockers);
+  return {
+    loading,
+    blocked,
+    incomplete: loading || blocked || loaded.some((r) => r.hasSoftBlockers),
+  };
+}
 
 // What the primary CTA does when clicked.
 export type RnPSubmitAction =
@@ -36,6 +56,8 @@ export interface RnPStateInput {
   hasSelectedExperiments: boolean;
   // Only future-scheduled experiments are selected (changes CTA wording).
   onlyScheduledSelected: boolean;
+  // The day those scheduled starts share ("Oct 29"), or null when they differ.
+  scheduledStartDay: string | null;
   // Currently on the pre-launch checklist step.
   experimentsStep: boolean;
   // Publishing is frozen by an active ramp-schedule lockdown on this feature.
@@ -75,12 +97,19 @@ export interface RnPState {
   waitingForReview: boolean;
 }
 
+export function scheduleToStartLabel(scheduledStartDay: string | null) {
+  return scheduledStartDay
+    ? `Schedule to start (${scheduledStartDay})`
+    : "Schedule to start";
+}
+
 function publishLabel(
   publishLocked: boolean,
   onlyScheduledSelected: boolean,
+  scheduledStartDay: string | null,
 ): string {
   if (publishLocked) return "Publish";
-  if (onlyScheduledSelected) return "Schedule to Start";
+  if (onlyScheduledSelected) return scheduleToStartLabel(scheduledStartDay);
   return "Publish";
 }
 
@@ -98,6 +127,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
     adminPublish,
     hasSelectedExperiments,
     onlyScheduledSelected,
+    scheduledStartDay,
     experimentsStep,
     featureLockedByRamp,
     featureLockedBySchedule,
@@ -165,7 +195,7 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
       mode,
       ctaLabel: hasNextStep
         ? "Next"
-        : publishLabel(publishLocked, onlyScheduledSelected),
+        : publishLabel(publishLocked, onlyScheduledSelected, scheduledStartDay),
       ctaEnabled: baseEnabled && checklistGateOpen,
       ctaLocked: !hasNextStep && publishLocked,
       submitAction: hasNextStep ? "next-experiments" : "publish",
@@ -186,7 +216,11 @@ export function getReviewAndPublishState(input: RnPStateInput): RnPState {
   let ctaLabel = canResubmit ? "Re-request Review" : "Request Review";
   let ctaLocked = false;
   if (approved && !hasNextStep) {
-    ctaLabel = publishLabel(publishLocked, onlyScheduledSelected);
+    ctaLabel = publishLabel(
+      publishLocked,
+      onlyScheduledSelected,
+      scheduledStartDay,
+    );
     ctaLocked = publishLocked;
   } else if (hasNextStep) {
     ctaLabel = "Next";

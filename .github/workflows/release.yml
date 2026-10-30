@@ -6,6 +6,10 @@ on:
     tags:
       - "v*"
 
+# Read-only by default; a job that needs more asks for it.
+permissions:
+  contents: read
+
 jobs:
   # Tag the latest docker release with the tag
   docker:
@@ -13,13 +17,13 @@ jobs:
     if: ${{ github.repository == 'growthbook/growthbook' }}
     steps:
       - name: Login to Docker Hub
-        uses: docker/login-action@v4
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
       - name: Install buildx
-        uses: docker/setup-buildx-action@v3
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Add tag to latest image
         run: |

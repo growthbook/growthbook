@@ -1,7 +1,12 @@
 import isEqual from "lodash/isEqual";
 import omit from "lodash/omit";
-import { DataSourceSettings, ExposureQuery } from "shared/types/datasource";
+import {
+  DataSourceSettings,
+  ExposureQuery,
+  ExposureQueryColumnMapping,
+} from "shared/types/datasource";
 import { ResolvedExposureQuery } from "shared/types/integrations";
+import type { UnquotedIdentifierFold } from "shared/types/sql";
 import type {
   ApiAssignmentQueryRef,
   ApiAssignmentQueryRefInput,
@@ -25,6 +30,108 @@ export function getExposureQueryIdentifierTypes(
   return query.userIdTypes?.length
     ? query.userIdTypes
     : [query.userIdType].filter(Boolean);
+}
+
+type WithColumnMapping = { columnMapping?: ExposureQueryColumnMapping };
+
+// An unset mapping falls back to the canonical name, so SQL that aliases its
+// columns to those names needs no mapping.
+export function getExposureQueryExperimentIdColumn(
+  query: WithColumnMapping,
+): string {
+  return query.columnMapping?.experimentIdColumn || "experiment_id";
+}
+
+export function getExposureQueryVariationIdColumn(
+  query: WithColumnMapping,
+): string {
+  return query.columnMapping?.variationIdColumn || "variation_id";
+}
+
+export function getExposureQueryTimestampColumn(
+  query: WithColumnMapping,
+): string {
+  return query.columnMapping?.timestampColumn || "timestamp";
+}
+
+export function getExposureQueryExperimentNameColumn(
+  query: WithColumnMapping,
+): string {
+  return query.columnMapping?.experimentNameColumn || "experiment_name";
+}
+
+export function getExposureQueryVariationNameColumn(
+  query: WithColumnMapping,
+): string {
+  return query.columnMapping?.variationNameColumn || "variation_name";
+}
+
+export function getExposureQueryIdentifierColumn(
+  query: WithColumnMapping,
+  identifierType: string,
+): string {
+  return query.columnMapping?.userIdColumns?.[identifierType] || identifierType;
+}
+
+const PLAIN_COLUMN_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+export function getColumnsNeedingQuotesMessage(columns: string[]): string {
+  const one = columns.length === 1;
+  const names = columns.map((c) => `"${c}"`);
+  const list = one
+    ? names[0]
+    : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  const capitals = columns.some((c) => PLAIN_COLUMN_NAME.test(c));
+  const special = columns.some((c) => !PLAIN_COLUMN_NAME.test(c));
+  const reason =
+    capitals && special
+      ? "capital letters or special characters"
+      : capitals
+        ? "capital letters"
+        : "special characters";
+  const target = special
+    ? `${one ? "a lowercase name" : "lowercase names"} with only letters, numbers and underscores`
+    : one
+      ? "a lowercase name"
+      : "lowercase names";
+  const alias =
+    columns[0]
+      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+      .toLowerCase()
+      .replace(/[^a-z0-9_]+/g, "_")
+      .replace(/^_+|_+$/g, "") || "column_name";
+  return `${one ? "Column" : "Columns"} ${list} can't be mapped because of ${
+    one ? "its" : "their"
+  } ${reason}. In SQL mode, quote ${one ? "it" : "each one"} and alias ${
+    one ? "it" : "them"
+  } to ${target}, like ${names[0]} AS ${alias}.`;
+}
+
+// Mapped columns are interpolated unquoted. On warehouses that fold unquoted
+// names to lowercase, a capital letter means the column was created quoted.
+export function findColumnsNeedingQuotes(
+  query: WithColumnMapping,
+  fold: UnquotedIdentifierFold | undefined,
+): string[] {
+  const mapping = query.columnMapping ?? {};
+  const mapped = [
+    mapping.experimentIdColumn,
+    mapping.variationIdColumn,
+    mapping.timestampColumn,
+    mapping.experimentNameColumn,
+    mapping.variationNameColumn,
+    ...Object.values(mapping.userIdColumns ?? {}),
+  ];
+  return [
+    ...new Set(
+      mapped.filter(
+        (c): c is string =>
+          !!c &&
+          (!PLAIN_COLUMN_NAME.test(c) ||
+            (fold === "lower" && c !== c.toLowerCase())),
+      ),
+    ),
+  ];
 }
 
 /**
@@ -506,36 +613,79 @@ export function resolveExposureQueryForAnalysis(
   query: Pick<
     ExposureQuery,
     "id" | "name" | "query" | "userIdType" | "userIdTypes"
-  >,
+  > &
+    WithColumnMapping,
   storedIdentifierType: string | undefined,
 ): ResolvedExposureQuery {
   assertExposureQueryDeclaresIdentifierType(query, storedIdentifierType);
   return {
     query: query.query,
     identifierType: resolveAnalysisIdentifierType(query, storedIdentifierType),
+    columnMapping: query.columnMapping,
   };
 }
 
 /**
  * Assignment queries added, changed or removed between two lists, matched by
- * id. Validation errors are written by the server, so they don't count.
+ * id. A repeated id is matched in order: the first query with that id in the
+ * new list against the first saved one, and so on. Validation errors are
+ * written by the server, so they don't count.
  */
 export function getChangedExposureQueries<
   Q extends { id?: string; error?: unknown },
 >(previous: Q[], next: Q[]): { previous: Q | null; next: Q | null }[] {
-  const byId = new Map(previous.filter((q) => q.id).map((q) => [q.id, q]));
+  const byId = new Map<string, Q[]>();
+  for (const query of previous) {
+    if (!query.id) continue;
+    byId.set(query.id, [...(byId.get(query.id) ?? []), query]);
+  }
   const changes: { previous: Q | null; next: Q | null }[] = [];
   for (const query of next) {
-    const before = query.id ? byId.get(query.id) : undefined;
-    if (before) byId.delete(query.id);
+    const before = query.id ? byId.get(query.id)?.shift() : undefined;
     if (!before || !isEqual(omit(before, "error"), omit(query, "error"))) {
       changes.push({ previous: before ?? null, next: query });
     }
   }
-  for (const removed of byId.values()) {
+  for (const removed of [...byId.values()].flat()) {
     changes.push({ previous: removed, next: null });
   }
   return changes;
+}
+
+/**
+ * A member who can't edit the whole data source gets server ids for the
+ * assignment queries they add, so an added query can't take over the id of a
+ * saved one in Projects they can't edit.
+ */
+export function assignServerIdsToAddedExposureQueries<
+  Q extends { id?: string; error?: unknown },
+>(
+  saved: Q[],
+  next: Q[],
+  canUpdateDataSourceSettings: boolean,
+  generateId: () => string,
+): Q[] {
+  if (canUpdateDataSourceSettings) return next;
+  const added = new Set(
+    getChangedExposureQueries(saved, next)
+      .filter((change) => !change.previous)
+      .map((change) => change.next),
+  );
+  return next.map((query) =>
+    added.has(query) ? { ...query, id: generateId() } : query,
+  );
+}
+
+/**
+ * Saved assignment queries with the given id. Ids are meant to be unique, but
+ * older saves could repeat one, and analysis looks queries up by id, so a
+ * change to one of them affects them all.
+ */
+export function getSavedQueriesSharingId<Q extends { id?: string }>(
+  saved: Q[],
+  id: string | undefined,
+): Q[] {
+  return id ? saved.filter((q) => q.id === id) : [];
 }
 
 /**

@@ -7,6 +7,7 @@ import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
 import { useRestApiCall } from "@/services/restApi";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
@@ -20,12 +21,6 @@ type FormValues = {
   variationWeights: number[];
 };
 
-/**
- * Combined Traffic & Targeting editor. Reuses the shared `FeatureVariationsInput`
- * (coverage-only via `hideVariations`, mirroring the experiment bandit
- * `EditTrafficModal` — weights stay algorithm-managed), the shared
- * assignment-attribute select, and `ConditionInput` for attribute targeting.
- */
 export default function ContextualBanditTrafficTargetingModal({
   cb,
   mutate,
@@ -68,7 +63,7 @@ export default function ContextualBanditTrafficTargetingModal({
         cta="Save"
         ctaEnabled={!prerequisiteTargetingSdkIssues}
         size="lg"
-        submit={form.handleSubmit(async (data) => {
+        submit={validatedSubmit(form, async (data) => {
           let condition = data.condition;
           validateAndFixCondition(condition, (fixed) => {
             condition = fixed;
@@ -108,6 +103,7 @@ export default function ContextualBanditTrafficTargetingModal({
             id: v.id,
           }))}
           showPreview={false}
+          // Coverage only: the bandit manages the weights.
           hideVariations
         />
 

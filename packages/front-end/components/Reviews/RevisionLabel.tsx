@@ -9,18 +9,41 @@ export function revisionLabelText(
   return `${numbered ? `${version}. ` : ""}${title ?? `Revision ${version}`}`;
 }
 
+// Away from the flag's own revision list, where a bare number reads as a step.
+export function NamedRevision({
+  version,
+  title,
+}: {
+  version: number;
+  title?: string | null;
+}) {
+  return (
+    <>
+      Revision {version}
+      {title ? (
+        <>
+          : <em>{title}</em>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 export default function RevisionLabel({
   version,
   title,
   numbered = true,
   minWidth = "1.9em",
   numberSize = "sm",
+  inheritNumberColor = false,
 }: {
   version: number;
   title?: string | null;
   numbered?: boolean;
   minWidth?: string | number;
   numberSize?: Size<"sm" | "md" | "lg" | "xl"> | "inherit";
+  // Follow the surrounding text's colour, e.g. on a dark tooltip.
+  inheritNumberColor?: boolean;
 }) {
   return (
     <>
@@ -33,7 +56,11 @@ export default function RevisionLabel({
             fontVariantNumeric: "tabular-nums",
           }}
         >
-          <Text as="span" color="text-mid" size={numberSize}>
+          <Text
+            as="span"
+            color={inheritNumberColor ? undefined : "text-mid"}
+            size={numberSize}
+          >
             {version}.
           </Text>
         </span>

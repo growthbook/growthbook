@@ -19,3 +19,8 @@ export const urlRedirectValidator = z
     persistQueryString: z.boolean(),
   })
   .strict();
+
+export const stagedUrlRedirect = urlRedirectValidator
+  .pick({ urlPattern: true, destinationURLs: true, persistQueryString: true })
+  .extend({ checkCircularDependencies: z.boolean() })
+  .strict();

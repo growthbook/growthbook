@@ -1,5 +1,5 @@
-import { FC, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { FC, useEffect, useRef, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { ProjectInterface } from "shared/types/project";
 import { ExpandedMember } from "shared/types/organization";
 import { putProjectValidator } from "shared/validators";
@@ -8,7 +8,6 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useRestApiCall } from "@/services/restApi";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
-import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Checkbox from "@/ui/Checkbox";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
@@ -24,11 +23,31 @@ const ProjectAccessSettings: FC<{
   const restApiCall = useRestApiCall();
   const permissionsUtil = usePermissionsUtil();
 
-  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [restrictAccess, setRestrictAccess] = useState(false);
   const [allowTargeting, setAllowTargeting] = useState(true);
 
   const canEdit = permissionsUtil.canUpdateProject(project.id);
+  const unchanged =
+    restrictAccess === !!project.restrictAccess &&
+    allowTargeting === (project.allowTargeting !== false);
+
+  // The modal used to manage focus; keep keyboard users in place.
+  const editButton = useRef<HTMLButtonElement>(null);
+  const editor = useRef<HTMLDivElement>(null);
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (editing) {
+      editor.current
+        ?.querySelector<HTMLElement>('[role="checkbox"]:not([disabled])')
+        ?.focus();
+    } else if (wasEditing.current) {
+      editButton.current?.focus();
+    }
+    wasEditing.current = editing;
+  }, [editing]);
   const canRestrictAccess = hasCommercialFeature("advanced-permissions");
 
   const hasExplicitGrant = (member: ExpandedMember | undefined) =>
@@ -47,22 +66,62 @@ const ProjectAccessSettings: FC<{
     !permissionsUtil.canManageTeam() &&
     !hasExplicitGrant(userId ? users.get(userId) : undefined);
 
+  const save = async () => {
+    setSaving(true);
+    try {
+      await restApiCall(putProjectValidator, {
+        params: { id: project.id },
+        body: { restrictAccess, allowTargeting },
+      });
+      await mutateDefinitions();
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
-    <>
-      {modalOpen && (
-        <ModalStandard
-          trackingEventModalType=""
-          open={true}
-          close={() => setModalOpen(false)}
-          header="Edit Project Access"
-          submit={async () => {
-            await restApiCall(putProjectValidator, {
-              params: { id: project.id },
-              body: { restrictAccess, allowTargeting },
-            });
-            await mutateDefinitions();
-          }}
-        >
+    <Frame px="4" py="3" mb="4">
+      <Flex align="center" justify="between" gap="3" mb="1">
+        <Heading as="h5" size="sm" mb="0">
+          Project Access
+        </Heading>
+        {editing ? (
+          <Flex gap="3" align="center">
+            <Button
+              variant="ghost"
+              disabled={saving}
+              onClick={() => setEditing(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={save}
+              setError={setError}
+              loading={saving}
+              disabled={unchanged}
+            >
+              Save
+            </Button>
+          </Flex>
+        ) : (
+          <Button
+            ref={editButton}
+            variant="ghost"
+            disabled={!canEdit}
+            onClick={() => {
+              setRestrictAccess(!!project.restrictAccess);
+              setAllowTargeting(project.allowTargeting !== false);
+              setError(null);
+              setEditing(true);
+            }}
+          >
+            Edit
+          </Button>
+        )}
+      </Flex>
+      {editing ? (
+        <Box ref={editor}>
           <PremiumTooltip commercialFeature="advanced-permissions">
             <Checkbox
               label="Restrict user access"
@@ -90,25 +149,13 @@ const ProjectAccessSettings: FC<{
             value={allowTargeting}
             setValue={setAllowTargeting}
           />
-        </ModalStandard>
-      )}
-      <Frame px="4" py="3" mb="4">
-        <Flex align="center" justify="between" gap="3" mb="1">
-          <Heading as="h5" size="sm" mb="0">
-            Project Access
-          </Heading>
-          <Button
-            variant="ghost"
-            disabled={!canEdit}
-            onClick={() => {
-              setRestrictAccess(!!project.restrictAccess);
-              setAllowTargeting(project.allowTargeting !== false);
-              setModalOpen(true);
-            }}
-          >
-            Edit
-          </Button>
-        </Flex>
+          {error && (
+            <Callout status="error" mt="3">
+              {error}
+            </Callout>
+          )}
+        </Box>
+      ) : (
         <Flex direction="column" gap="1">
           <Metadata
             label="Restrict user access"
@@ -119,8 +166,8 @@ const ProjectAccessSettings: FC<{
             value={project.allowTargeting !== false ? "On" : "Off"}
           />
         </Flex>
-      </Frame>
-    </>
+      )}
+    </Frame>
   );
 };
 

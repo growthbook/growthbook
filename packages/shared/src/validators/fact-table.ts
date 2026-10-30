@@ -186,6 +186,21 @@ export const aggregatedFactTableSettingsValidator = z
   })
   .strict();
 
+// "dbt" is locked like "api"; it marks what the dbt sync owns so --prune leaves other API resources alone.
+export const factManagedByValidator = z.enum(["", "api", "admin", "dbt"]);
+
+export const isExternallyManaged = (managedBy?: string | null): boolean =>
+  managedBy === "api" || managedBy === "dbt";
+
+export const externallyManagedError = (
+  action: "create" | "update" | "delete",
+  resource: "fact table" | "fact metric",
+  managedBy?: string | null,
+): string =>
+  managedBy === "dbt"
+    ? `Cannot ${action} ${resource} managed by dbt. Change it in your dbt project and sync again.`
+    : `Cannot ${action} ${resource} managed by API if the request isn't from the API.`;
+
 export const createFactTablePropsValidator = z
   .object({
     name: z.string(),
@@ -205,7 +220,7 @@ export const createFactTablePropsValidator = z
     eventName: z.string(),
     tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api", "admin"]).optional(),
+    managedBy: factManagedByValidator.optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings:
       aggregatedFactTableSettingsValidator.optional(),
@@ -227,7 +242,7 @@ export const updateFactTablePropsValidator = z
     eventName: z.string().optional(),
     tableType: factTableTypeValidator.optional(),
     columns: z.array(createColumnPropsValidator).optional(),
-    managedBy: z.enum(["", "api", "admin"]).optional(),
+    managedBy: factManagedByValidator.optional(),
     archived: z.boolean().optional(),
     autoSliceUpdatesEnabled: z.boolean().optional(),
     aggregatedFactTableSettings: aggregatedFactTableSettingsValidator
@@ -835,7 +850,7 @@ const factMetricObjectValidator = z
   .object({
     id: z.string(),
     organization: z.string(),
-    managedBy: z.enum(["", "api", "admin"]).optional(),
+    managedBy: factManagedByValidator.optional(),
     owner: ownerField,
     datasource: z.string(),
     dateCreated: z.date(),
@@ -870,9 +885,6 @@ const factMetricObjectValidator = z
     minSampleSize: z.number(),
     targetMDE: z.number().optional(),
     displayAsPercentage: z.boolean().optional(),
-
-    winRisk: z.number(),
-    loseRisk: z.number(),
 
     regressionAdjustmentOverride: z.boolean(),
     regressionAdjustmentEnabled: z.boolean(),
@@ -1155,11 +1167,9 @@ export const apiFactTableValidator = namedSchema(
           "Whether Auto Slice values for this fact table's columns are refreshed automatically in the background.",
         )
         .optional(),
-      managedBy: z
-        .enum(["", "api", "admin"])
-        .describe(
-          "Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.",
-        ),
+      managedBy: factManagedByValidator.describe(
+        "Where this fact table must be managed from. If not set (empty string), it can be managed from anywhere.",
+      ),
       dateCreated: z.string().meta({ format: "date-time" }),
       dateUpdated: z.string().meta({ format: "date-time" }),
     })
@@ -1293,9 +1303,10 @@ export const postFactTableBody = z
         'Optional array of column definitions to store for this fact table. Supplied columns are stored as-is. Omit `datatype` (or send "") on a column to have it auto-detected from the SQL.',
       )
       .optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
+    managedBy: factManagedByValidator
+      .describe(
+        'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+      )
       .optional(),
   })
   .strict();
@@ -1339,9 +1350,10 @@ const updateFactTableBody = z
         'Optional array of columns to upsert by `column`: existing columns are patched, new columns are created, and columns not included are left unchanged. Omit `datatype` to leave an existing column\'s type untouched; send "" to reset it for auto-detection; new columns are auto-detected when `datatype` is omitted or "". Slice-related properties require an enterprise license.',
       )
       .optional(),
-    managedBy: z
-      .enum(["", "api", "admin"])
-      .describe('Set this to "api" to disable editing in the GrowthBook UI')
+    managedBy: factManagedByValidator
+      .describe(
+        'Set this to "api" (or "dbt" for resources synced from dbt) to disable editing in the GrowthBook UI',
+      )
       .optional(),
     archived: z.boolean().optional(),
   })

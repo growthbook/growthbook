@@ -41,7 +41,7 @@ You can also require that all new experiments use a template under **Settings â†
 
 ### Finish Setup With the Pre-Launch Checklist
 
-After creation, the draft experiment's Overview tab includes a pre-launch checklist that guides you through the remaining steps, such as:
+After creation, the **To Do** tab in the draft experiment's details panel holds a pre-launch checklist that guides you through the remaining steps, such as:
 
 - Selecting a data source and experiment assignment table
 - Adding at least one goal metric
@@ -101,7 +101,7 @@ For those familiar with the "Experiment Duration" attribution model, choosing "I
 
 ### Experiment Metrics
 
-You can add metrics as goal metrics, guardrail metrics, or both. You also can add "Metric Overrides" which provide experiment-specific controls for metrics, allowing you to override the metric's defaults for, for example, metric windows and risk thresholds.
+You can add metrics as goal metrics, guardrail metrics, or both. You also can add "Metric Overrides" which provide experiment-specific controls for metrics, allowing you to override the metric's defaults for, for example, metric windows and priors.
 
 ### Experiment Phases
 
@@ -110,3 +110,13 @@ Experiment Phases are used primarily to separate stages of an experiment that ar
 ### Making Changes While Running
 
 Read our dedicated guide on [making changes to running experiments](/app/making-experiment-changes).
+
+## Temporary Rollouts
+
+When an experiment finishes and you enable a Temporary Rollout to ship the winning variation, the variation continues to be delivered through the experiment's Feature Flags, URL Redirects and AI Visual Editor changes.
+
+Temporary Rollouts are explicitly named **temporary** because long-term you should re-implement the winning variation in your site's code. When you no longer need the rollout, stop it from the experiment to improve your site performance.
+
+The rollout keeps the experiment's targeting and goes to every user who meets it, whatever the experiment's rollout percentage was.
+
+Without a Temporary Rollout, the experiment stops serving as soon as you stop it. Its rules stay on its Feature Flags but no longer apply. For users in the experiment, each flag checks the rules below the experiment's rule, in order, and serves its default value if none match. Its URL Redirects and AI Visual Editor changes stop too, so users see the original pages.
