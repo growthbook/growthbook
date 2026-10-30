@@ -1,5 +1,4 @@
 import { z } from "zod";
-import type { InterleavingTestResult } from "../../types/stats-engine";
 import { baseSchema } from "./base-model";
 import {
   interleavingAnalysisValidator,
@@ -8,6 +7,9 @@ import {
 } from "./interleaving";
 import { namedSchema } from "./openapi-helpers";
 import { queryPointerValidator } from "./queries";
+
+const interleavingSnapshotVariationValidator =
+  interleavingVariationValidator.pick({ id: true, key: true, name: true });
 
 /**
  * Self-contained settings for a single interleaving snapshot run, copied from
@@ -22,12 +24,14 @@ export const interleavingSnapshotSettingsValidator = z
     interleavingExposureQueryId: z.string(),
     interleavingExposureQuerySql: z.string(),
     userIdType: z.string(),
-    // Control first. `key` is matched against the exposure items' `variation`;
-    // `name` is what results display.
-    variations: z.tuple([
-      interleavingVariationValidator.pick({ id: true, key: true, name: true }),
-      interleavingVariationValidator.pick({ id: true, key: true, name: true }),
-    ]),
+    // `key` is matched against the exposure items' `variation`; `name` is what
+    // results display.
+    variations: z
+      .object({
+        control: interleavingSnapshotVariationValidator,
+        treatment: interleavingSnapshotVariationValidator,
+      })
+      .strict(),
     metrics: z.array(interleavingMetricConfigValidator),
     // Frozen so a later org-settings change cannot reinterpret this result.
     // Drives the test alpha, and the results table colours significance by
@@ -50,17 +54,30 @@ const interleavingResultSideValidator = z
   .object({ value: z.number(), cr: z.number() })
   .strict();
 
+// Which test produced an interleaving result. The analysis type alone does not
+// say: both tests return the same shape, but the sign test's interval is exact
+// (not Wald) and its estimand is conditional on non-tied users, so consumers
+// need to know which one they are reading.
+export const interleavingTestMethods = [
+  "paired_delta_t",
+  "exact_binomial_sign",
+] as const;
+export type InterleavingTestMethod = (typeof interleavingTestMethods)[number];
+
 // Treatment vs control, as returned by stats-ts (pairedDeltaTest or
-// preferenceSignTest). The `satisfies` is the point: it fails to compile if
-// this drifts from the engine's InterleavingTestResult.
-const interleavingTestResultValidator = z
+// preferenceSignTest), which imports this type so the engine and the persisted
+// shape cannot drift. CI-first by design, with no `uplift`: the sign test's
+// Clopper-Pearson interval is asymmetric, so no single stddev describes it,
+// and the paired interval is a t-interval (dof = users - 1), not a normal.
+export const interleavingTestResultValidator = z
   .object({
     method: z
-      .enum(["paired_delta_t", "exact_binomial_sign"])
+      .enum(interleavingTestMethods)
       .describe(
         "Which test produced this result. paired_delta_t: paired delta-method t-test on per-user credited rates (paired analysis). exact_binomial_sign: exact binomial sign test over non-tied users with a Clopper-Pearson interval (preference analysis).",
       ),
     expected: z.number(),
+    // Null bounds mean unbounded on that side
     ci: z.tuple([z.number().nullable(), z.number().nullable()]),
     pValue: z.number().nullable(),
     errorMessage: z.string().nullable(),
@@ -71,7 +88,10 @@ const interleavingTestResultValidator = z
       ])
       .nullable(),
   })
-  .strict() satisfies z.ZodType<InterleavingTestResult>;
+  .strict();
+export type InterleavingTestResult = z.infer<
+  typeof interleavingTestResultValidator
+>;
 
 /** Result of one (metric, analysis) pair. */
 export const interleavingMetricResultValidator = z

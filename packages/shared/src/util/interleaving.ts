@@ -1,6 +1,7 @@
 import type {
   InterleavingAnalysis,
   InterleavingInterface,
+  InterleavingVariationRole,
 } from "../validators/interleaving";
 import {
   INTERLEAVING_ITEM_ID_COLUMN,
@@ -15,6 +16,24 @@ import {
   getValidation,
   validateJSONFeatureValue,
 } from "./features";
+
+// Variations are stored by role; the SDK (and anything positional, like
+// results tables) gets them as [control, treatment].
+export function interleavingVariationsList<T>(
+  variations: Record<InterleavingVariationRole, T>,
+): [T, T] {
+  return [variations.control, variations.treatment];
+}
+
+export function mapInterleavingVariations<T, U>(
+  variations: Record<InterleavingVariationRole, T>,
+  fn: (variation: T, role: InterleavingVariationRole) => U,
+): Record<InterleavingVariationRole, U> {
+  return {
+    control: fn(variations.control, "control"),
+    treatment: fn(variations.treatment, "treatment"),
+  };
+}
 
 // Key of the pseudo feature generated into SDK payloads for an interleaving.
 export function getInterleavingFeatureDefId(key: string): string {

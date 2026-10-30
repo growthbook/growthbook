@@ -48,10 +48,10 @@ const baseDoc = {
   trackingKey: "featured-products-ranker",
   hashAttribute: "id",
   seed: "seed",
-  variations: [
-    ranker("var_a", "buyers-pick", '{"algorithm":"buyers-pick"}'),
-    ranker("var_b", "price-first", '{"algorithm":"price-first"}'),
-  ],
+  variations: {
+    control: ranker("var_a", "buyers-pick", '{"algorithm":"buyers-pick"}'),
+    treatment: ranker("var_b", "price-first", '{"algorithm":"price-first"}'),
+  },
   jsonSchema: null,
   datasource: "ds_1",
   interleavingExposureQueryId: "ileq_1",
@@ -65,20 +65,29 @@ describe("interleavingValidator", () => {
     expect(interleavingValidator.safeParse(baseDoc).success).toBe(true);
   });
 
-  it.each([1, 3])("rejects %i rankers", (n) => {
-    const variations = Array.from({ length: n }, (_, i) =>
-      ranker(`var_${i}`, `k${i}`),
-    );
-    expect(
-      interleavingValidator.safeParse({ ...baseDoc, variations }).success,
-    ).toBe(false);
-  });
+  it.each([
+    { control: ranker("var_a", "a") },
+    { treatment: ranker("var_b", "b") },
+    [ranker("var_a", "a"), ranker("var_b", "b")],
+    {
+      control: ranker("var_a", "a"),
+      treatment: ranker("var_b", "b"),
+      extra: ranker("var_c", "c"),
+    },
+  ])(
+    "rejects rankers not keyed exactly by control/treatment: %j",
+    (variations) => {
+      expect(
+        interleavingValidator.safeParse({ ...baseDoc, variations }).success,
+      ).toBe(false);
+    },
+  );
 
   it.each(["", " ", "\t"])("rejects a blank ranker key: %j", (key) => {
     expect(
       interleavingValidator.safeParse({
         ...baseDoc,
-        variations: [ranker("var_a", key), baseDoc.variations[1]],
+        variations: { ...baseDoc.variations, control: ranker("var_a", key) },
       }).success,
     ).toBe(false);
   });

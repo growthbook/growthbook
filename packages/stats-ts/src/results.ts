@@ -6,27 +6,39 @@ export interface EffectMomentsResult {
   post_stratification_applied: boolean;
 }
 
-// Owned by shared so the back-end can validate persisted results against the
-// same shape; re-exported here because stats-ts is where consumers expect them.
+// Interleaving results are persisted, so their shape is owned by the Zod
+// validator in shared and inferred here; re-exported because stats-ts is
+// where consumers expect result types.
 import type {
-  Uplift,
-  ResponseCI,
-  TestResult,
-  PValueErrorMessage,
-  FrequentistTestResult,
   InterleavingTestMethod,
   InterleavingTestResult,
-} from "shared/types/stats-engine";
+} from "shared/validators";
 
-export type {
-  Uplift,
-  ResponseCI,
-  TestResult,
-  PValueErrorMessage,
-  FrequentistTestResult,
-  InterleavingTestMethod,
-  InterleavingTestResult,
-};
+export type { InterleavingTestMethod, InterleavingTestResult };
+
+export interface Uplift {
+  dist: string;
+  mean: number;
+  stddev: number;
+}
+
+export type ResponseCI = [number | null, number | null];
+
+export interface TestResult {
+  expected: number;
+  ci: ResponseCI;
+  uplift: Uplift;
+  errorMessage: string | null;
+}
+
+export type PValueErrorMessage =
+  | "NUMERICAL_PVALUE_NOT_CONVERGED"
+  | "ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST";
+
+export interface FrequentistTestResult extends TestResult {
+  pValue: number | null;
+  pValueErrorMessage: PValueErrorMessage | null;
+}
 
 export type RiskType = "absolute" | "relative";
 

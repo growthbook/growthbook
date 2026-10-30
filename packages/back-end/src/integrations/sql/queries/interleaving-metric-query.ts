@@ -214,7 +214,7 @@ export function getInterleavingMetricQuery(
   const includePreference = plan.preference.length > 0;
 
   const compiled = { startDate, endDate, experimentId: trackingKey };
-  const [controlKey, treatmentKey] = variationKeys;
+  const { control: controlKey, treatment: treatmentKey } = variationKeys;
   const ts = INTERLEAVING_TIMESTAMP_COLUMN;
   const lit = (value: string) => `'${dialect.escapeStringLiteral(value)}'`;
   const dateFilter = (col: string) =>
@@ -262,7 +262,11 @@ export function getInterleavingMetricQuery(
           `MIN(e.${ts}) AS exposure_timestamp`,
         ])}
       FROM (
-        ${compileSqlTemplate(params.interleavingExposureQuerySql, compiled)}
+        ${compileSqlTemplate(
+          params.interleavingExposureQuerySql,
+          compiled,
+          dialect,
+        )}
       ) e
       ${jsonArray.unnest(`e.${INTERLEAVING_ITEMS_COLUMN}`, "item")}
       WHERE e.${INTERLEAVING_EXPERIMENT_ID_COLUMN} = ${lit(trackingKey)}

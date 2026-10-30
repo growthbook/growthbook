@@ -27,6 +27,7 @@ import {
   generateVariationId,
   interleavingInSDKPayload,
   interleavingTargetingServes,
+  mapInterleavingVariations,
   nextAvailableTrackingKey,
   parseInterleavingRankerConfig,
 } from "shared/util";
@@ -76,7 +77,7 @@ import {
 
 type ApiVariationInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["variations"]
->[number];
+>["control"];
 type ApiJSONSchemaInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["jsonSchema"]
 >;
@@ -334,7 +335,6 @@ export class InterleavingModel extends BaseClass {
 
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateInterleavingBody.parse(rawBody);
-    const [a, b] = body.variations;
     // An explicit tracking key is honoured as given; customValidation rejects it
     // if taken. Otherwise suffix the code key so reusing one to iterate works.
     const trackingKey =
@@ -358,10 +358,10 @@ export class InterleavingModel extends BaseClass {
       trackingKey,
       hashAttribute: body.hashAttribute || "id",
       seed: uuidv4(),
-      variations: [
-        { ...a, id: generateVariationId() },
-        { ...b, id: generateVariationId() },
-      ] as InterleavingInterface["variations"],
+      variations: mapInterleavingVariations(body.variations, (v) => ({
+        ...v,
+        id: generateVariationId(),
+      })),
       jsonSchema: toJSONSchema(body.jsonSchema),
       metrics: body.metrics ?? [],
       environmentSettings: body.environmentSettings ?? {},
@@ -387,14 +387,13 @@ export class InterleavingModel extends BaseClass {
       changes.owner = owner;
     }
     if (body.variations) {
-      const withId = (v: ApiVariationInput, i: number) => ({
-        ...v,
-        id: existing.variations[i].id,
-      });
-      changes.variations = [
-        withId(body.variations[0], 0),
-        withId(body.variations[1], 1),
-      ];
+      changes.variations = mapInterleavingVariations(
+        body.variations,
+        (v: ApiVariationInput, role) => ({
+          ...v,
+          id: existing.variations[role].id,
+        }),
+      );
     }
     if (body.jsonSchema !== undefined) {
       changes.jsonSchema = toJSONSchema(body.jsonSchema);
@@ -558,16 +557,16 @@ export class InterleavingModel extends BaseClass {
       !isEqual(doc.variations, previousDoc.variations) ||
       !isEqual(doc.jsonSchema, previousDoc.jsonSchema)
     ) {
-      const [a, b] = doc.variations;
-      if (a.key === b.key) {
+      const { control, treatment } = doc.variations;
+      if (control.key === treatment.key) {
         throw new Error("The two rankers must have different keys.");
       }
-      if (a.id === b.id) {
+      if (control.id === treatment.id) {
         throw new Error("The two rankers must have different ids.");
       }
       // Before the loop, so a bad schema isn't reported against a ranker.
       assertUsableRankerSchema(doc.jsonSchema);
-      for (const v of doc.variations) {
+      for (const v of [control, treatment]) {
         try {
           parseInterleavingRankerConfig(v.config, doc.jsonSchema);
         } catch (e) {

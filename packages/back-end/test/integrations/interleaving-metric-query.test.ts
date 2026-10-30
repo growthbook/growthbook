@@ -68,7 +68,7 @@ const baseParams = {
   interleavingExposureQuerySql: EXPOSURE_QUERY,
   userIdType: "user_id",
   trackingKey: "featured-products-ranker",
-  variationKeys: ["buyers-picks", "price-low"] as [string, string],
+  variationKeys: { control: "buyers-picks", treatment: "price-low" },
   startDate: new Date("2020-01-01"),
   endDate: new Date("2020-12-31"),
   factTable: cartTable,
@@ -180,7 +180,7 @@ describe("getInterleavingMetricQuery", () => {
     const quoted = getInterleavingMetricQuery(postgresDialect, {
       ...baseParams,
       metrics: withIndices([{ metric: proportion, analyses: [PREFERENCE] }]),
-      variationKeys: ["o'brien", "control"] as [string, string],
+      variationKeys: { control: "o'brien", treatment: "control" },
     });
     expect(quoted).toContain("'o''brien'");
   });
