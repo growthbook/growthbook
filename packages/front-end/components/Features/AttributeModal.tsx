@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import {
   SDKAttribute,
@@ -5,62 +6,141 @@ import {
   SDKAttributeType,
 } from "shared/types/organization";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
-import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
-import React from "react";
-import { Box } from "@radix-ui/themes";
+import { PiCaretDown, PiCaretRight, PiInfo } from "react-icons/pi";
+import { Box, Flex } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAuth } from "@/services/auth";
-import Modal from "@/components/Modal";
-import Field from "@/components/Forms/Field";
-import SelectField from "@/components/Forms/SelectField";
 import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import MultiSelectField from "@/ui/MultiSelectField";
 import { useUser } from "@/services/UserContext";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import TextField from "@/ui/TextField";
+import Text from "@/ui/Text";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import AttributeFormLayout, {
+  DescriptionField,
+} from "@/components/Features/AttributeFormLayout";
 import Checkbox from "@/ui/Checkbox";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
+import { Select, SelectItem } from "@/ui/Select";
+import TagsInput from "@/components/Tags/TagsInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
+import AddAttributeSnippet from "@/components/SyntaxHighlighting/Snippets/AddAttributeSnippet";
 import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import AttributeReferencesList from "./AttributeReferencesList";
 import SDKCapabilityWarning from "./SDKCapabilityWarning";
-import TagsField from "./FeatureModal/TagsField";
 
 export interface Props {
   close: () => void;
   attribute?: string;
   defaultHashAttribute?: boolean;
   defaultProjects?: string[];
+  // Shown when adding, for attributes that should be identifiers instead.
+  onAddIdentifier?: () => void;
 }
 
-const DATA_TYPE_TO_DESCRIPTION: Record<SDKAttributeType, string> = {
-  boolean: "true or false",
-  number: "Floats or integers",
-  string: "Freeform text",
-  enum: "For a small list of pre-defined values",
-  secureString: "Freeform text; values hashed before passing to the SDK",
-  "number[]": "Useful for multiple numeric values",
-  "string[]": 'Useful for things like "tags"',
-  "secureString[]": "Useful for passing multiple values securely",
-};
+const PLACEHOLDER_NAME = "newAttribute";
+// Select can't hold an empty value, so "no format" gets its own.
+const NO_FORMAT = "none";
+
+const DATA_TYPES: { value: SDKAttributeType; label: string; help: string }[] = [
+  { value: "boolean", label: "Boolean", help: "true or false" },
+  { value: "number", label: "Number", help: "Floats or integers" },
+  { value: "string", label: "String", help: "Freeform text" },
+  {
+    value: "enum",
+    label: "Enum",
+    help: "For a small list of pre-defined values",
+  },
+  {
+    value: "secureString",
+    label: "Secure string",
+    help: "Freeform text; values hashed before passing to the SDK",
+  },
+  {
+    value: "number[]",
+    label: "Array of numbers",
+    help: "Useful for multiple numeric values",
+  },
+  {
+    value: "string[]",
+    label: "Array of strings",
+    help: 'Useful for things like "tags"',
+  },
+  {
+    value: "secureString[]",
+    label: "Array of secure strings",
+    help: "Useful for passing multiple values securely",
+  },
+];
+
+const STRING_FORMATS: {
+  value: SDKAttributeFormat;
+  label: string;
+  example: string;
+}[] = [
+  { value: "version", label: "Version string", example: "1.2.3" },
+  { value: "date", label: "Date string (ISO)", example: "2026-01-31" },
+  {
+    value: "isoCountryCode",
+    label: "ISO country code (2 digit)",
+    example: "US",
+  },
+];
+
+const HASH_ATTRIBUTE_DATA_TYPES: SDKAttributeType[] = [
+  "string",
+  "number",
+  "secureString",
+];
+
+function exampleValue(
+  datatype: SDKAttributeType,
+  format: string,
+  enumOptions: string[],
+): unknown {
+  switch (datatype) {
+    case "boolean":
+      return true;
+    case "number":
+      return 123;
+    case "number[]":
+      return [1, 2];
+    case "enum":
+      return enumOptions[0] ?? "foo";
+    case "string[]":
+    case "secureString[]":
+      return enumOptions.length ? enumOptions.slice(0, 2) : ["foo", "bar"];
+    case "string":
+    case "secureString":
+      return STRING_FORMATS.find((f) => f.value === format)?.example ?? "foo";
+  }
+}
+
 export default function AttributeModal({
   close,
   attribute,
   defaultHashAttribute = false,
   defaultProjects,
+  onAddIdentifier,
 }: Props) {
   const { projects, project, datasources } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
   const { refreshOrganization } = useUser();
-
   const { apiCall, orgId } = useAuth();
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
+  // Open when the setting is already on, so it isn't hidden.
+  const [advancedOpen, setAdvancedOpen] = useState(
+    !!current?.disableEqualityConditions,
+  );
 
   const form = useForm<SDKAttribute>({
     defaultValues: {
@@ -95,38 +175,36 @@ export default function AttributeModal({
       setValue: (value) => form.setValue("customFields", value),
     });
 
-  const title = attribute ? `Edit Attribute: ${attribute}` : `Create Attribute`;
-
+  const property = form.watch("property");
   const datatype = form.watch("datatype");
+  const format = form.watch("format") || "";
+  const enumValue = form.watch("enum") || "";
+  const enumOptions = enumValue
+    .split(",")
+    .map((v) => v.trim())
+    .filter(Boolean);
 
   // Attribute changes only affect warehouse analyses for JSON-column managed warehouses.
   const hasJsonManagedWarehouse = datasources.some(
     (d) => d.type === "growthbook_clickhouse" && d.settings.useJsonColumns,
   );
-  const propertyChanged = !!attribute && form.watch("property") !== attribute;
+  const propertyChanged = !!attribute && property !== attribute;
   const datatypeChanged = !!attribute && datatype !== current?.datatype;
 
   const isArrayDatatype = datatype.endsWith("[]");
   // Enum options constrain both scalar enums and array (list) attributes.
   const supportsEnumOptions = datatype === "enum" || isArrayDatatype;
-
-  const hashAttributeDataTypes: SDKAttributeType[] = [
-    "string",
-    "number",
-    "secureString",
-  ];
+  const canDisableEquality = datatype === "string" && !format;
 
   // Constraining an in-use attribute (converting to enum or a restricted list, or tightening
   // its allowed values) restricts how existing conditions can be edited, so surface
   // where it's referenced as a heads-up. Fires on both datatype and enum-value edits.
   const isConstrainedType =
-    datatype === "enum" || (isArrayDatatype && !!form.watch("enum"));
-  const enumChanged = (form.watch("enum") || "") !== (current?.enum || "");
+    datatype === "enum" || (isArrayDatatype && !!enumValue);
+  const enumChanged = enumValue !== (current?.enum || "");
   const constrainingChange =
     !!attribute && isConstrainedType && (datatypeChanged || enumChanged);
-  const { references } = useAttributeReferences(
-    constrainingChange && attribute ? [attribute] : [],
-  );
+  const { references } = useAttributeReferences(attribute ? [attribute] : []);
   const refs = attribute ? references?.[attribute] : undefined;
   const refCount = refs
     ? refs.features.length + refs.experiments.length + refs.savedGroups.length
@@ -156,26 +234,32 @@ export default function AttributeModal({
         { projects: selectedProjects },
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
-  let ctaDisabledMessage: string | undefined;
-  if (!hasProjectPermission) {
-    if (!selectedProjects.length && projectOptions.length > 0) {
-      ctaDisabledMessage = "Select a project to continue.";
-    } else {
-      ctaDisabledMessage = `You don't have permission to ${
-        attribute ? "update" : "create"
-      } attributes.`;
-    }
-  }
+
+  // Only describes the example value when the type alone doesn't.
+  const snippetHelp =
+    supportsEnumOptions && enumOptions.length
+      ? `One of: ${enumOptions.join(", ")}`
+      : datatype === "string"
+        ? STRING_FORMATS.find((f) => f.value === format)?.label
+        : undefined;
 
   return (
-    <Modal
-      trackingEventModalType=""
+    <ModalStandard
+      trackingEventModalType={attribute ? "edit-attribute" : "add-attribute"}
       open={true}
       close={close}
-      header={title}
-      cta="Save"
-      ctaEnabled={hasProjectPermission}
-      disabledMessage={ctaDisabledMessage}
+      header={attribute ? "Edit Attribute" : "Add Attribute"}
+      subheader={
+        !attribute && onAddIdentifier ? (
+          <>
+            Using this to split traffic?{" "}
+            <Link onClick={onAddIdentifier}>Add an identifier</Link> instead.
+          </>
+        ) : undefined
+      }
+      cta={attribute ? "Save" : "Add Attribute"}
+      size="xl"
+      ctaEnabled={!!property.trim() && hasProjectPermission}
       submit={form.handleSubmit(async (value) => {
         if (value.datatype !== "string") {
           value.format = "";
@@ -185,7 +269,7 @@ export default function AttributeModal({
         if (value.datatype !== "enum" && !value.datatype.endsWith("[]")) {
           value.enum = "";
         }
-        if (!hashAttributeDataTypes.includes(value.datatype)) {
+        if (!HASH_ATTRIBUTE_DATA_TYPES.includes(value.datatype)) {
           value.hashAttribute = false;
         }
 
@@ -232,240 +316,281 @@ export default function AttributeModal({
         refreshOrganization();
       })}
     >
-      <Field
-        size="legacy"
-        label={
-          <>
-            Attribute{" "}
-            <Tooltip body={"This is the attribute name used in the SDK"} />
-          </>
+      <AttributeFormLayout
+        panel={
+          <Flex direction="column" gap="2">
+            <AddAttributeSnippet
+              property={property.trim() || PLACEHOLDER_NAME}
+              value={exampleValue(datatype, format, enumOptions)}
+              projects={selectedProjects}
+            />
+            {snippetHelp && (
+              <Text size="sm" color="text-low">
+                {snippetHelp}
+              </Text>
+            )}
+          </Flex>
         }
-        required={true}
-        {...form.register("property")}
-      />
-      {propertyChanged ? (
-        <Callout status="warning">
-          Be careful changing the attribute name. Any existing targeting
-          conditions that use this attribute will NOT be updated automatically
-          and will still reference the old attribute name.
-          {hasJsonManagedWarehouse ? (
-            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
-              Renaming doesn&apos;t migrate historical data. Events already sent
-              under the old name keep that name in the Managed Warehouse and
-              will read as null for this attribute; only events your SDK sends
-              under the new name will populate it going forward.
-            </span>
-          ) : null}
-        </Callout>
-      ) : null}
-      <div className="form-group">
-        <label>
-          Description <small className="text-muted">(optional)</small>
-        </label>
-        <MarkdownInput
+      >
+        {refCount > 0 && !constrainingChange && refs && (
+          <Callout status="info">
+            Used by{" "}
+            {new Intl.ListFormat("en").format(
+              [
+                [refs.features.length, "Feature Flag"],
+                [refs.experiments.length, "experiment"],
+                [refs.savedGroups.length, "Saved Group"],
+              ]
+                .filter(([count]) => count)
+                .map(
+                  ([count, noun]) =>
+                    `${count} ${noun}${count === 1 ? "" : "s"}`,
+                ),
+            )}
+            .
+          </Callout>
+        )}
+
+        <TextField
+          label="Name"
+          autoComplete="off"
+          data-1p-ignore
+          required
+          markRequired
+          autoFocus={!attribute}
+          placeholder={PLACEHOLDER_NAME}
+          value={property}
+          onChange={(e) => form.setValue("property", e.target.value)}
+          helpText="Must match the key your SDK passes in."
+        />
+        {propertyChanged ? (
+          <Callout status="warning">
+            Be careful changing the attribute name. Any existing targeting
+            conditions that use this attribute will NOT be updated automatically
+            and will still reference the old attribute name.
+            {hasJsonManagedWarehouse ? (
+              <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+                Renaming doesn&apos;t migrate historical data. Events already
+                sent under the old name keep that name in the Managed Warehouse
+                and will read as null for this attribute; only events your SDK
+                sends under the new name will populate it going forward.
+              </span>
+            ) : null}
+          </Callout>
+        ) : null}
+
+        <DescriptionField
           value={form.watch("description") || ""}
           setValue={(value) => form.setValue("description", value)}
+          placeholder="Add notes about this attribute (markdown supported)"
         />
-      </div>
-      <TagsField
-        value={form.watch("tags") || []}
-        onChange={(tags) => form.setValue("tags", tags)}
-      />
-      {projects?.length > 0 && (
-        <div className="form-group">
-          <MultiSelectField
-            legacyHeight
-            label={
-              <>
-                Projects{" "}
-                <Tooltip
-                  body={`The dropdown below has been filtered to only include projects where you have permission to ${
-                    attribute ? "update" : "create"
-                  } Attributes.`}
-                />
-              </>
+
+        <Flex direction="column" gap="2">
+          <Select
+            label="Data type"
+            value={datatype}
+            setValue={(v) =>
+              form.setValue(
+                "datatype",
+                DATA_TYPES.find((d) => d.value === v)?.value ?? "string",
+              )
             }
-            placeholder={
-              canCreateWithoutProject ? "All Projects" : "Select projects..."
-            }
-            value={form.watch("projects") || []}
-            options={projectOptions}
-            onChange={(v) => form.setValue("projects", v)}
-            customClassName="label-overflow-ellipsis"
-            helpText="Assign this attribute to specific projects"
-          />
-        </div>
-      )}
-      {availableCustomFields.length > 0 && (
-        <CustomFieldInput
-          fields={availableCustomFields}
-          value={customFieldValues}
-          onChange={(value) => form.setValue("customFields", value)}
-        />
-      )}
-      <SelectField
-        size="legacy"
-        label="Data Type"
-        value={datatype}
-        onChange={(datatype: SDKAttributeType) =>
-          form.setValue("datatype", datatype)
-        }
-        sort={false}
-        options={[
-          { value: "boolean", label: "Boolean" },
-          { value: "number", label: "Number" },
-          { value: "string", label: "String" },
-          { value: "enum", label: "Enum" },
-          { value: "secureString", label: "Secure String" },
-          { value: "number[]", label: "Array of Numbers" },
-          { value: "string[]", label: "Array of Strings" },
-          {
-            value: "secureString[]",
-            label: "Array of Secure Strings",
-          },
-        ]}
-        formatOptionLabel={(value) => {
-          return (
-            <div className="d-flex">
-              <span className="pr-2">{value.label}</span>
-              <span className="ml-auto text-muted">
-                {DATA_TYPE_TO_DESCRIPTION[value.value]}
-              </span>
-            </div>
-          );
-        }}
-        helpText={
-          <>
-            {["secureString", "secureString[]"].includes(datatype) && (
-              <div className="text-muted">
-                <PremiumTooltip
-                  commercialFeature="hash-secure-attributes"
-                  tipPosition="bottom"
-                  body={
-                    <>
-                      <p>
-                        Feature targeting conditions referencing{" "}
-                        <code>secureString</code> attributes will be anonymized
-                        via SHA-256 hashing. When evaluating feature flags in a
-                        public or insecure environment (such as a browser),
-                        hashing provides an additional layer of security through
-                        obfuscation. This allows you to target users based on
-                        sensitive attributes.
-                      </p>
-                      <p>
-                        You must enable this feature in your SDK Connection for
-                        it to take effect.
-                      </p>
-                      <p className="mb-0 text-warning-orange small">
-                        <FaExclamationCircle /> When using an insecure
-                        environment, do not rely exclusively on hashing as a
-                        means of securing highly sensitive data. Hashing is an
-                        obfuscation technique that makes it very difficult, but
-                        not impossible, to extract sensitive data.
-                      </p>
-                    </>
+          >
+            {DATA_TYPES.map((d) => (
+              <SelectItem key={d.value} value={d.value}>
+                {d.label}
+              </SelectItem>
+            ))}
+          </Select>
+          <Text size="sm" color="text-low">
+            {DATA_TYPES.find((d) => d.value === datatype)?.help}
+          </Text>
+          {["secureString", "secureString[]"].includes(datatype) && (
+            <Text size="sm" color="text-low">
+              <PremiumTooltip
+                commercialFeature="hash-secure-attributes"
+                tipPosition="bottom"
+                body={
+                  <>
+                    <p>
+                      Feature targeting conditions referencing{" "}
+                      <code>secureString</code> attributes will be anonymized
+                      via SHA-256 hashing. When evaluating feature flags in a
+                      public or insecure environment (such as a browser),
+                      hashing provides an additional layer of security through
+                      obfuscation. This allows you to target users based on
+                      sensitive attributes.
+                    </p>
+                    <p>
+                      You must enable this feature in your SDK Connection for it
+                      to take effect.
+                    </p>
+                    <HelperText status="warning" size="sm">
+                      When using an insecure environment, do not rely
+                      exclusively on hashing as a means of securing highly
+                      sensitive data. Hashing is an obfuscation technique that
+                      makes it very difficult, but not impossible, to extract
+                      sensitive data.
+                    </HelperText>
+                  </>
+                }
+              >
+                How do secure attributes work? <PiInfo />
+              </PremiumTooltip>
+            </Text>
+          )}
+        </Flex>
+        {hasJsonManagedWarehouse && datatypeChanged ? (
+          <Callout status="info">
+            Changing the data type won&apos;t break existing Managed Warehouse
+            analyses, but historical events whose value doesn&apos;t match the
+            new type are treated as null and dropped from results, so metrics
+            may shift.
+          </Callout>
+        ) : null}
+
+        {(datatype === "string" || supportsEnumOptions) && (
+          <Flex
+            direction="column"
+            gap="4"
+            pl="4"
+            style={{ borderLeft: "2px solid var(--gray-a5)" }}
+          >
+            {datatype === "string" && (
+              <Flex direction="column" gap="2">
+                <Select
+                  label="String format"
+                  value={format || NO_FORMAT}
+                  setValue={(v) =>
+                    form.setValue(
+                      "format",
+                      STRING_FORMATS.find((f) => f.value === v)?.value ?? "",
+                    )
                   }
                 >
-                  How do secure attributes work? <FaInfoCircle />
-                </PremiumTooltip>
-              </div>
+                  <SelectItem value={NO_FORMAT}>None</SelectItem>
+                  {STRING_FORMATS.map((f) => (
+                    <SelectItem key={f.value} value={f.value}>
+                      {f.label}
+                    </SelectItem>
+                  ))}
+                </Select>
+                <Text size="sm" color="text-low">
+                  Changes the targeting UI and string comparison logic.
+                </Text>
+                {format === "version" && (
+                  <SDKCapabilityWarning
+                    capability="semverTargeting"
+                    someMessage="Some of your SDK Connections do not support version string comparisons. Targeting conditions using this attribute may not work correctly for those connections."
+                    noneMessage="None of your SDK Connections support version string comparisons. Do not use this format as it will break targeting conditions based on this attribute."
+                  />
+                )}
+              </Flex>
             )}
-          </>
-        }
-      />
-      {hasJsonManagedWarehouse && datatypeChanged ? (
-        <Callout status="info" mt="2" mb="2">
-          Changing the data type won&apos;t break existing Managed Warehouse
-          analyses, but historical events whose value doesn&apos;t match the new
-          type are treated as null and dropped from results, so metrics may
-          shift.
-        </Callout>
-      ) : null}
-      {datatype === "string" && (
-        <>
-          <SelectField
-            size="legacy"
-            label="String Format"
-            value={form.watch(`format`) || ""}
-            onChange={(v) => form.setValue(`format`, v as SDKAttributeFormat)}
-            initialOption="None"
-            options={[
-              { value: "version", label: "Version string" },
-              { value: "date", label: "Date string (ISO)" },
-              { value: "isoCountryCode", label: "ISO Country Code (2 digit)" },
-            ]}
-            sort={false}
-            helpText="Affects the targeting attribute UI and string comparison logic. More formats coming soon."
-          />
-          {form.watch("format") === "version" && (
-            <SDKCapabilityWarning
-              capability="semverTargeting"
-              someMessage="Some of your SDK Connections do not support version string comparisons. Targeting conditions using this attribute may not work correctly for those connections."
-              noneMessage="None of your SDK Connections support version string comparisons. Do not use this format as it will break targeting conditions based on this attribute."
-            />
-          )}
-
-          {!form.watch("format") && (
-            <Checkbox
-              label="Disable Equality Comparisons"
-              description="This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII."
-              value={!!form.watch(`disableEqualityConditions`)}
-              setValue={(value) =>
-                form.setValue(`disableEqualityConditions`, value)
-              }
-              mb="4"
-            />
-          )}
-        </>
-      )}
-      {supportsEnumOptions && (
-        <Field
-          size="legacy"
-          label={datatype === "enum" ? "Enum Options" : "Allowed Values"}
-          textarea
-          minRows={1}
-          required={datatype === "enum"}
-          {...form.register(`enum`)}
-          helpText={
-            datatype === "enum"
-              ? "Comma-separated list of all possible values"
-              : "Optional. Restrict this list to a fixed set of values (comma-separated). Leave blank to allow any values."
-          }
-        />
-      )}
-      {constrainingChange ? (
-        <>
-          <Callout status="warning" mt="2" mb="2">
-            <strong>
-              Include every value already used in targeting before saving.
-            </strong>{" "}
-            Conditions referencing a value outside the list — or using an
-            operator no longer offered — keep running but become hard to edit.
-            <span style={{ display: "block", marginTop: "var(--space-2)" }}>
-              The change is applied in place: no new attribute is created,
-              existing conditions keep evaluating, and features are not updated
-              automatically.
-            </span>
-          </Callout>
-          {refCount > 0 && refs ? (
-            <Box mb="3">
+            {supportsEnumOptions && (
+              <TextField
+                label={datatype === "enum" ? "Values" : "Allowed values"}
+                required={datatype === "enum"}
+                markRequired={datatype === "enum"}
+                value={enumValue}
+                onChange={(e) => form.setValue("enum", e.target.value)}
+                helpText={
+                  datatype === "enum"
+                    ? "Comma-separated."
+                    : "Optional. Restrict this list to a fixed set of comma-separated values. Leave blank to allow any values."
+                }
+              />
+            )}
+          </Flex>
+        )}
+        {constrainingChange ? (
+          <>
+            <Callout status="warning">
+              <strong>
+                Include every value already used in targeting before saving.
+              </strong>{" "}
+              Conditions referencing a value outside the list — or using an
+              operator no longer offered — keep running but become hard to edit.
+              <span style={{ display: "block", marginTop: "var(--space-2)" }}>
+                The change is applied in place: no new attribute is created,
+                existing conditions keep evaluating, and features are not
+                updated automatically.
+              </span>
+            </Callout>
+            {refCount > 0 && refs ? (
               <AttributeReferencesList
                 features={refs.features}
                 experiments={refs.experiments}
                 conditionGroups={refs.savedGroups}
               />
-            </Box>
-          ) : null}
-        </>
-      ) : null}
-      {hashAttributeDataTypes.includes(datatype) && (
-        <Checkbox
-          label="Unique Identifier"
-          description="Allow attribute to be used for experiment assignment."
-          value={!!form.watch(`hashAttribute`)}
-          setValue={(value) => form.setValue(`hashAttribute`, value)}
+            ) : null}
+          </>
+        ) : null}
+
+        {projects?.length > 0 && (
+          <MultiSelectField
+            label="Projects"
+            size="md"
+            legacyLabelFormatting={false}
+            placeholder={
+              canCreateWithoutProject ? "All Projects" : "Select projects..."
+            }
+            value={selectedProjects}
+            options={projectOptions}
+            onChange={(v) => form.setValue("projects", v)}
+          />
+        )}
+        {!hasProjectPermission && (
+          <HelperText status="error">
+            {!selectedProjects.length && projectOptions.length > 0
+              ? "Select a Project to continue."
+              : `You don't have permission to ${
+                  attribute ? "update" : "create"
+                } attributes in these Projects.`}
+          </HelperText>
+        )}
+        <TagsInput
+          label="Tags"
+          size="md"
+          legacyLabelFormatting={false}
+          value={form.watch("tags") || []}
+          onChange={(tags) => form.setValue("tags", tags)}
+          autoFocus={false}
         />
-      )}
-    </Modal>
+        {availableCustomFields.length > 0 && (
+          <CustomFieldInput
+            fields={availableCustomFields}
+            mt="0"
+            value={customFieldValues}
+            onChange={(value) => form.setValue("customFields", value)}
+          />
+        )}
+
+        {canDisableEquality && (
+          <Flex direction="column" gap="3">
+            <Box>
+              <Button
+                variant="ghost"
+                icon={advancedOpen ? <PiCaretDown /> : <PiCaretRight />}
+                aria-expanded={advancedOpen}
+                onClick={() => setAdvancedOpen((open) => !open)}
+              >
+                Advanced
+              </Button>
+            </Box>
+            {advancedOpen && (
+              <Checkbox
+                label="Disable equality comparisons"
+                description="This prevents users from targeting with exact string matches. Only regex and less than/greater than will be allowed. Useful for PII."
+                value={!!form.watch("disableEqualityConditions")}
+                setValue={(value) =>
+                  form.setValue("disableEqualityConditions", value)
+                }
+              />
+            )}
+          </Flex>
+        )}
+      </AttributeFormLayout>
+    </ModalStandard>
   );
 }

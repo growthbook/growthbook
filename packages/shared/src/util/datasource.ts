@@ -42,8 +42,10 @@ export type {
 export {
   USER_ID_TYPE_NAME_PATTERN,
   USER_ID_TYPE_NAME_RULE,
+  addAttributeToUserIdTypes,
   attributeToUserIdTypeName,
   isValidUserIdTypeName,
+  renameAttributeInUserIdTypes,
 } from "./user-id-types";
 
 export type { DataRegion } from "./data-regions";

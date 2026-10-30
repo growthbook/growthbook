@@ -1,3 +1,5 @@
+import { UserIdType } from "shared/types/datasource";
+
 /**
  * An identifier type name doubles as the column name GrowthBook selects in
  * generated SQL, so it's limited to lowercase letters and underscores.
@@ -24,4 +26,45 @@ export function attributeToUserIdTypeName(attribute: string): string {
     .replace(/_+/g, "_")
     .replace(/^_|_$/g, "");
   return name || "id";
+}
+
+// Links the attribute to the identifier type, creating the type if it's new.
+export function addAttributeToUserIdTypes(
+  userIdTypes: UserIdType[],
+  userIdType: string,
+  attribute: string,
+  description?: string,
+): UserIdType[] {
+  if (!userIdTypes.some((type) => type.userIdType === userIdType)) {
+    return [
+      ...userIdTypes,
+      {
+        userIdType,
+        ...(description && { description }),
+        attributes: [attribute],
+      },
+    ];
+  }
+  return userIdTypes.map((type) =>
+    type.userIdType !== userIdType || type.attributes?.includes(attribute)
+      ? type
+      : { ...type, attributes: [...(type.attributes ?? []), attribute] },
+  );
+}
+
+export function renameAttributeInUserIdTypes(
+  userIdTypes: UserIdType[],
+  from: string,
+  to: string,
+): UserIdType[] {
+  return userIdTypes.map((type) =>
+    type.attributes?.includes(from)
+      ? {
+          ...type,
+          attributes: [
+            ...new Set(type.attributes.map((a) => (a === from ? to : a))),
+          ],
+        }
+      : type,
+  );
 }
