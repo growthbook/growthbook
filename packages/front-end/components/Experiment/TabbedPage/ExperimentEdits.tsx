@@ -667,10 +667,12 @@ export function ExperimentEditsProvider({
               "You have unsaved changes to this experiment. Leaving this page discards them."
             )
           }
-          yesText="Leave page"
-          noText={refusal ? "Stay and fix" : "Keep editing"}
-          onConfirm={navigationGuard.confirmNavigation}
-          onCancel={navigationGuard.cancelNavigation}
+          // Staying is the primary action; leaving is the secondary one.
+          yesText={refusal ? "Stay and fix" : "Keep editing"}
+          noText="Leave page"
+          onConfirm={navigationGuard.cancelNavigation}
+          onCancel={navigationGuard.confirmNavigation}
+          onDismiss={navigationGuard.cancelNavigation}
         />
       ) : null}
     </ExperimentEditsContext.Provider>

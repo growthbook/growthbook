@@ -6,22 +6,39 @@ import {
   useRef,
   useState,
 } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
-import { PiArrowClockwise, PiCheckBold, PiXBold } from "react-icons/pi";
+import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import {
+  PiArrowClockwise,
+  PiCheckBold,
+  PiQuestion,
+  PiXBold,
+} from "react-icons/pi";
 import isEqual from "lodash/isEqual";
 import {
   DataSourceInterfaceWithParams,
   DataSourceType,
   SchemaFormat,
 } from "shared/types/datasource";
+import { EventForwarderSinkType } from "shared/types/event-forwarder";
+import {
+  EventForwarderWarehouseArea,
+  EventForwarderWarehouseRegion,
+  getGrowthBookRegionForWarehouseRegion,
+  listEventForwarderWarehouseRegions,
+} from "shared/util";
 import { isSampleDatasource } from "shared/demo-datasource";
+import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { DEFAULT_DATA_REGION } from "@/services/dataRegions";
+import {
+  DataRegion,
+  DEFAULT_DATA_REGION,
+  useDataRegionOptions,
+} from "@/services/dataRegions";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
 import Avatar from "@/ui/Avatar";
@@ -30,19 +47,50 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
+import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
+import Tooltip from "@/ui/Tooltip";
+import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import { KeyPairGenerator } from "@/components/Settings/SnowflakeForm";
+import { buildEventForwarderConnectDraft } from "./buildEventForwarderConnectDraft";
 import DataSourceConnectInstructions, {
   ConnectSetupKind,
 } from "./DataSourceConnectInstructions";
+import EventForwarderDestinationFields, {
+  defaultEventForwarderDestination,
+  eventDestinationEntryHint,
+  eventDestinationWithConnectionSchema,
+  eventForwarderDestinationFromDatasource,
+} from "./EventForwarderDestinationFields";
 import {
   generateSnowflakeKeyPair,
   SnowflakeKeyPair,
 } from "./generateSnowflakeKeyPair";
+import { hasConnectionTestInputs } from "./hasConnectionTestInputs";
+import { overallTestStatus, TestStatus } from "./overallTestStatus";
 
-type TestStatus = "idle" | "running" | "passed" | "failed";
+function isEventForwarderSink(
+  type: DataSourceType | undefined,
+): type is EventForwarderSinkType {
+  return type === "bigquery" || type === "snowflake" || type === "databricks";
+}
+
+function ingestorForRegion(region: DataRegion): string {
+  return region === "eu-west-1" ? "EU ingestor" : "US ingestor";
+}
+
+function warehouseRegionHelp(sinkType: EventForwarderSinkType): string {
+  switch (sinkType) {
+    case "bigquery":
+      return "Open the dataset in the BigQuery console. Location is under Dataset info.";
+    case "snowflake":
+      return "The region is in your Snowflake account URL, or run SELECT CURRENT_REGION().";
+    case "databricks":
+      return "Open Workspaces in the Databricks account console. The region is listed for your workspace.";
+  }
+}
 
 const DATA_SOURCE_TYPE_ABBR: Record<DataSourceType, string> = {
   bigquery: "BQ",
@@ -67,6 +115,9 @@ export type ConnectDataSourceLayoutProps = {
   initial: Partial<DataSourceInterfaceWithParams>;
   setup?: ConnectSetupKind;
   schemaFormat?: SchemaFormat;
+  // The processing region chosen in Event Forwarder setup. Edit mode reads
+  // the saved config instead.
+  eventForwarderRegion?: DataRegion | null;
   source: string;
   onCancel: () => void;
   onSuccess: (id: string) => Promise<void>;
@@ -77,15 +128,14 @@ export default function ConnectDataSourceLayout({
   initial,
   setup = "custom",
   schemaFormat = "custom",
+  eventForwarderRegion: eventForwarderRegionOverride = null,
   source,
   onCancel,
   onSuccess,
 }: ConnectDataSourceLayoutProps) {
   const existing = mode === "edit";
-  // Saved Event Forwarder configs predating the region field are us-east-1.
-  const eventForwarderRegion = initial.eventForwarderConfig
-    ? (initial.eventForwarderConfig.region ?? DEFAULT_DATA_REGION)
-    : null;
+  // Destination and region are chosen once, at create. Edit changes credentials.
+  const checksWrite = !existing && setup === "event_forwarder";
   const { mutateDefinitions, projects: orgProjects } = useDefinitions();
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
@@ -96,18 +146,128 @@ export default function ConnectDataSourceLayout({
   const [paramsDirty, setParamsDirty] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [testStatus, setTestStatus] = useState<TestStatus>("idle");
-  const [testMessage, setTestMessage] = useState<string | null>(null);
+  const [readStatus, setReadStatus] = useState<TestStatus>("idle");
+  const [writeStatus, setWriteStatus] = useState<TestStatus>("idle");
+  const [readMessage, setReadMessage] = useState<string | null>(null);
+  const [writeMessage, setWriteMessage] = useState<string | null>(null);
+  const [eventDestinationDraft, setEventDestination] = useState(() =>
+    defaultEventForwarderDestination(initial.type || "bigquery"),
+  );
+  // Set once the user types in the destination location, so a later schema
+  // change does not replace what they entered.
+  const [destinationLocationEdited, setDestinationLocationEdited] =
+    useState(false);
+  const snowflakeSchema =
+    datasource.type === "snowflake"
+      ? ((datasource.params as Partial<SnowflakeConnectionParams> | undefined)
+          ?.schema ?? "")
+      : null;
+  const eventDestination = eventDestinationWithConnectionSchema(
+    eventDestinationDraft,
+    snowflakeSchema,
+    destinationLocationEdited,
+  );
   const [saving, setSaving] = useState(false);
-  // Incremented whenever the params a test would cover change, so a response
-  // from an earlier test cannot approve credentials it never saw.
+  const [resolvedRegion, setResolvedRegion] = useState<DataRegion | null>(null);
+  const [regionChoiceRequired, setRegionChoiceRequired] = useState(false);
+  const [regionBlockedMessage, setRegionBlockedMessage] = useState<
+    string | null
+  >(null);
+  const [detectedWarehouseRegionId, setDetectedWarehouseRegionId] = useState<
+    string | null
+  >(null);
+  const [manualWarehouseRegionId, setManualWarehouseRegionId] = useState("");
+  const [detectingRegion, setDetectingRegion] = useState(false);
+  const dataRegionOptions = useDataRegionOptions();
+  // Incremented whenever the connection a test would cover changes, so an
+  // earlier response cannot approve what it never saw.
   const testRunRef = useRef(0);
+  const saveErrorRef = useRef<HTMLDivElement>(null);
+
+  const clearDetectedRegion = () => {
+    setResolvedRegion(null);
+    setRegionChoiceRequired(false);
+    setRegionBlockedMessage(null);
+    setDetectedWarehouseRegionId(null);
+    setManualWarehouseRegionId("");
+    setDetectingRegion(false);
+  };
 
   const resetTest = useCallback(() => {
     testRunRef.current += 1;
-    setTestStatus("idle");
-    setTestMessage(null);
+    setReadStatus("idle");
+    setWriteStatus("idle");
+    setReadMessage(null);
+    setWriteMessage(null);
+    setResolvedRegion(null);
+    setRegionChoiceRequired(false);
+    setRegionBlockedMessage(null);
+    setDetectedWarehouseRegionId(null);
+    setManualWarehouseRegionId("");
+    setDetectingRegion(false);
   }, []);
+
+  // Saved Event Forwarder configs predating the region field are us-east-1.
+  const savedEventForwarderRegion =
+    eventForwarderRegionOverride ??
+    (initial.eventForwarderConfig
+      ? (initial.eventForwarderConfig.region ?? DEFAULT_DATA_REGION)
+      : null);
+  const eventForwarderRegion = checksWrite
+    ? resolvedRegion
+    : savedEventForwarderRegion;
+  const sinkType = isEventForwarderSink(datasource.type)
+    ? datasource.type
+    : null;
+  const allowedRegions = useMemo(
+    () => new Set(dataRegionOptions.map((option) => option.value)),
+    [dataRegionOptions],
+  );
+  const warehouseRegions = useMemo(() => {
+    if (!sinkType) return [];
+    return listEventForwarderWarehouseRegions(sinkType).filter((region) =>
+      allowedRegions.has(region.growthBookRegion),
+    );
+  }, [sinkType, allowedRegions]);
+  const regionsByArea = useMemo(() => {
+    const groups: {
+      area: EventForwarderWarehouseArea;
+      regions: EventForwarderWarehouseRegion[];
+    }[] = [];
+    for (const region of warehouseRegions) {
+      const group = groups.find((item) => item.area === region.area);
+      if (group) {
+        group.regions.push(region);
+      } else {
+        groups.push({ area: region.area, regions: [region] });
+      }
+    }
+    return groups;
+  }, [warehouseRegions]);
+  const regionOptions = useMemo(
+    () =>
+      regionsByArea.map((group) => ({
+        label: group.area,
+        options: group.regions.map((region) => ({
+          value: region.id,
+          label: `${region.cloud} ${region.label}${
+            region.id === detectedWarehouseRegionId ? " (detected)" : ""
+          }`,
+        })),
+      })),
+    [regionsByArea, detectedWarehouseRegionId],
+  );
+
+  const chooseManualRegion = (id: string) => {
+    setManualWarehouseRegionId(id);
+    setRegionBlockedMessage(null);
+    if (!sinkType) {
+      setResolvedRegion(null);
+      return;
+    }
+    const mapped = getGrowthBookRegionForWarehouseRegion(sinkType, id);
+    setResolvedRegion(mapped && allowedRegions.has(mapped) ? mapped : null);
+  };
 
   useEffect(() => {
     track("View Datasource Connect Page", {
@@ -119,8 +279,17 @@ export default function ConnectDataSourceLayout({
   }, [source, mode, initial.type, setup]);
 
   useEffect(() => {
+    if (!saveError) return;
+    saveErrorRef.current?.scrollIntoView({ block: "nearest" });
+  }, [saveError]);
+
+  useEffect(() => {
     if (!dirty) {
       setDatasource(initial);
+      setEventDestination(
+        defaultEventForwarderDestination(initial.type || "bigquery"),
+      );
+      setDestinationLocationEdited(false);
       setParamsDirty(false);
       resetTest();
     }
@@ -227,19 +396,89 @@ export default function ConnectDataSourceLayout({
     !!datasource.type &&
     isTestableDataSourceType(datasource.type) &&
     !isSampleData;
+  const connectionDetailsReady = hasConnectionTestInputs(
+    datasource.type,
+    datasource.params,
+    existing && !datasource.decryptionError,
+  );
+  const destinationReady =
+    !checksWrite ||
+    (!!eventDestination.location.trim() &&
+      !!eventDestination.tablePrefix.trim() &&
+      (datasource.type !== "databricks" ||
+        !!eventDestination.zerobusEndpoint.trim()));
+  const connectionInputsReady = connectionDetailsReady && destinationReady;
+  const missingTestInputsHint = !connectionDetailsReady
+    ? "Enter the connection details to test."
+    : !destinationReady
+      ? eventDestinationEntryHint(datasource.type, "test")
+      : "";
+  const eventForwarderDraft =
+    checksWrite && datasource.type
+      ? buildEventForwarderConnectDraft({
+          type: datasource.type,
+          params: datasource.params,
+          destination: eventDestination,
+          region: eventForwarderRegion,
+        })
+      : null;
+  // The setup instructions' write-access grants must target the destination
+  // the user actually chose: the live form value while it's still editable,
+  // or the already-saved one once editing is restricted to credentials only.
+  const instructionsEventDestination = checksWrite
+    ? eventDestination
+    : setup === "event_forwarder"
+      ? eventForwarderDestinationFromDatasource(initial)
+      : null;
+  const { testEventForwarderAccess } = useEventForwarderAccessTest({
+    existing: false,
+    type: eventForwarderDraft?.sinkType ?? "bigquery",
+    params: datasource.params,
+    projects: datasource.projects,
+    eventForwarderConfig: eventForwarderDraft,
+  });
+  const testStatus = overallTestStatus(readStatus, writeStatus, checksWrite);
+  const updateEventDestination = (patch: Partial<typeof eventDestination>) => {
+    if (patch.location !== undefined) setDestinationLocationEdited(true);
+    setEventDestination((current) => ({ ...current, ...patch }));
+    setDirty(true);
+    resetTest();
+  };
 
   const runTest = async () => {
     if (
       !canTest ||
+      !connectionInputsReady ||
       !datasource.type ||
       !isTestableDataSourceType(datasource.type)
     ) {
       return;
     }
     const runId = (testRunRef.current += 1);
-    setTestStatus("running");
-    setTestMessage(null);
+    setReadStatus("running");
+    setWriteStatus("idle");
+    setReadMessage(null);
+    setWriteMessage(null);
     setHasError(false);
+    clearDetectedRegion();
+
+    const fail = (message: string, access: "read" | "write") => {
+      if (runId !== testRunRef.current) return;
+      if (access === "read") {
+        setReadStatus("failed");
+        setReadMessage(message);
+      } else {
+        setWriteStatus("failed");
+        setWriteMessage(message);
+      }
+      setHasError(true);
+      track("Data Source Connection Test Failed", {
+        source,
+        mode,
+        type: datasource.type,
+        error: message.slice(0, 32),
+      });
+    };
 
     try {
       const res = await apiCall<{ status: number; message?: string }>(
@@ -261,35 +500,100 @@ export default function ConnectDataSourceLayout({
       }
       // Params changed while this test was in flight; its result is stale.
       if (runId !== testRunRef.current) return;
-      setTestStatus("passed");
-      setTestMessage(null);
+      setReadStatus("passed");
+    } catch (e) {
+      fail(
+        e instanceof Error ? e.message : "Unable to connect to the Data Source",
+        "read",
+      );
+      return;
+    }
+
+    if (!checksWrite) {
+      track("Data Source Connection Test Passed", {
+        source,
+        mode,
+        type: datasource.type,
+      });
+      return;
+    }
+
+    setWriteStatus("running");
+    try {
+      if (!eventForwarderDraft) {
+        throw new Error(
+          "Enter the event destination before testing write access.",
+        );
+      }
+      await testEventForwarderAccess();
+      if (runId !== testRunRef.current) return;
+      setDetectingRegion(true);
+      try {
+        const detected = await apiCall<{
+          status: number;
+          warehouseRegionId: string | null;
+          growthBookRegion: DataRegion | null;
+        }>("/datasources/event-forwarder/detect-region", {
+          method: "POST",
+          body: JSON.stringify({
+            type: datasource.type,
+            params: datasource.params || {},
+            projects: datasource.projects,
+            location: eventDestination.location,
+            zerobusEndpoint: eventDestination.zerobusEndpoint,
+          }),
+        });
+        if (runId !== testRunRef.current) return;
+        setDetectedWarehouseRegionId(detected.warehouseRegionId);
+        setRegionChoiceRequired(true);
+        const allowed = new Set(
+          dataRegionOptions.map((option) => option.value),
+        );
+        if (
+          detected.growthBookRegion &&
+          allowed.has(detected.growthBookRegion)
+        ) {
+          setManualWarehouseRegionId(detected.warehouseRegionId ?? "");
+          setResolvedRegion(detected.growthBookRegion);
+        } else if (detected.growthBookRegion) {
+          setRegionBlockedMessage(
+            `This warehouse is in ${detected.warehouseRegionId}, which routes to GrowthBook's ${ingestorForRegion(detected.growthBookRegion)}. That ingestor is not enabled for this organization.`,
+          );
+        } else {
+          setManualWarehouseRegionId("");
+        }
+      } catch {
+        if (runId !== testRunRef.current) return;
+        setRegionChoiceRequired(true);
+      } finally {
+        if (runId === testRunRef.current) setDetectingRegion(false);
+      }
+      setWriteStatus("passed");
       track("Data Source Connection Test Passed", {
         source,
         mode,
         type: datasource.type,
       });
     } catch (e) {
-      if (runId !== testRunRef.current) return;
-      const message =
-        e instanceof Error ? e.message : "Unable to connect to the Data Source";
-      setTestStatus("failed");
-      setTestMessage(message);
-      setHasError(true);
-      track("Data Source Connection Test Failed", {
-        source,
-        mode,
-        type: datasource.type,
-        error: message.slice(0, 32),
-      });
+      fail(
+        e instanceof Error ? e.message : "Unable to confirm write access",
+        "write",
+      );
     }
   };
 
   const needsSuccessfulTest = (!existing || paramsDirty) && canTest;
+  // Region is stored once at create. A missing value must not fall back to
+  // us-east-1, because it cannot be changed later.
+  const needsEventForwarderRegion =
+    !existing && setup === "event_forwarder" && !eventForwarderRegion;
   const canSave =
     !isSampleData &&
     !!datasource.name?.trim() &&
     !!datasource.type &&
     projectPermissionError === null &&
+    !needsEventForwarderRegion &&
+    (!checksWrite || !!eventForwarderDraft) &&
     (!needsSuccessfulTest || testStatus === "passed") &&
     (existing ? dirty : true);
 
@@ -303,14 +607,28 @@ export default function ConnectDataSourceLayout({
     if (projectPermissionError !== null) {
       return "Select a Project to continue";
     }
+    if (regionBlockedMessage) {
+      return "The EU ingestor is not enabled for this organization";
+    }
+    if (needsSuccessfulTest && !connectionInputsReady) {
+      return missingTestInputsHint;
+    }
     if (needsSuccessfulTest && testStatus === "idle") {
       return "Test the connection to continue";
+    }
+    if (writeStatus === "running" || detectingRegion) {
+      return detectingRegion
+        ? "Finding the warehouse region"
+        : "Checking write access";
     }
     if (testStatus === "running") {
       return "Testing connection";
     }
     if (testStatus === "failed") {
       return "Fix the connection to continue";
+    }
+    if (needsEventForwarderRegion) {
+      return "Choose a warehouse region to continue";
     }
     if (existing && !dirty) {
       return "No changes to save";
@@ -332,7 +650,11 @@ export default function ConnectDataSourceLayout({
         // on the Data Source page, and sending stale copies would overwrite
         // changes made there while this form was open. Params only go up when
         // touched, since the server re-tests the connection whenever present.
-        const putBody: Partial<DataSourceInterfaceWithParams> = {
+        const putBody: {
+          name?: string;
+          params?: DataSourceInterfaceWithParams["params"];
+          settings?: DataSourceInterfaceWithParams["settings"];
+        } = {
           name: datasource.name,
         };
         if (paramsDirty) {
@@ -371,6 +693,9 @@ export default function ConnectDataSourceLayout({
               userIdTypes: [],
               queries: { exposure: [] },
             },
+            ...(eventForwarderDraft
+              ? { eventForwarderConfig: eventForwarderDraft }
+              : {}),
           }),
         });
         id = res.id;
@@ -463,20 +788,14 @@ export default function ConnectDataSourceLayout({
           ) : null}
         </Flex>
         <Text as="p" color="text-mid" mb="4">
-          {setup === "event_forwarder"
-            ? "GrowthBook reads your data to run analysis, and writes forwarded events to the destination you configure."
+          {checksWrite
+            ? "GrowthBook reads your data to run analysis, and writes forwarded events to the destination below."
             : "GrowthBook reads your data to run analysis. It only needs read access."}
         </Text>
 
         {isSampleData && (
           <Callout status="warning" mb="4">
             You cannot edit the sample Data Source connection.
-          </Callout>
-        )}
-
-        {saveError && (
-          <Callout status="error" mb="4">
-            {saveError}
           </Callout>
         )}
 
@@ -522,6 +841,27 @@ export default function ConnectDataSourceLayout({
           />
         </Frame>
 
+        {checksWrite ? (
+          <EventForwarderDestinationFields
+            type={type}
+            params={datasource.params}
+            location={eventDestination.location}
+            tablePrefix={eventDestination.tablePrefix}
+            zerobusEndpoint={eventDestination.zerobusEndpoint}
+            onLocationChange={(location) =>
+              updateEventDestination({ location })
+            }
+            onTablePrefixChange={(tablePrefix) =>
+              updateEventDestination({ tablePrefix })
+            }
+            onZerobusEndpointChange={(zerobusEndpoint) =>
+              updateEventDestination({ zerobusEndpoint })
+            }
+            schemaDefaultsToConnection={type === "snowflake"}
+            disabled={isSampleData}
+          />
+        ) : null}
+
         {canTest && (
           <Frame
             mb="4"
@@ -538,8 +878,13 @@ export default function ConnectDataSourceLayout({
               <Button
                 variant="outline"
                 size="sm"
-                disabled={testStatus === "running" || isSampleData}
-                loading={testStatus === "running"}
+                disabled={
+                  !connectionInputsReady ||
+                  testStatus === "running" ||
+                  detectingRegion ||
+                  isSampleData
+                }
+                loading={testStatus === "running" || detectingRegion}
                 icon={<PiArrowClockwise />}
                 onClick={runTest}
               >
@@ -550,21 +895,131 @@ export default function ConnectDataSourceLayout({
                     : "Retry test"}
               </Button>
             </Flex>
-            {testStatus === "idle" || testStatus === "running" ? (
+            {readStatus === "idle" || readStatus === "running" ? (
               <Text as="p" size="sm" color="text-mid" mb="0">
-                {setup === "event_forwarder"
-                  ? "Checks that GrowthBook can connect and read your data. Write access for the Event Forwarder is validated when you finish setup."
-                  : "Checks that GrowthBook can connect and read your data."}
+                {!connectionInputsReady
+                  ? missingTestInputsHint
+                  : checksWrite
+                    ? "Checks that GrowthBook can read your data and create tables in the event destination."
+                    : "Checks that GrowthBook can connect and read your data."}
               </Text>
             ) : (
-              <ConnectionTestRow
-                status={testStatus}
-                name={readAccessTarget}
-                error={testStatus === "failed" ? testMessage : null}
-              />
+              <Flex direction="column" gap="3" mt="3">
+                <ConnectionTestRow
+                  access="read"
+                  status={readStatus}
+                  name={readAccessTarget}
+                  error={readStatus === "failed" ? readMessage : null}
+                />
+                {checksWrite &&
+                writeStatus === "running" &&
+                !detectingRegion ? (
+                  <Text as="p" size="sm" color="text-mid" mb="0">
+                    Checking write access
+                  </Text>
+                ) : null}
+                {checksWrite &&
+                (writeStatus === "passed" || writeStatus === "failed") ? (
+                  <ConnectionTestRow
+                    access="write"
+                    status={writeStatus}
+                    name={
+                      eventDestination.location.trim() ||
+                      (type === "bigquery" ? "your dataset" : "your schema")
+                    }
+                    error={writeStatus === "failed" ? writeMessage : null}
+                  />
+                ) : null}
+                {checksWrite &&
+                readStatus === "failed" &&
+                writeStatus === "idle" ? (
+                  <Text as="p" size="sm" color="text-mid" mb="0">
+                    Write access was not checked.
+                  </Text>
+                ) : null}
+                {checksWrite && detectingRegion ? (
+                  <Text as="p" size="sm" color="text-mid" mb="0">
+                    Finding the warehouse region
+                  </Text>
+                ) : null}
+                {checksWrite &&
+                writeStatus === "passed" &&
+                regionChoiceRequired &&
+                sinkType ? (
+                  <Box>
+                    <Flex align="center" gap="1" mb="1">
+                      <Text as="div" weight="semibold">
+                        Warehouse region
+                      </Text>
+                      <Tooltip
+                        content={warehouseRegionHelp(sinkType)}
+                        maxWidth="280px"
+                      >
+                        <IconButton
+                          type="button"
+                          variant="ghost"
+                          color="gray"
+                          size="1"
+                          aria-label="How to find your warehouse region"
+                        >
+                          <PiQuestion />
+                        </IconButton>
+                      </Tooltip>
+                    </Flex>
+                    <Text as="p" size="sm" color="text-mid" mb="2">
+                      {detectedWarehouseRegionId && manualWarehouseRegionId
+                        ? "We detected your warehouse region. Confirm it below or choose a different region. "
+                        : detectedWarehouseRegionId
+                          ? `We detected ${detectedWarehouseRegionId}, but its mapped ingestor is not enabled. If this detection is incorrect, choose a different region. `
+                          : "We could not detect your warehouse region. Choose it below so GrowthBook can route events to the closest ingestor. "}
+                      <Text
+                        as="span"
+                        size="sm"
+                        color="text-mid"
+                        fontStyle="italic"
+                      >
+                        This can&apos;t be changed later.
+                      </Text>
+                    </Text>
+                    <Box maxWidth="360px">
+                      <SelectField
+                        aria-label="Warehouse region"
+                        value={manualWarehouseRegionId}
+                        onChange={chooseManualRegion}
+                        placeholder="Select a region"
+                        options={regionOptions}
+                        sort={false}
+                        size="md"
+                        legacyLabelFormatting={false}
+                        noOptionsMessage={() => "No matching regions"}
+                      />
+                    </Box>
+                  </Box>
+                ) : null}
+                {checksWrite &&
+                writeStatus === "passed" &&
+                regionBlockedMessage ? (
+                  <Callout status="error">{regionBlockedMessage}</Callout>
+                ) : null}
+                {checksWrite && writeStatus === "passed" && resolvedRegion ? (
+                  <Text as="p" size="sm" color="text-mid" mb="0">
+                    Events will be routed to GrowthBook&apos;s{" "}
+                    <Text as="span" size="sm" weight="medium">
+                      {ingestorForRegion(resolvedRegion)}
+                    </Text>
+                    , then written to your warehouse.
+                  </Text>
+                ) : null}
+              </Flex>
             )}
           </Frame>
         )}
+
+        {saveError ? (
+          <Box ref={saveErrorRef} mb="4">
+            <Callout status="error">{saveError}</Callout>
+          </Box>
+        ) : null}
       </Box>
 
       <Box gridArea="instructions" minWidth="0" minHeight="0">
@@ -579,6 +1034,7 @@ export default function ConnectDataSourceLayout({
           // user exists in the warehouse and the SQL can alter it.
           savedParams={existing ? initial.params : null}
           eventForwarderRegion={eventForwarderRegion}
+          eventForwarderDestination={instructionsEventDestination}
           snowflakeKeyPair={snowflakeKeyPair}
         />
       </Box>
@@ -613,18 +1069,21 @@ export default function ConnectDataSourceLayout({
 }
 
 function ConnectionTestRow({
+  access,
   status,
   name,
   error,
 }: {
+  access: "read" | "write";
   status: "passed" | "failed";
   name: string;
   error: string | null;
 }) {
   const passed = status === "passed";
+  const verb = access === "write" ? "write" : "read";
 
   return (
-    <Box mt="4">
+    <Box>
       <Flex align="center" gap="3">
         <Flex
           align="center"
@@ -643,8 +1102,8 @@ function ConnectionTestRow({
         </Flex>
         <Text as="span" size="sm" color="text-high">
           {passed
-            ? "Confirmed read access to"
-            : "Could not confirm read access to"}{" "}
+            ? `Confirmed ${verb} access to`
+            : `Could not confirm ${verb} access to`}{" "}
           <Text as="span" size="sm" weight="medium">
             {name}
           </Text>

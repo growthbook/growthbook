@@ -1,15 +1,15 @@
 import { HoldoutInterfaceStringDates } from "shared/validators";
 import { getAllVariations } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { Box, Text } from "@radix-ui/themes";
-import { useRouter } from "next/router";
+import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useUser } from "@/services/UserContext";
-import { useExperimentStatusIndicator } from "@/hooks/useExperimentStatusIndicator";
+import ExperimentStatusIndicator from "@/components/Experiment/TabbedPage/ExperimentStatusIndicator";
 import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 
 interface Props {
   holdout: HoldoutInterfaceStringDates;
@@ -18,31 +18,25 @@ interface Props {
 
 const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
   const { getOwnerDisplay } = useUser();
-  const getExperimentStatusIndicator = useExperimentStatusIndicator();
 
   const experimentItems = useAddComputedFields(
     experiments,
-    (exp) => {
-      const statusIndicator = getExperimentStatusIndicator(exp);
-      return {
-        ...exp,
-        ownerNameDisplay: getOwnerDisplay(exp.owner),
-        dateAdded: holdout.linkedExperiments[exp.id]?.dateAdded,
-        dateEnded: exp.phases[exp.phases.length - 1]?.dateEnded,
-        statusIndicator,
-      };
-    },
-    [getExperimentStatusIndicator, getOwnerDisplay, holdout],
+    (exp) => ({
+      ...exp,
+      ownerNameDisplay: getOwnerDisplay(exp.owner),
+      dateAdded: holdout.linkedExperiments[exp.id]?.dateAdded,
+      dateEnded: exp.phases[exp.phases.length - 1]?.dateEnded,
+    }),
+    [getOwnerDisplay, holdout],
   );
 
-  const { items, SortableTH } = useSearch({
+  const { items, SortableTableColumnHeader } = useSearch({
     items: experimentItems,
     defaultSortField: "dateAdded",
     localStorageKey: "holdoutLinkedExperiments",
     searchFields: ["name", "status", "ownerNameDisplay"],
+    disableUrlSearchTerm: true,
   });
-
-  const router = useRouter();
 
   if (items.length === 0) {
     return (
@@ -58,77 +52,73 @@ const LinkedExperimentsTable = ({ holdout, experiments }: Props) => {
   }
 
   return (
-    <Box>
-      <table className="appbox table gbtable">
-        <thead>
-          <tr>
-            <SortableTH field="name">Experiment Name</SortableTH>
-            <SortableTH field="status">Status</SortableTH>
-            <SortableTH field="releasedVariationId">
-              Shipped Variation
-            </SortableTH>
-            <SortableTH field="ownerNameDisplay">Owner</SortableTH>
-            <SortableTH field="dateAdded">In Holdout</SortableTH>
-            <SortableTH field="dateEnded">Date Ended</SortableTH>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((exp) => {
-            const variations = getAllVariations(exp);
-            const variationIndex = variations.findIndex(
-              (v) => v.id === exp.releasedVariationId,
-            );
-            const variation = variations[variationIndex];
-            return (
-              <tr
-                key={exp.id}
-                className="hover-highlight"
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push(`/experiment/${exp.id}`);
-                }}
-                style={{ cursor: "pointer" }}
-              >
-                <td data-title="Experiment Name" className="col-2">
-                  <Link href={`/experiment/${exp.id}`}>{exp.name}</Link>
-                </td>
-                <td data-title="Status">
-                  {exp.statusIndicator.tooltip &&
-                  !exp.statusIndicator.detailedStatus ? (
-                    <Tooltip body={exp.statusIndicator.tooltip}>
-                      {exp.statusIndicator.status}
-                    </Tooltip>
-                  ) : (
-                    exp.statusIndicator.status
-                  )}
-                </td>
-                <td data-title="Shipped Variation">
-                  {variation ? (
-                    <VariationLabel
-                      number={variationIndex}
-                      name={variation.name}
-                      size="md"
-                      maxWidth="170px"
-                    />
-                  ) : (
-                    <span>--</span>
-                  )}
-                </td>
-                <td data-title="Owner" className="col-2">
-                  {exp.ownerNameDisplay}
-                </td>
-                <td data-title="Date Added">
-                  {exp.dateAdded ? date(exp.dateAdded) : ""}
-                </td>
-                <td data-title="Date Ended">
-                  {exp.dateEnded ? date(exp.dateEnded) : ""}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Box>
+    <Table variant="list" roundedCorners mt="3">
+      <TableHeader>
+        <TableRow>
+          <SortableTableColumnHeader field="name">
+            Experiment
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="status">
+            Status
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="releasedVariationId">
+            Shipped variation
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="ownerNameDisplay">
+            Owner
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="dateAdded">
+            Added
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="dateEnded">
+            Ended
+          </SortableTableColumnHeader>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((exp) => {
+          const variations = getAllVariations(exp);
+          const variationIndex = variations.findIndex(
+            (v) => v.id === exp.releasedVariationId,
+          );
+          const variation = variations[variationIndex];
+          return (
+            <TableRow key={exp.id}>
+              <TableCell style={{ padding: "var(--space-0)" }}>
+                <Link
+                  href={`/experiment/${exp.id}`}
+                  style={{
+                    padding: "var(--space-3)",
+                    display: "block",
+                    color: "var(--color-text-high)",
+                  }}
+                >
+                  {exp.name}
+                </Link>
+              </TableCell>
+              <TableCell>
+                <ExperimentStatusIndicator experimentData={exp} size="xs" />
+              </TableCell>
+              <TableCell>
+                {variation ? (
+                  <VariationLabel
+                    number={variationIndex}
+                    name={variation.name}
+                    size="md"
+                    maxWidth="170px"
+                  />
+                ) : (
+                  "--"
+                )}
+              </TableCell>
+              <TableCell>{exp.ownerNameDisplay}</TableCell>
+              <TableCell>{exp.dateAdded ? date(exp.dateAdded) : ""}</TableCell>
+              <TableCell>{exp.dateEnded ? date(exp.dateEnded) : ""}</TableCell>
+            </TableRow>
+          );
+        })}
+      </TableBody>
+    </Table>
   );
 };
 

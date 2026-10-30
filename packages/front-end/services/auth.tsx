@@ -216,6 +216,18 @@ export async function safeLogout() {
   await redirectWithTimeout(json?.redirectURI || window.location.origin);
 }
 
+// Ends this session and starts sign-in through an Enterprise SSO connection.
+// Skips the current IdP's logout page, which would drop the ssoId hint.
+export async function switchToSSO(ssoConnectionId: string) {
+  await fetch(getApiHost() + `/auth/logout`, {
+    method: "POST",
+    credentials: "include",
+  });
+  await redirectWithTimeout(
+    `${window.location.origin}/?ssoId=${encodeURIComponent(ssoConnectionId)}`,
+  );
+}
+
 // Where to land once login completes; only a same-origin relative path is trusted
 export function getPostAuthRedirectPath({ consume = false } = {}): string {
   try {

@@ -920,6 +920,7 @@ export default function ExperimentHeader({
       {editingName ? (
         <EditExperimentInfoModal
           experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={setEditingName}
           mutate={mutate}
           section="name"

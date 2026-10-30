@@ -29,8 +29,6 @@ import { DocLink, DocSection } from "@/components/DocLink";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import { GBPremiumBadge } from "@/components/Icons";
-import { useDefinitions } from "@/services/DefinitionsContext";
-import NewDataSourceForm from "@/components/Settings/NewDataSourceForm";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import {
   DataSourceOptionKey,
@@ -40,6 +38,7 @@ import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 import SampleDataSourceLink from "./SampleDataSourceLink";
 import ManagedWarehouseModal from "./ManagedWarehouseModal";
 import CustomDataSourceModal from "./CustomDataSourceModal";
+import EventForwarderModal from "./EventForwarderModal";
 
 const OPTION_KEYS: DataSourceOptionKey[] = [
   "managed",
@@ -238,13 +237,12 @@ function ComparisonCellContent({ indicator, text, detail }: ComparisonCell) {
 
 export default function DataSourceOptionsTable() {
   const router = useRouter();
-  const { mutateDefinitions } = useDefinitions();
   const eligibility = useDataSourceOptionEligibility();
   const { pricing, showPricing, pricingFootnote } =
     useDataSourceOptionPricing();
 
   const [managedWarehouseOpen, setManagedWarehouseOpen] = useState(false);
-  const [newDataSourceFormOpen, setNewDataSourceFormOpen] = useState(false);
+  const [eventForwarderOpen, setEventForwarderOpen] = useState(false);
   const [customDataSourceOpen, setCustomDataSourceOpen] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
 
@@ -257,7 +255,7 @@ export default function DataSourceOptionsTable() {
     "event-forwarder": {
       label: "Set up Event Forwarder",
       variant: "outline",
-      onClick: () => setNewDataSourceFormOpen(true),
+      onClick: () => setEventForwarderOpen(true),
     },
     custom: {
       label: "Set up Custom Data Source",
@@ -320,15 +318,14 @@ export default function DataSourceOptionsTable() {
           close={() => setManagedWarehouseOpen(false)}
         />
       ) : null}
-      {newDataSourceFormOpen ? (
-        <NewDataSourceForm
+      {eventForwarderOpen ? (
+        <EventForwarderModal
           source="datasource-options"
-          showImportSampleData={false}
-          onSuccess={async (id) => {
-            await mutateDefinitions({});
-            await router.push(`/datasources/${id}`);
+          close={() => setEventForwarderOpen(false)}
+          onSwitchToCustom={() => {
+            setEventForwarderOpen(false);
+            setCustomDataSourceOpen(true);
           }}
-          onCancel={() => setNewDataSourceFormOpen(false)}
         />
       ) : null}
       {customDataSourceOpen ? (
