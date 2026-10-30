@@ -233,10 +233,13 @@ export default function AttributeModal({
       )
     : permissionsUtil.canCreateAttribute({ projects: selectedProjects });
 
+  // Only describes the example value when the type alone doesn't.
   const snippetHelp =
-    datatype === "enum" && enumOptions.length
+    supportsEnumOptions && enumOptions.length
       ? `One of: ${enumOptions.join(", ")}`
-      : DATA_TYPES.find((d) => d.value === datatype)?.help;
+      : datatype === "string"
+        ? STRING_FORMATS.find((f) => f.value === format)?.label
+        : undefined;
 
   return (
     <ModalStandard
