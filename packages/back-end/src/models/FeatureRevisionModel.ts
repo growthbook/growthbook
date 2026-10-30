@@ -2980,8 +2980,8 @@ export async function submitReviewAndComments(
     }
   }
 
-  // Fire and forget - no route that submits the review and comments expects the log to be there immediately
-  context.models.featureRevisionLogs
+  // Awaited: callers read the entry (e.g. to edit a comment) once this returns.
+  await context.models.featureRevisionLogs
     .create({
       featureId: revision.featureId,
       version: revision.version,
