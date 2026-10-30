@@ -18,6 +18,7 @@ import {
   SDKConnectionInterface,
   SDKLanguage,
 } from "shared/types/sdk-connection";
+import { ApiKeyInterface } from "shared/types/apikey";
 import { WEBHOOK_CONSECUTIVE_FAILURES_THRESHOLD } from "shared/constants";
 import {
   savedGroupFormatFromConnection,
@@ -555,6 +556,44 @@ export async function deleteSDKConnectionModel(
   });
 
   await audit.logDelete(context, sdkConnection);
+}
+
+// Keeps the legacy key as the connection key, so deployed SDKs keep working.
+export async function dangerousCreateLegacySDKConnection(
+  apiKey: ApiKeyInterface,
+): Promise<SDKConnectionInterface> {
+  const connection: SDKConnectionInterface = {
+    id: uniqid("sdk_"),
+    organization: apiKey.organization,
+    name: apiKey.description || "Legacy SDK Endpoint",
+    dateCreated: apiKey.dateCreated ?? new Date(),
+    dateUpdated: new Date(),
+    languages: ["legacy"],
+    sdkVersion: "0.0.0",
+    environment: apiKey.environment || "production",
+    projects: apiKey.project ? [apiKey.project] : [],
+    encryptPayload: !!apiKey.encryptSDK,
+    encryptionKey: apiKey.encryptionKey || (await generateEncryptionKey()),
+    connected: false,
+    key: apiKey.key,
+    proxy: addEnvProxySettings({
+      enabled: false,
+      host: "",
+      hostExternal: "",
+      signingKey: generateSigningKey(),
+      connected: false,
+      lastError: null,
+      version: "",
+      error: "",
+      consecutiveFailures: 0,
+    }),
+  };
+  await SDKConnectionModel.create(connection);
+  return connection;
+}
+
+export async function dangerousDeleteSDKConnectionById(id: string) {
+  await SDKConnectionModel.deleteOne({ id });
 }
 
 export async function markSDKConnectionUsed(key: string) {
