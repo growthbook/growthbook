@@ -34,7 +34,8 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import AssignmentQueryFields, {
   AssignmentQueryDriftWarning,
   ClusterExperimentFields,
-  isClusterChangeAfterLaunch,
+  CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
+  getClusterChangeAfterLaunch,
   POST_STRATIFICATION_CLUSTER_MESSAGE,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -778,6 +779,13 @@ const AnalysisForm: FC<{
                   experiment.datasource ? DATASOURCE_CHANGE_NOTE : undefined
                 }
               />
+              {experiment.isClusterExperiment &&
+              datasource &&
+              !supportsClusterExperiments ? (
+                <HelperText status="warning" size="sm" mt="2">
+                  {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
+                </HelperText>
+              ) : null}
             </SetupFieldRow>
             {datasource?.properties?.exposureQueries && (
               <AssignmentQueryFields
@@ -808,7 +816,7 @@ const AnalysisForm: FC<{
                 setSubUnitIdentifier={(value) =>
                   form.setValue("clusterSubUnitIdentifier", value)
                 }
-                changedAfterLaunch={isClusterChangeAfterLaunch(experiment, {
+                changedAfterLaunch={getClusterChangeAfterLaunch(experiment, {
                   isClusterExperiment,
                   clusterSubUnitIdentifier,
                 })}

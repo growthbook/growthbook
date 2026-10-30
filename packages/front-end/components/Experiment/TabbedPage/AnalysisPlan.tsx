@@ -49,10 +49,10 @@ import {
 import { getIneligibleClusterMetrics } from "@/services/experiments";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import AssignmentQueryFields, {
-  CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE,
+  CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
   ClusterExperimentFields,
   getClusterSubUnitOptions,
-  isClusterChangeAfterLaunch,
+  getClusterChangeAfterLaunch,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -928,7 +928,7 @@ function DataSourceModal({
   const clusterIdentifier = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
     : undefined;
-  const clusterChangedAfterLaunch = isClusterChangeAfterLaunch(experiment, {
+  const clusterChangedAfterLaunch = getClusterChangeAfterLaunch(experiment, {
     isClusterExperiment,
     clusterSubUnitIdentifier,
   });
@@ -994,9 +994,9 @@ function DataSourceModal({
           setSubUnitIdentifier={setClusterSubUnitIdentifier}
           changedAfterLaunch={clusterChangedAfterLaunch}
         />
-      ) : clusterChangedAfterLaunch ? (
+      ) : selected && cluster.isClusterExperiment ? (
         <HelperText status="warning" size="sm">
-          {CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE}
+          {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
         </HelperText>
       ) : null}
       {stagesAttribute && resolution.attribute ? (

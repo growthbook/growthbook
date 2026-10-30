@@ -1,41 +1,15 @@
 import { ReactNode, useEffect, useMemo } from "react";
-import { Separator } from "@radix-ui/themes";
 import { getClusterIssueHealthData } from "shared/health";
 import { DEFAULT_CLUSTER_ISSUE_THRESHOLD } from "shared/constants";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import Callout from "@/ui/Callout";
-import { StatusBadge, StatusBadgeHealth } from "./StatusBadge";
+import HealthCard from "./HealthCard";
 import { IssueValue } from "./IssueTags";
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
   style: "percent",
   maximumFractionDigits: 2,
 });
-
-// Same layout as MultipleExposuresCard.
-function CardFrame({
-  title,
-  description,
-  status,
-  children,
-}: {
-  title: string;
-  description: ReactNode;
-  status: StatusBadgeHealth;
-  children: ReactNode;
-}) {
-  return (
-    <div className="appbox p-3">
-      <h2 className="d-inline">{title}</h2>{" "}
-      {status !== "healthy" && <StatusBadge status={status} />}
-      <p className="mt-1">{description}</p>
-      <Separator size="4" my="3" />
-      <div className="row justify-content-start">
-        <div className="ml-2 mr-2 mt-1 w-100">{children}</div>
-      </div>
-    </div>
-  );
-}
 
 interface Props {
   id: string;
@@ -86,9 +60,9 @@ export default function ClusterIssueCard({
 
   if (error) {
     return (
-      <CardFrame title={title} description={description} status="healthy">
+      <HealthCard title={title} description={description} status="healthy">
         <Callout status="error">Unable to run this check: {error}</Callout>
-      </CardFrame>
+      </HealthCard>
     );
   }
 
@@ -97,7 +71,7 @@ export default function ClusterIssueCard({
   }
 
   return (
-    <CardFrame title={title} description={description} status={health.status}>
+    <HealthCard title={title} description={description} status={health.status}>
       {health.status === "unhealthy" ? (
         <Callout status="warning">
           {warningMessage(percentFormatter.format(health.rawDecimal))}
@@ -112,6 +86,6 @@ export default function ClusterIssueCard({
               )}
         </Callout>
       )}
-    </CardFrame>
+    </HealthCard>
   );
 }

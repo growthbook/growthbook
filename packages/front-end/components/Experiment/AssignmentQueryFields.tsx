@@ -507,27 +507,34 @@ export function getClusterSubUnitOptions(
     : [];
 }
 
-export const CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE =
-  "This experiment has already started. Changing its cluster settings changes how results are analyzed, so make sure they still match how traffic was randomized.";
+export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE =
+  "This data source has no assignment queries, so this experiment will no longer be analyzed as a cluster experiment. Make sure that still matches how traffic was randomized.";
+
+const CLUSTER_MODE_CHANGE_MESSAGE =
+  "This experiment has already started. Changing Cluster experiment changes how results are analyzed, so make sure it still matches how traffic was randomized.";
+const SUBUNIT_CHANGE_MESSAGE =
+  "This experiment has already started. Changing the subunit identifier type changes which unit its metrics are analyzed on.";
+
+export type ClusterChangeAfterLaunch = "mode" | "subunit" | null;
 
 // Cluster settings only shape the analysis, so a started experiment can change
-// them, but should be told when it does.
-export function isClusterChangeAfterLaunch(
+// them, but should be told which one it changed.
+export function getClusterChangeAfterLaunch(
   experiment: Pick<
     ExperimentInterfaceStringDates,
     "status" | "isClusterExperiment" | "clusterSubUnitIdentifier"
   >,
   next: { isClusterExperiment: boolean; clusterSubUnitIdentifier: string },
-): boolean {
-  if (experiment.status === "draft") return false;
+): ClusterChangeAfterLaunch {
+  if (experiment.status === "draft") return null;
   if (next.isClusterExperiment !== !!experiment.isClusterExperiment) {
-    return true;
+    return "mode";
   }
-  return (
-    next.isClusterExperiment &&
+  return next.isClusterExperiment &&
     next.clusterSubUnitIdentifier !==
       (experiment.clusterSubUnitIdentifier ?? "")
-  );
+    ? "subunit"
+    : null;
 }
 
 export function ClusterExperimentFields({
@@ -548,7 +555,7 @@ export function ClusterExperimentFields({
   setIsClusterExperiment: (value: boolean) => void;
   setSubUnitIdentifier: (value: string) => void;
   disabled?: boolean;
-  changedAfterLaunch?: boolean;
+  changedAfterLaunch?: ClusterChangeAfterLaunch;
   // Each field beside its label, as on the experiment's setup page.
   asRows?: boolean;
 }) {
@@ -608,11 +615,14 @@ export function ClusterExperimentFields({
       }
     />
   );
-  const launchWarning = changedAfterLaunch ? (
-    <HelperText status="warning" size="sm" mt="2">
-      {CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE}
-    </HelperText>
-  ) : null;
+  const launchWarning = (kind: ClusterChangeAfterLaunch, message: string) =>
+    changedAfterLaunch === kind ? (
+      <HelperText status="warning" size="sm" mt="2">
+        {message}
+      </HelperText>
+    ) : null;
+  const modeWarning = launchWarning("mode", CLUSTER_MODE_CHANGE_MESSAGE);
+  const subUnitWarning = launchWarning("subunit", SUBUNIT_CHANGE_MESSAGE);
   const subUnitSelect = (
     <SelectField
       label={
@@ -655,11 +665,12 @@ export function ClusterExperimentFields({
       <>
         <SetupFieldRow label="Cluster experiment" content="text">
           {checkbox}
-          {launchWarning}
+          {modeWarning}
         </SetupFieldRow>
         {isClusterExperiment && (
           <SetupFieldRow label="Subunit identifier type" tooltip={SUBUNIT_TIP}>
             {subUnitSelect}
+            {subUnitWarning}
           </SetupFieldRow>
         )}
       </>
@@ -668,10 +679,11 @@ export function ClusterExperimentFields({
   return (
     <Box mb="4">
       {checkbox}
-      {launchWarning}
+      {modeWarning}
       {isClusterExperiment && (
         <Box ml="5" mt="3">
           {subUnitSelect}
+          {subUnitWarning}
         </Box>
       )}
     </Box>
