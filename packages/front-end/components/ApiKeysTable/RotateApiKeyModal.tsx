@@ -14,10 +14,12 @@ import SelectField from "@/components/Forms/SelectField";
 import HelperText from "@/ui/HelperText";
 import Text from "@/ui/Text";
 
-export type RotatedApiKey = {
+// A secret as the server returns it once, on creation or rotation.
+export type IssuedApiKey = {
   key: string;
   expiresAt: string | null;
-  previousKeyExpiresAt: string | null;
+  // Only from a rotation.
+  previousKeyExpiresAt?: string | null;
 };
 
 const GRACE_LABELS: Record<number, string> = {
@@ -96,33 +98,40 @@ export function RotateApiKeyModal({
   );
 }
 
-export function RotatedApiKeyModal({
-  rotated,
+export function IssuedApiKeyModal({
+  issued,
   close,
 }: {
-  rotated: RotatedApiKey;
+  issued: IssuedApiKey;
   close: () => void;
 }) {
+  const rotated = issued.previousKeyExpiresAt !== undefined;
   return (
     <ModalStandard
       trackingEventModalType=""
       open
-      header="Key Rotated"
+      header={rotated ? "Key Rotated" : "Key Created"}
       close={close}
       closeCta="Done"
+      dismissible={false}
+      size="lg"
     >
       <Text as="p" mb="2">
-        Update your clients to use the new secret.
+        {rotated && "Update your clients to use the new secret. "}
+        Save this key somewhere safe. You won&apos;t be able to see it again
+        later.
       </Text>
-      <CopyableCode value={rotated.key} />
+      <CopyableCode value={issued.key} framed />
       <Flex direction="column" gap="4" mt="4">
-        <Detail label="Previous secret stops">
-          {rotated.previousKeyExpiresAt
-            ? datetimeWithZone(rotated.previousKeyExpiresAt)
-            : "Stopped"}
-        </Detail>
+        {rotated && (
+          <Detail label="Previous secret stops">
+            {issued.previousKeyExpiresAt
+              ? datetimeWithZone(issued.previousKeyExpiresAt)
+              : "Stopped"}
+          </Detail>
+        )}
         <Detail label="Key expires">
-          {rotated.expiresAt ? datetimeWithZone(rotated.expiresAt) : "Never"}
+          {issued.expiresAt ? datetimeWithZone(issued.expiresAt) : "Never"}
         </Detail>
       </Flex>
     </ModalStandard>

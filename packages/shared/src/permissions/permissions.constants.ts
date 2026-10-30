@@ -727,12 +727,12 @@ export const POLICY_METADATA_MAP: Record<
   APIKeysView: {
     displayName: "View",
     description:
-      "View API secret keys and their audit logs. Revealing a key's value requires Create.",
+      "View API secret keys and their audit logs. Rotating a key's secret requires Create.",
   },
   APIKeysCreate: {
     displayName: "Create",
     description:
-      "Create API secret keys, reveal their values, and change what a key can do: its role, scope, requester settings, or confirmations",
+      "Create and rotate API secret keys, and change what a key can do: its role, scope, requester settings, or confirmations",
   },
   APIKeysEdit: {
     displayName: "Edit",
@@ -747,7 +747,7 @@ export const POLICY_METADATA_MAP: Record<
   APIKeysMemberTokens: {
     displayName: "Manage members' tokens",
     description:
-      "View, disable, or re-enable any member's Personal Access Tokens, see their audit logs, and apply the expiration policy to existing tokens. Token values stay visible only to their owners.",
+      "View, disable, or re-enable any member's Personal Access Tokens, see their audit logs, and apply the expiration policy to existing tokens. Token values are only shown once, to their owners.",
   },
   IntegrationsFullAccess: {
     displayName: "Integrations Full Access",

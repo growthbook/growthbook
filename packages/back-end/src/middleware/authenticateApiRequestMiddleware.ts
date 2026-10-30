@@ -27,6 +27,7 @@ import { getCustomLogProps } from "back-end/src/util/logger";
 import { BadRequestError } from "back-end/src/util/errors";
 import {
   apiKeyEventUser,
+  apiKeyLookupValues,
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
   REQUESTED_BY_HEADER,
@@ -261,7 +262,7 @@ function authenticateWithApiKey(
       }
       // Likewise for a rotated key's replaced secret, during its grace period.
       if (
-        apiKeyDoc.previousKey === secretKey &&
+        !apiKeyLookupValues(secretKey).includes(apiKeyDoc.key) &&
         apiKeyDoc.previousKeyExpiresAt
       ) {
         res.set(

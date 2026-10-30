@@ -890,7 +890,11 @@ app.get(
   experimentsController.getExperimentTimeSeries,
 );
 
-// Visual editor auth
+// Visual editor auth. Each call rotates the key, so it's a POST; GET serves front-ends from the previous release.
+app.post(
+  "/visual-editor/key",
+  experimentsController.findOrCreateVisualEditorToken,
+);
 app.get(
   "/visual-editor/key",
   experimentsController.findOrCreateVisualEditorToken,

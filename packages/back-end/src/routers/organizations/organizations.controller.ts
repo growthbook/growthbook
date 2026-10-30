@@ -46,7 +46,7 @@ import {
 import { ExperimentRule, NamespaceValue } from "shared/types/feature";
 import { TeamInterface } from "shared/types/team";
 import { getApproverRoles } from "back-end/src/revisions/approverRoles";
-import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
+import { ApiKeyModel, IssuedApiKey } from "back-end/src/models/ApiKeyModel";
 import {
   assertNamespaceHashAttributeChangeAllowed,
   assertNamespaceNotInUse,
@@ -1948,7 +1948,7 @@ export async function getApiKeys(req: AuthRequest, res: Response) {
 
 // Admin-only inventory of every member's PAT, so a compromised token can be
 // revoked without waiting on its owner. Values are stripped by the model's
-// `sanitize`, and `postApiKeyReveal` still refuses another user's token.
+// `sanitize`, and are stored hashed anyway.
 export async function getPersonalAccessTokens(req: AuthRequest, res: Response) {
   const context = getContextFromReq(req);
 
@@ -2063,7 +2063,7 @@ export async function postApiKey(
 
   const expiresAt = parseExpiresAt(expiresAtInput);
 
-  let key: ApiKeyInterface;
+  let issued: IssuedApiKey;
   // Handle user personal access tokens
   if (type === "user") {
     if (!userId) {
@@ -2078,7 +2078,7 @@ export async function postApiKey(
         "Super admins must sign in with a method that grants super admin access to create personal access tokens.",
       );
     }
-    key = await context.models.apiKeys.createUserPersonalAccessApiKey({
+    issued = await context.models.apiKeys.createUserPersonalAccessApiKey({
       description,
       userId: userId,
       scopedRole,
@@ -2092,7 +2092,7 @@ export async function postApiKey(
   }
   // Handle organization secret tokens
   else {
-    key = await context.models.apiKeys.createOrganizationApiKey({
+    issued = await context.models.apiKeys.createOrganizationApiKey({
       description,
       roleId: type,
       limitAccessByEnvironment,
@@ -2104,6 +2104,7 @@ export async function postApiKey(
       confirmRules,
     });
   }
+  const key = issued.apiKey;
 
   await req.audit({
     event: "apiKey.create",
@@ -2115,9 +2116,11 @@ export async function postApiKey(
     details: auditDetailsCreate(ApiKeyModel.toAuditDetails(key)),
   });
 
+  // The only time the secret is returned; it's stored hashed.
   return res.status(200).json({
     status: 200,
-    key,
+    key: issued.plaintextKey,
+    expiresAt: key.expiresAt ?? null,
   });
 }
 
@@ -2257,10 +2260,8 @@ export async function postApiKeyRotate(
   const context = getContextFromReq(req);
   const { id } = req.params;
 
-  const { before, after } = await context.models.apiKeys.rotateSecret(
-    id,
-    req.body.gracePeriodHours,
-  );
+  const { before, after, plaintextKey } =
+    await context.models.apiKeys.rotateSecret(id, req.body.gracePeriodHours);
 
   await req.audit({
     event: "apiKey.rotate",
@@ -2277,7 +2278,7 @@ export async function postApiKeyRotate(
 
   res.status(200).json({
     status: 200,
-    key: after.key,
+    key: plaintextKey,
     expiresAt: after.expiresAt ?? null,
     // An immediate rotation keeps the old secret, already expired.
     previousKeyExpiresAt: isExpired(after.previousKeyExpiresAt)
@@ -2318,7 +2319,7 @@ export async function postApiKeyReveal(
   const context = getContextFromReq(req);
   const { id } = req.body;
 
-  const key = await context.models.apiKeys.getUnredactedSecretKey(id);
+  const key = await context.models.apiKeys.getSdkEndpointKey(id);
   if (!key) {
     return res.status(403).json({
       status: 403,

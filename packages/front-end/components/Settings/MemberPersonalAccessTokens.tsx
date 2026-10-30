@@ -56,8 +56,8 @@ const LastUsed: FC<{ token: ApiKeyInterface }> = ({ token }) => {
 };
 
 // Admin view of every member's personal access token, so a compromised one can
-// be revoked without waiting on its owner. Disable only — deleting a token and
-// revealing its value both stay with the member who created it.
+// be revoked without waiting on its owner. Disable only — deleting or rotating
+// a token stays with the member who created it.
 const MemberPersonalAccessTokens: FC = () => {
   const { apiCall } = useAuth();
   const { users, settings } = useUser();

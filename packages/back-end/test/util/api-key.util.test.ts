@@ -1,6 +1,9 @@
 import { ApiKeyInterface } from "shared/types/apikey";
 import { OrganizationInterface } from "shared/types/organization";
+import { hashToken } from "back-end/src/util/oauth-token.util";
 import {
+  apiKeyLookupValues,
+  hashedApiKey,
   isApiKeyForUserInOrganization,
   migrateApiKey,
   roleForApiKey,
@@ -202,6 +205,31 @@ describe("api key utils", () => {
       });
 
       expect(migrated.role).toEqual("admin");
+    });
+  });
+
+  describe("apiKeyLookupValues", () => {
+    it("matches a secret by its hash, or as-is for SDK keys and unhashed secrets", () => {
+      const secret = "secret_admin_abc123";
+      expect(apiKeyLookupValues(secret)).toEqual([hashToken(secret), secret]);
+    });
+
+    it("never matches a presented hash as-is, so a leaked hash isn't a credential", () => {
+      const storedHash = hashToken("secret_admin_abc123");
+      expect(apiKeyLookupValues(storedHash)).toEqual([hashToken(storedHash)]);
+    });
+  });
+
+  describe("hashedApiKey", () => {
+    it("hashes a legacy plaintext key", () => {
+      expect(hashedApiKey("secret_admin_abc123")).toEqual(
+        hashToken("secret_admin_abc123"),
+      );
+    });
+
+    it("leaves an already hashed key alone", () => {
+      const storedHash = hashToken("secret_admin_abc123");
+      expect(hashedApiKey(storedHash)).toEqual(storedHash);
     });
   });
 });

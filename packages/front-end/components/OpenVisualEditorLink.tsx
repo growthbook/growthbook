@@ -155,7 +155,7 @@ export async function openVisualEditor({
 
   try {
     const res = await apiCall<{ key: string }>("/visual-editor/key", {
-      method: "GET",
+      method: "POST",
     });
     const apiKey = res.key;
     window.postMessage(
