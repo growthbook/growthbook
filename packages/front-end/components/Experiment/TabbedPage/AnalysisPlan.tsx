@@ -674,6 +674,7 @@ export default function AnalysisPlan({
           onChange(ids);
         }}
         datasource={datasource}
+        requireDatasource
         exposureQueryId={exposureQueryId}
         exposureQueryIdentifierType={identifierType || undefined}
         {...clusterSettings}

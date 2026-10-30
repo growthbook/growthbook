@@ -28,6 +28,7 @@ import { getSnapshotSettingsFromReportArgs } from "./reports";
 import {
   getAnalysisSettingsForStatsEngine,
   getMetricsAndQueryDataForStatsEngine,
+  selectAnalysisQueryData,
 } from "./stats";
 
 async function getQueryData(
@@ -204,8 +205,14 @@ export async function generateNotebook({
       1,
     ) / 24;
 
-  const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
+  const analysisQueryData = selectAnalysisQueryData(
     queries,
+    snapshotSettings,
+    analysisSettings.dimensions[0],
+  );
+
+  const { queryResults, metricSettings } = getMetricsAndQueryDataForStatsEngine(
+    analysisQueryData,
     metricMap,
     snapshotSettings,
   );

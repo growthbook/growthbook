@@ -160,8 +160,6 @@ export function MetricOverrideTooltipContent({
         conversionWindowsIgnored:
           experiment.attributionModel === "experimentDuration" ||
           experiment.attributionModel === "lookbackOverride",
-        winRisk: settings.winRisk.value,
-        loseRisk: settings.loseRisk.value,
         cuped: hasCommercialFeature("regression-adjustment")
           ? {
               enabled: analysis.regressionAdjustmentEnabled,
@@ -192,18 +190,6 @@ export function MetricOverrideTooltipContent({
     >
       {metric ? (
         <OptionTooltipDescription description={metric.description} />
-      ) : null}
-      {onManageOverrides ? (
-        <Box>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
-            onClick={() => onManageOverrides(memberIds)}
-          >
-            {hasOverrides ? "Manage overrides" : "Add overrides"}
-          </Button>
-        </Box>
       ) : null}
       {group ? (
         <OptionTooltipSection label="Metrics:">
@@ -271,6 +257,18 @@ export function MetricOverrideTooltipContent({
           />
         </>
       )}
+      {onManageOverrides ? (
+        <Box>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
+            onClick={() => onManageOverrides(memberIds)}
+          >
+            {hasOverrides ? "Manage overrides" : "Add overrides"}
+          </Button>
+        </Box>
+      ) : null}
     </OptionTooltipShell>
   );
 }

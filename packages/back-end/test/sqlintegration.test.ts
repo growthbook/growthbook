@@ -10,6 +10,7 @@ import {
 import { ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { Dimension } from "shared/types/integrations";
+import { SegmentInterface } from "shared/types/segment";
 import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
@@ -2713,6 +2714,136 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).not.toContain("sub_count");
     expect(normalized).toContain("FROM __userMetricAgg m");
     expect(normalized).toContain("COUNT(*) AS users");
+  });
+
+  it("buckets cluster-spanning breakdown dimensions as __multiple__ for a cluster-level metric", () => {
+    // The cluster exposure must declare the breakdown dimension so the units
+    // query materializes a dim_exp_browser column.
+    const clusterExposureQueryWithDim: ExposureQuery = {
+      ...clusterExposureQuery,
+      dimensions: ["browser"],
+    };
+    // @ts-expect-error -- context not needed for test
+    const integration = new BigQuery("", {
+      type: "bigquery",
+      settings: { queries: { exposure: [clusterExposureQueryWithDim] } },
+    });
+
+    const metric = factMetricFactory.build({
+      id: "fact_region_spend",
+      metricType: "mean",
+      numerator: {
+        factTableId: "region_spend",
+        column: "amount",
+        aggregation: "sum",
+      },
+      regressionAdjustmentEnabled: false,
+    });
+
+    const dimensions: Dimension[] = [{ type: "experiment", id: "browser" }];
+    const sql = getExperimentFactMetricsQuery(
+      bigQueryDialect,
+      integration.datasource,
+      {
+        settings: {
+          ...baseSettings,
+          clusterLevelMetricIds: ["fact_region_spend"],
+        },
+        unitsSource: "exposureQuery",
+        unitsSettings: buildUnitsQuerySettingsFromSnapshot(
+          { ...baseSettings, dimensions },
+          {
+            query: clusterExposureQueryWithDim.query,
+            identifierType: "region_id",
+          },
+        ),
+        activationMetric: null,
+        dimensions,
+        segment: null,
+        metrics: [metric],
+        factTableMap,
+      },
+    );
+    const normalized = sql.replace(/\s+/g, " ").trim();
+
+    // A cluster-level metric is one value per cluster. When a cluster spans more
+    // than one browser there is no non-arbitrary slice to own that value, so it
+    // is bucketed as '__multiple__' (mirroring the variation collapse) instead
+    // of silently assigning the whole cluster to one browser via MIN.
+    // MAX(...) is cast to a string so the CASE does not mix a numeric breakdown
+    // column with the '__multiple__' marker (BigQuery rejects mixed-type CASE
+    // branches, which would otherwise fail the full refresh for numeric
+    // dimensions / cluster ids).
+    expect(normalized).toMatch(
+      /CASE WHEN COUNT\(DISTINCT dim_exp_browser\) > 1 THEN '__multiple__' ELSE cast\(MAX\(dim_exp_browser\) as string\) END\s*\)\s*AS dim_exp_browser/,
+    );
+    expect(normalized).not.toMatch(/MIN\(dim_exp_browser\)/);
+  });
+
+  it("joins a cluster-keyed segment through the cluster column, not the sub-unit", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_mean",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+
+    const makeSegment = (userIdType: string): SegmentInterface => ({
+      id: `seg_${userIdType}`,
+      organization: "org",
+      owner: "",
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      name: `${userIdType} segment`,
+      description: "",
+      userIdType,
+      type: "SQL",
+      sql: `SELECT ${userIdType}, date FROM subscribers`,
+    });
+
+    const buildWithSegment = (segment: SegmentInterface): string =>
+      getExperimentFactMetricsQuery(
+        bigQueryDialect,
+        datasourceIntegration.datasource,
+        {
+          settings: baseSettings,
+          unitsSource: "exposureQuery",
+          unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+            query: clusterExposureQuery.query,
+            identifierType: "region_id",
+          }),
+          activationMetric: null,
+          dimensions: [],
+          segment,
+          metrics: [metric],
+          factTableMap,
+        },
+      )
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // A segment keyed on the cluster column (region_id) is already carried by the
+    // exposure rows, so it must join through region_id and request NO identity
+    // join table. The base id type is forced to the sub-unit (user_id), so a
+    // region_id -> user_id join table does not exist and getIdentitiesCTE would
+    // otherwise throw "Missing identifier join table".
+    const clusterKeyedSql = buildWithSegment(makeSegment("region_id"));
+    expect(clusterKeyedSql).toContain(
+      "JOIN __segment s ON (s.region_id = e.region_id)",
+    );
+    expect(clusterKeyedSql).not.toContain(
+      "JOIN __segment s ON (s.user_id = e.user_id)",
+    );
+
+    // A segment keyed on the sub-unit (user_id) still joins on the sub-unit.
+    const subUnitKeyedSql = buildWithSegment(makeSegment("user_id"));
+    expect(subUnitKeyedSql).toContain(
+      "JOIN __segment s ON (s.user_id = e.user_id)",
+    );
   });
 
   it("refuses to mix cluster-level and sub-unit metrics in one query", () => {

@@ -1,6 +1,11 @@
+import { Box } from "@radix-ui/themes";
 import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useApi from "@/hooks/useApi";
+
+const PORTAL_SCALE = 0.85;
 
 export default function OrbPortal() {
   const { data, error, isLoading } = useApi<{
@@ -20,19 +25,26 @@ export default function OrbPortal() {
   }
 
   return (
-    <div className="p-3 app-box border">
-      <h3>Invoices & Usage</h3>
+    <Frame>
+      <Heading as="h2" size="md" mb="3">
+        Invoices & Usage
+      </Heading>
       {data.portalUrl ? (
-        <iframe
-          src={data.portalUrl}
-          style={{
-            width: "100%",
-            height: "100vh",
-            border: "none",
-          }}
-          title="Customer Portal"
-        />
+        // Cross-origin, so it's scaled down to shrink its fonts.
+        <Box style={{ height: "100vh", overflow: "hidden" }}>
+          <iframe
+            src={data.portalUrl}
+            style={{
+              width: `${100 / PORTAL_SCALE}%`,
+              height: `calc(100vh / ${PORTAL_SCALE})`,
+              border: "none",
+              transform: `scale(${PORTAL_SCALE})`,
+              transformOrigin: "top left",
+            }}
+            title="Customer Portal"
+          />
+        </Box>
       ) : null}
-    </div>
+    </Frame>
   );
 }

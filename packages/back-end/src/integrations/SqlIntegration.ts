@@ -3120,7 +3120,16 @@ export default abstract class SqlIntegration
           )} AS variation
           , MIN(e.first_exposure_timestamp) AS first_exposure_timestamp
           ${unitDimensionCols.map((d) => `, ${d.value} AS ${d.alias}`).join("")}
-          ${nonUnitDimensionCols.map((d) => `, MIN(${d.value}) AS ${d.alias}`).join("")}
+          ${nonUnitDimensionCols
+            .map(
+              (d) =>
+                `, ${this.getSqlDialect().ifElse(
+                  `COUNT(DISTINCT ${d.value}) > 1`,
+                  "'__multiple__'",
+                  `MAX(${d.value})`,
+                )} AS ${d.alias}`,
+            )
+            .join("")}
         FROM ${params.unitsSourceTableFullName} e
         ${unitDimensionJoinsSQL}
         ${unitsWhere}

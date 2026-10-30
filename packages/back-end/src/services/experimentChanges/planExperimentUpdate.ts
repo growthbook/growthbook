@@ -36,6 +36,7 @@ import {
   assertCanRunExperimentChanges,
   assertExperimentKeyFormat,
   assertValidClusterExperimentConfig,
+  assertValidExperimentPhases,
   determineNextBanditSchedule,
   getExperimentAttributeScopeProjects,
   normalizeStatusUpdateScheduleChanges,
@@ -612,6 +613,7 @@ export async function planExperimentUpdate(
     datasource: clusterDatasource,
     current: {
       isClusterExperiment: effectiveIsClusterExperiment,
+      datasource: clusterDatasourceId,
       exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
       exposureQueryIdentifierType:
         changes.exposureQueryIdentifierType ??
@@ -624,6 +626,7 @@ export async function planExperimentUpdate(
     },
     previous: {
       isClusterExperiment: experiment.isClusterExperiment,
+      datasource: experiment.datasource,
       exposureQueryId: experiment.exposureQueryId,
       exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
       clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
@@ -821,6 +824,11 @@ export async function planExperimentUpdate(
         settings,
       });
     }
+  }
+
+  // Also checked on the write; here so a dry run and linked flag writes refuse first.
+  if (changes.phases) {
+    assertValidExperimentPhases(changes.phases, experiment.phases);
   }
 
   await assertCanRunExperimentChanges(context, experiment, changes);
