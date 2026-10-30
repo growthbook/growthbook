@@ -78,6 +78,13 @@ export function getExperimentUnitsQuery(
     clusterIdColumn !== null &&
     (d.dimension.userIdType || "user_id") === clusterIdColumn;
 
+  // A segment keyed on the cluster column (e.g. region_id) is carried by the
+  // exposure rows directly, so it needs no separate identity join table.
+  const segmentIsClusterKeyed =
+    !!segment &&
+    clusterIdColumn !== null &&
+    (segment.userIdType || "user_id") === clusterIdColumn;
+
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
     datasource.settings,
@@ -88,7 +95,9 @@ export function getExperimentUnitsQuery(
         ...unitDimensions
           .filter((d) => !isClusterKeyedUnitDimension(d))
           .map((d) => [d.dimension.userIdType || "user_id"]),
-        segment ? [segment.userIdType || "user_id"] : [],
+        segment && !segmentIsClusterKeyed
+          ? [segment.userIdType || "user_id"]
+          : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
@@ -101,6 +110,13 @@ export function getExperimentUnitsQuery(
     d: (typeof unitDimensions)[number],
   ): string =>
     isClusterKeyedUnitDimension(d) && clusterIdColumn !== null
+      ? clusterIdColumn
+      : baseIdType;
+
+  // Cluster-keyed segments join through the cluster column carried by the
+  // exposure rows rather than the sub-unit base id type.
+  const segmentJoinIdType =
+    segmentIsClusterKeyed && clusterIdColumn !== null
       ? clusterIdColumn
       : baseIdType;
 
@@ -262,7 +278,7 @@ export function getExperimentUnitsQuery(
         ? `, __segment as (${getSegmentCTE(
             dialect,
             segment,
-            baseIdType,
+            segmentJoinIdType,
             idJoinMap,
             factTableMap,
             {
@@ -330,7 +346,7 @@ export function getExperimentUnitsQuery(
         __experimentExposures e
         ${
           segment
-            ? `JOIN __segment s ON (s.${baseIdType} = e.${baseIdType})`
+            ? `JOIN __segment s ON (s.${segmentJoinIdType} = e.${segmentJoinIdType})`
             : ""
         }
         ${unitDimensions

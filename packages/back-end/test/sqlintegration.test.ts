@@ -10,6 +10,7 @@ import {
 import { ExposureQuery } from "shared/types/datasource";
 import { DimensionInterface } from "shared/types/dimension";
 import { Dimension } from "shared/types/integrations";
+import { SegmentInterface } from "shared/types/segment";
 import { SqlDialect } from "shared/types/sql";
 import { getRowFilterSQL } from "shared/experiments";
 import { buildUnitsQuerySettingsFromSnapshot } from "shared/util";
@@ -2754,6 +2755,72 @@ describe("cluster experiment ratio analysis - bigquery", () => {
       /CASE WHEN COUNT\(DISTINCT dim_exp_browser\) > 1 THEN '__multiple__' ELSE MAX\(dim_exp_browser\) END\s*\)\s*AS dim_exp_browser/,
     );
     expect(normalized).not.toMatch(/MIN\(dim_exp_browser\)/);
+  });
+
+  it("joins a cluster-keyed segment through the cluster column, not the sub-unit", () => {
+    const metric = factMetricFactory.build({
+      id: "fact_cluster_mean",
+      metricType: "mean",
+      numerator: {
+        factTableId: "orders",
+        column: "amount",
+        aggregation: "sum",
+      },
+    });
+
+    const makeSegment = (userIdType: string): SegmentInterface => ({
+      id: `seg_${userIdType}`,
+      organization: "org",
+      owner: "",
+      datasource: "",
+      dateCreated: new Date(),
+      dateUpdated: new Date(),
+      name: `${userIdType} segment`,
+      description: "",
+      userIdType,
+      type: "SQL",
+      sql: `SELECT ${userIdType}, date FROM subscribers`,
+    });
+
+    const buildWithSegment = (segment: SegmentInterface): string =>
+      getExperimentFactMetricsQuery(
+        bigQueryDialect,
+        datasourceIntegration.datasource,
+        {
+          settings: baseSettings,
+          unitsSource: "exposureQuery",
+          unitsSettings: buildUnitsQuerySettingsFromSnapshot(baseSettings, {
+            query: clusterExposureQuery.query,
+            identifierType: "region_id",
+          }),
+          activationMetric: null,
+          dimensions: [],
+          segment,
+          metrics: [metric],
+          factTableMap,
+        },
+      )
+        .replace(/\s+/g, " ")
+        .trim();
+
+    // A segment keyed on the cluster column (region_id) is already carried by the
+    // exposure rows, so it must join through region_id and request NO identity
+    // join table. The base id type is forced to the sub-unit (user_id), so a
+    // region_id -> user_id join table does not exist and getIdentitiesCTE would
+    // otherwise throw "Missing identifier join table".
+    const clusterKeyedSql = buildWithSegment(makeSegment("region_id"));
+    expect(clusterKeyedSql).toContain(
+      "JOIN __segment s ON (s.region_id = e.region_id)",
+    );
+    expect(clusterKeyedSql).not.toContain(
+      "JOIN __segment s ON (s.user_id = e.user_id)",
+    );
+
+    // A segment keyed on the sub-unit (user_id) still joins on the sub-unit.
+    const subUnitKeyedSql = buildWithSegment(makeSegment("user_id"));
+    expect(subUnitKeyedSql).toContain(
+      "JOIN __segment s ON (s.user_id = e.user_id)",
+    );
   });
 
   it("refuses to mix cluster-level and sub-unit metrics in one query", () => {
