@@ -8,13 +8,16 @@ export interface QualityFixTargets {
   openHistory: () => void;
   editMetrics?: (() => void) | null;
   editResult?: (() => void) | null;
-  recheckAI?: (() => void) | null;
+  recheckAI?: (() => void | Promise<void>) | null;
 }
 
 export const HYPOTHESIS_ID = "experiment-hypothesis";
 export const DESCRIPTION_ID = "experiment-description";
 
-export type QualityFixAction = { label: string; onClick: () => void };
+export type QualityFixAction = {
+  label: string;
+  onClick: () => void | Promise<void>;
+};
 
 export function getQualityFixAction(
   check: Pick<ExperimentQualityCheckResult, "key" | "type" | "score">,
@@ -22,8 +25,10 @@ export function getQualityFixAction(
   // The Setup tab's implementation section
   implementationId: string,
 ): QualityFixAction | null {
-  const action = (label: string, onClick?: (() => void) | null) =>
-    onClick ? { label, onClick } : null;
+  const action = (
+    label: string,
+    onClick?: (() => void | Promise<void>) | null,
+  ) => (onClick ? { label, onClick } : null);
   if (check.type === "ai" && check.score === null) {
     return action("Check again", targets.recheckAI);
   }
