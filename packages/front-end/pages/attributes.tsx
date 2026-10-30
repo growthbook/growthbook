@@ -617,13 +617,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <>
                 <Table variant="list" roundedCorners layout="fixed">
                   <colgroup>
+                    {/* Same widths as the attributes table, with the spacer
+                        taking the leftover so description doesn't. */}
                     <col style={{ width: 200 }} />
+                    <col style={{ width: 240 }} />
+                    <col style={{ width: 170 }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 130 }} />
                     <col />
-                    <col style={{ width: 130 }} />
-                    <col style={{ width: 130 }} />
-                    <col style={{ width: 130 }} />
-                    <col style={{ width: 130 }} />
-                    <col style={{ width: 48 }} />
+                    <col style={{ width: 40 }} />
                   </colgroup>
                   <TableHeader>
                     <TableRow>
@@ -641,6 +644,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                       <SortableIdentifierHeader field="usedIn">
                         Used in
                       </SortableIdentifierHeader>
+                      <TableColumnHeader />
                       <TableColumnHeader />
                     </TableRow>
                   </TableHeader>
@@ -720,7 +724,10 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                     : "experiments"
                                 }`}
                           </TableCell>
-                          <TableCell>
+                          <TableCell />
+                          <TableCell
+                            style={{ paddingLeft: 4, paddingRight: 4 }}
+                          >
                             <Flex justify="center">
                               <AttributeRowMenu
                                 attribute={v}
