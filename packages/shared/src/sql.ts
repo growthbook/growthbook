@@ -164,9 +164,33 @@ export function format(
  * like `";" + "/**\/".repeat(n) + "x"`, and this runs on user-supplied SQL.
  *
  * Everything from the last `;` that is followed only by whitespace, `--` line
- * comments and terminated block comments is removed.
+ * comments and terminated block comments is removed. Quoted text is skipped,
+ * so a `;` or `--` inside a string or quoted identifier is left alone.
+ *
+ * The dialect isn't known here, so quotes are read two ways: with backslash
+ * escapes (`'it\'s'`) and as standard SQL, where `\` is literal (`'C:\'`).
+ * Both allow doubled quotes (`'it''s'`). The cut is the later of the two, so
+ * nothing either reading treats as part of the statement is removed. If
+ * neither reading closes every quote, quotes are ignored instead.
  */
 export function stripTrailingSemicolon(sql: string): string {
+  const cuts = [
+    trailingSemicolonIndex(sql, "backslash"),
+    trailingSemicolonIndex(sql, "standard"),
+  ].filter((cut): cut is number => cut !== null);
+  const cut = cuts.length
+    ? Math.max(...cuts.map((c) => (c === -1 ? sql.length : c)))
+    : (trailingSemicolonIndex(sql, "ignore") ?? -1);
+  return (cut === -1 ? sql : sql.slice(0, cut)).trim();
+}
+
+// Index of the terminating `;`, or -1 if there is none. Unless quotes are
+// ignored, returns null when a quote is never closed.
+function trailingSemicolonIndex(
+  sql: string,
+  quotes: "backslash" | "standard" | "ignore",
+): number | null {
+  const skipQuotes = quotes !== "ignore";
   // Index of the most recent `;` that has only trivia after it so far.
   let cut = -1;
   // Once a `/*` has no closing `*/` anywhere after it, no later one can either.
@@ -177,7 +201,17 @@ export function stripTrailingSemicolon(sql: string): string {
     if (ch === ";") {
       cut = i;
       i++;
-    } else if (cut === -1) {
+    } else if (skipQuotes && (ch === "'" || ch === '"' || ch === "`")) {
+      // Quoted text is never trivia. A doubled quote closes and reopens, so
+      // only backslashes need handling.
+      let j = i + 1;
+      while (j < sql.length && sql[j] !== ch) {
+        j += quotes === "backslash" && sql[j] === "\\" ? 2 : 1;
+      }
+      if (j >= sql.length) return null;
+      cut = -1;
+      i = j + 1;
+    } else if (!skipQuotes && cut === -1) {
       // Not (yet) in a trailing run, so nothing here can be trivia.
       i++;
     } else if (/\s/.test(ch)) {
@@ -201,7 +235,7 @@ export function stripTrailingSemicolon(sql: string): string {
       i++;
     }
   }
-  return (cut === -1 ? sql : sql.slice(0, cut)).trim();
+  return cut;
 }
 
 // Any template variable built on startDate, e.g. {{startDate}} or
@@ -307,8 +341,10 @@ export function assertSafeReadOnlySQL(sql: string): void {
     throw new Error(`Disallowed expression: ${escapeMatch[0].trim()}`);
   }
 
-  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above)
-  if (/\bSELECT\s+.*\bINTO\b/i.test(strippedSql)) {
+  // SELECT INTO (but not INTO OUTFILE/DUMPFILE — caught above). The query
+  // starts with SELECT or WITH and strings and comments are stripped, so any
+  // INTO left is a write, on whichever line it appears.
+  if (/\bINTO\b/i.test(strippedSql)) {
     throw new Error("SELECT INTO is not allowed");
   }
 
