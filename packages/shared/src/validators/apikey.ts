@@ -143,12 +143,3 @@ export const apiKeySchema = createBaseSchemaWithPrimaryKey({
       "Most recent authentication with `previousKey`. `null` means it hasn't been used since the rotation.",
     ),
 });
-
-export const secretApiKey = apiKeySchema
-  .omit({ id: true, secret: true, environment: true, project: true })
-  .safeExtend({ id: z.string(), secret: z.literal(true) });
-
-export const secretApiKeyRedacted = secretApiKey.omit({
-  key: true,
-  previousKey: true,
-});

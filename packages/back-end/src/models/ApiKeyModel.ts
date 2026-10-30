@@ -30,7 +30,6 @@ import {
   apiKeyLookupValues,
   generateEncryptionKey,
   generateSigningKey,
-  HASHED_API_KEY,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
 import { hashToken } from "back-end/src/util/oauth-token.util";
@@ -39,7 +38,6 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
-import { logger } from "back-end/src/util/logger";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -86,7 +84,7 @@ const toTime = (d: ExpiresAt) => (d ? new Date(d).getTime() : null);
 // Secret keys are stored hashed, so the plaintext exists only in this result.
 export type IssuedApiKey = { apiKey: ApiKeyInterface; plaintextKey: string };
 
-// Long enough that a second device's extension keeps working for a while.
+// The replaced secret keeps working this long, unless a later rotation replaces it first.
 const VISUAL_EDITOR_GRACE_PERIOD_HOURS = 168;
 
 export class ApiKeyModel extends BaseClass {
@@ -594,7 +592,10 @@ export class ApiKeyModel extends BaseClass {
   ): Promise<ApiKeyInterface> {
     if (!id && !key) this.context.throwNotFoundError();
 
-    const doc = await this._findOne(id ? { id } : { key }, {
+    const filter = id
+      ? { id }
+      : { key: { $in: apiKeyLookupValues(key as string) } };
+    const doc = await this._findOne(filter, {
       bypassSanitization: true,
     });
     // Missing and not permitted get the same answer, so the lookup tells a
@@ -662,7 +663,7 @@ export class ApiKeyModel extends BaseClass {
     }
 
     if (doc.userId) {
-      // A PAT is only ever editable by its owner, like reveal and delete.
+      // A PAT is only ever editable by its owner, like rotate and delete.
       if (doc.userId !== this.context.userId) {
         this.context.throwNotFoundError(`API key not found: ${id}`);
       }
@@ -764,41 +765,6 @@ export class ApiKeyModel extends BaseClass {
         { $set: { lastUsed: now, previousKeyLastUsed: now } },
       );
     }
-  }
-
-  // Hashes secrets stored before keys were hashed. Idempotent, so it runs on every boot.
-  public static async dangerousHashPlaintextSecrets(): Promise<void> {
-    const collection = getCollection<ApiKeyInterface>(COLLECTION_NAME);
-    const docs = await collection
-      .find(
-        {
-          secret: true,
-          $or: [
-            { key: { $not: HASHED_API_KEY } },
-            { previousKey: { $type: "string", $not: HASHED_API_KEY } },
-          ],
-        },
-        { projection: { _id: 1, key: 1, previousKey: 1 } },
-      )
-      .toArray();
-    if (!docs.length) return;
-    const hash = (value: string) =>
-      HASHED_API_KEY.test(value) ? value : hashToken(value);
-    // Matching the read value keeps a concurrent rotation from being overwritten.
-    await collection.bulkWrite(
-      docs.map(({ _id, key, previousKey }) => ({
-        updateOne: {
-          filter: { _id, key, ...(previousKey && { previousKey }) },
-          update: {
-            $set: {
-              key: hash(key),
-              ...(previousKey && { previousKey: hash(previousKey) }),
-            },
-          },
-        },
-      })),
-    );
-    logger.info({ count: docs.length }, "Hashed plaintext API key secrets");
   }
 
   // OAuth token endpoint has no ReqContext. These static helpers keep apikey

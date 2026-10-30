@@ -747,7 +747,7 @@ export const POLICY_METADATA_MAP: Record<
   APIKeysMemberTokens: {
     displayName: "Manage members' tokens",
     description:
-      "View, disable, or re-enable any member's Personal Access Tokens, see their audit logs, and apply the expiration policy to existing tokens. Token values stay visible only to their owners.",
+      "View, disable, or re-enable any member's Personal Access Tokens, see their audit logs, and apply the expiration policy to existing tokens. Token values are only shown once, to their owners.",
   },
   IntegrationsFullAccess: {
     displayName: "Integrations Full Access",
