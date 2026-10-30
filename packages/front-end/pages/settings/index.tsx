@@ -169,7 +169,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
         title="Settings"
         headerClassName={sectionStyles.visuallyHidden}
         breadcrumb={[
-          { display: "General", href: "/settings" },
+          // Plain text: on this page it would only link back to itself.
+          { display: "General" },
           ...(activeTitle ? [{ display: activeTitle }] : []),
         ]}
         contentClassName={sectionStyles.generalContent}
