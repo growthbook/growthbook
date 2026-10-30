@@ -296,7 +296,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Settings",
     href: "/settings",
-    path: /^(settings|projects|integrations|events|importing)/,
+    path: /^(settings|projects?|integrations|events|importing)/,
     subLinks: [
       {
         name: "General",
