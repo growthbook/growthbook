@@ -32,6 +32,7 @@ import {
   resolveSnowflakeEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
+import { logger } from "back-end/src/util/logger";
 import { ReqContext } from "back-end/types/request";
 import { ENCRYPTION_KEY } from "back-end/src/util/secrets";
 
@@ -735,16 +736,26 @@ export async function migrateEventForwarderToInHouseConsumer(
     throw new Error("Event forwarder is already on the in-house consumer");
   }
 
-  await context.auditLog({
-    entity: { object: "eventForwarderConfig", id: existing.id, name: "" },
-    event: "eventForwarderConfig.migrate",
-    details: JSON.stringify({
-      datasourceId: existing.datasourceId,
-      topic: existing.topic,
-      connectorName: existing.connectorName,
-      connectorId: existing.connectorId,
-    }),
-  });
+  // Row is already claimed; an audit failure must not strand it. Log the old
+  // ids so they're still recoverable for manual teardown.
+  const oldConnector = {
+    datasourceId: existing.datasourceId,
+    topic: existing.topic,
+    connectorName: existing.connectorName,
+    connectorId: existing.connectorId,
+  };
+  try {
+    await context.auditLog({
+      entity: { object: "eventForwarderConfig", id: existing.id, name: "" },
+      event: "eventForwarderConfig.migrate",
+      details: JSON.stringify(oldConnector),
+    });
+  } catch (e) {
+    logger.error(
+      { err: e, ...oldConnector },
+      "Failed to audit log event forwarder migration",
+    );
+  }
 
   return migrated;
 }

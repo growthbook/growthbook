@@ -126,6 +126,17 @@ describe("migrateEventForwarderToInHouseConsumer", () => {
     expect(auditLog).not.toHaveBeenCalled();
   });
 
+  it("still returns the migrated row when the audit log fails", async () => {
+    const { context, auditLog } = mockContext();
+    auditLog.mockRejectedValueOnce(new Error("audit down"));
+    const migrated = await migrateEventForwarderToInHouseConsumer(
+      context,
+      legacyBigQueryConfig(),
+      bqParams,
+    );
+    expect(migrated.topic).toBe("event_forwarder_bigquery");
+  });
+
   it("rejects a paused config", async () => {
     const { context, update } = mockContext();
     await expect(
