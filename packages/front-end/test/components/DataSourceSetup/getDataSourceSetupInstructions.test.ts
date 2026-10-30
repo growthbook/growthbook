@@ -698,7 +698,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
     it("lists only the chosen region's IPs with no note once the region is known", () => {
       const us = codeOf(
         getDataSourceSetupInstructions(
-          "snowflake",
+          "databricks",
           "event_forwarder",
           undefined,
           {
@@ -727,13 +727,30 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
       expect(eu.codeNote).toBeUndefined();
     });
 
-    it("snowflake custom: lists only the egress IP", () => {
+    it("snowflake: keeps both IPs even once a single region is known, since GROWTHBOOK_POLICY is shared with other connections", () => {
+      const us = codeOf(
+        getDataSourceSetupInstructions(
+          "snowflake",
+          "event_forwarder",
+          undefined,
+          {
+            eventForwarderRegions: ["us-east-1"],
+          },
+        ),
+        "Allow network access",
+      );
+      expect(us.code).toContain(CLOUD_EGRESS_IP);
+      expect(us.code).toContain(EU_INGESTOR_IP);
+      expect(us.codeNote).toBeUndefined();
+    });
+
+    it("snowflake custom: always lists both IPs, since the policy is shared with other connections", () => {
       const network = codeOf(
         getDataSourceSetupInstructions("snowflake", "custom"),
         "Allow network access",
       );
       expect(network.code).toContain(CLOUD_EGRESS_IP);
-      expect(network.code).not.toContain(EU_INGESTOR_IP);
+      expect(network.code).toContain(EU_INGESTOR_IP);
       expect(network.codeNote).toBeUndefined();
     });
 

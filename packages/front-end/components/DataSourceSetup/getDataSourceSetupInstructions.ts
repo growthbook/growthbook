@@ -584,9 +584,15 @@ ${readGrants}${efGrants ? `\n${efGrants}` : ""}`,
     networkAccessStep({
       description: "Only if a network policy restricts IPs.",
       ctx,
-      code: (ips) => {
-        const list = ips.map((ip) => `'${ip}'`).join(", ");
-        // IF NOT EXISTS leaves an existing policy's IP list unchanged.
+      // GROWTHBOOK_POLICY is one shared, named object per Snowflake account,
+      // not scoped to this connection. Always list every address GrowthBook
+      // might connect from (ignoring this connection's own region), so the
+      // SET below never drops an address another connection's Event
+      // Forwarder still relies on.
+      code: () => {
+        const list = [CLOUD_EGRESS_IP, EU_INGESTOR_IP]
+          .map((ip) => `'${ip}'`)
+          .join(", ");
         return `CREATE NETWORK POLICY IF NOT EXISTS GROWTHBOOK_POLICY
   ALLOWED_IP_LIST = (${list});
 ALTER NETWORK POLICY GROWTHBOOK_POLICY SET
@@ -852,7 +858,11 @@ FLUSH PRIVILEGES;`;
             "Grant SELECT on the database. Restrict the host from '%' when you can.",
           ...withCredential(
             password,
-            (pw) => `CREATE USER IF NOT EXISTS '${user}'@'%';
+            // IDENTIFIED BY on CREATE too, so a failed ALTER (e.g. a
+            // password-policy rejection) never leaves a passwordless account.
+            (
+              pw,
+            ) => `CREATE USER IF NOT EXISTS '${user}'@'%' IDENTIFIED BY ${pw};
 ALTER USER '${user}'@'%' IDENTIFIED BY ${pw};
 ${selectGrant}`,
           ),

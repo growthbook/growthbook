@@ -8,9 +8,8 @@ import {
 } from "shared/types/datasource";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
-import ConnectDataSourceLayout, {
-  PASSWORD_USER_TYPES,
-} from "@/components/DataSourceSetup/ConnectDataSourceLayout";
+import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";
+import { PASSWORD_USER_TYPES } from "@/components/DataSourceSetup/connectDataSourceHelpers";
 import { ConnectSetupKind } from "@/components/DataSourceSetup/DataSourceConnectInstructions";
 import { defaultEventForwarderDestination } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import { generateStrongPassword } from "@/components/DataSourceSetup/generateStrongPassword";

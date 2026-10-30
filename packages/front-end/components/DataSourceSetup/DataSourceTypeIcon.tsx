@@ -6,7 +6,6 @@ const FONT_SIZE = {
   lg: 32,
 } as const;
 
-/** A warehouse logo (from `dataSourceConnections`), sized for a picker row or a page header. */
 export default function DataSourceTypeIcon({
   icon,
   size = "sm",

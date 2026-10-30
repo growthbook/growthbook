@@ -57,6 +57,10 @@ const SnowflakeForm: FC<{
   const [generateFailed, setGenerateFailed] = useState(false);
   const [showOwnKey, setShowOwnKey] = useState(false);
   const [confirmRegenerate, setConfirmRegenerate] = useState(false);
+  // keyPairGenerator.auto comes from the parent and has no setter, so a
+  // successful upload or manual generate can't clear it there. Track the
+  // dismissal locally instead, or the "upload one instead" error outlives it.
+  const [autoFailureDismissed, setAutoFailureDismissed] = useState(false);
   // Bumped on each successful generate so the file input remounts and drops
   // a previously chosen file name. Keyed on this rather than "is the
   // generated key in use" so uploading a file afterward keeps its name.
@@ -76,7 +80,8 @@ const SnowflakeForm: FC<{
   const showGeneratedSummary =
     !!keyPairGenerator && !existing && usingGeneratedKey && !showOwnKey;
   const generationFailed =
-    generateFailed || keyPairGenerator?.auto === "failed";
+    generateFailed ||
+    (keyPairGenerator?.auto === "failed" && !autoFailureDismissed);
   const regenerateKeyPair = async () => {
     if (!keyPairGenerator) return;
     const ok = await keyPairGenerator.generate();
@@ -84,6 +89,7 @@ const SnowflakeForm: FC<{
     if (ok) {
       setGeneration((g) => g + 1);
       setShowOwnKey(false);
+      setAutoFailureDismissed(true);
     }
   };
   // Generating is a no-op the first time, since there is nothing in the form
@@ -233,6 +239,7 @@ const SnowflakeForm: FC<{
                 if (file) {
                   // Uploading is the fallback the error suggests, so clear it.
                   setGenerateFailed(false);
+                  setAutoFailureDismissed(true);
                   const reader = new FileReader();
                   reader.onload = () => {
                     onManualParamChange("privateKey", reader.result as string);

@@ -54,6 +54,10 @@ import Tooltip from "@/ui/Tooltip";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import { KeyPairGenerator } from "@/components/Settings/SnowflakeForm";
 import { buildEventForwarderConnectDraft } from "./buildEventForwarderConnectDraft";
+import {
+  hasGeneratedPassword,
+  withGeneratedSnowflakeKey,
+} from "./connectDataSourceHelpers";
 import DataSourceTypeIcon from "./DataSourceTypeIcon";
 import DataSourceConnectInstructions, {
   ConnectSetupKind,
@@ -77,53 +81,8 @@ function isEventForwarderSink(
   return type === "bigquery" || type === "snowflake" || type === "databricks";
 }
 
-// Warehouses whose setup instructions create a password-authenticated user.
-export const PASSWORD_USER_TYPES = new Set<DataSourceType>([
-  "postgres",
-  "redshift",
-  "mysql",
-  "mssql",
-]);
-
-function hasGeneratedPassword(
-  datasource: Partial<DataSourceInterfaceWithParams>,
-  initial: Partial<DataSourceInterfaceWithParams>,
-): boolean {
-  if (!datasource.type || !PASSWORD_USER_TYPES.has(datasource.type)) {
-    return false;
-  }
-  const current = datasource.params as { password?: string } | undefined;
-  const generated = initial.params as { password?: string } | undefined;
-  // True only while the field still holds the value the page filled in;
-  // the note is misleading once the user has typed their own.
-  return !!generated?.password && current?.password === generated.password;
-}
-
 function ingestorForRegion(region: DataRegion): string {
   return region === "eu-west-1" ? "EU ingestor" : "US ingestor";
-}
-
-function withGeneratedSnowflakeKey(
-  datasource: Partial<DataSourceInterfaceWithParams>,
-  keyPair: SnowflakeKeyPair | null,
-): Partial<DataSourceInterfaceWithParams> {
-  if (!keyPair || datasource.type !== "snowflake") return datasource;
-  const params = datasource.params;
-  const privateKey =
-    params && "privateKey" in params && typeof params.privateKey === "string"
-      ? params.privateKey
-      : "";
-  // Keep a file the user already chose.
-  if (privateKey && privateKey !== keyPair.privateKey) return datasource;
-  if (privateKey === keyPair.privateKey) return datasource;
-  return {
-    ...datasource,
-    params: {
-      ...params,
-      privateKey: keyPair.privateKey,
-      privateKeyPassword: "",
-    },
-  } as Partial<DataSourceInterfaceWithParams>;
 }
 
 function warehouseRegionHelp(sinkType: EventForwarderSinkType): string {
