@@ -578,6 +578,8 @@ export default function AttributeModal({
           p="4"
           style={{
             alignSelf: "start",
+            position: "sticky",
+            top: 0,
             minWidth: 0,
             background: "var(--gray-a2)",
             border: "1px solid var(--gray-a4)",
