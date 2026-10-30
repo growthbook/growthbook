@@ -30,12 +30,14 @@ import {
   overrideScopes,
   clonedFlagRule,
   clonedSavedGroupRule,
+  clonedSdkConnectionRule,
   differsFromBase,
   flagRulesFromSettings,
   ruleForScope,
   scopeKey,
   inheritedFlagRule,
   inheritedSavedGroupRule,
+  inheritedSdkConnectionRule,
   scopeProjects,
   withRuleForScope,
   withoutScope,
@@ -43,7 +45,7 @@ import {
 import {
   ApprovalScopeSections,
   FlagApprovalFields,
-  SavedGroupApprovalFields,
+  ApprovalFlowRuleFields,
 } from "./ApprovalScopeFields";
 
 export default function ApprovalFlowSettings() {
@@ -61,6 +63,8 @@ export default function ApprovalFlowSettings() {
   );
   const savedGroupRules: ApprovalFlowConfiguration[] =
     form.watch("approvalFlows.savedGroups") ?? [];
+  const sdkConnectionRules: ApprovalFlowConfiguration[] =
+    form.watch("approvalFlows.sdkConnections") ?? [];
 
   // Tabs carry their own id, so editing their projects does not remount them.
   const [tabs, setTabs] = useState<{ id: string; scope: string }[]>([]);
@@ -87,7 +91,11 @@ export default function ApprovalFlowSettings() {
   }, [tabs, requestedProject]);
 
   // Tabs follow the form rules, which load after mount and reset on Discard.
-  const storedScopeKey = overrideScopes([flagRules, savedGroupRules]).join("|");
+  const storedScopeKey = overrideScopes([
+    flagRules,
+    savedGroupRules,
+    sdkConnectionRules,
+  ]).join("|");
   useEffect(() => {
     const stored = storedScopeKey ? storedScopeKey.split("|") : [];
     setTabs((prev) => {
@@ -114,14 +122,27 @@ export default function ApprovalFlowSettings() {
       withRuleForScope(savedGroupRules, scope, next),
     );
 
+  const setSdkConnectionRule = (
+    scope: string,
+    next: ApprovalFlowConfiguration,
+  ) =>
+    form.setValue(
+      "approvalFlows.sdkConnections",
+      withRuleForScope(sdkConnectionRules, scope, next),
+    );
+
   const addOverride = (project: string) => {
     const id = newTabId();
     setTabs((prev) => [...prev, { id, scope: project }]);
     setFlagRule(project, clonedFlagRule(flagRules, project));
     setSavedGroupRule(project, clonedSavedGroupRule(savedGroupRules, project));
+    setSdkConnectionRule(
+      project,
+      clonedSdkConnectionRule(sdkConnectionRules, project),
+    );
   };
 
-  // Re-points both families' rules so a group of projects can share one rule.
+  // Re-points every family's rules so a group of projects can share one rule.
   const retargetTab = (tab: { id: string; scope: string }, next: string[]) => {
     const nextScope = scopeKey(next);
     if (!next.length || nextScope === tab.scope) return;
@@ -142,6 +163,16 @@ export default function ApprovalFlowSettings() {
         }),
       );
     }
+    const sdkConnectionOwn = ruleForScope(sdkConnectionRules, tab.scope);
+    if (sdkConnectionOwn) {
+      form.setValue(
+        "approvalFlows.sdkConnections",
+        withRuleForScope(sdkConnectionRules, tab.scope, {
+          ...sdkConnectionOwn,
+          projects: next,
+        }),
+      );
+    }
     setTabs((prev) =>
       prev.map((t) => (t.id === tab.id ? { ...t, scope: nextScope } : t)),
     );
@@ -152,6 +183,10 @@ export default function ApprovalFlowSettings() {
     form.setValue(
       "approvalFlows.savedGroups",
       withoutScope(savedGroupRules, tab.scope),
+    );
+    form.setValue(
+      "approvalFlows.sdkConnections",
+      withoutScope(sdkConnectionRules, tab.scope),
     );
     setTabs((prev) => prev.filter((t) => t.id !== tab.id));
   };
@@ -227,10 +262,28 @@ export default function ApprovalFlowSettings() {
         description="Every change is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review saved groups reset self-approve one step metadata teams"
       >
-        <SavedGroupApprovalFields
+        <ApprovalFlowRuleFields
+          family="saved-group"
           idPrefix="saved-groups-all-projects"
           value={clonedSavedGroupRule(savedGroupRules, ALL_PROJECTS_SCOPE)}
           onChange={(next) => setSavedGroupRule(ALL_PROJECTS_SCOPE, next)}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="ap-sdk-connections"
+        title="SDK Connections"
+        description="Every change is saved as a revision. Approval adds a review step before it goes live."
+        keywords="approval review sdk connections environments reset self-approve one step metadata teams"
+      >
+        <ApprovalFlowRuleFields
+          family="sdk-connection"
+          idPrefix="sdk-connections-all-projects"
+          value={clonedSdkConnectionRule(
+            sdkConnectionRules,
+            ALL_PROJECTS_SCOPE,
+          )}
+          onChange={(next) => setSdkConnectionRule(ALL_PROJECTS_SCOPE, next)}
         />
       </SettingsGroup>
 
@@ -320,6 +373,28 @@ export default function ApprovalFlowSettings() {
                         )
                     : undefined
                 }
+                sdkConnectionRule={clonedSdkConnectionRule(
+                  sdkConnectionRules,
+                  scope,
+                )}
+                onSdkConnectionChange={(next) =>
+                  setSdkConnectionRule(scope, next)
+                }
+                onSdkConnectionReset={
+                  differsFromBase(
+                    clonedSdkConnectionRule(sdkConnectionRules, scope),
+                    inheritedSdkConnectionRule(sdkConnectionRules, scope),
+                  )
+                    ? () =>
+                        setSdkConnectionRule(
+                          scope,
+                          clonedSdkConnectionRule(
+                            withoutScope(sdkConnectionRules, scope),
+                            scope,
+                          ),
+                        )
+                    : undefined
+                }
               />
             </Frame>
           );
@@ -369,7 +444,7 @@ export default function ApprovalFlowSettings() {
             <Checkbox
               id="toggle-restApiBypassesReviews"
               label="REST API bypasses approvals"
-              description="Applies to Feature Flags, Configs, Constants, and Saved Groups. When off, API calls are blocked unless the caller's role grants FlagsBypassApprovals or SavedGroupsBypassApprovals in that Project."
+              description="Applies to Feature Flags, Configs, Constants, Saved Groups, and SDK Connections. When off, API calls are blocked unless the caller's role grants FlagsBypassApprovals, SavedGroupsBypassApprovals, or SDKConnectionsBypassApprovals in that Project."
               value={form.watch("restApiBypassesReviews") !== false}
               setValue={(v) => form.setValue("restApiBypassesReviews", v)}
             />

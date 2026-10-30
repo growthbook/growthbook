@@ -1,7 +1,15 @@
 import { z } from "zod";
-import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
-
+import {
+  apiPaginationFieldsValidator,
+  paginationQueryFields,
+  publishBypassedGatesField,
+} from "./shared";
 import { namedSchema } from "./openapi-helpers";
+import {
+  payloadFormatValidator,
+  webhookMethods,
+  webhookTimeoutSecondsValidator,
+} from "./webhooks";
 
 /**
  * The three ways Saved Groups can be written into an SDK payload.
@@ -76,11 +84,131 @@ export const apiSdkConnectionValidator = namedSchema(
           "How Saved Groups are written into this connection's payload. `referencesV2` needs an SDK version that supports it; the payload steps down to `referencesV1` if not.",
         ),
       includeReferencedPrerequisites: z.boolean().optional(),
+      archived: z
+        .boolean()
+        .optional()
+        .describe(
+          "An archived connection serves no payload. A connection must be archived before it can be deleted.",
+        ),
     })
     .strict(),
 );
 
 export type ApiSdkConnection = z.infer<typeof apiSdkConnectionValidator>;
+
+// Secret-free projection of SDKConnectionInterface, with `proxy` flattened to
+// line up with EditSDKConnectionParams.
+export const sdkConnectionSettingsSnapshotValidator = z
+  .object({
+    id: z.string(),
+    organization: z.string(),
+    name: z.string(),
+    eventTracker: z.string().optional(),
+    languages: z.array(z.string()),
+    sdkVersion: z.string().optional(),
+    environment: z.string(),
+    projects: z.array(z.string()),
+    encryptPayload: z.boolean(),
+    hashSecureAttributes: z.boolean().optional(),
+    includeVisualExperiments: z.boolean().optional(),
+    includeDraftExperiments: z.boolean().optional(),
+    includeDraftExperimentRefs: z.boolean().optional(),
+    includeExperimentNames: z.boolean().optional(),
+    includeRedirectExperiments: z.boolean().optional(),
+    includeRuleIds: z.boolean().optional(),
+    includeProjectIdInMetadata: z.boolean().optional(),
+    includeCustomFieldsInMetadata: z.boolean().optional(),
+    allowedCustomFieldsInMetadata: z.array(z.string()).optional(),
+    includeTagsInMetadata: z.boolean().optional(),
+    includeExperimentScheduleInMetadata: z.boolean().optional(),
+    remoteEvalEnabled: z.boolean().optional(),
+    savedGroupReferencesEnabled: z.boolean().optional(),
+    savedGroupFormat: savedGroupFormatValidator.optional(),
+    includeReferencedPrerequisites: z.boolean().optional(),
+    proxyEnabled: z.boolean().optional(),
+    proxyHost: z.string().optional(),
+    // No dates: the object is compared wholesale for conflicts, and
+    // `dateUpdated` changes on every write.
+    archived: z.boolean().optional(),
+  })
+  .strict();
+
+export type SDKConnectionSettingsRevisionSnapshot = z.infer<
+  typeof sdkConnectionSettingsSnapshotValidator
+>;
+
+// Runtime and secret webhook fields are omitted.
+export const sdkWebhookSnapshotValidator = z.object({
+  id: z.string(),
+  name: z.string(),
+  endpoint: z.string(),
+  httpMethod: z.enum(webhookMethods),
+  headers: z.string().optional(),
+  payloadFormat: payloadFormatValidator.optional(),
+  payloadKey: z.string().optional(),
+  timeoutSeconds: webhookTimeoutSecondsValidator.optional(),
+});
+
+export type SDKWebhookRevisionSnapshot = z.infer<
+  typeof sdkWebhookSnapshotValidator
+>;
+
+// A null timeout means "use the default", same as an absent one; dropping it
+// keeps the two from diffing as a change.
+// Drafts mint `temp_` ids client-side; the landed webhook takes a stable id
+// derived from it, so history, retries and later diffs all agree.
+export function sdkWebhookStableId(connectionId: string, id: string): string {
+  return id.startsWith("temp_")
+    ? `wh_${connectionId}_${id.slice("temp_".length)}`
+    : id;
+}
+
+export function parseSdkWebhookSnapshot(
+  value: unknown,
+): SDKWebhookRevisionSnapshot {
+  const { timeoutSeconds, ...rest } = sdkWebhookSnapshotValidator.parse(value);
+  return (timeoutSeconds ?? null) === null ? rest : { ...rest, timeoutSeconds };
+}
+
+export const sdkConnectionSnapshotValidator = z.object({
+  sdkConnection: sdkConnectionSettingsSnapshotValidator,
+  sdkWebhooks: z.array(sdkWebhookSnapshotValidator),
+});
+
+export type SDKConnectionRevisionSnapshot = z.infer<
+  typeof sdkConnectionSnapshotValidator
+>;
+
+// The fields a revision may write to the live connection.
+export const sdkConnectionUpdatableFieldsSchema =
+  sdkConnectionSettingsSnapshotValidator.pick({
+    name: true,
+    eventTracker: true,
+    languages: true,
+    sdkVersion: true,
+    environment: true,
+    projects: true,
+    encryptPayload: true,
+    hashSecureAttributes: true,
+    includeVisualExperiments: true,
+    includeDraftExperiments: true,
+    includeDraftExperimentRefs: true,
+    includeExperimentNames: true,
+    includeRedirectExperiments: true,
+    includeRuleIds: true,
+    includeProjectIdInMetadata: true,
+    includeCustomFieldsInMetadata: true,
+    allowedCustomFieldsInMetadata: true,
+    includeTagsInMetadata: true,
+    includeExperimentScheduleInMetadata: true,
+    remoteEvalEnabled: true,
+    savedGroupReferencesEnabled: true,
+    savedGroupFormat: true,
+    includeReferencedPrerequisites: true,
+    proxyEnabled: true,
+    proxyHost: true,
+    archived: true,
+  });
 
 // Corresponds to payload-schemas/PostSdkConnectionPayload.yaml
 const postSdkConnectionBody = z
@@ -130,7 +258,23 @@ const postSdkConnectionBody = z
   .strict();
 
 // Corresponds to payload-schemas/PutSdkConnectionPayload.yaml
-const putSdkConnectionBody = postSdkConnectionBody.partial();
+const putSdkConnectionBody = postSdkConnectionBody
+  .partial()
+  .extend({
+    archived: z
+      .boolean()
+      .optional()
+      .describe(
+        "Archive (true) or restore (false) the connection. Archiving takes the same authority as deleting it; restoring takes publish authority.",
+      ),
+    bypassApproval: z
+      .boolean()
+      .describe(
+        "Set to true to update the live SDK connection without approval. The caller must have the `bypassApprovalSDKConnections` permission, or the organization must enable 'REST API always bypasses approval requirements'. This field has no effect when approval is not required.",
+      )
+      .optional(),
+  })
+  .strict();
 
 const idParams = z
   .object({
@@ -203,9 +347,12 @@ export const putSdkConnectionValidator = {
   responseSchema: z
     .object({
       sdkConnection: apiSdkConnectionValidator,
+      bypassedGates: publishBypassedGatesField,
     })
     .strict(),
   summary: "Update a single sdk connection",
+  description:
+    "Applies the change immediately and records it as a published revision, so it appears in the connection's history. When the organization requires approvals for this connection's projects and environment, open a draft from the SDK connection page instead, or pass `bypassApproval` with the bypass permission. Set `archived` to archive or restore the connection.",
   confirmation: ["sdkConnection.edit"] as const,
   operationId: "putSdkConnection",
   tags: ["sdk-connections"],
@@ -223,6 +370,8 @@ export const deleteSdkConnectionValidator = {
     })
     .strict(),
   summary: "Deletes a single SDK connection",
+  description:
+    "A live connection can only be deleted when the organization enables 'REST API always bypasses approval requirements'. Otherwise archive it first (`PUT /sdk-connections/{id}` with `archived: true`), then delete it.",
   confirmation: ["sdkConnection.delete"] as const,
   operationId: "deleteSdkConnection",
   tags: ["sdk-connections"],

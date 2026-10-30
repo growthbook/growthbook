@@ -1,6 +1,7 @@
 import {
   apiRequireReviewRule,
   apiSavedGroupApprovalRule,
+  apiSdkConnectionApprovalRule,
 } from "shared/validators";
 import {
   ApprovalFlowConfiguration,
@@ -26,3 +27,8 @@ export const toApiRequireReviews = (rules: RequireReview[]) =>
 
 export const toApiSavedGroupApprovals = (rules: ApprovalFlowConfiguration[]) =>
   rules.map((rule) => pickDeclared(rule, apiSavedGroupApprovalRule.shape));
+
+export const toApiSdkConnectionApprovals = (
+  rules: ApprovalFlowConfiguration[],
+) =>
+  rules.map((rule) => pickDeclared(rule, apiSdkConnectionApprovalRule.shape));

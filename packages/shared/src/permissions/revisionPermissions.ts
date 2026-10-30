@@ -11,7 +11,12 @@ export type RevisionAction =
   | "revert" // restore a previously-published revision
   | "bypass"; // publish without the required review, force-merge a stale base
 
-export type RevisionModel = "feature" | "config" | "constant" | "saved-group";
+export type RevisionModel =
+  | "feature"
+  | "config"
+  | "constant"
+  | "saved-group"
+  | "sdk-connection";
 
 export interface ActionPermission {
   permission: Permission;
@@ -84,6 +89,18 @@ export const REVISION_PERMISSIONS: Record<
     publish: { permission: "publishSavedGroups", scope: "project" },
     revert: { permission: "revertSavedGroups", scope: "project" },
     bypass: { permission: "bypassApprovalSavedGroups", scope: "project" },
+  },
+  // SDK connections share one env-scoped edit atom, so every action (drafting
+  // included) carries the environment footprint. Bypass gets its own atom so
+  // edit access alone can't skip an approval.
+  "sdk-connection": {
+    create: { permission: "manageSDKConnections", scope: "environment" },
+    delete: { permission: "manageSDKConnections", scope: "environment" },
+    draft: { permission: "manageSDKConnections", scope: "environment" },
+    review: { permission: "manageSDKConnections", scope: "environment" },
+    publish: { permission: "manageSDKConnections", scope: "environment" },
+    revert: { permission: "manageSDKConnections", scope: "environment" },
+    bypass: { permission: "bypassApprovalSDKConnections", scope: "project" },
   },
 };
 

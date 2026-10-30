@@ -35,9 +35,11 @@ import { ApiReqContext } from "back-end/types/api";
 import { ReqContext } from "back-end/types/request";
 import { addCloudSDKMapping } from "back-end/src/services/licenseServerManagedClickhouse";
 import { logger } from "back-end/src/util/logger";
+import { purgeCDNCache } from "back-end/src/util/cdn.util";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { CasConflictError } from "back-end/src/models/BaseModel";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -87,6 +89,7 @@ const sdkConnectionSchema = new mongoose.Schema({
   savedGroupReferencesEnabled: Boolean,
   savedGroupFormat: String,
   eventTracker: String,
+  archived: Boolean,
   managedBy: {},
   key: {
     type: String,
@@ -240,21 +243,34 @@ export async function findSDKConnectionsByIds(
 }
 
 // Not org-scoped — authenticated callers must scope to their own org.
-export async function findSDKConnectionByKey(key: string) {
+// Archived connections stop serving, so their key doesn't resolve unless
+// `includeArchived` is passed.
+export async function findSDKConnectionByKey(
+  key: string,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
+) {
   const doc = await SDKConnectionModel.findOne({ key });
-  return doc ? toInterface(doc) : null;
+  return doc ? visibleByKey(toInterface(doc), includeArchived) : null;
 }
 
 // Org-scoped only; does not check project-read (unlike findSDKConnectionById).
 export async function findSDKConnectionByKeyForOrg(
   context: ReqContext | ApiReqContext,
   key: string,
+  { includeArchived = false }: { includeArchived?: boolean } = {},
 ) {
   const doc = await SDKConnectionModel.findOne({
     organization: context.org.id,
     key,
   });
-  return doc ? toInterface(doc) : null;
+  return doc ? visibleByKey(toInterface(doc), includeArchived) : null;
+}
+
+function visibleByKey(
+  connection: SDKConnectionInterface,
+  includeArchived: boolean,
+) {
+  return !includeArchived && connection.archived ? null : connection;
 }
 
 export const createSDKConnectionValidator = z
@@ -403,6 +419,7 @@ export const editSDKConnectionValidator = z
     savedGroupFormat: savedGroupFormatValidator.optional(),
     includeReferencedPrerequisites: z.boolean().optional(),
     eventTracker: z.string().optional(),
+    archived: z.boolean().optional(),
   })
   .strict();
 
@@ -410,6 +427,8 @@ export async function editSDKConnection(
   context: ReqContext | ApiReqContext,
   connection: SDKConnectionInterface,
   updates: EditSDKConnectionParams,
+  // `null` guards a connection that has never been stamped.
+  options?: { casOnDateUpdated?: Date | null },
 ) {
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
@@ -479,6 +498,7 @@ export async function editSDKConnection(
     "includeTagsInMetadata",
     "includeExperimentScheduleInMetadata",
     "savedGroupReferencesEnabled",
+    "archived",
     "savedGroupFormat",
     "includeReferencedPrerequisites",
   ] as const;
@@ -495,26 +515,36 @@ export async function editSDKConnection(
     dateUpdated: new Date(),
   };
 
-  await SDKConnectionModel.updateOne(
+  const casOnDateUpdated = options?.casOnDateUpdated;
+  const result = await SDKConnectionModel.updateOne(
     {
       organization: context.org.id,
       id: connection.id,
+      ...(casOnDateUpdated !== undefined && {
+        dateUpdated:
+          casOnDateUpdated === null ? { $exists: false } : casOnDateUpdated,
+      }),
     },
     {
       $set: fullChanges,
     },
   );
+  if (casOnDateUpdated !== undefined && result.matchedCount === 0) {
+    throw new CasConflictError();
+  }
 
-  if (needsProxyUpdate) {
+  const updated = { ...connection, ...fullChanges };
+
+  // An archived connection stops serving: purge its cache instead of refreshing.
+  if (updated.archived) {
+    if (!connection.archived) {
+      await purgeArchivedConnectionCache(context, updated);
+    }
+  } else if (needsProxyUpdate) {
     queueSDKPayloadRefresh({
       context,
       payloadKeys: [],
-      sdkConnections: [
-        {
-          ...connection,
-          ...fullChanges,
-        },
-      ],
+      sdkConnections: [updated],
       auditContext: {
         event: "updated",
         model: "sdkconnection",
@@ -523,9 +553,30 @@ export async function editSDKConnection(
     });
   }
 
-  const updated = { ...connection, ...fullChanges };
   await audit.logUpdate(context, connection, updated);
   return updated;
+}
+
+async function purgeArchivedConnectionCache(
+  context: ReqContext | ApiReqContext,
+  connection: SDKConnectionInterface,
+) {
+  try {
+    await context.models.sdkConnectionCache.deleteByKey(connection.key);
+  } catch (e) {
+    logger.warn(e, "Failed to delete cache entry for archived SDK connection");
+  }
+  await purgeCDNCache(context.org.id, [connection.key]);
+}
+
+// Webhooks have no version of their own, so a direct webhook write advances its
+// connections' stamp and a publish computed against the older state loses.
+export async function touchSDKConnections(context: ReqContext, ids: string[]) {
+  if (!ids.length) return;
+  await SDKConnectionModel.updateMany(
+    { organization: context.org.id, id: { $in: ids } },
+    { $set: { dateUpdated: new Date() } },
+  );
 }
 
 export const updateSdkConnectionsRemoveManagedBy = async (
@@ -575,6 +626,8 @@ export async function findSDKConnectionsWithPayloadOver(
   const docs = await SDKConnectionModel.find({
     organization: context.org.id,
     "payloadSize.bytes": { $gte: minBytes },
+    // An archived connection serves nothing; its last measurement is stale.
+    archived: { $ne: true },
   });
   return readableConnections(context, docs);
 }
@@ -787,5 +840,6 @@ export function toApiSDKConnectionInterface(
     savedGroupReferencesEnabled: connection.savedGroupReferencesEnabled,
     savedGroupFormat: savedGroupFormatFromConnection(connection),
     includeReferencedPrerequisites: connection.includeReferencedPrerequisites,
+    archived: connection.archived,
   };
 }

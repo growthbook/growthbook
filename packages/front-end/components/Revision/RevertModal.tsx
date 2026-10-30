@@ -96,6 +96,9 @@ export interface Props<T extends RevertableEntity> {
   }) => ReactNode;
   close: () => void;
   onRevisionCreated: (revision: Revision) => void;
+  // Reshapes the restored fields for an endpoint whose body differs from the
+  // snapshot (an SDK connection's settings are nested in its snapshot).
+  toRequestBody?: (changes: Record<string, unknown>) => Record<string, unknown>;
 }
 
 export default function RevertModal<T extends RevertableEntity>({
@@ -119,6 +122,7 @@ export default function RevertModal<T extends RevertableEntity>({
   renderDraftSelector,
   close,
   onRevisionCreated,
+  toRequestBody,
 }: Props<T>) {
   const { apiCall } = useAuth();
   const { getUserDisplay } = useUser();
@@ -333,7 +337,9 @@ export default function RevertModal<T extends RevertableEntity>({
           revision?: Revision;
         }>(`${apiPathBase}/${liveEntity.id}?${params.toString()}`, {
           method: "PUT",
-          body: JSON.stringify(revertChanges),
+          body: JSON.stringify(
+            toRequestBody ? toRequestBody(revertChanges) : revertChanges,
+          ),
         });
 
         if (res?.revision) onRevisionCreated(res.revision);

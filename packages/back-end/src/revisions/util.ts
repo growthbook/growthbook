@@ -6,6 +6,7 @@ import {
   JsonPatchOperation,
   Revision,
   RevisionTargetType,
+  mergeNestedBranch,
   normalizeProposedChanges,
 } from "shared/enterprise";
 import { ReqContext } from "back-end/types/request";
@@ -140,7 +141,21 @@ export function buildMergeDesiredState<T extends Record<string, unknown>>(
     }
     return false;
   });
-  return applyPatchToSnapshot(liveEntity, effectiveOps);
+  // A nested branch lands only what the draft changed in it, so unrelated live
+  // edits made since the draft's base survive.
+  const landedOps = effectiveOps.map((op) => {
+    if (op.op !== "replace" && op.op !== "add") return op;
+    const field = op.path.split("/")[1];
+    const nested = mergeNestedBranch(
+      field,
+      baseSnapshot[field],
+      liveEntity[field],
+      op.value,
+      "proposed",
+    );
+    return nested ? { ...op, value: nested.merged } : op;
+  });
+  return applyPatchToSnapshot(liveEntity, landedOps);
 }
 
 // Whether a merge changes the entity's project ownership. Covers both the
@@ -268,7 +283,7 @@ export async function createOrUpdateRevision(
     revisionId,
   } = options;
 
-  if (revisionId && !forceCreate) {
+  if (revisionId) {
     // Live-entity basis, matching the handlers that resolved this id: the
     // snapshot basis returns null for a moved entity, and falling through to
     // create would silently fork a new draft.
@@ -279,18 +294,18 @@ export async function createOrUpdateRevision(
       // never a new draft.
       throw new Error("Revision not found");
     }
-    if (targetRevision) {
-      // Guard against cross-entity writes: a caller could pass a revisionId
-      // that belongs to a different entity (same org) and we'd otherwise
-      // write entity A's proposed changes into entity B's draft. Reject
-      // any mismatched revision instead of silently corrupting the target.
-      if (
-        targetRevision.target.type !== entityType ||
-        targetRevision.target.id !== entity.id
-      ) {
-        throw new Error("Revision does not belong to the specified entity");
-      }
+    // Guard against cross-entity writes: a caller could pass a revisionId
+    // that belongs to a different entity (same org) and we'd otherwise
+    // write entity A's proposed changes into entity B's draft. Checked even
+    // when forceCreate is set.
+    if (
+      targetRevision.target.type !== entityType ||
+      targetRevision.target.id !== entity.id
+    ) {
+      throw new Error("Revision does not belong to the specified entity");
+    }
 
+    if (!forceCreate) {
       // A deriver's derivation and its merge with the draft's existing changes
       // both have to happen inside the CAS loop, against the row being written.
       const finalChanges =

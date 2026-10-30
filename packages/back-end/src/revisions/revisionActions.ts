@@ -4,6 +4,7 @@ import {
   Revision,
   RevisionTargetType,
   checkMergeConflicts,
+  mergeNestedBranch,
   normalizeProposedChanges,
   isUserBlockedFromApproving,
   isAutopublishOnApprovalEnabled,
@@ -181,11 +182,8 @@ export function canCommentOnRevision(
   context: Context,
   snapshot: Record<string, unknown>,
 ): boolean {
-  const projects =
-    (snapshot.projects as string[] | undefined) ??
-    (snapshot.project ? [snapshot.project as string] : []);
   return (
-    context.permissions.canAddComment(projects) ||
+    context.permissions.canAddComment(entityProjects(snapshot)) ||
     canDoRevisionAction(type, "draft", context, snapshot) ||
     canDoRevisionAction(type, "review", context, snapshot, null)
   );
@@ -505,6 +503,13 @@ export async function assertCanPublishRevision(
   );
 
   const pureRevert = await isPureRevertRevision(context, revision);
+  const archivedState = adapter.archivedState?.(
+    snapshot,
+    revision.target.proposedChanges,
+  ) ?? {
+    current: snapshot.archived as boolean | undefined,
+    proposed: proposedArchivedValue(revision.target.proposedChanges),
+  };
 
   await assertCanLandRevision({
     context,
@@ -527,15 +532,12 @@ export async function assertCanPublishRevision(
           : (adapter.canRevert ?? adapter.canUpdate);
       return canAct(context, snapshot);
     },
-    archives: isArchiveTransition({
-      proposed: proposedArchivedValue(revision.target.proposedChanges),
-      current: snapshot.archived as boolean | undefined,
-    }),
+    archives: isArchiveTransition(archivedState),
     isPureRevert: () => Promise.resolve(pureRevert),
     isPureArchive: () =>
       isPureArchiveRevision({
         proposedChanges: revision.target.proposedChanges,
-        current: snapshot.archived as boolean | undefined,
+        current: archivedState.current,
       }),
   });
 
@@ -661,16 +663,8 @@ export async function revisionApprovalsCoverChange(
   revision: Revision,
 ): Promise<{ hasCoveringApproval: boolean; uncoveredApprovers: string[] }> {
   const environments = reviewFootprintFor(context, revision);
-  const snapshot = revision.target.snapshot as {
-    project?: string;
-    projects?: string[];
-  };
   // Authority over a multi-project entity is the intersection, not the first.
-  const projects = snapshot.projects?.length
-    ? snapshot.projects
-    : snapshot.project
-      ? [snapshot.project]
-      : [];
+  const projects = entityProjects(revision.target.snapshot);
   const approvals = standingApprovals(revision);
   const roles = await getApproverRoles(context, approvalRoleIds(approvals));
   return assessApprovalCoverage({
@@ -1632,8 +1626,17 @@ export async function rebaseRevision({
           `Unsupported patch op "${op.op}" in ${entityType} revision rebase`,
         );
       }
+      // A nested branch is re-based onto live, keeping only the draft's edits.
+      const nested = mergeNestedBranch(
+        field,
+        baseSnapshot[field],
+        entity[field],
+        op.value,
+        "proposed",
+      );
+      const value = nested ? nested.merged : op.value;
       // Live already caught up to what the draft was proposing: nothing to say.
-      if (!isEqual(op.value, entity[field])) newOps.push(op);
+      if (!isEqual(value, entity[field])) newOps.push({ ...op, value });
       continue;
     }
 
@@ -1688,7 +1691,20 @@ export async function rebaseRevision({
         newOps.push({ op: "replace", path: `/${field}`, value: resolvedValue });
       }
     }
-    // strategy === "discard" → drop the op, so the live value stands.
+    // strategy === "discard" → the live value stands. A nested branch keeps
+    // the draft's edits that don't collide with live.
+    if (strategy === "discard") {
+      const nested = mergeNestedBranch(
+        field,
+        conflict.baseValue,
+        conflict.liveValue,
+        conflict.proposedValue,
+        "live",
+      );
+      if (nested && !isEqual(nested.merged, entity[field])) {
+        newOps.push({ op: "replace", path: `/${field}`, value: nested.merged });
+      }
+    }
   }
 
   const updated = await context.models.revisions.rebase(

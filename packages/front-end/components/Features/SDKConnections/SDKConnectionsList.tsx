@@ -31,7 +31,7 @@ import Table, {
 import SDKLanguageLogo from "./SDKLanguageLogo";
 import EnvironmentProjectsBadge from "./EnvironmentProjectsBadge";
 import WebhookErrorDetails from "./WebhookErrorDetails";
-import SDKConnectionForm from "./SDKConnectionForm";
+import CreateSDKConnectionModal from "./CreateSDKConnectionModal";
 import { PayloadSizeRowWarning } from "./PayloadSizeNotices";
 
 const webhookCount = (n: number) => `${n} webhook${n === 1 ? "" : "s"}`;
@@ -39,7 +39,9 @@ const webhookCount = (n: number) => `${n} webhook${n === 1 ? "" : "s"}`;
 export default function SDKConnectionsList() {
   const { data, mutate, error } = useSDKConnections();
   const { data: webhooksData, mutate: mutateWebhooks } = useSDKWebhooks();
-  const connections = data?.connections ?? [];
+  const connections = [...(data?.connections ?? [])].sort(
+    (a, b) => Number(!!a.archived) - Number(!!b.archived),
+  );
 
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -61,17 +63,13 @@ export default function SDKConnectionsList() {
   return (
     <>
       {modalOpen && (
-        <SDKConnectionForm
-          initialValue={{
-            languages: [],
-            includeRuleIds: true,
-          }}
+        <CreateSDKConnectionModal
+          initialValue={{ languages: [], includeRuleIds: true }}
           close={() => setModalOpen(false)}
           mutate={() => {
             mutate();
             mutateWebhooks();
           }}
-          edit={false}
         />
       )}
 
@@ -159,7 +157,10 @@ export default function SDKConnectionsList() {
               const webhooksWithErrors = webhooks?.filter((w) => w.error);
 
               return (
-                <TableRow key={connection.id}>
+                <TableRow
+                  key={connection.id}
+                  style={connection.archived ? { opacity: 0.65 } : undefined}
+                >
                   <TableCell>
                     <Tooltip content={connectionStatus}>
                       <Flex
@@ -179,6 +180,14 @@ export default function SDKConnectionsList() {
                     >
                       {connection.name}
                     </Link>
+                    {connection.archived ? (
+                      <Badge
+                        label="Archived"
+                        color="gray"
+                        radius="full"
+                        ml="2"
+                      />
+                    ) : null}
                     <PayloadSizeRowWarning connection={connection} />
                     {connection.managedBy?.type ? (
                       <Box mt="1">

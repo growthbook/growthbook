@@ -1041,6 +1041,11 @@ tags:
   - name: SdkConnection_model
     x-displayName: Sdk Connection
     description: <SchemaDefinition schemaRef="#/components/schemas/SdkConnection" />
+  - name: SdkConnectionApprovalRule_model
+    x-displayName: Sdk Connection Approval Rule
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/SdkConnectionApprovalRule" />
   - name: Segment_model
     x-displayName: Segment
     description: <SchemaDefinition schemaRef="#/components/schemas/Segment" />
@@ -22454,6 +22459,13 @@ paths:
     put:
       operationId: putSdkConnection
       summary: Update a single sdk connection
+      description: >-
+        Applies the change immediately and records it as a published revision,
+        so it appears in the connection's history. When the organization
+        requires approvals for this connection's projects and environment, open
+        a draft from the SDK connection page instead, or pass `bypassApproval`
+        with the bypass permission. Set `archived` to archive or restore the
+        connection.
       tags:
         - sdk-connections
       parameters:
@@ -22532,6 +22544,21 @@ paths:
                     they target other Projects. Defaults to true for new
                     connections.
                   type: boolean
+                archived:
+                  description: >-
+                    Archive (true) or restore (false) the connection. Archiving
+                    takes the same authority as deleting it; restoring takes
+                    publish authority.
+                  type: boolean
+                bypassApproval:
+                  description: >-
+                    Set to true to update the live SDK connection without
+                    approval. The caller must have the
+                    `bypassApprovalSDKConnections` permission, or the
+                    organization must enable 'REST API always bypasses approval
+                    requirements'. This field has no effect when approval is not
+                    required.
+                  type: boolean
               additionalProperties: false
       responses:
         '200':
@@ -22543,6 +22570,14 @@ paths:
                 properties:
                   sdkConnection:
                     $ref: '#/components/schemas/SdkConnection'
+                  bypassedGates:
+                    description: >-
+                      Gates that would have blocked this publish but were
+                      bypassed by the caller's authority. Present only when at
+                      least one gate was bypassed.
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/bypassedGates'
                 required:
                   - sdkConnection
                 additionalProperties: false
@@ -22557,6 +22592,11 @@ paths:
     delete:
       operationId: deleteSdkConnection
       summary: Deletes a single SDK connection
+      description: >-
+        A live connection can only be deleted when the organization enables
+        'REST API always bypasses approval requirements'. Otherwise archive it
+        first (`PUT /sdk-connections/{id}` with `archived: true`), then delete
+        it.
       tags:
         - sdk-connections
       parameters:
@@ -35799,6 +35839,10 @@ paths:
                       type: array
                       items:
                         $ref: '#/components/schemas/SavedGroupApprovalRule'
+                    sdkConnections:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/SdkConnectionApprovalRule'
                   required:
                     - savedGroups
                   additionalProperties: false
@@ -73712,6 +73756,11 @@ components:
             - referencesV2
         includeReferencedPrerequisites:
           type: boolean
+        archived:
+          description: >-
+            An archived connection serves no payload. A connection must be
+            archived before it can be deleted.
+          type: boolean
       required:
         - id
         - dateCreated
@@ -77778,6 +77827,10 @@ components:
               type: array
               items:
                 $ref: '#/components/schemas/SavedGroupApprovalRule'
+            sdkConnections:
+              type: array
+              items:
+                $ref: '#/components/schemas/SdkConnectionApprovalRule'
           required:
             - savedGroups
           additionalProperties: false
@@ -77911,6 +77964,37 @@ components:
         autopublishOnApproval:
           type: boolean
         requiredApproverTeams:
+          type: array
+          items:
+            type: string
+      required:
+        - required
+      additionalProperties: false
+    SdkConnectionApprovalRule:
+      type: object
+      properties:
+        required:
+          type: boolean
+        projects:
+          type: array
+          items:
+            type: string
+        resetReviewOnChange:
+          type: boolean
+        requireMetadataReview:
+          type: boolean
+        blockSelfApproval:
+          type: boolean
+        autopublishOnApproval:
+          type: boolean
+        requiredApproverTeams:
+          type: array
+          items:
+            type: string
+        environments:
+          description: >-
+            Environment IDs this rule applies to. Omitted or empty means every
+            environment.
           type: array
           items:
             type: string
@@ -89643,6 +89727,10 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/SavedGroupApprovalRule'
+        sdkConnections:
+          type: array
+          items:
+            $ref: '#/components/schemas/SdkConnectionApprovalRule'
       required:
         - savedGroups
       additionalProperties: false
@@ -90659,6 +90747,7 @@ x-tagGroups:
       - ScheduleRule_model
       - ScheduledStopPlan_model
       - SdkConnection_model
+      - SdkConnectionApprovalRule_model
       - Segment_model
       - Settings_model
       - Targeting Rule_model

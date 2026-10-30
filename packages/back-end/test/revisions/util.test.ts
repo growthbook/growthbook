@@ -311,3 +311,30 @@ describe("isRevisionDiverged", () => {
     });
   });
 });
+
+describe("buildMergeDesiredState for SDK connections", () => {
+  it("lands only the draft's setting edits on top of newer live settings", () => {
+    const base = {
+      sdkConnection: { name: "A", encryptPayload: false },
+      sdkWebhooks: [],
+    };
+    const live = {
+      sdkConnection: { name: "A", encryptPayload: true },
+      sdkWebhooks: [],
+    };
+    const ops: JsonPatchOperation[] = [
+      {
+        op: "replace",
+        path: "/sdkConnection",
+        value: { name: "B", encryptPayload: false },
+      },
+    ];
+    const desired = buildMergeDesiredState(
+      live,
+      base,
+      ops,
+      new Set(["sdkConnection", "sdkWebhooks"]),
+    );
+    expect(desired.sdkConnection).toEqual({ name: "B", encryptPayload: true });
+  });
+});

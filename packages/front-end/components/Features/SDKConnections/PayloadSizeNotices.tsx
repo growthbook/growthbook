@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { Box } from "@radix-ui/themes";
+import { MarginProps } from "@radix-ui/themes/dist/esm/props/margin.props.js";
 import {
   describeSdkPayloadSize,
   describeSdkPayloadSizeRecommendation,
@@ -145,15 +146,17 @@ function Recommendation({
 
 export function PayloadSizeCallout({
   connection,
+  mt,
+  mb = "3",
 }: {
   connection: SDKConnectionInterface;
-}) {
+} & Pick<MarginProps, "mt" | "mb">) {
   const size = connection.payloadSize;
   if (!size) return null;
   const level = getSdkPayloadSizeLevel(size);
   if (level === "ok") return null;
   return (
-    <Callout status={isSevere(level) ? "error" : "warning"} mb="3">
+    <Callout status={isSevere(level) ? "error" : "warning"} mt={mt} mb={mb}>
       <PayloadSizeAdvice connection={connection} size={size} />
     </Callout>
   );

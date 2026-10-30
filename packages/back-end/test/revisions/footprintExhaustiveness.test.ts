@@ -61,6 +61,21 @@ function baseEntity(type: RevisionTargetType, archived: boolean) {
       return { ...common, key: "k", scopedConfig: null, value: {} };
     case "saved-group":
       return { ...common, groupName: "g", type: "list", values: [] };
+    case "sdk-connection":
+      // Composite snapshot: the scope lives under `sdkConnection`.
+      return {
+        sdkConnection: {
+          id: common.id,
+          organization: ORG.id,
+          name: "c",
+          languages: [],
+          environment: "production",
+          projects: [],
+          encryptPayload: false,
+          archived,
+        },
+        sdkWebhooks: [],
+      };
   }
 }
 

@@ -6,7 +6,11 @@ import type {
 } from "back-end/src/revisions/publishGates";
 import type { BulkRevisionRef } from "back-end/src/revisions/bulkPublish/BulkPublishableAdapter";
 
-export type BulkPublishTargetType = RevisionedEntityType;
+// SDK connections aren't bulk-publishable: their snapshot is composite.
+export type BulkPublishTargetType = Exclude<
+  RevisionedEntityType,
+  "sdk-connection"
+>;
 
 export type BulkPublishItemRef = {
   entityType: BulkPublishTargetType;
