@@ -789,7 +789,13 @@ export default function ImportFromLaunchDarkly() {
                   step: 2,
                 });
 
-                await runImport(data, apiCall, (d) => setData(d));
+                // Shown in the error callout; the button has nowhere to surface it.
+                try {
+                  await runImport(data, apiCall, (d) => setData(d));
+                } catch (e) {
+                  setData({ ...data, status: "error", error: e.message });
+                  return;
+                }
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();

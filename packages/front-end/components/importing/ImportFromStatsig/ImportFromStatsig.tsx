@@ -1273,22 +1273,28 @@ export default function ImportFromStatsig() {
                   step: 2,
                 });
 
-                const projectId = await getOrCreateProject(projectName);
-                const runOptions: RunImportOptions = {
-                  data,
-                  existingAttributeSchema: attributeSchema,
-                  apiCall,
-                  callback: (d) => setData(d),
-                  featuresMap,
-                  project: projectId,
-                  itemEnabled,
-                  skipAttributeMapping,
-                  existingSavedGroups: savedGroups,
-                  existingExperiments: experiments || [],
-                  existingFactTables: factTables,
-                  datasource: getDatasourceById(dataSource || ""),
-                };
-                await runImport(runOptions);
+                // Shown in the error callout; the button has nowhere to surface it.
+                try {
+                  const projectId = await getOrCreateProject(projectName);
+                  const runOptions: RunImportOptions = {
+                    data,
+                    existingAttributeSchema: attributeSchema,
+                    apiCall,
+                    callback: (d) => setData(d),
+                    featuresMap,
+                    project: projectId,
+                    itemEnabled,
+                    skipAttributeMapping,
+                    existingSavedGroups: savedGroups,
+                    existingExperiments: experiments || [],
+                    existingFactTables: factTables,
+                    datasource: getDatasourceById(dataSource || ""),
+                  };
+                  await runImport(runOptions);
+                } catch (e) {
+                  setData({ ...data, status: "error", error: e.message });
+                  return;
+                }
                 mutateDefinitions();
                 mutateFeatures();
                 refreshOrganization();

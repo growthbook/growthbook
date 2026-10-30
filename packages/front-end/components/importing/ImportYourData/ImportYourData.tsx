@@ -217,7 +217,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         <PiQuestion size={22} style={{ color: "var(--color-text-mid)" }} />
         <Box flexGrow="1">
           <Heading as="h3" size="sm" mb="1">
-            Don&apos;t see your tool?
+            Don&apos;t See Your Tool?
           </Heading>
           <Text as="p" color="text-mid" m="0">
             Tell us what you use and we&apos;ll help you plan the move.
