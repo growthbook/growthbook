@@ -25,6 +25,7 @@ const ProjectAccessSettings: FC<{
 
   const [editing, setEditing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [restrictAccess, setRestrictAccess] = useState(false);
   const [allowTargeting, setAllowTargeting] = useState(true);
 
@@ -48,12 +49,17 @@ const ProjectAccessSettings: FC<{
     !hasExplicitGrant(userId ? users.get(userId) : undefined);
 
   const save = async () => {
-    await restApiCall(putProjectValidator, {
-      params: { id: project.id },
-      body: { restrictAccess, allowTargeting },
-    });
-    await mutateDefinitions();
-    setEditing(false);
+    setSaving(true);
+    try {
+      await restApiCall(putProjectValidator, {
+        params: { id: project.id },
+        body: { restrictAccess, allowTargeting },
+      });
+      await mutateDefinitions();
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -64,10 +70,14 @@ const ProjectAccessSettings: FC<{
         </Heading>
         {editing ? (
           <Flex gap="3" align="center">
-            <Button variant="ghost" onClick={() => setEditing(false)}>
+            <Button
+              variant="ghost"
+              disabled={saving}
+              onClick={() => setEditing(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={save} setError={setError}>
+            <Button onClick={save} setError={setError} loading={saving}>
               Save
             </Button>
           </Flex>

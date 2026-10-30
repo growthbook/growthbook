@@ -79,6 +79,7 @@ const ProjectPage: FC = () => {
     null,
   );
   const [saveMsg, setSaveMsg] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [originalValue, setOriginalValue] = useState<ProjectSettings>({});
 
@@ -446,6 +447,7 @@ const ProjectPage: FC = () => {
                   </Flex>
                 </Frame>
                 <Flex justify="end" align="center" gap="4">
+                  {saveError && <Callout status="error">{saveError}</Callout>}
                   {saveMsg && (
                     <TempMessage
                       className="mb-0 py-2"
@@ -460,6 +462,7 @@ const ProjectPage: FC = () => {
                     size="lg"
                     disabled={!ctaEnabled}
                     onClick={saveSettings}
+                    setError={setSaveError}
                   >
                     Save
                   </RadixButton>
