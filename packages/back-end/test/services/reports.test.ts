@@ -5,7 +5,7 @@ const metric = factMetricFactory.build({
   id: "fact_window",
   windowSettings: {
     type: "conversion",
-    delayValue: 0,
+    delayValue: 2,
     delayUnit: "days",
     windowValue: 3,
     windowUnit: "days",
@@ -41,6 +41,14 @@ describe("getMetricForSnapshot window overrides", () => {
       windowValue: 3,
       windowUnit: "days",
     });
+  });
+
+  it("uses hours for an overridden delay of zero", () => {
+    expect(
+      windowSettingsWith([
+        { id: metric.id, windowType: "conversion", delayHours: 0 },
+      ]),
+    ).toMatchObject({ delayValue: 0, delayUnit: "hours" });
   });
 
   it("uses hours for an overridden window length", () => {

@@ -263,27 +263,38 @@ function generateWindowSettings(
     };
   }
 
+  // Overrides store each length in hours; metrics store a value and a unit.
+  // Take both halves of a length from the same source.
+  const delayHours = overrides?.delayHours ?? null;
+  const windowHours = overrides?.windowHours ?? null;
+  const { delayValue, delayUnit } =
+    delayHours !== null
+      ? { delayValue: delayHours, delayUnit: "hours" as const }
+      : {
+          delayValue:
+            metric.windowSettings.delayValue ??
+            DEFAULT_METRIC_WINDOW_DELAY_HOURS,
+          delayUnit: metric.windowSettings.delayUnit ?? "hours",
+        };
+  const { windowValue, windowUnit } =
+    windowHours !== null
+      ? { windowValue: windowHours, windowUnit: "hours" as const }
+      : {
+          // Some legacy metrics without a window store no windowValue.
+          windowValue:
+            metric.windowSettings.windowValue ?? DEFAULT_METRIC_WINDOW_HOURS,
+          windowUnit: metric.windowSettings.windowUnit,
+        };
+
   return {
-    delayValue:
-      overrides?.delayHours ??
-      metric.windowSettings.delayValue ??
-      DEFAULT_METRIC_WINDOW_DELAY_HOURS,
-    delayUnit: overrides?.delayHours
-      ? "hours"
-      : (metric.windowSettings.delayUnit ?? "hours"),
+    delayValue,
+    delayUnit,
     type:
       overrides?.windowType ??
       metric.windowSettings.type ??
       DEFAULT_METRIC_WINDOW,
-    // Only an overridden length is in hours; the metric's own stays in its unit.
-    windowUnit:
-      (overrides?.windowHours ?? null) !== null
-        ? "hours"
-        : metric.windowSettings.windowUnit,
-    windowValue:
-      overrides?.windowHours ??
-      metric.windowSettings.windowValue ??
-      DEFAULT_METRIC_WINDOW_HOURS,
+    windowUnit,
+    windowValue,
   };
 }
 
