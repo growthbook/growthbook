@@ -1,0 +1,475 @@
+---
+title: Getting Set Up With Interleaving
+description: "Step-by-step: integrate the interleave() SDK call, track exposures and engagement, add an Interleaving Exposure Query, and configure the experiment in GrowthBook."
+sidebarTitle: Getting Set Up
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="interleaving" />
+
+Setting up an interleaving experiment touches four places: your ranking code, your event tracking, your Data Source, and GrowthBook. If you already run A/B tests through GrowthBook, the new pieces are one SDK call, one exposure query, and two columns on your engagement events.
+
+## Before you start
+
+- **Plan.** Interleaving is in private beta for Enterprise customers. Ask your GrowthBook account team to enable it.
+- **SDKs.** The [JavaScript](/lib/js), [React](/lib/react), and [Node.js](/lib/node) SDKs support interleaving from version 1.9.0. Other SDKs are not supported yet.
+- **Warehouses.** The analysis unnests a JSON array in SQL. Redshift and Vertica are not supported yet.
+- **Rankers.** Your ranking code must return a ranked list for a given config object. The config is authored in GrowthBook and handed to your code unchanged.
+
+## Step 1: Call `interleave()` in your code
+
+Register the plugin on your GrowthBook instance and replace the call that fetches your ranked list with `interleave()`.
+
+```ts
+import { GrowthBook } from "@growthbook/growthbook";
+import { interleavePlugin, interleave } from "@growthbook/growthbook/plugins";
+
+const gb = new GrowthBook({
+  apiHost: "https://cdn.growthbook.io",
+  clientKey: "sdk-abc123",
+  attributes: { id: user.id },
+  plugins: [
+    interleavePlugin({
+      // Called once per interleaved impression (see Step 2)
+      onExposure: (exposure) => {
+        // analytics.track is just an example. You can use any event tracking system you want.
+        analytics.track("Interleave Exposure", { userId: user.id, ...exposure });
+      },
+    }),
+  ],
+});
+await gb.init();
+
+// The config shape can be anything you define.
+// It can then be overridden in GrowthBook as JSON and passed through.
+// This is just an example:
+type RankerConfig = { algorithmVersion: "v1" | "v2"; weight?: number };
+
+const { result, trackingProps } = await interleave<Product, RankerConfig>(gb, {
+  // The experiment's key in GrowthBook
+  key: "search-ranking",
+  // Return the ranked list for one ranker's config. Called once per ranker.
+  // Can be sync or async.
+  getList: (config) => rankingService.rank(query, config),
+  // Used when the experiment is not in the SDK payload
+  fallbackConfig: { algorithmVersion: "v1" },
+  // One id per query or impression. Defaults to a UUID.
+  rankingId: searchRequestId,
+  // Defaults to the item itself for strings and numbers, otherwise item.id
+  getItemId: (product) => product.sku,
+});
+
+render(result);
+```
+
+`interleave()` evaluates targeting for the user. If they are in the experiment it calls `getList()` with each ranker's config, drafts the two lists into one, and fires the exposure. Otherwise it serves the first ranker's list. It returns:
+
+| Field           | Description                                                                                                                |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `result`        | The list to render.                                                                                                        |
+| `inExperiment`  | Whether the list was interleaved.                                                                                          |
+| `variation`     | When not interleaved, the key of the ranker whose list was served.                                                         |
+| `rankingId`     | The id of this search/query/ranking/impression.                                                                            |
+| `trackingProps` | `{ experiment_id, ranking_id }` to spread into engagement events. Empty when not interleaved, so you can always spread it. |
+
+Every option, return field, and fallback path is documented in the [API reference](#api-reference) at the bottom of this page.
+
+### Rules for `rankingId` and `result`
+
+- **One `rankingId` per query.** A new search or feed load is a new id. A filter change is a new query. Pagination continues the same draft: fetch the full lists once and page through `result`.
+- **A user-selected sort is not a ranking.** Pass `enabled: false`.
+- **Never re-sort or re-filter `result`.** It breaks the recorded positions and which items count as competitive. Apply diversity caps, pinned items, and filters inside each ranker's list, before the merge.
+
+### Node.js and React
+
+With the multi-user [`GrowthBookClient`](/lib/node), register the plugin on the client and call `interleave()` with the user-scoped instance from `createScopedInstance()`. In React, register the plugin on the `GrowthBook` instance you pass to `GrowthBookProvider` and call `interleave()` with the instance from `useGrowthBook()`.
+
+## Step 2: Track exposures
+
+The plugin's `onExposure` callback fires once per interleaved impression. Send it to your warehouse the same way you send "Experiment Viewed" events, keeping `items` as a JSON array in one column.
+
+```ts
+{
+  timestamp: 1730200000000,       // ms since epoch
+  experimentId: "search-ranking", // the experiment's tracking key
+  rankingId: "9f1c...",           // this impression
+  hashAttribute: "id",
+  hashValue: "user_123",          // the identifier the analysis joins on
+  items: [
+    { itemId: "sku_1", variation: "popular",     position: 0, competitive: false },
+    { itemId: "sku_2", variation: "buyers-pick", position: 1, competitive: true },
+    { itemId: "sku_3", variation: "popular",     position: 2, competitive: true },
+    // ...
+  ]
+}
+```
+
+The `InterleaveExposure` and `InterleavedItem` types in the [API reference](#api-reference) describe each field.
+
+## Step 3: Track engagement
+
+Every engagement event you want to measure and attribute to a ranker, such as a click, add-to-cart, or order, must carry two extra properties:
+
+- **`item_id`** (required): the same id `getItemId()` returns.
+- **`ranking_id`** (required for paired analysis): the impression the item was engaged with from. Spreading `trackingProps` adds it, along with `experiment_id`.
+
+For example, a React list that logs one click per item:
+
+```tsx
+// Example only. Your component and analytics call will differ.
+function ResultList({ user, result, trackingProps }) {
+  return result.map((item) => (
+    <FeaturedProduct
+      key={item.id}
+      item={item}
+      onClick={() =>
+        analytics.track("Click Result", {
+          userId: user.id,
+          item_id: item.id,
+          ...trackingProps, // experiment_id and ranking_id when interleaved
+        })
+      }
+    />
+  ));
+}
+```
+
+An event with a `ranking_id` is credited to the exact list that showed the item. Preference analysis works from `item_id` alone, which fits conversions logged by a system that never sees the list, such as an order recorded days later. See `InterleaveTrackingProps` in the [API reference](#api-reference) for the exact keys.
+
+## Step 4: Set up the Data Source
+
+### Add an Interleaving Exposure Query
+
+An interleaving experiment reads exposures through an **Interleaving Exposure Query**, not an Experiment Assignment Query, because the shape is different: one row per impression with the item detail in a JSON array. Add one from your Data Source's settings page under **Interleaving Exposure Queries**.
+
+{/* TODO screenshot: Data Source page, Interleaving Exposure Queries section with the add/edit modal open */}
+
+```sql
+SELECT
+  user_id,
+  received_at   AS timestamp,
+  experiment_id AS experiment_id,
+  ranking_id    AS ranking_id,
+  items         AS items
+FROM interleave_exposures
+```
+
+The query must return these columns:
+
+| Column          | Description                                                                        |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `timestamp`     | When the list was shown. Engagement before this timestamp is not credited.         |
+| `experiment_id` | Matched against the experiment's tracking key.                                     |
+| `ranking_id`    | One id per impression, as emitted by the SDK.                                      |
+| `items`         | JSON array of `{ itemId, variation, competitive }` objects, as emitted by the SDK. |
+| identifier      | The identifier type the analysis joins on, for example `user_id`.                  |
+
+Each query declares one identifier type. Click **Test query** to check that the required columns come back. One query can serve every experiment on the Data Source.
+
+### Add `item_id` and `ranking_id` to your Fact Tables
+
+Interleaving analyzes **mean and proportion [Fact Metrics](/app/metrics)**. The Fact Table behind each metric must expose the engagement properties from Step 3 as columns with these exact names:
+
+| Column       | Required for | Must match                                                         |
+| ------------ | ------------ | ------------------------------------------------------------------ |
+| `item_id`    | Every metric | `itemId` in the exposure's `items`, as a string.                   |
+| `ranking_id` | Paired       | `ranking_id` in the exposure query, as a string. Null when absent. |
+| identifier   | Every metric | The identifier type the Exposure Query declares, e.g. `user_id`.   |
+
+Add them to the Fact Table's SQL:
+
+```sql
+SELECT
+  user_id,
+  timestamp,
+  item_id,
+  ranking_id,
+  value
+FROM product_clicked
+```
+
+Then check the Fact Table's column list in GrowthBook. Columns are detected when the SQL is saved; if `ranking_id` is missing or marked deleted, refresh the columns. GrowthBook validates the columns when you save the experiment and again on every results update, and names the missing column in the error.
+
+Two things to know about `ranking_id`:
+
+- **Null is fine for preference analysis.** Events logged by a system that never sees the list, such as orders, can leave `ranking_id` null. Preference analysis ignores the column. Paired analysis skips those rows, so do not add paired analysis to such a metric.
+- **It must match exactly.** The analysis joins on string equality with the exposure's `ranking_id`. Keep the id as the SDK emitted it: no prefix, no case change, no truncation.
+
+Row filters on the metric apply as usual, so one Fact Table of engagement events can back many metrics.
+
+## Step 5: Create the experiment in GrowthBook
+
+Go to **Experiments → Interleaving** and click **Add Interleaving Experiment**.
+
+{/* TODO screenshot: Add Interleaving Experiment modal */}
+
+{/* TODO table: check table contents */}
+
+| Setting                         | Description                                                                                                                                                                                                                                      |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Key**                         | What your code passes to `interleave()`. It cannot be changed later. Several experiments may share a key, but only one can run per environment at a time.                                                                                        |
+| **Hash attribute**              | Decides which users are interleaved when coverage is below 100%.                                                                                                                                                                                 |
+| **Rankers**                     | Exactly two. The first is the control and the default: users who are not interleaved get its list. Each has a key (recorded as `variation` in exposures), a name, and a JSON config that `getList()` receives.                                   |
+| **Ranker config schema**        | Optional JSON Schema that validates both configs.                                                                                                                                                                                                |
+| **Data Source**                 | Only Data Sources whose warehouse supports interleaving are listed.                                                                                                                                                                              |
+| **Interleaving Exposure Query** | The query from Step 4, with the identifier type to analyze.                                                                                                                                                                                      |
+| **Metrics**                     | Mean and proportion Fact Metrics whose Fact Table has `item_id`. For each metric pick **Paired** (needs `ranking_id`), **Preference** with an attribution, or both. See [Understanding results](/experimentation-analysis/interleaving/results). |
+| **Targeting**                   | Coverage, attribute conditions, [Saved Groups](/features/targeting#saved-groups), and [prerequisite flags](/features/prerequisites), evaluated like a feature rule.                                                                              |
+| **Environments**                | Which environments serve the experiment. It is off everywhere until you enable at least one.                                                                                                                                                     |
+
+A ranker config is any JSON object your code understands. For the example above:
+
+```json
+{ "algorithmVersion": "v2", "weight": 0.3 }
+```
+
+This lets you iterate on your ranking algorithm without shipping new code, so long as you expose a sufficiently rich config interface.
+
+### Via the REST API
+
+Everything above is available through the [REST API](/api/Interleavings/operation/createInterleaving). A minimal create request:
+
+```json
+{
+  "name": "Search ranking: buyer's pick",
+  "key": "search-ranking",
+  "hashAttribute": "id",
+  "variations": [
+    { "key": "popular", "name": "Popular", "config": "{\"algorithm\":\"popular\"}" },
+    { "key": "buyers-pick", "name": "Buyer's pick", "config": "{\"algorithm\":\"buyers-pick\",\"weight\":0.3}" }
+  ],
+  "datasource": "ds_abc123",
+  "interleavingExposureQueryId": "<exposure query id>",
+  "userIdType": "user_id",
+  "metrics": [
+    { "id": "fact__clicks", "analyses": [{ "type": "paired" }] },
+    {
+      "id": "fact__orders",
+      "analyses": [{ "type": "paired" }, { "type": "preference", "attribution": "exposureCount" }]
+    }
+  ],
+  "environmentSettings": { "production": { "enabled": true } }
+}
+```
+
+Then [start](/api/Interleavings/operation/startInterleaving) it.
+
+## Step 6: Start it and check the data
+
+An interleaving experiment is a **draft** until you start it. Starting adds it to the SDK payload for the enabled environments, and only exposures between start and stop are analyzed. Stopping or archiving removes it from SDK payloads immediately; results stay available.
+
+{/* TODO screenshot: experiment page with status and Results tab */}
+
+Shortly after starting, click **Update** on the Results tab. If no results appear, check that:
+
+1. Exposure rows exist with the experiment's tracking key as `experiment_id`.
+2. The SDK connection serves the environment you enabled, and the SDK version supports interleaving.
+3. Engagement events carry `item_id`, and `ranking_id` for metrics with paired analysis.
+4. Engagement timestamps are at or after the exposure's `timestamp`. If exposures are batched and land late, use a column that records when the list was shown rather than when the event was received.
+
+To understand the results, see [Understanding interleaving results](/experimentation-analysis/interleaving/results).
+
+## API reference
+
+The key functions and interfaces the SDK exports for interleaving, from `@growthbook/growthbook/plugins`. The type exports are shown as declarations, in the style of a `.d.ts` file.
+
+```ts
+import type {
+  GrowthBook,
+  GrowthBookClient,
+  UserScopedGrowthBook,
+} from "@growthbook/growthbook";
+
+// ---------------------------------------------------------------------------
+// Plugin registration
+// ---------------------------------------------------------------------------
+
+/**
+ * Register once on the GrowthBook instance via `plugins: [interleavePlugin({...})]`.
+ * On a multi-user `GrowthBookClient`, register on the client; it is re-applied
+ * to every user-scoped instance the client creates.
+ */
+export function interleavePlugin(
+  options?: InterleavePluginOptions,
+): (gb: GrowthBook | GrowthBookClient | UserScopedGrowthBook) => void;
+
+export type InterleavePluginOptions = {
+  /**
+   * Called once per interleaved impression, i.e. once per `interleave()` call
+   * that actually drafted two lists. Not called on any fallback path.
+   *
+   * - Fire-and-forget: a sync throw or a rejected promise is caught and
+   *   logged; it never blocks or fails `interleave()`.
+   * - No deduplication. Reusing a `rankingId` fires it again; duplicate
+   *   impressions are deduplicated during analysis.
+   * - Send the payload to your warehouse as-is, with `items` kept as a JSON
+   *   array in one column.
+   */
+  onExposure?: (exposure: InterleaveExposure) => void | Promise<void>;
+};
+
+export type InterleaveExposure = {
+  /** Milliseconds since epoch. Cast to a timestamp in the exposure query. */
+  timestamp: number;
+
+  /** The experiment's tracking key, not its `key`. Should land in `experiment_id` column of exposure query. */
+  experimentId: string;
+
+  /** The impression id. Should land in `ranking_id` column of exposure query. */
+  rankingId: string;
+
+  /** Attribute name the user was diverted on, e.g. "id". Informational. */
+  hashAttribute: string;
+
+  /**
+   * That attribute's value, stringified. This is the identifier the analysis
+   * joins on; it must be the same identifier your Fact Tables use. You can pass
+   * this field or use your pre-existing identifier.
+   */
+  hashValue: string;
+
+  /**
+   * One entry per rendered item, in rendered order. Store as a JSON array;
+   * GrowthBook unnests it in SQL.
+   */
+  items: InterleavedItem[];
+};
+
+export type InterleavedItem = {
+  /** From `getItemId`. Joins to `item_id` on engagement events. */
+  itemId: string;
+
+  /**
+   * Key of the ranker credited with the item. Arbitrary for a tie (both
+   * rankers wanted it); the supplying ranker for a leftover or a fill.
+   */
+  variation: string;
+
+  /** 0-based slot in `result`. Recorded, not used by either analysis today. */
+  position: number;
+
+  /**
+   * True only for the two items placed in a contested round. False for ties,
+   * leftovers after one ranker runs out, and `maxItems` fills. Only
+   * competitive items count toward results.
+   */
+  competitive: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// The call
+// ---------------------------------------------------------------------------
+
+/**
+ * Replaces the call that fetches a ranked list.
+ *
+ * `T` is your item type. `C` is your ranker config shape. TypeScript cannot
+ * infer one without the other, so pass both type arguments or neither.
+ *
+ * Determinism: given the same SDK payload and the same `rankingId`, the
+ * returned order is identical. User diversion hashes (seed, hashAttribute
+ * value); each draft round hashes (seed, rankingId, round index).
+ *
+ * Throws only if the FIRST ranker's `getList` throws. Every other failure
+ * degrades to serving a single ranker's list (see `InterleaveResult`).
+ */
+export function interleave<T, C extends object = InterleaveConfig>(
+  gb: GrowthBook | UserScopedGrowthBook,
+  options: InterleaveOptions<T, C>,
+): Promise<InterleaveResult<T>>;
+
+/** A ranker's config. Authored in GrowthBook as JSON, handed to `getList` unchanged. */
+export type InterleaveConfig = Record<string, unknown>;
+
+export type InterleaveOptions<T, C extends object = InterleaveConfig> = {
+  /**
+   * The interleaving experiment's key in GrowthBook. Same character set as a
+   * feature key: letters, numbers, `_ - . : |`. Immutable once created.
+   */
+  key: string;
+
+  /**
+   * Return the ranked list for one ranker's config. Called once per ranker,
+   * concurrently, when the user is interleaved; once with a single config
+   * otherwise. May be sync or async.
+   *
+   * Every returned item must have a non-empty id (see `getItemId`). If any
+   * item has none, the SDK logs an error and serves the first ranker's list.
+   *
+   * Apply business rules (diversity caps, pinned items, filters) INSIDE this
+   * function, before the merge. Never re-sort or re-filter `result`.
+   */
+  getList: (config: C) => T[] | Promise<T[]>;
+
+  /**
+   * Used when the experiment is not in the SDK payload at all: never started,
+   * not enabled in this environment, SDK too old, or a ranker config that
+   * failed validation server-side. This is the one case with no client-side
+   * signal beyond `inExperiment === false`.
+   */
+  fallbackConfig: C;
+
+  /**
+   * One id per impression (one search, one feed load). Seeds the draft, so
+   * reusing it replays the same list; pass it down from server to client to
+   * keep SSR and hydration consistent. Pagination continues the same id;
+   * a filter change is a new id. Defaults to a UUID.
+   */
+  rankingId?: string;
+
+  /**
+   * Set false to skip interleaving for this call and serve the first ranker,
+   * e.g. when the user picked an explicit sort. Default true.
+   */
+  enabled?: boolean;
+
+  /**
+   * Stable id for an item. Must match the `item_id` on engagement events.
+   * Defaults to the item itself for strings and numbers, otherwise `item.id`.
+   */
+  getItemId?: (item: T) => string;
+
+  /**
+   * Caps the returned list on every exit path, interleaved or not. If a cap
+   * leaves a single slot, it is filled with a non-competitive item.
+   */
+  maxItems?: number;
+};
+
+export type InterleaveResult<T> = {
+  /** The list to render. Drafted when interleaved, else one ranker's list. */
+  result: T[];
+
+  /** True only when two lists were drafted and an exposure was fired. */
+  inExperiment: boolean;
+
+  /**
+   * When not interleaved, the key of the ranker whose config was used:
+   *   - targeting miss / outside coverage / hash attribute missing -> first ranker
+   *   - `enabled: false` or experiments disabled on the instance   -> first ranker
+   *   - second ranker threw                                        -> first ranker
+   *   - item without an id                                         -> first ranker
+   *   - experiment missing from payload (`fallbackConfig` used)    -> undefined
+   * Undefined when interleaved.
+   */
+  variation?: string;
+
+  /** The impression id used, whether supplied or generated. */
+  rankingId: string;
+
+  /**
+   * Spread into every engagement event for this impression alongside
+   * `item_id`. Empty object when not interleaved, so it is always safe to
+   * spread.
+   */
+  trackingProps: InterleaveTrackingProps;
+};
+
+export type InterleaveTrackingProps = {
+  /** The experiment's tracking key. Matches `experiment_id` in exposures. */
+  experiment_id?: string;
+  /** Required on events for paired analysis. */
+  ranking_id?: string;
+};
+```

@@ -242,6 +242,15 @@
                       "bandits/contextual-via-api"
                     ]
                   },
+                  {
+                    "group": "Interleaving",
+                    "tag": "BETA",
+                    "pages": [
+                      "experimentation-analysis/interleaving",
+                      "experimentation-analysis/interleaving/setup",
+                      "experimentation-analysis/interleaving/results"
+                    ]
+                  },
                   "app/holdouts"
                 ]
               },
