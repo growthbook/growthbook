@@ -528,6 +528,10 @@ export const USE_PROXY =
 export const SUPERADMIN_DEFAULT_ROLE =
   process.env.SUPERADMIN_DEFAULT_ROLE ?? "readonly";
 
+// Super admin only applies to logins whose IdP `sub` starts with this (e.g. "google-oauth2|")
+export const SUPER_ADMIN_AUTH_SUB_PREFIX =
+  process.env.SUPER_ADMIN_AUTH_SUB_PREFIX ?? "";
+
 export const CLOUD_SECRET = process.env.CLOUD_SECRET ?? "";
 
 // Note: the Visual Editor relies on the information in this path, so disabling it will prevent some features from working correctly.

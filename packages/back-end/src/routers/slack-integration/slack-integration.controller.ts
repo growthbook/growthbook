@@ -19,6 +19,7 @@ import {
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { ApiErrorResponse } from "back-end/types/api";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { assertLoginGrantsStoredSuperAdmin } from "back-end/src/services/auth";
 import {
   getSlackLinkConsent,
   getSlackAccountLinks,
@@ -373,6 +374,8 @@ export const postSlackLink = async (
         "Switch to the GrowthBook organization connected to this Slack workspace to link your account.",
     });
   }
+  // The assistant acts as the linked user with their stored super admin
+  await assertLoginGrantsStoredSuperAdmin(req);
   await context.models.slackUserLinks.linkCurrentUser(req.body.state);
   return res.json({ linked: true });
 };
