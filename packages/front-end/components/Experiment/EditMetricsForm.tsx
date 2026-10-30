@@ -5,12 +5,12 @@ import {
   MetricOverride,
 } from "shared/types/experiment";
 import cloneDeep from "lodash/cloneDeep";
-import {
-  DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
-} from "shared/constants";
+import { DEFAULT_PROPER_PRIOR_STDDEV } from "shared/constants";
 import { OrganizationSettings } from "shared/types/organization";
-import { ExperimentMetricDefinition } from "shared/experiments";
+import {
+  ExperimentMetricDefinition,
+  getDefaultRegressionAdjustmentDays,
+} from "shared/experiments";
 import { CustomMetricSlice } from "shared/validators";
 import { Box, Separator } from "@radix-ui/themes";
 import { getScopedSettings } from "shared/settings";
@@ -58,17 +58,11 @@ export function getDefaultMetricOverridesFormValue(
       }
     }
     if (defaultMetricOverrides[i].regressionAdjustmentDays === undefined) {
-      const metricDefinition = getExperimentMetricById(
-        defaultMetricOverrides[i].id,
-      );
-      if (metricDefinition?.regressionAdjustmentOverride) {
-        defaultMetricOverrides[i].regressionAdjustmentDays =
-          metricDefinition.regressionAdjustmentDays;
-      } else {
-        defaultMetricOverrides[i].regressionAdjustmentDays =
-          settings.regressionAdjustmentDays ??
-          DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
-      }
+      defaultMetricOverrides[i].regressionAdjustmentDays =
+        getDefaultRegressionAdjustmentDays(
+          getExperimentMetricById(defaultMetricOverrides[i].id),
+          settings,
+        );
     }
     if (
       isNaN(defaultMetricOverrides[i].properPriorMean ?? NaN) ||

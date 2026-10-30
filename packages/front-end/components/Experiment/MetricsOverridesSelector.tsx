@@ -5,12 +5,12 @@ import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { FieldValues, useFieldArray, UseFormReturn } from "react-hook-form";
 import {
   DEFAULT_PROPER_PRIOR_STDDEV,
-  DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_TARGET_MDE,
 } from "shared/constants";
 import {
   ExperimentMetricDefinition,
   expandMetricGroups,
+  getDefaultRegressionAdjustmentDays,
   getMetricWindowHours,
   getDelayWindowHours,
   isBinomialMetric,
@@ -24,6 +24,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import MetricName from "@/components/Metrics/MetricName";
+import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { Select, SelectItem } from "@/ui/Select";
@@ -64,11 +65,14 @@ export default function MetricsOverridesSelector({
   statsEngine,
   highlightMetricId = null,
   targetMDEGoalIds,
+  onlyTargetMDE = false,
 }: {
   experiment: ExperimentInterfaceStringDates;
   // eslint-disable-next-line
   form: UseFormReturn<any>;
   disabled: boolean;
+  /** Only goals' target MDEs can change; other overrides stay as they are. */
+  onlyTargetMDE?: boolean;
   fieldMap?: typeof defaultFieldMap;
   /** Defaults to the stored one; pass the unsaved one when it may have changed. */
   datasource?: string;
@@ -116,8 +120,10 @@ export default function MetricsOverridesSelector({
   const usedMetrics: Set<string> = new Set(
     form.watch(fieldMap["metricOverrides"]).map((m) => m.id),
   );
+  const editable = (id: string) =>
+    !onlyTargetMDE || !!targetMDEGoalIds?.includes(id);
   const unusedMetrics: string[] = [...expandedMetrics].filter(
-    (m) => !usedMetrics.has(m),
+    (m) => !usedMetrics.has(m) && editable(m),
   );
 
   const addOverride = (id: string) =>
@@ -135,6 +141,7 @@ export default function MetricsOverridesSelector({
         metricOverrides.fields.map((_, i) => {
           const path = `${fieldMap["metricOverrides"]}.${i}`;
           const id = form.watch(`${path}.id`);
+          if (!editable(id)) return null;
           const targetMDEPath = targetMDEGoalIds?.includes(id)
             ? `targetMDEs.${id}`
             : null;
@@ -143,6 +150,7 @@ export default function MetricsOverridesSelector({
               key={i}
               path={path}
               targetMDEPath={targetMDEPath}
+              onlyTargetMDE={onlyTargetMDE}
               form={form}
               metricDefinition={
                 allMetricDefinitions.find((md) => md.id === id) ?? null
@@ -199,6 +207,7 @@ export default function MetricsOverridesSelector({
 function OverrideCard({
   path,
   targetMDEPath,
+  onlyTargetMDE,
   form,
   metricDefinition,
   allMetricDefinitions,
@@ -211,6 +220,8 @@ function OverrideCard({
   path: string;
   // A goal metric's target MDE, in percent, where the decision framework runs.
   targetMDEPath: string | null;
+  // Shows and offers just the target MDE.
+  onlyTargetMDE: boolean;
   // Any form: `path` locates the override, wherever the host keeps it.
   form: UseFormReturn<FieldValues>;
   metricDefinition: ExperimentMetricDefinition | null;
@@ -290,9 +301,10 @@ function OverrideCard({
   const cupedDefault = !!(metricDefinition?.regressionAdjustmentOverride
     ? metricDefinition.regressionAdjustmentEnabled
     : settings.regressionAdjustmentEnabled);
-  const cupedDefaultDays = metricDefinition?.regressionAdjustmentOverride
-    ? metricDefinition.regressionAdjustmentDays
-    : (settings.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS);
+  const cupedDefaultDays = getDefaultRegressionAdjustmentDays(
+    metricDefinition,
+    settings,
+  );
   const cupedOverridden = !!mo.regressionAdjustmentOverride;
   const days: number | undefined = mo.regressionAdjustmentDays;
   const daysWarning =
@@ -349,40 +361,44 @@ function OverrideCard({
     </Box>
   );
 
+  // Paid ones are listed but can't be picked.
   const addable = [
     !!targetMDEPath &&
       !targetMDEOverridden && {
         label: "Target MDE",
         add: () => form.setValue(targetMDEPath, defaultTargetMDE),
       },
-    !windowOverridden && {
-      label: "Metric window",
-      add: () =>
-        set({
-          windowType: metricWindowType === "none" ? "" : metricWindowType,
-        }),
-    },
-    !priorOverridden &&
-      bayesian &&
-      hasRegressionAdjustmentFeature && {
+    !onlyTargetMDE &&
+      !windowOverridden && {
+        label: "Metric window",
+        add: () =>
+          set({
+            windowType: metricWindowType === "none" ? "" : metricWindowType,
+          }),
+      },
+    !onlyTargetMDE &&
+      !priorOverridden &&
+      bayesian && {
         label: "Prior",
+        paid: !hasRegressionAdjustmentFeature,
         add: () =>
           set({
             properPriorOverride: true,
             properPriorEnabled: !!defaultPrior.proper,
           }),
       },
-    !cupedOverridden &&
-      !cupedUnavailable &&
-      hasRegressionAdjustmentFeature && {
+    !onlyTargetMDE &&
+      !cupedOverridden &&
+      !cupedUnavailable && {
         label: "CUPED",
+        paid: !hasRegressionAdjustmentFeature,
         add: () =>
           set({
             regressionAdjustmentOverride: true,
             regressionAdjustmentEnabled: cupedDefault,
           }),
       },
-  ].filter((a): a is { label: string; add: () => void } => !!a);
+  ].filter((a): a is { label: string; paid?: boolean; add: () => void } => !!a);
 
   return (
     <Box
@@ -425,7 +441,7 @@ function OverrideCard({
             </OverrideRow>
           ) : null}
 
-          {windowOverridden ? (
+          {!onlyTargetMDE && windowOverridden ? (
             <OverrideRow
               label="Metric window"
               onClear={clearWindow}
@@ -480,7 +496,7 @@ function OverrideCard({
             </OverrideRow>
           ) : null}
 
-          {priorOverridden ? (
+          {!onlyTargetMDE && priorOverridden ? (
             <OverrideRow
               label="Prior"
               tooltip="Only used by the Bayesian stats engine."
@@ -532,7 +548,7 @@ function OverrideCard({
             </OverrideRow>
           ) : null}
 
-          {cupedOverridden ? (
+          {!onlyTargetMDE && cupedOverridden ? (
             <OverrideRow
               label="CUPED"
               onClear={clearCuped}
@@ -599,9 +615,21 @@ function OverrideCard({
                       addable.find(({ label }) => label === value)?.add()
                     }
                   >
-                    {addable.map(({ label }) => (
-                      <SelectItem key={label} value={label}>
+                    {addable.map(({ label, paid }) => (
+                      <SelectItem
+                        key={label}
+                        value={label}
+                        textValue={label}
+                        disabled={paid}
+                      >
                         {label}
+                        {paid ? (
+                          <PaidFeatureBadge
+                            commercialFeature="regression-adjustment"
+                            useTip={false}
+                            ml="2"
+                          />
+                        ) : null}
                       </SelectItem>
                     ))}
                   </Select>

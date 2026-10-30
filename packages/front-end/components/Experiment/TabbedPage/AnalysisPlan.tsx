@@ -577,20 +577,14 @@ export default function AnalysisPlan({
             guardrailMetrics,
             activationMetric: activationMetric || "",
           }}
-          // A single metric without an override yet opens ready to add one.
-          overrides={
-            overridesFor.length === 1 &&
-            !metricOverrides.some((o) => o.id === overridesFor[0])
-              ? [...metricOverrides, { id: overridesFor[0] }]
-              : metricOverrides
-          }
+          overrides={metricOverrides}
           focusMetricIds={overridesFor}
           targetMDEOverrides={targetMDEOverrides}
           close={() => setOverridesFor(null)}
           stageChanges={(next, nextTargetMDEs) => {
             // The same bounds the full settings modal stages through.
             const parsed = experimentAnalysisSettingsDraft.parse({
-              metricOverrides: next,
+              ...(next ? { metricOverrides: next } : {}),
               ...(nextTargetMDEs
                 ? {
                     decisionFrameworkSettings: {

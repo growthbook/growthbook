@@ -119,10 +119,21 @@ export function MetricOverrideTooltipContent({
   const memberIds = group ? group.metrics : [id];
   const targetMDEFor = (mid: string) =>
     targetMDEOverrides?.find((o) => o.id === mid)?.targetMDE;
+  // The analysis runs to the experiment's end (or its own lookback) instead of
+  // each metric's conversion window.
+  const conversionWindowsIgnored =
+    settingsScope?.experiment.attributionModel === "experimentDuration" ||
+    settingsScope?.experiment.attributionModel === "lookbackOverride";
   const rowsFor = (mid: string) =>
     describeMetricOverride(
       overrides.find((o) => o.id === mid) ?? { id: mid },
       targetMDEFor(mid),
+      settingsScope
+        ? {
+            conversionWindowsIgnored,
+            cupedOff: !settingsScope.experiment.regressionAdjustmentEnabled,
+          }
+        : undefined,
     );
   const hasOverrides = memberIds.some((mid) => rowsFor(mid).length > 0);
 
@@ -155,11 +166,7 @@ export function MetricOverrideTooltipContent({
         windowType: settings.windowType.value,
         windowHours: settings.windowHours.value,
         delayHours: settings.delayHours.value,
-        // The analysis runs to the experiment's end (or its own lookback)
-        // instead of each metric's conversion window.
-        conversionWindowsIgnored:
-          experiment.attributionModel === "experimentDuration" ||
-          experiment.attributionModel === "lookbackOverride",
+        conversionWindowsIgnored,
         cuped: hasCommercialFeature("regression-adjustment")
           ? {
               enabled: analysis.regressionAdjustmentEnabled,

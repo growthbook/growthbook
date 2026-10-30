@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { isEqual } from "lodash";
 import {
   DecisionFrameworkMetricOverrides,
   ExperimentInterfaceStringDates,
@@ -15,7 +16,11 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import { useUser } from "@/services/UserContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { decimalToPercent } from "@/services/utils";
-import { withoutDeprecatedOverrideFields } from "@/services/metricOverrides";
+import {
+  mergeTargetMDEs,
+  pruneMetricOverrides,
+  withoutDeprecatedOverrideFields,
+} from "@/services/metricOverrides";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
 import {
   EditMetricsFormInterface,
@@ -44,15 +49,16 @@ export default function MetricOverridesModal({
     "goalMetrics" | "secondaryMetrics" | "guardrailMetrics" | "activationMetric"
   >;
   overrides: MetricOverride[];
-  /** With just one, that metric's card opens focused. */
+  /** With just one, that metric's card opens focused, added if it has none. */
   focusMetricIds?: string[];
   /** Given where the decision framework runs: goal metrics' target MDEs. */
   targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
   close: () => void;
   stageChanges: (
-    overrides: MetricOverride[],
+    // Each is null where it's left as it was.
+    overrides: MetricOverride[] | null,
     // Every metric's target MDE override, when goals' are editable here.
-    targetMDEOverrides?: DecisionFrameworkMetricOverrides[],
+    targetMDEOverrides: DecisionFrameworkMetricOverrides[] | null,
   ) => void;
 }) {
   const { getExperimentMetricById, getDatasourceById, metricGroups } =
@@ -68,6 +74,9 @@ export default function MetricOverridesModal({
   );
   const hasFeature = hasCommercialFeature("override-metrics");
   const canOverride = hasFeature && !incremental;
+  // A target MDE only changes how finished results are judged, so it stays
+  // editable where nothing else is.
+  const onlyTargetMDE = !canOverride && !!targetMDEOverrides;
 
   const goalIds = targetMDEOverrides
     ? expandMetricGroups(metrics.goalMetrics, metricGroups)
@@ -78,19 +87,25 @@ export default function MetricOverridesModal({
         ? [{ id, targetMDE }]
         : [],
   );
+  const focusId = focusMetricIds?.length === 1 ? focusMetricIds[0] : null;
   // Target MDEs live elsewhere, so a goal metric overriding only that still
-  // needs its card.
+  // needs its card, as does a metric opened to add its first override.
+  const cardIds = [
+    ...goalTargetMDEs.map((o) => o.id),
+    ...(focusId && (canOverride || (onlyTargetMDE && goalIds.includes(focusId)))
+      ? [focusId]
+      : []),
+  ];
   const withCards = [
     ...overrides,
-    ...goalTargetMDEs
-      .filter((o) => !overrides.some((m) => m.id === o.id))
-      .map((o) => ({ id: o.id })),
+    ...[...new Set(cardIds)]
+      .filter((id) => !overrides.some((m) => m.id === id))
+      .map((id) => ({ id })),
   ];
 
-  const [targetId] = useState(() => {
-    const id = focusMetricIds?.length === 1 ? focusMetricIds[0] : null;
-    return id && withCards.some((o) => o.id === id) ? id : null;
-  });
+  const [targetId] = useState(() =>
+    focusId && withCards.some((o) => o.id === focusId) ? focusId : null,
+  );
 
   const form = useForm<
     EditMetricsFormInterface & {
@@ -135,25 +150,33 @@ export default function MetricOverridesModal({
       header="Metric Overrides"
       subheader="Change how individual metrics are analyzed in this experiment. Anything you don't override follows the metric's own settings."
       cta="Confirm"
-      ctaEnabled={canOverride}
+      ctaEnabled={canOverride || onlyTargetMDE}
       size="lg"
       submit={validatedSubmit(form, async (value) => {
-        const next = withoutDeprecatedOverrideFields(value.metricOverrides);
-        fixMetricOverridesBeforeSaving(next);
+        let next: MetricOverride[] | null = null;
+        if (canOverride) {
+          const edited = withoutDeprecatedOverrideFields(value.metricOverrides);
+          fixMetricOverridesBeforeSaving(edited);
+          const pruned = pruneMetricOverrides(edited);
+          // Opening and confirming isn't an edit, whatever the saved
+          // overrides' shape.
+          if (
+            !isEqual(
+              pruned,
+              pruneMetricOverrides(withoutDeprecatedOverrideFields(overrides)),
+            )
+          ) {
+            next = pruned;
+          }
+        }
+        const nextTargetMDEs = targetMDEOverrides
+          ? mergeTargetMDEs(targetMDEOverrides, goalIds, value.targetMDEs)
+          : null;
         stageChanges(
           next,
-          targetMDEOverrides
-            ? [
-                // A metric that's no longer a goal keeps what it had.
-                ...targetMDEOverrides.filter((o) => !goalIds.includes(o.id)),
-                ...goalIds.flatMap((id) => {
-                  const percent = value.targetMDEs[id];
-                  return percent === undefined || Number.isNaN(percent)
-                    ? []
-                    : [{ id, targetMDE: percent / 100 }];
-                }),
-              ]
-            : undefined,
+          nextTargetMDEs && !isEqual(nextTargetMDEs, targetMDEOverrides)
+            ? nextTargetMDEs
+            : null,
         );
       })}
     >
@@ -163,14 +186,16 @@ export default function MetricOverridesModal({
         </Callout>
       ) : incremental ? (
         <Callout status="info" mb="3">
-          Metric overrides aren&apos;t available for experiments using
-          incremental refresh.
+          {onlyTargetMDE
+            ? "Experiments using incremental refresh can only override goal metrics' target MDEs."
+            : "Metric overrides aren't available for experiments using incremental refresh."}
         </Callout>
       ) : null}
       <MetricsOverridesSelector
         experiment={experiment}
         form={form}
-        disabled={!canOverride}
+        disabled={!canOverride && !onlyTargetMDE}
+        onlyTargetMDE={onlyTargetMDE}
         datasource={datasource}
         statsEngine={statsEngine}
         highlightMetricId={targetId}

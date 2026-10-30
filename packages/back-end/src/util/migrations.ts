@@ -822,6 +822,14 @@ export function upgradeExperimentDoc(
   if (experiment.decisionFrameworkSettings === undefined) {
     experiment.decisionFrameworkSettings = {};
   }
+  // The old target MDE modal saved a cleared field as null, meaning the
+  // metric's own target MDE, which is what leaving the entry out says.
+  const targetMDEOverrides =
+    experiment.decisionFrameworkSettings.decisionFrameworkMetricOverrides;
+  if (targetMDEOverrides) {
+    experiment.decisionFrameworkSettings.decisionFrameworkMetricOverrides =
+      targetMDEOverrides.filter((o) => (o.targetMDE ?? null) !== null);
+  }
 
   // releasedVariationId
   if (!("releasedVariationId" in experiment)) {

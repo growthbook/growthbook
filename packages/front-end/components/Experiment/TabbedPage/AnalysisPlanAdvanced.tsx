@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { getExposureQueryIdentifierTypes } from "shared/util";
+import { expandMetricGroups } from "shared/experiments";
 import { getValidDate } from "shared/dates";
 import {
   getUnsetAnalysisSettings,
@@ -16,6 +17,7 @@ import { ExposureQuery } from "shared/types/datasource";
 import { ExperimentAnalysisSettingsDraft } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getOverriddenMetricIds } from "@/services/metricOverrides";
+import { useDecisionFrameworkApplies } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import { useUser } from "@/services/UserContext";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import {
@@ -194,6 +196,7 @@ export default function AnalysisPlanAdvanced({
     getDatasourceById,
     getProjectById,
     getExperimentMetricById,
+    metricGroups,
     segments,
     dimensions,
   } = useDefinitions();
@@ -313,10 +316,16 @@ export default function AnalysisPlanAdvanced({
       metrics.guardrailMetrics.length >
     0;
   const disabled = !canEdit;
+  // Target MDEs count only for current goals, the only ones that can edit them.
+  const goalIds = useDecisionFrameworkApplies(experiment)
+    ? expandMetricGroups(metrics.goalMetrics, metricGroups)
+    : [];
   const overriddenNames = [
     ...getOverriddenMetricIds(
       experiment.metricOverrides,
-      experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides,
+      experiment.decisionFrameworkSettings?.decisionFrameworkMetricOverrides?.filter(
+        (o) => goalIds.includes(o.id),
+      ),
     ),
   ].map((id) => getExperimentMetricById(id)?.name ?? id);
 
