@@ -244,6 +244,14 @@ export default function AttributeModal({
       open={true}
       close={close}
       header={attribute ? "Edit Attribute" : "Add Attribute"}
+      subheader={
+        !attribute && onAddIdentifier ? (
+          <>
+            Using this to split traffic?{" "}
+            <Link onClick={onAddIdentifier}>Add an identifier</Link> instead.
+          </>
+        ) : undefined
+      }
       cta={attribute ? "Save" : "Add Attribute"}
       size="xl"
       ctaEnabled={!!property.trim()}
@@ -586,14 +594,6 @@ export default function AttributeModal({
                 </Flex>
               )}
             </Flex>
-          )}
-
-          {!attribute && onAddIdentifier && (
-            <Callout status="info">
-              Using this attribute to split traffic?{" "}
-              <Link onClick={onAddIdentifier}>Add it as an identifier</Link>{" "}
-              instead.
-            </Callout>
           )}
         </Flex>
 
