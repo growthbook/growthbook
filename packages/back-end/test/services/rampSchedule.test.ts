@@ -121,6 +121,7 @@ import { validateRampPlanPatches } from "back-end/src/api/features/validations";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
 import {
   createRevision,
+  discardRevision,
   getRevision,
 } from "back-end/src/models/FeatureRevisionModel";
 import { createEvent } from "back-end/src/models/EventModel";
@@ -136,6 +137,9 @@ const mockPublishRevision = publishRevision as jest.MockedFunction<
 >;
 const mockCreateRevision = createRevision as jest.MockedFunction<
   typeof createRevision
+>;
+const mockDiscardRevision = discardRevision as jest.MockedFunction<
+  typeof discardRevision
 >;
 const mockCreateEvent = createEvent as jest.MockedFunction<typeof createEvent>;
 
@@ -2038,6 +2042,113 @@ describe("featureEntityHandler.applyActions", () => {
     const rules: FeatureRule[] = forceResult.rules ?? [];
     const patchedRule = rules.find((r: FeatureRule) => r.id === RULE_ID);
     expect((patchedRule as { coverage?: number })?.coverage).toBe(0.5);
+  });
+
+  describe("a lost concurrent feature landing", () => {
+    const enableAction = [
+      {
+        targetType: "feature-rule" as const,
+        targetId: TARGET_ID,
+        patch: { ruleId: RULE_ID, enabled: false },
+      },
+    ];
+    const OTHER_RULE_ID = "rule_other";
+    const otherRule = (enabled: boolean): FeatureRule => ({
+      id: OTHER_RULE_ID,
+      uid: "ruid_" + OTHER_RULE_ID,
+      allEnvironments: false,
+      environments: ["production"],
+      type: "force" as const,
+      value: "on",
+      enabled,
+      condition: "",
+    });
+    const baseRules = makeFeature().rules;
+    // Stands in for landingSequence's LandingConflictError, whose module
+    // graph this suite does not load.
+    const lostLanding = () =>
+      Object.assign(new ConflictError("changed while applied"), {
+        name: "LandingConflictError",
+      });
+
+    let setTimeoutSpy: jest.SpyInstance;
+    beforeEach(() => {
+      setTimeoutSpy = jest.spyOn(global, "setTimeout").mockImplementation(((
+        fn: () => void,
+      ) => {
+        fn();
+        return 0;
+      }) as never);
+    });
+    afterEach(() => {
+      setTimeoutSpy.mockRestore();
+    });
+
+    it("discards the draft and re-applies on the rival's published rules", async () => {
+      // A rival schedule enabled the other rule between our read and write.
+      mockGetFeature
+        .mockResolvedValueOnce(
+          makeFeature([...baseRules, otherRule(false)]) as never,
+        )
+        .mockResolvedValueOnce({
+          ...makeFeature([...baseRules, otherRule(true)]),
+          version: 6,
+        } as never);
+      const lost = makeRevision({ version: 6 });
+      mockCreateRevision
+        .mockResolvedValueOnce(lost as never)
+        .mockResolvedValueOnce(makeRevision({ version: 7 }) as never);
+      mockPublishRevision
+        .mockRejectedValueOnce(lostLanding())
+        .mockResolvedValueOnce(makeFeature() as never);
+
+      await featureEntityHandler.applyActions(ctx, FEATURE_ID, enableAction, {
+        stepLabel: "Schedule ended",
+        user: { type: "system" },
+      });
+
+      expect(mockDiscardRevision).toHaveBeenCalledTimes(1);
+      expect(mockDiscardRevision.mock.calls[0][1]).toBe(lost);
+      expect(mockPublishRevision).toHaveBeenCalledTimes(2);
+      const retry = mockPublishRevision.mock.calls[1][0];
+      expect(retry.feature.version).toBe(6);
+      expect(mockCreateRevision.mock.calls[1][0].baseVersion).toBe(6);
+      const rules = retry.result.rules ?? [];
+      expect(rules.find((r) => r.id === RULE_ID)?.enabled).toBe(false);
+      expect(rules.find((r) => r.id === OTHER_RULE_ID)?.enabled).toBe(true);
+    });
+
+    it("rethrows the conflict once the attempts run out", async () => {
+      mockPublishRevision.mockRejectedValue(lostLanding());
+
+      await expect(
+        featureEntityHandler.applyActions(ctx, FEATURE_ID, enableAction, {
+          stepLabel: "Schedule ended",
+          user: { type: "system" },
+        }),
+      ).rejects.toMatchObject({ name: "LandingConflictError" });
+      expect(mockPublishRevision).toHaveBeenCalledTimes(5);
+      expect(mockDiscardRevision).toHaveBeenCalledTimes(5);
+    });
+
+    it.each([
+      { label: "a validation error", error: new Error("validation failed") },
+      {
+        label: "another conflict",
+        error: new ConflictError("validation failed"),
+      },
+    ])("does not retry or discard on $label", async ({ error }) => {
+      mockPublishRevision.mockRejectedValue(error);
+
+      await expect(
+        featureEntityHandler.applyActions(ctx, FEATURE_ID, enableAction, {
+          stepLabel: "Schedule ended",
+          user: { type: "system" },
+        }),
+      ).rejects.toThrow("validation failed");
+      expect(mockPublishRevision).toHaveBeenCalledTimes(1);
+      expect(mockDiscardRevision).not.toHaveBeenCalled();
+    });
   });
 
   it('applies a raw boolean force as the string "false" so the payload serves false', async () => {
