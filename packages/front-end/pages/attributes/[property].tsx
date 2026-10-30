@@ -14,6 +14,7 @@ import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import AttributeModal from "@/components/Features/AttributeModal";
+import IdentifierModal from "@/components/Features/IdentifierModal";
 import ProjectBadges from "@/components/ProjectBadges";
 import Modal from "@/components/Modal";
 import Callout from "@/ui/Callout";
@@ -121,15 +122,22 @@ export default function AttributeDetailPage() {
           />
         </Modal>
       )}
-      {showEditModal && (
-        <AttributeModal
-          close={() => {
-            setShowEditModal(false);
-            refreshOrganization();
-          }}
-          attribute={attribute.property}
-        />
-      )}
+      {showEditModal &&
+        (attribute.hashAttribute ? (
+          <IdentifierModal
+            source="attribute-page"
+            existing={attribute}
+            close={() => setShowEditModal(false)}
+          />
+        ) : (
+          <AttributeModal
+            close={() => {
+              setShowEditModal(false);
+              refreshOrganization();
+            }}
+            attribute={attribute.property}
+          />
+        ))}
       {showDeleteModal && (
         <Modal
           open={true}

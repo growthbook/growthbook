@@ -679,7 +679,11 @@ const FeatureAttributesPage = (): React.ReactElement => {
       {modalData !== null && (
         <AttributeModal
           close={() => setModalData(null)}
-          attribute={modalData}
+          attribute={modalData || undefined}
+          onAddIdentifier={() => {
+            setModalData(null);
+            setIdentifierModal({});
+          }}
         />
       )}
       {identifierModal && (
