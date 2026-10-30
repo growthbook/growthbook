@@ -2145,6 +2145,42 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
   });
 
+  it("flags cluster assignment and mapping issues even when the filter leaves zero units", () => {
+    // Every cluster is mixed and every sub-unit maps to several clusters, so
+    // the consistency filter removes all traffic and totalUsers is 0. The
+    // assignment/mapping problem that erased the data must still surface as
+    // unhealthy rather than collapsing to a bare "no data" status.
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+            clusterAssignment: { totalClusters: 25, mixedClusters: 25 },
+            clusterSubUnitMapping: {
+              totalUnits: 1000,
+              multiClusterUnits: 1000,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        clusterAssignment: { rawDecimal: 1, mixedClusters: 25 },
+        clusterMapping: { rawDecimal: 1, multiClusterUnits: 1000 },
+      },
+      tooltip: "Mixed cluster assignment, Units in multiple clusters",
+    });
+  });
+
   it("uses the scheduled end date for days-left even when power reports a different estimate", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({

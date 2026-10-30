@@ -681,37 +681,6 @@ export function getExperimentResultStatus({
       unhealthyData.covariateImbalance = true;
     }
 
-    if (healthSummary.clusterAssignment) {
-      const { mixedClusters, totalClusters } = healthSummary.clusterAssignment;
-      const clusterAssignmentHealth = getClusterIssueHealthData({
-        affectedCount: mixedClusters,
-        totalCount: totalClusters,
-        minPercentThreshold: healthSettings.clusterIssueMinPercent,
-      });
-      if (clusterAssignmentHealth.status === "unhealthy") {
-        unhealthyData.clusterAssignment = {
-          rawDecimal: clusterAssignmentHealth.rawDecimal,
-          mixedClusters,
-        };
-      }
-    }
-
-    if (healthSummary.clusterSubUnitMapping) {
-      const { multiClusterUnits, totalUnits } =
-        healthSummary.clusterSubUnitMapping;
-      const clusterMappingHealth = getClusterIssueHealthData({
-        affectedCount: multiClusterUnits,
-        totalCount: totalUnits,
-        minPercentThreshold: healthSettings.clusterIssueMinPercent,
-      });
-      if (clusterMappingHealth.status === "unhealthy") {
-        unhealthyData.clusterMapping = {
-          rawDecimal: clusterMappingHealth.rawDecimal,
-          multiClusterUnits,
-        };
-      }
-    }
-
     if (
       isLowPowered &&
       healthSettings.decisionFrameworkEnabled &&
@@ -729,9 +698,50 @@ export function getExperimentResultStatus({
     }
   }
 
+  if (healthSummary?.clusterAssignment) {
+    const { mixedClusters, totalClusters } = healthSummary.clusterAssignment;
+    const clusterAssignmentHealth = getClusterIssueHealthData({
+      affectedCount: mixedClusters,
+      totalCount: totalClusters,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterAssignmentHealth.status === "unhealthy") {
+      unhealthyData.clusterAssignment = {
+        rawDecimal: clusterAssignmentHealth.rawDecimal,
+        mixedClusters,
+      };
+    }
+  }
+
+  if (healthSummary?.clusterSubUnitMapping) {
+    const { multiClusterUnits, totalUnits } =
+      healthSummary.clusterSubUnitMapping;
+    const clusterMappingHealth = getClusterIssueHealthData({
+      affectedCount: multiClusterUnits,
+      totalCount: totalUnits,
+      minPercentThreshold: healthSettings.clusterIssueMinPercent,
+    });
+    if (clusterMappingHealth.status === "unhealthy") {
+      unhealthyData.clusterMapping = {
+        rawDecimal: clusterMappingHealth.rawDecimal,
+        multiClusterUnits,
+      };
+    }
+  }
+
+  const isClusterSummary = !!(
+    healthSummary?.clusterAssignment || healthSummary?.clusterSubUnitMapping
+  );
+
   const unhealthyStatuses = [
     ...(unhealthyData.srm ? ["SRM"] : []),
-    ...(unhealthyData.multipleExposures ? ["Multiple exposures"] : []),
+    ...(unhealthyData.multipleExposures
+      ? [
+          isClusterSummary
+            ? "Sub-unit multiple exposures"
+            : "Multiple exposures",
+        ]
+      : []),
     ...(unhealthyData.lowPowered ? ["Low powered"] : []),
     ...(unhealthyData.covariateImbalance ? ["Pre-exposure bias"] : []),
     ...(unhealthyData.clusterAssignment ? ["Mixed cluster assignment"] : []),
