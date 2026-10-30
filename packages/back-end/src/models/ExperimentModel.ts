@@ -177,8 +177,6 @@ const experimentSchema = new mongoose.Schema({
       windowType: String,
       windowHours: Number,
       delayHours: Number,
-      winRisk: Number,
-      loseRisk: Number,
       properPriorOverride: Boolean,
       properPriorEnabled: Boolean,
       properPriorMean: Number,

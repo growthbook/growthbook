@@ -253,6 +253,7 @@ export default function ProjectTagBar({
           size="sm"
           stacked
           label="Projects"
+          action={fieldAction?.("project")}
           value={
             holdout.projects.length > 0 ? (
               <ProjectBadges

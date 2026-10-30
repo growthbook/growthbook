@@ -314,8 +314,8 @@ export async function linkFeatureToExperiment({
   if (!bundlingIntoExistingDraft && !revision.title) {
     combinedChanges.title =
       experiment.type === "multi-armed-bandit"
-        ? "Publish bandit"
-        : "Publish experiment";
+        ? "Add Bandit"
+        : "Add experiment";
   }
 
   const auditSubject = scopedRule.allEnvironments
