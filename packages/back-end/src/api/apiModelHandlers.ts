@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { ApiErrorCode } from "shared/validators";
-import { apiHttpVerbs, HttpVerb } from "shared/api-spec";
+import { apiHttpVerbs, HttpVerb, NoEndpointFields } from "shared/api-spec";
 import {
   ApiBaseSchema,
   ApiCreateZodObject,
@@ -41,7 +41,8 @@ export type CustomApiHandler<
   pathFragment: string;
   verb: HttpVerb;
   operationId: string;
-  validator: RequestSchemas<ParamsSchema, BodySchema, QuerySchema>;
+  validator: RequestSchemas<ParamsSchema, BodySchema, QuerySchema> &
+    NoEndpointFields;
   zodReturnObject: ReturnShape;
   summary: string; // For generating docs, e.g. "Get all dashboards for an experiment"
   description?: string;
