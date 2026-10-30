@@ -1,5 +1,5 @@
 import { FC, Fragment, useState } from "react";
-import { IconButton } from "@radix-ui/themes";
+import { Flex, IconButton } from "@radix-ui/themes";
 import { PiCaretCircleRight, PiCaretCircleDown } from "react-icons/pi";
 import {
   ExperimentReportResultDimension,
@@ -42,6 +42,9 @@ import ResultsTable, {
 import { QueryStatusData } from "@/components/Queries/RunQueriesButton";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import FunnelStepLabel from "@/components/Experiment/FunnelStepLabel";
+import FunnelStepSliceLink, {
+  funnelMetricHasSlices,
+} from "@/components/Experiment/FunnelStepSliceLink";
 import RadixTooltip from "@/ui/Tooltip";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useExperimentDimensionRows } from "@/hooks/useExperimentDimensionRows";
@@ -167,7 +170,12 @@ const BreakDownResults: FC<{
   setDifferenceType,
   customMetricSlices,
 }) => {
-  const { getDimensionById, getExperimentMetricById } = useDefinitions();
+  const {
+    getDimensionById,
+    getExperimentMetricById,
+    getFactTableById: _getFactTableById,
+  } = useDefinitions();
+  const getFactTableById = ssrPolyfills?.getFactTableById || _getFactTableById;
 
   const _settings = useOrgSettings();
   const settings = ssrPolyfills?.useOrgSettings?.() || _settings;
@@ -181,6 +189,21 @@ const BreakDownResults: FC<{
   const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
   const toggleExpandedRow = (parentRowId: string) => {
     setExpandedRows((prev) => ({ ...prev, [parentRowId]: !prev[parentRowId] }));
+  };
+
+  // Resolved per metric rather than per row: a step row only links to the
+  // drilldown when the funnel actually has slices to show there.
+  const funnelSlicesByMetricId = new Map<string, boolean>();
+  const hasFunnelSlices = (metric: ExperimentMetricDefinition): boolean => {
+    const cached = funnelSlicesByMetricId.get(metric.id);
+    if (cached !== undefined) return cached;
+    const hasSlices = funnelMetricHasSlices({
+      metric,
+      customMetricSlices,
+      getFactTableById,
+    });
+    funnelSlicesByMetricId.set(metric.id, hasSlices);
+    return hasSlices;
   };
 
   const dimension =
@@ -334,7 +357,25 @@ const BreakDownResults: FC<{
               setDifferenceType={setDifferenceType}
               renderLabelColumn={({ label, row }) => {
                 if (row?.childRowType === "funnelStep") {
-                  return <FunnelStepLabel label={label} row={row} />;
+                  const rawValue =
+                    row.dimensionValue ??
+                    (typeof row.label === "string" ? row.label : "");
+                  return (
+                    <Flex justify="between" align="start" width="100%">
+                      <FunnelStepLabel label={label} row={row} />
+                      {hasFunnelSlices(row.metric) && (
+                        <FunnelStepSliceLink
+                          row={row}
+                          dimensionInfo={{
+                            id: dimensionId,
+                            name: dimension,
+                            value: formatDimensionValueForDisplay(rawValue),
+                            rawValue,
+                          }}
+                        />
+                      )}
+                    </Flex>
+                  );
                 }
                 if (row?.isSliceRow) {
                   return getRenderLabelColumn({})({

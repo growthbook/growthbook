@@ -50,6 +50,11 @@ const TeamPage: FC = () => {
 
   const permissionsUtil = usePermissionsUtil();
   const canManageTeam = permissionsUtil.canManageTeam();
+  // Organization lands on Projects, so only link it for users who can open it.
+  const orgCrumb = {
+    display: "Organization",
+    ...(permissionsUtil.canViewProjectsPage() ? { href: "/projects" } : {}),
+  };
 
   const { teams, refreshOrganization, settings, organization } = useUser();
 
@@ -80,8 +85,7 @@ const TeamPage: FC = () => {
       <SettingsPage
         title="Team"
         breadcrumb={[
-          { display: "Settings" },
-          { display: "Organization" },
+          orgCrumb,
           { display: "Teams", href: "/settings/team#teams" },
           { display: String(tid ?? "") },
         ]}
@@ -134,8 +138,7 @@ const TeamPage: FC = () => {
         breadcrumb={
           canManageTeam
             ? [
-                { display: "Settings" },
-                { display: "Organization" },
+                orgCrumb,
                 { display: "Teams", href: "/settings/team#teams" },
                 { display: team.name },
               ]

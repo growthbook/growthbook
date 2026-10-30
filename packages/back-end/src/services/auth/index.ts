@@ -14,15 +14,22 @@ import {
   EventUserLoggedIn,
 } from "shared/types/events/event-types";
 import { logger } from "back-end/src/util/logger";
-import { IS_CLOUD, IS_LOCALHOST } from "back-end/src/util/secrets";
+import {
+  IS_CLOUD,
+  IS_LOCALHOST,
+  SUPER_ADMIN_AUTH_SUB_PREFIX,
+} from "back-end/src/util/secrets";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import {
   hasUser,
   markUserAsVerified,
   getUserByEmail,
+  getUserById,
+  setAuthSubject,
 } from "back-end/src/models/UserModel";
 import {
   getOrganizationById,
+  isOrgScopedLogin,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -56,6 +63,11 @@ import { ProjectModel } from "back-end/src/models/ProjectModel";
 import { AuthConnection } from "./AuthConnection";
 import { OpenIdAuthConnection } from "./OpenIdAuthConnection";
 import { LocalAuthConnection } from "./LocalAuthConnection";
+import {
+  canUseSuperAdmin,
+  getAuthSubjectAction,
+  getSignInMethodName,
+} from "./authChecks";
 
 type JWTInfo = {
   email: string;
@@ -171,11 +183,18 @@ export async function processJWT(
   const user = await getUserFromJWT(parsedJWT);
 
   if (user) {
-    req.currentUser = user;
+    const superAdminAllowed = canUseSuperAdmin({
+      orgScopedLogin: isOrgScopedLogin(req),
+      requireVerified: IS_CLOUD && !IS_LOCALHOST,
+      verified: !!req.verified,
+      authSubject: req.authSubject || "",
+      requiredSubPrefix: SUPER_ADMIN_AUTH_SUB_PREFIX,
+    });
+    req.currentUser = superAdminAllowed ? user : { ...user, superAdmin: false };
     req.email = user.email;
     req.userId = user.id;
     req.name = user.name;
-    req.superAdmin = normalizeSuperAdmin(user.superAdmin);
+    req.superAdmin = normalizeSuperAdmin(req.currentUser.superAdmin);
 
     // If using default Cloud SSO (Auth0), once a user logs in with a verified email address,
     // require all future logins to be verified too.
@@ -193,6 +212,36 @@ export async function processJWT(
         message: "You must log in via SSO to use GrowthBook",
       });
       return;
+    }
+
+    if (IS_CLOUD && !IS_LOCALHOST && !req.loginMethod?.id) {
+      const sub = req.authSubject || "";
+      const action = getAuthSubjectAction(
+        user.authSubject,
+        sub,
+        !!req.verified,
+      );
+      if (action === "reject") {
+        logger.warn(
+          { userId: user.id, authSubject: sub },
+          "Rejected login from an identity not bound to the user",
+        );
+        const method = getSignInMethodName(user.authSubject || "");
+        res.status(406).json({
+          status: 406,
+          message: `This account signs in with ${method}. Log out and sign in with ${method} instead.`,
+        });
+        return;
+      }
+      if (action === "bind") {
+        if (user.authSubject) {
+          logger.info(
+            { userId: user.id, from: user.authSubject, to: sub },
+            "Upgraded the user's bound login identity",
+          );
+        }
+        await setAuthSubject(user.id, sub);
+      }
     }
 
     if (!user.verified && req.verified) {
@@ -346,7 +395,7 @@ export async function processJWT(
         organizationId: hashedOrganizationId,
         cloudOrgId: IS_CLOUD ? orgId : "",
         accountPlan: org ? getEffectiveAccountPlan(org) : "loading",
-        superAdmin: hasSuperAdminPermission(user.superAdmin, "view"),
+        superAdmin: hasSuperAdminPermission(req.superAdmin, "view"),
         orgDateCreated: org?.dateCreated
           ? new Date(org.dateCreated).toISOString()
           : "",
@@ -393,6 +442,17 @@ export async function processJWT(
   }
 
   next();
+}
+
+// For setting up anything that later acts as the stored user, since that carries their stored super admin
+export async function assertLoginGrantsStoredSuperAdmin(req: AuthRequest) {
+  if (!req.userId || req.superAdmin) return;
+  const user = await getUserById(req.userId);
+  if (normalizeSuperAdmin(user?.superAdmin)) {
+    throw new Error(
+      "Super admins must sign in with a method that grants super admin access before linking accounts that act as them.",
+    );
+  }
 }
 
 export function deleteAuthCookies(req: Request, res: Response) {

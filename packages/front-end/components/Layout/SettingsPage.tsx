@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
@@ -58,6 +59,7 @@ export default function SettingsPage({
   description,
   actions,
   parent,
+  section,
   breadcrumb,
   hideHeader,
   headerClassName,
@@ -68,22 +70,31 @@ export default function SettingsPage({
   description?: ReactNode;
   actions?: ReactNode;
   parent?: BreadcrumbItem;
+  // The General section this page is reached from, for its breadcrumb. Roles
+  // that cannot see General reach the page under Organization instead.
+  section?: string;
   breadcrumb?: BreadcrumbItem[];
   hideHeader?: boolean;
   headerClassName?: string;
   contentClassName?: string;
   children: ReactNode;
 }) {
+  const permissionsUtil = usePermissionsUtil();
+  const root: BreadcrumbItem =
+    section && permissionsUtil.canManageOrgSettings()
+      ? { display: "General", href: `/settings#${section}` }
+      : {
+          display: "Organization",
+          // Organization lands on Projects, so only link it for users who can open it.
+          ...(permissionsUtil.canViewProjectsPage()
+            ? { href: "/projects" }
+            : {}),
+        };
   return (
     <>
       <PageHead
         breadcrumb={
-          breadcrumb ?? [
-            { display: "Settings" },
-            { display: "Organization" },
-            ...(parent ? [parent] : []),
-            { display: title },
-          ]
+          breadcrumb ?? [root, ...(parent ? [parent] : []), { display: title }]
         }
       />
       <Box className="container-fluid pagecontents" mb="4">

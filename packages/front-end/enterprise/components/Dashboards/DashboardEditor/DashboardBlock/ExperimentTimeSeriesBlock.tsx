@@ -12,6 +12,7 @@ import ExperimentMetricTimeSeriesGraphWrapper from "@/components/Experiment/Expe
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePValueThreshold from "@/hooks/usePValueThreshold";
 import { useDefinitions } from "@/services/DefinitionsContext";
+import { excludeFunnelSliceRows } from "@/services/experiments";
 import { useExperimentTableRows } from "@/hooks/useExperimentTableRows";
 import { getRenderLabelColumn } from "@/components/Experiment/CompactResults";
 import { BlockProps } from ".";
@@ -111,12 +112,13 @@ export default function ExperimentTimeSeriesBlock({
   const hasSliceFilter =
     blockSliceTagsFilter && blockSliceTagsFilter.length > 0;
   const filteredRows = useMemo(() => {
+    const visibleRows = excludeFunnelSliceRows(rows);
     if (hasSliceFilter) {
       // When filter is active, use isHiddenByFilter from the hook
-      return rows;
+      return visibleRows;
     }
     // When no filter, filter out slice rows that aren't expanded
-    return rows.filter((row) => {
+    return visibleRows.filter((row) => {
       if (!row.isChildRow) return true; // Always include parent rows
       // For slice rows, check if parent metric is expanded
       if (row.parentRowId) {
@@ -141,13 +143,13 @@ export default function ExperimentTimeSeriesBlock({
 
   return (
     <>
-      {Object.entries(rowGroups).map(([resultGroup, rows]) =>
-        !rows.length ? null : (
+      {Object.entries(rowGroups).map(([resultGroup, groupRows]) =>
+        !groupRows.length ? null : (
           <div key={resultGroup} className="mb-4">
             <h4 className="mb-3">
               {`${resultGroup.charAt(0).toUpperCase() + resultGroup.slice(1)} Metrics`}
             </h4>
-            {rows.map((row) => {
+            {groupRows.map((row) => {
               // Only render parent rows (not slice rows) for time series
               if (row.isSliceRow) return null;
 
