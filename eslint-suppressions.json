@@ -1528,16 +1528,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/importing/ImportFromStatsig/ImportFromStatsig.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
-    }
-  },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {
     "no-restricted-syntax": {
       "count": 1

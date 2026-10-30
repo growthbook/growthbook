@@ -1,11 +1,20 @@
-import React, { FC, useState } from "react";
+import React, { FC, ReactNode, useState } from "react";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
+import { PiQuestion } from "react-icons/pi";
 import track from "@/services/track";
+import { docsOrigin } from "@/components/docSections";
 import { ImportFromServiceCard } from "@/components/importing/ImportFromServiceCard/ImportFromServiceCard";
 import { ImportRequestModal } from "@/components/importing/ImportRequestModal/ImportRequestModal";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import styles from "./ImportYourData.module.scss";
 
 type ImportYourDataProps = Record<string, never>;
+
+const SUPPORT_EMAIL = "support@growthbook.io";
 
 const supportedServices = [
   {
@@ -13,14 +22,14 @@ const supportedServices = [
     icon: "launchdarkly",
     hasDarkIcon: true,
     path: "launchdarkly",
-    text: "Import your projects, features and environments from LaunchDarkly.",
+    text: "Connect with a LaunchDarkly API access token.",
   },
   {
     service: "Statsig",
     icon: "statsig",
     hasDarkIcon: false,
     path: "statsig",
-    text: "Import your projects, features, environments, and metrics from Statsig.",
+    text: "Connect with a Statsig Console API key.",
   },
 ];
 
@@ -31,76 +40,108 @@ const eppoService = {
   icon: "eppo",
   hasDarkIcon: true,
   path: "eppo",
-  text: "Import your Feature Flags, audiences, experiments, and warehouse-native metrics from Eppo.",
+  text: "Connect with an Eppo API key. Metrics stay warehouse-native.",
 };
 
-// Services we don't have a self-serve importer for yet. Clicking these opens a
-// modal pointing at support so we can help with the migration (and gauge demand).
-const upcomingServices = [
+// Services we don't have a self-serve importer for yet. Those with a docs guide
+// link to it; the rest open a modal pointing at support so we can help with the
+// migration (and gauge demand).
+const upcomingServices: {
+  service: string;
+  slug: string;
+  icon: string;
+  hasDarkIcon: boolean;
+  text: string;
+  guide?: string;
+}[] = [
   {
     service: "Optimizely",
     slug: "optimizely",
     icon: "optimizely",
     hasDarkIcon: false,
-    text: "Migrate your Feature Experimentation flags, audiences, and experiments.",
+    text: "Feature Experimentation flags, audiences, and experiments.",
   },
   {
     service: "Eppo (Datadog)",
     slug: "eppo",
     icon: "eppo",
     hasDarkIcon: true,
-    text: "Migrate your flags, audiences, experiments, and warehouse-native metrics.",
+    text: "Flags, audiences, experiments, and warehouse-native metrics.",
   },
   {
     service: "Split (Harness FME)",
     slug: "split",
     icon: "split",
     hasDarkIcon: false,
-    text: "Migrate your feature flags, segments, and targeting rules.",
+    text: "Feature flags, segments, and targeting rules.",
   },
   {
     service: "PostHog",
     slug: "posthog",
     icon: "posthog",
     hasDarkIcon: true,
-    text: "Migrate your feature flags, cohorts, and experiments.",
+    text: "Feature flags, cohorts, and experiments.",
   },
   {
     service: "Amplitude Experiment",
     slug: "amplitude",
     icon: "amplitude",
     hasDarkIcon: true,
-    text: "Migrate your flags, targeting, and experiment designs.",
+    text: "Flags, targeting, and experiment designs.",
   },
   {
     service: "Unleash",
     slug: "unleash",
     icon: "unleash",
     hasDarkIcon: true,
-    text: "Migrate your feature toggles, strategies, segments, and environments.",
+    text: "Feature toggles, strategies, segments, and environments.",
   },
   {
     service: "Flagsmith",
     slug: "flagsmith",
     icon: "flagsmith",
     hasDarkIcon: false,
-    text: "Migrate your flags, segments, and multivariate tests.",
+    text: "Flags, segments, and multivariate tests.",
   },
   {
     service: "ConfigCat",
     slug: "configcat",
     icon: "configcat",
     hasDarkIcon: false,
-    text: "Migrate your settings, targeting rules, and percentage rollouts.",
+    text: "Settings, targeting rules, and percentage rollouts.",
   },
   {
     service: "Firebase Remote Config",
     slug: "firebase",
     icon: "firebase",
     hasDarkIcon: false,
-    text: "Migrate your parameters, conditions, and A/B tests.",
+    text: "Parameters, conditions, and A/B tests.",
   },
 ];
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <Box>
+      <Heading as="h2" size="md" mb="1">
+        {title}
+      </Heading>
+      <Text as="p" color="text-mid" mb="3">
+        {description}
+      </Text>
+      <Frame mb="0" p="0" className={styles.list}>
+        {children}
+      </Frame>
+    </Box>
+  );
+}
 
 export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
   const [requestService, setRequestService] = useState<null | {
@@ -116,7 +157,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
     : upcomingServices;
 
   return (
-    <Flex direction="column" gap="3">
+    <Flex direction="column" gap="6">
       {requestService && (
         <ImportRequestModal
           service={requestService.service}
@@ -125,32 +166,77 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         />
       )}
 
-      {supported.map(({ service, icon, path, hasDarkIcon, text }) => (
-        <ImportFromServiceCard
-          key={`ImportFromServiceCard-${service}`}
-          service={service}
-          icon={icon}
-          path={path}
-          hasDarkIcon={hasDarkIcon}
-        >
-          {text}
-        </ImportFromServiceCard>
-      ))}
+      <Section
+        title="Import Directly"
+        description="Run the importer here. You review what will be created before anything is saved."
+      >
+        {supported.map(({ service, icon, path, hasDarkIcon, text }) => (
+          <ImportFromServiceCard
+            key={`ImportFromServiceCard-${service}`}
+            service={service}
+            icon={icon}
+            path={path}
+            hasDarkIcon={hasDarkIcon}
+          >
+            {text}
+          </ImportFromServiceCard>
+        ))}
+      </Section>
 
-      {upcoming.map(({ service, slug, icon, hasDarkIcon, text }) => (
-        <ImportFromServiceCard
-          key={`ImportFromServiceCard-${service}`}
-          service={service}
-          icon={icon}
-          hasDarkIcon={hasDarkIcon}
-          onRequest={() => {
-            track("Import interest clicked", { service: slug });
-            setRequestService({ service, slug });
-          }}
-        >
-          {text}
-        </ImportFromServiceCard>
-      ))}
+      <Section
+        title="Migrate With Help"
+        description="No importer yet. Follow a step-by-step guide in the docs, or ask our team for help."
+      >
+        {upcoming.map(({ service, slug, icon, hasDarkIcon, text, guide }) => (
+          <ImportFromServiceCard
+            key={`ImportFromServiceCard-${service}`}
+            service={service}
+            icon={icon}
+            hasDarkIcon={hasDarkIcon}
+            guide={guide && `${docsOrigin}${guide}`}
+            onRequest={() => {
+              track("Import interest clicked", { service: slug });
+              setRequestService({ service, slug });
+            }}
+          >
+            {text}
+          </ImportFromServiceCard>
+        ))}
+      </Section>
+
+      <Flex
+        align="center"
+        gap="4"
+        px="4"
+        py="4"
+        style={{
+          border: "1px dashed var(--gray-a6)",
+          borderRadius: "var(--radius-3)",
+        }}
+      >
+        <PiQuestion size={22} style={{ color: "var(--color-text-mid)" }} />
+        <Box flexGrow="1">
+          <Heading as="h3" size="sm" mb="1">
+            Don&apos;t see your tool?
+          </Heading>
+          <Text as="p" color="text-mid" m="0">
+            Tell us what you use and we&apos;ll help you plan the move.
+          </Text>
+        </Box>
+        <Flex gap="4" flexShrink="0">
+          <Link
+            href="#"
+            onClick={(e) => {
+              e.preventDefault();
+              track("Import interest clicked", { service: "other" });
+              setRequestService({ service: "another tool", slug: "other" });
+            }}
+          >
+            Request an integration
+          </Link>
+          <Link href={`mailto:${SUPPORT_EMAIL}`}>Contact support</Link>
+        </Flex>
+      </Flex>
     </Flex>
   );
 };
