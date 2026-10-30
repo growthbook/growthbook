@@ -36,6 +36,8 @@ import AssignmentQueryFields, {
   ClusterExperimentFields,
   CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
   getClusterChangeAfterLaunch,
+  getLockedClusterError,
+  isClusterConfigLocked,
   POST_STRATIFICATION_CLUSTER_MESSAGE,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -373,9 +375,23 @@ const AnalysisForm: FC<{
   // A data source without assignment queries can't run a cluster experiment,
   // so switching to one turns it off.
   const supportsClusterExperiments = !!datasource?.properties?.exposureQueries;
-  const isClusterExperiment =
-    supportsClusterExperiments && form.watch("isClusterExperiment");
+  const clusterLocked = isClusterConfigLocked(experiment);
+  const isClusterExperiment = clusterLocked
+    ? !!experiment.isClusterExperiment
+    : supportsClusterExperiments && form.watch("isClusterExperiment");
   const clusterSubUnitIdentifier = form.watch("clusterSubUnitIdentifier");
+  const clusterLockError = getLockedClusterError({
+    experiment,
+    locked: clusterLocked,
+    supportsClusterExperiments,
+    exposureQuery,
+    identifierType: exposureQuery
+      ? resolveAnalysisIdentifierType(
+          exposureQuery,
+          exposureQueryIdentifierType,
+        )
+      : undefined,
+  });
   const goalMetrics = form.watch("goalMetrics");
   const secondaryMetrics = form.watch("secondaryMetrics");
   const guardrailMetrics = form.watch("guardrailMetrics");
@@ -543,6 +559,7 @@ const AnalysisForm: FC<{
           body.guardrailMetrics = keep(body.guardrailMetrics);
         }
 
+        if (clusterLockError) throw new Error(clusterLockError);
         if (!supportsClusterExperiments) {
           body.isClusterExperiment = false;
         }
@@ -779,9 +796,13 @@ const AnalysisForm: FC<{
                   experiment.datasource ? DATASOURCE_CHANGE_NOTE : undefined
                 }
               />
-              {experiment.isClusterExperiment &&
-              datasource &&
-              !supportsClusterExperiments ? (
+              {clusterLockError && !supportsClusterExperiments ? (
+                <HelperText status="error" size="sm" mt="2">
+                  {clusterLockError}
+                </HelperText>
+              ) : experiment.isClusterExperiment &&
+                datasource &&
+                !supportsClusterExperiments ? (
                 <HelperText status="warning" size="sm" mt="2">
                   {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
                 </HelperText>
@@ -816,6 +837,8 @@ const AnalysisForm: FC<{
                 setSubUnitIdentifier={(value) =>
                   form.setValue("clusterSubUnitIdentifier", value)
                 }
+                locked={clusterLocked}
+                lockError={clusterLockError}
                 changedAfterLaunch={getClusterChangeAfterLaunch(experiment, {
                   isClusterExperiment,
                   clusterSubUnitIdentifier,
