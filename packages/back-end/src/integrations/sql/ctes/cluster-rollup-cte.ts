@@ -45,7 +45,7 @@ export function getClusterRollupCTE({
               denominatorAlias: string,
             ) =>
               data.isClusterRatioConversion
-                ? `, COUNT(DISTINCT m.${baseIdType}) AS ${denominatorAlias}`
+                ? `, COUNT(*) AS ${denominatorAlias}`
                 : `, SUM(${sumExpr}) AS ${denominatorAlias}`;
             const numerator = `, SUM(${data.capCoalesceMetric}) AS ${data.alias}_value`;
             const denominator = rollupDenominator(
