@@ -55,7 +55,7 @@ import { ReqContext } from "back-end/types/request";
 
 export function mapLicenseConnectorPhaseToEventForwarderStatus(
   phase: EventForwarderLicenseConnectorPhase,
-): EventForwarderStatus {
+): Exclude<EventForwarderStatus, "unconfigured"> {
   switch (phase) {
     case "ready":
       return "ready";

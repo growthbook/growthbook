@@ -28,6 +28,8 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   side?: "top" | "right" | "bottom" | "left";
   align?: "start" | "center" | "end";
   sideOffset?: number;
+  /** Shift along the alignment axis, for anchors whose edge is not their box. */
+  alignOffset?: number;
   showCloseButton?: boolean;
   showArrow?: boolean;
   disableDismiss?: boolean;
@@ -46,6 +48,13 @@ type PopoverProps = (ControlledPopoverProps | UncontrolledPopoverProps) & {
   onOpenAutoFocus?: React.ComponentProps<
     typeof RadixPopover.Content
   >["onOpenAutoFocus"];
+  // e.preventDefault() leaves focus where it went (e.g. a modal it opened)
+  // instead of returning it to the trigger.
+  onCloseAutoFocus?: React.ComponentProps<
+    typeof RadixPopover.Content
+  >["onCloseAutoFocus"];
+  // False pins the popover to `side` instead of flipping it when space runs out.
+  avoidCollisions?: boolean;
   // Open on hover of the trigger (and stay open while hovering the content)
   // instead of on click. The content does not steal focus — suitable for
   // read-only previews, including inside menus.
@@ -59,6 +68,7 @@ export function Popover({
   side = "bottom",
   align = "center",
   sideOffset,
+  alignOffset,
   showCloseButton = false,
   showArrow = true,
   disableDismiss = false,
@@ -68,7 +78,9 @@ export function Popover({
   onFocusOutside,
   onInteractOutside,
   onOpenAutoFocus,
+  onCloseAutoFocus,
   openOnHover = false,
+  avoidCollisions,
   ...props
 }: PopoverProps) {
   const {
@@ -153,12 +165,15 @@ export function Popover({
               side={side}
               align={align}
               sideOffset={sideOffset}
+              alignOffset={alignOffset}
+              avoidCollisions={avoidCollisions}
               className={`${styles.Content}${contentClassName ? ` ${contentClassName}` : ""}`}
               style={appliedContentStyle}
               {...hoverHandlers}
               onOpenAutoFocus={
                 openOnHover ? (e) => e.preventDefault() : onOpenAutoFocus
               }
+              onCloseAutoFocus={onCloseAutoFocus}
               onEscapeKeyDown={
                 disableDismiss ? (e) => e.preventDefault() : undefined
               }

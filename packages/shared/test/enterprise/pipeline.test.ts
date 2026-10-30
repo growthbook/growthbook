@@ -211,13 +211,28 @@ describe("getExperimentSourceSnapshotRef", () => {
     ).toBeUndefined();
   });
 
-  it("returns the persisted ref when both id and date are present", () => {
+  it("uses the persisted end date as the analysis end date", () => {
+    const mainEndDate = new Date("2024-06-01T06:00:00Z");
+    expect(
+      getExperimentSourceSnapshotRef({
+        sourceSnapshotId: "main",
+        sourceSnapshotDateCreated: mainDate,
+        sourceSnapshotEndDate: mainEndDate,
+      }),
+    ).toEqual({
+      id: "main",
+      dateCreated: mainDate,
+      analysisEndDate: mainEndDate,
+    });
+  });
+
+  it("falls back to the source's run time when no end date was persisted", () => {
     expect(
       getExperimentSourceSnapshotRef({
         sourceSnapshotId: "main",
         sourceSnapshotDateCreated: mainDate,
       }),
-    ).toEqual({ id: "main", dateCreated: mainDate });
+    ).toEqual({ id: "main", dateCreated: mainDate, analysisEndDate: mainDate });
   });
 });
 
@@ -225,6 +240,7 @@ describe("isNewerOverallResultsDataAvailable", () => {
   const source = {
     id: "main_old",
     dateCreated: new Date("2024-06-01T12:00:00Z"),
+    analysisEndDate: new Date("2024-06-01T12:00:00Z"),
   };
 
   it("returns false when there is no source snapshot", () => {
@@ -325,8 +341,6 @@ const makeFactMetric = (
     minSampleSize: 100,
     targetMDE: 0.1,
     displayAsPercentage: false,
-    winRisk: 0.1,
-    loseRisk: 0.05,
     regressionAdjustmentOverride: true,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 10,

@@ -1,7 +1,9 @@
 import {
+  Attributes,
   EvalContext,
   ContextualBanditDefinition,
   FeatureDefinition,
+  FeatureDefinitions,
   FeatureResult,
   Experiment,
   FeatureResultSource,
@@ -22,6 +24,7 @@ import {
   ReducePayloadOptions,
   PayloadMetadata,
   SavedGroupPayloadEntry,
+  InterleavingDefinitions,
 } from "./types/growthbook";
 import {
   evalCondition,
@@ -51,6 +54,7 @@ import {
   hasOwn,
 } from "./util";
 import { StickyBucketService } from "./sticky-bucket-service";
+import { REMOTE_GROUP_IDS_ATTRIBUTE } from "./remoteSavedGroups";
 
 export const EVENT_FEATURE_EVALUATED = "Feature Evaluated";
 export const EVENT_EXPERIMENT_VIEWED = "Experiment Viewed";
@@ -878,10 +882,13 @@ function getFeatureResult<T>(
   return ret;
 }
 
-function getAttributes(user: UserContext) {
+function getAttributes(user: UserContext): Attributes {
   return {
     ...user.attributes,
     ...user.attributeOverrides,
+    ...(user.remoteGroupIds && {
+      [REMOTE_GROUP_IDS_ATTRIBUTE]: user.remoteGroupIds,
+    }),
   };
 }
 
@@ -1121,21 +1128,25 @@ export function getHashAttribute(
 
   const attributes = getAttributes(ctx.user);
 
-  if (attributes[hashAttribute]) {
+  if (isHashable(attributes[hashAttribute])) {
     hashValue = attributes[hashAttribute];
   }
 
   // if no match, try fallback
-  if (!hashValue && fallback) {
-    if (attributes[fallback]) {
-      hashValue = attributes[fallback];
-    }
-    if (hashValue) {
-      hashAttribute = fallback;
-    }
+  if (!hashValue && fallback && isHashable(attributes[fallback])) {
+    hashValue = attributes[fallback];
+    hashAttribute = fallback;
   }
 
   return { hashAttribute, hashValue };
+}
+
+// Only strings and numbers identify a user. Anything else, along with "" and
+// 0, counts as missing.
+function isHashable(value: unknown): value is string | number {
+  if (typeof value === "string") return value !== "";
+  if (typeof value === "number") return value !== 0 && Number.isFinite(value);
+  return false;
 }
 
 function urlIsValid(urlRegex: RegExp, ctx: EvalContext): boolean {
@@ -1393,6 +1404,16 @@ export async function decryptPayload(
     }
     delete data.encryptedContextualBandits;
   }
+  if (data.encryptedInterleavings) {
+    try {
+      data.interleavings = JSON.parse(
+        await decrypt(data.encryptedInterleavings, decryptionKey, subtle),
+      );
+    } catch (e) {
+      console.error(e);
+    }
+    delete data.encryptedInterleavings;
+  }
   return data;
 }
 
@@ -1446,7 +1467,10 @@ export function reducePayload(
   };
 
   // Reduces a rule or an auto experiment
-  const prune = <T extends { condition?: ConditionInterface }>(item: T): T => {
+  const prune = <T extends { condition?: ConditionInterface }>(
+    item: T,
+    isRule: boolean,
+  ): T => {
     const condition = item.condition
       ? pruneCondition(attributes, item.condition, savedGroups)
       : null;
@@ -1456,8 +1480,9 @@ export function reducePayload(
     // condition, and a rule's prerequisites are checked before it
     else if (condition === false) {
       item.condition = { $not: {} };
-      // A force rule that never passes never returns its value
-      if ("force" in item) (item as { force?: unknown }).force = null;
+      // A force rule that never passes never returns its value. An auto
+      // experiment's forced variation still applies to a sticky bucketed user.
+      if (isRule && "force" in item) (item as { force?: unknown }).force = null;
     } else if (condition) item.condition = condition;
     return item;
   };
@@ -1483,7 +1508,7 @@ export function reducePayload(
     const scoped = inProjects(feature.metadata || {});
     const rules = feature.rules
       ?.filter((r) => !scoped || ruleInProjects(r.metadata))
-      .map(prune);
+      .map((r) => prune(r, true));
     // Stored before its parents are added, so a prerequisite cycle ends
     added.set(id, rules ? { ...feature, rules } : feature);
     (rules || []).forEach(addParents);
@@ -1494,7 +1519,7 @@ export function reducePayload(
   });
   const experiments = allExperiments
     .filter((e) => matches(e.metadata))
-    .map(prune);
+    .map((e) => prune(e, false));
   experiments.forEach(addParents);
   const features = Object.fromEntries(added);
 
@@ -1509,6 +1534,11 @@ export function reducePayload(
     const ref = item.contextualBanditRef;
     if (!ref || bandits.has(ref) || !hasOwn(allBandits, ref)) continue;
     const bandit = allBandits[ref];
+    // Evaluation tolerates a definition that isn't an object, so it stays
+    if (!bandit || typeof bandit !== "object" || Array.isArray(bandit)) {
+      bandits.set(ref, bandit);
+      continue;
+    }
     bandits.set(ref, {
       ...bandit,
       contexts: (bandit.contexts || []).flatMap((c) => {
@@ -1523,6 +1553,86 @@ export function reducePayload(
     });
   }
   const contextualBandits = Object.fromEntries(bandits);
+  const reduced = [features, experiments, contextualBandits];
+
+  // A list's values are attribute values, never references to other groups
+  const canReference = (entry: SavedGroupsPayload[string] | undefined) =>
+    !!entry &&
+    typeof entry === "object" &&
+    !Array.isArray(entry) &&
+    entry.type !== "list";
+
+  // Groups that keep their condition as written: those evaluated against
+  // something other than the user (each item in $elemMatch, or the parent's
+  // value in a prerequisite), and the groups those reference
+  const asWritten = new Set<string>();
+  const seen = new Set<string>();
+  const mark = (x: unknown, user: boolean) => {
+    if (typeof x === "string") {
+      if (!hasOwn(savedGroups, x) || asWritten.has(x)) return;
+      if (user && seen.has(x)) return;
+      (user ? seen : asWritten).add(x);
+      if (canReference(savedGroups[x])) mark(savedGroups[x], user);
+    } else if (x && typeof x === "object") {
+      Object.entries(x).forEach(([k, v]) =>
+        mark(v, user && k !== "$elemMatch" && k !== "parentConditions"),
+      );
+    }
+  };
+  // Walking the payload is only needed when there are groups to find
+  const hasGroups = Object.keys(savedGroups).length > 0;
+  if (hasGroups) mark(reduced, true);
+
+  // The groups each group's contents mention, collected once, since a large
+  // list can be shared by many groups
+  const refs = new Map<string, Set<string>>();
+  const refsOf = (id: string) => {
+    let found = refs.get(id);
+    if (!found) {
+      const ids = new Set<string>();
+      const collect = (x: unknown) => {
+        if (typeof x === "string") {
+          if (hasOwn(savedGroups, x)) ids.add(x);
+        } else if (x && typeof x === "object")
+          Object.values(x).forEach(collect);
+      };
+      if (canReference(savedGroups[id])) collect(savedGroups[id]);
+      found = ids;
+      refs.set(id, found);
+    }
+    return found;
+  };
+
+  // A group on a cycle can't be reduced on its own: its result depends on
+  // which group the evaluation entered the cycle from. Tarjan's algorithm finds
+  // them in one pass over the references.
+  const onCycle = new Set<string>();
+  const order = new Map<string, number>();
+  const stack: string[] = [];
+  const onStack = new Set<string>();
+  const visit = (id: string): number => {
+    const own = order.size;
+    order.set(id, own);
+    stack.push(id);
+    onStack.add(id);
+    let low = own;
+    refsOf(id).forEach((next) => {
+      if (next === id) onCycle.add(id);
+      if (!order.has(next)) low = Math.min(low, visit(next));
+      else if (onStack.has(next))
+        low = Math.min(low, order.get(next) as number);
+    });
+    if (low === own) {
+      const component = stack.splice(stack.indexOf(id));
+      component.forEach((g) => onStack.delete(g));
+      if (component.length > 1) component.forEach((g) => onCycle.add(g));
+    }
+    return low;
+  };
+  const isOnCycle = (id: string) => {
+    if (!order.has(id)) visit(id);
+    return onCycle.has(id);
+  };
 
   // Keep each saved group whose id appears as a string anywhere, with condition
   // groups reduced. This needs no list of the operators that reference groups.
@@ -1530,25 +1640,46 @@ export function reducePayload(
   const keep = (x: unknown) => {
     if (typeof x === "string") {
       if (!hasOwn(savedGroups, x) || groups.has(x)) return;
-      const condition = pruneSavedGroup(attributes, { id: x }, savedGroups);
+      const condition =
+        asWritten.has(x) || isOnCycle(x)
+          ? null
+          : pruneSavedGroup(attributes, { id: x }, savedGroups);
       groups.set(
         x,
         condition && typeof condition === "object"
           ? ({ ...savedGroups[x], condition } as SavedGroupPayloadEntry)
           : savedGroups[x],
       );
-      keep(groups.get(x));
+      if (canReference(savedGroups[x])) keep(groups.get(x));
     } else if (x && typeof x === "object") Object.values(x).forEach(keep);
   };
-  keep([features, experiments, contextualBandits]);
+  if (hasGroups) keep(reduced);
 
   return {
     features,
     experiments,
     savedGroups: Object.fromEntries(groups),
-    // Only when there were any, as with the payload's other optional keys
-    contextualBandits: ctx.global.contextualBandits && contextualBandits,
+    // Only when there were any, as with the payload's other optional keys.
+    // Left out rather than undefined, which JSON serializers like Next.js's
+    // props reject.
+    ...(ctx.global.contextualBandits ? { contextualBandits } : {}),
   };
+}
+
+// Interleavings whose `$interleave:` flag survived a reduction. The definitions
+// aren't features, so the filters never see them; keeping one whose flag was
+// dropped would serve every user the first ranker and log no exposure.
+export function reduceInterleavings(
+  interleavings: InterleavingDefinitions,
+  features: FeatureDefinitions | undefined,
+): InterleavingDefinitions {
+  const kept = features || {};
+  // Object.fromEntries keeps a `__proto__` key as a plain key
+  return Object.fromEntries(
+    Object.entries(interleavings).filter(([key]) =>
+      hasOwn(kept, "$interleave:" + key),
+    ),
+  );
 }
 
 export function getApiHosts(options: Options | ClientOptions): {

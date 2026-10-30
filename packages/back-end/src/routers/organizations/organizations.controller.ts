@@ -14,6 +14,9 @@ import {
   canApplyExpirationPolicy,
   canManageApiKeySecret,
   getRoles,
+  hasSuperAdminPermission,
+  holdsAllSuperAdminPermissions,
+  normalizeSuperAdmin,
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
@@ -73,6 +76,8 @@ import {
   importConfig,
   inviteUser,
   isEnterpriseSSO,
+  isOrgScopedLogin,
+  isValidLoginMethod,
   removeMember,
   revokeInvite,
   setLicenseKey,
@@ -180,6 +185,7 @@ import {
 import { getUsageFromCache } from "back-end/src/enterprise/billing";
 import { logger } from "back-end/src/util/logger";
 import { validatePriorSettings } from "back-end/src/util/priors";
+import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
 import {
   getInstallation,
   setInstallationName,
@@ -582,7 +588,7 @@ export async function putMember(
   }
 
   // ensure org matches one of the calculated verified org
-  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  const organizations = await findVerifiedOrgsForNewUser(req.email, req);
   if (!organizations) {
     throw new Error("Invalid orgId");
   }
@@ -1384,6 +1390,15 @@ export async function postInviteAccept(
     if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
     }
+    // An SSO or Vercel login only vouches for the email within its own org
+    if (isOrgScopedLogin(req)) {
+      const invitingOrg = await findOrganizationByInviteKey(key);
+      if (invitingOrg && !isValidLoginMethod(invitingOrg, req)) {
+        throw new Error(
+          "Log out and sign in with Google or email and password to accept this invitation.",
+        );
+      }
+    }
     const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
@@ -1542,6 +1557,13 @@ export async function signup(
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
   const { company, externalId, demographicData } = req.body;
 
+  // The new org wouldn't accept this login, so the user would be locked out of it
+  if (isOrgScopedLogin(req)) {
+    throw new Error(
+      "Log out and sign in with Google or email and password to create an organization.",
+    );
+  }
+
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
   if (!IS_MULTI_ORG && orgs) {
@@ -1550,7 +1572,11 @@ export async function signup(
 
   let verifiedDomain = "";
   if (IS_MULTI_ORG) {
-    if (orgs && !ALLOW_SELF_ORG_CREATION && !req.superAdmin) {
+    if (
+      orgs &&
+      !ALLOW_SELF_ORG_CREATION &&
+      !hasSuperAdminPermission(req.superAdmin, "create")
+    ) {
       throw new Error(
         "You are not allowed to create an organization.  Ask your site admin.",
       );
@@ -1657,6 +1683,11 @@ export async function putOrganization(
     externalId,
     licenseKey,
   } = req.body;
+
+  // An object here would reach the global users lookup as a Mongo operator
+  if (ownerEmail && typeof ownerEmail !== "string") {
+    return res.status(400).json({ status: 400, message: "Invalid ownerEmail" });
+  }
 
   if (connections || name || ownerEmail || installationName) {
     if (!context.permissions.canManageOrgSettings()) {
@@ -1796,6 +1827,13 @@ export async function putOrganization(
     }
 
     validatePriorSettings(updates.settings?.metricDefaults?.priorSettings);
+
+    const analysisEndDateError = getAnalysisEndDateSettingsError(
+      settings?.updateSchedule,
+    );
+    if (analysisEndDateError) {
+      context.throwBadRequestError(analysisEndDateError);
+    }
 
     for (const field of [
       "maxPatLifetimeDays",
@@ -2047,6 +2085,13 @@ export async function postApiKey(
     if (!userId) {
       throw new Error(
         "Cannot create user personal access token without a user ID",
+      );
+    }
+    // Tokens take super admin from the user record, not from this login
+    const user = await getUserById(userId);
+    if (normalizeSuperAdmin(user?.superAdmin) && !req.superAdmin) {
+      throw new Error(
+        "Super admins must sign in with a method that grants super admin access to create personal access tokens.",
       );
     }
     key = await context.models.apiKeys.createUserPersonalAccessApiKey({
@@ -2483,7 +2528,7 @@ export async function getOrphanedUsers(req: AuthRequest, res: Response) {
     throw new Error("Unable to get orphaned users on GrowthBook Cloud");
   }
 
-  if (IS_MULTI_ORG && !req.superAdmin) {
+  if (IS_MULTI_ORG && !hasSuperAdminPermission(req.superAdmin, "users")) {
     throw new Error(
       "Only super admins get orphaned users on multi-org deployments",
     );
@@ -2527,7 +2572,7 @@ export async function addOrphanedUser(
     throw new Error("This action is not permitted on GrowthBook Cloud");
   }
 
-  if (IS_MULTI_ORG && !req.superAdmin) {
+  if (IS_MULTI_ORG && !hasSuperAdminPermission(req.superAdmin, "users")) {
     throw new Error(
       "Only super admins can add orphaned users on multi-org deployments",
     );
@@ -2617,7 +2662,7 @@ export async function deleteOrphanedUser(
     throw new Error("Unable to delete orphaned users on GrowthBook Cloud");
   }
 
-  if (IS_MULTI_ORG && !req.superAdmin) {
+  if (IS_MULTI_ORG && !hasSuperAdminPermission(req.superAdmin, "users")) {
     throw new Error(
       "Only super admins delete orphaned users on multi-org deployments",
     );
@@ -2631,6 +2676,14 @@ export async function deleteOrphanedUser(
     return res.status(400).json({
       status: 400,
       message: "Cannot find user with that id",
+    });
+  }
+
+  // A less privileged admin must not be able to remove a super admin
+  if (!holdsAllSuperAdminPermissions(req.superAdmin, user.superAdmin)) {
+    return res.status(403).json({
+      status: 403,
+      message: "You cannot delete a user with more super admin access than you",
     });
   }
 

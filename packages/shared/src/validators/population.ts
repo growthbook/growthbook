@@ -2,7 +2,7 @@ import { z } from "zod";
 import { MAX_POPULATION_STEPS } from "shared/populations";
 import { apiBaseSchema, baseSchema } from "./base-model";
 import { namedSchema } from "./openapi-helpers";
-import { rowFilterValidator, windowSettingsValidator } from "./fact-table";
+import { rowFilterValidator } from "./fact-table";
 import {
   ownerEmailField,
   ownerField,
@@ -26,7 +26,7 @@ export const populationStepValidator = z.strictObject({
     .string()
     .optional()
     .describe(
-      'Conditions on each unit\'s total within the window, such as ">=3" or ">=3,<10". Requires aggregateFilterColumn',
+      'Conditions on each unit\'s total within the queried date range, such as ">=3" or ">=3,<10". Requires aggregateFilterColumn',
     ),
   aggregateFilterColumn: z
     .string()
@@ -34,7 +34,6 @@ export const populationStepValidator = z.strictObject({
     .describe(
       'Numeric column to total, or "$$count" to count rows. Requires aggregateFilter',
     ),
-  windowSettings: windowSettingsValidator,
 });
 
 export const populationValidator = baseSchema
@@ -74,11 +73,6 @@ export type ApiPopulation = z.infer<typeof apiPopulationValidator>;
 
 const apiPopulationStepInput = populationStepValidator.extend({
   rowFilters: z.array(rowFilterValidator).optional(),
-  windowSettings: windowSettingsValidator
-    .optional()
-    .describe(
-      "Defaults to no window. Conversion windows are only allowed on steps after the first",
-    ),
 });
 
 export const apiCreatePopulationBody = z

@@ -34,7 +34,8 @@ const metricValueValidator = baseValueValidator.extend({
 // run in place of a saved one. Kept out of the public validators so the REST
 // API, OpenAPI spec, and AI agent never accept or document user-authored drafts.
 const internalMetricValueValidator = metricValueValidator.extend({
-  draftMetric: draftExplorationMetricValidator.optional(),
+  // Stripped, not strict: a stale page may still send a retired field.
+  draftMetric: draftExplorationMetricValidator.strip().optional(),
 });
 export type MetricValue = z.infer<typeof internalMetricValueValidator>;
 
@@ -220,8 +221,7 @@ const journeyDatasetValidator = z
   .strict();
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
-// Populations: one single-step population definition per value. Step windows
-// aren't supported, so they're not part of the value.
+// Populations: one single-step population definition per value.
 const populationValueValidator = baseValueValidator.extend({
   type: z.literal("population"),
   unit: z.string().nullable(),

@@ -6,6 +6,7 @@ import {
   UrlTargetType,
   VariationRange,
 } from "./types/growthbook";
+import { TestedObj } from "./types/mongrule";
 
 const polyfills: Polyfills = {
   fetch: globalThis.fetch ? globalThis.fetch.bind(globalThis) : undefined,
@@ -309,6 +310,22 @@ export function hasOwn(obj: object, key: string): boolean {
   return Object.prototype.hasOwnProperty.call(obj, key);
 }
 
+// Return value at dot-separated path of an object
+export function getPath(obj: TestedObj, path: string) {
+  const parts = path.split(".");
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let current: any = obj;
+  for (let i = 0; i < parts.length; i++) {
+    // Own keys only, so a missing `constructor` isn't the inherited one
+    if (current && typeof current === "object" && hasOwn(current, parts[i])) {
+      current = current[parts[i]];
+    } else {
+      return null;
+    }
+  }
+  return current;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function toString(input: any): string {
   if (typeof input === "string") return input;
@@ -405,6 +422,21 @@ export function getAutoExperimentChangeType(
   }
 
   return "unknown";
+}
+
+// Use the browser's crypto.randomUUID if available to generate a UUID.
+export function genUUID(crypto?: Crypto) {
+  if (crypto && crypto.randomUUID) return crypto.randomUUID();
+  return ("" + 1e7 + -1e3 + -4e3 + -8e3 + -1e11).replace(/[018]/g, (c) => {
+    const n =
+      crypto && crypto.getRandomValues
+        ? crypto.getRandomValues(new Uint8Array(1))[0]
+        : Math.floor(Math.random() * 256);
+    return (
+      (c as unknown as number) ^
+      (n & (15 >> ((c as unknown as number) / 4)))
+    ).toString(16);
+  });
 }
 
 // Guarantee the promise always resolves within {timeout} ms

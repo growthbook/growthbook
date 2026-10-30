@@ -1,6 +1,8 @@
+import cronstrue from "cronstrue";
 import React, { useState } from "react";
 import { useFormContext } from "react-hook-form";
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
+import { useSettingsForm } from "@/components/GeneralSettings/SettingsFormProvider";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
 import { useUser } from "@/services/UserContext";
@@ -11,21 +13,24 @@ import { AttributionModelTooltip } from "@/components/Experiment/AttributionMode
 import ExperimentCheckListModal from "@/components/Settings/ExperimentCheckListModal";
 import RadioGroup from "@/ui/RadioGroup";
 import { GBInfo } from "@/components/Icons";
-import Frame from "@/ui/Frame";
 import HelperText from "@/ui/HelperText";
-import StatsEngineSettings from "./StatsEngineSettings";
+import Text from "@/ui/Text";
+import {
+  SettingsField,
+  SettingsGroup,
+  UnsavedMark,
+} from "@/components/GeneralSettings/SettingsGroup";
 import StickyBucketingSettings from "./StickyBucketingSettings";
 import DecisionFrameworkSettings from "./DecisionFrameworkSettings";
 
-export default function ExperimentSettings({
-  cronString,
-  updateCronString,
-}: {
-  cronString: string;
-  updateCronString: (value: string) => void;
-}) {
+export default function ExperimentSettings() {
   const { hasCommercialFeature } = useUser();
   const form = useFormContext();
+  const { defaultFor } = useSettingsForm();
+  const cron = form.watch("updateSchedule.cron") || "";
+  const cronString = cron
+    ? `${cronstrue.toString(cron, { throwExceptionOnParseError: false, verbose: true })} (UTC time)`
+    : "";
 
   const queryParams = new URLSearchParams(window.location.search);
 
@@ -48,486 +53,470 @@ export default function ExperimentSettings({
 
   return (
     <>
-      <Frame>
-        <Flex gap="4">
-          <Box width="220px" flexShrink="0" id="experiment-settings">
-            <Heading size="4" as="h4">
-              Experiment Settings
-            </Heading>
-          </Box>
+      <SettingsGroup
+        id="exp-launch"
+        title="Launch Requirements"
+        description="What experimenters must do before an experiment can launch."
+        keywords="pre-launch checklist template tracking key regex naming duplicate"
+      >
+        <SettingsField
+          label={
+            <PremiumTooltip
+              commercialFeature="custom-launch-checklist"
+              premiumText="Custom pre-launch checklists are available to Enterprise customers"
+            >
+              Pre-launch checklist
+            </PremiumTooltip>
+          }
+          help="Steps that must be completed before an experiment can launch."
+        >
+          <Button
+            variant="soft"
+            disabled={!hasCommercialFeature("custom-launch-checklist")}
+            onClick={async () => {
+              setEditChecklistOpen(true);
+            }}
+          >
+            Edit checklist
+          </Button>
+        </SettingsField>
 
-          <Flex align="start" direction="column" flexGrow="1" pt="6">
-            {/* Custom checklists */}
-            <Box mb="6">
-              <PremiumTooltip
-                commercialFeature="custom-launch-checklist"
-                premiumText="Custom pre-launch checklists are available to Enterprise customers"
-              >
-                <Text size="3" className="font-weight-semibold">
-                  Experiment pre-launch checklist
+        <UnsavedMark name="requireExperimentTemplates">
+          <Checkbox
+            id="toggle-requireExperimentTemplates"
+            label="Require experiment templates"
+            description="New experiments must start from a template."
+            disabled={!hasCommercialFeature("templates")}
+            value={
+              hasCommercialFeature("templates") &&
+              form.watch("requireExperimentTemplates")
+            }
+            setValue={(v) => form.setValue("requireExperimentTemplates", v)}
+          />
+        </UnsavedMark>
+
+        <UnsavedMark name="requireUniqueExperimentTrackingKeys">
+          <Checkbox
+            id="toggle-requireUniqueExperimentTrackingKeys"
+            label="Require unique experiment keys"
+            description="Block tracking keys that are already used by another experiment."
+            value={form.watch("requireUniqueExperimentTrackingKeys")}
+            setValue={(v) =>
+              form.setValue("requireUniqueExperimentTrackingKeys", v)
+            }
+          />
+        </UnsavedMark>
+
+        <SettingsField
+          name="experimentKeyRegexValidator"
+          htmlFor="experimentKeyRegexValidator"
+          label="Experiment key format (regex)"
+          help="Tracking keys set in the app or API must match this pattern. Holdout keys and keys discovered in a Data Source are exempt."
+        >
+          <Field
+            id="experimentKeyRegexValidator"
+            containerClassName="mb-0"
+            {...form.register("experimentKeyRegexValidator")}
+            placeholder="^exp-\d{8}-.+$"
+          />
+        </SettingsField>
+
+        <SettingsField
+          name="experimentKeyExample"
+          htmlFor="experimentKeyExample"
+          label={
+            <>
+              Experiment key example
+              {requireKeyExample && (
+                <Text color="text-high" ml="1">
+                  *
                 </Text>
-              </PremiumTooltip>
-              <p className="pt-2">
-                Configure required steps that need to be completed before an
-                experiment can be launched.
-              </p>
-              <Button
-                variant="soft"
-                disabled={!hasCommercialFeature("custom-launch-checklist")}
-                onClick={async () => {
-                  setEditChecklistOpen(true);
-                }}
-              >
-                Edit checklist
-              </Button>
-            </Box>
+              )}
+            </>
+          }
+          help="Shown when creating an experiment. Required when a key format is set, and must match it."
+        >
+          <Field
+            id="experimentKeyExample"
+            containerClassName="mb-0"
+            required={requireKeyExample}
+            {...form.register("experimentKeyExample")}
+            placeholder="exp-20260101-checkout-cta"
+          />
+        </SettingsField>
+      </SettingsGroup>
 
-            {/* Require experiment templates */}
-            <Box mb="6">
-              <Flex align="start" gap="3">
-                <Box>
-                  <Checkbox
-                    disabled={!hasCommercialFeature("templates")}
-                    value={
-                      hasCommercialFeature("templates") &&
-                      form.watch("requireExperimentTemplates")
-                    }
-                    setValue={(v) =>
-                      form.setValue("requireExperimentTemplates", v)
-                    }
-                    id="toggle-requireExperimentTemplates"
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column">
-                  <Text size="3" className="font-weight-semibold">
-                    <label htmlFor="toggle-requireExperimentTemplates">
-                      Require Experiment Templates
-                    </label>
-                  </Text>
-                  <Text>
-                    Require users to select a template when creating a new
-                    experiment.
-                  </Text>
-                </Flex>
-              </Flex>
-            </Box>
-
-            {/* Require unique experiment keys */}
-            <Box mb="6">
-              <Flex align="start" gap="3">
-                <Box>
-                  <Checkbox
-                    value={form.watch("requireUniqueExperimentTrackingKeys")}
-                    setValue={(v) =>
-                      form.setValue("requireUniqueExperimentTrackingKeys", v)
-                    }
-                    id="toggle-requireUniqueExperimentTrackingKeys"
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column">
-                  <Text size="3" className="font-weight-semibold">
-                    <label htmlFor="toggle-requireUniqueExperimentTrackingKeys">
-                      Require unique experiment keys
-                    </label>
-                  </Text>
-                  <Text>
-                    Prevent experimenters from setting an experiment tracking
-                    key to one already in use.
-                  </Text>
-                </Flex>
-              </Flex>
-            </Box>
-
-            {/* Experiment key format */}
-            <Box mb="6" width="100%">
-              <Text
-                as="label"
-                htmlFor="experimentKeyRegexValidator"
-                size="3"
-                className="font-weight-semibold"
-              >
-                Experiment key regex validator
-              </Text>
-              <Text as="p" mb="2" size="2">
-                When set, experimenters must enter a tracking key matching this
-                regex, in the app and via the API. Keys set automatically, like
-                holdouts, and keys discovered in a Data Source are exempt.
-              </Text>
-              <Field
-                id="experimentKeyRegexValidator"
-                {...form.register("experimentKeyRegexValidator")}
-                placeholder="^exp-\d{8}-.+$"
-              />
-            </Box>
-            <Box mb="6" width="100%">
-              <Text
-                as="label"
-                htmlFor="experimentKeyExample"
-                size="3"
-                className="font-weight-semibold"
-              >
-                Experiment key example
-                {requireKeyExample && (
-                  <Text color="red" ml="1">
-                    *
-                  </Text>
-                )}
-              </Text>
-              <Text as="p" mb="2" size="2">
-                Shown when creating a new experiment. Required when a regex
-                validator is set, and must match it.
-              </Text>
-              <Field
-                id="experimentKeyExample"
-                required={requireKeyExample}
-                {...form.register("experimentKeyExample")}
-                placeholder="exp-20260101-checkout-cta"
-              />
-            </Box>
-
-            {/* import length */}
-            <Box mb="6">
-              <Flex mb="2">
-                <label>
-                  <Text size="3" className="font-weight-semibold">
-                    Minimum length for imported experiments
-                  </Text>
-                </label>
-              </Flex>
-              <Box width="150px">
-                <Field
-                  size="legacy"
-                  type="number"
-                  append="days"
-                  step="1"
-                  min="0"
-                  max="31"
-                  disabled={hasFileConfig()}
-                  {...form.register("pastExperimentsMinLength", {
-                    valueAsNumber: true,
-                    min: 0,
-                    max: 31,
-                  })}
-                />
-              </Box>
-              <HelperText status="info" size="sm" mt="1">
-                When importing past experiments from a Data Source, GrowthBook
-                skips any that ran for fewer than this many days.
-              </HelperText>
-            </Box>
-
-            {/* Pre-computed dimension breakdowns */}
-            <Box mb="6">
-              <Flex align="start" justify="start" gap="3">
-                <Box>
-                  <Checkbox
-                    disabled={!hasCommercialFeature("precomputed-dimensions")}
-                    value={
-                      hasCommercialFeature("precomputed-dimensions") &&
-                      !form.watch("disablePrecomputedDimensions")
-                    }
-                    setValue={(v) =>
-                      form.setValue("disablePrecomputedDimensions", !v)
-                    }
-                    id="toggle-precomputed-dimensions"
-                    mt="1"
-                  />
-                </Box>
-                <Flex direction="column" justify="start">
-                  <Box>
-                    <label
-                      htmlFor="toggle-precomputed-dimensions"
-                      className="mb-2"
-                    >
-                      <PremiumTooltip
-                        commercialFeature="precomputed-dimensions"
-                        body={
-                          <>
-                            <p>
-                              If your exposure queries have dimension columns,
-                              this will pre-compute the breakdowns for those
-                              dimensions for faster slicing-and-dicing in
-                              experiments.
-                            </p>
-                            <p>
-                              This setting will also enable post-stratification,
-                              a forthcoming variance reduction technique.
-                            </p>
-                          </>
-                        }
-                      >
-                        <Text size="3" className="font-weight-semibold">
-                          Pre-computed dimension breakdowns
-                        </Text>{" "}
-                        <GBInfo />
-                      </PremiumTooltip>
-                    </label>
-                  </Box>
-                  <Box>
-                    <Text>
-                      Pre-compute dimension breakdowns using dimension columns
-                      in your exposure queries (does not pre-compute dimension
-                      breakdowns for standalone unit dimensions). This enables
-                      faster dimension slicing-and-dicing without additional
-                      queries or joins at the cost of more aggregation steps in
-                      the main analysis queries. Navigate to your Data Source
-                      page to configure the dimension slices.
+      <SettingsGroup
+        id="exp-results"
+        title="Results & Refresh"
+        description="How often results update and how they're computed."
+        keywords="auto-update refresh schedule cron data cutoff lag conversion window attribution dimensions slices import past experiments"
+      >
+        <SettingsField
+          name={[
+            "updateSchedule.type",
+            "updateSchedule.hours",
+            "updateSchedule.cron",
+          ]}
+          label="Auto-update frequency"
+        >
+          <RadioGroup
+            disabled={hasFileConfig()}
+            options={[
+              {
+                label: "Refresh results after a specified duration",
+                value: "stale",
+                description: (
+                  <>
+                    <Text as="p" mb="2">
+                      Results refresh once they reach this age.
                     </Text>
-                  </Box>
-                </Flex>
-              </Flex>
-            </Box>
-
-            {/* Conversion window override */}
-            <Box mb="4" width="100%">
-              <Box className="appbox p-3">
-                <Box>
-                  <Flex>
-                    <AttributionModelTooltip>
-                      <Flex gap="2" align="center" mb="4" justify="start">
-                        <Text size="3" className="font-weight-semibold">
-                          Default conversion window override
-                        </Text>{" "}
-                        <GBInfo />
-                      </Flex>
-                    </AttributionModelTooltip>
-                  </Flex>
-                  <RadioGroup
-                    options={[
-                      {
-                        label: "Respect conversion windows",
-                        value: "firstExposure",
-                        description:
-                          "For metrics with conversion windows, build a single conversion window off of each user's first exposure.",
-                      },
-                      {
-                        label: "Ignore conversion windows",
-                        value: "experimentDuration",
-                        description:
-                          "Count all metric values from user's first exposure to the end of the experiment.",
-                      },
-                    ]}
-                    value={form.watch("attributionModel")}
-                    gap="2"
-                    descriptionSize="md"
-                    setValue={(v) => {
-                      form.setValue("attributionModel", v);
-                    }}
-                  />
-                </Box>
-              </Box>
-            </Box>
-
-            {/* Experiment Auto-Update Frequency */}
-            <Box mb="4" width="100%">
-              <Box className="appbox p-3">
-                <Heading size="3" className="font-weight-semibold" mb="4">
-                  Experiment Auto-Update Frequency
-                </Heading>
-                <RadioGroup
-                  disabled={hasFileConfig()}
-                  options={[
-                    {
-                      label: "Refresh results after a specified duration",
-                      value: "stale",
-                      description: (
-                        <Field
-                          size="legacy"
-                          label="Refresh when"
-                          append="hours old"
-                          type="number"
-                          style={{ width: "180px" }}
-                          step={1}
-                          min={1}
-                          max={168}
-                          disabled={
-                            hasFileConfig() ||
-                            form.watch("updateSchedule.type") !== "stale"
-                          }
-                          {...form.register("updateSchedule.hours")}
-                        />
-                      ),
-                    },
-                    {
-                      label: "Cron Schedule",
-                      value: "cron",
-                      description: (
-                        <>
-                          <Text mb="2" as="p">
-                            Enter cron string to specify frequency. Minimum once
-                            an hour.
-                          </Text>
-                          <Field
-                            size="legacy"
-                            disabled={
-                              hasFileConfig() ||
-                              form.watch("updateSchedule.type") !== "cron"
-                            }
-                            {...form.register("updateSchedule.cron")}
-                            placeholder="0 */6 * * *"
-                            onFocus={(e) => {
-                              updateCronString(e.target.value);
-                            }}
-                            onBlur={(e) => {
-                              updateCronString(e.target.value);
-                            }}
-                            helpText={
-                              <span className="ml-2">{cronString}</span>
-                            }
-                          />
-                        </>
-                      ),
-                    },
-                    {
-                      label: "Never",
-                      value: "never",
-                      description:
-                        "Results will not refresh automatically, but can be updated manually",
-                    },
-                  ]}
-                  gap="2"
-                  descriptionSize="md"
-                  value={form.watch("updateSchedule.type")}
-                  setValue={(v) => {
-                    form.setValue("updateSchedule.type", v);
-                  }}
-                />
-              </Box>
-            </Box>
-
-            {/* Sticky Bucketing */}
-            <Box mb="4" width="100%">
-              <Box className="appbox p-3">
-                <StickyBucketingSettings />
-              </Box>
-            </Box>
-
-            {/* Experiment Health Settings */}
-            <Box mb="4" width="100%">
-              <Box className="appbox p-3">
-                <Heading size="3" className="font-weight-semibold" mb="4">
-                  Experiment Health Settings
-                </Heading>
-
-                <Flex align="start" gap="3" mb="4">
-                  <Checkbox
-                    value={form.watch("runHealthTrafficQuery")}
-                    setValue={(v) => form.setValue("runHealthTrafficQuery", v)}
-                    id="toggle-factoptimization"
-                  />
-                  <Box>
-                    <label
-                      htmlFor="toggle-runHealthTrafficQuery"
-                      className="font-weight-semibold mb-3"
-                    >
-                      Run traffic query by default
-                    </label>
-                  </Box>
-                </Flex>
-
-                <Box mb="4">
-                  <Text className="font-weight-semibold">
-                    SRM p-value threshold
-                  </Text>
-                  <Box
-                    mt="1"
-                    className="form-inline flex-column align-items-start"
-                  >
                     <Field
-                      size="legacy"
+                      size="md"
+                      label="Refresh when"
+                      append="hours old"
                       type="number"
-                      step="0.001"
-                      style={{
-                        borderColor: srmHighlightColor,
-                        backgroundColor: srmHighlightColor
-                          ? srmHighlightColor + "15"
-                          : "",
-                      }}
-                      max="0.1"
-                      min="0.00001"
-                      containerClassName="mb-3"
-                      append=""
-                      disabled={hasFileConfig()}
-                      helpText={
-                        <>
-                          <span className="ml-2">Default is 0.001.</span>
-                          <div
-                            className="ml-2"
-                            style={{
-                              color: srmHighlightColor,
-                              flexBasis: "100%",
-                            }}
-                          >
-                            {srmWarningMsg}
-                          </div>
-                        </>
+                      style={{ width: "180px" }}
+                      step={1}
+                      min={1}
+                      max={168}
+                      disabled={
+                        hasFileConfig() ||
+                        form.watch("updateSchedule.type") !== "stale"
                       }
-                      {...form.register("srmThreshold", {
-                        valueAsNumber: true,
-                        min: 0,
-                        max: 1,
-                      })}
+                      {...form.register("updateSchedule.hours")}
                     />
-                  </Box>
-                </Box>
-                <Box>
-                  <Text className="font-weight-semibold" size="2">
-                    <label>Multiple exposures warning threshold</label>
-                  </Text>
-                  <Flex>
+                  </>
+                ),
+              },
+              {
+                label: "Cron schedule",
+                value: "cron",
+                description: (
+                  <>
+                    <Text as="p" mb="2">
+                      Enter a cron string to set the frequency. Minimum once an
+                      hour.
+                    </Text>
                     <Field
-                      size="legacy"
-                      type="number"
-                      step="1"
-                      min="0"
-                      max="100"
-                      containerClassName="mt-1 mb-1"
-                      append="%"
-                      style={{
-                        width: "62px",
-                      }}
-                      disabled={hasFileConfig()}
-                      {...form.register("multipleExposureMinPercent", {
-                        valueAsNumber: true,
-                        min: 0,
-                        max: 100,
-                      })}
+                      size="md"
+                      disabled={
+                        hasFileConfig() ||
+                        form.watch("updateSchedule.type") !== "cron"
+                      }
+                      {...form.register("updateSchedule.cron")}
+                      placeholder="0 */6 * * *"
+                      helpText={<span className="ml-2">{cronString}</span>}
                     />
-                  </Flex>
-                  <HelperText status="info" size="sm">
-                    Warn when at least this percent of experiment users are in
-                    multiple variations.
-                  </HelperText>
-                </Box>
-              </Box>
-            </Box>
+                  </>
+                ),
+              },
+              {
+                label: "Never",
+                value: "never",
+                description:
+                  "Results won't refresh automatically, but can be updated manually.",
+              },
+            ]}
+            gap="2"
+            descriptionSize="md"
+            value={form.watch("updateSchedule.type")}
+            setValue={(v) => {
+              form.setValue("updateSchedule.type", v);
+              if (
+                v !== "cron" &&
+                form.watch("updateSchedule.analysisEndDateMode") === "fixedTime"
+              ) {
+                form.setValue("updateSchedule.analysisEndDateMode", "runTime");
+              }
+            }}
+          />
+        </SettingsField>
 
-            {/* Decision Framework Settings */}
-            <Box mb="4" width="100%">
-              <DecisionFrameworkSettings />
-            </Box>
-          </Flex>
-        </Flex>
-      </Frame>
+        {form.watch("updateSchedule.type") !== "never" && (
+          <SettingsField
+            name={[
+              "updateSchedule.analysisEndDateMode",
+              "updateSchedule.analysisEndDateLagHours",
+              "updateSchedule.analysisEndDateTime",
+            ]}
+            label="Data cutoff for scheduled updates"
+            help="If your data takes time to land in your Data Source, use these options so scheduled updates only include complete data. Manual updates always include all data."
+          >
+            <RadioGroup
+              disabled={hasFileConfig()}
+              options={[
+                {
+                  label: "When the update runs",
+                  value: "runTime",
+                },
+                {
+                  label: "Hours before the update runs",
+                  value: "lag",
+                  description: (
+                    <Field
+                      size="md"
+                      append="hours"
+                      type="number"
+                      style={{ width: "180px" }}
+                      step={1}
+                      min={1}
+                      max={168}
+                      disabled={
+                        hasFileConfig() ||
+                        form.watch("updateSchedule.analysisEndDateMode") !==
+                          "lag"
+                      }
+                      {...form.register(
+                        "updateSchedule.analysisEndDateLagHours",
+                        { valueAsNumber: true },
+                      )}
+                    />
+                  ),
+                },
+                {
+                  label: "Most recent time of day",
+                  value: "fixedTime",
+                  disabled: form.watch("updateSchedule.type") !== "cron",
+                  description: (
+                    <>
+                      <Text as="p" mb="2">
+                        Requires a cron schedule.
+                      </Text>
+                      <Field
+                        size="md"
+                        append="UTC"
+                        type="time"
+                        style={{ width: "180px" }}
+                        disabled={
+                          hasFileConfig() ||
+                          form.watch("updateSchedule.analysisEndDateMode") !==
+                            "fixedTime"
+                        }
+                        {...form.register("updateSchedule.analysisEndDateTime")}
+                      />
+                    </>
+                  ),
+                },
+              ]}
+              gap="2"
+              descriptionSize="md"
+              value={
+                form.watch("updateSchedule.analysisEndDateMode") ?? "runTime"
+              }
+              setValue={(v) => {
+                form.setValue("updateSchedule.analysisEndDateMode", v);
+                if (
+                  v === "fixedTime" &&
+                  !form.watch("updateSchedule.analysisEndDateTime")
+                ) {
+                  form.setValue("updateSchedule.analysisEndDateTime", "00:00");
+                }
+              }}
+            />
+          </SettingsField>
+        )}
 
-      <Frame>
-        <Flex gap="4">
-          <Box width="220px" flexShrink="0">
-            <Heading size="4" as="h4">
-              Experiment Analysis
-            </Heading>
+        <SettingsField
+          name="attributionModel"
+          label={
+            <AttributionModelTooltip>
+              Conversion windows <GBInfo />
+            </AttributionModelTooltip>
+          }
+          help="Default for metrics that define a conversion window."
+        >
+          <RadioGroup
+            options={[
+              {
+                label: "Respect conversion windows",
+                value: "firstExposure",
+                description:
+                  "Count each user's metric values within the window after their first exposure.",
+              },
+              {
+                label: "Ignore conversion windows",
+                value: "experimentDuration",
+                description:
+                  "Count all metric values from first exposure until the experiment ends.",
+              },
+            ]}
+            value={form.watch("attributionModel")}
+            gap="2"
+            descriptionSize="md"
+            setValue={(v) => {
+              form.setValue("attributionModel", v);
+            }}
+          />
+        </SettingsField>
+
+        <UnsavedMark name="disablePrecomputedDimensions">
+          <Checkbox
+            id="toggle-precomputed-dimensions"
+            label={
+              <PremiumTooltip
+                commercialFeature="precomputed-dimensions"
+                body={
+                  <>
+                    <p>
+                      If your exposure queries have dimension columns, this will
+                      pre-compute the breakdowns for those dimensions for faster
+                      slicing-and-dicing in experiments.
+                    </p>
+                    <p>
+                      This setting will also enable post-stratification, a
+                      forthcoming variance reduction technique.
+                    </p>
+                  </>
+                }
+              >
+                Pre-compute dimension breakdowns <GBInfo />
+              </PremiumTooltip>
+            }
+            description="Compute dimension slices in the main analysis query for faster breakdowns. Costs more aggregation in each query. Doesn't apply to standalone unit dimensions."
+            disabled={!hasCommercialFeature("precomputed-dimensions")}
+            value={
+              hasCommercialFeature("precomputed-dimensions") &&
+              !form.watch("disablePrecomputedDimensions")
+            }
+            setValue={(v) => form.setValue("disablePrecomputedDimensions", !v)}
+          />
+        </UnsavedMark>
+
+        <SettingsField
+          name="pastExperimentsMinLength"
+          htmlFor="settings-pastExperimentsMinLength"
+          label="Minimum length for imported experiments"
+          help="Past experiments from a Data Source that ran for fewer days are skipped on import."
+        >
+          <Box width="150px">
+            <Field
+              id="settings-pastExperimentsMinLength"
+              size="md"
+              type="number"
+              append="days"
+              step="1"
+              min="0"
+              max="31"
+              containerClassName="mb-0"
+              disabled={hasFileConfig()}
+              placeholder={defaultFor("pastExperimentsMinLength")}
+              {...form.register("pastExperimentsMinLength", {
+                valueAsNumber: true,
+                min: 0,
+                max: 31,
+              })}
+            />
           </Box>
+        </SettingsField>
+      </SettingsGroup>
 
-          <Flex align="start" direction="column" flexGrow="1" pt="6">
-            <StatsEngineSettings />
-          </Flex>
-        </Flex>
-        {editChecklistOpen ? (
-          <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
-        ) : null}
-      </Frame>
+      <SettingsGroup
+        id="exp-sticky"
+        title="Sticky Bucketing"
+        description="Keep users in the variation they first saw."
+        keywords="sticky bucketing consistent assignment fallback attributes"
+      >
+        <StickyBucketingSettings />
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="exp-health"
+        title="Health Checks"
+        description="Checks that flag problems with traffic and assignment."
+        keywords="health traffic query srm sample ratio mismatch multiple exposures"
+      >
+        <UnsavedMark name="runHealthTrafficQuery">
+          <Checkbox
+            id="toggle-runHealthTrafficQuery"
+            label="Run traffic query by default"
+            description="Check traffic splits and health on every new analysis."
+            value={form.watch("runHealthTrafficQuery")}
+            setValue={(v) => form.setValue("runHealthTrafficQuery", v)}
+          />
+        </UnsavedMark>
+
+        <SettingsField
+          name="srmThreshold"
+          htmlFor="settings-srmThreshold"
+          label="SRM p-value threshold"
+          help="Flag sample ratio mismatch below this p-value. Default is 0.001."
+        >
+          <Box width="150px">
+            <Field
+              id="settings-srmThreshold"
+              size="md"
+              type="number"
+              step="0.001"
+              style={{
+                borderColor: srmHighlightColor,
+                backgroundColor: srmHighlightColor
+                  ? srmHighlightColor + "15"
+                  : "",
+              }}
+              max="0.1"
+              min="0.00001"
+              containerClassName="mb-0"
+              disabled={hasFileConfig()}
+              placeholder={defaultFor("srmThreshold")}
+              {...form.register("srmThreshold", {
+                valueAsNumber: true,
+                min: 0,
+                max: 1,
+              })}
+            />
+          </Box>
+          {srmWarningMsg && (
+            <HelperText status="warning" size="sm" mt="1">
+              {srmWarningMsg}
+            </HelperText>
+          )}
+        </SettingsField>
+
+        <SettingsField
+          name="multipleExposureMinPercent"
+          htmlFor="settings-multipleExposureMinPercent"
+          label="Multiple exposures warning"
+          help="Warn when at least this share of users saw more than one variation."
+        >
+          <Box width="150px">
+            <Field
+              id="settings-multipleExposureMinPercent"
+              size="md"
+              type="number"
+              step="1"
+              min="0"
+              max="100"
+              append="%"
+              containerClassName="mb-0"
+              disabled={hasFileConfig()}
+              placeholder={defaultFor("multipleExposureMinPercent")}
+              {...form.register("multipleExposureMinPercent", {
+                valueAsNumber: true,
+                min: 0,
+                max: 100,
+              })}
+            />
+          </Box>
+        </SettingsField>
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="exp-decision"
+        title={
+          <PremiumTooltip commercialFeature="decision-framework">
+            Experiment Decision Framework
+          </PremiumTooltip>
+        }
+        description="Estimate experiment duration and make shipping recommendations from target minimum detectable effects."
+        keywords="decision framework shipping recommendation mde minimum runtime decision criteria"
+      >
+        <DecisionFrameworkSettings />
+      </SettingsGroup>
+
+      {editChecklistOpen ? (
+        <ExperimentCheckListModal close={() => setEditChecklistOpen(false)} />
+      ) : null}
     </>
   );
 }

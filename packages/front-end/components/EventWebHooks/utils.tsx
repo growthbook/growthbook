@@ -309,18 +309,18 @@ export const WebhookIcon = ({
 export const displayedEvents = (
   events: string[],
   { maxEventsDisplay }: { maxEventsDisplay?: number } = {},
-) =>
-  [
-    ...events
-      .slice(0, maxEventsDisplay)
-      .map((event) => <code key={event}>{event}</code>),
-    ...(maxEventsDisplay && events.length > maxEventsDisplay ? ["..."] : []),
-  ].reduce(
-    (element, text) => (
-      <>
-        {element ? <>{element}, </> : null}
-        {text}
-      </>
-    ),
-    null,
+) => {
+  const shown = events.slice(0, maxEventsDisplay);
+  const more = events.length - shown.length;
+  return (
+    <>
+      {shown.map((event, i) => (
+        <React.Fragment key={event}>
+          {i > 0 && ", "}
+          <code style={{ color: "var(--violet-11)" }}>{event}</code>
+        </React.Fragment>
+      ))}
+      {more > 0 && ` and ${more} more`}
+    </>
   );
+};

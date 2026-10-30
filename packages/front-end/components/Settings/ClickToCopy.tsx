@@ -1,5 +1,6 @@
-import { HiOutlineClipboard, HiOutlineClipboardCheck } from "react-icons/hi";
+import { PiCheck, PiCopy } from "react-icons/pi";
 import clsx from "clsx";
+import { VisuallyHidden } from "@radix-ui/themes";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { SimpleTooltip } from "@/components/SimpleTooltip/SimpleTooltip";
 
@@ -24,7 +25,6 @@ export default function ClickToCopy({
   const iconRight = iconPosition === "right";
   const copyButton = copySupported ? (
     <button
-      className="btn p-0"
       type="button"
       onClick={(e) => {
         e.preventDefault();
@@ -34,18 +34,20 @@ export default function ClickToCopy({
           performCopy(children);
         }
       }}
-      title="Copy to Clipboard"
+      title="Copy to clipboard"
+      aria-label="Copy to clipboard"
       style={{
-        ...(compact ? { lineHeight: 1.1 } : {}),
+        display: "inline-flex",
+        padding: 0,
+        border: 0,
+        background: "none",
+        color: "var(--gray-11)",
+        fontSize: compact ? ".95rem" : "1rem",
+        cursor: "pointer",
         ...(iconRight ? { marginLeft: 6 } : {}),
       }}
     >
-      <span
-        className="text-main"
-        style={{ fontSize: compact ? ".95rem" : "1.1rem" }}
-      >
-        {copySuccess ? <HiOutlineClipboardCheck /> : <HiOutlineClipboard />}
-      </span>
+      {copySuccess ? <PiCheck /> : <PiCopy />}
     </button>
   ) : null;
   return (
@@ -68,8 +70,11 @@ export default function ClickToCopy({
           </code>
         </span>
       ) : null}
-
       {iconRight ? copyButton : null}
+
+      <VisuallyHidden role="status">
+        {copySuccess ? "Copied" : ""}
+      </VisuallyHidden>
       {copySuccess ? (
         <SimpleTooltip position="left">Copied to clipboard!</SimpleTooltip>
       ) : null}

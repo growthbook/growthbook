@@ -47,8 +47,6 @@ import {
   mergeRevision,
   namespacesToMap,
   normalizeTargetingInUpdates,
-  normalizeTargetingProjects,
-  reconcileMergeBaselines,
   computeFeatureHealth,
   FeatureHealthStateEntry,
   rebasedRevisionChanges,
@@ -60,11 +58,7 @@ import {
   statusFromStandingVerdicts,
   getHealthSettings,
 } from "shared/enterprise";
-import {
-  FEATURE_KEY_PATTERN,
-  FEATURE_KEY_PATTERN_ERROR,
-  SAFE_ROLLOUT_TRACKING_KEY_PREFIX,
-} from "shared/constants";
+import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
@@ -117,7 +111,6 @@ import type { GroupMap } from "shared/types/saved-group";
 import { canWriteArchiveIntoDraft } from "back-end/src/revisions/landAuthority";
 import { isArmedWithAuthorizedPublisher } from "back-end/src/revisions/approveAndPublish";
 import {
-  assertCanCreateFeatureInState,
   assertCanPublishFeatureRevision,
   canAdvanceFeatureDraft,
   canDiscardFeatureDraft,
@@ -139,7 +132,6 @@ import {
 } from "back-end/src/services/organizations";
 import {
   addLinkedExperiment,
-  createFeature,
   deleteFeature,
   editFeatureRule,
   getAllFeatures,
@@ -164,13 +156,11 @@ import { generateId } from "back-end/src/util/uuid";
 import { mergeSyncRules } from "back-end/src/util/flattenRules";
 import {
   addIdsToFlatRules,
-  addIdsToRules,
   inheritStoredRolloutSeeds,
   assertFeatureDeletable,
   evaluateAllFeatures,
   evaluateFeature,
   FeatureDefinitionSDKPayload,
-  generateRuleId,
   getFeatureDefinitions,
   getMergeResultPublishEnvs,
   getSavedGroupMap,
@@ -248,7 +238,6 @@ import {
   getOpenDraftRules,
   getRevisionsByStatus,
   markRevisionAsReviewRequested,
-  normalizeRulesInputToV2,
   prevalidateRevisionUpdate,
   ReviewSubmittedType,
   submitReviewAndComments,
@@ -301,6 +290,7 @@ import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRe
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import {
   assertCanPublishPendingFeatureDrafts,
+  assertValidExperimentPhases,
   getChangesToStartExperiment,
 } from "back-end/src/services/experiments";
 import {
@@ -309,6 +299,7 @@ import {
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import {
   formatPendingDraftFailureMessage,
+  linkFeatureToExperiment,
   PendingDraftPublishResult,
   publishPendingFeatureDraftsForExperiment,
 } from "back-end/src/services/experiment-feature";
@@ -322,6 +313,7 @@ import {
 import {
   canDisarmFeatureAutoPublishOnApproval,
   canEnableFeatureAutoPublishOnApproval,
+  assertArmDoesNotLaunchExperiments,
   canPublishFeatureRevision,
   canScheduleFeaturePublish,
   maybeAutoPublishFeatureRevision,
@@ -332,7 +324,6 @@ import {
   shouldValidateCustomFieldsOnUpdate,
   validateCustomFieldsForSection,
 } from "back-end/src/util/custom-fields";
-import { getInitialFeatureJsonSchema } from "back-end/src/util/feature-json-schema";
 import {
   getStartPatchForRule,
   normalizeRampPlanForceValues,
@@ -351,6 +342,11 @@ import {
   validateRampPlanPatches,
 } from "back-end/src/api/features/validations";
 import { assertValidPrerequisiteParents } from "back-end/src/services/prerequisiteParents";
+import {
+  insertNewFeature,
+  NewFeatureInput,
+  prepareNewFeature,
+} from "back-end/src/services/featureCreate";
 import {
   getSavedGroupIdsForFeatureDefinitions,
   loadSavedGroupsWithNested,
@@ -893,206 +889,15 @@ export async function getEvaluatedFeaturesPublic(req: Request, res: Response) {
 }
 
 export async function postFeatures(
-  req: AuthRequest<Partial<FeatureInterface> & { duplicateOf?: string }>,
+  req: AuthRequest<NewFeatureInput>,
   res: Response<
     { status: 200; feature: FeatureInterface },
     EventUserForResponseLocals
   >,
 ) {
   const context = getContextFromReq(req);
-  const { org, userId } = context;
-  const {
-    id,
-    environmentSettings,
-    holdout,
-    customFields,
-    jsonSchema,
-    duplicateOf,
-    ...otherProps
-  } = req.body;
-
-  if (
-    !context.permissions.canCreateFeature(
-      req.body,
-      Array.from(
-        getEnabledEnvironments(
-          req.body as FeatureInterface,
-          getEnvironmentIdsFromOrg(context.org),
-        ),
-      ),
-    )
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  if (typeof id !== "string" || !id) {
-    throw new Error("Must specify feature key");
-  }
-
-  if (org.settings?.featureRegexValidator) {
-    const regex = new RegExp(org.settings.featureRegexValidator);
-    if (!regex.test(id)) {
-      throw new Error(
-        `Feature key must match the regex validator. '${org.settings.featureRegexValidator}' Example: '${org.settings.featureKeyExample}'`,
-      );
-    }
-  }
-
-  if (!environmentSettings) {
-    throw new Error("Feature missing initial environment toggle settings");
-  }
-
-  if (!new RegExp(FEATURE_KEY_PATTERN).test(id)) {
-    throw new Error(FEATURE_KEY_PATTERN_ERROR);
-  }
-
-  if (org.settings?.requireProjectForFeatures && !otherProps.project) {
-    throw new Error("Must specify a project for new features");
-  }
-  // Validate projects - We can remove this validation when FeatureModel is migrated to BaseModel
-  if (otherProps.project) {
-    await context.models.projects.ensureProjectsExist([otherProps.project]);
-  }
-  // Read-gated, so a caller can't link a flag into a Holdout outside their scope.
-  // The linkage write itself deliberately bypasses read scope, so this is the
-  // only place the id is authorized.
-  await assertValidHoldout(
-    holdout?.id ? holdout : null,
-    context,
-    otherProps.project ?? "",
-  );
-
-  await validateCustomFieldsForSection({
-    customFieldValues: customFields,
-    customFieldsModel: context.models.customFields,
-    section: "feature",
-    project: otherProps.project || undefined,
-  });
-
-  const existing = await getFeature(context, id);
-  if (existing) {
-    throw new Error(
-      "This feature key already exists. Feature keys must be unique.",
-    );
-  }
-
-  const initialJsonSchema = getInitialFeatureJsonSchema(jsonSchema);
-
-  const feature: FeatureInterface = {
-    defaultValue: "",
-    valueType: "boolean",
-    owner: userId,
-    description: "",
-    project: "",
-    environmentSettings: {},
-    rules: [],
-    customFields,
-    ...otherProps,
-    dateCreated: new Date(),
-    dateUpdated: new Date(),
-    organization: org.id,
-    id,
-    archived: false,
-    version: 1,
-    holdout: holdout?.id ? holdout : undefined,
-    jsonSchema: initialJsonSchema,
-  };
-  Object.assign(feature, normalizeTargetingProjects(feature));
-
-  const allEnvironments = getEnvironments(org);
-  const environments = filterEnvironmentsByFeature(allEnvironments, feature);
-  const environmentIds = environments.map((e) => e.id);
-
-  // construct environmentSettings, scrub environments if not allowed in project
-  feature.environmentSettings = Object.fromEntries(
-    Object.entries(environmentSettings).filter(([env]) =>
-      environmentIds.includes(env),
-    ),
-  );
-
-  await assertCanCreateFeatureInState({ context, feature, environmentIds });
-  // After the gate so an unreadable id cannot be probed for existence.
-  if (feature.targetingProjects?.length) {
-    await context.models.projects.ensureProjectIdsExist(
-      feature.targetingProjects,
-    );
-  }
-
-  addIdsToRules(feature.environmentSettings, feature.id);
-
-  // Accept v1-shape (env-nested rules) or v2-shape (top-level `rules`) bodies,
-  // but never both — mixing silently concats into feature.rules and can
-  // corrupt rule ids. buildFeatureUpdate strips stray envSettings[env].rules
-  // on write.
-  const inboundEnvRules = Object.fromEntries(
-    Object.entries(feature.environmentSettings ?? {}).map(([env, settings]) => [
-      env,
-      ((settings as unknown as { rules?: FeatureRule[] }).rules ??
-        []) as FeatureRule[],
-    ]),
-  );
-  const hasTopLevelRules = Array.isArray(otherProps.rules)
-    ? otherProps.rules.length > 0
-    : false;
-  const hasPerEnvRules = Object.values(inboundEnvRules).some(
-    (r) => Array.isArray(r) && r.length > 0,
-  );
-  if (hasTopLevelRules && hasPerEnvRules) {
-    throw new Error(
-      "Feature create received both top-level `rules` and `environmentSettings[env].rules`. " +
-        "Use one shape or the other — the v1 per-env shape is for v1 clients; the v2 flat `rules` array is for v2 clients.",
-    );
-  }
-  // v1-shape (per-env) input is normalized through `normalizeRulesInputToV2`
-  // so content-identical rules across envs merge into a single v2 rule with
-  // `environments: [...envs]` (or `allEnvironments: true` when applicable),
-  // matching the read-path JIT migration. The naive shared `naiveFlattenV1Rules`
-  // would split the same rule id across envs, forcing `ensureUniqueRuleIds`
-  // to suffix and breaking v1 round-trip semantics.
-  const flattenedInbound = normalizeRulesInputToV2(inboundEnvRules, {
-    orgEnvs: getEnvironments(org),
-    featureProject: feature.project,
-  });
-  if (flattenedInbound.length > 0) {
-    feature.rules = [...(feature.rules ?? []), ...flattenedInbound];
-  }
-
-  // Inbound v2 rules (e.g. from FeatureFromExperimentModal) often arrive with
-  // `id: ""`; stamp ids so they're addressable by later update/delete ops.
-  addIdsToFlatRules(feature.rules, feature.id);
-  // A duplicate echoes its source's rules; only what the copy changes is
-  // re-checked.
-  const source = duplicateOf ? await getFeature(context, duplicateOf) : null;
-  await assertValidFeatureRules(context, feature.rules ?? [], source?.rules, {
-    copiesRules: true,
-  });
-  validatePrerequisiteConditions(feature.prerequisites ?? []);
-  await assertValidPrerequisiteParents(context, feature, source ?? undefined);
-  assertFeatureValuesValid(context, feature, {
-    defaultValue: feature.defaultValue,
-    rules: feature.rules,
-  });
-
-  await createFeature(context, feature);
-  await context.models.watch.upsertWatch({
-    userId,
-    item: feature.id,
-    type: "features",
-  });
-
-  await req.audit({
-    event: "feature.create",
-    entity: {
-      object: "feature",
-      id: feature.id,
-    },
-    details: auditDetailsCreate(feature),
-  });
-
-  if (holdout && holdout.id) {
-    await context.models.holdout.addFeatureToHoldout(holdout.id, id);
-  }
-
+  const feature = await prepareNewFeature(context, req.body);
+  await insertNewFeature(context, feature, req.audit);
   res.status(200).json({
     status: 200,
     feature,
@@ -1286,6 +1091,7 @@ export async function postFeatureScheduledPublish(
   if (!allowed) {
     context.permissions.throwPermissionError();
   }
+  if (date) await assertArmDoesNotLaunchExperiments(context, feature, revision);
 
   // Committing a schedule on a draft is the no-approval path (fires without a
   // review cycle), so only allow it when the change doesn't require review (or
@@ -1400,6 +1206,9 @@ export async function postFeatureRequestReview(
     !(await canScheduleFeaturePublish(context, feature, revision))
   ) {
     context.permissions.throwPermissionError();
+  }
+  if (enableAutoPublish || scheduledDate !== null) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
   }
 
   await markRevisionAsReviewRequested(
@@ -1999,6 +1808,9 @@ export async function postFeatureToggleAutoPublish(
   if (!mayToggle) {
     context.permissions.throwPermissionError();
   }
+  if (enabled) {
+    await assertArmDoesNotLaunchExperiments(context, feature, revision);
+  }
 
   await setAutoPublishOnApproval(revision, !!enabled, context.userId || null);
 
@@ -2514,6 +2326,12 @@ export async function postFeaturePublish(
   }
 
   for (const { experiment, changes } of experimentsToUpdate) {
+    // Also checked on the write; here so a refused start publishes nothing.
+    assertValidExperimentPhases(
+      changes.phases ?? experiment.phases,
+      experiment.phases,
+      true,
+    );
     await validateExperimentChange({ context, experiment, changes });
   }
 
@@ -3886,32 +3704,12 @@ export async function postFeatureExperimentRefRule(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { environments } = context;
   const { id } = req.params;
   const { rule, autoPublish, draftVersion, forceNewDraft } = req.body;
-
-  if (
-    rule.type !== "experiment-ref" ||
-    !rule.experimentId ||
-    !rule.variations ||
-    !rule.variations.length
-  ) {
-    throw new Error("Invalid experiment rule");
-  }
-
-  if (!environments.length) {
-    throw new Error(
-      "Must have at least one environment configured to use Feature Flags",
-    );
-  }
 
   const feature = await getFeature(context, id);
   if (!feature) {
     throw new Error("Could not find feature");
-  }
-
-  if (!context.permissions.canEditFeatureDrafts(feature)) {
-    context.permissions.throwPermissionError();
   }
 
   const experiment = await getExperimentById(context, rule.experimentId);
@@ -3919,198 +3717,21 @@ export async function postFeatureExperimentRefRule(
     throw new Error("Invalid experiment selected");
   }
 
-  // allEnvironments:true strips any stale environments[]; false passes the
-  // explicit list through. Legacy callers that send neither default to every
-  // applicable org env.
-  let scopedRule: FeatureRule;
-  if (rule.allEnvironments === true) {
-    scopedRule = {
-      ...omit(rule, ["environments"]),
-      id: generateRuleId(),
-      allEnvironments: true,
-    } as FeatureRule;
-  } else if (
-    rule.allEnvironments === false &&
-    Array.isArray(rule.environments)
-  ) {
-    scopedRule = { ...rule, id: generateRuleId() } as FeatureRule;
-  } else {
-    scopedRule = stampRuleForEnvs(
-      { ...rule, id: generateRuleId() } as FeatureRule,
-      environments,
-    );
-  }
-
-  await assertValidRuleWrite(
+  const { version, published } = await linkFeatureToExperiment({
     context,
-    withStagedSchema(
-      feature,
-      await stagedRevision(context, feature, draftVersion),
-    ),
-    scopedRule,
-  );
-  const ruleEnvFootprint = scopedRule.allEnvironments
-    ? environments
-    : (scopedRule.environments ?? []);
-
-  // Landing authority only when this call lands. Staging the rule into a draft
-  // is authoring, already gated above; the draft reaches no one until published.
-  if (
-    autoPublish &&
-    !context.permissions.canPublishFeature(feature, ruleEnvFootprint)
-  ) {
-    context.permissions.throwPermissionError();
-  }
-
-  // Experiment/MAB-served values must satisfy the backing Config's schema +
-  // invariants, the same as a REST publish. No-op unless the feature is
-  // config-backed JSON.
-  await assertConfigBackedFeatureValuesValid(context, feature, {
-    rules: [scopedRule],
-  });
-
-  // autoPublish always starts from live so the merge stays clean.
-  const targetVersion = autoPublish
-    ? feature.version
-    : forceNewDraft
-      ? feature.version
-      : (draftVersion ?? feature.version);
-
-  const revision = await getDraftRevision(context, feature, targetVersion);
-
-  // If posting to a different revision, use the holdout from that revision
-  // to check compatibility
-  const effectiveHoldout = getEffectiveRevisionHoldout(revision, feature);
-
-  await resolveHoldoutExperimentToLink({
-    context,
+    experiment,
     feature,
-    experiment,
-    effectiveHoldout,
+    rule,
+    eventAudit: res.locals.eventAudit,
+    audit: req.audit,
+    autoPublish,
+    draftVersion,
+    forceNewDraft,
   });
-
-  // One-way: any rule-footprint env that's currently off flips on. We never
-  // turn envs off here.
-  const baseEnvEnabled: Record<string, boolean> = {
-    ...Object.fromEntries(
-      environments.map((e) => [
-        e,
-        feature.environmentSettings?.[e]?.enabled ?? false,
-      ]),
-    ),
-    ...(revision.environmentsEnabled ?? {}),
-  };
-  const envToggles: Record<string, boolean> = {};
-  for (const envId of ruleEnvFootprint) {
-    if (!environments.includes(envId)) continue;
-    if (!baseEnvEnabled[envId]) envToggles[envId] = true;
-  }
-
-  const existingRules = cloneDeep(revision.rules ?? []);
-  const nextRules = [...existingRules, scopedRule];
-
-  const combinedChanges: Partial<FeatureRevisionInterface> = {
-    rules: nextRules,
-  };
-  if (Object.keys(envToggles).length > 0) {
-    combinedChanges.environmentsEnabled = {
-      ...(revision.environmentsEnabled ?? {}),
-      ...envToggles,
-    };
-  }
-  // Title fresh drafts only — don't clobber a user's title on an existing draft.
-  const bundlingIntoExistingDraft =
-    !!draftVersion && !forceNewDraft && !autoPublish;
-  if (!bundlingIntoExistingDraft && !revision.title) {
-    combinedChanges.title =
-      experiment.type === "multi-armed-bandit"
-        ? "Publish bandit"
-        : "Publish experiment";
-  }
-
-  const auditSubject = scopedRule.allEnvironments
-    ? "to all environments"
-    : `to ${ruleEnvFootprint.join(", ") || "no environments"}`;
-  const updatedRevision =
-    (await updateRevision(context, feature, revision, combinedChanges, {
-      user: res.locals.eventAudit,
-      action: "add experiment rule",
-      subject: auditSubject,
-      value: JSON.stringify(scopedRule),
-    })) ?? revision;
-  await recordRevisionUpdate(context, feature, updatedRevision, "rule.add", {
-    environments: ruleEnvFootprint,
-  });
-
-  let published = false;
-  if (autoPublish) {
-    await assertCanAutoPublish(context, feature, updatedRevision);
-    const { live, base } = await getLiveAndBaseRevisionsForFeature({
-      context,
-      feature,
-      revision: updatedRevision,
-    });
-    const orgEnvIds = environments;
-    const { live: mergeLive, base: mergeBase } = reconcileMergeBaselines(
-      feature,
-      live,
-      base,
-    );
-    const mergeResult = autoMerge(
-      mergeLive,
-      mergeBase,
-      updatedRevision,
-      orgEnvIds,
-      {},
-    );
-    if (!mergeResult.success) {
-      throw new Error(
-        `Unable to auto-publish: please resolve conflicts on draft #${updatedRevision.version} before publishing.`,
-      );
-    }
-    const updatedFeature = await publishRevision({
-      context,
-      feature,
-      revision: updatedRevision,
-      result: mergeResult.result,
-      comment: `Add experiment rule for "${experiment.name}"`,
-      bypassLockdown: context.permissions.canBypassFlagApprovalChecks(
-        feature,
-        "feature",
-      ),
-    });
-    await req.audit({
-      event: "feature.publish",
-      entity: { object: "feature", id: feature.id },
-      details: auditDetailsUpdate(feature, updatedFeature, {
-        revision: updatedRevision.version,
-        comment: `Add experiment rule for "${experiment.name}"`,
-      }),
-    });
-    published = true;
-  } else {
-    // Queue the draft for auto-publish on `status -> running`.
-    await addPendingFeatureDraftToExperiment(
-      context,
-      rule.experimentId,
-      feature.id,
-      updatedRevision.version,
-    );
-  }
-
-  if (!feature.linkedExperiments?.includes(experiment.id)) {
-    await addLinkedExperiment(feature, experiment.id);
-  }
-  await addLinkedFeatureToExperiment(
-    context,
-    rule.experimentId,
-    feature.id,
-    experiment,
-  );
 
   res.status(200).json({
     status: 200,
-    version: updatedRevision.version,
+    version,
     published,
   });
 }

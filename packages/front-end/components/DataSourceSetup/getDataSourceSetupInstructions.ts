@@ -5,6 +5,7 @@ import {
 } from "shared/types/datasource";
 import type { DataRegion } from "shared/util";
 import { DocSection } from "@/components/docSections";
+import type { EventForwarderDestination } from "./EventForwarderDestinationFields";
 import { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
 
 export type ConnectSetupKind = "custom" | "event_forwarder";
@@ -44,6 +45,12 @@ type StepContext<T extends DataSourceType = DataSourceType> = {
    * pick, since the choice happens after the connection is created.
    */
   eventForwarderRegions: DataRegion[];
+  /**
+   * The dataset/schema/catalog-schema chosen in the Event Destination fields.
+   * Null while it is still unknown, so write-access SQL falls back to the
+   * connection's own defaults rather than guessing.
+   */
+  eventForwarderDestination: EventForwarderDestination | null;
   /** Editing a saved connection. Affects defaults such as Snowflake's auth method. */
   existing: boolean;
   /**
@@ -308,10 +315,21 @@ function networkAccessOrDockerStep(
     : { title: "Allow network access", description: dockerDescription };
 }
 
-const bigquerySteps: StepBuilder<"bigquery"> = (p, { isEventForwarder }) => {
+const bigquerySteps: StepBuilder<"bigquery"> = (
+  p,
+  { isEventForwarder, eventForwarderDestination },
+) => {
   const projectId = field(p, "projectId", "YOUR_PROJECT");
   const sa = `growthbook@${projectId}.iam.gserviceaccount.com`;
   const member = `--member="serviceAccount:${sa}"`;
+  // GrowthBook queries `defaultProject`, which can differ from the service
+  // account's own home project (`projectId`). The write-access dataset must
+  // live there too, or the grant lands in the wrong project.
+  const destinationProjectId = field(p, "defaultProject", projectId);
+  // Falls back to the form's own default only when the destination isn't
+  // known yet; once chosen, the grant must match exactly or the write test fails.
+  const efDataset =
+    eventForwarderDestination?.location?.trim() || "growthbook_events";
 
   const steps: SetupInstructionStep[] = [
     {
@@ -346,10 +364,10 @@ gcloud projects add-iam-policy-binding ${projectId} \\
       title: "Grant write access for Event Forwarder",
       description:
         "Create the dataset in the same region as your event data (BigQuery cannot join across regions), then grant BigQuery Data Editor on it.",
-      code: `CREATE SCHEMA \`${projectId}\`.growthbook_events
+      code: `CREATE SCHEMA \`${destinationProjectId}\`.${efDataset}
   OPTIONS (location = "<region>");
 GRANT \`roles/bigquery.dataEditor\`
-  ON SCHEMA \`${projectId}\`.growthbook_events
+  ON SCHEMA \`${destinationProjectId}\`.${efDataset}
   TO "serviceAccount:${sa}";`,
     });
   }
@@ -367,12 +385,23 @@ const SNOWFLAKE_FALLBACKS = {
 } as const;
 
 const snowflakeSteps: StepBuilder<"snowflake"> = (p, ctx) => {
-  const { isEventForwarder, existing, saved, snowflakeKeyPair } = ctx;
+  const {
+    isEventForwarder,
+    existing,
+    saved,
+    snowflakeKeyPair,
+    eventForwarderDestination,
+  } = ctx;
   const role = field(p, "role", SNOWFLAKE_FALLBACKS.role);
   const user = field(p, "username", "GROWTHBOOK");
   const warehouse = field(p, "warehouse", SNOWFLAKE_FALLBACKS.warehouse);
   const database = field(p, "database", SNOWFLAKE_FALLBACKS.database);
-  const efSchema = field(p, "schema", SNOWFLAKE_FALLBACKS.schema);
+  // The Event Forwarder writes to a destination schema chosen separately from
+  // the connection's own (read) schema — prefer it once known, and otherwise
+  // fall back to the connection schema field the way this used to work.
+  const efSchema =
+    eventForwarderDestination?.location?.trim() ||
+    field(p, "schema", SNOWFLAKE_FALLBACKS.schema);
   // Match SnowflakeForm: connections saved before authMethod existed used
   // a password; new connections default to key-pair.
   const authMethod = p.authMethod ?? (existing ? "password" : "key-pair");
@@ -554,12 +583,16 @@ ALTER USER ${user}
 };
 
 const databricksSteps: StepBuilder<"databricks"> = (p, ctx) => {
-  const { isEventForwarder } = ctx;
+  const { isEventForwarder, eventForwarderDestination } = ctx;
   const catalog = field(p, "catalog", "main");
   // Match DatabricksForm: connections saved before authType existed are PAT.
   const authType = p.authType ?? "pat";
   const usingOauth = isEventForwarder || authType === "oauth-m2m";
   const principal = "`<service-principal-application-id>`";
+  // Falls back to the form's own default only while the destination is still
+  // unknown; once chosen, the grant must match it or the write test fails.
+  const efSchema =
+    eventForwarderDestination?.location?.trim() || "growthbook_events";
 
   let grantCode = `GRANT USE CATALOG ON CATALOG ${catalog}
   TO ${principal};
@@ -570,7 +603,7 @@ GRANT USE SCHEMA, SELECT ON SCHEMA ${catalog}.<schema>
     grantCode += `
 
 GRANT USE SCHEMA, CREATE TABLE
-  ON SCHEMA ${catalog}.growthbook
+  ON SCHEMA ${catalog}.${efSchema}
   TO ${principal};`;
   }
 
@@ -595,7 +628,7 @@ GRANT USE SCHEMA, CREATE TABLE
     {
       title: "Grant access",
       description: isEventForwarder
-        ? "Replace the application ID and schema. Unity Catalog only. Use a schema such as growthbook for Event Forwarder tables."
+        ? "Replace the application ID and the schema in the read grant. Unity Catalog only. The Event Forwarder grant already uses your chosen Event Destination schema."
         : "Replace the application ID and schema.",
       code: grantCode,
     },
@@ -941,6 +974,8 @@ export type SetupInstructionOptions = {
   cloud?: boolean;
   /** Defaults to every region, which is the right answer when none is chosen yet. */
   eventForwarderRegions?: DataRegion[];
+  /** The dataset/schema/catalog-schema chosen in the Event Destination fields. */
+  eventForwarderDestination?: EventForwarderDestination | null;
   snowflakeKeyPair?: SnowflakeKeyPair | null;
 };
 
@@ -953,6 +988,7 @@ export function getDataSourceSetupInstructions(
     saved = null,
     cloud = false,
     eventForwarderRegions = ["us-east-1", "eu-west-1"],
+    eventForwarderDestination = null,
     snowflakeKeyPair = null,
   }: SetupInstructionOptions = {},
 ): SetupInstructionStep[] {
@@ -963,6 +999,7 @@ export function getDataSourceSetupInstructions(
   return build(params ?? {}, {
     isEventForwarder: setup === "event_forwarder",
     eventForwarderRegions,
+    eventForwarderDestination,
     existing,
     saved: existing ? saved : null,
     cloud,

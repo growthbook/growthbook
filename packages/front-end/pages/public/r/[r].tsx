@@ -1,3 +1,4 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import {
   ExperimentSnapshotReportInterface,
   ExperimentReportSSRData,
@@ -60,7 +61,8 @@ export default function ReportPage(props: ReportPageProps) {
   const { report, snapshot, experiment, ssrData } = props;
 
   const isOrgMember =
-    (!!userId && report?.organization === userOrganization.id) || !!superAdmin;
+    (!!userId && report?.organization === userOrganization.id) ||
+    hasSuperAdminPermission(superAdmin, "impersonate");
 
   const ssrPolyfills = useSSRPolyfills(ssrData);
 

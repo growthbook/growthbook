@@ -30,6 +30,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 import Callout from "@/ui/Callout";
 import { useUser } from "@/services/UserContext";
 import EventUser from "@/components/Avatar/EventUser";
+import StatusDot from "@/components/Experiment/StatusDot";
 import Pagination from "@/ui/Pagination";
 import { DocLink } from "@/components/DocLink";
 import {
@@ -142,22 +143,6 @@ const STATUS_LABEL: Record<RevisionStatus, string> = {
   discarded: "Discarded",
 };
 
-function StatusDot({ color }: { color: string }) {
-  return (
-    <span
-      aria-hidden
-      style={{
-        display: "inline-block",
-        width: 8,
-        height: 8,
-        borderRadius: 8,
-        backgroundColor: color,
-        flexShrink: 0,
-      }}
-    />
-  );
-}
-
 function renderApprovalStatus(status: RevisionStatus) {
   const label = STATUS_LABEL[status] ?? status;
   if (status === "discarded") {
@@ -173,7 +158,7 @@ function renderApprovalStatus(status: RevisionStatus) {
   }
   return (
     <Flex gap="2" align="center">
-      <StatusDot color={dot} />
+      <StatusDot color={dot} aria-hidden />
       {label}
     </Flex>
   );

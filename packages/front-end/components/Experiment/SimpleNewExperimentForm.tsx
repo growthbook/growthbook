@@ -1,4 +1,4 @@
-import { FC, useEffect } from "react";
+import { FC, useEffect, useId, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useRouter } from "next/router";
 import { useFeatureIsOn } from "@growthbook/growthbook-react";
@@ -14,7 +14,7 @@ import {
   getManagedWarehouseExposureQueryIdForAttribute,
   isProjectListValidForProject,
 } from "shared/util";
-import { Flex } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -24,13 +24,17 @@ import {
   formatAttributeOptionLabel,
   toAttributeOption,
 } from "@/components/Features/AttributeOptionTooltip";
-import HelperText from "@/ui/HelperText";
 import Callout from "@/ui/Callout";
+import HelperText from "@/ui/HelperText";
+import Text from "@/ui/Text";
+import AIRichTextField from "@/components/Markdown/AIRichTextField";
+import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import track from "@/services/track";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
+  getExposureQueriesForAttribute,
   getExposureQueriesForProject,
   getDefaultIdentifierTypeForQuery,
   getHashAttributeIdentifierTypeMap,
@@ -51,7 +55,6 @@ import { useDemoDataSourceProject } from "@/hooks/useDemoDataSourceProject";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
 import { allConnectionsSupportBucketingV2 } from "@/components/Experiment/HashVersionSelector";
 import useSDKConnections from "@/hooks/useSDKConnections";
-import Text from "@/ui/Text";
 
 export type SimpleNewExperimentFormProps = {
   onClose?: () => void;
@@ -136,22 +139,27 @@ export function getAutoExposureQueryId({
       : "";
   }
 
-  if (exposureQueries.length > 1) {
-    // A hash attribute can be linked to multiple identifier types, each with
-    // its own query. Only auto-select when exactly one query is linked across
-    // all matching identifier types.
-    const linkedUserIdTypes =
-      dsSettings?.userIdTypes
-        ?.filter((t) => t.attributes?.includes(hashAttribute))
-        .map((t) => t.userIdType) || [];
-    const matchingQueries = exposureQueries.filter((q) =>
-      getExposureQueryIdentifierTypes(q).some((identifierType) =>
-        linkedUserIdTypes.includes(identifierType),
-      ),
-    );
-    if (matchingQueries.length === 1) return matchingQueries[0].id;
+  // A hash attribute can be linked to several identifier types, each with its
+  // own query; only one linked query is unambiguous.
+  const { matching } = getExposureQueriesForAttribute(
+    dsSettings,
+    hashAttribute,
+    exposureQueries,
+  );
+  return matching.length === 1 ? matching[0].id : "";
+}
+
+// "id" when flagged, else the only flagged attribute; otherwise the form asks,
+// starting from "id" only when none is flagged and the schema declares it.
+export function defaultHashAttributeOf(
+  schema: { property: string; hashAttribute?: boolean }[],
+): string {
+  const hashable = schema.filter((a) => a.hashAttribute).map((a) => a.property);
+  if (hashable.length) {
+    if (hashable.includes("id")) return "id";
+    return hashable.length === 1 ? hashable[0] : "";
   }
-  return "";
+  return !schema.length || schema.some((a) => a.property === "id") ? "id" : "";
 }
 
 /**
@@ -269,11 +277,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const initialProject = ctxProject || "";
 
   const initialAttributeSchema = useAttributeSchema(false, initialProject);
-  const initialHashAttributes = initialAttributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
-  const initialHashAttribute =
-    initialHashAttributes.length === 1 ? initialHashAttributes[0] : "";
+  const initialHashAttribute = defaultHashAttributeOf(initialAttributeSchema);
 
   const form = useForm<Partial<ExperimentInterfaceStringDates>>({
     defaultValues: {
@@ -297,12 +301,14 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
 
   // Re-scope the live options to the selected project
   const attributeSchema = useAttributeSchema(false, selectedProject);
-  const hashAttributes = attributeSchema
-    .filter((a) => a.hashAttribute)
-    .map((a) => a.property);
-  const hasHashAttributes = hashAttributes.length > 0;
-  const defaultHashAttribute =
-    hashAttributes.length === 1 ? hashAttributes[0] : "";
+  const hashableAttributes = attributeSchema.filter((a) => a.hashAttribute);
+  const selectableAttributes =
+    hashableAttributes.length > 0 ? hashableAttributes : attributeSchema;
+  const defaultHashAttribute = defaultHashAttributeOf(attributeSchema);
+  // The assignment query and identifier follow it, so it's asked whenever
+  // there's a choice; with none flagged, the default may be one no SDK sends.
+  const askHashAttribute =
+    attributeSchema.length > 0 && hashableAttributes.length !== 1;
 
   const { availableFields: customFields, value: customFieldValues } =
     useReconciledCustomFields({
@@ -341,7 +347,15 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     ? permissionsUtil.canViewExperimentModal(selectedProject)
     : allowAllProjects;
 
-  const canSubmit = hasProjectPermission && !sdkConnectionsLoading;
+  const hypothesisLabelId = useId();
+  // An image still uploading would be dropped from the saved hypothesis.
+  const [hypothesisUploading, setHypothesisUploading] = useState(false);
+  const suggestHypothesis = useSuggestHypothesis(
+    form.watch("hypothesis") ?? "",
+    "simple-new-experiment-form",
+  );
+  const canSubmit =
+    hasProjectPermission && !sdkConnectionsLoading && !hypothesisUploading;
 
   // When the project changes, drop any selection that's no longer valid there
   useEffect(() => {
@@ -350,9 +364,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
       form.setValue("templateId", "");
     }
     const hashAttribute = form.getValues("hashAttribute");
-    const validAttributes = attributeSchema
-      .filter((s) => !hasHashAttributes || s.hashAttribute)
-      .map((s) => s.property);
+    const validAttributes = selectableAttributes.map((s) => s.property);
     if (!hashAttribute || !validAttributes.includes(hashAttribute)) {
       form.setValue("hashAttribute", defaultHashAttribute);
     }
@@ -371,11 +383,22 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
   }, [holdoutId, holdoutHashAttribute]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const currentHashAttribute = form.watch("hashAttribute");
   const hashAttributeHoldoutMismatch =
-    !!holdoutHashAttribute &&
-    form.watch("hashAttribute") !== holdoutHashAttribute;
+    !!holdoutHashAttribute && currentHashAttribute !== holdoutHashAttribute;
+  // The holdout's attribute may not be flagged for hashing, and the field
+  // reads as empty unless its value is an option.
+  const hashAttributeOptions =
+    !currentHashAttribute ||
+    selectableAttributes.some((a) => a.property === currentHashAttribute)
+      ? selectableAttributes
+      : [
+          ...selectableAttributes,
+          attributeSchema.find((a) => a.property === currentHashAttribute) ?? {
+            property: currentHashAttribute,
+          },
+        ];
 
-  const watchedHashAttribute = form.watch("hashAttribute") || "id";
   const watchedTemplateId = form.watch("templateId");
   const watchedTemplate = watchedTemplateId
     ? templatesMap.get(watchedTemplateId)
@@ -390,21 +413,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
   const autoDatasource = autoDatasourceId
     ? getDatasourceById(autoDatasourceId)
     : null;
-  const autoDsExposureQueries = getExposureQueriesForProject(
-    autoDatasource?.settings?.queries?.exposure || [],
-    selectedProject,
-    autoDatasource?.projects,
-  );
-  const hashAttributeLinkedToIdentifier = (
-    autoDatasource?.settings?.userIdTypes || []
-  ).some((t) => t.attributes?.includes(watchedHashAttribute));
-  const wouldAutoSelectExposureQuery =
-    getAutoExposureQueryId({
-      datasource: autoDatasource ?? undefined,
-      hashAttribute: watchedHashAttribute,
-      project: selectedProject,
-      templateExposureQueryId: watchedTemplate?.exposureQueryId,
-    }) !== "";
   const unavailableTemplateAssignment = watchedTemplate
     ? resolveTemplateAssignment({
         datasource: autoDatasource ?? undefined,
@@ -413,13 +421,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
         templateIdentifierType: watchedTemplate.exposureQueryIdentifierType,
       })
     : null;
-  const showLinkIdentifierCallout =
-    !!autoDatasource &&
-    autoDatasource.type !== "growthbook_clickhouse" &&
-    permissionsUtil.canUpdateDataSourceSettings(autoDatasource) &&
-    autoDsExposureQueries.length > 0 &&
-    !hashAttributeLinkedToIdentifier &&
-    !wouldAutoSelectExposureQuery;
 
   const onSubmit = form.handleSubmit(async (rawValue) => {
     const name = (rawValue.name || "").trim();
@@ -470,7 +471,7 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
     }
 
     const project = rawValue.project || "";
-    const hashAttribute = rawValue.hashAttribute;
+    const hashAttribute = rawValue.hashAttribute || defaultHashAttribute;
     if (!hashAttribute) {
       throw new Error("You must select an assignment attribute");
     }
@@ -692,51 +693,6 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           required={templateRequired}
         />
       )}
-
-      <HoldoutSelect
-        selectedProject={selectedProject}
-        selectedHoldoutId={form.watch("holdoutId")}
-        setHoldout={(holdoutId) => form.setValue("holdoutId", holdoutId)}
-        formType="experiment"
-      />
-
-      <Field
-        label="Hypothesis"
-        textarea
-        minRows={2}
-        placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
-        {...form.register("hypothesis")}
-      />
-
-      <SelectField
-        required
-        label={
-          <>
-            <Text weight="semibold" mb="1">
-              Assignment Attribute
-            </Text>
-            <Text as="div" color="text-mid">
-              Will be hashed together with the Tracking Key to determine which
-              variation to assign
-            </Text>
-          </>
-        }
-        className={hashAttributeHoldoutMismatch ? "warning" : undefined}
-        value={form.watch("hashAttribute") ?? ""}
-        onChange={(v) => form.setValue("hashAttribute", v)}
-        options={attributeSchema
-          .filter((s) => !hasHashAttributes || s.hashAttribute)
-          .map(toAttributeOption)}
-        formatOptionLabel={formatAttributeOptionLabel}
-        helpText={
-          hashAttributeHoldoutMismatch ? (
-            <HelperText status="warning" size="sm" mt="2">
-              The hash attribute of this experiment does not match the hash
-              attribute of the holdout this experiment will belong to.
-            </HelperText>
-          ) : undefined
-        }
-      />
       {unavailableTemplateAssignment?.kind === "unavailable" && (
         <Callout status="warning" mb="3">
           This template&apos;s identifier type (&quot;
@@ -749,27 +705,62 @@ const SimpleNewExperimentForm: FC<SimpleNewExperimentFormProps> = ({
           choose them before analyzing results.
         </Callout>
       )}
-      {showLinkIdentifierCallout && autoDatasource && (
-        <Callout status="info" mb="3">
-          Link the <strong>{watchedHashAttribute}</strong> attribute to an
-          identifier type in{" "}
-          <Link
-            href={`/datasources/${autoDatasource.id}`}
-            target="_blank"
-            rel="noreferrer"
-            onClick={() =>
-              track("Link Hash Attribute to Identifier Type", {
-                source: "Simple Experiment Creation Flow",
-                datasource: autoDatasource.id,
-                hashAttribute: watchedHashAttribute,
-              })
-            }
-          >
-            {autoDatasource.name}
-          </Link>{" "}
-          to automatically select an assignment query when creating an
-          experiment.
-        </Callout>
+
+      <HoldoutSelect
+        selectedProject={selectedProject}
+        selectedHoldoutId={form.watch("holdoutId")}
+        setHoldout={(holdoutId) => form.setValue("holdoutId", holdoutId)}
+        formType="experiment"
+      />
+
+      <Box mb="3">
+        <Box id={hypothesisLabelId} mb="1">
+          <Text as="label" weight="semibold">
+            Hypothesis
+          </Text>
+        </Box>
+        <AIRichTextField
+          value={form.watch("hypothesis") ?? ""}
+          onChange={(hypothesis) => form.setValue("hypothesis", hypothesis)}
+          placeholder="e.g. Making the signup button bigger will increase clicks and ultimately improve revenue"
+          height="xs"
+          collapsibleToolbar
+          aiSuggestFunction={suggestHypothesis}
+          aiButtonText="Check hypothesis"
+          trackingSource="simple-new-experiment-form"
+          onUploadingChange={setHypothesisUploading}
+          ariaLabelledBy={hypothesisLabelId}
+        />
+      </Box>
+
+      {askHashAttribute && (
+        <SelectField
+          required
+          label={
+            <>
+              <Text weight="semibold" mb="1">
+                Assignment attribute
+              </Text>
+              <Text as="div" color="text-mid">
+                Will be hashed together with the tracking key to determine which
+                variation to assign
+              </Text>
+            </>
+          }
+          className={hashAttributeHoldoutMismatch ? "warning" : undefined}
+          value={currentHashAttribute ?? ""}
+          onChange={(v) => form.setValue("hashAttribute", v)}
+          options={hashAttributeOptions.map(toAttributeOption)}
+          formatOptionLabel={formatAttributeOptionLabel}
+          helpText={
+            hashAttributeHoldoutMismatch ? (
+              <HelperText status="warning" size="sm" mt="2">
+                The hash attribute of this experiment does not match the hash
+                attribute of the holdout this experiment will belong to.
+              </HelperText>
+            ) : undefined
+          }
+        />
       )}
 
       {customFields.length > 0 && (
