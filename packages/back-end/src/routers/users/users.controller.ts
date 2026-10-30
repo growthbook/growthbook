@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { Response } from "express";
 import { OrganizationInterface } from "shared/types/organization";
 import {
@@ -27,6 +28,7 @@ import {
   addMemberFromSSOConnection,
   findVerifiedOrgsForNewUser,
   getContextFromReq,
+  isOrgScopedLogin,
   validateLoginMethod,
 } from "back-end/src/services/organizations";
 import {
@@ -108,13 +110,26 @@ export async function getUser(req: AuthRequest, res: Response) {
       validateLoginMethod(org, req);
       return true;
     } catch (e) {
-      lastError = e;
+      lastError = e.message;
       return false;
     }
   });
 
   // If all of a user's orgs were filtered out, throw an error
-  if (orgs.length && !validOrgs.length) {
+  // An SSO login gets onboarding instead, so it can still accept an invite or see a pending request
+  if (orgs.length && !validOrgs.length && !isOrgScopedLogin(req)) {
+    // Name the required connection so the app can switch the user to it in one click
+    const ssoConnectionId = orgs
+      .map((org) => org.restrictLoginMethod)
+      .find((id) => id && !id.startsWith("vercel:"));
+    if (IS_CLOUD && ssoConnectionId) {
+      return res.status(403).json({
+        status: 403,
+        message: "Your organization requires you to log in with Enterprise SSO",
+        code: "sso_required",
+        details: { ssoConnectionId },
+      });
+    }
     throw new Error(lastError || "Must log in with SSO");
   }
 
@@ -124,7 +139,7 @@ export async function getUser(req: AuthRequest, res: Response) {
     userName: req.name,
     email: req.email,
     pylonHmacHash: createPylonHmacHash(req.email),
-    superAdmin: !!req.superAdmin,
+    superAdmin: req.superAdmin ?? false,
     // Only the date is sent: the client uses it for the re-survey window, and
     // nothing reads the status, so it stays server-side.
     npsSurveyAt: req.currentUser?.npsSurveyAt?.toISOString(),
@@ -270,7 +285,8 @@ export async function postNpsResponse(
   // `preview` decides whether this response consumes the caller's re-survey
   // window, so it can't be trusted from the body — otherwise any caller could
   // set it and replay forever without recording state. Staff only.
-  const isPreview = preview === true && !!req.superAdmin;
+  const isPreview =
+    preview === true && hasSuperAdminPermission(req.superAdmin, "view");
 
   // A preview still forwards to Slack so the path stays testable, but must not
   // consume the previewer's own window.
@@ -397,7 +413,7 @@ export async function getRecommendedOrgs(req: AuthRequest, res: Response) {
       message: "no verified user found",
     });
   }
-  const orgs = await findVerifiedOrgsForNewUser(email);
+  const orgs = await findVerifiedOrgsForNewUser(email, req);
 
   // Filter out orgs that the user is already a member of
   const joinableOrgs = orgs?.filter((org) => {

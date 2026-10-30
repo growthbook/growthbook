@@ -170,6 +170,8 @@ export function upgradeMetricDoc(doc: LegacyMetricInterface): MetricInterface {
   delete newDoc.capValue;
   delete newDoc.conversionDelayHours;
   delete newDoc.conversionWindowHours;
+  delete newDoc.winRisk;
+  delete newDoc.loseRisk;
 
   return newDoc as MetricInterface;
 }

@@ -7,7 +7,10 @@ import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { ReqContext } from "back-end/types/organization";
 import { getRefLinkedFeatureInfo } from "back-end/src/services/experiments";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
-import { getFeatureRevisionsByFeatureIds } from "back-end/src/models/FeatureRevisionModel";
+import {
+  getFeatureRevisionsByFeatureIds,
+  getLinkageSyncRevisionSummaries,
+} from "back-end/src/models/FeatureRevisionModel";
 import { getLiveAndBaseRevisionsForFeature } from "back-end/src/services/features";
 
 jest.mock("kerberos", () => ({}));
@@ -18,6 +21,7 @@ jest.mock("back-end/src/models/FeatureModel", () => ({
 
 jest.mock("back-end/src/models/FeatureRevisionModel", () => ({
   getFeatureRevisionsByFeatureIds: jest.fn(),
+  getLinkageSyncRevisionSummaries: jest.fn(),
   getActiveDraftMetadataByFeatureIds: jest.fn().mockResolvedValue({}),
 }));
 
@@ -30,6 +34,8 @@ const getFeatureRevisionsByFeatureIdsMock =
   getFeatureRevisionsByFeatureIds as jest.Mock;
 const getLiveAndBaseRevisionsMock =
   getLiveAndBaseRevisionsForFeature as jest.Mock;
+const getLinkageSyncRevisionSummariesMock =
+  getLinkageSyncRevisionSummaries as jest.Mock;
 
 const matchRule = (rule: FeatureRule) =>
   rule.type === "contextual-bandit-ref" &&
@@ -86,6 +92,18 @@ function makeRevision(
   } as unknown as FeatureRevisionInterface;
 }
 
+// The page's drafts, and the same drafts as a start reads them.
+function stubDrafts(
+  drafts: FeatureRevisionInterface[],
+  liveRules: FeatureRule[] = [cbRule(liveVariations)],
+) {
+  getFeatureRevisionsByFeatureIdsMock.mockResolvedValue({ feature: drafts });
+  getLinkageSyncRevisionSummariesMock.mockResolvedValue({
+    openDrafts: drafts.map(({ version, rules }) => ({ version, rules })),
+    liveRevision: { version: 3, rules: liveRules },
+  });
+}
+
 const context = {
   org: {
     id: "org_1",
@@ -109,9 +127,7 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
     const draft7 = makeRevision(7, [
       cbRule([...liveVariations, { variationId: "v3", value: "later" }]),
     ]);
-    getFeatureRevisionsByFeatureIdsMock.mockResolvedValue({
-      feature: [draft5, draft7],
-    });
+    stubDrafts([draft5, draft7]);
 
     const [info] = await getRefLinkedFeatureInfo({
       context,
@@ -134,7 +150,7 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
       cbRule([...liveVariations, { variationId: "v2", value: "extra" }]),
     ]);
     draft.defaultValue = "something-else";
-    getFeatureRevisionsByFeatureIdsMock.mockResolvedValue({ feature: [draft] });
+    stubDrafts([draft]);
 
     const [info] = await getRefLinkedFeatureInfo({
       context,
@@ -157,9 +173,7 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
       getFeaturesByIdsMock.mockResolvedValue([
         { ...makeFeature(), rules: [] } as unknown as FeatureInterface,
       ]);
-      getFeatureRevisionsByFeatureIdsMock.mockResolvedValue({
-        feature: [makeRevision(5, [cbRule(liveVariations)])],
-      });
+      stubDrafts([makeRevision(5, [cbRule(liveVariations)])], []);
       const [info] = await getRefLinkedFeatureInfo({
         context,
         linkedFeatureIds: ["feature"],
@@ -175,9 +189,7 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
   );
 
   it("leaves stagedDrafts unset when no draft changes the rule", async () => {
-    getFeatureRevisionsByFeatureIdsMock.mockResolvedValue({
-      feature: [makeRevision(5, [cbRule(liveVariations)])],
-    });
+    stubDrafts([makeRevision(5, [cbRule(liveVariations)])]);
 
     const [info] = await getRefLinkedFeatureInfo({
       context,
@@ -188,5 +200,6 @@ describe("getRefLinkedFeatureInfo staged drafts", () => {
 
     expect(info.state).toBe("live");
     expect(info.stagedDrafts).toBeUndefined();
+    expect(info.pendingDraft).toBeUndefined();
   });
 });

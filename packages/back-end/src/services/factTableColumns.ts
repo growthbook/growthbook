@@ -99,7 +99,7 @@ export async function runColumnsTopValuesQuery(
   datasource: DataSourceInterface,
   factTable: Pick<
     FactTableInterface,
-    "sql" | "eventName" | "timestampColumn"
+    "sql" | "eventName" | "timestampColumn" | "columns"
   > & {
     // null only when the SQL isn't a saved fact table
     id: string | null;
@@ -384,11 +384,11 @@ export async function refreshColumnTopValues(
   > & {
     id: string | null;
   },
-  columns: ColumnInterface[],
+  detectedColumns: ColumnInterface[],
 ): Promise<ColumnInterface[]> {
   const refreshedColumns: ColumnInterface[] = [];
   const columnsNeedingTopValues = selectColumnsForTopValues({
-    columns,
+    columns: detectedColumns,
     userIdTypes: factTable.userIdTypes,
     userIdColumns: factTable.userIdColumns,
   });
@@ -404,7 +404,10 @@ export async function refreshColumnTopValues(
         const topValuesByColumn = await runColumnsTopValuesQuery(
           context,
           datasource,
-          factTable,
+          // The query needs a column list to resolve JSON paths and virtual
+          // columns; the columns selected here are always plain, so the
+          // freshly detected list works.
+          { ...factTable, columns: detectedColumns },
           columnChunk,
         );
 

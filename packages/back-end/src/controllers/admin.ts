@@ -1,5 +1,16 @@
 import { Response } from "express";
+import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
+import pick from "lodash/pick";
 import { parseIntWithDefault } from "shared/util";
+import {
+  canChangeSuperAdmin,
+  hasSuperAdminPermission,
+  holdsAllSuperAdminPermissions,
+  normalizeSuperAdmin,
+} from "shared/permissions";
+import { SuperAdminPermission, superAdminValidator } from "shared/validators";
+import { AdminOrgSummary, getAdminOrgSummary } from "shared/enterprise";
 import {
   OrganizationInterface,
   OrganizationMessage,
@@ -28,7 +39,6 @@ import {
   updateOrganization,
 } from "back-end/src/models/OrganizationModel";
 import {
-  getContextFromReq,
   getOrganizationById,
   setLicenseKey,
 } from "back-end/src/services/organizations";
@@ -37,45 +47,161 @@ import {
   auditDetailsUpdate,
 } from "back-end/src/services/audit";
 import { _dangerourslyGetAllDatasourcesByOrganizations } from "back-end/src/models/DataSourceModel";
+import { licenseInit } from "back-end/src/enterprise";
+import {
+  _dangerousGetLicenseRefsByPlans,
+  _dangerousGetLicenseRefsBySubscriptionStatus,
+  getLicenseByKey,
+  getLicensesByKeys,
+} from "back-end/src/enterprise/models/licenseModel";
+import {
+  adminOrgFiltersValidator,
+  buildAdminOrgQuery,
+  getLicensePlansForFilter,
+  isSubscriptionStatusFilter,
+} from "back-end/src/util/adminOrgQuery";
+import { ProjectModel } from "back-end/src/models/ProjectModel";
+import { SavedGroupModel } from "back-end/src/models/SavedGroupModel";
+import { _dangerousCountFeaturesByOrganization } from "back-end/src/models/FeatureModel";
+import { _dangerousCountExperimentsByOrganization } from "back-end/src/models/ExperimentModel";
+import { _dangerousCountSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
+import {
+  getLicenseMetaData,
+  getUserCodesForOrg,
+} from "back-end/src/services/licenseData";
+
+function permissionDenied(res: Response, permission: SuperAdminPermission) {
+  return res.status(403).json({
+    status: 403,
+    message: `This action requires the ${permission} super admin permission`,
+  });
+}
+
+// Every field the admin page can change. Anything missing here is rejected.
+const ORG_FIELD_PERMISSIONS: {
+  [K in keyof OrganizationInterface]?: SuperAdminPermission;
+} = {
+  name: "metadata",
+  externalId: "metadata",
+  ownerEmail: "metadata",
+  // Both control who can join the org, so they sit with SSO
+  verifiedDomain: "sso",
+  autoApproveMembers: "sso",
+  restrictLoginMethod: "sso",
+  licenseKey: "billing",
+  enterprise: "billing",
+  freeSeats: "billing",
+  disableSelfServeBilling: "billing",
+  suspended: "suspend",
+  messages: "messages",
+};
 
 export async function _dangerousAdminGetOrganizations(
   req: AuthRequest<never, never, { page?: string; search?: string }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can get all organizations",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
   }
 
   const { page, search } = req.query;
 
+  const parsed = adminOrgFiltersValidator.safeParse(req.query);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: "Invalid organization filters",
+    });
+  }
+  const filters = parsed.data;
+
+  const [planLicenses, statusLicenses, ssoOrgIds] = await Promise.all([
+    filters.plan
+      ? _dangerousGetLicenseRefsByPlans(getLicensePlansForFilter(filters.plan))
+      : undefined,
+    isSubscriptionStatusFilter(filters.status)
+      ? _dangerousGetLicenseRefsBySubscriptionStatus(filters.status)
+      : undefined,
+    filters.loginMethod === "sso" || filters.loginMethod === "none"
+      ? _dangerousGetAllSSOConnections().then((connections) =>
+          connections.flatMap((c) =>
+            !c.disabled && c.organization ? [c.organization] : [],
+          ),
+        )
+      : undefined,
+  ]);
+
   const { organizations, total } = await findAllOrganizations(
     parseIntWithDefault(page, 1),
     search || "",
+    50,
+    buildAdminOrgQuery(filters, {
+      plan: planLicenses,
+      status: statusLicenses,
+      ssoOrgIds,
+    }),
+    // Searches usually look for a big customer, not the newest signup
+    search ? "members" : "newest",
   );
 
-  const rawSSOs = await _dangerousGetAllSSOConnections();
-  // we don't want to expose sensitive information, so strip out the clientSecret
-  const ssoConnections = rawSSOs.map((sso) => {
-    return {
-      ...sso,
-      clientSecret: "",
-    };
+  const licenses = await getLicensesByKeys(
+    organizations.flatMap((o) => (o.licenseKey ? [o.licenseKey] : [])),
+  );
+  const summaries: Record<string, AdminOrgSummary> = {};
+  organizations.forEach((o) => {
+    summaries[o.id] = getAdminOrgSummary(
+      o,
+      licenses.find((l) => l.id === o.licenseKey) ?? null,
+    );
   });
-
-  const orgIds = organizations.map((o) => o.id);
-
-  const datasources =
-    await _dangerourslyGetAllDatasourcesByOrganizations(orgIds);
 
   return res.status(200).json({
     status: 200,
     organizations,
-    ssoConnections,
-    datasources,
+    summaries,
     total,
+  });
+}
+
+export async function _dangerousAdminGetOrganization(
+  req: AuthRequest<null, { orgId: string }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
+  }
+
+  const org = await getOrganizationById(req.params.orgId);
+  if (!org) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+
+  const [license, ssoConnections, datasources, ...counts] = await Promise.all([
+    org.licenseKey ? getLicenseByKey(org.licenseKey) : null,
+    _dangerousGetSSOConnectionsByOrganization(org.id),
+    _dangerourslyGetAllDatasourcesByOrganizations([org.id]),
+    ProjectModel._dangerousCountByOrganization(org.id),
+    _dangerousCountFeaturesByOrganization(org.id),
+    _dangerousCountExperimentsByOrganization(org.id),
+    _dangerousCountSDKConnectionsByOrganization(org.id),
+    SavedGroupModel._dangerousCountByOrganization(org.id),
+  ]);
+  const [projects, features, experiments, sdkConnections, savedGroups] = counts;
+
+  return res.status(200).json({
+    status: 200,
+    organization: org,
+    // From the cached license, like the list, so it shows before a live refresh
+    summary: getAdminOrgSummary(org, license),
+    // Strip the secret, like the SSO edit form expects
+    ssoConnection: ssoConnections[0]
+      ? { ...ssoConnections[0], clientSecret: "" }
+      : null,
+    datasources: datasources.map(({ id, name, type }) => ({ id, name, type })),
+    counts: { projects, features, experiments, sdkConnections, savedGroups },
   });
 }
 
@@ -88,6 +214,7 @@ export async function _dangerousAdminPutOrganization(
     ownerEmail?: string;
     verifiedDomain?: string;
     autoApproveMembers?: boolean;
+    restrictLoginMethod?: string;
     enterprise?: boolean;
     freeSeats?: number;
     disableSelfServeBilling?: boolean;
@@ -96,11 +223,8 @@ export async function _dangerousAdminPutOrganization(
   }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can update organizations via admin page",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
   }
 
   const {
@@ -111,6 +235,7 @@ export async function _dangerousAdminPutOrganization(
     ownerEmail,
     verifiedDomain,
     autoApproveMembers,
+    restrictLoginMethod,
     enterprise,
     freeSeats,
     disableSelfServeBilling,
@@ -118,7 +243,6 @@ export async function _dangerousAdminPutOrganization(
     messages,
   } = req.body;
   const updates: Partial<OrganizationInterface> = {};
-  const orig: Partial<OrganizationInterface> = {};
   const org = await getOrganizationById(orgId);
 
   if (!org) {
@@ -128,49 +252,74 @@ export async function _dangerousAdminPutOrganization(
     });
   }
 
-  if (name) {
+  // The edit form sends every field, so only real changes count; defaults
+  // match how each field is read when unset.
+  if (name && name !== org.name) {
     updates.name = name;
-    orig.name = org.name;
   }
-  if (externalId !== undefined) {
+  if (externalId !== undefined && externalId !== (org.externalId ?? "")) {
     updates.externalId = externalId;
-    orig.externalId = org.externalId;
   }
-  if (licenseKey !== undefined && licenseKey.trim() !== org.licenseKey) {
+  if (
+    licenseKey !== undefined &&
+    licenseKey.trim() !== (org.licenseKey ?? "")
+  ) {
     updates.licenseKey = licenseKey.trim();
-    orig.licenseKey = org.licenseKey;
-    await setLicenseKey(org, updates.licenseKey);
   }
-  if (ownerEmail) {
+  if (ownerEmail && ownerEmail !== org.ownerEmail) {
     updates.ownerEmail = ownerEmail;
-    orig.ownerEmail = org.ownerEmail;
   }
-  if (verifiedDomain) {
+  if (verifiedDomain && verifiedDomain !== org.verifiedDomain) {
     updates.verifiedDomain = verifiedDomain;
-    orig.verifiedDomain = org.verifiedDomain;
   }
-  if (autoApproveMembers !== org.autoApproveMembers) {
+  if (
+    autoApproveMembers !== undefined &&
+    autoApproveMembers !== (org.autoApproveMembers ?? false)
+  ) {
     updates.autoApproveMembers = autoApproveMembers;
-    orig.autoApproveMembers = org.autoApproveMembers;
   }
-  if (enterprise !== org.enterprise) {
+  if (
+    restrictLoginMethod !== undefined &&
+    restrictLoginMethod.trim() !== (org.restrictLoginMethod ?? "")
+  ) {
+    const connectionId = restrictLoginMethod.trim();
+    // Vercel orgs are bound to their installation
+    if (
+      org.restrictLoginMethod?.startsWith("vercel:") ||
+      connectionId.startsWith("vercel:")
+    ) {
+      return res.status(400).json({
+        status: 400,
+        message: "The login method of a Vercel organization can't be changed.",
+      });
+    }
+    // Can be another org's connection, e.g. a subsidiary that signs in
+    // through its parent company's SSO
+    if (connectionId) {
+      const sso = await _dangerousGetSSOConnectionById(connectionId);
+      if (!sso || sso.disabled) {
+        return res.status(400).json({
+          status: 400,
+          message: `No active SSO connection with the ID "${connectionId}".`,
+        });
+      }
+    }
+    updates.restrictLoginMethod = connectionId;
+  }
+  if (enterprise !== undefined && enterprise !== (org.enterprise ?? false)) {
     updates.enterprise = enterprise;
-    orig.enterprise = org.enterprise;
   }
-  if (freeSeats !== org.freeSeats) {
+  if (freeSeats !== undefined && freeSeats !== (org.freeSeats ?? 3)) {
     updates.freeSeats = freeSeats;
-    orig.freeSeats = org.freeSeats;
   }
   if (
     disableSelfServeBilling !== undefined &&
-    disableSelfServeBilling !== org.disableSelfServeBilling
+    disableSelfServeBilling !== (org.disableSelfServeBilling ?? false)
   ) {
     updates.disableSelfServeBilling = disableSelfServeBilling;
-    orig.disableSelfServeBilling = org.disableSelfServeBilling;
   }
-  if ((suspended ?? false) !== (org.suspended ?? false)) {
+  if (suspended !== undefined && suspended !== (org.suspended ?? false)) {
     updates.suspended = suspended;
-    orig.suspended = org.suspended;
   }
   if (messages !== undefined) {
     const VALID_LEVELS = new Set(["info", "warning", "danger"]);
@@ -191,8 +340,25 @@ export async function _dangerousAdminPutOrganization(
     }
     if (JSON.stringify(messages) !== JSON.stringify(org.messages ?? [])) {
       updates.messages = messages;
-      orig.messages = org.messages;
     }
+  }
+
+  // Authorize the whole change before any side effect
+  for (const field of Object.keys(updates) as (keyof OrganizationInterface)[]) {
+    const permission = ORG_FIELD_PERMISSIONS[field];
+    if (!permission) {
+      throw new Error(`Unexpected organization field: ${field}`);
+    }
+    if (!hasSuperAdminPermission(req.superAdmin, permission)) {
+      return permissionDenied(res, permission);
+    }
+  }
+
+  // Before setLicenseKey, which mutates `org`
+  const orig = pick(org, Object.keys(updates));
+
+  if (updates.licenseKey !== undefined) {
+    await setLicenseKey(org, updates.licenseKey);
   }
 
   await updateOrganization(org.id, updates);
@@ -242,11 +408,8 @@ export async function _dangerousAdminDisableOrganization(
   req: AuthRequest<{ orgId: string }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can disable organizations",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "suspend")) {
+    return permissionDenied(res, "suspend");
   }
 
   const updates: Partial<OrganizationInterface> = {};
@@ -288,11 +451,8 @@ export async function _dangerousAdminEnableOrganization(
   req: AuthRequest<{ orgId: string }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can enable organizations",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "suspend")) {
+    return permissionDenied(res, "suspend");
   }
 
   const updates: Partial<OrganizationInterface> = {};
@@ -330,54 +490,63 @@ export async function _dangerousAdminEnableOrganization(
 }
 
 export async function _dangerousAdminGetMembers(
-  req: AuthRequest<never, never, { page?: string; search?: string }>,
+  req: AuthRequest<
+    never,
+    never,
+    { page?: string; search?: string; superAdmins?: string }
+  >,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can get all members",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
   }
 
   const { page, search } = req.query;
+  const superAdminsOnly = req.query.superAdmins === "1";
 
-  const organizationInfo: Record<string, object> = {};
   const filteredUsers = await getAllUsersFiltered(
     parseIntWithDefault(page, 1),
     search,
+    superAdminsOnly,
   );
-  if (filteredUsers?.length > 0) {
-    const memberOrgs = await findOrganizationsByMemberIds(
-      filteredUsers.map((u) => u.id),
-    );
-    // create a map of all the orgs mapped to the member id to make the step below easier
-    const orgMembers = new Map();
-    memberOrgs.forEach((mo) => {
-      mo.members.forEach((u) => {
-        const condensedOrg = {
-          id: mo.id,
-          name: mo.name,
-          members: mo.members.length,
-          role: mo.members.find((m) => m.id === u.id)?.role,
-        };
-        if (orgMembers.has(u.id)) {
-          orgMembers.set(u.id, [...orgMembers.get(u.id), condensedOrg]);
-        } else {
-          orgMembers.set(u.id, [condensedOrg]);
-        }
-      });
-    });
-    filteredUsers.forEach((user) => {
-      organizationInfo[user.id] = orgMembers.get(user.id) ?? [];
-    });
-  }
 
   return res.status(200).json({
     status: 200,
     members: filteredUsers,
-    total: await getTotalNumUsers(search),
-    memberOrgs: organizationInfo,
+    total: await getTotalNumUsers(search, superAdminsOnly),
+  });
+}
+
+export async function _dangerousAdminGetUser(
+  req: AuthRequest<null, { userId: string }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
+  }
+
+  const user = await getUserById(req.params.userId);
+  if (!user) {
+    return res.status(404).json({
+      status: 404,
+      message: "User not found",
+    });
+  }
+
+  const orgs = await findOrganizationsByMemberIds([user.id]);
+
+  return res.status(200).json({
+    status: 200,
+    user: { ...user, passwordHash: "" },
+    organizations: orgs.map((org) => {
+      const member = org.members.find((m) => m.id === user.id);
+      return {
+        id: org.id,
+        name: org.name,
+        role: member?.role,
+        lastLoginDate: member?.lastLoginDate,
+      };
+    }),
   });
 }
 
@@ -390,11 +559,8 @@ export async function _dangerousAdminGetOrganizationMembers(
   >,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can get all members",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
   }
   const { orgId } = req.params;
 
@@ -412,7 +578,35 @@ export async function _dangerousAdminGetOrganizationMembers(
 
   return res.status(200).json({
     status: 200,
-    members,
+    members: members.map((m) => ({ ...m, passwordHash: "" })),
+  });
+}
+
+// By org id rather than X-Organization, so it doesn't require impersonating
+export async function _dangerousAdminGetOrganizationLicense(
+  req: AuthRequest<null, { orgId: string }>,
+  res: Response,
+) {
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
+  }
+
+  const org = await getOrganizationById(req.params.orgId);
+  if (!org) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
+  }
+
+  // Force refresh, like GET /license, so the page shows current data
+  const license = org.licenseKey
+    ? await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true)
+    : null;
+
+  return res.status(200).json({
+    status: 200,
+    license,
   });
 }
 
@@ -422,19 +616,18 @@ export async function _dangerousAdminPutMember(
     name: string;
     email: string;
     verified: boolean;
+    superAdmin?: unknown;
+    resetAuthSubject?: boolean;
   }>,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can update members",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "view")) {
+    return permissionDenied(res, "view");
   }
 
-  const { userId, email, verified, name } = req.body;
+  const { userId, email, verified, name, superAdmin, resetAuthSubject } =
+    req.body;
   const updates: Partial<UserInterface> = {};
-  const orig: Partial<UserInterface> = {};
   const member = await getUserById(userId);
   if (!member) {
     return res.status(404).json({
@@ -442,28 +635,91 @@ export async function _dangerousAdminPutMember(
       message: "Member not found",
     });
   }
-  if (email) {
+  if (email && email !== member.email) {
     updates.email = email;
-    orig.email = member.email;
   }
-  if (name) {
+  if (name && name !== member.name) {
     updates.name = name;
-    orig.name = member.name;
   }
-  if (verified !== member.verified) {
+  if (
+    typeof verified === "boolean" &&
+    verified !== (member.verified ?? false)
+  ) {
     updates.verified = verified;
-    orig.verified = member.verified;
+  }
+  // The bound identity belongs to the old email, so a new email starts unbound too
+  if (
+    (resetAuthSubject === true || updates.email !== undefined) &&
+    member.authSubject
+  ) {
+    updates.authSubject = "";
+  }
+  // Either edit lets an unverified identity take over the account, so only full super admins can do it
+  if (
+    (updates.email !== undefined || updates.verified === false) &&
+    req.superAdmin !== true
+  ) {
+    return res.status(403).json({
+      status: 403,
+      message:
+        "Only full super admins can change a user's email or clear their verified status",
+    });
+  }
+  if (
+    Object.keys(updates).length &&
+    !(
+      hasSuperAdminPermission(req.superAdmin, "users") &&
+      holdsAllSuperAdminPermissions(req.superAdmin, member.superAdmin)
+    )
+  ) {
+    return permissionDenied(res, "users");
   }
 
+  if (superAdmin !== undefined) {
+    const parsed = superAdminValidator.safeParse(superAdmin);
+    if (!parsed.success) {
+      return res.status(400).json({
+        status: 400,
+        message: "Invalid super admin permissions",
+      });
+    }
+    const next = normalizeSuperAdmin(parsed.data);
+    if (!isEqual(next, normalizeSuperAdmin(member.superAdmin))) {
+      // Guards against locking yourself out by accident
+      if (member.id === req.userId) {
+        return res.status(403).json({
+          status: 403,
+          message: "You cannot change your own super admin access",
+        });
+      }
+      if (!canChangeSuperAdmin(req.superAdmin, member.superAdmin, next)) {
+        return permissionDenied(res, "grant");
+      }
+      updates.superAdmin = next;
+    }
+  }
+
+  if (!Object.keys(updates).length) {
+    return res.status(200).json({
+      status: 200,
+    });
+  }
+
+  const orig = pick(member, Object.keys(updates));
   await updateUser(userId, updates);
 
+  // The IdP subject is an identifier, so the audit log only records whether one was bound
+  const forAudit = (u: Partial<UserInterface>) =>
+    u.authSubject === undefined
+      ? u
+      : { ...omit(u, "authSubject"), authSubjectBound: !!u.authSubject };
   await req.audit({
     event: "user.update",
     entity: {
       object: "user",
       id: userId,
     },
-    details: auditDetailsUpdate(orig, updates),
+    details: auditDetailsUpdate(forAudit(orig), forAudit(updates)),
   });
 
   return res.status(200).json({
@@ -479,14 +735,9 @@ export async function _dangerousAdminUpsertSSOConnection(
   >,
   res: Response,
 ) {
-  if (!req.superAdmin) {
-    return res.status(403).json({
-      status: 403,
-      message: "Only superAdmins can upsert SSO connections",
-    });
+  if (!hasSuperAdminPermission(req.superAdmin, "sso")) {
+    return permissionDenied(res, "sso");
   }
-
-  const context = getContextFromReq(req);
 
   const {
     clientId,
@@ -504,12 +755,23 @@ export async function _dangerousAdminUpsertSSOConnection(
     enforceSSO,
   } = req.body;
 
-  if (organization !== context.org.id) {
-    throw new Error("SSO connection organization must match selected org");
+  // Taken from the body rather than X-Organization, so managing SSO doesn't
+  // also require impersonating the org
+  const org = organization ? await getOrganizationById(organization) : null;
+  if (!org) {
+    return res.status(404).json({
+      status: 404,
+      message: "Organization not found",
+    });
   }
 
   const all = await _dangerousGetAllSSOConnections();
   const existing = all.find((sso) => sso.id === id);
+  if (existing && existing.organization !== org.id) {
+    throw new Error(
+      `SSO connection "${id}" belongs to a different organization`,
+    );
+  }
 
   // An email domain must map to a single active SSO connection, otherwise
   // domain-based SSO lookups are ambiguous and can route users (and SSO
@@ -587,20 +849,20 @@ export async function _dangerousAdminUpsertSSOConnection(
     });
   }
 
-  const currentEnforce = context.org.restrictLoginMethod === id;
+  const currentEnforce = org.restrictLoginMethod === id;
   if (enforceSSO !== currentEnforce) {
     const newValue = enforceSSO ? id : "";
-    await updateOrganization(context.org.id, {
+    await updateOrganization(org.id, {
       restrictLoginMethod: newValue,
     });
     await req.audit({
       event: "organization.update",
       entity: {
         object: "organization",
-        id: context.org.id,
+        id: org.id,
       },
       details: auditDetailsUpdate(
-        { restrictLoginMethod: context.org.restrictLoginMethod },
+        { restrictLoginMethod: org.restrictLoginMethod },
         { restrictLoginMethod: newValue },
       ),
     });

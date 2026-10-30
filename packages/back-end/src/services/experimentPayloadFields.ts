@@ -21,9 +21,8 @@ export const PAYLOAD_AFFECTING_EXPERIMENT_FIELDS: (keyof ExperimentInterface)[] 
     "banditScheduleUnit",
     "banditBurnInValue",
     "banditBurnInUnit",
-    // Bucketing fields. The REST route accepts these and they end up in the SDK
-    // payload, so changing bucketVersion re-buckets every user. The dashboard
-    // edits them on POST /experiment/:id/targeting, which always checks this.
+    // Bucketing fields. They end up in the SDK payload, so changing
+    // bucketVersion re-buckets every user.
     "hashAttribute",
     "fallbackAttribute",
     "hashVersion",

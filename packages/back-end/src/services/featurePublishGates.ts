@@ -515,7 +515,7 @@ export async function collectFeaturePublishGates({
     return gates;
   }
 
-  const { proposedFeature, defaultToCheck, rulesToCheck } =
+  const { proposedFeature, defaultToCheck, rulesToCheck, valueSchemaChanged } =
     computeProposedFeatureForValidation(
       context,
       feature,
@@ -554,10 +554,10 @@ export async function collectFeaturePublishGates({
     ...collectFeatureValueErrorsForPublish(
       proposedFeature,
       {
-        defaultValue: plan.mergeResult.defaultValue,
-        rules: plan.mergeResult.rules,
+        defaultValue: proposedFeature.defaultValue,
+        rules: proposedFeature.rules,
       },
-      feature,
+      valueSchemaChanged ? undefined : feature,
     ),
     ...(defaultToCheck !== undefined || rulesToCheck.length
       ? await collectConfigBackedFeatureValueErrors(context, proposedFeature, {
@@ -650,6 +650,23 @@ export async function collectFeaturePublishGates({
   if (moveGate) gates.push(moveGate);
 
   return gates;
+}
+
+// What a caller skips on one linked flag when an experiment publishes to it. The
+// org's REST setting waives approval outright; the caller's own needs the opt-in.
+export function flagBypass(
+  context: Context,
+  feature: FeatureInterface,
+  {
+    optIn,
+    restApiBypassesReviews = false,
+  }: { optIn: boolean; restApiBypassesReviews?: boolean },
+): { approval: boolean; lockdown: boolean } {
+  const approval =
+    restApiBypassesReviews ||
+    (optIn &&
+      context.permissions.canBypassFlagApprovalChecks(feature, "feature"));
+  return { approval, lockdown: optIn && approval };
 }
 
 // The merge an unattended publish lands, under the governance the publish button

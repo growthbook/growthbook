@@ -1,12 +1,10 @@
 import { FeatureInterface, SchemaField } from "shared/types/feature";
 import { ConstantInterface } from "shared/types/constant";
 import {
-  getConfigAncestorKeys,
   getConfigBackingPatch,
   setConfigBacking,
   validateJSONFeatureValue,
   deepMergePatch,
-  selectScopedOverride,
 } from "shared/util";
 import {
   buildConstantValueMap,
@@ -14,7 +12,7 @@ import {
   ConstantSource,
 } from "shared/sdk-versioning";
 import { Box, Flex } from "@radix-ui/themes";
-import { useMemo } from "react";
+import { ReactNode, useMemo } from "react";
 import { isEqual } from "lodash";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -23,26 +21,33 @@ import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
 import ValueDisplay from "./ValueDisplay";
+import { ActionsOverlay } from "./CornerActions";
+import {
+  ConfigEnvironmentsBadge,
+  ConfigOverridesBadge,
+} from "./ConfigValueBadges";
 
 // Shared "SERVE ConfigName" header. The name links to the config detail page;
 // the internal `@config:` directive is never surfaced.
 function ServeConfigHeader({
   configKey,
   name,
-  suffix,
+  badges,
+  label,
 }: {
   configKey: string;
   name: string;
-  suffix?: string;
+  badges: ReactNode;
+  label: string | null;
 }) {
   return (
     <Flex direction="row" gap="4" align="center">
-      <Text weight="medium">SERVE</Text>
-      <Flex as="span" align="center" gap="1">
+      {label !== null && <Text weight="medium">{label}</Text>}
+      <Flex align="center" gap="2" wrap="wrap">
         <Link href={`/configs/${configKey}`} target="_blank" rel="noreferrer">
           {name}
         </Link>
-        {suffix && <Text size="sm">{suffix}</Text>}
+        {badges}
       </Flex>
     </Flex>
   );
@@ -76,9 +81,8 @@ function toObject(v: unknown): Record<string, unknown> | null {
 // - Default value (`sparse` off): the fully-resolved config payload.
 // - Rule (`sparse` on): the same payload, but as a diff against the feature
 //   default — overridden fields bold, inherited base fields muted.
-// A "with overrides" tag shows when the value carries its own patch fields on
-// top of the config. Config + patch constants are all resolved so the preview
-// matches the SDK payload.
+// A badge counts the fields the value overrides from the config. Config +
+// patch constants are all resolved so the preview matches the SDK payload.
 export default function ConfigBackedSummary({
   value,
   configKey,
@@ -87,18 +91,23 @@ export default function ConfigBackedSummary({
   sparse = false,
   isDefault = false,
   environment,
+  label = "SERVE",
+  lineHeight,
+  actionsOverlay,
 }: {
   value: string;
   configKey: string;
+  label?: string | null;
   feature: FeatureInterface;
   maxHeight?: number;
   sparse?: boolean;
-  // A config-backed default is a pure config (no overrides), so never tag it
-  // "with overrides" — that suffix is for rules that layer their own patch.
+  // A config-backed default is a pure config, so it never counts overrides.
   isDefault?: boolean;
   // The environment this value is being previewed for, so the config resolves
   // with its matching env flavor (scopedOverrides). Absent = the base value.
   environment?: string;
+  lineHeight?: number;
+  actionsOverlay?: ActionsOverlay;
 }) {
   const { configs } = useDefinitions();
   const { hasCommercialFeature } = useUser();
@@ -139,11 +148,11 @@ export default function ConfigBackedSummary({
     } catch {
       patch = {};
     }
-    // "with overrides" reflects whether this value adds anything on top of the
-    // config — its own patch fields (or a `@const:` layer) — NOT whether the
-    // resolved value happens to differ from the feature default. Computed from
-    // the raw patch, before its own references are resolved.
-    const hasOverrides = Object.keys(patch).length > 0;
+    // The fields this value sets on top of the config — its own patch, NOT
+    // whatever happens to differ from the feature default. Read from the raw
+    // patch, before its own references are resolved. `$` keys like `$extends`
+    // are directives, not fields.
+    const overrideFields = Object.keys(patch).filter((k) => !k.startsWith("$"));
     // Resolve the patch's own `@const:` refs too, so the preview matches what
     // the SDK ships (the config base above is already resolved).
     const resolvedPatch =
@@ -160,7 +169,7 @@ export default function ConfigBackedSummary({
     >;
 
     if (!sparse) {
-      return { merged, diffKeys: null as Set<string> | null, hasOverrides };
+      return { merged, diffKeys: null as Set<string> | null, overrideFields };
     }
 
     // Diff against the resolved feature default so a rule shows only what it
@@ -195,7 +204,7 @@ export default function ConfigBackedSummary({
     const diffKeys = new Set(
       Object.keys(merged).filter((k) => !isEqual(merged[k], defaultObj[k])),
     );
-    return { merged, diffKeys, hasOverrides };
+    return { merged, diffKeys, overrideFields };
   }, [
     data,
     value,
@@ -234,47 +243,6 @@ export default function ConfigBackedSummary({
     return errors;
   }, [hasJsonValidator, resolved, data?.effectiveSchema, data?.extensible]);
 
-  // Env flavors apply per LAYER, so the cue must consider the whole lineage —
-  // an ancestor's flavor changes this config's per-env resolution too.
-  const lineageKeys = useMemo(() => {
-    const byKey = new Map(configs.map((c) => [c.key, c]));
-    const self = byKey.get(configKey);
-    return self
-      ? [configKey, ...getConfigAncestorKeys(self, byKey)]
-      : [configKey];
-  }, [configs, configKey]);
-  const configByKey = useMemo(
-    () => new Map(configs.map((c) => [c.key, c])),
-    [configs],
-  );
-
-  // In an ambiguous (all-environments) view we show the base value, so flag when
-  // any lineage config has env flavors — the served value can differ per env.
-  const hasEnvOverrides = lineageKeys.some(
-    (k) => (configByKey.get(k)?.scopedOverrides?.length ?? 0) > 0,
-  );
-
-  // When previewing a specific environment, tag the header with that env only if
-  // some lineage layer actually selects a flavor (a non-base rendering). Match
-  // the resolver's scrub: archived, absent, or cross-project flavors don't apply.
-  const flavorEligible = (k: string) => {
-    const f = configByKey.get(k);
-    return (
-      !!f &&
-      !f.archived &&
-      (!f.project || f.project === (feature.project || ""))
-    );
-  };
-  const activeEnvFlavor =
-    environment != null &&
-    lineageKeys.some((k) =>
-      selectScopedOverride(
-        configByKey.get(k)?.scopedOverrides,
-        { environment, project: feature.project || "" },
-        flavorEligible,
-      ),
-    );
-
   const fullStyle = {
     maxHeight: maxHeight ?? 150,
     overflowY: "auto" as const,
@@ -284,20 +252,22 @@ export default function ConfigBackedSummary({
   return (
     <>
       <ServeConfigHeader
+        label={label}
         configKey={configKey}
         name={config?.name ?? configKey}
-        suffix={
-          // Env qualifier binds to the config name, so it reads
-          // "Name (dev) with overrides" — not "Name with overrides (dev)".
-          [
-            activeEnvFlavor ? `(${environment})` : null,
-            !environment && hasEnvOverrides
-              ? "(has environment overrides)"
-              : null,
-            !isDefault && resolved?.hasOverrides ? "with overrides" : null,
-          ]
-            .filter(Boolean)
-            .join(" ") || undefined
+        badges={
+          // In the order they apply: the Config's environment overrides,
+          // then this value's own.
+          <>
+            <ConfigEnvironmentsBadge
+              configKey={configKey}
+              project={feature.project || ""}
+              environment={environment ?? null}
+            />
+            {!isDefault && resolved ? (
+              <ConfigOverridesBadge fields={resolved.overrideFields} />
+            ) : null}
+          </>
         }
       />
       {resolved !== null && (
@@ -314,6 +284,8 @@ export default function ConfigBackedSummary({
               defaultValue={JSON.stringify(resolved.merged)}
               showFullscreenButton={true}
               fullStyle={fullStyle}
+              lineHeight={lineHeight}
+              actionsOverlay={actionsOverlay}
             />
           ) : (
             <ValueDisplay
@@ -321,6 +293,8 @@ export default function ConfigBackedSummary({
               type="json"
               showFullscreenButton={true}
               fullStyle={fullStyle}
+              lineHeight={lineHeight}
+              actionsOverlay={actionsOverlay}
             />
           )}
         </Box>

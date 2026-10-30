@@ -791,6 +791,8 @@ describe("buildV2SavedGroupsPayload", () => {
       condition: JSON.stringify({ country: { $inGroup: "list_1" } }),
     }),
     savedGroup({ id: "cond_bad", type: "condition", condition: "{not json" }),
+    savedGroup({ id: "remote_1", type: "remote", attributeKey: "account_id" }),
+    savedGroup({ id: "remote_noattr", type: "remote", attributeKey: "" }),
   ];
   const groupMap: GroupMap = new Map(groups.map((g) => [g.id, g]));
 
@@ -838,6 +840,15 @@ describe("buildV2SavedGroupsPayload", () => {
   it("omits an unparseable condition group rather than throwing", () => {
     const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
     expect(defs["cond_bad"]).toBeUndefined();
+  });
+
+  it("builds a remote entry with no values", () => {
+    const defs = buildV2SavedGroupsPayload(groups, org, groupMap);
+    expect(defs["remote_1"]).toEqual({
+      type: "remote",
+      attributeKey: "account_id",
+    });
+    expect(defs["remote_noattr"]).toBeUndefined();
   });
 });
 

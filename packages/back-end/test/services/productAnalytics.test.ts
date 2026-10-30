@@ -189,8 +189,6 @@ describe("draft metric explorations", () => {
     maxPercentChange: 0.5,
     minPercentChange: 0.01,
     minSampleSize: 100,
-    winRisk: 0.0025,
-    loseRisk: 0.0125,
     regressionAdjustmentOverride: false,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 14,

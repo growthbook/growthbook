@@ -6,20 +6,16 @@ import {
   FormProvider,
 } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { PiCaretRightFill } from "react-icons/pi";
 import { getValidDate } from "shared/dates";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
-  DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
-  getExposureQueryIdentifierTypes,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
-import { getScopedSettings } from "shared/settings";
-import Collapsible from "react-collapsible";
+import { getScopedSettings, getUnsetAnalysisSettings } from "shared/settings";
 import { getLatestPhaseVariations } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
@@ -40,7 +36,6 @@ import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
 import { useUser } from "@/services/UserContext";
 import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import Button from "@/ui/Button";
 import StatsEngineSelect from "@/components/Settings/forms/StatsEngineSelect";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
@@ -49,28 +44,37 @@ import UpgradeMessage from "@/components/Marketing/UpgradeMessage";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import BanditSettings from "@/components/GeneralSettings/BanditSettings";
 import HelperText from "@/ui/HelperText";
-import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
-import Tooltip from "@/components/Tooltip/Tooltip";
 import DatePicker from "@/components/DatePicker";
 import {
   datasourceHasWritableEphemeralPipeline,
   getIsExperimentIncludedInIncrementalRefresh,
 } from "@/services/experiments";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import Text from "@/ui/Text";
+import Checkbox from "@/ui/Checkbox";
 import MetricAnalysisWindowSelector from "./MetricAnalysisWindowSelector";
 import MetricsOverridesSelector from "./MetricsOverridesSelector";
-import { MetricsSelectorTooltip } from "./MetricsSelector";
 import CustomMetricSlicesSelector from "./CustomMetricSlicesSelector";
 import {
   EditMetricsFormInterface,
   fixMetricOverridesBeforeSaving,
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
-import MetricSelector from "./MetricSelector";
+import ActivationMetricRow from "./ActivationMetricRow";
+import { DATASOURCE_CHANGE_NOTE } from "./TabbedPage/AnalysisPlan";
+import {
+  AdvancedSection,
+  ConversionWindowsRow,
+  QueryFilterHelp,
+  SettingsCard,
+} from "./TabbedPage/AnalysisPlanAdvanced";
+import SetupFieldRow, { SetupFieldGroup } from "./TabbedPage/SetupFieldRow";
+import { QuickEditRow } from "./TabbedPage/QuickEditButton";
 import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
+
+export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
 
 const AnalysisForm: FC<{
   experiment: ExperimentInterfaceStringDates;
@@ -86,6 +90,8 @@ const AnalysisForm: FC<{
    * A holdout's assignment query must cover every Project the holdout spans.
    */
   holdoutProjects?: string[];
+  /** Opens with this field focused. */
+  focus?: AnalysisFormFocus | null;
 }> = ({
   experiment,
   envs,
@@ -97,6 +103,7 @@ const AnalysisForm: FC<{
   editVariationIds = true,
   editDates = true,
   editMetrics = false,
+  focus = null,
 }) => {
   const {
     segments,
@@ -116,6 +123,7 @@ const AnalysisForm: FC<{
 
   const hasOverrideMetricsFeature = hasCommercialFeature("override-metrics");
   const [upgradeModal, setUpgradeModal] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const [editingDataSource, setEditingDataSource] = useState(
     !experiment.datasource || !experiment.exposureQueryId,
   );
@@ -129,11 +137,15 @@ const AnalysisForm: FC<{
     experiment,
   });
 
-  // Get parent settings (without experiment scope) for displaying defaults
-  const { settings: parentScopedSettings } = getScopedSettings({
-    organization,
-    project: project ?? undefined,
-  });
+  // What the experiment leaves unset starts at what saving it will store.
+  const settled = {
+    ...experiment,
+    ...getUnsetAnalysisSettings({
+      organization,
+      project: project ?? undefined,
+      experiment,
+    }),
+  };
 
   const hasRegressionAdjustmentFeature = hasCommercialFeature(
     "regression-adjustment",
@@ -203,15 +215,9 @@ const AnalysisForm: FC<{
       variations: getLatestPhaseVariations(experiment) || [],
       phases: experiment.phases || [],
       sequentialTestingEnabled:
-        hasSequentialTestingFeature &&
-        experiment.sequentialTestingEnabled !== undefined
-          ? experiment.sequentialTestingEnabled
-          : !!orgSettings.sequentialTestingEnabled,
+        hasSequentialTestingFeature && !!settled.sequentialTestingEnabled,
       sequentialTestingTuningParameter:
-        experiment.sequentialTestingEnabled !== undefined
-          ? experiment.sequentialTestingTuningParameter
-          : (orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
+        settled.sequentialTestingTuningParameter,
       goalMetrics: experiment.goalMetrics,
       guardrailMetrics: experiment.guardrailMetrics || [],
       secondaryMetrics: experiment.secondaryMetrics || [],
@@ -235,9 +241,9 @@ const AnalysisForm: FC<{
                 DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
             }
         : undefined,
-      statsEngine: experiment.statsEngine,
-      regressionAdjustmentEnabled: experiment.regressionAdjustmentEnabled,
-      postStratificationEnabled: experiment.postStratificationEnabled,
+      statsEngine: settled.statsEngine,
+      regressionAdjustmentEnabled: settled.regressionAdjustmentEnabled,
+      postStratificationEnabled: settled.postStratificationEnabled,
       type: experiment.type || "standard",
       banditScheduleValue:
         experiment.banditScheduleValue ??
@@ -258,21 +264,6 @@ const AnalysisForm: FC<{
     },
   });
 
-  // A migration normalizes sequentialTestingEnabled to a boolean for every
-  // experiment, so we can't distinguish "explicitly set to org default" from
-  // "never set" by looking at the field. Treat values matching the org default
-  // as the Default selection — behaviorally equivalent and lets the dropdown
-  // initialize correctly on freshly created experiments.
-  const [usingSequentialTestingDefault, setUsingSequentialTestingDefault] =
-    useState(
-      (experiment.sequentialTestingEnabled ?? false) ===
-        !!orgSettings.sequentialTestingEnabled &&
-        (experiment.sequentialTestingTuningParameter ??
-          orgSettings.sequentialTestingTuningParameter ??
-          DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER) ===
-          (orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER),
-    );
   const [disableBanditConversionWindow, setDisableBanditConversionWindow] =
     useState(() => {
       if (experiment.type !== "multi-armed-bandit") return false;
@@ -281,28 +272,6 @@ const AnalysisForm: FC<{
         experiment.banditConversionWindowUnit != null;
       return !hasOverride;
     });
-  const setSequentialTestingToDefault = useCallback(
-    (enable: boolean) => {
-      if (enable) {
-        form.setValue(
-          "sequentialTestingEnabled",
-          !!orgSettings.sequentialTestingEnabled,
-        );
-        form.setValue(
-          "sequentialTestingTuningParameter",
-          orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
-        );
-      }
-      setUsingSequentialTestingDefault(enable);
-    },
-    [
-      form,
-      setUsingSequentialTestingDefault,
-      orgSettings.sequentialTestingEnabled,
-      orgSettings.sequentialTestingTuningParameter,
-    ],
-  );
 
   const { apiCall } = useAuth();
 
@@ -419,6 +388,14 @@ const AnalysisForm: FC<{
     precomputedUnitDimensionOptions.length > 0 &&
     datasourceHasWritableEphemeralPipelineEnabled;
   const hasAdvancedSettings = !isBandit && !isHoldout;
+  const showSegments =
+    !!datasourceProperties?.experimentSegments && filteredSegments.length > 0;
+  const hasExposureSettings =
+    showSegments || datasourceProperties?.queryLanguage === "sql";
+  const hasMetricSettings =
+    !!datasourceProperties?.separateExperimentResultQueries ||
+    hasEligiblePrecomputedUnitDimensions ||
+    hasMetrics;
   const selectedPrecomputedUnitDimensionIds =
     form.watch("precomputedUnitDimensionIds") || [];
   const precomputedUnitDimensionLimitReached =
@@ -465,7 +442,7 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
         const body: Partial<ExperimentInterfaceStringDates> & {
@@ -489,14 +466,6 @@ const AnalysisForm: FC<{
           body.lookbackOverride = value.lookbackOverride;
         } else if (experiment.lookbackOverride !== undefined) {
           body.lookbackOverride = undefined;
-        }
-        if (usingSequentialTestingDefault) {
-          // User checked the org default checkbox; ignore form values
-          body.sequentialTestingEnabled =
-            !!orgSettings.sequentialTestingEnabled;
-          body.sequentialTestingTuningParameter =
-            orgSettings.sequentialTestingTuningParameter ??
-            DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER;
         }
 
         // bandits
@@ -566,243 +535,210 @@ const AnalysisForm: FC<{
           </FormProvider>
         )}
 
-        {!editingDataSource && datasource?.properties?.exposureQueries && (
-          <AssignmentQueryDriftWarning selection={assignmentQuerySelection} />
-        )}
         {!editingDataSource ? (
-          <Box className="rounded mb-3 px-3 py-2 bg-highlight">
-            <Flex justify="between" align="start" gap="3">
-              <Box style={{ flex: 1, minWidth: 0 }}>
-                <Box mb="1">
-                  <Text size="sm" color="text-mid">
-                    Data Source:
-                  </Text>{" "}
-                  <Text size="sm" weight="medium">
-                    {datasource?.name || (
-                      <Text color="text-mid" fontStyle="italic">
-                        None
-                      </Text>
-                    )}
+          <SetupFieldGroup>
+            <QuickEditRow
+              label="Edit data settings"
+              onEdit={!isBandit ? () => setEditingDataSource(true) : null}
+            >
+              <Box flexGrow="1">
+                <SetupFieldRow label="Data Source" content="text">
+                  <Text color="text-high">
+                    {datasource?.name || <em>None</em>}
                   </Text>
-                </Box>
+                </SetupFieldRow>
                 {datasource?.properties?.exposureQueries && (
-                  <Box mb="1">
-                    <Text size="sm" color="text-mid">
-                      Identifier Type:
-                    </Text>{" "}
-                    <Text size="sm" weight="medium">
-                      {exposureQueryIdentifierType || (
-                        <Text color="text-mid" fontStyle="italic">
-                          Choose...
-                        </Text>
-                      )}
-                    </Text>
-                  </Box>
-                )}
-                {datasource?.properties?.exposureQueries && (
-                  <Box mb="1">
-                    <Text size="sm" color="text-mid">
-                      Experiment Assignment Table:
-                    </Text>{" "}
-                    <Text size="sm" weight="medium">
-                      {exposureQuery?.name || (
-                        <Text color="text-mid" fontStyle="italic">
-                          Choose...
-                        </Text>
-                      )}
-                    </Text>
-                  </Box>
+                  <>
+                    <SetupFieldRow label="Identifier type" content="text">
+                      <Text color="text-high">
+                        {exposureQueryIdentifierType || <em>Choose...</em>}
+                      </Text>
+                    </SetupFieldRow>
+                    <SetupFieldRow label="Assignment query" content="text">
+                      <Text color="text-high">
+                        {exposureQuery?.name || <em>Choose...</em>}
+                      </Text>
+                      <AssignmentQueryDriftWarning
+                        selection={assignmentQuerySelection}
+                        as="helperText"
+                      />
+                    </SetupFieldRow>
+                  </>
                 )}
                 {datasource && !isHoldout && (
-                  <Box>
-                    <Text size="sm" color="text-mid">
-                      Tracking Key:
-                    </Text>{" "}
-                    <Text size="sm" weight="medium">
-                      {form.watch("trackingKey") || "—"}
+                  <SetupFieldRow label="Experiment key" content="text">
+                    <Text color="text-high">
+                      {form.watch("trackingKey") || <em>None</em>}
                     </Text>
-                  </Box>
+                  </SetupFieldRow>
                 )}
               </Box>
-              {!isBandit && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={() => setEditingDataSource(true)}
-                >
-                  Edit
-                </Button>
-              )}
-            </Flex>
-          </Box>
+            </QuickEditRow>
+          </SetupFieldGroup>
         ) : (
           <>
-            <SelectField
-              label="Data Source"
-              value={datasource?.id || ""}
-              disabled={isBandit && experiment.status !== "draft"}
-              onChange={(newDatasource) => {
-                form.setValue("datasource", newDatasource);
+            <SetupFieldRow label="Data Source">
+              <SelectField
+                value={datasource?.id || ""}
+                autoFocus={focus === "datasource"}
+                disabled={isBandit && experiment.status !== "draft"}
+                onChange={(newDatasource) => {
+                  form.setValue("datasource", newDatasource);
 
-                // If unsetting the datasource, leave all the other settings alone
-                // That way, it will be restored if the user switches back to the previous value
-                if (!newDatasource) {
-                  return;
-                }
+                  // If unsetting the datasource, leave all the other settings alone
+                  // That way, it will be restored if the user switches back to the previous value
+                  if (!newDatasource) {
+                    return;
+                  }
 
-                // If the exposure query is now invalid
-                const ds = getDatasourceById(newDatasource);
-                if (
-                  !getExposureQuery(ds?.settings, form.watch("exposureQueryId"))
-                ) {
-                  form.setValue("exposureQueryId", "");
-                  form.setValue(
-                    "exposureQueryIdentifierType",
-                    getDefaultIdentifierType({
-                      identifierTypes: getSelectableIdentifierTypes(
-                        ds
-                          ? getExposureQueriesInScope(
-                              ds,
-                              experiment.project,
-                              holdoutProjects,
-                            )
-                          : [],
-                      ),
-                      hashAttributeIdentifierTypeMap:
-                        getHashAttributeIdentifierTypeMap(
-                          ds?.settings?.userIdTypes,
+                  // If the exposure query is now invalid
+                  const ds = getDatasourceById(newDatasource);
+                  if (
+                    !getExposureQuery(
+                      ds?.settings,
+                      form.watch("exposureQueryId"),
+                    )
+                  ) {
+                    form.setValue("exposureQueryId", "");
+                    form.setValue(
+                      "exposureQueryIdentifierType",
+                      getDefaultIdentifierType({
+                        identifierTypes: getSelectableIdentifierTypes(
+                          ds
+                            ? getExposureQueriesInScope(
+                                ds,
+                                experiment.project,
+                                holdoutProjects,
+                              )
+                            : [],
                         ),
-                      hashAttribute: experiment.hashAttribute,
-                    }),
+                        hashAttributeIdentifierTypeMap:
+                          getHashAttributeIdentifierTypeMap(
+                            ds?.settings?.userIdTypes,
+                          ),
+                        hashAttribute: experiment.hashAttribute,
+                      }),
+                    );
+                  }
+
+                  // If the segment is now invalid
+                  const segment = form.watch("segment");
+                  if (
+                    segment &&
+                    getSegmentById(segment)?.datasource !== newDatasource
+                  ) {
+                    form.setValue("segment", "");
+                  }
+
+                  const isValidMetric = (id: string) =>
+                    getExperimentMetricById(id)?.datasource === newDatasource;
+
+                  // If the activationMetric is now invalid
+                  const activationMetric = form.watch("activationMetric");
+                  if (activationMetric && !isValidMetric(activationMetric)) {
+                    form.setValue("activationMetric", "");
+                  }
+
+                  // Filter the selected metrics to only valid ones
+                  const goals = form.watch("goalMetrics");
+                  form.setValue("goalMetrics", goals.filter(isValidMetric));
+
+                  const secondaryMetrics = form.watch("secondaryMetrics");
+                  form.setValue(
+                    "secondaryMetrics",
+                    secondaryMetrics.filter(isValidMetric),
                   );
+
+                  const guardrails = form.watch("guardrailMetrics");
+                  form.setValue(
+                    "guardrailMetrics",
+                    guardrails.filter(isValidMetric),
+                  );
+
+                  removeInvalidPrecomputedUnitDimensionIds({
+                    datasourceId: newDatasource,
+                  });
+                }}
+                options={datasources
+                  .filter(
+                    (ds) =>
+                      ds.id === experiment.datasource ||
+                      isProjectListValidForProject(
+                        ds.projects,
+                        experiment.project,
+                      ),
+                  )
+                  .map((d) => ({
+                    value: d.id,
+                    label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
+                  }))}
+                className="portal-overflow-ellipsis"
+                helpText={
+                  experiment.datasource ? DATASOURCE_CHANGE_NOTE : undefined
                 }
-
-                // If the segment is now invalid
-                const segment = form.watch("segment");
-                if (
-                  segment &&
-                  getSegmentById(segment)?.datasource !== newDatasource
-                ) {
-                  form.setValue("segment", "");
-                }
-
-                const isValidMetric = (id: string) =>
-                  getExperimentMetricById(id)?.datasource === newDatasource;
-
-                // If the activationMetric is now invalid
-                const activationMetric = form.watch("activationMetric");
-                if (activationMetric && !isValidMetric(activationMetric)) {
-                  form.setValue("activationMetric", "");
-                }
-
-                // Filter the selected metrics to only valid ones
-                const goals = form.watch("goalMetrics");
-                form.setValue("goalMetrics", goals.filter(isValidMetric));
-
-                const secondaryMetrics = form.watch("secondaryMetrics");
-                form.setValue(
-                  "secondaryMetrics",
-                  secondaryMetrics.filter(isValidMetric),
-                );
-
-                const guardrails = form.watch("guardrailMetrics");
-                form.setValue(
-                  "guardrailMetrics",
-                  guardrails.filter(isValidMetric),
-                );
-
-                removeInvalidPrecomputedUnitDimensionIds({
-                  datasourceId: newDatasource,
-                });
-              }}
-              options={datasources
-                .filter(
-                  (ds) =>
-                    ds.id === experiment.datasource ||
-                    isProjectListValidForProject(
-                      ds.projects,
-                      experiment.project,
-                    ),
-                )
-                .map((d) => ({
-                  value: d.id,
-                  label: `${d.name}${d.description ? ` — ${d.description}` : ""}`,
-                }))}
-              className="portal-overflow-ellipsis"
-              helpText={
-                experiment.datasource ? (
-                  <>
-                    <strong className="text-danger">Warning:</strong> Changing
-                    this will remove all metrics and segments from the
-                    experiment.
-                  </>
-                ) : undefined
-              }
-            />
+              />
+            </SetupFieldRow>
             {datasource?.properties?.exposureQueries && (
               <AssignmentQueryFields
+                asRows
                 selection={assignmentQuerySelection}
                 placeholder="Choose..."
+                autoFocus={focus === "exposureQuery"}
                 disabled={isBandit && experiment.status !== "draft"}
               />
             )}
             {datasource && !isHoldout && (
-              <Field
-                label="Tracking Key"
-                {...form.register("trackingKey")}
-                helpText={
-                  <>
-                    Unique identifier for this experiment, used to track
-                    impressions and analyze results. Will match against the{" "}
-                    <code>experiment_id</code> column in your data source.
-                  </>
-                }
-                disabled={
-                  !canRunExperiment ||
-                  (isBandit && experiment.status !== "draft")
-                }
-              />
+              <SetupFieldRow label="Experiment key">
+                <Field
+                  {...form.register("trackingKey")}
+                  helpText={
+                    <>
+                      Unique identifier for this experiment, used to track
+                      impressions and analyze results. Will match against the{" "}
+                      <code>experiment_id</code> column in your data source.
+                    </>
+                  }
+                  disabled={
+                    !canRunExperiment ||
+                    (isBandit && experiment.status !== "draft")
+                  }
+                />
+              </SetupFieldRow>
             )}
           </>
         )}
         {editVariationIds && (
-          <div className="form-group">
-            <label className="font-weight-bold">Variation Ids</label>
-            <div className="row align-items-top">
+          <SetupFieldRow
+            label="Variation IDs"
+            tooltip="Matched against the variation_id column in your Data Source."
+          >
+            <Flex gap="3" wrap="wrap">
               {variations.fields.map((v, i) => (
-                <div
-                  className={`col-${Math.max(
-                    Math.round(12 / variations.fields.length),
-                    3,
-                  )} mb-2`}
-                  key={i}
-                >
+                <Box key={i} flexGrow="1" flexBasis="120px">
                   <Field
                     label={v.name}
                     labelClassName="mb-0"
-                    containerClassName="mb-1"
+                    containerClassName="mb-0"
                     {...form.register(`variations.${i}.key`)}
                     placeholder={i + ""}
                   />
-                </div>
+                </Box>
               ))}
-            </div>
-            <small className="form-text text-muted">
-              Will match against the variation_id column in your data source
-            </small>
-          </div>
+            </Flex>
+          </SetupFieldRow>
         )}
         {!!phaseObj &&
           editDates &&
           !isBandit &&
           !isHoldout &&
           experiment.status !== "draft" && (
-            <div className="row">
-              <div className="col">
+            <>
+              <SetupFieldRow
+                label="Start time"
+                tooltip="Only include users who entered the experiment on or after this date."
+              >
                 <DatePicker
-                  label="Start time"
                   timeZone="utc"
-                  helpText="Only include users who entered the experiment on or after this date"
                   date={form.watch("dateStarted")}
                   setDate={(v) => {
                     form.setValue("dateStarted", v ? v.toISOString() : "");
@@ -810,13 +746,14 @@ const AnalysisForm: FC<{
                   scheduleEndDate={form.watch("dateEnded")}
                   disableAfter={form.watch("dateEnded") || undefined}
                 />
-              </div>
+              </SetupFieldRow>
               {experiment.status === "stopped" && (
-                <div className="col">
+                <SetupFieldRow
+                  label="End time"
+                  tooltip="Only include users who entered the experiment on or before this date."
+                >
                   <DatePicker
-                    label="End time"
                     timeZone="utc"
-                    helpText="Only include users who entered the experiment on or before this date"
                     date={form.watch("dateEnded")}
                     setDate={(v) => {
                       form.setValue("dateEnded", v ? v.toISOString() : "");
@@ -824,176 +761,115 @@ const AnalysisForm: FC<{
                     scheduleStartDate={form.watch("dateStarted")}
                     disableBefore={form.watch("dateStarted") || undefined}
                   />
-                </div>
+                </SetupFieldRow>
               )}
-            </div>
+            </>
           )}
-        <Flex gap="3" align="start" wrap="wrap">
-          <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
+        <SetupFieldRow label="Stats engine">
+          <Box maxWidth="300px">
             <StatsEngineSelect
+              label={null}
+              labelClassName=""
+              containerClassName="mb-0"
+              className=""
               value={form.watch("statsEngine")}
               onChange={(v) => {
                 form.setValue("statsEngine", v);
               }}
-              parentSettings={parentScopedSettings}
-              allowUndefined={!isBandit}
+              allowUndefined={false}
               disabled={isBandit}
-              className=""
             />
           </Box>
-          {!isHoldout && (
-            <>
-              <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                <SelectField
+        </SetupFieldRow>
+        {!isHoldout && (
+          <SetupFieldRow label="Variance reduction" content="text">
+            <Flex direction="column" gap="2">
+              <Checkbox
+                label={
+                  <PremiumTooltip commercialFeature="regression-adjustment">
+                    CUPED
+                  </PremiumTooltip>
+                }
+                weight="regular"
+                value={
+                  hasRegressionAdjustmentFeature &&
+                  !!form.watch("regressionAdjustmentEnabled")
+                }
+                setValue={(v) =>
+                  form.setValue("regressionAdjustmentEnabled", v)
+                }
+                disabled={
+                  !hasRegressionAdjustmentFeature ||
+                  (isBandit && experiment.status !== "draft")
+                }
+              />
+              {!orgSettings.disablePrecomputedDimensions ? (
+                <Checkbox
                   label={
-                    <PremiumTooltip commercialFeature="regression-adjustment">
-                      CUPED
+                    <PremiumTooltip commercialFeature="post-stratification">
+                      Post-stratification
                     </PremiumTooltip>
                   }
+                  weight="regular"
                   value={
-                    hasRegressionAdjustmentFeature &&
-                    form.watch("regressionAdjustmentEnabled")
-                      ? "on"
-                      : "off"
+                    hasPostStratificationFeature &&
+                    !!form.watch("postStratificationEnabled")
                   }
-                  onChange={(v) => {
-                    form.setValue("regressionAdjustmentEnabled", v === "on");
-                  }}
-                  options={[
-                    { label: "On", value: "on" },
-                    { label: "Off", value: "off" },
-                  ]}
+                  setValue={(v) =>
+                    form.setValue("postStratificationEnabled", v)
+                  }
                   disabled={
-                    !hasRegressionAdjustmentFeature ||
+                    !hasPostStratificationFeature ||
                     (isBandit && experiment.status !== "draft")
                   }
                 />
-              </Box>
-              {!orgSettings.disablePrecomputedDimensions ? (
-                <Box style={{ flex: "1 1 200px", minWidth: 200 }}>
-                  <SelectField
-                    label={
-                      <PremiumTooltip commercialFeature="post-stratification">
-                        Post-Stratification
-                      </PremiumTooltip>
-                    }
-                    value={
-                      !hasPostStratificationFeature ||
-                      form.watch("postStratificationEnabled") == null
-                        ? ""
-                        : form.watch("postStratificationEnabled")
-                          ? "on"
-                          : "off"
-                    }
-                    onChange={(v) => {
-                      form.setValue(
-                        "postStratificationEnabled",
-                        v === "" ? null : v === "on",
-                      );
-                    }}
-                    options={[
-                      {
-                        label: `Default (${
-                          hasPostStratificationFeature &&
-                          parentScopedSettings.postStratificationEnabled.value
-                            ? "On"
-                            : "Off"
-                        })`,
-                        value: "",
-                      },
-                      { label: "On", value: "on" },
-                      { label: "Off", value: "off" },
-                    ]}
-                    formatOptionLabel={({ value, label }) => {
-                      if (value === "") {
-                        return <em className="text-muted">{label}</em>;
-                      }
-                      return label;
-                    }}
-                    sort={false}
-                    disabled={
-                      !hasPostStratificationFeature ||
-                      (isBandit && experiment.status !== "draft")
-                    }
-                  />
-                </Box>
               ) : null}
-            </>
-          )}
-        </Flex>
+            </Flex>
+          </SetupFieldRow>
+        )}
         {(form.watch("statsEngine") || scopedSettings.statsEngine.value) ===
           "frequentist" &&
           !isBandit &&
           !isHoldout && (
-            <Flex gap="3" align="start">
-              <Box style={{ flex: 1, minWidth: 0 }}>
-                <SelectField
+            <SetupFieldRow label="Corrections" content="text">
+              <Flex direction="column" gap="2">
+                <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
-                      Sequential Testing
+                      Sequential testing
                     </PremiumTooltip>
                   }
-                  value={
-                    usingSequentialTestingDefault
-                      ? ""
-                      : form.watch("sequentialTestingEnabled")
-                        ? "on"
-                        : "off"
-                  }
-                  onChange={(v) => {
-                    if (v === "") {
-                      setSequentialTestingToDefault(true);
-                    } else {
-                      setSequentialTestingToDefault(false);
-                      form.setValue("sequentialTestingEnabled", v === "on");
-                    }
-                  }}
-                  options={[
-                    {
-                      label: `Default (${
-                        orgSettings.sequentialTestingEnabled ? "On" : "Off"
-                      })`,
-                      value: "",
-                    },
-                    { label: "On", value: "on" },
-                    { label: "Off", value: "off" },
-                  ]}
-                  formatOptionLabel={({ value, label }) => {
-                    if (value === "") {
-                      return <em className="text-muted">{label}</em>;
-                    }
-                    return label;
-                  }}
-                  sort={false}
+                  weight="regular"
+                  value={!!form.watch("sequentialTestingEnabled")}
+                  setValue={(v) => form.setValue("sequentialTestingEnabled", v)}
                   disabled={!hasSequentialTestingFeature}
                 />
-              </Box>
-              <Box style={{ flex: 1, minWidth: 0 }}>
-                {(usingSequentialTestingDefault &&
-                  !!orgSettings.sequentialTestingEnabled) ||
-                (!usingSequentialTestingDefault &&
-                  form.watch("sequentialTestingEnabled")) ? (
-                  <Field
-                    label="Tuning parameter"
-                    type="number"
-                    containerClassName="mb-0"
-                    min="0"
-                    readOnly={usingSequentialTestingDefault}
-                    disabled={!hasSequentialTestingFeature || hasFileConfig()}
-                    {...form.register("sequentialTestingTuningParameter", {
-                      valueAsNumber: true,
-                      validate: (v) => {
-                        return !((v ?? 0) <= 0);
-                      },
-                    })}
-                  />
+                {form.watch("sequentialTestingEnabled") ? (
+                  <Flex align="center" gap="3" pl="5">
+                    <Text>Tuning parameter</Text>
+                    <Box width="120px">
+                      <Field
+                        type="number"
+                        containerClassName="mb-0"
+                        min="0"
+                        disabled={
+                          !hasSequentialTestingFeature || hasFileConfig()
+                        }
+                        {...form.register("sequentialTestingTuningParameter", {
+                          valueAsNumber: true,
+                          validate: (v) => {
+                            return !((v ?? 0) <= 0);
+                          },
+                        })}
+                      />
+                    </Box>
+                  </Flex>
                 ) : null}
-              </Box>
-              <Box style={{ flex: 1, minWidth: 0 }} />
-            </Flex>
+              </Flex>
+            </SetupFieldRow>
           )}
 
-        <hr className="mt-2" />
+        <Separator size="4" my="4" />
 
         {editMetrics && (
           <>
@@ -1014,7 +890,8 @@ const AnalysisForm: FC<{
               </>
             )}
             <ExperimentMetricsSelector
-              noLegacyMetrics={isExperimentIncludedInIncrementalRefresh}
+              asRows
+              autoFocus={focus === "goalMetrics"}
               datasource={form.watch("datasource")}
               exposureQueryId={exposureQueryId}
               exposureQueryIdentifierType={exposureQueryIdentifierType}
@@ -1045,65 +922,19 @@ const AnalysisForm: FC<{
             />
 
             {!!datasource && !isBandit && !isHoldout && (
-              <>
-                <Tooltip
-                  shouldDisplay={
-                    isExperimentIncludedInIncrementalRefresh &&
-                    form.watch("activationMetric") === ""
-                  }
-                  body="Activation Metrics are not yet supported with Incremental Refresh. Contact support if needed."
-                >
-                  <MetricSelector
-                    disabled={isExperimentIncludedInIncrementalRefresh}
-                    datasource={form.watch("datasource")}
-                    exposureQueryId={exposureQueryId}
-                    exposureQueryIdentifierType={exposureQueryIdentifierType}
-                    project={experiment.project}
-                    includeFacts={true}
-                    label={
-                      <>
-                        Activation Metric
-                        {!isExperimentIncludedInIncrementalRefresh ? (
-                          <>
-                            {" "}
-                            <MetricsSelectorTooltip
-                              onlyBinomial={true}
-                              noFactFunnelMetrics={true}
-                              isSingular={true}
-                            />
-                          </>
-                        ) : null}
-                      </>
-                    }
-                    initialOption="None"
-                    onlyBinomial
-                    filterFactFunnelMetrics
-                    value={form.watch("activationMetric")}
-                    onChange={(value) =>
-                      form.setValue("activationMetric", value || "")
-                    }
-                    helpText="Users must convert on this metric before being included"
-                  />
-                </Tooltip>
-                {isExperimentIncludedInIncrementalRefresh &&
-                  form.watch("activationMetric") !== "" && (
-                    <Callout status="warning" mb="2">
-                      Activation metrics are not yet supported with Incremental
-                      Refresh. Please{" "}
-                      <Link
-                        style={{ display: "inline" }}
-                        onClick={() => form.setValue("activationMetric", "")}
-                      >
-                        click to remove it
-                      </Link>
-                      .
-                    </Callout>
-                  )}
-              </>
+              <ActivationMetricRow
+                datasource={form.watch("datasource")}
+                exposureQueryId={exposureQueryId}
+                exposureQueryIdentifierType={exposureQueryIdentifierType}
+                project={experiment.project}
+                value={form.watch("activationMetric")}
+                onChange={(metric) => form.setValue("activationMetric", metric)}
+                incrementalRefresh={isExperimentIncludedInIncrementalRefresh}
+              />
             )}
 
             <CustomMetricSlicesSelector
-              className="mt-4 pt-4 border-top"
+              asRow
               goalMetrics={form.watch("goalMetrics")}
               secondaryMetrics={form.watch("secondaryMetrics")}
               guardrailMetrics={form.watch("guardrailMetrics")}
@@ -1114,186 +945,128 @@ const AnalysisForm: FC<{
             />
 
             {hasAdvancedSettings && (
-              <>
-                <hr className="mt-4" />
-
-                <Collapsible
-                  trigger={
-                    <div className="link-purple font-weight-bold mt-4 mb-2">
-                      <PiCaretRightFill className="chevron mr-1" />
-                      Advanced Settings
-                    </div>
-                  }
-                  transitionTime={100}
-                  lazyRender={true}
-                >
-                  <div className="rounded px-3 pt-3 pb-1 bg-highlight">
-                    {hasEligiblePrecomputedUnitDimensions && (
-                      <div className="form-group mb-2">
-                        <MultiSelectField
-                          label="Always-computed unit dimensions"
-                          labelClassName="font-weight-bold"
-                          helpText={`These dimensions will be computed automatically on every refresh, similar to precomputed dimensions. You can select up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}. Changes apply on the next refresh.`}
-                          value={selectedPrecomputedUnitDimensionIds}
-                          options={precomputedUnitDimensionOptionsWithTooltips}
-                          isOptionDisabled={(option) => {
-                            if (!("value" in option)) return false;
-                            return (
-                              precomputedUnitDimensionLimitReached &&
-                              !selectedPrecomputedUnitDimensionIds.includes(
-                                option.value,
-                              )
-                            );
-                          }}
-                          onChange={(v) =>
-                            form.setValue(
-                              "precomputedUnitDimensionIds",
-                              v.slice(0, MAX_PRECOMPUTED_UNIT_DIMENSIONS),
-                            )
-                          }
-                        />
-                      </div>
-                    )}
-                    {datasourceProperties?.experimentSegments &&
-                      filteredSegments.length > 0 && (
-                        <div className="form-group mb-2">
+              <Box>
+                <Separator size="4" my="5" />
+                <AdvancedSection open={advancedOpen} setOpen={setAdvancedOpen}>
+                  {hasExposureSettings && (
+                    <SettingsCard title="Exposures">
+                      {showSegments && (
+                        <SetupFieldRow
+                          label="Segment"
+                          tooltip="Only users in this segment will be included."
+                        >
                           <SelectField
-                            label="Segment"
-                            labelClassName="font-weight-bold"
                             value={form.watch("segment")}
                             onChange={(value) =>
                               form.setValue("segment", value || "")
                             }
-                            initialOption="None (All Users)"
-                            options={filteredSegments.map((s) => {
-                              return {
-                                label: s.name,
-                                value: s.id,
-                              };
-                            })}
-                            helpText="Only users in this segment will be included"
+                            initialOption="None (all users)"
+                            options={filteredSegments.map((s) => ({
+                              label: s.name,
+                              value: s.id,
+                            }))}
                           />
-                        </div>
+                        </SetupFieldRow>
                       )}
-                    {datasourceProperties?.separateExperimentResultQueries && (
-                      <div className="form-group mb-2">
-                        <Tooltip
-                          shouldDisplay={
-                            isExperimentIncludedInIncrementalRefresh
-                          }
-                          body="In-progress Conversions is not supported with Incremental Refresh while in beta"
-                        >
-                          <SelectField
-                            label="Metric Conversion Windows"
-                            labelClassName="font-weight-bold"
-                            value={form.watch("skipPartialData")}
-                            onChange={(value) =>
-                              form.setValue("skipPartialData", value)
-                            }
-                            options={[
-                              {
-                                label: "Include In-Progress Conversions",
-                                value: "loose",
-                              },
-                              {
-                                label: "Exclude In-Progress Conversions",
-                                value: "strict",
-                              },
-                            ]}
-                            isOptionDisabled={(option) =>
-                              isExperimentIncludedInIncrementalRefresh &&
-                              "value" in option &&
-                              option.value === "strict"
-                            }
-                            helpText="How to treat users not enrolled in the experiment long enough to complete conversion window."
+                      {datasourceProperties?.queryLanguage === "sql" && (
+                        <SetupFieldRow label="Custom SQL filter">
+                          <Field
+                            textarea
+                            {...form.register("queryFilter")}
+                            placeholder="e.g. user_id NOT IN ('123', '456')"
+                            containerClassName="mb-0"
                           />
-                        </Tooltip>
-                      </div>
-                    )}
-                    {datasourceProperties?.separateExperimentResultQueries && (
-                      <div className="form-group mb-2">
-                        <MetricAnalysisWindowSelector
-                          attributionModel={
-                            form.watch("attributionModel") ||
-                            orgSettings.attributionModel ||
-                            "firstExposure"
-                          }
-                          lookbackOverride={form.watch("lookbackOverride")}
-                          onAttributionModelChange={(v) =>
-                            form.setValue("attributionModel", v)
-                          }
-                          onLookbackOverrideChange={(v) =>
-                            form.setValue("lookbackOverride", v)
-                          }
-                          phaseEndDate={
-                            experiment.status === "stopped" && phaseObj
-                              ? getValidDate(phaseObj.dateEnded ?? "")
-                              : new Date()
-                          }
-                          disabled={isExperimentIncludedInIncrementalRefresh}
-                        />
-                      </div>
-                    )}
-                    {datasourceProperties?.queryLanguage === "sql" && (
-                      <div className="form-group mb-2">
-                        <div className="row">
-                          <div className="col">
-                            <Field
-                              label="Custom SQL Filter"
-                              labelClassName="font-weight-bold"
-                              {...form.register("queryFilter")}
-                              textarea
-                              placeholder="e.g. user_id NOT IN ('123', '456')"
-                              helpText="WHERE clause to add to the default experiment query"
+                          <QueryFilterHelp exposureQuery={exposureQuery} />
+                        </SetupFieldRow>
+                      )}
+                    </SettingsCard>
+                  )}
+                  {hasMetricSettings && (
+                    <SettingsCard title="Metrics">
+                      {datasourceProperties?.separateExperimentResultQueries && (
+                        <>
+                          <ConversionWindowsRow
+                            strict={form.watch("skipPartialData") === "strict"}
+                            setStrict={(strict) =>
+                              form.setValue(
+                                "skipPartialData",
+                                strict ? "strict" : "loose",
+                              )
+                            }
+                            incrementalRefresh={
+                              isExperimentIncludedInIncrementalRefresh
+                            }
+                          />
+                          <SetupFieldRow
+                            label="Metric windows"
+                            tooltip="Apply custom metric window behavior in this experiment."
+                          >
+                            <MetricAnalysisWindowSelector
+                              bare
+                              attributionModel={
+                                form.watch("attributionModel") ||
+                                orgSettings.attributionModel ||
+                                "firstExposure"
+                              }
+                              lookbackOverride={form.watch("lookbackOverride")}
+                              onAttributionModelChange={(v) =>
+                                form.setValue("attributionModel", v)
+                              }
+                              onLookbackOverrideChange={(v) =>
+                                form.setValue("lookbackOverride", v)
+                              }
+                              phaseEndDate={
+                                experiment.status === "stopped" && phaseObj
+                                  ? getValidDate(phaseObj.dateEnded ?? "")
+                                  : new Date()
+                              }
+                              disabled={
+                                isExperimentIncludedInIncrementalRefresh
+                              }
                             />
-                          </div>
-                          <div className="pt-2 border-left col-sm-4 col-lg-6">
-                            Available columns:
-                            <div className="mb-2 d-flex flex-wrap">
-                              {["timestamp", "variation_id"]
-                                .concat(
-                                  exposureQuery
-                                    ? getExposureQueryIdentifierTypes(
-                                        exposureQuery,
-                                      )
-                                    : [],
-                                )
-                                .concat(exposureQuery?.dimensions || [])
-                                .map((d) => {
-                                  return (
-                                    <div
-                                      className="mr-2 mb-2 border px-1"
-                                      key={d}
-                                    >
-                                      <code>{d}</code>
-                                    </div>
-                                  );
-                                })}
-                            </div>
-                            <div>
-                              <strong>Tip:</strong> Use a subquery inside an{" "}
-                              <code>IN</code> or <code>NOT IN</code> clause for
-                              more advanced filtering.
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    {hasMetrics && (
-                      <>
-                        <div className="form-group mb-2">
-                          <PremiumTooltip commercialFeature="override-metrics">
-                            <label className="font-weight-bold mb-1">
-                              Metric Overrides
-                            </label>
-                          </PremiumTooltip>
-                          <small className="form-text text-muted mb-2">
-                            Override metric behaviors within this experiment.
-                            Leave any fields empty that you do not want to
-                            override.
-                          </small>
+                          </SetupFieldRow>
+                        </>
+                      )}
+                      {hasEligiblePrecomputedUnitDimensions && (
+                        <SetupFieldRow
+                          label="Unit dimensions"
+                          tooltip={`Always computed on every refresh, like precomputed dimensions. Up to ${MAX_PRECOMPUTED_UNIT_DIMENSIONS}.`}
+                        >
+                          <MultiSelectField
+                            value={selectedPrecomputedUnitDimensionIds}
+                            options={
+                              precomputedUnitDimensionOptionsWithTooltips
+                            }
+                            isOptionDisabled={(option) =>
+                              "value" in option &&
+                              precomputedUnitDimensionLimitReached &&
+                              !selectedPrecomputedUnitDimensionIds.includes(
+                                option.value,
+                              )
+                            }
+                            onChange={(v) =>
+                              form.setValue(
+                                "precomputedUnitDimensionIds",
+                                v.slice(0, MAX_PRECOMPUTED_UNIT_DIMENSIONS),
+                              )
+                            }
+                          />
+                        </SetupFieldRow>
+                      )}
+                      {hasMetrics && (
+                        <SetupFieldRow
+                          label="Metric overrides"
+                          tooltip="Override metric behaviors within this experiment."
+                          stacked
+                        >
                           <MetricsOverridesSelector
                             experiment={experiment}
+                            // The source being edited here, not the stored one.
+                            datasource={form.watch("datasource")}
+                            statsEngine={
+                              form.watch("statsEngine") ||
+                              scopedSettings.statsEngine.value
+                            }
                             form={
                               form as unknown as UseFormReturn<EditMetricsFormInterface>
                             }
@@ -1309,12 +1082,12 @@ const AnalysisForm: FC<{
                               upgradeMessage="override metrics"
                             />
                           )}
-                        </div>
-                      </>
-                    )}
-                  </div>
-                </Collapsible>
-              </>
+                        </SetupFieldRow>
+                      )}
+                    </SettingsCard>
+                  )}
+                </AdvancedSection>
+              </Box>
             )}
           </>
         )}

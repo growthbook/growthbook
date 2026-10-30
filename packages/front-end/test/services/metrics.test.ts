@@ -53,8 +53,6 @@ function formValues(
     regressionAdjustmentOverride: false,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 14,
-    winRisk: 0.0025,
-    loseRisk: 0.0125,
     minPercentChange: 0.5,
     maxPercentChange: 50,
     minSampleSize: 150,

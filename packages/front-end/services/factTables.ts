@@ -2,10 +2,7 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceType,
 } from "shared/types/datasource";
-import {
-  DetectedFactTableColumn,
-  FactTableColumnType,
-} from "shared/types/fact-table";
+import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
 import { Column } from "shared/types/integrations";
 import { SqlIdentifierQuote } from "shared/types/sql";
 import { quoteIdentifier } from "shared/sql";
@@ -47,15 +44,26 @@ export function getNewFactTableProjects({
  * the SQL is still on screen. An undetected type ("") is unknown, not wrong,
  * so it stays a candidate for both.
  */
-export const isTimestampCandidate = (c: DetectedFactTableColumn) =>
+export const isTimestampCandidate = (c: DetectedColumn) =>
   ["date", "other", ""].includes(c.datatype);
 
-export const isIdentifierCandidate = (c: DetectedFactTableColumn) =>
+export const isIdentifierCandidate = (c: DetectedColumn) =>
   ["string", "number", "other", ""].includes(c.datatype);
 
+// "other" is arrays, intervals and geo types, which don't slice sensibly
+export const isDimensionCandidate = (c: DetectedColumn) =>
+  ["string", "number", "boolean", ""].includes(c.datatype);
+
+// The columns an object needs, beyond a timestamp and an identifier. A Fact
+// Table needs nothing more; an assignment query also needs its experiment and
+// variation ids.
 export function getColumnMappingError(
-  columns: DetectedFactTableColumn[],
+  columns: DetectedColumn[],
   fromTable = false,
+  {
+    minColumns = 2,
+    separateColumns = "separate timestamp and identifier columns",
+  } = {},
 ): string | null {
   if (!columns.some(isTimestampCandidate)) {
     return fromTable
@@ -68,19 +76,88 @@ export function getColumnMappingError(
       : "Your query must return a string or number column to use as an identifier.";
   }
   // A single column can satisfy both checks when its type is unknown, but the
-  // timestamp and the identifier have to be different columns.
-  if (columns.length < 2) {
+  // roles have to be different columns.
+  if (columns.length < minColumns) {
     return fromTable
-      ? "Selected table must have separate timestamp and identifier columns."
-      : "Your query must return separate timestamp and identifier columns.";
+      ? `Selected table must have ${separateColumns}.`
+      : `Your query must return ${separateColumns}.`;
   }
   return null;
 }
 
+// A mapping survives as long as its column does; otherwise it's matched again
+export const rematchColumn = (
+  previous: string,
+  columns: DetectedColumn[],
+  match: () => string,
+) => (columns.some((c) => c.column === previous) ? previous : match());
+
+export const rematchUserIdColumns = (
+  previous: Record<string, string>,
+  identifierTypes: string[],
+  columns: DetectedColumn[],
+): Record<string, string> =>
+  Object.fromEntries(
+    identifierTypes.flatMap((idType) => {
+      const column = rematchColumn(previous[idType] ?? "", columns, () =>
+        findColumnByName(columns, idType),
+      );
+      return column ? [[idType, column]] : [];
+    }),
+  );
+
+// Ignores case and separators, so userId matches user_id
+const normalizeColumnName = (name: string) =>
+  name.replace(/[^a-z]/gi, "").toLowerCase();
+
+const EVENT_TYPE_COLUMNS = [
+  "event_name",
+  "eventName",
+  "event_type",
+  "eventType",
+  "event",
+  "se_action",
+];
+
+// Case-insensitive: Snowflake's information schema reports EVENT_NAME
+export const findEventTypeColumn = (columns: DetectedColumn[]) =>
+  EVENT_TYPE_COLUMNS.map((candidate) =>
+    columns.find(
+      (c) =>
+        c.datatype === "string" &&
+        c.column.toLowerCase() === candidate.toLowerCase(),
+    ),
+  ).find(Boolean)?.column ?? "";
+
+// Closest match first, so user_id beats userId and user_id_2
+export const findColumnByName = (columns: DetectedColumn[], name: string) =>
+  (
+    columns.find((c) => c.column === name) ??
+    columns.find((c) => c.column.toLowerCase() === name.toLowerCase()) ??
+    columns.find(
+      (c) => normalizeColumnName(c.column) === normalizeColumnName(name),
+    )
+  )?.column ?? "";
+
+export const haveSameColumnNames = (a: DetectedColumn[], b: DetectedColumn[]) =>
+  a.length === b.length && a.every((c, i) => c.column === b[i].column);
+
+// An identifier type whose column matches its own name resolves without a
+// mapping, so only remapped types are stored.
+export const getRemappedUserIdColumns = (
+  userIdTypes: string[],
+  userIdColumns: Record<string, string>,
+): Record<string, string> =>
+  Object.fromEntries(
+    userIdTypes
+      .filter((t) => userIdColumns[t] !== t)
+      .map((t) => [t, userIdColumns[t]]),
+  );
+
 const tableSuffixFilter = (prefix: string) =>
   `(_TABLE_SUFFIX BETWEEN '${prefix}{{date startDateISO "yyyyMMdd"}}' AND '${prefix}{{date endDateISO "yyyyMMdd"}}')`;
 
-const shardFilter = (hasIntraday?: boolean) =>
+export const shardFilter = (hasIntraday?: boolean) =>
   hasIntraday
     ? `(${tableSuffixFilter("")} OR ${tableSuffixFilter("intraday_")})`
     : tableSuffixFilter("");
@@ -112,8 +189,18 @@ export const isGA4EventsTable = (table: SchemaBrowserTable) =>
   table.tableName === "events_*" &&
   table.schemaName.startsWith("analytics_");
 
+// A table that gets a hand-written query instead of a generated SELECT
+export type SourceTableTemplate = {
+  matches: (table: SchemaBrowserTable) => boolean;
+  name: string;
+  // The information schema only knows the raw table's columns
+  columns: DetectedColumn[];
+  // Row filters read the raw table's columns
+  getSql: (table: SchemaBrowserTable, rowFilterWhere: string) => string;
+};
+
 // Output of getGA4EventsSql, typed by the GA4 export schema
-const GA4_EVENTS_COLUMNS: DetectedFactTableColumn[] = [
+const GA4_EVENTS_COLUMNS: DetectedColumn[] = [
   { column: "timestamp", datatype: "date" },
   { column: "user_id", datatype: "string" },
   { column: "anonymous_id", datatype: "string" },
@@ -140,17 +227,21 @@ const BIGQUERY_RESERVED_PREFIX =
 export const isPseudoColumn = (c: Column, datasourceType?: DataSourceType) =>
   datasourceType === "bigquery" && BIGQUERY_RESERVED_PREFIX.test(c.columnName);
 
-export function getPickerTableColumns(
-  table: SchemaBrowserTable,
-  columns: Column[],
-): DetectedFactTableColumn[] {
-  return isGA4EventsTable(table)
-    ? GA4_EVENTS_COLUMNS
-    : columns.map((c) => ({
-        column: c.columnName,
-        datatype: mapDatabaseTypeToEnum(c.dataType),
-      }));
-}
+export const GA4_EVENTS_TEMPLATE: SourceTableTemplate = {
+  matches: isGA4EventsTable,
+  name: "GA4 Events",
+  columns: GA4_EVENTS_COLUMNS,
+  getSql: (table, rowFilterWhere) => {
+    const sql = getGA4EventsSql(table.path);
+    return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
+  },
+};
+
+export const getPickerTableColumns = (columns: Column[]): DetectedColumn[] =>
+  columns.map((c) => ({
+    column: c.columnName,
+    datatype: mapDatabaseTypeToEnum(c.dataType),
+  }));
 
 // String partitions (Hive-style `dt`) can be any format, so only a partitioned
 // timestamp is picked by default. BigQuery's _PARTITIONTIME holds the start of
@@ -232,12 +323,6 @@ export function getPickerTableSql(
     rowFilterWhere?: string;
   } = {},
 ): string {
-  // GA4 picks its own columns; row filters read the raw export columns
-  if (isGA4EventsTable(table)) {
-    const sql = getGA4EventsSql(table.path);
-    return rowFilterWhere ? `${sql}\n  AND ${rowFilterWhere}` : sql;
-  }
-
   const quote = (c: string) =>
     SIMPLE_IDENTIFIER.test(c) ? c : quoteIdentifier(c, identifierQuote);
 
@@ -264,9 +349,7 @@ const TIMESTAMP_CANDIDATES = [
   "collector_tstamp",
 ];
 
-export function getDefaultTimestampColumn(
-  columns: DetectedFactTableColumn[],
-): string {
+export function getDefaultTimestampColumn(columns: DetectedColumn[]): string {
   const dates = columns.filter((c) => c.datatype === "date");
   const preferred = TIMESTAMP_CANDIDATES.map((name) =>
     dates.find((c) => c.column.toLowerCase() === name),
@@ -274,8 +357,7 @@ export function getDefaultTimestampColumn(
   return (preferred ?? dates[0])?.column ?? "";
 }
 
-export function getPickerTableName(table: SchemaBrowserTable): string {
-  return isGA4EventsTable(table)
-    ? "GA4 Events"
-    : table.tableName.replace(/_?\*$/, "");
-}
+export const getPickerTableName = (
+  table: SchemaBrowserTable,
+  template: SourceTableTemplate | null,
+) => template?.name ?? table.tableName.replace(/_?\*$/, "");

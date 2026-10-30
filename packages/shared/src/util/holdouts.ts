@@ -83,3 +83,80 @@ export function isHoldoutStageTransitionAllowed(
 ): boolean {
   return getAllowedHoldoutStageSources(targetStage).includes(currentStage);
 }
+
+type HoldoutLinkBlocker =
+  | {
+      reason: "different-holdout";
+      featureHoldoutId: string;
+      experimentHoldoutId: string;
+    }
+  | { reason: "holdout-unavailable"; featureHoldoutId: string }
+  | { reason: "not-draft"; featureHoldoutId: string }
+  | { reason: "has-linked-changes"; featureHoldoutId: string }
+  | { reason: "not-in-holdout"; experimentHoldoutId: string };
+
+// A holdout with no projects is available everywhere.
+export function isHoldoutAvailableForProject(
+  holdout: { projects: string[] },
+  project: string | undefined,
+): boolean {
+  return (
+    holdout.projects.length === 0 ||
+    (!!project && holdout.projects.includes(project))
+  );
+}
+
+// A flag in a holdout pulls a holdout-free experiment into it, which only a
+// draft with nothing else linked may do.
+export function getHoldoutLinkBlocker({
+  featureId,
+  featureHoldoutId,
+  featureHoldoutProjects,
+  experiment,
+}: {
+  featureId: string;
+  featureHoldoutId: string | null | undefined;
+  featureHoldoutProjects?: string[] | null;
+  experiment: Pick<
+    ExperimentInterface,
+    | "holdoutId"
+    | "project"
+    | "status"
+    | "linkedFeatures"
+    | "hasURLRedirects"
+    | "hasVisualChangesets"
+  >;
+}): HoldoutLinkBlocker | null {
+  const experimentHoldoutId = experiment.holdoutId || null;
+  if (!featureHoldoutId) {
+    return experimentHoldoutId
+      ? { reason: "not-in-holdout", experimentHoldoutId }
+      : null;
+  }
+  if (experimentHoldoutId) {
+    return experimentHoldoutId === featureHoldoutId
+      ? null
+      : { reason: "different-holdout", featureHoldoutId, experimentHoldoutId };
+  }
+  if (
+    featureHoldoutProjects &&
+    !isHoldoutAvailableForProject(
+      { projects: featureHoldoutProjects },
+      experiment.project,
+    )
+  ) {
+    return { reason: "holdout-unavailable", featureHoldoutId };
+  }
+  if (experiment.status !== "draft") {
+    return { reason: "not-draft", featureHoldoutId };
+  }
+  // Self-links never count: linkedFeatures is deliberately sticky, so a
+  // discarded draft on this same flag leaves one behind.
+  const hasOtherLinkedChanges =
+    (experiment.linkedFeatures?.some((id) => id !== featureId) ?? false) ||
+    !!experiment.hasURLRedirects ||
+    !!experiment.hasVisualChangesets;
+  return hasOtherLinkedChanges
+    ? { reason: "has-linked-changes", featureHoldoutId }
+    : null;
+}

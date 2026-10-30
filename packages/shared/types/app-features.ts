@@ -57,6 +57,7 @@ export type AppFeatures = {
   "show-3.0-release": boolean;
   "improve-h1-heading-feature-flag": boolean;
   "apply-saved-group-id-list-size-limit": boolean;
+  "remote-saved-groups": boolean;
   "use-new-setup-flow": boolean;
   bandits: boolean;
   "gb-ax5-bandit": boolean;
@@ -136,8 +137,6 @@ export type AppFeatures = {
   "slackbot-enabled": boolean;
   "slackbot-config": Record<string, unknown>;
   "oe-general-agent-gate": boolean;
-  "event-forwarder-multi-step": string;
-  "events-forwarder-multi-step": string;
   "ai-visual-editor-callout": boolean;
   "nps-survey": boolean;
   "home-marketing-banner": Record<string, unknown>;

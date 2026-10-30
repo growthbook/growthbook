@@ -23,11 +23,16 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { useFeatureValue } from "@growthbook/growthbook-react";
 import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
+import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
+import useApi from "@/hooks/useApi";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import { isCloud } from "@/services/env";
+import UsageMeter from "@/components/Settings/EditDataSource/EventForwarder/UsageMeter";
 import PremiumCallout from "@/ui/PremiumCallout";
+import UpgradeModal from "@/components/Settings/UpgradeModal";
 import SelectField from "@/components/Forms/SelectField";
 import BigQueryEventForwarderForm from "@/components/Settings/BigQueryEventForwarderForm";
 import SnowflakeEventForwarderForm from "@/components/Settings/SnowflakeEventForwarderForm";
@@ -38,6 +43,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -73,17 +79,19 @@ type EventForwarderDatasourceDraft = {
 };
 
 const statusLabels: Record<EventForwarderStatus, string> = {
+  unconfigured: "Not configured",
   pending: "Pending",
   ready: "Ready",
   paused: "Paused",
   error: "Error",
-  schema_update_error: "Schema Update Error",
+  schema_update_error: "Schema update error",
 };
 
 const statusColors: Record<
   EventForwarderStatus,
   "gray" | "green" | "amber" | "red"
 > = {
+  unconfigured: "gray",
   pending: "gray",
   ready: "green",
   paused: "amber",
@@ -524,7 +532,7 @@ function EventForwarderModal({
             ) : null}
             {eventForwarderConfig ? (
               <SelectField
-                size="small"
+                size="md"
                 legacyLabelFormatting={false}
                 label="Data region"
                 value={eventForwarderConfig.region ?? DEFAULT_DATA_REGION}
@@ -607,15 +615,28 @@ export default function EventForwarder({
 }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showUpgrade, setShowUpgrade] = useState(false);
   const [pauseResumeLoading, setPauseResumeLoading] = useState(false);
   const { apiCall } = useAuth();
-  const { effectiveAccountPlan, subscription, hasCommercialFeature } =
+  const { effectiveAccountPlan, subscription, hasCommercialFeature, usage } =
     useUser();
+  const permissionsUtil = usePermissionsUtil();
   const eventForwarderConfig = dataSource.eventForwarderConfig;
-  const eventsForwarderFlag = useFeatureValue(
-    "events-forwarder-multi-step",
-    "OFF",
-  );
+  const isMetered =
+    isCloud() && !hasCommercialFeature("unlimited-event-forwarder-usage");
+  const { data: usageData } = useApi<{
+    usage: DailyUsage[];
+    limits: UsageLimits;
+  }>("/billing/usage?monthsAgo=0", {
+    shouldRun: () =>
+      isMetered && !!eventForwarderConfig && permissionsUtil.canViewUsage(),
+  });
+  const forwarderLimit = usageData?.limits.eventForwarderEvents;
+  const forwardedThisMonth =
+    usageData?.usage.reduce((sum, u) => sum + u.eventForwarderEvents, 0) ?? 0;
+  // "over" is the advertised stop (what the nav and docs say); the hidden
+  // `blocked` flag is enforced server-side and needs nothing here.
+  const isOverLimit = isMetered && usage?.eventForwarder?.status === "over";
 
   const isPaidPlan = ["pro", "pro_sso", "enterprise"].includes(
     effectiveAccountPlan || "",
@@ -634,7 +655,7 @@ export default function EventForwarder({
       onRefresh: handleRefresh,
     });
 
-  if (!supportsEventForwarder(dataSource)) {
+  if (!isCloud() || !supportsEventForwarder(dataSource)) {
     return null;
   }
 
@@ -654,6 +675,7 @@ export default function EventForwarder({
           eventForwarderConfig?.status === "schema_update_error" ||
           pollTimedOut ||
           !!primaryConnectorErrorMessage)));
+  // Pause/Resume stay available while usage-blocked; a resume takes effect on the 1st
   const canToggle = canEdit && (isReady || isPaused);
   const action = isReady ? "pause" : "resume";
   const databricksParams =
@@ -676,11 +698,16 @@ export default function EventForwarder({
               {isProvisioning ? (
                 <EventForwarderSetupIndicator />
               ) : (
-                <Badge
-                  label={statusLabels[eventForwarderConfig.status]}
-                  color={statusColors[eventForwarderConfig.status]}
-                  variant="soft"
-                />
+                <>
+                  <Badge
+                    label={statusLabels[eventForwarderConfig.status]}
+                    color={statusColors[eventForwarderConfig.status]}
+                    variant="soft"
+                  />
+                  {isOverLimit ? (
+                    <Badge label="Limit reached" color="red" variant="soft" />
+                  ) : null}
+                </>
               )}
             </Flex>
           ) : null}
@@ -747,21 +774,33 @@ export default function EventForwarder({
         </Callout>
       ) : null}
 
+      {eventForwarderConfig && isOverLimit ? (
+        <Callout
+          status="error"
+          mb="3"
+          action={
+            <Button color="inherit" onClick={() => setShowUpgrade(true)}>
+              Upgrade
+            </Button>
+          }
+        >
+          Monthly event limit reached. Forwarding has stopped until the 1st or
+          until you upgrade, and events received meanwhile are not delivered.
+          {isPaused
+            ? " It is also paused. You can resume it now; forwarding restarts once the limit clears."
+            : ""}
+        </Callout>
+      ) : null}
+      {showUpgrade ? (
+        <UpgradeModal
+          close={() => setShowUpgrade(false)}
+          source="event-forwarder-card-usage-blocked"
+          commercialFeature="unlimited-event-forwarder-usage"
+        />
+      ) : null}
+
       {!eventForwarderConfig ? (
-        eventsForwarderFlag === "VISIBLE" ? (
-          <Callout status="info">
-            Event Forwarder is available as an early access feature. Contact
-            your account manager or reach out to{" "}
-            <a
-              href="mailto:sales@growthbook.io"
-              target="_blank"
-              rel="noreferrer"
-            >
-              sales@growthbook.io
-            </a>{" "}
-            to learn more and get started.
-          </Callout>
-        ) : hasEventForwarderFeature ? (
+        hasEventForwarderFeature ? (
           <Callout status="info">
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
@@ -780,13 +819,7 @@ export default function EventForwarder({
           <Callout status="info">
             Event Forwarder is not available for your current plan. Contact your
             account manager or reach out to{" "}
-            <a
-              href="mailto:sales@growthbook.io"
-              target="_blank"
-              rel="noreferrer"
-            >
-              sales@growthbook.io
-            </a>{" "}
+            <Link href="mailto:sales@growthbook.io">sales@growthbook.io</Link>{" "}
             to upgrade.
           </Callout>
         ) : (
@@ -882,6 +915,14 @@ export default function EventForwarder({
                 )}
               />
             </Flex>
+
+            {typeof forwarderLimit === "number" ? (
+              <UsageMeter
+                used={forwardedThisMonth}
+                limit={forwarderLimit}
+                noun="events"
+              />
+            ) : null}
 
             {isProvisioning ? (
               <Callout status="info">
