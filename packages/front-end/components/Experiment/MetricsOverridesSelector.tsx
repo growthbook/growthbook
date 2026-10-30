@@ -361,8 +361,13 @@ function OverrideCard({
     </Box>
   );
 
-  // Paid ones are listed but can't be picked.
-  const addable = [
+  // Paid and unavailable ones are listed but can't be picked.
+  const addable: {
+    label: string;
+    paid?: boolean;
+    unavailable?: string | null;
+    add: () => void;
+  }[] = [
     !!targetMDEPath &&
       !targetMDEOverridden && {
         label: "Target MDE",
@@ -388,17 +393,17 @@ function OverrideCard({
           }),
       },
     !onlyTargetMDE &&
-      !cupedOverridden &&
-      !cupedUnavailable && {
+      !cupedOverridden && {
         label: "CUPED",
         paid: !hasRegressionAdjustmentFeature,
+        unavailable: cupedUnavailable,
         add: () =>
           set({
             regressionAdjustmentOverride: true,
             regressionAdjustmentEnabled: cupedDefault,
           }),
       },
-  ].filter((a): a is { label: string; paid?: boolean; add: () => void } => !!a);
+  ].filter((a) => !!a);
 
   return (
     <Box
@@ -413,9 +418,13 @@ function OverrideCard({
                 <Text weight="semibold">
                   <MetricName id={metricDefinition?.id || ""} />
                 </Text>
-                <Link type="button" color="red" onClick={onRemove}>
-                  Remove overrides
-                </Link>
+                {/* Hidden overrides would outlive it; the target MDE row
+                    clears itself. */}
+                {onlyTargetMDE ? null : (
+                  <Link type="button" color="red" onClick={onRemove}>
+                    Remove overrides
+                  </Link>
+                )}
               </Flex>
             </TableColumnHeader>
           </TableRow>
@@ -615,12 +624,12 @@ function OverrideCard({
                       addable.find(({ label }) => label === value)?.add()
                     }
                   >
-                    {addable.map(({ label, paid }) => (
+                    {addable.map(({ label, paid, unavailable }) => (
                       <SelectItem
                         key={label}
                         value={label}
                         textValue={label}
-                        disabled={paid}
+                        disabled={paid || !!unavailable}
                       >
                         {label}
                         {paid ? (
@@ -629,6 +638,10 @@ function OverrideCard({
                             useTip={false}
                             ml="2"
                           />
+                        ) : unavailable ? (
+                          <Text as="div" size="sm" color="text-low">
+                            {unavailable}
+                          </Text>
                         ) : null}
                       </SelectItem>
                     ))}
