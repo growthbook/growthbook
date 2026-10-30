@@ -632,10 +632,157 @@ export function sqlReferencesColumnAllowingQualified(
   return found;
 }
 
+function skipNonCodeSpan(
+  sql: string,
+  i: number,
+  identifierQuote: SqlIdentifierQuote,
+): number {
+  const n = sql.length;
+  const stringQuote = identifierQuote === '"' ? "`" : '"';
+  const c = sql[i];
+
+  // Single-quoted string literal, quoted identifier, or opposite-quote string.
+  if (c === "'" || c === identifierQuote || c === stringQuote) {
+    let j = i + 1;
+    while (j < n) {
+      if (sql[j] === c) {
+        if (sql[j + 1] === c) {
+          j += 2;
+          continue;
+        }
+        return j + 1;
+      }
+      j++;
+    }
+    return j;
+  }
+
+  // Line comment.
+  if (c === "-" && sql[i + 1] === "-") {
+    let j = i + 2;
+    while (j < n && sql[j] !== "\n") j++;
+    return j;
+  }
+
+  // Block comment.
+  if (c === "/" && sql[i + 1] === "*") {
+    let j = i + 2;
+    while (j < n && !(sql[j] === "*" && sql[j + 1] === "/")) j++;
+    return Math.min(n, j + 2);
+  }
+
+  // Dollar-quoted string ($tag$...$tag$).
+  if (c === "$") {
+    const open = sql.slice(i).match(/^\$([A-Za-z_][A-Za-z0-9_]*)?\$/);
+    if (open) {
+      const delim = open[0];
+      const close = sql.indexOf(delim, i + delim.length);
+      if (close !== -1) return close + delim.length;
+    }
+  }
+
+  return -1;
+}
+
+// Peel parentheses that wrap the entire query, e.g.
+// `(SELECT user_id, bandit_version FROM assignments)`. Without this, the
+// leading `(` pushes the top-level `SELECT` to depth 1, so the projection
+// scanner captures nothing and the output-column checks spuriously return
+// `false` (silently disabling bandit period weighting / traffic-split checks).
+// Only parentheses that enclose the whole statement are removed (ignoring
+// surrounding whitespace, comments, and a trailing semicolon); set operations
+// such as `(SELECT ...) UNION (SELECT ...)` are left untouched.
+function stripOuterParentheses(
+  sql: string,
+  identifierQuote: SqlIdentifierQuote,
+): string {
+  let current = sql;
+
+  // Each pass peels at most one layer; the bound guards against pathological
+  // input (it far exceeds any realistic nesting of whole-query parentheses).
+  for (let guard = 0; guard < 100; guard++) {
+    const n = current.length;
+
+    // Find the first significant character, skipping leading whitespace and
+    // comments.
+    let start = 0;
+    while (start < n) {
+      if (/\s/.test(current[start])) {
+        start++;
+        continue;
+      }
+      if (
+        (current[start] === "-" && current[start + 1] === "-") ||
+        (current[start] === "/" && current[start + 1] === "*")
+      ) {
+        start = skipNonCodeSpan(current, start, identifierQuote);
+        continue;
+      }
+      break;
+    }
+
+    if (start >= n || current[start] !== "(") break;
+
+    // Scan forward for the `)` that matches this leading `(`.
+    let depth = 0;
+    let i = start;
+    let matchClose = -1;
+    while (i < n) {
+      const span = skipNonCodeSpan(current, i, identifierQuote);
+      if (span !== -1) {
+        i = span;
+        continue;
+      }
+      const c = current[i];
+      if (c === "(") {
+        depth++;
+      } else if (c === ")") {
+        depth--;
+        if (depth === 0) {
+          matchClose = i;
+          break;
+        }
+      }
+      i++;
+    }
+
+    if (matchClose === -1) break; // unbalanced; leave as-is
+
+    // The leading `(` only wraps the whole query when nothing significant
+    // follows its match (trailing whitespace, comments, and a `;` are ok).
+    let k = matchClose + 1;
+    let wrapsWholeQuery = true;
+    while (k < n) {
+      if (/\s/.test(current[k]) || current[k] === ";") {
+        k++;
+        continue;
+      }
+      if (
+        (current[k] === "-" && current[k + 1] === "-") ||
+        (current[k] === "/" && current[k + 1] === "*")
+      ) {
+        k = skipNonCodeSpan(current, k, identifierQuote);
+        continue;
+      }
+      wrapsWholeQuery = false;
+      break;
+    }
+
+    if (!wrapsWholeQuery) break;
+
+    current = current.slice(start + 1, matchClose);
+  }
+
+  return current;
+}
+
 export function extractTopLevelSelectProjections(
   sql: string,
   identifierQuote: SqlIdentifierQuote = DEFAULT_IDENTIFIER_QUOTE,
 ): string {
+  // Treat parentheses that wrap the whole query as transparent, so the inner
+  // top-level SELECT is seen at depth 0.
+  sql = stripOuterParentheses(sql, identifierQuote);
   const n = sql.length;
   const stringQuote = identifierQuote === '"' ? "`" : '"';
 

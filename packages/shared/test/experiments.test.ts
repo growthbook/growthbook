@@ -2866,6 +2866,53 @@ describe("Virtual Columns", () => {
         ),
       ).toBe(false);
     });
+
+    it("detects the column when the whole query is wrapped in parentheses", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "(SELECT user_id, bandit_version FROM assignments)",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("still applies the strict projection check inside wrapping parentheses", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "(SELECT user_id FROM assignments WHERE bandit_version >= 2)",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("peels multiple layers of whole-query parentheses (with trailing semicolon)", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "((SELECT user_id, bandit_version FROM assignments)) ;",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects a wildcard exposed through wrapping parentheses over a CTE", () => {
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "(WITH q AS (SELECT user_id, bandit_version FROM assignments) SELECT * FROM q)",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("does not strip parentheses that only wrap one branch of a set operation", () => {
+      // The leading `(` does not enclose the whole statement, so it must not be
+      // peeled; the column is still exposed by the second branch.
+      expect(
+        sqlSelectsColumnAllowingQualified(
+          "(SELECT user_id FROM a) UNION ALL SELECT bandit_version FROM b",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
   });
 
   describe("validateVirtualColumnExpression", () => {
