@@ -255,7 +255,11 @@ export function flushPayloadRefreshBuffer(
   // Closed: straggler producers fall through to live refreshes instead of
   // pushing into a drained array.
   buffer.closed = true;
-  const sdkConnections = uniqBy(buffer.sdkConnections ?? [], "key");
+  // The last write of a connection carries its settings as landed.
+  const sdkConnections = uniqBy(
+    [...(buffer.sdkConnections ?? [])].reverse(),
+    "key",
+  );
   if (!buffer.keys.length && !sdkConnections.length) return;
   const seen = new Set<string>();
   const keys = buffer.keys.filter((k) => {

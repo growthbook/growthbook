@@ -14,6 +14,10 @@ import {
   findSDKConnectionById,
 } from "back-end/src/models/SdkConnectionModel";
 
+const mockFireSdkWebhook = jest.fn(async () => undefined);
+jest.mock("back-end/src/jobs/sdkWebhooks", () => ({
+  fireSdkWebhook: (...args: unknown[]) => mockFireSdkWebhook(...args),
+}));
 jest.mock("back-end/src/models/SdkConnectionModel", () => ({
   editSDKConnection: jest.fn(),
   findSDKConnectionById: jest.fn(),
@@ -191,6 +195,7 @@ const webhooksModel = (ctx: Context) =>
   ctx.models.sdkWebhooks as unknown as Record<string, jest.Mock>;
 
 beforeEach(() => {
+  mockFireSdkWebhook.mockClear();
   mockedEdit.mockReset();
   mockedFind.mockReset();
   mockedFind.mockResolvedValue(baseConnection);
@@ -967,6 +972,8 @@ describe("sdkConnectionAdapter", () => {
       });
       expect(model.update).toHaveBeenCalledTimes(1);
       expect(model.update.mock.calls[0][1]).toMatchObject({ name: "Renamed" });
+      // Only the edited webhook fires, as on the direct edit path.
+      expect(mockFireSdkWebhook).toHaveBeenCalledTimes(1);
       expect(model.delete).toHaveBeenCalledTimes(1);
       expect(model.delete.mock.calls[0][0]).toEqual({ id: "wh-2" });
       expect(mockedEdit).not.toHaveBeenCalled();
@@ -1071,7 +1078,7 @@ describe("sdkConnectionAdapter", () => {
 
     it("refuses webhook changes without the env-scoped SDK webhook permission", async () => {
       const ctx = makeContext({
-        permissions: { canDeleteSDKWebhook: () => false },
+        permissions: { canCreateSDKWebhook: () => false },
       });
       await expect(
         sdkConnectionAdapter.applyChanges(ctx, liveEntity, {
@@ -1080,6 +1087,42 @@ describe("sdkConnectionAdapter", () => {
       ).rejects.toThrow("permission denied");
       expect(webhooksModel(ctx).create).not.toHaveBeenCalled();
     });
+
+    it("checks only the permission for the webhook change being made", async () => {
+      const ctx = makeContext({
+        permissions: {
+          canUpdateSDKWebhook: () => false,
+          canDeleteSDKWebhook: () => false,
+        },
+      });
+      webhooksModel(ctx).getById.mockResolvedValue(null);
+      await sdkConnectionAdapter.applyChanges(ctx, liveEntity, {
+        sdkWebhooks: [baseWebhook],
+      });
+      expect(webhooksModel(ctx).create).toHaveBeenCalled();
+    });
+  });
+});
+
+describe("sdkConnectionAdapter.archivedState", () => {
+  it("reads archived from inside the settings op", () => {
+    expect(
+      sdkConnectionAdapter.archivedState?.(liveEntity, [
+        {
+          op: "replace",
+          path: "/sdkConnection",
+          value: settings({ archived: true }),
+        },
+      ]),
+    ).toEqual({ current: false, proposed: true });
+  });
+
+  it("proposes nothing when no settings op is staged", () => {
+    expect(
+      sdkConnectionAdapter.archivedState?.(liveEntity, [
+        { op: "replace", path: "/sdkWebhooks", value: [] },
+      ]),
+    ).toEqual({ current: false, proposed: undefined });
   });
 });
 

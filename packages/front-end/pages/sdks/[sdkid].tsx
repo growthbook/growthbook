@@ -541,8 +541,8 @@ export default function SDKConnectionPage() {
                   </DropdownMenuItem>
                 </>
               )}
-              {/* The backend only deletes a connection once LIVE is archived. */}
-              {canDelete && connection.archived && (
+              {/* Under an approval rule, LIVE must be archived before deleting. */}
+              {canDelete && (connection.archived || !approvalRequired) && (
                 <DropdownMenuItem
                   color="red"
                   confirmation={{

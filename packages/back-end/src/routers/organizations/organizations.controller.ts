@@ -2386,7 +2386,6 @@ export async function testSDKWebhook(
   if (!conns.every((c) => context.permissions.canUpdateSDKWebhook(c))) {
     context.permissions.throwPermissionError();
   }
-  assertSdkWebhooksEditableDirectly(context, conns);
 
   await fireSdkWebhook(context, webhook).catch(() => {
     // Do nothing, already being logged in Mongo

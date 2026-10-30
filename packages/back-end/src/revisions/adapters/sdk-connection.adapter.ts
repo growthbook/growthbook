@@ -13,6 +13,7 @@ import {
   orgHasAnySdkConnectionApproval,
   getSdkConnectionGoverningRules,
   getSdkConnectionReviewRules,
+  normalizeProposedChanges,
   sdkConnectionPublishFootprint,
 } from "shared/enterprise";
 import {
@@ -37,6 +38,7 @@ import {
   findSDKConnectionById,
   findSDKConnectionsByIds,
 } from "back-end/src/models/SdkConnectionModel";
+import { assertCanChangeSdkWebhooks } from "back-end/src/services/sdkConnectionApprovals";
 
 // Loaded at call time: the validations module pulls in the services graph,
 // which cycles back through revisions/index to this adapter.
@@ -292,6 +294,17 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       return sdkConnectionPublishFootprint(snapshot, proposedChanges);
     },
 
+    archivedState(snapshot, proposedChanges) {
+      let proposed: boolean | undefined;
+      for (const op of normalizeProposedChanges(proposedChanges)) {
+        if (op.path !== "/sdkConnection") continue;
+        if (op.op !== "replace" && op.op !== "add") continue;
+        proposed = (op.value as SDKConnectionSettingsRevisionSnapshot | null)
+          ?.archived;
+      }
+      return { current: snapshot.sdkConnection?.archived, proposed };
+    },
+
     isApprovalRequired(context: Context): boolean {
       return isSdkConnectionApprovalRequired(context);
     },
@@ -490,17 +503,15 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
       if (webhooksChanged) {
         // The model's hooks only check the global manageEventWebhooks, not the
         // env-scoped SDK-webhook permissions.
-        const scope = {
-          projects: entity.sdkConnection.projects,
-          environment: entity.sdkConnection.environment,
-        };
-        if (
-          !context.permissions.canCreateSDKWebhook(scope) ||
-          !context.permissions.canUpdateSDKWebhook(scope) ||
-          !context.permissions.canDeleteSDKWebhook(scope)
-        ) {
-          context.permissions.throwPermissionError();
-        }
+        assertCanChangeSdkWebhooks(
+          context,
+          {
+            projects: entity.sdkConnection.projects,
+            environment: entity.sdkConnection.environment,
+          },
+          entity.sdkWebhooks,
+          newWebhooks,
+        );
 
         const oldById = new Map(entity.sdkWebhooks.map((w) => [w.id, w]));
         const newById = new Map(newWebhooks.map((w) => [w.id, w]));
@@ -549,19 +560,30 @@ export const sdkConnectionAdapter: EntityRevisionAdapter<SDKConnectionRevisionSn
             newWh.id,
           );
           if (liveWebhook) {
-            await context.models.sdkWebhooks.update(liveWebhook, {
-              name: newWh.name,
-              endpoint: newWh.endpoint,
-              httpMethod: newWh.httpMethod,
-              headers: newWh.headers,
-              payloadFormat: newWh.payloadFormat,
-              payloadKey: newWh.payloadKey,
-              timeoutSeconds: newWh.timeoutSeconds ?? null,
-              // A new endpoint gets a fresh start, as on the direct edit path.
-              ...(newWh.endpoint !== liveWebhook.endpoint && {
-                consecutiveFailures: 0,
-                disabled: false,
-              }),
+            const updatedWebhook = await context.models.sdkWebhooks.update(
+              liveWebhook,
+              {
+                name: newWh.name,
+                endpoint: newWh.endpoint,
+                httpMethod: newWh.httpMethod,
+                headers: newWh.headers,
+                payloadFormat: newWh.payloadFormat,
+                payloadKey: newWh.payloadKey,
+                timeoutSeconds: newWh.timeoutSeconds ?? null,
+                // A new endpoint gets a fresh start, as on the direct edit path.
+                ...(newWh.endpoint !== liveWebhook.endpoint && {
+                  consecutiveFailures: 0,
+                  disabled: false,
+                }),
+              },
+            );
+            // Fire the webhook now that it has changed, as the direct edit does.
+            // Loaded at call time: the jobs module cycles back to this adapter.
+            const { fireSdkWebhook } = await import(
+              "back-end/src/jobs/sdkWebhooks"
+            );
+            fireSdkWebhook(context, updatedWebhook).catch(() => {
+              // Do nothing, already being logged in Mongo
             });
           }
           current = current.map((w) => (w.id === newWh.id ? newWh : w));

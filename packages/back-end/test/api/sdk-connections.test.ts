@@ -722,11 +722,47 @@ describe("sdk-connections API", () => {
     expect(response.body).toEqual({ deletedId: existing.id });
   });
 
-  it("refuses to delete an sdk-connection that is not archived", async () => {
-    setReqContext({
+  it("deletes a live sdk-connection that no approval rule governs", async () => {
+    const context = {
       org,
       permissions: { canDeleteSDKConnection: () => true },
+      hasPremiumFeature: () => false,
+    };
+    setReqContext(context);
+
+    const existing = sdkConnectionFactory.build({
+      name: "my-connection",
+      environment: org.environments[0].id,
+      language: "javascript",
     });
+
+    findSDKConnectionById.mockReturnValue(existing);
+
+    const response = await request(app)
+      .delete(`/api/v1/sdk-connections/${existing.id}`)
+      .set("Authorization", "Bearer foo");
+
+    expect(response.status).toBe(200);
+    expect(deleteSDKConnectionModel).toHaveBeenCalledWith(context, existing);
+  });
+
+  it("refuses to delete a live sdk-connection under an approval rule", async () => {
+    setReqContext(
+      buildContext({
+        settings: {
+          approvalFlows: {
+            sdkConnections: [
+              {
+                required: true,
+                projects: [],
+                environments: [org.environments[0].id],
+              },
+            ],
+          },
+        },
+        premium: true,
+      }),
+    );
 
     const existing = sdkConnectionFactory.build({
       name: "my-connection",

@@ -184,7 +184,14 @@ function LanguageField({
         aria-label="SDK"
         disabled={disabled}
         value={value}
-        onChange={(langs) => onChange({ languages: langs as SDKLanguage[] })}
+        onChange={(langs) =>
+          onChange({
+            languages: langs as SDKLanguage[],
+            ...(langs.length === 1 && {
+              sdkVersion: getLatestSDKVersion(langs[0] as SDKLanguage),
+            }),
+          })
+        }
         options={options.map((l) => ({
           value: l,
           label: languageMapping[l].label,
@@ -324,7 +331,9 @@ export default function SDKConnectionSetup({
       throw new Error("Please select an environment");
     }
     setEnvironmentError(null);
-    await save(after);
+    // Only what the user changed: the form's defaults for unset fields must not
+    // be written behind their back.
+    await save(Object.fromEntries(changed.map((k) => [k, after[k]])));
     setShowChanges(false);
   };
 

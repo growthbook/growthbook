@@ -503,6 +503,13 @@ export async function assertCanPublishRevision(
   );
 
   const pureRevert = await isPureRevertRevision(context, revision);
+  const archivedState = adapter.archivedState?.(
+    snapshot,
+    revision.target.proposedChanges,
+  ) ?? {
+    current: snapshot.archived as boolean | undefined,
+    proposed: proposedArchivedValue(revision.target.proposedChanges),
+  };
 
   await assertCanLandRevision({
     context,
@@ -525,15 +532,12 @@ export async function assertCanPublishRevision(
           : (adapter.canRevert ?? adapter.canUpdate);
       return canAct(context, snapshot);
     },
-    archives: isArchiveTransition({
-      proposed: proposedArchivedValue(revision.target.proposedChanges),
-      current: snapshot.archived as boolean | undefined,
-    }),
+    archives: isArchiveTransition(archivedState),
     isPureRevert: () => Promise.resolve(pureRevert),
     isPureArchive: () =>
       isPureArchiveRevision({
         proposedChanges: revision.target.proposedChanges,
-        current: snapshot.archived as boolean | undefined,
+        current: archivedState.current,
       }),
   });
 

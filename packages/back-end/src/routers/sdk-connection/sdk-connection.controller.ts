@@ -44,7 +44,11 @@ import { validateRequireProjectForSdkConnections } from "back-end/src/api/sdk-co
 import { withReadablePayloadBreakdowns } from "back-end/src/services/sdkPayloadSize";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
-import { assertSdkWebhooksEditableDirectly } from "back-end/src/services/sdkConnectionApprovals";
+import {
+  assertCanChangeSdkWebhooks,
+  assertSdkWebhooksEditableDirectly,
+  isSdkConnectionGated,
+} from "back-end/src/services/sdkConnectionApprovals";
 import {
   createOrUpdateRevision,
   applyPatchToSnapshot,
@@ -358,18 +362,13 @@ export const putSDKConnection = async (
   }
 
   // Checked up front so nothing is minted for a caller the apply would refuse.
-  if (hasWebhookChanges) {
-    const scope = {
-      projects: connection.projects,
-      environment: connection.environment,
-    };
-    if (
-      !context.permissions.canCreateSDKWebhook(scope) ||
-      !context.permissions.canUpdateSDKWebhook(scope) ||
-      !context.permissions.canDeleteSDKWebhook(scope)
-    ) {
-      context.permissions.throwPermissionError();
-    }
+  if (hasWebhookChanges && incomingWebhooks) {
+    assertCanChangeSdkWebhooks(
+      context,
+      { projects: connection.projects, environment: connection.environment },
+      draftWebhookSnapshots ?? liveWebhookSnapshots,
+      incomingWebhooks,
+    );
   }
 
   // The op replaces the whole settings object, layered on the state being
@@ -573,8 +572,9 @@ export const deleteSDKConnection = async (
     context.permissions.throwPermissionError();
   }
 
-  // Archiving is the reviewable step, so the hard delete requires it first.
-  if (!connection.archived) {
+  // Under an approval rule, archiving is the reviewable step, so the hard
+  // delete requires it first.
+  if (!connection.archived && isSdkConnectionGated(context, connection)) {
     throw new Error("SDK connection must be archived before it can be deleted");
   }
 
