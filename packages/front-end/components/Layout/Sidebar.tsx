@@ -771,6 +771,11 @@ export default function Sidebar() {
     sections.find((s) => isActive(s.link))?.link.name ?? null;
   const showAdmin =
     !!ADMIN_LINK && (!ADMIN_LINK.filter || ADMIN_LINK.filter(filterProps));
+  // General is read-only without org-settings rights, so land on the first
+  // Settings page this user can open.
+  const settingsHref =
+    settingsNavLink.subLinks?.find((l) => !l.filter || l.filter(filterProps))
+      ?.href ?? settingsNavLink.href;
 
   // Collapsing folds every section, so its pages fold as the sidebar narrows;
   // expanding unfolds the same ones once it has widened.
@@ -1027,7 +1032,7 @@ export default function Sidebar() {
               collapsed={contentCollapsed}
               Icon={SettingsIcon}
               label="Settings"
-              href="/settings"
+              href={settingsHref}
               active={isActive(settingsNavLink)}
               tooltipDelay={BOTTOM_TOOLTIP_DELAY_MS}
             />
