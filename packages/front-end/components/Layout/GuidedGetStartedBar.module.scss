@@ -1,10 +1,4 @@
 .bar {
-  display: flex;
-  justify-content: space-between;
-  position: fixed;
   top: var(--header-height);
-  left: var(--sidebar-width, 240px);
-  right: 0;
-  height: 56px;
   z-index: 995;
 }

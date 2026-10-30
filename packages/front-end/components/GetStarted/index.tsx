@@ -1,5 +1,4 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
-import clsx from "clsx";
 import { useState, useEffect, useMemo } from "react";
 import { Box, Card, Flex, Grid, Separator, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
@@ -37,6 +36,7 @@ import { isExperimentationLeaning } from "@/services/onboarding";
 import { DocSection } from "@/components/DocLink";
 import useApi from "@/hooks/useApi";
 import useAgentOnboarding from "@/hooks/useAgentOnboarding";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import styles from "./GetStarted.module.scss";
 
 type AdvancedFeature = (
@@ -202,7 +202,8 @@ const GetStartedAndHomePage = ({
 
   // Main's Create menu. Beside the docs card it tops the right column, level
   // with the first heading on the left; stacked (below 768px), it sits in that
-  // heading's row instead (GetStarted.module.scss).
+  // heading's row instead.
+  const stacked = useMediaQuery("(max-width: 767px)");
   const showCreate =
     !!orgHasConnectedSDK && (canCreateFeature || canCreateExperiment);
   const createMenu = showCreate ? (
@@ -235,9 +236,13 @@ const GetStartedAndHomePage = ({
       )}
     </DropdownMenu>
   ) : null;
-  const createInHeading = createMenu ? (
-    <div className={styles.createInHeading}>{createMenu}</div>
-  ) : null;
+  // A new org's Get Started row carries it at every width (below).
+  const createInHeading =
+    showCreate && stacked && orgIsUsingFeatureOrExperiment ? (
+      <div className={styles.createInHeading}>{createMenu}</div>
+    ) : null;
+  const createInColumn =
+    showCreate && !stacked && orgIsUsingFeatureOrExperiment;
 
   return (
     <>
@@ -276,10 +281,7 @@ const GetStartedAndHomePage = ({
       <Box py={{ initial: "1", xs: "3", sm: "6" }}>
         {showMarketingBanner && <HomeMarketingBanner />}
         <Grid
-          className={clsx(
-            styles.content,
-            showCreate && orgIsUsingFeatureOrExperiment && styles.withCreate,
-          )}
+          className={createInColumn ? styles.withCreate : undefined}
           columns={{
             // Stacked, too: a wide table further down mustn't widen the
             // column, and the heading row with Create, past the window.
@@ -451,7 +453,7 @@ const GetStartedAndHomePage = ({
             </Box>
           </Box>
           <Box>
-            {createMenu && orgIsUsingFeatureOrExperiment ? (
+            {createInColumn ? (
               <Flex justify="end" mb="3" className={styles.createInColumn}>
                 {createMenu}
               </Flex>
