@@ -112,25 +112,30 @@ function tableNameFromFullName(fullName: string) {
 
 export function getStatisticsQueryVariants({
   baseName,
-  precomputationDisabled,
+  breakdownsDisabled,
+  parentFanOutDisabled,
   parentPrecomputedDimensions,
   isolatedPrecomputedDimensions,
 }: {
   baseName: string;
-  precomputationDisabled: boolean;
+  breakdownsDisabled: boolean;
+  parentFanOutDisabled: boolean;
   parentPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[];
   isolatedPrecomputedDimensions: ExperimentDimensionWithSpecifiedSlices[];
 }): {
   name: string;
   dimensionsForPrecomputation: ExperimentDimensionWithSpecifiedSlices[];
 }[] {
-  if (precomputationDisabled) {
+  if (breakdownsDisabled) {
     return [{ name: baseName, dimensionsForPrecomputation: [] }];
   }
+  const parentDimensions = parentFanOutDisabled
+    ? []
+    : parentPrecomputedDimensions;
   return [
     {
       name: baseName,
-      dimensionsForPrecomputation: parentPrecomputedDimensions,
+      dimensionsForPrecomputation: parentDimensions,
     },
     ...isolatedPrecomputedDimensions.map((d) => ({
       name: getUnitDimQueryName(
@@ -1143,12 +1148,9 @@ const startExperimentIncrementalRefreshQueries = async (
       );
       for (const partition of partitions) {
         // Quantiles only run overall stats. Recheck per partition so a mixed
-        // quantile/mean group only disables precomputation on the quantile slice.
+        // quantile/mean group only disables breakdowns on the quantile slice.
         const runOverallQuantileAnalysis =
           partition.metrics.some(quantileMetricType);
-        const precomputationDisabled =
-          !!org.settings?.disablePrecomputedDimensions ||
-          runOverallQuantileAnalysis;
 
         const metricSources = [
           {
@@ -1171,7 +1173,8 @@ const startExperimentIncrementalRefreshQueries = async (
 
         for (const variant of getStatisticsQueryVariants({
           baseName: baseStatisticsName,
-          precomputationDisabled,
+          breakdownsDisabled: runOverallQuantileAnalysis,
+          parentFanOutDisabled: !!org.settings?.disablePrecomputedDimensions,
           parentPrecomputedDimensions,
           isolatedPrecomputedDimensions,
         })) {
@@ -1242,7 +1245,6 @@ const startExperimentIncrementalRefreshQueries = async (
       .map((p) => p.group.groupId)
       .join("__");
 
-    const precomputationDisabled = !!org.settings?.disablePrecomputedDimensions;
     const baseStatisticsName = `statistics_multi_${queryNameParts}${conversionWindowQueryNameSuffix(subGroup.windowKey)}`;
     const metricSources = subGroup.pipelines.map((p) => ({
       factTableId: p.group.factTableId,
@@ -1260,7 +1262,9 @@ const startExperimentIncrementalRefreshQueries = async (
 
     for (const variant of getStatisticsQueryVariants({
       baseName: baseStatisticsName,
-      precomputationDisabled,
+      // Multi-source stats never run the quantile overall-only path.
+      breakdownsDisabled: false,
+      parentFanOutDisabled: !!org.settings?.disablePrecomputedDimensions,
       parentPrecomputedDimensions,
       isolatedPrecomputedDimensions,
     })) {
