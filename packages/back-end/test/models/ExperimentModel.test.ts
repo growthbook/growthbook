@@ -175,6 +175,7 @@ describe("ExperimentModel", () => {
       await updateExperiment({
         context: {
           org: { id: stored.organization },
+          hasPremiumFeature: () => false,
           models: { projects: { getById: async () => null } },
         } as unknown as ReqContext,
         experiment: stored,

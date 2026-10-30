@@ -59,6 +59,7 @@ import useMediaQuery from "@/hooks/useMediaQuery";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
 import ConfirmDialog from "@/ui/ConfirmDialog";
+import useExperimentQualityScore from "@/hooks/useExperimentQualityScore";
 import ExperimentHeader from "./ExperimentHeader";
 import useExperimentEditing from "./useExperimentEditing";
 import useStartExperiment from "./useStartExperiment";
@@ -213,6 +214,13 @@ function TabbedPageContents({
   );
   // Up here because the panel unmounts whenever it closes.
   const [detailsTab, setDetailsTab] = useState<DetailsPanelTab>("details");
+  const qualityScore = useExperimentQualityScore(experiment);
+  const recheckQuality = async () => {
+    await apiCall(
+      `/experiment-quality-score/experiment/${experiment.id}/recheck`,
+      { method: "POST" },
+    );
+  };
   // The pre-launch checklist and the details panel point at analysis fields.
   const [analysisSettingsOpen, setAnalysisSettingsOpen] = useState(false);
   const [analysisSettingsFocus, setAnalysisSettingsFocus] =
@@ -782,6 +790,20 @@ function TabbedPageContents({
                 stagedHoldoutId={stagedHoldout}
                 tab={detailsTab}
                 setTab={setDetailsTab}
+                quality={
+                  qualityScore && {
+                    result: qualityScore,
+                    implementationId: IMPLEMENTATION_ID,
+                    targets: {
+                      openSetup: (id) => setTabAndScroll("overview", id),
+                      openDetails: () => setDetailsTab("details"),
+                      openHistory: () => setCompareModal(true),
+                      editMetrics,
+                      editResult,
+                      recheckAI: canEditExperiment ? recheckQuality : null,
+                    },
+                  }
+                }
               />
             ) : null
           }

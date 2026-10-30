@@ -11,6 +11,8 @@ type TempMessageProps = {
   className?: string;
   style?: CSSProperties;
   delay?: number | null;
+  // Callout size — "sm" keeps the message as short as a button
+  size?: "sm" | "md";
 };
 const TempMessage: FC<TempMessageProps> = ({
   close,
@@ -18,6 +20,7 @@ const TempMessage: FC<TempMessageProps> = ({
   className,
   style,
   delay = SHOW_TIME,
+  size = "md",
 }) => {
   const [closing, setClosing] = useState(false);
 
@@ -54,7 +57,7 @@ const TempMessage: FC<TempMessageProps> = ({
         ...style,
       }}
     >
-      <Callout status="success">
+      <Callout status="success" size={size}>
         <Text as="div" align="center">
           {children}
         </Text>

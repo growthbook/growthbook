@@ -298,6 +298,15 @@ export const navlinks: SidebarLinkProps[] = [
           permissionsUtils.canDeleteTag(),
       },
       {
+        name: "Experiment Quality",
+        href: "/settings/experiment-quality",
+        path: /^settings\/experiment-quality/,
+        // Project admins customize their own Projects
+        filter: ({ permissionsUtils }) =>
+          permissionsUtils.canManageOrgSettings() ||
+          permissionsUtils.canManageSomeProjects(),
+      },
+      {
         name: "Custom Fields",
         href: "/settings/customfields",
         path: /^settings\/customfields/,

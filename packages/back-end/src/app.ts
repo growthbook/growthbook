@@ -112,6 +112,8 @@ const uploadController = wrapController(uploadControllerRaw);
 import { isEmailEnabled } from "./services/email";
 import { init } from "./init";
 import { aiRouter } from "./routers/ai/ai.router";
+import { experimentQualityScoreRouter } from "./routers/experiment-quality-score/experiment-quality-score.router";
+import { experimentationHealthRouter } from "./routers/experimentation-health/experimentation-health.router";
 import { getCustomLogProps, httpLogger, logger } from "./util/logger";
 import {
   ApiError,
@@ -1334,6 +1336,8 @@ app.get("/meta/ai", (async (
 }) as unknown as RequestHandler);
 
 app.use("/ai", aiRouter);
+app.use("/experiment-quality-score", experimentQualityScoreRouter);
+app.use("/experimentation-health", experimentationHealthRouter);
 
 // Fallback 404 route if nothing else matches
 app.use(function (req, res) {

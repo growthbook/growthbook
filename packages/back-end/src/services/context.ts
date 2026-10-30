@@ -74,6 +74,7 @@ import { IncrementalRefreshModel } from "back-end/src/models/IncrementalRefreshM
 import { AggregatedFactTableModel } from "back-end/src/models/AggregatedFactTableModel";
 import { AggregatedFactTableRunModel } from "back-end/src/models/AggregatedFactTableRunModel";
 import { DecisionCriteriaModel } from "back-end/src/enterprise/models/DecisionCriteriaModel";
+import { ExperimentationHealthSettingsModel } from "back-end/src/enterprise/models/ExperimentationHealthSettingsModel";
 import { MetricTimeSeriesModel } from "back-end/src/models/MetricTimeSeriesModel";
 import { WebhookSecretDataModel } from "back-end/src/models/WebhookSecretModel";
 import { HoldoutModel } from "back-end/src/models/HoldoutModel";
@@ -150,6 +151,7 @@ export type ModelName =
   | "safeRollout"
   | "safeRolloutSnapshots"
   | "decisionCriteria"
+  | "experimentationHealthSettings"
   | "metricTimeSeries"
   | "webhookSecrets"
   | "holdout"
@@ -216,6 +218,7 @@ export const modelClasses = {
   safeRollout: SafeRolloutModel,
   safeRolloutSnapshots: SafeRolloutSnapshotModel,
   decisionCriteria: DecisionCriteriaModel,
+  experimentationHealthSettings: ExperimentationHealthSettingsModel,
   metricTimeSeries: MetricTimeSeriesModel,
   webhookSecrets: WebhookSecretDataModel,
   holdout: HoldoutModel,
@@ -405,6 +408,9 @@ export class ReqContextClass {
       safeRollout: new SafeRolloutModel(this),
       safeRolloutSnapshots: new SafeRolloutSnapshotModel(this),
       decisionCriteria: new DecisionCriteriaModel(this),
+      experimentationHealthSettings: new ExperimentationHealthSettingsModel(
+        this,
+      ),
       metricTimeSeries: new MetricTimeSeriesModel(this),
       webhookSecrets: new WebhookSecretDataModel(this),
       holdout: new HoldoutModel(this),

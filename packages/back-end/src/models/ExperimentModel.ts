@@ -91,6 +91,7 @@ import {
   notifyExperimentStatusTransition,
   notifyExperimentBanditWeightsTransition,
 } from "back-end/src/services/experimentNotifications";
+import { queueExperimentQualityScoreUpdate } from "back-end/src/jobs/experimentQualityScoreQueue";
 import { CasConflictError } from "./BaseModel";
 import { IdeaDocument } from "./IdeasModel";
 import { addTags } from "./TagModel";
@@ -102,6 +103,9 @@ import {
 import { getFeaturesByIds } from "./FeatureModel";
 
 const COLLECTION = "experiments";
+
+// Lets a burst of edits finish before the quality score is updated
+const QUALITY_EDIT_DELAY_MS = 60 * 1000;
 
 type FindOrganizationOptions = {
   experimentId: string;
@@ -394,6 +398,53 @@ const experimentSchema = new mongoose.Schema({
   customFields: {},
   templateId: String,
   shareLevel: String,
+  aiQualityResults: {
+    _id: false,
+    inputsHash: String,
+    version: Number,
+    dateComputed: Date,
+    checks: [
+      {
+        _id: false,
+        key: String,
+        score: Number,
+        reason: String,
+      },
+    ],
+    error: String,
+  },
+  qualityScoreOverride: {
+    _id: false,
+    score: Number,
+    userId: String,
+    userName: String,
+    dateOverridden: Date,
+    reason: String,
+  },
+  qualityScore: {
+    _id: false,
+    score: Number,
+    computedScore: Number,
+    pending: Boolean,
+    version: Number,
+    summary: { _id: false, text: String, key: String },
+    dateComputed: Date,
+  },
+  processResults: {
+    _id: false,
+    version: Number,
+    dateComputed: Date,
+    rules: [
+      {
+        _id: false,
+        key: String,
+        result: String,
+        detail: String,
+        date: Date,
+        user: String,
+      },
+    ],
+  },
   analysisSummary: {
     _id: false,
     snapshotId: String,
@@ -1306,6 +1357,96 @@ export async function getExperimentsWithScheduledStatusUpdate(): Promise<
     id: exp.id,
     organization: exp.organization,
   }));
+}
+
+const unarchivedExperimentsFilter = (organization: string) => ({
+  organization,
+  archived: { $ne: true },
+});
+
+// One page of non-archived experiment IDs, in id order, for the batched
+// quality job. `filter` narrows it, e.g. to the Projects with scoring on.
+export async function getExperimentIdsPage(
+  organization: string,
+  {
+    after,
+    limit,
+    filter = {},
+  }: {
+    after: string;
+    limit: number;
+    filter?: FilterQuery<ExperimentInterface>;
+  },
+): Promise<string[]> {
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      ...filter,
+      ...unarchivedExperimentsFilter(organization),
+      ...(after ? { id: { $gt: after } } : {}),
+    })
+    .sort({ id: 1 })
+    .limit(limit)
+    .project({ id: true })
+    .toArray();
+
+  return experiments.map((exp) => exp.id);
+}
+
+// Stopped standard experiments whose process results are missing or out of
+// date. IDs only, for the process backfill job.
+export async function getExperimentIdsNeedingProcessResults(
+  organization: string,
+  version: number,
+): Promise<string[]> {
+  const experiments = await getCollection(COLLECTION)
+    .find({
+      ...unarchivedExperimentsFilter(organization),
+      status: "stopped",
+      type: { $nin: ["multi-armed-bandit", "holdout"] },
+      "processResults.version": { $ne: version },
+    })
+    .project({ id: true })
+    .toArray();
+
+  return experiments.map((exp) => exp.id);
+}
+
+// Background quality results aren't edits, so they skip dateUpdated, the
+// audit log and the update hooks
+export async function setExperimentQualityCache(
+  context: ReqContext | ApiReqContext,
+  experimentId: string,
+  changes: Partial<
+    Pick<
+      ExperimentInterface,
+      "aiQualityResults" | "processResults" | "qualityScore"
+    >
+  >,
+  // Skips the write unless these fields still match
+  guard: Record<string, unknown> = {},
+): Promise<boolean> {
+  const { matchedCount } = await ExperimentModel.updateOne(
+    { id: experimentId, organization: context.org.id, ...guard },
+    { $set: changes },
+  );
+  return matchedCount > 0;
+}
+
+// Unarchived experiments per Project id, with "" for no Project
+export async function countUnarchivedExperimentsByProject(
+  organization: string,
+): Promise<Record<string, number>> {
+  const rows = await getCollection(COLLECTION)
+    .aggregate<{ _id: string | null; count: number }>([
+      { $match: unarchivedExperimentsFilter(organization) },
+      { $group: { _id: "$project", count: { $sum: 1 } } },
+    ])
+    .toArray();
+  const counts: Record<string, number> = {};
+  rows.forEach(({ _id, count }) => {
+    counts[_id ?? ""] = (counts[_id ?? ""] ?? 0) + count;
+  });
+  return counts;
 }
 
 /**
@@ -2576,6 +2717,27 @@ const hasChangesForSDKPayloadRefresh = (
   return !isEqual(oldChanges, newChanges);
 };
 
+// Any edit can change the stored quality score, and some re-run the AI
+// checks. The job re-checks every gate and skips AI calls whose inputs match.
+function queueQualityScoreUpdate(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+) {
+  if (
+    !context.hasPremiumFeature("experiment-quality-score") ||
+    experiment.archived
+  ) {
+    return;
+  }
+  queueExperimentQualityScoreUpdate({
+    experimentId: experiment.id,
+    organization: experiment.organization,
+    delayMs: QUALITY_EDIT_DELAY_MS,
+  }).catch((e) =>
+    logger.error(e, `Failed to queue AI quality checks for ${experiment.id}`),
+  );
+}
+
 const onExperimentCreate = async ({
   context,
   experiment,
@@ -2590,6 +2752,8 @@ const onExperimentCreate = async ({
   notifyExperimentCreated({ context, experiment }).catch((error: unknown) =>
     logger.error(error, "Failed to notify experiment creation"),
   );
+
+  queueQualityScoreUpdate(context, experiment);
 
   if (context.org.isVercelIntegration)
     await createVercelExperimentationItemFromExperiment({
@@ -2675,6 +2839,8 @@ const onExperimentUpdate = async ({
   }
 
   notifyAlerts();
+
+  queueQualityScoreUpdate(context, newExperiment);
 
   if (context.org.isVercelIntegration)
     await updateVercelExperimentationItemFromExperiment({

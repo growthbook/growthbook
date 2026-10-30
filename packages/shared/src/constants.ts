@@ -340,6 +340,7 @@ export const entityEvents = {
   experimentTemplate: ["create", "update", "delete"],
   safeRollout: ["create", "update", "delete"],
   decisionCriteria: ["create", "update", "delete"],
+  experimentationHealthSettings: ["create", "update", "delete"],
   execReport: ["create", "update", "delete"],
   holdout: ["create", "update", "delete"],
   savedQuery: ["create", "update", "delete"],
