@@ -53,7 +53,9 @@
 .pinned {
   position: sticky;
   top: var(--page-top-offset);
-  z-index: 2;
+  // Over General's section headings (6, SettingsSection.module.scss), which
+  // slide up under it as their section ends.
+  z-index: 7;
   // 12px above and below: 20px from the title and to what follows, and
   // pinned, 12px under the header. A 60px row (--settings-section-top).
   margin: 0 calc(-1 * var(--page-padding)) var(--space-2);
