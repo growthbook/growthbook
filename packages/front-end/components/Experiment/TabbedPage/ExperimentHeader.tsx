@@ -79,6 +79,7 @@ import PhaseSelector from "@/components/Experiment/PhaseSelector";
 import TemplateForm from "@/components/Experiment/Templates/TemplateForm";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import usePinnedHeader from "@/hooks/usePinnedHeader";
+import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { DetailsPanelToggle } from "@/components/CollapsiblePanelLayout";
 import { hasHealthData } from "@/components/HealthTab/constants";
 import ExperimentActionButtons from "./ExperimentActionButtons";
@@ -95,6 +96,8 @@ import {
   hasStatusSchedule,
   allDates,
   headerDates,
+  headerDetails,
+  LabeledDate,
   scheduledTime,
 } from "./statusSchedule";
 import { getStartTitle } from "./startActions";
@@ -514,10 +517,14 @@ export default function ExperimentHeader({
     ? !!holdout && hasStatusSchedule(holdout)
     : hasStatusSchedule(experiment);
   const nextScheduledStartDate = armedStartDate(experiment);
-  const everyDate = allDates(experiment);
-  const everyDateList = (
+  const now = new Date();
+  const shownDates = headerDates(experiment, now);
+  const everyDate = allDates(experiment, now);
+  const details = headerDetails(experiment, now);
+  const dateList = (dates: LabeledDate[], lead?: string | null) => (
     <Flex direction="column" gap="1">
-      {everyDate.map(({ label, value }) => (
+      {lead ? <span>{lead}</span> : null}
+      {dates.map(({ label, value }) => (
         <span key={label}>
           <Text size="inherit" weight="semibold">
             {label}:
@@ -527,36 +534,51 @@ export default function ExperimentHeader({
       ))}
     </Flex>
   );
-  // Breaks only between dates, never inside one, or keeps to one line. The
-  // rest of its dates are in the tooltip, when it has any.
-  const datesLine = (oneLine: boolean) => (
-    <Tooltip enabled={everyDate.length > 1} content={everyDateList}>
-      <span
-        tabIndex={everyDate.length > 1 ? 0 : undefined}
-        // Inset, so the box clipping it to one line keeps its focus ring.
-        style={{ textAlign: "right", outlineOffset: -2 }}
-      >
-        <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
-          {headerDates(experiment, new Date()).map(({ label, value }, i) => (
-            <Fragment key={label}>
-              {i > 0 ? " · " : null}
-              <Text size="inherit" whiteSpace="nowrap">
-                <Text
-                  size="inherit"
-                  weight="semibold"
-                  color="text-high"
-                  whiteSpace="nowrap"
-                >
-                  {label}:
-                </Text>{" "}
-                {value}
-              </Text>
-            </Fragment>
-          ))}
-        </Text>
-      </span>
-    </Tooltip>
+  const everyDateList = dateList(everyDate);
+  // What the line doesn't already say; nothing, when it says it all.
+  const detailsList =
+    details.runtime || details.dates.length
+      ? dateList(details.dates, details.runtime)
+      : null;
+  const datesBox = useRef<HTMLDivElement>(null);
+  const datesCut = useIsOverflowingX(
+    datesBox,
+    !hasMultiplePhases,
+    shownDates.map(({ value }) => value).join(),
   );
+  // Breaks only between dates, never inside one, or keeps to one line. Its
+  // tooltip adds what the line leaves out, or, cut short, has every date.
+  const datesLine = (oneLine: boolean) => {
+    const tip = oneLine && datesCut ? everyDateList : detailsList;
+    return (
+      <Tooltip enabled={!!tip} content={tip}>
+        <span
+          tabIndex={tip ? 0 : undefined}
+          // Inset, so the box clipping it to one line keeps its focus ring.
+          style={{ textAlign: "right", outlineOffset: -2 }}
+        >
+          <Text color="text-mid" whiteSpace={oneLine ? "nowrap" : "normal"}>
+            {shownDates.map(({ label, value }, i) => (
+              <Fragment key={label}>
+                {i > 0 ? " · " : null}
+                <Text size="inherit" whiteSpace="nowrap">
+                  <Text
+                    size="inherit"
+                    weight="semibold"
+                    color="text-high"
+                    whiteSpace="nowrap"
+                  >
+                    {label}:
+                  </Text>{" "}
+                  {value}
+                </Text>
+              </Fragment>
+            ))}
+          </Text>
+        </span>
+      </Tooltip>
+    );
+  };
   const startGate = useStartGate({
     experiment,
     linkedFeatures,
@@ -1468,6 +1490,7 @@ export default function ExperimentHeader({
                         // Short of room, it ends in an ellipsis; its tooltip
                         // has every date.
                         <Box
+                          ref={datesBox}
                           minWidth="0"
                           style={{
                             overflow: "hidden",
