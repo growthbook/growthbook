@@ -73,6 +73,7 @@ const visualChangesetSchema = new mongoose.Schema<VisualChangesetInterface>({
     type: String,
     index: true,
   },
+  dateUpdated: Date,
   // VisualChanges are associated with one of the variations of the experiment
   // associated with the VisualChangeset
   visualChanges: {
@@ -467,12 +468,15 @@ export const updateVisualChangeset = async ({
   context,
   updates,
   bypassWebhooks,
+  guarded = false,
 }: {
   visualChangeset: VisualChangesetInterface;
   owner: ChangesetOwner | null;
   context: ReqContext | ApiReqContext;
   updates: VisualChangesetUpdates;
   bypassWebhooks?: boolean;
+  // Writes only if nothing has updated it since `visualChangeset` was read.
+  guarded?: boolean;
 }) => {
   // pick() preserves explicit-undefined keys, which would flow into $set and
   // could unset fields if Mongoose's casting behavior changes. Strip them.
@@ -509,14 +513,21 @@ export const updateVisualChangeset = async ({
     {
       id: visualChangeset.id,
       organization: context.org.id,
+      ...(guarded && {
+        dateUpdated: visualChangeset.dateUpdated ?? { $exists: false },
+      }),
     },
     {
       $set: {
         ...safeUpdates,
         visualChanges,
+        dateUpdated: new Date(),
       },
     },
   );
+  if (!res.matchedCount) {
+    return { matched: false, nModified: 0, visualChanges };
+  }
 
   if (owner) {
     await owner.setHasVisualChangesets(true);
@@ -540,7 +551,7 @@ export const updateVisualChangeset = async ({
     bypassWebhooks,
   });
 
-  return { nModified: res.modifiedCount, visualChanges };
+  return { matched: true, nModified: res.modifiedCount, visualChanges };
 };
 
 const onVisualChangesetCreate = async ({

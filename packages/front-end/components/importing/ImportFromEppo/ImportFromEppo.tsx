@@ -27,7 +27,6 @@ import { useSessionStorage } from "@/hooks/useSessionStorage";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import useApi from "@/hooks/useApi";
 import track from "@/services/track";
-import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
@@ -36,6 +35,7 @@ import Checkbox from "@/ui/Checkbox";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import { TextField } from "@/ui/TextField";
+import DatePicker from "@/components/DatePicker";
 import Table, {
   TableBody,
   TableCell,
@@ -113,6 +113,11 @@ export default function ImportFromEppo() {
   }>("/auto-runs");
 
   const [apiKey, setApiKey] = useSessionStorage("eppoApiKey", "");
+  // Only experiments and flags created on or after this date; blank is all
+  const [createdSince, setCreatedSince] = useSessionStorage(
+    "eppoCreatedSince",
+    "",
+  );
   // Existing Project by name, or a new one created when the import starts
   const [projectName, setProjectName] = useLocalStorage(
     "eppoImportProject",
@@ -130,6 +135,13 @@ export default function ImportFromEppo() {
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<Record<string, ImportResult>>({});
   const [selection, setSelection] = useState<Record<string, boolean>>({});
+  const changeCreatedSince = (d: Date | undefined) => {
+    setCreatedSince(d ? d.toISOString() : "");
+    // What was fetched belongs to the old cutoff
+    setEppo(null);
+    setResults({});
+    setSelection({});
+  };
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const existing: ExistingIds = useMemo(() => {
@@ -292,7 +304,9 @@ export default function ImportFromEppo() {
     setError(null);
     try {
       const [data] = await Promise.all([
-        fetchEppoData(apiKey, apiCall),
+        fetchEppoData(apiKey, apiCall, {
+          createdSince: createdSince ? new Date(createdSince) : null,
+        }),
         mutateDefinitions(),
         mutateFeatures(),
         mutateExperiments(),
@@ -384,11 +398,8 @@ export default function ImportFromEppo() {
 
   return (
     <Box>
-      <Heading as="h1" size="2xl" mb="4">
-        Eppo Importer
-      </Heading>
       <Frame>
-        <Grid columns={{ initial: "1", md: "3" }} gap="4">
+        <Grid columns={{ initial: "1", md: "2" }} gap="4">
           <TextField
             label="API key"
             type="password"
@@ -417,6 +428,18 @@ export default function ImportFromEppo() {
             }))}
             onChange={setDatasourceId}
             helpText="Required to import Fact Tables, Fact Metrics and experiment results"
+          />
+          <DatePicker
+            label="Created on or after"
+            size="md"
+            containerClassName=""
+            date={createdSince ? new Date(createdSince) : undefined}
+            setDate={changeCreatedSince}
+            precision="date"
+            timeZone="local"
+            disableAfter={new Date()}
+            clearButton
+            helpText="Only experiments and Feature Flags created on or after this day. Flags with no created date are kept. Leave blank for all."
           />
         </Grid>
         <Flex gap="3" mt="4">

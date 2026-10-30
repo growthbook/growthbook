@@ -3,9 +3,10 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
+import { areVariationWeightsValid } from "shared/experiments";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
-import { useEffect, useState } from "react";
+import { Fragment, ReactNode, useEffect, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import ReleaseChangesForm from "@/components/Experiment/ReleaseChangesForm";
 import PagedModal from "@/components/Modal/PagedModal";
@@ -13,10 +14,16 @@ import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
+import { variationWeightsTotalPercent } from "@/services/utils";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import Text from "@/ui/Text";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
+import TruncatedText from "@/ui/TruncatedText";
 import TargetingForm from "./TargetingForm";
+
+const listFormat = new Intl.ListFormat("en", { type: "conjunction" });
 
 export type ChangeType =
   | "targeting"
@@ -68,6 +75,26 @@ export default function MakeChangesFlow({
   const [changesConfirmed, setChangesConfirmed] = useState(false);
 
   const isBandit = experiment.type === "multi-armed-bandit";
+  // What serves the experiment, so it takes the change once it's published.
+  const linkedFlags = experiment.linkedFeatures ?? [];
+  const servedBy: ReactNode[] = [
+    ...(linkedFlags.length === 1
+      ? [
+          <Fragment key="flag">
+            the linked Feature Flag{" "}
+            <TruncatedText
+              weight="semibold"
+              maxWidth={240}
+              text={linkedFlags[0]}
+            />
+          </Fragment>,
+        ]
+      : linkedFlags.length
+        ? [`the ${linkedFlags.length} linked Feature Flags`]
+        : []),
+    ...(experiment.hasVisualChangesets ? ["the AI Visual Editor changes"] : []),
+    ...(experiment.hasURLRedirects ? ["the URL Redirects"] : []),
+  ];
 
   const lastStepNumber = changeType !== "phase" ? 2 : 1;
 
@@ -173,34 +200,44 @@ export default function MakeChangesFlow({
               </Box>
             }
           >
-            Changes made will apply to linked Feature Flags, Visual Changes, and
-            URL Redirects immediately upon publishing.
+            {servedBy.length ? (
+              <>
+                Publishing applies immediately to{" "}
+                {listFormat
+                  .formatToParts(servedBy.map((_, i) => String(i)))
+                  .map((part, i) =>
+                    part.type === "element" ? (
+                      <Fragment key={i}>
+                        {servedBy[Number(part.value)]}
+                      </Fragment>
+                    ) : (
+                      part.value
+                    ),
+                  )}
+                .
+              </>
+            ) : (
+              "Publishing applies immediately."
+            )}
           </ModalWarningBanner>
         ) : undefined
       }
     >
       <Page display="Type of Changes">
-        <div className="py-2">
+        <Box py="2">
           <ChangeTypeSelector
             experiment={experiment}
             changeType={changeType}
             setChangeType={setChangeType}
           />
 
-          <div className="mt-4">
-            <label>Current targeting and traffic (for reference)</label>
-            <div className="appbox bg-light px-3 pt-3 pb-1 mb-0">
-              <TargetingInfo
-                experiment={experiment}
-                noHeader={true}
-                targetingFieldsOnly={true}
-                separateTrafficSplitDisplay={true}
-                showDecimals={true}
-                showNamespaceRanges={true}
-              />
-            </div>
-          </div>
-        </div>
+          <Box mt="4">
+            <Text as="div" weight="semibold" mb="2">
+              Current targeting and traffic (for reference)
+            </Text>
+            <TargetingInfo experiment={experiment} />
+          </Box>
+        </Box>
       </Page>
 
       {changeType !== "phase" && (
@@ -246,20 +283,27 @@ function ChangeTypeSelector({
 }) {
   const { namespaces } = useOrgSettings();
 
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights;
+  const invalidWeights =
+    experiment.type !== "multi-armed-bandit" &&
+    !!weights &&
+    !areVariationWeightsValid(weights);
+
   const options: RadioOptions = [
-    { label: "Start a New Phase", value: "phase" },
+    { label: "Start a new phase", value: "phase" },
     {
-      label: "Saved Group, Attribute, and Prerequisite Targeting",
+      label: "Saved Group, attribute, and prerequisite targeting",
       value: "targeting",
     },
     {
-      label: "Namespace Targeting",
+      label: "Namespace targeting",
       value: "namespace",
       disabled: !namespaces?.length,
     },
-    { label: "Traffic Percent", value: "traffic" },
+    { label: "Traffic percent", value: "traffic" },
     ...(experiment.type !== "multi-armed-bandit"
-      ? [{ label: "Variation Weights", value: "weights" }]
+      ? [{ label: "Variation weights", value: "weights" }]
       : []),
     {
       label: "Advanced: multiple changes at once",
@@ -276,12 +320,29 @@ function ChangeTypeSelector({
 
   return (
     <div>
+      {invalidWeights && (
+        <Callout status="warning" mb="4">
+          The current variation weights add up to{" "}
+          {variationWeightsTotalPercent(weights)}%, so SDKs ignore them and
+          split traffic equally. Fix the weights to make other changes.
+        </Callout>
+      )}
       <h5>What do you want to change?</h5>
       <div className="mt-3">
         <RadioGroup
           value={changeType || ""}
           setValue={(v: ChangeType) => setChangeType(v)}
-          options={options.filter((o) => !o.disabled)}
+          options={options
+            .filter((o) => !o.disabled)
+            .map((o) =>
+              !invalidWeights || ["weights", "advanced"].includes(o.value)
+                ? o
+                : {
+                    ...o,
+                    disabled: true,
+                    disabledReason: "Fix the variation weights first.",
+                  },
+            )}
         />
       </div>
     </div>

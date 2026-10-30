@@ -48,14 +48,16 @@ import SelectField, {
   SingleValue,
 } from "@/components/Forms/SelectField";
 import ConditionInput from "@/components/Features/ConditionInput";
-import {
-  formatAttributeOptionLabel,
-  toAttributeOption,
-} from "@/components/Features/AttributeOptionTooltip";
+import { formatAttributeOptionLabel } from "@/components/Features/AttributeOptionTooltip";
+import useHashAttributeOptions from "@/components/Experiment/useHashAttributeOptions";
 import SavedGroupTargetingField, {
   validateSavedGroupTargeting,
 } from "@/components/Features/SavedGroupTargetingField";
-import { decimalToPercent, percentToDecimal } from "@/services/utils";
+import {
+  coverageToPercent,
+  decimalToPercent,
+  typedPercentToCoverage,
+} from "@/services/utils";
 import variationInputStyles from "@/components/Features/VariationsInput.module.scss";
 import useSDKConnections from "@/hooks/useSDKConnections";
 import SDKCapabilityWarning from "@/components/Features/SDKCapabilityWarning";
@@ -192,7 +194,6 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
   const hashAttributes =
     attributeSchema?.filter((a) => a.hashAttribute)?.map((a) => a.property) ||
     [];
-  const hasHashAttributes = hashAttributes.length > 0;
   const hashAttribute = hashAttributes.includes("id")
     ? "id"
     : hashAttributes[0] || "id";
@@ -236,6 +237,11 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
         genEnvironmentSettings({ environments }),
     },
   });
+
+  const hashAttributeOptions = useHashAttributeOptions(
+    project,
+    form.watch("hashAttribute"),
+  );
 
   const selectedProjects = form.watch("projects") ?? [];
   const hasSDKWithPrerequisites = getConnectionsSDKCapabilities({
@@ -540,9 +546,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 size="legacy"
                 withRadixThemedPortal
                 containerClassName="flex-1"
-                options={attributeSchema
-                  .filter((s) => !hasHashAttributes || s.hashAttribute)
-                  .map(toAttributeOption)}
+                options={hashAttributeOptions}
                 value={form.watch("hashAttribute") ?? ""}
                 onChange={(v) => {
                   form.setValue("hashAttribute", v);
@@ -560,8 +564,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                 holdout. The same amount of traffic will be in the control.
               </Text>
               <div
-                className={`position-relative ${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
-                style={{ width: 110 }}
+                className={`${variationInputStyles.percentInputWrap} ${variationInputStyles.hideArrows}`}
               >
                 <Field
                   size="legacy"
@@ -569,14 +572,14 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   value={
                     isNaN(form.watch("phases.0.coverage") ?? 0)
                       ? ""
-                      : decimalToPercent(
+                      : coverageToPercent(
                           coverageToHoldoutSize(
                             form.watch("phases.0.coverage") ?? 0,
                           ),
                         )
                   }
                   onChange={(e) => {
-                    let holdoutSize = percentToDecimal(e.target.value);
+                    let holdoutSize = typedPercentToCoverage(e.target.value);
                     if (holdoutSize > MAX_HOLDOUT_SIZE)
                       holdoutSize = MAX_HOLDOUT_SIZE;
                     if (holdoutSize < 0) holdoutSize = 0;
@@ -588,7 +591,7 @@ const NewHoldoutForm: FC<NewHoldoutFormProps> = ({
                   type="number"
                   min={0}
                   max={decimalToPercent(MAX_HOLDOUT_SIZE)}
-                  step="0.01"
+                  step="any"
                 />
                 <span>%</span>
               </div>

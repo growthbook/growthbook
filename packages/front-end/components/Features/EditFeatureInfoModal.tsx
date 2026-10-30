@@ -35,6 +35,7 @@ import DraftSelectorForChanges, {
 } from "@/components/Features/DraftSelectorForChanges";
 import { useDefaultDraftMode } from "@/hooks/useDefaultDraft";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { useFeatureRevisions } from "@/hooks/useFeatureRevisions";
 
 const EditFeatureInfoModal: FC<{
@@ -200,7 +201,7 @@ const EditFeatureInfoModal: FC<{
         header="Edit Feature Information"
         open={true}
         close={cancel}
-        submit={form.handleSubmit(async (data) => {
+        submit={validatedSubmit(form, async (data) => {
           const guard = conflict.guard(
             data as unknown as Record<string, unknown>,
           );

@@ -33,6 +33,7 @@ export * from "./ramp-schedule-notifications";
 export * from "./releases";
 export * from "./feature-revision-notifications";
 export * from "./saved-group";
+export * from "./remote-saved-group-upload";
 export * from "./saved-group-revisions";
 export * from "./saved-group-revision-notifications";
 export * from "./saved-queries";

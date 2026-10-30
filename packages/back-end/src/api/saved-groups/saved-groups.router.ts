@@ -6,6 +6,12 @@ import { updateSavedGroup } from "./updateSavedGroup";
 import { archiveSavedGroup, unarchiveSavedGroup } from "./archiveSavedGroup";
 import { deleteSavedGroup } from "./deleteSavedGroup";
 import { getSavedGroupReferences } from "./getSavedGroupReferences";
+import { listSavedGroupUploads } from "./listSavedGroupUploads";
+import { postSavedGroupUploadUrl } from "./postSavedGroupUploadUrl";
+import { postSavedGroupUpload } from "./postSavedGroupUpload";
+import { postSavedGroupUploadLoad } from "./postSavedGroupUploadLoad";
+import { getSavedGroupUpload } from "./getSavedGroupUpload";
+import { deleteSavedGroupUpload } from "./deleteSavedGroupUpload";
 
 // Revision routes
 import { listSavedGroupRevisions } from "./listSavedGroupRevisions";
@@ -27,6 +33,7 @@ import { postSavedGroupRevisionUndoReview } from "./postSavedGroupRevisionUndoRe
 import { putSavedGroupRevisionMetadata } from "./putSavedGroupRevisionMetadata";
 import { putSavedGroupRevisionCondition } from "./putSavedGroupRevisionCondition";
 import { putSavedGroupRevisionValues } from "./putSavedGroupRevisionValues";
+import { putSavedGroupRevisionUploadVersion } from "./putSavedGroupRevisionUploadVersion";
 import { putSavedGroupRevisionArchive } from "./putSavedGroupRevisionArchive";
 import { postSavedGroupRevisionItemsAdd } from "./postSavedGroupRevisionItemsAdd";
 import { postSavedGroupRevisionItemsRemove } from "./postSavedGroupRevisionItemsRemove";
@@ -43,6 +50,14 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   getSavedGroupReferences,
   deleteSavedGroup,
 
+  // Remote saved group uploads
+  listSavedGroupUploads,
+  postSavedGroupUploadUrl,
+  postSavedGroupUpload,
+  postSavedGroupUploadLoad,
+  getSavedGroupUpload,
+  deleteSavedGroupUpload,
+
   // Revisions — reading & listing.
   // `latest` MUST precede the `:version` route below; otherwise its int param
   // would swallow the literal "latest" and fail validation.
@@ -57,6 +72,7 @@ export const savedGroupsRoutes: OpenApiRoute[] = [
   putSavedGroupRevisionMetadata,
   putSavedGroupRevisionCondition,
   putSavedGroupRevisionValues,
+  putSavedGroupRevisionUploadVersion,
   putSavedGroupRevisionArchive,
   postSavedGroupRevisionItemsAdd,
   postSavedGroupRevisionItemsRemove,

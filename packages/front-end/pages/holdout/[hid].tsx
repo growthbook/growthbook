@@ -1,20 +1,19 @@
 import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
-import { getHoldoutStage, includeHoldoutInPayload } from "shared/util";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import { getHoldoutStage } from "shared/util";
+import {
+  HoldoutInterfaceStringDates,
+  HoldoutMissingLinkage,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
-import EditVariationsForm from "@/components/Experiment/EditVariationsForm";
-import EditTagsForm from "@/components/Tags/EditTagsForm";
 import { useAuth } from "@/services/auth";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
 import NewPhaseForm from "@/components/Experiment/NewPhaseForm";
-import EditPhasesModal from "@/components/Experiment/EditPhasesModal";
-import EditPhaseModal from "@/components/Experiment/EditPhaseModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import PageHead from "@/components/Layout/PageHead";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -31,12 +30,8 @@ const HoldoutPage = (): ReactElement => {
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
-  const [variationsModalOpen, setVariationsModalOpen] = useState(false);
   const [duplicateModalOpen, setDuplicateModalOpen] = useState(false);
-  const [tagsModalOpen, setTagsModalOpen] = useState(false);
   const [phaseModalOpen, setPhaseModalOpen] = useState(false);
-  const [editPhasesOpen, setEditPhasesOpen] = useState(false);
-  const [editPhaseId, setEditPhaseId] = useState<number | null>(null);
   const [targetingModalOpen, setTargetingModalOpen] = useState(false);
   const [startAnalysisModalOpen, setStartAnalysisModalOpen] = useState(false);
   const [editHoldoutScheduleModalOpen, setEditHoldoutScheduleModalOpen] =
@@ -47,6 +42,7 @@ const HoldoutPage = (): ReactElement => {
     experiment: ExperimentInterfaceStringDates;
     linkedFeatures: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
+    missingLinkage?: HoldoutMissingLinkage;
     envs: string[];
   }>(`/holdout/${hid}`);
 
@@ -66,6 +62,7 @@ const HoldoutPage = (): ReactElement => {
     linkedFeatures = [],
     envs = [],
     linkedExperiments = [],
+    missingLinkage,
   } = data;
   const holdoutStage = getHoldoutStage(holdout, experiment);
 
@@ -103,28 +100,16 @@ const HoldoutPage = (): ReactElement => {
         }
       }
     : null;
-  const editVariations = canRunExperiment
-    ? () => setVariationsModalOpen(true)
-    : null;
   const duplicate = canEditExperiment
     ? () => setDuplicateModalOpen(true)
     : null;
-  const editTags = canEditExperiment ? () => setTagsModalOpen(true) : null;
   const newPhase = canRunExperiment ? () => setPhaseModalOpen(true) : null;
-  const editPhases = canRunExperiment ? () => setEditPhasesOpen(true) : null;
-  const editPhase = canRunExperiment
-    ? (i: number | null) => setEditPhaseId(i)
-    : null;
   const editTargeting = canRunExperiment
     ? () => setTargetingModalOpen(true)
     : null;
   const editHoldoutSchedule = canRunExperiment
     ? () => setEditHoldoutScheduleModalOpen(true)
     : null;
-
-  const safeToEdit =
-    experiment.status !== "running" ||
-    !includeHoldoutInPayload(holdout, experiment);
 
   return (
     <>
@@ -150,15 +135,6 @@ const HoldoutPage = (): ReactElement => {
           experiment={experiment}
         />
       )}
-      {variationsModalOpen && (
-        <EditVariationsForm
-          experiment={experiment}
-          cancel={() => setVariationsModalOpen(false)}
-          onlySafeToEditVariationMetadata={!safeToEdit}
-          mutate={mutate}
-          source="hid"
-        />
-      )}
       {duplicateModalOpen && (
         <NewHoldoutForm
           onClose={() => setDuplicateModalOpen(false)}
@@ -168,44 +144,11 @@ const HoldoutPage = (): ReactElement => {
           duplicate
         />
       )}
-      {tagsModalOpen && (
-        <EditTagsForm
-          tags={experiment.tags}
-          save={async (tags) => {
-            await apiCall(`/experiment/${experiment.id}`, {
-              method: "POST",
-              body: JSON.stringify({ tags }),
-            });
-          }}
-          cancel={() => setTagsModalOpen(false)}
-          mutate={mutate}
-          source="hid"
-        />
-      )}
       {phaseModalOpen && (
         <NewPhaseForm
           close={() => setPhaseModalOpen(false)}
           mutate={mutate}
           experiment={experiment}
-          source="hid"
-        />
-      )}
-      {editPhaseId !== null && (
-        <EditPhaseModal
-          close={() => setEditPhaseId(null)}
-          experiment={experiment}
-          mutate={mutate}
-          i={editPhaseId}
-          editTargeting={editTargeting}
-          source="hid"
-        />
-      )}
-      {editPhasesOpen && (
-        <EditPhasesModal
-          close={() => setEditPhasesOpen(false)}
-          mutateExperiment={mutate}
-          experiment={experiment}
-          editTargeting={editTargeting}
           source="hid"
         />
       )}
@@ -242,17 +185,14 @@ const HoldoutPage = (): ReactElement => {
           linkedFeatures={[]}
           holdoutFeatures={linkedFeatures}
           holdoutExperiments={linkedExperiments}
+          holdoutMissingLinkage={missingLinkage}
           mutate={mutate}
           visualChangesets={[]}
           urlRedirects={[]}
           editMetrics={editMetrics}
           editResult={editResult}
-          editVariations={editVariations}
           duplicate={duplicate}
-          editTags={editTags}
           newPhase={newPhase}
-          editPhases={editPhases}
-          editPhase={editPhase}
           envs={envs}
           editTargeting={editTargeting}
           editTraffic={editTargeting}

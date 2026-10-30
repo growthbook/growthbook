@@ -4,6 +4,7 @@ import {
   getAuthProxyForUrl,
   getHttpOptions,
   getWebhookTimeoutMs,
+  trimTrailingSlashes,
   validateWebhookTimeoutSeconds,
 } from "back-end/src/util/http.util";
 
@@ -108,5 +109,29 @@ describe("webhook timeouts", () => {
     expect(() => validateWebhookTimeoutSeconds(undefined)).not.toThrow();
     expect(() => validateWebhookTimeoutSeconds(120)).not.toThrow();
     expect(() => validateWebhookTimeoutSeconds(121)).toThrow("120 seconds");
+  });
+});
+
+describe("trimTrailingSlashes", () => {
+  it("removes all trailing slashes and nothing else", () => {
+    expect(trimTrailingSlashes("https://api.example.com")).toBe(
+      "https://api.example.com",
+    );
+    expect(trimTrailingSlashes("https://api.example.com/")).toBe(
+      "https://api.example.com",
+    );
+    expect(trimTrailingSlashes("https://api.example.com/v1///")).toBe(
+      "https://api.example.com/v1",
+    );
+    expect(trimTrailingSlashes("a//b/")).toBe("a//b");
+    expect(trimTrailingSlashes("///")).toBe("");
+    expect(trimTrailingSlashes("")).toBe("");
+  });
+
+  it("is linear on long runs of slashes", () => {
+    const input = "/".repeat(500000) + "x" + "/".repeat(500000);
+    const start = performance.now();
+    expect(trimTrailingSlashes(input)).toBe("/".repeat(500000) + "x");
+    expect(performance.now() - start).toBeLessThan(500);
   });
 });

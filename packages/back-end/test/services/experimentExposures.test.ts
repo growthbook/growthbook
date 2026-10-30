@@ -12,7 +12,9 @@ import {
 } from "back-end/src/services/experiment-exposures";
 
 const base = {
-  identifierType: "user_id",
+  identifierColumn: "user_id",
+  timestampColumn: "timestamp",
+  variationIdColumn: "variation_id",
   dimensions: ["country"],
   caseSensitive: false,
 };
@@ -96,6 +98,26 @@ describe("shapeExposureRows", () => {
       experiment_id: "exp",
       browser: "chrome",
     });
+  });
+
+  it("reads typed fields from mapped columns", () => {
+    const { records, extraColumns } = shapeExposureRows({
+      ...base,
+      identifierColumn: "uid",
+      timestampColumn: "received_at",
+      variationIdColumn: "variant",
+      rows: [
+        {
+          received_at: "2025-01-01 00:00:00",
+          uid: "u1",
+          variant: "1",
+          country: "US",
+        },
+      ],
+    });
+    expect(records[0]).toMatchObject({ userId: "u1", variationId: "1" });
+    expect(records[0].timestamp).toContain("2025-01-01");
+    expect(extraColumns).toEqual([]);
   });
 
   it("resolves dimensions the warehouse lower-cased", () => {
@@ -211,6 +233,7 @@ describe("getExposuresCacheKey", () => {
     exposureQueryId: "eq_1",
     exposureQuerySql: "SELECT * FROM exposures",
     identifierType: "user_id",
+    columnMapping: {},
     dimensions: ["country"],
     window: rolling(DAY_MS),
     rowFilters: [],

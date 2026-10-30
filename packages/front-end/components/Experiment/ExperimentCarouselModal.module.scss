@@ -1,16 +1,65 @@
-.carouselnav {
-  height: 100%;
-  width: 40px;
-  cursor: pointer;
-  display: inline-flex;
+// Reserved whether or not its arrow shows, so the image never shifts.
+.gutter {
+  flex-shrink: 0;
   justify-content: center;
+  width: 40px;
+}
+
+.nav {
+  display: flex;
   align-items: center;
-  transition: background-color 0.2s ease-in-out;
-  border-radius: 5px;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background-color: var(--slate-a5);
+  color: var(--slate-12);
+  cursor: pointer;
+  transition: background-color 100ms ease;
+
   &:hover {
-    background-color: var(--accent-a3);
+    background-color: var(--slate-a7);
   }
 }
-.mainimage {
-  filter: drop-shadow(0px 0px 1px var(--accent-6));
+
+// Scrolls rather than wraps; padded so the selected ring isn't clipped.
+.strip {
+  flex-shrink: 0;
+  overflow-x: auto;
+  justify-content: safe center;
+  padding: 3px;
+}
+
+.thumb {
+  flex-shrink: 0;
+  width: 64px;
+  height: 48px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  background-color: var(--slate-a3);
+  box-shadow: 0 0 0 1px var(--slate-a6);
+  cursor: pointer;
+  opacity: 0.6;
+  transition:
+    opacity 100ms ease,
+    box-shadow 100ms ease;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.active {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--violet-9);
 }
