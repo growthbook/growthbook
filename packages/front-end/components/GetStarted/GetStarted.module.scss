@@ -12,6 +12,11 @@
   .withCreate .mainColumn {
     padding-top: 3px;
   }
+  // That 3px also moves Recent's cards down, so Create's gap to the docs
+  // card gives it back: the card starts level with them.
+  .withCreate:has(:global(.recent-items-container)) .createInColumn {
+    margin-bottom: calc(var(--space-3) - 3px);
+  }
 }
 
 @media (max-width: 767px) {
