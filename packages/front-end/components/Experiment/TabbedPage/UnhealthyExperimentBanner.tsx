@@ -26,6 +26,8 @@ function getHealthIssues(
     multipleExposures,
     lowPowered,
     covariateImbalance,
+    clusterAssignment,
+    clusterMapping,
   }: ExperimentUnhealthyData,
   srmThreshold: number,
 ): { label: string; severe: boolean; detail: string }[] {
@@ -49,6 +51,20 @@ function getHealthIssues(
           label: "Pre-exposure bias",
           severe: true,
           detail: "The variations differed before users were exposed.",
+        }
+      : null,
+    clusterAssignment
+      ? {
+          label: "Mixed cluster assignment",
+          severe: true,
+          detail: `${count.format(clusterAssignment.mixedClusters)} clusters (${percent.format(clusterAssignment.rawDecimal)}) had units in more than one variation and were removed from results.`,
+        }
+      : null,
+    clusterMapping
+      ? {
+          label: "Units in multiple clusters",
+          severe: true,
+          detail: `${count.format(clusterMapping.multiClusterUnits)} units (${percent.format(clusterMapping.rawDecimal)}) appeared in more than one cluster and were removed from results.`,
         }
       : null,
     lowPowered
