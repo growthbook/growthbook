@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { Box, Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import Checkbox from "@/ui/Checkbox";
@@ -12,7 +13,7 @@ export default function UnsavedEditsBar() {
   if (!edits?.dirty) return null;
 
   return (
-    <div className={styles.bar}>
+    <div className={clsx(styles.bar, "experiment-save-bar")}>
       <Box
         mx="auto"
         width="100%"

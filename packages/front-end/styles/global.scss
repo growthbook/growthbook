@@ -284,7 +284,13 @@ html.app-drawer-open body {
     margin-right: calc(-1 * var(--page-padding));
     @include page-padding-motion(width, margin-right);
   }
-  & .experiment-layout > :not([data-panel-docked]) .experiment-column {
+  // The working column itself, in the layout's content box: the save bar
+  // has a column of its own, lined up with it, which these leave alone.
+  &
+    .experiment-layout
+    > :not([data-panel-docked])
+    [aria-busy]
+    > .experiment-column {
     padding-right: max(0px, calc(var(--page-padding) - var(--space-5)));
     @include page-padding-motion(padding-right);
   }
@@ -293,8 +299,19 @@ html.app-drawer-open body {
   &:has(.experiment-layout) {
     padding-bottom: 0;
   }
-  & .experiment-layout .experiment-column {
+  & .experiment-layout [aria-busy] > .experiment-column {
     padding-bottom: var(--space-6);
+  }
+  // The save bar runs from the side nav to the panel (the window's edge
+  // without it), its content where it was: 16px in from the working area's
+  // left edge, and on the page's right edge without the panel.
+  & .experiment-layout .experiment-save-bar {
+    margin-left: calc(-1 * var(--page-padding));
+    padding-left: calc(var(--space-4) + var(--page-padding));
+    @include page-padding-motion(margin-left, padding-left, padding-right);
+  }
+  & .experiment-layout > :not([data-panel-docked]) .experiment-save-bar {
+    padding-right: var(--page-padding);
   }
   // Its padding classes too, but a card's or a full-width band's.
   $card: ":not(.appbox, .card, .box, .rt-Card, .page-bleed)";
