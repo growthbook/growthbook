@@ -1,0 +1,266 @@
+import { Fragment, ReactNode, useEffect, useRef, useState } from "react";
+import { IconType } from "react-icons";
+import clsx from "clsx";
+import { PiArrowLeft, PiCaretRightBold } from "react-icons/pi";
+import {
+  DropdownMenuField,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownSubMenu,
+} from "@/ui/DropdownMenu";
+import styles from "./SidebarMenu.module.scss";
+
+/**
+ * One definition drives both the desktop dropdown and the drawer's in-place
+ * menu.
+ */
+export type SidebarMenuEntry =
+  | {
+      type: "item";
+      key: string;
+      content: ReactNode;
+      onSelect: () => void;
+      className?: string;
+    }
+  | { type: "separator"; key: string }
+  | { type: "label"; key: string; label: string }
+  /**
+   * Arbitrary content (e.g. the organization picker), reachable by the
+   * dropdown's arrow keys.
+   */
+  | { type: "node"; key: string; node: ReactNode }
+  | {
+      type: "submenu";
+      key: string;
+      label: string;
+      trigger: ReactNode;
+      entries: SidebarMenuEntry[];
+    };
+
+export function MenuItemContent({
+  Icon,
+  label,
+  trailing,
+}: {
+  Icon: IconType;
+  label: ReactNode;
+  trailing?: ReactNode;
+}) {
+  return (
+    <span className={styles.itemContent}>
+      <Icon size={16} className={styles.itemIcon} aria-hidden="true" />
+      <span className={styles.itemLabel}>{label}</span>
+      {trailing}
+    </span>
+  );
+}
+
+/** The sidebar's icon size, on its own items and its menus' triggers. */
+export const SIDEBAR_ICON_SIZE = 18;
+
+/**
+ * How a menu's trigger looks as a sidebar item. The sidebar passes its own
+ * classes, so each menu keeps to its own stylesheet.
+ */
+export type SidebarItemLook = {
+  collapsed: boolean;
+  /** The row, or the icon alone when collapsed. */
+  className: string;
+  /** While the item's menu is open. */
+  openClassName: string;
+  labelClassName: string;
+  iconClassName?: string;
+};
+
+export type SidebarMenuInPlace = {
+  open: boolean;
+  /** From the keyboard, the first item shows its focus ring. */
+  onOpen: (fromKeyboard: boolean) => void;
+  onBack: (fromKeyboard: boolean) => void;
+  /** Runs after an item's action; closes the drawer, as picking a page does. */
+  onDone: () => void;
+  host: HTMLElement | null;
+  fromKeyboard: boolean;
+};
+
+export function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
+  return (
+    <>
+      {entries.map((entry) => {
+        switch (entry.type) {
+          case "item":
+            return (
+              <DropdownMenuItem
+                key={entry.key}
+                className={entry.className}
+                onClick={entry.onSelect}
+              >
+                {entry.content}
+              </DropdownMenuItem>
+            );
+          case "separator":
+            return <DropdownMenuSeparator key={entry.key} />;
+          case "label":
+            return (
+              <DropdownMenuLabel key={entry.key}>
+                {entry.label}
+              </DropdownMenuLabel>
+            );
+          case "node":
+            return (
+              <DropdownMenuField key={entry.key}>
+                {entry.node}
+              </DropdownMenuField>
+            );
+          case "submenu":
+            return (
+              <DropdownSubMenu key={entry.key} trigger={entry.trigger}>
+                <DropdownEntries entries={entry.entries} />
+              </DropdownSubMenu>
+            );
+        }
+      })}
+    </>
+  );
+}
+
+/**
+ * Focus goes to the first item as a view opens, and back to a submenu's row on
+ * returning from it.
+ */
+export function InPlaceMenu({
+  label,
+  entries,
+  inPlace,
+  pinBack = false,
+}: {
+  label: string;
+  entries: SidebarMenuEntry[];
+  inPlace: SidebarMenuInPlace;
+  /** Keeps Back at the top while a long list scrolls. */
+  pinBack?: boolean;
+}) {
+  const [stack, setStack] = useState<string[]>([]);
+  const focusTarget = useRef<string | null>(null);
+  const keyboard = useRef(inPlace.fromKeyboard);
+  const ref = useRef<HTMLDivElement>(null);
+
+  let view = entries;
+  let viewLabel = label;
+  for (const key of stack) {
+    const sub = view.find(
+      (e): e is Extract<SidebarMenuEntry, { type: "submenu" }> =>
+        e.type === "submenu" && e.key === key,
+    );
+    if (!sub) break;
+    view = sub.entries;
+    viewLabel = sub.label;
+  }
+
+  useEffect(() => {
+    const root = ref.current;
+    if (!root) return;
+    const target = focusTarget.current
+      ? root.querySelector<HTMLElement>(
+          `[data-menu-entry="${focusTarget.current}"]`,
+        )
+      : root.querySelector<HTMLElement>("[data-menu-entry]");
+    focusTarget.current = null;
+    target?.focus({
+      preventScroll: true,
+      focusVisible: keyboard.current,
+    } as FocusOptions);
+  }, [stack]);
+
+  const back = (fromKeyboard: boolean) => {
+    keyboard.current = fromKeyboard;
+    if (stack.length) {
+      focusTarget.current = stack[stack.length - 1];
+      setStack(stack.slice(0, -1));
+    } else {
+      inPlace.onBack(fromKeyboard);
+    }
+  };
+
+  return (
+    <div
+      ref={ref}
+      className={styles.inPlace}
+      role="group"
+      aria-label={viewLabel}
+      onKeyDown={(e) => {
+        // Skip an Escape a nested layer (e.g. a Select) already handled.
+        if (e.key !== "Escape" || e.defaultPrevented) return;
+        e.preventDefault();
+        back(true);
+      }}
+    >
+      <button
+        type="button"
+        className={clsx(
+          styles.entry,
+          styles.back,
+          pinBack && styles.backPinned,
+        )}
+        onClick={(e) => back(e.detail === 0)}
+      >
+        <span className={styles.backContent}>
+          <PiArrowLeft size={18} className={styles.backIcon} aria-hidden />
+          <span>Back</span>
+        </span>
+      </button>
+      {view.map((entry) => {
+        switch (entry.type) {
+          case "item":
+            return (
+              <button
+                key={entry.key}
+                type="button"
+                data-menu-entry={entry.key}
+                className={clsx(styles.entry, entry.className)}
+                onClick={() => {
+                  entry.onSelect();
+                  inPlace.onDone();
+                }}
+              >
+                {entry.content}
+              </button>
+            );
+          case "separator":
+            return (
+              <div key={entry.key} className={styles.separator} role="none" />
+            );
+          case "label":
+            return (
+              <div key={entry.key} className={styles.label} aria-hidden="true">
+                {entry.label}
+              </div>
+            );
+          case "node":
+            return <Fragment key={entry.key}>{entry.node}</Fragment>;
+          case "submenu":
+            return (
+              <button
+                key={entry.key}
+                type="button"
+                data-menu-entry={entry.key}
+                className={styles.entry}
+                onClick={(e) => {
+                  keyboard.current = e.detail === 0;
+                  setStack([...stack, entry.key]);
+                }}
+              >
+                {entry.trigger}
+                <PiCaretRightBold
+                  size={12}
+                  className={styles.caret}
+                  aria-hidden
+                />
+              </button>
+            );
+        }
+      })}
+    </div>
+  );
+}

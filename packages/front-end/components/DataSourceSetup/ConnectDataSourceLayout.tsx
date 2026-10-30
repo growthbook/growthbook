@@ -762,7 +762,7 @@ export default function ConnectDataSourceLayout({
         initial: '"form" "instructions" "footer"',
         lg: '"form instructions" "footer instructions"',
       }}
-      height={{ initial: "auto", lg: "calc(100dvh - 56px)" }}
+      height={{ initial: "auto", lg: "calc(100dvh - var(--page-top-offset))" }}
       overflow={{ initial: "visible", lg: "hidden" }}
     >
       <Box

@@ -26,8 +26,9 @@ export interface Props {
   // Sticks to the bottom of the content column; a floating panel ends above it.
   footer?: ReactNode;
   open: boolean;
-  // Viewport offset the panel sticks to, below any fixed page header.
-  top?: number;
+  // CSS length the panel sticks to, below any fixed page header, e.g.
+  // "var(--tabs-bottom)".
+  top?: string;
   // Fixed so the panel does not stretch on wide screens.
   width?: number;
   onWidthChange: (width: number) => void;
@@ -44,7 +45,7 @@ export default function CollapsiblePanelLayout({
   panel,
   footer = null,
   open,
-  top = 0,
+  top = "0px",
   width = PANEL_WIDTH_PX,
   onWidthChange,
   onCollapse,
@@ -199,6 +200,9 @@ export default function CollapsiblePanelLayout({
       align="start"
       width="100%"
       ref={layout}
+      // For the page around it: whether the panel takes room beside the
+      // content (global.scss).
+      data-panel-docked={shown && !overlay ? "" : undefined}
       // The drag handle straddles the panel's edge, which reaches the window's
       // while it slides; clip, not hidden, so nothing inside stops sticking.
       style={{ overflowX: "clip" }}
@@ -226,7 +230,7 @@ export default function CollapsiblePanelLayout({
           style={{
             top,
             // Until `fit` measures it.
-            height: `calc(100vh - ${top + footerClearance}px)`,
+            height: `calc(100vh - ${top} - ${footerClearance}px)`,
             background: "var(--color-panel-solid)",
             // Matches the tab row's underline.
             borderLeft: shown ? "1px solid var(--gray-a5)" : "none",

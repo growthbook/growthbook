@@ -1457,11 +1457,12 @@ export default function ConfigDetailPage(): React.ReactElement {
               width: 220,
               flexShrink: 0,
               position: "sticky",
-              // Stick at the column's natural top (below the 56px nav + page
+              // Stick at the column's natural top (below the top nav + page
               // inset) so it doesn't jump a few px on scroll before sticking.
-              top: 80,
+              top: "calc(var(--page-top-offset) + var(--page-top-padding))",
               alignSelf: "flex-start",
-              maxHeight: "calc(100vh - 80px - 1rem)",
+              maxHeight:
+                "calc(100vh - var(--page-top-offset) - var(--page-top-padding) - 1rem)",
               overflowY: "auto",
             }}
           >
@@ -1581,7 +1582,7 @@ export default function ConfigDetailPage(): React.ReactElement {
 
           <Box style={{ flex: 1, minWidth: 0 }}>
             <Flex align="start" justify="between" gap="2" mb="2">
-              <Box style={{ marginTop: "-4px" }}>
+              <Box>
                 <Flex align="center" gap="3">
                   <Heading size="xl" as="h1" overflowWrap="anywhere" mb="0">
                     {displayedConfig.name}
@@ -1983,11 +1984,11 @@ export default function ConfigDetailPage(): React.ReactElement {
                             px="3"
                             style={{
                               borderBottom: "1px solid var(--slate-a4)",
-                              // Sticky below the fixed 56px top nav on wide
+                              // Sticky below the fixed top nav on wide
                               // screens; the class drops it to static once
                               // x-scroll turns on (an overflow-x ancestor breaks
                               // document-sticky). `top` is inert when static.
-                              top: 56,
+                              top: "var(--page-top-offset)",
                               zIndex: 2,
                               background: "var(--color-panel-solid)",
                             }}

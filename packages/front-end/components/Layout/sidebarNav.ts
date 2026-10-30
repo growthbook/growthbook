@@ -1,31 +1,69 @@
-import { BsFlag, BsCodeSlash, BsHouse } from "react-icons/bs";
-import { PiShieldCheck } from "react-icons/pi";
-import {
-  GBDatabase,
-  GBExperiment,
-  GBLibrary,
-  GBProductAnalytics,
-  GBSettings,
-} from "@/components/Icons";
-import type { SidebarLinkFilterProps, SidebarLinkProps } from "./SidebarLink";
-import styles from "./Layout.module.scss";
+import { GrowthBook } from "@growthbook/growthbook-react";
+import { GlobalPermission } from "shared/types/organization";
+import { Permissions, hasSuperAdminPermission } from "shared/permissions";
+import { SuperAdmin } from "shared/validators";
+import { SegmentInterface } from "shared/types/segment";
+import { AppFeatures } from "shared/types/app-features";
+import { isCloud, isMultiOrg } from "@/services/env";
+import { PermissionFunctions } from "@/services/UserContext";
+
+export type SidebarLinkFilterProps = {
+  permissionsUtils: Permissions;
+  segments: SegmentInterface[];
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: boolean;
+  isCloud: boolean;
+  isMultiOrg: boolean;
+  gb?: GrowthBook<AppFeatures>;
+  project?: string;
+};
+
+export type SidebarLinkProps = {
+  name: string;
+  href: string;
+  path: RegExp;
+  filter?: (props: SidebarLinkFilterProps) => boolean;
+  subLinks?: SidebarLinkProps[];
+  beta?: boolean;
+};
+
+/**
+ * Same inputs the sidebar uses for `filter` on nav links: use it for Cmd+K and
+ * tests so visibility stays in sync.
+ */
+export function buildSidebarLinkFilterProps(input: {
+  permissionsUtils: Permissions;
+  permissions: Record<GlobalPermission, boolean> & PermissionFunctions;
+  superAdmin: SuperAdmin | undefined;
+  gb: GrowthBook<AppFeatures> | undefined;
+  project: string | undefined;
+  segments: SegmentInterface[];
+}): SidebarLinkFilterProps {
+  return {
+    permissionsUtils: input.permissionsUtils,
+    permissions: input.permissions,
+    // Any super admin permission includes the admin page
+    superAdmin: hasSuperAdminPermission(input.superAdmin, "view"),
+    isCloud: isCloud(),
+    isMultiOrg: isMultiOrg(),
+    gb: input.gb,
+    project: input.project,
+    segments: input.segments,
+  };
+}
 
 export const navlinks: SidebarLinkProps[] = [
   {
     name: "Home",
     href: "/",
-    Icon: BsHouse,
     path: /^$/,
-    className: styles.first,
   },
   {
     name: "Features",
     href: "/features",
-    Icon: BsFlag,
     path: /^(features|constants|configs)/,
     // Clicking the parent navigates to Feature Flags and expands, so the first
     // sub-link is pre-selected.
-    navigateOnExpand: true,
     subLinks: [
       {
         name: "Feature Flags",
@@ -48,14 +86,12 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Experimentation",
     href: "/experiments",
-    path: /^(experiments|experiment\/|bandit|contextual-bandit|namespaces|power-calculator)/,
-    Icon: GBExperiment,
-    navigateOnExpand: true,
+    path: /^(experiments|experiment\/|bandit|contextual-bandit|holdout|namespaces|power-calculator)/,
     subLinks: [
       {
         name: "Experiments",
         href: "/experiments",
-        path: /^(experiments(\/(?!templates|explore)|$)|experiment\/)/,
+        path: /^(experiments(\/(?!template|explore)|$)|experiment\/)/,
       },
       {
         name: "Bandits",
@@ -73,12 +109,14 @@ export const navlinks: SidebarLinkProps[] = [
       {
         name: "Holdouts",
         href: "/holdouts",
-        path: /^holdouts/,
+        // The list and a holdout's page (holdout/[hid]).
+        path: /^holdouts?($|\/)/,
       },
       {
         name: "Templates",
         href: "/experiments/templates",
-        path: /^experiments\/templates/,
+        // The list and a template's page (experiments/template/[tid]).
+        path: /^experiments\/templates?($|\/)/,
       },
       {
         name: "Power Calculator",
@@ -101,7 +139,6 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Product Analytics",
     href: "/product-analytics/explore",
     path: /^(product-analytics|sql-explorer|session-replay)/,
-    Icon: GBProductAnalytics,
     subLinks: [
       {
         name: "Explore",
@@ -142,8 +179,6 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Metrics and Data",
     href: "/metrics",
     path: /^(metric\/|metrics|segment|dimension|datasources|fact-|metric-group|populations)/,
-    autoClose: true,
-    Icon: GBDatabase,
     subLinks: [
       {
         name: "Metrics",
@@ -182,7 +217,6 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Insights",
     href: "/dashboard",
-    Icon: GBLibrary,
     path: /^(dashboard|learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
@@ -226,8 +260,6 @@ export const navlinks: SidebarLinkProps[] = [
     name: "SDK Configuration",
     href: "/sdks",
     path: /^(attributes|environments|saved-groups|sdks|archetypes)/,
-    autoClose: true,
-    Icon: BsCodeSlash,
     subLinks: [
       {
         name: "SDK Connections",
@@ -264,10 +296,7 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Settings",
     href: "/settings",
-    Icon: GBSettings,
     path: /^(settings|projects?|integrations|events|importing)/,
-    autoClose: true,
-    hideSubLinks: true,
     subLinks: [
       {
         name: "General",
@@ -375,7 +404,6 @@ export const navlinks: SidebarLinkProps[] = [
   {
     name: "Admin",
     href: "/admin",
-    Icon: PiShieldCheck,
     path: /^admin/,
     filter: ({ superAdmin, isMultiOrg }) => superAdmin && isMultiOrg,
   },
@@ -396,7 +424,7 @@ export type FlatNavItem = {
 
 /**
  * Linear list of sidebar destinations for search (e.g. Cmd+K), using the same
- * filter rules as {@link SidebarLink}: parent hidden if its filter fails; if it
+ * filter rules as the sidebar: parent hidden if its filter fails; if it
  * has subLinks, hidden when no child passes filter (same as empty permittedSubLinks).
  *
  * Parent section rows (e.g. "Experimentation", "SDK Configuration") are omitted;

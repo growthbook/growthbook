@@ -529,8 +529,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
       <Box className="contents container-fluid pagecontents">
         <Box mb="5">
           <Flex direction="column" gap="2" mb="3">
-            <Flex justify="between" align="center" mb="1">
-              <Heading as="h1" size="xl">
+            <Flex
+              className="page-title-row"
+              justify="between"
+              align="center"
+              mb="1"
+            >
+              <Heading as="h1" size="xl" mb="2">
                 Targeting Attributes
               </Heading>
               {canCreateAttributes && (

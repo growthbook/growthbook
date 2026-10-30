@@ -217,8 +217,14 @@ export default function FactTablesPage() {
         <NewFactTableModal close={() => setCreateFactOpen(false)} />
       )}
       <PageHead breadcrumb={[{ display: "Fact Tables" }]} />
-      <Flex align="center" justify="between" gap="3" mb="4">
-        <Heading as="h1" size="xl" mb="0">
+      <Flex
+        className="page-title-row"
+        align="center"
+        justify="between"
+        gap="3"
+        mb="4"
+      >
+        <Heading as="h1" size="xl" mb="2">
           Fact Tables
         </Heading>
         {filteredFactTables.length > 0 && hasDatasource ? (

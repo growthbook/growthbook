@@ -1,12 +1,13 @@
 .section {
   padding-top: 28px;
-  // Clears the fixed top nav when scrolled to.
-  scroll-margin-top: 64px;
+  // Clears the fixed top nav (and below 1024px the pinned Settings select)
+  // when scrolled to.
+  scroll-margin-top: calc(var(--settings-section-top) + 8px);
 }
 
 .header {
   position: sticky;
-  top: 56px;
+  top: var(--settings-section-top);
   z-index: 6;
   background: var(--color-background);
   padding: 12px 0 6px;
@@ -29,31 +30,45 @@
 
 // Spans from the main sidebar to the window edge, over the sub nav.
 .unsavedBar {
+  // Where the bar starts, which its left padding is measured from.
+  --unsaved-bar-left: var(--sidebar-width);
   position: fixed;
-  left: var(--settings-sidebar-width);
+  left: var(--unsaved-bar-left);
   right: 0;
   bottom: 0;
   // Over the sub nav (999 too, but earlier in the DOM) and under the slide-out sidebar (1000).
   z-index: 999;
-  // Lines the count up with the sub nav's content.
+  // Lines the count up with the sub nav's text.
   padding: var(--space-3) var(--space-3) var(--space-3)
-    calc(var(--settings-nav-inset) + var(--space-3));
-  // Ends Save at the cards' right edge: 40px page padding plus the 920px column.
-  padding-right: max(40px, calc(100% - var(--settings-layout-left) - 960px));
+    calc(
+      var(--settings-nav-left) +
+        var(--settings-nav-inset) - var(--unsaved-bar-left)
+    );
+  // Ends Save at the cards' right edge: the page's padding plus the 920px
+  // column, or the page's padding where the column is narrower.
+  padding-right: max(
+    var(--page-padding),
+    calc(100% - var(--settings-layout-left) - var(--page-padding) - 920px)
+  );
   background: var(--color-panel-solid);
   border-top: 1px solid var(--gray-a5);
   box-shadow:
     0 -1px 2px rgba(0, 0, 0, 0.1),
     0 -4px 4px rgba(0, 0, 0, 0.025);
+  // Follows the sidebar as it collapses.
+  transition: left 200ms ease;
 
-  // Without the sub nav, the count lines up with the page content instead.
-  @media (max-width: 1399px) {
-    padding-left: 40px;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
   }
+
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
-    left: 0;
-    padding-right: max(40px, calc(100% - 960px));
+    --unsaved-bar-left: 0px;
+  }
+  // Without the sub nav, the count lines up with the page content instead.
+  @media (max-width: 1023px) {
+    padding-left: var(--page-padding);
   }
 }
 
@@ -119,16 +134,26 @@
 .generalContent {
   max-width: 920px;
   padding-top: var(--space-3);
+
+  // Under the pinned Settings select, the first section starts as close as
+  // a page's title does.
+  @media (max-width: 1023px) {
+    padding-top: 0;
+
+    .section:first-of-type,
+    .section:first-of-type .header {
+      padding-top: 0;
+    }
+  }
 }
 
-// The Settings nav title stands in for it from 1400px; screen readers still get the h1.
-@media (min-width: 1400px) {
-  .wideHidden {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+// The Settings title stands in for it, beside or above the Settings nav;
+// screen readers still get the h1.
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }

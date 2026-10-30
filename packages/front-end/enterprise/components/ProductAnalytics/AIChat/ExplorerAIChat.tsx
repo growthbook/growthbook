@@ -244,7 +244,7 @@ export default function ExplorerAIChat() {
     <Flex
       direction="row"
       style={{
-        height: "calc(100vh - 56px)",
+        height: "calc(100vh - var(--page-top-offset))",
         minHeight: 0,
         background: "var(--color-background)",
         border: "1px solid var(--gray-a6)",

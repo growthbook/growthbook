@@ -445,6 +445,9 @@ const MetricPage: FC = () => {
                 radius="full"
                 size="2"
                 highContrast
+                // Within the title row, level with the title, which starts
+                // --page-top-padding under the header (global.scss).
+                style={{ marginTop: 0, marginBottom: 0 }}
               >
                 <BsThreeDotsVertical size={16} />
               </IconButton>

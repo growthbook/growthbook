@@ -1,4 +1,4 @@
-import { FC, useEffect } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
@@ -14,7 +14,7 @@ import { hasFileConfig } from "@/services/env";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 
-const EditDataSourceConnectPage: FC = () => {
+const EditDataSourceConnectPage = () => {
   const router = useRouter();
   const { did } = router.query as { did: string };
   const { enabled, ready: flagReady } = useNewDataSourceOnboarding();
@@ -114,3 +114,5 @@ const EditDataSourceConnectPage: FC = () => {
 };
 
 export default EditDataSourceConnectPage;
+
+EditDataSourceConnectPage.noPageWrapper = true;

@@ -31,6 +31,7 @@ import { useUser } from "@/services/UserContext";
 import { RadixTheme } from "@/services/RadixTheme";
 import { useAuth } from "@/services/auth";
 import useOrgSettings, { useAISettings } from "@/hooks/useOrgSettings";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { useAIChat } from "@/enterprise/hooks/useAIChat";
 import type { ActiveTurnItem } from "@/enterprise/hooks/useAIChat/types";
 import { useDefaultDataSourceId } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
@@ -68,6 +69,7 @@ import ChatComposer, {
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
+import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import AgentChatHistory from "./AgentChatHistory";
 import {
   AGENT_PANEL_PORTAL_Z_INDEX,
@@ -85,6 +87,8 @@ import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
+import AiAssistantLimitNotice from "./AiAssistantLimitNotice";
+import { useAiAssistantLimit } from "./useAiAssistantLimit";
 
 // Scoped per org and user below: conversation ids are unique across the whole
 // collection but only readable by their owner, so a stale id from another org
@@ -217,6 +221,8 @@ export default function AgentPanel({
   onToggleExpanded,
 }: AgentPanelProps) {
   const composerRef = useRef<ChatComposerHandle>(null);
+  // At the limit, past conversations stay readable; nothing new can be sent.
+  const { limitReached, resetsAt, refreshUsage } = useAiAssistantLimit();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
@@ -266,25 +272,17 @@ export default function AgentPanel({
     conversationIdRef: feedbackConversationIdRef,
   } = useChatFeedback("/agent/chat");
 
-  // Below this width the left sidebar collapses (see TopNav.module.scss
-  // `@media (max-width: 1180px)`), so the docked expanded panel must run to
-  // the left edge instead of clearing the 240px sidebar.
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  // Narrower, the sidebar is a drawer, so the expanded panel runs to the left
+  // edge instead of clearing it.
+  const sidebarIsDrawer = useMediaQuery(
+    `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
+  );
 
   // Portaled to body so the panel stacks against body-portaled page controls
   // instead of being sealed inside the root theme's stacking context. Tradeoff:
   // #portal-root stays sealed, so legacy modals render under an open panel.
   const [portalHost, setPortalHost] = useState<HTMLElement | null>(null);
   useEffect(() => setPortalHost(document.body), []);
-
-  useEffect(() => {
-    if (typeof window === "undefined" || !window.matchMedia) return;
-    const mq = window.matchMedia("(max-width: 1180px)");
-    const update = () => setSidebarCollapsed(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
 
   const { mutate } = useSWRConfig();
   const { orgId } = useAuth();
@@ -388,7 +386,9 @@ export default function AgentPanel({
     onSSEEvent: handleAgentSSEEvent,
     onConversationLoaded: handleConversationLoaded,
     conversationStorageKey: `${STORAGE_KEY}:${organization.id}:${userId}`,
+    // Each answer adds to the usage, and a failed send may be the limit (429).
     onMessageComplete: (info) => {
+      refreshUsage();
       track("AI Assistant Response Completed", {
         model: defaultAIModel,
         durationMs: info.durationMs,
@@ -402,6 +402,7 @@ export default function AgentPanel({
       });
     },
     onMessageError: (info) => {
+      refreshUsage();
       track("AI Assistant Error", {
         errorType: info.errorType,
         httpStatus: info.httpStatus,
@@ -502,7 +503,7 @@ export default function AgentPanel({
       },
     ) => {
       const text = submission.text.trim();
-      if (!text || loading) return;
+      if (!text || loading || limitReached) return;
       stepsExpandedRef.current = false;
       pendingSubmissionRef.current = submission;
       resolveOnUserMessage();
@@ -516,6 +517,7 @@ export default function AgentPanel({
     [
       input,
       loading,
+      limitReached,
       sendMessage,
       resolveOnUserMessage,
       resumeAutoScroll,
@@ -643,6 +645,9 @@ export default function AgentPanel({
   const interactionPending =
     (askPrompt !== null && !askPrompt.resolved) || confirmationPending;
 
+  const limitEmptyState =
+    limitReached && messages.length === 0 && !isLoadingConversation;
+
   const panel = (
     <Box
       role="dialog"
@@ -659,7 +664,9 @@ export default function AgentPanel({
         // animates between the two states.
         left: "auto",
         width: expanded
-          ? `calc((100vw - ${sidebarCollapsed ? 0 : 240}px) * 0.9)`
+          ? `calc((100vw - ${
+              sidebarIsDrawer ? "0px" : "var(--sidebar-width, 240px)"
+            }) * 0.9)`
           : "min(400px, 100vw)",
         background: "var(--color-background)",
         borderLeft: "1px solid var(--gray-a3)",
@@ -708,6 +715,7 @@ export default function AgentPanel({
             variant="ghost"
             size="1"
             onClick={handleNewChat}
+            disabled={limitReached}
             title="Start new conversation"
             aria-label="Start new conversation"
           >
@@ -749,8 +757,21 @@ export default function AgentPanel({
         onScroll={handleScroll}
         style={{ flex: 1, overflowY: "auto", padding: "20px" }}
       >
+        {limitEmptyState ? (
+          <Flex
+            align="center"
+            justify="center"
+            style={{ height: "100%" }}
+            role="status"
+          >
+            <Box style={{ width: "min(320px, 100%)" }}>
+              <AiAssistantLimitNotice resetsAt={resetsAt} centered />
+            </Box>
+          </Flex>
+        ) : null}
         <Flex direction="column" gap="3">
           {messages.length === 0 &&
+            !limitReached &&
             !loading &&
             !isLoadingConversation &&
             !error && (
@@ -919,28 +940,43 @@ export default function AgentPanel({
         </Flex>
       </Box>
 
-      {/* Input */}
-      <ChatComposer
-        variant="compact"
-        ref={composerRef}
-        autoFocus
-        mentionItems={mentionItems}
-        mentionItemsReady={mentionItemsReady}
-        skillItems={skillItems}
-        autocomplete={aiAutocompleteEnabled}
-        suggestedReply={suggestedReply}
-        quickSuggestions={
-          messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
-        }
-        conversationId={conversationId}
-        value={input}
-        onChange={setInput}
-        onSend={handleSend}
-        onCancel={cancelGeneration}
-        loading={loading}
-        isLocalStream={isLocalStream}
-        placeholder="Ask GrowthBook anything…"
-      />
+      {/* Keeps Stop while an answer streams: anyone in the org can hit the
+        limit mid-answer. */}
+      {limitEmptyState ? null : limitReached && !isLocalStream ? (
+        <Box
+          role="status"
+          px="4"
+          py="4"
+          style={{
+            borderTop: "1px solid var(--gray-a3)",
+            background: "var(--color-panel-solid)",
+          }}
+        >
+          <AiAssistantLimitNotice resetsAt={resetsAt} />
+        </Box>
+      ) : (
+        <ChatComposer
+          variant="compact"
+          ref={composerRef}
+          autoFocus
+          mentionItems={mentionItems}
+          mentionItemsReady={mentionItemsReady}
+          skillItems={skillItems}
+          autocomplete={aiAutocompleteEnabled}
+          suggestedReply={suggestedReply}
+          quickSuggestions={
+            messages.length === 0 ? STARTER_PROMPT_TEXTS : undefined
+          }
+          conversationId={conversationId}
+          value={input}
+          onChange={setInput}
+          onSend={handleSend}
+          onCancel={cancelGeneration}
+          loading={loading}
+          isLocalStream={isLocalStream}
+          placeholder="Ask GrowthBook anything…"
+        />
+      )}
     </Box>
   );
 

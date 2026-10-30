@@ -1,0 +1,16 @@
+// Create tops the docs column, level with the first heading on the left:
+// that heading centers on the button (32px, the heading's line 26px).
+.withCreate .mainColumn {
+  padding-top: 3px;
+}
+
+// Stacked, Create sits in the first heading's row instead.
+.createInHeading {
+  flex-shrink: 0;
+}
+
+// That 3px also moves Recent's cards down, so Create's gap to the docs card
+// gives it back: the card starts level with them.
+.withCreate:has(:global(.recent-items-container)) .createInColumn {
+  margin-bottom: calc(var(--space-3) - 3px);
+}

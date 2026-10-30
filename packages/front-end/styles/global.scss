@@ -1,5 +1,4 @@
 @use "colors";
-@use "variables";
 @import "theme";
 
 // Bootstrap variable overrides must be loaded BEFORE Bootstrap
@@ -10,8 +9,31 @@
 // Bootstrap theme overrides must be loaded AFTER Bootstrap
 @import "_bootstrap-theme-overrides";
 
+// Keep in sync with HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
+:root {
+  --header-height: 44px;
+  // The header plus any bar pinned under it (--pinned-bar-height,
+  // pageTopOffset.ts): where sticky bars pin and what full-window pages
+  // leave room for.
+  --page-top-offset: calc(var(--header-height) + var(--pinned-bar-height, 0px));
+}
+// Two rows below 1180px on pages with the sidebar (TopNav.module.scss).
+@media (max-width: 1180px) {
+  :root:has(#main-menu-toggle) {
+    --header-height: 80px;
+  }
+}
+
+// Sticky page tabs pin 1px under the header and any bar under it, to cover
+// its edge. Keep in sync with components/Layout/pageTopOffset.ts.
+:root {
+  --tabs-top: calc(var(--page-top-offset) - 1px);
+  --tabs-bar-height: 40px;
+  --tabs-bottom: calc(var(--tabs-top) + var(--tabs-bar-height));
+}
+
 main {
-  padding-top: 56px;
+  padding-top: var(--header-height);
 }
 
 body {
@@ -46,22 +68,64 @@ body {
 }
 
 :root {
-  --settings-sidebar-width: 240px;
+  --sidebar-width: 240px;
+}
+html.app-sidebar-collapsed {
+  --sidebar-width: 48px;
+}
+@media (max-width: 1180px) {
+  html.app-sidebar-collapsed {
+    --sidebar-width: 240px;
+  }
+}
+// Set briefly by Sidebar.tsx when crossing 1180px or restoring a collapsed
+// sidebar, so the layout switches without animating.
+html.app-breakpoint-switch,
+html.app-breakpoint-switch *,
+html.app-breakpoint-switch *::before,
+html.app-breakpoint-switch *::after,
+html.app-sidebar-restore,
+html.app-sidebar-restore *,
+html.app-sidebar-restore *::before,
+html.app-sidebar-restore *::after {
+  transition: none !important;
+}
+html.app-drawer-open,
+html.app-drawer-open body {
+  overflow: hidden;
+}
+
+:root {
   --settings-nav-width: 256px;
   --settings-nav-inset: 12px;
+  // The Settings nav's text on the page's left content edge, as every other
+  // page's (--page-nav-width and --page-padding, below), its items' fills
+  // hanging 8px outside it. The page starts past it.
+  --settings-nav-left: calc(
+    var(--page-nav-width) + var(--page-padding) - var(--settings-nav-inset)
+  );
   --settings-layout-left: calc(
-    var(--settings-sidebar-width) + var(--settings-nav-width) +
-      var(--settings-nav-inset)
+    var(--settings-nav-left) + var(--settings-nav-width)
   );
 }
-// Matches the sub nav's breakpoint: without it, content only clears the sidebar.
-@media (max-width: 1399px) {
+// Below 1024px the nav is a select at the page's top instead
+// (SettingsPageTop), pinned under the header as a 60px row; General's
+// section headings pin under it (--settings-section-top).
+:root {
+  --settings-section-top: var(--header-height);
+}
+@media (max-width: 1023px) {
   :root {
-    --settings-layout-left: var(--settings-sidebar-width);
+    --settings-section-top: calc(var(--page-top-offset) + 60px);
+    --settings-layout-left: 0px;
   }
 }
 .main {
-  padding-left: 240px;
+  padding-left: var(--sidebar-width);
+  transition: padding-left 200ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
   &.settings-layout {
     padding-left: var(--settings-layout-left);
   }
@@ -87,6 +151,220 @@ body {
     padding: 15px;
   }
 }
+
+// The page's side padding steps with the window's width, so the docked panel
+// and the side nav never change it; past a 1680px page (between the side nav
+// and the panel) the content centers. Computed, not a container query:
+// containment would trap the fixed overlays inside. Classic scrollbars count
+// toward the widths.
+:root {
+  --page-nav-width: var(--sidebar-width);
+  --page-area-width: calc(
+    100vw - var(--page-nav-width) - var(--agent-rail-width, 0px)
+  );
+  // 16px, then 24px from a 768px and 32px from a 1180px window.
+  --page-padding-step: calc(
+    16px + clamp(0px, (100vw - 767px) * 1000, 8px) +
+      clamp(0px, (100vw - 1179px) * 1000, 8px)
+  );
+  // Content stops at 1616px, a 1680px page with its 32px sides, so a 1728px
+  // window (a 16" MacBook) never centers, side nav collapsed or not; past that
+  // the padding grows and centers it.
+  --page-padding: max(
+    var(--page-padding-step),
+    (var(--page-area-width) - 1616px) / 2
+  );
+}
+@media (max-width: 1180px) {
+  :root {
+    --page-nav-width: 0px;
+  }
+}
+// Settings pages: the page starts past the Settings nav too.
+.main.settings-layout {
+  --page-nav-width: var(--settings-layout-left);
+  --page-area-width: calc(
+    100vw - var(--page-nav-width) - var(--agent-rail-width, 0px)
+  );
+  --page-padding: max(
+    var(--page-padding-step),
+    (var(--page-area-width) - 1616px) / 2
+  );
+}
+
+// The page's side padding moves only with the side nav
+// (html.app-sidebar-motion, Sidebar.tsx), so resizing the window switches it
+// at once.
+@mixin page-padding-motion($props...) {
+  html.app-sidebar-motion & {
+    transition-property: $props;
+    transition-duration: 200ms;
+    transition-timing-function: ease;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html.app-sidebar-motion & {
+      transition: none;
+    }
+  }
+}
+
+// From the header to a wrapped page's first item. Things that line up with
+// that first item (the design system's and the config page's sidebars) read
+// it too. 20px is the design's: Radix's scale has no step between 16px
+// (--space-4) and 24px (--space-5), so it's a raw value.
+:root {
+  --page-top-padding: 20px;
+}
+
+// Wraps every page but the full-window ones (noPageWrapper, _app.tsx), and
+// owns the page's frame: the side padding, --page-top-padding from the header
+// to the page's first item and 32px at the bottom, over the page's own
+// spacing there. A
+// page whose content runs to the window's bottom (a rail beside the content,
+// say) drops the bottom padding with noPageBottomPadding (_app.tsx).
+.page-wrapper {
+  padding: var(--page-top-padding) var(--page-padding) var(--space-6);
+  @include page-padding-motion(padding-left, padding-right);
+
+  &.page-wrapper-flush-bottom {
+    padding-bottom: 0;
+  }
+
+  // The page's own wrappers keep none of the frame, nor a width cap.
+  $own: ":is(.container, .container-fluid, .pagecontents, .contents)";
+  & > #{$own} {
+    padding: 0;
+    max-width: none;
+  }
+  // A page wrapper nested inside the page's (Settings' sections, Webhooks,
+  // Power Calculator): no width cap or side padding of its own either. Only
+  // .pagecontents: a nested Bootstrap container keeps the padding its rows'
+  // negative margins expect.
+  & .pagecontents {
+    max-width: none;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  // The experiment page's working area (beside its details panel) starts on
+  // the page's left content edge like its header, at every width. Its tabs'
+  // own px-4 keeps only the right side, by the panel.
+  & .experiment-column .pagecontents {
+    padding-left: 0 !important;
+  }
+  // Its details panel sits flush against the window's right edge, past the
+  // page's padding. Without the panel docked beside it, the working area
+  // keeps the page's right padding (its own 24px, plus the rest).
+  // Its layout reaches past the page's padding on both sides: to the side
+  // nav (so the save bar spans the working area, which the layout clips to)
+  // and to the window's right edge (so the details panel sits flush). Wider
+  // by the padding rather than moved: centered (mx="auto"), negative
+  // margins alone would push it sideways. The working column takes the left
+  // padding back, so its content stays on the page's left edge.
+  & .experiment-layout {
+    width: calc(100% + 2 * var(--page-padding)) !important;
+    margin-left: calc(-1 * var(--page-padding)) !important;
+    margin-right: calc(-1 * var(--page-padding)) !important;
+    @include page-padding-motion(width, margin-left, margin-right);
+  }
+  & .experiment-layout [aria-busy] > .experiment-column {
+    padding-left: var(--page-padding);
+    @include page-padding-motion(padding-left);
+  }
+  // The working column itself, in the layout's content box: the save bar
+  // has a column of its own, lined up with it, which these leave alone.
+  &
+    .experiment-layout
+    > :not([data-panel-docked])
+    [aria-busy]
+    > .experiment-column {
+    padding-right: max(0px, calc(var(--page-padding) - var(--space-5)));
+    @include page-padding-motion(padding-right);
+  }
+  // It runs to the window's bottom too: the page's 32px at the bottom is
+  // the working area's, not the wrapper's.
+  &:has(.experiment-layout) {
+    padding-bottom: 0;
+  }
+  & .experiment-layout [aria-busy] > .experiment-column {
+    padding-bottom: var(--space-6);
+  }
+  // The save bar runs from the side nav to the panel (the window's edge
+  // without it), as wide as the layout. Its content sits as far from its left
+  // edge as Save from its right: 16px beside the panel (the bar's own
+  // padding), or the page's padding without it, on the page's edges.
+  & .experiment-layout > :not([data-panel-docked]) .experiment-save-bar {
+    padding-left: var(--page-padding);
+    padding-right: var(--page-padding);
+    @include page-padding-motion(padding-left, padding-right);
+  }
+  // Its padding classes too, but a card's or a full-width band's.
+  $card: ":not(.appbox, .card, .box, .rt-Card, .page-bleed)";
+  & > :is(.p-2, .p-3, .p-4, .p-5)#{$card},
+  & > :is(.px-2, .px-3, .px-4, .px-5)#{$card},
+  & > :is(.py-2, .py-3, .py-4, .py-5)#{$card},
+  & > :is(.pt-2, .pt-3, .pt-4, .pt-5)#{$card},
+  & > :is(.pb-2, .pb-3, .pb-4, .pb-5)#{$card},
+  & > :is([class*="rt-r-p-"], [class*="rt-r-px-"], [class*="rt-r-py-"])#{$card},
+  & > :is([class*="rt-r-pt-"], [class*="rt-r-pb-"])#{$card} {
+    padding: 0 !important;
+  }
+
+  // Nor do the first items' top margins or the last items' bottom ones,
+  // which pass straight through a wrapper with no padding of its own: the
+  // first item, and the first inside that, two deep; the last, seven deep.
+  // In a set of tabs every tab's content stays on the page, the closed ones
+  // hidden, so the trail follows the open tab; in a grid it follows every
+  // column, as any of them can be the tallest (Home). A list's pagination bar ending
+  // the page drops its bottom padding too, so the 32px is under its links.
+  $start: ":is(:first-child, style:first-child + *)";
+  & > #{$start},
+  & > #{$start} > #{$start},
+  & > #{$start} > #{$start} > #{$start} {
+    margin-top: 0 !important;
+  }
+  $end: ':is(:last-child, .rt-TabsContent[data-state="active"], .rt-Grid > *)';
+  // It stops at a card: a card ending the page loses its margin, but what's
+  // inside keeps its spacing to the card's edge.
+  $through: "#{$end}:not(.appbox, .card, .box, .rt-Card)";
+  $chain: "> #{$end}";
+  @for $depth from 1 through 7 {
+    // A ghost button keeps its negative margin, which lines up its text.
+    & #{$chain}:not(.rt-variant-ghost) {
+      margin-bottom: 0 !important;
+    }
+    & #{$chain}.pagination-area {
+      padding-bottom: 0;
+    }
+    $chain: "> #{$through} #{$chain}";
+  }
+}
+
+// The wrapper's side padding for a full-window page without it
+// (noPageWrapper), less what its own layout already has inside
+// (--page-sides-inset).
+.page-sides {
+  padding-left: calc(var(--page-padding) - var(--page-sides-inset, 0px));
+  padding-right: calc(var(--page-padding) - var(--page-sides-inset, 0px));
+  @include page-padding-motion(padding-left, padding-right);
+}
+
+.page-title-row {
+  // A design-system h1 title (Heading xl, a 30px line) on the 28.8px line of
+  // the h1 on Experiments and other list pages, so titles sit at the same
+  // height from page to page.
+  --heading-line-height-6: 28.8px;
+}
+
+// Reaches past the wrapper's padding to the page's edges (backgrounds,
+// borders, sticky bars), keeping what's inside in line with the page.
+.page-bleed {
+  margin-left: calc(-1 * var(--page-padding));
+  margin-right: calc(-1 * var(--page-padding));
+  padding-left: var(--page-padding);
+  padding-right: var(--page-padding);
+  @include page-padding-motion(margin, padding);
+}
+
 .contents {
   padding: 15px;
 }
@@ -541,6 +819,24 @@ pre {
   // Beside the details panel, the content caps and centers once there's room.
   .experiment-column {
     --page-content-max-width: 1600px;
+    // Select menus match their field, as wide as it and no wider, so they
+    // don't run over the details panel or off the window (the app's menus
+    // otherwise size to their longest option, react-select.scss).
+    .gb-select__menu,
+    .gb-multi-select__menu {
+      width: auto !important;
+    }
+  }
+}
+
+// The page's background, which the page, the header (TopNav.module.scss) and
+// anything pinned over the page read. Experiment pages are white (the panel
+// color, dark in dark mode), so their header is too.
+.radix-themes {
+  --page-bg: var(--color-background);
+  &:has(> .main:is(.experiment, .bandit, .holdout)),
+  &:has(.public:is(.experiment, .bandit, .holdout)) {
+    --page-bg: var(--color-panel-solid);
   }
 }
 
@@ -550,7 +846,7 @@ pre {
 .public.experiment,
 .public.bandit,
 .public.holdout {
-  background-color: var(--color-panel-solid);
+  background-color: var(--page-bg);
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
@@ -558,11 +854,10 @@ pre {
   }
   .experiment-tabs {
     // Sticky, so it has to match the page it scrolls over.
-    background-color: var(--color-panel-solid);
-    // NB: Keep top and height in sync with components/Layout/constants.ts
-    // also, make sure shared reports & shared experiments look good
-    top: 55px;
-    height: 40px;
+    background-color: var(--page-bg);
+    // NB: make sure shared reports & shared experiments look good
+    top: var(--tabs-top);
+    height: var(--tabs-bar-height);
     transition: 150ms all;
     // The underline belongs to the whole row, so it runs the page's full
     // width, past the tab list and under anything beside it.
@@ -638,9 +933,8 @@ pre {
 }
 .feature-tabs {
   background-color: var(--color-background);
-  // NB: Keep top and height in sync with components/Layout/constants.ts
-  top: 55px;
-  height: 40px;
+  top: var(--tabs-top);
+  height: var(--tabs-bar-height);
   transition: 150ms all;
 
   &.pinned {
@@ -774,7 +1068,7 @@ pre {
     &.axis-col {
       &:not(.noStickyHeader) {
         position: sticky;
-        top: 95px;
+        top: var(--tabs-bottom);
         // A scrolling wrapper would pin it to the wrapper, not the page.
         .overflowing & {
           position: static;
@@ -909,12 +1203,7 @@ pre {
 main.main {
   &.report {
     .experiment-results th.axis-col {
-      top: 55px;
-    }
-  }
-  &.public.experiment {
-    .experiment-results th.axis-col {
-      top: 95px;
+      top: calc(var(--page-top-offset) - 1px);
     }
   }
   .select-dropdown-underline {
@@ -1416,19 +1705,6 @@ main.main {
     strong,
     b {
       font-weight: 800;
-    }
-  }
-}
-
-.app-sidebar-header {
-  .selected {
-    background-color: colors.$purple;
-  }
-  .divider {
-    margin-top: 9px;
-    border-top: 1px solid rgba(0, 0, 0, 0.5);
-    a {
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
   }
 }
@@ -3189,6 +3465,10 @@ html {
     max-width: 1240px;
     padding: 28px 40px;
   }
+  // In the page wrapper, which owns the padding, it keeps only its width cap.
+  .page-wrapper > .container-fluid.pagecontents {
+    padding: 0;
+  }
   .appbox {
     border-radius: 8px;
     border-color: var(--slate-a4);
@@ -3227,13 +3507,8 @@ html {
 }
 
 @media (max-width: 1180px) {
-  .main,
-  .main.settings-layout {
+  .main {
     padding-left: 0;
-    padding-top: 60px;
-  }
-  .sidebar.open {
-    left: 0;
   }
 }
 
@@ -3977,20 +4252,6 @@ input:disabled {
   border-radius: 2px;
   &:hover {
     border-color: var(--violet-11);
-  }
-}
-
-// For absolute or fixed containers that should position themselves after the sidebar
-.sidebarLeft {
-  left: variables.$sidebarwidth;
-}
-// Conditionally add these classes based on the SidebarOpenProvider
-@media (max-width: 1180px) {
-  .sidebarLeftOpen {
-    left: variables.$sidebarwidth !important;
-  }
-  .sidebarLeftClosed {
-    left: 0 !important;
   }
 }
 

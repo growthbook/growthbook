@@ -1613,7 +1613,11 @@ export default function ReviewAndPublish({
     const readonlyActionsColumn = (
       <Box
         className="appbox"
-        style={{ position: "sticky", top: 90, overflow: "hidden" }}
+        style={{
+          position: "sticky",
+          top: "calc(var(--tabs-bottom) + var(--space-3))",
+          overflow: "hidden",
+        }}
       >
         {/* Status header – lifecycle status (Published / Discarded), not the
             deployment state (Live / Locked). */}
@@ -2688,7 +2692,11 @@ export default function ReviewAndPublish({
   const actionsColumn = (
     <Box
       className="appbox"
-      style={{ position: "sticky", top: 90, overflow: "hidden" }}
+      style={{
+        position: "sticky",
+        top: "calc(var(--tabs-bottom) + var(--space-3))",
+        overflow: "hidden",
+      }}
     >
       {/* Status header – colored tint matching the revision badge */}
       <Flex

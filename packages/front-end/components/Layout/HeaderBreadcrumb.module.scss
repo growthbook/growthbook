@@ -1,0 +1,91 @@
+// Keeps a truncated crumb's ellipsis clear of .pagetitle's 32px fade
+// (TopNav.module.scss).
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding-right: var(--space-8);
+  translate: 1px 0;
+}
+
+// Aligns a leading button crumb's text with the page's content edge.
+.leadingButton > :first-child {
+  margin-left: calc(-1 * var(--space-2));
+}
+
+.separator {
+  flex-shrink: 0;
+  display: flex;
+  color: var(--slate-10);
+}
+
+// The button's own padding already spaces the chevron.
+.afterButton {
+  margin-left: -4px;
+}
+
+.beforeButton {
+  margin-right: -4px;
+}
+
+// A block, not flex, so the ellipsis applies.
+.currentCrumb {
+  display: block;
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 280px;
+  height: 24px;
+  padding: 0 var(--space-2);
+  color: var(--gray-12);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-regular);
+  line-height: 24px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// A crumb that isn't a link (Settings' "Settings" and "Organization") reads
+// as the link crumbs do, the ghost button's text, padding and all.
+.sectionText {
+  flex-shrink: 0;
+  padding: 0 var(--space-2);
+  color: var(--gray-a11);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-medium);
+  line-height: 24px;
+  white-space: nowrap;
+}
+
+.headerButton {
+  flex-shrink: 1;
+  min-width: 0;
+  max-width: 280px;
+
+  :global(.rt-Text) {
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+    min-width: 0;
+  }
+}
+
+.crumbLinkText {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Below 1180px the section shrinks first, so the current page stays readable.
+@media (max-width: 1180px) {
+  .breadcrumb > a {
+    display: flex;
+    flex-shrink: 10000;
+    min-width: 40px;
+  }
+  .currentCrumb {
+    min-width: 72px;
+  }
+}

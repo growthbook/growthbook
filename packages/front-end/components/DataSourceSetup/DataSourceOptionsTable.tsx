@@ -351,11 +351,7 @@ export default function DataSourceOptionsTable() {
       </Text>
       <SampleDataSourceLink />
 
-      <Table
-        variant="surface"
-        layout="fixed"
-        style={{ minWidth: 820, maxWidth: 1200 }}
-      >
+      <Table variant="surface" layout="fixed" style={{ minWidth: 820 }}>
         <TableHeader>
           <TableRow align="start">
             <TableColumnHeader style={{ width: 190 }} />

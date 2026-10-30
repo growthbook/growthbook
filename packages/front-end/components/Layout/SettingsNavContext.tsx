@@ -30,7 +30,7 @@ const SettingsNavContext = createContext<SettingsNavContextValue | null>(null);
 
 export function SettingsNavProvider({ children }: { children: ReactNode }) {
   const [query, setQuery] = useState("");
-  // Clears on leaving Settings, not when the nav hides below 1400px.
+  // Clears on leaving Settings, not when the nav moves into the header.
   const inSettings = isSettingsRoute(useRouter().route);
   useEffect(() => {
     if (!inSettings) setQuery("");

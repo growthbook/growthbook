@@ -1,0 +1,696 @@
+.sidebar {
+  --sidebar-bg: var(--color-panel-solid);
+  --sidebar-border: var(--slate-4);
+  --sidebar-divider: var(--slate-5);
+  --sidebar-keycap: var(--slate-4);
+  --sidebar-hover: var(--slate-a3);
+  --sidebar-active: var(--slate-a3);
+  --sidebar-text: color-mix(in srgb, var(--slate-12) 80%, var(--slate-11));
+  --sidebar-text-strong: var(--slate-12);
+  --sidebar-icon: color-mix(in srgb, var(--slate-12) 75%, var(--slate-11));
+  --sidebar-muted: var(--slate-11);
+  --sidebar-chevron: var(--slate-10);
+
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 1000;
+  width: var(--sidebar-width, 240px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-2) var(--space-3);
+  box-sizing: border-box;
+  overflow: hidden;
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  font-family: var(--default-font-family);
+  color: var(--sidebar-text);
+  transition: width 200ms ease;
+
+  // Over the header (1010) and its veil, below modals. Hidden as well as off
+  // screen when closed, so Tab can't reach it.
+  @media (max-width: 1180px) {
+    z-index: 1030;
+    width: 240px;
+    left: -240px;
+    visibility: hidden;
+    transition:
+      left 300ms ease,
+      visibility 0s linear 300ms;
+    &.drawerOpen {
+      left: 0;
+      visibility: visible;
+      box-shadow: 8px 0 24px -4px rgba(12, 18, 37, 0.24);
+      transition:
+        left 300ms ease,
+        visibility 0s linear 0s;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &.drawerOpen {
+      transition: none;
+    }
+  }
+}
+
+// The drawer's own layer on the page's body (Sidebar.tsx); open, it's raised
+// over the AI Assistant panel there.
+.drawerLayer {
+  position: relative;
+  z-index: 0;
+}
+
+.drawerOverlay {
+  display: none;
+
+  @media (max-width: 1180px) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 1025;
+    background: var(--color-overlay);
+    opacity: 0;
+    visibility: hidden;
+    transition:
+      opacity 300ms ease,
+      visibility 0s linear 300ms;
+
+    &.overlayOpen {
+      opacity: 1;
+      visibility: visible;
+      transition:
+        opacity 300ms ease,
+        visibility 0s linear 0s;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &.overlayOpen {
+      transition: none;
+    }
+  }
+}
+
+.drawerClose.drawerClose {
+  position: absolute;
+  top: 9px;
+  right: 8px;
+  margin: 0;
+  color: var(--sidebar-icon);
+
+  &:hover {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
+  }
+}
+
+.navBody {
+  display: contents;
+}
+
+.navHidden {
+  display: none;
+}
+
+.drawerMenuHost:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+:global(.dark-theme) .sidebar {
+  --sidebar-border: var(--slate-a4);
+  --sidebar-divider: var(--slate-a5);
+  --sidebar-keycap: var(--slate-a4);
+}
+
+.collapsed {
+  align-items: flex-start;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  align-self: flex-start;
+  padding: 3px 5px;
+  margin-bottom: 5px;
+  border-radius: var(--radius-3);
+  text-decoration: none;
+
+  .collapsed & {
+    width: 32px;
+    overflow: hidden;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: 1px;
+  }
+}
+
+.brandLogo {
+  flex-shrink: 0;
+}
+
+.brandWordmark {
+  fill: #151e3d;
+}
+
+// Fades out before the narrowing sidebar's edge cuts into it. Only while the
+// sidebar moves, so reduced motion stays instant.
+.collapsing .brandWordmark {
+  opacity: 0;
+  transition: opacity 80ms ease-out;
+}
+
+:global(.dark-theme) .brandWordmark,
+:global(.dark-theme) .brandMark {
+  fill: #fff;
+}
+
+.sweep {
+  visibility: hidden;
+}
+
+@keyframes logoSweep {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--sweep-distance));
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .logoPlaying .sweep {
+    visibility: visible;
+    animation: logoSweep 1.6s ease-in-out;
+  }
+}
+
+.divider {
+  flex-shrink: 0;
+  align-self: stretch;
+  height: 1px;
+  margin: 6px 0;
+  background: var(--sidebar-divider);
+
+  .collapsed & {
+    width: 32px;
+  }
+}
+
+.searchDivider.searchDivider {
+  margin: var(--space-1) 0;
+}
+
+.sidebar .bottomDivider.bottomDivider {
+  width: auto;
+  margin: var(--space-1) -8px;
+}
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  // A mask, so it fades to whatever is behind it in either theme.
+  mask-image: linear-gradient(
+    to bottom,
+    #000 calc(100% - 48px),
+    rgb(0 0 0 / calc(var(--sidebar-fade-bottom) + 0.33)) calc(100% - 16px),
+    rgb(0 0 0 / var(--sidebar-fade-bottom)) 100%
+  );
+  transition: --sidebar-fade-bottom 200ms ease;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.sections.fadeBottom {
+  --sidebar-fade-bottom: 0;
+}
+
+.sections.sectionsOverflow {
+  padding-bottom: var(--space-6);
+}
+
+// Opening a section that starts the list scrolling mustn't shift the rows
+// sideways under the pointer.
+.sidebar:not(.collapsed) .sections {
+  scrollbar-gutter: stable;
+}
+
+// Registered so the fade can transition; 1 is no fade.
+@property --sidebar-fade-bottom {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+// 4px between the sections and the bottom group once they fill the space:
+// the sidebar's 8px gaps either side, less 6px each.
+.spacer {
+  flex-grow: 1;
+  margin: -6px 0;
+}
+
+.bottomGroup {
+  flex-shrink: 0;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+
+  .collapsed & {
+    align-items: flex-start;
+  }
+}
+
+.iconItem {
+  position: relative;
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-3);
+  background: transparent;
+  color: var(--sidebar-icon);
+  cursor: pointer;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
+    text-decoration: none;
+  }
+}
+
+.row {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 32px;
+  padding: 0 10px 0 7px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: var(--radius-3);
+  background: transparent;
+  color: var(--sidebar-text);
+  font-family: var(--default-font-family);
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--line-height-2);
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
+    text-decoration: none;
+  }
+}
+
+.rowIcon {
+  flex-shrink: 0;
+  color: var(--sidebar-icon);
+}
+
+.rowLabel {
+  flex-grow: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// In over 150ms and out over 250ms, so moving down the sidebar leaves a trail
+// rather than a flicker.
+.iconItem,
+.row,
+.subItem,
+.popoverItem,
+.rowIcon {
+  transition:
+    background-color 250ms ease-out,
+    color 250ms ease-out;
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.iconItem:hover,
+.row:hover,
+.row:hover .rowIcon,
+.subItem:hover,
+.popoverItem:hover {
+  transition-duration: 150ms;
+}
+
+.iconItem,
+.row {
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+}
+
+// Weight as well as fill, so the selection doesn't rest on the fill alone.
+.active.active {
+  background: var(--sidebar-active);
+  color: var(--sidebar-text-strong);
+  font-weight: var(--font-weight-bold);
+
+  .rowIcon {
+    color: var(--sidebar-text-strong);
+  }
+}
+
+// Keeps the hover look while the pointer moves into its menu.
+.menuShowing.menuShowing:not(.active) {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
+
+  .rowIcon {
+    color: var(--sidebar-text-strong);
+  }
+}
+
+.menuOpen.menuOpen {
+  background: var(--sidebar-active);
+  color: var(--sidebar-text-strong);
+
+  .rowIcon {
+    color: var(--sidebar-text-strong);
+  }
+}
+
+.openSection {
+  color: var(--sidebar-text-strong);
+
+  .rowIcon {
+    color: var(--sidebar-text-strong);
+  }
+}
+
+// The row and its chevron are separate targets: the chevron's button sits
+// over the row's right end.
+.sectionHeader {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.sectionRow.sectionRow {
+  padding-right: 34px;
+}
+
+// Hovering the chevron still highlights the row.
+.sectionHeader:hover > .sectionRow:not(.active) {
+  background: var(--sidebar-hover);
+  color: var(--sidebar-text-strong);
+  transition-duration: 150ms;
+}
+
+.chevronButton {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: transparent;
+  color: var(--sidebar-chevron);
+  cursor: pointer;
+  transition:
+    color 250ms ease-out,
+    opacity 100ms ease-out;
+
+  &:hover {
+    color: var(--slate-11);
+    transition-duration: 150ms;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// Hidden while the sidebar resizes, so it never slides over its row's icon.
+.resizing .chevronButton {
+  opacity: 0;
+  pointer-events: none;
+  transition: none;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: inherit;
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+.chevronOpen {
+  transform: rotate(90deg);
+}
+
+// A one-row grid from 0fr to 1fr, so its height can ease.
+.subList {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  flex-shrink: 0;
+  transition:
+    grid-template-rows 200ms ease,
+    visibility 0s linear 200ms;
+
+  &[data-open="true"] {
+    grid-template-rows: 1fr;
+    visibility: visible;
+    transition:
+      grid-template-rows 300ms ease,
+      visibility 0s linear 0s;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &,
+    &[data-open="true"] {
+      transition: none;
+    }
+  }
+}
+
+.subListInner {
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  // Margins inside the clipped list, so a closed list shows nothing.
+  > :first-child {
+    margin-top: var(--space-2);
+  }
+
+  > :last-child {
+    margin-bottom: var(--space-2);
+  }
+}
+
+// One item in the sidebar's column, so a closed list adds no gap.
+.sectionGroup {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.subItem {
+  display: flex;
+  align-items: center;
+  padding: 7px 10px 7px 43px;
+  border-radius: var(--radius-3);
+  color: var(--sidebar-icon);
+  font-size: 13px;
+  font-weight: var(--font-weight-medium);
+  line-height: 18px;
+  text-decoration: none;
+
+  &:hover {
+    background: var(--sidebar-hover);
+    color: var(--sidebar-text-strong);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+}
+
+.current.current {
+  background: var(--slate-a3);
+  color: var(--slate-12);
+  font-weight: var(--font-weight-bold);
+
+  .sidebar & {
+    background: var(--sidebar-active);
+    color: var(--sidebar-text-strong);
+  }
+}
+
+.keycap {
+  flex-shrink: 0;
+  padding: 1px 5px;
+  border: 1px solid var(--sidebar-keycap);
+  border-radius: var(--radius-2);
+  color: var(--sidebar-muted);
+  font-size: 11px;
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-1);
+}
+
+.upgrade.upgrade {
+  margin-top: var(--space-2);
+  color: var(--violet-a11);
+  font-weight: var(--font-weight-medium);
+
+  .rowIcon {
+    color: var(--violet-a11);
+  }
+
+  &:hover {
+    color: var(--violet-a11);
+
+    .rowIcon {
+      color: var(--violet-a11);
+    }
+  }
+}
+
+.toggleFlipped svg {
+  transform: scaleX(-1);
+}
+
+// Tripled, to outrank Popover's own animation rules.
+.popover.popover.popover {
+  box-sizing: border-box;
+
+  &[data-state="open"] {
+    animation: sidebar-popover-in 160ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+
+  &[data-state="closed"] {
+    animation: sidebar-popover-out 120ms ease-in both;
+    pointer-events: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    &[data-state="open"],
+    &[data-state="closed"] {
+      animation: none;
+    }
+  }
+}
+
+@keyframes sidebar-popover-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes sidebar-popover-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.sectionPopover {
+  width: 220px;
+}
+
+.popoverBody {
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+
+.popoverInner {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.popoverItem + .popoverItem {
+  margin-top: 3px;
+}
+
+.eyebrow {
+  padding: var(--space-2) 10px 6px;
+  color: var(--slate-11);
+  font-size: 11px;
+  font-weight: var(--font-weight-bold);
+  line-height: 14px;
+}
+
+.popoverItem {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px 6px var(--space-4);
+  border-radius: var(--radius-3);
+  color: color-mix(in srgb, var(--slate-12) 90%, var(--slate-11));
+  font-size: var(--font-size-2);
+  line-height: var(--line-height-2);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--slate-a3);
+    color: var(--slate-12);
+    text-decoration: none;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--focus-8);
+    outline-offset: -2px;
+  }
+}

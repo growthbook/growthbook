@@ -1,0 +1,67 @@
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  height: 36px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--slate-a7);
+  border-radius: var(--radius-2);
+  background: var(--color-panel-solid);
+  color: var(--color-text-high);
+  font: inherit;
+  font-size: var(--font-size-2);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    border-color: var(--slate-a8);
+  }
+  &:focus-visible {
+    outline: 2px solid var(--violet-9);
+    outline-offset: 1px;
+  }
+  &[data-state="open"] {
+    border-color: var(--violet-8);
+  }
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// As wide as the trigger, and no taller than the room below it.
+.popover {
+  width: var(--radix-popover-trigger-width);
+  max-width: calc(100vw - 16px);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  // The room under the button, wherever the page has scrolled it.
+  max-height: calc(
+    var(--radix-popover-content-available-height) - var(--space-4)
+  );
+  padding-top: var(--space-3);
+  font-size: 13px;
+}
+
+// Pinned under the header (and any bar under it) on the page's background,
+// which runs to the page's edges so what scrolls under it stays hidden.
+.pinned {
+  position: sticky;
+  top: var(--page-top-offset);
+  // Over General's section headings (6, SettingsSection.module.scss), which
+  // slide up under it as their section ends.
+  z-index: 7;
+  // 12px above and below: 20px from the title and to what follows, and
+  // pinned, 12px under the header. A 60px row (--settings-section-top).
+  margin: 0 calc(-1 * var(--page-padding)) var(--space-2);
+  padding: var(--space-3) var(--page-padding);
+  background: var(--color-background);
+}

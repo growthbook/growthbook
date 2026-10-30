@@ -3,10 +3,8 @@ import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
 import { radixSize, Size } from "@/ui/sizes";
+import { usePageTopOffset } from "@/components/Layout/pageTopOffset";
 import styles from "./Table.module.scss";
-
-/** Standard top offset (px) for sticky table headers. Must be >= top nav height (56px) so the header's top border isn't covered. */
-export const DEFAULT_STICKY_TOP_OFFSET_PX = 56;
 
 export type TableProps = Omit<
   React.ComponentProps<typeof RadixTable.Root>,
@@ -17,7 +15,7 @@ export type TableProps = Omit<
   size?: Size<"sm" | "md" | "lg">;
   /** When true (or when variant="list"), header row is sticky; when false, list variant keeps styling but header does not stick */
   stickyHeader?: boolean;
-  /** Top offset in px for sticky header (default DEFAULT_STICKY_TOP_OFFSET_PX). Used as CSS var --table-sticky-top. */
+  /** Top offset in px for sticky header (default: the app header's height, --header-height). Used as CSS var --table-sticky-top. */
   stickyTopOffset?: number;
   /** When true (or when variant="list"), first header row gets rounded top corners */
   roundedCorners?: boolean;
@@ -49,7 +47,7 @@ export default function Table({
   variant,
   size,
   stickyHeader,
-  stickyTopOffset = DEFAULT_STICKY_TOP_OFFSET_PX,
+  stickyTopOffset,
   roundedCorners,
   scrollX,
   stickyLastColumn,
@@ -64,6 +62,8 @@ export default function Table({
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const pageTopOffset = usePageTopOffset();
+
   // A pinned column only earns its divider once there is something behind it.
   const overflowX = useIsOverflowingX(
     wrapperRef,
@@ -83,9 +83,13 @@ export default function Table({
     const header = wrapper.querySelector(".rt-TableHeader");
     if (!header) return;
 
+    // Without an offset, the header sticks under the app header and any bar
+    // under it.
+    const topOffset = stickyTopOffset ?? pageTopOffset;
+
     const check = () => {
       const top = (header as HTMLElement).getBoundingClientRect().top;
-      const isSticky = Math.abs(top - stickyTopOffset) < 2;
+      const isSticky = Math.abs(top - topOffset) < 2;
       if (isSticky) {
         wrapper.setAttribute("data-sticky-active", "true");
       } else {
@@ -96,7 +100,7 @@ export default function Table({
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX]);
+  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX, pageTopOffset]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 
@@ -131,7 +135,10 @@ export default function Table({
       style={
         {
           ...(useStickyHeader && {
-            "--table-sticky-top": `${stickyTopOffset}px`,
+            "--table-sticky-top":
+              stickyTopOffset !== undefined
+                ? `${stickyTopOffset}px`
+                : "var(--page-top-offset)",
           }),
           ...(minTableWidth && { "--table-min-width": `${minTableWidth}px` }),
           ...(maxHeight !== undefined && {

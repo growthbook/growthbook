@@ -1,32 +1,12 @@
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import clsx from "clsx";
 import { useRouter } from "next/router";
-import { BsSearch } from "react-icons/bs";
-import { Flex } from "@radix-ui/themes";
-import { getGrowthBookBuild } from "@/services/env";
-import { useUser } from "@/services/UserContext";
-import { inferDocUrl } from "@/components/DocLink";
-import UpgradeModal from "@/components/Settings/UpgradeModal";
-import { WhiteButton } from "@/ui/Button";
-import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import ProjectSelector from "./ProjectSelector";
-import SidebarLink, { SidebarLinkProps } from "./SidebarLink";
+import useMediaQuery from "@/hooks/useMediaQuery";
 import { isSettingsRoute, navlinks } from "./sidebarNav";
 import TopNav from "./TopNav";
-import styles from "./Layout.module.scss";
+import Sidebar from "./Sidebar";
 import { usePageHead } from "./PageHead";
 import { useSidebarOpen } from "./SidebarOpenProvider";
 import SettingsNav from "./SettingsNav";
-
-const breadcrumbLinks = [
-  ...navlinks,
-  {
-    name: "Power Calculator",
-    path: /^power-calculator/,
-    subLinks: [] as SidebarLinkProps[],
-  },
-];
+import { SETTINGS_NAV_MIN_WIDTH_PX } from "./constants";
 
 const otherPageTitles = [
   {
@@ -61,27 +41,15 @@ const otherPageTitles = [
 
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
-  const permissionsUtil = usePermissionsUtil();
-  const { organization, canSubscribe } = useUser();
   const { breadcrumb } = usePageHead();
-
-  const [upgradeModal, setUpgradeModal] = useState(false);
-  const showUpgradeButton =
-    canSubscribe &&
-    permissionsUtil.canManageBilling() &&
-    !organization.isVercelIntegration;
+  // Narrower, the Settings nav is a select at the page's top
+  // (SettingsPageTop).
+  const settingsNarrow = useMediaQuery(
+    `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
+  );
 
   // hacky:
   const router = useRouter();
-  // Below 1400px the sidebar lists the Organization pages instead of the sub nav.
-  const [wide, setWide] = useState(true);
-  useEffect(() => {
-    const mq = window.matchMedia("(min-width: 1400px)");
-    const update = () => setWide(mq.matches);
-    update();
-    mq.addEventListener("change", update);
-    return () => mq.removeEventListener("change", update);
-  }, []);
   const path = router.route.substr(1);
   // don't show the nav for presentations
   if (path.match(/^present\//)) {
@@ -100,7 +68,7 @@ const Layout = (): React.ReactElement => {
       pageTitle = o.title;
     }
   });
-  breadcrumbLinks.forEach((o) => {
+  navlinks.forEach((o) => {
     if (o.subLinks) {
       o.subLinks.forEach((s) => {
         if (!pageTitle && s.path.test(path)) {
@@ -113,147 +81,17 @@ const Layout = (): React.ReactElement => {
     }
   });
 
-  const build = getGrowthBookBuild();
-  const showSettingsNav = isSettingsRoute(router.route) && wide;
+  const inSettings = isSettingsRoute(router.route);
 
   return (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="layout"
-          commercialFeature={null}
-        />
-      )}
-      <div
-        className={clsx(styles.sidebar, "sidebar mb-5", {
-          [styles.sidebaropen]: open,
-        })}
-      >
-        <div className="">
-          <div className="app-sidebar-header">
-            <div className="app-sidebar-logo">
-              <Link
-                href="/"
-                aria-current="page"
-                className="app-sidebar-logo active"
-                title="GrowthBook Home"
-                onClick={() => setOpen(false)}
-              >
-                <div className={styles.sidebarlogo}>
-                  <img
-                    className={styles.logo}
-                    alt="GrowthBook"
-                    src="/logo/growth-book-logomark-white.svg"
-                  />
-                  <img
-                    className={styles.logotext}
-                    alt="GrowthBook"
-                    src="/logo/growth-book-name-white.svg"
-                  />
-                </div>
-              </Link>
-            </div>
-            <div className={styles.mainmenu}>
-              <ul
-                onClick={(e) => {
-                  const t = (e.target as HTMLElement).closest("a");
-                  if (t && t.href && !t.className.match(/no-close/)) {
-                    setOpen(false);
-                  }
-                }}
-              >
-                <li>
-                  <a
-                    href="#"
-                    className={`${styles.closebutton} closebutton`}
-                    onClick={(e) => e.preventDefault()}
-                  >
-                    <svg
-                      className="bi bi-x"
-                      width="1.9em"
-                      height="1.9em"
-                      viewBox="0 0 16 16"
-                      fill="currentColor"
-                      xmlns="http://www.w3.org/2000/svg"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M11.854 4.146a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708-.708l7-7a.5.5 0 0 1 .708 0z"
-                      />
-                      <path
-                        fillRule="evenodd"
-                        d="M4.146 4.146a.5.5 0 0 0 0 .708l7 7a.5.5 0 0 0 .708-.708l-7-7a.5.5 0 0 0-.708 0z"
-                      />
-                    </svg>
-                  </a>
-                </li>
-                <li>
-                  <button
-                    className={styles.searchTrigger}
-                    onClick={() => {
-                      document.dispatchEvent(new Event("open-command-palette"));
-                    }}
-                  >
-                    <BsSearch size={13} />
-                    <span className={styles.searchTriggerLabel}>Search</span>
-                    <span className={styles.searchTriggerKbd}>
-                      {typeof navigator !== "undefined" &&
-                      /Mac|iPhone|iPad/.test(navigator.userAgent)
-                        ? "\u2318 K"
-                        : "Ctrl+K"}
-                    </span>
-                  </button>
-                </li>
-                <ProjectSelector />
-                {navlinks.map((v) => (
-                  <SidebarLink
-                    key={v.href}
-                    {...v}
-                    hideSubLinks={v.hideSubLinks && wide}
-                  />
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-        <div style={{ flex: 1 }} />
-        <Flex p="3" direction="column" gap="4">
-          {showUpgradeButton && (
-            <WhiteButton onClick={() => setUpgradeModal(true)}>
-              <>Upgrade</>
-            </WhiteButton>
-          )}
-          <a href={inferDocUrl()} target="_blank" rel="noreferrer">
-            <WhiteButton variant="outline">View docs</WhiteButton>
-          </a>
-        </Flex>
-        {build.sha && (
-          <div className="px-3 my-1 text-center">
-            <small>
-              <span className="text-muted">Build:</span>{" "}
-              <a
-                href={`https://github.com/growthbook/growthbook/commit/${build.sha}`}
-                target="_blank"
-                rel="noreferrer"
-                className="text-white"
-              >
-                {build.lastVersion}+{build.sha.substr(0, 7)}
-              </a>{" "}
-              {build.date && (
-                <span className="text-muted">({build.date.substr(0, 10)})</span>
-              )}
-            </small>
-          </div>
-        )}
-      </div>
-
-      {showSettingsNav && <SettingsNav />}
+      <Sidebar />
+      {inSettings && !settingsNarrow ? <SettingsNav /> : null}
       <TopNav
         pageTitle={pageTitle}
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
-        mutedBreadcrumb={isSettingsRoute(router.route)}
+        menuOpen={open}
       />
     </>
   );

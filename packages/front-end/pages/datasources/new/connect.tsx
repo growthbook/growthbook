@@ -1,4 +1,4 @@
-import { FC, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/router";
 import { Box } from "@radix-ui/themes";
 import {
@@ -41,7 +41,7 @@ function parseType(
   return raw;
 }
 
-const NewDataSourceConnectPage: FC = () => {
+const NewDataSourceConnectPage = () => {
   const router = useRouter();
   const { enabled, ready } = useNewDataSourceOnboarding();
   const { project } = useDefinitions();
@@ -139,3 +139,5 @@ const NewDataSourceConnectPage: FC = () => {
 };
 
 export default NewDataSourceConnectPage;
+
+NewDataSourceConnectPage.noPageWrapper = true;
