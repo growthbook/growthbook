@@ -30,7 +30,7 @@ import TagsInput from "@/components/Tags/TagsInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import AddAttributeSnippet from "@/components/SyntaxHighlighting/Snippets/AddAttributeSnippet";
 
-const ADD_COLUMNS = "minmax(0, 1fr) 160px";
+const ADD_COLUMNS = "minmax(0, 1fr)";
 const EDIT_COLUMNS = "minmax(0, 1fr) 200px 140px";
 const ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
 const PLACEHOLDER_NAME = "newIdentifier";
@@ -381,9 +381,11 @@ export default function IdentifierModal({
                         Identifier type
                       </Text>
                     )}
-                    <Text size="sm" color="text-mid">
-                      Assignment queries
-                    </Text>
+                    {isEdit && (
+                      <Text size="sm" color="text-mid">
+                        Assignment queries
+                      </Text>
+                    )}
                   </Grid>
                   {mappable.map((d) => {
                     const editable = canEdit(d);
@@ -391,9 +393,7 @@ export default function IdentifierModal({
                     const isChecked = isEdit
                       ? !!linked || d.id in picks
                       : editable && !uncheckedIds.includes(d.id);
-                    const type = isEdit
-                      ? (linked ?? pickedType(d))
-                      : defaultType;
+                    const type = linked ?? pickedType(d);
                     return (
                       <Grid
                         key={d.id}
@@ -477,11 +477,13 @@ export default function IdentifierModal({
                               )}
                             </Select>
                           ))}
-                        <Box>
-                          {isChecked && (
-                            <UsageBadge datasource={d} userIdType={type} />
-                          )}
-                        </Box>
+                        {isEdit && (
+                          <Box>
+                            {isChecked && (
+                              <UsageBadge datasource={d} userIdType={type} />
+                            )}
+                          </Box>
+                        )}
                       </Grid>
                     );
                   })}
