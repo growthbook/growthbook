@@ -541,9 +541,10 @@ export default function ExperimentHeader({
       ? dateList(details.dates, details.runtime)
       : null;
   const datesBox = useRef<HTMLDivElement>(null);
+  // Off with the dashboard, so it measures the box anew once the tabs show it.
   const datesCut = useIsOverflowingX(
     datesBox,
-    !hasMultiplePhases,
+    !hasMultiplePhases && !showDashboardView,
     shownDates.map(({ value }) => value).join(),
   );
   // Breaks only between dates, never inside one, or keeps to one line. Its
