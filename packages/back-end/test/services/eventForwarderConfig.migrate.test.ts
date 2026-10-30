@@ -42,17 +42,21 @@ function legacyBigQueryConfig(
   } as EventForwarderConfigInterface;
 }
 
-function mockContext() {
-  const update = jest.fn().mockImplementation(async (existing, changes) => ({
-    ...existing,
-    ...changes,
-  }));
+// `stored` is what the CAS re-read sees; defaults to the row passed in.
+function mockContext(stored?: EventForwarderConfigInterface) {
+  const update = jest
+    .fn()
+    .mockImplementation(async (id, guardFields, compute) => {
+      const fresh = stored ?? legacyBigQueryConfig({ id });
+      const changes = await compute(fresh);
+      return changes ? { ...fresh, ...changes } : null;
+    });
   const auditLog = jest.fn().mockResolvedValue(undefined);
   return {
     context: {
       org: { id: "org1" },
       auditLog,
-      models: { eventForwarderConfigs: { update } },
+      models: { eventForwarderConfigs: { updateWithCas: update } },
     } as never,
     update,
     auditLog,
@@ -73,7 +77,8 @@ describe("migrateEventForwarderToInHouseConsumer", () => {
     expect(migrated.topic).toBe("event_forwarder_bigquery");
     expect(migrated.status).toBe("pending");
     expect(update).toHaveBeenCalledTimes(1);
-    expect(decrypt(update.mock.calls[0][1].config)).toMatchObject({
+    expect(update.mock.calls[0][1]).toEqual(["topic"]);
+    expect(decrypt(migrated.config)).toMatchObject({
       projectId: "proj",
       dataset: "ds",
       tables: {
@@ -104,6 +109,21 @@ describe("migrateEventForwarderToInHouseConsumer", () => {
       ),
     ).rejects.toThrow("already on the in-house consumer");
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("rejects when another request already claimed the row", async () => {
+    const { context, update, auditLog } = mockContext(
+      legacyBigQueryConfig({ topic: "event_forwarder_bigquery" }),
+    );
+    await expect(
+      migrateEventForwarderToInHouseConsumer(
+        context,
+        legacyBigQueryConfig(),
+        bqParams,
+      ),
+    ).rejects.toThrow("already on the in-house consumer");
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(auditLog).not.toHaveBeenCalled();
   });
 
   it("rejects a paused config", async () => {

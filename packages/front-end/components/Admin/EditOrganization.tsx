@@ -79,6 +79,9 @@ const EditOrganization: FC<{
   const [deletingEventForwarderId, setDeletingEventForwarderId] = useState<
     string | null
   >(null);
+  const [migratingEventForwarderId, setMigratingEventForwarderId] = useState<
+    string | null
+  >(null);
 
   const values = {
     name,
@@ -319,13 +322,14 @@ const EditOrganization: FC<{
                           {SINK_TYPE_LABELS[row.sinkType]}
                         </Text>
                       </Flex>
-                      {!row.inHouseConsumer ? (
+                      {/* Server rejects migrating a paused row, so don't offer it */}
+                      {!row.inHouseConsumer && row.status !== "paused" ? (
                         <Button
                           size="sm"
                           variant="outline"
                           loading={isLoading}
                           onClick={() =>
-                            runEventForwarderAction(row.datasourceId, "migrate")
+                            setMigratingEventForwarderId(row.datasourceId)
                           }
                         >
                           Migrate
@@ -367,6 +371,21 @@ const EditOrganization: FC<{
                   setDeletingEventForwarderId(null);
                 }}
                 onCancel={() => setDeletingEventForwarderId(null)}
+              />
+            ) : null}
+            {migratingEventForwarderId ? (
+              <ConfirmDialog
+                title="Migrate to in-house consumer?"
+                content="New events move to the in-house consumer right away. This cannot be undone from the UI. Tear down the Confluent connector manually once it has drained."
+                yesText="Migrate"
+                onConfirm={async () => {
+                  await runEventForwarderAction(
+                    migratingEventForwarderId,
+                    "migrate",
+                  );
+                  setMigratingEventForwarderId(null);
+                }}
+                onCancel={() => setMigratingEventForwarderId(null)}
               />
             ) : null}
           </>

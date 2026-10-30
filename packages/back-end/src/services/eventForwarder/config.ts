@@ -717,6 +717,24 @@ export async function migrateEventForwarderToInHouseConsumer(
   );
   validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
 
+  // Guarded on `topic` so two concurrent migrations can't both claim the row.
+  const migrated = await context.models.eventForwarderConfigs.updateWithCas(
+    existing.id,
+    ["topic"],
+    (fresh) =>
+      isInHouseConsumerTopic(fresh.topic, fresh.sinkType)
+        ? null
+        : {
+            topic: getInHouseConsumerTopicName(existing.sinkType),
+            config: encryptSinkConfig(normalizedPayload),
+            status: "pending",
+            lastProvisioningError: "",
+          },
+  );
+  if (!migrated) {
+    throw new Error("Event forwarder is already on the in-house consumer");
+  }
+
   await context.auditLog({
     entity: { object: "eventForwarderConfig", id: existing.id, name: "" },
     event: "eventForwarderConfig.migrate",
@@ -728,12 +746,7 @@ export async function migrateEventForwarderToInHouseConsumer(
     }),
   });
 
-  return context.models.eventForwarderConfigs.update(existing, {
-    topic: getInHouseConsumerTopicName(existing.sinkType),
-    config: encryptSinkConfig(normalizedPayload),
-    status: "pending",
-    lastProvisioningError: "",
-  });
+  return migrated;
 }
 
 export async function getEventForwarderConfigDraftForDatasource(
