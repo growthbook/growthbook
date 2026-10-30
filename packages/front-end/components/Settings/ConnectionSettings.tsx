@@ -291,7 +291,14 @@ export default function ConnectionSettings({
           <Text weight="semibold">Advanced Settings</Text>
         </CollapseTrigger>
         <Collapse open={advancedOpen}>
-          <div className="rounded px-3 pt-3 pb-1 mt-2 bg-highlight">
+          <Box
+            mt="2"
+            px="3"
+            pt="3"
+            pb="1"
+            className="bg-highlight"
+            style={{ borderRadius: "var(--radius-2)" }}
+          >
             {advancedSettingsPrefix}
             {datasource.type === "bigquery" && (
               <BigQueryAdvancedSettings
@@ -305,7 +312,7 @@ export default function ConnectionSettings({
               onSettingChange={onSettingChange}
               settings={datasource?.settings || {}}
             />
-          </div>
+          </Box>
         </Collapse>
       </Box>
     </>

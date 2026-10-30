@@ -40,4 +40,16 @@ describe("revealCopiedSelection", () => {
       ).toBe("ALTER LOGIN ro WITH PASSWORD = 'N3wPass';");
     });
   });
+
+  it("keeps an apostrophe inside the password", () => {
+    const shown = `ALTER USER "ro" WITH PASSWORD '••••••••';`;
+    const copy = `ALTER USER "ro" WITH PASSWORD 'O''Brien123!';`;
+    expect(revealCopiedSelection(shown, copy, shown)).toBe(copy);
+  });
+
+  it("keeps a semicolon inside the password", () => {
+    const shown = `ALTER USER "ro" WITH PASSWORD '••••••••';`;
+    const copy = `ALTER USER "ro" WITH PASSWORD 'a;b';`;
+    expect(revealCopiedSelection(shown, copy, shown)).toBe(copy);
+  });
 });

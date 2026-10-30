@@ -1,77 +1,81 @@
+/** The on-screen stand-in for a password or generated public key. */
+const MASK = "'••••••••'";
+
 /**
- * The displayed SQL and the copyable SQL differ wherever a credential is
- * masked. The same mask can appear more than once (e.g. a password statement
- * repeated in a CREATE and an ALTER), so a highlight covering just one of
- * those spans should still reveal the real value for that span.
+ * The displayed SQL and the copyable SQL differ only by whole masked
+ * credentials. A highlight that includes a mask should put the real
+ * credential on the clipboard. Matching the mask as one span (rather than
+ * character by character) keeps quotes inside a password, such as
+ * `O'Brien`, from being read as the end of the mask.
  */
 export function revealCopiedSelection(
   displayed: string,
   full: string,
   selection: string,
 ): string | null {
-  let result = selection;
-  let replacedAny = false;
-  for (const { masked, real } of diffSpans(displayed, full)) {
-    if (masked && result.includes(masked)) {
-      result = result.split(masked).join(real);
-      replacedAny = true;
-    }
+  if (!selection.includes(MASK)) return null;
+  const reals = credentialSpans(displayed, full);
+  if (!reals) return null;
+
+  let from = 0;
+  let revealed: string | null = null;
+  while (from <= displayed.length) {
+    const at = displayed.indexOf(selection, from);
+    if (at === -1) break;
+    const masksBefore = countMasks(displayed.slice(0, at));
+    const masksInSelection = countMasks(selection);
+    const next = applyMasks(
+      selection,
+      reals.slice(masksBefore, masksBefore + masksInSelection),
+    );
+    // The same highlight can sit on more than one statement. Only rewrite
+    // it when every one of those statements would reveal the same text.
+    if (revealed !== null && revealed !== next) return null;
+    revealed = next;
+    from = at + 1;
   }
-  return replacedAny ? result : null;
+  return revealed;
 }
 
-/** The minimal (masked, real) substring pairs where `displayed` and `full` disagree, via an LCS diff. */
-function diffSpans(
-  displayed: string,
-  full: string,
-): { masked: string; real: string }[] {
-  const n = displayed.length;
-  const m = full.length;
-  // lcs[i][j] holds the LCS length of displayed[i:] and full[j:].
-  const lcs: number[][] = Array.from({ length: n + 1 }, () =>
-    new Array(m + 1).fill(0),
-  );
-  for (let i = n - 1; i >= 0; i--) {
-    for (let j = m - 1; j >= 0; j--) {
-      lcs[i][j] =
-        displayed[i] === full[j]
-          ? lcs[i + 1][j + 1] + 1
-          : Math.max(lcs[i + 1][j], lcs[i][j + 1]);
-    }
-  }
+/** Each masked credential in `displayed`, in order, as it appears in `full`. */
+function credentialSpans(displayed: string, full: string): string[] | null {
+  if (!displayed.includes(MASK)) return null;
+  return parseSpans(full, displayed.split(MASK), 0);
+}
 
-  const spans: { masked: string; real: string }[] = [];
-  let i = 0;
-  let j = 0;
-  let maskedStart: number | null = null;
-  let realStart: number | null = null;
-  while (i < n || j < m) {
-    if (i < n && j < m && displayed[i] === full[j]) {
-      if (maskedStart !== null) {
-        spans.push({
-          masked: displayed.slice(maskedStart, i),
-          real: full.slice(realStart as number, j),
-        });
-        maskedStart = null;
-      }
-      i += 1;
-      j += 1;
-    } else {
-      if (maskedStart === null) {
-        maskedStart = i;
-        realStart = j;
-      }
-      // Walk whichever side keeps more of the eventual common subsequence
-      // ahead of it, same as the usual LCS-diff backtrace.
-      if (j >= m || (i < n && lcs[i + 1][j] >= lcs[i][j + 1])) i += 1;
-      else j += 1;
-    }
+/**
+ * `parts` are the pieces of SQL around each mask. They are identical in both
+ * strings, so each credential is whatever sits between one part and the next.
+ * A credential may itself contain a later part (a password with a semicolon,
+ * for instance), so try each later match until the remainder lines up.
+ */
+function parseSpans(
+  full: string,
+  parts: string[],
+  start: number,
+): string[] | null {
+  const [head, ...rest] = parts;
+  if (head === undefined || !full.startsWith(head, start)) return null;
+  const cursor = start + head.length;
+  if (rest.length === 0) return cursor === full.length ? [] : null;
+
+  const next = rest[0];
+  let search = cursor;
+  while (search <= full.length) {
+    const found = full.indexOf(next, search);
+    if (found === -1) return null;
+    const tail = parseSpans(full, rest, found);
+    if (tail !== null) return [full.slice(cursor, found), ...tail];
+    search = found + 1;
   }
-  if (maskedStart !== null) {
-    spans.push({
-      masked: displayed.slice(maskedStart, i),
-      real: full.slice(realStart as number, j),
-    });
-  }
-  return spans;
+  return null;
+}
+
+function countMasks(value: string): number {
+  return value.split(MASK).length - 1;
+}
+
+function applyMasks(selection: string, reals: string[]): string {
+  let index = 0;
+  return selection.replaceAll(MASK, () => reals[index++] ?? MASK);
 }
