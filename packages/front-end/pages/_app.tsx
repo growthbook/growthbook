@@ -78,6 +78,32 @@ type ModAppProps = AppProps & {
   };
 };
 
+// Its own component: dynamic styled-jsx adds a scoped className to every
+// element in the rendering component, including Fragments, which reject it.
+function GlobalFontStyles() {
+  return (
+    <style jsx global>{`
+      html {
+        font-family: var(--default-font-family);
+        --default-font-family: ${inter.style.fontFamily};
+        --code-font-family: ${CODE_FONT_FAMILY};
+        --code-font-x-height: ${CODE_FONT_X_HEIGHT};
+      }
+      body {
+        font-family: var(--default-font-family);
+      }
+      .radix-themes {
+        --default-font-family: ${inter.style.fontFamily};
+        --code-font-family: ${CODE_FONT_FAMILY};
+      }
+      code[class*="language-"],
+      pre[class*="language-"] {
+        font-size-adjust: var(--code-font-x-height);
+      }
+    `}</style>
+  );
+}
+
 // Renders definitions and page content only when the org is not suspended.
 // Keeps the layout (nav) and banners outside so the org switcher stays usable.
 function OrgPageContent({ children }: { children: React.ReactNode }) {
@@ -188,25 +214,7 @@ function App({
 
   return (
     <>
-      <style jsx global>{`
-        html {
-          font-family: var(--default-font-family);
-          --default-font-family: ${inter.style.fontFamily};
-          --code-font-family: ${CODE_FONT_FAMILY};
-          --code-font-x-height: ${CODE_FONT_X_HEIGHT};
-        }
-        body {
-          font-family: var(--default-font-family);
-        }
-        .radix-themes {
-          --default-font-family: ${inter.style.fontFamily};
-          --code-font-family: ${CODE_FONT_FAMILY};
-        }
-        code[class*="language-"],
-        pre[class*="language-"] {
-          font-size-adjust: var(--code-font-x-height);
-        }
-      `}</style>
+      <GlobalFontStyles />
       <Head>
         <title>GrowthBook</title>
         <meta name="robots" content="noindex, nofollow" />

@@ -13,6 +13,7 @@ describe("isSettingsRoute", () => {
 
   it("matches the Settings pages that live outside /settings", () => {
     expect(isSettingsRoute("/projects")).toBe(true);
+    expect(isSettingsRoute("/project/[pid]")).toBe(true);
     expect(isSettingsRoute("/events")).toBe(true);
     expect(isSettingsRoute("/events/[eventid]")).toBe(true);
     expect(isSettingsRoute("/integrations/slack")).toBe(true);
@@ -23,7 +24,6 @@ describe("isSettingsRoute", () => {
     expect(isSettingsRoute("/")).toBe(false);
     expect(isSettingsRoute("/features")).toBe(false);
     expect(isSettingsRoute("/admin")).toBe(false);
-    expect(isSettingsRoute("/project/[pid]")).toBe(false);
     expect(isSettingsRoute("/experiment/[eid]")).toBe(false);
   });
 });

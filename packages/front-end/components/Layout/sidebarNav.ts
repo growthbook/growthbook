@@ -265,7 +265,7 @@ export const navlinks: SidebarLinkProps[] = [
     name: "Settings",
     href: "/settings",
     Icon: GBSettings,
-    path: /^(settings|projects|integrations|events|importing)/,
+    path: /^(settings|projects?|integrations|events|importing)/,
     autoClose: true,
     hideSubLinks: true,
     subLinks: [
@@ -321,7 +321,7 @@ export const navlinks: SidebarLinkProps[] = [
         href: "/settings/webhooks",
         path: /^settings\/webhooks/,
         filter: ({ permissionsUtils }) =>
-          permissionsUtils.canViewEventWebhook(),
+          permissionsUtils.canManageSomeEventWebhooks(),
       },
       {
         name: "Events Log",

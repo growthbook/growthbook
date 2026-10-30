@@ -130,7 +130,7 @@ function TimelineBar({
                 {experiment.name}
               </Text>
               {/* As the header lists them, past its creation. */}
-              {allDates(experiment)
+              {allDates(experiment, new Date())
                 .slice(1)
                 .map(({ label, value }) => row(label, value))}
               {experiment.releasedVariationId
