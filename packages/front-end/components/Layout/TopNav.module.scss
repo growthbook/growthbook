@@ -64,7 +64,7 @@
 // Under the header's bottom edge (and any bar pinned under it), content
 // scrolling up fades into the page's background instead of being cut off,
 // as the AI Assistant panel's conversation does at its top (AgentPanel
-// .module.scss), from the background to clear over 12px.
+// .module.scss), from the page's background (--page-bg) to clear over 12px.
 // At z-index 1 and before the page, sticky headers and tab bars pinned
 // there cover it.
 .headerFade {
@@ -75,7 +75,11 @@
   height: 12px;
   z-index: 1;
   pointer-events: none;
-  background: linear-gradient(to bottom, var(--color-background), transparent);
+  background: linear-gradient(
+    to bottom,
+    var(--page-bg, var(--color-background)),
+    transparent
+  );
   opacity: 0;
   transition:
     opacity 200ms ease,
