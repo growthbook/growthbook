@@ -380,7 +380,7 @@ export abstract class BaseModel<
     return (this.config.pKey ?? DEFAULT_PKEY) as PKeyType<T, PKey>;
   }
 
-  protected getPrimaryKeyFilter(doc: z.infer<T>) {
+  protected getPrimaryKeyFilter(doc: z.infer<T>): Record<string, unknown> {
     const keys = this.getPKey();
     const filter = pick(doc, keys);
     for (const key of keys) {

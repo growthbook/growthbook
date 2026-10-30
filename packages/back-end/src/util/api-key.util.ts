@@ -29,7 +29,7 @@ import {
 import { hashToken } from "back-end/src/util/oauth-token.util";
 
 // The shape of a stored secret key hash.
-const HASHED_API_KEY = /^[0-9a-f]{64}$/;
+export const HASHED_API_KEY = /^[0-9a-f]{64}$/;
 
 // Stored values a presented key can match: its hash, or itself for SDK keys and
 // not-yet-hashed secrets. Never a hash as-is, so a leaked hash isn't a credential.
