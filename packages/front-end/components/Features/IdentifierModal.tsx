@@ -176,6 +176,13 @@ export default function IdentifierModal({
         d.projects,
       ),
   );
+  // A rename has to move every link, so links the user can't edit block it.
+  const lockedLinks = renamed
+    ? datasources.filter(
+        (d) =>
+          !!linkedType(d) && !syncsIdentifiersAutomatically(d) && !canEdit(d),
+      )
+    : [];
   const automatic = shown.filter(syncsIdentifiersAutomatically);
   const mappable = shown.filter((d) => !syncsIdentifiersAutomatically(d));
 
@@ -213,7 +220,7 @@ export default function IdentifierModal({
       header={isEdit ? "Edit Identifier" : "Add Identifier"}
       cta={isEdit ? "Save" : "Add Identifier"}
       size="xl"
-      ctaEnabled={canSave && !!name.trim()}
+      ctaEnabled={canSave && !!name.trim() && lockedLinks.length === 0}
       trackingEventModalType={isEdit ? "edit-identifier" : "add-identifier"}
       trackingEventModalSource={source}
       close={close}
@@ -288,6 +295,15 @@ export default function IdentifierModal({
           placeholder={PLACEHOLDER_NAME}
           onChange={(e) => setName(e.target.value)}
           helpText="Must match the key your SDK passes in."
+          error={
+            lockedLinks.length > 0
+              ? `Can't rename: it's linked in ${new Intl.ListFormat(
+                  "en",
+                ).format(
+                  lockedLinks.map((d) => d.name),
+                )}, which you don't have permission to edit.`
+              : undefined
+          }
         />
         {renamed && (
           <Callout status="warning">

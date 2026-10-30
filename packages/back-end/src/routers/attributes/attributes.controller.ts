@@ -256,28 +256,39 @@ export const putIdentifier = async (
 
   const targets = await getIdentifierLinkTargets(context, links);
 
+  // Links point at the attribute by name, so a rename moves them along.
+  const renamedFrom =
+    previousName && previousName !== property ? previousName : null;
+  const renamed: DataSourceInterface[] = [];
+  if (renamedFrom && !usingFileConfig()) {
+    for (const d of await getDataSourcesByOrganization(context)) {
+      if (
+        d.settings?.userIdTypes?.some((t) =>
+          t.attributes?.includes(renamedFrom),
+        ) &&
+        !(await syncsIdentifiersAutomatically(context, d))
+      ) {
+        renamed.push(d);
+      }
+    }
+  }
+  // Renaming without moving every link would leave those links pointing at a
+  // name that no longer exists.
+  const locked = renamed.filter(
+    (d) => !context.permissions.canUpdateDataSourceSettings(d),
+  );
+  if (locked.length > 0) {
+    context.throwBadRequestError(
+      `Can't rename ${renamedFrom}: it's linked in ${locked
+        .map((d) => d.name)
+        .join(", ")}, which you don't have permission to edit`,
+    );
+  }
+
   await updateAttribute(req, context, {
     ...attributeFields,
     hashAttribute: true,
   });
-
-  // Links point at the attribute by name, so a rename moves them along.
-  const renamedFrom =
-    previousName && previousName !== property ? previousName : null;
-  const renamed =
-    renamedFrom && !usingFileConfig()
-      ? await Promise.all(
-          (await getDataSourcesByOrganization(context))
-            .filter((d) =>
-              d.settings?.userIdTypes?.some((t) =>
-                t.attributes?.includes(renamedFrom),
-              ),
-            )
-            .map(async (d) =>
-              (await syncsIdentifiersAutomatically(context, d)) ? null : d,
-            ),
-        )
-      : [];
 
   const updates = new Map<
     string,
@@ -286,13 +297,8 @@ export const putIdentifier = async (
       update: (userIdTypes: UserIdType[]) => UserIdType[];
     }
   >();
-  const failedDatasources: string[] = [];
   for (const datasource of renamed) {
-    if (!datasource || !renamedFrom) continue;
-    if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-      failedDatasources.push(datasource.name);
-      continue;
-    }
+    if (!renamedFrom) continue;
     updates.set(datasource.id, {
       datasource,
       update: (types) =>
@@ -313,9 +319,9 @@ export const putIdentifier = async (
     });
   }
 
-  failedDatasources.push(
-    ...(await updateUserIdTypes(context, [...updates.values()])),
-  );
+  const failedDatasources = await updateUserIdTypes(context, [
+    ...updates.values(),
+  ]);
 
   return res.status(200).json({
     status: 200,
