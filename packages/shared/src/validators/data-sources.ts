@@ -4,6 +4,20 @@ import { apiPaginationFieldsValidator, paginationQueryFields } from "./shared";
 
 import { namedSchema } from "./openapi-helpers";
 
+// Only remapped roles are stored; the rest use their canonical names
+export const exposureQueryColumnMappingValidator = z.object({
+  experimentIdColumn: z.string().optional(),
+  variationIdColumn: z.string().optional(),
+  timestampColumn: z.string().optional(),
+  userIdColumns: z
+    .record(z.string(), z.string())
+    .optional()
+    .describe("Column for each identifier type, keyed by type"),
+  // Only read when hasNameCol is set
+  experimentNameColumn: z.string().optional(),
+  variationNameColumn: z.string().optional(),
+});
+
 // Corresponds to schemas/DataSource.yaml
 export const apiDataSourceValidator = namedSchema(
   "DataSource",
@@ -34,6 +48,11 @@ export const apiDataSourceValidator = namedSchema(
           includesNameColumns: z.boolean(),
           dimensionColumns: z.array(z.string()),
           projects: z.array(z.string()),
+          columnMapping: exposureQueryColumnMappingValidator
+            .optional()
+            .describe(
+              "The column `sql` returns for each role, where it isn't the canonical name (`experiment_id`, `variation_id`, `timestamp`, `experiment_name`, `variation_name`, or the identifier type's own name). Roles not listed use the canonical name.",
+            ),
         }),
       ),
       identifierJoinQueries: z.array(

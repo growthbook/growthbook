@@ -76,7 +76,8 @@ function HelpCheckbox({
   return (
     <Checkbox
       id={id}
-      label={<LabelWithHelp label={label} help={help} />}
+      label={label}
+      description={help}
       value={value}
       setValue={setValue}
       disabled={disabled}
@@ -211,7 +212,7 @@ export function FlagApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-reset-review-on-change`}
             label="Reset review on changes"
-            help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+            help="A new edit after approval needs to be approved again."
             value={!!value.resetReviewOnChange}
             setValue={(v) => set({ resetReviewOnChange: v })}
             readOnly={readOnly}
@@ -219,7 +220,7 @@ export function FlagApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-block-self-approval`}
             label="Block contributors from self-approving"
-            help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+            help="Anyone who edited the draft can't approve it."
             value={!!value.blockSelfApproval}
             setValue={(v) => set({ blockSelfApproval: v })}
             readOnly={readOnly}
@@ -227,7 +228,7 @@ export function FlagApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-autopublish-on-approval`}
             label="Allow approve & publish in one step"
-            help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a draft together."
+            help="Reviewers can approve and publish with a single action."
             value={!!value.autopublishOnApproval}
             setValue={(v) => set({ autopublishOnApproval: v })}
             readOnly={readOnly}
@@ -240,6 +241,7 @@ export function FlagApprovalFields({
               <HelpCheckbox
                 id={`${idPrefix}-rules-values`}
                 label="Rules, values, and prerequisites"
+                help="Always included."
                 value={true}
                 disabled={true}
                 readOnly={readOnly}
@@ -247,14 +249,15 @@ export function FlagApprovalFields({
               />
               <HelpCheckbox
                 id={`${idPrefix}-env-review`}
-                label="Enabled environment changes (kill switches)"
+                label="Environment on/off changes (kill switches)"
                 value={value.featureRequireEnvironmentReview !== false}
                 setValue={(v) => set({ featureRequireEnvironmentReview: v })}
                 readOnly={readOnly}
               />
               <HelpCheckbox
                 id={`${idPrefix}-metadata-review`}
-                label="Metadata changes (description, owner, project, tags, etc.)"
+                label="Metadata changes"
+                help="Description, owner, Project, tags, and similar."
                 value={value.featureRequireMetadataReview !== false}
                 setValue={(v) => set({ featureRequireMetadataReview: v })}
                 readOnly={readOnly}
@@ -282,7 +285,6 @@ export function SavedGroupApprovalFields({
       <HelpCheckbox
         id={`${idPrefix}-require-approvals-saved-groups`}
         label="Require approval to modify Saved Groups"
-        help="When enabled, all changes to Saved Groups must be reviewed and approved by another person before going live."
         value={!!value.required}
         setValue={(v) => onChange({ ...value, required: v })}
         readOnly={readOnly}
@@ -304,7 +306,7 @@ export function SavedGroupApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-saved-group-reset-review-on-change`}
             label="Reset review on changes"
-            help="If a draft is modified after being approved, the approval is revoked and a new review is required before publishing."
+            help="A new edit after approval needs to be approved again."
             value={!!value.resetReviewOnChange}
             setValue={(v) => set({ resetReviewOnChange: v })}
             readOnly={readOnly}
@@ -312,7 +314,7 @@ export function SavedGroupApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-saved-group-block-self-approval`}
             label="Block contributors from self-approving"
-            help="Prevents anyone who edited a draft from approving it. Requires a separate reviewer."
+            help="Anyone who edited the draft can't approve it."
             value={!!value.blockSelfApproval}
             setValue={(v) => set({ blockSelfApproval: v })}
             readOnly={readOnly}
@@ -320,7 +322,7 @@ export function SavedGroupApprovalFields({
           <HelpCheckbox
             id={`${idPrefix}-saved-group-autopublish-on-approval`}
             label="Allow approve & publish in one step"
-            help="Adds an 'Approve & Publish' option so reviewers with publish access can approve and publish a Saved Group change together."
+            help="Reviewers can approve and publish with a single action."
             value={!!value.autopublishOnApproval}
             setValue={(v) => set({ autopublishOnApproval: v })}
             readOnly={readOnly}
@@ -333,6 +335,7 @@ export function SavedGroupApprovalFields({
               <HelpCheckbox
                 id={`${idPrefix}-saved-group-values-conditions`}
                 label="Values and conditions"
+                help="Always included."
                 value={true}
                 disabled={true}
                 readOnly={readOnly}
@@ -340,7 +343,8 @@ export function SavedGroupApprovalFields({
               />
               <HelpCheckbox
                 id={`${idPrefix}-saved-group-metadata-review`}
-                label="Metadata changes (description, owner, project, tags, etc.)"
+                label="Metadata changes"
+                help="Description, owner, Project, tags, and similar."
                 value={value.requireMetadataReview !== false}
                 setValue={(v) => set({ requireMetadataReview: v })}
                 readOnly={readOnly}
@@ -380,13 +384,12 @@ export function ApprovalScopeSections({
     <>
       <Box>
         <SectionHeading
-          title="Features, Configs, &amp; Constants"
+          title="Feature Flags, Configs & Constants"
           onReset={onFlagReset}
         />
         <Text as="p" size="md" mb="4" color="text-low">
-          All changes to Feature Flags, Configs and Constants are tracked as
-          revisions. Requiring approvals adds a review step before any change
-          goes live.
+          Every change is saved as a revision. Approval adds a review step
+          before it goes live.
         </Text>
         <FlagApprovalFields
           idPrefix={`flags-${idPrefix}`}
@@ -402,7 +405,7 @@ export function ApprovalScopeSections({
         <SectionHeading title="Saved Groups" onReset={onSavedGroupReset} />
         <Text as="p" size="md" mb="4" color="text-low">
           {savedGroupDescription ??
-            "All changes to Saved Groups are tracked as revisions. Requiring approvals adds a review step before any change goes live."}
+            "Every change is saved as a revision. Approval adds a review step before it goes live."}
         </Text>
         <SavedGroupApprovalFields
           idPrefix={`saved-groups-${idPrefix}`}

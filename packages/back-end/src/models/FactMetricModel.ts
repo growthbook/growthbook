@@ -1,8 +1,10 @@
 import { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   getAggregateFilters,
@@ -15,6 +17,8 @@ import {
   factMetricValidator,
   ApiFactMetric,
   validateFactMetricCapping,
+  isExternallyManaged,
+  externallyManagedError,
 } from "shared/validators";
 import {
   ColumnRef,
@@ -305,6 +309,10 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
   ): FactMetricInterface {
     const newDoc = { ...doc };
 
+    // Retired risk thresholds: keep them out of responses and echoed updates.
+    delete newDoc.winRisk;
+    delete newDoc.loseRisk;
+
     if (doc.windowSettings === undefined) {
       newDoc.windowSettings = {
         type: doc.hasConversionWindow ? "conversion" : "",
@@ -430,9 +438,9 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       );
     }
 
-    if (doc.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(doc.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot create fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("create", "fact metric", doc.managedBy),
       );
     }
 
@@ -462,18 +470,18 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     }
     // API-managed metrics are only editable through the API so their
     // definition can't drift from the caller's source of truth.
-    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot update fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("update", "fact metric", existing.managedBy),
       );
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
     // Check the admin permission here?
-    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot delete fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("delete", "fact metric", existing.managedBy),
       );
     }
   }
@@ -541,12 +549,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
-    if (data.loseRisk < data.winRisk) {
-      throw new Error(
-        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
-      );
-    }
-
     if (data.minPercentChange >= data.maxPercentChange) {
       throw new Error(
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
@@ -887,16 +889,14 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       numerator,
       denominator,
       metricType,
-      loseRisk,
-      winRisk,
       targetMDE,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
-      riskThresholdDanger: loseRisk,
-      riskThresholdSuccess: winRisk,
+      riskThresholdDanger: DEFAULT_LOSE_RISK_THRESHOLD,
+      riskThresholdSuccess: DEFAULT_WIN_RISK_THRESHOLD,
       targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,

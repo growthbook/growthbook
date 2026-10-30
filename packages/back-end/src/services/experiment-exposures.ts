@@ -18,6 +18,8 @@ export interface ExposuresCacheKeyParams {
   exposureQueryId: string;
   exposureQuerySql: string;
   identifierType: string;
+  // The mapped columns change both the filter and the shape of cached rows
+  columnMapping: Record<string, string>;
   dimensions: string[];
   window: ExposuresWindow;
   rowFilters: RowFilter[];
@@ -41,6 +43,7 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
         params.exposureQueryId,
         params.exposureQuerySql,
         params.identifierType,
+        params.columnMapping,
         params.dimensions,
         windowCacheKeyPart(params.window),
         params.rowFilters.map((f) => [
@@ -58,7 +61,9 @@ export function getExposuresCacheKey(params: ExposuresCacheKeyParams): string {
 
 export interface ShapeExposureRowsParams {
   rows: Record<string, unknown>[];
-  identifierType: string;
+  identifierColumn: string;
+  timestampColumn: string;
+  variationIdColumn: string;
   /** Dimensions declared on the exposure query, in configured order. */
   dimensions: string[];
   caseSensitive: boolean;
@@ -141,14 +146,21 @@ export function getColumn(
  */
 export function shapeExposureRows({
   rows,
-  identifierType,
+  identifierColumn,
+  timestampColumn,
+  variationIdColumn,
   dimensions,
   caseSensitive,
 }: ShapeExposureRowsParams): ShapedExposures {
   // Only columns already surfaced as typed fields. Everything else the
   // exposure query returned — experiment_id included — goes to `extra` so the
   // expanded row shows the complete record.
-  const reserved = [identifierType, "timestamp", "variation_id", ...dimensions];
+  const reserved = [
+    identifierColumn,
+    timestampColumn,
+    variationIdColumn,
+    ...dimensions,
+  ];
   const isReserved = (key: string) =>
     reserved.some((r) => columnNamesMatch(key, r, caseSensitive));
 
@@ -180,14 +192,16 @@ export function shapeExposureRows({
       extra[key] = coerceValue(getColumn(row, key, caseSensitive));
     }
 
-    const userId = coerceValue(getColumn(row, identifierType, caseSensitive));
+    const userId = coerceValue(getColumn(row, identifierColumn, caseSensitive));
     if (isTruncated(userId)) valuesTruncated = true;
 
     return {
-      timestamp: normalizeTimestamp(getColumn(row, "timestamp", caseSensitive)),
+      timestamp: normalizeTimestamp(
+        getColumn(row, timestampColumn, caseSensitive),
+      ),
       userId,
       variationId:
-        coerceValue(getColumn(row, "variation_id", caseSensitive)) ?? "",
+        coerceValue(getColumn(row, variationIdColumn, caseSensitive)) ?? "",
       dimensions: dimensionValues,
       extra,
     };

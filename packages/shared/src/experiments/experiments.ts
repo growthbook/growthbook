@@ -2951,6 +2951,13 @@ export function isVariationWeightsSumValid(
   return Math.abs(sum - 1) <= tolerance;
 }
 
+export function areVariationWeightsValid(weights: number[]): boolean {
+  return (
+    weights.every((w) => w >= 0 && w <= 1) &&
+    isVariationWeightsSumValid(weights)
+  );
+}
+
 // Returns n "equal" decimals rounded to 3 places that add up to 1
 // The sum always adds to 1. In some cases the values are not equal.
 // For example, getEqualWeights(3) returns [0.3334, 0.3333, 0.3333]

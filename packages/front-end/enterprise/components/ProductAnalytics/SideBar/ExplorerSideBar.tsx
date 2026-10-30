@@ -207,7 +207,7 @@ export default function ExplorerSideBar({
         <Callout status="error">{error}</Callout>
       ) : null}
       {hideHeaderActions ? null : headerActions ? (
-        <Flex justify="end" align="center" height="32px" py="2" gap="2">
+        <Flex justify="end" align="center" wrap="wrap" py="2" gap="2">
           {headerActions}
         </Flex>
       ) : renderingInDashboardSidebar ? (

@@ -152,7 +152,6 @@ import { dataExportRouter } from "./routers/data-export/data-export.router";
 import { demoDatasourceProjectRouter } from "./routers/demo-datasource-project/demo-datasource-project.router";
 import { environmentRouter } from "./routers/environment/environment.router";
 import { teamRouter } from "./routers/teams/teams.router";
-import { urlRedirectRouter } from "./routers/url-redirects/url-redirects.router";
 import { metricAnalysisRouter } from "./routers/metric-analysis/metric-analysis.router";
 import { queryLogsRouter } from "./routers/query-logs/query-logs.router";
 import { metricGroupRouter } from "./routers/metric-group/metric-group.router";
@@ -164,6 +163,7 @@ import {
 import { templateRouter } from "./routers/experiment-template/template.router";
 import { safeRolloutRouter } from "./routers/safe-rollout/safe-rollout.router";
 import { holdoutRouter } from "./routers/holdout/holdout.router";
+import { experimentChangesRouter } from "./routers/experiment-changes/experiment-changes.router";
 import { rampScheduleRouter } from "./routers/ramp-schedule/ramp-schedule.router";
 import { rampScheduleTemplateRouter } from "./routers/ramp-schedule-template/ramp-schedule-template.router";
 import { runStatsEngine } from "./services/stats";
@@ -797,14 +797,6 @@ app.get(
   experimentsController.getExperimentIncrementalRefresh,
 );
 app.post("/experiment/:id/phase", experimentsController.postExperimentPhase);
-app.post(
-  "/experiment/:id/targeting",
-  experimentsController.postExperimentTargeting,
-);
-app.post(
-  "/experiment/:id/features",
-  experimentsController.postExperimentFeatureValues,
-);
 app.post("/experiment/:id/status", experimentsController.postExperimentStatus);
 app.post(
   "/experiment/:id/approve-scheduled-start",
@@ -826,10 +818,6 @@ app.post("/experiment/:id/stop", experimentsController.postExperimentStop);
 app.put(
   "/experiment/:id/variation/:variation/screenshot",
   experimentsController.addScreenshot,
-);
-app.delete(
-  "/experiment/:id/variation/:variation/screenshot",
-  experimentsController.deleteScreenshot,
 );
 app.post(
   "/experiment/:id/archive",
@@ -914,9 +902,6 @@ app.use("/templates", templateRouter);
 // Decision Criteria
 app.use("/decision-criteria", decisionCriteriaRouter);
 
-// URL Redirects
-app.use("/url-redirects", urlRedirectRouter);
-
 // Safe Rollouts
 app.use("/safe-rollout", safeRolloutRouter);
 
@@ -928,6 +913,8 @@ app.use("/ramp-schedule-templates", rampScheduleTemplateRouter);
 
 // Holdouts
 app.use("/holdout", holdoutRouter);
+
+app.use("/experiment/:id/changes", experimentChangesRouter);
 
 // Reports
 app.get("/report/:id", reportsController.getReport);
@@ -1038,10 +1025,6 @@ app.post(
 app.post(
   "/feature/:id/:version/contextual-bandit",
   featuresController.postFeatureContextualBanditRefRule,
-);
-app.delete(
-  "/experiment/:id/linked-feature/:featureId",
-  experimentsController.deleteExperimentLinkedFeature,
 );
 app.put("/feature/:id/:version/comment", featuresController.putRevisionComment);
 app.put("/feature/:id/:version/title", featuresController.putRevisionTitle);
@@ -1272,10 +1255,19 @@ app.put(
   adminController._dangerousAdminEnableOrganization,
 );
 app.get(
+  "/admin/organization/:orgId",
+  adminController._dangerousAdminGetOrganization,
+);
+app.get(
   "/admin/organization/:orgId/members",
   adminController._dangerousAdminGetOrganizationMembers,
 );
+app.get(
+  "/admin/organization/:orgId/license",
+  adminController._dangerousAdminGetOrganizationLicense,
+);
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.get("/admin/user/:userId", adminController._dangerousAdminGetUser);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
 app.post(
   "/admin/sso-connection",

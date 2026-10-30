@@ -52,6 +52,7 @@ import {
   RevisionDiffConfig,
 } from "@/components/Revision/useRevisionDiff";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
+import { buildPerEntryDiffSnapshots } from "@/components/Revision/revisionActivityDiff";
 import styles from "./CompareRevisionsModal.module.scss";
 
 const STORAGE_KEY_PREFIX = "compare-revisions";
@@ -256,63 +257,6 @@ function buildActivityTimeline(revision: Revision): ActivityTimelineItem[] {
   return items;
 }
 
-// Reconstruct the state on either side of a single activity-log entry by
-// replaying the per-entry snapshots in chronological order. Returns `null`
-// for entries that didn't change content (e.g. merged/discarded/reopened,
-// or any entry from a revision created before per-entry snapshots were
-// persisted).
-function buildPerEntryDiffSnapshots<T extends Record<string, unknown>>(
-  revision: Revision,
-  activityId: string,
-): {
-  baseSnapshot: T;
-  proposedSnapshot: T;
-} | null {
-  const contentEntries = revision.activityLog
-    .filter((e) => Array.isArray(e.proposedChangesSnapshot))
-    .slice()
-    .sort(
-      (a, b) =>
-        new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime(),
-    );
-  const targetIdx = contentEntries.findIndex((e) => e.id === activityId);
-  if (targetIdx === -1) return null;
-
-  // Initial baseline = first content entry's targetSnapshot if captured
-  // ("created" entry stores this), else fall back to the revision's current
-  // `target.snapshot` (best-effort for revisions created before this field
-  // existed and which haven't been rebased).
-  let runningBaseline: T =
-    (contentEntries[0]?.targetSnapshot as unknown as T | undefined) ??
-    (revision.target.snapshot as unknown as T);
-  let runningProposed: JsonPatchOperation[] = [];
-
-  for (let i = 0; i <= targetIdx; i++) {
-    const entry = contentEntries[i];
-    if (i === targetIdx) {
-      const beforeSnapshot = applyTopLevelPatchOps(
-        runningBaseline,
-        runningProposed,
-      ) as T;
-      const afterBaseline =
-        (entry.targetSnapshot ?? null) !== null
-          ? (entry.targetSnapshot as unknown as T)
-          : runningBaseline;
-      const afterSnapshot = applyTopLevelPatchOps(
-        afterBaseline,
-        (entry.proposedChangesSnapshot ?? []) as JsonPatchOperation[],
-      ) as T;
-      return { baseSnapshot: beforeSnapshot, proposedSnapshot: afterSnapshot };
-    }
-    if ((entry.targetSnapshot ?? null) !== null) {
-      runningBaseline = entry.targetSnapshot as unknown as T;
-    }
-    runningProposed = (entry.proposedChangesSnapshot ??
-      []) as JsonPatchOperation[];
-  }
-  return null;
-}
-
 function activityLabel(item: ActivityTimelineItem): string {
   if (item.type === "review") {
     switch (item.decision) {
@@ -332,7 +276,7 @@ function activityLabel(item: ActivityTimelineItem): string {
     case "updated":
       return "Revision updated";
     case "merged":
-      return "Merged";
+      return "Published";
     case "discarded":
       return "Discarded";
     case "reopened":

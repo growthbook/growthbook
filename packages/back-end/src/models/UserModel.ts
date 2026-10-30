@@ -24,8 +24,10 @@ const userSchema = new mongoose.Schema({
     unique: true,
   },
   passwordHash: String,
-  superAdmin: Boolean,
+  // `true` or an array of SuperAdminPermission
+  superAdmin: mongoose.Schema.Types.Mixed,
   verified: Boolean,
+  authSubject: String,
   agreedToTerms: Boolean,
   npsSurveyStatus: String,
   npsSurveyAt: Date,
@@ -53,27 +55,41 @@ export async function markUserAsVerified(id: string) {
   );
 }
 
+export async function setAuthSubject(id: string, authSubject: string) {
+  await UserModel.updateOne({ id }, { $set: { authSubject } });
+}
+
 export async function getAllUsers(): Promise<UserInterface[]> {
   const users = await getCollection(COLLECTION).find().toArray();
   return users.map((u) => toInterface(u));
 }
 
+function getUsersQuery(search?: string, superAdminsOnly?: boolean) {
+  const and: object[] = [];
+  if (search) {
+    and.push({
+      $or: [
+        { name: { $regex: `${search}.*`, $options: "i" } },
+        { email: { $regex: `${search}`, $options: "i" } },
+      ],
+    });
+  }
+  if (superAdminsOnly) {
+    // Matches junk arrays too, so an audit surfaces anything odd in the field
+    and.push({
+      $or: [{ superAdmin: true }, { "superAdmin.0": { $exists: true } }],
+    });
+  }
+  return and.length ? { $and: and } : {};
+}
+
 export async function getAllUsersFiltered(
   page: number,
   search?: string,
+  superAdminsOnly?: boolean,
 ): Promise<UserInterface[]> {
-  const query: {
-    $or?: [{ name: unknown }, { email: unknown }];
-  } = {};
-  if (search) {
-    query["$or"] = [
-      { name: { $regex: `${search}.*`, $options: "i" } },
-      { email: { $regex: `${search}`, $options: "i" } },
-    ];
-  }
-
   const docs = await getCollection(COLLECTION)
-    .find(query)
+    .find(getUsersQuery(search, superAdminsOnly))
     .sort([["dateCreated", -1]])
     .skip((page - 1) * 50)
     .limit(50)
@@ -85,17 +101,13 @@ export async function getAllUsersFiltered(
     .map((u) => ({ ...u, passwordHash: "" }));
 }
 
-export async function getTotalNumUsers(search?: string): Promise<number> {
-  const query: {
-    $or?: [{ name: unknown }, { email: unknown }];
-  } = {};
-  if (search) {
-    query["$or"] = [
-      { name: { $regex: `${search}.*`, $options: "i" } },
-      { email: { $regex: `${search}`, $options: "i" } },
-    ];
-  }
-  return await getCollection(COLLECTION).countDocuments(query);
+export async function getTotalNumUsers(
+  search?: string,
+  superAdminsOnly?: boolean,
+): Promise<number> {
+  return await getCollection(COLLECTION).countDocuments(
+    getUsersQuery(search, superAdminsOnly),
+  );
 }
 
 export async function getUserById(id: string): Promise<UserInterface | null> {

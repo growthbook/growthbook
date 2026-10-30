@@ -30,7 +30,7 @@ import {
   getSelectedColumnDatatype,
   reconcileInlineFilterPrompts,
 } from "shared/experiments";
-import { isCappableFactMetric } from "shared/validators";
+import { isCappableFactMetric, isExternallyManaged } from "shared/validators";
 import { createLikeStringMatchFn } from "shared/sql";
 import { getFunnelAnchorStepIndex } from "shared/funnels";
 import { PiArrowSquareOut, PiPlus } from "react-icons/pi";
@@ -1235,8 +1235,6 @@ function StandardFactMetricModal({
 
   // Multiple percent values by 100 for the UI
   // These are corrected in the submit method later
-  defaultValues.winRisk = defaultValues.winRisk * 100;
-  defaultValues.loseRisk = defaultValues.loseRisk * 100;
   defaultValues.minPercentChange = defaultValues.minPercentChange * 100;
   defaultValues.maxPercentChange = defaultValues.maxPercentChange * 100;
   defaultValues.targetMDE = defaultValues.targetMDE * 100;
@@ -1396,8 +1394,6 @@ function StandardFactMetricModal({
             }
 
             // Correct percent values shown as whole numbers in the UI
-            values.winRisk = values.winRisk / 100;
-            values.loseRisk = values.loseRisk / 100;
             values.minPercentChange = values.minPercentChange / 100;
             values.maxPercentChange = values.maxPercentChange / 100;
             if (values.targetMDE) {
@@ -1529,8 +1525,6 @@ function StandardFactMetricModal({
           if (!selectedDataSource) throw new Error("Must select a data source");
 
           // Correct percent values
-          values.winRisk = values.winRisk / 100;
-          values.loseRisk = values.loseRisk / 100;
           values.minPercentChange = values.minPercentChange / 100;
           values.maxPercentChange = values.maxPercentChange / 100;
           if (values.targetMDE) {
@@ -2484,7 +2478,7 @@ function StandardFactMetricModal({
                   ) && hasCommercialFeature("manage-official-resources") ? (
                     <Checkbox
                       label="Mark as Official Metric"
-                      disabled={form.watch("managedBy") === "api"}
+                      disabled={isExternallyManaged(form.watch("managedBy"))}
                       disabledMessage="This Metric is managed by the API, so it can not be edited in the UI."
                       description="Official Metrics can only be modified by Admins or users
                       with the ManageOfficialResources policy."

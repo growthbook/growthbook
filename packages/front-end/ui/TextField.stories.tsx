@@ -8,6 +8,7 @@ export default function TextFieldStories() {
   const [email, setEmail] = useState("");
   const [quantity, setQuantity] = useState("1");
   const [code, setCode] = useState("");
+  const [notes, setNotes] = useState("");
   const [formMessage, setFormMessage] = useState<string | null>(null);
 
   const handleValidationSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -41,6 +42,17 @@ export default function TextFieldStories() {
           placeholder="Text input"
           value={value}
           onChange={(e) => setValue(e.target.value)}
+        />
+      </Flex>
+
+      <Flex direction="column" gap="3" maxWidth="360px">
+        <TextField
+          label="Multiline"
+          multiline
+          placeholder="Starts at one line and grows as you type"
+          helpText="Up to 6 rows, then it scrolls."
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
         />
       </Flex>
 
