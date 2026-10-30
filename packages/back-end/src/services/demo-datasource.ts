@@ -195,8 +195,6 @@ const DEMO_RATIO_METRIC: Pick<
 
 const DEMO_FACT_METRIC_DEFAULTS: Pick<
   FactMetricInterface,
-  | "winRisk"
-  | "loseRisk"
   | "regressionAdjustmentOverride"
   | "regressionAdjustmentEnabled"
   | "metricAutoSlices"
@@ -210,8 +208,6 @@ const DEMO_FACT_METRIC_DEFAULTS: Pick<
   | "quantileSettings"
   | "funnelSettings"
 > = {
-  winRisk: 0.0025,
-  loseRisk: 0.0125,
   regressionAdjustmentOverride: false,
   regressionAdjustmentEnabled: false,
   metricAutoSlices: [],

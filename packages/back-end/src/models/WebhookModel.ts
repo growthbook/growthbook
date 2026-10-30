@@ -34,17 +34,17 @@ const BaseClass = MakeModelClass({
 
 export class SdkWebhookModel extends BaseClass {
   protected canCreate(): boolean {
-    return this.context.permissions.canCreateEventWebhook();
+    return this.context.permissions.canManageLegacySDKWebhooks();
   }
   protected canRead(): boolean {
-    return this.context.permissions.canViewEventWebhook();
+    return this.context.permissions.canManageLegacySDKWebhooks();
   }
   protected canUpdate(): boolean {
-    return this.context.permissions.canUpdateEventWebhook();
+    return this.context.permissions.canManageLegacySDKWebhooks();
   }
 
   protected canDelete(): boolean {
-    return this.context.permissions.canDeleteEventWebhook();
+    return this.context.permissions.canManageLegacySDKWebhooks();
   }
 
   protected async customValidation(
