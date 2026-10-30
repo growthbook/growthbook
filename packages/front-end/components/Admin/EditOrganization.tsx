@@ -176,7 +176,7 @@ const EditOrganization: FC<{
 
   const runEventForwarderAction = async (
     datasourceId: string,
-    action: "pause" | "resume" | "migrate",
+    action: "pause" | "resume",
   ) => {
     setActionLoadingId(datasourceId);
     setEventForwardersError("");
@@ -378,12 +378,14 @@ const EditOrganization: FC<{
                 title="Migrate to in-house consumer?"
                 content="New events move to the in-house consumer right away. This cannot be undone from the UI. Tear down the Confluent connector manually once it has drained."
                 yesText="Migrate"
+                // Let the error throw so the dialog shows it inline and stays open
                 onConfirm={async () => {
-                  await runEventForwarderAction(
-                    migratingEventForwarderId,
-                    "migrate",
+                  await apiCall(
+                    `/datasource/${migratingEventForwarderId}/event-forwarder/migrate`,
+                    { method: "POST", headers: { "X-Organization": id } },
                   );
                   setMigratingEventForwarderId(null);
+                  await refreshEventForwarders();
                 }}
                 onCancel={() => setMigratingEventForwarderId(null)}
               />
