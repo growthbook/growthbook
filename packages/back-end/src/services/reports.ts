@@ -275,8 +275,9 @@ function generateWindowSettings(
       overrides?.windowType ??
       metric.windowSettings.type ??
       DEFAULT_METRIC_WINDOW,
+    // Only an overridden length is in hours; the metric's own stays in its unit.
     windowUnit:
-      overrides?.windowHours || overrides?.windowType
+      (overrides?.windowHours ?? null) !== null
         ? "hours"
         : metric.windowSettings.windowUnit,
     windowValue:
