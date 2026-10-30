@@ -120,7 +120,10 @@ import { useReconciledCustomFields } from "@/hooks/useReconciledCustomFields";
 import DraftSelectorForChanges, {
   DraftMode,
 } from "@/components/Features/DraftSelectorForChanges";
-import { useDefaultDraft } from "@/hooks/useDefaultDraft";
+import {
+  useAddRuleDraftDefault,
+  useDefaultDraft,
+} from "@/hooks/useDefaultDraft";
 import { useTemplates } from "@/hooks/useTemplates";
 import SafeRolloutFields from "@/components/Features/RuleModal/SafeRolloutFields";
 import RampScheduleSection from "@/components/Features/RuleModal/RampScheduleSection";
@@ -578,10 +581,17 @@ export default function RuleModal({
   const settings = useOrgSettings();
   const { settings: scopedSettings } = getScopedSettings({ organization });
 
-  const defaultDraft = useDefaultDraft(revisionList);
+  const latestDraft = useDefaultDraft(revisionList);
+  const addRuleDraft = useAddRuleDraftDefault(feature, revisionList);
+  const defaultDraft =
+    mode === "create" ? addRuleDraft.defaultDraft : latestDraft;
 
   const [draftMode, setDraftMode] = useState<DraftMode>(
-    defaultDraft !== null ? "existing" : "new",
+    mode === "create"
+      ? addRuleDraft.mode
+      : defaultDraft !== null
+        ? "existing"
+        : "new",
   );
   const [selectedDraft, setSelectedDraft] = useState<number | null>(
     defaultDraft,

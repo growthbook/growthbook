@@ -12,6 +12,7 @@ import {
 import { revisionLabelText } from "@/components/Reviews/RevisionLabel";
 import { isRampGenerated } from "@/components/Reviews/RevisionStatusBadge";
 import RevisionDropdown from "@/components/Features/RevisionDropdown";
+import EventUser from "@/components/Avatar/EventUser";
 import AffectedEnvironmentsBadges from "@/components/Features/AffectedEnvironmentsBadges";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -148,13 +149,22 @@ export default function DraftSelectorForChanges({
         )
       : null;
 
-  const existingDraftLabel = selectedRevision
-    ? revisionLabelText(
+  const existingDraftLabel = selectedRevision ? (
+    <>
+      {revisionLabelText(
         selectedRevision.version,
         selectedRevision.title,
         !!selectedRevision.title,
-      )
-    : null;
+      )}
+      {selectedRevision.createdBy &&
+        selectedRevision.createdBy.type !== "system" && (
+          <>
+            {" by "}
+            <EventUser user={selectedRevision.createdBy} display="name" />
+          </>
+        )}
+    </>
+  ) : null;
 
   // The dropdown inside THIS control picks a write target — the draft the archive
   // flip is written into — so it lists only drafts this caller may write into. The
