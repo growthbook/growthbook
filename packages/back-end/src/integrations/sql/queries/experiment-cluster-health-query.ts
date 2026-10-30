@@ -43,7 +43,7 @@ export function getExperimentClusterHealthQuery(
     ? `${params.unitsTableFullName}`
     : "__experimentUnits";
 
-  const nullString = `CAST(NULL AS ${dialect.getDataType("string")})`;
+  const unusedSummaryColumn = "''";
 
   return format(
     `-- Cluster Health Query for Health Tab
@@ -98,8 +98,8 @@ export function getExperimentClusterHealthQuery(
     UNION ALL
     SELECT
       '${CLUSTER_HEALTH_KIND_ASSIGNMENT}' AS kind
-      , ${nullString} AS cluster_id
-      , ${nullString} AS variation
+      , ${unusedSummaryColumn} AS cluster_id
+      , ${unusedSummaryColumn} AS variation
       , ${dialect.castToFloat("COUNT(*)")} AS metric_a
       , ${dialect.castToFloat(
         `SUM(CASE WHEN min_variation <> max_variation OR max_variation = '${MULTIPLE_VARIATION_SENTINEL}' THEN 1 ELSE 0 END)`,
@@ -109,8 +109,8 @@ export function getExperimentClusterHealthQuery(
     UNION ALL
     SELECT
       '${CLUSTER_HEALTH_KIND_MAPPING}' AS kind
-      , ${nullString} AS cluster_id
-      , ${nullString} AS variation
+      , ${unusedSummaryColumn} AS cluster_id
+      , ${unusedSummaryColumn} AS variation
       , ${dialect.castToFloat("SUM(units)")} AS metric_a
       , ${dialect.castToFloat(
         `SUM(CASE WHEN cluster_id = '${MULTIPLE_CLUSTER_SENTINEL}' THEN units ELSE 0 END)`,

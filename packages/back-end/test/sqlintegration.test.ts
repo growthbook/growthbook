@@ -2992,6 +2992,12 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toMatch(
       /'assignment' AS kind[\s\S]*?FROM __clusterAgg[\s\S]*?WHERE cluster_id <> '__multiple__'[\s\S]*?UNION ALL SELECT 'mapping'/,
     );
+    // The unused cluster_id/variation placeholders use a dialect-safe empty
+    // string, never a NULL cast: `CAST(NULL AS VARCHAR)` fails on MySQL (no
+    // VARCHAR cast target) and ClickHouse (non-nullable String).
+    expect(normalized).toContain("'' AS cluster_id");
+    expect(normalized).toContain("'' AS variation");
+    expect(normalized).not.toMatch(/CAST\(\s*NULL\s+AS/i);
   });
 
   it("emits a mapping branch counting multi-cluster sub-units", () => {
