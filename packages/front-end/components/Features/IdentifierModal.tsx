@@ -23,7 +23,6 @@ import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
@@ -90,15 +89,12 @@ export default function IdentifierModal({
   existing,
   defaultProjects,
   source,
-  onOpenAttributeSettings,
 }: {
   close: () => void;
   onSave?: (property: string) => void;
   existing?: SDKAttribute;
   defaultProjects?: string[];
   source: string;
-  // Opens the settings identifiers don't show, like turning the identifier off.
-  onOpenAttributeSettings?: () => void;
 }) {
   const { project, datasources, mutateDefinitions } = useDefinitions();
   const { refreshOrganization } = useUser();
@@ -225,13 +221,6 @@ export default function IdentifierModal({
       trackingEventModalType={isEdit ? "edit-identifier" : "add-identifier"}
       trackingEventModalSource={source}
       close={close}
-      secondaryAction={
-        onOpenAttributeSettings && (
-          <Button variant="ghost" onClick={onOpenAttributeSettings}>
-            All attribute settings
-          </Button>
-        )
-      }
       submit={async () => {
         const property = name.trim();
         const res = await apiCall<{ failedDatasources: string[] }>(

@@ -691,14 +691,6 @@ const FeatureAttributesPage = (): React.ReactElement => {
           source="attributes-page"
           existing={identifierModal.existing}
           close={() => setIdentifierModal(null)}
-          onOpenAttributeSettings={
-            identifierModal.existing
-              ? () => {
-                  setModalData(identifierModal.existing?.property ?? null);
-                  setIdentifierModal(null);
-                }
-              : undefined
-          }
         />
       )}
     </>
