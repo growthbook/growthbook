@@ -210,17 +210,14 @@ function getStandardOverallResultForHealthFallback(
 }
 
 // Cluster experiments randomize on the cluster, so SRM is tested on cluster
-// counts rather than the sub-unit counts in `traffic`.
+// counts. Sub-unit counts in `traffic` aren't independent draws and would give
+// an invalid SRM, so they're never a fallback.
 export function getExperimentSRMTraffic(
   snapshot: Pick<ExperimentSnapshotInterface, "settings" | "health">,
 ) {
-  const clusterTraffic = snapshot.health?.clusterTraffic;
-  if (
-    snapshot.settings?.isClusterExperiment &&
-    clusterTraffic &&
-    !clusterTraffic.error
-  ) {
-    return clusterTraffic;
+  if (snapshot.settings?.isClusterExperiment) {
+    const clusterTraffic = snapshot.health?.clusterTraffic;
+    return clusterTraffic && !clusterTraffic.error ? clusterTraffic : undefined;
   }
   return snapshot.health?.traffic;
 }
@@ -267,7 +264,10 @@ export function getExperimentSRMVariationUnits(
   if (units?.length) {
     return units;
   }
-  return getExperimentVariationUnitsFromHealth(snapshot);
+  // A cluster experiment's analysis rows are already counted per cluster.
+  return getStandardOverallResultForHealthFallback(snapshot)?.variations?.map(
+    (v) => v.users,
+  );
 }
 
 // Units exposed across all variations, per the snapshot's health data;

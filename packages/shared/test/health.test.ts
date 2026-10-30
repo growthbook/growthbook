@@ -125,11 +125,20 @@ describe("cluster experiment SRM", () => {
     expect(getExperimentSRMVariationUnits(clusterSnapshot())).toEqual([13, 12]);
   });
 
-  it("falls back to sub-unit traffic when the cluster query errored", () => {
-    expect(getExperimentSRMValue(clusterSnapshot("boom"))).toBe(0.0001);
-    expect(getExperimentSRMVariationUnits(clusterSnapshot("boom"))).toEqual([
-      6200, 3800,
-    ]);
+  it("never falls back to sub-unit traffic when the cluster query errored", () => {
+    expect(getExperimentSRMValue(clusterSnapshot("boom"))).toBeUndefined();
+    expect(
+      getExperimentSRMVariationUnits(clusterSnapshot("boom")),
+    ).toBeUndefined();
+  });
+
+  it("falls back to the cluster-grain analysis result", () => {
+    const s = {
+      ...clusterSnapshot("boom"),
+      analyses: standardAnalyses,
+    };
+    expect(getExperimentSRMValue(s)).toBe(0.02);
+    expect(getExperimentSRMVariationUnits(s)).toEqual([600, 400]);
   });
 });
 

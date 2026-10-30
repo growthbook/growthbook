@@ -362,11 +362,16 @@ function HealthSnapshotCards({
   const totalUsers =
     traffic.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
 
-  const clusterTraffic =
-    snapshot.settings.isClusterExperiment && snapshot.health?.clusterTraffic
-      ? snapshot.health?.clusterTraffic
-      : null;
-  const srmTraffic = clusterTraffic ?? traffic;
+  const isClusterExperiment = !!snapshot.settings.isClusterExperiment;
+
+  // Sub-unit traffic would give an invalid SRM for a cluster experiment, so
+  // without cluster traffic the card reports the data as missing.
+  const srmTraffic: ExperimentSnapshotTraffic = isClusterExperiment
+    ? (snapshot.health?.clusterTraffic ?? {
+        overall: { name: "", srm: 1, variationUnits: [] },
+        dimension: {},
+      })
+    : traffic;
   const srmTotalUsers =
     srmTraffic?.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
 
@@ -385,8 +390,6 @@ function HealthSnapshotCards({
     clusterAssignment?.totalClusters === 1 ? "value" : "values";
   const subUnitNoun =
     clusterSubUnitMapping?.totalUnits === 1 ? "value" : "values";
-
-  const isClusterExperiment = !!snapshot.settings.isClusterExperiment;
 
   const phaseObj = experiment.phases?.[phase];
 
