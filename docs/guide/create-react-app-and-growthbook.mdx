@@ -69,7 +69,7 @@ const growthbook = new GrowthBook({
   trackingCallback: (experiment, result) => {
     console.log({
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });

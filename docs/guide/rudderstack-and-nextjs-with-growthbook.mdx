@@ -140,7 +140,7 @@ const growthbook = new GrowthBook({
   trackingCallback: (experiment, result) => {
     rudder.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
@@ -212,7 +212,7 @@ const growthbook = new GrowthBook({
   trackingCallback: (experiment, result) => {
     rudder.track("Experiment Viewed", {
       experimentId: experiment.key,
-      variationId: result.variationId,
+      variationId: result.key,
     });
   },
 });
