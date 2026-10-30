@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import {
   PiCaretDown,
@@ -23,6 +23,7 @@ import {
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { date } from "shared/dates";
 import Collapse from "@/ui/Collapse";
+import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -44,6 +45,8 @@ import {
 import styles from "./Quality.module.scss";
 
 const MAX_FIXES = 5;
+// How long to wait for re-run AI verdicts before saying they're still running
+const RECHECK_POLL_MS = 90_000;
 
 const rounded = (points: number) => Math.round(points);
 
@@ -343,6 +346,48 @@ export default function QualityPanel({
     ? date(experiment.aiQualityResults.dateComputed)
     : null;
 
+  // A re-run is queued, so poll until new verdicts land or it's been a while
+  const verdictsDate = experiment.aiQualityResults?.dateComputed ?? null;
+  const [recheck, setRecheck] = useState<
+    | { status: "running"; since: typeof verdictsDate; startedAt: number }
+    | { status: "done" | "slow" | "error"; message?: string }
+    | null
+  >(null);
+  useEffect(() => {
+    if (recheck?.status !== "running") return;
+    if (verdictsDate !== recheck.since) {
+      setRecheck({ status: "done" });
+      return;
+    }
+    const timer = window.setInterval(() => {
+      if (Date.now() - recheck.startedAt > RECHECK_POLL_MS) {
+        setRecheck({ status: "slow" });
+      } else {
+        mutate();
+      }
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [recheck, verdictsDate, mutate]);
+  const recheckAI = targets.recheckAI
+    ? async () => {
+        setRecheck({
+          status: "running",
+          since: verdictsDate,
+          startedAt: Date.now(),
+        });
+        try {
+          await targets.recheckAI?.();
+        } catch (e) {
+          setRecheck({
+            status: "error",
+            message:
+              e instanceof Error ? e.message : "Couldn't re-run the AI checks.",
+          });
+        }
+      }
+    : null;
+  const panelTargets = { ...targets, recheckAI };
+
   const submitOverride = async (body: {
     score: number | null;
     reason?: string;
@@ -367,7 +412,9 @@ export default function QualityPanel({
         {canOverride ? (
           <Box position="absolute" top="3" right="4">
             <DropdownMenu
-              trigger={<MoreMenuTrigger label="More actions" size="sm" />}
+              trigger={
+                <MoreMenuTrigger label="Quality score actions" size="sm" />
+              }
               menuPlacement="end"
             >
               <DropdownMenuItem onClick={() => setOverrideModal(true)}>
@@ -380,8 +427,11 @@ export default function QualityPanel({
                   Remove override
                 </DropdownMenuItem>
               ) : null}
-              {targets.recheckAI ? (
-                <DropdownMenuItem onClick={targets.recheckAI}>
+              {recheckAI ? (
+                <DropdownMenuItem
+                  disabled={recheck?.status === "running"}
+                  onClick={recheckAI}
+                >
                   Re-run AI checks
                 </DropdownMenuItem>
               ) : null}
@@ -411,6 +461,26 @@ export default function QualityPanel({
                 : summary}
             </Text>
           </Box>
+          {recheck ? (
+            <HelperText
+              size="sm"
+              status={
+                recheck.status === "done"
+                  ? "success"
+                  : recheck.status === "error"
+                    ? "error"
+                    : "info"
+              }
+            >
+              {recheck.status === "running"
+                ? "Re-running AI checks…"
+                : recheck.status === "done"
+                  ? "AI checks updated."
+                  : recheck.status === "slow"
+                    ? "AI checks are still running. They'll show here when they finish."
+                    : recheck.message}
+            </HelperText>
+          ) : null}
         </Flex>
         <Flex direction="column" gap="2" mt="4">
           {override && result.computedScore !== null ? (
@@ -485,7 +555,7 @@ export default function QualityPanel({
                 {fixes.map((check) => {
                   const fix = getQualityFixAction(
                     check,
-                    targets,
+                    panelTargets,
                     implementationId,
                   );
                   const content = (
@@ -525,7 +595,7 @@ export default function QualityPanel({
             key={section.key}
             section={section}
             scored={!draft}
-            targets={targets}
+            targets={panelTargets}
             implementationId={implementationId}
             aiDate={aiDate}
           />
