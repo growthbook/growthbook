@@ -2696,6 +2696,66 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toContain("COUNT(*) AS users");
   });
 
+  it("buckets cluster-spanning breakdown dimensions as __multiple__ for a cluster-level metric", () => {
+    // The cluster exposure must declare the breakdown dimension so the units
+    // query materializes a dim_exp_browser column.
+    const clusterExposureQueryWithDim: ExposureQuery = {
+      ...clusterExposureQuery,
+      dimensions: ["browser"],
+    };
+    // @ts-expect-error -- context not needed for test
+    const integration = new BigQuery("", {
+      type: "bigquery",
+      settings: { queries: { exposure: [clusterExposureQueryWithDim] } },
+    });
+
+    const metric = factMetricFactory.build({
+      id: "fact_region_spend",
+      metricType: "mean",
+      numerator: {
+        factTableId: "region_spend",
+        column: "amount",
+        aggregation: "sum",
+      },
+      regressionAdjustmentEnabled: false,
+    });
+
+    const dimensions: Dimension[] = [{ type: "experiment", id: "browser" }];
+    const sql = getExperimentFactMetricsQuery(
+      bigQueryDialect,
+      integration.datasource,
+      {
+        settings: {
+          ...baseSettings,
+          clusterLevelMetricIds: ["fact_region_spend"],
+        },
+        unitsSource: "exposureQuery",
+        unitsSettings: buildUnitsQuerySettingsFromSnapshot(
+          { ...baseSettings, dimensions },
+          {
+            query: clusterExposureQueryWithDim.query,
+            identifierType: "region_id",
+          },
+        ),
+        activationMetric: null,
+        dimensions,
+        segment: null,
+        metrics: [metric],
+        factTableMap,
+      },
+    );
+    const normalized = sql.replace(/\s+/g, " ").trim();
+
+    // A cluster-level metric is one value per cluster. When a cluster spans more
+    // than one browser there is no non-arbitrary slice to own that value, so it
+    // is bucketed as '__multiple__' (mirroring the variation collapse) instead
+    // of silently assigning the whole cluster to one browser via MIN.
+    expect(normalized).toMatch(
+      /CASE WHEN COUNT\(DISTINCT dim_exp_browser\) > 1 THEN '__multiple__' ELSE MAX\(dim_exp_browser\) END\s*\)\s*AS dim_exp_browser/,
+    );
+    expect(normalized).not.toMatch(/MIN\(dim_exp_browser\)/);
+  });
+
   it("refuses to mix cluster-level and sub-unit metrics in one query", () => {
     const subUnitMetric = factMetricFactory.build({
       id: "fact_orders",

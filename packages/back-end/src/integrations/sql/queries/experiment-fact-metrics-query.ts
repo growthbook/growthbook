@@ -520,7 +520,16 @@ export function getExperimentFactMetricsQuery(
         ? `, __distinctUsers AS (
       SELECT
         ${baseIdType}
-        ${dimensionCols.map((c) => `, MIN(${c.alias}) AS ${c.alias}`).join("")}
+        ${dimensionCols
+          .map(
+            (c) =>
+              `, ${dialect.ifElse(
+                `COUNT(DISTINCT ${c.alias}) > 1`,
+                "'__multiple__'",
+                `MAX(${c.alias})`,
+              )} AS ${c.alias}`,
+          )
+          .join("")}
         , ${dialect.ifElse(
           "COUNT(DISTINCT variation) > 1",
           "'__multiple__'",
