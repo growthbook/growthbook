@@ -31,6 +31,7 @@ import {
   generateEncryptionKey,
   generateSigningKey,
   HASHED_API_KEY,
+  hashedApiKey,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
 import { hashToken } from "back-end/src/util/oauth-token.util";
@@ -947,8 +948,8 @@ export class ApiKeyModel extends BaseClass {
         this.maxLifetimeDaysFor(doc),
         now,
       ),
-      // Kept even with no grace period, so auth can say the secret was rotated.
-      previousKey: doc.key,
+      // Kept even with no grace period, so auth can say it was rotated; hashed in case it's a legacy plaintext key.
+      previousKey: hashedApiKey(doc.key),
       previousKeyExpiresAt:
         previousKeyExpiration(doc.expiresAt, gracePeriodHours, now) ?? now,
       previousKeyLastUsed: null,
