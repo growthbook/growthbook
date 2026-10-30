@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, Grid, IconButton } from "@radix-ui/themes";
+import { Box, Flex, Grid } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SDKLanguage } from "shared/types/sdk-connection";
 import { SDKAttribute, SDKAttributeType } from "shared/types/organization";
@@ -9,13 +9,7 @@ import {
   attributeMatchesDatasourceProjects,
   attributeToUserIdTypeName,
 } from "shared/util";
-import {
-  PiCaretLeft,
-  PiCaretRight,
-  PiCode,
-  PiDatabase,
-  PiLockSimple,
-} from "react-icons/pi";
+import { PiCode, PiDatabase, PiLockSimple } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -151,7 +145,6 @@ export default function IdentifierModal({
   // Add: Data Sources the user unchecked. Edit: the type picked per Data Source.
   const [uncheckedIds, setUncheckedIds] = useState<string[]>([]);
   const [picks, setPicks] = useState<Record<string, string>>({});
-  const [panelOpen, setPanelOpen] = useState(true);
   const [pickedLanguage, setPickedLanguage] = useState<SDKLanguage | null>(
     null,
   );
@@ -309,14 +302,7 @@ export default function IdentifierModal({
         }
       }}
     >
-      <Grid
-        columns={
-          panelOpen
-            ? `minmax(0, 1fr) 1px ${PANEL_WIDTH}px`
-            : "minmax(0, 1fr) 1px"
-        }
-        gap="5"
-      >
+      <Grid columns={`minmax(0, 1fr) ${PANEL_WIDTH}px`} gap="6">
         <Flex direction="column" gap="5" style={{ minWidth: 0 }}>
           <TextField
             label="Identifier"
@@ -544,117 +530,95 @@ export default function IdentifierModal({
           )}
         </Flex>
 
-        <Box style={{ position: "relative", background: "var(--gray-a5)" }}>
-          <IconButton
-            variant="surface"
-            color="gray"
-            size="1"
-            radius="full"
-            onClick={() => setPanelOpen((open) => !open)}
-            aria-expanded={panelOpen}
-            aria-label={panelOpen ? "Hide setup steps" : "Show setup steps"}
-            style={{
-              position: "absolute",
-              top: 4,
-              left: -12,
-              background: "var(--color-panel-solid)",
-            }}
-          >
-            {panelOpen ? <PiCaretRight /> : <PiCaretLeft />}
-          </IconButton>
-        </Box>
-
-        {panelOpen && (
-          <Flex
-            direction="column"
-            gap="5"
-            p="4"
-            style={{
-              alignSelf: "start",
-              minWidth: 0,
-              background: "var(--gray-a2)",
-              border: "1px solid var(--gray-a4)",
-              borderRadius: "var(--radius-3)",
-            }}
-          >
-            <Flex direction="column" gap="2">
-              <Flex align="center" justify="between" gap="2">
-                <Flex align="center" gap="2">
-                  <PiCode />
-                  <Text weight="semibold" color="text-mid">
-                    In your app
-                  </Text>
-                </Flex>
-                <Select
-                  size="sm"
-                  aria-label="SDK language"
-                  value={language}
-                  setValue={(v) =>
-                    setPickedLanguage(
-                      SNIPPET_LANGUAGES.find((l) => l === v) ?? null,
-                    )
-                  }
-                >
-                  {connectedLanguages.length > 0 && (
-                    <>
-                      <SelectGroup>
-                        <SelectLabel>Your SDK Connections</SelectLabel>
-                        {connectedLanguages.map((l) => (
-                          <SelectItem key={l} value={l}>
-                            {languageMapping[l].label}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                      {otherLanguages.length > 0 && <SelectSeparator />}
-                    </>
-                  )}
-                  {otherLanguages.length > 0 && (
+        <Flex
+          direction="column"
+          gap="5"
+          p="4"
+          style={{
+            alignSelf: "start",
+            minWidth: 0,
+            background: "var(--gray-a2)",
+            border: "1px solid var(--gray-a4)",
+            borderRadius: "var(--radius-3)",
+          }}
+        >
+          <Flex direction="column" gap="2">
+            <Flex align="center" justify="between" gap="2">
+              <Flex align="center" gap="2">
+                <PiCode />
+                <Text weight="semibold" color="text-mid">
+                  In your app
+                </Text>
+              </Flex>
+              <Select
+                size="sm"
+                aria-label="SDK language"
+                value={language}
+                setValue={(v) =>
+                  setPickedLanguage(
+                    SNIPPET_LANGUAGES.find((l) => l === v) ?? null,
+                  )
+                }
+              >
+                {connectedLanguages.length > 0 && (
+                  <>
                     <SelectGroup>
-                      <SelectLabel>
-                        {connectedLanguages.length > 0
-                          ? "Other languages"
-                          : "All languages"}
-                      </SelectLabel>
-                      {otherLanguages.map((l) => (
+                      <SelectLabel>Your SDK Connections</SelectLabel>
+                      {connectedLanguages.map((l) => (
                         <SelectItem key={l} value={l}>
                           {languageMapping[l].label}
                         </SelectItem>
                       ))}
                     </SelectGroup>
-                  )}
-                </Select>
-              </Flex>
-              {sdkCode && (
-                <Code
-                  language={sdkCode.snippet.language}
-                  filename={sdkCode.snippet.filename}
-                  code={sdkCode.snippet.code}
-                  highlightLine={sdkCode.highlightLine}
-                />
-              )}
+                    {otherLanguages.length > 0 && <SelectSeparator />}
+                  </>
+                )}
+                {otherLanguages.length > 0 && (
+                  <SelectGroup>
+                    <SelectLabel>
+                      {connectedLanguages.length > 0
+                        ? "Other languages"
+                        : "All languages"}
+                    </SelectLabel>
+                    {otherLanguages.map((l) => (
+                      <SelectItem key={l} value={l}>
+                        {languageMapping[l].label}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                )}
+              </Select>
             </Flex>
-            {shownTypes.length > 0 && (
-              <Flex direction="column" gap="2">
-                <Flex align="center" gap="2">
-                  <PiDatabase />
-                  <Text weight="semibold" color="text-mid">
-                    In your assignment queries &amp; fact tables
-                  </Text>
-                </Flex>
-                <Text size="sm">
-                  When you set up an assignment query or fact table, map{" "}
-                  {shownTypes.map((t, i) => (
-                    <span key={t}>
-                      {i > 0 && (i === shownTypes.length - 1 ? " and " : ", ")}
-                      <code>{t}</code>
-                    </span>
-                  ))}{" "}
-                  to the column that holds it. The column can have any name.
-                </Text>
-              </Flex>
+            {sdkCode && (
+              <Code
+                language={sdkCode.snippet.language}
+                filename={sdkCode.snippet.filename}
+                code={sdkCode.snippet.code}
+                highlightLine={sdkCode.highlightLine}
+              />
             )}
           </Flex>
-        )}
+          {shownTypes.length > 0 && (
+            <Flex direction="column" gap="2">
+              <Flex align="center" gap="2">
+                <PiDatabase />
+                <Text weight="semibold" color="text-mid">
+                  In your assignment queries &amp; fact tables
+                </Text>
+              </Flex>
+              <Text size="sm">
+                When you set up an assignment query or fact table, map{" "}
+                {shownTypes.map((t, i) => (
+                  <span key={t}>
+                    {i > 0 && (i === shownTypes.length - 1 ? " and " : ", ")}
+                    <code>{t}</code>
+                  </span>
+                ))}{" "}
+                to the column that holds it. The column can have any name.
+              </Text>
+            </Flex>
+          )}
+        </Flex>
       </Grid>
     </ModalStandard>
   );
