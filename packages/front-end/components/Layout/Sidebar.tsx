@@ -565,33 +565,27 @@ export default function Sidebar() {
   const { open: drawerOpen, setOpen: setDrawerOpen } = useSidebarOpen();
   const [collapsedPref, toggleCollapsed] = useSidebarCollapsed();
 
-  // Below 1180px the sidebar is a drawer, always expanded. Crossing that width
-  // briefly turns transitions off (global.scss), so nothing slides.
-  const [isNarrow, setIsNarrow] = useState(false);
-  useEffect(() => {
-    const mq = window.matchMedia(
-      `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
-    );
+  // Below 1180px the sidebar is a drawer, always expanded.
+  const isNarrow = useMediaQuery(
+    `(max-width: ${NARROW_LAYOUT_BREAKPOINT_PX}px)`,
+  );
+  // Crossing that width briefly turns transitions off (global.scss), so
+  // nothing slides. In a layout effect, so it lands before the frame's styles.
+  const switchedFrom = useRef(isNarrow);
+  useIsomorphicLayoutEffect(() => {
+    if (switchedFrom.current === isNarrow) return;
+    switchedFrom.current = isNarrow;
     const root = document.documentElement;
-    let timer = 0;
-    const update = () => setIsNarrow(mq.matches);
-    const onChange = () => {
-      root.classList.add(BREAKPOINT_SWITCH_CLASS);
-      window.clearTimeout(timer);
-      timer = window.setTimeout(
-        () => root.classList.remove(BREAKPOINT_SWITCH_CLASS),
-        BREAKPOINT_SWITCH_MS,
-      );
-      update();
-    };
-    update();
-    mq.addEventListener("change", onChange);
+    root.classList.add(BREAKPOINT_SWITCH_CLASS);
+    const timer = window.setTimeout(
+      () => root.classList.remove(BREAKPOINT_SWITCH_CLASS),
+      BREAKPOINT_SWITCH_MS,
+    );
     return () => {
-      mq.removeEventListener("change", onChange);
       window.clearTimeout(timer);
       root.classList.remove(BREAKPOINT_SWITCH_CLASS);
     };
-  }, []);
+  }, [isNarrow]);
   const collapsed = collapsedPref && !isNarrow;
 
   const navRef = useRef<HTMLElement>(null);
