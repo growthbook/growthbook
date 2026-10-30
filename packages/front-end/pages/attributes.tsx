@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { SDKAttribute } from "shared/types/organization";
-import { PiInfo } from "react-icons/pi";
+import { PiInfo, PiPlus } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import RadixTooltip from "@/ui/Tooltip";
@@ -135,22 +135,24 @@ const EmptySection: FC<{
     direction="column"
     align="center"
     gap="2"
-    p="6"
+    py="7"
+    px="6"
     style={{
-      border: "1px dashed var(--gray-a6)",
+      background: "var(--color-panel-solid)",
+      border: "1px solid var(--gray-a5)",
       borderRadius: "var(--radius-3)",
       textAlign: "center",
     }}
   >
     <Text weight="semibold">{title}</Text>
-    <Box style={{ maxWidth: 480 }}>
-      <Text as="div" color="text-low">
+    <Box style={{ maxWidth: 460 }}>
+      <Text as="div" size="sm" color="text-low">
         {body}
       </Text>
     </Box>
     {cta && (
       <Box mt="2">
-        <Button variant="soft" onClick={onClick}>
+        <Button variant="soft" size="sm" icon={<PiPlus />} onClick={onClick}>
           {cta}
         </Button>
       </Box>
@@ -617,8 +619,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   Used to assign users to experiment variations.
                 </Text>
               </Box>
-              {canCreateAttributes && identifiers.length > 0 && (
-                <Button variant="soft" onClick={() => setIdentifierModal({})}>
+              {canCreateAttributes && (
+                <Button
+                  variant="soft"
+                  size="sm"
+                  icon={<PiPlus />}
+                  onClick={() => setIdentifierModal({})}
+                >
                   Add Identifier
                 </Button>
               )}
@@ -796,8 +803,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   SDK.
                 </Text>
               </Box>
-              {canCreateAttributes && targetingAttributes.length > 0 && (
-                <Button variant="soft" onClick={() => setModalData("")}>
+              {canCreateAttributes && (
+                <Button
+                  variant="soft"
+                  size="sm"
+                  icon={<PiPlus />}
+                  onClick={() => setModalData("")}
+                >
                   Add Attribute
                 </Button>
               )}
