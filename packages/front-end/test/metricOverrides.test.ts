@@ -4,7 +4,10 @@ import {
   describeMetricOverride,
   describeMetricSettings,
   getOverriddenMetricIds,
+  getOverridesBlockedReason,
+  mergeTargetMDEs,
   MetricSettingsInput,
+  pruneMetricOverrides,
   withoutDeprecatedOverrideFields,
 } from "@/services/metricOverrides";
 
@@ -78,6 +81,139 @@ describe("describeMetricOverride", () => {
         properPriorEnabled: true,
       }),
     ).toEqual([]);
+  });
+
+  it("reads window hours overridden without a window type", () => {
+    expect(describeMetricOverride({ id: "met_a", windowHours: 12 })).toEqual([
+      { key: "window", label: "Metric window", value: "12 hours" },
+    ]);
+  });
+
+  it("says when the experiment doesn't apply an override", () => {
+    const override = {
+      id: "met_a",
+      windowType: "conversion" as const,
+      windowHours: 12,
+      regressionAdjustmentOverride: true,
+      regressionAdjustmentEnabled: true,
+      regressionAdjustmentDays: 7,
+    };
+    expect(
+      describeMetricOverride(override, undefined, {
+        conversionWindowsIgnored: true,
+        cupedOff: true,
+      }).map((r) => r.value),
+    ).toEqual(["Ignored by this experiment", "Ignored by this experiment"]);
+    expect(
+      describeMetricOverride(
+        { id: "met_a", windowType: "lookback", windowHours: 12 },
+        undefined,
+        { conversionWindowsIgnored: true, cupedOff: true },
+      ).map((r) => r.value),
+    ).toEqual(["12 hours"]);
+  });
+
+  it("reads hours alone as the metric's own kind of window", () => {
+    const override = { id: "met_a", windowHours: 12 };
+    const context = { conversionWindowsIgnored: true, cupedOff: false };
+    expect(
+      describeMetricOverride(override, undefined, {
+        ...context,
+        metricWindowType: "conversion",
+      }),
+    ).toEqual([
+      {
+        key: "window",
+        label: "Conversion window",
+        value: "Ignored by this experiment",
+      },
+    ]);
+    expect(
+      describeMetricOverride(override, undefined, {
+        ...context,
+        metricWindowType: "lookback",
+      }),
+    ).toEqual([{ key: "window", label: "Lookback window", value: "12 hours" }]);
+  });
+});
+
+describe("pruneMetricOverrides", () => {
+  it("keeps only what changes the analysis, dropping metrics left with nothing", () => {
+    expect(
+      pruneMetricOverrides([
+        {
+          id: "met_a",
+          delayHours: 2,
+          regressionAdjustmentOverride: false,
+          regressionAdjustmentDays: 14,
+          properPriorOverride: false,
+          properPriorEnabled: false,
+          properPriorMean: 0,
+          properPriorStdDev: 0.3,
+        },
+        { id: "met_b", regressionAdjustmentDays: 14, properPriorMean: 0 },
+        { id: "met_c", windowHours: 12 },
+        { id: "met_d", windowType: "" },
+        {
+          id: "met_e",
+          regressionAdjustmentOverride: true,
+          regressionAdjustmentEnabled: false,
+          properPriorOverride: true,
+          properPriorEnabled: true,
+          properPriorMean: 0.1,
+        },
+      ]),
+    ).toEqual([
+      { id: "met_a", delayHours: 2 },
+      { id: "met_c", windowHours: 12 },
+      { id: "met_d", windowType: "" },
+      {
+        id: "met_e",
+        regressionAdjustmentOverride: true,
+        regressionAdjustmentEnabled: false,
+        properPriorOverride: true,
+        properPriorEnabled: true,
+        properPriorMean: 0.1,
+      },
+    ]);
+  });
+});
+
+describe("mergeTargetMDEs", () => {
+  const previous = [
+    { id: "met_old", targetMDE: 0.03 },
+    { id: "met_a", targetMDE: 0.07 },
+    { id: "met_b", targetMDE: 0.01 },
+  ];
+
+  it("keeps every target MDE as it was when none changed", () => {
+    const merged = mergeTargetMDEs(previous, ["met_b", "met_a"], {
+      met_a: 7,
+      met_b: 1,
+    });
+    expect(merged).toEqual(previous);
+    expect(merged[1]).toBe(previous[1]);
+  });
+
+  it("changes, clears and adds goals' target MDEs in place", () => {
+    expect(
+      mergeTargetMDEs(previous, ["met_a", "met_b", "met_c"], {
+        met_a: 5,
+        met_b: undefined,
+        met_c: 2,
+      }),
+    ).toEqual([
+      { id: "met_old", targetMDE: 0.03 },
+      { id: "met_a", targetMDE: 0.05 },
+      { id: "met_c", targetMDE: 0.02 },
+    ]);
+  });
+
+  it("treats an emptied field as cleared", () => {
+    expect(mergeTargetMDEs(previous, ["met_a"], { met_a: NaN })).toEqual([
+      { id: "met_old", targetMDE: 0.03 },
+      { id: "met_b", targetMDE: 0.01 },
+    ]);
   });
 });
 
@@ -204,5 +340,47 @@ describe("withoutDeprecatedOverrideFields", () => {
       { id: "met_a", windowType: "conversion", windowHours: 72, delayHours: 1 },
     ]);
     expect(legacy.conversionWindowHours).toBe(72);
+  });
+});
+
+describe("getOverridesBlockedReason", () => {
+  const paid = "Overriding metrics is available on paid plans.";
+  const goalsOnly =
+    "Experiments using incremental refresh can only override goal metrics' target MDEs.";
+  const none =
+    "Metric overrides aren't available for experiments using incremental refresh.";
+  const reason = (
+    hasFeature: boolean,
+    incremental: boolean,
+    targetMDEsEditable: boolean,
+    goal: boolean,
+  ) =>
+    getOverridesBlockedReason({
+      hasFeature,
+      incremental,
+      targetMDEsEditable,
+      goal,
+    });
+
+  it("opens for every metric with the feature and no incremental refresh", () => {
+    expect(reason(true, false, false, false)).toBeNull();
+    expect(reason(true, false, true, true)).toBeNull();
+  });
+
+  it("keeps goals' target MDEs open under incremental refresh", () => {
+    expect(reason(true, true, true, true)).toBeNull();
+    expect(reason(true, true, true, false)).toBe(goalsOnly);
+  });
+
+  it("locks everything under incremental refresh without target MDEs", () => {
+    expect(reason(true, true, false, true)).toBe(none);
+    expect(reason(true, true, false, false)).toBe(none);
+  });
+
+  it("keeps goals' target MDEs open without the feature", () => {
+    expect(reason(false, false, true, true)).toBeNull();
+    expect(reason(false, true, true, true)).toBeNull();
+    expect(reason(false, false, true, false)).toBe(paid);
+    expect(reason(false, true, false, true)).toBe(paid);
   });
 });

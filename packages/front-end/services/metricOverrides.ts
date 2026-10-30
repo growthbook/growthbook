@@ -1,9 +1,11 @@
+import { pickBy } from "lodash";
 import { MetricOverride } from "shared/validators";
 import { StatsEngine } from "shared/types/stats";
 import {
   DecisionFrameworkMetricOverrides,
   LegacyMetricOverride,
 } from "shared/types/experiment";
+import { decimalToPercent } from "@/services/utils";
 
 export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
 // Outlines an overridden metric's chip; a border step reads alike in both modes.
@@ -27,6 +29,8 @@ const cuped = (enabled?: boolean, days?: number) =>
 
 const prior = (proper?: boolean, mean?: number, stddev?: number) =>
   proper ? `Proper (mean ${mean ?? 0}, sd ${stddev ?? 1})` : "Improper";
+
+const IGNORED = "Ignored by this experiment";
 
 const LABELS: Record<Exclude<MetricSettingKey, "window">, string> = {
   targetMDE: "Target MDE",
@@ -54,21 +58,39 @@ const windowRow = (
       }
     : { key: "window", label: "Metric window", value: "None" };
 
+// Experiment settings that stop an override from applying.
+export interface OverrideContext {
+  /** The experiment's analysis ignores conversion windows (not lookbacks). */
+  conversionWindowsIgnored: boolean;
+  /** The experiment runs no CUPED, whatever its metrics ask for. */
+  cupedOff: boolean;
+  /** The metric's own window type, which an hours-only override keeps. */
+  metricWindowType?: MetricSettingsInput["windowType"];
+}
+
 // Unset fields keep the metric's own setting and aren't listed. A goal metric's
 // target MDE lives in the decision framework but reads as its first override.
 export function describeMetricOverride(
   o: MetricOverride,
   targetMDE?: number,
+  context?: OverrideContext,
 ): OverrideRow[] {
   const rows: OverrideRow[] = [];
 
   if (targetMDE !== undefined) rows.push(row("targetMDE", percent(targetMDE)));
-  if (o.windowType !== undefined) {
+  if (o.windowType !== undefined || o.windowHours !== undefined) {
+    // Hours alone keep the metric's own kind of window.
+    const windowType = o.windowType ?? context?.metricWindowType;
+    const value =
+      windowType === "conversion" && context?.conversionWindowsIgnored
+        ? IGNORED
+        : o.windowHours !== undefined
+          ? hours(o.windowHours)
+          : "Default";
     rows.push(
-      windowRow(
-        o.windowType,
-        o.windowHours !== undefined ? hours(o.windowHours) : "Default",
-      ),
+      windowType === undefined
+        ? { key: "window", label: "Metric window", value }
+        : windowRow(windowType, value),
     );
   }
   if (o.delayHours !== undefined) rows.push(row("delay", hours(o.delayHours)));
@@ -76,7 +98,9 @@ export function describeMetricOverride(
     rows.push(
       row(
         "cuped",
-        cuped(o.regressionAdjustmentEnabled, o.regressionAdjustmentDays),
+        o.regressionAdjustmentEnabled && context?.cupedOff
+          ? IGNORED
+          : cuped(o.regressionAdjustmentEnabled, o.regressionAdjustmentDays),
       ),
     );
   }
@@ -121,7 +145,7 @@ export function describeMetricSettings(
     windowRow(
       s.windowType,
       s.windowType === "conversion" && s.conversionWindowsIgnored
-        ? "Ignored by this experiment"
+        ? IGNORED
         : hours(s.windowHours),
     ),
   ];
@@ -154,6 +178,104 @@ export function getOverriddenMetricIds(
       .filter((o) => o.targetMDE !== undefined)
       .map((o) => o.id),
   ]);
+}
+
+// Keeps only what changes the analysis: CUPED and prior values count only under
+// their override flag, and a metric left overriding nothing drops out.
+export function pruneMetricOverrides(
+  overrides: MetricOverride[],
+): MetricOverride[] {
+  return overrides.flatMap(
+    ({
+      regressionAdjustmentOverride,
+      regressionAdjustmentEnabled,
+      regressionAdjustmentDays,
+      properPriorOverride,
+      properPriorEnabled,
+      properPriorMean,
+      properPriorStdDev,
+      ...window
+    }) => {
+      const kept = {
+        ...pickBy(
+          {
+            ...window,
+            ...(regressionAdjustmentOverride
+              ? {
+                  regressionAdjustmentOverride,
+                  regressionAdjustmentEnabled,
+                  regressionAdjustmentDays,
+                }
+              : {}),
+            ...(properPriorOverride
+              ? {
+                  properPriorOverride,
+                  properPriorEnabled,
+                  properPriorMean,
+                  properPriorStdDev,
+                }
+              : {}),
+          },
+          (v) => v !== undefined,
+        ),
+        id: window.id,
+      };
+      return Object.keys(kept).length > 1 ? [kept] : [];
+    },
+  );
+}
+
+// Goals' target MDEs as edited, in percent; an unset or emptied one follows the
+// metric. Entries keep their place, and unchanged ones stay as saved, so an
+// unchanged list equals the saved one. A metric that's no longer a goal keeps
+// what it had.
+export function mergeTargetMDEs(
+  previous: DecisionFrameworkMetricOverrides[],
+  goalIds: string[],
+  percents: Record<string, number | undefined>,
+): DecisionFrameworkMetricOverrides[] {
+  const edited = (id: string): number | null => {
+    const p = percents[id];
+    return p === undefined || Number.isNaN(p) ? null : p;
+  };
+  const kept = previous.flatMap((o) => {
+    if (!goalIds.includes(o.id)) return [o];
+    const p = edited(o.id);
+    if (p === null) return [];
+    return o.targetMDE !== undefined && decimalToPercent(o.targetMDE, 11) === p
+      ? [o]
+      : [{ ...o, targetMDE: p / 100 }];
+  });
+  const added = goalIds.flatMap((id) => {
+    const p = edited(id);
+    return p === null || previous.some((o) => o.id === id)
+      ? []
+      : [{ id, targetMDE: p / 100 }];
+  });
+  return [...kept, ...added];
+}
+
+// Why the override editor can't change a metric, or null where it can. Goals'
+// target MDEs stay editable where nothing else is, since they only change how
+// finished results are judged.
+export function getOverridesBlockedReason({
+  hasFeature,
+  incremental,
+  targetMDEsEditable,
+  goal,
+}: {
+  hasFeature: boolean;
+  incremental: boolean;
+  /** The decision framework runs, so goals have target MDEs. */
+  targetMDEsEditable: boolean;
+  goal: boolean;
+}): string | null {
+  if (hasFeature && !incremental) return null;
+  if (goal && targetMDEsEditable) return null;
+  if (!hasFeature) return "Overriding metrics is available on paid plans.";
+  return targetMDEsEditable
+    ? "Experiments using incremental refresh can only override goal metrics' target MDEs."
+    : "Metric overrides aren't available for experiments using incremental refresh.";
 }
 
 // Drops the deprecated window and risk fields older saved overrides still

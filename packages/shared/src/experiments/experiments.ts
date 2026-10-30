@@ -1874,6 +1874,28 @@ export function getMetricLink(id: string): string {
   return `/metric/${id}`;
 }
 
+// The CUPED lookback a metric gets when an experiment doesn't override it.
+export function getDefaultRegressionAdjustmentDays(
+  metric: Pick<
+    ExperimentMetricDefinition,
+    "regressionAdjustmentOverride" | "regressionAdjustmentDays"
+  > | null,
+  organizationSettings?: Partial<OrganizationSettings>,
+): number {
+  if (metric?.regressionAdjustmentOverride) {
+    return (
+      metric.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS
+    );
+  }
+  if (organizationSettings?.regressionAdjustmentEnabled) {
+    return (
+      organizationSettings.regressionAdjustmentDays ??
+      DEFAULT_REGRESSION_ADJUSTMENT_DAYS
+    );
+  }
+  return DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+}
+
 export function getMetricSnapshotSettings<
   T extends ExperimentMetricDefinition,
 >({
@@ -1898,15 +1920,15 @@ export function getMetricSnapshotSettings<
   // start with default RA settings
   let regressionAdjustmentAvailable = true;
   let regressionAdjustmentEnabled = false;
-  let regressionAdjustmentDays = DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
+  let regressionAdjustmentDays = getDefaultRegressionAdjustmentDays(
+    metric,
+    organizationSettings,
+  );
   let regressionAdjustmentReason = "";
 
   // get RA settings from organization
   if (organizationSettings?.regressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = true;
-    regressionAdjustmentDays =
-      organizationSettings?.regressionAdjustmentDays ??
-      regressionAdjustmentDays;
   }
   if (experimentRegressionAdjustmentEnabled) {
     regressionAdjustmentEnabled = true;
@@ -1915,8 +1937,6 @@ export function getMetricSnapshotSettings<
   // get RA settings from metric
   if (metric?.regressionAdjustmentOverride) {
     regressionAdjustmentEnabled = !!metric?.regressionAdjustmentEnabled;
-    regressionAdjustmentDays =
-      metric?.regressionAdjustmentDays ?? DEFAULT_REGRESSION_ADJUSTMENT_DAYS;
     if (!regressionAdjustmentEnabled) {
       regressionAdjustmentAvailable = false;
       regressionAdjustmentReason = "disabled in metric settings";
