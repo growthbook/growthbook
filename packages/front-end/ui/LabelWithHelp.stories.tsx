@@ -15,9 +15,7 @@ export default function LabelWithHelpStories() {
           Variants
         </Text>
         <Flex direction="column" gap="2" align="start">
-          {/* Label only: renders the label as-is with no wrapper. */}
           <LabelWithHelp label="Label only" />
-          {/* Help: adds a PiInfo icon with a tooltip (hover to read it). */}
           <LabelWithHelp
             label="With help"
             help="Shown on hover. Use this for a short explanation or tradeoff that doesn't fit in the label."
@@ -29,7 +27,6 @@ export default function LabelWithHelpStories() {
             label="With adornment"
             adornment={<Badge color="gray" variant="soft" label="New" />}
           />
-          {/* Both help and adornment together. */}
           <LabelWithHelp
             label="With help and adornment"
             help="The help icon comes first, then any trailing adornment."
