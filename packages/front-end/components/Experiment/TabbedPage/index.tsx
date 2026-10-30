@@ -748,6 +748,7 @@ function TabbedPageContents({
       <Box
         mx="auto"
         width="100%"
+        className="experiment-layout"
         style={{ maxWidth: "var(--page-content-max-width)" }}
       >
         <CollapsiblePanelLayout

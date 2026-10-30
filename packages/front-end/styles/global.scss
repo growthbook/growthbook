@@ -274,6 +274,17 @@ html.app-drawer-open body {
   & .experiment-column .pagecontents {
     padding-left: 0 !important;
   }
+  // Its details panel sits flush against the window's right edge, past the
+  // page's padding. Without the panel docked beside it, the working area
+  // keeps the page's right padding (its own 24px, plus the rest).
+  & .experiment-layout {
+    margin-right: calc(-1 * var(--page-padding));
+    @include page-padding-motion(margin-right);
+  }
+  & .experiment-layout > :not([data-panel-docked]) .experiment-column {
+    padding-right: max(0px, calc(var(--page-padding) - var(--space-5)));
+    @include page-padding-motion(padding-right);
+  }
   // Its padding classes too, but a card's or a full-width band's.
   $card: ":not(.appbox, .card, .box, .rt-Card, .page-bleed)";
   & > :is(.p-2, .p-3, .p-4, .p-5)#{$card},
