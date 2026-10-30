@@ -28,6 +28,7 @@ import * as edge_other_json from "./sdk-versions/edge-other.json";
 import * as rust_json from "./sdk-versions/rust.json";
 import * as roku_json from "./sdk-versions/roku.json";
 import * as other_json from "./sdk-versions/other.json";
+import * as legacy_json from "./sdk-versions/legacy.json";
 
 type SDKRecords = Record<SDKLanguage, SDKData>;
 type SDKData = {
@@ -65,6 +66,7 @@ export const sdks: SDKRecords = {
   "edge-lambda": edge_lambda_json,
   "edge-other": edge_other_json,
   other: other_json,
+  legacy: legacy_json,
 };
 
 // Default SDK versions as of 12/5/2023
@@ -95,6 +97,7 @@ const defaultSdkVersions: Record<SDKLanguage, string> = {
   rust: "0.0.4",
   roku: "1.3.1",
   other: "0.0.0",
+  legacy: "0.0.0",
 };
 
 const getSdkData = (language: SDKLanguage = "other"): SDKData => {

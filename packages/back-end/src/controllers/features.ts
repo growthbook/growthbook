@@ -62,7 +62,6 @@ import { SAFE_ROLLOUT_TRACKING_KEY_PREFIX } from "shared/constants";
 import {
   getConnectionSDKCapabilities,
   withoutUnsupportedSavedGroupCapabilities,
-  SDKCapability,
   savedGroupFormatFromConnection,
 } from "shared/sdk-versioning";
 import {
@@ -554,8 +553,7 @@ export type SDKPayloadParams = Pick<
   | "includeReferencedPrerequisites"
 > &
   Partial<Pick<SDKConnectionInterface, "organization">> & {
-    // Extend languages to allow "legacy" for old API keys
-    languages: SDKLanguage[] | ["legacy"];
+    languages: SDKLanguage[];
   };
 
 export async function getPayloadParamsFromApiKey(
@@ -564,9 +562,9 @@ export async function getPayloadParamsFromApiKey(
   // Reject a foreign key before side effects run.
   expectedOrganization?: string,
 ): Promise<SDKPayloadParams> {
-  // SDK Connection key
-  if (key.match(/^sdk-/)) {
-    const connection = await findSDKConnectionByKey(key);
+  const connection = await findSDKConnectionByKey(key);
+  // SDK Connection key, or a legacy SDK key already moved to sdkconnections
+  if (connection || key.match(/^sdk-/)) {
     if (!connection) {
       throw new UnrecoverableApiError("Invalid API key");
     }
@@ -586,11 +584,24 @@ export async function getPayloadParamsFromApiKey(
       });
     }
 
+    // Legacy SDK keys have always let `?project=` pick the project.
+    const legacyProject =
+      connection.languages.includes("legacy") &&
+      typeof req.query?.project === "string"
+        ? req.query.project
+        : "";
+
     return {
-      key: connection.key,
+      key: legacyProject
+        ? formatLegacyCacheKey({
+            apiKey: key,
+            environment: connection.environment,
+            project: legacyProject,
+          })
+        : connection.key,
       organization: connection.organization,
       environment: connection.environment,
-      projects: connection.projects,
+      projects: legacyProject ? [legacyProject] : connection.projects,
       encryptPayload: connection.encryptPayload,
       encryptionKey: connection.encryptionKey,
       includeVisualExperiments: connection.includeVisualExperiments,
@@ -656,7 +667,7 @@ export async function getPayloadParamsFromApiKey(
       projects: projectFilter ? [projectFilter] : [],
       encryptPayload: !!encryptSDK,
       encryptionKey: encryptionKey || "",
-      languages: ["legacy"], // "legacy" marker for computing basic capabilities (bucketingV2)
+      languages: ["legacy"],
       sdkVersion: "0.0.0",
     };
   }
@@ -689,16 +700,13 @@ export async function getFeatureDefinitionsWithCache({
 
   // Generate if cache disabled, cache miss, or corrupt cache
   if (!defs) {
-    // Derive capabilities from languages/sdkVersion (or hardcode for legacy API keys).
     // Filtered the same way as the cache-refresh path, so a remote-eval
     // connection gets the same payload whether or not the cache was warm.
     const capabilities = withoutUnsupportedSavedGroupCapabilities(
-      params.languages[0] === "legacy"
-        ? ["bucketingV2" as SDKCapability] // hardcoded for legacy API keys
-        : getConnectionSDKCapabilities({
-            languages: params.languages as SDKLanguage[],
-            sdkVersion: params.sdkVersion,
-          }),
+      getConnectionSDKCapabilities({
+        languages: params.languages,
+        sdkVersion: params.sdkVersion,
+      }),
       params,
     );
 

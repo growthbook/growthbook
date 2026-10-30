@@ -38,6 +38,15 @@ describe("getConnectionSDKCapabilities", () => {
     expect(capabilities).not.toContainEqual("remoteEvaluation");
   });
 
+  it("Gives legacy SDK keys only bucketingV2", () => {
+    expect(
+      getConnectionSDKCapabilities({
+        languages: ["legacy"],
+        sdkVersion: "0.0.0",
+      }),
+    ).toEqual(["bucketingV2"]);
+  });
+
   it("Gets capabilities for the default version when no SDKVersion is provided", () => {
     const connection: SDKConnectionInterface = {
       ...baseConnection,

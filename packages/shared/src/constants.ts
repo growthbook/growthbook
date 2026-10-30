@@ -210,6 +210,8 @@ export const sdkLanguages = [
   "rust",
   "roku",
   "other",
+  // Legacy SDK Endpoint keys moved to sdkconnections; not offered for new connections.
+  "legacy",
 ] as const;
 
 export const statsEngines = ["bayesian", "frequentist"] as const;

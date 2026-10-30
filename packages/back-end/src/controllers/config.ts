@@ -14,6 +14,16 @@ import {
   getExperimentOverrides,
 } from "back-end/src/services/organizations";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
+import { findSDKConnectionByKey } from "back-end/src/models/SdkConnectionModel";
+
+// Legacy SDK keys work here whether still in apikeys or moved to sdkconnections.
+async function lookupLegacySdkKey(key: string) {
+  const connection = await findSDKConnectionByKey(key);
+  if (connection?.languages.includes("legacy")) {
+    return { organization: connection.organization, secret: false };
+  }
+  return dangerousLookupOrganizationByApiKey(key);
+}
 
 export function canAutoAssignExperiment(
   experiment: ExperimentInterface,
@@ -35,8 +45,7 @@ export async function getExperimentConfig(
   const { key } = req.params;
 
   try {
-    const { organization, secret } =
-      await dangerousLookupOrganizationByApiKey(key);
+    const { organization, secret } = await lookupLegacySdkKey(key);
     if (!organization) {
       return res.status(400).json({
         status: 400,
@@ -104,8 +113,7 @@ export async function getExperimentsScript(
   const { key } = req.params;
 
   try {
-    const { organization, secret } =
-      await dangerousLookupOrganizationByApiKey(key);
+    const { organization, secret } = await lookupLegacySdkKey(key);
     if (!organization) {
       return res
         .status(400)
