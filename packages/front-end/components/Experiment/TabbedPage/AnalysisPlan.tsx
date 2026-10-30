@@ -43,6 +43,7 @@ import {
 } from "@/services/datasources";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
 import {
+  DATASOURCE_CHANGE_NOTE,
   IneligibleClusterMetricsCallouts,
   type AnalysisFormFocus,
 } from "@/components/Experiment/AnalysisForm";
@@ -102,9 +103,6 @@ type ClusterSelection = {
   isClusterExperiment: boolean;
   clusterSubUnitIdentifier: string;
 };
-
-export const DATASOURCE_CHANGE_NOTE =
-  "Metrics and segments that aren't from the new Data Source are removed.";
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;

@@ -8,6 +8,7 @@ import { getValidDate } from "shared/dates";
 import { FaCircle } from "react-icons/fa6";
 import { parseISO } from "date-fns";
 import { DEFAULT_SRM_THRESHOLD } from "shared/constants";
+import { Box } from "@radix-ui/themes";
 import SegmentedControl from "@/ui/SegmentedControl";
 import Switch from "@/ui/Switch";
 import { useUser } from "@/services/UserContext";
@@ -18,6 +19,7 @@ import ExperimentDateGraph, {
   ExperimentDateGraphDataPoint,
 } from "@/components/Experiment/ExperimentDateGraph";
 import { getUnitDisplayName } from "@/services/experiments";
+import { IdentifierCode } from "@/components/Experiment/AssignmentQueryFields";
 import SelectField from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import VariationLabel from "@/ui/VariationLabel";
@@ -152,7 +154,7 @@ export default function TrafficCard({
             {cardTitle && <h2 className="d-inline">{cardTitle}</h2>}
             <div className="flex-1" />
             {cluster && (
-              <div className="col-auto">
+              <Box px="3">
                 <div className="uppercase-title text-muted">Unit</div>
                 <SegmentedControl
                   size="sm"
@@ -170,7 +172,7 @@ export default function TrafficCard({
                     },
                   ]}
                 />
-              </div>
+              </Box>
             )}
             {!disableDimensions && (
               <>
@@ -216,8 +218,8 @@ export default function TrafficCard({
       </div>
       {clusterTrafficMissing ? (
         <Callout status="info" mx="2" mb="2">
-          Traffic per <code>{cluster?.identifier}</code> isn&apos;t available
-          for this experiment yet.
+          Traffic per <IdentifierCode>{cluster?.identifier}</IdentifierCode>{" "}
+          isn&apos;t available for this experiment yet.
         </Callout>
       ) : selectedDimension ? (
         <table className="table w-auto" style={{ minWidth: "70%" }}>

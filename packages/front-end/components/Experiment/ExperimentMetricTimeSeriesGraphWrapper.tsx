@@ -145,7 +145,7 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   dimensionId?: string;
   dimensionValue?: string;
   oneSided?: boolean;
-  // Dashboards pass each block's own snapshot; the experiment page's is the fallback.
+  // Callers pass the snapshot they render; the experiment page's is the fallback.
   snapshotSettings?: ExperimentSnapshotSettings;
 }
 

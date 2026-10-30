@@ -74,7 +74,6 @@ import {
   getDefaultMetricOverridesFormValue,
 } from "./EditMetricsForm";
 import ActivationMetricRow from "./ActivationMetricRow";
-import { DATASOURCE_CHANGE_NOTE } from "./TabbedPage/AnalysisPlan";
 import {
   AdvancedSection,
   ConversionWindowsRow,
@@ -87,6 +86,9 @@ import BanditDecisionMetricSettings from "./BanditDecisionMetricSettings";
 import ExperimentMetricsSelector from "./ExperimentMetricsSelector";
 
 export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
+
+export const DATASOURCE_CHANGE_NOTE =
+  "Metrics and segments that aren't from the new Data Source are removed.";
 
 export function IneligibleClusterMetricsCallouts({
   ineligible,
@@ -540,6 +542,7 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
+      ctaEnabled={!ineligibleClusterMetrics.groupNames.length}
       submit={validatedSubmit(form, async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 

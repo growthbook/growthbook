@@ -587,7 +587,9 @@ export async function planExperimentUpdate(
         ? changes.exposureQueryIdentifierType
         : experiment.exposureQueryIdentifierType,
   });
-  if (changes.isClusterExperiment) {
+  // Only turning it on is gated, so a downgraded org can still edit or turn
+  // off an existing cluster experiment.
+  if (changes.isClusterExperiment && !experiment.isClusterExperiment) {
     assertCanEnableClusterExperiment(context);
   }
   const effectiveIsClusterExperiment =
