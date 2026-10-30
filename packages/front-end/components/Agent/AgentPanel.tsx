@@ -69,7 +69,6 @@ import ChatComposer, {
 import { useMetricMentionItems } from "@/enterprise/components/AIChat/Composer/useMetricMentionItems";
 import { useSkillMenuItems } from "@/enterprise/components/AIChat/Composer/useSkillCommandItems";
 import { useAgentInteractionPrompts } from "@/enterprise/hooks/useAgentInteractionPrompts";
-import { useSidebarOpen } from "@/components/Layout/SidebarOpenProvider";
 import { NARROW_LAYOUT_BREAKPOINT_PX } from "@/components/Layout/constants";
 import AgentChatHistory from "./AgentChatHistory";
 import {
@@ -88,7 +87,6 @@ import AskUserCard, { type AskUserOption } from "./AskUserCard";
 import ConfirmActionCard from "./ConfirmActionCard";
 import { dashboardWriteFromEvent } from "./dashboardWrite";
 import { resolveAgentInternalHref } from "./agentLinkUtils";
-import styles from "./AgentPanel.module.scss";
 import AiAssistantLimitNotice from "./AiAssistantLimitNotice";
 import { useAiAssistantLimit } from "./useAiAssistantLimit";
 
@@ -225,7 +223,6 @@ export default function AgentPanel({
   const composerRef = useRef<ChatComposerHandle>(null);
   // At the limit, past conversations stay readable; nothing new can be sent.
   const { limitReached, resetsAt, refreshUsage } = useAiAssistantLimit();
-  const { setOpen: setNavDrawerOpen } = useSidebarOpen();
   const { userId, organization } = useUser();
   // Preserves each tool-detail disclosure's open/closed state across the
   // active-turn → persisted-message remount so it doesn't snap shut mid-turn.
@@ -680,12 +677,6 @@ export default function AgentPanel({
         transition: "width 220ms cubic-bezier(0.4, 0, 0.2, 1)",
       }}
     >
-      {/* The panel sits above the drawer's veil, so it draws its own. */}
-      <div
-        className={styles.navDrawerVeil}
-        aria-hidden="true"
-        onClick={() => setNavDrawerOpen(false)}
-      />
       {/* Header */}
       <Flex
         align="center"

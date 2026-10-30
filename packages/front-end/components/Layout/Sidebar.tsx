@@ -8,6 +8,7 @@ import {
   useRef,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import clsx from "clsx";
@@ -30,6 +31,8 @@ import { IconButton } from "@radix-ui/themes";
 import { useGrowthBook } from "@growthbook/growthbook-react";
 import { AppFeatures } from "shared/types/app-features";
 import { useUser } from "@/services/UserContext";
+import { RadixTheme } from "@/services/RadixTheme";
+import { AGENT_PANEL_PORTAL_Z_INDEX } from "@/components/Agent/AgentPanelContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import useMediaQuery from "@/hooks/useMediaQuery";
@@ -595,6 +598,11 @@ export default function Sidebar() {
   const navRef = useRef<HTMLElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const drawer = isNarrow && drawerOpen;
+  // As a drawer, the sidebar is drawn in a layer of its own on the page's
+  // body, above the AI Assistant panel's (AgentPanel.tsx) while it's open:
+  // inside the app's root, nothing it does can reach above the panel.
+  const [bodyHost, setBodyHost] = useState<HTMLElement | null>(null);
+  useEffect(() => setBodyHost(document.body), []);
   // Drawn by the menu itself (SidebarMenu.tsx) into menuHost.
   const [drawerMenu, setDrawerMenu] = useState<
     "project" | "profile" | "help" | null
@@ -874,15 +882,8 @@ export default function Sidebar() {
   // Each sweep finishes; the next hover plays it again.
   const [logoPlaying, setLogoPlaying] = useState(false);
 
-  return (
+  const sidebar = (
     <>
-      {upgradeModal && (
-        <UpgradeModal
-          close={() => setUpgradeModal(false)}
-          source="layout"
-          commercialFeature={null}
-        />
-      )}
       <div
         className={clsx(styles.drawerOverlay, drawer && styles.overlayOpen)}
         aria-hidden="true"
@@ -1088,6 +1089,32 @@ export default function Sidebar() {
           hidden={!drawerMenu}
         />
       </nav>
+    </>
+  );
+
+  return (
+    <>
+      {upgradeModal && (
+        <UpgradeModal
+          close={() => setUpgradeModal(false)}
+          source="layout"
+          commercialFeature={null}
+        />
+      )}
+      {isNarrow && bodyHost
+        ? createPortal(
+            <div
+              className={styles.drawerLayer}
+              // Over the panel and what it opens.
+              style={
+                drawer ? { zIndex: AGENT_PANEL_PORTAL_Z_INDEX + 1 } : undefined
+              }
+            >
+              <RadixTheme>{sidebar}</RadixTheme>
+            </div>,
+            bodyHost,
+          )
+        : sidebar}
     </>
   );
 }

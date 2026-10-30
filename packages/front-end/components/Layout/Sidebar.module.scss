@@ -57,6 +57,13 @@
   }
 }
 
+// The drawer's own layer on the page's body (Sidebar.tsx); open, it's raised
+// over the AI Assistant panel there.
+.drawerLayer {
+  position: relative;
+  z-index: 0;
+}
+
 .drawerOverlay {
   display: none;
 
