@@ -104,6 +104,20 @@ function registerSharedTopValuesTests(dialect: SqlDialect) {
     expect(sql).toContain("'props.plan'");
   });
 
+  it("escapes JSON field names that come from warehouse rows", () => {
+    const sql = buildSql(dialect, {
+      factTable: jsonFactTable,
+      columns: [makeColumn("props.x') OR 1=1 --\\")],
+    });
+    // ClickHouse's native-JSON branch backtick-quotes the key as an identifier,
+    // with the same backslash escapes as a string literal.
+    const withoutQuotedIdentifiers = sql.replace(/`(?:[^`\\]|\\.|``)*`/g, "");
+    expect(withoutQuotedIdentifiers).not.toContain("x') OR");
+    expect(sql).toContain(
+      `'${dialect.escapeStringLiteral("props.x') OR 1=1 --\\")}'`,
+    );
+  });
+
   it("filters matching values before ranking them", () => {
     const sql = buildSql(dialect, { searchTerm: "Needle" });
     expect(sql).toMatch(/CASE\s+WHEN[\s\S]*LOWER/i);
@@ -145,6 +159,26 @@ describe("getColumnsTopValuesQuery — approximate top-k path", () => {
         expect(sql).not.toMatch(/GROUP BY/i);
       });
     });
+  });
+});
+
+describe("getColumnsTopValuesQuery — JSON field name escaping", () => {
+  const hostileKey = "x'y\\";
+  const buildJsonSql = (dialect: SqlDialect) =>
+    buildSql(dialect, {
+      factTable: jsonFactTable,
+      columns: [makeColumn(`props.${hostileKey}`)],
+    });
+
+  it("uses BigQuery's backslash escaping for the path and column name", () => {
+    const sql = buildJsonSql(bigQueryDialect);
+    expect(sql).toContain("JSON_VALUE(props, '$.\"x\\'y\\\\\\\\\"')");
+    expect(sql).toContain("'props.x\\'y\\\\'");
+  });
+
+  it("doubles quotes in Postgres path segments", () => {
+    const sql = buildJsonSql(postgresDialect);
+    expect(sql).toContain("JSON_EXTRACT_PATH_TEXT(props::json, 'x''y\\')");
   });
 });
 

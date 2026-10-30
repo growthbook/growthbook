@@ -1,5 +1,6 @@
 import { createLikeMatchFns } from "shared/sql";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
+import { quoteJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 const mysqlEscapeStringLiteral = (value: string) =>
@@ -90,7 +91,7 @@ export const mysqlDialect: SqlDialect = {
     ) t`;
   },
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `JSON_EXTRACT(${jsonCol}, '$.${path}')`;
+    const raw = `JSON_EXTRACT(${jsonCol}, '${mysqlEscapeStringLiteral(quoteJsonPath(path, "dot"))}')`;
     return isNumeric ? mysqlDialect.castToFloat(raw) : raw;
   },
   // MySQL 8.0.14+ LATERAL derived table; requires MySQL 8 for window functions in top-N ranking.

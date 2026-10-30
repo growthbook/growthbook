@@ -103,7 +103,7 @@ function getTopValuesCTEBody(
       ),
     );
     return {
-      keyLiteral: c.column.replace(/'/g, "''"),
+      keyLiteral: dialect.escapeStringLiteral(c.column),
       valueSql: searchTerm
         ? `CASE WHEN ${dialect.stringMatch(
             `LOWER(${valueSql})`,

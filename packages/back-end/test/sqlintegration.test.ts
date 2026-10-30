@@ -25,6 +25,7 @@ import {
   prestoDialect,
   verticaDialect,
   adobeExperiencePlatformQueryServiceDialect,
+  athenaDialect,
 } from "shared/dialects";
 import { getInformationSchemaColumns } from "back-end/src/services/informationSchema";
 import Snowflake from "back-end/src/integrations/Snowflake";
@@ -329,6 +330,144 @@ describe("bigquery integration", () => {
     it("escapes backticks within a key", () => {
       const sql = clickHouseDialect.jsonExtract("attributes", "a`b", false);
       expect(sql).toContain("attributes.`a``b`::Nullable(String)");
+    });
+  });
+
+  describe("jsonExtract escapes JSON keys from warehouse rows", () => {
+    const hostileKey = "x') OR 1=1 --";
+
+    it.each([
+      { name: "BigQuery", dialect: bigQueryDialect },
+      { name: "MySQL", dialect: mysqlDialect },
+      { name: "Snowflake", dialect: snowflakeDialect },
+      { name: "Redshift", dialect: redshiftDialect },
+      { name: "Databricks", dialect: databricksDialect },
+      { name: "MSSQL", dialect: mssqlDialect },
+      { name: "Postgres", dialect: postgresDialect },
+      { name: "Presto", dialect: prestoDialect },
+      { name: "Athena", dialect: athenaDialect },
+      { name: "Vertica", dialect: verticaDialect },
+      { name: "Adobe", dialect: adobeExperiencePlatformQueryServiceDialect },
+    ])("$name keeps the key inside a string literal", ({ dialect }) => {
+      for (const isNumeric of [false, true]) {
+        const sql = dialect.jsonExtract("props", hostileKey, isNumeric);
+        expect(sql).not.toContain("x') OR");
+        expect(sql).toContain(dialect.escapeStringLiteral("x') OR 1=1 --"));
+      }
+    });
+
+    it("ClickHouse escapes backslashes in the native-JSON identifier", () => {
+      const sql = clickHouseDialect.jsonExtract(
+        "props",
+        "x\\`, 1) AS v --",
+        false,
+      );
+      expect(sql).toContain("props.`x\\\\``, 1) AS v --`::Nullable(String)");
+    });
+
+    it("ClickHouse escapes the string-column fallback literal", () => {
+      const sql = clickHouseDialect.jsonExtract("props", "x'y", false);
+      expect(sql).toContain("props.`x'y`::Nullable(String)");
+      expect(sql).toContain("JSONExtractString(props, 'x''y')");
+    });
+
+    it("keeps the existing path syntax for identifier keys", () => {
+      expect(snowflakeDialect.jsonExtract("props", "user.plan", false)).toBe(
+        "PARSE_JSON(props):user.plan::string",
+      );
+      expect(databricksDialect.jsonExtract("props", "user.plan", false)).toBe(
+        "props:user.plan",
+      );
+      expect(bigQueryDialect.jsonExtract("props", "user.plan", false)).toBe(
+        "JSON_VALUE(props, '$.user.plan')",
+      );
+    });
+
+    it("keeps array steps in plain paths", () => {
+      expect(
+        snowflakeDialect.jsonExtract("props", "items[0].name", false),
+      ).toBe("PARSE_JSON(props):items[0].name::string");
+      expect(
+        databricksDialect.jsonExtract("props", "items[0].name", false),
+      ).toBe("props:items[0].name");
+      expect(mysqlDialect.jsonExtract("props", "items[0].name", false)).toBe(
+        "JSON_EXTRACT(props, '$.items[0].name')",
+      );
+      expect(prestoDialect.jsonExtract("props", "items[0].name", false)).toBe(
+        "json_extract_scalar(props, '$.items[0].name')",
+      );
+    });
+
+    it("keeps saved JSON path syntax as written", () => {
+      expect(mysqlDialect.jsonExtract("props", '"a.b"', false)).toBe(
+        `JSON_EXTRACT(props, '$."a.b"')`,
+      );
+      expect(mysqlDialect.jsonExtract("props", "items[*].name", false)).toBe(
+        "JSON_EXTRACT(props, '$.items[*].name')",
+      );
+      expect(bigQueryDialect.jsonExtract("props", '"a.b".c', false)).toBe(
+        `JSON_VALUE(props, '$."a.b".c')`,
+      );
+      expect(prestoDialect.jsonExtract("props", 'a["b c"]', false)).toBe(
+        `json_extract_scalar(props, '$.a["b c"]')`,
+      );
+      expect(mysqlDialect.jsonExtract("props", "$current_url", false)).toBe(
+        "JSON_EXTRACT(props, '$.$current_url')",
+      );
+      expect(snowflakeDialect.jsonExtract("props", '"a.b".c', false)).toBe(
+        `PARSE_JSON(props):"a.b".c::string`,
+      );
+      expect(snowflakeDialect.jsonExtract("props", "a['b c']", false)).toBe(
+        "PARSE_JSON(props):a['b c']::string",
+      );
+      expect(
+        databricksDialect.jsonExtract("props", "items[*].name", false),
+      ).toBe("props:items[*].name");
+      expect(databricksDialect.jsonExtract("props", "a.`b c`", false)).toBe(
+        "props:a.`b c`",
+      );
+    });
+
+    it("still escapes paths it can't parse", () => {
+      expect(mysqlDialect.jsonExtract("props", `"x') OR 1=1 --`, false)).toBe(
+        `JSON_EXTRACT(props, '$."x'') OR 1=1 --')`,
+      );
+      expect(
+        snowflakeDialect.jsonExtract("props", `"x" OR 1=1 --`, false),
+      ).toBe(`PARSE_JSON(props)['"x" OR 1=1 --']::string`);
+      expect(
+        databricksDialect.jsonExtract("props", "a.`b` OR 1=1", false),
+      ).toBe("get_json_object(props, '$.a.`b` OR 1=1')");
+    });
+
+    it("quotes other keys inside the JSON path", () => {
+      expect(mysqlDialect.jsonExtract("props", "a.x'y[1]", false)).toBe(
+        `JSON_EXTRACT(props, '$.a."x''y"[1]')`,
+      );
+      expect(mssqlDialect.jsonExtract("props", 'x "y"', false)).toBe(
+        `JSON_VALUE(props, '$."x \\"y\\""')`,
+      );
+      expect(prestoDialect.jsonExtract("props", "x'y", false)).toBe(
+        `json_extract_scalar(props, '$["x''y"]')`,
+      );
+      expect(athenaDialect.jsonExtract("props", "page-url", false)).toBe(
+        `json_extract_scalar(props, '$["page-url"]')`,
+      );
+    });
+
+    it("Snowflake uses bracket notation for other keys", () => {
+      expect(snowflakeDialect.jsonExtract("props", "x'y.page-url", true)).toBe(
+        "PARSE_JSON(props)['x''y']['page-url']::float",
+      );
+      expect(snowflakeDialect.jsonExtract("props", "x y[0].name", false)).toBe(
+        "PARSE_JSON(props)['x y'][0]['name']::string",
+      );
+    });
+
+    it("Databricks falls back to get_json_object for other keys", () => {
+      expect(databricksDialect.jsonExtract("props", "x'y", false)).toBe(
+        "get_json_object(props, '$.x\\'y')",
+      );
     });
   });
 
