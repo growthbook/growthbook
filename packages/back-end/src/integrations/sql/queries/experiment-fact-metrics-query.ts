@@ -189,18 +189,11 @@ export function getExperimentFactMetricsQuery(
   // A cluster-level query's units CTE stays keyed on the sub-unit, so it emits
   // its own identity joins against that base.
   if (params.unitsSource === "exposureQuery" && !isClusterLevelQuery) {
-    // A segment keyed on the cluster column (e.g. region_id) is carried by the
-    // exposure rows directly, so it needs no separate identity join table (the
-    // base id type is forced to the sub-unit, so that join table does not exist).
-    const segmentIsClusterKeyed =
-      !!segment &&
-      clusterIdColumn !== null &&
-      (segment.userIdType || "user_id") === clusterIdColumn;
+    // A cluster-keyed segment joins through the exposure rows instead.
+    const segmentIdType = segment ? segment.userIdType || "user_id" : null;
     idTypeObjects.push(
       ...unitDimensions.map((d) => [d.dimension.userIdType || "user_id"]),
-      segment && !segmentIsClusterKeyed
-        ? [segment.userIdType || "user_id"]
-        : [],
+      segmentIdType && segmentIdType !== clusterIdColumn ? [segmentIdType] : [],
       activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
     );
   }
@@ -955,7 +948,6 @@ export function getExperimentFactMetricsQuery(
     ${
       // Cluster experiment: roll the per-sub-unit aggregate up to one row per
       // cluster, applying per-sub-unit capping and summing to the cluster.
-      // clusterIdColumn is non-null exactly when useClusterRollup is true.
       clusterIdColumn
         ? `, ${clusterRollupTable} AS (
           ${getClusterRollupCTE({

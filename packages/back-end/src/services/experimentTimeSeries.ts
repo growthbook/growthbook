@@ -401,8 +401,13 @@ function getExperimentSettingsHash(
       snapshotSettings.exposureQueryIdentifierType,
       exposureQueries,
     ),
-    isClusterExperiment: snapshotSettings.isClusterExperiment,
-    clusterSubUnitIdentifier: snapshotSettings.clusterSubUnitIdentifier,
+    // Only present for cluster experiments, so non-cluster hashes are unchanged.
+    ...(snapshotSettings.isClusterExperiment
+      ? {
+          isClusterExperiment: true,
+          clusterSubUnitIdentifier: snapshotSettings.clusterSubUnitIdentifier,
+        }
+      : {}),
     startDate: snapshotSettings.startDate,
     regressionAdjustmentEnabled: snapshotSettings.regressionAdjustmentEnabled,
     experimentId: snapshotSettings.experimentId,

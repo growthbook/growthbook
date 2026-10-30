@@ -2785,8 +2785,6 @@ export default abstract class SqlIntegration
       clusterSubUnit && !isClusterLevelQuery
         ? exposureQuery.identifierType
         : null;
-    // True only for the sub-unit rollup path; cluster-level queries analyze the
-    // cluster as a standard unit (useClusterRollup stays false there).
     const useClusterRollup = clusterIdColumn !== null;
 
     // Multi-FT funnels flatten all sources into one table, so column refs

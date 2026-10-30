@@ -990,11 +990,10 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // A cluster-ratio-conversion metric (mean) has no `_denominator_value`
     // cache column — reading one would reference a column the metric-source
     // cache never materializes and fail at the warehouse. Its denominator is
-    // COUNT(DISTINCT sub_unit) in __clusterRollup instead.
+    // a per-sub-unit COUNT(*) in __clusterRollup instead (one input row per
+    // sub-unit, so COUNT(*) == COUNT(DISTINCT sub_unit)).
     expect(sql).not.toMatch(/_denominator_value/);
-    expect(sql).toMatch(
-      /COUNT\(DISTINCT m\.user_id\)\s+AS\s+\w+_denominator\b/,
-    );
+    expect(sql).toMatch(/COUNT\(\*\)\s+AS\s+\w+_denominator\b/);
   });
 
   it("getIncrementalRefreshStatisticsQuery analyzes cluster-level metrics at the cluster grain", () => {

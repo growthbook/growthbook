@@ -64,9 +64,7 @@ import {
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
   getClusterSubUnit,
-  getClusterMetricAnalysisLevel,
   ClusterMetricAnalysisLevel,
-  isIsolatedDimension,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
   expandDerivedMetricsInMap,
@@ -228,11 +226,7 @@ import {
 } from "back-end/src/services/featurePublishGates";
 import { LegacyMetricAnalysisQueryRunner } from "back-end/src/queryRunners/LegacyMetricAnalysisQueryRunner";
 import { ExperimentResultsQueryRunner } from "back-end/src/queryRunners/ExperimentResultsQueryRunner";
-import { QueryMap, getQueryMap } from "back-end/src/queryRunners/QueryRunner";
-import {
-  buildUnitDimensionQueryMap,
-  filterParentQueryMap,
-} from "back-end/src/queryRunners/unitDimensionQueryNaming";
+import { getQueryMap } from "back-end/src/queryRunners/QueryRunner";
 import {
   FactTableMap,
   getFactTableMap,
@@ -685,38 +679,16 @@ export function getSnapshotMetricEligibility({
     return { allowed: true, clusterLevel: null };
   }
 
-  const getFactTable = (factTableId: string) => factTableMap.get(factTableId);
-
   const eligibility = getClusterExperimentMetricEligibility(metric, {
     clusterIdentifier: exposureQueryIdentifierType,
     clusterSubUnitIdentifier,
-    getFactTable,
+    getFactTable: (factTableId) => factTableMap.get(factTableId),
     datasourceSettings: datasource?.settings,
   });
   if (!eligibility.allowed) {
     return { allowed: false, reason: eligibility.reason, clusterLevel: null };
   }
-
-  // Eligibility already guarantees a fact metric with a resolvable level, but
-  // resolve it explicitly so callers can build clusterLevelMetricIds in the
-  // same pass.
-  const clusterLevel = isFactMetric(metric)
-    ? getClusterMetricAnalysisLevel(metric, {
-        clusterIdentifier: exposureQueryIdentifierType,
-        clusterSubUnitIdentifier,
-        getFactTable,
-        datasourceSettings: datasource?.settings,
-      })
-    : null;
-  if (!clusterLevel) {
-    return {
-      allowed: false,
-      reason: "this metric has no valid cluster analysis level.",
-      clusterLevel: null,
-    };
-  }
-
-  return { allowed: true, clusterLevel };
+  return { allowed: true, clusterLevel: eligibility.level };
 }
 
 export function createMetricEligibilityResolver(params: {
@@ -855,7 +827,7 @@ export function getSnapshotSettings({
     clusterSubUnitIdentifier &&
     dimensions.length > MAX_CLUSTER_SUBUNIT_DIMENSIONS
   ) {
-    logger.info(
+    logger.warn(
       {
         experimentId: experiment.id,
         requested: dimensions.length,
@@ -1081,7 +1053,7 @@ export function getSnapshotSettings({
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
     isClusterExperiment: !!clusterSubUnitIdentifier,
-    clusterSubUnitIdentifier: clusterSubUnitIdentifier ?? undefined,
+    clusterSubUnitIdentifier,
     ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
@@ -3330,37 +3302,6 @@ async function getSnapshotAnalyses(
   return analysisParamsMap;
 }
 
-// Loads the query results needed to run gbstats for the given analyses. For
-// unit-dimension analyses (whose queries live under a `unitdim:<dim>:` prefix
-// on the parent snapshot), the map is filtered + renamed so gbstats sees the
-// bare metric keys it expects.
-async function getQueryMapForAnalysis(
-  context: ReqContext | ApiReqContext,
-  snapshot: ExperimentSnapshotInterface,
-  analysisSettingsList: ExperimentSnapshotAnalysisSettings[],
-): Promise<QueryMap> {
-  const queryMap = await getQueryMap(context, snapshot.queries);
-  const dimensionId = analysisSettingsList[0]?.dimensions[0];
-  // Isolated dimensions (precomputed unit dimensions, plus cluster-experiment
-  // sub-unit dimensions) are stored as their own `unitdim:<id>:` queries rather
-  // than folded into the parent query, so they are analyzed from a filtered
-  // sub-map keyed on the dimension id.
-  if (dimensionId && isIsolatedDimension(snapshot.settings, dimensionId)) {
-    const unitDimQueryMap = buildUnitDimensionQueryMap(queryMap, dimensionId);
-    if (unitDimQueryMap.size === 0) {
-      // The parent snapshot lists this isolated dimension in its settings but
-      // has no `unitdim:<id>:` query results — either the snapshot predates
-      // this feature or its isolated-dimension queries were pruned/failed.
-      // Refreshing the snapshot will repopulate them.
-      throw new Error(
-        `Snapshot is missing query results for dimension "${dimensionId}". Refresh the experiment results to recompute.`,
-      );
-    }
-    return unitDimQueryMap;
-  }
-  return filterParentQueryMap(queryMap);
-}
-
 export async function createSnapshotAnalyses(
   params: SnapshotAnalysisParams[],
   context: ReqContext,
@@ -3409,9 +3350,7 @@ export async function createSnapshotAnalysis(
   });
 
   // Format data correctly
-  const queryMap = await getQueryMapForAnalysis(context, snapshot, [
-    analysisSettings,
-  ]);
+  const queryMap = await getQueryMap(context, snapshot.queries);
 
   // Run the analysis
   const { results } = await analyzeExperimentResults({
@@ -3473,11 +3412,7 @@ export async function createSnapshotAnalysesBatched(
     }),
   );
 
-  const queryMap = await getQueryMapForAnalysis(
-    context,
-    snapshot,
-    analysisSettingsList,
-  );
+  const queryMap = await getQueryMap(context, snapshot.queries);
 
   // Single gbstats call -- all analyses share the same queryResults and
   // metric settings, so we can use a single python process
@@ -5015,10 +4950,7 @@ export type ClusterExperimentConfigFields = {
 };
 
 function clusterMetricListChanged(a?: string[], b?: string[]): boolean {
-  const sortedA = [...(a ?? [])].sort();
-  const sortedB = [...(b ?? [])].sort();
-  if (sortedA.length !== sortedB.length) return true;
-  return sortedA.some((value, i) => value !== sortedB[i]);
+  return !isEqual([...(a ?? [])].sort(), [...(b ?? [])].sort());
 }
 
 function clusterConfigRequiresRevalidation(

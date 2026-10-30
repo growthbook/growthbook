@@ -14,7 +14,8 @@ describe("getStatisticsQueryVariants", () => {
     const parent = [dim("browser"), dim("country")];
     const variants = getStatisticsQueryVariants({
       baseName,
-      precomputationDisabled: false,
+      breakdownsDisabled: false,
+      parentFanOutDisabled: false,
       parentPrecomputedDimensions: parent,
       isolatedPrecomputedDimensions: [],
     });
@@ -24,12 +25,14 @@ describe("getStatisticsQueryVariants", () => {
     ]);
   });
 
-  it("emits a dimensionless query with no breakdowns when precomputation is disabled", () => {
+  it("runs only the overall query when breakdowns are disabled (quantile path)", () => {
     const variants = getStatisticsQueryVariants({
       baseName,
-      precomputationDisabled: true,
-      // Even if callers pass dimensions, a disabled run stays dimensionless.
-      parentPrecomputedDimensions: [dim("browser")],
+      breakdownsDisabled: true,
+      parentFanOutDisabled: false,
+      // Quantiles support overall stats only, so even isolated breakdowns are
+      // suppressed here.
+      parentPrecomputedDimensions: [dim("country")],
       isolatedPrecomputedDimensions: [dim("browser")],
     });
 
@@ -38,12 +41,36 @@ describe("getStatisticsQueryVariants", () => {
     ]);
   });
 
+  it("drops the parent fan-out but keeps isolated breakdowns when the fan-out is disabled", () => {
+    const browser = dim("browser");
+    const variants = getStatisticsQueryVariants({
+      baseName,
+      breakdownsDisabled: false,
+      parentFanOutDisabled: true,
+      // The eager parent fan-out is suppressed to save aggregation cost...
+      parentPrecomputedDimensions: [dim("country")],
+      // ...but an explicitly-requested breakdown (a cluster experiment's only
+      // breakdown path, or a standalone unit dimension) still runs isolated,
+      // so it no longer disappears silently.
+      isolatedPrecomputedDimensions: [browser],
+    });
+
+    expect(variants).toEqual([
+      { name: baseName, dimensionsForPrecomputation: [] },
+      {
+        name: "unitdim:precomputed:browser:statistics_grp0",
+        dimensionsForPrecomputation: [browser],
+      },
+    ]);
+  });
+
   it("emits a dimensionless overall query plus one isolated query per cluster breakdown", () => {
     const browser = dim("browser");
     const country = dim("country");
     const variants = getStatisticsQueryVariants({
       baseName,
-      precomputationDisabled: false,
+      breakdownsDisabled: false,
+      parentFanOutDisabled: false,
       // Cluster experiments keep the overall query dimensionless.
       parentPrecomputedDimensions: [],
       isolatedPrecomputedDimensions: [browser, country],
@@ -65,7 +92,8 @@ describe("getStatisticsQueryVariants", () => {
   it("names isolated queries so they round-trip through the unit-dimension parser", () => {
     const variants = getStatisticsQueryVariants({
       baseName,
-      precomputationDisabled: false,
+      breakdownsDisabled: false,
+      parentFanOutDisabled: false,
       parentPrecomputedDimensions: [],
       isolatedPrecomputedDimensions: [dim("browser")],
     });

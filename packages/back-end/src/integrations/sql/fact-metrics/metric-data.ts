@@ -162,10 +162,6 @@ export function getMetricData(
     },
     lowerCappingSettings: null,
   };
-  // Per-unit uncapped expressions (the value with no cap applied), used by Metric
-  // Drilldowns. Same consumption pattern as the capped expressions above: read
-  // directly in a standard experiment, summed into __clusterRollup for a cluster
-  // experiment.
   const uncappedCoalesceMetric = capCoalesceValue(dialect, {
     valueCol: `m${numeratorValueAlias}.${alias}_value`,
     metric: uncappedMetric,

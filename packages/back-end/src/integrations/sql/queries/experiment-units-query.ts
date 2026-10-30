@@ -73,18 +73,12 @@ export function getExperimentUnitsQuery(
   const clusterIdColumn = clusterSubUnit ? exposureQuery.identifierType : null;
   const effectiveBaseIdType = clusterSubUnit ?? exposureQuery.identifierType;
 
-  const isClusterKeyedUnitDimension = (
-    d: (typeof unitDimensions)[number],
-  ): boolean =>
-    clusterIdColumn !== null &&
-    (d.dimension.userIdType || "user_id") === clusterIdColumn;
-
-  // A segment keyed on the cluster column (e.g. region_id) is carried by the
-  // exposure rows directly, so it needs no separate identity join table.
-  const segmentIsClusterKeyed =
-    !!segment &&
-    clusterIdColumn !== null &&
-    (segment.userIdType || "user_id") === clusterIdColumn;
+  // Dimensions and segments keyed on the cluster column (e.g. region_id) join
+  // through the exposure rows directly, so they need no identity join table.
+  const isClusterKeyed = (idType: string) => idType === clusterIdColumn;
+  const getUnitDimensionIdType = (d: (typeof unitDimensions)[number]) =>
+    d.dimension.userIdType || "user_id";
+  const segmentIdType = segment ? segment.userIdType || "user_id" : null;
 
   const { baseIdType, idJoinMap, idJoinSQL } = getIdentitiesCTE(
     dialect,
@@ -94,11 +88,10 @@ export function getExperimentUnitsQuery(
         [effectiveBaseIdType],
         activationMetric ? getUserIdTypes(activationMetric, factTableMap) : [],
         ...unitDimensions
-          .filter((d) => !isClusterKeyedUnitDimension(d))
-          .map((d) => [d.dimension.userIdType || "user_id"]),
-        segment && !segmentIsClusterKeyed
-          ? [segment.userIdType || "user_id"]
-          : [],
+          .map(getUnitDimensionIdType)
+          .filter((idType) => !isClusterKeyed(idType))
+          .map((idType) => [idType]),
+        segmentIdType && !isClusterKeyed(segmentIdType) ? [segmentIdType] : [],
       ],
       from: unitsSettings.startDate,
       to: unitsSettings.endDate,
@@ -109,17 +102,12 @@ export function getExperimentUnitsQuery(
 
   const getUnitDimensionJoinIdType = (
     d: (typeof unitDimensions)[number],
-  ): string =>
-    isClusterKeyedUnitDimension(d) && clusterIdColumn !== null
-      ? clusterIdColumn
-      : baseIdType;
-
-  // Cluster-keyed segments join through the cluster column carried by the
-  // exposure rows rather than the sub-unit base id type.
+  ): string => {
+    const idType = getUnitDimensionIdType(d);
+    return isClusterKeyed(idType) ? idType : baseIdType;
+  };
   const segmentJoinIdType =
-    segmentIsClusterKeyed && clusterIdColumn !== null
-      ? clusterIdColumn
-      : baseIdType;
+    segmentIdType && isClusterKeyed(segmentIdType) ? segmentIdType : baseIdType;
 
   const startDate: Date = unitsSettings.startDate;
   const endDate: Date = getExperimentEndDate(unitsSettings, 0);
