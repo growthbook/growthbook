@@ -21,11 +21,14 @@ export const editsOnClick = styles.clickFrame;
 export function QuickEditRow({
   label,
   onEdit,
+  blockedReason = null,
   align = "start",
   children,
 }: {
   label: string;
   onEdit?: (() => void) | null;
+  // Shown on the row instead of opening the editor.
+  blockedReason?: string | null;
   align?: "start" | "center";
   children: ReactNode;
 }) {
@@ -34,15 +37,20 @@ export function QuickEditRow({
       align={align}
       justify="between"
       gap="3"
-      className={onEdit ? clsx(styles.revealsEdit, styles.clickRow) : undefined}
+      className={
+        onEdit
+          ? clsx(styles.revealsEdit, !blockedReason && styles.clickRow)
+          : undefined
+      }
     >
       {children}
       {onEdit ? (
         <QuickEditButton
           label={label}
           onClick={onEdit}
+          blockedReason={blockedReason}
           labelTooltip={false}
-          fillsRow
+          fillsRow={!blockedReason}
         />
       ) : null}
     </Flex>

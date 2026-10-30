@@ -173,6 +173,7 @@ export default function AnalysisPlanAdvanced({
   metrics,
   stage,
   manageOverrides,
+  manageOverridesBlockedReason = null,
   canEdit,
 }: {
   open: boolean;
@@ -190,6 +191,8 @@ export default function AnalysisPlanAdvanced({
   stage: (changes: ExperimentAnalysisSettingsDraft) => void;
   /** Opens the overrides editor on every metric; omitted where it can't open. */
   manageOverrides?: () => void;
+  /** Why the override editor couldn't change anything here. */
+  manageOverridesBlockedReason?: string | null;
   canEdit: boolean;
 }) {
   const {
@@ -576,6 +579,7 @@ export default function AnalysisPlanAdvanced({
                 <QuickEditRow
                   label="Edit metric overrides"
                   onEdit={manageOverrides}
+                  blockedReason={manageOverridesBlockedReason}
                 >
                   <Text
                     color={overriddenNames.length ? "text-high" : "text-mid"}

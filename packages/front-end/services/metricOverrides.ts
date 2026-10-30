@@ -261,6 +261,29 @@ export function mergeTargetMDEs(
   return [...kept, ...added];
 }
 
+// Why the override editor can't change a metric, or null where it can. Goals'
+// target MDEs stay editable where nothing else is, since they only change how
+// finished results are judged.
+export function getOverridesBlockedReason({
+  hasFeature,
+  incremental,
+  targetMDEsEditable,
+  goal,
+}: {
+  hasFeature: boolean;
+  incremental: boolean;
+  /** The decision framework runs, so goals have target MDEs. */
+  targetMDEsEditable: boolean;
+  goal: boolean;
+}): string | null {
+  if (hasFeature && !incremental) return null;
+  if (goal && targetMDEsEditable) return null;
+  if (!hasFeature) return "Overriding metrics is available on paid plans.";
+  return targetMDEsEditable
+    ? "Experiments using incremental refresh can only override goal metrics' target MDEs."
+    : "Metric overrides aren't available for experiments using incremental refresh.";
+}
+
 // Drops the deprecated window and risk fields older saved overrides still
 // carry, which the override schema refuses.
 export function withoutDeprecatedOverrideFields(

@@ -4,6 +4,7 @@ import {
   describeMetricOverride,
   describeMetricSettings,
   getOverriddenMetricIds,
+  getOverridesBlockedReason,
   mergeTargetMDEs,
   MetricSettingsInput,
   pruneMetricOverrides,
@@ -319,5 +320,47 @@ describe("withoutDeprecatedOverrideFields", () => {
       { id: "met_a", windowType: "conversion", windowHours: 72, delayHours: 1 },
     ]);
     expect(legacy.conversionWindowHours).toBe(72);
+  });
+});
+
+describe("getOverridesBlockedReason", () => {
+  const paid = "Overriding metrics is available on paid plans.";
+  const goalsOnly =
+    "Experiments using incremental refresh can only override goal metrics' target MDEs.";
+  const none =
+    "Metric overrides aren't available for experiments using incremental refresh.";
+  const reason = (
+    hasFeature: boolean,
+    incremental: boolean,
+    targetMDEsEditable: boolean,
+    goal: boolean,
+  ) =>
+    getOverridesBlockedReason({
+      hasFeature,
+      incremental,
+      targetMDEsEditable,
+      goal,
+    });
+
+  it("opens for every metric with the feature and no incremental refresh", () => {
+    expect(reason(true, false, false, false)).toBeNull();
+    expect(reason(true, false, true, true)).toBeNull();
+  });
+
+  it("keeps goals' target MDEs open under incremental refresh", () => {
+    expect(reason(true, true, true, true)).toBeNull();
+    expect(reason(true, true, true, false)).toBe(goalsOnly);
+  });
+
+  it("locks everything under incremental refresh without target MDEs", () => {
+    expect(reason(true, true, false, true)).toBe(none);
+    expect(reason(true, true, false, false)).toBe(none);
+  });
+
+  it("keeps goals' target MDEs open without the feature", () => {
+    expect(reason(false, false, true, true)).toBeNull();
+    expect(reason(false, true, true, true)).toBeNull();
+    expect(reason(false, false, true, false)).toBe(paid);
+    expect(reason(false, true, false, true)).toBe(paid);
   });
 });

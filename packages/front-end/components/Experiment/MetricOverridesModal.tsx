@@ -17,6 +17,7 @@ import { useUser } from "@/services/UserContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
 import { decimalToPercent } from "@/services/utils";
 import {
+  getOverridesBlockedReason,
   mergeTargetMDEs,
   pruneMetricOverrides,
   withoutDeprecatedOverrideFields,
@@ -77,6 +78,13 @@ export default function MetricOverridesModal({
   // A target MDE only changes how finished results are judged, so it stays
   // editable where nothing else is.
   const onlyTargetMDE = !canOverride && !!targetMDEOverrides;
+  // What stays locked, beyond the goals' target MDEs.
+  const blockedReason = getOverridesBlockedReason({
+    hasFeature,
+    incremental,
+    targetMDEsEditable: !!targetMDEOverrides,
+    goal: false,
+  });
 
   const goalIds = targetMDEOverrides
     ? expandMetricGroups(metrics.goalMetrics, metricGroups)
@@ -180,15 +188,9 @@ export default function MetricOverridesModal({
         );
       })}
     >
-      {!hasFeature ? (
+      {blockedReason ? (
         <Callout status="info" mb="3">
-          Overriding metrics is available on paid plans.
-        </Callout>
-      ) : incremental ? (
-        <Callout status="info" mb="3">
-          {onlyTargetMDE
-            ? "Experiments using incremental refresh can only override goal metrics' target MDEs."
-            : "Metric overrides aren't available for experiments using incremental refresh."}
+          {blockedReason}
         </Callout>
       ) : null}
       <MetricsOverridesSelector

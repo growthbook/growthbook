@@ -38,6 +38,7 @@ import HelperText from "@/ui/HelperText";
 import Button from "@/ui/Button";
 import Link from "@/ui/Link";
 import Text from "@/ui/Text";
+import Tooltip from "@/ui/Tooltip";
 
 /** What a metric's settings are resolved against in its hover card. */
 export interface MetricSettingsScope {
@@ -87,6 +88,7 @@ export function MetricOverrideTooltipContent({
   id,
   overrides,
   onManageOverrides,
+  manageOverridesBlockedReason = null,
   members,
   filterConversionWindowMetrics,
   settingsScope,
@@ -96,6 +98,8 @@ export function MetricOverrideTooltipContent({
   overrides: MetricOverride[];
   /** Opens the override editor on these metrics; omitted where it can't open. */
   onManageOverrides?: (metricIds: string[]) => void;
+  /** Why the editor couldn't change these metrics, so its button stays shut. */
+  manageOverridesBlockedReason?: string | null;
   /** For a group, how each of its metrics fares against the query. */
   members?: GroupMemberStatus[];
   /** Whether a conversion window counts against a metric here. */
@@ -266,14 +270,20 @@ export function MetricOverrideTooltipContent({
       )}
       {onManageOverrides ? (
         <Box>
-          <Button
-            variant="outline"
-            size="sm"
-            icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
-            onClick={() => onManageOverrides(memberIds)}
+          <Tooltip
+            content={manageOverridesBlockedReason}
+            enabled={!!manageOverridesBlockedReason}
           >
-            {hasOverrides ? "Manage overrides" : "Add overrides"}
-          </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
+              onClick={() => onManageOverrides(memberIds)}
+              disabled={!!manageOverridesBlockedReason}
+            >
+              {hasOverrides ? "Manage overrides" : "Add overrides"}
+            </Button>
+          </Tooltip>
         </Box>
       ) : null}
     </OptionTooltipShell>
