@@ -16,6 +16,7 @@ import {
   getRoles,
   hasSuperAdminPermission,
   holdsAllSuperAdminPermissions,
+  normalizeSuperAdmin,
 } from "shared/permissions";
 import { isExpired } from "shared/api-key-expiration";
 import uniqid from "uniqid";
@@ -74,6 +75,8 @@ import {
   importConfig,
   inviteUser,
   isEnterpriseSSO,
+  isOrgScopedLogin,
+  isValidLoginMethod,
   removeMember,
   revokeInvite,
   setLicenseKey,
@@ -581,7 +584,7 @@ export async function putMember(
   }
 
   // ensure org matches one of the calculated verified org
-  const organizations = await findVerifiedOrgsForNewUser(req.email);
+  const organizations = await findVerifiedOrgsForNewUser(req.email, req);
   if (!organizations) {
     throw new Error("Invalid orgId");
   }
@@ -1383,6 +1386,15 @@ export async function postInviteAccept(
     if (!req.userId || !req.email) {
       throw new Error("Must be logged in");
     }
+    // An SSO or Vercel login only vouches for the email within its own org
+    if (isOrgScopedLogin(req)) {
+      const invitingOrg = await findOrganizationByInviteKey(key);
+      if (invitingOrg && !isValidLoginMethod(invitingOrg, req)) {
+        throw new Error(
+          "Log out and sign in with Google or email and password to accept this invitation.",
+        );
+      }
+    }
     const org = await acceptInvite(key, req.userId, req.email);
     await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
 
@@ -1540,6 +1552,13 @@ export async function signup(
 ) {
   // Note: Request will not have an organization at this point. Do not use getContextFromReq
   const { company, externalId, demographicData } = req.body;
+
+  // The new org wouldn't accept this login, so the user would be locked out of it
+  if (isOrgScopedLogin(req)) {
+    throw new Error(
+      "Log out and sign in with Google or email and password to create an organization.",
+    );
+  }
 
   const orgs = await hasOrganization();
   // Only allow one organization per site unless IS_MULTI_ORG is true
@@ -2050,6 +2069,13 @@ export async function postApiKey(
     if (!userId) {
       throw new Error(
         "Cannot create user personal access token without a user ID",
+      );
+    }
+    // Tokens take super admin from the user record, not from this login
+    const user = await getUserById(userId);
+    if (normalizeSuperAdmin(user?.superAdmin) && !req.superAdmin) {
+      throw new Error(
+        "Super admins must sign in with a method that grants super admin access to create personal access tokens.",
       );
     }
     key = await context.models.apiKeys.createUserPersonalAccessApiKey({
