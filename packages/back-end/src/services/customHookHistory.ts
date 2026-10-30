@@ -27,6 +27,10 @@ export type CustomHookVersion = {
 const DEFAULT_HISTORY_LIMIT = 100;
 
 const asString = (v: unknown): string => (typeof v === "string" ? v : "");
+const asStringArray = (v: unknown): string[] | undefined =>
+  Array.isArray(v)
+    ? v.filter((x): x is string => typeof x === "string")
+    : undefined;
 const asDate = (v: unknown): string | undefined =>
   typeof v === "string" ? v : v instanceof Date ? v.toISOString() : undefined;
 
@@ -47,6 +51,7 @@ function snapshotToApi(s: Record<string, unknown>): ApiCustomHook {
       typeof s.incrementalChangesOnly === "boolean"
         ? s.incrementalChangesOnly
         : undefined,
+    inputFeatures: asStringArray(s.inputFeatures),
     lastSuccess: asDate(s.lastSuccess),
     lastFailure: asDate(s.lastFailure),
     dateCreated: asDate(s.dateCreated) ?? "",
@@ -153,6 +158,10 @@ export async function revertCustomHookToVersion(
       typeof snapshot.incrementalChangesOnly === "boolean"
         ? snapshot.incrementalChangesOnly
         : undefined,
+    // A version saved before the list existed clears it.
+    inputFeatures:
+      asStringArray(snapshot.inputFeatures) ??
+      (hook.inputFeatures ? [] : undefined),
   };
 
   return context.models.customHooks.revertUpdate(hook, updates);
