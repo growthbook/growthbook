@@ -22,7 +22,7 @@ import ManagedWarehouseNoEventsCallout from "@/components/ManagedWarehouse/Manag
 import Link from "@/ui/Link";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { hasFileConfig } from "@/services/env";
+import { hasFileConfig, isCloud } from "@/services/env";
 import { DocLink } from "@/components/DocLink";
 import { DataSourceInlineEditIdentifierTypes } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentifierTypes/DataSourceInlineEditIdentifierTypes";
 import { DataSourceInlineEditIdentityJoins } from "@/components/Settings/EditDataSource/DataSourceInlineEditIdentityJoins/DataSourceInlineEditIdentityJoins";
@@ -374,10 +374,6 @@ const DataSourcePage: FC = () => {
     false;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
-  const eventsForwarderFlag = useFeatureValue(
-    "events-forwarder-multi-step",
-    "OFF",
-  );
 
   /**
    * Update the data source provided.
@@ -903,21 +899,20 @@ const DataSourcePage: FC = () => {
                 </Frame>
               )}
 
-              {datasourceSupportsEventForwarder &&
-                eventsForwarderFlag !== "OFF" && (
-                  <Frame mb="0">
-                    <EventForwarder
-                      dataSource={d}
-                      canEdit={canUpdateDataSourceSettings}
-                      onRefresh={async () => {
-                        await Promise.all([
-                          mutateDefinitions({}),
-                          mutateCurrentDataSource(),
-                        ]);
-                      }}
-                    />
-                  </Frame>
-                )}
+              {datasourceSupportsEventForwarder && isCloud() && (
+                <Frame mb="0">
+                  <EventForwarder
+                    dataSource={d}
+                    canEdit={canUpdateDataSourceSettings}
+                    onRefresh={async () => {
+                      await Promise.all([
+                        mutateDefinitions({}),
+                        mutateCurrentDataSource(),
+                      ]);
+                    }}
+                  />
+                </Frame>
+              )}
 
               {supportsEvents && (
                 <Frame mb="0">
