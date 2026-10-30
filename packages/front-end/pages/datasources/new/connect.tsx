@@ -8,7 +8,9 @@ import {
 } from "shared/types/datasource";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
-import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";
+import ConnectDataSourceLayout, {
+  PASSWORD_USER_TYPES,
+} from "@/components/DataSourceSetup/ConnectDataSourceLayout";
 import { ConnectSetupKind } from "@/components/DataSourceSetup/DataSourceConnectInstructions";
 import { defaultEventForwarderDestination } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import { generateStrongPassword } from "@/components/DataSourceSetup/generateStrongPassword";
@@ -20,14 +22,6 @@ import { useNewDataSourceOnboarding } from "@/hooks/useNewDataSourceOnboarding";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { dataSourceConnections } from "@/services/eventSchema";
-
-// Warehouses whose setup instructions create a password-authenticated user.
-const PASSWORD_USER_TYPES = new Set<DataSourceType>([
-  "postgres",
-  "redshift",
-  "mysql",
-  "mssql",
-]);
 
 function first(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;

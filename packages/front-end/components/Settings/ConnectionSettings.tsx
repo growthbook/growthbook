@@ -1,8 +1,8 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ChangeEventHandler, ReactNode, useEffect, useState } from "react";
-import { PiCaretRightFill } from "react-icons/pi";
-import Collapsible from "react-collapsible";
+import { Box } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
@@ -28,8 +28,8 @@ export interface Props {
   advancedSettingsPrefix?: ReactNode;
   /** Open Advanced Settings now, and again if this becomes true later. */
   expandAdvancedSettings?: boolean;
-  /** Skip the extra margin under Advanced Settings while it is collapsed. */
-  omitClosedAdvancedMargin?: boolean;
+  /** Shown next to the trigger while closed, e.g. the current Project scope. */
+  advancedSettingsSummary?: ReactNode;
   /**
    * Collect credentials only. The connection test lives outside this form and
    * no SQL is generated on save, so BigQuery hides its Default Dataset field
@@ -53,7 +53,7 @@ export default function ConnectionSettings({
   beforeAdvancedSettings,
   advancedSettingsPrefix,
   expandAdvancedSettings = false,
-  omitClosedAdvancedMargin = false,
+  advancedSettingsSummary,
   connectionOnly = false,
   keyPairGenerator,
   hideSnowflakeSchema = false,
@@ -280,28 +280,27 @@ export default function ConnectionSettings({
       invalidType = datasource.type;
       throw `Invalid type: ${invalidType}`;
   }
-  const showAdvancedMargin = !omitClosedAdvancedMargin || advancedOpen;
   return (
     <>
       {datasourceComponent}
       {beforeAdvancedSettings}
-      <div className={showAdvancedMargin ? "mb-3" : undefined}>
-        <Collapsible
-          trigger={
-            <div
-              className={`link-purple font-weight-bold${
-                showAdvancedMargin ? " mb-2" : ""
-              }`}
-            >
-              <PiCaretRightFill className="chevron mr-1" />
-              Advanced Settings
-            </div>
-          }
+      <Box mb="3">
+        <CollapseTrigger
           open={advancedOpen}
-          onClose={() => setAdvancedOpen(false)}
-          transitionTime={100}
+          onOpenChange={setAdvancedOpen}
+          caret="start"
+          action={
+            !advancedOpen && advancedSettingsSummary ? (
+              <span className="text-muted">{advancedSettingsSummary}</span>
+            ) : undefined
+          }
         >
-          <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+          <span className="link-purple font-weight-bold">
+            Advanced Settings
+          </span>
+        </CollapseTrigger>
+        <Collapse open={advancedOpen}>
+          <div className="rounded px-3 pt-3 pb-1 mt-2 bg-highlight">
             {advancedSettingsPrefix}
             {datasource.type === "bigquery" && (
               <BigQueryAdvancedSettings
@@ -316,8 +315,8 @@ export default function ConnectionSettings({
               settings={datasource?.settings || {}}
             />
           </div>
-        </Collapsible>
-      </div>
+        </Collapse>
+      </Box>
     </>
   );
 }

@@ -54,6 +54,7 @@ import Tooltip from "@/ui/Tooltip";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import { KeyPairGenerator } from "@/components/Settings/SnowflakeForm";
 import { buildEventForwarderConnectDraft } from "./buildEventForwarderConnectDraft";
+import DataSourceTypeIcon from "./DataSourceTypeIcon";
 import DataSourceConnectInstructions, {
   ConnectSetupKind,
 } from "./DataSourceConnectInstructions";
@@ -74,6 +75,28 @@ function isEventForwarderSink(
   type: DataSourceType | undefined,
 ): type is EventForwarderSinkType {
   return type === "bigquery" || type === "snowflake" || type === "databricks";
+}
+
+// Warehouses whose setup instructions create a password-authenticated user.
+export const PASSWORD_USER_TYPES = new Set<DataSourceType>([
+  "postgres",
+  "redshift",
+  "mysql",
+  "mssql",
+]);
+
+function hasGeneratedPassword(
+  datasource: Partial<DataSourceInterfaceWithParams>,
+  initial: Partial<DataSourceInterfaceWithParams>,
+): boolean {
+  if (!datasource.type || !PASSWORD_USER_TYPES.has(datasource.type)) {
+    return false;
+  }
+  const current = datasource.params as { password?: string } | undefined;
+  const generated = initial.params as { password?: string } | undefined;
+  // True only while the field still holds the value the page filled in;
+  // the note is misleading once the user has typed their own.
+  return !!generated?.password && current?.password === generated.password;
 }
 
 function ingestorForRegion(region: DataRegion): string {
@@ -442,6 +465,15 @@ export default function ConnectDataSourceLayout({
   const expandProjectRestriction =
     showProjectPicker &&
     ((datasource.projects?.length ?? 0) > 0 || projectPermissionError !== null);
+  // Who can see a new Data Source is an access decision, so the collapsed
+  // row still names the current scope rather than hiding it entirely.
+  const projectsSummary = showProjectPicker
+    ? (datasource.projects?.length ?? 0) > 0
+      ? `${datasource.projects?.length} Project${
+          datasource.projects?.length === 1 ? "" : "s"
+        }`
+      : "All Projects"
+    : undefined;
 
   const canTest =
     !!datasource.type &&
@@ -842,17 +874,7 @@ export default function ConnectDataSourceLayout({
         style={{ scrollbarGutter: "stable" }}
       >
         <Flex align="center" gap="3" wrap="wrap" mb="2">
-          <Flex
-            align="center"
-            justify="center"
-            flexShrink="0"
-            aria-hidden="true"
-            width="40px"
-            height="40px"
-            style={{ fontSize: 32, lineHeight: 1 }}
-          >
-            {typeInfo.icon}
-          </Flex>
+          <DataSourceTypeIcon icon={typeInfo.icon} size="lg" />
           <Heading as="h1" size="xl" mb="0">
             {existing
               ? `Edit ${typeInfo.display}`
@@ -899,14 +921,10 @@ export default function ConnectDataSourceLayout({
             keyPairGenerator={keyPairGenerator}
             hideSnowflakeSchema={checksWrite && datasource.type === "snowflake"}
             generatedPassword={
-              !existing &&
-              (datasource.type === "postgres" ||
-                datasource.type === "redshift" ||
-                datasource.type === "mysql" ||
-                datasource.type === "mssql")
+              !existing && hasGeneratedPassword(datasource, initial)
             }
             expandAdvancedSettings={expandProjectRestriction}
-            omitClosedAdvancedMargin
+            advancedSettingsSummary={projectsSummary}
             advancedSettingsPrefix={
               showProjectPicker ? (
                 <Box mb="3">

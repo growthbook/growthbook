@@ -1,8 +1,10 @@
 import { FC, ChangeEventHandler, useState } from "react";
+import { Box } from "@radix-ui/themes";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import ConfirmDialog from "@/ui/ConfirmDialog";
 import FileInput from "@/ui/FileInput";
 import HelperText from "@/ui/HelperText";
 import Link from "@/ui/Link";
@@ -54,6 +56,7 @@ const SnowflakeForm: FC<{
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   const [generateFailed, setGenerateFailed] = useState(false);
   const [showOwnKey, setShowOwnKey] = useState(false);
+  const [confirmRegenerate, setConfirmRegenerate] = useState(false);
   // Bumped on each successful generate so the file input remounts and drops
   // a previously chosen file name. Keyed on this rather than "is the
   // generated key in use" so uploading a file afterward keeps its name.
@@ -81,6 +84,16 @@ const SnowflakeForm: FC<{
     if (ok) {
       setGeneration((g) => g + 1);
       setShowOwnKey(false);
+    }
+  };
+  // Generating is a no-op the first time, since there is nothing in the form
+  // yet. Replacing a key already in use breaks a Snowflake user that already
+  // ran the setup SQL, so that case asks first.
+  const onRegenerateClick = () => {
+    if (usingGeneratedKey) {
+      setConfirmRegenerate(true);
+    } else {
+      void regenerateKeyPair();
     }
   };
 
@@ -202,9 +215,7 @@ const SnowflakeForm: FC<{
           >
             A key pair was generated for this connection. The setup instructions
             include the public key.{" "}
-            <Tooltip body="Replaces the key in the form. Rerun the SQL in Snowflake afterward.">
-              <Link onClick={regenerateKeyPair}>Regenerate key</Link>
-            </Tooltip>
+            <Link onClick={onRegenerateClick}>Regenerate key pair</Link>
           </Callout>
         </div>
       ) : null}
@@ -238,13 +249,13 @@ const SnowflakeForm: FC<{
               }
             />
             {keyPairGenerator ? (
-              <div className="mt-2">
-                <Link onClick={regenerateKeyPair}>
+              <Box mt="2">
+                <Link onClick={onRegenerateClick}>
                   {usingGeneratedKey
                     ? "Regenerate key pair"
                     : "Generate key pair"}
                 </Link>
-              </div>
+              </Box>
             ) : null}
             {generationFailed ? (
               <HelperText status="error" size="sm" mt="1">
@@ -386,6 +397,18 @@ const SnowflakeForm: FC<{
           />
         </div>
       )}
+      {confirmRegenerate ? (
+        <ConfirmDialog
+          title="Regenerate key pair?"
+          content="This replaces the private key in the form right away. If this connection already ran the setup SQL in Snowflake, that user stops authenticating until you rerun it with the new key."
+          yesText="Regenerate"
+          onConfirm={async () => {
+            setConfirmRegenerate(false);
+            await regenerateKeyPair();
+          }}
+          onCancel={() => setConfirmRegenerate(false)}
+        />
+      ) : null}
     </div>
   );
 };

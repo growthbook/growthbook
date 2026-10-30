@@ -20,6 +20,7 @@ import RadioCards from "@/ui/RadioCards";
 import Text from "@/ui/Text";
 import DataSourceOptionPricing from "./DataSourceOptionPricing";
 import DataSourceTermsCheckbox from "./DataSourceTermsCheckbox";
+import DataSourceTypeIcon from "./DataSourceTypeIcon";
 import { useDataSourceOptionPricing } from "./useDataSourceOptionPricing";
 
 const HOW_IT_WORKS: {
@@ -156,11 +157,7 @@ export default function EventForwarderModal({
         options={WAREHOUSES.map((connection) => ({
           value: connection.type,
           label: connection.display,
-          avatar: (
-            <Flex align="center" flexShrink="0" style={{ fontSize: 28 }}>
-              {connection.icon}
-            </Flex>
-          ),
+          avatar: <DataSourceTypeIcon icon={connection.icon} />,
         }))}
       />
       <Callout status="info" mt="3" icon={<PiInfo />}>

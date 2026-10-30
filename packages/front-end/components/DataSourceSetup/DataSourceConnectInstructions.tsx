@@ -59,6 +59,10 @@ function PlainCommand({ code }: { code: string }) {
   );
 }
 
+// Deliberately not components/SyntaxHighlighting/Code: this block has no
+// header or line numbers, wraps long lines, and its copy button (in
+// CommandBlock, below) has to substitute a masked secret back in, which
+// Code's own copy button doesn't support.
 function SqlCommand({ code }: { code: string }) {
   const { theme } = useAppearanceUITheme();
   const style = useMemo(() => {

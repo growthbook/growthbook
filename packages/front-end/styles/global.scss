@@ -3452,7 +3452,9 @@ select.form-control {
   font-size: var(--font-size-2);
 }
 // The native arrow sits against the border. Draw our own so it lines up with
-// the field's right padding.
+// the field's right padding. Only 4 native `<select class="form-control">`
+// elements exist app-wide (checked via grep); none use the --sm/--md/--lg
+// size variants (those are input/textarea only) or set their own background.
 select.form-control:not([multiple]):not([size]) {
   appearance: none;
   padding-right: 2.25rem;
