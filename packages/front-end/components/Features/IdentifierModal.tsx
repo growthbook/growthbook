@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Box, Flex, Grid } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { SDKAttribute, SDKAttributeType } from "shared/types/organization";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
@@ -7,7 +7,7 @@ import {
   attributeMatchesDatasourceProjects,
   attributeToUserIdTypeName,
 } from "shared/util";
-import { PiDatabase, PiLockSimple, PiPlus } from "react-icons/pi";
+import { PiDatabase, PiLockSimple } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -23,18 +23,22 @@ import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
+import AttributeFormLayout, {
+  DescriptionField,
+} from "@/components/Features/AttributeFormLayout";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
-import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import TagsInput from "@/components/Tags/TagsInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import AddAttributeSnippet from "@/components/SyntaxHighlighting/Snippets/AddAttributeSnippet";
 
-const ADD_COLUMNS = "minmax(0, 1fr)";
-const EDIT_COLUMNS = "minmax(0, 1fr) 200px 140px";
-const ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
 const PLACEHOLDER_NAME = "newIdentifier";
-const PANEL_WIDTH = 380;
 // Select value for creating a type named after the identifier.
 const NEW_TYPE = "__new__";
 
@@ -117,8 +121,6 @@ export default function IdentifierModal({
   );
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [description, setDescription] = useState(existing?.description ?? "");
-  const initialDescription = existing?.description ?? "";
-  const [showDescription, setShowDescription] = useState(!!initialDescription);
   const [customFields, setCustomFields] = useState<Record<string, string>>(
     existing?.customFields ?? {},
   );
@@ -209,8 +211,6 @@ export default function IdentifierModal({
     return types.length ? "" : NEW_TYPE;
   };
 
-  const columns = isEdit ? EDIT_COLUMNS : ADD_COLUMNS;
-
   return (
     <ModalStandard
       open={true}
@@ -250,143 +250,142 @@ export default function IdentifierModal({
         }
       }}
     >
-      <Grid columns={`minmax(0, 1fr) ${PANEL_WIDTH}px`} gap="6">
-        <Flex direction="column" gap="5" style={{ minWidth: 0 }}>
-          <TextField
-            label="Name"
-            autoComplete="off"
-            data-1p-ignore
-            required
-            markRequired
-            autoFocus={!isEdit}
-            value={name}
-            placeholder={PLACEHOLDER_NAME}
-            onChange={(e) => setName(e.target.value)}
-            helpText="Must match the key your SDK passes in."
-          />
-          {renamed && (
-            <Callout status="warning">
-              Renaming doesn&apos;t update targeting that uses{" "}
-              <code>{existing.property}</code>
-              {refCount > 0 &&
-                ` (${refCount} ${refCount === 1 ? "reference" : "references"})`}
-              . It keeps using the old name until you change it.
-            </Callout>
-          )}
-          {showDescription ? (
-            <Flex direction="column" gap="1">
-              <Text as="label" weight="semibold">
-                Description
-              </Text>
-              <MarkdownInput
-                value={description}
-                setValue={setDescription}
-                placeholder="Add notes about this identifier (markdown supported)"
-                autofocus={!initialDescription}
-                showButtons={false}
-              />
-            </Flex>
-          ) : (
-            <Box>
-              <Link onClick={() => setShowDescription(true)}>
-                <Flex align="center" gap="1">
-                  <PiPlus />
-                  <Text weight="medium">Add a description</Text>
-                </Flex>
-              </Link>
-            </Box>
-          )}
-          <Select
-            label="Data type"
-            value={datatype}
-            setValue={(v) =>
-              setDatatype(
-                IDENTIFIER_DATATYPES.find((d) => d.value === v)?.value ??
-                  "string",
-              )
-            }
-          >
-            {IDENTIFIER_DATATYPES.map((d) => (
-              <SelectItem key={d.value} value={d.value}>
-                {d.label}
-              </SelectItem>
-            ))}
-          </Select>
-          <MultiSelectField
-            label="Projects"
-            size="md"
-            legacyLabelFormatting={false}
-            placeholder="All Projects"
-            value={projects}
-            options={projectOptions}
-            onChange={setProjects}
-          />
-          <TagsInput
-            label="Tags"
-            size="md"
-            legacyLabelFormatting={false}
-            value={tags}
-            onChange={setTags}
-            autoFocus={false}
-          />
-          {availableCustomFields.length > 0 && (
-            <CustomFieldInput
-              fields={availableCustomFields}
-              mt="0"
-              value={customFieldValues}
-              onChange={setCustomFields}
+      <AttributeFormLayout
+        panel={
+          <>
+            <AddAttributeSnippet
+              property={newProperty}
+              value={datatype === "number" ? 123 : "foo"}
+              projects={projects}
             />
-          )}
-
-          {shown.length > 0 && (
-            <Flex direction="column" gap="2">
-              <Box>
-                <Text weight="semibold">Data Sources</Text>
-                <Text as="p" size="sm" color="text-low">
-                  {isEdit ? (
-                    <>
-                      Link this identifier in more Data Sources so experiments
-                      using it pick the right assignment query. Change existing
-                      links from the Data Source.
-                    </>
-                  ) : (
-                    <>
-                      Adds the identifier type <code>{defaultType}</code> to
-                      each Data Source you check.
-                    </>
-                  )}
+            {shownTypes.length > 0 && (
+              <Flex direction="column" gap="2">
+                <Flex align="center" gap="2">
+                  <PiDatabase />
+                  <Text weight="semibold" color="text-mid">
+                    In your assignment queries &amp; fact tables
+                  </Text>
+                </Flex>
+                <Text size="sm">
+                  When you set up an assignment query or fact table, map{" "}
+                  {shownTypes.map((t, i) => (
+                    <span key={t}>
+                      {i > 0 && (i === shownTypes.length - 1 ? " and " : ", ")}
+                      <code>{t}</code>
+                    </span>
+                  ))}{" "}
+                  to the column that holds it. The column can have any name.
                 </Text>
-              </Box>
-              {mappable.length > 0 && (
-                <Box
-                  style={{
-                    border: "1px solid var(--gray-a5)",
-                    borderRadius: "var(--radius-3)",
-                  }}
-                >
-                  <Grid
-                    columns={columns}
-                    gap="3"
-                    px="3"
-                    py="2"
-                    style={{ background: "var(--gray-a2)" }}
-                  >
-                    <Box pl="5">
-                      <Text size="sm" color="text-mid">
-                        Data Source
-                      </Text>
-                    </Box>
+              </Flex>
+            )}
+          </>
+        }
+      >
+        <TextField
+          label="Name"
+          autoComplete="off"
+          data-1p-ignore
+          required
+          markRequired
+          autoFocus={!isEdit}
+          value={name}
+          placeholder={PLACEHOLDER_NAME}
+          onChange={(e) => setName(e.target.value)}
+          helpText="Must match the key your SDK passes in."
+        />
+        {renamed && (
+          <Callout status="warning">
+            Renaming doesn&apos;t update targeting that uses{" "}
+            <code>{existing.property}</code>
+            {refCount > 0 &&
+              ` (${refCount} ${refCount === 1 ? "reference" : "references"})`}
+            . It keeps using the old name until you change it.
+          </Callout>
+        )}
+        <DescriptionField
+          value={description}
+          setValue={setDescription}
+          placeholder="Add notes about this identifier (markdown supported)"
+        />
+        <Select
+          label="Data type"
+          value={datatype}
+          setValue={(v) =>
+            setDatatype(
+              IDENTIFIER_DATATYPES.find((d) => d.value === v)?.value ??
+                "string",
+            )
+          }
+        >
+          {IDENTIFIER_DATATYPES.map((d) => (
+            <SelectItem key={d.value} value={d.value}>
+              {d.label}
+            </SelectItem>
+          ))}
+        </Select>
+        <MultiSelectField
+          label="Projects"
+          size="md"
+          legacyLabelFormatting={false}
+          placeholder="All Projects"
+          value={projects}
+          options={projectOptions}
+          onChange={setProjects}
+        />
+        <TagsInput
+          label="Tags"
+          size="md"
+          legacyLabelFormatting={false}
+          value={tags}
+          onChange={setTags}
+          autoFocus={false}
+        />
+        {availableCustomFields.length > 0 && (
+          <CustomFieldInput
+            fields={availableCustomFields}
+            mt="0"
+            value={customFieldValues}
+            onChange={setCustomFields}
+          />
+        )}
+
+        {shown.length > 0 && (
+          <Flex direction="column" gap="2">
+            <Box>
+              <Text weight="semibold">Data Sources</Text>
+              <Text as="div" size="sm" color="text-low">
+                {isEdit ? (
+                  <>
+                    Link this identifier in more Data Sources so experiments
+                    using it pick the right assignment query. Change existing
+                    links from the Data Source.
+                  </>
+                ) : (
+                  <>
+                    Adds the identifier type <code>{defaultType}</code> to each
+                    Data Source you check.
+                  </>
+                )}
+              </Text>
+            </Box>
+            {mappable.length > 0 && (
+              <Table variant="surface" size="sm">
+                <TableHeader>
+                  <TableRow>
+                    <TableColumnHeader>Data Source</TableColumnHeader>
                     {isEdit && (
-                      <Text size="sm" color="text-mid">
-                        Identifier type
-                      </Text>
+                      <>
+                        <TableColumnHeader style={{ width: 200 }}>
+                          Identifier type
+                        </TableColumnHeader>
+                        <TableColumnHeader style={{ width: 160 }}>
+                          Assignment queries
+                        </TableColumnHeader>
+                      </>
                     )}
-                    {isEdit && (
-                      <Text size="sm" color="text-mid">
-                        Assignment queries
-                      </Text>
-                    )}
-                  </Grid>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                   {mappable.map((d) => {
                     const editable = canEdit(d);
                     const linked = linkedType(d);
@@ -395,158 +394,119 @@ export default function IdentifierModal({
                       : editable && !uncheckedIds.includes(d.id);
                     const type = linked ?? pickedType(d);
                     return (
-                      <Grid
-                        key={d.id}
-                        columns={columns}
-                        gap="3"
-                        px="3"
-                        py="2"
-                        align="center"
-                        style={ROW_BORDER}
-                      >
-                        <Checkbox
-                          label={
-                            <Flex align="center" gap="2">
-                              <PiDatabase />
-                              <Text color={isChecked ? undefined : "text-low"}>
-                                {d.name}
-                              </Text>
-                            </Flex>
-                          }
-                          weight="medium"
-                          align="center"
-                          description={
-                            !isEdit && userIdTypeNames(d).includes(defaultType)
-                              ? `Already has ${defaultType}`
-                              : undefined
-                          }
-                          value={isChecked}
-                          disabled={!!linked || !editable}
-                          disabledMessage={
-                            linked
-                              ? undefined
-                              : "You don't have permission to edit this Data Source"
-                          }
-                          setValue={(v) => {
-                            if (isEdit) {
-                              setPicks((p) => {
-                                const next = { ...p };
-                                if (v) next[d.id] = defaultPick(d);
-                                else delete next[d.id];
-                                return next;
-                              });
-                            } else {
-                              setUncheckedIds((ids) =>
-                                v
-                                  ? ids.filter((id) => id !== d.id)
-                                  : [...ids, d.id],
-                              );
+                      <TableRow key={d.id}>
+                        <TableCell>
+                          <Checkbox
+                            label={
+                              <Flex align="center" gap="2">
+                                <PiDatabase />
+                                <Text
+                                  color={isChecked ? undefined : "text-low"}
+                                >
+                                  {d.name}
+                                </Text>
+                              </Flex>
                             }
-                          }}
-                        />
-                        {isEdit &&
-                          (linked ? (
-                            <Text size="sm" color="text-mid">
-                              <code>{linked}</code>
-                            </Text>
-                          ) : (
-                            <Select
-                              size="sm"
-                              value={picks[d.id] || undefined}
-                              placeholder="Choose a type"
-                              disabled={!(d.id in picks)}
-                              aria-label={`Identifier type in ${d.name}`}
-                              setValue={(v) =>
-                                setPicks((p) => ({ ...p, [d.id]: v }))
+                            weight="medium"
+                            align="center"
+                            description={
+                              !isEdit &&
+                              userIdTypeNames(d).includes(defaultType)
+                                ? `Already has ${defaultType}`
+                                : undefined
+                            }
+                            value={isChecked}
+                            disabled={!!linked || !editable}
+                            disabledMessage={
+                              linked
+                                ? `Linked as ${linked}. Change it from the Data Source.`
+                                : "You don't have permission to edit this Data Source"
+                            }
+                            setValue={(v) => {
+                              if (isEdit) {
+                                setPicks((p) => {
+                                  const next = { ...p };
+                                  if (v) next[d.id] = defaultPick(d);
+                                  else delete next[d.id];
+                                  return next;
+                                });
+                              } else {
+                                setUncheckedIds((ids) =>
+                                  v
+                                    ? ids.filter((id) => id !== d.id)
+                                    : [...ids, d.id],
+                                );
                               }
-                            >
-                              {userIdTypeNames(d).map((t) => (
-                                <SelectItem key={t} value={t}>
-                                  {t}
-                                </SelectItem>
-                              ))}
-                              {!userIdTypeNames(d).includes(defaultType) && (
-                                <>
-                                  {userIdTypeNames(d).length > 0 && (
-                                    <SelectSeparator />
-                                  )}
-                                  <SelectItem value={NEW_TYPE}>
-                                    New type: {defaultType}
-                                  </SelectItem>
-                                </>
-                              )}
-                            </Select>
-                          ))}
+                            }}
+                          />
+                        </TableCell>
                         {isEdit && (
-                          <Box>
-                            {isChecked && (
-                              <UsageBadge datasource={d} userIdType={type} />
-                            )}
-                          </Box>
+                          <>
+                            <TableCell>
+                              {linked ? (
+                                <Text size="sm" color="text-mid" mono>
+                                  {linked}
+                                </Text>
+                              ) : (
+                                <Select
+                                  size="sm"
+                                  value={picks[d.id] || undefined}
+                                  placeholder="Choose a type"
+                                  disabled={!(d.id in picks)}
+                                  error={
+                                    picks[d.id] === ""
+                                      ? "Choose a type"
+                                      : undefined
+                                  }
+                                  aria-label={`Identifier type in ${d.name}`}
+                                  setValue={(v) =>
+                                    setPicks((p) => ({ ...p, [d.id]: v }))
+                                  }
+                                >
+                                  {userIdTypeNames(d).map((t) => (
+                                    <SelectItem key={t} value={t}>
+                                      {t}
+                                    </SelectItem>
+                                  ))}
+                                  {!userIdTypeNames(d).includes(
+                                    defaultType,
+                                  ) && (
+                                    <>
+                                      {userIdTypeNames(d).length > 0 && (
+                                        <SelectSeparator />
+                                      )}
+                                      <SelectItem value={NEW_TYPE}>
+                                        New type: {defaultType}
+                                      </SelectItem>
+                                    </>
+                                  )}
+                                </Select>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              {isChecked && (
+                                <UsageBadge datasource={d} userIdType={type} />
+                              )}
+                            </TableCell>
+                          </>
                         )}
-                      </Grid>
+                      </TableRow>
                     );
                   })}
-                </Box>
-              )}
-              {automatic.length > 0 && (
-                <Flex align="center" gap="2">
-                  <PiLockSimple color="var(--gray-11)" />
-                  <HelperText status="info">
-                    {new Intl.ListFormat("en").format(
-                      automatic.map((d) => d.name),
-                    )}{" "}
-                    {automatic.length === 1
-                      ? "updates its identifiers automatically."
-                      : "update their identifiers automatically."}
-                  </HelperText>
-                </Flex>
-              )}
-            </Flex>
-          )}
-        </Flex>
-
-        <Flex
-          direction="column"
-          gap="5"
-          p="4"
-          style={{
-            alignSelf: "start",
-            position: "sticky",
-            top: 0,
-            minWidth: 0,
-            background: "var(--gray-a2)",
-            border: "1px solid var(--gray-a4)",
-            borderRadius: "var(--radius-3)",
-          }}
-        >
-          <AddAttributeSnippet
-            property={newProperty}
-            value={datatype === "number" ? 123 : "foo"}
-            projects={projects}
-          />
-          {shownTypes.length > 0 && (
-            <Flex direction="column" gap="2">
-              <Flex align="center" gap="2">
-                <PiDatabase />
-                <Text weight="semibold" color="text-mid">
-                  In your assignment queries &amp; fact tables
-                </Text>
-              </Flex>
-              <Text size="sm">
-                When you set up an assignment query or fact table, map{" "}
-                {shownTypes.map((t, i) => (
-                  <span key={t}>
-                    {i > 0 && (i === shownTypes.length - 1 ? " and " : ", ")}
-                    <code>{t}</code>
-                  </span>
-                ))}{" "}
-                to the column that holds it. The column can have any name.
-              </Text>
-            </Flex>
-          )}
-        </Flex>
-      </Grid>
+                </TableBody>
+              </Table>
+            )}
+            {automatic.length > 0 && (
+              <HelperText status="info" icon={<PiLockSimple />}>
+                {new Intl.ListFormat("en").format(automatic.map((d) => d.name))}{" "}
+                {automatic.length === 1
+                  ? "updates its identifiers automatically."
+                  : "update their identifiers automatically."}
+              </HelperText>
+            )}
+          </Flex>
+        )}
+      </AttributeFormLayout>
     </ModalStandard>
   );
 }

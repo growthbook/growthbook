@@ -662,17 +662,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     {pagedIdentifiers.map((v) => {
                       const experiments = v.usedIn;
                       return (
-                        <TableRow
-                          key={v.property}
-                          className={v.archived ? "disabled" : ""}
-                        >
-                          <TableCell className="text-gray font-weight-bold">
+                        <TableRow key={v.property}>
+                          <TableCell>
                             <Flex align="center" gap="2">
                               <Link
                                 href={`/attributes/${encodeURIComponent(v.property)}`}
                                 style={{ color: "var(--gray-12)" }}
                               >
-                                <Text mono>
+                                <Text mono weight="semibold">
                                   <TruncateMiddleWithTooltip
                                     text={v.property}
                                     maxChars={truncateCharsForWidth(200)}
@@ -685,7 +682,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                               )}
                             </Flex>
                           </TableCell>
-                          <TableCell className="text-gray">
+                          <TableCell>
                             {v.description ? (
                               <ClampedCell
                                 tooltip={v.description}
@@ -699,8 +696,8 @@ const FeatureAttributesPage = (): React.ReactElement => {
                               <Text color="text-low">—</Text>
                             )}
                           </TableCell>
-                          <TableCell className="text-gray">
-                            {v.datatype}
+                          <TableCell>
+                            <Text color="text-mid">{v.datatype}</Text>
                           </TableCell>
                           <TableCell>
                             <ProjectBadges
@@ -729,14 +726,17 @@ const FeatureAttributesPage = (): React.ReactElement => {
                               />
                             </div>
                           </TableCell>
-                          <TableCell className="text-gray">
+                          <TableCell>
                             {experiments === undefined ? null : experiments ===
                               0 ? (
                               <Text color="text-low">Not used</Text>
                             ) : (
-                              `${experiments} ${
-                                experiments === 1 ? "experiment" : "experiments"
-                              }`
+                              <Text color="text-mid">
+                                {experiments}{" "}
+                                {experiments === 1
+                                  ? "experiment"
+                                  : "experiments"}
+                              </Text>
                             )}
                           </TableCell>
                           <TableCell />
