@@ -928,9 +928,30 @@ export default function ExperimentHeader({
       ) : null}
 
       <div className="container-fluid pagecontents position-relative px-4 pt-3 pb-2">
-        <Flex direction="row" align="start" justify="between" gap="5">
-          {/* Raised so the name's x-height centres on the buttons' text. */}
-          <Box className={revealsQuickEdit} mt="-3px">
+        <Flex
+          direction="row"
+          align="start"
+          justify="between"
+          wrap="wrap"
+          gap="5"
+          gapY="3"
+        >
+          {/* Raised so the name's x-height centres on the buttons' text.
+              Sized to its text as before, but never narrower than 300px:
+              short of that, the actions wrap below instead of squeezing the
+              name to a few characters per line on phones. The huge grow
+              factor (capped by max-content) gives the title its text width
+              before the actions column gets any leftover space; at 1 the two
+              would split it and a long name would wrap narrower than before. */}
+          <Box
+            className={revealsQuickEdit}
+            mt="-3px"
+            flexGrow="100000"
+            flexShrink="1"
+            flexBasis="300px"
+            minWidth="0"
+            maxWidth="max-content"
+          >
             <Heading
               as="h1"
               size="2xl"
