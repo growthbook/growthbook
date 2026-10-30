@@ -71,19 +71,6 @@ const AttributeSearchFilters: FC<
     return tags;
   }, [attributes]);
 
-  const identifierItems = useMemo(
-    () =>
-      [
-        { searchValue: "yes", id: "identifier-yes", name: "Yes" },
-        { searchValue: "no", id: "identifier-no", name: "No" },
-      ].filter(({ searchValue }) =>
-        attributes.some(
-          (attr) => !!attr.hashAttribute === (searchValue === "yes"),
-        ),
-      ),
-    [attributes],
-  );
-
   // Only fields with a known value set make sense as a dropdown; free-text
   // fields are still reachable via `<fieldId>:value` in the search box.
   const filterableCustomFields = useMemo(() => {
@@ -106,8 +93,7 @@ const AttributeSearchFilters: FC<
     return customFields.flatMap((f) => {
       const seen = used.get(f.id) ?? new Map<string, string>();
       if (f.type === "boolean") {
-        // Display casing matches the Identifier filter on the same bar; the
-        // query value stays lowercase.
+        // The query value stays lowercase.
         const values = [
           { name: "Yes", searchValue: "yes" },
           { name: "No", searchValue: "no" },
@@ -172,16 +158,6 @@ const AttributeSearchFilters: FC<
             id: t,
             searchValue: t,
           }))}
-          updateQuery={updateQuery}
-        />
-      )}
-      {identifierItems.length > 0 && (
-        <FilterDropdown
-          filter="identifier"
-          syntaxFilters={syntaxFilters}
-          open={dropdownFilterOpen}
-          setOpen={setDropdownFilterOpen}
-          items={identifierItems}
           updateQuery={updateQuery}
         />
       )}
