@@ -90,6 +90,9 @@ export type AnalysisFormFocus = "datasource" | "exposureQuery" | "goalMetrics";
 export const DATASOURCE_CHANGE_NOTE =
   "Metrics and segments that aren't from the new Data Source are removed.";
 
+const getIneligibleGroupsMessage = (groupNames: string[]) =>
+  `Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${groupNames.join(", ")}.`;
+
 export function IneligibleClusterMetricsCallouts({
   ineligible,
 }: {
@@ -104,7 +107,7 @@ export function IneligibleClusterMetricsCallouts({
       )}
       {ineligible.groupNames.length > 0 && (
         <Callout status="warning" mb="3">
-          {`Remove these metric groups before saving. They include metrics that cluster experiments can't analyze: ${ineligible.groupNames.join(", ")}.`}
+          {getIneligibleGroupsMessage(ineligible.groupNames)}
         </Callout>
       )}
     </>
@@ -542,7 +545,6 @@ const AnalysisForm: FC<{
       open={true}
       close={cancel}
       size="lg"
-      ctaEnabled={!ineligibleClusterMetrics.groupNames.length}
       submit={validatedSubmit(form, async (value) => {
         const { dateStarted, dateEnded, skipPartialData, ...values } = value;
 
@@ -559,7 +561,10 @@ const AnalysisForm: FC<{
 
         fixMetricOverridesBeforeSaving(body.metricOverrides || []);
 
-        const { droppedIds } = ineligibleClusterMetrics;
+        const { droppedIds, groupNames } = ineligibleClusterMetrics;
+        if (groupNames.length) {
+          throw new Error(getIneligibleGroupsMessage(groupNames));
+        }
         if (droppedIds.size) {
           const keep = (ids?: string[]) =>
             ids?.filter((id) => !droppedIds.has(id));
@@ -824,6 +829,11 @@ const AnalysisForm: FC<{
                 placeholder="Choose..."
                 autoFocus={focus === "exposureQuery"}
                 disabled={isBandit && experiment.status !== "draft"}
+                identifierError={
+                  clusterLockError?.field === "identifier"
+                    ? clusterLockError.content
+                    : null
+                }
               />
             )}
             {supportsClusterExperiments && !isBandit && !isHoldout && (

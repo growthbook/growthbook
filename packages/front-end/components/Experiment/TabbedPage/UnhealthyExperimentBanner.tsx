@@ -20,6 +20,15 @@ const percent = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
+// "1 cluster (4%) ... was removed" / "3 clusters (12%) ... were removed"
+const removedFromResults = (
+  n: number,
+  noun: string,
+  rawDecimal: number,
+  what: string,
+) =>
+  `${count.format(n)} ${noun}${n === 1 ? "" : "s"} (${percent.format(rawDecimal)}) ${what} and ${n === 1 ? "was" : "were"} removed from results.`;
+
 function getHealthIssues(
   {
     srm,
@@ -43,7 +52,12 @@ function getHealthIssues(
       ? {
           label: "Multiple exposures",
           severe: true,
-          detail: `${count.format(multipleExposures.multipleExposedUsers)} users (${percent.format(multipleExposures.rawDecimal)}) saw more than one variation and were removed from results.`,
+          detail: removedFromResults(
+            multipleExposures.multipleExposedUsers,
+            "user",
+            multipleExposures.rawDecimal,
+            "saw more than one variation",
+          ),
         }
       : null,
     covariateImbalance
@@ -57,14 +71,24 @@ function getHealthIssues(
       ? {
           label: "Mixed cluster assignment",
           severe: true,
-          detail: `${count.format(clusterAssignment.mixedClusters)} clusters (${percent.format(clusterAssignment.rawDecimal)}) had units in more than one variation and were removed from results.`,
+          detail: removedFromResults(
+            clusterAssignment.mixedClusters,
+            "cluster",
+            clusterAssignment.rawDecimal,
+            "had units in more than one variation",
+          ),
         }
       : null,
     clusterMapping
       ? {
           label: "Units in multiple clusters",
           severe: true,
-          detail: `${count.format(clusterMapping.multiClusterUnits)} units (${percent.format(clusterMapping.rawDecimal)}) appeared in more than one cluster and were removed from results.`,
+          detail: removedFromResults(
+            clusterMapping.multiClusterUnits,
+            "unit",
+            clusterMapping.rawDecimal,
+            "appeared in more than one cluster",
+          ),
         }
       : null,
     lowPowered

@@ -517,12 +517,9 @@ function HealthSnapshotCards({
   const isClusterExperiment = !!snapshot.settings.isClusterExperiment;
 
   // Sub-unit traffic would give an invalid SRM for a cluster experiment, so
-  // without cluster traffic the card reports the data as missing.
-  const srmTraffic: ExperimentSnapshotTraffic = isClusterExperiment
-    ? (snapshot.health?.clusterTraffic ?? {
-        overall: { name: "", srm: 1, variationUnits: [] },
-        dimension: {},
-      })
+  // it's never a fallback for missing cluster traffic.
+  const srmTraffic = isClusterExperiment
+    ? snapshot.health?.clusterTraffic
     : traffic;
   const srmTotalUsers =
     srmTraffic?.overall?.variationUnits?.reduce((acc, a) => acc + a, 0) ?? 0;
@@ -559,7 +556,14 @@ function HealthSnapshotCards({
         disableDimensionSRM={isClusterExperiment}
       />
       <div id="balanceCheck" style={{ scrollMarginTop: "100px" }}>
-        {!isBandit ? (
+        {isBandit ? (
+          <BanditSRMCard
+            experiment={experiment}
+            snapshot={snapshot}
+            phase={phaseObj}
+            onNotify={handleHealthNotification}
+          />
+        ) : srmTraffic ? (
           <SRMCard
             traffic={srmTraffic}
             variations={variations}
@@ -573,12 +577,13 @@ function HealthSnapshotCards({
             hideDimensions={isClusterExperiment}
           />
         ) : (
-          <BanditSRMCard
-            experiment={experiment}
-            snapshot={snapshot}
-            phase={phaseObj}
-            onNotify={handleHealthNotification}
-          />
+          <Callout status="info" my="4">
+            The balance check per{" "}
+            <IdentifierCode>
+              {snapshot.settings.exposureQueryIdentifierType}
+            </IdentifierCode>{" "}
+            isn&apos;t available for this experiment yet.
+          </Callout>
         )}
       </div>
       {!isBandit && snapshot.settings.regressionAdjustmentEnabled && (

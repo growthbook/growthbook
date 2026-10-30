@@ -87,7 +87,7 @@ describe("getLockedClusterError", () => {
     ).toMatchObject({
       field: "subunit",
       message: expect.stringContaining(
-        "Device exposures doesn't include user_id",
+        "measured per user_id, but Device exposures doesn't include it",
       ),
     });
   });

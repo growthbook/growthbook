@@ -246,7 +246,7 @@ export function isUnsupportedClusterBanditCombination({
 }
 
 export const CLUSTER_CONFIG_LOCKED_MESSAGE =
-  "Cluster experiment, the cluster's identifier type and the subunit identifier type can't be changed once GrowthBook is assigning this experiment's traffic. Move it back to draft first.";
+  "Cluster experiment, the identifier type, and the subunit identifier type can't be changed once GrowthBook is assigning this experiment's traffic. Move it back to draft first.";
 
 // Once GrowthBook launches an experiment through linked changes, its SDK has
 // randomized on the cluster (or not), so cluster mode, the cluster (the

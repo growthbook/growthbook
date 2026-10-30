@@ -381,6 +381,7 @@ export default function AssignmentQueryFields({
   autoFocus = false,
   progressive = false,
   asRows = false,
+  identifierError,
 }: {
   selection: Selection;
   initialOption?: string;
@@ -394,6 +395,7 @@ export default function AssignmentQueryFields({
   progressive?: boolean;
   /** Each field beside its label, as on the experiment's setup page. */
   asRows?: boolean;
+  identifierError?: ReactNode;
 }) {
   const {
     exposureQueryId,
@@ -418,6 +420,11 @@ export default function AssignmentQueryFields({
     ) : (
       select
     );
+  const identifierErrorText = identifierError ? (
+    <HelperText status="error" size="sm" mt="2">
+      {identifierError}
+    </HelperText>
+  ) : null;
   return (
     <>
       {asRows ? null : <AssignmentQueryDriftWarning selection={selection} />}
@@ -453,7 +460,9 @@ export default function AssignmentQueryFields({
           sort={false}
           options={groupedIdentifierTypes}
         />,
+        identifierErrorText,
       )}
+      {asRows ? null : identifierErrorText}
       {progressive && !identifierType
         ? null
         : field(
@@ -582,11 +591,11 @@ export function getLockedClusterError({
     return datasourceSelected
       ? {
           field: "datasource",
-          message: `This Data Source has no assignment queries, so it can't analyze this experiment by ${cluster}. Choose one with an assignment query that includes ${cluster} and ${subUnit}.`,
+          message: `This Data Source has no assignment queries, so it can't analyze an experiment randomized by ${cluster}. Choose one with an assignment query that includes ${cluster} and ${subUnit}.`,
           content: (
             <>
               This Data Source has no assignment queries, so it can&apos;t
-              analyze this experiment by{" "}
+              analyze an experiment randomized by{" "}
               <IdentifierCode>{cluster}</IdentifierCode>. Choose one with an
               assignment query that includes{" "}
               <IdentifierCode>{cluster}</IdentifierCode> and{" "}
@@ -596,10 +605,10 @@ export function getLockedClusterError({
         }
       : {
           field: "datasource",
-          message: `Choose a Data Source. This experiment's traffic is split by ${cluster}, so it needs an assignment query that includes ${cluster} and ${subUnit}.`,
+          message: `Choose a Data Source. This experiment is randomized by ${cluster}, so it needs an assignment query that includes ${cluster} and ${subUnit}.`,
           content: (
             <>
-              Choose a Data Source. This experiment&apos;s traffic is split by{" "}
+              Choose a Data Source. This experiment is randomized by{" "}
               <IdentifierCode>{cluster}</IdentifierCode>, so it needs an
               assignment query that includes{" "}
               <IdentifierCode>{cluster}</IdentifierCode> and{" "}
@@ -611,29 +620,27 @@ export function getLockedClusterError({
   if (identifierType && identifierType !== cluster) {
     return {
       field: "identifier",
-      message: `This experiment's traffic is split by ${cluster}, so results must be analyzed by ${cluster} too. Choose an assignment query and identifier type on ${cluster}.`,
+      message: `This experiment is randomized by ${cluster}. Choose an assignment query and identifier type on ${cluster}.`,
       content: (
         <>
-          This experiment&apos;s traffic is split by{" "}
-          <IdentifierCode>{cluster}</IdentifierCode>, so results must be
-          analyzed by <IdentifierCode>{cluster}</IdentifierCode> too. Choose an
-          assignment query and identifier type on{" "}
-          <IdentifierCode>{cluster}</IdentifierCode>.
+          This experiment is randomized by{" "}
+          <IdentifierCode>{cluster}</IdentifierCode>. Choose an assignment query
+          and identifier type on <IdentifierCode>{cluster}</IdentifierCode>.
         </>
       ),
     };
   }
   if (getClusterSubUnitOptions(exposureQuery, identifierType).includes(subUnit))
     return null;
-  const queryName = exposureQuery?.name ?? "This assignment query";
+  const queryName = exposureQuery?.name ?? "this assignment query";
   return {
     field: "subunit",
-    message: `${queryName} doesn't include ${subUnit}, which this experiment's results are counted by. Choose an assignment query that includes both ${cluster} and ${subUnit}.`,
+    message: `This experiment's metrics are measured per ${subUnit}, but ${queryName} doesn't include it. Choose an assignment query that includes both ${cluster} and ${subUnit}.`,
     content: (
       <>
-        {queryName} doesn&apos;t include{" "}
-        <IdentifierCode>{subUnit}</IdentifierCode>, which this experiment&apos;s
-        results are counted by. Choose an assignment query that includes both{" "}
+        This experiment&apos;s metrics are measured per{" "}
+        <IdentifierCode>{subUnit}</IdentifierCode>, but {queryName} doesn&apos;t
+        include it. Choose an assignment query that includes both{" "}
         <IdentifierCode>{cluster}</IdentifierCode> and{" "}
         <IdentifierCode>{subUnit}</IdentifierCode>.
       </>
@@ -779,8 +786,8 @@ export function ClusterExperimentFields({
           <IdentifierCode>{subUnitIdentifier}</IdentifierCode>.
         </>,
       );
-  // Errors not about the sub-unit sit with the checkbox, nearest the query.
-  const clusterError = subUnitLockError ? null : lockErrorText;
+  // Identifier errors sit on the Identifier type field instead.
+  const clusterError = lockError?.field === "datasource" ? lockErrorText : null;
   const subUnitSelect = (
     <SelectField
       label={asRows ? undefined : "Subunit identifier type"}

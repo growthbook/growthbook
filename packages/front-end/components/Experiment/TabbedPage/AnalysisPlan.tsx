@@ -999,6 +999,9 @@ function DataSourceModal({
           selection={selection}
           placeholder="Choose..."
           progressive
+          identifierError={
+            lockError?.field === "identifier" ? lockError.content : null
+          }
         />
       ) : null}
       {supportsClusterExperiments ? (
