@@ -146,7 +146,7 @@ export const ApiKeysTable: FC<ApiKeysTableProps> = ({
         <TableHeader>
           <TableRow style={{ whiteSpace: "nowrap" }}>
             <TableColumnHeader>Name</TableColumnHeader>
-            <TableColumnHeader width="110px">
+            <TableColumnHeader width="220px">
               Internal ID{" "}
               <Tooltip content="Identifies this key in logs and server settings. REST requests authenticate with the secret key, not this ID.">
                 <Box
