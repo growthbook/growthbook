@@ -303,19 +303,32 @@ const FeatureAttributesPage = (): React.ReactElement => {
     );
   }, [syntaxFilters]);
 
-  const { items: pagedIdentifiers, pagination: identifierPagination } =
-    useSearch({
-      items: identifiers.filter((i) => showArchived || !i.archived),
-      localStorageKey: "identifiers",
-      defaultSortField: "order",
-      persistSort: false,
-      disableUrlSearchTerm: true,
-      pageSize: 10,
-      searchFields: ["property"],
-    });
   const { references: identifierReferences } = useAttributeReferences(
     identifiers.map((i) => i.property),
   );
+  const identifierRows = useMemo(
+    () =>
+      identifiers
+        .filter((i) => showArchived || !i.archived)
+        .map((i) => ({
+          ...i,
+          usedIn: identifierReferences?.[i.property]?.experiments.length,
+        })),
+    [identifiers, showArchived, identifierReferences],
+  );
+  const {
+    items: pagedIdentifiers,
+    pagination: identifierPagination,
+    SortableTableColumnHeader: SortableIdentifierHeader,
+  } = useSearch({
+    items: identifierRows,
+    localStorageKey: "identifiers",
+    defaultSortField: "order",
+    persistSort: false,
+    disableUrlSearchTerm: true,
+    pageSize: 10,
+    searchFields: ["property"],
+  });
 
   type AttributeRow = (typeof attributesWithComputedFields)[number];
 
@@ -614,19 +627,26 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   </colgroup>
                   <TableHeader>
                     <TableRow>
-                      <TableColumnHeader>Identifier</TableColumnHeader>
-                      <TableColumnHeader>Description</TableColumnHeader>
-                      <TableColumnHeader>Data Type</TableColumnHeader>
+                      <SortableIdentifierHeader field="property">
+                        Identifier
+                      </SortableIdentifierHeader>
+                      <SortableIdentifierHeader field="description">
+                        Description
+                      </SortableIdentifierHeader>
+                      <SortableIdentifierHeader field="datatype">
+                        Data Type
+                      </SortableIdentifierHeader>
                       <TableColumnHeader>Projects</TableColumnHeader>
                       <TableColumnHeader>Tags</TableColumnHeader>
-                      <TableColumnHeader>Used in</TableColumnHeader>
+                      <SortableIdentifierHeader field="usedIn">
+                        Used in
+                      </SortableIdentifierHeader>
                       <TableColumnHeader />
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {pagedIdentifiers.map((v) => {
-                      const experiments =
-                        identifierReferences?.[v.property]?.experiments.length;
+                      const experiments = v.usedIn;
                       return (
                         <TableRow
                           key={v.property}
