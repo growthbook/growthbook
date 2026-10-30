@@ -17,12 +17,6 @@ export const interleavingPreferenceAttribution = ["exposureCount"] as const;
 export type InterleavingPreferenceAttribution =
   (typeof interleavingPreferenceAttribution)[number];
 
-// One period the experiment was running; `dateEnded` unset means still running.
-export const interleavingRunValidator = z
-  .object({ dateStarted: z.date(), dateEnded: z.date().optional() })
-  .strict();
-export type InterleavingRun = z.infer<typeof interleavingRunValidator>;
-
 export const interleavingAnalysisValidator = z.discriminatedUnion("type", [
   z.object({ type: z.literal("paired") }).strict(),
   z
@@ -95,14 +89,13 @@ export const interleavingValidator = baseSchema
     status: z.enum(interleavingStatus),
     dateStarted: z.date().optional(),
     dateStopped: z.date().optional(),
-    runs: z.array(interleavingRunValidator),
 
     // Code-facing key, like a feature key: customer code passes it to
     // `interleave()` and the SDK payload's pseudo flag is `$interleave:<key>`.
     key: interleavingKeyField,
     // Experiment id in exposures (`experiment_id`), used only for analysis.
-    // Like experiment tracking keys it may repeat (e.g. re-running a test);
-    // defaults to `key` on create.
+    // Unique per Data Source, so exposures can always be attributed to one
+    // experiment; generated from `key` on create, with a suffix if taken.
     trackingKey: z.string(),
     // Per-user diversion into the interleaving (the draft itself is seeded
     // per impression by the SDK's ranking seed).
@@ -238,7 +231,7 @@ export const apiCreateInterleavingBody = z.strictObject({
     .string()
     .optional()
     .describe(
-      "The `experiment_id` recorded in exposures. Defaults to `key`. Tracking keys may be reused once an experiment has stopped, but only one interleaving experiment per tracking key can run in a Data Source at a time.",
+      "The `experiment_id` recorded in exposures. Leave this unset: it is generated from `key`, with a `_v1` style suffix when another experiment in this Data Source already uses it. Tracking keys must be unique within a Data Source, so supplying one that is taken is rejected.",
     ),
   hashAttribute: z.string().optional(),
   variations: apiInterleavingVariationsInput,
@@ -273,7 +266,12 @@ export const apiUpdateInterleavingBody = z.strictObject({
       "Archiving removes a running interleaving experiment from the SDK payload, so its rankers stop serving immediately.",
     ),
 
-  trackingKey: z.string().optional(),
+  trackingKey: z
+    .string()
+    .optional()
+    .describe(
+      "The `experiment_id` recorded in exposures. Must be unique within the Data Source. Changing it on a running experiment means earlier exposures are no longer counted.",
+    ),
   hashAttribute: z.string().optional(),
   seed: z.string().optional(),
   variations: apiInterleavingVariationsInput

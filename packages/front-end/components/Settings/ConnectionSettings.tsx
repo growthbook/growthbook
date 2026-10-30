@@ -2,6 +2,7 @@ import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ChangeEventHandler, ReactNode, useState } from "react";
 import { PiCaretRightFill } from "react-icons/pi";
 import Collapsible from "react-collapsible";
+import { isCloud } from "@/services/env";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
@@ -43,10 +44,15 @@ export default function ConnectionSettings({
   connectionOnly = false,
   keyPairGenerator,
 }: Props) {
+  const bigQueryParams =
+    datasource.type === "bigquery" ? datasource.params : undefined;
   const [advancedOpen, setAdvancedOpen] = useState(
     !!datasource.settings?.maxConcurrentQueries ||
       !!datasource.settings?.queryCacheTTLMins ||
-      (datasource.type === "bigquery" && !!datasource.params?.apiEndpoint),
+      !!bigQueryParams?.apiEndpoint ||
+      !!bigQueryParams?.reservation ||
+      (!!bigQueryParams?.defaultProject &&
+        bigQueryParams.defaultProject !== bigQueryParams.projectId),
   );
 
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
@@ -263,6 +269,7 @@ export default function ConnectionSettings({
               <BigQueryAdvancedSettings
                 params={datasource.params || {}}
                 onParamChange={onParamChange}
+                showProjectId={isCloud() || bigQueryParams?.authType !== "auto"}
               />
             )}
             <SharedConnectionSettings

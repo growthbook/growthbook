@@ -81,7 +81,7 @@ export const EAQ_ANCHOR_ID = "experiment-assignment-queries";
 export const CBAQ_ANCHOR_ID = "contextual-bandit-assignment-queries";
 export const IEQ_ANCHOR_ID = "interleaving-exposure-queries";
 
-// First id is the tab opened when the URL has no tab hash. Queries is only
+// Default when this Data Source has no Event Forwarder tab. Queries is only
 // rendered for SQL sources; non-SQL sources fall back to Usage.
 const DATA_SOURCE_TABS = [
   "queries",
@@ -90,6 +90,12 @@ const DATA_SOURCE_TABS = [
   "explore",
   "settings",
 ] as const;
+
+type DataSourceTab = (typeof DATA_SOURCE_TABS)[number] | "event-forwarder";
+
+// Used when Finish Setting Up is on the page, so Explore stays a normal
+// scrolling section instead of a viewport-locked panel.
+const EXPLORER_HEIGHT_WHEN_PAGE_SCROLLS = "max(480px, calc(100vh - 280px))";
 
 // Pre-tabs deep links (e.g. the Dimensions page's "Manage via Data Source"
 // link) point at anchors inside the Queries tab, not a DATA_SOURCE_TABS id.
@@ -215,33 +221,6 @@ const DataSourcePage: FC = () => {
     setDeleteBlockedByEventForwarderModalOpen,
   ] = useState(false);
   const router = useRouter();
-  const [tab, setTab] = useURLHash(DATA_SOURCE_TABS);
-  // A full page load renders on the server, where the shared hook cannot see
-  // the hash, so read it once here. Legacy anchors are not tab ids; open
-  // Queries and scroll to them.
-  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
-  useEffect(() => {
-    const hash = window.location.hash.slice(1);
-    const legacyTab = LEGACY_ANCHOR_TABS[hash];
-    if (legacyTab) {
-      setPendingAnchor(hash);
-      setTab(legacyTab);
-      return;
-    }
-    if ((DATA_SOURCE_TABS as readonly string[]).includes(hash)) {
-      setTab(hash as (typeof DATA_SOURCE_TABS)[number]);
-    }
-    // Only ever relevant for the hash the page loaded with.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  useEffect(() => {
-    if (!pendingAnchor || tab !== "queries") return;
-    const el = document.getElementById(pendingAnchor);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-      setPendingAnchor(null);
-    }
-  }, [pendingAnchor, tab]);
   const pageRef = useRef<HTMLDivElement>(null);
   const explorerSlotRef = useRef<HTMLDivElement>(null);
   const [pageHeight, setPageHeight] = useState<number | null>(null);
@@ -268,6 +247,47 @@ const DataSourcePage: FC = () => {
     !!did && !currentDataSource && !currentDataSourceError;
   const d = currentDataSource || definitionDataSource;
 
+  // Event Forwarder is first so an empty hash opens it when this Data Source
+  // has one.
+  const showEventForwarderTab = Boolean(
+    newDataSourceOnboarding.enabled &&
+      d?.eventForwarderConfig &&
+      d.eventForwarderConfig.status !== "unconfigured",
+  );
+  const tabIds: readonly DataSourceTab[] = showEventForwarderTab
+    ? ["event-forwarder", ...DATA_SOURCE_TABS]
+    : DATA_SOURCE_TABS;
+  const [tab, setTab] = useURLHash();
+  // A full page load renders on the server, where the hash is invisible, so
+  // read it once here. Legacy anchors are not tab ids; open Queries and
+  // scroll to them.
+  const [pendingAnchor, setPendingAnchor] = useState<string | null>(null);
+  useEffect(() => {
+    const hash = window.location.hash.slice(1);
+    const legacyTab = LEGACY_ANCHOR_TABS[hash];
+    if (legacyTab) {
+      setPendingAnchor(hash);
+      setTab(legacyTab);
+      return;
+    }
+    if (
+      (DATA_SOURCE_TABS as readonly string[]).includes(hash) ||
+      hash === "event-forwarder"
+    ) {
+      setTab(hash);
+    }
+    // Only ever relevant for the hash the page loaded with.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    if (!pendingAnchor || tab !== "queries") return;
+    const el = document.getElementById(pendingAnchor);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+      setPendingAnchor(null);
+    }
+  }, [pendingAnchor, tab]);
+
   const combinedMetrics = useCombinedMetrics({});
   const metrics = combinedMetrics.filter((m) => m.datasource === did);
   const factTables = allFactTables.filter((ft) => ft.datasource === did);
@@ -292,10 +312,20 @@ const DataSourcePage: FC = () => {
     setDataSourceNameError(null);
   }, [d?.name]);
 
+  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
+  const showFinishSettingUp =
+    !!d &&
+    d.properties?.queryLanguage === "sql" &&
+    !isManagedWarehouse &&
+    newDataSourceOnboarding.enabled &&
+    !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
+
   // Stretch the page to the bottom of the viewport, then give the explorer the
-  // pixel height of the slot that remains under the header and tabs.
+  // pixel height of the slot that remains under the header and tabs. Skip this
+  // while Finish Setting Up is showing: that section sits above the tabs, and
+  // locking the page to the viewport leaves it with nowhere to scroll.
   useLayoutEffect(() => {
-    if (tab !== "explore") return;
+    if (tab !== "explore" || showFinishSettingUp) return;
     const page = pageRef.current;
     const slot = explorerSlotRef.current;
     if (!page || !slot) return;
@@ -334,15 +364,18 @@ const DataSourcePage: FC = () => {
       observer.disconnect();
       window.removeEventListener("resize", update);
     };
-  }, [tab, d?.id, ready]);
+  }, [tab, d?.id, ready, showFinishSettingUp]);
 
   const { apiCall, orgId } = useAuth();
   const { hasCommercialFeature, settings: orgSettings } = useUser();
   // Default ON; the remote flag only turns this off for specific orgs.
   const contextualBanditsEnabled = useFeatureValue("contextual-bandits", true);
   const interleavingEnabled = useFeatureIsOn("interleave-exp");
+  const eventsForwarderFlag = useFeatureValue(
+    "events-forwarder-multi-step",
+    "OFF",
+  );
 
-  const isManagedWarehouse = d?.type === "growthbook_clickhouse";
   // Only the never-provisioned state replaces the settings UI with the onboarding
   // callout. A transient migration must NOT blank the config page — query sub-surfaces
   // (SQL explorer, schema browser) gate themselves on the broader "unavailable" check.
@@ -387,10 +420,6 @@ const DataSourcePage: FC = () => {
     !!getDataSourceSqlDialect(d.type)?.jsonArray;
 
   const pipelineEnabled = hasCommercialFeature("pipeline-mode");
-  const eventsForwarderFlag = useFeatureValue(
-    "events-forwarder-multi-step",
-    "OFF",
-  );
 
   /**
    * Update the data source provided.
@@ -477,25 +506,32 @@ const DataSourcePage: FC = () => {
   const dataSourceTypeLabel = isManagedWarehouse
     ? "Managed Warehouse"
     : (dataSourceConnections.find((c) => c.type === d.type)?.display ?? d.type);
-  const requestedTab = tab ?? "queries";
-  const activeTab =
-    !supportsSQL && (requestedTab === "queries" || requestedTab === "explore")
+  const hashTab: DataSourceTab =
+    tab && (tabIds as readonly string[]).includes(tab)
+      ? (tab as DataSourceTab)
+      : tabIds[0];
+  const activeTab: DataSourceTab =
+    !supportsSQL && (hashTab === "queries" || hashTab === "explore")
       ? "usage"
-      : requestedTab;
+      : hashTab;
+  const exploreFillsViewport = activeTab === "explore" && !showFinishSettingUp;
   const supportsEvents = d.properties?.events || false;
-  const datasourceSupportsEventForwarder = supportsEventForwarder(d);
-  const showFinishSettingUp =
-    supportsSQL &&
-    !isManagedWarehouse &&
-    newDataSourceOnboarding.enabled &&
-    !isDataSourceSetupComplete(d, factTables.length, exposureQuerySkipped);
+  // The tab is the Event Forwarder surface for the new setup. Orgs still on
+  // the older flag, and unconfigured forwarders, keep the card in Settings.
+  const showEventForwarderSettings =
+    !showEventForwarderTab &&
+    supportsEventForwarder(d) &&
+    eventsForwarderFlag !== "OFF";
+  const refreshDataSource = async () => {
+    await Promise.all([mutateDefinitions({}), mutateCurrentDataSource()]);
+  };
 
   return (
     <div
       ref={pageRef}
       className="container pagecontents"
       style={
-        activeTab === "explore"
+        exploreFillsViewport
           ? {
               display: "flex",
               flexDirection: "column",
@@ -580,9 +616,9 @@ const DataSourcePage: FC = () => {
       )}
       <Box
         mt="4"
-        mb={activeTab === "explore" ? "0" : "4"}
+        mb={exploreFillsViewport ? "0" : "4"}
         style={
-          activeTab === "explore"
+          exploreFillsViewport
             ? {
                 flex: 1,
                 minHeight: 0,
@@ -601,6 +637,12 @@ const DataSourcePage: FC = () => {
               onSave={updateDataSourceSettings}
               exposureQuerySkipped={exposureQuerySkipped}
               onSkipExposureQuery={skipExposureQuery}
+              onRefresh={async () => {
+                await Promise.all([
+                  mutateDefinitions({}),
+                  mutateCurrentDataSource(),
+                ]);
+              }}
             />
           </Frame>
         )}
@@ -637,12 +679,12 @@ const DataSourcePage: FC = () => {
         <Tabs
           value={activeTab}
           onValueChange={(value) => {
-            if ((DATA_SOURCE_TABS as readonly string[]).includes(value)) {
-              setTab(value as (typeof DATA_SOURCE_TABS)[number]);
+            if ((tabIds as readonly string[]).includes(value)) {
+              setTab(value as DataSourceTab);
             }
           }}
           style={
-            activeTab === "explore"
+            exploreFillsViewport
               ? {
                   flex: 1,
                   minHeight: 0,
@@ -654,14 +696,31 @@ const DataSourcePage: FC = () => {
         >
           <TabsList
             size="lg"
-            style={activeTab === "explore" ? { flexShrink: 0 } : undefined}
+            style={exploreFillsViewport ? { flexShrink: 0 } : undefined}
           >
+            {showEventForwarderTab ? (
+              <TabsTrigger value="event-forwarder">Event Forwarder</TabsTrigger>
+            ) : null}
             {supportsSQL && <TabsTrigger value="queries">Queries</TabsTrigger>}
             <TabsTrigger value="usage">Usage</TabsTrigger>
             <TabsTrigger value="resources">Connected Resources</TabsTrigger>
             {supportsSQL && <TabsTrigger value="explore">Explore</TabsTrigger>}
             <TabsTrigger value="settings">Settings</TabsTrigger>
           </TabsList>
+
+          {showEventForwarderTab ? (
+            <TabsContent value="event-forwarder">
+              <Flex direction="column" gap="2" mt="3">
+                <Frame mb="0">
+                  <EventForwarder
+                    dataSource={d}
+                    canEdit={canUpdateDataSourceSettings}
+                    onRefresh={refreshDataSource}
+                  />
+                </Frame>
+              </Flex>
+            </TabsContent>
+          ) : null}
 
           <TabsContent value="usage">
             <Flex direction="column" gap="2" mt="3">
@@ -782,17 +841,24 @@ const DataSourcePage: FC = () => {
 
               <TabsContent
                 value="explore"
-                style={{
-                  flex: 1,
-                  minHeight: 0,
-                  display: "flex",
-                  flexDirection: "column",
-                }}
+                style={
+                  exploreFillsViewport
+                    ? {
+                        flex: 1,
+                        minHeight: 0,
+                        display: "flex",
+                        flexDirection: "column",
+                      }
+                    : undefined
+                }
               >
                 <Flex
                   direction="column"
                   gap="3"
-                  style={{ flex: 1, minHeight: 0 }}
+                  mt={exploreFillsViewport ? "0" : "3"}
+                  style={
+                    exploreFillsViewport ? { flex: 1, minHeight: 0 } : undefined
+                  }
                 >
                   {d.properties?.supportsInformationSchema && (
                     <Callout
@@ -812,14 +878,22 @@ const DataSourcePage: FC = () => {
                   )}
                   <Box
                     ref={explorerSlotRef}
-                    style={{ flex: "1 1 0", minHeight: 0, overflow: "hidden" }}
+                    style={
+                      exploreFillsViewport
+                        ? { flex: "1 1 0", minHeight: 0, overflow: "hidden" }
+                        : undefined
+                    }
                   >
                     <Explorer
                       type="data_source"
                       datasourceId={d.id}
                       lockDatasource
                       height={
-                        explorerHeight !== null ? `${explorerHeight}px` : "100%"
+                        exploreFillsViewport
+                          ? explorerHeight !== null
+                            ? `${explorerHeight}px`
+                            : "100%"
+                          : EXPLORER_HEIGHT_WHEN_PAGE_SCROLLS
                       }
                     />
                   </Box>
@@ -924,21 +998,15 @@ const DataSourcePage: FC = () => {
                 </Frame>
               )}
 
-              {datasourceSupportsEventForwarder &&
-                eventsForwarderFlag !== "OFF" && (
-                  <Frame mb="0">
-                    <EventForwarder
-                      dataSource={d}
-                      canEdit={canUpdateDataSourceSettings}
-                      onRefresh={async () => {
-                        await Promise.all([
-                          mutateDefinitions({}),
-                          mutateCurrentDataSource(),
-                        ]);
-                      }}
-                    />
-                  </Frame>
-                )}
+              {showEventForwarderSettings ? (
+                <Frame mb="0">
+                  <EventForwarder
+                    dataSource={d}
+                    canEdit={canUpdateDataSourceSettings}
+                    onRefresh={refreshDataSource}
+                  />
+                </Frame>
+              ) : null}
 
               {supportsEvents && (
                 <Frame mb="0">

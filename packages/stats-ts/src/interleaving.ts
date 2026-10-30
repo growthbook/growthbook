@@ -1,10 +1,12 @@
 import binomial from "@stdlib/stats/base/dists/binomial";
-import { FrequentistTestResult } from "./results";
+import { InterleavingTestMethod, InterleavingTestResult } from "./results";
 import { betaQuantile, tCdf, tQuantile } from "./utils";
 
 // ---------------------------------------------------------------------------
-// Estimators for interleaving experiments. Both return the standard
-// FrequentistTestResult so results map onto SnapshotMetric uniformly.
+// Estimators for interleaving experiments. Both return the frequentist result
+// shape without `uplift` (the CI and p-value are the uncertainty statement;
+// see InterleavingTestResult), tagged with `method` so consumers can tell
+// which test produced it.
 //
 // pairedDeltaTest: Paired delta-method t-test. Requires engagement events
 //   joinable to impressions via ranking_id. Inputs are cross-user joint
@@ -41,11 +43,14 @@ export interface PreferenceCounts {
   users_tied: number;
 }
 
-function errorResult(errorMessage: string): FrequentistTestResult {
+function errorResult(
+  method: InterleavingTestMethod,
+  errorMessage: string,
+): InterleavingTestResult {
   return {
+    method,
     expected: 0,
     ci: [null, null],
-    uplift: { dist: "normal", mean: 0, stddev: 0 },
     errorMessage,
     pValue: null,
     pValueErrorMessage: null,
@@ -59,17 +64,18 @@ function errorResult(errorMessage: string): FrequentistTestResult {
 export function pairedDeltaTest(
   stats: PairedSufficientStats,
   alpha: number = 0.05,
-): FrequentistTestResult {
+): InterleavingTestResult {
+  const method = "paired_delta_t";
   const users = stats.users;
   if (users < 2) {
-    return errorResult("NOT_ENOUGH_USERS");
+    return errorResult(method, "NOT_ENOUGH_USERS");
   }
 
   const meanT = stats.treatment_sum / users;
   const meanC = stats.control_sum / users;
   const meanN = stats.exposures_sum / users;
   if (meanN <= 0) {
-    return errorResult("NO_COMPETITIVE_EXPOSURES");
+    return errorResult(method, "NO_COMPETITIVE_EXPOSURES");
   }
 
   // Sample (co)variances with users-1 denominator
@@ -106,7 +112,7 @@ export function pairedDeltaTest(
     ((meanT - meanC) ** 2 * varN) / meanN ** 4;
   const variance = Math.max(perUnitVariance, 0) / users;
   if (variance <= 0) {
-    return errorResult("ZERO_VARIANCE");
+    return errorResult(method, "ZERO_VARIANCE");
   }
 
   const se = Math.sqrt(variance);
@@ -116,9 +122,9 @@ export function pairedDeltaTest(
   const halfWidth = tQuantile(1 - alpha / 2, dof) * se;
 
   return {
+    method,
     expected: est,
     ci: [est - halfWidth, est + halfWidth],
-    uplift: { dist: "normal", mean: est, stddev: se },
     errorMessage: null,
     pValue,
     pValueErrorMessage: null,
@@ -131,12 +137,13 @@ export function pairedDeltaTest(
 export function preferenceSignTest(
   counts: PreferenceCounts,
   alpha: number = 0.05,
-): FrequentistTestResult {
+): InterleavingTestResult {
+  const method = "exact_binomial_sign";
   const nT = counts.users_pref_treatment;
   const nC = counts.users_pref_control;
   const m = nT + nC;
   if (m < 2) {
-    return errorResult("NOT_ENOUGH_USERS");
+    return errorResult(method, "NOT_ENOUGH_USERS");
   }
 
   // Exact two-sided binomial sign test on non-tied users
@@ -149,15 +156,14 @@ export function preferenceSignTest(
   const pLo = nT === 0 ? 0 : betaQuantile(alpha / 2, nT, m - nT + 1);
   const pHi = nT === m ? 1 : betaQuantile(1 - alpha / 2, nT + 1, m - nT);
 
-  // Asymmetric, so no single stddev describes it. Report the Wald SE for
-  // consumers that need a normal summary; the CI above is authoritative.
-  const pHat = nT / m;
-  const seTau = 2 * Math.sqrt((pHat * (1 - pHat)) / m);
+  // Asymmetric, and the Wald SE would be 0 when every non-tied user agrees, so
+  // the result carries no normal summary; this interval is authoritative.
+  const ci: [number, number] = [2 * pLo - 1, 2 * pHi - 1];
 
   return {
+    method,
     expected: est,
-    ci: [2 * pLo - 1, 2 * pHi - 1],
-    uplift: { dist: "normal", mean: est, stddev: seTau },
+    ci,
     errorMessage: null,
     pValue,
     pValueErrorMessage: null,

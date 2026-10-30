@@ -14,9 +14,9 @@ describe("interleavingResultToSnapshotMetrics", () => {
       control: { value: 10, cr: 0.04 },
       treatment: { value: 15, cr: 0.06 },
       test: {
+        method: "paired_delta_t",
         expected: 0.05,
         ci: [0.01, null],
-        uplift: { dist: "normal", mean: 0.05, stddev: 0.02 },
         pValue: null,
         errorMessage: null,
         pValueErrorMessage: "NUMERICAL_PVALUE_NOT_CONVERGED",

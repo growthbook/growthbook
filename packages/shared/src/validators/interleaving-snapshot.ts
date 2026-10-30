@@ -1,10 +1,9 @@
 import { z } from "zod";
-import type { FrequentistTestResult } from "../../types/stats-engine";
+import type { InterleavingTestResult } from "../../types/stats-engine";
 import { baseSchema } from "./base-model";
 import {
   interleavingAnalysisValidator,
   interleavingMetricConfigValidator,
-  interleavingRunValidator,
   interleavingVariationValidator,
 } from "./interleaving";
 import { namedSchema } from "./openapi-helpers";
@@ -34,7 +33,6 @@ export const interleavingSnapshotSettingsValidator = z
     // Drives the test alpha, and the results table colours significance by
     // the same number.
     pValueThreshold: z.number(),
-    runs: z.array(interleavingRunValidator.required({ dateEnded: true })),
     startDate: z.date(),
     endDate: z.date(),
   })
@@ -54,14 +52,16 @@ const interleavingResultSideValidator = z
 
 // Treatment vs control, as returned by stats-ts (pairedDeltaTest or
 // preferenceSignTest). The `satisfies` is the point: it fails to compile if
-// this drifts from the engine's FrequentistTestResult.
+// this drifts from the engine's InterleavingTestResult.
 const interleavingTestResultValidator = z
   .object({
+    method: z
+      .enum(["paired_delta_t", "exact_binomial_sign"])
+      .describe(
+        "Which test produced this result. paired_delta_t: paired delta-method t-test on per-user credited rates (paired analysis). exact_binomial_sign: exact binomial sign test over non-tied users with a Clopper-Pearson interval (preference analysis).",
+      ),
     expected: z.number(),
     ci: z.tuple([z.number().nullable(), z.number().nullable()]),
-    uplift: z
-      .object({ dist: z.string(), mean: z.number(), stddev: z.number() })
-      .strict(),
     pValue: z.number().nullable(),
     errorMessage: z.string().nullable(),
     pValueErrorMessage: z
@@ -71,7 +71,7 @@ const interleavingTestResultValidator = z
       ])
       .nullable(),
   })
-  .strict() satisfies z.ZodType<FrequentistTestResult>;
+  .strict() satisfies z.ZodType<InterleavingTestResult>;
 
 /** Result of one (metric, analysis) pair. */
 export const interleavingMetricResultValidator = z
@@ -125,19 +125,10 @@ export const apiInterleavingSnapshotValidator = namedSchema(
         .omit({
           interleavingId: true,
           interleavingExposureQuerySql: true,
-          runs: true,
           startDate: true,
           endDate: true,
         })
         .extend({
-          runs: z
-            .array(
-              z.strictObject({
-                dateStarted: z.iso.datetime(),
-                dateEnded: z.iso.datetime(),
-              }),
-            )
-            .describe("The run windows these results count exposures from"),
           startDate: z.iso.datetime(),
           endDate: z.iso.datetime(),
         }),

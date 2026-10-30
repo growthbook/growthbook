@@ -67,7 +67,6 @@ const interleaving = (overrides: Partial<InterleavingInterface> = {}) =>
     metrics: [{ id: "fact__goal", analyses: [{ type: "paired" }] }],
     dateStarted: new Date("2026-10-01T00:00:00Z"),
     dateStopped: null,
-    runs: [{ dateStarted: new Date("2026-10-01T00:00:00Z") }],
     variations: [
       { id: "v0", key: "popular", name: "Popular" },
       { id: "v1", key: "buyers-pick", name: "Buyer's pick" },

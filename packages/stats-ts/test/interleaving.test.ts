@@ -21,9 +21,9 @@ const R_FIXTURE: PairedSufficientStats = {
 describe("pairedDeltaTest", () => {
   it("matches R-computed delta-method values", () => {
     const res = pairedDeltaTest(R_FIXTURE);
+    expect(res.method).toBe("paired_delta_t");
     expect(res.errorMessage).toBeNull();
     expect(res.expected).toBeCloseTo(0.1495726496, 9);
-    expect(res.uplift.stddev).toBeCloseTo(0.0514565834, 9);
     expect(res.pValue).toBeCloseTo(0.0059939522, 9);
     expect(res.ci[0]).toBeCloseTo(0.0454918856, 9);
     expect(res.ci[1]).toBeCloseTo(0.2536534135, 9);
@@ -44,13 +44,12 @@ describe("pairedDeltaTest", () => {
       control_exposures_sum_product: 61,
     });
     expect(res.expected).toBeCloseTo(0.875, 9);
-    expect(res.uplift.stddev).toBeCloseTo(0.2934924539, 9);
     expect(res.pValue).toBeCloseTo(0.004924666, 8);
     expect(res.ci[0]).toBeCloseTo(0.2813554783, 8);
     expect(res.ci[1]).toBeCloseTo(1.4686445217, 8);
   });
 
-  it("positive X/Y covariance shrinks the SE vs zero covariance", () => {
+  it("positive X/Y covariance narrows the CI vs zero covariance", () => {
     const base = { ...R_FIXTURE };
     // remove the pairing benefit: set treatment_control_sum_product to the independence value users*mean(t)*mean(c)
     const independent = {
@@ -60,13 +59,15 @@ describe("pairedDeltaTest", () => {
     };
     const paired = pairedDeltaTest(base);
     const unpaired = pairedDeltaTest(independent);
-    expect(paired.uplift.stddev).toBeLessThan(unpaired.uplift.stddev);
+    const width = (r: { ci: (number | null)[] }) =>
+      (r.ci[1] ?? NaN) - (r.ci[0] ?? NaN);
+    expect(width(paired)).toBeLessThan(width(unpaired));
   });
 
   it("guards degenerate inputs", () => {
-    expect(pairedDeltaTest({ ...R_FIXTURE, users: 1 }).errorMessage).toBe(
-      "NOT_ENOUGH_USERS",
-    );
+    const notEnough = pairedDeltaTest({ ...R_FIXTURE, users: 1 });
+    expect(notEnough.errorMessage).toBe("NOT_ENOUGH_USERS");
+    expect(notEnough.method).toBe("paired_delta_t");
     expect(
       pairedDeltaTest({ ...R_FIXTURE, exposures_sum: 0 }).errorMessage,
     ).toBe("NO_COMPETITIVE_EXPOSURES");
@@ -94,10 +95,10 @@ describe("preferenceSignTest", () => {
       users_pref_control: 18,
       users_tied: 12,
     });
+    expect(res.method).toBe("exact_binomial_sign");
     expect(res.errorMessage).toBeNull();
     expect(res.expected).toBeCloseTo(0.25, 10); // (30-18)/(30+18)
     expect(res.pValue).toBeCloseTo(0.1114028911, 9);
-    expect(res.uplift.stddev).toBeCloseTo(0.1397542486, 9);
     // Clopper-Pearson on the 30/48 non-tied proportion, mapped by tau = 2p - 1.
     expect(res.ci[0]).toBeCloseTo(-0.0529884788, 8);
     expect(res.ci[1]).toBeCloseTo(0.5209551931, 8);

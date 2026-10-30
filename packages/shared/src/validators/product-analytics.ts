@@ -34,7 +34,8 @@ const metricValueValidator = baseValueValidator.extend({
 // run in place of a saved one. Kept out of the public validators so the REST
 // API, OpenAPI spec, and AI agent never accept or document user-authored drafts.
 const internalMetricValueValidator = metricValueValidator.extend({
-  draftMetric: draftExplorationMetricValidator.optional(),
+  // Stripped, not strict: a stale page may still send a retired field.
+  draftMetric: draftExplorationMetricValidator.strip().optional(),
 });
 export type MetricValue = z.infer<typeof internalMetricValueValidator>;
 

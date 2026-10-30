@@ -163,3 +163,16 @@ export function getInterleavingMetricIssue({
 
   return null;
 }
+
+// Tracking keys must be unique per Data Source, so a later experiment reusing a
+// code key gets a suffix. Loops rather than counting collisions, so a manually
+// set `key_v1` is skipped rather than clobbered.
+export function nextAvailableTrackingKey(
+  key: string,
+  taken: Set<string>,
+): string {
+  if (!taken.has(key)) return key;
+  let i = 1;
+  while (taken.has(`${key}_v${i}`)) i++;
+  return `${key}_v${i}`;
+}

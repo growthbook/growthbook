@@ -41,6 +41,10 @@ export function interleavingMetricColumn(metricIndex: number, stat: string) {
   return `m${metricIndex}_${stat}`;
 }
 
+// Absolute tolerance for comparing a user's fractional treatment and control
+// win totals in the preference analysis (see the final SELECT).
+const PREFERENCE_TIE_TOLERANCE = "1e-9";
+
 /**
  * Sufficient-statistics query for interleaving experiments: one query per
  * fact table, covering every metric on that table and each analysis
@@ -190,14 +194,10 @@ export function getInterleavingMetricQuery(
   dialect: SqlDialect,
   params: InterleavingMetricQueryParams,
 ): string {
-  const { userIdType, trackingKey, variationKeys, runs, startDate, endDate } =
-    params;
+  const { userIdType, trackingKey, variationKeys, startDate, endDate } = params;
 
   if (params.metrics.length === 0) {
     throw new Error("Interleaving metric query requires at least one metric");
-  }
-  if (runs.length === 0) {
-    throw new Error("Interleaving metric query requires at least one run");
   }
   const { jsonArray } = dialect;
   if (!jsonArray) {
@@ -217,16 +217,9 @@ export function getInterleavingMetricQuery(
   const [controlKey, treatmentKey] = variationKeys;
   const ts = INTERLEAVING_TIMESTAMP_COLUMN;
   const lit = (value: string) => `'${dialect.escapeStringLiteral(value)}'`;
-  // One range per run, OR'd. Parenthesised because both callers AND this into
-  // a WHERE clause, where a bare OR would widen the whole predicate.
   const dateFilter = (col: string) =>
-    `(${runs
-      .map(
-        (r) =>
-          `(${col} >= ${dialect.toTimestamp(r.dateStarted)}` +
-          ` AND ${col} <= ${dialect.toTimestamp(r.dateEnded)})`,
-      )
-      .join("\n          OR ")})`;
+    `${col} >= ${dialect.toTimestamp(startDate)}` +
+    ` AND ${col} <= ${dialect.toTimestamp(endDate)}`;
   const item = (field: string) => jsonArray.fieldText("item", field);
   const cols = (parts: string[]) => parts.join(",\n        ");
 
@@ -489,10 +482,14 @@ export function getInterleavingMetricQuery(
       `${gate(i, `pu.treatment_${i} * pu.exposures_${i}`)} AS ${out("treatment_exposures_sum_product")}`,
       `${gate(i, `pu.control_${i} * pu.exposures_${i}`)} AS ${out("control_exposures_sum_product")}`,
     ]),
+    // Fractional shares (1/3, 2/3, ...) make the win totals floats, and two
+    // sums that are equal in exact arithmetic can differ by an ulp depending
+    // on summation order. Exact equality would then turn a tied user into a
+    // preference, so ties are decided within an absolute tolerance.
     ...plan.preference.flatMap(({ i, out }) => [
-      `SUM(${dialect.ifElse(`pref.wins_t_${i} > pref.wins_c_${i}`, "1", "0")}) AS ${out("users_pref_treatment")}`,
-      `SUM(${dialect.ifElse(`pref.wins_c_${i} > pref.wins_t_${i}`, "1", "0")}) AS ${out("users_pref_control")}`,
-      `SUM(${dialect.ifElse(`pref.wins_t_${i} = pref.wins_c_${i}`, "1", "0")}) AS ${out("users_tied")}`,
+      `SUM(${dialect.ifElse(`pref.wins_t_${i} - pref.wins_c_${i} > ${PREFERENCE_TIE_TOLERANCE}`, "1", "0")}) AS ${out("users_pref_treatment")}`,
+      `SUM(${dialect.ifElse(`pref.wins_c_${i} - pref.wins_t_${i} > ${PREFERENCE_TIE_TOLERANCE}`, "1", "0")}) AS ${out("users_pref_control")}`,
+      `SUM(${dialect.ifElse(`ABS(pref.wins_t_${i} - pref.wins_c_${i}) <= ${PREFERENCE_TIE_TOLERANCE}`, "1", "0")}) AS ${out("users_tied")}`,
     ]),
   ];
 

@@ -1134,7 +1134,6 @@ export interface InterleavingMetricQueryParams {
   trackingKey: string;
   // Control first; matched against the exposure items' `variation` values
   variationKeys: [string, string];
-  runs: { dateStarted: Date; dateEnded: Date }[];
   startDate: Date;
   endDate: Date;
   // One query analyzes all metrics whose numerator reads this fact table;

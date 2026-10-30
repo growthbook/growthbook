@@ -20,7 +20,6 @@ export function interleavingResultToSnapshotMetrics(
       expected: test.expected,
       ci: [test.ci[0] ?? -Infinity, test.ci[1] ?? Infinity],
       pValue: test.pValue ?? undefined,
-      uplift: test.uplift,
       errorMessage: test.errorMessage ?? undefined,
     },
   ];

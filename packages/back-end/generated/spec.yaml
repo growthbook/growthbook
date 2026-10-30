@@ -20341,21 +20341,12 @@ paths:
                       additionalProperties: false
                     riskThresholdSuccess:
                       deprecated: true
-                      description: >-
-                        No longer used. Threshold for Risk to be considered low
-                        enough, as a proportion (e.g. put 0.0025 for 0.25%).
-                        <br/> Must be a non-negative number and must not be
-                        higher than `riskThresholdDanger`.
+                      description: No longer used. Accepted and ignored.
                       type: number
-                      minimum: 0
                     riskThresholdDanger:
                       deprecated: true
-                      description: >-
-                        No longer used. Threshold for Risk to be considered too
-                        high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
-                        Must be a non-negative number.
+                      description: No longer used. Accepted and ignored.
                       type: number
-                      minimum: 0
                     minPercentChange:
                       description: >-
                         Minimum percent change to consider uplift significant,
@@ -20777,21 +20768,12 @@ paths:
                       additionalProperties: false
                     riskThresholdSuccess:
                       deprecated: true
-                      description: >-
-                        No longer used. Threshold for Risk to be considered low
-                        enough, as a proportion (e.g. put 0.0025 for 0.25%).
-                        <br/> Must be a non-negative number and must not be
-                        higher than `riskThresholdDanger`.
+                      description: No longer used. Accepted and ignored.
                       type: number
-                      minimum: 0
                     riskThresholdDanger:
                       deprecated: true
-                      description: >-
-                        No longer used. Threshold for Risk to be considered too
-                        high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
-                        Must be a non-negative number.
+                      description: No longer used. Accepted and ignored.
                       type: number
-                      minimum: 0
                     minPercentChange:
                       description: >-
                         Minimum percent change to consider uplift significant,
@@ -33512,21 +33494,12 @@ paths:
                   additionalProperties: false
                 riskThresholdSuccess:
                   deprecated: true
-                  description: >-
-                    No longer used. Threshold for Risk to be considered low
-                    enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/>
-                    Must be a non-negative number and must not be higher than
-                    `riskThresholdDanger`.
+                  description: No longer used. Accepted and ignored.
                   type: number
-                  minimum: 0
                 riskThresholdDanger:
                   deprecated: true
-                  description: >-
-                    No longer used. Threshold for Risk to be considered too
-                    high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
-                    Must be a non-negative number.
+                  description: No longer used. Accepted and ignored.
                   type: number
-                  minimum: 0
                 displayAsPercentage:
                   description: >-
                     If true and the metric is a ratio or dailyParticipation
@@ -34250,21 +34223,12 @@ paths:
                   additionalProperties: false
                 riskThresholdSuccess:
                   deprecated: true
-                  description: >-
-                    No longer used. Threshold for Risk to be considered low
-                    enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/>
-                    Must be a non-negative number and must not be higher than
-                    `riskThresholdDanger`.
+                  description: No longer used. Accepted and ignored.
                   type: number
-                  minimum: 0
                 riskThresholdDanger:
                   deprecated: true
-                  description: >-
-                    No longer used. Threshold for Risk to be considered too
-                    high, as a proportion (e.g. put 0.0125 for 1.25%). <br/>
-                    Must be a non-negative number.
+                  description: No longer used. Accepted and ignored.
                   type: number
-                  minimum: 0
                 displayAsPercentage:
                   description: >-
                     If true and the metric is a ratio or dailyParticipation
@@ -35336,23 +35300,12 @@ paths:
                             additionalProperties: false
                           riskThresholdSuccess:
                             deprecated: true
-                            description: >-
-                              No longer used. Threshold for Risk to be
-                              considered low enough, as a proportion (e.g. put
-                              0.0025 for 0.25%). <br/> Must be a non-negative
-                              number and must not be higher than
-                              `riskThresholdDanger`.
+                            description: No longer used. Accepted and ignored.
                             type: number
-                            minimum: 0
                           riskThresholdDanger:
                             deprecated: true
-                            description: >-
-                              No longer used. Threshold for Risk to be
-                              considered too high, as a proportion (e.g. put
-                              0.0125 for 1.25%). <br/> Must be a non-negative
-                              number.
+                            description: No longer used. Accepted and ignored.
                             type: number
-                            minimum: 0
                           displayAsPercentage:
                             description: >-
                               If true and the metric is a ratio or
@@ -39683,7 +39636,9 @@ paths:
                         - valueUnit
                       additionalProperties: false
                 metricOverrides:
-                  description: Per-metric window, risk, and regression-adjustment overrides
+                  description: >-
+                    Per-metric window, prior, and regression-adjustment
+                    overrides
                   type: array
                   items:
                     type: object
@@ -39700,10 +39655,6 @@ paths:
                         type: number
                       delayHours:
                         type: number
-                      winRisk:
-                        type: number
-                      loseRisk:
-                        type: number
                       properPriorOverride:
                         type: boolean
                       properPriorEnabled:
@@ -39718,6 +39669,14 @@ paths:
                       regressionAdjustmentEnabled:
                         type: boolean
                       regressionAdjustmentDays:
+                        type: number
+                      winRisk:
+                        deprecated: true
+                        description: No longer used. Accepted and ignored.
+                        type: number
+                      loseRisk:
+                        deprecated: true
+                        description: No longer used. Accepted and ignored.
                         type: number
                     required:
                       - id
@@ -39959,7 +39918,9 @@ paths:
                   description: Activation metric ID
                   type: string
                 metricOverrides:
-                  description: Per-metric window, risk, and regression-adjustment overrides
+                  description: >-
+                    Per-metric window, prior, and regression-adjustment
+                    overrides
                   type: array
                   items:
                     type: object
@@ -39976,10 +39937,6 @@ paths:
                         type: number
                       delayHours:
                         type: number
-                      winRisk:
-                        type: number
-                      loseRisk:
-                        type: number
                       properPriorOverride:
                         type: boolean
                       properPriorEnabled:
@@ -39994,6 +39951,14 @@ paths:
                       regressionAdjustmentEnabled:
                         type: boolean
                       regressionAdjustmentDays:
+                        type: number
+                      winRisk:
+                        deprecated: true
+                        description: No longer used. Accepted and ignored.
+                        type: number
+                      loseRisk:
+                        deprecated: true
+                        description: No longer used. Accepted and ignored.
                         type: number
                     required:
                       - id
@@ -56127,6 +56092,10 @@ paths:
                     SDK payload, so its rankers stop serving immediately.
                   type: boolean
                 trackingKey:
+                  description: >-
+                    The `experiment_id` recorded in exposures. Must be unique
+                    within the Data Source. Changing it on a running experiment
+                    means earlier exposures are no longer counted.
                   type: string
                 hashAttribute:
                   type: string
@@ -56471,10 +56440,11 @@ paths:
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                 trackingKey:
                   description: >-
-                    The `experiment_id` recorded in exposures. Defaults to
-                    `key`. Tracking keys may be reused once an experiment has
-                    stopped, but only one interleaving experiment per tracking
-                    key can run in a Data Source at a time.
+                    The `experiment_id` recorded in exposures. Leave this unset:
+                    it is generated from `key`, with a `_v1` style suffix when
+                    another experiment in this Data Source already uses it.
+                    Tracking keys must be unique within a Data Source, so
+                    supplying one that is taken is rejected.
                   type: string
                 hashAttribute:
                   type: string
@@ -72863,12 +72833,6 @@ components:
                 - conversion
                 - lookback
                 - ''
-            winRiskThreshold:
-              deprecated: true
-              type: number
-            loseRiskThreshold:
-              deprecated: true
-              type: number
             properPriorOverride:
               type: boolean
             properPriorEnabled:
@@ -72882,6 +72846,14 @@ components:
             regressionAdjustmentEnabled:
               type: boolean
             regressionAdjustmentDays:
+              type: number
+            winRiskThreshold:
+              deprecated: true
+              description: No longer used. Never returned.
+              type: number
+            loseRiskThreshold:
+              deprecated: true
+              description: No longer used. Never returned.
               type: number
           additionalProperties: false
       required:
@@ -73720,8 +73692,12 @@ components:
               deprecated: true
               type: number
             riskThresholdSuccess:
+              description: No longer used. Always the default value.
+              deprecated: true
               type: number
             riskThresholdDanger:
+              description: No longer used. Always the default value.
+              deprecated: true
               type: number
             minPercentChange:
               type: number
@@ -77828,8 +77804,12 @@ components:
             - override
           additionalProperties: false
         riskThresholdSuccess:
+          description: No longer used. Always the default value.
+          deprecated: true
           type: number
         riskThresholdDanger:
+          description: No longer used. Always the default value.
+          deprecated: true
           type: number
         displayAsPercentage:
           description: >-
@@ -78271,8 +78251,12 @@ components:
         windowHours:
           type: number
         winRisk:
+          description: No longer used. Always the default value.
+          deprecated: true
           type: number
         loseRisk:
+          description: No longer used. Always the default value.
+          deprecated: true
           type: number
         secureAttributeSalt:
           type: string
@@ -79560,7 +79544,7 @@ components:
             activationMetric:
               type: string
             metricOverrides:
-              description: Per-metric window, risk, and regression-adjustment overrides
+              description: Per-metric window, prior, and regression-adjustment overrides
               type: array
               items:
                 type: object
@@ -79577,10 +79561,6 @@ components:
                     type: number
                   delayHours:
                     type: number
-                  winRisk:
-                    type: number
-                  loseRisk:
-                    type: number
                   properPriorOverride:
                     type: boolean
                   properPriorEnabled:
@@ -79595,6 +79575,14 @@ components:
                   regressionAdjustmentEnabled:
                     type: boolean
                   regressionAdjustmentDays:
+                    type: number
+                  winRisk:
+                    deprecated: true
+                    description: No longer used. Accepted and ignored.
+                    type: number
+                  loseRisk:
+                    deprecated: true
+                    description: No longer used. Accepted and ignored.
                     type: number
                 required:
                   - id
@@ -84348,22 +84336,6 @@ components:
                 additionalProperties: false
             pValueThreshold:
               type: number
-            runs:
-              description: The run windows these results count exposures from
-              type: array
-              items:
-                type: object
-                properties:
-                  dateStarted:
-                    type: string
-                    format: date-time
-                  dateEnded:
-                    type: string
-                    format: date-time
-                required:
-                  - dateStarted
-                  - dateEnded
-                additionalProperties: false
             startDate:
               type: string
               format: date-time
@@ -84378,7 +84350,6 @@ components:
             - variations
             - metrics
             - pValueThreshold
-            - runs
             - startDate
             - endDate
           additionalProperties: false
@@ -84442,6 +84413,17 @@ components:
               test:
                 type: object
                 properties:
+                  method:
+                    description: >-
+                      Which test produced this result. paired_delta_t: paired
+                      delta-method t-test on per-user credited rates (paired
+                      analysis). exact_binomial_sign: exact binomial sign test
+                      over non-tied users with a Clopper-Pearson interval
+                      (preference analysis).
+                    type: string
+                    enum:
+                      - paired_delta_t
+                      - exact_binomial_sign
                   expected:
                     type: number
                   ci:
@@ -84453,20 +84435,6 @@ components:
                       - anyOf:
                           - type: number
                           - type: 'null'
-                  uplift:
-                    type: object
-                    properties:
-                      dist:
-                        type: string
-                      mean:
-                        type: number
-                      stddev:
-                        type: number
-                    required:
-                      - dist
-                      - mean
-                      - stddev
-                    additionalProperties: false
                   pValue:
                     anyOf:
                       - type: number
@@ -84483,9 +84451,9 @@ components:
                           - ALPHA_GREATER_THAN_0.5_FOR_SEQUENTIAL_ONE_SIDED_TEST
                       - type: 'null'
                 required:
+                  - method
                   - expected
                   - ci
-                  - uplift
                   - pValue
                   - errorMessage
                   - pValueErrorMessage

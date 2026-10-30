@@ -27,6 +27,7 @@ import {
   generateVariationId,
   interleavingInSDKPayload,
   interleavingTargetingServes,
+  nextAvailableTrackingKey,
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
@@ -101,7 +102,6 @@ const BaseClass = MakeModelClass({
     tags: [],
     archived: false,
     metrics: [],
-    runs: [],
     jsonSchema: null,
     environmentSettings: {},
   },
@@ -313,6 +313,18 @@ export class InterleavingModel extends BaseClass {
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateInterleavingBody.parse(rawBody);
     const [a, b] = body.variations;
+    // An explicit tracking key is honoured as given; customValidation rejects it
+    // if taken. Otherwise suffix the code key so reusing one to iterate works.
+    const trackingKey =
+      body.trackingKey ||
+      nextAvailableTrackingKey(
+        body.key,
+        new Set(
+          (await this.scanAllInterleavings())
+            .filter((il) => il.datasource === body.datasource)
+            .map((il) => il.trackingKey),
+        ),
+      );
     return {
       ...body,
       owner: await resolveOwnerForCreate(body.owner, this.context, {
@@ -321,7 +333,7 @@ export class InterleavingModel extends BaseClass {
       tags: body.tags ?? [],
       archived: false,
       status: "draft" as const,
-      trackingKey: body.trackingKey || body.key,
+      trackingKey,
       hashAttribute: body.hashAttribute || "id",
       seed: uuidv4(),
       variations: [
@@ -330,8 +342,6 @@ export class InterleavingModel extends BaseClass {
       ] as InterleavingInterface["variations"],
       jsonSchema: toJSONSchema(body.jsonSchema),
       metrics: body.metrics ?? [],
-      // Created as a draft, so it has not run yet.
-      runs: [],
       environmentSettings: body.environmentSettings ?? {},
     };
   }
@@ -403,6 +413,15 @@ export class InterleavingModel extends BaseClass {
     return this.context.hasPremiumFeature("interleaving");
   }
 
+  // Admin context so the scan is not permission-filtered: a tracking key the
+  // caller cannot read still collides.
+  private async scanAllInterleavings(): Promise<InterleavingInterface[]> {
+    return (
+      this.context.scanContextOverride ??
+      getContextForAgendaJobByOrgObject(this.context.org)
+    ).models.interleavings.getAll();
+  }
+
   protected async customValidation(
     doc: InterleavingInterface,
     previousDoc?: InterleavingInterface,
@@ -421,13 +440,12 @@ export class InterleavingModel extends BaseClass {
           existing: il,
           environmentIds: this.context.environments,
         });
-      const others = (
-        await (
-          this.context.scanContextOverride ??
-          getContextForAgendaJobByOrgObject(this.context.org)
-        ).models.interleavings.getAll()
-      ).filter((il) => il.id !== doc.id);
+      const others = (await this.scanAllInterleavings()).filter(
+        (il) => il.id !== doc.id,
+      );
 
+      // Serving conflict, so only running experiments matter, and only where
+      // they actually serve.
       if (interleavingInSDKPayload(doc)) {
         const serving = new Set(servingEnvs(doc));
         for (const other of others.filter((il) => il.key === doc.key)) {
@@ -439,19 +457,18 @@ export class InterleavingModel extends BaseClass {
             );
           }
         }
+      }
 
-        if (
-          others.some(
-            (other) =>
-              interleavingInSDKPayload(other) &&
-              other.datasource === doc.datasource &&
-              other.trackingKey === doc.trackingKey,
-          )
-        ) {
-          throw new Error(
-            `Another interleaving experiment already reports as "${doc.trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`,
-          );
-        }
+      if (
+        others.some(
+          (other) =>
+            other.datasource === doc.datasource &&
+            other.trackingKey === doc.trackingKey,
+        )
+      ) {
+        throw new Error(
+          `Another interleaving experiment already reports as "${doc.trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`,
+        );
       }
     }
 
@@ -462,16 +479,15 @@ export class InterleavingModel extends BaseClass {
       throw new Error("Interleaving tracking key cannot be empty.");
     }
 
-    // These decide which users see which ranker, so changing them mid-flight
-    // invalidates the experiment rather than adjusting it. Analysis inputs
-    // (datasource, exposure query, metrics) stay editable: each snapshot
-    // freezes its own copy, so an edit only affects the next refresh.
+    // These rebucket every user mid-flight, which invalidates the experiment
+    // rather than adjusting it. trackingKey is deliberately not locked: it only
+    // changes which experiment_id later exposures carry, so the damage is
+    // contained to this experiment's own results.
     if (previousDoc?.status === "running") {
       const locked = (
         [
           ["seed", "seed"],
           ["hashAttribute", "assignment attribute"],
-          ["trackingKey", "tracking key"],
         ] as const
       )
         .filter(([field]) => doc[field] !== previousDoc[field])

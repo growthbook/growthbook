@@ -84,8 +84,6 @@ const metricSchema = new mongoose.Schema({
     stddev: Number,
   },
   denominator: String,
-  winRisk: Number,
-  loseRisk: Number,
   maxPercentChange: Number,
   minPercentChange: Number,
   minSampleSize: Number,
