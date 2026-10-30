@@ -1,6 +1,7 @@
 {
   "name": "@growthbook/remote-saved-groups-csv-parser",
   "version": "0.1.0",
+  "packageManager": "pnpm@10.33.4",
   "description": "Parse and validate remote saved group files for GrowthBook and its loaders",
   "license": "MIT",
   "main": "dist/index.js",
@@ -15,9 +16,10 @@
   "sideEffects": false,
   "repository": {
     "type": "git",
-    "url": "https://github.com/growthbook/growthbook",
+    "url": "git+https://github.com/growthbook/growthbook.git",
     "directory": "packages/remote-saved-groups-csv-parser"
   },
+  "author": "GrowthBook",
   "scripts": {
     "prepare": "[ -n \"$GB_SKIP_PREPARE\" ] || tsc",
     "build:clean": "rimraf dist tsconfig.tsbuildinfo",
