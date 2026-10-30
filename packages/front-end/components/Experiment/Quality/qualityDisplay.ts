@@ -17,19 +17,6 @@ export const SECTION_COLORS: Record<
   ai: scaleColors("violet"),
 };
 
-// The section shades on the settings page's weight bar, darkest first
-const navy = (percent: number) =>
-  `color-mix(in srgb, var(--indigo-12) ${percent}%, var(--color-background))`;
-export const SECTION_WEIGHT_COLORS: Record<
-  ExperimentQualitySectionKey,
-  string
-> = {
-  setup: navy(100),
-  process: navy(75),
-  documentation: navy(50),
-  ai: navy(30),
-};
-
 // An AI verdict (0-1) as shown everywhere it appears
 export const formatAIScore = (score: number) => `${Math.round(score * 100)}%`;
 
