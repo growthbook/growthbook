@@ -45,7 +45,7 @@ import {
 import {
   ApprovalScopeSections,
   FlagApprovalFields,
-  SavedGroupApprovalFields,
+  ApprovalFlowRuleFields,
 } from "./ApprovalScopeFields";
 
 export default function ApprovalFlowSettings() {
@@ -262,10 +262,28 @@ export default function ApprovalFlowSettings() {
         description="Every change is saved as a revision. Approval adds a review step before it goes live."
         keywords="approval review saved groups reset self-approve one step metadata teams"
       >
-        <SavedGroupApprovalFields
+        <ApprovalFlowRuleFields
+          family="saved-group"
           idPrefix="saved-groups-all-projects"
           value={clonedSavedGroupRule(savedGroupRules, ALL_PROJECTS_SCOPE)}
           onChange={(next) => setSavedGroupRule(ALL_PROJECTS_SCOPE, next)}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup
+        id="ap-sdk-connections"
+        title="SDK Connections"
+        description="Every change is saved as a revision. Approval adds a review step before it goes live."
+        keywords="approval review sdk connections environments reset self-approve one step metadata teams"
+      >
+        <ApprovalFlowRuleFields
+          family="sdk-connection"
+          idPrefix="sdk-connections-all-projects"
+          value={clonedSdkConnectionRule(
+            sdkConnectionRules,
+            ALL_PROJECTS_SCOPE,
+          )}
+          onChange={(next) => setSdkConnectionRule(ALL_PROJECTS_SCOPE, next)}
         />
       </SettingsGroup>
 

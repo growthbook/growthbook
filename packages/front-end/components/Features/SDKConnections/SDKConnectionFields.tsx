@@ -75,7 +75,7 @@ export function SDKVersionField({
       {/* Stays on the legacy select: the version list must accept a
           typed-in version that isn't in the list yet. */}
       <SelectField
-        size="small"
+        size="sm"
         label={hideLabel ? undefined : "SDK version"}
         aria-label="SDK version"
         sort={false}
