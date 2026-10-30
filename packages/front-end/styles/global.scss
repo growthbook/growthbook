@@ -835,6 +835,13 @@ pre {
   // Beside the details panel, the content caps and centers once there's room.
   .experiment-column {
     --page-content-max-width: 1600px;
+    // Select menus match their field, as wide as it and no wider, so they
+    // don't run over the details panel or off the window (the app's menus
+    // otherwise size to their longest option, react-select.scss).
+    .gb-select__menu,
+    .gb-multi-select__menu {
+      width: auto !important;
+    }
   }
 }
 
