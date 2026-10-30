@@ -43,6 +43,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -818,13 +819,7 @@ export default function EventForwarder({
           <Callout status="info">
             Event Forwarder is not available for your current plan. Contact your
             account manager or reach out to{" "}
-            <a
-              href="mailto:sales@growthbook.io"
-              target="_blank"
-              rel="noreferrer"
-            >
-              sales@growthbook.io
-            </a>{" "}
+            <Link href="mailto:sales@growthbook.io">sales@growthbook.io</Link>{" "}
             to upgrade.
           </Callout>
         ) : (
