@@ -128,8 +128,6 @@ export function getPreviewDraftMetric(metric: FactMetricInterface) {
     maxPercentChange: 1,
     minPercentChange: 0,
     minSampleSize: 0,
-    winRisk: 0,
-    loseRisk: 0,
     regressionAdjustmentOverride: false,
     regressionAdjustmentEnabled: false,
     regressionAdjustmentDays: 0,

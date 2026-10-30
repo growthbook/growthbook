@@ -8,7 +8,7 @@ import {
 import { DataSourceInterface } from "shared/types/datasource";
 import { FactMetricInterface } from "shared/types/fact-table";
 import { isFactMetric } from "shared/experiments";
-import { ExperimentInterface, Variation } from "shared/types/experiment";
+import { ExperimentInterface } from "shared/types/experiment";
 import type { ExperimentSnapshotInterface } from "shared/types/experiment-snapshot";
 import {
   ExperimentUpdateSchedule,
@@ -21,11 +21,9 @@ import {
   validateScheduleUpdate,
 } from "back-end/src/services/experimentScheduling";
 import {
-  applyVariationWeightsToLatestPhase,
   assertValidBucketVersions,
   assertValidReleasedVariationId,
   createMetric,
-  fillEmptyVariationKeys,
   getExperimentMetricById,
   normalizeStatusUpdateScheduleChanges,
   postExperimentApiPayloadToInterface,
@@ -366,36 +364,7 @@ describe("experiments utils", () => {
       );
     });
 
-    it("should return a failed result if both risk threshold values are not provided", () => {
-      const datasource: Pick<DataSourceInterface, "type"> = {
-        type: "postgres",
-      };
-      const input: z.infer<typeof postMetricValidator.bodySchema> = {
-        datasourceId: "ds_abc123",
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = postMetricApiPayloadIsValid(input, datasource) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      );
-    });
-
-    it("should return a failed result if the risk threshold danger value is less than the success value", () => {
+    it("accepts and ignores retired risk thresholds", () => {
       const datasource: Pick<DataSourceInterface, "type"> = {
         type: "postgres",
       };
@@ -419,36 +388,6 @@ describe("experiments utils", () => {
         error: string;
       };
 
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess",
-      );
-    });
-
-    it("should return a successful result if both risk threshold values are provided", () => {
-      const datasource: Pick<DataSourceInterface, "type"> = {
-        type: "postgres",
-      };
-      const input: z.infer<typeof postMetricValidator.bodySchema> = {
-        datasourceId: "ds_abc123",
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = postMetricApiPayloadIsValid(input, datasource) as {
-        valid: false;
-        error: string;
-      };
-
       expect(result.valid).toBe(true);
     });
 
@@ -458,10 +397,6 @@ describe("experiments utils", () => {
       };
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
         datasourceId: "ds_abc123",
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
-        },
         name: "My Cool Metric",
         type: "count",
       };
@@ -695,32 +630,7 @@ describe("experiments utils", () => {
       );
     });
 
-    it("should return a failed result if both risk threshold values are not provided", () => {
-      const input: z.infer<typeof putMetricValidator.bodySchema> = {
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = putMetricApiPayloadIsValid(input) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      );
-    });
-
-    it("should return a failed result if the risk threshold danger value is less than the success value", () => {
+    it("accepts and ignores retired risk thresholds", () => {
       const input: z.infer<typeof putMetricValidator.bodySchema> = {
         sql: {
           identifierTypes: ["user_id"],
@@ -730,32 +640,6 @@ describe("experiments utils", () => {
         behavior: {
           riskThresholdSuccess: 0.5,
           riskThresholdDanger: 0.1,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = putMetricApiPayloadIsValid(input) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess",
-      );
-    });
-
-    it("should return a successful result if both risk threshold values are provided", () => {
-      const input: z.infer<typeof putMetricValidator.bodySchema> = {
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
         },
         name: "My Cool Metric",
         type: "count",
@@ -913,8 +797,8 @@ describe("experiments utils", () => {
         // More fields
         expect(result.projects).toEqual(["proj_abc987"]);
         expect(result.tags).toEqual(["checkout"]);
-        expect(result.winRisk).toEqual(5);
-        expect(result.loseRisk).toEqual(0.5);
+        expect(result).not.toHaveProperty("winRisk");
+        expect(result).not.toHaveProperty("loseRisk");
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
@@ -956,8 +840,6 @@ describe("experiments utils", () => {
             conversionWindowStart: 10,
             conversionWindowEnd: 50,
             cap: 1337,
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1012,8 +894,6 @@ describe("experiments utils", () => {
               windowValue: 33,
               delayHours: 5,
             },
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1064,8 +944,6 @@ describe("experiments utils", () => {
               delayHours: 5,
               delayValue: 10,
             },
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1245,8 +1123,8 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       // More fields
       expect(result.projects).toEqual(["proj_abc987"]);
       expect(result.tags).toEqual(["checkout"]);
-      expect(result.winRisk).toEqual(5);
-      expect(result.loseRisk).toEqual(0.5);
+      expect(result).not.toHaveProperty("winRisk");
+      expect(result).not.toHaveProperty("loseRisk");
       expect(result.minPercentChange).toEqual(1);
       expect(result.maxPercentChange).toEqual(50);
       expect(result.minSampleSize).toEqual(200);
@@ -1548,56 +1426,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
     });
   });
 
-  describe("applyVariationWeightsToLatestPhase", () => {
-    it("sets variationWeights on the last phase and preserves other phase fields", () => {
-      const experiment = {
-        phases: [
-          {
-            name: "Main",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 1,
-            dateStarted: new Date("2024-01-01"),
-          },
-        ],
-      } as ExperimentInterface;
-
-      const next = applyVariationWeightsToLatestPhase(experiment, [0.6, 0.4]);
-
-      expect(next).toHaveLength(1);
-      expect(next[0].variationWeights).toEqual([0.6, 0.4]);
-      expect(next[0].name).toEqual("Main");
-      expect(next[0].coverage).toBe(1);
-      expect(experiment.phases[0].variationWeights).toEqual([0.5, 0.5]);
-    });
-
-    it("only updates the last phase when multiple phases exist", () => {
-      const experiment = {
-        phases: [
-          {
-            name: "Ramp",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 0.2,
-            dateStarted: new Date("2024-01-01"),
-          },
-          {
-            name: "Main",
-            condition: "{}",
-            variationWeights: [0.5, 0.5],
-            coverage: 1,
-            dateStarted: new Date("2024-02-01"),
-          },
-        ],
-      } as ExperimentInterface;
-
-      const next = applyVariationWeightsToLatestPhase(experiment, [0.7, 0.3]);
-
-      expect(next[0].variationWeights).toEqual([0.5, 0.5]);
-      expect(next[1].variationWeights).toEqual([0.7, 0.3]);
-    });
-  });
-
   describe("experiment API payload mappers", () => {
     const org = { id: "org_test" } as OrganizationInterface;
     const datasource = {
@@ -1618,7 +1446,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
           {
             id: "met_1",
             delayHours: 12,
-            winRisk: 0.05,
           },
         ],
         decisionFrameworkSettings: {
@@ -1629,9 +1456,7 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       };
 
       const out = postExperimentApiPayloadToInterface(payload, org, datasource);
-      expect(out.metricOverrides).toEqual([
-        { id: "met_1", delayHours: 12, winRisk: 0.05 },
-      ]);
+      expect(out.metricOverrides).toEqual([{ id: "met_1", delayHours: 12 }]);
       expect(out.decisionFrameworkSettings).toEqual({
         decisionCriteriaId: "crit_1",
         decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
@@ -1771,6 +1596,22 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
       future,
     );
     expect(changes.nextScheduledStatusUpdate).toBeNull();
+  });
+
+  it("leaves an armed start armed when the schedule is echoed back", () => {
+    const startAt = new Date("2099-06-01T12:00:00Z");
+    const experiment = makeExperiment({
+      statusUpdateSchedule: { startAt },
+      nextScheduledStatusUpdate: { type: "start", date: startAt },
+    });
+    // As a REST GET returns it.
+    const changes = {
+      statusUpdateSchedule: { startAt: startAt.toISOString() },
+    } as unknown as Partial<ExperimentInterface>;
+
+    normalizeStatusUpdateScheduleChanges(experiment, changes);
+
+    expect(changes).toEqual({});
   });
 
   it("object with no startAt clears both schedule and staged start", () => {
@@ -1945,7 +1786,7 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
 
     normalizeStatusUpdateScheduleChanges(experiment, changes);
 
-    expect(changes.statusUpdateSchedule).toBeNull();
+    expect(changes.statusUpdateSchedule ?? null).toBeNull();
   });
 
   it("drops the nested scheduledStopPlan on a start-only schedule (no end)", () => {
@@ -1966,130 +1807,6 @@ describe("normalizeStatusUpdateScheduleChanges", () => {
     };
     expect(sched.startAt).toEqual(future);
     expect(sched.scheduledStopPlan).toBeUndefined();
-  });
-});
-
-describe("fillEmptyVariationKeys", () => {
-  const makeVariation = (key: string, id = `v_${key || "new"}`): Variation => ({
-    id,
-    name: key || "New",
-    description: "",
-    key,
-    screenshots: [],
-  });
-
-  it("is a no-op when no variations have an empty key", () => {
-    const variations = [makeVariation("0"), makeVariation("1")];
-    const snapshot = variations.map((v) => ({ ...v }));
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations).toEqual(snapshot);
-  });
-
-  it("is a no-op for an empty variations array", () => {
-    const variations: Variation[] = [];
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations).toEqual([]);
-  });
-
-  it("assigns the next numeric key for the typical sequential case", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("1"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2"]);
-  });
-
-  it("assigns monotonically increasing keys to multiple empties", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("1"),
-      makeVariation(""),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "1"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "1", "2", "3"]);
-  });
-
-  it("skips existing customized keys to avoid collision", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("2"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "2"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "2", "3"]);
-  });
-
-  it("starts at 0 when no existing keys are non-negative integers", () => {
-    const variations = [
-      makeVariation("control"),
-      makeVariation("treatment"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["control", "treatment"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["control", "treatment", "0"]);
-  });
-
-  it("uses the largest non-negative integer key in a mixed set", () => {
-    const variations = [
-      makeVariation("control"),
-      makeVariation("5"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["control", "5"]);
-
-    expect(variations.map((v) => v.key)).toEqual(["control", "5", "6"]);
-  });
-
-  it("ignores non-canonical numeric strings when finding the largest", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("007"),
-      makeVariation("-1"),
-      makeVariation("3.5"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "007", "-1", "3.5"]);
-
-    expect(variations[variations.length - 1].key).toBe("1");
-  });
-
-  it("assigns 0 when there are no existing keys at all", () => {
-    const variations = [makeVariation(""), makeVariation("")];
-
-    fillEmptyVariationKeys(variations, []);
-
-    expect(variations.map((v) => v.key)).toEqual(["0", "1"]);
-  });
-
-  it("does not modify variations whose key is already set", () => {
-    const variations = [
-      makeVariation("0"),
-      makeVariation("custom"),
-      makeVariation(""),
-    ];
-
-    fillEmptyVariationKeys(variations, ["0", "custom"]);
-
-    expect(variations[0].key).toBe("0");
-    expect(variations[1].key).toBe("custom");
-    expect(variations[2].key).toBe("1");
   });
 });
 

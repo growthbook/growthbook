@@ -10,6 +10,8 @@ import {
   isDashboardGlobalControlSupportedBlock,
   isDashboardExperimentBlock,
   experimentBlockOptedOutOfGlobalFilters,
+  getBlockSizeBounds,
+  DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
 } from "shared/enterprise";
 import { Flex, IconButton, Text } from "@radix-ui/themes";
 import { PiDotsSixVertical, PiPencilSimpleFill } from "react-icons/pi";
@@ -45,9 +47,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import useApi from "@/hooks/useApi";
 import Field from "@/components/Forms/Field";
 import Badge from "@/ui/Badge";
+import ScrollArea from "@/ui/ScrollArea";
 import { isSubmittableConfig } from "@/enterprise/components/ProductAnalytics/util";
 import { DashboardBlockTypeMenuItems } from "@/enterprise/components/Dashboards/DashboardEditor/DashboardBlockTypeMenu";
 import { BLOCK_TYPE_INFO } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardBlockTypes";
+import { gridRowsToPixels } from "@/enterprise/components/Dashboards/DashboardEditor/dashboardLayout";
 import MarkdownBlock from "./MarkdownBlock";
 import ExperimentMetadataBlock from "./ExperimentMetadataBlock";
 import ExperimentMetricBlock from "./ExperimentMetricBlock";
@@ -151,6 +155,9 @@ const BLOCK_COMPONENTS: {
   "sql-exploration": ProductAnalyticsExplorerBlock,
   "funnel-exploration": ProductAnalyticsExplorerBlock,
 };
+
+// The title and padding around a block's content.
+const BLOCK_CHROME_PX = 60;
 
 export default function DashboardBlock<T extends DashboardBlockInterface>({
   isTabActive,
@@ -432,44 +439,105 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
     return blockType === "markdown" ? "" : BLOCK_TYPE_INFO[blockType].name;
   }
 
+  // Clicked to edit; inside the content, so the wheel still scrolls the block.
+  const editOverlay = isEditing && !editingBlock && disableBlock === "none" && (
+    <div
+      style={{
+        position: "absolute",
+        inset: 0,
+        backgroundColor:
+          "color-mix(in srgb, var(--violet-a3) 30%, transparent)",
+        cursor: "pointer",
+        // This will make the underlying block non-interactive
+        // The user must click this overlay to enter editing mode and then they can interact
+        opacity: 0.01,
+        zIndex: 999,
+        borderRadius: 6,
+      }}
+      className="fade-hover"
+      onClick={(e) => {
+        e.stopPropagation();
+        editBlock();
+      }}
+    />
+  );
+  const fills = !!BLOCK_TYPE_INFO[block.type].fills;
+  const content = (
+    <Flex
+      direction="column"
+      flexGrow="1"
+      minHeight="0"
+      px="4"
+      pb="3"
+      position="relative"
+    >
+      {editOverlay}
+      <Text>{block.description}</Text>
+      <Flex direction="column" flexGrow="1" minHeight="0">
+        {/* Check for possible error states to ensure block component has all necessary data */}
+        {!definitionsReady ||
+        experimentsLoading ||
+        dashboardSnapshotLoading ||
+        metricAnalysisLoading ||
+        dashboardContextLoading ||
+        (blockHasSavedQuery && savedQueryLoading) ||
+        (blockHasMetricAnalysis && metricAnalysisLoading) ? (
+          <BlockLoadingSnapshot />
+        ) : blockNeedsConfiguration ? (
+          <BlockNeedsConfiguration block={block} />
+        ) : requiresSnapshot &&
+          (!snapshot || !analysis || !analysis.results[0]) ? (
+          <BlockMissingData />
+        ) : blockMissingHealthCheck ? (
+          <BlockMissingHealthCheck />
+        ) : Object.keys(objectProps).some(
+            (key) =>
+              !isDefined(objectProps[key]) ||
+              (Array.isArray(objectProps[key]) &&
+                objectProps[key].some((el) => !isDefined(el))),
+          ) ? (
+          <BlockObjectMissing block={block} />
+        ) : (
+          <ErrorBoundary fallback={<BlockRenderError block={block} />}>
+            <BlockComponent
+              isTabActive={isTabActive}
+              block={block}
+              dashboardGlobalControls={dashboardGlobalControls}
+              dashboardComparison={dashboardComparison}
+              blockIndex={blockIndex}
+              setBlock={setBlock}
+              isEditing={isEditing}
+              snapshot={
+                requiresSnapshot
+                  ? (snapshot as ExperimentSnapshotInterface)
+                  : ({} as ExperimentSnapshotInterface)
+              }
+              analysis={
+                requiresSnapshot
+                  ? (analysis as ExperimentSnapshotAnalysis)
+                  : ({} as ExperimentSnapshotAnalysis)
+              }
+              mutate={mutate}
+              // objectProps should be validated above to actually contain all the keys and not be Partial
+              {...(objectProps as unknown as ObjectProps<T>)}
+            />
+          </ErrorBoundary>
+        )}
+      </Flex>
+    </Flex>
+  );
+
   return (
     <Flex
       ref={scrollRef}
-      className={clsx(
-        "appbox dashboard-block px-4 py-3 mb-0 position-relative",
-        {
-          "border-violet": editingBlock || isFocused,
-          "dashboard-disabled": disableBlock === "full",
-        },
-      )}
-      style={{ overflow: "auto", height: "100%", width: "100%" }}
+      className={clsx("appbox dashboard-block mb-0 position-relative", {
+        "border-violet": editingBlock || isFocused,
+        "dashboard-disabled": disableBlock === "full",
+      })}
+      style={{ overflow: "hidden", height: "100%", width: "100%" }}
       direction="column"
     >
-      {isEditing && !editingBlock && disableBlock === "none" && (
-        <div
-          style={{
-            position: "absolute",
-            top: 45,
-            left: 24,
-            right: 24,
-            bottom: 12,
-            backgroundColor:
-              "color-mix(in srgb, var(--violet-a3) 30%, transparent)",
-            cursor: "pointer",
-            // This will make the underlying block non-interactive
-            // The user must click this overlay to enter editing mode and then they can interact
-            opacity: 0.01,
-            zIndex: 999,
-            borderRadius: 6,
-          }}
-          className="fade-hover"
-          onClick={(e) => {
-            e.stopPropagation();
-            editBlock();
-          }}
-        ></div>
-      )}
-      <Flex align="center" mb="2">
+      <Flex align="center" mb="2" px="4" pt="3">
         {isEditing && canMoveBlock && disableBlock !== "full" && (
           <IconButton
             className="dashboard-block-drag-handle"
@@ -676,55 +744,33 @@ export default function DashboardBlock<T extends DashboardBlockInterface>({
           </div>
         ) : null}
       </Flex>
-      <Text>{block.description}</Text>
-      {/* Check for possible error states to ensure block component has all necessary data */}
-      {!definitionsReady ||
-      experimentsLoading ||
-      dashboardSnapshotLoading ||
-      metricAnalysisLoading ||
-      dashboardContextLoading ||
-      (blockHasSavedQuery && savedQueryLoading) ||
-      (blockHasMetricAnalysis && metricAnalysisLoading) ? (
-        <BlockLoadingSnapshot />
-      ) : blockNeedsConfiguration ? (
-        <BlockNeedsConfiguration block={block} />
-      ) : requiresSnapshot &&
-        (!snapshot || !analysis || !analysis.results[0]) ? (
-        <BlockMissingData />
-      ) : blockMissingHealthCheck ? (
-        <BlockMissingHealthCheck />
-      ) : Object.keys(objectProps).some(
-          (key) =>
-            !isDefined(objectProps[key]) ||
-            (Array.isArray(objectProps[key]) &&
-              objectProps[key].some((el) => !isDefined(el))),
-        ) ? (
-        <BlockObjectMissing block={block} />
+      {/* The title and its menu stay put while the content scrolls, unless
+          the block's own content does. */}
+      {fills ? (
+        // Sized to the block, down to what its type's minimum height leaves;
+        // a block drawn smaller scrolls.
+        <ScrollArea
+          fill
+          fillMinHeight={`${
+            gridRowsToPixels(
+              getBlockSizeBounds(block.type).minH,
+              DASHBOARD_GRID_ROW_HEIGHT_DEFAULT,
+            ) - BLOCK_CHROME_PX
+          }px`}
+          edgeCue="fade"
+          style={{ flex: 1, minHeight: 0 }}
+        >
+          {content}
+        </ScrollArea>
       ) : (
-        <ErrorBoundary fallback={<BlockRenderError block={block} />}>
-          <BlockComponent
-            isTabActive={isTabActive}
-            block={block}
-            dashboardGlobalControls={dashboardGlobalControls}
-            dashboardComparison={dashboardComparison}
-            blockIndex={blockIndex}
-            setBlock={setBlock}
-            isEditing={isEditing}
-            snapshot={
-              requiresSnapshot
-                ? (snapshot as ExperimentSnapshotInterface)
-                : ({} as ExperimentSnapshotInterface)
-            }
-            analysis={
-              requiresSnapshot
-                ? (analysis as ExperimentSnapshotAnalysis)
-                : ({} as ExperimentSnapshotAnalysis)
-            }
-            mutate={mutate}
-            // objectProps should be validated above to actually contain all the keys and not be Partial
-            {...(objectProps as unknown as ObjectProps<T>)}
-          />
-        </ErrorBoundary>
+        <ScrollArea
+          fill
+          direction="both"
+          edgeCue="fade"
+          style={{ flex: 1, minHeight: 0 }}
+        >
+          {content}
+        </ScrollArea>
       )}
     </Flex>
   );

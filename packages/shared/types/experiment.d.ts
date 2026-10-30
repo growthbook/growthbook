@@ -159,6 +159,13 @@ type NextScheduledStatusUpdateStringDates = Omit<
   date: string;
 };
 
+type ScheduledStatusUpdateFailureStringDates = Omit<
+  NonNullable<ExperimentInterface["scheduledStatusUpdateFailure"]>,
+  "date"
+> & {
+  date: string;
+};
+
 type StatusUpdateScheduleStringDates = Omit<
   NonNullable<ExperimentInterface["statusUpdateSchedule"]>,
   "startAt" | "stopAt"
@@ -170,6 +177,8 @@ type StatusUpdateScheduleStringDates = Omit<
 export type LegacyMetricOverride = MetricOverride & {
   conversionWindowHours?: number;
   conversionDelayHours?: number;
+  winRisk?: number;
+  loseRisk?: number;
 };
 
 export interface LegacyExperimentInterface
@@ -208,12 +217,14 @@ export type ExperimentInterfaceStringDates = Omit<
   | "dateUpdated"
   | "phases"
   | "nextScheduledStatusUpdate"
+  | "scheduledStatusUpdateFailure"
   | "statusUpdateSchedule"
 > & {
   dateCreated: string;
   dateUpdated: string;
   phases: ExperimentPhaseStringDates[];
   nextScheduledStatusUpdate?: NextScheduledStatusUpdateStringDates | null;
+  scheduledStatusUpdateFailure?: ScheduledStatusUpdateFailureStringDates | null;
   statusUpdateSchedule?: StatusUpdateScheduleStringDates | null;
 };
 
@@ -272,12 +283,13 @@ export type ExperimentTargetingData = Pick<
     reseed: boolean;
   };
 
-export type LinkedFeatureState =
-  | "locked"
-  | "live"
-  | "draft"
-  | "discarded"
-  | "archived";
+export type LinkedFeatureState = "live" | "draft" | "discarded" | "archived";
+
+/** The two settings that combine into a `LinkedFeatureEnvState`. */
+export type LinkedFeatureEnvInputs = {
+  flagEnabled: boolean;
+  rule: "on" | "off" | "missing";
+};
 
 export type LinkedFeatureEnvState =
   | "missing"
@@ -293,6 +305,34 @@ export interface StagedRefDraft {
   hasUnrelatedDraftChanges?: boolean;
 }
 
+/** One open draft of an experiment's rule on a linked Feature Flag. */
+export type LinkedFeaturePendingDraft = {
+  version: number;
+  /** What a save names as the draft it loaded, so an edit since then is caught. */
+  dateUpdated: string | null;
+  /** Armed to publish on a schedule with edits frozen until then. */
+  lockedBySchedule: boolean;
+  status: RevisionStatus;
+  title?: string;
+  /** Whether publishing would change anything, by the publish gate's own test. */
+  hasChanges: boolean;
+  values: ExperimentRefVariation[];
+  sparse: boolean;
+  allEnvironments?: boolean;
+  pendingApproval: boolean;
+  /** The default value as of the draft, for expanding a sparse patch. */
+  defaultValue: string;
+  /** The publish gate's answer when review is required; "approved" can still be blocked. */
+  approval?: { satisfied: boolean };
+  hasMergeConflict: boolean;
+  hasUnrelatedDraftChanges: boolean;
+  /** Live moved past the draft (or its approval) and the flag's policy wants a fresh base. */
+  rebaseRequired: boolean;
+  /** Where the draft would run once published, keyed the same as the live map. */
+  environmentStates: Record<string, LinkedFeatureEnvState>;
+  environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
+};
+
 export interface LinkedFeatureInfo {
   feature: FeatureInterface;
   state: LinkedFeatureState;
@@ -307,6 +347,8 @@ export interface LinkedFeatureInfo {
   inconsistentValues: boolean;
   rulesAbove: boolean;
   environmentStates: Record<string, LinkedFeatureEnvState>;
+  /** What each of `environmentStates` is made of. */
+  environmentInputs?: Record<string, LinkedFeatureEnvInputs>;
   /**
    * Projects whose registered attributes are in scope for targeting through
    * this feature (primary + targeting projects, current ∪ draft-staged).
@@ -318,12 +360,40 @@ export interface LinkedFeatureInfo {
    * experiment.
    */
   liveHasMatchingRule?: boolean;
+  /**
+   * Set while `state` is "discarded": the rule as the newest discarded draft
+   * left it, so linking the flag again can start from it.
+   */
+  relinkFrom?: {
+    values: ExperimentRefVariation[];
+    sparse: boolean;
+    allEnvironments: boolean;
+    environments: string[];
+  };
+  /** Live rule's variation values — the "before" side of a pending edit. */
+  liveValues?: ExperimentRefVariation[];
+  liveSparse?: boolean;
+  liveAllEnvironments?: boolean;
+  /** Where the live rule runs, keyed the same as `environmentStates`. */
+  liveEnvironmentStates?: Record<string, LinkedFeatureEnvState>;
+  liveEnvironmentInputs?: Record<string, LinkedFeatureEnvInputs>;
+  /** The unpublished draft of this experiment's rule, if any. Populated regardless of `state`, which stays live-first. */
+  pendingDraft?: LinkedFeaturePendingDraft;
+  /** Other open drafts that also change this experiment's rule, newest first. */
+  otherPendingDrafts?: LinkedFeaturePendingDraft[];
+  /**
+   * The newest open draft taking this experiment's rule out while it's still
+   * live, when the experiment is waiting on it to unlink the flag.
+   */
+  pendingRemoval?: { version: number; status: RevisionStatus };
   /** True when the matching draft revision requires approval (regardless of whether it's been approved yet). */
   pendingApproval?: boolean;
   /** Version of the matching draft revision (present when state === "draft"). */
   draftRevisionVersion?: number;
   /** Status of the matching draft revision (present when state === "draft"). */
   draftRevisionStatus?: RevisionStatus;
+  /** Whether that draft actually clears the publish gate, not just its status. */
+  draftApprovalSatisfied?: boolean;
   /**
    * Open drafts changing this entity's ref rule while live still serves the
    * old one (`state` stays "live", `values` shows what is serving), newest
@@ -332,13 +402,7 @@ export interface LinkedFeatureInfo {
   stagedDrafts?: StagedRefDraft[];
   /** True when the draft cannot be auto-merged into live due to conflicting changes. */
   hasMergeConflict?: boolean;
-  /**
-   * True when the draft would publish changes outside the target experiment's
-   * experiment-ref rule(s) — e.g. defaultValue, prerequisites, holdout, or
-   * other rules. Forces the user to publish from the feature page so they
-   * can review the full set of changes before they go live. Per-env kill
-   * switches and metadata are excluded (auto-toggled / typically no SDK impact).
-   */
+  /** The draft also changes something outside this experiment's rule; publish from the feature page. */
   hasUnrelatedDraftChanges?: boolean;
   /**
    * The draft cannot be published by whoever a start would publish it as: the
@@ -346,13 +410,19 @@ export interface LinkedFeatureInfo {
    */
   cannotPublish?: boolean;
   /**
-   * Environments currently disabled on the live feature that will be enabled
-   * when the pending draft is auto-published on experiment start. Only set for
-   * drafts queued in `pendingFeatureDrafts` — a draft created directly on the
-   * feature isn't published by the start flow.
+   * Set on the Setup page when the experiment's rules on this flag disagree:
+   * one entry per set of identical values, each read from its own rules.
    */
-  environmentsToEnable?: string[];
+  valueGroups?: LinkedFeatureValueGroup[];
 }
+
+export type LinkedFeatureValueGroup = Omit<
+  LinkedFeatureInfo,
+  "feature" | "valueGroups"
+> & {
+  ruleIds: string[];
+  environments: string[];
+};
 
 export type LinkedChangeEnvState = "active" | "no-sdk-connection";
 

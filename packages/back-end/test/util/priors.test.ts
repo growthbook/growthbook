@@ -165,6 +165,14 @@ describe("priors util", () => {
       expect(overrides[0].properPriorStdDev).toBeUndefined();
     });
 
+    it("drops retired risk thresholds and keeps the rest", () => {
+      const overrides = [
+        { id: "m1", delayHours: 2, winRisk: 0.0025, loseRisk: 0.0125 },
+      ];
+      healMetricOverrides(overrides);
+      expect(overrides).toEqual([{ id: "m1", delayHours: 2 }]);
+    });
+
     it("is a no-op on undefined overrides", () => {
       expect(() => healMetricOverrides(undefined)).not.toThrow();
     });

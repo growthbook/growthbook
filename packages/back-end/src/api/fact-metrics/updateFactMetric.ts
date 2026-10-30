@@ -1,4 +1,5 @@
 import { z } from "zod";
+import omit from "lodash/omit";
 import {
   updateFactMetricValidator,
   resolveCappingSettingsPatch,
@@ -34,6 +35,7 @@ export async function getUpdateFactMetricPropsFromBody(
   factMetric: FactMetricInterface,
   getFactTable: (id: string) => Promise<FactTableInterface | null>,
 ): Promise<UpdateFactMetricProps> {
+  // Risk thresholds are still accepted but no longer stored.
   const {
     numerator,
     denominator,
@@ -42,16 +44,10 @@ export async function getUpdateFactMetricPropsFromBody(
     lowerCappingSettings,
     windowSettings,
     regressionAdjustmentSettings,
-    riskThresholdSuccess,
-    riskThresholdDanger,
     ...otherFields
-  } = body;
+  } = omit(body, ["riskThresholdSuccess", "riskThresholdDanger"]);
 
-  const updates: UpdateFactMetricProps = {
-    ...otherFields,
-    winRisk: riskThresholdSuccess,
-    loseRisk: riskThresholdDanger,
-  };
+  const updates: UpdateFactMetricProps = { ...otherFields };
 
   const metricType = updates.metricType ?? factMetric.metricType;
   if (metricType === "funnel") {

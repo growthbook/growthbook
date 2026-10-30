@@ -412,14 +412,6 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
       newMetric.windowSettings.delayValue = metricOverride.delayHours;
       overrideFields.push("delayHours");
     }
-    if (!isNil(metricOverride?.winRisk)) {
-      newMetric.winRisk = metricOverride.winRisk;
-      overrideFields.push("winRisk");
-    }
-    if (!isNil(metricOverride?.loseRisk)) {
-      newMetric.loseRisk = metricOverride.loseRisk;
-      overrideFields.push("loseRisk");
-    }
     if (!isNil(metricOverride?.regressionAdjustmentOverride)) {
       // only apply RA fields if doing an override
       newMetric.regressionAdjustmentOverride =

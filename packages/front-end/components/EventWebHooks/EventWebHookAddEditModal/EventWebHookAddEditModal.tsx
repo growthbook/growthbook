@@ -199,14 +199,13 @@ const EventWebHookAddEditSettings = ({
         placeholder="Choose payload type"
         disabled={form.watch("payloadType") === "raw"}
         formatOptionLabel={({ label }) => (
-          <span>
+          <Flex as="span" align="center" gap="2">
             <WebhookIcon
               type={label as EventWebHookPayloadType}
-              className="mr-3"
-              style={{ height: "2rem", width: "2rem" }}
+              style={{ height: "1.25em", width: "1.25em", flexShrink: 0 }}
             />
             {eventWebHookPayloadValues[label]}
-          </span>
+          </Flex>
         )}
         options={
           form.watch("payloadType") === "raw"
@@ -594,7 +593,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       close={onClose}
       open={isOpen}
       error={error ?? undefined}
-      size="lg"
+      size="md"
       secondaryCTA={
         step === "confirm" ? (
           <Button

@@ -1,67 +1,61 @@
-import { Box, Flex, Heading, Text } from "@radix-ui/themes";
+import { Box } from "@radix-ui/themes";
+import { useFormContext } from "react-hook-form";
 import Field from "@/components/Forms/Field";
-import { ConnectSettingsForm } from "@/pages/settings";
-import Frame from "@/ui/Frame";
 import Checkbox from "@/ui/Checkbox";
 import { hasFileConfig } from "@/services/env";
+import { OrganizationSettingsWithMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
+import { SettingsField, SettingsGroup, UnsavedMark } from "./SettingsGroup";
 
 export default function SavedGroupSettings() {
+  const { register, watch, setValue } =
+    useFormContext<OrganizationSettingsWithMetricDefaults>();
   return (
-    <ConnectSettingsForm>
-      {({ register, watch, setValue }) => (
-        <Frame>
-          <Flex gap="4">
-            <Box width="220px" flexShrink="0">
-              <Heading size="4" as="h4">
-                Saved Group Settings
-              </Heading>
-            </Box>
-
-            <Flex align="start" direction="column" flexGrow="1" pt="6">
-              <Box mb="6" width="100%">
-                <Checkbox
-                  id="enforceSavedGroupProjectScope"
-                  label="Enforce Saved Group Project scope"
-                  description="Validate new Saved Group references and additional targeting Projects, including nested groups. Existing references keep working through edits and publication. Blocks group changes that introduce scope violations. Off by default."
-                  disabled={hasFileConfig()}
-                  value={watch("enforceSavedGroupProjectScope") ?? false}
-                  setValue={(value) =>
-                    setValue("enforceSavedGroupProjectScope", value, {
-                      shouldDirty: true,
-                    })
-                  }
-                />
-              </Box>
-              <Box mb="6" width="100%" mt="2">
-                <Text as="label" className="font-weight-semibold" size="3">
-                  ID List size limit
-                </Text>
-                <Box width="200px">
-                  <Field
-                    size="legacy"
-                    type="number"
-                    min="1"
-                    step="1"
-                    disabled={hasFileConfig()}
-                    {...register("savedGroupSizeLimit", {
-                      valueAsNumber: true,
-                      min: 1,
-                    })}
-                  />
-                </Box>
-                <p>
-                  <small className="text-muted mb-3">
-                    Limiting the number of items in an ID List can prevent SDK
-                    payloads from growing too large. Admins and users with the{" "}
-                    <i>Saved Groups Bypass Size Limit</i> policy can bypass this
-                    limit manually.
-                  </small>
-                </p>
-              </Box>
-            </Flex>
-          </Flex>
-        </Frame>
-      )}
-    </ConnectSettingsForm>
+    <>
+      <SettingsGroup
+        id="sdk-groups"
+        title="Saved Groups"
+        description="Scope and size limits for Saved Groups."
+        keywords="saved groups project scope id list size limit payload"
+      >
+        <UnsavedMark name="enforceSavedGroupProjectScope">
+          <Checkbox
+            id="enforceSavedGroupProjectScope"
+            label="Enforce Saved Group Project scope"
+            description="Block new references, including nested groups, that fall outside a group's Projects. Existing references keep working."
+            disabled={hasFileConfig()}
+            value={watch("enforceSavedGroupProjectScope") ?? false}
+            setValue={(value) =>
+              setValue("enforceSavedGroupProjectScope", value, {
+                shouldDirty: true,
+              })
+            }
+          />
+        </UnsavedMark>
+        <SettingsField
+          name="savedGroupSizeLimit"
+          htmlFor="settings-savedGroupSizeLimit"
+          label="ID list size limit"
+          help="Keeps SDK payloads small. Roles with Saved Groups Bypass Size Limit can exceed it."
+        >
+          <Box width="200px">
+            <Field
+              id="settings-savedGroupSizeLimit"
+              size="md"
+              type="number"
+              min="1"
+              step="1"
+              append="items"
+              placeholder="No limit"
+              containerClassName="mb-0"
+              disabled={hasFileConfig()}
+              {...register("savedGroupSizeLimit", {
+                valueAsNumber: true,
+                min: 1,
+              })}
+            />
+          </Box>
+        </SettingsField>
+      </SettingsGroup>
+    </>
   );
 }

@@ -86,7 +86,6 @@ function makeMetric(
         rowFilters: [],
       },
       metricAutoSlices: ["country", "device"],
-      loseRisk: 0.5,
     }),
     ...overrides,
   } as FactMetricInterface;
