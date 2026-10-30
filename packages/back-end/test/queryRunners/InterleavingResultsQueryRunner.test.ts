@@ -33,10 +33,10 @@ const settings = (): InterleavingSnapshotSettings => ({
   interleavingExposureQueryId: "ileq_1",
   interleavingExposureQuerySql: "SELECT 1",
   userIdType: "user_id",
-  variations: [
-    { id: "v0", key: "popular", name: "Popular" },
-    { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
-  ],
+  variations: {
+    control: { id: "v0", key: "popular", name: "Popular" },
+    treatment: { id: "v1", key: "buyers-pick", name: "Buyer's pick" },
+  },
   metrics: [
     { id: "fact__m0", analyses: [{ type: "paired" }] },
     { id: "fact__m1", analyses: [{ type: "paired" }] },
