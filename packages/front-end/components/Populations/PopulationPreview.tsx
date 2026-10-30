@@ -10,7 +10,7 @@ import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
 import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
-import PreviewShell from "@/components/QueryPreview/PreviewShell";
+import ExplorerPreviewShell from "@/enterprise/components/ProductAnalytics/ExplorerPreviewShell";
 import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import {
   getPreviewDateRange,
@@ -23,8 +23,10 @@ import Text from "@/ui/Text";
 
 function MembersChart({
   exploration,
+  hasAggregateFilter,
 }: {
   exploration: ProductAnalyticsExploration;
+  hasAggregateFilter: boolean;
 }) {
   const chart = getActivityChart(exploration);
   const average = chart.days.length ? chart.total / chart.days.length : null;
@@ -39,8 +41,8 @@ function MembersChart({
           title={average?.toLocaleString()}
         />
         <Text size="sm" color="text-mid">
-          Distinct members meeting the conditions each day. A member can appear
-          on multiple days.
+          Distinct members per day. A member can appear on multiple days.
+          {hasAggregateFilter && " Thresholds apply per day."}
         </Text>
       </Box>
       <DailyBarChart
@@ -120,12 +122,17 @@ export default function PopulationPreview({
           queryEnabled={!!unit}
           trackingSource="population-preview"
         >
-          <PreviewShell
+          <ExplorerPreviewShell
             config={config}
             emptyDescription="Run the query to see daily member counts for the last 7 complete days."
             warehouseUnavailableText="The preview will be available when the warehouse is ready."
             renderChart={({ exploration }) => (
-              <MembersChart exploration={exploration} />
+              <MembersChart
+                exploration={exploration}
+                hasAggregateFilter={population.steps.some(
+                  (step) => !!step.aggregateFilter,
+                )}
+              />
             )}
             controls={
               <PreviewUnitSelect

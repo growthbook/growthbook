@@ -15,13 +15,11 @@ import {
 } from "@/components/FactTables/MetricEditor/metricPreview";
 import { getPreviewDateRange } from "@/components/QueryPreview/previewUtils";
 import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scss";
-import PreviewEmptyState from "@/components/QueryPreview/PreviewEmptyState";
-import PreviewShell, {
-  PreviewFooter,
-} from "@/components/QueryPreview/PreviewShell";
+import PreviewShell from "@/components/QueryPreview/PreviewShell";
 import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import MetricPreviewChart from "./MainSection/MetricPreviewChart";
 import { ExplorerProvider } from "./ExplorerContext";
+import ExplorerPreviewShell from "./ExplorerPreviewShell";
 
 const EMPTY_CONFIG: ExplorationConfig = {
   ...DEFAULT_EXPLORE_STATE,
@@ -94,15 +92,12 @@ export default function MetricPerformance({
   const datasource = getDatasourceById(datasourceId);
   if (!datasource)
     return (
-      <>
-        <PreviewEmptyState description="Select a fact table to see live sample data for the last 7 days." />
-        <PreviewFooter
-          exploration={null}
-          outdated={false}
-          loading={false}
-          disabled
-        />
-      </>
+      <PreviewShell
+        complete={false}
+        exploration={null}
+        emptyDescription="Select a fact table to see live sample data for the last 7 days."
+        renderChart={() => null}
+      />
     );
   if (!permissions.canRunMetricQueries(datasource))
     return (
@@ -118,7 +113,7 @@ export default function MetricPerformance({
         queryEnabled={config !== null}
         trackingSource="metric-preview"
       >
-        <PreviewShell
+        <ExplorerPreviewShell
           config={config}
           emptyDescription="Run the query to see live sample data for the last 7 days."
           incompleteDescription="Complete the metric definition to see live sample data for the last 7 days."

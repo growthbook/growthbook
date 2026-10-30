@@ -5,7 +5,7 @@ import { formatUtcWeekday } from "@/components/QueryPreview/activityChart";
 import {
   cssColorToHex,
   getChartThemeColors,
-} from "@/enterprise/components/ProductAnalytics/chart-theme";
+} from "@/components/DataViz/chart-theme";
 
 // One bar per UTC day, shared by the metric and population previews.
 export default function DailyBarChart({
