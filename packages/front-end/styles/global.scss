@@ -114,14 +114,14 @@ html.app-drawer-open body {
   );
 }
 // Below 1024px the nav is a select at the page's top instead
-// (SettingsPageTop), pinned under the header as a 52px row; General's
+// (SettingsPageTop), pinned under the header as a 60px row; General's
 // section headings pin under it (--settings-section-top).
 :root {
   --settings-section-top: var(--header-height);
 }
 @media (max-width: 1023px) {
   :root {
-    --settings-section-top: calc(var(--page-top-offset) + 52px);
+    --settings-section-top: calc(var(--page-top-offset) + 60px);
     --settings-layout-left: 0px;
   }
 }

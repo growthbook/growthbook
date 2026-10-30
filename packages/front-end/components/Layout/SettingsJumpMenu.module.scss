@@ -54,7 +54,9 @@
   position: sticky;
   top: var(--page-top-offset);
   z-index: 2;
+  // 12px above and below: 20px from the title and to what follows, and
+  // pinned, 12px under the header. A 60px row (--settings-section-top).
   margin: 0 calc(-1 * var(--page-padding)) var(--space-2);
-  padding: var(--space-2) var(--page-padding);
+  padding: var(--space-3) var(--page-padding);
   background: var(--color-background);
 }
