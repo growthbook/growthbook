@@ -1,9 +1,9 @@
+import type { SDKAttributeSchema } from "shared/types/organization";
+import type { SqlIdentifierQuote } from "shared/types/sql";
 import {
   DEFAULT_IDENTIFIER_QUOTE,
   sqlSelectsColumnAllowingQualified,
-} from "shared/experiments";
-import type { SDKAttributeSchema } from "shared/types/organization";
-import type { SqlIdentifierQuote } from "shared/types/sql";
+} from "../experiments/experiments";
 
 export type TargetingColumnQuery = {
   id?: string;
