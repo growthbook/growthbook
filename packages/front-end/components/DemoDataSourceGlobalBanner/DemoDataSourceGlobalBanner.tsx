@@ -9,6 +9,7 @@ import track from "@/services/track";
 import { Popover } from "@/ui/Popover";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import { usePinnedBar } from "@/components/Layout/pageTopOffset";
 
 export async function deleteDemoDatasource(
   apiCall: AuthContextValue["apiCall"],
@@ -42,6 +43,7 @@ export const DemoDataSourceGlobalBanner: FC<
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
+  const barRef = usePinnedBar<HTMLDivElement>();
 
   const handleDelete = useCallback(async () => {
     setError(null);
@@ -94,7 +96,7 @@ export const DemoDataSourceGlobalBanner: FC<
   }
 
   return (
-    <div className="demo-datasource-banner__wrapper">
+    <div ref={barRef} className="demo-datasource-banner__wrapper">
       <div className="demo-datasource-banner">
         <div className="demo-datasource-banner__line" />
 

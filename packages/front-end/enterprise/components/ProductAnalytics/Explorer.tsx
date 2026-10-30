@@ -116,7 +116,8 @@ function deriveConfigError(
 }
 
 export function ExplorerContent({
-  height = "calc(100vh - var(--header-height) - 16px)",
+  // Less the page's own padding above and below it (--explorer-frame-y).
+  height = "calc(100vh - var(--page-top-offset) - var(--explorer-frame-y, 16px))",
   hideDataSourceSelector = false,
   hideSidebarHeaderActions = false,
   sidebarHeaderActions,
@@ -167,13 +168,24 @@ export function ExplorerContent({
         <PiDotsSix size={16} style={{ transform: "rotate(90deg)" }} />
         <Box
           flexGrow="1"
-          my="3"
-          style={{ backgroundColor: "var(--gray-a3)", width: "1px" }}
+          mt="3"
+          style={{
+            backgroundColor: "var(--gray-a3)",
+            width: "1px",
+            marginBottom: "var(--explorer-page-bottom, 12px)",
+          }}
         ></Box>
       </PanelResizeHandle>
 
       <Panel id="sidebar" order={2} defaultSize={25} minSize={20}>
-        <Flex direction="column" height="100%">
+        <Flex
+          direction="column"
+          height="100%"
+          // SQL's schema browser already ends 24px up, inside the sidebar.
+          style={{
+            paddingBottom: isSql ? undefined : "var(--explorer-page-bottom)",
+          }}
+        >
           <Box style={{ flex: 1, minHeight: 0 }}>
             <ShadowedScrollArea height="100%">
               <ExplorerSideBar
@@ -630,7 +642,7 @@ function ExplorerInner({
         {datasources.length === 0 ? (
           <Flex
             direction="column"
-            height="calc(100vh - var(--header-height) - 16px)"
+            height="calc(100vh - var(--page-top-offset) - var(--explorer-frame-y, 16px))"
           >
             <EmptyState />
           </Flex>
@@ -646,11 +658,22 @@ function ExplorerInner({
               setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
               setUrlComparisonMode={setUrlComparisonMode}
             />
-            <ExplorerContent
-              hideDataSourceSelector={lockDatasource}
-              height={height}
-              sidebarHeaderActions={sidebarHeaderActions}
-            />
+            {/* The page's 32px bottom under the card, the sidebar and the
+                line between them: the frame ends 8px above the window. */}
+            <div
+              style={
+                {
+                  display: "contents",
+                  "--explorer-page-bottom": "24px",
+                } as React.CSSProperties
+              }
+            >
+              <ExplorerContent
+                hideDataSourceSelector={lockDatasource}
+                height={height}
+                sidebarHeaderActions={sidebarHeaderActions}
+              />
+            </div>
           </>
         )}
       </ExplorerProvider>

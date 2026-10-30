@@ -45,6 +45,7 @@ import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
 import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
 import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
 import { isSettingsRoute } from "@/components/Layout/sidebarNav";
+import { SettingsPageTop } from "@/components/Layout/SettingsJumpMenu";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
@@ -75,6 +76,15 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
+    // Lays itself out to the window (canvases, its own scrolling or save
+    // bar): no page wrapper (global.scss) and its padding. Pages without the
+    // side nav (liteLayout) don't get one either.
+    noPageWrapper?: boolean;
+    // Its content runs to the window's bottom (a rail beside the content,
+    // say): the page wrapper keeps its side and top padding but drops its
+    // bottom one. Set it on the page, as noPageWrapper:
+    //   MyPage.noPageBottomPadding = true;
+    noPageBottomPadding?: boolean;
   };
 };
 
@@ -252,12 +262,33 @@ function App({
                                           <OrgPageContent>
                                             <GuidedGetStartedBar />
                                             <DefinitionsGuard>
-                                              <Component
-                                                {...{
-                                                  ...pageProps,
-                                                  envReady: ready,
-                                                }}
-                                              />
+                                              {Component.noPageWrapper ||
+                                              liteLayout ? (
+                                                <Component
+                                                  {...{
+                                                    ...pageProps,
+                                                    envReady: ready,
+                                                  }}
+                                                />
+                                              ) : (
+                                                <div
+                                                  className={clsx(
+                                                    "page-wrapper",
+                                                    Component.noPageBottomPadding &&
+                                                      "page-wrapper-flush-bottom",
+                                                  )}
+                                                >
+                                                  {inSettings ? (
+                                                    <SettingsPageTop />
+                                                  ) : null}
+                                                  <Component
+                                                    {...{
+                                                      ...pageProps,
+                                                      envReady: ready,
+                                                    }}
+                                                  />
+                                                </div>
+                                              )}
                                             </DefinitionsGuard>
                                           </OrgPageContent>
                                         </main>

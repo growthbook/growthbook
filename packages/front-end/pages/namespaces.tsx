@@ -63,8 +63,8 @@ const NamespacesPage: FC = () => {
           }}
         />
       )}
-      <Flex align="center" justify="between" mb="1">
-        <Heading as="h1" size="xl">
+      <Flex className="page-title-row" align="center" justify="between" mb="1">
+        <Heading as="h1" size="xl" mb="2">
           Experiment Namespaces
         </Heading>
         {canCreate && (

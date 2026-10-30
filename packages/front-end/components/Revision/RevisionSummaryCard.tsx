@@ -38,7 +38,7 @@ import Metadata from "@/ui/Metadata";
 import EventUser from "@/components/Avatar/EventUser";
 import OverflowText from "@/components/Experiment/TabbedPage/OverflowText";
 import { getStatusBadge } from "@/components/Revision/revisionUtils";
-import { useTabsBottom } from "@/components/Layout/headerHeight";
+import { useTabsBottom } from "@/components/Layout/pageTopOffset";
 import { useUser } from "@/services/UserContext";
 
 const DRAFT_STATUSES = ["draft", "pending-review", "changes-requested"];

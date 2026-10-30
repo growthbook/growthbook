@@ -166,9 +166,8 @@ const GeneralSettingsPage = (): React.ReactElement => {
   return (
     <>
       <SettingsPage
-        title="General Settings"
-        description="Organization-wide defaults. Projects can override some of these."
-        headerClassName={sectionStyles.wideHidden}
+        title="Settings"
+        headerClassName={sectionStyles.visuallyHidden}
         breadcrumb={[
           { display: "Settings" },
           { display: "General", href: "/settings" },

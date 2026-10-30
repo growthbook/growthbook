@@ -1398,11 +1398,11 @@ export default function ExperimentHeader({
             }}
           />
           <div
-            className={clsx("experiment-tabs d-print-none", {
+            className={clsx("experiment-tabs page-bleed d-print-none", {
               pinned: headerPinned,
             })}
           >
-            <div className="position-relative container-fluid pagecontents px-4">
+            <div className="position-relative">
               <div className="d-flex align-items-center header-tabs">
                 <Tabs
                   value={tab}

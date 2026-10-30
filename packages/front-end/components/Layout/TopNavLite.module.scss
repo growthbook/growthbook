@@ -9,10 +9,7 @@
   z-index: 1010;
   background-color: var(--color-surface-solid);
   border-bottom: 1px solid var(--slate-a3);
-  padding: 0 16px;
-  @media (max-width: 520px) {
-    padding: 0 8px;
-  }
+  padding: 0 var(--page-padding-step);
 }
 
 .pagetitle {

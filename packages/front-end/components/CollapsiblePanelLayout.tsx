@@ -200,6 +200,9 @@ export default function CollapsiblePanelLayout({
       align="start"
       width="100%"
       ref={layout}
+      // For the page around it: whether the panel takes room beside the
+      // content (global.scss).
+      data-panel-docked={shown && !overlay ? "" : undefined}
       // The drag handle straddles the panel's edge, which reaches the window's
       // while it slides; clip, not hidden, so nothing inside stops sticking.
       style={{ overflowX: "clip" }}

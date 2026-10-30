@@ -56,13 +56,7 @@ export default function SlackLinkPage() {
   };
 
   return (
-    <Flex
-      align="center"
-      justify="center"
-      px="4"
-      py="6"
-      style={{ minHeight: "70vh" }}
-    >
+    <Flex align="center" justify="center" py="6" style={{ minHeight: "70vh" }}>
       <Box style={{ maxWidth: 560, width: "100%" }}>
         <Flex direction="column" gap="4">
           <Heading as="h1" size="lg">

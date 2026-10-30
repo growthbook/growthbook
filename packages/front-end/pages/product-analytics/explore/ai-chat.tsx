@@ -43,3 +43,5 @@ export default function AIChatExplorePage() {
     </Box>
   );
 }
+
+AIChatExplorePage.noPageWrapper = true;

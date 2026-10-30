@@ -207,7 +207,7 @@
     // so the body scrolls instead of pushing what follows off screen.
     max-height: var(
       --table-max-height,
-      calc(100vh - var(--table-sticky-top, var(--header-height)) - 24px)
+      calc(100vh - var(--table-sticky-top, var(--page-top-offset)) - 24px)
     );
     // The frame moves onto the scroll container, so it stays put while the
     // content scrolls under it. No top edge: the header draws its own, as in

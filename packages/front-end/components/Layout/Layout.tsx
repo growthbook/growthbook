@@ -42,7 +42,8 @@ const otherPageTitles = [
 const Layout = (): React.ReactElement => {
   const { open, setOpen } = useSidebarOpen();
   const { breadcrumb } = usePageHead();
-  // Narrower, the Settings nav moves into the header (SettingsJumpMenu).
+  // Narrower, the Settings nav is a select at the page's top
+  // (SettingsPageTop).
   const settingsNarrow = useMediaQuery(
     `(max-width: ${SETTINGS_NAV_MIN_WIDTH_PX - 1}px)`,
   );
@@ -91,7 +92,6 @@ const Layout = (): React.ReactElement => {
         showNotices={true}
         toggleLeftMenu={() => setOpen(!open)}
         menuOpen={open}
-        showSettingsJumpMenu={inSettings && settingsNarrow}
       />
     </>
   );

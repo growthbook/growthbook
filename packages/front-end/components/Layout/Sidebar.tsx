@@ -724,12 +724,24 @@ export default function Sidebar() {
   const userToggled = useRef(false);
   const toggleAnimated = () => {
     userToggled.current = true;
+    // Before the width changes, so the page's padding moves with it
+    // (global.scss); cleared once the sidebar stops (below).
+    document.documentElement.classList.add("app-sidebar-motion");
     toggleCollapsed();
   };
   const [contentCollapsed, setContentCollapsed] = useState(collapsed);
   // While the sidebar's width moves, the section rows' chevrons hide, so they
   // never slide over the icons as the rows resize (Sidebar.module.scss).
   const [resizing, setResizing] = useState(false);
+  // The page's side padding follows the sidebar on its timing while it moves,
+  // and switches at once otherwise (global.scss).
+  useIsomorphicLayoutEffect(() => {
+    document.documentElement.classList.toggle("app-sidebar-motion", resizing);
+  }, [resizing]);
+  useEffect(
+    () => () => document.documentElement.classList.remove("app-sidebar-motion"),
+    [],
+  );
   useIsomorphicLayoutEffect(() => {
     const animate = userToggled.current;
     userToggled.current = false;

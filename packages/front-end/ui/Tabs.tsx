@@ -10,7 +10,7 @@ import {
 } from "react";
 import { Box, Tabs as RadixTabs } from "@radix-ui/themes";
 import useURLHash from "@/hooks/useURLHash";
-import { useTabsTop } from "@/components/Layout/headerHeight";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
 import { radixSize, Size } from "@/ui/sizes";
 
 /**
@@ -146,6 +146,7 @@ export const StickyTabsList = forwardRef<HTMLDivElement, StickyTabsListProps>(
   function StickyTabsList({ pinnedClass = "pinned", ...props }, ref) {
     const tabsRef = useRef<HTMLDivElement>(null);
     const [headerPinned, setHeaderPinned] = useState(false);
+    // Pinned 1px under the app header and any bar under it.
     const pinnedTopPx = useTabsTop();
 
     useEffect(() => {

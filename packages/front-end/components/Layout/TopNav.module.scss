@@ -9,12 +9,10 @@
   z-index: 1010;
   // The page's, so it's white over a white page (global.scss).
   background-color: var(--page-bg, var(--color-background));
-  // The right padding lines up with the page content.
-  padding: 0 var(--space-6) 0 var(--space-5);
+  // The page's padding steps (global.scss), without growing past 32px where
+  // the page centers its content.
+  padding: 0 var(--page-padding-step);
   transition: left 200ms ease;
-  @media (max-width: 520px) {
-    padding: 0 8px;
-  }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
@@ -23,14 +21,12 @@
     .mobilemenu.mobilemenu {
       display: inline-flex;
     }
-    // Two rows beside the drawer, so the breadcrumb gets the full width, and
-    // a third on narrow Settings pages for the Settings nav's button.
+    // Two rows beside the drawer, so the breadcrumb gets the full width.
     // --header-height grows to match (global.scss).
     .withMenu {
       display: grid;
       grid-template-columns: auto minmax(0, 1fr);
       grid-template-rows: 44px 36px;
-      grid-auto-rows: 52px;
       align-items: center;
       align-self: stretch;
       .mobilemenu {
@@ -49,10 +45,44 @@
       .pagetitle {
         grid-area: 2 / 1 / 3 / -1;
       }
-      .settingsJump {
-        grid-area: 3 / 1 / 4 / -1;
-      }
     }
+  }
+}
+// Under the header's bottom edge (and any bar pinned under it), content
+// scrolling up fades into the page's background instead of being cut off,
+// as the AI Assistant panel's conversation does at its top (AgentPanel
+// .module.scss), from the page's background (--page-bg) to clear over 12px.
+// At z-index 1 and before the page, sticky headers and tab bars pinned
+// there cover it.
+.headerFade {
+  position: fixed;
+  top: var(--page-top-offset);
+  left: var(--sidebar-width, 240px);
+  right: var(--agent-rail-width, 0px);
+  height: 12px;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--page-bg, var(--color-background)),
+    transparent
+  );
+  opacity: 0;
+  transition:
+    opacity 200ms ease,
+    left 200ms ease;
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+  @media (max-width: 1180px) {
+    left: 0;
+  }
+  @media print {
+    display: none;
+  }
+
+  &.scrolled {
+    opacity: 1;
   }
 }
 .pagetitle {

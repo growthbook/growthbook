@@ -46,7 +46,7 @@ import {
   RampScheduleInterface,
 } from "shared/validators";
 import EventUser from "@/components/Avatar/EventUser";
-import { useTabsBottom } from "@/components/Layout/headerHeight";
+import { useTabsBottom } from "@/components/Layout/pageTopOffset";
 import CoAuthors from "@/components/Reviews/Feature/CoAuthors";
 import Button from "@/ui/Button";
 import { FeatureBadge } from "@/components/Features/FeatureBadge";

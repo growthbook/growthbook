@@ -4,9 +4,11 @@
   z-index: 100;
 }
 
+// No negative margin: it would collapse through the sticky wrapper, which
+// then sits 4px higher in the page than where it pins, so the page would
+// start 4px under the banner and end 4px short (--page-top-offset).
 .demo-datasource-banner {
   position: relative;
-  margin-top: -4px;
   display: flex;
   justify-content: center;
 }

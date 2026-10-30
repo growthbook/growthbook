@@ -1,4 +1,4 @@
-import { FC } from "react";
+import { FC, useEffect, useState } from "react";
 import clsx from "clsx";
 import { PiList } from "react-icons/pi";
 import { IconButton } from "@radix-ui/themes";
@@ -14,7 +14,6 @@ import HeaderBreadcrumb from "./HeaderBreadcrumb";
 import ProfileMenu from "./ProfileMenu";
 import HelpMenu from "./HelpMenu";
 import AiAssistantButton from "./AiAssistantButton";
-import SettingsJumpMenu from "./SettingsJumpMenu";
 
 const TopNav: FC<{
   toggleLeftMenu?: () => void;
@@ -22,16 +21,16 @@ const TopNav: FC<{
   menuOpen?: boolean;
   pageTitle: string;
   showNotices?: boolean;
-  /** Narrow Settings pages: the Settings nav, as a button on its own row. */
-  showSettingsJumpMenu?: boolean;
-}> = ({
-  toggleLeftMenu,
-  menuOpen,
-  pageTitle,
-  showNotices,
-  showSettingsJumpMenu,
-}) => {
+}> = ({ toggleLeftMenu, menuOpen, pageTitle, showNotices }) => {
   const { breadcrumb } = usePageHead();
+  // The header's fade shows once the page has scrolled under it.
+  const [scrolled, setScrolled] = useState(false);
+  useEffect(() => {
+    const update = () => setScrolled(window.scrollY > 0);
+    update();
+    window.addEventListener("scroll", update, { passive: true });
+    return () => window.removeEventListener("scroll", update);
+  }, []);
   const notices = [
     ...useAccountPlanNotices(),
     ...usePayloadSizeNotices(),
@@ -81,11 +80,6 @@ const TopNav: FC<{
             </IconButton>
           ) : null}
           {renderTitleOrBreadCrumb()}
-          {showSettingsJumpMenu ? (
-            <div className={styles.settingsJump}>
-              <SettingsJumpMenu />
-            </div>
-          ) : null}
           <div className={styles.actions}>
             {showNotices && (
               <div className="nav-link">
@@ -103,6 +97,14 @@ const TopNav: FC<{
           )}
         </div>
       </div>
+      {/* Outside the header, so whatever pins under it covers the fade. */}
+      <div
+        aria-hidden="true"
+        className={clsx(styles.headerFade, scrolled && styles.scrolled)}
+        style={{
+          left: toggleLeftMenu ? undefined : 0,
+        }}
+      />
     </>
   );
 };

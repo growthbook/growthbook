@@ -1,0 +1,21 @@
+// Create tops the docs column, level with the first heading on the left:
+// that heading centers on the button (32px, the heading's line 26px).
+// Stacked below 768px, it moves into the first heading's row instead.
+.createInHeading {
+  flex-shrink: 0;
+}
+
+@media (min-width: 768px) {
+  .createInHeading {
+    display: none;
+  }
+  .withCreate .mainColumn {
+    padding-top: 3px;
+  }
+}
+
+@media (max-width: 767px) {
+  .createInColumn {
+    display: none;
+  }
+}

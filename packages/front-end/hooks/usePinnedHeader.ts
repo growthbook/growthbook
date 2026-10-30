@@ -1,5 +1,5 @@
 import { RefObject, useEffect, useRef, useState } from "react";
-import { useTabsTop } from "@/components/Layout/headerHeight";
+import { useTabsTop } from "@/components/Layout/pageTopOffset";
 
 // Whether the tab bar has scrolled up under the fixed page header. Place the
 // returned ref on a zero-height sentinel just above the tab bar.

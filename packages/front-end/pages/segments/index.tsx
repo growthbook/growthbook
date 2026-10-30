@@ -204,7 +204,7 @@ const SegmentPage: FC = () => {
       {segmentForm && (
         <SegmentForm close={() => setSegmentForm(null)} current={segmentForm} />
       )}
-      <div className="row mb-3">
+      <div className="row mb-3" style={{ alignItems: "center" }}>
         <div className="col-auto d-flex">
           <h1>Segments</h1>
         </div>
