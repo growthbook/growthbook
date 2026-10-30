@@ -8,12 +8,17 @@ export function getConsistentClusterCondition({
   sourceTable,
   clusterIdColumn,
   variationColumn = "variation",
+  tableAlias,
 }: {
   sourceTable: string;
   clusterIdColumn: string;
   variationColumn?: string;
+  tableAlias?: string;
 }): string {
-  return `${clusterIdColumn} IN (
+  const outerColumn = tableAlias
+    ? `${tableAlias}.${clusterIdColumn}`
+    : clusterIdColumn;
+  return `${outerColumn} IN (
       SELECT ${clusterIdColumn}
       FROM ${sourceTable}
       GROUP BY ${clusterIdColumn}

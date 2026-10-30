@@ -2858,24 +2858,24 @@ export default abstract class SqlIntegration
         `e.first_exposure_timestamp <= ${this.getSqlDialect().toTimestamp(unitsEndDate)}`,
       );
     }
-    // Drop sub-units that map to more than one cluster (marked '__multiple__' at units build).
     const clusterColumnForDrop = isClusterLevelQuery
       ? exposureQuery.identifierType
       : clusterIdColumn;
     if (clusterColumnForDrop) {
+      // Drop sub-units that map to more than one cluster (marked '__multiple__'
+      // at units build).
       unitsWhereConditions.push(
         getSingleClusterPerUnitCondition({
           clusterIdColumn: clusterColumnForDrop,
           tableAlias: "e",
         }),
       );
-    }
-    // Sub-unit metrics additionally drop clusters with mixed assignment.
-    if (clusterIdColumn) {
+      // Drop clusters whose members disagree on variation.
       unitsWhereConditions.push(
         getConsistentClusterCondition({
           sourceTable: params.unitsSourceTableFullName,
-          clusterIdColumn,
+          clusterIdColumn: clusterColumnForDrop,
+          tableAlias: "e",
         }),
       );
     }
