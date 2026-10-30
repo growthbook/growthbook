@@ -497,7 +497,8 @@ export default function ConnectDataSourceLayout({
     if (
       checksWrite &&
       datasource.type === "snowflake" &&
-      patch.location !== undefined
+      patch.location !== undefined &&
+      datasource.params
     ) {
       updateDatasource({
         ...datasource,
