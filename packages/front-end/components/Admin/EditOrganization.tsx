@@ -376,6 +376,7 @@ const EditOrganization: FC<{
             {migratingEventForwarderId ? (
               <ConfirmDialog
                 title="Migrate to in-house consumer?"
+                color="red"
                 content={`New events for ${
                   eventForwarders.find(
                     (r) => r.datasourceId === migratingEventForwarderId,
