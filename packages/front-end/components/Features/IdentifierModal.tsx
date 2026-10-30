@@ -6,6 +6,7 @@ import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import {
   attributeMatchesDatasourceProjects,
   attributeToUserIdTypeName,
+  findSimilarUserIdType,
 } from "shared/util";
 import { PiDatabase, PiLockSimple } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
@@ -180,7 +181,7 @@ export default function IdentifierModal({
 
   const pickedType = (d: DataSourceInterfaceWithParams) => {
     const pick = picks[d.id];
-    return pick === NEW_TYPE ? defaultType : pick || null;
+    return pick === NEW_TYPE ? defaultType : (pick ?? null);
   };
   // Add links every checked Data Source to the default type. Edit links each
   // checked Data Source to the type picked for it.
@@ -192,9 +193,8 @@ export default function IdentifierModal({
         : [{ id: d.id, userIdType: defaultType }];
     }
     if (linkedType(d) || !(d.id in picks)) return [];
-    return [{ id: d.id, userIdType: pickedType(d) ?? "" }];
+    return [{ id: d.id, userIdType: pickedType(d) ?? defaultType }];
   });
-  const missingPick = links.some((l) => !l.userIdType);
 
   const shownTypes = [
     ...new Set([
@@ -203,13 +203,9 @@ export default function IdentifierModal({
     ]),
   ];
 
-  // Picks the type named after the identifier when the Data Source has one,
-  // and leaves the choice to the user when it has other types.
-  const defaultPick = (d: DataSourceInterfaceWithParams) => {
-    const types = userIdTypeNames(d);
-    if (types.includes(defaultType)) return defaultType;
-    return types.length ? "" : NEW_TYPE;
-  };
+  // Links to an existing type with a similar name, or else creates one.
+  const defaultPick = (d: DataSourceInterfaceWithParams) =>
+    findSimilarUserIdType(userIdTypeNames(d), newProperty) ?? NEW_TYPE;
 
   return (
     <ModalStandard
@@ -217,7 +213,7 @@ export default function IdentifierModal({
       header={isEdit ? "Edit Identifier" : "Add Identifier"}
       cta={isEdit ? "Save" : "Add Identifier"}
       size="xl"
-      ctaEnabled={canSave && !!name.trim() && !missingPick}
+      ctaEnabled={canSave && !!name.trim()}
       trackingEventModalType={isEdit ? "edit-identifier" : "add-identifier"}
       trackingEventModalSource={source}
       close={close}
@@ -447,17 +443,12 @@ export default function IdentifierModal({
                                 <Text size="sm" color="text-mid" mono>
                                   {linked}
                                 </Text>
+                              ) : !(d.id in picks) ? (
+                                <Text color="text-low">—</Text>
                               ) : (
                                 <Select
                                   size="sm"
-                                  value={picks[d.id] || undefined}
-                                  placeholder="Choose a type"
-                                  disabled={!(d.id in picks)}
-                                  error={
-                                    picks[d.id] === ""
-                                      ? "Choose a type"
-                                      : undefined
-                                  }
+                                  value={picks[d.id]}
                                   aria-label={`Identifier type in ${d.name}`}
                                   setValue={(v) =>
                                     setPicks((p) => ({ ...p, [d.id]: v }))

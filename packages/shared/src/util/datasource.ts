@@ -43,6 +43,7 @@ export {
   USER_ID_TYPE_NAME_RULE,
   addAttributeToUserIdTypes,
   attributeToUserIdTypeName,
+  findSimilarUserIdType,
   isValidUserIdTypeName,
   renameAttributeInUserIdTypes,
 } from "./user-id-types";

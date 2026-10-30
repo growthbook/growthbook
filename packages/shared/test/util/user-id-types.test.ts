@@ -1,6 +1,7 @@
 import {
   addAttributeToUserIdTypes,
   attributeToUserIdTypeName,
+  findSimilarUserIdType,
   isValidUserIdTypeName,
   renameAttributeInUserIdTypes,
 } from "../../src/util/user-id-types";
@@ -140,5 +141,27 @@ describe("renameAttributeInUserIdTypes", () => {
         "orgTeamId",
       ),
     ).toEqual([{ userIdType: "team_id", attributes: ["orgTeamId"] }]);
+  });
+});
+
+describe("findSimilarUserIdType", () => {
+  it("matches names that differ only in case and separators", () => {
+    expect(findSimilarUserIdType(["user_id", "team_id"], "teamId")).toBe(
+      "team_id",
+    );
+  });
+
+  it("falls back to the one type that contains the name", () => {
+    expect(findSimilarUserIdType(["user_id", "device_id"], "user")).toBe(
+      "user_id",
+    );
+  });
+
+  it("returns null when several types are partial matches", () => {
+    expect(findSimilarUserIdType(["user_id", "anonymous_id"], "id")).toBeNull();
+  });
+
+  it("returns null when nothing matches", () => {
+    expect(findSimilarUserIdType(["user_id"], "teamId")).toBeNull();
   });
 });

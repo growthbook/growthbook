@@ -68,3 +68,28 @@ export function renameAttributeInUserIdTypes(
       : type,
   );
 }
+
+// Ignores case and separators, so teamId, team_id and Team-ID compare equal.
+function normalizeUserIdTypeName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/**
+ * The existing identifier type that most likely holds an attribute: one with
+ * the same name, or else the only one whose name contains it or is contained
+ * in it. Null when there's no clear match.
+ */
+export function findSimilarUserIdType(
+  userIdTypes: string[],
+  attribute: string,
+): string | null {
+  const target = normalizeUserIdTypeName(attribute);
+  if (!target) return null;
+  const exact = userIdTypes.find((t) => normalizeUserIdTypeName(t) === target);
+  if (exact) return exact;
+  const partial = userIdTypes.filter((t) => {
+    const name = normalizeUserIdTypeName(t);
+    return name.includes(target) || target.includes(name);
+  });
+  return partial.length === 1 ? partial[0] : null;
+}
