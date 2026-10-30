@@ -38,6 +38,7 @@ import {
   getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
   withScheduledBy,
+  areVariationWeightsValid,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -3367,5 +3368,28 @@ describe("getFactTableIdsForMetrics", () => {
         funnel(["ft_b", "ft_c", "ft_d"]),
       ]),
     ).toEqual(["ft_a", "ft_b", "ft_c", "ft_d"]);
+  });
+});
+
+describe("areVariationWeightsValid", () => {
+  it.each([
+    [[0.5, 0.5]],
+    [[1, 0]],
+    [[1]],
+    [[0.333, 0.333, 0.334]],
+    [[0.5, 0.505]],
+  ])("accepts %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(true);
+  });
+
+  it.each([
+    [[0.33, 0.4, 0.3]],
+    [[0.2, 0.2]],
+    [[50, 50]],
+    [[2, -1]],
+    [[1.5, -0.5]],
+    [[]],
+  ])("rejects %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(false);
   });
 });

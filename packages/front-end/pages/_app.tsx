@@ -6,7 +6,8 @@ import "@/styles/global.scss";
 
 import { AppProps } from "next/app";
 import Head from "next/head";
-import React, { useEffect, useState } from "react";
+import clsx from "clsx";
+import React, { Fragment, useEffect, useState } from "react";
 import { GrowthBookProvider } from "@growthbook/growthbook-react";
 import { growthbookTrackingPlugin } from "@growthbook/growthbook/plugins";
 import { Inter } from "next/font/google";
@@ -41,6 +42,9 @@ import LayoutLite from "@/components/Layout/LayoutLite";
 import { growthbook } from "@/services/utils";
 import { UserContextProvider, useUser } from "@/services/UserContext";
 import { SidebarOpenProvider } from "@/components/Layout/SidebarOpenProvider";
+import { SettingsNavProvider } from "@/components/Layout/SettingsNavContext";
+import { SettingsFormProvider } from "@/components/GeneralSettings/SettingsFormProvider";
+import { isSettingsRoute } from "@/components/Layout/sidebarNav";
 import { HoverTooltipProvider } from "@/hooks/useHoverTooltip";
 import { FeatureHealthStatesProvider } from "@/hooks/useFeatureHealthStates";
 import { CommandPaletteLauncher } from "@/components/CommandPalette/CommandPalette";
@@ -102,6 +106,9 @@ function App({
   const progressiveAuthTopNav = Component.progressiveAuthTopNav || false;
   const liteLayout = Component.liteLayout || false;
   const noLoadingOverlay = Component.noLoadingOverlay || false;
+  const inSettings = isSettingsRoute(router.route);
+  // The Settings draft only exists while inside Settings; leaving unmounts it.
+  const SettingsForm = inSettings ? SettingsFormProvider : Fragment;
 
   const { orgId } = useAuth();
 
@@ -224,26 +231,38 @@ function App({
                               <DefinitionsProvider>
                                 <FeatureHealthStatesProvider>
                                   <AgentPanelProvider>
-                                    {liteLayout ? <LayoutLite /> : <Layout />}
-                                    <CommandPaletteLauncher />
-                                    <AgentLauncher />
-                                    <main className={`main ${parts[0]}`}>
-                                      <OrgSuspendedBannerContainer />
-                                      <OrganizationMessagesContainer />
-                                      <DemoDataSourceGlobalBannerContainer />
-                                      <NPSSurvey />
-                                      <OrgPageContent>
-                                        <GuidedGetStartedBar />
-                                        <DefinitionsGuard>
-                                          <Component
-                                            {...{
-                                              ...pageProps,
-                                              envReady: ready,
-                                            }}
-                                          />
-                                        </DefinitionsGuard>
-                                      </OrgPageContent>
-                                    </main>
+                                    <SettingsNavProvider>
+                                      <SettingsForm>
+                                        {liteLayout ? (
+                                          <LayoutLite />
+                                        ) : (
+                                          <Layout />
+                                        )}
+                                        <CommandPaletteLauncher />
+                                        <AgentLauncher />
+                                        <main
+                                          className={clsx("main", parts[0], {
+                                            "settings-layout": inSettings,
+                                          })}
+                                        >
+                                          <OrgSuspendedBannerContainer />
+                                          <OrganizationMessagesContainer />
+                                          <DemoDataSourceGlobalBannerContainer />
+                                          <NPSSurvey />
+                                          <OrgPageContent>
+                                            <GuidedGetStartedBar />
+                                            <DefinitionsGuard>
+                                              <Component
+                                                {...{
+                                                  ...pageProps,
+                                                  envReady: ready,
+                                                }}
+                                              />
+                                            </DefinitionsGuard>
+                                          </OrgPageContent>
+                                        </main>
+                                      </SettingsForm>
+                                    </SettingsNavProvider>
                                   </AgentPanelProvider>
                                 </FeatureHealthStatesProvider>
                               </DefinitionsProvider>

@@ -12,8 +12,13 @@ import {
   NamespaceValue,
   validateAndFixCondition,
 } from "shared/util";
-import { getEqualWeights, getLatestPhaseVariations } from "shared/experiments";
+import {
+  areVariationWeightsValid,
+  getEqualWeights,
+  getLatestPhaseVariations,
+} from "shared/experiments";
 import { useAuth } from "@/services/auth";
+import { variationWeightsTotalPercent } from "@/services/utils";
 import { useWatching } from "@/services/WatchProvider";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import Modal from "@/components/Modal";
@@ -104,18 +109,12 @@ const NewPhaseForm: FC<{
   const { apiCall } = useAuth();
 
   const variationWeights = form.watch("variationWeights");
-
-  // Make sure variation weights add up to 1 (allow for a little bit of rounding error)
-  const totalWeights = variationWeights.reduce(
-    (total: number, weight: number) => total + weight,
-    0,
-  );
-  const isValid = totalWeights > 0.99 && totalWeights < 1.01;
+  const isValid = areVariationWeightsValid(variationWeights);
 
   const [conditionKey, forceConditionRender] = useIncrementer();
 
   const submit = form.handleSubmit(async (value) => {
-    if (!isValid) throw new Error("Variation weights must sum to 1");
+    if (!isValid) throw new Error("Variation weights must add up to 100%.");
 
     validateSavedGroupTargeting(value.savedGroups);
 
@@ -226,6 +225,13 @@ const NewPhaseForm: FC<{
         showPreview={false}
         hideCoverage={!hasLinkedChanges}
       />
+      {!isValid && (
+        <Callout status="warning" mb="3">
+          Variation weights add up to{" "}
+          {variationWeightsTotalPercent(variationWeights)}%. Adjust them to add
+          up to 100% to start the new phase.
+        </Callout>
+      )}
       {hasLinkedChanges && (
         <NamespaceSelector
           form={form}

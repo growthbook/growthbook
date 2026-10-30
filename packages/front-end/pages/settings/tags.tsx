@@ -9,9 +9,12 @@ import { useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import TagRowMenu from "@/components/Tags/TagRowMenu";
-import Callout from "@/ui/Callout";
+import SettingsPage, {
+  SettingsNoAccess,
+} from "@/components/Layout/SettingsPage";
 
 const TagsPage: FC = () => {
   const { tags, mutateDefinitions } = useDefinitions();
@@ -37,17 +40,32 @@ const TagsPage: FC = () => {
     });
 
   if (!canManageTags) {
-    return (
-      <div className="container-fluid pagecontents">
-        <Callout status="error">
-          You do not have access to view this page.
-        </Callout>
-      </div>
-    );
+    return <SettingsNoAccess title="Tags" />;
   }
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Tags"
+      description={
+        <>
+          Organize features, experiments, metrics, and more with{" "}
+          <strong>tags</strong>.
+        </>
+      }
+      actions={
+        <Tooltip
+          body="You don't have permission to add tags"
+          shouldDisplay={!canCreateAndUpdate}
+        >
+          <Button
+            disabled={!canCreateAndUpdate}
+            onClick={() => setModalOpen({})}
+          >
+            Add tag
+          </Button>
+        </Tooltip>
+      }
+    >
       {modalOpen && (
         <TagsModal
           existing={modalOpen}
@@ -56,31 +74,7 @@ const TagsPage: FC = () => {
         />
       )}
 
-      <Box mt="4" mb="5">
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">Tags</h2>
-          </div>
-          <div className="flex-1" />
-          <div className="col-auto">
-            <Tooltip
-              body="You don't have permission to add tags"
-              shouldDisplay={!canCreateAndUpdate}
-            >
-              <Button
-                disabled={!canCreateAndUpdate}
-                onClick={() => setModalOpen({})}
-              >
-                Add Tag
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
-        <p className="text-gray mb-4">
-          Organize features, experiments, metrics, and more with{" "}
-          <strong>tags</strong>.
-        </p>
-
+      <Box mb="5">
         {tags && tags.length > 0 ? (
           <>
             <Box className="relative" width="40%" mb="4">
@@ -97,10 +91,9 @@ const TagsPage: FC = () => {
             >
               <thead>
                 <tr>
-                  <SortableTH field="id" style={{ width: "30%" }}>
+                  <SortableTH field="id" style={{ width: "35%" }}>
                     Tag name
                   </SortableTH>
-                  <th style={{ width: "30%" }}>Preview</th>
                   <SortableTH field="description">Description</SortableTH>
                   <th style={{ width: 40, minWidth: 40 }} />
                 </tr>
@@ -108,24 +101,17 @@ const TagsPage: FC = () => {
               <tbody>
                 {items?.map((t) => (
                   <tr key={t.id}>
-                    <td className="text-gray">
+                    <td>
                       {canCreateAndUpdate ? (
-                        <a
-                          href="#"
-                          className="link-purple"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            setModalOpen(t);
-                          }}
+                        <Link
+                          aria-label={`Edit tag ${t.id}`}
+                          onClick={() => setModalOpen(t)}
                         >
-                          {t.id}
-                        </a>
+                          <Tag tag={t.id} skipMargin />
+                        </Link>
                       ) : (
-                        <span>{t.id}</span>
+                        <Tag tag={t.id} skipMargin />
                       )}
-                    </td>
-                    <td className="text-gray">
-                      <Tag tag={t.id} skipMargin={true} />
                     </td>
                     <td className="text-gray">
                       {t.description && t.description.length > 80
@@ -150,7 +136,7 @@ const TagsPage: FC = () => {
                 ))}
                 {!items.length && isFiltered && (
                   <tr>
-                    <td colSpan={4} align={"center"}>
+                    <td colSpan={3} align={"center"}>
                       No matching tags found.
                     </td>
                   </tr>
@@ -165,7 +151,7 @@ const TagsPage: FC = () => {
           </p>
         )}
       </Box>
-    </div>
+    </SettingsPage>
   );
 };
 export default TagsPage;

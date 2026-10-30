@@ -6,6 +6,7 @@ import {
   isEqualSplit,
   percentToDecimal,
   rebalance,
+  variationWeightsTotalPercent,
 } from "@/services/utils";
 
 describe("variation weighting functions", () => {
@@ -104,5 +105,13 @@ describe("isEqualSplit", () => {
 
   it("rejects splits that differ by more than one step", () => {
     expect(isEqualSplit([0.5001, 0.4999])).toBe(false);
+  });
+});
+
+describe("variationWeightsTotalPercent", () => {
+  it("totals the weights as a whole percent, without normalizing", () => {
+    expect(variationWeightsTotalPercent([0.33, 0.4, 0.3])).toBe(103);
+    expect(variationWeightsTotalPercent([0.3334, 0.3333, 0.3333])).toBe(100);
+    expect(variationWeightsTotalPercent([0.005, 0.005])).toBe(1);
   });
 });

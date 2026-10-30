@@ -31,7 +31,11 @@ import {
   optionalOwnerInputField,
 } from "./owner-field";
 
-import { componentSchema, namedSchema } from "./openapi-helpers";
+import {
+  componentSchema,
+  namedSchema,
+  retiredRiskOmitted,
+} from "./openapi-helpers";
 import {
   EXPERIMENT_HYPOTHESIS_DESCRIPTION,
   EXPERIMENT_NAME_DESCRIPTION,
@@ -210,8 +214,6 @@ export const metricOverride = z
     windowType: windowTypeValidator.optional(),
     windowHours: z.number().optional(),
     delayHours: z.number().optional(),
-    winRisk: z.number().optional(),
-    loseRisk: z.number().optional(),
     properPriorOverride: z.boolean().optional(),
     properPriorEnabled: z.boolean().optional(),
     properPriorMean: z.number().optional(),
@@ -651,8 +653,6 @@ const apiExperimentMetricOverrides = z.object({
   delayHours: z.coerce.number().optional(),
   windowHours: z.coerce.number().optional(),
   window: z.enum(["conversion", "lookback", ""]).optional(),
-  winRiskThreshold: z.coerce.number().optional().meta({ deprecated: true }),
-  loseRiskThreshold: z.coerce.number().optional().meta({ deprecated: true }),
   properPriorOverride: z.boolean().optional(),
   properPriorEnabled: z.boolean().optional(),
   properPriorMean: z.coerce.number().optional(),
@@ -660,6 +660,8 @@ const apiExperimentMetricOverrides = z.object({
   regressionAdjustmentOverride: z.boolean().optional(),
   regressionAdjustmentEnabled: z.boolean().optional(),
   regressionAdjustmentDays: z.coerce.number().optional(),
+  winRiskThreshold: retiredRiskOmitted(),
+  loseRiskThreshold: retiredRiskOmitted(),
 });
 
 // Corresponds to schemas/ExperimentMetric.yaml

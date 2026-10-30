@@ -53,15 +53,7 @@ export function getDefaultMetricOverridesFormValue(
   for (let i = 0; i < defaultMetricOverrides.length; i++) {
     for (const key in defaultMetricOverrides[i]) {
       // fix fields with percentage values
-      if (
-        [
-          "winRisk",
-          "loseRisk",
-          "maxPercentChange",
-          "minPercentChange",
-          "targetMDE",
-        ].includes(key)
-      ) {
+      if (["maxPercentChange", "minPercentChange", "targetMDE"].includes(key)) {
         defaultMetricOverrides[i][key] *= 100;
       }
     }
@@ -121,15 +113,7 @@ export function fixMetricOverridesBeforeSaving(overrides: MetricOverride[]) {
         continue;
       }
       // fix fields with percentage values
-      if (
-        [
-          "winRisk",
-          "loseRisk",
-          "maxPercentChange",
-          "minPercentChange",
-          "targetMDE",
-        ].includes(key)
-      ) {
+      if (["maxPercentChange", "minPercentChange", "targetMDE"].includes(key)) {
         overrides[i][key] = v / 100;
       }
     }

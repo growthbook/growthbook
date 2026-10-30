@@ -10,7 +10,10 @@ import {
 } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  HoldoutMissingLinkage,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import {
   canEditDeliveryInPlace,
@@ -24,6 +27,7 @@ import {
   getStorableVariations,
 } from "shared/experiments";
 import { Box, Flex, Separator } from "@radix-ui/themes";
+import { PiWarningFill } from "react-icons/pi";
 import UrlRedirectColumn from "@/components/Experiment/LinkedChanges/RedirectLinkedChanges";
 import {
   ADDABLE_KINDS,
@@ -53,6 +57,7 @@ import Callout from "@/ui/Callout";
 import { Tabs, TabsList, TabsTrigger } from "@/ui/Tabs";
 import LinkedExperimentsTable from "@/components/Holdout/LinkedExperimentsTable";
 import LinkedFeaturesTable from "@/components/Holdout/LinkedFeaturesTable";
+import MissingLinkageTable from "@/components/Holdout/MissingLinkageTable";
 import EditEnvironmentsModal from "@/components/Holdout/EditEnvironmentsModal";
 import Link from "@/ui/Link";
 import Badge from "@/ui/Badge";
@@ -114,6 +119,7 @@ export interface Props {
   holdout?: HoldoutInterfaceStringDates;
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
+  holdoutMissingLinkage?: HoldoutMissingLinkage;
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
   mutate: () => void;
@@ -141,6 +147,7 @@ export default function Implementation({
   holdout,
   holdoutExperiments,
   holdoutFeatures,
+  holdoutMissingLinkage,
   visualChangesets,
   urlRedirects,
   mutate,
@@ -434,6 +441,9 @@ export default function Implementation({
     !experiment.archived &&
     experiment.status !== "stopped" &&
     permissionsUtil.canUpdateHoldout(holdout, { projects: holdout.projects });
+  const missingCount =
+    (holdoutMissingLinkage?.experiments.length ?? 0) +
+    (holdoutMissingLinkage?.features.length ?? 0);
 
   async function setHoldoutDefaultState(isDefault: boolean) {
     if (!holdout) return;
@@ -578,9 +588,36 @@ export default function Implementation({
         ) : null}
         {isHoldout && holdout ? (
           <Frame>
-            <Heading color="text-high" as="h4" size="sm" mb="0">
-              Included Experiments & Features
-            </Heading>
+            <Flex align="center" gap="2">
+              <Heading color="text-high" as="h4" size="sm" mb="0">
+                Included Experiments & Features
+              </Heading>
+              {missingCount ? (
+                <Badge
+                  label={
+                    <Flex align="center" gap="1">
+                      <PiWarningFill />
+                      {missingCount} missing
+                    </Flex>
+                  }
+                  color="amber"
+                  variant="soft"
+                />
+              ) : null}
+            </Flex>
+            {/* What joins from here on, ahead of what already has. */}
+            <Box mt="2" mb="3">
+              <Checkbox
+                value={!holdout.skipAsDefaultHoldout}
+                disabled={!canEditHoldoutDefaultState}
+                setValue={(isDefault) => {
+                  void setHoldoutDefaultState(isDefault);
+                }}
+                label="Preselect for new experiments and Feature Flags"
+                description="When someone creates one, this holdout is picked for it unless they choose another."
+                weight="regular"
+              />
+            </Box>
             {/* TODO: Add a state for a stopped holdout with no experiments or features? */}
             {experiment.status === "draft" ? (
               <Text>
@@ -645,17 +682,16 @@ export default function Implementation({
                 )}
               </>
             )}
-            <Flex align="center" justify="between" mt="3">
-              <Checkbox
-                value={!holdout.skipAsDefaultHoldout}
-                disabled={!canEditHoldoutDefaultState}
-                setValue={(isDefault) => {
-                  void setHoldoutDefaultState(isDefault);
-                }}
-                label="Use this holdout as a default for new experiments or features."
-                weight="regular"
+            {holdoutMissingLinkage ? (
+              <MissingLinkageTable
+                holdoutId={holdout.id}
+                missing={holdoutMissingLinkage}
+                canEdit={permissionsUtil.canUpdateHoldout(holdout, {
+                  projects: holdout.projects,
+                })}
+                mutate={mutate}
               />
-            </Flex>
+            ) : null}
           </Frame>
         ) : null}
         {(experiment.status !== "draft" ||

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { CustomHookInterface } from "shared/validators";
-import { Box, Flex } from "@radix-ui/themes";
+import { Flex } from "@radix-ui/themes";
 import Button from "@/ui/Button";
 import useApi from "@/hooks/useApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -11,6 +11,7 @@ import { isCloud } from "@/services/env";
 import CustomHookModal from "@/components/CustomHooks/CustomHookModal";
 import CustomHooksTable from "@/components/CustomHooks/CustomHooksTable";
 import Link from "@/ui/Link";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 // Feature- and config-scoped hooks are managed from their entity's Validation
 // tab; here they are listed with a link to that entity plus history/revert.
@@ -104,7 +105,11 @@ export default function CustomHooksPage() {
   };
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Custom Hooks"
+      description="Custom hooks allow you to extend the functionality of GrowthBook by writing custom javascript snippets that execute on certain events."
+      hideHeader={allHooks.length === 0}
+    >
       {modalData && (
         <CustomHookModal
           current={modalData === true ? undefined : modalData}
@@ -121,20 +126,12 @@ export default function CustomHooksPage() {
           // TODO: add docs page and link to it here
           leftButton={null}
           rightButton={
-            <Button onClick={() => setModalData(true)}>Add Custom Hook</Button>
+            <Button onClick={() => setModalData(true)}>Add custom hook</Button>
           }
         />
       ) : (
         <>
           <div>
-            <Box mb="5">
-              <h1>Custom Hooks</h1>
-              <p>
-                Custom hooks allow you to extend the functionality of GrowthBook
-                by writing custom javascript snippets that execute on certain
-                events.
-              </p>
-            </Box>
             <Flex justify="between" align="center" mb="1">
               <h2 className="mb-0">Global/Project Hooks</h2>
               <Button onClick={() => setModalData(true)}>
@@ -216,6 +213,6 @@ export default function CustomHooksPage() {
           )}
         </>
       )}
-    </div>
+    </SettingsPage>
   );
 }

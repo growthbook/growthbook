@@ -1,0 +1,139 @@
+.field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-sizing: border-box;
+  min-height: 32px;
+  padding: 3px 4px 3px 6px;
+  border: 1px solid var(--gray-a7);
+  border-radius: var(--radius-2);
+  background: var(--color-surface);
+  cursor: pointer;
+}
+
+.pills {
+  position: relative;
+  display: flex;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+// Off-screen copy of every pill, measured to decide how many fit.
+.ghost {
+  position: absolute;
+  display: flex;
+  gap: 6px;
+  visibility: hidden;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.placeholder {
+  flex: 1;
+  padding: 0 4px;
+  color: var(--gray-a10);
+}
+
+.pill {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 1px 4px 1px 8px;
+  border: 1px solid var(--violet-a5);
+  border-radius: var(--radius-2);
+  background: var(--violet-a3);
+  font-family: var(--code-font-family);
+  font-size: 12px;
+  color: var(--color-text-high);
+  cursor: default;
+}
+
+.pill span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iconButton {
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  border-radius: 3px;
+  background: none;
+  color: var(--gray-11);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--violet-a4);
+    color: var(--color-text-high);
+  }
+}
+
+.more {
+  flex-shrink: 0;
+  padding: 1px 8px;
+  white-space: nowrap;
+  border: 1px dashed var(--violet-a7);
+  border-radius: var(--radius-2);
+  background: none;
+  font-size: 12px;
+  color: var(--violet-11);
+  cursor: pointer;
+
+  &:hover {
+    background: var(--violet-a3);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--gray-a5);
+}
+
+.search {
+  padding: 10px 14px 4px;
+}
+
+// Keeps the panel inside the window; only the list shrinks.
+.panel {
+  display: flex;
+  flex-direction: column;
+  max-height: var(--radix-popover-content-available-height);
+}
+
+.list {
+  max-height: 360px;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.row {
+  padding: 4px 14px;
+
+  &:hover {
+    background: var(--violet-a3);
+  }
+}
+
+.child {
+  padding-left: 38px;
+}
+
+.mono {
+  font-family: var(--code-font-family);
+  font-size: 13px;
+}
+
+// A single pill wider than the field shortens instead of being clipped.
+.pills > .pill:first-of-type {
+  flex-shrink: 1;
+  min-width: 0;
+}
