@@ -118,6 +118,22 @@
   overflow-y: auto;
 }
 
+// While the docked AI Assistant panel slides in or out, on its timing.
+:global(html.agent-dock-motion) .sidebar {
+  transition-duration: var(--agent-dock-duration);
+  transition-timing-function: var(--agent-dock-easing);
+
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
+}
+
+// The panel's curve moves the sidebar's edge sooner, so the wordmark fades
+// faster to be gone before the edge reaches it.
+:global(html.agent-dock-motion) .collapsing .brandWordmark {
+  transition-duration: 40ms;
+}
+
 :global(.dark-theme) .sidebar {
   --sidebar-border: var(--slate-a4);
   --sidebar-divider: var(--slate-a5);

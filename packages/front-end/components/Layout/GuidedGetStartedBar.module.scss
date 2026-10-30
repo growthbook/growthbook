@@ -4,7 +4,21 @@
   position: fixed;
   top: var(--header-height);
   left: var(--sidebar-width, 240px);
-  right: 0;
+  // Ends at the docked AI Assistant panel's edge, as the header does.
+  right: var(--agent-rail-width, 0px);
   height: 56px;
   z-index: 995;
+  transition: right var(--agent-dock-duration) var(--agent-dock-easing);
+  :global(html.agent-dock-motion) & {
+    transition:
+      left var(--agent-dock-duration) var(--agent-dock-easing),
+      right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    transition: none;
+  }
 }

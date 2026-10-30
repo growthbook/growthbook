@@ -137,17 +137,19 @@ const ExperimentTimeline: React.FC<{
     hideTooltip();
   };
 
+  // Follows its container, not just the window: the docked AI Assistant panel
+  // narrows the page without resizing the window. The container only renders
+  // with experiments to show, so it's observed again once they appear.
+  const hasExperiments = experiments.length > 0;
   useEffect(() => {
-    const handleResize = () => {
-      if (containerRef.current) {
-        setWidth(containerRef.current.offsetWidth);
-      }
-    };
-
-    handleResize(); // Set initial width
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
-  }, []);
+    const el = containerRef.current;
+    if (!el) return;
+    const handleResize = () => setWidth(el.offsetWidth);
+    handleResize();
+    const observer = new ResizeObserver(handleResize);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasExperiments]);
 
   // Scales
   const xScale = scaleTime({

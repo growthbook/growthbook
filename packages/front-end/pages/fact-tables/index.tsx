@@ -438,7 +438,13 @@ export default function FactTablesPage() {
       ) : (
         <Box>
           <Flex justify="between" mb="3" gap="3" align="center" wrap="wrap">
-            <Box className="relative" width={{ initial: "100%", sm: "40%" }}>
+            <Box
+              className="relative"
+              width={{ initial: "100%", sm: "40%" }}
+              // No narrower than 160px when space is short, e.g. beside the
+              // docked AI Assistant panel.
+              style={{ minWidth: 160 }}
+            >
               <Field
                 placeholder="Search..."
                 type="search"

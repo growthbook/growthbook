@@ -13,11 +13,6 @@ export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
   useEffect(() => {
     if (!isCloud()) return;
 
-    if (!hidden) {
-      pylon("showChatBubble");
-      return;
-    }
-
     const hide = () => {
       pylon("hide");
       pylon("hideChatBubble");
@@ -29,9 +24,13 @@ export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
       pylon("showChatBubble");
     };
 
+    // The bubble only shows once asked, so showing it waits for the script
+    // too: asked before it loads, the bubble stays hidden.
+    const apply = () => (hidden ? hide() : pylon("showChatBubble"));
+
     if (isLoaded()) {
-      hide();
-      return restore;
+      apply();
+      return hidden ? restore : undefined;
     }
 
     // Pylon's script may not have loaded yet; poll until it appears.
@@ -40,7 +39,7 @@ export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
       if (isLoaded()) {
         window.clearInterval(intervalId);
         resolved = true;
-        hide();
+        apply();
       }
     }, 250);
     const timeoutId = window.setTimeout(
@@ -51,7 +50,7 @@ export default function PylonChatVisibility({ hidden }: { hidden: boolean }) {
     return () => {
       window.clearInterval(intervalId);
       window.clearTimeout(timeoutId);
-      if (resolved) restore();
+      if (hidden && resolved) restore();
     };
   }, [hidden]);
 

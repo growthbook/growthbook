@@ -31,6 +31,7 @@ import { useConstantDraftStates } from "@/hooks/useConstantDraftStates";
 import { useOpenRevisionCount } from "@/hooks/useRevisions";
 import ConstantModal from "@/components/Constants/ConstantModal";
 import ConstantReviews from "@/components/Constants/ConstantReviews";
+import SearchFilterRow from "@/components/Search/SearchFilterRow";
 import ConstantSearchFilters from "@/components/Search/ConstantSearchFilters";
 
 const TYPE_LABEL: Record<ConstantWithoutValue["type"], string> = {
@@ -256,22 +257,25 @@ export default function ConstantsPage(): React.ReactElement {
 
             <TabsContent value="all">
               <Box mt="4">
-                <Flex align="center" justify="between" gap="3" mb="3">
-                  <Box style={{ width: "40%" }}>
+                <SearchFilterRow
+                  mb="3"
+                  search={
                     <Field
                       placeholder="Search..."
                       type="search"
                       {...searchInputProps}
                     />
-                  </Box>
-                  <ConstantSearchFilters
-                    searchInputProps={searchInputProps}
-                    syntaxFilters={syntaxFilters}
-                    setSearchValue={setSearchValue}
-                    constants={items}
-                    hasArchived={hasArchived}
-                  />
-                </Flex>
+                  }
+                  filters={
+                    <ConstantSearchFilters
+                      searchInputProps={searchInputProps}
+                      syntaxFilters={syntaxFilters}
+                      setSearchValue={setSearchValue}
+                      constants={items}
+                      hasArchived={hasArchived}
+                    />
+                  }
+                />
                 <Table variant="list" stickyHeader roundedCorners>
                   <TableHeader>
                     <TableRow>

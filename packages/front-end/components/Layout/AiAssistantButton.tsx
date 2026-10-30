@@ -22,12 +22,14 @@ export default function AiAssistantButton({
   if (!agentAvailable) return null;
 
   return (
-    <span className={className}>
+    <span className={clsx(styles.wrapper, className)}>
       <Button
         variant="ghost"
         color="gray"
         size="sm"
-        className={clsx(agentOpen && styles.panelOpen)}
+        className={clsx(styles.fades, agentOpen && styles.panelOpen)}
+        // Where focus goes back to as the panel closes (AgentPanel.tsx).
+        data-ai-assistant-trigger
         icon={<PiSparkleBold />}
         onClick={toggleAgentPanel}
         aria-label={

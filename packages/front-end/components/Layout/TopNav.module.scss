@@ -4,14 +4,27 @@
   position: fixed;
   top: 0;
   left: var(--sidebar-width, 240px);
-  right: 0;
+  // Ends at the docked AI Assistant panel's edge while it's open (AgentPanel
+  // .tsx), as the page does.
+  right: var(--agent-rail-width, 0px);
   height: var(--header-height);
   z-index: 1010;
   // The page's, so it's white over a white page (global.scss).
   background-color: var(--page-bg, var(--color-background));
   // The right padding lines up with the page content.
   padding: 0 var(--space-6) 0 var(--space-5);
-  transition: left 200ms ease;
+  transition:
+    left 200ms ease,
+    right var(--agent-dock-duration) var(--agent-dock-easing);
+  :global(html.agent-dock-motion) & {
+    transition:
+      left var(--agent-dock-duration) var(--agent-dock-easing),
+      right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   @media (max-width: 520px) {
     padding: 0 8px;
   }

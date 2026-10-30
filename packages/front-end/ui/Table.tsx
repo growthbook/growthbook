@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useRef } from "react";
+import React, { forwardRef, useEffect, useRef, useState } from "react";
 import { Table as RadixTable } from "@radix-ui/themes";
 import clsx from "clsx";
 import { useIsOverflowingX } from "@/hooks/useIsOverflowing";
@@ -62,6 +62,25 @@ export default function Table({
     (variant === "list" && stickyHeader !== false) || stickyHeader === true;
 
   const wrapperRef = useRef<HTMLDivElement>(null);
+  // Only once too wide: a scroll box can't let the header stick to the
+  // window. Not with scrollX, already a scroll region.
+  const [autoScroll, setAutoScroll] = useState(false);
+  useEffect(() => {
+    const wrapper = wrapperRef.current;
+    const table = wrapper?.querySelector("table");
+    if (!isListVariant || scrollX || !wrapper || !table) {
+      setAutoScroll(false);
+      return;
+    }
+    const check = () =>
+      setAutoScroll(table.offsetWidth > wrapper.clientWidth + 1);
+    check();
+    const observer = new ResizeObserver(check);
+    observer.observe(wrapper);
+    observer.observe(table);
+    return () => observer.disconnect();
+  }, [isListVariant, scrollX]);
+
   // A pinned column only earns its divider once there is something behind it.
   const overflowX = useIsOverflowingX(
     wrapperRef,
@@ -74,7 +93,12 @@ export default function Table({
     const wrapper = wrapperRef.current;
     if (!wrapper) return;
     // In a scroll region the header is always stuck to the region's top, so
-    // there is no unstuck state to detect.
+    // there is no unstuck state to detect. Scrolling sideways on its own
+    // (autoScroll), it doesn't stick at all.
+    if (autoScroll) {
+      wrapper.removeAttribute("data-sticky-active");
+      return;
+    }
     if (scrollX) {
       wrapper.setAttribute("data-sticky-active", "true");
       return;
@@ -97,7 +121,14 @@ export default function Table({
     check();
     window.addEventListener("scroll", check, { passive: true });
     return () => window.removeEventListener("scroll", check);
-  }, [isListVariant, useStickyHeader, stickyTopOffset, scrollX, headerHeight]);
+  }, [
+    isListVariant,
+    useStickyHeader,
+    stickyTopOffset,
+    scrollX,
+    autoScroll,
+    headerHeight,
+  ]);
 
   const radixVariant = variant === "list" ? "surface" : variant;
 
@@ -149,6 +180,7 @@ export default function Table({
       data-scroll-x={scrollX ? "true" : undefined}
       data-sticky-last-column={scrollX && stickyLastColumn ? "true" : undefined}
       data-overflow-x={overflowX ? "true" : undefined}
+      data-auto-scroll={autoScroll ? "true" : undefined}
     >
       {tableElement}
     </div>

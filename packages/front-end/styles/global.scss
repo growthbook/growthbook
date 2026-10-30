@@ -12,6 +12,11 @@
 // Keep in sync with HEADER_HEIGHT_PX in components/Layout/headerHeight.ts.
 :root {
   --header-height: 44px;
+  // The docked AI Assistant panel's slide, and everything that moves with it:
+  // the page, the header's and bars' edges, the header button, the side nav.
+  // Keep in sync with AGENT_DOCK_MOTION_MS (AgentPanelContext.tsx).
+  --agent-dock-duration: 220ms;
+  --agent-dock-easing: cubic-bezier(0.22, 1, 0.36, 1);
 }
 // Two rows below 1180px on pages with the sidebar (TopNav.module.scss).
 @media (max-width: 1180px) {
@@ -121,7 +126,19 @@ html.app-drawer-open body {
 }
 .main {
   padding-left: var(--sidebar-width);
-  transition: padding-left 200ms ease;
+  padding-right: var(--agent-rail-width, 0px);
+  transition:
+    padding-left 200ms ease,
+    padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+  html.agent-dock-motion & {
+    transition:
+      padding-left var(--agent-dock-duration) var(--agent-dock-easing),
+      padding-right var(--agent-dock-duration) var(--agent-dock-easing);
+
+    @media (prefers-reduced-motion: reduce) {
+      transition: none;
+    }
+  }
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
