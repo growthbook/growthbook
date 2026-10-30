@@ -160,6 +160,15 @@ export class ApiKeyModel extends BaseClass {
     return migrateApiKey(legacyDoc);
   }
 
+  // A key read before the sweep hashed it still matches afterwards, so a disable or delete can't silently miss.
+  private storedForms(value: string) {
+    return { $in: [value, hashedApiKey(value)] };
+  }
+
+  protected getPrimaryKeyFilter(doc: ApiKeyInterface) {
+    return { key: this.storedForms(doc.key) };
+  }
+
   protected sanitize(doc: ApiKeyInterface): ApiKeyInterface {
     if (!doc.secret) return doc;
     return {
@@ -769,7 +778,7 @@ export class ApiKeyModel extends BaseClass {
     }
   }
 
-  // Hashes up to `limit` secrets stored before keys were hashed, returning how many it found.
+  // Hashes up to `limit` secrets stored before keys were hashed, returning how many it changed.
   public static async dangerousHashPlaintextSecrets(
     limit: number,
   ): Promise<number> {
@@ -787,23 +796,21 @@ export class ApiKeyModel extends BaseClass {
       )
       .toArray();
     if (!docs.length) return 0;
-    const hash = (value: string) =>
-      HASHED_API_KEY.test(value) ? value : hashToken(value);
     // Matching the read value keeps a concurrent rotation from being overwritten.
-    await collection.bulkWrite(
+    const { modifiedCount } = await collection.bulkWrite(
       docs.map(({ _id, key, previousKey }) => ({
         updateOne: {
           filter: { _id, key, ...(previousKey && { previousKey }) },
           update: {
             $set: {
-              key: hash(key),
-              ...(previousKey && { previousKey: hash(previousKey) }),
+              key: hashedApiKey(key),
+              ...(previousKey && { previousKey: hashedApiKey(previousKey) }),
             },
           },
         },
       })),
     );
-    return docs.length;
+    return modifiedCount;
   }
 
   // OAuth token endpoint has no ReqContext. These static helpers keep apikey
@@ -961,7 +968,7 @@ export class ApiKeyModel extends BaseClass {
     const { matchedCount } = await getCollection<ApiKeyInterface>(
       COLLECTION_NAME,
     ).updateOne(
-      { id, organization: this.context.org.id, key: doc.key },
+      { id, organization: this.context.org.id, key: this.storedForms(doc.key) },
       { $set: updates },
     );
     if (!matchedCount) {
@@ -988,7 +995,11 @@ export class ApiKeyModel extends BaseClass {
     const updates = { previousKeyExpiresAt: now, dateUpdated: now };
     // Matching the checked secret keeps a stale revoke off a newer rotation's.
     await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
-      { id, organization: this.context.org.id, previousKey: doc.previousKey },
+      {
+        id,
+        organization: this.context.org.id,
+        previousKey: this.storedForms(doc.previousKey as string),
+      },
       { $set: updates },
     );
     return { before: doc, after: { ...doc, ...updates } };
