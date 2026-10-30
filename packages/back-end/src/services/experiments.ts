@@ -62,7 +62,6 @@ import {
   getAllMetricIdsFromExperiment,
   getClusterExperimentMetricEligibility,
   getClusterSubUnit,
-  getClusterMetricAnalysisLevel,
   ClusterMetricAnalysisLevel,
   isIsolatedDimension,
   getAllExpandedMetricIdsFromExperiment,
@@ -681,38 +680,16 @@ export function getSnapshotMetricEligibility({
     return { allowed: true, clusterLevel: null };
   }
 
-  const getFactTable = (factTableId: string) => factTableMap.get(factTableId);
-
   const eligibility = getClusterExperimentMetricEligibility(metric, {
     clusterIdentifier: exposureQueryIdentifierType,
     clusterSubUnitIdentifier,
-    getFactTable,
+    getFactTable: (factTableId) => factTableMap.get(factTableId),
     datasourceSettings: datasource?.settings,
   });
   if (!eligibility.allowed) {
     return { allowed: false, reason: eligibility.reason, clusterLevel: null };
   }
-
-  // Eligibility already guarantees a fact metric with a resolvable level, but
-  // resolve it explicitly so callers can build clusterLevelMetricIds in the
-  // same pass.
-  const clusterLevel = isFactMetric(metric)
-    ? getClusterMetricAnalysisLevel(metric, {
-        clusterIdentifier: exposureQueryIdentifierType,
-        clusterSubUnitIdentifier,
-        getFactTable,
-        datasourceSettings: datasource?.settings,
-      })
-    : null;
-  if (!clusterLevel) {
-    return {
-      allowed: false,
-      reason: "this metric has no valid cluster analysis level.",
-      clusterLevel: null,
-    };
-  }
-
-  return { allowed: true, clusterLevel };
+  return { allowed: true, clusterLevel: eligibility.level };
 }
 
 export function createMetricEligibilityResolver(params: {
@@ -1077,7 +1054,7 @@ export function getSnapshotSettings({
     exposureQueryId: experiment.exposureQueryId,
     exposureQueryIdentifierType,
     isClusterExperiment: !!clusterSubUnitIdentifier,
-    clusterSubUnitIdentifier: clusterSubUnitIdentifier ?? undefined,
+    clusterSubUnitIdentifier,
     ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: getLatestPhaseVariations(experiment).map((v, i) => ({
@@ -4940,10 +4917,7 @@ export type ClusterExperimentConfigFields = {
 };
 
 function clusterMetricListChanged(a?: string[], b?: string[]): boolean {
-  const sortedA = [...(a ?? [])].sort();
-  const sortedB = [...(b ?? [])].sort();
-  if (sortedA.length !== sortedB.length) return true;
-  return sortedA.some((value, i) => value !== sortedB[i]);
+  return !isEqual([...(a ?? [])].sort(), [...(b ?? [])].sort());
 }
 
 function clusterConfigRequiresRevalidation(

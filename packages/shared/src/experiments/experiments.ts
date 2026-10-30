@@ -1519,7 +1519,8 @@ const UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES: Record<string, string> = {
 };
 
 type ClusterMetricEligibility =
-  | { allowed: true }
+  // `level` is null when no sub-unit identifier was given to resolve it against.
+  | { allowed: true; level: ClusterMetricAnalysisLevel | null }
   | { allowed: false; reason: string };
 
 export function getClusterExperimentMetricEligibility(
@@ -1558,27 +1559,28 @@ export function getClusterExperimentMetricEligibility(
       } metrics. Use proportion, retention, mean, or ratio metrics.`,
     };
   }
-  if (options.clusterSubUnitIdentifier) {
-    const level = getClusterMetricAnalysisLevel(metric, {
-      clusterIdentifier: options.clusterIdentifier,
-      clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
-      getFactTable: options.getFactTable,
-      datasourceSettings: options.datasourceSettings,
-    });
-    if (!level) {
-      if (options.clusterIdentifier) {
-        return {
-          allowed: false,
-          reason: `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
-        };
-      }
+  if (!options.clusterSubUnitIdentifier) {
+    return { allowed: true, level: null };
+  }
+  const level = getClusterMetricAnalysisLevel(metric, {
+    clusterIdentifier: options.clusterIdentifier,
+    clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
+    getFactTable: options.getFactTable,
+    datasourceSettings: options.datasourceSettings,
+  });
+  if (!level) {
+    if (options.clusterIdentifier) {
       return {
         allowed: false,
-        reason: `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+        reason: `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
       };
     }
+    return {
+      allowed: false,
+      reason: `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+    };
   }
-  return { allowed: true };
+  return { allowed: true, level };
 }
 
 /**

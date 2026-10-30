@@ -179,7 +179,6 @@ export function getSnapshotSettingsFromReportArgs(
     exposureQueryId: args.exposureQueryId,
     exposureQueryIdentifierType: args.exposureQueryIdentifierType,
     isClusterExperiment: false,
-    clusterSubUnitIdentifier: undefined,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -744,8 +743,8 @@ export function getReportSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
     exposureQueryIdentifierType,
-    isClusterExperiment: !!clusterSubUnitIdentifier,
-    clusterSubUnitIdentifier: clusterSubUnitIdentifier ?? undefined,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
     ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({

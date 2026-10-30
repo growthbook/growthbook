@@ -3155,7 +3155,7 @@ describe("getClusterExperimentMetricEligibility", () => {
         clusterSubUnitIdentifier: "user_id",
         getFactTable,
       }),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: true, level: "subunit" });
   });
 
   it("allows metrics whose fact table only has the cluster identifier", () => {
@@ -3168,7 +3168,7 @@ describe("getClusterExperimentMetricEligibility", () => {
           getFactTable,
         },
       ),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: true, level: "cluster" });
   });
 
   it("allows max and hll merge aggregations at the sub-unit grain", () => {
@@ -3181,7 +3181,7 @@ describe("getClusterExperimentMetricEligibility", () => {
           getFactTable,
         },
       ),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: true, level: "subunit" });
     expect(
       getClusterExperimentMetricEligibility(
         factMetric("mean", "ft_subunit", "hll merge"),
@@ -3191,7 +3191,7 @@ describe("getClusterExperimentMetricEligibility", () => {
           getFactTable,
         },
       ),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: true, level: "subunit" });
     // A max metric whose fact table reaches neither identifier is still
     // rejected, now with the generic identifier message (not an aggregation
     // message, since max is no longer special-cased).
@@ -3237,7 +3237,7 @@ describe("getClusterExperimentMetricEligibility", () => {
           },
         } as never,
       }),
-    ).toEqual({ allowed: true });
+    ).toEqual({ allowed: true, level: "subunit" });
   });
 });
 

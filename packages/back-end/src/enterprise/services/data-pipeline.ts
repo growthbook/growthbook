@@ -186,6 +186,10 @@ export function getExperimentSettingsHashForIncrementalRefresh(
       snapshotSettings.clusterSubUnitIdentifier ?? null;
   }
 
+  // Remapping a column the units table reads means rebuilding it. Other
+  // mapped columns (names, other identifiers) don't touch it, and while every
+  // units column keeps its standard name the hash is unchanged, so existing
+  // pipelines don't trigger a full refresh.
   const exposureQuery = exposureQueries.find(
     (q) => q.id === snapshotSettings.exposureQueryId,
   );
