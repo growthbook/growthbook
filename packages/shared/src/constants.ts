@@ -362,7 +362,13 @@ export const entityEvents = {
   learning: ["create", "update", "delete"],
   contextualBandit: ["create", "update", "delete", "start", "stop"],
   interleaving: ["create", "update", "delete", "start", "stop"],
-  eventForwarderConfig: ["create", "update", "delete", "teardownFailure"],
+  eventForwarderConfig: [
+    "create",
+    "update",
+    "delete",
+    "teardownFailure",
+    "migrate",
+  ],
 } as const;
 
 export const entityTypes = Object.keys(entityEvents) as [keyof EntityEvents];

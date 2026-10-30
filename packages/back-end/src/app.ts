@@ -1116,6 +1116,10 @@ app.post(
   "/datasource/:id/event-forwarder/resume",
   datasourcesController.postResumeEventForwarder,
 );
+app.post(
+  "/datasource/:id/event-forwarder/migrate",
+  datasourcesController.postMigrateEventForwarder,
+);
 app.get("/datasource/:id/metrics", datasourcesController.getDataSourceMetrics);
 app.post(
   "/datasource/:id/query/:queryId/cancel",
