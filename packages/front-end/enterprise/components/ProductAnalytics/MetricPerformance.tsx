@@ -17,7 +17,7 @@ import styles from "@/components/FactTables/MetricEditor/PreviewPanel.module.scs
 import PreviewEmptyState from "@/components/QueryPreview/PreviewEmptyState";
 import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import MetricPreviewChart from "./MainSection/MetricPreviewChart";
-import PreviewExplorer from "./PreviewExplorer";
+import PreviewExplorer, { PreviewFooter } from "./PreviewExplorer";
 
 export default function MetricPerformance({
   metric,
@@ -81,9 +81,11 @@ export default function MetricPerformance({
     return (
       <Flex direction="column" gap="3">
         <PreviewEmptyState description="Select a fact table to see live sample data for the last 7 days." />
-        <Flex justify="end">
-          <Button disabled>Run query</Button>
-        </Flex>
+        <PreviewFooter>
+          <Flex justify="end">
+            <Button disabled>Run query</Button>
+          </Flex>
+        </PreviewFooter>
       </Flex>
     );
   if (!permissions.canRunMetricQueries(datasource))

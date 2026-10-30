@@ -39,6 +39,11 @@ type PreviewExplorerProps = {
   }) => ReactNode;
 };
 
+// The divider and spacing above a preview's run/refresh controls.
+export function PreviewFooter({ children }: { children: ReactNode }) {
+  return <Box className={styles.footer}>{children}</Box>;
+}
+
 // A passive 7-day preview: runs `config` through the explorer and frames the
 // result with stale/error callouts, the controls row, the empty state, and the
 // run/refresh footer.
@@ -123,7 +128,7 @@ function PreviewBody({
           }
         />
       )}
-      <Box className={styles.footer}>
+      <PreviewFooter>
         {exploration && !outdated ? (
           // Once results are current, re-running is a quiet refresh.
           <Flex justify="end" align="center" gap="3">
@@ -148,7 +153,7 @@ function PreviewBody({
             </Button>
           </Flex>
         )}
-      </Box>
+      </PreviewFooter>
     </Flex>
   );
 }
