@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { startCase } from "lodash";
 import { FactTableDefinition } from "shared/types/fact-table";
 import { ExplorationConfig } from "shared/validators";
@@ -14,6 +15,16 @@ export function getPreviewDateRange(
     startDate: start.toISOString().slice(0, 10),
     endDate: end.toISOString().slice(0, 10),
   };
+}
+
+// Same object until the UTC day rolls over, so "last 7 days" stays current
+// without changing the config on every render.
+export function usePreviewDateRange(): ExplorationConfig["dateRange"] {
+  const utcToday = new Date().toISOString().slice(0, 10);
+  return useMemo(
+    () => getPreviewDateRange(new Date(`${utcToday}T00:00:00Z`)),
+    [utcToday],
+  );
 }
 
 export function getPreviewUnitLabel(

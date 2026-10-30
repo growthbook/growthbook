@@ -7,13 +7,12 @@ import {
 } from "shared/validators";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { ExplorerProvider } from "@/enterprise/components/ProductAnalytics/ExplorerContext";
 import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
 import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
-import ExplorerPreviewShell from "@/enterprise/components/ProductAnalytics/ExplorerPreviewShell";
+import PreviewExplorer from "@/enterprise/components/ProductAnalytics/PreviewExplorer";
 import PreviewUnitSelect from "@/components/QueryPreview/PreviewUnitSelect";
 import {
-  getPreviewDateRange,
+  usePreviewDateRange,
   formatPreviewHeadline,
 } from "@/components/QueryPreview/previewUtils";
 import { getActivityChart } from "@/components/QueryPreview/activityChart";
@@ -70,15 +69,15 @@ export default function PopulationPreview({
   const unit =
     selectedUnit && population.userIdTypes.includes(selectedUnit)
       ? selectedUnit
-      : (population.userIdTypes[0] ?? null);
-  const utcToday = new Date().toISOString().slice(0, 10);
+      : population.userIdTypes[0];
+  const dateRange = usePreviewDateRange();
   const config = useMemo<PopulationExplorationConfig>(
     () => ({
       type: "population",
       datasource: population.datasource,
       chartType: "bar",
       showAs: "total",
-      dateRange: getPreviewDateRange(new Date(`${utcToday}T00:00:00Z`)),
+      dateRange,
       dimensions: [
         { dimensionType: "date", column: "date", dateGranularity: "day" },
       ],
@@ -95,7 +94,7 @@ export default function PopulationPreview({
         })),
       },
     }),
-    [population, unit, utcToday],
+    [population, unit, dateRange],
   );
   const datasource = getDatasourceById(population.datasource);
   const step = population.steps[0];
@@ -116,34 +115,28 @@ export default function PopulationPreview({
           You don’t have permission to run queries on this Data Source.
         </Text>
       ) : (
-        <ExplorerProvider
-          mode="passive-preview"
-          initialConfig={config}
-          queryEnabled={!!unit}
+        <PreviewExplorer
+          config={config}
           trackingSource="population-preview"
-        >
-          <ExplorerPreviewShell
-            config={config}
-            emptyDescription="Run the query to see daily member counts for the last 7 complete days."
-            warehouseUnavailableText="The preview will be available when the warehouse is ready."
-            renderChart={({ exploration }) => (
-              <MembersChart
-                exploration={exploration}
-                hasAggregateFilter={population.steps.some(
-                  (step) => !!step.aggregateFilter,
-                )}
-              />
-            )}
-            controls={
-              <PreviewUnitSelect
-                units={population.userIdTypes}
-                value={unit}
-                setValue={setSelectedUnit}
-                factTable={factTable}
-              />
-            }
-          />
-        </ExplorerProvider>
+          emptyDescription="Run the query to see daily member counts for the last 7 complete days."
+          warehouseUnavailableText="The preview will be available when the warehouse is ready."
+          renderChart={({ exploration }) => (
+            <MembersChart
+              exploration={exploration}
+              hasAggregateFilter={population.steps.some(
+                (step) => !!step.aggregateFilter,
+              )}
+            />
+          )}
+          controls={
+            <PreviewUnitSelect
+              units={population.userIdTypes}
+              value={unit}
+              setValue={setSelectedUnit}
+              factTable={factTable}
+            />
+          }
+        />
       )}
     </Flex>
   );
