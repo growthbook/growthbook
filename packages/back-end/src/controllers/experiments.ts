@@ -137,6 +137,7 @@ import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/sr
 import { validateSnapshotDimension } from "back-end/src/services/snapshotDimension";
 import { generateExperimentNotebook } from "back-end/src/services/notebook";
 import { cancelExperimentSnapshot } from "back-end/src/services/snapshotCancellation";
+import { trackEventForContext } from "back-end/src/services/growthbook";
 import { IMPORT_LIMIT_DAYS } from "back-end/src/util/secrets";
 import {
   auditDetailsCreate,
@@ -2790,6 +2791,15 @@ export async function postSnapshotsWithScaledImpactAnalysis(
   const context = getContextFromReq(req);
   const { experiments } = req.body;
   if (!experiments.length) {
+    trackEventForContext(context, "Experiment Impact Calculation Completed", {
+      outcome: "no_op",
+      requestedExperimentCount: 0,
+      analysisCount: 0,
+      successfulAnalysisCount: 0,
+      failedAnalysisCount: 0,
+      requestedExperimentIds: [],
+      analyzedExperimentIds: [],
+    });
     res.status(200).json({
       status: 200,
     });
@@ -2826,13 +2836,40 @@ export async function postSnapshotsWithScaledImpactAnalysis(
     });
   });
 
+  let outcome: "success" | "partial_error" | "error" | "no_op" = "no_op";
+  let successfulAnalysisCount = 0;
+  let failedAnalysisCount = 0;
   if (snapshotAnalysesToCreate.length > 0) {
-    await createSnapshotAnalyses(snapshotAnalysesToCreate, context).catch(
-      (e) => {
-        req.log.error(e);
-      },
-    );
+    try {
+      const analysisOutcome = await createSnapshotAnalyses(
+        snapshotAnalysesToCreate,
+        context,
+      );
+      successfulAnalysisCount = analysisOutcome.successCount;
+      failedAnalysisCount = analysisOutcome.errorCount;
+      outcome =
+        failedAnalysisCount === 0
+          ? "success"
+          : successfulAnalysisCount > 0
+            ? "partial_error"
+            : "error";
+    } catch (e) {
+      outcome = "error";
+      failedAnalysisCount = snapshotAnalysesToCreate.length;
+      req.log.error(e);
+    }
   }
+  trackEventForContext(context, "Experiment Impact Calculation Completed", {
+    outcome,
+    requestedExperimentCount: experiments.length,
+    analysisCount: snapshotAnalysesToCreate.length,
+    successfulAnalysisCount,
+    failedAnalysisCount,
+    requestedExperimentIds: experiments,
+    analyzedExperimentIds: snapshotAnalysesToCreate.map(
+      ({ experiment }) => experiment.id,
+    ),
+  });
   res.status(200).json({
     status: 200,
   });
