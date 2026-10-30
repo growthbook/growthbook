@@ -6,6 +6,7 @@ import uniq from "lodash/uniq";
 import cloneDeep from "lodash/cloneDeep";
 import {
   DEFAULT_LOOKBACK_OVERRIDE_VALUE_UNIT,
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_CAPPING,
   DEFAULT_METRIC_CAPPING_VALUE,
   DEFAULT_METRIC_WINDOW,
@@ -16,6 +17,7 @@ import {
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
   DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER,
   DEFAULT_STATS_ENGINE,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import { getScopedSettings, ScopedSettings } from "shared/settings";
 import {
@@ -77,8 +79,8 @@ import {
   getAllVariations,
   getLatestPhaseVariations,
   getPhaseVariations,
+  areVariationWeightsValid,
   isContextualBanditMeasurementArm,
-  isVariationWeightsSumValid,
   scheduleWriteNeedsRunPermission,
   sdkConnectionServesProject,
   withScheduledBy,
@@ -2424,23 +2426,36 @@ export async function createSnapshot({
 
 const inUnitInterval = (n: number) => n >= 0 && n <= 1;
 
-// Only phases that differ from the stored phase at the same index are checked,
-// so an unrelated edit to an experiment with legacy data is not rejected.
+// A write may keep an invalid value its phase already stores but not introduce
+// one, so legacy data never blocks stopping the experiment, ending a phase or
+// editing one. Phases have no id: an unchanged phase is its stored self
+// wherever a deletion moved it, an edited one is the stored phase at its index.
+// A phase that starts serving gets no pass: an appended one, or the latest one
+// when the experiment starts or resumes. Every path that does either lets the
+// user fix the values.
 export function assertValidExperimentPhases(
   phases: ExperimentPhase[],
   existing: ExperimentPhase[] = [],
+  startsRunning = false,
 ): void {
   phases.forEach((phase, i) => {
-    if (isEqual(phase, existing[i])) return;
-    if (!inUnitInterval(phase.coverage)) {
+    const startsServing =
+      i >= existing.length || (startsRunning && i === phases.length - 1);
+    const stored = startsServing
+      ? null
+      : (existing.find((p) => isEqual(p, phase)) ?? existing[i]);
+    if (
+      !inUnitInterval(phase.coverage) &&
+      stored?.coverage !== phase.coverage
+    ) {
       throw new BadRequestError(
         `invalid_coverage: phase ${i} coverage must be between 0 and 1`,
       );
     }
     const weights = phase.variationWeights;
     if (
-      !weights.every(inUnitInterval) ||
-      !isVariationWeightsSumValid(weights)
+      !areVariationWeightsValid(weights) &&
+      !isEqual(stored?.variationWeights, weights)
     ) {
       throw new BadRequestError(
         `invalid_variation_weights: phase ${i} variation weights must each be between 0 and 1 and sum to 1`,
@@ -3398,12 +3413,6 @@ function getExperimentMetric(
   if (overrides.windowType !== undefined) {
     ret.overrides.window = overrides.windowType;
   }
-  if (overrides.winRisk !== undefined) {
-    ret.overrides.winRiskThreshold = overrides.winRisk;
-  }
-  if (overrides.loseRisk !== undefined) {
-    ret.overrides.loseRiskThreshold = overrides.loseRisk;
-  }
   if (overrides.properPriorOverride !== undefined) {
     ret.overrides.properPriorOverride = overrides.properPriorOverride;
   }
@@ -3878,28 +3887,6 @@ export function postMetricApiPayloadIsValid(
 
   // Validate behavior
   if (behavior) {
-    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
-
-    // Enforce that both and riskThresholdSuccess exist, or neither
-    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
-    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
-    if (riskDangerExists !== riskSuccessExists)
-      return {
-        valid: false,
-        error:
-          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      };
-
-    // We have both. Make sure they're valid
-    if (riskDangerExists && riskSuccessExists) {
-      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
-      if (riskThresholdDanger < riskThresholdSuccess)
-        return {
-          valid: false,
-          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
-        };
-    }
-
     // Validate conversion window
     const { conversionWindowEnd, conversionWindowStart } = behavior;
     const conversionWindowEndExists =
@@ -4040,28 +4027,6 @@ export function putMetricApiPayloadIsValid(
 
   // Validate behavior
   if (behavior) {
-    const { riskThresholdDanger, riskThresholdSuccess } = behavior;
-
-    // Enforce that both and riskThresholdSuccess exist, or neither
-    const riskDangerExists = typeof riskThresholdDanger !== "undefined";
-    const riskSuccessExists = typeof riskThresholdSuccess !== "undefined";
-    if (riskDangerExists !== riskSuccessExists)
-      return {
-        valid: false,
-        error:
-          "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      };
-
-    // We have both. Make sure they're valid
-    if (riskDangerExists && riskSuccessExists) {
-      // Enforce riskThresholdDanger must be higher than riskThresholdSuccess
-      if (riskThresholdDanger < riskThresholdSuccess)
-        return {
-          valid: false,
-          error: "riskThresholdDanger must be higher than riskThresholdSuccess",
-        };
-    }
-
     // Validate conversion window
     const { conversionWindowEnd, conversionWindowStart } = behavior;
     const conversionWindowEndExists =
@@ -4293,14 +4258,6 @@ export function postMetricApiPayloadToMetricInterface(
     if (typeof behavior.minSampleSize !== "undefined") {
       metric.minSampleSize = behavior.minSampleSize;
     }
-
-    if (typeof behavior.riskThresholdDanger !== "undefined") {
-      metric.loseRisk = behavior.riskThresholdDanger;
-    }
-
-    if (typeof behavior.riskThresholdSuccess !== "undefined") {
-      metric.winRisk = behavior.riskThresholdSuccess;
-    }
   }
 
   let queryFormat: undefined | "builder" | "sql" = undefined;
@@ -4447,14 +4404,6 @@ export function putMetricApiPayloadToMetricInterface(
     if (typeof behavior.minSampleSize !== "undefined") {
       metric.minSampleSize = behavior.minSampleSize;
     }
-
-    if (typeof behavior.riskThresholdDanger !== "undefined") {
-      metric.loseRisk = behavior.riskThresholdDanger;
-    }
-
-    if (typeof behavior.riskThresholdSuccess !== "undefined") {
-      metric.winRisk = behavior.riskThresholdSuccess;
-    }
   }
 
   if (sqlBuilder) {
@@ -4569,8 +4518,8 @@ export function toMetricApiInterface(
       minSampleSize:
         metric.minSampleSize ?? metricDefaults?.minimumSampleSize ?? 150,
       targetMDE: metric.targetMDE ?? metricDefaults?.targetMDE ?? 0.1,
-      riskThresholdDanger: metric.loseRisk ?? 0.0125,
-      riskThresholdSuccess: metric.winRisk ?? 0.0025,
+      riskThresholdDanger: DEFAULT_LOSE_RISK_THRESHOLD,
+      riskThresholdSuccess: DEFAULT_WIN_RISK_THRESHOLD,
       windowSettings: metric.windowSettings
         ? {
             ...metric.windowSettings,

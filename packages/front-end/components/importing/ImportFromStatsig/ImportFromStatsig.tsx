@@ -1128,7 +1128,6 @@ export default function ImportFromStatsig() {
           padding-bottom: 0.25rem !important;
         }
       `}</style>
-      <h1>Statsig Importer</h1>
       <div className="appbox p-3">
         <div className="row">
           <div className="col">

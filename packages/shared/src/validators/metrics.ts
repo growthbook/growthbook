@@ -7,7 +7,11 @@ import {
   paginationQueryFields,
 } from "./shared";
 
-import { namedSchema } from "./openapi-helpers";
+import {
+  namedSchema,
+  retiredRiskDefault,
+  retiredRiskInput,
+} from "./openapi-helpers";
 import {
   MARKDOWN_DESCRIPTION,
   METRIC_NAME_DESCRIPTION,
@@ -113,8 +117,8 @@ export const apiMetricValidator = namedSchema(
           .number()
           .optional()
           .meta({ deprecated: true }),
-        riskThresholdSuccess: z.coerce.number(),
-        riskThresholdDanger: z.coerce.number(),
+        riskThresholdSuccess: retiredRiskDefault(),
+        riskThresholdDanger: retiredRiskDefault(),
         minPercentChange: z.coerce.number(),
         maxPercentChange: z.coerce.number(),
         minSampleSize: z.coerce.number(),
@@ -356,22 +360,8 @@ const postMetricBody = z
             "Controls the bayesian prior for the metric. If omitted, organization defaults will be used.",
           )
           .optional(),
-        riskThresholdSuccess: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
-        riskThresholdDanger: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
+        riskThresholdSuccess: retiredRiskInput(),
+        riskThresholdDanger: retiredRiskInput(),
         minPercentChange: z
           .number()
           .gte(0)
@@ -606,22 +596,8 @@ const putMetricBody = z
             "Controls the bayesian prior for the metric. If omitted, organization defaults will be used.",
           )
           .optional(),
-        riskThresholdSuccess: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered low enough, as a proportion (e.g. put 0.0025 for 0.25%). <br/> Must be a non-negative number and must not be higher than `riskThresholdDanger`.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
-        riskThresholdDanger: z
-          .number()
-          .gte(0)
-          .describe(
-            "No longer used. Threshold for Risk to be considered too high, as a proportion (e.g. put 0.0125 for 1.25%). <br/> Must be a non-negative number.",
-          )
-          .optional()
-          .meta({ deprecated: true }),
+        riskThresholdSuccess: retiredRiskInput(),
+        riskThresholdDanger: retiredRiskInput(),
         minPercentChange: z
           .number()
           .gte(0)

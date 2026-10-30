@@ -792,7 +792,8 @@ const MetricsSelector: FC<{
     [filteredOptionsMap],
   );
 
-  const selectorDisabled = disabled || (requireDatasource && !datasource);
+  const needsDatasource = requireDatasource && !datasource;
+  const selectorDisabled = disabled || needsDatasource;
 
   const selector = !forceSingleMetric ? (
     <MultiSelectField
@@ -800,7 +801,9 @@ const MetricsSelector: FC<{
       value={selected}
       onChange={onChange}
       options={multiSelectOptions}
-      placeholder="Select metrics..."
+      placeholder={
+        needsDatasource ? "Choose a Data Source first" : "Select metrics..."
+      }
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={multiFormatOptionLabel}
@@ -885,7 +888,9 @@ const MetricsSelector: FC<{
       value={selected[0]}
       onChange={(m) => onChange([m])}
       options={singleSelectOptions}
-      placeholder="Select metric..."
+      placeholder={
+        needsDatasource ? "Choose a Data Source first" : "Select metric..."
+      }
       autoFocus={autoFocus}
       isOptionDisabled={isOptionDisabled}
       formatOptionLabel={singleFormatOptionLabel}

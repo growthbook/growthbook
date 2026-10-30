@@ -45,6 +45,7 @@ import { ApiReqContext } from "back-end/types/api";
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentInAffectedEnvironments,
+  assertValidExperimentPhases,
   getChangesToStartExperiment,
   getLinkedFeatureInfo,
   resetExperimentBanditSettings,
@@ -367,19 +368,6 @@ export async function executeExperimentStart(
     if (!bypass) await assertFeatureNotLockedByRamp(context, fid);
   }
 
-  const publishResult = await publishPendingFeatureDraftsForExperiment(
-    context,
-    experiment,
-    bypassLockdown,
-    restApiBypassesReviews,
-  );
-  if (publishResult.failed.length > 0) {
-    throw new PendingDraftPublishFailedError(
-      formatPendingDraftFailureMessage(publishResult.failed),
-      publishResult.failed,
-    );
-  }
-
   // Build a default phase if the experiment has none so getChangesToStartExperiment
   // has valid phases to work with.
   const allVariations = getAllVariations(experiment);
@@ -419,6 +407,26 @@ export async function executeExperimentStart(
 
   if (!experiment.phases.length && !changes.phases) {
     changes.phases = startExperimentTarget.phases;
+  }
+
+  // Also checked on the write; here so a refused start publishes no drafts.
+  assertValidExperimentPhases(
+    changes.phases ?? experiment.phases,
+    experiment.phases,
+    true,
+  );
+
+  const publishResult = await publishPendingFeatureDraftsForExperiment(
+    context,
+    experiment,
+    bypassLockdown,
+    restApiBypassesReviews,
+  );
+  if (publishResult.failed.length > 0) {
+    throw new PendingDraftPublishFailedError(
+      formatPendingDraftFailureMessage(publishResult.failed),
+      publishResult.failed,
+    );
   }
 
   // Starting consumes any staged start. Resolve the scheduled end now that we

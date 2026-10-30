@@ -6,6 +6,7 @@ import { EPPO_IMPORTER_FLAG } from "@/components/importing/ImportYourData/Import
 import track from "@/services/track";
 import Callout from "@/ui/Callout";
 import Link from "@/ui/Link";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 const ImportFromEppoPage: NextPage = () => {
   const enabled = useFeatureIsOn(EPPO_IMPORTER_FLAG);
@@ -14,7 +15,14 @@ const ImportFromEppoPage: NextPage = () => {
   }, [enabled]);
 
   return (
-    <div className="contents container pagecontents">
+    <SettingsPage
+      title="Eppo Importer"
+      breadcrumb={[
+        { display: "Settings" },
+        { display: "Import Your Data", href: "/importing" },
+        { display: "Eppo Importer" },
+      ]}
+    >
       {enabled ? (
         <ImportFromEppo />
       ) : (
@@ -23,7 +31,7 @@ const ImportFromEppoPage: NextPage = () => {
           <Link href="/importing">Request it from the import page.</Link>
         </Callout>
       )}
-    </div>
+    </SettingsPage>
   );
 };
 

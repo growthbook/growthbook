@@ -2,7 +2,10 @@ import { useRouter } from "next/router";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import React, { ReactElement, useState } from "react";
 import { getHoldoutStage } from "shared/util";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  HoldoutMissingLinkage,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
@@ -39,6 +42,7 @@ const HoldoutPage = (): ReactElement => {
     experiment: ExperimentInterfaceStringDates;
     linkedFeatures: FeatureInterface[];
     linkedExperiments: ExperimentInterfaceStringDates[];
+    missingLinkage?: HoldoutMissingLinkage;
     envs: string[];
   }>(`/holdout/${hid}`);
 
@@ -58,6 +62,7 @@ const HoldoutPage = (): ReactElement => {
     linkedFeatures = [],
     envs = [],
     linkedExperiments = [],
+    missingLinkage,
   } = data;
   const holdoutStage = getHoldoutStage(holdout, experiment);
 
@@ -180,6 +185,7 @@ const HoldoutPage = (): ReactElement => {
           linkedFeatures={[]}
           holdoutFeatures={linkedFeatures}
           holdoutExperiments={linkedExperiments}
+          holdoutMissingLinkage={missingLinkage}
           mutate={mutate}
           visualChangesets={[]}
           urlRedirects={[]}

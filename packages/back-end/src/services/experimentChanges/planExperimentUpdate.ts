@@ -28,6 +28,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   assertCanRunExperimentChanges,
   assertExperimentKeyFormat,
+  assertValidExperimentPhases,
   determineNextBanditSchedule,
   getExperimentAttributeScopeProjects,
   normalizeStatusUpdateScheduleChanges,
@@ -754,6 +755,11 @@ export async function planExperimentUpdate(
         settings,
       });
     }
+  }
+
+  // Also checked on the write; here so a dry run and linked flag writes refuse first.
+  if (changes.phases) {
+    assertValidExperimentPhases(changes.phases, experiment.phases);
   }
 
   await assertCanRunExperimentChanges(context, experiment, changes);

@@ -1,15 +1,9 @@
 import { useRef, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import {
-  AISuggestionType,
-  computeAIUsageData,
-  formatAIRateLimitRetryMessage,
-} from "shared/ai";
-import { useGrowthBook } from "@growthbook/growthbook-react";
-import { AppFeatures } from "shared/types/app-features";
-import { useAuth } from "@/services/auth";
+import { computeAIUsageData } from "shared/ai";
 import track from "@/services/track";
+import { useSuggestHypothesis } from "@/components/Experiment/useSuggestHypothesis";
 import AIRichTextField from "@/components/Markdown/AIRichTextField";
 import {
   useExperimentFieldEdit,
@@ -39,10 +33,11 @@ export default function ExperimentTextField({
   editable: editableHere,
   canEdit,
 }: Props) {
-  const { apiCall } = useAuth();
-  const gb = useGrowthBook<AppFeatures>();
   const aiSuggestion = useRef<string | null>(null);
-  const { label, placeholder } = EXPERIMENT_TEXT_FIELDS[field];
+  const { label } = EXPERIMENT_TEXT_FIELDS[field];
+  const placeholder = EXPERIMENT_TEXT_FIELDS[field].placeholder(
+    experiment.type,
+  );
   const isHypothesis = field === "hypothesis";
   const slot = `inline:${field}`;
 
@@ -79,33 +74,7 @@ export default function ExperimentTextField({
     },
   });
 
-  // Throws on failure: the field shows the error, and owns the opt-in and
-  // premium gates.
-  const suggestHypothesis = async (type: AISuggestionType) => {
-    const temperature =
-      gb?.getFeatureValue("ai-suggestions-temperature", 0.1) || 0.1;
-    let failure: string | null = null;
-    const res = await apiCall<{ data?: { output?: string } }>(
-      `/ai/reformat`,
-      {
-        method: "POST",
-        body: JSON.stringify({
-          type: "experiment-hypothesis",
-          text: value,
-          temperature,
-        }),
-      },
-      (responseData) => {
-        failure =
-          responseData.status === 429
-            ? formatAIRateLimitRetryMessage(responseData.retryAfter)
-            : responseData.message || "Error getting AI suggestion";
-      },
-    );
-    if (failure) throw new Error(failure);
-    track("ai-suggestion", { source: "experiment-setup-tab", type });
-    return res?.data?.output ?? "";
-  };
+  const suggestHypothesis = useSuggestHypothesis(value, "experiment-setup-tab");
 
   const body = editable ? (
     <AIRichTextField
