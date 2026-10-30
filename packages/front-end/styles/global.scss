@@ -799,13 +799,24 @@ pre {
   }
 }
 
+// The page's background, which the page, the header (TopNav.module.scss) and
+// anything pinned over the page read. Experiment pages are white (the panel
+// color, dark in dark mode), so their header is too.
+.radix-themes {
+  --page-bg: var(--color-background);
+  &:has(> .main:is(.experiment, .bandit, .holdout)),
+  &:has(.public:is(.experiment, .bandit, .holdout)) {
+    --page-bg: var(--color-panel-solid);
+  }
+}
+
 .main.experiment,
 .main.bandit,
 .main.holdout,
 .public.experiment,
 .public.bandit,
 .public.holdout {
-  background-color: var(--color-panel-solid);
+  background-color: var(--page-bg);
   .experiment-header {
     .border {
       border-bottom: 1px solid var(--border-color-200);
@@ -813,7 +824,7 @@ pre {
   }
   .experiment-tabs {
     // Sticky, so it has to match the page it scrolls over.
-    background-color: var(--color-panel-solid);
+    background-color: var(--page-bg);
     // NB: make sure shared reports & shared experiments look good
     top: var(--tabs-top);
     height: var(--tabs-bar-height);
