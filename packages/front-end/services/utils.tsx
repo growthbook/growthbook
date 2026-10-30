@@ -80,6 +80,12 @@ export function formatTrafficSplit(weights: number[], decimals = 0): string {
     .join(" / ");
 }
 
+// Unlike the split above, not normalized: stored weights that predate
+// validation can add up to something other than 100%.
+export function variationWeightsTotalPercent(weights: number[]): number {
+  return Math.round(weights.reduce((sum, w) => sum + w, 0) * 100);
+}
+
 // Single source of truth for the holdout traffic breakdown shown in the start
 // summary and the traffic/targeting card.
 export function getHoldoutTrafficBreakdown(

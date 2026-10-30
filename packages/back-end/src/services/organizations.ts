@@ -103,6 +103,7 @@ import {
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
+import { loginMethodOwnsOrg } from "back-end/src/services/auth/authChecks";
 import {
   AIKeySource,
   canOrgChooseProviderModels,
@@ -211,6 +212,11 @@ export async function setLicenseKey(
   org.licenseKey = licenseKey;
 }
 
+// On Cloud, an Enterprise SSO or Vercel login is trusted only for the org that owns it
+export function isOrgScopedLogin(req: AuthRequest) {
+  return IS_CLOUD && !!req.loginMethod?.id;
+}
+
 export function validateLoginMethod(
   org: OrganizationInterface,
   req: AuthRequest,
@@ -226,6 +232,16 @@ export function validateLoginMethod(
           ? "Vercel"
           : "Enterprise SSO"
       }`,
+    );
+  }
+
+  if (
+    isOrgScopedLogin(req) &&
+    req.loginMethod &&
+    !loginMethodOwnsOrg(req.loginMethod, org)
+  ) {
+    throw new Error(
+      "Log out and sign in with Google or email and password to access this organization.",
     );
   }
 
@@ -250,6 +266,18 @@ export function validateLoginMethod(
   }
 
   return true;
+}
+
+export function isValidLoginMethod(
+  org: OrganizationInterface,
+  req: AuthRequest,
+) {
+  try {
+    validateLoginMethod(org, req);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getContextFromReq(req: AuthRequest): ReqContext {
@@ -1836,14 +1864,21 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgsForNewUser(email: string) {
+export async function findVerifiedOrgsForNewUser(
+  email: string,
+  req: AuthRequest,
+) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
   if (isFreeDomain) {
     return null;
   }
 
-  const organizations = await findOrganizationsByDomain(domain);
+  // An SSO or Vercel login only vouches for the email within its own org.
+  // Filter before picking the largest org so a smaller owned org isn't dropped.
+  const organizations = (await findOrganizationsByDomain(domain)).filter(
+    (org) => !isOrgScopedLogin(req) || isValidLoginMethod(org, req),
+  );
   if (!organizations.length) {
     return null;
   }

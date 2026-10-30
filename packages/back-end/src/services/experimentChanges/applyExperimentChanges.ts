@@ -531,6 +531,15 @@ export async function applyExperimentChanges({
     const feature = await getFeature(context, featureId);
     if (feature) await assertFlagKeepable(context, experiment, feature);
   }
+  // Past a draft, a new rule would change who sees what mid-run.
+  if (
+    experiment.status !== "draft" &&
+    (body.linkFeatures?.length || body.createFeatures?.length)
+  ) {
+    throw new BadRequestError(
+      "Set the experiment's status back to draft to link a Feature Flag.",
+    );
+  }
   // Each link's own checks, against the experiment this save leaves, with the
   // other flags it links too.
   const plannedExperiment: ExperimentInterface = {

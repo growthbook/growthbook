@@ -364,36 +364,7 @@ describe("experiments utils", () => {
       );
     });
 
-    it("should return a failed result if both risk threshold values are not provided", () => {
-      const datasource: Pick<DataSourceInterface, "type"> = {
-        type: "postgres",
-      };
-      const input: z.infer<typeof postMetricValidator.bodySchema> = {
-        datasourceId: "ds_abc123",
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = postMetricApiPayloadIsValid(input, datasource) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      );
-    });
-
-    it("should return a failed result if the risk threshold danger value is less than the success value", () => {
+    it("accepts and ignores retired risk thresholds", () => {
       const datasource: Pick<DataSourceInterface, "type"> = {
         type: "postgres",
       };
@@ -417,36 +388,6 @@ describe("experiments utils", () => {
         error: string;
       };
 
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess",
-      );
-    });
-
-    it("should return a successful result if both risk threshold values are provided", () => {
-      const datasource: Pick<DataSourceInterface, "type"> = {
-        type: "postgres",
-      };
-      const input: z.infer<typeof postMetricValidator.bodySchema> = {
-        datasourceId: "ds_abc123",
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = postMetricApiPayloadIsValid(input, datasource) as {
-        valid: false;
-        error: string;
-      };
-
       expect(result.valid).toBe(true);
     });
 
@@ -456,10 +397,6 @@ describe("experiments utils", () => {
       };
       const input: z.infer<typeof postMetricValidator.bodySchema> = {
         datasourceId: "ds_abc123",
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
-        },
         name: "My Cool Metric",
         type: "count",
       };
@@ -693,32 +630,7 @@ describe("experiments utils", () => {
       );
     });
 
-    it("should return a failed result if both risk threshold values are not provided", () => {
-      const input: z.infer<typeof putMetricValidator.bodySchema> = {
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = putMetricApiPayloadIsValid(input) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "Must provide both riskThresholdDanger and riskThresholdSuccess or neither.",
-      );
-    });
-
-    it("should return a failed result if the risk threshold danger value is less than the success value", () => {
+    it("accepts and ignores retired risk thresholds", () => {
       const input: z.infer<typeof putMetricValidator.bodySchema> = {
         sql: {
           identifierTypes: ["user_id"],
@@ -728,32 +640,6 @@ describe("experiments utils", () => {
         behavior: {
           riskThresholdSuccess: 0.5,
           riskThresholdDanger: 0.1,
-        },
-        name: "My Cool Metric",
-        type: "count",
-      };
-
-      const result = putMetricApiPayloadIsValid(input) as {
-        valid: false;
-        error: string;
-      };
-
-      expect(result.valid).toBe(false);
-      expect(result.error).toEqual(
-        "riskThresholdDanger must be higher than riskThresholdSuccess",
-      );
-    });
-
-    it("should return a successful result if both risk threshold values are provided", () => {
-      const input: z.infer<typeof putMetricValidator.bodySchema> = {
-        sql: {
-          identifierTypes: ["user_id"],
-          conversionSQL: "select * from foo",
-          userAggregationSQL: "sum(values)",
-        },
-        behavior: {
-          riskThresholdSuccess: 0.5,
-          riskThresholdDanger: 0.99,
         },
         name: "My Cool Metric",
         type: "count",
@@ -911,8 +797,8 @@ describe("experiments utils", () => {
         // More fields
         expect(result.projects).toEqual(["proj_abc987"]);
         expect(result.tags).toEqual(["checkout"]);
-        expect(result.winRisk).toEqual(5);
-        expect(result.loseRisk).toEqual(0.5);
+        expect(result).not.toHaveProperty("winRisk");
+        expect(result).not.toHaveProperty("loseRisk");
         expect(result.minPercentChange).toEqual(1);
         expect(result.maxPercentChange).toEqual(50);
         expect(result.minSampleSize).toEqual(200);
@@ -954,8 +840,6 @@ describe("experiments utils", () => {
             conversionWindowStart: 10,
             conversionWindowEnd: 50,
             cap: 1337,
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1010,8 +894,6 @@ describe("experiments utils", () => {
               windowValue: 33,
               delayHours: 5,
             },
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1062,8 +944,6 @@ describe("experiments utils", () => {
               delayHours: 5,
               delayValue: 10,
             },
-            riskThresholdSuccess: 5,
-            riskThresholdDanger: 0.5,
             minPercentChange: 1,
             maxPercentChange: 50,
             minSampleSize: 200,
@@ -1243,8 +1123,8 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       // More fields
       expect(result.projects).toEqual(["proj_abc987"]);
       expect(result.tags).toEqual(["checkout"]);
-      expect(result.winRisk).toEqual(5);
-      expect(result.loseRisk).toEqual(0.5);
+      expect(result).not.toHaveProperty("winRisk");
+      expect(result).not.toHaveProperty("loseRisk");
       expect(result.minPercentChange).toEqual(1);
       expect(result.maxPercentChange).toEqual(50);
       expect(result.minSampleSize).toEqual(200);
@@ -1566,7 +1446,6 @@ describe("putMetricApiPayloadToMetricInterface", () => {
           {
             id: "met_1",
             delayHours: 12,
-            winRisk: 0.05,
           },
         ],
         decisionFrameworkSettings: {
@@ -1577,9 +1456,7 @@ describe("putMetricApiPayloadToMetricInterface", () => {
       };
 
       const out = postExperimentApiPayloadToInterface(payload, org, datasource);
-      expect(out.metricOverrides).toEqual([
-        { id: "met_1", delayHours: 12, winRisk: 0.05 },
-      ]);
+      expect(out.metricOverrides).toEqual([{ id: "met_1", delayHours: 12 }]);
       expect(out.decisionFrameworkSettings).toEqual({
         decisionCriteriaId: "crit_1",
         decisionFrameworkMetricOverrides: [{ id: "met_1", targetMDE: 0.1 }],
