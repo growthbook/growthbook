@@ -1,4 +1,5 @@
 import { NO_ENVIRONMENT_BINDING } from "shared/permissions";
+import clsx from "clsx";
 import { useState, useEffect, useMemo } from "react";
 import { Box, Card, Flex, Grid, Separator, Text } from "@radix-ui/themes";
 import { PiArrowSquareOut, PiCaretDownFill } from "react-icons/pi";
@@ -199,6 +200,45 @@ const GetStartedAndHomePage = ({
       .slice(0, 3);
   }, []);
 
+  // Main's Create menu. Beside the docs card it tops the right column, level
+  // with the first heading on the left; stacked (below 768px), it sits in that
+  // heading's row instead (GetStarted.module.scss).
+  const showCreate =
+    !!orgHasConnectedSDK && (canCreateFeature || canCreateExperiment);
+  const createMenu = showCreate ? (
+    <DropdownMenu
+      // Under the button's right edge, the page's right edge beside the docs.
+      menuPlacement="end"
+      trigger={
+        <Button icon={<PiCaretDownFill />} iconPosition="right">
+          Create
+        </Button>
+      }
+    >
+      {canCreateFeature && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpenNewFeatureFlagModal(true);
+          }}
+        >
+          Feature Flag
+        </DropdownMenuItem>
+      )}
+      {canCreateExperiment && (
+        <DropdownMenuItem
+          onClick={() => {
+            setOpenNewExperimentModal(true);
+          }}
+        >
+          Experiment
+        </DropdownMenuItem>
+      )}
+    </DropdownMenu>
+  ) : null;
+  const createInHeading = createMenu ? (
+    <div className={styles.createInHeading}>{createMenu}</div>
+  ) : null;
+
   return (
     <>
       {upgradeModal && (
@@ -235,59 +275,31 @@ const GetStartedAndHomePage = ({
 
       <Box py={{ initial: "1", xs: "3", sm: "6" }}>
         {showMarketingBanner && <HomeMarketingBanner />}
-        {/* No title: the breadcrumb names the page. Create gets its own row,
-            on the right, only when it shows. */}
-        {orgHasConnectedSDK && (canCreateFeature || canCreateExperiment) && (
-          <Flex justify="end" align="center" mb="3">
-            <DropdownMenu
-              trigger={
-                <Button icon={<PiCaretDownFill />} iconPosition="right">
-                  Create
-                </Button>
-              }
-            >
-              {canCreateFeature && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOpenNewFeatureFlagModal(true);
-                  }}
-                >
-                  Feature Flag
-                </DropdownMenuItem>
-              )}
-              {canCreateExperiment && (
-                <DropdownMenuItem
-                  onClick={() => {
-                    setOpenNewExperimentModal(true);
-                  }}
-                >
-                  Experiment
-                </DropdownMenuItem>
-              )}
-            </DropdownMenu>
-          </Flex>
-        )}
-
-        {!orgIsUsingFeatureOrExperiment && (
-          <Text size="4" weight="medium" mb="3" as="div">
-            Get Started
-          </Text>
-        )}
         <Grid
-          className={styles.content}
+          className={clsx(styles.content, showCreate && styles.withCreate)}
           columns={{
-            initial: "1fr",
+            // Stacked, too: a wide table further down mustn't widen the
+            // column, and the heading row with Create, past the window.
+            initial: "minmax(0, 1fr)",
             sm: `minmax(0, 1fr) ${DOCUMENTATION_SIDEBAR_WIDTH}`,
           }}
           mb="3"
           gapX="4"
           rows="auto 1fr"
         >
-          <Box>
+          <Box className={styles.mainColumn}>
             <Box>
+              {!orgIsUsingFeatureOrExperiment && (
+                <Flex align="center" justify="between" gap="3" mb="3">
+                  <Text size="4" weight="medium" as="div">
+                    Get Started
+                  </Text>
+                  {createInHeading}
+                </Flex>
+              )}
               {orgIsUsingFeatureOrExperiment && (
                 <Box>
-                  <NeedingAttention />
+                  <NeedingAttention headingAction={createInHeading} />
                   <Box mt="6" mb="2">
                     <Box mb="3">
                       <Text
@@ -424,7 +436,12 @@ const GetStartedAndHomePage = ({
               )}
             </Box>
           </Box>
-          <Box className={styles.docsColumn}>
+          <Box>
+            {createMenu ? (
+              <Flex justify="end" mb="3" className={styles.createInColumn}>
+                {createMenu}
+              </Flex>
+            ) : null}
             <DocumentationSidebar
               setUpgradeModal={setUpgradeModal}
               type="get-started"

@@ -1,8 +1,21 @@
-// Beside the content, the docs card starts level with Recent's cards, under
-// its heading (its line and 12px). Without Recent, it starts level with the
-// first heading. Stacked under the content, it needs neither.
+// Create tops the docs column, level with the first heading on the left:
+// that heading centers on the button (32px, the heading's line 26px).
+// Stacked below 768px, it moves into the first heading's row instead.
+.createInHeading {
+  flex-shrink: 0;
+}
+
 @media (min-width: 768px) {
-  .content:has(:global(.recent-items-container)) .docsColumn {
-    margin-top: 38px;
+  .createInHeading {
+    display: none;
+  }
+  .withCreate .mainColumn {
+    padding-top: 3px;
+  }
+}
+
+@media (max-width: 767px) {
+  .createInColumn {
+    display: none;
   }
 }

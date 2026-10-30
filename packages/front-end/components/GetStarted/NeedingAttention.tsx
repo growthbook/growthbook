@@ -57,7 +57,12 @@ type ComputedFeaturesAndRevisions = FeaturesAndRevisions & {
   dateAndStatus: number;
 };
 
-const NeedingAttention = (): React.ReactElement | null => {
+const NeedingAttention = ({
+  headingAction,
+}: {
+  /** Beside the first heading, right-aligned (Home's Create, when narrow). */
+  headingAction?: React.ReactNode;
+} = {}): React.ReactElement | null => {
   const [experimentsPage, setExperimentsPage] = useState<number>(1);
   const [featureFlagsPage, setFeatureFlagsPage] = useState(1);
   const { snapshot: snapshotWithResults } = useSafeRolloutSnapshot();
@@ -313,9 +318,12 @@ const NeedingAttention = (): React.ReactElement | null => {
 
     return recentFeatures.length > 0 ? (
       <Box className="recent-items-container">
-        <Text size="4" weight="medium" as="div">
-          Recent
-        </Text>
+        <Flex align="center" justify="between" gap="3">
+          <Text size="4" weight="medium" as="div">
+            Recent
+          </Text>
+          {headingAction}
+        </Flex>
         <Grid
           columns={{
             initial: "1fr",
@@ -377,6 +385,11 @@ const NeedingAttention = (): React.ReactElement | null => {
             ml="2"
             label={experimentsNeedingAttention.length.toString()}
           />
+          {!showsRecent && headingAction ? (
+            <Box ml="auto" pl="3">
+              {headingAction}
+            </Box>
+          ) : null}
         </Flex>
         {experimentsNeedingAttention.length > 0 ? (
           <table className="table gbtable needs-attentions-table mt-3 rounded-table">
