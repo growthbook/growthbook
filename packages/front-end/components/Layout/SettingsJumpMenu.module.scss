@@ -43,7 +43,10 @@
 .menu {
   display: flex;
   flex-direction: column;
-  max-height: calc(100dvh - var(--header-height) - var(--space-5));
+  // The room under the button, wherever the page has scrolled it.
+  max-height: calc(
+    var(--radix-popover-content-available-height) - var(--space-4)
+  );
   padding-top: var(--space-3);
   font-size: 13px;
 }
