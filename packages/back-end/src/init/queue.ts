@@ -27,6 +27,7 @@ import addHoldoutUpdateJob from "back-end/src/jobs/updateHoldoutStatus";
 import addExperimentStatusUpdateJob from "back-end/src/jobs/updateExperimentStatus";
 import addExperimentQualityScoreJob from "back-end/src/jobs/updateExperimentQualityScores";
 import addExperimentProcessScoreJob from "back-end/src/jobs/updateExperimentProcessScores";
+import addInsightsHealthScoresJob from "back-end/src/jobs/recordInsightsHealthScores";
 import updateAutoSlicesJob from "back-end/src/jobs/updateAutoSlices";
 import updateAggregatedFactTablesJob from "back-end/src/jobs/updateAggregatedFactTables";
 import addRampScheduleJob from "back-end/src/jobs/updateRampSchedules";
@@ -64,6 +65,7 @@ export async function queueInit() {
   addExperimentStatusUpdateJob(agenda);
   addExperimentQualityScoreJob(agenda);
   addExperimentProcessScoreJob(agenda);
+  addInsightsHealthScoresJob(agenda);
   updateAutoSlicesJob(agenda);
   addApiKeyExpirationJob(agenda);
   updateAggregatedFactTablesJob(agenda);

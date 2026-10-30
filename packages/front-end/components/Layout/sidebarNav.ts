@@ -181,14 +181,14 @@ export const navlinks: SidebarLinkProps[] = [
   },
   {
     name: "Insights",
-    href: "/dashboard",
+    href: "/insights/health",
     Icon: GBLibrary,
     path: /^(dashboard|insights|learnings|timeline|metric-effect|correlations|presentation)/,
     subLinks: [
       {
-        name: "Dashboard",
-        href: "/dashboard",
-        path: /^dashboard/,
+        name: "Health",
+        href: "/insights/health",
+        path: /^insights\/health/,
       },
       {
         name: "Impact",
