@@ -42,6 +42,7 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
+import type { ExposureQuery } from "shared/types/datasource";
 import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
@@ -145,11 +146,20 @@ export const startExperimentResultQueries = async (
   // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
   // exposure query, and an unknown id throws a clear error rather than generating
   // an invalid query with an empty user id type.
-  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
-    getExposureQuery(
+  let baseExposureQuery: ExposureQuery;
+  try {
+    baseExposureQuery = getExposureQuery(
       integration.datasource,
       snapshotSettings.exposureQueryId || "",
-    ),
+    );
+  } catch (e) {
+    // A deleted assignment query fails the same way on every retry
+    throw new UnrecoverableSnapshotError(
+      e instanceof Error ? e.message : String(e),
+    );
+  }
+  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
+    baseExposureQuery,
     snapshotSettings.exposureQueryIdentifierType,
   );
 

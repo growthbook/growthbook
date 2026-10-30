@@ -42,7 +42,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
-import { getExperimentById } from "./ExperimentModel";
+import { getExperimentById, resetAutoUpdateFailures } from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
@@ -584,6 +584,10 @@ export async function updateSnapshot({
         : false;
 
       if (currentExperimentModel && isLatestPhase) {
+        // Any successful refresh, manual ones included, proves the experiment can update again
+        if (currentExperimentModel.autoUpdateFailures) {
+          await resetAutoUpdateFailures(context, currentExperimentModel.id);
+        }
         updatedExperimentModel = await updateExperimentAnalysisSummary({
           context,
           experiment: currentExperimentModel,
