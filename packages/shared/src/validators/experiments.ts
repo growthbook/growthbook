@@ -487,6 +487,11 @@ export const experimentStoredQualityScore = z
     pending: z.boolean(),
     // EXPERIMENT_QUALITY_SCORE_VERSION when computed
     version: z.number(),
+    // AI-written one-line summary, for the result its key was taken from
+    summary: z
+      .object({ text: z.string(), key: z.string() })
+      .strict()
+      .optional(),
     dateComputed: z.date(),
   })
   .strict();

@@ -23,6 +23,8 @@ type RecheckData = {
   force?: boolean;
   // Only this Project's experiments; unset is the whole organization
   project?: string;
+  // Skip Projects with their own checks, which an org default change misses
+  inheritingOnly?: boolean;
   // Only experiments scored by an older release of the checks
   outdatedOnly?: boolean;
   // The last experiment id handled; the next page starts after it
@@ -74,6 +76,7 @@ export async function queueExperimentQualityRecheck(
         data.project ?? "",
         data.force ? "force" : "",
         data.outdatedOnly ? "outdated" : "",
+        data.inheritingOnly ? "inheriting" : "",
       ].join(":"),
     });
   }

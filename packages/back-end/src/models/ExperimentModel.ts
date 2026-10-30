@@ -427,6 +427,7 @@ const experimentSchema = new mongoose.Schema({
     computedScore: Number,
     pending: Boolean,
     version: Number,
+    summary: { _id: false, text: String, key: String },
     dateComputed: Date,
   },
   processResults: {
@@ -1431,12 +1432,21 @@ export async function setExperimentQualityCache(
   return matchedCount > 0;
 }
 
-export function countUnarchivedExperimentsByOrganization(
+// Unarchived experiments per Project id, with "" for no Project
+export async function countUnarchivedExperimentsByProject(
   organization: string,
-): Promise<number> {
-  return getCollection(COLLECTION).countDocuments(
-    unarchivedExperimentsFilter(organization),
-  );
+): Promise<Record<string, number>> {
+  const rows = await getCollection(COLLECTION)
+    .aggregate<{ _id: string | null; count: number }>([
+      { $match: unarchivedExperimentsFilter(organization) },
+      { $group: { _id: "$project", count: { $sum: 1 } } },
+    ])
+    .toArray();
+  const counts: Record<string, number> = {};
+  rows.forEach(({ _id, count }) => {
+    counts[_id ?? ""] = (counts[_id ?? ""] ?? 0) + count;
+  });
+  return counts;
 }
 
 /**
