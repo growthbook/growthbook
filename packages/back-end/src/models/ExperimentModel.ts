@@ -2417,7 +2417,7 @@ export async function generateExperimentEmbeddings(
   for (let i = 0; i < experimentsToGenerateEmbeddings.length; i += batchSize) {
     const batch = experimentsToGenerateEmbeddings.slice(i, i + batchSize);
     const input = batch.map((exp) => getTextForEmbedding(exp));
-    const embeddings = await generateEmbeddings({ context, input });
+    const { model, embeddings } = await generateEmbeddings({ context, input });
 
     for (let j = 0; j < batch.length; j++) {
       const exp = batch[j];
@@ -2425,6 +2425,7 @@ export async function generateExperimentEmbeddings(
       try {
         await context.models.vectors.addOrUpdateExperimentVector(exp.id, {
           embeddings: embeddings[j],
+          model,
         });
       } catch (error) {
         throw new Error("Error updating embeddings");

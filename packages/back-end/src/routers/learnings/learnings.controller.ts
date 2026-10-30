@@ -27,6 +27,7 @@ import { getLatestSnapshotMultipleExperiments } from "back-end/src/models/Experi
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getAllTags } from "back-end/src/models/TagModel";
 import { logger } from "back-end/src/util/logger";
+import { getEmbeddingsForModel } from "back-end/src/util/vectors";
 
 type LearningWithCanManage = LearningInterface & { canManage: boolean };
 
@@ -389,27 +390,35 @@ async function filterCandidatesBySimilarity(
 ): Promise<AiLearningSuggestion[]> {
   if (!candidates.length || !savedLearnings.length) return candidates;
 
+  const { model, embeddings: candidateEmbeddings } = await generateEmbeddings({
+    context,
+    input: candidates.map((c) => getLearningTextForEmbedding(c)),
+  });
+
   const vectors = await context.models.vectors.getByLearningIds(
     savedLearnings.map((i) => i.id),
   );
-  const savedEmbeddings = new Map(vectors.map((v) => [v.joinId, v.embeddings]));
+  const savedEmbeddings = getEmbeddingsForModel(vectors, model);
 
   const missing = savedLearnings
     .filter((i) => !savedEmbeddings.has(i.id))
     .slice(0, MAX_SAVED_VECTOR_BACKFILL);
   if (missing.length) {
-    const embeddings = await generateEmbeddings({
+    const backfill = await generateEmbeddings({
       context,
       input: missing.map((i) => getLearningTextForEmbedding(i)),
     });
     await Promise.all(
       missing.map(async (learning, i) => {
-        const embedding = embeddings[i];
+        const embedding = backfill.embeddings[i];
         if (!embedding?.length) return;
-        savedEmbeddings.set(learning.id, embedding);
+        if (backfill.model === model) {
+          savedEmbeddings.set(learning.id, embedding);
+        }
         try {
           await context.models.vectors.addOrUpdateLearningVector(learning.id, {
             embeddings: embedding,
+            model: backfill.model,
           });
         } catch (e) {
           logger.error(
@@ -424,17 +433,11 @@ async function filterCandidatesBySimilarity(
   const saved = Array.from(savedEmbeddings.values());
   if (!saved.length) return candidates;
 
-  const candidateEmbeddings = await generateEmbeddings({
-    context,
-    input: candidates.map((c) => getLearningTextForEmbedding(c)),
-  });
-
   return candidates.filter((candidate, i) => {
     const embedding = candidateEmbeddings[i];
     if (!embedding?.length) return true;
     const isDuplicate = saved.some(
       (s) =>
-        // Skip vectors from a different embedding model (dimension mismatch)
         s.length === embedding.length &&
         cosineSimilarity(embedding, s) >= SIMILARITY_DEDUP_THRESHOLD,
     );
