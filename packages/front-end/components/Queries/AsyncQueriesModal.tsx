@@ -7,7 +7,7 @@ import {
   isManagedWarehousePendingQueryError,
 } from "shared/util";
 import useApi from "@/hooks/useApi";
-import Modal from "@/components/Modal";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Code from "@/components/SyntaxHighlighting/Code";
@@ -198,12 +198,12 @@ const AsyncQueriesModal: FC<{
   }
 
   return (
-    <Modal
+    <ModalStandard
       trackingEventModalType="async-queries"
       close={close}
       header="Queries"
       open={true}
-      size="max"
+      size="xl"
       closeCta="Close"
     >
       {((!data && !apiError && queries.length > 0) ||
@@ -215,7 +215,7 @@ const AsyncQueriesModal: FC<{
         <Callout status="error">{savedQueryError.message}</Callout>
       )}
       {contents}
-    </Modal>
+    </ModalStandard>
   );
 };
 
