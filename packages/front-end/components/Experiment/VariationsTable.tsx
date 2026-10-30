@@ -10,7 +10,10 @@ import { PiCameraLight, PiCameraPlusLight } from "react-icons/pi";
 import clsx from "clsx";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
-import ScreenshotUpload from "@/components/EditExperiment/ScreenshotUpload";
+import {
+  ScreenshotUploadOverlay,
+  useScreenshotUpload,
+} from "@/components/EditExperiment/ScreenshotUpload";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
@@ -97,6 +100,8 @@ const ScreenshotCarousel: FC<{
           className="experiment-image"
           src={s.path}
           key={s.path}
+          // Its card takes file drops, so dragging it would upload a copy.
+          draggable={false}
           style={{
             width: "100%",
             height: "100%",
@@ -132,7 +137,7 @@ interface Props {
   fill?: boolean;
 }
 
-function NoImageBox({ canEdit }: { canEdit?: boolean }) {
+function NoImageBox({ onUpload }: { onUpload?: () => void }) {
   const box = (
     <Flex
       align="center"
@@ -140,7 +145,7 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
       className={clsx(
         "appbox mb-0",
         styles.noImageBox,
-        canEdit && styles.noImageBoxEditable,
+        onUpload && styles.noImageBoxEditable,
       )}
       flexShrink="0"
       style={{
@@ -151,7 +156,7 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
         border: "none",
       }}
     >
-      {canEdit ? (
+      {onUpload ? (
         <PiCameraPlusLight size="26px" />
       ) : (
         <PiCameraLight size="26px" />
@@ -159,9 +164,16 @@ function NoImageBox({ canEdit }: { canEdit?: boolean }) {
     </Flex>
   );
 
-  return canEdit ? (
+  return onUpload ? (
     <Tooltip content="Upload image" side="top">
-      {box}
+      <button
+        type="button"
+        aria-label="Upload image"
+        className={styles.noImageButton}
+        onClick={onUpload}
+      >
+        {box}
+      </button>
     </Tooltip>
   ) : (
     box
@@ -211,6 +223,17 @@ export function VariationBox({
   stageScreenshot?: (variationId: string, screenshot: Screenshot) => void;
 }) {
   const { blockFileUploads } = useOrgSettings();
+  const canUpload = !!canEdit && allowImages && !blockFileUploads;
+  const upload = useScreenshotUpload({
+    experiment: experiment.id,
+    variation: i,
+    attach: !stageScreenshot,
+    onSuccess: (screenshot) =>
+      stageScreenshot ? stageScreenshot(v.id, screenshot) : mutate?.(),
+    // The whole card takes a drop; only the placeholder opens the picker.
+    noClick: true,
+    disabled: !canUpload,
+  });
   const isBandit = experiment.type === "multi-armed-bandit";
   const shouldShowSplit = showSplit ?? !isBandit;
 
@@ -230,6 +253,10 @@ export function VariationBox({
     <Box
       key={i}
       p="4"
+      {...upload.getRootProps()}
+      // Holds controls of its own, so it isn't one button.
+      role={undefined}
+      onPaste={upload.onPaste}
       className={clsx(
         "appbox mb-0 position-relative variation",
         revealsQuickEdit,
@@ -240,6 +267,7 @@ export function VariationBox({
         height: "100%",
       }}
     >
+      {canUpload ? <input {...upload.getInputProps()} /> : null}
       <Flex direction="column" height="100%">
         <Box>
           <Flex gap="2" align="center" justify="between">
@@ -283,24 +311,8 @@ export function VariationBox({
                 <Box flexGrow="1" minWidth="0" mt="2">
                   {descriptionSnippet}
                 </Box>
-                {/* The upload wrapper is the flex item, so it holds the width. */}
                 <Box flexShrink="0" width={NO_IMAGE_SIZE + "px"}>
-                  {canEdit && !blockFileUploads ? (
-                    <ScreenshotUpload
-                      variation={i}
-                      experiment={experiment.id}
-                      attach={!stageScreenshot}
-                      onSuccess={(screenshot) =>
-                        stageScreenshot
-                          ? stageScreenshot(v.id, screenshot)
-                          : mutate?.()
-                      }
-                    >
-                      <NoImageBox canEdit />
-                    </ScreenshotUpload>
-                  ) : (
-                    <NoImageBox canEdit={false} />
-                  )}
+                  <NoImageBox onUpload={canUpload ? upload.open : undefined} />
                 </Box>
               </Flex>
             )}
@@ -314,6 +326,10 @@ export function VariationBox({
           </Flex>
         ) : null}
       </Flex>
+      <ScreenshotUploadOverlay
+        dragging={upload.isDragActive}
+        progress={upload.progress}
+      />
     </Box>
   );
 }
