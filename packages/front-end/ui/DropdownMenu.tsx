@@ -207,8 +207,14 @@ export function DropdownMenu({
         </RadixDropdownMenu.Trigger>
         <RadixDropdownMenu.Content
           side={menuSide}
-          sideOffset={menuSideOffset}
-          alignOffset={menuAlignOffset}
+          // Only when set: Radix Themes defaults sideOffset to 4, and an
+          // explicit undefined would replace that default with 0.
+          {...(menuSideOffset === undefined
+            ? {}
+            : { sideOffset: menuSideOffset })}
+          {...(menuAlignOffset === undefined
+            ? {}
+            : { alignOffset: menuAlignOffset })}
           ref={contentRef}
           align={menuPlacement}
           color={color}
