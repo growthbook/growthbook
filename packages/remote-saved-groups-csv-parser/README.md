@@ -2,7 +2,7 @@
 
 Parses and validates the CSV files behind GrowthBook [Remote Saved Groups](https://docs.growthbook.io/features/remote-saved-groups). GrowthBook uses it to check uploads, and the GrowthBook Proxy's loader uses it to read files into Redis. Use it if you write your own loader, so your files are read and your IDs are stored the same way.
 
-It has no dependencies and works in Node.js 18+.
+It has no dependencies and works in Node.js 18+ and browsers with the use of a bundler.
 
 ```bash
 npm install @growthbook/remote-saved-groups-csv-parser
