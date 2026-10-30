@@ -1,6 +1,6 @@
 import React, { FC, ReactNode, useEffect, useMemo, useState } from "react";
 import { SDKAttribute } from "shared/types/organization";
-import { PiInfo, PiPlus } from "react-icons/pi";
+import { PiInfo } from "react-icons/pi";
 import { Box, Flex } from "@radix-ui/themes";
 import Text from "@/ui/Text";
 import RadixTooltip from "@/ui/Tooltip";
@@ -146,13 +146,13 @@ const EmptySection: FC<{
   >
     <Text weight="semibold">{title}</Text>
     <Box style={{ maxWidth: 460 }}>
-      <Text as="div" size="sm" color="text-low">
+      <Text as="div" color="text-low">
         {body}
       </Text>
     </Box>
     {cta && (
       <Box mt="2">
-        <Button variant="soft" size="sm" icon={<PiPlus />} onClick={onClick}>
+        <Button variant="soft" onClick={onClick}>
           {cta}
         </Button>
       </Box>
@@ -620,12 +620,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 </Text>
               </Box>
               {canCreateAttributes && identifiers.length > 0 && (
-                <Button
-                  variant="soft"
-                  size="sm"
-                  icon={<PiPlus />}
-                  onClick={() => setIdentifierModal({})}
-                >
+                <Button variant="soft" onClick={() => setIdentifierModal({})}>
                   Add Identifier
                 </Button>
               )}
@@ -804,12 +799,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 </Text>
               </Box>
               {canCreateAttributes && targetingAttributes.length > 0 && (
-                <Button
-                  variant="soft"
-                  size="sm"
-                  icon={<PiPlus />}
-                  onClick={() => setModalData("")}
-                >
+                <Button variant="soft" onClick={() => setModalData("")}>
                   Add Attribute
                 </Button>
               )}
