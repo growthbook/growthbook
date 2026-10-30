@@ -133,7 +133,7 @@ function TruncatedName({ name, current }: { name: string; current: boolean }) {
 function useProjectMenuItems() {
   const { projects } = useDefinitions();
   const showSearch = projects.length > PROJECT_SEARCH_THRESHOLD;
-  const { items, searchInputProps } = useSearch({
+  const { items, searchInputProps, clear } = useSearch({
     items: projects.slice().sort((a, b) => (a.name > b.name ? 1 : -1)),
     defaultSortField: "name",
     localStorageKey: "project-selector",
@@ -141,6 +141,11 @@ function useProjectMenuItems() {
     // Without a search field, the page's ?q= would filter the menu unseen.
     disableUrlSearchTerm: !showSearch,
   });
+  // Nor a term typed before the field went away (a deleted project took the
+  // count under the threshold): the sidebar's menu stays mounted, term and all.
+  useEffect(() => {
+    if (!showSearch) clear();
+  }, [showSearch, clear]);
   return { items, searchInputProps, showSearch };
 }
 
