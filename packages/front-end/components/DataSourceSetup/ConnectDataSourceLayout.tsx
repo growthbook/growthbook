@@ -465,15 +465,6 @@ export default function ConnectDataSourceLayout({
   const expandProjectRestriction =
     showProjectPicker &&
     ((datasource.projects?.length ?? 0) > 0 || projectPermissionError !== null);
-  // Who can see a new Data Source is an access decision, so the collapsed
-  // row still names the current scope rather than hiding it entirely.
-  const projectsSummary = showProjectPicker
-    ? (datasource.projects?.length ?? 0) > 0
-      ? `${datasource.projects?.length} Project${
-          datasource.projects?.length === 1 ? "" : "s"
-        }`
-      : "All Projects"
-    : undefined;
 
   const canTest =
     !!datasource.type &&
@@ -924,7 +915,6 @@ export default function ConnectDataSourceLayout({
               !existing && hasGeneratedPassword(datasource, initial)
             }
             expandAdvancedSettings={expandProjectRestriction}
-            advancedSettingsSummary={projectsSummary}
             advancedSettingsPrefix={
               showProjectPicker ? (
                 <Box mb="3">

@@ -29,8 +29,6 @@ export interface Props {
   advancedSettingsPrefix?: ReactNode;
   /** Open Advanced Settings now, and again if this becomes true later. */
   expandAdvancedSettings?: boolean;
-  /** Shown next to the trigger while closed, e.g. the current Project scope. */
-  advancedSettingsSummary?: ReactNode;
   /**
    * Collect credentials only. The connection test lives outside this form and
    * no SQL is generated on save, so BigQuery hides its Default Dataset field
@@ -54,7 +52,6 @@ export default function ConnectionSettings({
   beforeAdvancedSettings,
   advancedSettingsPrefix,
   expandAdvancedSettings = false,
-  advancedSettingsSummary,
   connectionOnly = false,
   keyPairGenerator,
   hideSnowflakeSchema = false,
@@ -290,13 +287,6 @@ export default function ConnectionSettings({
           open={advancedOpen}
           onOpenChange={setAdvancedOpen}
           caret="start"
-          action={
-            !advancedOpen && advancedSettingsSummary ? (
-              <Text size="sm" color="text-low">
-                {advancedSettingsSummary}
-              </Text>
-            ) : undefined
-          }
         >
           <Text weight="semibold">Advanced Settings</Text>
         </CollapseTrigger>
