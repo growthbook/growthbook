@@ -30,8 +30,10 @@
 
 // Spans from the main sidebar to the window edge, over the sub nav.
 .unsavedBar {
+  // Where the bar starts, which its left padding is measured from.
+  --unsaved-bar-left: var(--sidebar-width);
   position: fixed;
-  left: var(--sidebar-width);
+  left: var(--unsaved-bar-left);
   right: 0;
   bottom: 0;
   // Over the sub nav (999 too, but earlier in the DOM) and under the slide-out sidebar (1000).
@@ -40,10 +42,14 @@
   padding: var(--space-3) var(--space-3) var(--space-3)
     calc(
       var(--settings-nav-left) +
-        var(--settings-nav-inset) - var(--sidebar-width)
+        var(--settings-nav-inset) - var(--unsaved-bar-left)
     );
-  // Ends Save at the cards' right edge: 40px page padding plus the 920px column.
-  padding-right: max(40px, calc(100% - var(--settings-layout-left) - 960px));
+  // Ends Save at the cards' right edge: the page's padding plus the 920px
+  // column, or the page's padding where the column is narrower.
+  padding-right: max(
+    var(--page-padding),
+    calc(100% - var(--settings-layout-left) - var(--page-padding) - 920px)
+  );
   background: var(--color-panel-solid);
   border-top: 1px solid var(--gray-a5);
   box-shadow:
@@ -58,11 +64,11 @@
 
   // The sidebar slides away here and the content starts at the window edge.
   @media (max-width: 1180px) {
-    left: 0;
+    --unsaved-bar-left: 0px;
   }
   // Without the sub nav, the count lines up with the page content instead.
   @media (max-width: 1023px) {
-    padding-left: 40px;
+    padding-left: var(--page-padding);
   }
 }
 
