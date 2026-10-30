@@ -1,8 +1,9 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import { ChangeEventHandler, ReactNode, useState } from "react";
-import { PiCaretRightFill } from "react-icons/pi";
-import Collapsible from "react-collapsible";
+import { Box } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
+import Collapse, { CollapseTrigger } from "@/ui/Collapse";
+import Text from "@/ui/Text";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
@@ -32,6 +33,10 @@ export interface Props {
   connectionOnly?: boolean;
   /** Snowflake only: offer to generate the key pair instead of uploading one. */
   keyPairGenerator?: KeyPairGenerator;
+  /** Snowflake Event Forwarder: the schema lives on the Event Destination. */
+  hideSnowflakeSchema?: boolean;
+  /** Password-authenticated warehouses get a generated password on create. */
+  generatedPassword?: boolean;
 }
 
 export default function ConnectionSettings({
@@ -43,6 +48,8 @@ export default function ConnectionSettings({
   beforeAdvancedSettings,
   connectionOnly = false,
   keyPairGenerator,
+  hideSnowflakeSchema = false,
+  generatedPassword = false,
 }: Props) {
   const bigQueryParams =
     datasource.type === "bigquery" ? datasource.params : undefined;
@@ -115,6 +122,7 @@ export default function ConnectionSettings({
           onManualParamChange={onManualParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -125,6 +133,7 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -135,6 +144,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -145,6 +156,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -155,6 +168,7 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -165,6 +179,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -175,6 +191,8 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          generatedPassword={generatedPassword}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -199,6 +217,7 @@ export default function ConnectionSettings({
           setParams={setParams}
           params={datasource?.params || {}}
           keyPairGenerator={keyPairGenerator}
+          hideSchema={hideSnowflakeSchema}
         />
       );
       break;
@@ -209,6 +228,7 @@ export default function ConnectionSettings({
           onParamChange={onParamChange}
           setParams={setParams}
           params={datasource?.params || {}}
+          showAllowlist={!connectionOnly}
         />
       );
       break;
@@ -252,19 +272,23 @@ export default function ConnectionSettings({
     <>
       {datasourceComponent}
       {beforeAdvancedSettings}
-      <div className="mb-3">
-        <Collapsible
-          trigger={
-            <div className="link-purple font-weight-bold mb-2">
-              <PiCaretRightFill className="chevron mr-1" />
-              Advanced Settings
-            </div>
-          }
+      <Box mb="3">
+        <CollapseTrigger
           open={advancedOpen}
-          onClose={() => setAdvancedOpen(false)}
-          transitionTime={100}
+          onOpenChange={setAdvancedOpen}
+          caret="start"
         >
-          <div className="rounded px-3 pt-3 pb-1 bg-highlight">
+          <Text weight="semibold">Advanced Settings</Text>
+        </CollapseTrigger>
+        <Collapse open={advancedOpen}>
+          <Box
+            mt="2"
+            px="3"
+            pt="3"
+            pb="1"
+            className="bg-highlight"
+            style={{ borderRadius: "var(--radius-2)" }}
+          >
             {datasource.type === "bigquery" && (
               <BigQueryAdvancedSettings
                 params={datasource.params || {}}
@@ -277,9 +301,9 @@ export default function ConnectionSettings({
               onSettingChange={onSettingChange}
               settings={datasource?.settings || {}}
             />
-          </div>
-        </Collapsible>
-      </div>
+          </Box>
+        </Collapse>
+      </Box>
     </>
   );
 }
