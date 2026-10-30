@@ -1,0 +1,131 @@
+---
+title: Understanding Interleaving Results
+description: How to read paired and preference analysis results, the statistics behind them, which analysis fits which outcome, and when interleaving agrees with A/B tests.
+sidebarTitle: Understanding Results
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="interleaving" />
+
+Every interleaving result answers the same question: **which ranker's items did users engage with more?** GrowthBook offers two analyses that answer it differently. They differ in what one observation is, and in how an engagement event is credited to a ranker.
+
+|                         | Paired                                               | Preference                                                                                                                    |
+| ----------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| **One observation is**  | One impression: the merged list the user saw         | One user, over the whole experiment                                                                                           |
+| **Credit goes to**      | The ranker that drafted the item in that impression  | Depends on attribution, but while in beta we use the ranker that drafted the user the item more, across all their impressions |
+| **An event is tied to** | The exact impression, via `ranking_id` and `item_id` | The item only, via `item_id`                                                                                                  |
+| **Attribution setting** | None. The impression decides.                        | Yes. Decides how credit is split when both rankers showed the item.                                                           |
+| **Statistic**           | Difference in engagement per competitive item        | Net share of users who preferred the treatment                                                                                |
+
+Paired analysis is the better powered tool when the engagement happens on the list itself, such as a click. Preference analysis is the one to use when the outcome is recorded somewhere that never sees the list, such as an order or booking, and when you want every user to count equally. This is often most useful for downstream metrics that are recorded outside the list, such as an order or booking (see AirBnB [blog post](https://medium.com/airbnb-engineering/beyond-a-b-test-speeding-up-airbnb-search-ranking-experimentation-through-interleaving-7087afa09c8e) and [paper](https://arxiv.org/abs/2508.00751) for more details, which largely we follow here).
+
+The Results tab shows one row per metric and analysis. An orders metric with both analyses produces two rows; a clicks metric with paired analysis produces one.
+
+{/* TODO screenshot: Results tab with paired and preference sections */}
+
+Every row compares the second ranker (treatment) with the first (control) and shows the number of users behind the comparison, each ranker's value, the difference with its confidence interval, and a p-value. Rows are colored significant when the p-value is below your organization's or project's threshold.
+
+## Paired analysis
+
+Paired analysis compares the two rankers **within each merged list**. Every engagement with a competitive item credits the ranker that drafted it, so each impression yields a pair of credit totals, one per ranker. Only impressions where the user engaged with at least one item matching the metric count, because an impression with no engagement says nothing about either ranker.
+
+| Column                  | Meaning                                                                                                                          |
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| **Users**               | Users with at least one engaged impression.                                                                                      |
+| **Control / Treatment** | The metric's total credited to each ranker, divided by the number of competitive items each ranker drafted in those impressions. |
+| **Difference**          | Treatment minus control, per competitive item shown. A positive value means users engaged more with the treatment's picks.       |
+
+Attribution is fixed: an event joins to one impression through `ranking_id`, and the ranker that drafted that item in that impression gets the credit. Events without a `ranking_id`, or with a timestamp before the impression's, are not counted.
+
+This is where most of interleaving's speed comes from. Differences between users cancel out because both rankers are measured on the same impression, and only the items the rankers disagree on contribute. We recommend running paired analysis on at least one immediate engagement metric in every experiment.
+
+<Accordion title="Statistics: paired delta-method t-test">
+  For each user, sum over their engaged impressions the treatment credit $T$, the control credit $C$, and the number of competitive items the treatment drafted, $N$ (a fair draft gives the control the same number in expectation). The estimate is the difference in credited rate
+
+$$
+\hat\delta = \frac{\bar T - \bar C}{\bar N}
+$$
+
+with the variance from the delta method applied to the per-user triple $(T, C, N)$. The $-2\,\mathrm{Cov}(T, C)$ term in that variance is the paired-design reduction: users who engage a lot do so with both rankers, and that shared variation cancels. The test is a two-sided t-test with $\text{users} - 1$ degrees of freedom, and the confidence interval uses the same t quantile at your p-value threshold.
+
+Per-user sums are the unit, so a user who searches fifty times contributes fifty impressions to their sums. Very active users therefore carry more weight than in preference analysis.
+
+</Accordion>
+
+## Preference analysis
+
+Preference analysis gives each exposed user **one vote** over the whole experiment, for the ranker whose items they engaged with more. Users who engaged with neither, or who gave both rankers equal credit, express no preference and are excluded from the test.
+
+| Column                  | Meaning                                                                                                                     |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| **Users**               | Users exposed to at least one competitive item.                                                                             |
+| **Control / Treatment** | The number of users who preferred each ranker, and that number as a share of users with a preference.                       |
+| **Difference**          | Treatment share minus control share among users with a preference. Zero means no preference either way; the maximum is one. |
+
+### Attribution
+
+Preference analysis has a choice to make that paired analysis does not. An event carries an `item_id`, but a user may have seen that item in several impressions, drafted by either ranker. The **attribution** setting on each preference analysis decides how the event's credit is split between the rankers.
+
+| Attribution           | How credit is split                                                                                                                                                                                                                 | Status                   |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------ |
+| **Exposure count**    | By the share of the item's competitive appearances to this user that each ranker drafted. A user who ordered from a restaurant that the treatment drafted in two of their three lists gives the treatment two thirds of that order. | Available in closed beta |
+| **Engagement signal** | By a separate signal metric, such as the click that led to the order. The ranker credited with the signal event gets the conversion.                                                                                                | Planned                  |
+
+Exposure count is the same idea as Airbnb's attribution of bookings to the ranker that championed the booked listing. Events count from the first time the user saw the item, and only competitive appearances count. Because attribution works from `item_id` alone, preference analysis fits conversions recorded outside the list, such as a booking logged days later by another system.
+
+You can add the same metric with more than one attribution, and each produces its own result row.
+
+<Accordion title="Statistics: exact binomial sign test">
+  Each user with a preference reduces to a sign: treatment or control. With $n_T$ users preferring the treatment and $n_C$ preferring the control, the estimate is the net preference share
+
+$$
+\hat\tau = \frac{n_T - n_C}{n_T + n_C}
+$$
+
+and the p-value is from an exact two-sided binomial test of $n_T$ against $\text{Binomial}(n_T + n_C, 0.5)$. The confidence interval is a Clopper-Pearson interval for $P(\text{prefer treatment})$, transformed to $\tau$ with your p-value threshold as the alpha. Tied users are excluded before the test; a tie is decided within a small numerical tolerance because fractional credit shares are not exact in floating point.
+
+</Accordion>
+
+## Which analysis for which metric
+
+| How users decide                | Outcome                            | Analysis                       | What to log                |
+| ------------------------------- | ---------------------------------- | ------------------------------ | -------------------------- |
+| One list, then a decision       | Click, add-to-cart, started a show | **Paired**                     | `item_id` and `ranking_id` |
+| Several visits, then a decision | Order, booking                     | **Preference**, exposure count | `item_id`                  |
+| Both, to check they agree       | Clicks and orders                  | Both                           | Both                       |
+
+In general, we advise using **Paired** analysis whenever it makes sense to log a `ranking_id` along with an event, and then combining that with **Preference** analysis whenever possible, to make sure they agree. Using a set of metrics in conjunction will likely lead to the best results.
+
+Two further things to weigh:
+
+- **Heavy users.** Paired analysis weighs users by how often they search; preference analysis gives everyone one vote. Pick the one that matches who you optimize for.
+- **Large values.** Paired analysis on an amount, such as order value, lets a few large orders decide the result, as in a standard experiment. Preference analysis turns each user into one vote, so large values cannot dominate, but the difference between light and heavy users disappears.
+
+A common setup is paired analysis on clicks for a fast, sensitive read, and preference analysis on orders or bookings for the outcome the business cares about. If both point the same way, you can be fairly confident. If the treatment wins clicks but not orders, understand why before you proceed. Once the two consistently agree on your surface, you can lean on paired analysis and iterate faster.
+
+## Checks before you trust a run
+
+- **How often the rankers disagreed.** Only competitive items count, so two rankers that mostly agree produce few comparisons, and a winner takes long to show and would change little for your users. Compare the number of users in the results with your traffic; a small share means the candidate may not be worth an A/B test slot. We have planned health checks to help you understand this component of interleaving experimentation.
+- **Engaged users.** A significant paired result from a handful of engaged users is potentially fragile.
+- **Run an A/A first.** Interleave a ranker against itself with different config names. Both analyses should show no preference. This checks your exposure query, your `item_id` join, and your `ranking_id` plumbing at once.
+- **Balance.** The draft gives each ranker the same number of competitive items and the first pick in about half the rounds. If your exposure rows show otherwise, something between the SDK and the warehouse is reordering or dropping items. Again, we have planned health checks to automate this process.
+
+## How interleaving relates to A/B test results
+
+When teams have run both on the same rankers, the two mostly point the same way, but not always. Airbnb compared 29 pairs and found the direction agreed [82% of the time](https://arxiv.org/abs/2508.00751). OTTO reports correlations between 0.47 and 0.68 depending on the outcome ([Brinkmann and Wolle, 2025](https://youtu.be/EsWpq2OkjX4)). The likely reasons for disagreement:
+
+- **The merged list is a different choice set.** No user ever sees either ranker alone. How much an attribute such as price weighs in a choice depends on the range of options on the page, so a ranker can win in the merge and do worse on its own. Airbnb saw a ranker that was neutral in an A/B test lose clearly in interleaving because the other ranker's listings looked better next to it. Any ranker whose value lies in the whole list, such as diversity at the top of the page, is hard to measure this way.
+- **Credit ignores how far an item moved.** Moving an item from position 4 to 3 earns the same credit as moving it from 50 to 3. An A/B test only notices the big move.
+- **Speed does not show.** The merged list waits for the slower ranker, so a slow candidate can win without anyone noticing. Check latency in your own logs or in the A/B test on the finalists.
+- **Only users who engage are counted.** Interleaving cannot tell whether a ranker makes more people engage at all, because nobody sees one ranker alone. An A/B test measures that directly.
+- **A winner, not an effect size.** The size of the difference tells you how clear the preference is, not how much a business metric would move after shipping. In a marketplace, it also cannot show how supply shifts once the winner ships.
+
+Why interleaving needs so much less traffic in the first place: the comparison is within each user, so differences between users cancel out; only items the rankers disagree on count, which at Bing cut the data needed by more than half ([Chapelle et al., 2012](https://www.cs.cornell.edu/~tj/publications/chapelle_etal_12a.pdf)); and when users stop scanning once they find something good, the better ranker takes the engagement the other one was waiting for ([Iizuka, Morita, and Kato, 2023](https://arxiv.org/abs/2306.10023)). That last mechanism means a surface where users compare every option before choosing gains less. For a fuller treatment see [DoorDash's write-up](https://careersatdoordash.com/blog/doordash-experimentation-with-interleaving-designs/) and [Airbnb's paper](https://arxiv.org/abs/2508.00751).
+
+## Limitations
+
+- Frequentist analysis only. No CUPED, sequential testing, Bayesian results, or multiple-comparison corrections.
+- No dimensions, metric capping, or conversion windows. Exposures and engagement are bounded by the experiment's run windows.
+- Paired analysis requires `ranking_id` on engagement events. Attributing events without one to the user's most recent matching impression is not available yet.
+- Exposure count is the only preference attribution. Engagement-signal attribution, which credits a conversion to the ranker that earned a separate signal event such as the click on the booked item, is planned.

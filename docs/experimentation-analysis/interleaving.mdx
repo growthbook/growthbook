@@ -1,0 +1,87 @@
+---
+title: Interleaving Experiments
+description: Compare two rankers head-to-head by merging their lists for every user, so you can pick a winner with a small fraction of the traffic an A/B test needs.
+sidebarTitle: Overview
+---
+
+import { CommercialFeature } from "/snippets/CommercialFeature.jsx";
+
+<CommercialFeature feature="interleaving" />
+
+<Note>
+  Interleaving is in **private beta** for Enterprise customers. The feature, its SDK API, and its analysis will evolve with customer feedback. Contact your GrowthBook account team to get access.
+</Note>
+
+## Why interleaving
+
+Search, recommendation, and feed teams regularly iterate on their **rankers** with new models, new data, and new parameters and weights. A mature ranker is already good, so most changes have small effects, and small effects need a lot of users. Testing rankers one A/B test at a time becomes the bottleneck. Offline evaluation is fast, but it is a [poor predictor](https://dl.acm.org/doi/10.1145/3292500.3330744) of which ranker wins with real users.
+
+Interleaving sits between the offline evaluation and proper A/B testing. Instead of showing ranker A to one group of users and ranker B to another, it **merges both rankers' lists into one** and shows that list to everyone. Every user compares both rankers, so each user is their own control. Companies that run interleaving report needing a small fraction of the traffic a standard experiment needs:
+
+| Company                                                                                            | Traffic needed vs. an A/B test |
+| -------------------------------------------------------------------------------------------------- | ------------------------------ |
+| [Netflix](https://netflixtechblog.com/interleaving-in-online-experiments-at-netflix-a04ee392ec55)  | under 1%                       |
+| [DoorDash](https://careersatdoordash.com/blog/doordash-experimentation-with-interleaving-designs/) | about 1.5%                     |
+| [Amazon](https://www.amazon.science/publications/debiased-balanced-interleaving-at-amazon-search)  | about 1.7%                     |
+| [Airbnb](https://arxiv.org/abs/2508.00751)                                                         | about 2%                       |
+
+In marketplaces, interleaving also avoids a bias that A/B tests on rankers suffer from: users who see ranker B can book supply that users on ranker A would otherwise have booked. With interleaving both rankers face the same supply on every search. Other solutions to marketplace interference, such as synthetic controls or cluster randomization, require hard-to-justify assumptions and/or data-hungry approaches.
+
+{/* TODO: link the two GrowthBook blog posts on interleaving once published (how it works; how it fits into your optimization strategy) */}
+
+## How it fits into your experimentation program
+
+Interleaving answers a narrower question than an A/B test: **which ranker's items do users pick more often?** It does not tell you how much a business metric would change if you shipped the winner, because no user ever sees either ranker on its own.
+
+Most teams use it as a screen:
+
+1. **Offline evaluation** to discard the clearly bad candidates.
+2. **Interleaving** to compare the remaining candidates with real users, on a small share of traffic.
+3. **An A/B test** (or a switchback or synethic control test where interference is a risk) on the one or two finalists to measure the effect size before shipping or as periodic validation.
+
+Once you have a track record of interleaving and A/B tests agreeing on your surface, you can rely on interleaving alone more often. See [Understanding interleaving results](/experimentation-analysis/interleaving/results#how-interleaving-relates-to-ab-test-results) for when and why the two can disagree.
+
+## How it works
+
+### Team draft
+
+GrowthBook merges the two lists with **team-draft interleaving**, the method Netflix, Airbnb, and DoorDash use. It works like two team captains picking players. In every round, a coin flip decides which ranker picks first, and each ranker takes the highest item on its list that is not in the merged list yet. The user sees one list and has no way to tell that two rankers are at play.
+
+There is one special case. If both rankers want the same item in the same round, it goes in once and belongs to neither ranker. An item both rankers agree on cannot tell you which ranker is better, so engagement with it counts for neither. GrowthBook calls items that belong to a ranker **competitive** and the rest **non-competitive**. Items that fill out the list after one ranker runs out are non-competitive too.
+
+{/* TODO: figure of a team draft (e.g. the restaurant example from the blog post): two ranked lists zipped into one, color-coded by ranker, with tied items marked non-competitive */}
+
+Team drafting has two attractive properties: (1) every competitive round gives each ranker exactly one item, so both get the same number of competitive items; (2) a coin flip decides who picks first, so neither ranker gets the higher position of a pair more often than the other.
+
+### Example
+
+Take a food delivery app with a "Recommended for you" list. Ranker A is in production and weights the cuisine the user orders most. Ranker B mixes in other cuisines. Let's walk through 2 rounds of team drafting.
+
+![Round 1. Both rankers want Kaito Sushi, so it goes in but belongs to neither. The colors only illustrate the mechanics. The user sees the items without any reference to the rankers.](./images/team-draft-example.png)
+
+Round 1 - Both rankers want Kaito Sushi, so it goes in but belongs to neither. The colors only illustrate the mechanics. The user sees the items without any reference to the rankers.
+
+![Round 2. A picks first and takes Umi Sushi, then B takes Hana Sushi Bar.](./images/team-draft-example-2.png)
+
+Round 2 - Ranker A wants Umi Sushi and Ranker B wants Hana Sushi Bar. We flip a coin and ranker A picks first. Umi Sushi goes in and belongs to ranker A. Hana Sushi Bar goes in and belongs to ranker B.
+
+This continue until we end up with the following draft:
+
+![Final Draft](./images/team-draft-final.png)
+
+Now any click on an item attributed to a ranker boosts that ranker's score.
+
+### Two ways to pick a winner
+
+The draft decides what the user sees and whether an item in the list is competitive (e.g. helps us differentiate between rankers). There are two different ways, then, to attribute positive outcomes with one ranker vs the other:
+
+- **Paired analysis** compares the two rankers within each merged list and requires the search/query ID (what we internally call the `ranking_id`) to be tracked with the exposure and with all downstream engagements within the list. An engagement with a competitive item credits the ranker that drafted the item, and the test asks whether one ranker earns more engagements on competitive items than the other. It is the most sensitive option and fits in-context signals such as clicks, add-to-cart, or orders placed straight from the list.
+- **Preference analysis** gives each user one vote for the ranker whose items they engaged with more across the whole experiment. It fits outcomes that build up over several visits, such as a booking after a week of searching, and it keeps a few very active users from deciding the result. There are a few different ways to determine how user-level preference is counted up across multiple queries/rankings, which we cover in [Understanding interleaving results](/experimentation-analysis/interleaving/results).
+
+You can run both in the same experiment, for example paired analysis on clicks and preference analysis on orders. [Understanding interleaving results](/experimentation-analysis/interleaving/results) covers both in detail.
+
+## Next steps
+
+- [Getting set up](/experimentation-analysis/interleaving/setup): supported SDKs, the `interleave()` call, exposure tracking, metric requirements, and configuring the experiment in GrowthBook.
+- [Understanding interleaving results](/experimentation-analysis/interleaving/results): how to read the results table, the statistics behind each analysis, and how interleaving relates to A/B test results.
+- [REST API](/api/Interleavings/operation/createInterleaving): create, start, stop, and refresh interleaving experiments programmatically.
