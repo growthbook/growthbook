@@ -7,7 +7,7 @@ import {
 } from "shared/types/organization";
 import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { FaExclamationCircle, FaInfoCircle } from "react-icons/fa";
-import { PiCaretDown, PiCaretRight } from "react-icons/pi";
+import { PiCaretDown, PiCaretRight, PiPlus } from "react-icons/pi";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import { useAttributeSchema } from "@/services/features";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
@@ -137,6 +137,8 @@ export default function AttributeModal({
 
   const schema = useAttributeSchema(true);
   const current = schema.find((s) => s.property === attribute);
+  const initialDescription = current?.description || "";
+  const [showDescription, setShowDescription] = useState(!!initialDescription);
 
   const form = useForm<SDKAttribute>({
     defaultValues: {
@@ -333,6 +335,8 @@ export default function AttributeModal({
 
           <TextField
             label="Name"
+            autoComplete="off"
+            data-1p-ignore
             required
             markRequired
             autoFocus={!attribute}
@@ -358,13 +362,29 @@ export default function AttributeModal({
             </Callout>
           ) : null}
 
-          <Flex direction="column" gap="2">
-            <Text weight="medium">Description</Text>
-            <MarkdownInput
-              value={form.watch("description") || ""}
-              setValue={(value) => form.setValue("description", value)}
-            />
-          </Flex>
+          {showDescription ? (
+            <Flex direction="column" gap="1">
+              <Text as="label" weight="semibold">
+                Description
+              </Text>
+              <MarkdownInput
+                value={form.watch("description") || ""}
+                setValue={(value) => form.setValue("description", value)}
+                placeholder="Add notes about this attribute (markdown supported)"
+                autofocus={!initialDescription}
+                showButtons={false}
+              />
+            </Flex>
+          ) : (
+            <Box>
+              <Link onClick={() => setShowDescription(true)}>
+                <Flex align="center" gap="1">
+                  <PiPlus />
+                  <Text weight="medium">Add a description</Text>
+                </Flex>
+              </Link>
+            </Box>
+          )}
 
           <Flex direction="column" gap="2">
             <Select
@@ -512,6 +532,8 @@ export default function AttributeModal({
           {projects?.length > 0 && (
             <MultiSelectField
               label="Projects"
+              size="md"
+              legacyLabelFormatting={false}
               placeholder={
                 canCreateWithoutProject ? "All Projects" : "Select projects..."
               }
@@ -522,6 +544,8 @@ export default function AttributeModal({
           )}
           <TagsInput
             label="Tags"
+            size="md"
+            legacyLabelFormatting={false}
             value={form.watch("tags") || []}
             onChange={(tags) => form.setValue("tags", tags)}
             autoFocus={false}
@@ -529,6 +553,7 @@ export default function AttributeModal({
           {availableCustomFields.length > 0 && (
             <CustomFieldInput
               fields={availableCustomFields}
+              mt="0"
               value={customFieldValues}
               onChange={(value) => form.setValue("customFields", value)}
             />

@@ -7,7 +7,7 @@ import {
   attributeMatchesDatasourceProjects,
   attributeToUserIdTypeName,
 } from "shared/util";
-import { PiDatabase, PiLockSimple } from "react-icons/pi";
+import { PiDatabase, PiLockSimple, PiPlus } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
@@ -24,6 +24,7 @@ import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
 import Callout from "@/ui/Callout";
 import Button from "@/ui/Button";
+import Link from "@/ui/Link";
 import { Select, SelectItem, SelectSeparator } from "@/ui/Select";
 import MarkdownInput from "@/components/Markdown/MarkdownInput";
 import TagsInput from "@/components/Tags/TagsInput";
@@ -120,6 +121,8 @@ export default function IdentifierModal({
   );
   const [tags, setTags] = useState<string[]>(existing?.tags ?? []);
   const [description, setDescription] = useState(existing?.description ?? "");
+  const initialDescription = existing?.description ?? "";
+  const [showDescription, setShowDescription] = useState(!!initialDescription);
   const [customFields, setCustomFields] = useState<Record<string, string>>(
     existing?.customFields ?? {},
   );
@@ -262,6 +265,8 @@ export default function IdentifierModal({
         <Flex direction="column" gap="5" style={{ minWidth: 0 }}>
           <TextField
             label="Name"
+            autoComplete="off"
+            data-1p-ignore
             required
             markRequired
             autoFocus={!isEdit}
@@ -279,10 +284,29 @@ export default function IdentifierModal({
               . It keeps using the old name until you change it.
             </Callout>
           )}
-          <Flex direction="column" gap="2">
-            <Text weight="medium">Description</Text>
-            <MarkdownInput value={description} setValue={setDescription} />
-          </Flex>
+          {showDescription ? (
+            <Flex direction="column" gap="1">
+              <Text as="label" weight="semibold">
+                Description
+              </Text>
+              <MarkdownInput
+                value={description}
+                setValue={setDescription}
+                placeholder="Add notes about this identifier (markdown supported)"
+                autofocus={!initialDescription}
+                showButtons={false}
+              />
+            </Flex>
+          ) : (
+            <Box>
+              <Link onClick={() => setShowDescription(true)}>
+                <Flex align="center" gap="1">
+                  <PiPlus />
+                  <Text weight="medium">Add a description</Text>
+                </Flex>
+              </Link>
+            </Box>
+          )}
           <Select
             label="Data type"
             value={datatype}
@@ -301,6 +325,8 @@ export default function IdentifierModal({
           </Select>
           <MultiSelectField
             label="Projects"
+            size="md"
+            legacyLabelFormatting={false}
             placeholder="All Projects"
             value={projects}
             options={projectOptions}
@@ -308,6 +334,8 @@ export default function IdentifierModal({
           />
           <TagsInput
             label="Tags"
+            size="md"
+            legacyLabelFormatting={false}
             value={tags}
             onChange={setTags}
             autoFocus={false}
@@ -315,6 +343,7 @@ export default function IdentifierModal({
           {availableCustomFields.length > 0 && (
             <CustomFieldInput
               fields={availableCustomFields}
+              mt="0"
               value={customFieldValues}
               onChange={setCustomFields}
             />
