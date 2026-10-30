@@ -16,6 +16,7 @@ import {
   getColumnExpression,
   expandVirtualColumnsInSql,
   sqlReferencesColumn,
+  sqlReferencesColumnAllowingQualified,
   validateVirtualColumnExpression,
   getSelectedColumnDatatype,
   adjustPValuesBenjaminiHochberg,
@@ -35,6 +36,7 @@ import {
   isAutoSnapshotScheduled,
   ExperimentMetricInterface,
   withScheduledBy,
+  areVariationWeightsValid,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -2664,6 +2666,68 @@ describe("Virtual Columns", () => {
     });
   });
 
+  describe("sqlReferencesColumnAllowingQualified", () => {
+    it("detects a bare identifier reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("margin_vc / price", "margin_vc"),
+      ).toBe(true);
+    });
+
+    it("detects a table-qualified reference", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "SELECT e.bandit_version FROM exposures e",
+          "bandit_version",
+        ),
+      ).toBe(true);
+    });
+
+    it("detects a qualified reference with whitespace around the dot", () => {
+      expect(sqlReferencesColumnAllowingQualified("e . price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified("e.\n  price", "price")).toBe(
+        true,
+      );
+      expect(sqlReferencesColumnAllowingQualified('e . "price"', "price")).toBe(
+        true,
+      );
+      expect(
+        sqlReferencesColumnAllowingQualified("`e` . `price`", "price", "`"),
+      ).toBe(true);
+    });
+
+    it("does not match a name inside a string literal", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "status = 'bandit_version'",
+          "bandit_version",
+        ),
+      ).toBe(false);
+    });
+
+    it("does not match a partial identifier", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified("e.gross_margin_vc", "margin_vc"),
+      ).toBe(false);
+    });
+
+    it("does not match a name inside a comment", () => {
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price -- e.margin_vc\n",
+          "margin_vc",
+        ),
+      ).toBe(false);
+      expect(
+        sqlReferencesColumnAllowingQualified(
+          "e.price /* e.margin_vc */",
+          "margin_vc",
+        ),
+      ).toBe(false);
+    });
+  });
+
   describe("validateVirtualColumnExpression", () => {
     const ok = (sql: string, quote?: "`" | '"') =>
       validateVirtualColumnExpression(sql, quote);
@@ -3082,5 +3146,28 @@ describe("getFactTableIdsForMetrics", () => {
         funnel(["ft_b", "ft_c", "ft_d"]),
       ]),
     ).toEqual(["ft_a", "ft_b", "ft_c", "ft_d"]);
+  });
+});
+
+describe("areVariationWeightsValid", () => {
+  it.each([
+    [[0.5, 0.5]],
+    [[1, 0]],
+    [[1]],
+    [[0.333, 0.333, 0.334]],
+    [[0.5, 0.505]],
+  ])("accepts %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(true);
+  });
+
+  it.each([
+    [[0.33, 0.4, 0.3]],
+    [[0.2, 0.2]],
+    [[50, 50]],
+    [[2, -1]],
+    [[1.5, -0.5]],
+    [[]],
+  ])("rejects %p", (weights) => {
+    expect(areVariationWeightsValid(weights)).toBe(false);
   });
 });

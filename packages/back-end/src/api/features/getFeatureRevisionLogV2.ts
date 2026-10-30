@@ -1,41 +1,12 @@
-import { getFeatureRevisionLogV2Validator } from "shared/validators";
-import { EventUser } from "shared/types/events/event-types";
+import {
+  getFeatureRevisionLogV2Validator,
+  eventUserToApiEventUser,
+} from "shared/validators";
 import { getValidDate } from "shared/dates";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { NotFoundError } from "back-end/src/util/errors";
 import { getFeature } from "back-end/src/models/FeatureModel";
 import { getRevision } from "back-end/src/models/FeatureRevisionModel";
-
-// Strip secrets (API key strings) from the log actor before returning it.
-function sanitizeLogUser(user: EventUser): {
-  type: "dashboard" | "api_key" | "system";
-  id?: string;
-  name?: string;
-  email?: string;
-} | null {
-  if (!user) return null;
-  switch (user.type) {
-    case "dashboard":
-      return {
-        type: "dashboard",
-        id: user.id,
-        name: user.name,
-        email: user.email,
-      };
-    case "api_key":
-      return {
-        type: "api_key",
-        ...(user.id !== undefined ? { id: user.id } : {}),
-        ...(user.name !== undefined ? { name: user.name } : {}),
-        ...(user.email !== undefined ? { email: user.email } : {}),
-      };
-    case "system":
-      return {
-        type: "system",
-        ...(user.id !== undefined ? { id: user.id } : {}),
-      };
-  }
-}
 
 export const getFeatureRevisionLogV2 = createApiRequestHandler(
   getFeatureRevisionLogV2Validator,
@@ -88,7 +59,7 @@ export const getFeatureRevisionLogV2 = createApiRequestHandler(
     log: merged.map((entry) => ({
       ...entry,
       timestamp: getValidDate(entry.timestamp).toISOString(),
-      user: sanitizeLogUser(entry.user),
+      user: eventUserToApiEventUser(entry.user) ?? null,
     })),
   };
 });

@@ -1,10 +1,9 @@
 import React, { useState, FC } from "react";
-import { PiDetective } from "react-icons/pi";
+import { PiDetective, PiMagnifyingGlass } from "react-icons/pi";
 import { ProjectInterface } from "shared/types/project";
 import { ago } from "shared/dates";
-import { Box } from "@radix-ui/themes";
+import { Box, Flex } from "@radix-ui/themes";
 import { isDemoDatasourceProject } from "shared/demo-datasource";
-import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import ProjectModal from "@/components/Projects/ProjectModal";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -17,7 +16,8 @@ import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
 import { capitalizeFirstLetter } from "@/services/utils";
 import { useAddComputedFields, useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
+import { TextField } from "@/ui/TextField";
+import Text from "@/ui/Text";
 import Table, {
   TableHeader,
   TableBody,
@@ -26,8 +26,10 @@ import Table, {
   TableCell,
 } from "@/ui/Table";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
+import CopyableCode from "@/components/Settings/CopyableCode";
 import HistoryTable from "@/components/HistoryTable";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import SettingsPage from "@/components/Layout/SettingsPage";
 
 const ProjectsPage: FC = () => {
   const { projects, mutateDefinitions } = useDefinitions();
@@ -63,6 +65,7 @@ const ProjectsPage: FC = () => {
 
   const {
     items,
+    filteredItems,
     searchInputProps,
     isFiltered,
     SortableTableColumnHeader,
@@ -81,10 +84,47 @@ const ProjectsPage: FC = () => {
     ],
     pageSize: 50,
     updateSearchQueryOnChange: true,
+    subtleSortIcons: true,
   });
 
   return (
-    <div className="container-fluid pagecontents">
+    <SettingsPage
+      title="Projects"
+      description={
+        <>
+          Group your ideas and experiments into <strong>Projects</strong> to
+          keep things organized and easy to manage.
+        </>
+      }
+      actions={
+        <>
+          <Button variant="ghost" onClick={() => setAuditLogOpen(true)}>
+            Audit log
+          </Button>
+          <Tooltip
+            body={
+              !canCreateProjects
+                ? "You don't have permission to create projects"
+                : atProjectLimit
+                  ? `Your plan only supports ${maxProjects} project${
+                      maxProjects === 1 ? "" : "s"
+                    }. Upgrade your plan to create more.`
+                  : undefined
+            }
+            shouldDisplay={!canCreateProjects || atProjectLimit}
+          >
+            <Button
+              disabled={!canCreateProjects}
+              onClick={() =>
+                atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
+              }
+            >
+              Create project
+            </Button>
+          </Tooltip>
+        </>
+      }
+    >
       {modalOpen && (
         <ProjectModal
           existing={modalOpen}
@@ -111,54 +151,24 @@ const ProjectsPage: FC = () => {
         </ModalStandard>
       )}
 
-      <Box mt="4" mb="5">
-        <div className="row align-items-center mb-1">
-          <div className="col-auto">
-            <h2 className="mb-0">Projects</h2>
-          </div>
-          <div className="flex-1" />
-          <div className="col-auto">
-            <Link onClick={() => setAuditLogOpen(true)}>Audit log</Link>
-          </div>
-          <div className="col-auto">
-            <Tooltip
-              body={
-                !canCreateProjects
-                  ? "You don't have permission to create projects"
-                  : atProjectLimit
-                    ? `Your plan only supports ${maxProjects} project${
-                        maxProjects === 1 ? "" : "s"
-                      }. Upgrade your plan to create more.`
-                    : undefined
-              }
-              shouldDisplay={!canCreateProjects || atProjectLimit}
-            >
-              <Button
-                disabled={!canCreateProjects}
-                onClick={() =>
-                  atProjectLimit ? setUpgradeModalOpen(true) : setModalOpen({})
-                }
-              >
-                Create Project
-              </Button>
-            </Tooltip>
-          </div>
-        </div>
-        <p className="text-gray mb-4">
-          Group your ideas and experiments into <strong>Projects</strong> to
-          keep things organized and easy to manage.
-        </p>
-
+      <Box mb="5">
         {projects.length > 0 ? (
           <>
-            <Box width="250px" mb="3">
-              <Field
-                placeholder="Search..."
-                type="search"
-                containerClassName="mb-0"
-                {...searchInputProps}
-              />
-            </Box>
+            <Flex align="center" gap="3" mb="3">
+              <Box width="280px" maxWidth="100%">
+                <TextField
+                  type="search"
+                  aria-label="Search projects"
+                  placeholder="Search projects"
+                  prepend={<PiMagnifyingGlass aria-hidden="true" />}
+                  {...searchInputProps}
+                />
+              </Box>
+              <Text color="text-mid">
+                {filteredItems.length} project
+                {filteredItems.length === 1 ? "" : "s"}
+              </Text>
+            </Flex>
             <Table variant="surface" layout="fixed">
               <TableHeader>
                 <TableRow>
@@ -166,7 +176,7 @@ const ProjectsPage: FC = () => {
                     field="name"
                     style={{ width: "20%" }}
                   >
-                    Project Name
+                    Project name
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader
                     field="id"
@@ -185,13 +195,13 @@ const ProjectsPage: FC = () => {
                     field="dateCreated"
                     style={{ width: "15%" }}
                   >
-                    Date Created
+                    Date created
                   </SortableTableColumnHeader>
                   <SortableTableColumnHeader
                     field="dateUpdated"
                     style={{ width: "15%" }}
                   >
-                    Date Updated
+                    Date updated
                   </SortableTableColumnHeader>
                 </TableRow>
               </TableHeader>
@@ -226,19 +236,13 @@ const ProjectsPage: FC = () => {
                           </div>
                         ) : null}
                         {p.publicId && (
-                          <Box
-                            style={{ color: "var(--gray-9)", opacity: 0.85 }}
-                          >
-                            <Text as="div" size="sm" mono>
-                              {p.publicId}
-                            </Text>
+                          <Box>
+                            <CopyableCode value={p.publicId} muted />
                           </Box>
                         )}
                       </TableCell>
                       <TableCell>
-                        <Text size="sm" mono>
-                          {p.id}
-                        </Text>
+                        <CopyableCode value={p.id} />
                       </TableCell>
                       <TableCell>
                         {p.description && p.description.length > 80
@@ -266,7 +270,7 @@ const ProjectsPage: FC = () => {
           <p>Click the button above to create your first project!</p>
         )}
       </Box>
-    </div>
+    </SettingsPage>
   );
 };
 export default ProjectsPage;

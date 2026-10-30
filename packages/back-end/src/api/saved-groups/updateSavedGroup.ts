@@ -9,6 +9,7 @@ import { landDirectChange } from "back-end/src/revisions/revertActions";
 import { runGuardedWrite } from "back-end/src/revisions/landingSequence";
 import { holdsMoveDestination } from "back-end/src/revisions/moveAuthority";
 import { resolveOwnerEmail } from "back-end/src/services/owner";
+import { assertUsableUploadVersion } from "back-end/src/services/remoteSavedGroups";
 import { createApiRequestHandler } from "back-end/src/util/handler";
 import { validateListSize } from "back-end/src/routers/saved-group/saved-group.controller";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
@@ -18,11 +19,20 @@ import {
   ensureLiveRevisionExists,
 } from "back-end/src/revisions/util";
 import { dispatchSavedGroupRevisionEvent } from "back-end/src/services/savedGroupRevisionEvents";
+import { assertValidDescription } from "./validations";
 
 export const updateSavedGroup = createApiRequestHandler(
   updateSavedGroupValidator,
 )(async (req) => {
-  const { name, values, condition, owner, projects } = req.body;
+  const {
+    name,
+    description,
+    values,
+    condition,
+    owner,
+    projects,
+    currentUploadVersion,
+  } = req.body;
   const bypassApproval = req.body.bypassApproval === true;
 
   const { id } = req.params;
@@ -56,6 +66,14 @@ export const updateSavedGroup = createApiRequestHandler(
   if (savedGroup.type === "list" && condition && condition !== "{}") {
     throw new Error("Cannot specify a condition for list groups");
   }
+  if (
+    savedGroup.type === "remote" &&
+    (values?.length || (condition && condition !== "{}"))
+  ) {
+    throw new BadRequestError(
+      "Remote Saved Groups get their values from uploads. Use POST /saved-groups/{id}/upload-url, then POST /saved-groups/{id}/uploads.",
+    );
+  }
 
   const fieldsToUpdate: UpdateSavedGroupProps = {};
 
@@ -64,6 +82,13 @@ export const updateSavedGroup = createApiRequestHandler(
   }
   if (typeof owner !== "undefined") {
     fieldsToUpdate.owner = owner;
+  }
+  if (
+    typeof description !== "undefined" &&
+    description !== (savedGroup.description ?? "")
+  ) {
+    assertValidDescription(description);
+    fieldsToUpdate.description = description;
   }
   if (
     savedGroup.type === "list" &&
@@ -102,6 +127,24 @@ export const updateSavedGroup = createApiRequestHandler(
     }
 
     fieldsToUpdate.condition = condition;
+  }
+  if (
+    typeof currentUploadVersion !== "undefined" &&
+    currentUploadVersion !== savedGroup.currentUploadVersion
+  ) {
+    if (savedGroup.type !== "remote") {
+      throw new BadRequestError(
+        "Only remote Saved Groups can have a currentUploadVersion",
+      );
+    }
+    // Checked now too, since a draft doesn't write the group until it's
+    // published
+    await assertUsableUploadVersion(
+      req.context,
+      savedGroup.id,
+      currentUploadVersion,
+    );
+    fieldsToUpdate.currentUploadVersion = currentUploadVersion;
   }
   // Only update project scoping when explicitly provided in the request.
   // Requests that only update values/condition should preserve existing scope.

@@ -1351,7 +1351,7 @@ describe("getEffectiveRolesForProject", () => {
   const roleSources = (
     ...args: Parameters<typeof getEffectiveRolesForProject>
   ) =>
-    getEffectiveRolesForProject(...args).map(
+    getEffectiveRolesForProject(...args).applied.map(
       ({ role, sourceType, sourceName }) => ({ role, sourceType, sourceName }),
     );
 
@@ -1461,16 +1461,20 @@ describe("getEffectiveRolesForProject", () => {
   });
 
   it("drops the member's global role when only a team has an explicit project role", () => {
-    const result = roleSources({ role: "admin", teams: ["team_1"] }, "prj_1", [
-      team("team_1", "Restricted", "readonly", [
-        {
-          project: "prj_1",
-          role: "noaccess",
-          limitAccessByEnvironment: false,
-          environments: [],
-        },
-      ]),
-    ]);
+    const result = roleSources(
+      { role: "engineer", teams: ["team_1"] },
+      "prj_1",
+      [
+        team("team_1", "Restricted", "readonly", [
+          {
+            project: "prj_1",
+            role: "noaccess",
+            limitAccessByEnvironment: false,
+            environments: [],
+          },
+        ]),
+      ],
+    );
     expect(result).toEqual([
       { role: "noaccess", sourceType: "team", sourceName: "Restricted" },
     ]);
@@ -1491,11 +1495,11 @@ describe("getEffectiveRolesForProject", () => {
         teams: ["team_1"],
       },
       null,
-      [team("team_1", "Admins", "admin")],
+      [team("team_1", "Engineers", "engineer")],
     );
     expect(result).toEqual([
       { role: "readonly", sourceType: "user", sourceName: "user" },
-      { role: "admin", sourceType: "team", sourceName: "Admins" },
+      { role: "engineer", sourceType: "team", sourceName: "Engineers" },
     ]);
   });
 
@@ -1573,7 +1577,7 @@ describe("getEffectiveRolesForProject", () => {
         },
         null,
         [],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "qa_reviewer",
@@ -1613,7 +1617,7 @@ describe("getEffectiveRolesForProject", () => {
             ],
           },
         ],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "noaccess",
@@ -1657,7 +1661,7 @@ describe("getEffectiveRolesForProject", () => {
         },
         "prj_1",
         [],
-      ),
+      ).applied,
     ).toEqual([
       {
         role: "engineer",
@@ -1665,6 +1669,7 @@ describe("getEffectiveRolesForProject", () => {
         sourceName: "user",
         limitAccessByEnvironment: true,
         environments: ["staging"],
+        project: "prj_1",
       },
     ]);
   });
@@ -1726,6 +1731,69 @@ describe("canManageFactTableVirtualColumn", () => {
   it("blocks users without manageFactTables entirely", () => {
     expect(
       getPermissions("readonly").canManageFactTableVirtualColumn(unmanaged),
+    ).toBe(false);
+  });
+});
+
+describe("assignment query permissions", () => {
+  const org: OrganizationInterface = {
+    id: "org_1",
+    name: "Org",
+    ownerEmail: "test@test.com",
+    url: "https://test.com",
+    dateCreated: new Date(),
+    invites: [],
+    members: [],
+    settings: { environments: [{ id: "production", description: "" }] },
+  };
+  // Read-only everywhere, analyst in prj_b only.
+  const p = new Permissions({
+    global: {
+      permissions: roleToPermissionMap("readonly", org),
+      limitAccessByEnvironment: false,
+      environments: [],
+    },
+    projects: {
+      prj_b: {
+        permissions: roleToPermissionMap("analyst", org),
+        limitAccessByEnvironment: false,
+        environments: [],
+      },
+    },
+  });
+  const datasource = { projects: ["prj_a", "prj_b", "prj_c"] };
+
+  it("needs the permission in every project the query covers", () => {
+    expect(p.canUpdateExposureQuery({ projects: ["prj_b"] }, datasource)).toBe(
+      true,
+    );
+    expect(
+      p.canUpdateExposureQuery({ projects: ["prj_b", "prj_c"] }, datasource),
+    ).toBe(false);
+  });
+
+  it("treats an unscoped query as covering the data source's projects", () => {
+    expect(p.canUpdateExposureQuery({ projects: [] }, datasource)).toBe(false);
+    expect(
+      p.canUpdateExposureQuery({ projects: [] }, { projects: ["prj_b"] }),
+    ).toBe(true);
+  });
+
+  it("allows adding a query when some project can hold it", () => {
+    expect(p.canAddExposureQuery(datasource)).toBe(true);
+    expect(p.canAddExposureQuery({ projects: [] })).toBe(true);
+    expect(p.canAddExposureQuery({ projects: ["prj_a"] })).toBe(false);
+  });
+
+  it("runs past experiments queries when any project the query covers allows it", () => {
+    expect(
+      p.canRunPastExperimentQuery({ projects: ["prj_a", "prj_b"] }, datasource),
+    ).toBe(true);
+    expect(p.canRunPastExperimentQuery({ projects: [] }, datasource)).toBe(
+      true,
+    );
+    expect(
+      p.canRunPastExperimentQuery({ projects: ["prj_a"] }, datasource),
     ).toBe(false);
   });
 });

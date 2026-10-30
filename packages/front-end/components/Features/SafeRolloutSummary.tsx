@@ -8,9 +8,9 @@ import { FeatureInterface } from "shared/types/feature";
 import { Box, Flex, Text, Tooltip } from "@radix-ui/themes";
 import { SafeRolloutInterface, SafeRolloutRule } from "shared/validators";
 import ValidateValue from "@/components/Features/ValidateValue";
-import Badge from "@/ui/Badge";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Table, { TableBody, TableRow, TableCell } from "@/ui/Table";
+import { EntityBadge } from "@/components/Features/EntityBadge";
 import { AttributeBadge } from "./AttributeBadge";
 import ValueDisplay from "./ValueDisplay";
 
@@ -91,9 +91,7 @@ export default function SafeRolloutSummary({
       </Flex>
       <Flex direction="row" gap="2">
         <Text weight="medium">MONITOR</Text>
-        <Badge
-          color="gray"
-          variant="soft"
+        <EntityBadge
           label={
             <Tooltip
               content={metricNames.map(({ key, name }) => (

@@ -29,6 +29,7 @@ import {
   normalizeSnowflakeTablePrefixForEventForwarder,
   normalizeDatabricksEventForwarderDestination,
   resolveBigQueryEventForwarderTableNames,
+  resolveSnowflakeEventForwarderTableNames,
   resolveDatabricksEventForwarderTables,
 } from "shared/util";
 import { ReqContext } from "back-end/types/request";
@@ -44,6 +45,7 @@ type SinkConfig =
 const IN_HOUSE_CONSUMER_SINKS: ReadonlySet<EventForwarderSinkType> = new Set([
   "databricks",
   "bigquery",
+  "snowflake",
 ]);
 
 export function isInHouseConsumerSink(
@@ -134,6 +136,20 @@ export async function hasAnyEventForwarderConfig(
 ): Promise<boolean> {
   const configs = await context.models.eventForwarderConfigs.getAll();
   return configs.length > 0;
+}
+
+// One forwarder per org (usage is metered per org); org-wide so forwarders on
+// unreadable Projects count. Lift when per-destination event splitting lands.
+export async function assertNoEventForwarderInOrg(
+  context: ReqContext,
+): Promise<void> {
+  const [other] =
+    await context.models.eventForwarderConfigs.getAllBypassingReadPermissions();
+  if (other) {
+    throw new Error(
+      "This organization already has an Event Forwarder. Only one Event Forwarder is allowed per organization.",
+    );
+  }
 }
 
 // GCP service account key JSON for Confluent BigQuery Storage Sink (not OAuth connector mode).
@@ -305,12 +321,18 @@ function buildSnowflakeStoredConfigFromDraft(
   const authMethod = datasourceParams?.authMethod ?? "password";
   if (authMethod !== "key-pair") {
     throw new Error(
-      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Confluent Snowflake Sink provisioning requires a private key.",
+      "Snowflake event forwarder requires key-pair authentication. Password and Workload Identity authentication are supported for Snowflake queries, but Snowpipe Streaming requires a private key.",
     );
   }
 
+  const names = resolveSnowflakeEventForwarderTableNames(tablePrefix);
   return {
     tablePrefix,
+    tables: {
+      events: names.events,
+      experiment_viewed: names.experimentViewed,
+      feature_usage: names.featureUsage,
+    },
     account:
       datasourceParams?.account?.trim() ||
       existingStored?.account?.trim() ||
@@ -466,7 +488,7 @@ function validateNormalizedSinkPayload(
       !snowflake.role?.trim()
     ) {
       throw new Error(
-        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role (required for Snowpipe Streaming schematization)",
+        "Snowflake event forwarder requires account, username, destination table prefix (DATABASE.SCHEMA.PREFIX), Snowflake URL, private key credentials, and Snowflake role",
       );
     }
   }
@@ -693,6 +715,7 @@ export async function syncEventForwarderConfigFromDatasource({
   const projects = [...(datasource.projects ?? [])].sort();
 
   if (!existing) {
+    await assertNoEventForwarderInOrg(context);
     return await context.models.eventForwarderConfigs.create({
       datasourceId: datasource.id,
       projects,

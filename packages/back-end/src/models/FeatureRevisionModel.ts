@@ -7,6 +7,7 @@ import {
   featureMetadataEnvelope,
   fillRevisionFromFeature,
   getApplicableEnvIds,
+  getExperimentIdsFromRules,
   getRevisionReviewRequirement,
   isRevisionEditLockedBySchedule,
   liveRevisionFromFeature,
@@ -41,9 +42,10 @@ import {
   RevisionMetadata,
   RevisionRampAction,
   RevisionReview,
-  reviewerKeyForEventUser,
+  eventUserIdentity,
 } from "shared/validators";
 import { assertFeatureSavedGroupScope } from "back-end/src/services/savedGroupProjectScope";
+import { editDisarmsFeatureDraft } from "back-end/src/services/confirmations";
 import {
   featureForSavedGroupValidation,
   Feature as SavedGroupScopeFeature,
@@ -164,6 +166,7 @@ const featureRevisionSchema = new mongoose.Schema({
   },
   // Users who have made edits to this draft beyond the original author.
   contributors: [{}],
+  editorKeys: [String],
   // Active reviewer verdicts for the current review cycle. Maintained by the
   // review lifecycle mutations; cleared when a new review cycle starts.
   reviews: [
@@ -454,6 +457,45 @@ export function revisionToInterfaceWithFeature(
   return toInterface(doc, context, feature);
 }
 
+// Matches who created a revision: a member directly or through an org key that
+// assumed their role, or for `author` an org key acting as itself; and for
+// `involvedUserId` anyone who contributed.
+function revisionPersonFilter({
+  author,
+  involvedUserId,
+}: {
+  author?: string;
+  involvedUserId?: string;
+}): Record<string, unknown> {
+  const createdBy = (id: string) => [
+    { "createdBy.id": id },
+    { "createdBy.requestedBy.id": id, "createdBy.assumedRole": true },
+  ];
+  const clauses: Record<string, unknown>[] = [];
+  if (author) {
+    clauses.push({
+      $or: [
+        ...createdBy(author),
+        {
+          "createdBy.apiKey": author,
+          "createdBy.id": { $in: [null, ""] },
+          "createdBy.assumedRole": { $ne: true },
+        },
+      ],
+    });
+  }
+  if (involvedUserId) {
+    clauses.push({
+      $or: [
+        ...createdBy(involvedUserId),
+        { contributors: involvedUserId },
+        { "contributors.id": involvedUserId },
+      ],
+    });
+  }
+  return clauses.length ? { $and: clauses } : {};
+}
+
 export async function countDocuments(
   organization: string,
   {
@@ -476,35 +518,34 @@ export async function countDocuments(
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
-  if (author) filter["createdBy.id"] = author;
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   return FeatureRevisionModel.countDocuments(filter);
 }
+
+type LinkageRevisionSummary = Pick<
+  FeatureRevisionInterface,
+  "version" | "rules"
+>;
 
 /** Returns only the revisions that syncFeatureExperimentLinkages/
  * syncFeatureContextualBanditLinkages need — open drafts, plus the single
  * latest published revision — pre-split so callers don't have to re-derive
- * the distinction themselves. A feature's older superseded published
- * revisions are irrelevant to linkage syncing and deliberately excluded. */
+ * the distinction themselves. A draft cut from an older revision carries that
+ * base, to tell its own edits from what live changed since. Other superseded
+ * published revisions are irrelevant to linkage syncing. */
 export async function getLinkageSyncRevisionSummaries(
   organization: string,
   featureId: string,
 ): Promise<{
-  openDrafts: Pick<FeatureRevisionInterface, "version" | "rules">[];
-  liveRevision: Pick<FeatureRevisionInterface, "version" | "rules"> | null;
+  openDrafts: (LinkageRevisionSummary & { base?: LinkageRevisionSummary })[];
+  liveRevision: LinkageRevisionSummary | null;
 }> {
   const [openDraftDocs, liveDoc] = await Promise.all([
     FeatureRevisionModel.find({
       organization,
       featureId,
       status: { $in: ACTIVE_DRAFT_STATUSES },
-    }).select("version rules"),
+    }).select("version rules baseVersion"),
     FeatureRevisionModel.findOne({
       organization,
       featureId,
@@ -513,31 +554,40 @@ export async function getLinkageSyncRevisionSummaries(
       .sort({ version: -1 })
       .select("version rules"),
   ]);
+  const staleBaseVersions = [
+    ...new Set(
+      openDraftDocs
+        .map((d) => d.baseVersion)
+        .filter((v) => v !== liveDoc?.version),
+    ),
+  ];
+  const baseDocs = staleBaseVersions.length
+    ? await FeatureRevisionModel.find({
+        organization,
+        featureId,
+        version: { $in: staleBaseVersions },
+      }).select("version rules")
+    : [];
+  const basesByVersion = new Map(baseDocs.map((d) => [d.version, d]));
+  const summarize = (d: LinkageRevisionSummary): LinkageRevisionSummary => ({
+    version: d.version,
+    rules: d.rules,
+  });
   return {
-    openDrafts: openDraftDocs.map((d) => ({
-      version: d.version,
-      rules: d.rules,
-    })),
-    liveRevision: liveDoc
-      ? { version: liveDoc.version, rules: liveDoc.rules }
-      : null,
+    openDrafts: openDraftDocs.map((d) => {
+      const base = basesByVersion.get(d.baseVersion);
+      return { ...summarize(d), ...(base && { base: summarize(base) }) };
+    }),
+    liveRevision: liveDoc ? summarize(liveDoc) : null,
   };
 }
 
-/**
- * Reconcile both linkage projections after a write that only moves drafts
- * around, so there is no publish to gate.
- *
- * Bandit linkage is awaited, so the response the caller returns already reflects
- * it, but only when a bandit rule is involved on either side of the write —
- * which is also the only way linkage can go stale, since a bandit that drops out
- * of every revision was referenced by the pre-write rules. Experiment linkage
- * keeps its existing fire-and-forget behaviour.
- */
+// Re-syncs both linkage projections after a draft-only write, awaiting each one
+// a rule of its kind touches so a start right after sees it.
 async function syncLinkagesAfterDraftWrite(
   context: ReqContext | ApiReqContext,
   revision: Pick<FeatureRevisionInterface, "organization" | "featureId">,
-  banditRuleSets: unknown[],
+  ruleSets: unknown[],
   label: string,
 ): Promise<void> {
   const summaries = getLinkageSyncRevisionSummaries(
@@ -545,7 +595,7 @@ async function syncLinkagesAfterDraftWrite(
     revision.featureId,
   );
 
-  summaries
+  const experimentSync = summaries
     .then(({ openDrafts, liveRevision }) =>
       syncFeatureExperimentLinkages(
         context,
@@ -557,8 +607,11 @@ async function syncLinkagesAfterDraftWrite(
     .catch((e) => {
       logger.error(e, `experiment linkage sync failed in ${label}`);
     });
+  if (ruleSets.some((rules) => getExperimentIdsFromRules(rules).length > 0)) {
+    await experimentSync;
+  }
 
-  if (!banditRuleSets.some(referencesAnyContextualBandit)) return;
+  if (!ruleSets.some(referencesAnyContextualBandit)) return;
 
   try {
     const { openDrafts, liveRevision } = await summaries;
@@ -699,6 +752,19 @@ export async function getOpenDraftRules(
   return docs.map((d) => d.rules);
 }
 
+export async function getActiveDraftVersions(
+  organization: string,
+  featureId: string,
+): Promise<number[]> {
+  const docs = await FeatureRevisionModel.find(
+    { organization, featureId, status: { $in: ACTIVE_DRAFT_STATUSES } },
+    { version: 1, _id: 0 },
+  )
+    .sort({ version: 1 })
+    .lean();
+  return docs.map((d) => d.version);
+}
+
 export async function hasDraft(
   organization: string,
   feature: FeatureInterface,
@@ -748,7 +814,7 @@ export async function getFeatureRevisionsByStatus({
   sort = "desc",
   skipPagination = false,
 }: {
-  context: ReqContext;
+  context: ReqContext | ApiReqContext;
   organization: string;
   featureId?: string;
   featureIds?: string[];
@@ -771,14 +837,7 @@ export async function getFeatureRevisionsByStatus({
   if (status) {
     filter.status = Array.isArray(status) ? { $in: status } : status;
   }
-  if (author) filter["createdBy.id"] = author;
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   let query = FeatureRevisionModel.find(filter)
     .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
     .sort({ version: sort === "desc" ? -1 : 1 });
@@ -817,16 +876,7 @@ export async function getLatestActiveDraftForFeature(
         : status
       : { $in: ACTIVE_DRAFT_STATUSES },
   };
-  if (involvedUserId) {
-    filter.$or = [
-      { "createdBy.id": involvedUserId },
-      { contributors: involvedUserId },
-      { "contributors.id": involvedUserId },
-    ];
-  }
-  if (author) {
-    filter["createdBy.id"] = author;
-  }
+  Object.assign(filter, revisionPersonFilter({ author, involvedUserId }));
   const doc = await FeatureRevisionModel.findOne(filter, { log: 0 }).sort({
     dateUpdated: -1,
   });
@@ -984,14 +1034,14 @@ export function normalizeRulesInputToV2(
   return deduped;
 }
 
-export async function createInitialRevision(
-  context: ReqContext | ApiReqContext,
+// The published revision a new flag starts on, unsaved.
+export function initialRevision(
   feature: FeatureInterface,
   user: EventUser | null,
   environments: string[],
-  date?: Date,
+  date: Date = new Date(),
   comment?: string,
-) {
+): FeatureRevisionInterface {
   const rules: FeatureRule[] = (feature.rules ?? [])
     .filter(isPlausibleFeatureRule)
     .map((r) => upgradeFeatureRule(r));
@@ -1001,9 +1051,7 @@ export async function createInitialRevision(
       feature.environmentSettings?.[env]?.enabled ?? false;
   });
 
-  date = date || new Date();
-
-  const doc = await FeatureRevisionModel.create({
+  return {
     organization: feature.organization,
     featureId: feature.id,
     version: 1,
@@ -1024,8 +1072,20 @@ export async function createInitialRevision(
     // left revision 1 disagreeing with the feature document.
     holdout: feature.holdout ?? null,
     metadata: featureMetadataEnvelope(feature),
-  });
+  };
+}
 
+export async function createInitialRevision(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  user: EventUser | null,
+  environments: string[],
+  date?: Date,
+  comment?: string,
+) {
+  const doc = await FeatureRevisionModel.create(
+    initialRevision(feature, user, environments, date, comment),
+  );
   return toInterface(doc, context, feature);
 }
 
@@ -1077,13 +1137,17 @@ export async function prepareFeatureRevision({
   revertedFrom,
   comment,
   title,
-}: PrepareFeatureRevisionParams): Promise<{
+  unsavedLive,
+}: PrepareFeatureRevisionParams & {
+  // A flag not saved yet: the revision it will start on.
+  unsavedLive?: FeatureRevisionInterface;
+}): Promise<{
   revision: FeatureRevisionInterface;
   baseRevision: FeatureRevisionInterface;
   baseVersion: number;
 }> {
   // createRevision may reassign this initial version if a concurrent insert wins.
-  const lastRevision = await getLastRevision(context, feature);
+  const lastRevision = unsavedLive ?? (await getLastRevision(context, feature));
   const newVersion = lastRevision ? lastRevision.version + 1 : 1;
 
   const defaultValue =
@@ -1332,6 +1396,25 @@ function changeResetsApproval(
   return rules.some(
     (rule) =>
       "resetReviewOnChange" in rule && rule.resetReviewOnChange === true,
+  );
+}
+
+// An armed draft that gains a draft experiment's rule can't land it: its publish
+// would leave the experiment unstarted. The edit disarms it instead.
+async function editMakesArmedDraftLaunch(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+  proposed: FeatureRevisionInterface,
+  changes: RevisionChanges,
+): Promise<boolean> {
+  if (!revision.autoPublishOnApproval || !("rules" in changes)) return false;
+  // Imported late: the armed-publish module imports this one.
+  const { draftExperimentsLaunchedBy } = await import(
+    "back-end/src/api/features/autoPublishOnApproval"
+  );
+  return (
+    (await draftExperimentsLaunchedBy(context, feature, proposed)).length > 0
   );
 }
 
@@ -1606,12 +1689,37 @@ export async function updateRevision(
     revision: proposedRevision,
     original: revision,
   });
+  const disarm =
+    editDisarmsFeatureDraft(context, proposedRevision) ||
+    (await editMakesArmedDraftLaunch(
+      context,
+      feature,
+      revision,
+      proposedRevision,
+      normalizedChanges,
+    ));
+  // The bypass was given for the draft as it was armed; a gated edit since
+  // takes it back, leaving the publish to wait on approval like any other.
+  const dropsBypass =
+    !disarm &&
+    !!revision.scheduledPublishBypassApproval &&
+    !rebase &&
+    REVISION_CONTENT_FIELDS.some((f) => f in normalizedChanges) &&
+    editResetsApproval(context, feature, revision, normalizedChanges);
 
-  // Track contributors as user ID strings via atomic $addToSet.
-  const contributorId =
-    log.user != null && "id" in log.user && log.user.id ? log.user.id : null;
-  const contributorUpdate =
-    contributorId != null ? { $addToSet: { contributors: contributorId } } : {};
+  // Track contributors by identity, and the key behind an edit in either mode,
+  // via atomic $addToSet.
+  const contributorId = eventUserIdentity(log.user);
+  const editorKey = log.user?.type === "api_key" ? log.user.apiKey : "";
+  const addToSet = {
+    ...(contributorId != null ? { contributors: contributorId } : {}),
+    ...(editorKey ? { editorKeys: editorKey } : {}),
+  };
+  const unset = {
+    ...(clearRevertedFrom ? { revertedFrom: 1 } : {}),
+    ...(disarm ? { ...SCHEDULED_PUBLISH_UNSET, autoPublishEnabledBy: 1 } : {}),
+    ...(dropsBypass ? { scheduledPublishBypassApproval: 1 } : {}),
+  };
 
   // `status` rides the FILTER: the `status` being written was COMPUTED from the
   // caller's copy (an edit can demote an approval), so a status that moved
@@ -1641,12 +1749,13 @@ export async function updateRevision(
         // policy hooks and the REST API don't count approvals made against
         // older content, while the UI can still attribute them.
         ...(clearReviews ? { reviews: staleReviews } : {}),
+        ...(disarm ? { autoPublishOnApproval: false } : {}),
       },
       // The reset starts a new review cycle, so it takes a new cycle number —
       // atomically, like every other cycle start.
       ...(clearReviews ? { $inc: { reviewCycle: 1 } } : {}),
-      ...(clearRevertedFrom ? { $unset: { revertedFrom: 1 } } : {}),
-      ...contributorUpdate,
+      ...(Object.keys(unset).length ? { $unset: unset } : {}),
+      ...(Object.keys(addToSet).length ? { $addToSet: addToSet } : {}),
     },
     { new: true },
   );
@@ -1669,6 +1778,11 @@ export async function updateRevision(
     });
 
   const updatedRevision = toInterface(doc, context, feature);
+  if (disarm) {
+    logScheduledPublishChange(context, revision, {
+      action: "cancel scheduled publish",
+    });
+  }
 
   // Linkage sync whenever draft rules change.
   if ("rules" in changes) {
@@ -2729,7 +2843,7 @@ export async function submitReviewAndComments(
       : reviewSubmittedType === "Requested Changes"
         ? ("changes-requested" as const)
         : null;
-  const reviewerKey = reviewerKeyForEventUser(user);
+  const reviewerKey = eventUserIdentity(user);
   const newReview: RevisionReview | null =
     verdict !== null && reviewerKey !== null
       ? { userId: reviewerKey, user, status: verdict, timestamp: new Date() }
@@ -2752,7 +2866,7 @@ export async function submitReviewAndComments(
     };
     const outcome = await casUpdate(
       cycleFilter,
-      ["reviews", "status", "reviewCycle", "contributors"],
+      ["reviews", "status", "reviewCycle", "contributors", "editorKeys"],
       async (current) => {
         // Re-asked on every retry: the re-read row may have crossed a recall
         // AND a resubmit since the first attempt.
@@ -2766,12 +2880,16 @@ export async function submitReviewAndComments(
         }
 
         // Against the row this write is conditioned on, not the caller's stale
-        // copy (see the `blockSelfApproval` param).
-        if (
-          verdict === "approved" &&
-          blockSelfApproval &&
-          (current.contributors ?? []).includes(newReview.userId)
-        ) {
+        // copy (see the `blockSelfApproval` param). A key acting as itself never
+        // rules on a draft it edited in either mode.
+        const contributed = (current.contributors ?? []).includes(
+          newReview.userId,
+        );
+        const key = context.keyActingAsItself;
+        if (key && (contributed || (current.editorKeys ?? []).includes(key))) {
+          throw new Error("Cannot submit a review on a draft you created");
+        }
+        if (contributed && verdict === "approved" && blockSelfApproval) {
           throw new Error("You cannot approve a draft you contributed to.");
         }
 
@@ -2927,7 +3045,7 @@ export async function recallReview(
   }
 
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "Recall Review",
@@ -2968,7 +3086,7 @@ export function activeReviewsFromLog(
       byReviewer.clear();
       continue;
     }
-    const key = reviewerKeyForEventUser(entry.user);
+    const key = eventUserIdentity(entry.user);
     if (key === null) continue;
     if (entry.action === "Approved" || entry.action === "Requested Changes") {
       byReviewer.set(key, {
@@ -3039,7 +3157,7 @@ export async function undoReview(
     );
   }
 
-  const retractingKey = reviewerKeyForEventUser(user);
+  const retractingKey = eventUserIdentity(user);
   // Keyless callers (e.g. system events) never hold a baked verdict to undo.
   if (retractingKey === null) {
     throw new Error("You have no active review verdict to undo");
@@ -3109,7 +3227,7 @@ export async function undoReview(
   const status = resolved;
 
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "Undo Review",
@@ -3174,7 +3292,7 @@ export async function reopenRevision(
 
   // Fire and forget — callers don't depend on the log entry being there
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "reopen",
@@ -3247,7 +3365,7 @@ export async function discardRevision(
 
   // Fire and forget - no route that discards the revision expects the log to be there immediately
   context.models.featureRevisionLogs
-    .create({
+    .dangerousCreateBypassPermission({
       featureId: revision.featureId,
       version: revision.version,
       action: "discard",
@@ -3285,9 +3403,10 @@ export async function getFeatureRevisionsByFeatureIds(
       status: { $in: ACTIVE_DRAFT_STATUSES },
       featureId: { $in: featureIds },
     })
-      .select("-log") // Remove the log when fetching all revisions since it can be large to send over the network
-      .sort({ version: -1 })
-      .limit(10);
+      // Uncapped: a shared cap starves some flags of the draft holding their
+      // rule. The log is the one field large enough to leave behind.
+      .select("-log")
+      .sort({ version: -1 });
     revisions.forEach((revision) => {
       const featureId = revision.featureId;
       revisionsByFeatureId[featureId] = revisionsByFeatureId[featureId] || [];
@@ -3300,8 +3419,29 @@ export async function getFeatureRevisionsByFeatureIds(
   return revisionsByFeatureId;
 }
 
+// Matches both stored rule shapes: the flat list and the legacy per-environment map.
+export async function getNewestDiscardedRevisionWithExperimentRule(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  experimentId: string,
+): Promise<FeatureRevisionInterface | null> {
+  const ruleMatch = { $elemMatch: { type: "experiment-ref", experimentId } };
+  const doc = await FeatureRevisionModel.findOne({
+    organization: context.org.id,
+    featureId: feature.id,
+    status: "discarded",
+    $or: [
+      { rules: ruleMatch },
+      ...context.environments.map((env) => ({ [`rules.${env}`]: ruleMatch })),
+    ],
+  })
+    .select("-log")
+    .sort({ version: -1 });
+  return doc ? toInterface(doc, context, feature) : null;
+}
+
 // Staged targeting metadata for every active draft of the given features.
-// Lean and uncapped, unlike getFeatureRevisionsByFeatureIds.
+// Lean, unlike getFeatureRevisionsByFeatureIds.
 export async function getActiveDraftMetadataByFeatureIds(
   organization: string,
   featureIds: string[],
@@ -3364,22 +3504,65 @@ export async function getActiveDraftStates(
  * published history. Keyed by exact identity; only called by the flow that just
  * created the revision. Its log rows go with it — a later revision REUSES the
  * freed version number and would otherwise adopt this landing's history.
+ * With `writtenDateUpdated`, deletes only an unpublished revision nothing but
+ * the caller has written since; false means someone else's write landed.
  */
 export async function deleteRevisionForFailedLanding(
   context: ReqContext | ApiReqContext,
   organization: string,
   featureId: string,
   version: number,
-) {
-  await FeatureRevisionModel.deleteOne({
+  writtenDateUpdated?: Date,
+): Promise<boolean> {
+  const { deletedCount } = await FeatureRevisionModel.deleteOne({
     organization,
     featureId,
     version,
+    ...(writtenDateUpdated
+      ? { dateUpdated: writtenDateUpdated, status: { $ne: "published" } }
+      : {}),
   });
+  if (!deletedCount) return false;
   await context.models.featureRevisionLogs.deleteAllByFeatureIdAndVersion(
     featureId,
     version,
   );
+  return true;
+}
+
+// Stored shape, read past mongoose: the interface is env-filtered and
+// inheritance-expanded, so it cannot be written back as the pre-image.
+export type RevisionSnapshot = Record<string, unknown> & { dateUpdated?: Date };
+
+export async function getRevisionSnapshot(
+  organization: string,
+  featureId: string,
+  version: number,
+): Promise<RevisionSnapshot | null> {
+  return FeatureRevisionModel.collection.findOne({
+    organization,
+    featureId,
+    version,
+  });
+}
+
+// Puts a revision back exactly as it was, only while nothing but the caller has
+// written it since `writtenDateUpdated`. False = someone else's edit landed.
+export async function restoreRevisionSnapshot(
+  snapshot: RevisionSnapshot,
+  writtenDateUpdated: Date | undefined,
+): Promise<boolean> {
+  const { organization, featureId, version } = snapshot;
+  const result = await FeatureRevisionModel.collection.replaceOne(
+    {
+      organization,
+      featureId,
+      version,
+      dateUpdated: writtenDateUpdated ?? { $exists: false },
+    },
+    snapshot,
+  );
+  return result.matchedCount === 1;
 }
 
 export async function deleteAllRevisionsForFeature(

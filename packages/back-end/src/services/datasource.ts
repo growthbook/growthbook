@@ -7,6 +7,8 @@ import {
   TemplateVariables,
 } from "shared/types/sql";
 import {
+  ExperimentExposuresQueryParams,
+  ExperimentExposuresQueryResponse,
   FeatureEvalDiagnosticsQueryResponseRows,
   QueryResponseColumnData,
   TestQueryResult,
@@ -20,10 +22,7 @@ import {
   ExposureQuery,
   FeatureUsageQuery,
 } from "shared/types/datasource";
-import {
-  DetectedFactTableColumn,
-  FactTableColumnType,
-} from "shared/types/fact-table";
+import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
 import { QueryStatistics, QueryType, TestQueryType } from "shared/types/query";
 import {
@@ -31,6 +30,12 @@ import {
   DataSourceParamsForType,
   mergeDataSourceParams,
   redactSecretParams,
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryExperimentNameColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getExposureQueryVariationNameColumn,
 } from "shared/util";
 import { columnNamesMatch, determineColumnTypes } from "back-end/src/util/sql";
 import { detectColumnsFromQueryResult } from "back-end/src/util/factTable";
@@ -380,6 +385,25 @@ export async function runFeatureEvalDiagnosticsQuery(
   }
 }
 
+export async function runExperimentExposuresQuery(
+  integration: SourceIntegrationInterface,
+  params: ExperimentExposuresQueryParams,
+): Promise<ExperimentExposuresQueryResponse & { sql: string }> {
+  if (
+    !integration.getExperimentExposuresQuery ||
+    !integration.runExperimentExposuresQuery
+  ) {
+    throw new Error(
+      "Exposure logs are not supported for this Data Source type.",
+    );
+  }
+
+  const sql = integration.getExperimentExposuresQuery(params);
+  const { rows, statistics } =
+    await integration.runExperimentExposuresQuery(sql);
+  return { rows, statistics, sql };
+}
+
 export async function testQuery(
   context: ReqContext,
   datasource: DataSourceInterface,
@@ -395,7 +419,7 @@ export async function testQuery(
   duration?: number;
   error?: string;
   sql?: string;
-  columns?: DetectedFactTableColumn[];
+  columns?: DetectedColumn[];
 }> {
   if (!context.permissions.canRunTestQueries(datasource)) {
     throw new Error("Permission denied");
@@ -485,20 +509,28 @@ export async function testQueryValidity(
     return undefined;
   }
 
+  // Dimensions and name columns aren't remappable, so they stay canonical
   const requiredColumns = new Set([
-    "experiment_id",
-    "variation_id",
-    "timestamp",
-    ...query.userIdTypes,
+    getExposureQueryExperimentIdColumn(query),
+    getExposureQueryVariationIdColumn(query),
+    getExposureQueryTimestampColumn(query),
+    ...query.userIdTypes.map((idType) =>
+      getExposureQueryIdentifierColumn(query, idType),
+    ),
     ...query.dimensions,
-    ...(query.hasNameCol ? ["experiment_name", "variation_name"] : []),
+    ...(query.hasNameCol
+      ? [
+          getExposureQueryExperimentNameColumn(query),
+          getExposureQueryVariationNameColumn(query),
+        ]
+      : []),
   ]);
 
   const sql = integration.getTestValidityQuery(
     query.query,
     testDays,
     undefined,
-    "timestamp",
+    getExposureQueryTimestampColumn(query),
   );
   try {
     const results = await integration.runTestQuery(

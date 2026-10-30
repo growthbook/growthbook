@@ -12,6 +12,7 @@ import { PiArrowSquareOut } from "react-icons/pi";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import {
   ensureConfigBacking,
+  getApplicableEnvIds,
   setConfigBacking,
   valueHasConfigExtends,
 } from "shared/util";
@@ -21,11 +22,14 @@ import Text from "@/ui/Text";
 import VariationLabel from "@/ui/VariationLabel";
 import { useAuth } from "@/services/auth";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import useUnscopedRuleGate from "@/components/Features/useUnscopedRuleGate";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import track from "@/services/track";
 import {
   getDefaultValue,
   useEnvironments,
+  useScopedRuleDefaultEnvironment,
   getDefaultVariationValue,
   validateFeatureRule,
 } from "@/services/features";
@@ -135,7 +139,14 @@ export default function LinkFeatureToContextualBanditModal({
 }: Props) {
   const { project, refreshTags } = useDefinitions();
   const selectedProject = cb.project ?? project;
-  const environments = useEnvironments();
+  const allEnvironments = useEnvironments();
+  const applicableEnvIds = getApplicableEnvIds(
+    allEnvironments,
+    selectedProject,
+  );
+  const environments = allEnvironments.filter((env) =>
+    applicableEnvIds.includes(env.id),
+  );
   const permissionsUtil = usePermissionsUtil();
   const { refreshWatching } = useWatching();
 
@@ -176,12 +187,23 @@ export default function LinkFeatureToContextualBanditModal({
   >({});
   const [showValueErrors, setShowValueErrors] = useState(false);
 
-  const [ruleAllEnvironments, setRuleAllEnvironments] = useState<boolean>(true);
+  const scopedRuleDefaultEnv = useScopedRuleDefaultEnvironment(environments);
+  const [ruleAllEnvironments, setRuleAllEnvironments] =
+    useState<boolean>(!scopedRuleDefaultEnv);
   const [ruleSelectedEnvironments, setRuleSelectedEnvironments] = useState<
     string[]
-  >([]);
+  >(scopedRuleDefaultEnv ? [scopedRuleDefaultEnv] : []);
 
   const { apiCall } = useAuth();
+  const {
+    allowUnscopedRules,
+    unscopedRuleBlocksSubmit,
+    checkUnscopedRule,
+    unscopedRuleBanner,
+  } = useUnscopedRuleGate({
+    allEnvironments: ruleAllEnvironments,
+    environments: ruleSelectedEnvironments,
+  });
 
   const valueType = form.watch("valueType") as FeatureValueType;
   const existing = form.watch("existing");
@@ -210,7 +232,7 @@ export default function LinkFeatureToContextualBanditModal({
     });
   }, [isConfigBacked, defaultConfigKey, form]);
 
-  let ctaEnabled = true;
+  let ctaEnabled = !unscopedRuleBlocksSubmit;
   let disabledMessage: string | undefined;
 
   if (
@@ -261,7 +283,8 @@ export default function LinkFeatureToContextualBanditModal({
       cta={cta}
       close={close}
       ctaEnabled={ctaEnabled}
-      submit={form.handleSubmit(async (values) => {
+      aboveFooterContent={unscopedRuleBanner}
+      submit={validatedSubmit(form, async (values) => {
         const { variations, existing, ...feature } = values;
 
         const newFeatureEnvSettings: Record<string, FeatureEnvironment> = {};
@@ -325,6 +348,8 @@ export default function LinkFeatureToContextualBanditModal({
           );
         }
 
+        checkUnscopedRule();
+
         let targetFeatureId: string;
 
         if (existing) {
@@ -362,6 +387,7 @@ export default function LinkFeatureToContextualBanditModal({
             rule,
             autoPublish: false,
             forceNewDraft: true,
+            allowUnscopedRules,
           }),
         });
 
@@ -533,7 +559,6 @@ export default function LinkFeatureToContextualBanditModal({
                 setValue={(val) => form.setValue(`variations.${i}.value`, val)}
                 valueType={valueType}
                 feature={existing ? existingFeature : undefined}
-                useCodeInput={true}
                 showFullscreenButton={true}
                 sparse={isConfigBacked}
                 allowConfigBacking={isConfigBacked}

@@ -10,7 +10,9 @@ import {
 import { DEFAULT_TARGET_MDE } from "shared/constants";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
-import AnalysisForm from "@/components/Experiment/AnalysisForm";
+import AnalysisForm, {
+  AnalysisFormFocus,
+} from "@/components/Experiment/AnalysisForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
@@ -18,7 +20,10 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
-import { isIdentifierUndeclared } from "@/services/datasources";
+import {
+  getExposureQueriesInScope,
+  isIdentifierUndeclared,
+} from "@/services/datasources";
 import { AssignmentQueryDriftIcon } from "@/components/Experiment/AssignmentQueryFields";
 
 export interface Props {
@@ -28,6 +33,11 @@ export interface Props {
   canEdit: boolean;
   ssrPolyfills?: SSRPolyfills;
   isPublic?: boolean;
+  holdoutProjects?: string[];
+  // Lifted when something else on the page opens the settings modal too.
+  settingsOpen?: boolean;
+  setSettingsOpen?: (open: boolean) => void;
+  settingsFocus?: AnalysisFormFocus | null;
 }
 
 export default function AnalysisSettings({
@@ -37,6 +47,10 @@ export default function AnalysisSettings({
   canEdit,
   ssrPolyfills,
   isPublic,
+  holdoutProjects,
+  settingsOpen,
+  setSettingsOpen,
+  settingsFocus = null,
 }: Props) {
   const {
     getDatasourceById,
@@ -49,7 +63,9 @@ export default function AnalysisSettings({
   const { organization } = useUser();
   const permissionsUtil = usePermissionsUtil();
 
-  const [analysisModal, setAnalysisModal] = useState(false);
+  const [ownAnalysisModal, setOwnAnalysisModal] = useState(false);
+  const analysisModal = settingsOpen ?? ownAnalysisModal;
+  const setAnalysisModal = setSettingsOpen ?? setOwnAnalysisModal;
 
   const canEditAnalysisSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
@@ -65,6 +81,9 @@ export default function AnalysisSettings({
     assignmentQuery,
     experiment.exposureQueryIdentifierType,
   );
+  const scopedQueries = datasource
+    ? getExposureQueriesInScope(datasource, experiment.project, holdoutProjects)
+    : [];
 
   const { expandedGoals, expandedSecondaries, expandedGuardrails } =
     useMemo(() => {
@@ -155,8 +174,10 @@ export default function AnalysisSettings({
           editDates={true}
           editVariationIds={false}
           editMetrics={true}
+          focus={settingsFocus}
           source={"analysis-settings"}
           envs={envs}
+          holdoutProjects={holdoutProjects}
         />
       ) : null}
 
@@ -196,11 +217,15 @@ export default function AnalysisSettings({
                 </Text>{" "}
                 <AssignmentQueryDriftIcon
                   selection={{
+                    outOfScope:
+                      !!assignmentQuery &&
+                      !scopedQueries.some((q) => q.id === assignmentQuery.id),
                     identifierUndeclared: isIdentifierUndeclared(
                       assignmentQuery,
                       identifierType,
                     ),
                     identifierType,
+                    holdoutProjects,
                   }}
                 />
               </div>

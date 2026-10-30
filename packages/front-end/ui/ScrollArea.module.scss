@@ -1,0 +1,130 @@
+// An edge with more past it fades the content out over 40px, a hint that it
+// continues; the scrollbars, outside the viewport, stay whole.
+.fades :global(.rt-ScrollAreaViewport)[data-more] {
+  --fade-top: 1;
+  --fade-bottom: 1;
+  --fade-left: 1;
+  --fade-right: 1;
+  mask-image:
+    linear-gradient(
+      to bottom,
+      rgb(0 0 0 / var(--fade-top)) 0,
+      #000 var(--space-7),
+      #000 calc(100% - var(--space-7)),
+      rgb(0 0 0 / var(--fade-bottom)) 100%
+    ),
+    linear-gradient(
+      to right,
+      rgb(0 0 0 / var(--fade-left)) 0,
+      #000 var(--space-7),
+      #000 calc(100% - var(--space-7)),
+      rgb(0 0 0 / var(--fade-right)) 100%
+    );
+  mask-composite: intersect;
+
+  &[data-more~="top"] {
+    --fade-top: 0;
+  }
+  &[data-more~="bottom"] {
+    --fade-bottom: 0;
+  }
+  &[data-more~="left"] {
+    --fade-left: 0;
+  }
+  &[data-more~="right"] {
+    --fade-right: 0;
+  }
+}
+
+// What scrolls stacks inside the viewport, so the scrollbars and edge
+// shadows draw over all of it, sticky cells included.
+.root > :global(.rt-ScrollAreaViewport) {
+  isolation: isolate;
+}
+
+.shadowed {
+  position: relative;
+}
+
+.fillsWrapper {
+  height: 100%;
+}
+
+// As wide as the area rather than its own content, so what sizes itself to
+// its container can shrink with it; wider content still scrolls sideways.
+.fullWidth > :global(.rt-ScrollAreaViewport) > * {
+  width: 100%;
+}
+
+// The viewport's own child is the area's height, not its content's.
+.bounded > :global(.rt-ScrollAreaViewport) > * {
+  min-height: 0;
+}
+
+// Past content pinned to an edge, the shadow the edge itself would have.
+.root > :global(.rt-ScrollAreaViewport) {
+  &[data-under-pinned~="top"] .pinnedTop::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: -6px;
+    height: 6px;
+    pointer-events: none;
+    background: linear-gradient(to bottom, var(--gray-a2), transparent);
+  }
+
+  // Over its own bottom border too, so pinned cells stacked in a column
+  // join up.
+  &[data-under-pinned~="left"] .pinnedLeft::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    bottom: -1px;
+    right: -6px;
+    width: 6px;
+    pointer-events: none;
+    background: linear-gradient(to right, var(--gray-a2), transparent);
+  }
+}
+
+// A narrow shadow over an edge with more past it, as beside a pinned column.
+.shadow {
+  position: absolute;
+  z-index: 1;
+  pointer-events: none;
+
+  &[data-edge="top"],
+  &[data-edge="bottom"] {
+    left: 0;
+    right: 0;
+    height: 6px;
+  }
+
+  &[data-edge="left"],
+  &[data-edge="right"] {
+    top: 0;
+    bottom: 0;
+    width: 6px;
+  }
+
+  &[data-edge="top"] {
+    top: 0;
+    background: linear-gradient(to bottom, var(--gray-a2), transparent);
+  }
+
+  &[data-edge="bottom"] {
+    bottom: 0;
+    background: linear-gradient(to top, var(--gray-a2), transparent);
+  }
+
+  &[data-edge="left"] {
+    left: 0;
+    background: linear-gradient(to right, var(--gray-a2), transparent);
+  }
+
+  &[data-edge="right"] {
+    right: 0;
+    background: linear-gradient(to left, var(--gray-a2), transparent);
+  }
+}

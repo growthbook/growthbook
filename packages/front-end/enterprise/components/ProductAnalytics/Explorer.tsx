@@ -58,6 +58,7 @@ const EXPLORER_TYPE_LABELS: Record<DatasetType, string> = {
   sql: "SQL",
   funnel: "Funnel",
   journey: "User Journey",
+  population: "Population",
 };
 
 const explorationQueryParser = explorationConfigParser.withOptions({
@@ -88,6 +89,7 @@ function deriveConfigError(
   urlConfig: ExplorationConfig | null,
   rawParam: string | undefined,
   type: DatasetType,
+  lockedDatasourceId?: string,
 ): string | null {
   if (!rawParam) return null;
 
@@ -102,6 +104,12 @@ function deriveConfigError(
     } explorer, but you're currently viewing the ${
       EXPLORER_TYPE_LABELS[type]
     } explorer.`;
+  }
+
+  // The selector that would reveal a mismatch is hidden here, so a saved
+  // config for another Data Source would otherwise silently win.
+  if (lockedDatasourceId && urlConfig.datasource !== lockedDatasourceId) {
+    return "This link was created from a different Data Source.";
   }
 
   return null;
@@ -353,15 +361,45 @@ function ExplorerPreviousTimeFrameUrlSync({
   return null;
 }
 
-export default function Explorer({ type }: { type: DatasetType }) {
+export default function Explorer({
+  type,
+  datasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   return (
     <NuqsAdapter>
-      <ExplorerInner type={type} />
+      <ExplorerInner
+        type={type}
+        datasourceId={datasourceId}
+        lockDatasource={lockDatasource}
+        height={height}
+        sidebarHeaderActions={sidebarHeaderActions}
+      />
     </NuqsAdapter>
   );
 }
 
-function ExplorerInner({ type }: { type: DatasetType }) {
+function ExplorerInner({
+  type,
+  datasourceId: lockedDatasourceId,
+  lockDatasource = false,
+  height,
+  sidebarHeaderActions,
+}: {
+  type: DatasetType;
+  datasourceId?: string;
+  lockDatasource?: boolean;
+  height?: string;
+  sidebarHeaderActions?: React.ReactNode;
+}) {
   const router = useRouter();
   const defaultDataSourceId = useDefaultDataSourceId();
   const {
@@ -397,7 +435,8 @@ function ExplorerInner({ type }: { type: DatasetType }) {
   const rawParam = getQueryParam(router.query.config);
   const metricId = getQueryParam(router.query.metricId);
   const factTableId = getQueryParam(router.query.factTableId);
-  const datasourceId = getQueryParam(router.query.datasourceId);
+  const datasourceId =
+    lockedDatasourceId ?? getQueryParam(router.query.datasourceId);
   const funnelMetricId = getQueryParam(router.query.funnelMetricId);
   const seedId =
     type === "metric"
@@ -408,7 +447,12 @@ function ExplorerInner({ type }: { type: DatasetType }) {
           ? funnelMetricId
           : datasourceId;
 
-  const configError = deriveConfigError(urlConfig, rawParam, type);
+  const configError = deriveConfigError(
+    urlConfig,
+    rawParam,
+    type,
+    lockDatasource ? lockedDatasourceId : undefined,
+  );
 
   const [configErrorModal, setConfigErrorModal] = useState<string | null>(
     () => configError,
@@ -505,7 +549,7 @@ function ExplorerInner({ type }: { type: DatasetType }) {
       } else if (ready) {
         seedError = "Could not find the requested Fact Table.";
       }
-    } else if (type === "data_source" && datasourceId) {
+    } else if ((type === "data_source" || type === "sql") && datasourceId) {
       const datasource = getDatasourceById(datasourceId);
       if (datasource) {
         seededConfig = {
@@ -534,6 +578,10 @@ function ExplorerInner({ type }: { type: DatasetType }) {
     urlConfig && !configError ? urlConfig : (seededConfig ?? defaultDraftState);
   const initialConfig: ExplorerDraftConfig = {
     ...baseConfig,
+    // A rejected config skips seeding
+    ...(lockDatasource && lockedDatasourceId
+      ? { datasource: lockedDatasourceId }
+      : {}),
     ...(urlPreviousTimeFrame
       ? {
           previousTimeFrame: urlPreviousTimeFrame,
@@ -595,7 +643,11 @@ function ExplorerInner({ type }: { type: DatasetType }) {
               setUrlPreviousTimeFrame={setUrlPreviousTimeFrame}
               setUrlComparisonMode={setUrlComparisonMode}
             />
-            <ExplorerContent />
+            <ExplorerContent
+              hideDataSourceSelector={lockDatasource}
+              height={height}
+              sidebarHeaderActions={sidebarHeaderActions}
+            />
           </>
         )}
       </ExplorerProvider>

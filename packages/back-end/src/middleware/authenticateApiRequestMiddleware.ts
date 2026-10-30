@@ -1,11 +1,20 @@
 import { Request, Response, NextFunction, RequestHandler } from "express";
 import asyncHandler from "express-async-handler";
-import { getRolePermissions, hasPermission } from "shared/permissions";
 import {
-  EventUserApiKey,
+  getRolePermissions,
+  hasPermission,
+  hasSuperAdminPermission,
+} from "shared/permissions";
+import { SuperAdmin } from "shared/validators";
+import {
   EventUserLoggedIn,
+  EventUserRequestedBy,
 } from "shared/types/events/event-types";
-import { OrganizationInterface, Permission } from "shared/types/organization";
+import {
+  OrganizationInterface,
+  Permission,
+  UserPermissions,
+} from "shared/types/organization";
 import { ApiKeyInterface, ApiKeyWithRole } from "shared/types/apikey";
 import { TeamInterface } from "shared/types/team";
 import { licenseInit } from "back-end/src/enterprise";
@@ -15,15 +24,20 @@ import {
   getOrganizationById,
 } from "back-end/src/services/organizations";
 import { getCustomLogProps } from "back-end/src/util/logger";
+import { BadRequestError } from "back-end/src/util/errors";
 import {
+  apiKeyEventUser,
   isApiKeyForUserInOrganization,
   dangerousLookupOrganizationByApiKey,
+  REQUESTED_BY_HEADER,
+  resolveRequestedByFor,
 } from "back-end/src/util/api-key.util";
 import {
+  getKeyPermissionsForRequest,
   getPersonalAccessTokenPermissions,
   getUserPermissions,
 } from "back-end/src/util/organization.util";
-import { getUserById } from "back-end/src/models/UserModel";
+import { getUserById, getUserByEmail } from "back-end/src/models/UserModel";
 import {
   getLicenseMetaData,
   getUserCodesForOrg,
@@ -109,8 +123,12 @@ function authenticateWithJwt(
       };
 
       req.apiKey = "";
-      req.user = authReq.currentUser
-        ? (await getUserById(authReq.currentUser.id)) || undefined
+      const dbUser = authReq.currentUser
+        ? await getUserById(authReq.currentUser.id)
+        : null;
+      // processJWT may have demoted super admin for this login; the stored value must not restore it
+      req.user = dbUser
+        ? { ...dbUser, superAdmin: authReq.superAdmin ?? false }
         : undefined;
       req.organization = context.org;
       req.eventAudit = eventAudit;
@@ -241,6 +259,16 @@ function authenticateWithApiKey(
           new Date(expiresAt).toISOString(),
         );
       }
+      // Likewise for a rotated key's replaced secret, during its grace period.
+      if (
+        apiKeyDoc.previousKey === secretKey &&
+        apiKeyDoc.previousKeyExpiresAt
+      ) {
+        res.set(
+          "X-GrowthBook-Secret-Expires-At",
+          new Date(apiKeyDoc.previousKeyExpiresAt).toISOString(),
+        );
+      }
       req.apiKey = id || "";
 
       // If it's a personal access token API key, store the user ID in req
@@ -261,9 +289,9 @@ function authenticateWithApiKey(
             "OAuth access tokens can only access the organization they were issued for",
           );
         }
-        if (!req.user?.superAdmin) {
+        if (!hasSuperAdminPermission(req.user?.superAdmin, "impersonate")) {
           throw new Error(
-            "Only super admins can use the x-organization header",
+            "Only super admins with the impersonate permission can use the x-organization header",
           );
         } else {
           asOrg = xOrganizationHeader;
@@ -293,7 +321,10 @@ function authenticateWithApiKey(
         );
       }
 
-      if (org.suspended && !req.user?.superAdmin) {
+      if (
+        org.suspended &&
+        !hasSuperAdminPermission(req.user?.superAdmin, "impersonate")
+      ) {
         return res.status(403).json({
           message:
             "This account has been suspended. Please contact support@growthbook.io for assistance.",
@@ -304,10 +335,23 @@ function authenticateWithApiKey(
       // This is important to check in the event that a user leaves an organization, the member list is updated, and the user's API keys are orphaned
       if (
         userId &&
-        !req.user?.superAdmin &&
+        !hasSuperAdminPermission(req.user?.superAdmin, "impersonate") &&
         !isApiKeyForUserInOrganization(apiKeyDoc, org)
       ) {
         throw new Error("Could not find user attached to this API key");
+      }
+
+      let requestedBy: EventUserRequestedBy | null = null;
+      try {
+        requestedBy = await resolveRequestedByFor(
+          req.headers[REQUESTED_BY_HEADER],
+          userId ? null : apiKeyDoc,
+          org,
+          { byId: getUserById, byEmail: getUserByEmail },
+        );
+      } catch (e) {
+        if (!(e instanceof BadRequestError)) throw e;
+        return res.status(400).json({ message: e.message });
       }
 
       const [teams, restrictedProjects] = await Promise.all([
@@ -315,19 +359,19 @@ function authenticateWithApiKey(
         ProjectModel.dangerousGetRestrictedProjectIds(org.id),
       ]);
 
-      const eventAudit: EventUserApiKey = {
-        type: "api_key",
-        apiKey: id || "unknown",
-        ...(userId && req.user
-          ? {
-              id: req.user.id,
-              name: req.user.name || "",
-              email: req.user.email,
-            }
-          : {
-              name: apiKeyDoc.description || "",
-            }),
-      };
+      const keyPermissions = getKeyPermissionsForRequest({
+        apiKey: apiKeyDoc,
+        requesterId: requestedBy?.id ?? null,
+        org,
+        teams,
+        restrictedProjects,
+      });
+      const eventAudit = apiKeyEventUser({
+        apiKeyId: id || "unknown",
+        key: apiKeyDoc,
+        owner: userId && req.user ? req.user : null,
+        requester: requestedBy,
+      });
 
       req.context = new ReqContextClass({
         org,
@@ -339,6 +383,7 @@ function authenticateWithApiKey(
         apiKeyData: apiKeyDoc,
         req,
         restrictedProjects,
+        userPermissions: keyPermissions,
       });
 
       // Check permissions for user API keys
@@ -364,6 +409,7 @@ function authenticateWithApiKey(
             teams,
             superAdmin: req.user?.superAdmin,
             restrictedProjects,
+            keyPermissions,
           });
         }
       };
@@ -396,7 +442,7 @@ function doesUserHavePermission(
   permission: Permission,
   apiKeyDoc: ApiKeyInterface,
   teams: TeamInterface[],
-  superAdmin: boolean | undefined,
+  superAdmin: SuperAdmin | undefined,
   restrictedProjects: string[],
   project?: string,
   envs?: string[],
@@ -430,8 +476,9 @@ type VerifyApiKeyPermissionOptions = {
   project?: string;
   environments?: string[];
   teams: TeamInterface[];
-  superAdmin: boolean | undefined;
+  superAdmin: SuperAdmin | undefined;
   restrictedProjects?: string[];
+  keyPermissions?: UserPermissions;
 };
 
 /**
@@ -450,6 +497,7 @@ export function verifyApiKeyPermission({
   teams,
   superAdmin,
   restrictedProjects,
+  keyPermissions,
 }: VerifyApiKeyPermissionOptions) {
   if (apiKey.userId) {
     if (
@@ -471,12 +519,14 @@ export function verifyApiKeyPermission({
       throw new Error("API key does not have this level of access");
     }
   } else if (apiKey.secret && apiKey.role) {
-    const apiKeyPermissions = getRolePermissions(
-      apiKey as ApiKeyWithRole,
-      organization,
-      teams,
-      restrictedProjects,
-    );
+    const apiKeyPermissions =
+      keyPermissions ??
+      getRolePermissions(
+        apiKey as ApiKeyWithRole,
+        organization,
+        teams,
+        restrictedProjects,
+      );
 
     if (!hasPermission(apiKeyPermissions, permission, project, environments)) {
       throw new Error("API key user does not have this level of access");

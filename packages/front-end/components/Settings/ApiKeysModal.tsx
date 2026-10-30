@@ -1,23 +1,36 @@
-import { FC, useMemo, useRef, useState } from "react";
+import { FC, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { getRoles } from "shared/permissions";
-import { MemberRoleWithProjects } from "shared/types/organization";
 import { ApiKeyInterface } from "shared/types/apikey";
 import {
   getExpirationProblem,
   latestEditedExpiration,
 } from "shared/api-key-expiration";
-import { Box } from "@radix-ui/themes";
+import { Box, Grid } from "@radix-ui/themes";
+import { PiArrowSquareOut, PiHardDrives, PiUser } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
+import HelperText from "@/ui/HelperText";
 import { useUser } from "@/services/UserContext";
-import useOrgLimits from "@/hooks/useOrgLimits";
 import track from "@/services/track";
 import TextField from "@/ui/TextField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
-import RoleRulesTable from "@/components/Settings/Team/RoleRulesTable";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
+import Link from "@/ui/Link";
+import RadioCards from "@/ui/RadioCards";
+import Text from "@/ui/Text";
 import ApiKeyExpirationField from "./ApiKeyExpirationField";
+import PermissionsField, { useAllowedPermissions } from "./PermissionsField";
+import {
+  forHolder,
+  initialPermissions,
+  isComplete,
+  orgKeyFields,
+  rulesProblem,
+  tokenFields,
+} from "./apiKeyPermissions";
+
+type ActAs = NonNullable<ApiKeyInterface["actAs"]>;
 
 const ApiKeysModal: FC<{
   close: () => void;
@@ -39,8 +52,15 @@ const ApiKeysModal: FC<{
   onDeleteCopySource,
 }) => {
   const { apiCall } = useAuth();
-  const { organization, settings } = useUser();
-  const { orgSupportsRoles } = useOrgLimits();
+  const { settings } = useUser();
+  const canCreateApiKey = usePermissionsUtil().canCreateApiKey();
+  const replaceBlocked = personalAccessToken
+    ? settings?.disablePersonalAccessTokens
+      ? "Personal access tokens are disabled for your organization. Contact an admin if you need API access."
+      : null
+    : canCreateApiKey
+      ? null
+      : "Replacing it requires permission to create a new one.";
 
   const maxLifetimeDays = personalAccessToken
     ? settings?.maxPatLifetimeDays
@@ -61,7 +81,7 @@ const ApiKeysModal: FC<{
     existingKey
       ? latestEditedExpiration(
           existingKey.expiresAt,
-          existingKey.dateCreated,
+          existingKey.keyIssuedAt ?? existingKey.dateCreated,
           maxLifetimeDays,
         )
       : undefined,
@@ -70,20 +90,13 @@ const ApiKeysModal: FC<{
   // When an existing key is passed in, the modal edits that key in place
   // instead of creating a new one.
   const editMode = !!existingKey;
+  // Changing what an org key can do takes permission to create keys.
+  const authorityLocked = editMode && !personalAccessToken && !canCreateApiKey;
   const source = existingKey ?? copyFrom;
   const canDeleteSource = !!copyFrom && !!onDeleteCopySource;
   const [deleteSource, setDeleteSource] = useState(true);
   // A retry after a failed delete must not mint a second copy.
   const created = useRef(false);
-
-  const defaultRole = useMemo(() => {
-    const deactivated = new Set(organization.deactivatedRoles ?? []);
-    const roles = getRoles(organization);
-    return (
-      roles.find((r) => r.id !== "noaccess" && !deactivated.has(r.id))?.id ??
-      "readonly"
-    );
-  }, [organization]);
 
   const form = useForm<{
     description: string;
@@ -93,49 +106,47 @@ const ApiKeysModal: FC<{
     },
   });
 
-  const [roleState, setRoleState] = useState<MemberRoleWithProjects>({
-    // When editing or copying, seed the role from that key rather than the generic
-    // defaultRole. Legacy secret keys created before per-key roles have no
-    // stored role and resolve to "admin" at auth time (see roleForApiKey); the
-    // API already serializes that effective role onto the key, so existingKey.role
-    // is normally populated. We still fall back to "admin" (the same effective
-    // role) — never defaultRole — if it's ever empty, so a description/scope-only
-    // edit of a legacy key can't silently downgrade its permissions. defaultRole
-    // is only used when creating a brand-new key or scoping an unscoped PAT.
-    role:
-      source && (!personalAccessToken || source.scoped)
-        ? source.role || "admin"
-        : defaultRole,
-    limitAccessByEnvironment: source?.limitAccessByEnvironment ?? false,
-    environments: source?.environments ?? [],
-    additionalRoles: source?.additionalRoles,
-    projectRoles: source?.projectRoles,
-  });
-  const [scoped, setScoped] = useState(!!source?.scoped);
-  // Gated like org-key roles; with only the admin role there is nothing to narrow to.
-  // An already-scoped token stays visible after a downgrade so the scope isn't silently dropped.
-  const canScopeToken =
-    personalAccessToken && (orgSupportsRoles() || !!source?.scoped);
+  const [actAs, setActAs] = useState<ActAs>(source?.actAs ?? "system");
+  const holder = personalAccessToken ? "pat" : actAs;
+  const plan = useAllowedPermissions();
+  // An already-scoped token keeps its scope after a downgrade, so it isn't silently dropped.
+  // Likewise a key keeps editing the confirmations it has, as the server allows.
+  const allowed = {
+    ...plan,
+    roles: plan.roles || !!source?.scoped,
+    confirmations: plan.confirmations || !!existingKey?.confirmRules,
+  };
+  const [permissions, setPermissions] = useState(() =>
+    initialPermissions(source, holder, allowed),
+  );
 
   const onSubmit = form.handleSubmit(async (value) => {
-    const { role, ...roleStateData } = roleState;
-    const patScope = scoped ? { scopedRole: role, ...roleStateData } : {};
+    const problem = rulesProblem(permissions);
+    if (problem) throw new Error(problem);
+    const { role, ...orgKeyScope } = {
+      ...orgKeyFields(permissions),
+      actAs,
+    };
+    const patScope = tokenFields(permissions);
+    const trackProps = {
+      isSecret: !personalAccessToken,
+      ...(personalAccessToken ? { scoped: !!patScope.scopedRole } : { actAs }),
+      permissions: permissions.customizing ? "custom" : permissions.preset,
+    };
 
     if (existingKey) {
       await apiCall(`/keys/${existingKey.id}`, {
         method: "PUT",
         body: JSON.stringify({
           description: value.description,
-          ...(personalAccessToken ? patScope : { role, ...roleStateData }),
           ...(expirationChanged && {
             expiresAt: expiresAt?.toISOString() ?? null,
           }),
+          ...(!authorityLocked &&
+            (personalAccessToken ? patScope : { role, ...orgKeyScope })),
         }),
       });
-      track("Edit API Key", {
-        isSecret: !personalAccessToken,
-        ...(personalAccessToken ? { scoped } : {}),
-      });
+      track("Edit API Key", trackProps);
       onCreate();
       return;
     }
@@ -150,7 +161,7 @@ const ApiKeysModal: FC<{
       : {
           description: value.description,
           type: role,
-          ...roleStateData,
+          ...orgKeyScope,
           expiresAt: expiresAt?.toISOString() ?? null,
         };
     if (!created.current) {
@@ -159,10 +170,7 @@ const ApiKeysModal: FC<{
         body: JSON.stringify(key),
       });
       created.current = true;
-      track("Create API Key", {
-        isSecret: !personalAccessToken,
-        ...(personalAccessToken ? { scoped } : {}),
-      });
+      track("Create API Key", trackProps);
       onCreate();
     }
     if (canDeleteSource && deleteSource && onDeleteCopySource) {
@@ -178,29 +186,35 @@ const ApiKeysModal: FC<{
 
   return (
     <ModalStandard
-      size="xl"
+      size="lg"
       trackingEventModalType=""
       close={close}
-      header={editMode ? "Edit API Key" : "Create API Key"}
+      header={`${editMode ? "Edit" : "Create"} ${personalAccessToken ? "Personal Access Token" : "API Key"}`}
       open={true}
       submit={onSubmit}
       cta={editMode ? "Save" : "Create"}
-      ctaEnabled={!expirationProblem || (editMode && !expirationChanged)}
+      ctaEnabled={
+        (!expirationProblem || (editMode && !expirationChanged)) &&
+        (authorityLocked || isComplete(permissions))
+      }
     >
-      <TextField
-        label="Description"
-        required
-        mb="3"
-        {...form.register("description")}
-      />
-      <ApiKeyExpirationField
-        maxLifetimeDays={maxLifetimeDays}
-        value={expiresAt}
-        setValue={setExpiresAt}
-        existing={existingKey}
-      />
+      <Grid
+        columns={{ initial: "1fr", sm: "minmax(0, 1fr) 220px" }}
+        gapX="4"
+        gapY="3"
+        align="start"
+      >
+        <TextField label="Name" required {...form.register("description")} />
+        <ApiKeyExpirationField
+          maxLifetimeDays={maxLifetimeDays}
+          value={expiresAt}
+          setValue={setExpiresAt}
+          existing={existingKey}
+          replaceBlocked={replaceBlocked}
+        />
+      </Grid>
       {canDeleteSource && (
-        <Box mb="3">
+        <Box mt="3">
           <Checkbox
             value={deleteSource}
             setValue={setDeleteSource}
@@ -208,38 +222,73 @@ const ApiKeysModal: FC<{
           />
         </Box>
       )}
-      {canScopeToken && (
-        <>
-          <Checkbox
-            label="Limit this token's permissions"
-            description="The token can never do more than you can: it gets only what both your own role and these settings allow."
-            value={scoped}
-            setValue={setScoped}
-            mb="3"
-          />
-          {scoped && (
-            <RoleRulesTable value={roleState} setValue={setRoleState} />
-          )}
-        </>
+      {authorityLocked && (
+        <HelperText status="info" mt="6">
+          Changing who this key acts as, its permissions, or its confirmations
+          requires permission to create API keys.
+        </HelperText>
       )}
-      {!personalAccessToken && (
-        <>
-          {editMode && (
-            <Callout status="info" mb="3">
-              <Box mb="2">
-                Editing permissions keeps the same key value, so existing
-                integrations keep working.
-              </Box>
-              <Box>
-                We recommend rotating instead (delete and recreate) when
-                it&apos;s not too disruptive &mdash; the key&apos;s scope is
-                baked into its name, so the name may be misleading after an
-                edit.
-              </Box>
-            </Callout>
+      {!authorityLocked && !personalAccessToken && (
+        <Box mt="6">
+          <Text as="div" size="md" weight="semibold" mb="2">
+            Act as
+          </Text>
+          <RadioCards
+            columns="2"
+            width="100%"
+            labelSize="md"
+            descriptionSize="sm"
+            truncateDescription={false}
+            value={actAs}
+            setValue={(next) => {
+              setActAs(next as ActAs);
+              setPermissions(forHolder(permissions, next as ActAs, allowed));
+            }}
+            options={[
+              {
+                value: "system",
+                label: "System",
+                description: "Not tied to a specific user.",
+                avatar: <PiHardDrives size={20} />,
+              },
+              {
+                value: "user",
+                label: "User",
+                description: "Pass a user in a header to act on their behalf.",
+                avatar: <PiUser size={20} />,
+              },
+            ]}
+          />
+          {actAs === "user" && (
+            <>
+              <Text as="p" mt="3" mb="3">
+                All requests must have an <code>X-GrowthBook-Requested-By</code>{" "}
+                header with email or member ID.
+              </Text>
+              <Callout status="info">
+                GrowthBook supports OAuth 2.0, which might be a better fit than
+                a shared API key.{" "}
+                <Link
+                  href="https://docs.growthbook.io/integrations/mcp"
+                  external
+                  weight="medium"
+                >
+                  Learn more <PiArrowSquareOut />
+                </Link>
+              </Callout>
+            </>
           )}
-          <RoleRulesTable value={roleState} setValue={setRoleState} />
-        </>
+        </Box>
+      )}
+      {!authorityLocked && (
+        <Box mt="6">
+          <PermissionsField
+            holder={holder}
+            value={permissions}
+            setValue={setPermissions}
+            allowed={allowed}
+          />
+        </Box>
       )}
     </ModalStandard>
   );

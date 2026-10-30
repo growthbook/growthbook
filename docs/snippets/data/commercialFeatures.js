@@ -105,6 +105,10 @@ export default {
     plan: "enterprise",
     displayName: "Holdouts",
   },
+  "human-in-the-loop": {
+    plan: "enterprise",
+    displayName: "Human In The Loop",
+  },
   "incremental-refresh": {
     plan: "enterprise",
     displayName: "Incremental Refresh",
@@ -297,6 +301,10 @@ export default {
     plan: "enterprise",
     displayName: "Templates",
   },
+  "unlimited-event-forwarder-usage": {
+    plan: "pro",
+    displayName: "Unlimited Event Forwarder Usage",
+  },
   "unlimited-managed-warehouse-usage": {
     plan: "pro",
     displayName: "Unlimited Managed Warehouse Usage",
@@ -307,6 +315,6 @@ export default {
   },
   "visual-editor": {
     plan: "pro",
-    displayName: "AI Visual Editor",
+    displayName: "Visual Editor",
   },
 };

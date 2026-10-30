@@ -1,16 +1,27 @@
-import { ExposureQuery } from "shared/types/datasource";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
 import { describe, expect, it } from "vitest";
 import {
+  followAssignmentAttribute,
   getDefaultIdentifierType,
   getIdentifierTypeForHashAttribute,
   isIdentifierUndeclared,
   getCopiedAssignmentQueryNotice,
+  getExposureQueriesForProject,
+  getExposureQueriesInScope,
   getCopySourceIdentifierType,
   getDefaultIdentifierTypeForQuery,
   getGroupedIdentifierTypeOptions,
   getHashAttributeIdentifierTypeMap,
+  getImportIdentifierTypes,
+  getGA4ExposureTemplate,
+  getInitialExposureQuery,
   getInitialSettings,
+  getNewExperimentDatasourceDefaults,
   getSelectableIdentifierTypes,
+  resolveAssignmentIdentifier,
   validateSQL,
 } from "@/services/datasources";
 
@@ -194,6 +205,60 @@ describe("getDefaultIdentifierTypeForQuery", () => {
 
   it("returns the first declared identifier when no preference is given", () => {
     expect(getDefaultIdentifierTypeForQuery(query)).toBe("user_id");
+  });
+});
+
+describe("getExposureQueriesForProject", () => {
+  const scoped = makeExposureQuery({
+    id: "exq_a",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+  const unscoped = makeExposureQuery({
+    id: "exq_all",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: [],
+  });
+
+  it("keeps unscoped queries and those scoped to the project", () => {
+    const ids = (project: string) =>
+      getExposureQueriesForProject([scoped, unscoped], project, []).map(
+        (q) => q.id,
+      );
+    expect(ids("prj_a")).toEqual(["exq_a", "exq_all"]);
+    expect(ids("prj_b")).toEqual(["exq_all"]);
+  });
+
+  it("scopes a query with no projects to its data source's", () => {
+    expect(
+      getExposureQueriesForProject([scoped, unscoped], "prj_b", ["prj_a"]),
+    ).toEqual([]);
+  });
+});
+
+describe("getExposureQueriesInScope", () => {
+  const scoped = makeExposureQuery({
+    id: "exq_a",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: ["prj_a"],
+  });
+  const unscoped = makeExposureQuery({
+    id: "exq_all",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+    projects: [],
+  });
+  it("requires every holdout project to be covered", () => {
+    const datasource = {
+      projects: [],
+      settings: { queries: { exposure: [scoped, unscoped] } },
+    };
+    expect(
+      getExposureQueriesInScope(datasource, "", ["prj_a", "prj_b"]),
+    ).toEqual([unscoped]);
   });
 });
 
@@ -537,6 +602,34 @@ describe("getIdentifierTypeForHashAttribute", () => {
   });
 });
 
+describe("getImportIdentifierTypes", () => {
+  it("starts on the identifier most queries list first", () => {
+    expect(
+      getImportIdentifierTypes([
+        { userIdType: "user_id", userIdTypes: ["user_id"] },
+        {
+          userIdType: "anonymous_id",
+          userIdTypes: ["anonymous_id", "user_id"],
+        },
+        { userIdType: "anonymous_id", userIdTypes: ["anonymous_id"] },
+        { userIdType: "company_id", userIdTypes: ["company_id"] },
+      ]),
+    ).toEqual({
+      identifierTypes: ["user_id", "anonymous_id", "company_id"],
+      initialIdentifierType: "anonymous_id",
+    });
+  });
+
+  it("breaks a tie with the earlier query", () => {
+    expect(
+      getImportIdentifierTypes([
+        { userIdType: "user_id", userIdTypes: ["user_id"] },
+        { userIdType: "anonymous_id", userIdTypes: ["anonymous_id"] },
+      ]).initialIdentifierType,
+    ).toBe("user_id");
+  });
+});
+
 describe("getInitialSettings", () => {
   const clickhouseParams = {
     url: "http://localhost:8123",
@@ -635,5 +728,280 @@ describe("getInitialSettings", () => {
     for (const q of settings.queries.exposure) {
       expect(q.query).not.toContain("project_id = '");
     }
+  });
+});
+
+describe("getNewExperimentDatasourceDefaults", () => {
+  function datasource(
+    exposure: ExposureQuery[],
+    projects: string[] = [],
+  ): DataSourceInterfaceWithParams {
+    return {
+      id: "ds_1",
+      projects,
+      settings: { queries: { exposure } },
+    } as unknown as DataSourceInterfaceWithParams;
+  }
+  const twoIdentifiers = makeExposureQuery({
+    id: "exq_1",
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anon_id"],
+  });
+  const defaults = (
+    ds: DataSourceInterfaceWithParams,
+    initialValue: Parameters<
+      typeof getNewExperimentDatasourceDefaults
+    >[0]["initialValue"],
+    extra: { isImport?: boolean; project?: string } = {},
+  ) =>
+    getNewExperimentDatasourceDefaults({
+      datasources: [ds],
+      settings: {},
+      initialValue,
+      ...extra,
+    });
+
+  it("keeps the identifier an imported row was counted on", () => {
+    expect(
+      defaults(
+        datasource([twoIdentifiers]),
+        {
+          datasource: "ds_1",
+          exposureQueryId: "exq_1",
+          exposureQueryIdentifierType: "anon_id",
+        },
+        { isImport: true },
+      ).exposureQueryIdentifierType,
+    ).toBe("anon_id");
+  });
+
+  it("leaves the identifier for the user to choose when an import's is no longer declared", () => {
+    const imported = {
+      datasource: "ds_1",
+      exposureQueryId: "exq_1",
+      exposureQueryIdentifierType: "company_id",
+    };
+    expect(
+      defaults(datasource([twoIdentifiers]), imported, { isImport: true })
+        .exposureQueryIdentifierType,
+    ).toBeUndefined();
+    // With only one declared, there's nothing to choose
+    expect(
+      defaults(
+        datasource([
+          makeExposureQuery({
+            id: "exq_1",
+            userIdType: "user_id",
+            userIdTypes: ["user_id"],
+          }),
+        ]),
+        imported,
+        { isImport: true },
+      ).exposureQueryIdentifierType,
+    ).toBe("user_id");
+  });
+
+  it("swaps an out-of-scope query for an in-scope one declaring the same identifier", () => {
+    const ds = datasource([
+      makeExposureQuery({
+        id: "exq_other",
+        userIdType: "anon_id",
+        userIdTypes: ["anon_id"],
+        projects: ["prj_other"],
+      }),
+      makeExposureQuery({
+        id: "exq_first",
+        userIdType: "user_id",
+        userIdTypes: ["user_id"],
+        projects: ["prj_a"],
+      }),
+      makeExposureQuery({
+        id: "exq_same",
+        userIdType: "anon_id",
+        userIdTypes: ["anon_id"],
+        projects: ["prj_a"],
+      }),
+    ]);
+    expect(
+      defaults(
+        ds,
+        {
+          datasource: "ds_1",
+          exposureQueryId: "exq_other",
+          exposureQueryIdentifierType: "anon_id",
+        },
+        { project: "prj_a" },
+      ),
+    ).toEqual({
+      datasource: "ds_1",
+      exposureQueryId: "exq_same",
+      exposureQueryIdentifierType: "anon_id",
+    });
+  });
+});
+
+describe("assignment identifier binding", () => {
+  const users = makeExposureQuery({
+    id: "users",
+    userIdType: "user_id",
+    userIdTypes: ["user_id"],
+  });
+  const visitors = makeExposureQuery({
+    id: "visitors",
+    userIdType: "anonymous_id",
+    userIdTypes: ["anonymous_id"],
+  });
+  const both = makeExposureQuery({
+    id: "both",
+    userIdType: "user_id",
+    userIdTypes: ["user_id", "anonymous_id"],
+  });
+  const links = new Map([
+    ["id", ["user_id"]],
+    ["deviceId", ["anonymous_id"]],
+  ]);
+  const resolve = (
+    query: ExposureQuery,
+    hashAttribute: string,
+    identifierType?: string,
+    map = links,
+  ) =>
+    resolveAssignmentIdentifier({
+      query,
+      identifierType,
+      hashAttribute,
+      hashAttributeIdentifierTypeMap: map,
+    });
+
+  it("settles on what the table declares, then on what the attribute links", () => {
+    expect(resolve(visitors, "id")).toMatchObject({
+      identifierType: "anonymous_id",
+      choose: false,
+      conflict: true,
+      attribute: "deviceId",
+    });
+    expect(resolve(both, "deviceId", "anonymous_id")).toMatchObject({
+      identifierType: "anonymous_id",
+      choose: false,
+      conflict: false,
+    });
+    // Left unset, the analysis takes the table's first, so it isn't settled.
+    expect(resolve(both, "deviceId")).toMatchObject({
+      identifierType: "user_id",
+      choose: true,
+      conflict: true,
+    });
+    expect(resolve(both, "id", undefined, new Map())).toMatchObject({
+      identifierType: "user_id",
+      choose: true,
+      conflict: false,
+      attribute: null,
+    });
+    // Leads back to an attribute only when exactly one is linked.
+    expect(
+      resolve(
+        visitors,
+        "id",
+        undefined,
+        new Map([...links, ["anonId", ["anonymous_id"]]]),
+      ),
+    ).toMatchObject({ conflict: true, attribute: null });
+    expect(resolve(visitors, "unlinked")).toMatchObject({
+      conflict: false,
+      attribute: "deviceId",
+    });
+  });
+
+  it("follows the attribute to its identifier, keeping a table that fits", () => {
+    const follow = (
+      exposureQueryId: string,
+      hashAttribute: string,
+      identifierType = "",
+    ) =>
+      followAssignmentAttribute({
+        queries: [users, visitors, both],
+        hashAttribute,
+        hashAttributeIdentifierTypeMap: links,
+        exposureQueryId,
+        identifierType,
+      });
+    expect(follow("users", "deviceId")).toEqual({
+      exposureQueryId: "visitors",
+      identifierType: "anonymous_id",
+    });
+    expect(follow("both", "deviceId")).toEqual({
+      exposureQueryId: "both",
+      identifierType: "anonymous_id",
+    });
+    // Already explicit, or the table declares only that one.
+    expect(follow("both", "deviceId", "anonymous_id")).toBeNull();
+    expect(follow("users", "id")).toBeNull();
+    expect(follow("users", "unlinked")).toBeNull();
+  });
+});
+
+describe("getInitialExposureQuery", () => {
+  const datasource = {
+    type: "postgres",
+    params: { defaultSchema: "analytics" },
+    settings: {
+      userIdTypes: [{ userIdType: "anonymous_id" }, { userIdType: "user_id" }],
+    },
+  } as unknown as DataSourceInterfaceWithParams;
+
+  it("covers the requested identifiers, else every declared one", () => {
+    const requested = getInitialExposureQuery(datasource, ["user_id"]);
+    expect(requested).toMatch(/^ {2}user_id,$/m);
+    expect(requested).not.toContain("anonymous_id");
+
+    const all = getInitialExposureQuery(datasource);
+    expect(all).toMatch(/^ {2}anonymous_id,$/m);
+    expect(all).toMatch(/^ {2}user_id,$/m);
+  });
+
+  it("falls back to user_id when the Data Source declares no identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { userIdTypes: [], schemaFormat: "segment" },
+    } as unknown as DataSourceInterfaceWithParams);
+    expect(sql).toMatch(/^SELECT\n {2}user_id,/);
+    expect(sql).toContain("user_id is not null");
+  });
+
+  it("keeps rows with any of a tracker's identifiers", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "snowplow" },
+    });
+    expect(sql).toContain("domain_userid as anonymous_id");
+    expect(sql).toContain("(domain_userid is not null OR user_id is not null)");
+  });
+
+  it("reads GA4 experiment and variation ids from either value column", () => {
+    const sql = getInitialExposureQuery({
+      ...datasource,
+      settings: { ...datasource.settings, schemaFormat: "ga4" },
+    });
+    expect(sql).toContain(
+      "COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id",
+    );
+    expect(sql).toContain(
+      "COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id",
+    );
+  });
+});
+
+describe("getGA4ExposureTemplate", () => {
+  it("uses the Data Source's identifiers and the picked table", () => {
+    const template = getGA4ExposureTemplate(["device_id"]);
+    expect(template.columns.map((c) => c.column)).toContain("device_id");
+    const sql = template.getSql(
+      { path: "`proj.analytics_1.events_*`" } as Parameters<
+        typeof template.getSql
+      >[0],
+      "",
+    );
+    expect(sql).toContain("user_pseudo_id as device_id");
+    expect(sql).toContain("FROM\n  `proj.analytics_1.events_*`,");
   });
 });

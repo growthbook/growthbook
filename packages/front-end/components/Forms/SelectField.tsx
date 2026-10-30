@@ -20,6 +20,7 @@ import { PiXBold, PiCaretDown } from "react-icons/pi";
 import CreatableSelect from "react-select/creatable";
 import VirtualizedMenuList from "@/components/Forms/VirtualizedMenuList";
 import Text, { TextSizes, TextWeights } from "@/ui/Text";
+import { Size } from "@/ui/sizes";
 import { RadixTheme } from "@/services/RadixTheme";
 import HelperText from "@/ui/HelperText";
 import Field, { FieldProps } from "./Field";
@@ -35,7 +36,7 @@ export const RadixThemeMenuPortal = (
 export type SingleValue = {
   label: string;
   value: string;
-  tooltip?: string;
+  tooltip?: ReactNode;
   isDisabled?: boolean;
 };
 export type GroupedValue = { label: string; options: SingleValue[] };
@@ -88,9 +89,16 @@ export type SelectFieldProps = Omit<
   legacyLabelFormatting?: boolean;
   labelSize?: TextSizes;
   labelWeight?: TextWeights;
-  size?: "x-small" | "small" | "legacy" | "medium";
+  size?: SelectFieldSize;
   errorLevel?: "error" | "warning";
+  /** Names the control when its visible label isn't the `label` prop. */
+  "aria-label"?: string;
+  /** Tallest the open menu grows before it scrolls, in px (default 300). */
+  maxMenuHeight?: number;
 };
+
+// The shared ladder, plus `legacy` for the un-migrated default.
+type SelectFieldSize = Size<"xs" | "sm" | "md" | "lg"> | "legacy";
 
 export function useSelectOptions(
   options: (SingleValue | GroupedValue)[],
@@ -181,17 +189,34 @@ export const ReactSelectProps = {
         backgroundColor: "var(--surface-background-color)",
       };
     },
+    placeholder: (styles) => {
+      return { ...styles, color: "var(--gray-a10)" };
+    },
+    // react-select's default z-index of 1 lets page content in its own stacking
+    // context paint over the portalled menu and swallow its clicks.
+    menuPortal: (styles) => {
+      return { ...styles, zIndex: 1000 };
+    },
     option: (styles, { isFocused, isDisabled }) => {
       return {
         ...styles,
-        color: isFocused ? "var(--text-hover-color)" : "var(--text-color-main)",
         ...(isDisabled
           ? {
               opacity: 0.5,
               color: "var(--text-color-muted)",
               cursor: "not-allowed",
             }
-          : {}),
+          : {
+              color: isFocused
+                ? "var(--text-hover-color)"
+                : "var(--text-color-main)",
+              // react-select's JS focus tracking can miss an option that
+              // re-renders under the pointer (one with a hover popover).
+              "&:hover": {
+                backgroundColor: "var(--violet-a3)",
+                color: "var(--text-hover-color)",
+              },
+            }),
       };
     },
     input: (styles, state) => {
@@ -281,8 +306,8 @@ const SelectField: FC<SelectFieldProps> = ({
   onPaste,
   isOptionDisabled,
   noOptionsMessage,
-  // forces re-render when input is undefined
-  forceUndefinedValueToNull = false,
+  // An undefined react-select value leaves its previous selection uncontrolled.
+  forceUndefinedValueToNull = true,
   useMultilineLabels = false,
   containerStyles = {},
   extraIndicator,
@@ -290,8 +315,10 @@ const SelectField: FC<SelectFieldProps> = ({
   legacyLabelFormatting = true,
   labelSize,
   labelWeight = "semibold",
-  size = "legacy" as "x-small" | "small" | "legacy" | "medium",
+  size = "legacy",
   errorLevel = "error",
+  "aria-label": ariaLabel,
+  maxMenuHeight,
   ...otherProps
 }) => {
   const [map, sorted] = useSelectOptions(options, initialOption, sort);
@@ -308,9 +335,11 @@ const SelectField: FC<SelectFieldProps> = ({
 
   // eslint-disable-next-line
   const fieldProps = otherProps as any;
-  const { label, error } = fieldProps;
+  const { label, error, outlineStyle } = fieldProps;
   // Suppress Field's native error rendering; we render HelperText ourselves
   delete fieldProps.error;
+  delete fieldProps.outlineStyle;
+  const outline = outlineStyle ?? (error ? errorLevel : "default");
   if (!legacyLabelFormatting) {
     delete fieldProps.label;
   }
@@ -347,17 +376,19 @@ const SelectField: FC<SelectFieldProps> = ({
       }
     });
 
-    const sizeMinHeight: Record<string, number> = {
-      "x-small": 24,
-      small: 32,
+    const sizeMinHeight: Record<SelectFieldSize, number> = {
+      xs: 24,
+      sm: 28,
+      md: 32,
+      lg: 40,
       legacy: 36,
-      medium: 40,
     };
-    const sizeVPadding: Record<string, number> = {
-      "x-small": 0,
-      small: 0,
+    const sizeVPadding: Record<SelectFieldSize, number> = {
+      xs: 0,
+      sm: 0,
+      md: 0,
+      lg: 4,
       legacy: 2,
-      medium: 4,
     };
     const prevControl = merged.control;
     merged.control = (base, state) => ({
@@ -433,10 +464,12 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
-                    error: !!error && errorLevel === "error",
-                    warning: !!error && errorLevel === "warning",
+                    error: outline === "error",
+                    warning: outline === "warning",
                   })}
                   classNamePrefix="gb-select"
                   isClearable={isClearable}
@@ -508,10 +541,12 @@ const SelectField: FC<SelectFieldProps> = ({
                   {...ReactSelectProps}
                   styles={mergedStyles}
                   id={id}
+                  aria-label={ariaLabel}
+                  maxMenuHeight={maxMenuHeight}
                   ref={ref}
                   className={clsx({
-                    error: !!error && errorLevel === "error",
-                    warning: !!error && errorLevel === "warning",
+                    error: outline === "error",
+                    warning: outline === "warning",
                   })}
                   isClearable={isClearable}
                   classNamePrefix="gb-select"

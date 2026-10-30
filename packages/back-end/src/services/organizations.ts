@@ -3,6 +3,7 @@ import { z } from "zod";
 import { freeEmailDomains } from "free-email-domains-typescript";
 import { cloneDeep } from "lodash";
 import { Request } from "express";
+import { PermissionError } from "shared/util";
 import {
   areAdditionalRolesValid,
   areProjectRolesValid,
@@ -15,6 +16,9 @@ import {
   roleSupportsEnvLimit,
   changedProjectRoleProjects,
   sameRoleValue,
+  actsAsUser,
+  hasSuperAdminPermission,
+  normalizeSuperAdmin,
 } from "shared/permissions";
 import {
   DUPLICATE_PROJECT_ROLES_MESSAGE,
@@ -45,6 +49,7 @@ import {
   SELF_HOSTED_DEFAULT_AI_MODELS,
   CLOUD_MANAGED_IMAGE_MODEL,
   CLOUD_MANAGED_VISUAL_EDITOR_AI_MODEL,
+  AUTOCOMPLETE_AI_MODEL,
   DEFAULT_EMBEDDING_MODEL,
   EmbeddingModel,
   STTModel,
@@ -77,6 +82,7 @@ import { LegacyExperimentPhase } from "shared/types/experiment";
 import { PValueCorrection } from "shared/types/stats";
 import { getScopedSettings } from "shared/settings";
 import { TeamInterface } from "shared/types/team";
+import { isExpired } from "shared/api-key-expiration";
 import type { ApiKeyInterface } from "shared/types/apikey";
 import {
   acceptOrganizationInvite,
@@ -97,6 +103,7 @@ import {
   SECRET_API_KEY,
   SECRET_API_KEY_ROLE,
 } from "back-end/src/util/secrets";
+import { loginMethodOwnsOrg } from "back-end/src/services/auth/authChecks";
 import {
   AIKeySource,
   canOrgChooseProviderModels,
@@ -123,8 +130,23 @@ import {
 } from "back-end/src/models/DimensionModel";
 import { logger } from "back-end/src/util/logger";
 import { errorStringFromZodResult } from "back-end/src/util/validation";
-import { PaymentRequiredError } from "back-end/src/util/errors";
-import { migrateApiKey } from "back-end/src/util/api-key.util";
+import {
+  BadRequestError,
+  PaymentRequiredError,
+} from "back-end/src/util/errors";
+import { getAnalysisEndDateSettingsError } from "back-end/src/services/scheduledAnalysisEndDate";
+import { apiKeyEventUser, migrateApiKey } from "back-end/src/util/api-key.util";
+import {
+  ArmingOAuthSignIn,
+  decodeArmingApiKeyId,
+  isArmingApiKeyId,
+  SECRET_API_KEY_ID,
+} from "back-end/src/util/armingApiKeyId";
+import { oauthTokenScope } from "back-end/src/util/oauth-token.util";
+import {
+  getKeyPermissionsForRequest,
+  normalizeInviteEmail,
+} from "back-end/src/util/organization.util";
 import { getAllExperiments } from "back-end/src/models/ExperimentModel";
 import { addTags } from "back-end/src/models/TagModel";
 import { getUserById, getUsersByIds } from "back-end/src/models/UserModel";
@@ -178,8 +200,21 @@ export async function setLicenseKey(
     );
   }
 
+  const license = await licenseInit(
+    { ...org, licenseKey },
+    getUserCodesForOrg,
+    getLicenseMetaData,
+    true,
+  );
+  if (license?.organizationId && license.organizationId !== org.id) {
+    throw new Error("This license key belongs to a different organization");
+  }
   org.licenseKey = licenseKey;
-  await licenseInit(org, getUserCodesForOrg, getLicenseMetaData, true);
+}
+
+// On Cloud, an Enterprise SSO or Vercel login is trusted only for the org that owns it
+export function isOrgScopedLogin(req: AuthRequest) {
+  return IS_CLOUD && !!req.loginMethod?.id;
 }
 
 export function validateLoginMethod(
@@ -189,7 +224,7 @@ export function validateLoginMethod(
   if (
     org.restrictLoginMethod &&
     req.loginMethod?.id !== org.restrictLoginMethod &&
-    !req.superAdmin
+    !hasSuperAdminPermission(req.superAdmin, "impersonate")
   ) {
     throw new Error(
       `Your organization requires you to log in with ${
@@ -197,6 +232,16 @@ export function validateLoginMethod(
           ? "Vercel"
           : "Enterprise SSO"
       }`,
+    );
+  }
+
+  if (
+    isOrgScopedLogin(req) &&
+    req.loginMethod &&
+    !loginMethodOwnsOrg(req.loginMethod, org)
+  ) {
+    throw new Error(
+      "Log out and sign in with Google or email and password to access this organization.",
     );
   }
 
@@ -213,7 +258,7 @@ export function validateLoginMethod(
   if (
     org.restrictAuthSubPrefix &&
     !req.authSubject?.startsWith(org.restrictAuthSubPrefix) &&
-    !req.superAdmin
+    !hasSuperAdminPermission(req.superAdmin, "impersonate")
   ) {
     throw new Error(
       `Your organization requires you to log in with ${org.restrictAuthSubPrefix}`,
@@ -221,6 +266,18 @@ export function validateLoginMethod(
   }
 
   return true;
+}
+
+export function isValidLoginMethod(
+  org: OrganizationInterface,
+  req: AuthRequest,
+) {
+  try {
+    validateLoginMethod(org, req);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function getContextFromReq(req: AuthRequest): ReqContext {
@@ -336,6 +393,8 @@ export async function getAISettingsForOrg(
   // sensible default so callers don't need their own resolution logic.
   visualEditorAIModel: AIModel;
   visualEditorImageModel: string;
+  // Resolved AI Assistant autocomplete model.
+  autocompleteAIModel: AIModel;
   // Free-text brand guidelines appended to the AI system prompt.
   visualEditorAIContext: string;
 }> {
@@ -398,6 +457,16 @@ export async function getAISettingsForOrg(
       ? CLOUD_MANAGED_IMAGE_MODEL
       : GEMINI_IMAGE_MODEL);
 
+  // Cheapest tier unless the org picked one; it runs on every pause in
+  // typing. Cloud's managed Anthropic key covers it, self-hosted needs a key.
+  const autocompleteAIModel: AIModel =
+    getAllowedAIModel(
+      "text",
+      context.org.settings?.aiAutocompleteModel,
+      keySource,
+    ) ||
+    (keySource.anthropic !== "none" ? AUTOCOMPLETE_AI_MODEL : defaultAIModel);
+
   const sttModel: STTModel | null = !aiEnabled
     ? null
     : getAllowedAIModel("stt", context.org.settings?.sttModel, keySource) ||
@@ -423,6 +492,7 @@ export async function getAISettingsForOrg(
     sttModel,
     visualEditorAIModel,
     visualEditorImageModel,
+    autocompleteAIModel,
     visualEditorAIContext: (
       context.org.settings?.visualEditorAIContext || ""
     ).trim(),
@@ -1118,10 +1188,7 @@ export async function inviteUser({
 } & MemberRoleWithProjects) {
   organization.invites = organization.invites || [];
 
-  email = email
-    .toLowerCase()
-    .replace(/^[\s;,]+/, "")
-    .replace(/[\s;,]+$/, "");
+  email = normalizeInviteEmail(email);
 
   if (!z.string().email().safeParse(email).success) {
     throw new Error(`Invalid email address: ${email}`);
@@ -1390,6 +1457,12 @@ export async function importConfig(
   }
 
   if (config.organization?.settings) {
+    const analysisEndDateError = getAnalysisEndDateSettingsError(
+      config.organization.settings.updateSchedule,
+    );
+    if (analysisEndDateError) {
+      throw new BadRequestError(analysisEndDateError);
+    }
     await sanitizeDefaultRoleUpdate(context, config.organization.settings);
     const settings = {
       ...organization.settings,
@@ -1429,6 +1502,20 @@ export async function importConfig(
           }
           const existing = await getDataSourceById(context, k);
           if (existing) {
+            if (
+              ds.params &&
+              !context.permissions.canUpdateDataSourceParams(existing)
+            ) {
+              context.permissions.throwPermissionError();
+            }
+            if (!context.permissions.canUpdateDataSourceSettings(existing)) {
+              context.permissions.throwPermissionError();
+            }
+            if (ds.type && ds.type !== existing.type) {
+              throw new Error(
+                "Cannot change the type of an existing data source. Create a new one instead.",
+              );
+            }
             let params = existing.params;
             // If params are changing, merge them with existing and test the connection
             if (ds.params) {
@@ -1441,7 +1528,6 @@ export async function importConfig(
             const updates: Partial<DataSourceInterface> = {
               name: ds.name || existing.name,
               description: ds.description || existing.description,
-              type: ds.type || existing.type,
               params,
               settings: {
                 ...existing.settings,
@@ -1458,6 +1544,14 @@ export async function importConfig(
             };
             await updateDataSource(context, existing, updates);
           } else {
+            if (
+              !context.permissions.canCreateDataSource({
+                projects: [],
+                type: ds.type,
+              })
+            ) {
+              context.permissions.throwPermissionError();
+            }
             await createDataSource(
               context,
               ds.name || k,
@@ -1469,6 +1563,7 @@ export async function importConfig(
             );
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Datasource ${k}: ${e.message}`);
         }
       }),
@@ -1524,6 +1619,13 @@ export async function importConfig(
 
         try {
           const existing = await findDimensionById(k, organization.id);
+          if (
+            existing
+              ? !context.permissions.canUpdateDimension()
+              : !context.permissions.canCreateDimension()
+          ) {
+            context.permissions.throwPermissionError();
+          }
           if (existing) {
             const updates: Partial<DimensionInterface> = {
               ...d,
@@ -1540,6 +1642,7 @@ export async function importConfig(
             });
           }
         } catch (e) {
+          if (e instanceof PermissionError) throw e;
           throw new Error(`Dimension ${k}: ${e.message}`);
         }
       }),
@@ -1761,14 +1864,21 @@ export async function addMemberFromSSOConnection(
   return organization;
 }
 
-export async function findVerifiedOrgsForNewUser(email: string) {
+export async function findVerifiedOrgsForNewUser(
+  email: string,
+  req: AuthRequest,
+) {
   const domain = email.toLowerCase().split("@")[1];
   const isFreeDomain = freeEmailDomains.includes(domain);
   if (isFreeDomain) {
     return null;
   }
 
-  const organizations = await findOrganizationsByDomain(domain);
+  // An SSO or Vercel login only vouches for the email within its own org.
+  // Filter before picking the largest org so a smaller owned org isn't dropped.
+  const organizations = (await findOrganizationsByDomain(domain)).filter(
+    (org) => !isOrgScopedLogin(req) || isValidLoginMethod(org, req),
+  );
   if (!organizations.length) {
     return null;
   }
@@ -1876,54 +1986,128 @@ export async function getContextForAgendaJobByOrgId(
 }
 
 // An API key as a principal, built the way the request middleware builds it.
-// Null when the key is gone or disabled. Unscoped PATs are stamped as their
-// user and never arrive here; a scoped one runs as its user under its cap.
+// Null when the key is gone, disabled or expired. A PAT runs as its user, under
+// its cap when scoped.
 export async function getContextForApiKeyIdInOrg(
   org: OrganizationInterface,
-  apiKeyId: string,
+  armingId: string,
 ): Promise<ApiReqContext | null> {
-  const key =
-    apiKeyId === SECRET_API_KEY_ID
-      ? secretApiKeyDoc(org)
-      : await getContextForAgendaJobByOrgObject(
-          org,
-        ).models.apiKeys.dangerousGetById(apiKeyId);
-  if (!key || key.disabled || !key.role) return null;
+  const { apiKeyId, requesterId, oauth } = decodeArmingApiKeyId(armingId);
+  const key = oauth
+    ? await oauthGrantKey(org, apiKeyId, oauth)
+    : await getOrgApiKey(org, apiKeyId);
+  if (
+    !key ||
+    key.disabled ||
+    (!key.role && !key.userId) ||
+    isExpired(key.expiresAt)
+  ) {
+    return null;
+  }
+  // Armed while assuming a member, it replays only while the key still would.
+  if (requesterId && !actsAsUser(key)) {
+    return null;
+  }
   const user = key.userId ? await getUserById(key.userId) : null;
   if (key.userId && (!user || org.settings?.disablePersonalAccessTokens)) {
     return null;
   }
   // Super-admin authority bypasses roles, so a scoped token never carries it.
-  const superAdmin = !!user?.superAdmin && !key.scoped;
-  if (user && !superAdmin && !org.members.some((m) => m.id === user.id)) {
+  const superAdmin = key.scoped ? false : normalizeSuperAdmin(user?.superAdmin);
+  if (
+    user &&
+    !hasSuperAdminPermission(superAdmin, "impersonate") &&
+    !org.members.some((m) => m.id === user.id)
+  ) {
     return null;
   }
+  // Like a user who armed it and left, a requester who left fires nothing.
+  const requester = requesterId ? await getUserById(requesterId) : null;
+  if (
+    requesterId &&
+    (key.userId || !requester || !org.members.some((m) => m.id === requesterId))
+  ) {
+    return null;
+  }
+  const [teams, restrictedProjects] = await Promise.all([
+    TeamModel.dangerousGetTeamsForOrganization(org.id),
+    ProjectModel.dangerousGetRestrictedProjectIds(org.id),
+  ]);
   return new ReqContextClass({
     org,
-    auditUser: user
-      ? {
-          type: "api_key",
-          apiKey: apiKeyId,
-          id: user.id,
-          name: user.name || "",
-          email: user.email,
-        }
-      : { type: "api_key", apiKey: apiKeyId, name: key.description || "" },
+    auditUser: apiKeyEventUser({
+      apiKeyId,
+      key,
+      owner: user,
+      requester: requester && {
+        id: requester.id,
+        name: requester.name || "",
+        email: requester.email,
+      },
+    }),
     user: user
       ? { id: user.id, email: user.email, name: user.name || "", superAdmin }
       : undefined,
     role: key.role,
     apiKey: apiKeyId,
     apiKeyData: key,
-    teams: await TeamModel.dangerousGetTeamsForOrganization(org.id),
-    restrictedProjects: await ProjectModel.dangerousGetRestrictedProjectIds(
-      org.id,
-    ),
+    teams,
+    restrictedProjects,
+    userPermissions: getKeyPermissionsForRequest({
+      apiKey: key,
+      requesterId,
+      org,
+      teams,
+      restrictedProjects,
+    }),
   });
 }
 
-// The self-hosted env-var key has no document; the middleware synthesizes one.
-const SECRET_API_KEY_ID = "SECRET_API_KEY";
+// An OAuth sign-in's tokens last an hour and the one that armed work is likely
+// gone, so the work runs on the grant, with the permissions its tokens get.
+// Only the grant it was armed under counts: once that's revoked, a later
+// consent or a new grant for the same app doesn't bring the work back.
+async function oauthGrantKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+  { clientId, userId, armedAt }: ArmingOAuthSignIn,
+): Promise<ApiKeyInterface | null> {
+  const grant = await getContextForAgendaJobByOrgObject(
+    org,
+  ).models.oauthGrants.getGrant(clientId, userId);
+  if (
+    !grant ||
+    grant.revoked ||
+    !(armedAt >= grant.dateCreated.getTime()) ||
+    (grant.revokedAt && grant.revokedAt.getTime() >= armedAt)
+  ) {
+    return null;
+  }
+  return migrateApiKey({
+    id: apiKeyId,
+    key: "",
+    secret: true,
+    organization: org.id,
+    userId,
+    oauthClientId: clientId,
+    description: `OAuth access token (${clientId})`,
+    dateCreated: grant.dateCreated,
+    ...oauthTokenScope(grant.permissions ?? null),
+  });
+}
+
+// An org API key by id, including the self-hosted env-var key.
+export async function getOrgApiKey(
+  org: OrganizationInterface,
+  apiKeyId: string,
+): Promise<ApiKeyInterface | null> {
+  return apiKeyId === SECRET_API_KEY_ID
+    ? secretApiKeyDoc(org)
+    : await getContextForAgendaJobByOrgObject(
+        org,
+      ).models.apiKeys.dangerousGetById(apiKeyId);
+}
+
 function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
   if (IS_MULTI_ORG || !SECRET_API_KEY) return null;
   return migrateApiKey({
@@ -1934,11 +2118,6 @@ function secretApiKeyDoc(org: OrganizationInterface): ApiKeyInterface | null {
     role: SECRET_API_KEY_ROLE,
     dateCreated: new Date(),
   });
-}
-
-// An org API key id that can be recorded as an armer and resolved later.
-export function isArmingApiKeyId(id: string | undefined): id is string {
-  return !!id && (id.startsWith("key_") || id === SECRET_API_KEY_ID);
 }
 
 // A stored armer id is a user or an org API key; each runs as itself, on the

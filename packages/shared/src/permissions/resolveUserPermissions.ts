@@ -9,6 +9,7 @@ import {
   UserPermissions,
 } from "shared/types/organization";
 import { TeamInterface } from "shared/types/team";
+import { assumingKeyOf, type EventUser } from "../validators/event-user";
 
 // Role-bearing fields only, so the front end can resolve without member lists.
 export type RoleSourceTeam = Pick<
@@ -28,6 +29,7 @@ import { Permissions } from "./permissionsClass";
 import type { RevisionModel } from "./revisionPermissions";
 import {
   allowedEnvironments,
+  holdsGlobalAdmin,
   roleSupportsEnvLimit,
   roleToPermissionMap,
 } from "./permissions.utils";
@@ -285,12 +287,15 @@ function applyProjectAccessRestrictions(
   }
 }
 
-// Used for both org API keys and member records.
+// Used for both org API keys and member records. Pass `member` for a member:
+// a global admin could rewrite their own project roles, so those roles have no
+// effect. An API key can't, so its project roles stay binding.
 export function getRolePermissions(
   roleInfo: MemberRoleWithProjects,
   org: OrganizationInterface,
   allTeams: RoleSourceTeam[],
   restrictedProjects?: string[],
+  { member = false }: { member?: boolean } = {},
 ): UserPermissions {
   const permissions: UserPermissions = {
     global: getUserPermission(roleInfo, org),
@@ -327,6 +332,17 @@ export function getRolePermissions(
         mergeUserAndTeamPermissions(permissions, teamPermissions, org);
       }
     }
+  }
+
+  // A global admin already has everything, so their project roles have no effect.
+  if (
+    member &&
+    holdsGlobalAdmin(
+      roleInfo,
+      allTeams.filter((t) => roleInfo.teams?.includes(t.id)),
+    )
+  ) {
+    permissions.projects = {};
   }
 
   applyProjectAccessRestrictions(permissions, restrictedProjects);
@@ -404,7 +420,7 @@ export function teamsForMember(
 ): { id: string; name: string }[] {
   const member = (org.members ?? []).find((m) => m.id === userId);
   if (!member?.teams?.length) return [];
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
   return member.teams
     .map((id) => byId.get(id))
     .filter((t): t is { id: string; name: string } => !!t)
@@ -440,7 +456,7 @@ export function assessRequiredApproverTeams({
     ),
   );
 
-  const byId = new Map(teams.map((t) => [t.id, t]));
+  const byId = new Map((teams ?? []).map((t) => [t.id, t]));
 
   // Drop rules implied by a stricter one: satisfying a subset rule satisfies
   // the superset, so listing both reads as two sign-offs. Deleted teams are
@@ -492,8 +508,41 @@ export type ApprovalCoverageArgs = {
   // Authority is required in all of them.
   projects: string[];
   footprint: ReviewAuthorityFootprint;
-  approvers: { id: string; roleInfo: MemberRoleWithProjects | null }[];
+  approvers: Approver[];
 };
+
+// An approval given through an org key assuming the reviewer's role counts
+// only where the key's own role covers too; a gone key covers nothing.
+type Approver = {
+  id: string;
+  roleInfo: MemberRoleWithProjects | null;
+  assumingKeyRole?: MemberRoleWithProjects | null;
+};
+
+type Approval = { userId: string; user?: EventUser };
+
+// The roles coverage needs for these approvals: each reviewer's, and the key's
+// behind any approval made while assuming the reviewer's role.
+export function approvalRoleIds(approvals: Approval[]): string[] {
+  return approvals.flatMap((a) => {
+    const key = assumingKeyOf(a.user);
+    return key ? [a.userId, key] : [a.userId];
+  });
+}
+
+export function approvalApprovers(
+  approvals: Approval[],
+  roleFor: (id: string) => MemberRoleWithProjects | null,
+): Approver[] {
+  return approvals.map((a) => {
+    const key = assumingKeyOf(a.user);
+    return {
+      id: a.userId,
+      roleInfo: roleFor(a.userId),
+      ...(key ? { assumingKeyRole: roleFor(key) } : {}),
+    };
+  });
+}
 
 // Uses CURRENT rules — an approval is not a snapshot of authority. One
 // deliberate exception: restricted-project denial is NOT applied here, so an
@@ -529,18 +578,28 @@ export function assessGoverningApprovalCoverage({
     Object.fromEntries(approverProjects.map((p) => [p, [] as string[]]));
   let hasCoveringApproval = false;
 
-  for (const { id, roleInfo } of approvers) {
-    const permissions = roleInfo
-      ? new Permissions(getRolePermissions(roleInfo, org, teams))
-      : null;
-    const coversPrimary =
-      !!permissions &&
-      permissions.canReviewRevision(model, projects, footprint);
-    const covered = permissions
-      ? approverProjects.filter((project) =>
-          permissions.canReviewRevision(model, [project], footprint),
-        )
-      : [];
+  for (const { id, roleInfo, assumingKeyRole } of approvers) {
+    const roles =
+      assumingKeyRole === undefined ? [roleInfo] : [roleInfo, assumingKeyRole];
+    const held = roles.filter((r): r is MemberRoleWithProjects => r !== null);
+    // The approver may be a member or an org key; an assuming key is a key.
+    const isMember = org.members.some((m) => m.id === id);
+    const permissions =
+      held.length === roles.length
+        ? held.map(
+            (r, i) =>
+              new Permissions(
+                getRolePermissions(r, org, teams, undefined, {
+                  member: i === 0 && isMember,
+                }),
+              ),
+          )
+        : [];
+    const canReview = (scope: string[]) =>
+      permissions.length > 0 &&
+      permissions.every((p) => p.canReviewRevision(model, scope, footprint));
+    const coversPrimary = canReview(projects);
+    const covered = approverProjects.filter((project) => canReview([project]));
     if (coversPrimary) {
       hasCoveringApproval = true;
       primaryCoveringApproverIds.push(id);

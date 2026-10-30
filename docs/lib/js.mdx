@@ -620,6 +620,42 @@ Instead of defining the `AppFeatures` interface manually like above, you can aut
 
 As a general philosophy, we aim to keep the SDK 100% backwards compatible at all times. View the [Changelog](https://github.com/growthbook/growthbook/blob/main/packages/sdk-js/CHANGELOG.md) for a complete list of all SDK changes.
 
+### Updating to 2.0.0
+
+Version 2.0.0 makes targeting conditions strict about types. An attribute only matches a condition when both are the same type. Before 2.0.0, the SDK converted between strings, numbers and booleans, so a rule could match a value of the wrong type.
+
+If your app sends every attribute with the type set in GrowthBook, nothing changes. Otherwise, some users may stop matching rules:
+
+| Condition                        | Attribute             | Before 2.0.0           | 2.0.0    |
+| -------------------------------- | --------------------- | ---------------------- | -------- |
+| `id` equals `5`                  | `"5"` (string)        | Match                  | No match |
+| `id` equals `"5"`                | `5` (number)          | Match                  | No match |
+| `isPro` is `true`                | `1` or `"yes"`        | Match                  | No match |
+| `age` greater than `5`           | `"8"` (string)        | Match                  | No match |
+| `daysSinceSignup` less than `10` | missing               | Match (treated as `0`) | No match |
+| `version` less than `2.0.0`      | missing               | Match (treated as `0`) | No match |
+| `version` greater than `1.0.0`   | `2` or `1.5` (number) | Match                  | No match |
+| `name` matches regex `5`         | `5` (number)          | Match                  | No match |
+| `true` greater than `false`      | booleans              | Match                  | No match |
+
+Other rules:
+
+- "Not" operators are always the exact opposite. For example, `id` not equal to `5` matches `"5"`.
+- Strings compare as text, even when they look like numbers: `"10"` is less than `"9"`. ISO dates such as `"2026-10-20"` still compare correctly.
+- Booleans can't be compared with greater than or less than. Those comparisons always fail.
+- "Exists" and "type" checks are unchanged.
+- A hash attribute, such as `id`, must be a string or a number. Other values, such as `true` or an array, now count as missing, so the user isn't included in the experiment.
+
+To find attributes sent with the wrong type, turn on debug mode. The SDK logs `Type mismatch in condition` with the attribute path, operator and both values:
+
+```ts
+const gb = new GrowthBook({
+  debug: true,
+  // Optional: send logs somewhere other than the console
+  log: (msg, ctx) => myLogger.debug(msg, ctx),
+});
+```
+
 ### Updating to 1.0.0
 
 Updating from a **0.X.X** release to **1.0.0** is still backwards compatible for the vast majority of use cases, although there are a few minor changes:

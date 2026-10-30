@@ -1,0 +1,38 @@
+.summary {
+  // Block-level, so no line-box gap sits under it.
+  display: flex;
+  width: fit-content;
+  align-items: center;
+  gap: var(--space-1);
+  margin-top: var(--space-2);
+  color: var(--violet-11);
+  cursor: pointer;
+  user-select: none;
+  list-style: none;
+
+  &::-webkit-details-marker {
+    display: none;
+  }
+}
+
+.caret {
+  transition: transform 100ms;
+}
+
+.details[open] .caret {
+  transform: rotate(90deg);
+}
+
+.json {
+  margin: var(--space-1) 0 0;
+  padding: var(--space-2);
+  max-height: 50vh;
+  overflow: auto;
+  font-size: 12px;
+  line-height: 1.4;
+  border-radius: var(--radius-2);
+  background: var(--gray-a3);
+  color: var(--gray-12);
+  white-space: pre-wrap;
+  word-break: break-word;
+}

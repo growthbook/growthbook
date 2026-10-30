@@ -21,6 +21,13 @@ const auditSchema = new mongoose.Schema({
     email: String,
     name: String,
     apiKey: String,
+    requestedBy: {
+      _id: false,
+      id: String,
+      name: String,
+      email: String,
+    },
+    assumedRole: Boolean,
   },
   reason: String,
   event: String,
@@ -53,6 +60,10 @@ auditSchema.index({
   dateCreated: -1,
 });
 auditSchema.index({ organization: 1, "user.id": 1, dateCreated: -1 });
+auditSchema.index(
+  { organization: 1, "user.requestedBy.id": 1, dateCreated: -1 },
+  { partialFilterExpression: { "user.requestedBy.id": { $exists: true } } },
+);
 // Activity page filters by type alone, so the indexes above can't sort it.
 auditSchema.index({ organization: 1, "entity.object": 1, dateCreated: -1 });
 auditSchema.index({ organization: 1, "parent.object": 1, dateCreated: -1 });
@@ -101,26 +112,27 @@ function historyQuery(
 
 export async function insertAudit(
   data: Omit<AuditInterface, "id">,
+  // A fixed id makes the insert idempotent: a repeat fails as a duplicate key.
+  id: string = generateId("aud_"),
 ): Promise<AuditInterface> {
   const auditDoc = await AuditModel.create({
     ...data,
-    id: generateId("aud_"),
+    id,
   });
   return toInterface(auditDoc);
 }
 
-/**
- * find all audits by user id and organization
- * @param userId
- * @param organization
- */
+// A member's recent actions, made directly or by a key that named them.
 export async function findRecentAuditByUserIdAndOrganization(
   userId: string,
   organization: string,
 ): Promise<Omit<AuditInterface, "details">[]> {
+  // `organization` in each branch, so each can use its own index.
   const userAudits = await AuditModel.find({
-    "user.id": userId,
-    organization,
+    $or: [
+      { organization, "user.id": userId },
+      { organization, "user.requestedBy.id": userId, "user.assumedRole": true },
+    ],
   })
     .select("-details")
     .limit(10)
@@ -188,6 +200,24 @@ export async function countAuditByEntity(
   return await AuditModel.countDocuments(
     historyQuery(organization, "entity", type, id, filters),
   );
+}
+
+// Which audited keys were personal access tokens and which org keys. Their
+// audits record a token's owner as `userId`, null for an org key; older audits
+// record neither, so those keys are in `all` only.
+export async function getAuditedApiKeyKinds(organization: string) {
+  const ids = async (details?: string): Promise<string[]> =>
+    AuditModel.distinct("entity.id", {
+      organization,
+      "entity.object": "apiKey",
+      ...(details && { details: { $regex: details } }),
+    });
+  const [all, tokens, orgKeys] = await Promise.all([
+    ids(),
+    ids('"userId":"'),
+    ids('"userId":null'),
+  ]);
+  return { all, tokens: new Set(tokens), orgKeys: new Set(orgKeys) };
 }
 
 // A page of audits newest first, with the total that matches the filters on any page.

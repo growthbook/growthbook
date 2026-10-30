@@ -1,7 +1,13 @@
+import pickBy from "lodash/pickBy";
 import { z } from "zod";
-import { statsEngines, MAX_DESCRIPTION_LENGTH } from "shared/constants";
+import {
+  statsEngines,
+  MAX_DESCRIPTION_LENGTH,
+  FEATURE_KEY_PATTERN,
+} from "shared/constants";
 import { eventUser } from "./event-user";
 import {
+  allowUnscopedRulesBodyField,
   featurePrerequisite,
   namespaceValue,
   savedGroupTargeting,
@@ -18,7 +24,7 @@ import {
   ownerEmailField,
   ownerField,
   ownerInputField,
-  requiredUnlessPatOwnerInputField,
+  requiredUnlessPersonOwnerInputField,
 } from "./owner-field";
 import {
   featureRulePatch,
@@ -34,6 +40,23 @@ import {
 } from "./ramp-schedule";
 
 import { namedSchema } from "./openapi-helpers";
+import {
+  experimentAnalysisSettingsDraft,
+  experimentInterface,
+  statusUpdateScheduleInput,
+  experimentPhase,
+  variation,
+} from "./experiments";
+import { stagedUrlRedirect } from "./url-redirects";
+import { visualChangesetEdit } from "./visual-changesets";
+import {
+  FEATURE_DESCRIPTION,
+  FEATURE_KEY_DESCRIPTION,
+  RULE_DESCRIPTION,
+  TAGS_DESCRIPTION,
+  FALLBACK_ATTRIBUTE_DESCRIPTION,
+} from "./api-field-descriptions";
+import { PUBLISH_OVERRIDE_ACTIONS } from "./confirmations";
 
 export const simpleSchemaFieldValidator = z.object({
   key: z.string().max(64),
@@ -147,6 +170,7 @@ export const rolloutRule = baseRule
     sparse: sparseRuleField,
     coverage: z.number(),
     hashAttribute: z.string(),
+    fallbackAttribute: z.string().optional(),
     seed: z.string().optional(),
     hashVersion: z.union([z.literal(1), z.literal(2)]).optional(),
   })
@@ -277,6 +301,19 @@ export const featureRule = z.union([
 ]);
 
 export type FeatureRule = z.infer<typeof featureRule>;
+
+// Only the keys the rule's type declares. The union members are `.strict()`,
+// which throws rather than strips, so unknown keys otherwise persist.
+export function stripUnknownRuleFields<T extends { type?: string }>(
+  rule: T,
+): T {
+  const schema = featureRule.options.find(
+    (o) => o.shape.type.safeParse(rule.type).success,
+  );
+  if (!schema) return rule;
+  const allowed = new Set(Object.keys(schema.shape));
+  return pickBy(rule, (value, key) => allowed.has(key)) as T;
+}
 
 // Env-level settings only (kill switch + prerequisites). Rules live on
 // `featureInterface.rules`.
@@ -622,9 +659,9 @@ export type RevisionRampAction = z.infer<typeof revisionRampAction>;
 // the REST API, and reviewer-scoped queries — don't have to replay the log.
 export const revisionReviewSchema = z
   .object({
-    // Stable reviewer identifier used for upserts/queries: the user id for
-    // dashboard users; the key id (or apiKey identifier) for API keys.
-    // See `reviewerKeyForEventUser`.
+    // Stable reviewer identifier used for upserts/queries: the member behind
+    // the verdict, or the key's id when a key reviewed as itself. See
+    // `eventUserIdentity`.
     userId: z.string(),
     // Full event user who submitted the verdict — lets policy hooks match on
     // type ("dashboard" vs "api_key"), apiKey, email, etc.
@@ -648,17 +685,6 @@ export const revisionReviewSchema = z
   .strict();
 
 export type RevisionReview = z.infer<typeof revisionReviewSchema>;
-
-// Stable identifier for a reviewer across review lifecycle events, or null if
-// the event user can't hold a review verdict (system/anonymous users).
-export function reviewerKeyForEventUser(
-  user: z.infer<typeof eventUser>,
-): string | null {
-  if (!user) return null;
-  if (user.type === "dashboard") return user.id;
-  if (user.type === "api_key") return user.id || user.apiKey || null;
-  return null;
-}
 
 const featureRevisionInterface = minimalFeatureRevisionInterface
   .extend({
@@ -711,17 +737,18 @@ const featureRevisionInterface = minimalFeatureRevisionInterface
       .array(z.object({ rampScheduleId: z.string(), ruleId: z.string() }))
       .optional(),
     log: z.array(revisionLog).optional(), // This is deprecated in favor of using FeatureRevisionLog due to it being too large
-    // User IDs who have made edits to this draft. Populated incrementally via
+    // Identities (user or API key IDs) that have edited this draft. Populated incrementally via
     // updateRevision's $addToSet; may be empty if no content edits have been made.
     // Note: the revision author (createdBy) is NOT automatically seeded here.
     contributors: z.array(z.string()).optional(),
+    // API keys that edited this draft in either mode, written with the edit.
+    editorKeys: z.array(z.string()).optional(),
     /** Review-cycle identity; absent legacy values are treated as cycle 0. */
     reviewCycle: z.number().optional(),
     autoPublishOnApproval: z.boolean().optional(),
-    // User ID of whoever most recently armed `autoPublishOnApproval` — the
-    // auto-publish executes with this user's authority. Absent when armed by
-    // an actor without a user ID (e.g. an API key), in which case the
-    // publish falls back to `createdBy`.
+    // Who most recently armed `autoPublishOnApproval`, and whose authority the
+    // auto-publish runs with: a user ID, an API key ID, or `<keyId>:<memberId>`
+    // for a key that assumed a member's role.
     autoPublishEnabledBy: z.string().optional(),
     // Defers an armed revision's auto-publish until on/after this date (and, if
     // required, approved). null/absent = publish as soon as approved.
@@ -975,6 +1002,10 @@ export const apiFeatureRolloutRuleValidator = namedSchema(
         .optional(),
       coverage: z.coerce.number().gte(0).lte(1),
       hashAttribute: z.string(),
+      fallbackAttribute: z
+        .string()
+        .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
+        .optional(),
       seed: z
         .string()
         .describe(
@@ -1259,24 +1290,6 @@ export const apiRevisionMetadata = z
     "Metadata fields captured in this revision (only present when metadata gating is enabled)",
   );
 
-// ---- EventUser ----
-// API-safe projection of the internal EventUser union (see event-user.ts).
-// Deliberately excludes the api_key actor's `apiKey` field.
-export const apiEventUserValidator = namedSchema(
-  "EventUser",
-  z
-    .object({
-      type: z.enum(["dashboard", "api_key", "system"]),
-      id: z.string().optional(),
-      name: z.string().optional(),
-      email: z.string().optional(),
-    })
-    .strict()
-    .describe("The user (or automated actor) responsible for an action"),
-);
-
-export type ApiEventUser = z.infer<typeof apiEventUserValidator>;
-
 // ---- FeatureRevisionV1 (schemas/FeatureRevisionV1.yaml) ----
 export const apiFeatureRevisionValidator = namedSchema(
   "FeatureRevisionV1",
@@ -1472,7 +1485,11 @@ const postFeatureForceRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1492,7 +1509,11 @@ const postFeatureRolloutRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     condition: z
       .string()
       .describe("Applied to everyone by default.")
@@ -1511,6 +1532,10 @@ const postFeatureRolloutRule = z
         "Percent of traffic included in this experiment. Users not included in the experiment will skip this rule.",
       ),
     hashAttribute: z.string(),
+    fallbackAttribute: z
+      .string()
+      .describe(FALLBACK_ATTRIBUTE_DESCRIPTION)
+      .optional(),
     seed: z.string().optional(),
     hashVersion: z
       .union([z.literal(1), z.literal(2)])
@@ -1525,7 +1550,11 @@ const postFeatureExperimentRefRule = z
   .object({
     ...postFeatureRuleProjectScopeShape,
     ...v1RuleReadOnlyEcho,
-    description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+    description: z
+      .string()
+      .max(MAX_DESCRIPTION_LENGTH)
+      .describe(RULE_DESCRIPTION)
+      .optional(),
     id: z.string().optional(),
     enabled: z.boolean().describe("Enabled by default").optional(),
     type: z.literal("experiment-ref"),
@@ -1550,7 +1579,11 @@ const postFeatureExperimentRuleFields = {
   ...postFeatureRuleProjectScopeShape,
   ...v1RuleReadOnlyEcho,
   ...v1RuleSavedGroupInput,
-  description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH)
+    .describe(RULE_DESCRIPTION)
+    .optional(),
   condition: z.string(),
   id: z.string().optional(),
   enabled: z.boolean().describe("Enabled by default").optional(),
@@ -1660,16 +1693,15 @@ const postFeatureBody = z
     id: z
       .string()
       .min(1)
-      .describe(
-        "A unique key name for the feature. Feature keys can only include letters, numbers, hyphens, and underscores.",
-      ),
+      .meta({ pattern: FEATURE_KEY_PATTERN })
+      .describe(FEATURE_KEY_DESCRIPTION),
     archived: z.boolean().optional(),
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
-    owner: requiredUnlessPatOwnerInputField,
+    owner: requiredUnlessPersonOwnerInputField,
     project: z.string().describe("An associated project ID").optional(),
     targetingAllProjects: z
       .boolean()
@@ -1698,7 +1730,7 @@ const postFeatureBody = z
         'Key of the config backing this flag ("Config mode"). Requires `valueType: "json"` and a live config; `defaultValue` and rule values become override patches on top. null or omitted for a plain flag.',
       )
       .optional(),
-    tags: z.array(z.string()).describe("List of associated tags").optional(),
+    tags: z.array(z.string()).describe(TAGS_DESCRIPTION).optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
       .describe(
@@ -1732,7 +1764,7 @@ const updateFeatureBody = z
     description: z
       .string()
       .max(MAX_DESCRIPTION_LENGTH)
-      .describe("Description of the feature")
+      .describe(FEATURE_DESCRIPTION)
       .optional(),
     archived: z.boolean().optional(),
     project: z.string().describe("An associated project ID").optional(),
@@ -1759,9 +1791,7 @@ const updateFeatureBody = z
       .optional(),
     tags: z
       .array(z.string())
-      .describe(
-        "List of associated tags. Will override tags completely with submitted list",
-      )
+      .describe(`${TAGS_DESCRIPTION} Replaces the existing tags completely.`)
       .optional(),
     environments: z
       .record(z.string(), postFeatureEnvironment)
@@ -1856,6 +1886,8 @@ export const postFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features](#operation/postFeatureV2) instead.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.create", "feature.publish"] as const,
+  confirmationInHandler: true,
   operationId: "postFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1902,6 +1934,12 @@ export const updateFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features/:id](#operation/updateFeatureV2) instead.\n\nUpdates the Feature Flag and immediately publishes a new revision. The caller needs Edit access in the Feature Flag's Project and Publish access for every affected environment. When approval is required, use the revision endpoints instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "updateFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1925,6 +1963,8 @@ export const deleteFeatureValidator = {
     '**Deprecated.** Use [DELETE /v2/features/:id](#operation/deleteFeatureV2) instead.\n\nPermanently deletes a Feature Flag and all of its revisions. The caller needs Archive & delete access. Deleting a live Feature Flag also requires Publish access for every environment where it is enabled and the organization setting "REST API always bypasses approval requirements". Otherwise, archive the Feature Flag before deleting it.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.delete"] as const,
+  confirmationInHandler: true,
   operationId: "deleteFeature",
   tags: ["features"],
   method: "delete" as const,
@@ -1968,6 +2008,8 @@ export const toggleFeatureValidator = {
     "**Deprecated.** Use [POST /v2/features/:id/toggle](#operation/toggleFeatureV2) instead.\n\nEnables or disables a Feature Flag in one or more environments and immediately publishes the change. The caller needs Publish access for every environment in the request. When approval is required, use a draft revision instead, unless the caller can bypass draft approvals.",
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: ["feature.publish", ...PUBLISH_OVERRIDE_ACTIONS] as const,
+  confirmationInHandler: true,
   operationId: "toggleFeature",
   tags: ["features"],
   method: "post" as const,
@@ -1998,6 +2040,12 @@ export const revertFeatureValidator = {
     '**Deprecated.** Use [POST /v2/features/:id/revert](#operation/revertFeatureV2) instead.\n\nRestores a previously published revision and immediately publishes the result as a new revision. The caller needs Revert access for every affected environment. When approval is required, the request is allowed only if the caller holds the `FlagsBypassApprovals` policy, or the organization enables either "REST API always bypasses approval requirements" or "Allow reverts without approval".\n\nIf the restored values no longer match the Feature Flag\'s current value type or JSON schema, or restoring an archived state would archive a flag that live flags or experiments still depend on, the API returns 422 with `warnings`. Send `"ignoreWarnings": true` to acknowledge those warnings and continue.',
   deprecated: true,
   deprecationDate: FEATURE_V1_DEPRECATED,
+  confirmation: [
+    "feature.publish",
+    "feature.archive",
+    ...PUBLISH_OVERRIDE_ACTIONS,
+  ] as const,
+  confirmationInHandler: true,
   operationId: "revertFeature",
   tags: ["features"],
   method: "post" as const,
@@ -2173,3 +2221,192 @@ export type GetFeatureStaleResponse = z.infer<
 >;
 
 export type FeatureStaleEntry = GetFeatureStaleResponse["features"][string];
+
+const experimentRuleEnvironments = z
+  .object({
+    allEnvironments: z.boolean(),
+    environments: z.array(z.string()),
+  })
+  .strict();
+export type ExperimentRuleEnvironments = z.infer<
+  typeof experimentRuleEnvironments
+>;
+
+const share = z.number().min(0).max(1);
+
+const experimentChangesFields = experimentAnalysisSettingsDraft
+  .extend({
+    name: z.string().min(1),
+    description: z.string(),
+    hypothesis: z.string(),
+    variations: z.array(variation),
+    // "" clears the holdout.
+    holdoutId: z.string(),
+    // Targeting. The phase's fields are written to the latest one, or to a new
+    // one the save's `release` starts.
+    ...experimentPhase.pick({
+      condition: true,
+      savedGroups: true,
+      prerequisites: true,
+      seed: true,
+    }).shape,
+    coverage: share,
+    variationWeights: z.array(share),
+    // Either format, as the targeting form writes it.
+    namespace: z
+      .object({
+        enabled: z.boolean(),
+        name: z.string(),
+        range: z.tuple([z.number(), z.number()]).optional(),
+        ranges: z.array(z.tuple([z.number(), z.number()])).optional(),
+        hashAttribute: z.string().optional(),
+        hashVersion: z.number().optional(),
+        format: z.enum(["legacy", "multiRange"]).optional(),
+      })
+      .strict(),
+    ...experimentInterface.pick({
+      hashAttribute: true,
+      fallbackAttribute: true,
+      attributeScopeAllProjects: true,
+      hashVersion: true,
+      disableStickyBucketing: true,
+      bucketVersion: true,
+      minBucketVersion: true,
+    }).shape,
+    // Null clears it.
+    statusUpdateSchedule: statusUpdateScheduleInput.nullable(),
+  })
+  .partial()
+  .strict();
+export type ExperimentChangesFields = z.infer<typeof experimentChangesFields>;
+
+// A flag's rule on the experiment, as linking one gives it.
+const experimentLinkFields = {
+  variations: z.array(experimentRefVariation),
+  sparse: z.boolean().optional(),
+  environments: experimentRuleEnvironments.optional(),
+};
+
+export const experimentChangesBody = z
+  .object({
+    experiment: z
+      .object({
+        changes: experimentChangesFields,
+        // The value of each changed field as the client loaded it; a field that
+        // moved since then fails the save instead of being overwritten.
+        base: z.record(z.string(), z.unknown()),
+      })
+      .strict()
+      .optional(),
+    flagValues: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            variations: z.array(experimentRefVariation),
+            // JSON only. Omitted leaves the rule's sparse flag as it is.
+            sparse: z.boolean().optional(),
+            // The rule's environment scope. Omitted leaves it as it is.
+            environments: experimentRuleEnvironments.optional(),
+            // Only these of the experiment's rules, when its rules on the flag
+            // disagree. Omitted writes every one of them.
+            ruleIds: z.array(z.string()).min(1).optional(),
+            // The revision the values were loaded from: the live version starts
+            // a new draft (dateUpdated unused), a draft version writes into it.
+            revision: z
+              .object({
+                version: z.number().int(),
+                dateUpdated: z.string().nullable(),
+              })
+              .strict(),
+          })
+          .strict(),
+      )
+      .optional(),
+    // Flags to link again, each given the experiment's rule in a new draft.
+    linkFeatures: z
+      .array(
+        z
+          .object({
+            featureId: z.string(),
+            ...experimentLinkFields,
+          })
+          .strict(),
+      )
+      .optional(),
+    // Flags to create, then link as linkFeatures links one once the experiment
+    // lands, so their values can name variations this save adds.
+    createFeatures: z
+      .array(
+        z
+          .object({
+            feature: z
+              .object({
+                id: z.string(),
+                valueType: z.enum(featureValueType),
+                defaultValue: z.string(),
+                description: z.string().optional(),
+                owner: ownerField.optional(),
+                project: z.string().optional(),
+                tags: z.array(z.string()).optional(),
+                environmentSettings: z.record(
+                  z.string(),
+                  z.object({ enabled: z.boolean() }).strict(),
+                ),
+                holdout: z
+                  .object({ id: z.string(), value: z.string() })
+                  .strict()
+                  .optional(),
+                customFields: z.record(z.string(), z.unknown()).optional(),
+              })
+              .strict(),
+            ...experimentLinkFields,
+          })
+          .strict(),
+      )
+      .optional(),
+    // Flags to take off the experiment, along with its rule on each: out of
+    // open drafts now, and out of live through a draft, unlinking on publish.
+    unlinkFeatures: z.array(z.string()).optional(),
+    // Flags whose pending removal to undo: the rule goes back into the drafts.
+    keepFeatures: z.array(z.string()).optional(),
+    addUrlRedirects: z.array(stagedUrlRedirect).optional(),
+    // Each with the dateUpdated it was loaded at; one changed since fails the save.
+    editUrlRedirects: z
+      .array(
+        stagedUrlRedirect
+          .extend({ id: z.string(), dateUpdated: z.string() })
+          .strict(),
+      )
+      .optional(),
+    removeUrlRedirects: z.array(z.string()).optional(),
+    // Like `experiment`: the edited keys, each beside its value as loaded.
+    // base.visualChanges holds the loaded visual changes the edit touches.
+    editVisualChangesets: z
+      .array(
+        z
+          .object({
+            id: z.string(),
+            changes: visualChangesetEdit,
+            base: z.record(z.string(), z.unknown()),
+          })
+          .strict(),
+      )
+      .optional(),
+    removeVisualChangesets: z.array(z.string()).optional(),
+    // Without one, what a running experiment serves can't change in place.
+    release: z
+      .object({
+        // Ends the latest phase and starts another with the targeting.
+        newPhase: z.boolean(),
+        // The new phase gets a new seed, so everyone is assigned again.
+        reseed: z.boolean(),
+      })
+      .strict()
+      .optional(),
+    // Runs every check the save would and writes nothing.
+    dryRun: z.boolean().optional(),
+    allowUnscopedRules: allowUnscopedRulesBodyField,
+  })
+  .strict();
+export type ExperimentChangesBody = z.infer<typeof experimentChangesBody>;

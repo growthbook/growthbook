@@ -1,0 +1,274 @@
+import { Fragment } from "react";
+import { Box, Flex, Separator } from "@radix-ui/themes";
+import {
+  PiArrowSquareOut,
+  PiPlusBold,
+  PiSlidersHorizontal,
+} from "react-icons/pi";
+import {
+  ExperimentMetricDefinition,
+  getMetricLink,
+  getMetricSnapshotSettings,
+  isFactMetric,
+} from "shared/experiments";
+import { MetricOverride } from "shared/validators";
+import {
+  DecisionFrameworkMetricOverrides,
+  ExperimentInterfaceStringDates,
+} from "shared/types/experiment";
+import { StatsEngine } from "shared/types/stats";
+import { getScopedSettings } from "shared/settings";
+import { DEFAULT_TARGET_MDE } from "shared/constants";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { metricTypeLabel } from "@/components/Metrics/FactMetricTypeDisplayName";
+import {
+  describeMetricOverride,
+  describeMetricSettings,
+  METRIC_OVERRIDE_COLOR,
+  OverrideRow,
+} from "@/services/metricOverrides";
+import { useUser } from "@/services/UserContext";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import {
+  OptionTooltipDescription,
+  OptionTooltipSection,
+  OptionTooltipShell,
+} from "@/components/Features/OptionTooltipShell";
+import HelperText from "@/ui/HelperText";
+import Button from "@/ui/Button";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+
+/** What a metric's settings are resolved against in its hover card. */
+export interface MetricSettingsScope {
+  experiment: ExperimentInterfaceStringDates;
+  statsEngine: StatsEngine;
+}
+
+interface GroupMemberStatus {
+  metric: ExperimentMetricDefinition | null;
+  joinable: boolean;
+}
+
+// `nested` indents it under a group member so the members' names still lead.
+function RowsBlock({
+  heading,
+  color,
+  rows,
+  nested = false,
+}: {
+  heading: string;
+  color?: string;
+  rows: OverrideRow[];
+  nested?: boolean;
+}) {
+  if (!rows.length) return null;
+  return (
+    <Box mt={nested ? "2" : undefined} pl={nested ? "2" : undefined}>
+      <Box style={{ color: color ?? "var(--color-text-mid)" }}>
+        <Text size="sm" as="div" weight="medium">
+          {heading}
+        </Text>
+      </Box>
+      {rows.map((row) => (
+        <Text key={row.key} size="sm" as="div" color="text-high">
+          <Text size="sm" color="text-low">
+            {row.label}:
+          </Text>{" "}
+          {row.value}
+        </Text>
+      ))}
+    </Box>
+  );
+}
+
+/** A group lists each of its metrics with its own type, overrides and link. */
+export function MetricOverrideTooltipContent({
+  id,
+  overrides,
+  onManageOverrides,
+  members,
+  filterConversionWindowMetrics,
+  settingsScope,
+  targetMDEOverrides,
+}: {
+  id: string;
+  overrides: MetricOverride[];
+  /** Opens the override editor on these metrics; omitted where it can't open. */
+  onManageOverrides?: (metricIds: string[]) => void;
+  /** For a group, how each of its metrics fares against the query. */
+  members?: GroupMemberStatus[];
+  /** Whether a conversion window counts against a metric here. */
+  filterConversionWindowMetrics?: boolean;
+  /** Given, a metric also lists the settings it isn't overriding. */
+  settingsScope?: MetricSettingsScope;
+  /** Given, for goal metrics, each one's target MDE reads as its first override. */
+  targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
+}) {
+  const {
+    getExperimentMetricById,
+    getMetricGroupById,
+    getMetricById,
+    getProjectById,
+    getFactTableById,
+  } = useDefinitions();
+  const { organization, hasCommercialFeature } = useUser();
+  const orgSettings = useOrgSettings();
+  const group = getMetricGroupById(id);
+  const metric = group ? null : getExperimentMetricById(id);
+  const memberIds = group ? group.metrics : [id];
+  const targetMDEFor = (mid: string) =>
+    targetMDEOverrides?.find((o) => o.id === mid)?.targetMDE;
+  const rowsFor = (mid: string) =>
+    describeMetricOverride(
+      overrides.find((o) => o.id === mid) ?? { id: mid },
+      targetMDEFor(mid),
+    );
+  const hasOverrides = memberIds.some((mid) => rowsFor(mid).length > 0);
+
+  const settingRows = (() => {
+    if (!settingsScope || !metric) return [];
+    const { experiment, statsEngine } = settingsScope;
+    const denominator =
+      !isFactMetric(metric) && metric.denominator
+        ? (getMetricById(metric.denominator) ?? undefined)
+        : undefined;
+    // Resolved as if nothing were overridden: the overrides list themselves.
+    const { settings } = getScopedSettings({
+      organization,
+      project: getProjectById(experiment.project || "") ?? undefined,
+      experiment: { ...experiment, metricOverrides: [] },
+      metric,
+      denominatorMetric: denominator,
+    });
+    // CUPED and priors as the analysis resolves them; it runs no CUPED at all
+    // while the experiment's own toggle is off.
+    const { metricSnapshotSettings: analysis } = getMetricSnapshotSettings({
+      metric,
+      denominatorMetrics: denominator ? [denominator] : [],
+      experimentRegressionAdjustmentEnabled:
+        !!experiment.regressionAdjustmentEnabled,
+      organizationSettings: orgSettings,
+    });
+    return describeMetricSettings(
+      {
+        windowType: settings.windowType.value,
+        windowHours: settings.windowHours.value,
+        delayHours: settings.delayHours.value,
+        // The analysis runs to the experiment's end (or its own lookback)
+        // instead of each metric's conversion window.
+        conversionWindowsIgnored:
+          experiment.attributionModel === "experimentDuration" ||
+          experiment.attributionModel === "lookbackOverride",
+        cuped: hasCommercialFeature("regression-adjustment")
+          ? {
+              enabled: analysis.regressionAdjustmentEnabled,
+              days: analysis.regressionAdjustmentDays,
+            }
+          : null,
+        prior: {
+          proper: analysis.properPrior,
+          mean: analysis.properPriorMean,
+          stddev: analysis.properPriorStdDev,
+        },
+        targetMDE: targetMDEOverrides
+          ? (metric.targetMDE ?? DEFAULT_TARGET_MDE)
+          : undefined,
+      },
+      statsEngine,
+      overrides.find((o) => o.id === id),
+      targetMDEFor(id),
+    );
+  })();
+
+  return (
+    <OptionTooltipShell
+      href={group ? `/metric-groups/${id}` : getMetricLink(id)}
+      title={group?.name ?? metric?.name ?? id}
+      subtitle={metric ? metricTypeLabel(metric, getFactTableById) : undefined}
+      titleColor="dark"
+    >
+      {metric ? (
+        <OptionTooltipDescription description={metric.description} />
+      ) : null}
+      {group ? (
+        <OptionTooltipSection label="Metrics:">
+          <Flex direction="column" gap="2" mt="1">
+            {memberIds.map((mid, i) => {
+              const member = getExperimentMetricById(mid);
+              const status = members?.find((m) => m.metric?.id === mid);
+              const notJoinable = status?.joinable === false;
+              const conversionWindow =
+                !!filterConversionWindowMetrics &&
+                member?.windowSettings?.type === "conversion";
+              const rows = rowsFor(mid);
+              return (
+                <Fragment key={mid}>
+                  {i > 0 ? <Separator size="4" /> : null}
+                  <Box>
+                    {member ? (
+                      <>
+                        <Link
+                          href={getMetricLink(mid)}
+                          target="_blank"
+                          color="dark"
+                          weight="medium"
+                          size="sm"
+                        >
+                          {member.name} <PiArrowSquareOut />
+                        </Link>
+                        <Text size="sm" as="div" color="text-low">
+                          {metricTypeLabel(member, getFactTableById)}
+                        </Text>
+                      </>
+                    ) : (
+                      <Text size="sm" weight="medium">
+                        {mid}
+                      </Text>
+                    )}
+                    {notJoinable ? (
+                      <HelperText status="error" size="sm">
+                        Not joinable with this assignment query
+                      </HelperText>
+                    ) : conversionWindow ? (
+                      <HelperText status="warning" size="sm">
+                        Uses a conversion window
+                      </HelperText>
+                    ) : null}
+                    <RowsBlock
+                      heading="Overrides:"
+                      color={METRIC_OVERRIDE_COLOR}
+                      rows={rows}
+                      nested
+                    />
+                  </Box>
+                </Fragment>
+              );
+            })}
+          </Flex>
+        </OptionTooltipSection>
+      ) : (
+        <>
+          <RowsBlock heading="Settings:" rows={settingRows} />
+          <RowsBlock
+            heading="Overrides:"
+            color={METRIC_OVERRIDE_COLOR}
+            rows={rowsFor(id)}
+          />
+        </>
+      )}
+      {onManageOverrides ? (
+        <Box>
+          <Button
+            variant="outline"
+            size="sm"
+            icon={hasOverrides ? <PiSlidersHorizontal /> : <PiPlusBold />}
+            onClick={() => onManageOverrides(memberIds)}
+          >
+            {hasOverrides ? "Manage overrides" : "Add overrides"}
+          </Button>
+        </Box>
+      ) : null}
+    </OptionTooltipShell>
+  );
+}

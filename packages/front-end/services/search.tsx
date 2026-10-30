@@ -10,11 +10,14 @@ import {
   useRef,
 } from "react";
 import { FaSort, FaSortDown, FaSortUp } from "react-icons/fa";
+import { PiCaretDown, PiCaretUp, PiCaretUpDown } from "react-icons/pi";
 import { useRouter } from "next/router";
 import MiniSearch from "minisearch";
+import clsx from "clsx";
 import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Pagination from "@/components/Pagination";
 import { TableColumnHeader } from "@/ui/Table";
+import sortStyles from "./SortButton.module.scss";
 
 export function useAddComputedFields<T, ExtraFields>(
   items: T[] | undefined,
@@ -169,6 +172,8 @@ export interface SearchProps<T extends { id: string }> {
   // than from a user-typed input.
   controlledSearchValue?: string;
   pageSize?: number;
+  // Gray caret sort icons on SortableTableColumnHeader instead of the filled arrows.
+  subtleSortIcons?: boolean;
   // Extra values that `searchTermFilters` closes over but that change
   // asynchronously (e.g. lazily-fetched indexes). Including them here lets the
   // filtered-results memo recompute when that data arrives instead of going
@@ -208,6 +213,59 @@ export interface SearchReturn<T> {
   pagination: ReactNode;
 }
 
+export function ariaSort(
+  active: boolean,
+  dir: number,
+): "ascending" | "descending" | "none" {
+  if (!active) return "none";
+  return dir < 0 ? "descending" : "ascending";
+}
+
+export function SortButton({
+  active,
+  dir,
+  subtle = false,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  dir: number;
+  subtle?: boolean;
+  onClick: () => void;
+  children: ReactNode;
+}) {
+  return (
+    <button type="button" onClick={onClick} className={sortStyles.button}>
+      {children}
+      {subtle ? (
+        <span
+          aria-hidden="true"
+          className={clsx(sortStyles.subtleIcon, {
+            [sortStyles.subtleIconActive]: active,
+          })}
+        >
+          {active ? (
+            dir < 0 ? (
+              <PiCaretDown size={14} />
+            ) : (
+              <PiCaretUp size={14} />
+            )
+          ) : (
+            <PiCaretUpDown size={14} />
+          )}
+        </span>
+      ) : (
+        <span
+          aria-hidden="true"
+          className={active ? "activesort" : "inactivesort"}
+        >
+          {active ? dir < 0 ? <FaSortDown /> : <FaSortUp /> : <FaSort />}
+        </span>
+      )}
+    </button>
+  );
+}
+
 export function useSearch<T extends { id: string }>({
   items,
   searchFields,
@@ -224,6 +282,7 @@ export function useSearch<T extends { id: string }>({
   disableUrlSearchTerm,
   controlledSearchValue,
   pageSize,
+  subtleSortIcons = false,
   searchTermFilterDeps = [],
 }: SearchProps<T>): SearchReturn<T> {
   const defaultSort = { field: defaultSortField, dir: defaultSortDir || 1 };
@@ -397,9 +456,14 @@ export function useSearch<T extends { id: string }>({
 
     const sorted = [...filtered];
 
+    // 0 is a real value; other falsy values fall back to the default mapping
+    const sortValue = (item: T) =>
+      item[sort.field] === 0
+        ? 0
+        : item[sort.field] || defaultMappings[sort.field];
     sorted.sort((a, b) => {
-      const comp1 = a[sort.field] || defaultMappings[sort.field];
-      const comp2 = b[sort.field] || defaultMappings[sort.field];
+      const comp1 = sortValue(a);
+      const comp2 = sortValue(b);
       if (undefinedLast) {
         if (comp1 === undefined && comp2 !== undefined) return 1;
         if (comp2 === undefined && comp1 !== undefined) return -1;
@@ -498,11 +562,16 @@ export function useSearch<T extends { id: string }>({
       const showSortDirection = !isRelevanceSortActive && sort.field === field;
 
       return (
-        <TableColumnHeader className={className} style={style}>
-          <span
-            className="cursor-pointer"
-            onClick={(e) => {
-              e.preventDefault();
+        <TableColumnHeader
+          className={className}
+          style={style}
+          aria-sort={ariaSort(showSortDirection, sort.dir)}
+        >
+          <SortButton
+            active={showSortDirection}
+            dir={sort.dir}
+            subtle={subtleSortIcons}
+            onClick={() => {
               setDisableRelevanceSort(true);
               setSort({
                 field,
@@ -510,28 +579,14 @@ export function useSearch<T extends { id: string }>({
               });
             }}
           >
-            {children}{" "}
-            <a
-              href="#"
-              className={showSortDirection ? "activesort" : "inactivesort"}
-            >
-              {showSortDirection ? (
-                sort.dir < 0 ? (
-                  <FaSortDown />
-                ) : (
-                  <FaSortUp />
-                )
-              ) : (
-                <FaSort />
-              )}
-            </a>
-          </span>
+            {children}
+          </SortButton>
           {endAdornment}
         </TableColumnHeader>
       );
     };
     return Header;
-  }, [sort.dir, sort.field, isRelevanceSortActive]);
+  }, [sort.dir, sort.field, isRelevanceSortActive, subtleSortIcons]);
 
   const clear = useCallback(() => {
     setValue("");

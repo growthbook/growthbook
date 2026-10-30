@@ -1,12 +1,14 @@
+import { hasSuperAdminPermission } from "shared/permissions";
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
-import omit from "lodash/omit";
+import pick from "lodash/pick";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  getDataSourceSaveChanges,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -42,6 +44,7 @@ import type { ClickHouseConnectionParams } from "shared/types/integrations/click
 import { SDKAttributeSchema } from "shared/types/organization";
 import { AuthRequest } from "back-end/src/types/AuthRequest";
 import { getContextFromReq } from "back-end/src/services/organizations";
+import { ReqContext } from "back-end/types/request";
 import {
   getSourceIntegrationObject,
   mergeParams,
@@ -54,6 +57,7 @@ import {
   testUnsavedDataSourceConnection,
 } from "back-end/src/services/datasource";
 import {
+  assertNoEventForwarderInOrg,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
   syncEventForwarderConfigFromDatasource,
@@ -80,7 +84,6 @@ import {
 import { getOauth2Client } from "back-end/src/integrations/GoogleAnalytics";
 import SqlIntegration from "back-end/src/integrations/SqlIntegration";
 import {
-  getQueriesByDatasource,
   getQueriesByIds,
   getQueryById,
   updateQueryIfRunning,
@@ -251,6 +254,9 @@ export async function postDataSources(
   }
 
   try {
+    // Before the save, so a refused forwarder leaves no orphan Data Source
+    if (eventForwarderConfig) await assertNoEventForwarderInOrg(context);
+
     // Set default event properties and queries
     settings.events = {
       experimentEvent: "$experiment_started",
@@ -326,7 +332,7 @@ export async function postManagedWarehouse(
   const context = getContextFromReq(req);
 
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canCreateDataSource({ type: "growthbook_clickhouse" })
   ) {
     context.permissions.throwPermissionError();
@@ -365,6 +371,52 @@ export async function postManagedWarehouse(
     id: "managed_warehouse",
     datasource: await getDataSourceWithParams(context, integration),
   });
+}
+
+type PutDataSourceBody = {
+  name?: string;
+  description?: string;
+  type?: DataSourceType;
+  params?: DataSourceParams;
+  settings?: DataSourceSettings;
+  projects?: string[];
+  metricsToCreate?: AutoMetricToCreate[];
+  eventForwarderConfig?: EventForwarderConfigDraft | null;
+};
+
+/**
+ * Assignment queries are scoped to projects, so editing one needs the
+ * permission in the projects it covers rather than in every project of the
+ * data source. Anything else still needs the data source-wide permission.
+ */
+function assertCanUpdateDataSource(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: PutDataSourceBody,
+) {
+  const { permissions } = context;
+  const { changesOtherFields, exposureQueryChanges } = getDataSourceSaveChanges(
+    datasource,
+    body,
+  );
+  if (
+    changesOtherFields &&
+    !permissions.canUpdateDataSourceSettings(datasource)
+  ) {
+    permissions.throwPermissionError();
+  }
+
+  const nextDatasource = { projects: body.projects ?? datasource.projects };
+  for (const change of exposureQueryChanges) {
+    if (
+      (change.previous &&
+        !permissions.canUpdateExposureQuery(change.previous, datasource)) ||
+      (change.next &&
+        !permissions.canUpdateExposureQuery(change.next, nextDatasource))
+    ) {
+      permissions.throwPermissionError();
+    }
+  }
 }
 
 // Tests credentials without saving anything. Connection failures come back as a
@@ -438,19 +490,7 @@ export async function postTestDataSourceConnection(
 }
 
 export async function putDataSource(
-  req: AuthRequest<
-    {
-      name?: string;
-      description?: string;
-      type?: DataSourceType;
-      params?: DataSourceParams;
-      settings?: DataSourceSettings;
-      projects?: string[];
-      metricsToCreate?: AutoMetricToCreate[];
-      eventForwarderConfig?: EventForwarderConfigDraft | null;
-    },
-    { id: string }
-  >,
+  req: AuthRequest<PutDataSourceBody, { id: string }>,
   res: Response<
     | {
         status: 200;
@@ -511,9 +551,7 @@ export async function putDataSource(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(datasource)) {
-    context.permissions.throwPermissionError();
-  }
+  assertCanUpdateDataSource(context, datasource, req.body);
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -829,7 +867,7 @@ export async function deleteEventForwarderForDataSource(
   }
 
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canUpdateDataSourceSettings(datasource)
   ) {
     context.permissions.throwPermissionError();
@@ -846,7 +884,7 @@ export async function deleteEventForwarderForDataSource(
     });
   }
   if (
-    !context.superAdmin &&
+    !hasSuperAdminPermission(context.superAdmin, "provision") &&
     !context.permissions.canDeleteEventForwarderConfig(eventForwarderConfig)
   ) {
     context.permissions.throwPermissionError();
@@ -1308,10 +1346,6 @@ export async function updateExposureQuery(
     return;
   }
 
-  if (!context.permissions.canUpdateDataSourceSettings(dataSource)) {
-    context.permissions.throwPermissionError();
-  }
-
   const copy = cloneDeep<DataSourceInterface>(dataSource);
   const exposureQueryIndex = copy.settings.queries?.exposure?.findIndex(
     (e) => e.id === exposureQueryId,
@@ -1328,10 +1362,14 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
-  // Only for dimension metadata; identifiers are edited with the whole query.
+  if (!context.permissions.canUpdateExposureQuery(exposureQuery, dataSource)) {
+    context.permissions.throwPermissionError();
+  }
+  // Only dimension metadata; the rest of the query is edited through the data
+  // source save, which validates it.
   copy.settings.queries.exposure[exposureQueryIndex] = {
     ...exposureQuery,
-    ...omit(updates, ["userIdType", "userIdTypes"]),
+    ...pick(updates, ["dimensions", "dimensionSlicesId", "dimensionMetadata"]),
   };
 
   try {
@@ -1615,31 +1653,6 @@ export async function getDataSourceMetrics(
   });
 }
 
-export async function getDataSourceQueries(
-  req: AuthRequest<null, { id: string }>,
-  res: Response,
-) {
-  const context = getContextFromReq(req);
-  const { id } = req.params;
-
-  const datasourceObj = await getDataSourceById(context, id);
-  if (!datasourceObj) {
-    throw new Error("Could not find datasource");
-  }
-
-  req.checkPermissions(
-    "readData",
-    datasourceObj?.projects?.length ? datasourceObj.projects : [],
-  );
-
-  const queries = await getQueriesByDatasource(context.org.id, id);
-
-  res.status(200).json({
-    status: 200,
-    queries,
-  });
-}
-
 export async function cancelDataSourceQuery(
   req: AuthRequest<null, { id: string; queryId: string }>,
   res: Response,
@@ -1868,7 +1881,7 @@ export async function postRecreateManagedWarehouse(
   const context = getContextFromReq(req);
 
   // Escape hatch for super admins to re-generate the database and backfill data
-  if (!context.superAdmin) {
+  if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
     throw new Error(
       "You must be a super admin to recreate a Managed Warehouse datasource",
     );

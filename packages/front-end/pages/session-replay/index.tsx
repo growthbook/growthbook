@@ -731,7 +731,7 @@ export default function SessionReplayPage() {
                       <Text size="sm">
                         <span
                           style={{
-                            fontFamily: "monospace",
+                            fontFamily: "var(--code-font-family)",
                             color: "var(--accent-9)",
                           }}
                         >
@@ -812,7 +812,7 @@ export default function SessionReplayPage() {
                   ID:
                 </Text>
                 <Text color="text-low">
-                  <span style={{ fontFamily: "monospace" }}>
+                  <span style={{ fontFamily: "var(--code-font-family)" }}>
                     {(metadata?.id ?? selectedSessionId).slice(0, 16)}…
                   </span>
                 </Text>

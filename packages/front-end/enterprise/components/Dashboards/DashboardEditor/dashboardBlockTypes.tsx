@@ -19,6 +19,9 @@ type BlockTypeInfo = {
   icon: ReactElement;
   description?: string;
   deprecated?: boolean;
+  // Sizes itself to the block and scrolls inside, so the block adds no scroll
+  // area of its own.
+  fills?: boolean;
 };
 
 export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
@@ -74,6 +77,7 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
     name: "Custom SQL Query",
     icon: <PiFileSqlDuotone />,
     deprecated: true,
+    fills: true,
     description:
       "Displays results and saved visualizations from a custom SQL query.",
   },
@@ -82,33 +86,39 @@ export const BLOCK_TYPE_INFO: Record<DashboardBlockType, BlockTypeInfo> = {
     icon: <PiFileSqlDuotone />,
     description: "Shows an analysis of a single Fact Metric.",
     deprecated: true,
+    fills: true,
   },
   "metric-exploration": {
     name: "Metric Explorer",
     icon: <PiChartBar />,
+    fills: true,
     description:
       "Charts one or more of your existing GrowthBook Metrics over a selected date range. View trends, compare time periods, and slice/dice your data.",
   },
   "fact-table-exploration": {
     name: "Fact Table Explorer",
     icon: <PiTable />,
+    fills: true,
     description:
       "Builds an analysis directly from events and columns in one of your existing Fact Tables.",
   },
   "data-source-exploration": {
     name: "Data Source Explorer",
     icon: <PiDatabase />,
+    fills: true,
     description:
       "Builds a custom analysis from tables and columns from one of your connected Data Sources.",
   },
   "sql-exploration": {
     name: "SQL Explorer",
     icon: <PiFileSqlDuotone />,
+    fills: true,
     description: "Build a visualization from a custom SQL query.",
   },
   "funnel-exploration": {
     name: "Funnel Explorer",
     icon: <PiFunnel />,
+    fills: true,
     description:
       "Builds a custom funnel from events and columns from one of your existing Fact Tables.",
   },

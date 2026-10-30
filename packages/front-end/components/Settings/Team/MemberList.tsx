@@ -12,8 +12,10 @@ import {
   EffectiveRoleSource,
   getEffectiveRolesForProject,
   getRolePermissions,
+  holdsGlobalAdmin,
   Permissions,
 } from "shared/permissions";
+import { PiMagnifyingGlass } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
 import { useUser } from "@/services/UserContext";
 import Link from "@/ui/Link";
@@ -21,6 +23,7 @@ import RoleRuleLabel, {
   CollapsedRuleRows,
   projectRuleGroup,
   RuleRow,
+  shadowedRulesCell,
 } from "@/components/Settings/Team/RoleRuleLabel";
 import Callout from "@/ui/Callout";
 import { usingSSO } from "@/services/env";
@@ -31,7 +34,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import ChangeRoleModal from "@/components/Settings/Team/ChangeRoleModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import { useSearch } from "@/services/search";
-import Field from "@/components/Forms/Field";
+import { TextField } from "@/ui/TextField";
 import ChangeProjectRoleModal from "@/components/Settings/Team/ChangeProjectRoleModal";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
@@ -81,13 +84,15 @@ function rulesWithSources(roles: EffectiveRoleSource[]) {
 function effectiveRuleRows(
   roles: EffectiveRoleSource[],
   organization: Parameters<typeof RoleRuleLabel>[0]["organization"],
+  shadowed: RuleRow[] = [],
 ): RuleRow[] {
-  return rulesWithSources(roles).map((e) => ({
+  return rulesWithSources(roles).map((e, i) => ({
     key: e.key,
     node: (
       <RoleRuleLabel
         {...e}
         organization={organization}
+        shadowed={i === 0 ? shadowed : undefined}
         sources={
           e.sources.some((src) => src !== "Direct")
             ? e.sources.join(", ")
@@ -96,6 +101,33 @@ function effectiveRuleRows(
       />
     ),
   }));
+}
+
+// Project rules list under their project's name, after the All Projects ones.
+function groupedRuleRows(
+  roles: EffectiveRoleSource[],
+  organization: Parameters<typeof RoleRuleLabel>[0]["organization"],
+  getProjectById: (id: string) => { id: string; name: string } | null,
+): RuleRow[] {
+  const projectIds = [...new Set(roles.flatMap((r) => r.project ?? []))];
+  return [
+    ...effectiveRuleRows(
+      roles.filter((r) => !r.project),
+      organization,
+    ),
+    ...projectIds.flatMap((id) => {
+      const project = getProjectById(id);
+      return project
+        ? projectRuleGroup(
+            project,
+            effectiveRuleRows(
+              roles.filter((r) => r.project === id),
+              organization,
+            ),
+          )
+        : [];
+    }),
+  ];
 }
 
 const MemberList: FC<{
@@ -207,9 +239,13 @@ const MemberList: FC<{
   const deniedByRestrictedAccess = (member: ExpandedMember): boolean => {
     if (!project || !restrictAccess) return false;
     const resolved = new Permissions(
-      getRolePermissions(member, organization as OrganizationInterface, teams, [
-        project,
-      ]),
+      getRolePermissions(
+        member,
+        organization as OrganizationInterface,
+        teams,
+        [project],
+        { member: true },
+      ),
     );
     return !resolved.canReadSingleProjectResource(project);
   };
@@ -234,6 +270,7 @@ const MemberList: FC<{
         ]
       : undefined,
     pageSize: 20,
+    subtleSortIcons: true,
     defaultMappings: {
       lastLoginDate: new Date(0).toISOString(),
     },
@@ -246,6 +283,10 @@ const MemberList: FC<{
       {projectRoleModal && projectRoleModalUser && (
         <ChangeProjectRoleModal
           memberName={projectRoleModalUser.name || projectRoleModalUser.email}
+          adminEverywhere={holdsGlobalAdmin(
+            projectRoleModalUser,
+            teams.filter((t) => projectRoleModalUser.teams?.includes(t.id)),
+          )}
           projectRole={
             projectRoleModalUser.projectRoles?.find(
               (r) => r.project === project,
@@ -298,15 +339,16 @@ const MemberList: FC<{
       <div className="my-4">
         <Flex align="center" justify="between" gap="3" mt="4" mb="2">
           <Flex align="center" gap="3">
-            <Heading as="h5" size="sm" mb="0">
+            <Heading as="h5" size="md" mb="0">
               {project ? "Members" : "Active Members"}
               {` (${membersList.length})`}
             </Heading>
-            <Box width="250px" flexShrink="0">
-              <Field
-                placeholder="Search..."
+            <Box width="280px" flexShrink="0">
+              <TextField
                 type="search"
-                containerClassName="mb-0"
+                aria-label="Search members"
+                placeholder="Search members"
+                prepend={<PiMagnifyingGlass aria-hidden="true" />}
                 {...searchInputProps}
                 onChange={
                   project
@@ -370,7 +412,7 @@ const MemberList: FC<{
                   whiteSpace: "nowrap",
                 }}
               >
-                Date Joined
+                Date joined
               </SortableTableColumnHeader>
               <SortableTableColumnHeader
                 field="lastLoginDate"
@@ -379,7 +421,7 @@ const MemberList: FC<{
                   whiteSpace: "nowrap",
                 }}
               >
-                Last Login
+                Last login
               </SortableTableColumnHeader>
               <TableColumnHeader
                 width={
@@ -389,12 +431,12 @@ const MemberList: FC<{
                 }
               >
                 <Tooltip body="The role(s) that actually apply after combining this member's own role with any teams they're on. Hover a value to see each source.">
-                  {project ? "Project Role" : "Role"}
+                  {project ? "Project role" : "Role"}
                 </Tooltip>
               </TableColumnHeader>
               {!project && (
                 <TableColumnHeader width={MEMBER_COLUMN_WIDTHS.projectRoles}>
-                  Project Roles
+                  Project roles
                 </TableColumnHeader>
               )}
               <SortableTableColumnHeader
@@ -412,11 +454,20 @@ const MemberList: FC<{
           </TableHeader>
           <TableBody>
             {items.map((member) => {
-              const effectiveRoles = getEffectiveRolesForProject(
+              const globalAdmin = holdsGlobalAdmin(
+                member,
+                teams.filter((t) => member.teams?.includes(t.id)),
+              );
+              const { applied, shadowed } = getEffectiveRolesForProject(
                 member,
                 project || null,
                 teams,
               );
+              // Shadowed project rules get their own chip in the Project
+              // Roles column, when there is one.
+              const shadowedHere = project
+                ? shadowed
+                : shadowed.filter((r) => !r.project);
               return (
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
@@ -459,28 +510,51 @@ const MemberList: FC<{
                       />
                     ) : (
                       <CollapsedRuleRows
-                        rows={effectiveRuleRows(effectiveRoles, organization)}
+                        rows={effectiveRuleRows(
+                          applied,
+                          organization,
+                          groupedRuleRows(
+                            shadowedHere,
+                            organization,
+                            getProjectById,
+                          ),
+                        )}
                       />
                     )}
                   </TableCell>
                   {!project && (
                     <TableCell>
                       <CollapsedRuleRows
-                        rows={scopedProjectIds(member).flatMap((projectId) => {
-                          const project = getProjectById(projectId);
-                          if (!project) return [];
-                          return projectRuleGroup(
-                            project,
-                            effectiveRuleRows(
-                              getEffectiveRolesForProject(
-                                member,
-                                projectId,
-                                teams,
-                              ),
-                              organization,
-                            ),
-                          );
-                        })}
+                        rows={
+                          globalAdmin
+                            ? shadowedRulesCell(
+                                groupedRuleRows(
+                                  shadowed.filter((r) => r.project),
+                                  organization,
+                                  getProjectById,
+                                ),
+                              )
+                            : scopedProjectIds(member).flatMap((projectId) => {
+                                const project = getProjectById(projectId);
+                                if (!project) return [];
+                                const here = getEffectiveRolesForProject(
+                                  member,
+                                  projectId,
+                                  teams,
+                                );
+                                return projectRuleGroup(
+                                  project,
+                                  effectiveRuleRows(
+                                    here.applied,
+                                    organization,
+                                    effectiveRuleRows(
+                                      here.shadowed,
+                                      organization,
+                                    ),
+                                  ),
+                                );
+                              })
+                        }
                       />
                     </TableCell>
                   )}

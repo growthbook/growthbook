@@ -46,6 +46,7 @@ import {
   stagedFeature,
   validateRampPlanPatches,
   withTemplatePlan,
+  withStagedSchema,
 } from "./validations";
 import {
   assertCanUseRuleScheduling,
@@ -172,6 +173,9 @@ export function applyPatch(
         value: effectiveValue ?? "",
         coverage: effectiveCoverage,
         hashAttribute: effectiveHashAttr,
+        ...(patch.fallbackAttribute !== undefined && {
+          fallbackAttribute: patch.fallbackAttribute,
+        }),
         ...(patch.seed !== undefined && { seed: patch.seed }),
         ...(patch.hashVersion !== undefined && {
           hashVersion: patch.hashVersion,
@@ -341,7 +345,7 @@ export const putFeatureRevisionRule = createApiRequestHandler(
     // config-backed values). Opt out with ?skipSchemaValidation=true.
     assertFeatureValuesValid(
       req.context,
-      feature,
+      withStagedSchema(feature, revision),
       { rules: [updatedRule as FeatureRule] },
       { rules: [oldRule] },
     );
@@ -352,18 +356,16 @@ export const putFeatureRevisionRule = createApiRequestHandler(
       validatePrerequisiteConditions(updatedRule.prerequisites ?? []);
     }
     // Attribute registration check: only validate the fields the caller
-    // actually patched. patch is the Zod-typed RulePatchInput, so condition
-    // and hashAttribute are already string | undefined. fallbackAttribute
-    // isn't on the patch schema at all.
-    const changedAttributes: {
-      condition?: string;
-      hashAttribute?: string;
-    } = {};
+    // actually patched.
+    const changedAttributes: Parameters<typeof validateRuleAttributes>[0] = {};
     if (patch.condition !== undefined) {
       changedAttributes.condition = patch.condition;
     }
     if (patch.hashAttribute !== undefined) {
       changedAttributes.hashAttribute = patch.hashAttribute;
+    }
+    if (patch.fallbackAttribute !== undefined) {
+      changedAttributes.fallbackAttribute = patch.fallbackAttribute;
     }
     if (Object.keys(changedAttributes).length > 0) {
       validateRuleAttributes(

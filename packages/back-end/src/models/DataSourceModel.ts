@@ -2,14 +2,19 @@ import mongoose from "mongoose";
 import uniqid from "uniqid";
 import { cloneDeep, isEqual } from "lodash";
 import { MANAGED_WAREHOUSE_EVENTS_FACT_TABLE_ID } from "shared/constants";
+import { getDataSourceSqlDialect } from "shared/dialects";
 import {
   DataRegion,
   findEventForwarderManagedViolation,
+  getExposureQueryProjectScopeError,
+  getExposureQueryProjectScopeViolations,
   isEventForwarderManaged,
   isManagedWarehouseAwaitingProvisioning,
   isManagedWarehouseUnavailable,
   findNewDuplicateUserIdTypeName,
   getExposureQueryIdentifierTypes,
+  findColumnsNeedingQuotes,
+  getColumnsNeedingQuotesMessage,
   resolveAnalysisIdentifierType,
 } from "shared/util";
 import {
@@ -273,6 +278,18 @@ export async function getDataSourceById(
     : null;
 }
 
+// Whether it exists at all, readable or not: a reference to a deleted one
+// shouldn't read as restricted.
+export async function dataSourceExists(
+  context: ReqContext | ApiReqContext,
+  id: string,
+): Promise<boolean> {
+  if (usingFileConfig()) {
+    return getConfigDatasources(context.org.id).some((d) => d.id === id);
+  }
+  return !!(await DataSourceModel.exists({ id, organization: context.org.id }));
+}
+
 export async function getDataSourcesByIds(
   context: ReqContext | ApiReqContext,
   ids: string[],
@@ -303,6 +320,18 @@ export async function removeProjectFromDatasources(
     { organization, projects: project },
     { $pull: { projects: project }, $set: { dateUpdated: new Date() } },
   );
+
+  // Also drop the project from assignment query scopes; a stale reference left
+  // behind would fail the scope check on the next data source save. A separate
+  // update, since `$[]` errors on data sources without an exposure array.
+  await DataSourceModel.updateMany(
+    { organization, "settings.queries.exposure.projects": project },
+    {
+      $pull: { "settings.queries.exposure.$[].projects": project },
+      $set: { dateUpdated: new Date() },
+    },
+  );
+
   await touchDefinitionsVersion(organization);
 }
 
@@ -460,6 +489,30 @@ function assertEventForwarderManagedRecordsIntact(
   }
 }
 
+/** Project names are only looked up once a save is rejected. */
+async function assertExposureQueriesWithinProjectScope(
+  context: ReqContext | ApiReqContext,
+  exposureQueries: ExposureQuery[],
+  datasourceProjects: string[],
+  /** The data source's projects before this save, when it changes them. */
+  previousDatasourceProjects?: string[],
+) {
+  const violations = getExposureQueryProjectScopeViolations(
+    exposureQueries,
+    datasourceProjects,
+  );
+  if (!violations.length) return;
+  const projects = await context.models.projects.getByIds([
+    ...new Set(violations.flatMap((v) => v.projects)),
+  ]);
+  throw new Error(
+    getExposureQueryProjectScopeError(violations, {
+      projectNames: new Map(projects.map((p) => [p.id, p.name])),
+      previousDatasourceProjects,
+    }),
+  );
+}
+
 export async function createDataSource(
   context: ReqContext,
   name: string,
@@ -537,6 +590,11 @@ export async function createDataSource(
   datasource.settings = settings;
 
   assertUniqueUserIdTypeNames(settings);
+  await assertExposureQueriesWithinProjectScope(
+    context,
+    settings.queries?.exposure ?? [],
+    projects ?? [],
+  );
   validatePipelineSettingsInvariants(settings.pipelineSettings);
 
   let model: DataSourceDocument;
@@ -602,6 +660,17 @@ export async function validateExposureQueriesAndAddMissingIds(
             `Experiment assignment query "${
               exposure.name || exposure.id
             }" must declare at least one identifier type`,
+          );
+        }
+        const quotedColumns = findColumnsNeedingQuotes(
+          exposure,
+          getDataSourceSqlDialect(datasource.type)?.unquotedIdentifierFold,
+        );
+        if (quotedColumns.length) {
+          throw new Error(
+            `Experiment assignment query "${
+              exposure.name || exposure.id
+            }": ${getColumnsNeedingQuotesMessage(quotedColumns)}`,
           );
         }
         // The legacy identifier is frozen once the query exists, so ignore
@@ -764,6 +833,17 @@ export async function updateDataSource(
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
 
+  // Check the resulting state, since narrowing projects alone can strand a
+  // query. Before validation, which can run every query against the warehouse.
+  if (updates.projects !== undefined || updates.settings?.queries?.exposure) {
+    await assertExposureQueriesWithinProjectScope(
+      context,
+      (updates.settings ?? datasource.settings)?.queries?.exposure ?? [],
+      updates.projects ?? datasource.projects ?? [],
+      updates.projects !== undefined ? (datasource.projects ?? []) : undefined,
+    );
+  }
+
   if (updates.settings) {
     updates.settings = await validateExposureQueriesAndAddMissingIds(
       context,
@@ -785,6 +865,7 @@ export async function updateDataSource(
     }
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
+
   if (!hasActualChanges(datasource, updates)) {
     return;
   }
@@ -860,6 +941,8 @@ export function toDataSourceApiInterface(
       includesNameColumns: !!q.hasNameCol,
       dimensionColumns: q.dimensions,
       error: q.error,
+      projects: q.projects || [],
+      ...(q.columnMapping ? { columnMapping: q.columnMapping } : {}),
     })),
     identifierJoinQueries: (settings?.queries?.identityJoins || []).map(
       (q) => ({

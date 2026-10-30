@@ -1,8 +1,10 @@
 import { FilterQuery } from "mongoose";
 import { omit } from "lodash";
 import {
+  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_TARGET_MDE,
+  DEFAULT_WIN_RISK_THRESHOLD,
 } from "shared/constants";
 import {
   getAggregateFilters,
@@ -15,6 +17,8 @@ import {
   factMetricValidator,
   ApiFactMetric,
   validateFactMetricCapping,
+  isExternallyManaged,
+  externallyManagedError,
 } from "shared/validators";
 import {
   ColumnRef,
@@ -34,7 +38,10 @@ import {
   getNetNewSqlExprRowFilters,
   validateFactMetricRowFilterSql,
 } from "back-end/src/services/factMetricRowFilterValidation";
-import { projectFilterQuery } from "back-end/src/util/mongo.util";
+import {
+  projectFilterQuery,
+  readableProjectsClause,
+} from "back-end/src/util/mongo.util";
 import { validateAggregationSpecification } from "back-end/src/services/factMetricAggregationValidation";
 import { healPriorSettings } from "back-end/src/util/priors";
 import { CasConflictError, Context, MakeModelClass } from "./BaseModel";
@@ -267,10 +274,44 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     return this._find(filter, { sort: { id: 1 } });
   }
 
+  /** Names for prompts: official first, then most recently updated; archived excluded. */
+  public async getRecentNamesForPrompt({
+    limit,
+    datasourceId,
+    readableProjects,
+  }: {
+    limit: number;
+    datasourceId?: string;
+    /** From `getProjectsWithPermission`; null means every project. */
+    readableProjects: string[] | null;
+  }): Promise<string[]> {
+    const docs = await this._find(
+      {
+        archived: { $ne: true },
+        ...(datasourceId ? { datasource: datasourceId } : {}),
+        // Pre-filter in Mongo so the limit runs on the cursor.
+        ...readableProjectsClause(readableProjects),
+      },
+      {
+        // managedBy is "" when not official, so descending puts "admin"/"api" first.
+        sort: { managedBy: -1, dateUpdated: -1 },
+        limit,
+        // Without this, _find loads every match and slices after its own
+        // permission filter. canRead below stays the authority.
+        bypassReadPermissionChecks: true,
+      },
+    );
+    return docs.filter((m) => this.canRead(m)).map((m) => m.name);
+  }
+
   public static upgradeFactMetricDoc(
     doc: LegacyFactMetricInterface,
   ): FactMetricInterface {
     const newDoc = { ...doc };
+
+    // Retired risk thresholds: keep them out of responses and echoed updates.
+    delete newDoc.winRisk;
+    delete newDoc.loseRisk;
 
     if (doc.windowSettings === undefined) {
       newDoc.windowSettings = {
@@ -397,9 +438,9 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       );
     }
 
-    if (doc.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(doc.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot create fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("create", "fact metric", doc.managedBy),
       );
     }
 
@@ -429,18 +470,18 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     }
     // API-managed metrics are only editable through the API so their
     // definition can't drift from the caller's source of truth.
-    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot update fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("update", "fact metric", existing.managedBy),
       );
     }
   }
 
   protected async beforeDelete(existing: FactMetricInterface) {
     // Check the admin permission here?
-    if (existing.managedBy === "api" && !this.context.isApiRequest) {
+    if (isExternallyManaged(existing.managedBy) && !this.context.isApiRequest) {
       throw new Error(
-        "Cannot delete fact metric managed by API if the request isn't from the API.",
+        externallyManagedError("delete", "fact metric", existing.managedBy),
       );
     }
   }
@@ -508,12 +549,6 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
     ) {
       throw new Error("Retention metrics are a premium feature");
     }
-    if (data.loseRisk < data.winRisk) {
-      throw new Error(
-        `riskThresholdDanger (${data.loseRisk}) must be greater than riskThresholdSuccess (${data.winRisk})`,
-      );
-    }
-
     if (data.minPercentChange >= data.maxPercentChange) {
       throw new Error(
         `maxPercentChange (${data.maxPercentChange}) must be greater than minPercentChange (${data.minPercentChange})`,
@@ -854,16 +889,14 @@ export class FactMetricModel extends BaseClass<WriteOptions> {
       numerator,
       denominator,
       metricType,
-      loseRisk,
-      winRisk,
       targetMDE,
       ...otherFields
     } = omit(factMetric, ["organization"]);
 
     return {
       ...otherFields,
-      riskThresholdDanger: loseRisk,
-      riskThresholdSuccess: winRisk,
+      riskThresholdDanger: DEFAULT_LOSE_RISK_THRESHOLD,
+      riskThresholdSuccess: DEFAULT_WIN_RISK_THRESHOLD,
       targetMDE: targetMDE || DEFAULT_TARGET_MDE,
       metricType: metricType,
       quantileSettings: quantileSettings || undefined,

@@ -27,6 +27,8 @@ import {
   EventWebHookModalMode,
   notificationEventNames,
   WebhookIcon,
+  timeoutError,
+  timeoutSecondsFromInput,
 } from "@/components/EventWebHooks/utils";
 import { useEnvironments } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
@@ -49,14 +51,17 @@ const detailedWebhook = (s: string) => ["raw", "json"].includes(s);
 const scopeMessage =
   "You can only save webhooks filtered to environments and Projects you have access to.";
 
+// These types hide the method, headers, and timeout fields, so their values
+// are forced here for both validation and submit
 const forcedParamsMap: {
   [key in EventWebHookPayloadType]?: {
     method: EventWebHookMethod;
     headers: string;
+    timeoutSeconds: null;
   };
 } = {
-  slack: { method: "POST", headers: "{}" },
-  discord: { method: "POST", headers: "{}" },
+  slack: { method: "POST", headers: "{}", timeoutSeconds: null },
+  discord: { method: "POST", headers: "{}", timeoutSeconds: null },
 };
 
 const eventWebHookPayloadValues: { [k in EventWebHookPayloadType]: string } = {
@@ -224,14 +229,13 @@ const EventWebHookAddEditSettings = ({
         placeholder="Choose payload type"
         disabled={form.watch("payloadType") === "raw"}
         formatOptionLabel={({ label }) => (
-          <span>
+          <Flex as="span" align="center" gap="2">
             <WebhookIcon
               type={label as EventWebHookPayloadType}
-              className="mr-3"
-              style={{ height: "2rem", width: "2rem" }}
+              style={{ height: "1.25em", width: "1.25em", flexShrink: 0 }}
             />
             {eventWebHookPayloadValues[label]}
-          </span>
+          </Flex>
         )}
         options={
           form.watch("payloadType") === "raw"
@@ -333,6 +337,22 @@ const EventWebHookAddEditSettings = ({
                 )}
               </>
             }
+          />
+        </Box>
+      )}
+
+      {isDetailedWebhook && (
+        <Box mt="4">
+          <Field
+            label="Timeout (seconds)"
+            type="number"
+            min={1}
+            placeholder="30"
+            error={timeoutError(form.watch("timeoutSeconds"))}
+            {...form.register("timeoutSeconds", {
+              setValueAs: timeoutSecondsFromInput,
+              onChange: handleFormValidation,
+            })}
           />
         </Box>
       )}
@@ -544,6 +564,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
             payloadType: "json",
             method: "POST",
             headers: "{}",
+            timeoutSeconds: null,
           },
   });
 
@@ -580,6 +601,8 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
   const handleFormValidation = useCallback(() => {
     const formValues = filteredValues(form.getValues());
     if (!validateHeaders(formValues.headers)) return setSubmitEnabled(false);
+    // Same check the field shows, including the Cloud cap
+    if (timeoutError(formValues.timeoutSeconds)) return setSubmitEnabled(false);
 
     const schema = z.object({
       url: z.string().url(),
@@ -606,6 +629,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       environments: z.array(z.string()),
       method: z.enum(eventWebHookMethods),
       headers: z.string(),
+      timeoutSeconds: z.number().nullish(),
     });
 
     setSubmitEnabled(schema.safeParse(formValues).success);
@@ -629,7 +653,7 @@ export const EventWebHookAddEditModal: FC<EventWebHookAddEditModalProps> = ({
       close={onClose}
       open={isOpen}
       error={error ?? undefined}
-      size="lg"
+      size="md"
       secondaryCTA={
         step === "confirm" ? (
           <Button

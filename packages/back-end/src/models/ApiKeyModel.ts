@@ -1,8 +1,19 @@
 import isEqual from "lodash/isEqual";
+import omit from "lodash/omit";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
-import { apiKeySchema } from "shared/validators";
-import { apiKeyToggleRequiresAdmin, getRoleById } from "shared/permissions";
+import {
+  apiKeySchema,
+  ConfirmRule,
+  OAuthTokenPermissions,
+} from "shared/validators";
+import {
+  apiKeyToggleRequiresAdmin,
+  canManageApiKeySecret,
+  canSetApiKeyDisabled,
+  changesApiKeyAuthority,
+  getRoleById,
+} from "shared/permissions";
 import {
   addDays,
   EXPIRING_SOON_DAYS,
@@ -11,6 +22,8 @@ import {
   isExpired,
   latestEditedExpiration,
   maxExpirationDate,
+  previousKeyExpiration,
+  rotatedExpiration,
   violatesExpirationPolicy,
 } from "shared/api-key-expiration";
 import { date } from "shared/dates";
@@ -51,6 +64,11 @@ const BaseClass = MakeModelClass({
       partialFilterExpression: { oauthClientId: { $exists: true } },
       name: "oauthAccessTokenTtl",
     },
+    {
+      fields: { previousKey: 1 },
+      partialFilterExpression: { previousKey: { $exists: true } },
+      name: "previousKey",
+    },
   ],
   skipDateUpdatedFields: ["lastUsed"],
   defaultValues: {
@@ -76,8 +94,10 @@ export class ApiKeyModel extends BaseClass {
       // filters to the caller's userId and postApiKeyReveal checks ownership.
       return (
         apiKey.userId === this.context.userId ||
-        this.context.permissions.canDeleteApiKey()
+        this.context.permissions.canManagePersonalAccessTokens()
       );
+    } else if (apiKey.secret) {
+      return this.context.permissions.canViewApiKeys();
     } else {
       return this.context.permissions.canReadSingleProjectResource(
         apiKey.project,
@@ -96,8 +116,17 @@ export class ApiKeyModel extends BaseClass {
     if (!keys.length || keys.some((k) => !editable.has(k))) return false;
     // Admins can disable another member's PAT without being able to delete it —
     // the disabled doc keeps `lastUsed` ticking so they can see continued use.
+    if (apiKey.secret && updates.disabled !== undefined) {
+      return canSetApiKeyDisabled(
+        this.context.permissions,
+        apiKey,
+        this.context.userId,
+        updates.disabled,
+      );
+    }
+    // Expiry-only updates come from applying the expiration policy.
     if (apiKeyToggleRequiresAdmin(apiKey, this.context.userId)) {
-      return this.context.permissions.canDeleteApiKey();
+      return this.context.permissions.canManagePersonalAccessTokens();
     }
     return this.canDelete(apiKey);
   }
@@ -124,27 +153,37 @@ export class ApiKeyModel extends BaseClass {
 
   protected sanitize(doc: ApiKeyInterface): ApiKeyInterface {
     if (!doc.secret) return doc;
-    return { ...doc, key: "", encryptionKey: undefined };
+    return {
+      ...doc,
+      key: "",
+      previousKey: undefined,
+      encryptionKey: undefined,
+    };
   }
 
   // Projects an API key doc down to a safe, non-sensitive subset for audit
   // details. This lives next to `sanitize` so the redaction allow-list stays in
-  // one place. The raw `key` token and `encryptionKey` must NEVER be included so
-  // the secret value can never leak into the audit log.
+  // one place. The raw `key` and `previousKey` tokens and `encryptionKey` must
+  // NEVER be included so a secret value can never leak into the audit log.
   public static toAuditDetails(doc: ApiKeyInterface) {
     return {
       id: doc.id,
       description: doc.description,
-      // Records whose PAT an admin revoked; absent for org keys.
-      userId: doc.userId,
+      // A token's owner, null for an org key: history access tells them apart.
+      userId: doc.userId ?? null,
       role: doc.role,
       scoped: doc.scoped,
       limitAccessByEnvironment: doc.limitAccessByEnvironment,
       environments: doc.environments,
+      additionalRoles: doc.additionalRoles,
       projectRoles: doc.projectRoles,
+      actAs: doc.actAs,
       disabled: doc.disabled,
       disabledBy: doc.disabledBy,
       expiresAt: doc.expiresAt,
+      confirmRules: doc.confirmRules,
+      keyIssuedAt: doc.keyIssuedAt,
+      previousKeyExpiresAt: doc.previousKeyExpiresAt,
     };
   }
 
@@ -152,6 +191,12 @@ export class ApiKeyModel extends BaseClass {
     doc: ApiKeyInterface,
     previousDoc?: ApiKeyInterface,
   ) {
+    // An OAuth token carries its grant's permissions, which consent checked
+    // (validateOAuthPermissions). Like a stored key's, they aren't re-checked,
+    // so a refresh still works after a downgrade or once a role or environment
+    // they name is gone.
+    const consented = !!doc.oauthClientId;
+    if (!consented) this.assertPlanAllowsConfirmations(doc, previousDoc);
     const maxDays = this.maxLifetimeDaysFor(doc);
     if (
       doc.secret &&
@@ -167,7 +212,7 @@ export class ApiKeyModel extends BaseClass {
       const latest = previousDoc
         ? latestEditedExpiration(
             previousDoc.expiresAt,
-            previousDoc.dateCreated,
+            previousDoc.keyIssuedAt ?? previousDoc.dateCreated,
             maxDays,
           )
         : maxExpirationDate(maxDays);
@@ -188,6 +233,11 @@ export class ApiKeyModel extends BaseClass {
       }
     }
     if (doc.userId) {
+      if (doc.actAs) {
+        this.context.throwBadRequestError(
+          "PATs already act as a user and cannot take X-GrowthBook-Requested-By.",
+        );
+      }
       // Creation only — existing tokens are already rejected at authentication,
       // and users must still be able to disable or delete the ones they have.
       if (
@@ -199,16 +249,7 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       if (!doc.scoped) {
-        // Unscoped PATs inherit permissions from their user — scoping fields must not be set
-        if (
-          doc.limitAccessByEnvironment ||
-          doc.projectRoles?.length ||
-          doc.additionalRoles?.length
-        ) {
-          this.context.throwBadRequestError(
-            "Restricting a personal access token requires a scoped role.",
-          );
-        }
+        this.assertUnscopedTokenUnrestricted(doc);
         return;
       }
       if (!doc.role) {
@@ -219,8 +260,9 @@ export class ApiKeyModel extends BaseClass {
     }
     // Only a write that changes the scope is checked, so a key stays disableable after its plan, roles or environments lapse.
     if (
-      previousDoc &&
-      isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS))
+      consented ||
+      (previousDoc &&
+        isEqual(pick(doc, SCOPE_FIELDS), pick(previousDoc, SCOPE_FIELDS)))
     ) {
       return;
     }
@@ -228,11 +270,70 @@ export class ApiKeyModel extends BaseClass {
     await this.validateScope(doc, previousDoc);
   }
 
+  // Everything a new token's permissions are checked against, run once on the
+  // OAuth consent page so a bad choice fails there and its tokens skip it.
+  public async validateOAuthPermissions(
+    permissions: OAuthTokenPermissions | null,
+  ) {
+    if (!permissions) return;
+    this.assertPlanAllowsConfirmations(permissions);
+    const { scopedRole, ...scope } = permissions;
+    if (!scopedRole) {
+      this.assertUnscopedTokenUnrestricted(scope);
+      return;
+    }
+    const doc = {
+      ...scope,
+      role: scopedRole,
+      limitAccessByEnvironment: scope.limitAccessByEnvironment ?? false,
+      environments: scope.environments ?? [],
+    };
+    this.assertPlanAllowsScope(doc);
+    await this.validateScope(doc);
+  }
+
+  // An unscoped token acts as its user, so it can't carry restrictions.
+  private assertUnscopedTokenUnrestricted(doc: {
+    limitAccessByEnvironment?: boolean;
+    projectRoles?: unknown[];
+    additionalRoles?: unknown[];
+  }) {
+    if (
+      doc.limitAccessByEnvironment ||
+      doc.projectRoles?.length ||
+      doc.additionalRoles?.length
+    ) {
+      this.context.throwBadRequestError(
+        "Restricting a personal access token requires a scoped role.",
+      );
+    }
+  }
+
+  // Only turning confirmations on is gated, so a key keeps and can still edit
+  // its confirmations after a downgrade, and can always drop them.
+  private assertPlanAllowsConfirmations(
+    doc: Pick<ApiKeyInterface, "confirmRules">,
+    previousDoc?: Pick<ApiKeyInterface, "confirmRules">,
+  ) {
+    if (
+      doc.confirmRules &&
+      !previousDoc?.confirmRules &&
+      !this.context.hasPremiumFeature("human-in-the-loop")
+    ) {
+      this.context.throwPlanDoesNotAllowError(
+        "Your plan does not support Human-in-the-Loop confirmations.",
+      );
+    }
+  }
+
   // Commercial gates, for org keys and scoped PATs alike. Only a role change is
   // gated so existing keys keep working.
   private assertPlanAllowsScope(
-    doc: ApiKeyInterface,
-    previousDoc?: ApiKeyInterface,
+    doc: Pick<
+      ApiKeyInterface,
+      "role" | "limitAccessByEnvironment" | "additionalRoles" | "projectRoles"
+    >,
+    previousDoc?: Pick<ApiKeyInterface, "role">,
   ) {
     if (
       doc.role &&
@@ -265,8 +366,11 @@ export class ApiKeyModel extends BaseClass {
 
   // Role, environments and project rules, for org keys and scoped PATs alike
   private async validateScope(
-    doc: ApiKeyInterface,
-    previousDoc?: ApiKeyInterface,
+    doc: Pick<
+      ApiKeyInterface,
+      "role" | "environments" | "additionalRoles" | "projectRoles"
+    >,
+    previousDoc?: Pick<ApiKeyInterface, "projectRoles">,
   ) {
     this.validateRole(doc.role);
     this.validateEnvironments(doc.environments);
@@ -369,7 +473,9 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
+    actAs,
     expiresAt,
+    confirmRules,
   }: {
     description: string;
     roleId: string;
@@ -377,7 +483,9 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
+    actAs?: ApiKeyInterface["actAs"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       secret: true,
@@ -390,7 +498,9 @@ export class ApiKeyModel extends BaseClass {
       environments,
       additionalRoles,
       projectRoles,
+      actAs,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -404,6 +514,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles,
     projectRoles,
     expiresAt,
+    confirmRules,
   }: {
     userId: string;
     description: string;
@@ -413,6 +524,7 @@ export class ApiKeyModel extends BaseClass {
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     return await this.createApiKey({
       userId,
@@ -428,6 +540,7 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       expiresAt,
+      confirmRules,
     });
   }
 
@@ -462,7 +575,9 @@ export class ApiKeyModel extends BaseClass {
     const doc = await this._findOne(id ? { id } : { key }, {
       bypassSanitization: true,
     });
-    if (!doc) this.context.throwNotFoundError();
+    // Missing and not permitted get the same answer, so the lookup tells a
+    // caller without delete rights nothing.
+    if (!doc || !this.canDelete(doc)) this.context.throwNotFoundError();
 
     await this.delete(doc);
     return doc;
@@ -497,7 +612,9 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles,
       projectRoles,
       description,
+      actAs,
       expiresAt,
+      confirmRules,
     }: {
       role?: string;
       scopedRole?: string;
@@ -506,8 +623,10 @@ export class ApiKeyModel extends BaseClass {
       additionalRoles?: ApiKeyInterface["additionalRoles"];
       projectRoles?: ApiKeyInterface["projectRoles"];
       description?: string;
+      actAs?: ApiKeyInterface["actAs"];
       // Omitted leaves it unchanged; `customValidation` enforces the edit rules.
       expiresAt?: Date | null;
+      confirmRules?: ConfirmRule[] | null;
     },
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
@@ -543,23 +662,42 @@ export class ApiKeyModel extends BaseClass {
           additionalRoles: scopedRole ? additionalRoles : undefined,
           projectRoles: scopedRole ? projectRoles : undefined,
           ...(expiresAt !== undefined && { expiresAt }),
+          ...(confirmRules !== undefined && { confirmRules }),
         },
         { forceCanUpdate: true },
       );
       return { before: doc, after };
     }
 
-    // Editing a key's authority is at least as sensitive as revealing it, so we
-    // mirror the admin/owner-only gate that postApiKeyReveal uses for non-user keys.
-    if (!this.context.permissions.canCreateApiKey()) {
+    if (!this.context.permissions.canUpdateApiKey()) {
       this.context.permissions.throwPermissionError();
     }
-    if (!role) {
+    // An edit that names no role leaves the role and scope as they are.
+    const authority = {
+      ...(role !== undefined && {
+        role,
+        limitAccessByEnvironment,
+        environments,
+        additionalRoles,
+        projectRoles,
+      }),
+      ...(actAs !== undefined && { actAs }),
+      ...(confirmRules !== undefined && { confirmRules }),
+    };
+    if (
+      changesApiKeyAuthority(doc, { ...doc, ...authority }) &&
+      !this.context.permissions.canCreateApiKey()
+    ) {
+      this.context.permissions.throwPermissionError(
+        "Changing an API key's role, scope, requester settings, or confirmations requires permission to create API keys.",
+      );
+    }
+    if (role !== undefined && !role) {
       this.context.throwBadRequestError("A role is required.");
     }
 
-    // Permission fields (role/scope/description) are intentionally editable by
-    // admins, as is the expiry, while the token's value and identity fields
+    // Permission fields (role/scope/description) are intentionally editable, as
+    // is the expiry, while the token's value and identity fields
     // (key, secret, userId) stay immutable. `canUpdate` blocks these fields, so we
     // bypass it for this specific permission-only update via `forceCanUpdate`;
     // the update object below is limited to permission fields, so identity
@@ -573,11 +711,7 @@ export class ApiKeyModel extends BaseClass {
     const after = await this._updateOne(
       doc,
       {
-        role,
-        limitAccessByEnvironment,
-        environments,
-        additionalRoles,
-        projectRoles,
+        ...authority,
         description,
         ...(expiresAt !== undefined && { expiresAt }),
       },
@@ -594,10 +728,19 @@ export class ApiKeyModel extends BaseClass {
     key: string,
     organization: string,
   ): Promise<void> {
-    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+    const collection = getCollection<ApiKeyInterface>(COLLECTION_NAME);
+    const now = new Date();
+    const { matchedCount } = await collection.updateOne(
       { key, organization },
-      { $set: { lastUsed: new Date() } },
+      { $set: { lastUsed: now } },
     );
+    // Otherwise it may be a rotated key's previous secret.
+    if (!matchedCount) {
+      await collection.updateOne(
+        { previousKey: key, organization },
+        { $set: { lastUsed: now, previousKeyLastUsed: now } },
+      );
+    }
   }
 
   // OAuth token endpoint has no ReqContext. These static helpers keep apikey
@@ -721,31 +864,136 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
+  // Reveals only the current secret, never a rotated-out one.
   public async getUnredactedSecretKey(
     id: string,
   ): Promise<SecretApiKey | null> {
-    return (await this._findOne(
-      { id },
-      { bypassSanitization: true },
-    )) as SecretApiKey;
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    return doc ? (omit(doc, "previousKey") as SecretApiKey) : null;
   }
 
-  // The member's own PATs worth a top-nav warning: lapsing soon, or lapsed but still in use.
-  public async getExpiringPersonalAccessTokens(userId: string) {
+  // Issues a new secret under the same id, role and settings. With a grace
+  // period, the replaced secret keeps working until it ends.
+  public async rotateSecret(
+    id: string,
+    gracePeriodHours: number,
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+    const doc = await this.getRotatableKey(id);
+    if (isExpired(doc.expiresAt)) {
+      this.context.throwBadRequestError(
+        "An expired key can't be rotated. Create a new key instead.",
+      );
+    }
+
     const now = new Date();
-    const tokens = await this._find({
+    const updates = {
+      key: generateSigningKey(
+        this.prefixForApiKey({
+          environment: "",
+          secret: true,
+          userId: doc.userId,
+          role: doc.role,
+        }),
+      ),
+      keyIssuedAt: now,
+      expiresAt: rotatedExpiration(
+        doc.expiresAt,
+        doc.keyIssuedAt ?? doc.dateCreated,
+        this.maxLifetimeDaysFor(doc),
+        now,
+      ),
+      // Kept even with no grace period, so auth can say the secret was rotated.
+      previousKey: doc.key,
+      previousKeyExpiresAt:
+        previousKeyExpiration(doc.expiresAt, gracePeriodHours, now) ?? now,
+      previousKeyLastUsed: null,
+      dateUpdated: now,
+    };
+
+    // `key` is the primary key, so this can't go through `_updateOne`. Matching
+    // the old secret makes concurrent rotations fail instead of both winning.
+    const { matchedCount } = await getCollection<ApiKeyInterface>(
+      COLLECTION_NAME,
+    ).updateOne(
+      { id, organization: this.context.org.id, key: doc.key },
+      { $set: updates },
+    );
+    if (!matchedCount) {
+      this.context.throwBadRequestError(
+        "This key was changed while it was being rotated. Try again.",
+      );
+    }
+
+    return { before: doc, after: { ...doc, ...updates } };
+  }
+
+  // Ends a rotation's grace period early, e.g. when the old secret leaked.
+  public async revokePreviousKey(
+    id: string,
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+    const doc = await this.getRotatableKey(id);
+    if (!doc.previousKey || isExpired(doc.previousKeyExpiresAt)) {
+      this.context.throwBadRequestError(
+        "This key has no previous secret to revoke.",
+      );
+    }
+    const now = new Date();
+    // Expired rather than removed, so auth can still say the secret was rotated.
+    const updates = { previousKeyExpiresAt: now, dateUpdated: now };
+    // Matching the checked secret keeps a stale revoke off a newer rotation's.
+    await getCollection<ApiKeyInterface>(COLLECTION_NAME).updateOne(
+      { id, organization: this.context.org.id, previousKey: doc.previousKey },
+      { $set: updates },
+    );
+    return { before: doc, after: { ...doc, ...updates } };
+  }
+
+  private async getRotatableKey(id: string): Promise<ApiKeyInterface> {
+    const doc = await this._findOne({ id }, { bypassSanitization: true });
+    if (!doc || !doc.secret || doc.oauthClientId) {
+      this.context.throwNotFoundError(`API key not found: ${id}`);
+    }
+    if (
+      !canManageApiKeySecret(this.context.permissions, doc, this.context.userId)
+    ) {
+      // Like delete, another member's PAT reads as missing.
+      if (doc.userId) {
+        this.context.throwNotFoundError(`API key not found: ${id}`);
+      }
+      this.context.permissions.throwPermissionError(
+        "Rotating an API key requires permission to create API keys.",
+      );
+    }
+    return doc;
+  }
+
+  // The member's own PATs worth a warning: lapsing soon, or lapsed but still in use.
+  public async getExpiringPersonalAccessTokens(userId: string) {
+    return this.findExpiring({
       userId,
       oauthClientId: { $exists: false },
-      disabled: { $ne: true },
-      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
       // The app mints and replaces its own Visual Editor key; the member never made it.
       $nor: [{ role: "visualEditor", scoped: { $ne: true } }],
     });
-    return tokens
+  }
+
+  // The organization's own API keys worth a warning, for people who manage them.
+  public async getExpiringOrgApiKeys() {
+    return this.findExpiring({ userId: null, secret: true });
+  }
+
+  private async findExpiring(filter: Record<string, unknown>) {
+    const now = new Date();
+    const keys = await this._find({
+      ...filter,
+      disabled: { $ne: true },
+      expiresAt: { $ne: null, $lte: addDays(now, EXPIRING_SOON_DAYS) },
+    });
+    return keys
       .filter(
-        (t) =>
-          !isExpired(t.expiresAt, now) ||
-          (!!t.lastUsed && !!t.expiresAt && t.lastUsed > t.expiresAt),
+        (k) =>
+          !isExpired(k.expiresAt, now) ||
+          (!!k.lastUsed && !!k.expiresAt && k.lastUsed > k.expiresAt),
       )
       .map(({ id, description, expiresAt, lastUsed }) => ({
         id,
@@ -831,7 +1079,9 @@ export class ApiKeyModel extends BaseClass {
     environments,
     additionalRoles,
     projectRoles,
+    actAs,
     expiresAt,
+    confirmRules,
   }: {
     environment: string;
     project: string;
@@ -845,7 +1095,9 @@ export class ApiKeyModel extends BaseClass {
     environments?: string[];
     additionalRoles?: ApiKeyInterface["additionalRoles"];
     projectRoles?: ApiKeyInterface["projectRoles"];
+    actAs?: ApiKeyInterface["actAs"];
     expiresAt?: Date | null;
+    confirmRules?: ConfirmRule[] | null;
   }): Promise<ApiKeyInterface> {
     // NOTE: There's a plan to migrate SDK connection-related things to the SdkConnection collection
     if (!secret && !environment) {
@@ -875,7 +1127,9 @@ export class ApiKeyModel extends BaseClass {
       environments: environments ?? [],
       additionalRoles,
       projectRoles,
+      ...(actAs !== undefined && { actAs }),
       expiresAt,
+      ...(confirmRules ? { confirmRules } : {}),
     });
   }
 }
