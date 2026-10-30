@@ -13,6 +13,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Button from "@/ui/Button";
 import Badge from "@/ui/Badge";
+import Pagination from "@/ui/Pagination";
 import { useAttributeReferences } from "@/hooks/useAttributeReferences";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Field from "@/components/Forms/Field";
@@ -58,6 +59,8 @@ const RESERVED_FILTER_KEYS = new Set([
   "identifier",
   "tag",
 ]);
+
+const PAGE_SIZE = 10;
 
 // Rough char budget for a column of `width` px. Only settles after a resize
 // commits, which is why it takes the committed width rather than a live one.
@@ -257,12 +260,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
     syntaxFilters,
     isFiltered,
     SortableTableColumnHeader,
-    pagination,
+    unpaginatedItems: sortedAttributes,
+    page: attributePage,
+    setPage: setAttributePage,
   } = useSearch({
     items: targetingAttributes,
     localStorageKey: "attributes",
     defaultSortField: "property",
-    pageSize: 10,
+    pageSize: PAGE_SIZE,
     filterResults: archivedFilter,
     searchFields: [
       "property^3",
@@ -318,7 +323,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
   );
   const {
     items: pagedIdentifiers,
-    pagination: identifierPagination,
+    unpaginatedItems: sortedIdentifiers,
+    page: identifierPage,
+    setPage: setIdentifierPage,
     SortableTableColumnHeader: SortableIdentifierHeader,
   } = useSearch({
     items: identifierRows,
@@ -326,7 +333,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     defaultSortField: "order",
     persistSort: false,
     disableUrlSearchTerm: true,
-    pageSize: 10,
+    pageSize: PAGE_SIZE,
     searchFields: ["property"],
   });
 
@@ -742,7 +749,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     })}
                   </TableBody>
                 </Table>
-                {identifierPagination}
+                {sortedIdentifiers.length > PAGE_SIZE && (
+                  <Box mt="3">
+                    <Pagination
+                      numItemsTotal={sortedIdentifiers.length}
+                      perPage={PAGE_SIZE}
+                      currentPage={identifierPage}
+                      onPageChange={setIdentifierPage}
+                    />
+                  </Box>
+                )}
               </>
             ) : (
               <EmptySection
@@ -876,7 +892,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     )}
                   </TableBody>
                 </Table>
-                {pagination}
+                {sortedAttributes.length > PAGE_SIZE && (
+                  <Box mt="3">
+                    <Pagination
+                      numItemsTotal={sortedAttributes.length}
+                      perPage={PAGE_SIZE}
+                      currentPage={attributePage}
+                      onPageChange={setAttributePage}
+                    />
+                  </Box>
+                )}
               </Box>
             ) : (
               <EmptySection

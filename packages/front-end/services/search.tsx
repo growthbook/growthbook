@@ -204,6 +204,7 @@ export interface SearchReturn<T> {
     endAdornment?: ReactNode;
   }>;
   page: number;
+  setPage: (page: number) => void;
   resetPage: () => void;
   pagination: ReactNode;
 }
@@ -561,6 +562,7 @@ export function useSearch<T extends { id: string }>({
     SortableTH,
     SortableTableColumnHeader,
     page,
+    setPage,
     resetPage: () => setPage(1),
     pagination:
       pageSize && sorted.length > pageSize ? (
