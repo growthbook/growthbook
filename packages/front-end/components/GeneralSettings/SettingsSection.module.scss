@@ -35,9 +35,12 @@
   bottom: 0;
   // Over the sub nav (999 too, but earlier in the DOM) and under the slide-out sidebar (1000).
   z-index: 999;
-  // Lines the count up with the sub nav's content.
+  // Lines the count up with the sub nav's text.
   padding: var(--space-3) var(--space-3) var(--space-3)
-    calc(var(--settings-nav-inset) + var(--space-3));
+    calc(
+      var(--settings-nav-left) +
+        var(--settings-nav-inset) - var(--sidebar-width)
+    );
   // Ends Save at the cards' right edge: 40px page padding plus the 920px column.
   padding-right: max(40px, calc(100% - var(--settings-layout-left) - 960px));
   background: var(--color-panel-solid);

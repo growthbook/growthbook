@@ -1,8 +1,8 @@
 .nav {
   position: fixed;
-  top: calc(var(--header-height) + var(--settings-nav-inset));
+  top: var(--header-height);
   bottom: var(--settings-nav-inset);
-  left: calc(var(--sidebar-width) + var(--settings-nav-inset));
+  left: var(--settings-nav-left);
   width: var(--settings-nav-width);
   display: flex;
   flex-direction: column;
@@ -15,16 +15,12 @@
   @media (prefers-reduced-motion: reduce) {
     transition: none;
   }
-
-  // The sidebar is a drawer here, so this starts at the window's edge.
-  @media (max-width: 1180px) {
-    left: var(--settings-nav-inset);
-  }
 }
 
-// Lines the title up with the page titles beside it.
+// The title starts where page titles do, --page-top-padding under the
+// header.
 .header {
-  padding: var(--space-4) var(--space-3);
+  padding: var(--page-top-padding) var(--space-3) var(--space-4);
 }
 
 .kbd {
@@ -44,7 +40,7 @@
 }
 
 .resultText {
-  padding: 0 14px 8px;
+  padding: 0 var(--space-3) 8px;
   font-size: 12px;
   color: var(--gray-11);
 }
@@ -54,7 +50,9 @@
   min-height: 0;
   overflow-y: auto;
   // The bottom leaves room for General's fixed save bar, so the last items scroll clear of it.
-  padding: 4px 12px var(--space-8);
+  // 4px on the left: the items' text sits on the title's edge, their fills
+  // 8px outside it.
+  padding: 4px 12px var(--space-8) 4px;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);

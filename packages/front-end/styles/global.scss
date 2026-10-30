@@ -110,19 +110,17 @@ html.app-drawer-open body {
 :root {
   --settings-nav-width: 256px;
   --settings-nav-inset: 12px;
+  // The Settings nav's text on the page's left content edge, as every other
+  // page's (--page-nav-width and --page-padding, below), its items' fills
+  // hanging 8px outside it. The page starts past it.
+  --settings-nav-left: calc(
+    var(--page-nav-width) + var(--page-padding) - var(--settings-nav-inset)
+  );
   --settings-layout-left: calc(
-    var(--sidebar-width) + var(--settings-nav-width) + var(--settings-nav-inset)
+    var(--settings-nav-left) + var(--settings-nav-width)
   );
 }
-// The sidebar is a drawer here, so the Settings nav starts at the window's
-// edge; below 1024px it's in the header instead (SettingsJumpMenu).
-@media (max-width: 1180px) {
-  :root {
-    --settings-layout-left: calc(
-      var(--settings-nav-width) + var(--settings-nav-inset)
-    );
-  }
-}
+// Below 1024px the nav is in the header instead (SettingsJumpMenu).
 @media (max-width: 1023px) {
   :root {
     --settings-layout-left: 0px;
