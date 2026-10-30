@@ -368,8 +368,19 @@ const CompactResults: FC<{
               />
             )}
             <MultipleExposureWarning
-              totalUsers={totalUsers}
-              multipleExposures={multipleExposures}
+              totalUsers={
+                snapshot?.settings?.isClusterExperiment &&
+                snapshot?.health?.subUnitMultipleExposures
+                  ? snapshot.health.subUnitMultipleExposures.totalSubUnits
+                  : totalUsers
+              }
+              multipleExposures={
+                snapshot?.settings?.isClusterExperiment &&
+                snapshot?.health?.subUnitMultipleExposures
+                  ? snapshot.health.subUnitMultipleExposures
+                      .multipleExposedSubUnits
+                  : multipleExposures
+              }
               experimentType={experimentType}
               isClusterExperiment={!!snapshot?.settings?.isClusterExperiment}
             />

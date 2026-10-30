@@ -214,6 +214,12 @@ const experimentSnapshotSchema = new mongoose.Schema({
       multiClusterUnits: Number,
       error: String,
     },
+    subUnitMultipleExposures: {
+      _id: false,
+      totalSubUnits: Number,
+      multipleExposedSubUnits: Number,
+      error: String,
+    },
     power: {
       _id: false,
       type: { type: String },

@@ -6467,6 +6467,15 @@ export async function getExperimentAnalysisSummary({
         multiClusterUnits: clusterSubUnitMapping.multiClusterUnits,
       };
     }
+    const subUnitMultipleExposures =
+      experimentSnapshot.health?.subUnitMultipleExposures;
+    if (subUnitMultipleExposures && !subUnitMultipleExposures.error) {
+      analysisSummary.health.subUnitMultipleExposures = {
+        totalSubUnits: subUnitMultipleExposures.totalSubUnits,
+        multipleExposedSubUnits:
+          subUnitMultipleExposures.multipleExposedSubUnits,
+      };
+    }
   }
 
   const relativeAnalysis = experimentSnapshot.analyses.find(

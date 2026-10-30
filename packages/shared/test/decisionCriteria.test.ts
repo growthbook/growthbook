@@ -2181,19 +2181,27 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
   });
 
-  it("labels multiple exposures as a sub-unit signal for cluster experiments", () => {
+  it("flags sub-unit multiple exposures from the sub-unit grain for cluster experiments", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({
         analysisSummary: {
           snapshotId: "snap-1",
           health: {
             srm: 0.5,
-            // 2% > 1% threshold -> unhealthy
-            multipleExposures: 200,
-            totalUsers: 10_000,
+            // Cluster-grained multiple exposures is always 0 (the
+            // cluster-consistency filter removes multi-variation sub-units).
+            multipleExposures: 0,
+            // totalUsers is cluster-grained (e.g. 100 clusters).
+            totalUsers: 100,
             // Present (so this is a cluster summary) but healthy, isolating the
             // multiple-exposures label from "Mixed cluster assignment".
             clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // The real signal: measured at the sub-unit grain with its own
+            // denominator. 200 / 10,000 = 2% > 1% threshold -> unhealthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 200,
+            },
           },
         },
       }),
@@ -2203,13 +2211,49 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
 
     // For a cluster experiment, a sub-unit seeing multiple variations is a
-    // distinct signal from "Mixed cluster assignment", so it is labeled as such.
-    expect(result?.status).toBe("unhealthy");
+    // distinct signal from "Mixed cluster assignment", so it is labeled as such
+    // and driven by the sub-unit count/denominator rather than the (always-0)
+    // cluster-grained figures.
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        multipleExposures: {
+          rawDecimal: 0.02,
+          multipleExposedUsers: 200,
+        },
+      },
+      tooltip: "Sub-unit multiple exposures",
+    });
+  });
+
+  it("does not flag sub-unit multiple exposures below the threshold for cluster experiments", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 100,
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // 10 / 10,000 = 0.1% < 1% threshold -> healthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 10,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result?.tooltip ?? "").not.toContain("multiple exposures");
     expect(
       result?.status === "unhealthy" &&
         !!result.unhealthyData.multipleExposures,
-    ).toBe(true);
-    expect(result?.tooltip).toBe("Sub-unit multiple exposures");
+    ).not.toBe(true);
   });
 
   it("uses the scheduled end date for days-left even when power reports a different estimate", () => {

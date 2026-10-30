@@ -532,6 +532,7 @@ function computeSrmAndMultipleExposuresUnhealthyData({
   multipleExposures,
   totalUsers,
   srmTotalUnits,
+  subUnitMultipleExposures,
   numOfVariations,
   minUsersPerVariation,
   healthSettings,
@@ -541,6 +542,10 @@ function computeSrmAndMultipleExposuresUnhealthyData({
   totalUsers: number;
   // Cluster experiments check SRM on clusters, not sub-units.
   srmTotalUnits?: number | null;
+  subUnitMultipleExposures?: {
+    totalSubUnits: number;
+    multipleExposedSubUnits: number;
+  } | null;
   numOfVariations: number;
   minUsersPerVariation: number;
   healthSettings: ExperimentHealthSettings;
@@ -558,16 +563,23 @@ function computeSrmAndMultipleExposuresUnhealthyData({
     result.srm = true;
   }
 
+  const multipleExposuresCount = subUnitMultipleExposures
+    ? subUnitMultipleExposures.multipleExposedSubUnits
+    : multipleExposures;
+  const multipleExposuresTotal = subUnitMultipleExposures
+    ? subUnitMultipleExposures.totalSubUnits
+    : totalUsers;
+
   const multipleExposuresHealthData = getMultipleExposureHealthData({
-    multipleExposuresCount: multipleExposures,
-    totalUsersCount: totalUsers,
+    multipleExposuresCount,
+    totalUsersCount: multipleExposuresTotal,
     minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
     minPercentThreshold: healthSettings.multipleExposureMinPercent,
   });
   if (multipleExposuresHealthData.status === "unhealthy") {
     result.multipleExposures = {
       rawDecimal: multipleExposuresHealthData.rawDecimal,
-      multipleExposedUsers: multipleExposures,
+      multipleExposedUsers: multipleExposuresCount,
     };
   }
 
@@ -668,6 +680,8 @@ export function getExperimentResultStatus({
         multipleExposures: healthSummary.multipleExposures,
         totalUsers: healthSummary.totalUsers,
         srmTotalUnits: healthSummary.srmTotalUnits,
+        subUnitMultipleExposures:
+          healthSummary.subUnitMultipleExposures ?? null,
         numOfVariations: getLatestPhaseVariations(experimentData).length,
         minUsersPerVariation:
           experimentData.type === "multi-armed-bandit"
@@ -730,7 +744,9 @@ export function getExperimentResultStatus({
   }
 
   const isClusterSummary = !!(
-    healthSummary?.clusterAssignment || healthSummary?.clusterSubUnitMapping
+    healthSummary?.clusterAssignment ||
+    healthSummary?.clusterSubUnitMapping ||
+    healthSummary?.subUnitMultipleExposures
   );
 
   const unhealthyStatuses = [

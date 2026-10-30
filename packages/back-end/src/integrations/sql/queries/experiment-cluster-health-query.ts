@@ -15,6 +15,7 @@ import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/e
 export const CLUSTER_HEALTH_KIND_RELIABILITY = "reliability";
 export const CLUSTER_HEALTH_KIND_ASSIGNMENT = "assignment";
 export const CLUSTER_HEALTH_KIND_MAPPING = "mapping";
+export const CLUSTER_HEALTH_KIND_EXPOSURES = "exposures";
 
 /**
  * Consolidated health query for cluster experiments. A single scan of the units
@@ -26,6 +27,10 @@ export const CLUSTER_HEALTH_KIND_MAPPING = "mapping";
  *    (metric_a = total clusters, metric_b = clusters with mixed assignment)
  *  - mapping: sub-unit-to-cluster mapping summary
  *    (metric_a = total sub-units, metric_b = sub-units mapping to >1 cluster)
+ *  - exposures: sub-unit multiple-exposures summary, counted pre-filter at the
+ *    sub-unit grain so it is not washed out by the cluster-consistency filter
+ *    (metric_a = total distinct sub-units, metric_b = sub-units that saw >1
+ *    variation)
  */
 export function getExperimentClusterHealthQuery(
   dialect: SqlDialect,
@@ -58,12 +63,15 @@ export function getExperimentClusterHealthQuery(
       }
       __clusterAgg AS (
         -- One row per cluster: its min/max sub-unit assignment (a cluster is
-        -- consistent when they are equal) and its sub-unit count.
+        -- consistent when they are equal), its sub-unit count, and the number of
+        -- its sub-units that saw more than one variation (already bucketed to
+        -- '${MULTIPLE_VARIATION_SENTINEL}' in the units set).
         SELECT
           ${clusterIdColumn} AS cluster_id
           , MIN(variation) AS min_variation
           , MAX(variation) AS max_variation
           , COUNT(DISTINCT ${subUnitColumn}) AS units
+          , COUNT(DISTINCT CASE WHEN variation = '${MULTIPLE_VARIATION_SENTINEL}' THEN ${subUnitColumn} END) AS multi_exposed_units
         FROM ${unitsSourceName}
         GROUP BY
           ${clusterIdColumn}
@@ -115,6 +123,14 @@ export function getExperimentClusterHealthQuery(
       , ${dialect.castToFloat(
         `SUM(CASE WHEN cluster_id = '${MULTIPLE_CLUSTER_SENTINEL}' THEN units ELSE 0 END)`,
       )} AS metric_b
+    FROM __clusterAgg
+    UNION ALL
+    SELECT
+      '${CLUSTER_HEALTH_KIND_EXPOSURES}' AS kind
+      , ${unusedSummaryColumn} AS cluster_id
+      , ${unusedSummaryColumn} AS variation
+      , ${dialect.castToFloat("SUM(units)")} AS metric_a
+      , ${dialect.castToFloat("SUM(multi_exposed_units)")} AS metric_b
     FROM __clusterAgg
     `,
     dialect.formatDialect,

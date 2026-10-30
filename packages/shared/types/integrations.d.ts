@@ -877,7 +877,7 @@ export type ExperimentAggregateUnitsQueryResponseRows = {
 }[];
 
 export type ExperimentClusterHealthQueryResponseRows = {
-  // Row discriminator: "reliability" | "assignment" | "mapping".
+  // Row discriminator: "reliability" | "assignment" | "mapping" | "exposures".
   kind: string;
   // Only meaningful for reliability rows ("" for summary rows).
   cluster_id: string;
@@ -886,6 +886,7 @@ export type ExperimentClusterHealthQueryResponseRows = {
   //  - reliability: metric_a = sub-unit count, metric_b = share (0..1)
   //  - assignment:  metric_a = total clusters, metric_b = mixed clusters
   //  - mapping:     metric_a = total sub-units, metric_b = multi-cluster sub-units
+  //  - exposures:   metric_a = total sub-units, metric_b = multi-variation sub-units
   metric_a: number;
   metric_b: number;
 }[];

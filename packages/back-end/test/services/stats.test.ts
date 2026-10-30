@@ -354,8 +354,15 @@ describe("analyzeExperimentClusterHealth", () => {
     metric_a: total,
     metric_b: multi,
   });
+  const exposures = (totalSubUnits: number, multiExposed: number) => ({
+    kind: "exposures" as const,
+    cluster_id: "",
+    variation: "",
+    metric_a: totalSubUnits,
+    metric_b: multiExposed,
+  });
 
-  it("splits reliability/assignment/mapping rows into the three results", () => {
+  it("splits reliability/assignment/mapping/exposures rows into the four results", () => {
     const result = analyzeExperimentClusterHealth({
       variations,
       rows: [
@@ -364,6 +371,7 @@ describe("analyzeExperimentClusterHealth", () => {
         reliability("region_c", "control", 200, 0.2),
         assignment(100, 3),
         mapping(1000, 7),
+        exposures(1000, 12),
       ],
     });
 
@@ -380,6 +388,10 @@ describe("analyzeExperimentClusterHealth", () => {
     expect(result.clusterSubUnitMapping).toEqual({
       totalUnits: 1000,
       multiClusterUnits: 7,
+    });
+    expect(result.subUnitMultipleExposures).toEqual({
+      totalSubUnits: 1000,
+      multipleExposedSubUnits: 12,
     });
   });
 
@@ -402,6 +414,10 @@ describe("analyzeExperimentClusterHealth", () => {
       totalUnits: 0,
       multiClusterUnits: 0,
     });
+    expect(result.subUnitMultipleExposures).toEqual({
+      totalSubUnits: 0,
+      multipleExposedSubUnits: 0,
+    });
   });
 
   it("returns empty/zeroed results and the error when the query failed", () => {
@@ -419,6 +435,11 @@ describe("analyzeExperimentClusterHealth", () => {
     expect(result.clusterSubUnitMapping).toEqual({
       totalUnits: 0,
       multiClusterUnits: 0,
+      error: "boom",
+    });
+    expect(result.subUnitMultipleExposures).toEqual({
+      totalSubUnits: 0,
+      multipleExposedSubUnits: 0,
       error: "boom",
     });
   });

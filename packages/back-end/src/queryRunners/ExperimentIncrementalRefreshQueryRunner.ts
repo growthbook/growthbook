@@ -1530,6 +1530,8 @@ export class ExperimentIncrementalRefreshQueryRunner extends QueryRunner<
         result.health.clusterAssignment = clusterHealth.clusterAssignment;
         result.health.clusterSubUnitMapping =
           clusterHealth.clusterSubUnitMapping;
+        result.health.subUnitMultipleExposures =
+          clusterHealth.subUnitMultipleExposures;
       }
 
       // TODO(incremental-refresh): ensure power calculations work

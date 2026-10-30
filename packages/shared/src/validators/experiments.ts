@@ -431,6 +431,12 @@ export const experimentAnalysisSummaryHealth = z.object({
       multiClusterUnits: z.number(),
     })
     .optional(),
+  subUnitMultipleExposures: z
+    .object({
+      totalSubUnits: z.number(),
+      multipleExposedSubUnits: z.number(),
+    })
+    .optional(),
 });
 export type ExperimentAnalysisSummaryHealth = z.infer<
   typeof experimentAnalysisSummaryHealth

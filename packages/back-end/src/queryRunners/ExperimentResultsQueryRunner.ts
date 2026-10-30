@@ -708,6 +708,8 @@ export class ExperimentResultsQueryRunner extends QueryRunner<
         result.health.clusterAssignment = clusterHealth.clusterAssignment;
         result.health.clusterSubUnitMapping =
           clusterHealth.clusterSubUnitMapping;
+        result.health.subUnitMultipleExposures =
+          clusterHealth.subUnitMultipleExposures;
       }
 
       const relativeAnalysis = this.model.analyses.find(

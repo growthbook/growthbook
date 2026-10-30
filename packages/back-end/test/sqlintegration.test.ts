@@ -3011,6 +3011,27 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     expect(normalized).toMatch(/'mapping' AS kind[\s\S]*FROM __clusterAgg/);
   });
 
+  it("emits an exposures branch counting sub-units that saw multiple variations", () => {
+    const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
+
+    // The per-cluster aggregate also tallies sub-units bucketed to the
+    // multi-variation marker, counted at the sub-unit grain before any
+    // cluster-consistency filter removes them.
+    expect(normalized).toMatch(
+      /COUNT\(\s*DISTINCT CASE WHEN variation = '__multiple__' THEN user_id END\s*\) AS multi_exposed_units/,
+    );
+    expect(normalized).toContain("'exposures' AS kind");
+    // Totals are summed from the shared aggregate (no extra scan of the units
+    // table): total distinct sub-units (denominator) and multi-variation ones.
+    expect(normalized).toMatch(
+      /'exposures' AS kind[\s\S]*SUM\(units\)[\s\S]*AS metric_a/,
+    );
+    expect(normalized).toMatch(
+      /'exposures' AS kind[\s\S]*SUM\(multi_exposed_units\)[\s\S]*AS metric_b/,
+    );
+    expect(normalized).toMatch(/'exposures' AS kind[\s\S]*FROM __clusterAgg/);
+  });
+
   it("drops multi-cluster sub-units and mixed clusters from the reliability branch", () => {
     const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
 

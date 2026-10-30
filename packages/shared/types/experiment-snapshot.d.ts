@@ -298,20 +298,23 @@ export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
   /** Cluster experiments: traffic counted per cluster rather than per sub-unit. */
   clusterTraffic?: ExperimentSnapshotTraffic;
-  /**
-   * Cluster experiments: the largest clusters by sub-unit count.
-   */
   clusterUnits?: ExperimentSnapshotClusterUnits;
   clusterAssignment?: ExperimentSnapshotClusterAssignment;
   clusterSubUnitMapping?: ExperimentSnapshotClusterSubUnitMapping;
+  subUnitMultipleExposures?: ExperimentSnapshotSubUnitMultipleExposures;
   power?: MidExperimentPowerCalculationResult;
   covariateImbalance?: CovariateImbalanceResult;
 }
 
 export interface ExperimentSnapshotClusterSubUnitMapping {
   totalUnits: number;
-  // Sub-units that mapped to more than one cluster.
   multiClusterUnits: number;
+  error?: string;
+}
+
+export interface ExperimentSnapshotSubUnitMultipleExposures {
+  totalSubUnits: number;
+  multipleExposedSubUnits: number;
   error?: string;
 }
 
@@ -324,7 +327,6 @@ export interface ExperimentSnapshotClusterAssignment {
 export interface ExperimentSnapshotClusterUnits {
   // Ordered largest-first; capped at the query's row limit.
   clusters: ExperimentSnapshotClusterUnit[];
-  // Set when the cluster-units query errored (clusters will be empty).
   error?: string;
 }
 

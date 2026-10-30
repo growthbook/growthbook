@@ -56,6 +56,7 @@ import {
   ExperimentSnapshotClusterSubUnitMapping,
   ExperimentSnapshotClusterUnit,
   ExperimentSnapshotClusterUnits,
+  ExperimentSnapshotSubUnitMultipleExposures,
   ExperimentSnapshotSettings,
   ExperimentSnapshotTraffic,
   ExperimentSnapshotTrafficDimension,
@@ -82,6 +83,7 @@ import {
 } from "back-end/src/services/experimentQueries/constants";
 import {
   CLUSTER_HEALTH_KIND_ASSIGNMENT,
+  CLUSTER_HEALTH_KIND_EXPOSURES,
   CLUSTER_HEALTH_KIND_MAPPING,
   CLUSTER_HEALTH_KIND_RELIABILITY,
 } from "back-end/src/integrations/sql/queries/experiment-cluster-health-query";
@@ -995,12 +997,18 @@ export function analyzeExperimentClusterHealth({
   clusterUnits: ExperimentSnapshotClusterUnits;
   clusterAssignment: ExperimentSnapshotClusterAssignment;
   clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping;
+  subUnitMultipleExposures: ExperimentSnapshotSubUnitMultipleExposures;
 } {
   if (error) {
     return {
       clusterUnits: { clusters: [], error },
       clusterAssignment: { totalClusters: 0, mixedClusters: 0, error },
       clusterSubUnitMapping: { totalUnits: 0, multiClusterUnits: 0, error },
+      subUnitMultipleExposures: {
+        totalSubUnits: 0,
+        multipleExposedSubUnits: 0,
+        error,
+      },
     };
   }
 
@@ -1017,6 +1025,10 @@ export function analyzeExperimentClusterHealth({
   const clusterSubUnitMapping: ExperimentSnapshotClusterSubUnitMapping = {
     totalUnits: 0,
     multiClusterUnits: 0,
+  };
+  const subUnitMultipleExposures: ExperimentSnapshotSubUnitMultipleExposures = {
+    totalSubUnits: 0,
+    multipleExposedSubUnits: 0,
   };
 
   (rows ?? []).forEach((r) => {
@@ -1037,6 +1049,10 @@ export function analyzeExperimentClusterHealth({
         clusterSubUnitMapping.totalUnits = r.metric_a;
         clusterSubUnitMapping.multiClusterUnits = r.metric_b;
         break;
+      case CLUSTER_HEALTH_KIND_EXPOSURES:
+        subUnitMultipleExposures.totalSubUnits = r.metric_a;
+        subUnitMultipleExposures.multipleExposedSubUnits = r.metric_b;
+        break;
     }
   });
 
@@ -1044,5 +1060,6 @@ export function analyzeExperimentClusterHealth({
     clusterUnits: { clusters },
     clusterAssignment,
     clusterSubUnitMapping,
+    subUnitMultipleExposures,
   };
 }
