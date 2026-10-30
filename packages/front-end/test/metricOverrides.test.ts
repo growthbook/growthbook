@@ -115,6 +115,29 @@ describe("describeMetricOverride", () => {
       ).map((r) => r.value),
     ).toEqual(["12 hours"]);
   });
+
+  it("reads hours alone as the metric's own kind of window", () => {
+    const override = { id: "met_a", windowHours: 12 };
+    const context = { conversionWindowsIgnored: true, cupedOff: false };
+    expect(
+      describeMetricOverride(override, undefined, {
+        ...context,
+        metricWindowType: "conversion",
+      }),
+    ).toEqual([
+      {
+        key: "window",
+        label: "Conversion window",
+        value: "Ignored by this experiment",
+      },
+    ]);
+    expect(
+      describeMetricOverride(override, undefined, {
+        ...context,
+        metricWindowType: "lookback",
+      }),
+    ).toEqual([{ key: "window", label: "Lookback window", value: "12 hours" }]);
+  });
 });
 
 describe("pruneMetricOverrides", () => {

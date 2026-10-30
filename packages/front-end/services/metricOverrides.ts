@@ -64,6 +64,8 @@ export interface OverrideContext {
   conversionWindowsIgnored: boolean;
   /** The experiment runs no CUPED, whatever its metrics ask for. */
   cupedOff: boolean;
+  /** The metric's own window type, which an hours-only override keeps. */
+  metricWindowType?: MetricSettingsInput["windowType"];
 }
 
 // Unset fields keep the metric's own setting and aren't listed. A goal metric's
@@ -76,24 +78,20 @@ export function describeMetricOverride(
   const rows: OverrideRow[] = [];
 
   if (targetMDE !== undefined) rows.push(row("targetMDE", percent(targetMDE)));
-  if (o.windowType !== undefined) {
-    rows.push(
-      windowRow(
-        o.windowType,
-        o.windowType === "conversion" && context?.conversionWindowsIgnored
-          ? IGNORED
-          : o.windowHours !== undefined
-            ? hours(o.windowHours)
-            : "Default",
-      ),
-    );
-  } else if (o.windowHours !== undefined) {
+  if (o.windowType !== undefined || o.windowHours !== undefined) {
     // Hours alone keep the metric's own kind of window.
-    rows.push({
-      key: "window",
-      label: "Metric window",
-      value: hours(o.windowHours),
-    });
+    const windowType = o.windowType ?? context?.metricWindowType;
+    const value =
+      windowType === "conversion" && context?.conversionWindowsIgnored
+        ? IGNORED
+        : o.windowHours !== undefined
+          ? hours(o.windowHours)
+          : "Default";
+    rows.push(
+      windowType === undefined
+        ? { key: "window", label: "Metric window", value }
+        : windowRow(windowType, value),
+    );
   }
   if (o.delayHours !== undefined) rows.push(row("delay", hours(o.delayHours)));
   if (o.regressionAdjustmentOverride) {

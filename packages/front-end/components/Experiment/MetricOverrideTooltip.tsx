@@ -136,6 +136,7 @@ export function MetricOverrideTooltipContent({
         ? {
             conversionWindowsIgnored,
             cupedOff: !settingsScope.experiment.regressionAdjustmentEnabled,
+            metricWindowType: getExperimentMetricById(mid)?.windowSettings.type,
           }
         : undefined,
     );
