@@ -608,6 +608,18 @@ export async function dangerousCreateLegacySDKConnection(
   return connection;
 }
 
+// A move that failed partway leaves both records; deleting the old key removes its connection too.
+export async function deleteLegacySDKConnectionByKey(
+  context: ReqContext,
+  key: string,
+) {
+  await SDKConnectionModel.deleteOne({
+    organization: context.org.id,
+    key,
+    languages: "legacy",
+  });
+}
+
 export async function dangerousDeleteSDKConnectionById(id: string) {
   await SDKConnectionModel.deleteOne({ id });
 }

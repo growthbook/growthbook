@@ -167,7 +167,10 @@ import {
   getLicenseMetaData,
   getUserCodesForOrg,
 } from "back-end/src/services/licenseData";
-import { findSDKConnectionsByIds } from "back-end/src/models/SdkConnectionModel";
+import {
+  deleteLegacySDKConnectionByKey,
+  findSDKConnectionsByIds,
+} from "back-end/src/models/SdkConnectionModel";
 import {
   getLicense,
   licenseInit,
@@ -2206,6 +2209,8 @@ export async function deleteApiKey(
     id || undefined,
     key || undefined,
   );
+  if (!deleted.secret)
+    await deleteLegacySDKConnectionByKey(context, deleted.key);
 
   await req.audit({
     event: "apiKey.delete",
