@@ -24,6 +24,7 @@ type EventForwarderRow = {
   name: string;
   sinkType: EventForwarderSinkType;
   status: EventForwarderStatus;
+  inHouseConsumer: boolean;
 };
 
 const SINK_TYPE_LABELS: Record<EventForwarderSinkType, string> = {
@@ -109,6 +110,7 @@ const EditOrganization: FC<{
             name: ds.name,
             sinkType: ds.eventForwarderConfig!.sinkType,
             status: ds.eventForwarderConfig!.status,
+            inHouseConsumer: ds.eventForwarderConfig!.inHouseConsumer,
           })),
       );
     } catch (e) {
@@ -162,16 +164,20 @@ const EditOrganization: FC<{
 
   const handlePauseResumeEventForwarder = async (row: EventForwarderRow) => {
     const action = row.status === "ready" ? "pause" : "resume";
-    setActionLoadingId(row.datasourceId);
+    await runEventForwarderAction(row.datasourceId, action);
+  };
+
+  const runEventForwarderAction = async (
+    datasourceId: string,
+    action: "pause" | "resume" | "migrate",
+  ) => {
+    setActionLoadingId(datasourceId);
     setEventForwardersError("");
     try {
-      await apiCall(
-        `/datasource/${row.datasourceId}/event-forwarder/${action}`,
-        {
-          method: "POST",
-          headers: { "X-Organization": id },
-        },
-      );
+      await apiCall(`/datasource/${datasourceId}/event-forwarder/${action}`, {
+        method: "POST",
+        headers: { "X-Organization": id },
+      });
       await refreshEventForwarders();
     } catch (e) {
       setEventForwardersError(e instanceof Error ? e.message : "Action failed");
@@ -299,6 +305,18 @@ const EditOrganization: FC<{
                           {SINK_TYPE_LABELS[row.sinkType]}
                         </Text>
                       </Flex>
+                      {!row.inHouseConsumer ? (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          loading={isLoading}
+                          onClick={() =>
+                            runEventForwarderAction(row.datasourceId, "migrate")
+                          }
+                        >
+                          Migrate to in-house
+                        </Button>
+                      ) : null}
                       {canToggle ? (
                         <Button
                           size="sm"

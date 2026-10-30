@@ -647,7 +647,49 @@ export function toEventForwarderConfigWithMetadata(
     connectorName: config.connectorName,
     connectorId: config.connectorId,
     lastProvisioningError: config.lastProvisioningError,
+    inHouseConsumer: isInHouseConsumerTopic(config.topic, config.sinkType),
   };
+}
+
+// Moves a pre-consumer (Confluent connector) config onto the shared consumer
+// topic. Re-normalizes the stored config so it carries `tables`. Confluent
+// resources are left for manual teardown; the old ids go to the audit log.
+export async function migrateEventForwarderToInHouseConsumer(
+  context: ReqContext,
+  existing: EventForwarderConfigInterface,
+  datasourceParams: EventForwarderDatasourceParams,
+): Promise<EventForwarderConfigInterface> {
+  if (isInHouseConsumerTopic(existing.topic, existing.sinkType)) {
+    throw new Error("Event forwarder is already on the in-house consumer");
+  }
+  const draft = toEventForwarderConfigDraft(existing);
+  if (!draft) {
+    throw new Error("Cannot read event forwarder config");
+  }
+  const normalizedPayload = buildNormalizedSinkPayload(
+    draft,
+    datasourceParams,
+    existing,
+  );
+  validateNormalizedSinkPayload(draft, datasourceParams, normalizedPayload);
+
+  await context.auditLog({
+    entity: { object: "eventForwarderConfig", id: existing.id, name: "" },
+    event: "eventForwarderConfig.migrate",
+    details: JSON.stringify({
+      datasourceId: existing.datasourceId,
+      topic: existing.topic,
+      connectorName: existing.connectorName,
+      connectorId: existing.connectorId,
+    }),
+  });
+
+  return context.models.eventForwarderConfigs.update(existing, {
+    topic: getInHouseConsumerTopicName(existing.sinkType),
+    config: encryptSinkConfig(normalizedPayload),
+    status: "pending",
+    lastProvisioningError: "",
+  });
 }
 
 export async function getEventForwarderConfigDraftForDatasource(

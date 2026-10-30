@@ -60,6 +60,7 @@ import {
   assertNoEventForwarderInOrg,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
+  migrateEventForwarderToInHouseConsumer,
   syncEventForwarderConfigFromDatasource,
   toEventForwarderConfigDraft,
 } from "back-end/src/services/eventForwarder/config";
@@ -2003,4 +2004,52 @@ function getManagedWarehouseJsonSettings(
       ),
     },
   };
+}
+
+// Super admin only: moves a Confluent-connector forwarder onto the in-house
+// consumer and provisions it. Confluent resources are torn down manually later.
+export async function postMigrateEventForwarder(
+  req: AuthRequest<null, { id: string }>,
+  res: Response<{ status: 200 } | { status: 400 | 404; message: string }>,
+) {
+  const context = getContextFromReq(req);
+  if (!hasSuperAdminPermission(context.superAdmin, "provision")) {
+    context.permissions.throwPermissionError();
+  }
+  const datasource = await getDataSourceById(context, req.params.id);
+  if (!datasource) {
+    res.status(404).json({ status: 404, message: "Cannot find data source" });
+    return;
+  }
+  const existing = await getEventForwarderForDatasource(context, datasource.id);
+  if (!existing) {
+    res
+      .status(404)
+      .json({ status: 404, message: "Cannot find event forwarder config" });
+    return;
+  }
+
+  try {
+    const datasourceParams = getEventForwarderDatasourceParams(
+      datasource.type,
+      getSourceIntegrationObject(context, datasource).params,
+    );
+    const migrated = await migrateEventForwarderToInHouseConsumer(
+      context,
+      existing,
+      datasourceParams,
+    );
+    await provisionEventForwarderThroughLicenseServer(
+      context,
+      migrated,
+      datasourceParams,
+    );
+    res.status(200).json({ status: 200 });
+  } catch (e) {
+    req.log.error(e, "Failed to migrate event forwarder");
+    res.status(400).json({
+      status: 400,
+      message: e.message || "An error occurred",
+    });
+  }
 }

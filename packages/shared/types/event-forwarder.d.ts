@@ -109,4 +109,5 @@ export type EventForwarderConfigWithMetadata = EventForwarderConfigDraft & {
   connectorName?: string;
   connectorId?: string;
   lastProvisioningError?: string;
+  inHouseConsumer: boolean;
 };
