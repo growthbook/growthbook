@@ -76,6 +76,7 @@ export async function getPastExperimentsModelByDatasource(
   organization: string,
   datasource: string,
 ) {
+  if (datasource && typeof datasource !== "string") return null;
   const doc = await PastExperimentsModel.findOne({ organization, datasource });
 
   return doc ? toInterface(doc) : null;

@@ -110,6 +110,7 @@ export async function updateInformationSchemaById(
   id: string,
   updates: Partial<InformationSchemaInterface>,
 ): Promise<void> {
+  if (id && typeof id !== "string") return;
   await InformationSchemaModel.updateOne(
     {
       id,

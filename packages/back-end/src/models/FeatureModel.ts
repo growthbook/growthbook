@@ -930,6 +930,7 @@ export async function getFeature(
   context: ReqContext | ApiReqContext,
   id: string,
 ): Promise<FeatureInterface | null> {
+  if (id && typeof id !== "string") return null;
   const feature = await FeatureModel.findOne({
     organization: context.org.id,
     id,

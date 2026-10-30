@@ -524,6 +524,7 @@ export async function getExperimentById(
   context: ReqContext | ApiReqContext,
   id: string,
 ): Promise<ExperimentInterface | null> {
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     organization: context.org.id,
     id,

@@ -345,6 +345,8 @@ async function findPageByMemberCount(
 }
 
 export async function findOrganizationById(id: string) {
+  // Global collection: an object here would act as a query operator
+  if (id && typeof id !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({ id });
   return doc ? toInterface(doc) : null;
 }

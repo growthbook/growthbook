@@ -257,6 +257,7 @@ export async function getDataSourceById(
   context: ReqContext | ApiReqContext,
   id: string,
 ) {
+  if (id && typeof id !== "string") return null;
   // If using config.yml, immediately return the from there
   if (usingFileConfig()) {
     return (
