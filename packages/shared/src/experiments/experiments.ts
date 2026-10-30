@@ -684,14 +684,6 @@ function skipNonCodeSpan(
   return -1;
 }
 
-// Peel parentheses that wrap the entire query, e.g.
-// `(SELECT user_id, bandit_version FROM assignments)`. Without this, the
-// leading `(` pushes the top-level `SELECT` to depth 1, so the projection
-// scanner captures nothing and the output-column checks spuriously return
-// `false` (silently disabling bandit period weighting / traffic-split checks).
-// Only parentheses that enclose the whole statement are removed (ignoring
-// surrounding whitespace, comments, and a trailing semicolon); set operations
-// such as `(SELECT ...) UNION (SELECT ...)` are left untouched.
 function stripOuterParentheses(
   sql: string,
   identifierQuote: SqlIdentifierQuote,
