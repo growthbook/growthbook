@@ -24,10 +24,6 @@ export function toApiInterleavingSnapshot(
       variations: s.variations,
       metrics: s.metrics,
       pValueThreshold: s.pValueThreshold,
-      runs: s.runs.map((r) => ({
-        dateStarted: r.dateStarted.toISOString(),
-        dateEnded: r.dateEnded.toISOString(),
-      })),
       startDate: s.startDate.toISOString(),
       endDate: s.endDate.toISOString(),
     },

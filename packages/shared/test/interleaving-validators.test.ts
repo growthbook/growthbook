@@ -7,6 +7,7 @@ import {
   getInterleavingFeatureDefId,
   interleavingInSDKPayload,
   interleavingTargetingServes,
+  nextAvailableTrackingKey,
   parseInterleavingRankerConfig,
 } from "../src/util/interleaving";
 
@@ -271,5 +272,36 @@ describe("parseInterleavingRankerConfig", () => {
     expect(
       parseInterleavingRankerConfig("{}", schema("not json", false)),
     ).toEqual({});
+  });
+});
+
+describe("nextAvailableTrackingKey", () => {
+  it("uses the code key when nothing has claimed it", () => {
+    expect(nextAvailableTrackingKey("search", new Set())).toBe("search");
+    expect(nextAvailableTrackingKey("search", new Set(["other"]))).toBe(
+      "search",
+    );
+  });
+
+  it("suffixes when the code key is taken", () => {
+    expect(nextAvailableTrackingKey("search", new Set(["search"]))).toBe(
+      "search_v1",
+    );
+    expect(
+      nextAvailableTrackingKey("search", new Set(["search", "search_v1"])),
+    ).toBe("search_v2");
+  });
+
+  // Someone can set `search_v1` by hand, so counting collisions would collide
+  it("skips a suffix that was claimed out of order", () => {
+    expect(
+      nextAvailableTrackingKey("search", new Set(["search", "search_v2"])),
+    ).toBe("search_v1");
+    expect(
+      nextAvailableTrackingKey(
+        "search",
+        new Set(["search", "search_v1", "search_v2"]),
+      ),
+    ).toBe("search_v3");
   });
 });

@@ -191,14 +191,10 @@ export function getInterleavingMetricQuery(
   dialect: SqlDialect,
   params: InterleavingMetricQueryParams,
 ): string {
-  const { userIdType, trackingKey, variationKeys, runs, startDate, endDate } =
-    params;
+  const { userIdType, trackingKey, variationKeys, startDate, endDate } = params;
 
   if (params.metrics.length === 0) {
     throw new Error("Interleaving metric query requires at least one metric");
-  }
-  if (runs.length === 0) {
-    throw new Error("Interleaving metric query requires at least one run");
   }
   const { jsonArray } = dialect;
   if (!jsonArray) {
@@ -218,16 +214,9 @@ export function getInterleavingMetricQuery(
   const [controlKey, treatmentKey] = variationKeys;
   const ts = INTERLEAVING_TIMESTAMP_COLUMN;
   const lit = (value: string) => `'${dialect.escapeStringLiteral(value)}'`;
-  // One range per run, OR'd. Parenthesised because both callers AND this into
-  // a WHERE clause, where a bare OR would widen the whole predicate.
   const dateFilter = (col: string) =>
-    `(${runs
-      .map(
-        (r) =>
-          `(${col} >= ${dialect.toTimestamp(r.dateStarted)}` +
-          ` AND ${col} <= ${dialect.toTimestamp(r.dateEnded)})`,
-      )
-      .join("\n          OR ")})`;
+    `${col} >= ${dialect.toTimestamp(startDate)}` +
+    ` AND ${col} <= ${dialect.toTimestamp(endDate)}`;
   const item = (field: string) => jsonArray.fieldText("item", field);
   const cols = (parts: string[]) => parts.join(",\n        ");
 

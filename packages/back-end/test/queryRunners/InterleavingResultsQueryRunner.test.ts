@@ -42,12 +42,6 @@ const settings = (): InterleavingSnapshotSettings => ({
     { id: "fact__m1", analyses: [{ type: "paired" }] },
   ],
   pValueThreshold: 0.05,
-  runs: [
-    {
-      dateStarted: new Date("2026-10-01T00:00:00Z"),
-      dateEnded: new Date("2026-10-08T00:00:00Z"),
-    },
-  ],
   startDate: new Date("2026-10-01T00:00:00Z"),
   endDate: new Date("2026-10-08T00:00:00Z"),
 });

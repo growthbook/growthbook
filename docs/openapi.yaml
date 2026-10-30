@@ -56085,6 +56085,10 @@ paths:
                   description: Stop a running interleaving experiment before archiving it.
                   type: boolean
                 trackingKey:
+                  description: >-
+                    The `experiment_id` recorded in exposures. Must be unique
+                    within the Data Source. Changing it on a running experiment
+                    means earlier exposures are no longer counted.
                   type: string
                 hashAttribute:
                   type: string
@@ -56393,10 +56397,11 @@ paths:
                   pattern: ^[a-zA-Z0-9_.:\|\-]+$
                 trackingKey:
                   description: >-
-                    The `experiment_id` recorded in exposures. Defaults to
-                    `key`. Tracking keys may be reused once an experiment has
-                    stopped, but only one interleaving experiment per tracking
-                    key can run in a Data Source at a time.
+                    The `experiment_id` recorded in exposures. Leave this unset:
+                    it is generated from `key`, with a `_v1` style suffix when
+                    another experiment in this Data Source already uses it.
+                    Tracking keys must be unique within a Data Source, so
+                    supplying one that is taken is rejected.
                   type: string
                 hashAttribute:
                   type: string
@@ -84233,22 +84238,6 @@ components:
                 additionalProperties: false
             pValueThreshold:
               type: number
-            runs:
-              description: The run windows these results count exposures from
-              type: array
-              items:
-                type: object
-                properties:
-                  dateStarted:
-                    type: string
-                    format: date-time
-                  dateEnded:
-                    type: string
-                    format: date-time
-                required:
-                  - dateStarted
-                  - dateEnded
-                additionalProperties: false
             startDate:
               type: string
               format: date-time
@@ -84263,7 +84252,6 @@ components:
             - variations
             - metrics
             - pValueThreshold
-            - runs
             - startDate
             - endDate
           additionalProperties: false

@@ -27,16 +27,10 @@ export async function startInterleaving(
     );
   }
 
-  // Each start opens a new run rather than extending the old window. Tracking
-  // keys may be reused once an experiment stops, so a window spanning the
-  // dormant gap would also pull in whatever ran under the same key meanwhile.
-  // dateStarted stays at the first run for display.
-  const now = new Date();
   const updated = await context.models.interleavings.update(interleaving, {
     status: "running",
-    dateStarted: interleaving.dateStarted ?? now,
+    dateStarted: interleaving.dateStarted ?? new Date(),
     dateStopped: undefined,
-    runs: [...interleaving.runs, { dateStarted: now }],
   });
   await context.auditLog({
     event: "interleaving.start",
@@ -57,16 +51,9 @@ export async function stopInterleaving(
     );
   }
 
-  const stoppedAt = new Date();
-  const runs = [...interleaving.runs];
-  const open = runs.length - 1;
-  if (open >= 0 && !runs[open].dateEnded) {
-    runs[open] = { ...runs[open], dateEnded: stoppedAt };
-  }
   const updated = await context.models.interleavings.update(interleaving, {
     status: "stopped",
-    dateStopped: stoppedAt,
-    runs,
+    dateStopped: new Date(),
   });
   await context.auditLog({
     event: "interleaving.stop",
