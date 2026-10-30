@@ -22,7 +22,7 @@
     "type-gen": "growthbook features generate-types --output ./types --profile growthbook"
   },
   "dependencies": {
-    "@growthbook/growthbook": "^1.8.1",
+    "@growthbook/growthbook": "^2.0.0",
     "@stdlib/stats": "^0.1.1",
     "ajv": "^8.18.0",
     "date-fns": "^2.15.0",
