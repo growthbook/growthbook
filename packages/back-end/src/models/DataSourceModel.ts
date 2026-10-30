@@ -39,8 +39,14 @@ import {
 import {
   usingFileConfig,
   getConfigDatasources,
+  getConfigDatasourcesWithoutUpgrade,
 } from "back-end/src/init/config";
 import { upgradeDatasourceObject } from "back-end/src/util/migrations";
+import {
+  assertDatasourceSettingsReadable,
+  upgradeReadableDatasources,
+  upgradeReadableDatasourcesByIds,
+} from "back-end/src/util/datasourceSettings";
 import { closeMssqlPool } from "back-end/src/util/mssqlPoolManager";
 import { queueCreateInformationSchema } from "back-end/src/jobs/createInformationSchema";
 import { IS_CLOUD } from "back-end/src/util/secrets";
@@ -295,8 +301,9 @@ export async function getDataSourcesByIds(
   ids: string[],
 ) {
   if (usingFileConfig()) {
-    return getConfigDatasources(context.org.id).filter((d) =>
-      ids.includes(d.id),
+    return upgradeReadableDatasourcesByIds(
+      getConfigDatasourcesWithoutUpgrade(context.org.id),
+      ids,
     );
   }
 
@@ -305,11 +312,10 @@ export async function getDataSourcesByIds(
     organization: context.org.id,
   });
 
-  return docs
-    .map(toInterface)
-    .filter((datasource) =>
+  return upgradeReadableDatasources(docs.map((doc) => doc.toJSON())).filter(
+    (datasource) =>
       context.permissions.canReadMultiProjectResource(datasource.projects),
-    );
+  );
 }
 
 export async function removeProjectFromDatasources(
@@ -568,6 +574,7 @@ export async function createDataSource(
     params: encryptParams(params),
     projects,
   };
+  assertDatasourceSettingsReadable(datasource);
 
   const skipManagedWarehouseConnection =
     isManagedWarehouseAwaitingProvisioning(datasource);
@@ -831,6 +838,10 @@ export async function updateDataSource(
 ) {
   if (usingFileConfig()) {
     throw new Error("Cannot update. Data sources managed by config.yml");
+  }
+
+  if (updates.settings) {
+    assertDatasourceSettingsReadable({ ...datasource, ...updates });
   }
 
   // Check the resulting state, since narrowing projects alone can strand a
