@@ -42,10 +42,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { queriesSchema } from "./QueryModel";
 import { Context } from "./BaseModel";
-import {
-  getExperimentById,
-  resetAutoUpdateFailures,
-} from "./ExperimentModel";
+import { getExperimentById, resetAutoUpdateFailures } from "./ExperimentModel";
 
 const experimentSnapshotTrafficObject = {
   _id: false,
