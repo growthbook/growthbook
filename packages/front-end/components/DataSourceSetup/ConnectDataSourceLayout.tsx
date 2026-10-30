@@ -41,7 +41,6 @@ import {
 } from "@/services/dataRegions";
 import { dataSourceConnections } from "@/services/eventSchema";
 import track from "@/services/track";
-import Avatar from "@/ui/Avatar";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
@@ -81,6 +80,29 @@ function ingestorForRegion(region: DataRegion): string {
   return region === "eu-west-1" ? "EU ingestor" : "US ingestor";
 }
 
+function withGeneratedSnowflakeKey(
+  datasource: Partial<DataSourceInterfaceWithParams>,
+  keyPair: SnowflakeKeyPair | null,
+): Partial<DataSourceInterfaceWithParams> {
+  if (!keyPair || datasource.type !== "snowflake") return datasource;
+  const params = datasource.params;
+  const privateKey =
+    params && "privateKey" in params && typeof params.privateKey === "string"
+      ? params.privateKey
+      : "";
+  // Keep a file the user already chose.
+  if (privateKey && privateKey !== keyPair.privateKey) return datasource;
+  if (privateKey === keyPair.privateKey) return datasource;
+  return {
+    ...datasource,
+    params: {
+      ...params,
+      privateKey: keyPair.privateKey,
+      privateKeyPassword: "",
+    },
+  } as Partial<DataSourceInterfaceWithParams>;
+}
+
 function warehouseRegionHelp(sinkType: EventForwarderSinkType): string {
   switch (sinkType) {
     case "bigquery":
@@ -91,24 +113,6 @@ function warehouseRegionHelp(sinkType: EventForwarderSinkType): string {
       return "Open Workspaces in the Databricks account console. The region is listed for your workspace.";
   }
 }
-
-const DATA_SOURCE_TYPE_ABBR: Record<DataSourceType, string> = {
-  bigquery: "BQ",
-  snowflake: "SF",
-  databricks: "DB",
-  redshift: "RS",
-  athena: "AT",
-  presto: "PT",
-  clickhouse: "CH",
-  postgres: "PG",
-  mysql: "MY",
-  vertica: "VE",
-  mssql: "MS",
-  adobe_experience_platform_query_service: "AE",
-  mixpanel: "MP",
-  google_analytics: "GA",
-  growthbook_clickhouse: "GB",
-};
 
 export type ConnectDataSourceLayoutProps = {
   mode: "create" | "edit";
@@ -142,6 +146,12 @@ export default function ConnectDataSourceLayout({
 
   const [datasource, setDatasource] =
     useState<Partial<DataSourceInterfaceWithParams>>(initial);
+  const [snowflakeKeyPair, setSnowflakeKeyPair] =
+    useState<SnowflakeKeyPair | null>(null);
+  // Create mode generates a key as the page loads. Edit keeps whatever was saved.
+  const [keyPairAutoGenerate, setKeyPairAutoGenerate] = useState<
+    "idle" | "pending" | "failed"
+  >(!existing && initial.type === "snowflake" ? "pending" : "idle");
   const [dirty, setDirty] = useState(false);
   const [paramsDirty, setParamsDirty] = useState(false);
   const [hasError, setHasError] = useState(false);
@@ -284,8 +294,25 @@ export default function ConnectDataSourceLayout({
   }, [saveError]);
 
   useEffect(() => {
+    if (existing || initial.type !== "snowflake") return;
+    let cancelled = false;
+    void (async () => {
+      const keyPair = await generateSnowflakeKeyPair();
+      if (cancelled) return;
+      if (!keyPair) {
+        setKeyPairAutoGenerate("failed");
+        return;
+      }
+      setSnowflakeKeyPair(keyPair);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [existing, initial.type]);
+
+  useEffect(() => {
     if (!dirty) {
-      setDatasource(initial);
+      setDatasource(withGeneratedSnowflakeKey(initial, snowflakeKeyPair));
       setEventDestination(
         defaultEventForwarderDestination(initial.type || "bigquery"),
       );
@@ -293,7 +320,20 @@ export default function ConnectDataSourceLayout({
       setParamsDirty(false);
       resetTest();
     }
-  }, [initial, dirty, resetTest]);
+  }, [initial, dirty, resetTest, snowflakeKeyPair]);
+
+  // A key that arrives after the user has edited the form still fills an
+  // empty private key, and never replaces a file they already uploaded.
+  useEffect(() => {
+    if (!snowflakeKeyPair) return;
+    setDatasource((current) =>
+      withGeneratedSnowflakeKey(current, snowflakeKeyPair),
+    );
+    // Stay on "Generating…" until the key is actually in the form.
+    setKeyPairAutoGenerate((status) =>
+      status === "pending" ? "idle" : status,
+    );
+  }, [snowflakeKeyPair]);
 
   const typeInfo = useMemo(
     () => dataSourceConnections.find((c) => c.type === datasource.type),
@@ -335,11 +375,9 @@ export default function ConnectDataSourceLayout({
     });
   };
 
-  // Snowflake key pair created on request. Lives here rather than in the
-  // page so the form (private key) and the instructions (public key) agree,
-  // and so the edit page can offer it when moving off password auth.
-  const [snowflakeKeyPair, setSnowflakeKeyPair] =
-    useState<SnowflakeKeyPair | null>(null);
+  // Lives here rather than in the page so the form (private key) and the
+  // instructions (public key) agree, and so the edit page can offer it when
+  // moving off password auth.
   const usingGeneratedKey =
     snowflakeKeyPair !== null &&
     datasource.params !== undefined &&
@@ -368,9 +406,17 @@ export default function ConnectDataSourceLayout({
             usingGenerated: usingGeneratedKey,
             generate: generateKeyPair,
             keyPairRequired: setup === "event_forwarder",
+            auto:
+              keyPairAutoGenerate === "idle" ? undefined : keyPairAutoGenerate,
           }
         : undefined,
-    [datasource.type, usingGeneratedKey, generateKeyPair, setup],
+    [
+      datasource.type,
+      usingGeneratedKey,
+      generateKeyPair,
+      setup,
+      keyPairAutoGenerate,
+    ],
   );
   // Create mode only: let the user scope the new Data Source to Projects they
   // can create in. An empty selection is All Projects, which needs a global role.
@@ -391,6 +437,11 @@ export default function ConnectDataSourceLayout({
     })
       ? "You don't have permission to create a Data Source for All Projects. Select a Project."
       : null;
+  // Open Advanced Settings when a Project is already selected, or when All
+  // Projects isn't allowed, so that restriction isn't buried.
+  const expandProjectRestriction =
+    showProjectPicker &&
+    ((datasource.projects?.length ?? 0) > 0 || projectPermissionError !== null);
 
   const canTest =
     !!datasource.type &&
@@ -441,6 +492,21 @@ export default function ConnectDataSourceLayout({
   const updateEventDestination = (patch: Partial<typeof eventDestination>) => {
     if (patch.location !== undefined) setDestinationLocationEdited(true);
     setEventDestination((current) => ({ ...current, ...patch }));
+    // The connection schema field is hidden for Snowflake Event Forwarder.
+    // Keep it equal to the destination the user is actually writing to.
+    if (
+      checksWrite &&
+      datasource.type === "snowflake" &&
+      patch.location !== undefined
+    ) {
+      updateDatasource({
+        ...datasource,
+        params: {
+          ...datasource.params,
+          schema: patch.location,
+        },
+      });
+    }
     setDirty(true);
     resetTest();
   };
@@ -775,9 +841,17 @@ export default function ConnectDataSourceLayout({
         style={{ scrollbarGutter: "stable" }}
       >
         <Flex align="center" gap="3" wrap="wrap" mb="2">
-          <Avatar size="lg" variant="soft" radius="small" color="violet">
-            {DATA_SOURCE_TYPE_ABBR[type]}
-          </Avatar>
+          <Flex
+            align="center"
+            justify="center"
+            flexShrink="0"
+            aria-hidden="true"
+            width="40px"
+            height="40px"
+            style={{ fontSize: 32, lineHeight: 1 }}
+          >
+            {typeInfo.icon}
+          </Flex>
           <Heading as="h1" size="xl" mb="0">
             {existing
               ? `Edit ${typeInfo.display}`
@@ -814,22 +888,6 @@ export default function ConnectDataSourceLayout({
             autoFocus={!existing}
             mb="3"
           />
-          {showProjectPicker ? (
-            <Box mb="3">
-              <MultiSelectField
-                label="Projects"
-                placeholder="All Projects"
-                value={datasource.projects || []}
-                options={projectOptions}
-                onChange={(projects) =>
-                  updateDatasource({ ...datasource, projects })
-                }
-                helpText="Only Projects where you can create Data Sources are listed."
-                error={projectPermissionError ?? undefined}
-                errorLevel="warning"
-              />
-            </Box>
-          ) : null}
           <ConnectionSettings
             datasource={datasource}
             existing={existing}
@@ -838,6 +896,34 @@ export default function ConnectDataSourceLayout({
             setDirty={setDirty}
             connectionOnly
             keyPairGenerator={keyPairGenerator}
+            hideSnowflakeSchema={checksWrite && datasource.type === "snowflake"}
+            generatedPassword={
+              !existing &&
+              (datasource.type === "postgres" ||
+                datasource.type === "redshift" ||
+                datasource.type === "mysql" ||
+                datasource.type === "mssql")
+            }
+            expandAdvancedSettings={expandProjectRestriction}
+            omitClosedAdvancedMargin
+            advancedSettingsPrefix={
+              showProjectPicker ? (
+                <Box mb="3">
+                  <MultiSelectField
+                    label="Projects"
+                    placeholder="All Projects"
+                    value={datasource.projects || []}
+                    options={projectOptions}
+                    onChange={(projects) =>
+                      updateDatasource({ ...datasource, projects })
+                    }
+                    helpText="Only Projects where you can create Data Sources are listed. Leave empty for All Projects."
+                    error={projectPermissionError ?? undefined}
+                    errorLevel="warning"
+                  />
+                </Box>
+              ) : undefined
+            }
           />
         </Frame>
 
@@ -857,7 +943,7 @@ export default function ConnectDataSourceLayout({
             onZerobusEndpointChange={(zerobusEndpoint) =>
               updateEventDestination({ zerobusEndpoint })
             }
-            schemaDefaultsToConnection={type === "snowflake"}
+            schemaDefaultsToConnection={false}
             disabled={isSampleData}
           />
         ) : null}

@@ -1,9 +1,14 @@
+import { CSSProperties, Suspense, lazy, useMemo } from "react";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
+import cloneDeep from "lodash/cloneDeep";
 import { PiArrowSquareOut, PiCheck, PiCopy } from "react-icons/pi";
 import { DataSourceParams, DataSourceType } from "shared/types/datasource";
 import type { DataRegion } from "shared/util";
+import { revealCopiedSelection } from "@/components/DataSourceSetup/revealCopiedSelection";
 import { DocLink, DocSection } from "@/components/DocLink";
+import { getCodeTheme } from "@/components/SyntaxHighlighting/codeTheme";
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
+import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDataRegionOptions } from "@/services/dataRegions";
 import { isCloud } from "@/services/env";
 import Heading from "@/ui/Heading";
@@ -20,6 +25,77 @@ import styles from "./DataSourceConnectInstructions.module.scss";
 
 export type { ConnectSetupKind };
 
+const Prism = lazy(() => import("@/components/SyntaxHighlighting/Prism"));
+
+const SQL_STATEMENT =
+  /^(?:SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH|GRANT|REVOKE|COMMENT|USE|SHOW|SET|BEGIN|COPY|TRUNCATE|CALL|EXECUTE|MERGE|FLUSH)\b/i;
+
+function isSql(code: string): boolean {
+  return code.split("\n").some((line) => SQL_STATEMENT.test(line.trim()));
+}
+
+// Wrap long lines in place of a horizontal scrollbar; a token only breaks
+// mid-word when it is wider than the pane on its own. The copy button still
+// copies the unwrapped text.
+const COMMAND_BLOCK_STYLE: CSSProperties = {
+  margin: 0,
+  background: "var(--gray-a2)",
+  border: "1px solid var(--gray-a5)",
+  borderRadius: 6,
+  padding: "12px 48px 12px 14px",
+  fontFamily: "var(--code-font-family)",
+  fontSize: 12,
+  lineHeight: 1.75,
+  whiteSpace: "pre-wrap",
+  overflowWrap: "break-word",
+  color: "var(--color-text-high)",
+};
+
+function PlainCommand({ code }: { code: string }) {
+  return (
+    <Box asChild style={COMMAND_BLOCK_STYLE}>
+      <pre>{code}</pre>
+    </Box>
+  );
+}
+
+function SqlCommand({ code }: { code: string }) {
+  const { theme } = useAppearanceUITheme();
+  const style = useMemo(() => {
+    const next = cloneDeep(getCodeTheme(theme));
+    const pre = next['pre[class*="language-"]'];
+    Object.assign(pre, COMMAND_BLOCK_STYLE);
+    const codeStyle = next['code[class*="language-"]'];
+    codeStyle.fontSize = COMMAND_BLOCK_STYLE.fontSize;
+    codeStyle.lineHeight = COMMAND_BLOCK_STYLE.lineHeight;
+    codeStyle.whiteSpace = "pre-wrap";
+    codeStyle.overflowWrap = "break-word";
+    return next;
+  }, [theme]);
+
+  return (
+    <Suspense fallback={<PlainCommand code={code} />}>
+      <Prism
+        language="sql"
+        style={style}
+        wrapLongLines
+        customStyle={COMMAND_BLOCK_STYLE}
+        codeTagProps={{
+          style: {
+            fontFamily: "var(--code-font-family)",
+            fontSize: 12,
+            lineHeight: 1.75,
+            whiteSpace: "pre-wrap",
+            overflowWrap: "break-word",
+          },
+        }}
+      >
+        {code}
+      </Prism>
+    </Suspense>
+  );
+}
+
 /**
  * `copyText` is what lands on the clipboard when it must differ from what is
  * shown, e.g. a query displayed with a masked password.
@@ -31,28 +107,19 @@ function CommandBlock({ code, copyText }: { code: string; copyText?: string }) {
   const label = copySuccess ? "Copied" : "Copy command";
 
   return (
-    <Box mt="2" style={{ position: "relative" }}>
-      <Box
-        asChild
-        style={{
-          margin: 0,
-          background: "var(--gray-a2)",
-          border: "1px solid var(--gray-a5)",
-          borderRadius: 6,
-          padding: "12px 48px 12px 14px",
-          fontFamily: "var(--code-font-family)",
-          fontSize: 12,
-          lineHeight: 1.75,
-          // Wrap long lines in place of a horizontal scrollbar; a token only
-          // breaks mid-word when it is wider than the pane on its own. The
-          // copy button still copies the unwrapped text.
-          whiteSpace: "pre-wrap",
-          overflowWrap: "break-word",
-          color: "var(--color-text-high)",
-        }}
-      >
-        <pre>{code}</pre>
-      </Box>
+    <Box
+      mt="2"
+      style={{ position: "relative" }}
+      onCopy={(event) => {
+        if (!copyText || copyText === code) return;
+        const selection = document.getSelection()?.toString() ?? "";
+        const revealed = revealCopiedSelection(code, copyText, selection);
+        if (revealed === null || !event.clipboardData) return;
+        event.preventDefault();
+        event.clipboardData.setData("text/plain", revealed);
+      }}
+    >
+      {isSql(code) ? <SqlCommand code={code} /> : <PlainCommand code={code} />}
       {copySupported ? (
         <Tooltip content={label}>
           <IconButton

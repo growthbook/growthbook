@@ -273,9 +273,13 @@ describe("getDataSourceSetupInstructions", () => {
         { snowflakeKeyPair: keyPair },
       );
       const create = codeOf(steps, "Create a user and grant access");
-      expect(create.code).toContain(`RSA_PUBLIC_KEY = '${keyPair.publicKey}'`);
+      expect(create.code).toContain("RSA_PUBLIC_KEY = '••••••••'");
+      expect(create.code).not.toContain(keyPair.publicKey);
+      expect(create.codeToCopy).toContain(
+        `RSA_PUBLIC_KEY = '${keyPair.publicKey}'`,
+      );
       expect(create.code).not.toContain("BEGIN PRIVATE KEY");
-      expect(create.codeNote).toBeUndefined();
+      expect(create.codeNote).toContain("hidden");
     });
 
     it("falls back to the placeholder once a different key is uploaded", () => {
@@ -577,7 +581,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
           savedSf,
         );
         expect(ef.code).toContain("GRANT CREATE SCHEMA ON DATABASE DB2");
-        expect(ef.code).toContain("CREATE SCHEMA DB2.EVENTS;");
+        expect(ef.code).toContain("CREATE SCHEMA IF NOT EXISTS DB2.EVENTS;");
       });
 
       it("event forwarder: schema change repeats only the write grants", () => {
@@ -588,7 +592,9 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
           savedSf,
         );
         expect(update.description).toContain("The schema changed.");
-        expect(update.code).toContain("CREATE SCHEMA DB.EVENTS2;");
+        expect(update.code).toContain(
+          "CREATE SCHEMA IF NOT EXISTS DB.EVENTS2;",
+        );
         expect(update.code).not.toContain("GRANT USAGE ON DATABASE");
       });
 
@@ -599,7 +605,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
           { ...savedSf, role: "NEW_ROLE" },
           savedSf,
         );
-        expect(update.code).toContain("CREATE ROLE NEW_ROLE;");
+        expect(update.code).toContain("CREATE ROLE IF NOT EXISTS NEW_ROLE;");
         expect(update.code).toContain("GRANT ROLE NEW_ROLE TO USER GB;");
         expect(update.code).toContain(
           "ALTER USER GB SET DEFAULT_ROLE = NEW_ROLE;",
@@ -673,7 +679,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
   });
 
   describe("event forwarder", () => {
-    it("snowflake: adds write grants and, with the region still open, both IPs and the EU note", () => {
+    it("snowflake: adds write grants and, with the region still open, both IPs", () => {
       const steps = getDataSourceSetupInstructions(
         "snowflake",
         "event_forwarder",
@@ -686,7 +692,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
       expect(network.code).toContain(
         `'${CLOUD_EGRESS_IP}', '${EU_INGESTOR_IP}'`,
       );
-      expect(network.codeNote).toContain("eu-west-1");
+      expect(network.codeNote).toBeUndefined();
     });
 
     it("lists only the chosen region's IPs with no note once the region is known", () => {
@@ -739,7 +745,7 @@ GRANT SELECT ON SCHEMA::public TO ro;`,
       expect(codeOf(steps, "Grant access").code).toContain("CREATE TABLE");
       const network = codeOf(steps, "Allow network access");
       expect(network.code).toContain(EU_INGESTOR_IP);
-      expect(network.codeNote).toContain("eu-west-1");
+      expect(network.codeNote).toBeUndefined();
     });
 
     it("bigquery: inserts the write step before the final credentials step", () => {

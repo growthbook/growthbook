@@ -10,6 +10,7 @@ import { getDefaultProjectsForNewResource } from "shared/demo-datasource";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectDataSourceLayout from "@/components/DataSourceSetup/ConnectDataSourceLayout";
 import { ConnectSetupKind } from "@/components/DataSourceSetup/DataSourceConnectInstructions";
+import { defaultEventForwarderDestination } from "@/components/DataSourceSetup/EventForwarderDestinationFields";
 import { generateStrongPassword } from "@/components/DataSourceSetup/generateStrongPassword";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import PageHead from "@/components/Layout/PageHead";
@@ -70,11 +71,21 @@ const NewDataSourceConnectPage: FC = () => {
     if (!option) return null;
     // Prefill a password so the setup SQL in the right column and the
     // Password field start out matching.
-    const params = PASSWORD_USER_TYPES.has(option.type)
-      ? { ...option.default, password: generatedPassword }
-      : option.default;
+    const params = {
+      ...option.default,
+      ...(PASSWORD_USER_TYPES.has(option.type)
+        ? { password: generatedPassword }
+        : null),
+      // Event Forwarder has no connection schema field. The destination
+      // schema is the one the connection uses.
+      ...(option.type === "snowflake" && setup === "event_forwarder"
+        ? {
+            schema: defaultEventForwarderDestination("snowflake").location,
+          }
+        : null),
+    };
     return {
-      name: "",
+      name: option.display,
       description: "",
       type: option.type,
       params,
@@ -86,7 +97,7 @@ const NewDataSourceConnectPage: FC = () => {
         organizationId: orgId || undefined,
       }),
     } as Partial<DataSourceInterfaceWithParams>;
-  }, [type, project, orgId, generatedPassword]);
+  }, [type, setup, project, orgId, generatedPassword]);
 
   if (!ready || !enabled || !router.isReady) {
     return <LoadingOverlay />;

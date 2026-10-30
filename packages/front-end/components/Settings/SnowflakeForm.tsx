@@ -1,11 +1,11 @@
 import { FC, ChangeEventHandler, useState } from "react";
-import { Flex } from "@radix-ui/themes";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import FileInput from "@/ui/FileInput";
 import HelperText from "@/ui/HelperText";
+import Link from "@/ui/Link";
 import Switch from "@/ui/Switch";
 import { GBInfo } from "@/components/Icons";
 import {
@@ -26,9 +26,11 @@ export type KeyPairGenerator = {
   /**
    * Key-pair is the only auth method this setup works with (the Event
    * Forwarder's Snowpipe Streaming needs a private key), so password auth
-   * is called out as unsupported rather than merely discouraged.
+   * is not offered.
    */
   keyPairRequired: boolean;
+  /** Set while create mode is generating the initial key, or if that failed. */
+  auto?: "pending" | "failed";
 };
 
 const SnowflakeForm: FC<{
@@ -38,6 +40,8 @@ const SnowflakeForm: FC<{
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string }) => void;
   keyPairGenerator?: KeyPairGenerator;
+  /** Event Forwarder uses the Event Destination schema instead. */
+  hideSchema?: boolean;
 }> = ({
   params,
   existing,
@@ -45,9 +49,11 @@ const SnowflakeForm: FC<{
   onManualParamChange,
   setParams,
   keyPairGenerator,
+  hideSchema = false,
 }) => {
   const [useAccessUrl, setUseAccessUrl] = useState(!!params.accessUrl);
   const [generateFailed, setGenerateFailed] = useState(false);
+  const [showOwnKey, setShowOwnKey] = useState(false);
   // Bumped on each successful generate so the file input remounts and drops
   // a previously chosen file name. Keyed on this rather than "is the
   // generated key in use" so uploading a file afterward keeps its name.
@@ -59,6 +65,24 @@ const SnowflakeForm: FC<{
     authMethod,
   );
   const usingGeneratedKey = keyPairGenerator?.usingGenerated ?? false;
+  const generatingKey =
+    !!keyPairGenerator &&
+    !existing &&
+    keyPairGenerator.auto === "pending" &&
+    !showOwnKey;
+  const showGeneratedSummary =
+    !!keyPairGenerator && !existing && usingGeneratedKey && !showOwnKey;
+  const generationFailed =
+    generateFailed || keyPairGenerator?.auto === "failed";
+  const regenerateKeyPair = async () => {
+    if (!keyPairGenerator) return;
+    const ok = await keyPairGenerator.generate();
+    setGenerateFailed(!ok);
+    if (ok) {
+      setGeneration((g) => g + 1);
+      setShowOwnKey(false);
+    }
+  };
 
   return (
     <div className="row">
@@ -112,7 +136,9 @@ const SnowflakeForm: FC<{
           }}
         >
           <option value="key-pair">Key Pair</option>
-          <option value="password">Password</option>
+          {keyPairGenerator?.keyPairRequired ? null : (
+            <option value="password">Password</option>
+          )}
           {(!isCloud() || authMethod === "workload-identity") && (
             <option value="workload-identity">
               Workload Identity Federation
@@ -124,9 +150,8 @@ const SnowflakeForm: FC<{
       {authMethod === "password" && keyPairGenerator ? (
         <div className="col-md-12">
           <Callout status="warning" size="sm" mb="3">
-            {keyPairGenerator.keyPairRequired
-              ? "The Event Forwarder requires key-pair authentication. A password connection can be saved but will fail when forwarding is set up."
-              : "Snowflake is retiring password-only sign-in. Key pair is recommended."}
+            Snowflake is retiring password-only sign-in. Key pair is
+            recommended.
           </Callout>
         </div>
       ) : null}
@@ -149,32 +174,45 @@ const SnowflakeForm: FC<{
         </div>
       ) : null}
 
-      {authMethod === "key-pair" && (
+      {authMethod === "key-pair" && generatingKey ? (
+        <div className="form-group col-md-12">
+          <HelperText status="info" size="sm">
+            Generating a key pair…
+          </HelperText>
+        </div>
+      ) : null}
+
+      {authMethod === "key-pair" && showGeneratedSummary ? (
+        <div className="col-md-12">
+          <Callout
+            status="info"
+            size="sm"
+            mb="3"
+            contentAlign="center"
+            action={
+              <Button
+                variant="outline"
+                size="sm"
+                color="inherit"
+                onClick={() => setShowOwnKey(true)}
+              >
+                Upload your own key
+              </Button>
+            }
+          >
+            A key pair was generated for this connection. The setup instructions
+            include the public key.{" "}
+            <Tooltip body="Replaces the key in the form. Rerun the SQL in Snowflake afterward.">
+              <Link onClick={regenerateKeyPair}>Regenerate key</Link>
+            </Tooltip>
+          </Callout>
+        </div>
+      ) : null}
+
+      {authMethod === "key-pair" && !generatingKey && !showGeneratedSummary ? (
         <>
           <div className="form-group col-md-12">
-            <Flex justify="between" align="center" mb="2">
-              <label className="mb-0">Private Key File</label>
-              {keyPairGenerator ? (
-                <Tooltip
-                  shouldDisplay={usingGeneratedKey}
-                  body="Replaces the key in the form. Rerun the SQL in Snowflake afterward."
-                >
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={async () => {
-                      const ok = await keyPairGenerator.generate();
-                      setGenerateFailed(!ok);
-                      if (ok) setGeneration((g) => g + 1);
-                    }}
-                  >
-                    {usingGeneratedKey
-                      ? "Regenerate key pair"
-                      : "Generate key pair"}
-                  </Button>
-                </Tooltip>
-              ) : null}
-            </Flex>
+            <label>Private Key File</label>
             <FileInput
               key={generation}
               name="privateKey"
@@ -199,7 +237,16 @@ const SnowflakeForm: FC<{
                     : "Select a private key file"
               }
             />
-            {generateFailed ? (
+            {keyPairGenerator ? (
+              <div className="mt-2">
+                <Link onClick={regenerateKeyPair}>
+                  {usingGeneratedKey
+                    ? "Regenerate key pair"
+                    : "Generate key pair"}
+                </Link>
+              </div>
+            ) : null}
+            {generationFailed ? (
               <HelperText status="error" size="sm" mt="1">
                 This browser cannot generate keys here. Upload a key file
                 instead.
@@ -207,26 +254,11 @@ const SnowflakeForm: FC<{
             ) : null}
           </div>
 
-          <div className="form-group col-md-12">
-            <Tooltip
-              // A generated key is unencrypted, so there is no passphrase.
-              shouldDisplay={usingGeneratedKey}
-              body="The generated key is not encrypted. Upload your own key file to use a passphrase."
-              className="d-block"
-            >
-              <label
-                style={
-                  usingGeneratedKey
-                    ? { color: "var(--color-text-disabled)" }
-                    : undefined
-                }
-              >
+          {!usingGeneratedKey ? (
+            <div className="form-group col-md-12">
+              <label>
                 Private Key Password{" "}
-                <Tooltip
-                  // The outer tooltip explains the disabled state; do not stack both.
-                  shouldDisplay={!usingGeneratedKey}
-                  body="If your private key is encrypted, you will need to enter the password used to encrypt it."
-                >
+                <Tooltip body="If your private key is encrypted, you will need to enter the password used to encrypt it.">
                   <GBInfo />
                 </Tooltip>
               </label>
@@ -235,17 +267,16 @@ const SnowflakeForm: FC<{
                 className="form-control password-presentation"
                 autoComplete="off"
                 name="privateKeyPassword"
-                disabled={usingGeneratedKey}
                 value={params.privateKeyPassword || ""}
                 onChange={onParamChange}
                 placeholder={
                   canKeepExistingCredentials ? KEEP_EXISTING_PLACEHOLDER : ""
                 }
               />
-            </Tooltip>
-          </div>
+            </div>
+          ) : null}
         </>
-      )}
+      ) : null}
 
       {authMethod === "workload-identity" && (
         <div className="form-group col-md-12">
@@ -276,7 +307,7 @@ const SnowflakeForm: FC<{
         </div>
       )}
 
-      <div className="form-group col-md-6">
+      <div className={`form-group ${hideSchema ? "col-md-12" : "col-md-6"}`}>
         <label>Database</label>
         <input
           type="text"
@@ -287,17 +318,19 @@ const SnowflakeForm: FC<{
           onChange={onParamChange}
         />
       </div>
-      <div className="form-group col-md-6">
-        <label>Schema</label>
-        <input
-          type="text"
-          className="form-control"
-          name="schema"
-          required
-          value={params.schema || ""}
-          onChange={onParamChange}
-        />
-      </div>
+      {hideSchema ? null : (
+        <div className="form-group col-md-6">
+          <label>Schema</label>
+          <input
+            type="text"
+            className="form-control"
+            name="schema"
+            required
+            value={params.schema || ""}
+            onChange={onParamChange}
+          />
+        </div>
+      )}
       <div className="form-group col-md-6">
         <label>Role</label>
         <input
