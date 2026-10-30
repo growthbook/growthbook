@@ -3029,11 +3029,14 @@ describe("cluster experiment ratio analysis - bigquery", () => {
 
   it("marks a sub-unit's cluster id as __multiple__ when it maps to >1 cluster", () => {
     // The inline units build collapses to one row per sub-unit and flags
-    // sub-units observed in more than one cluster.
+    // sub-units observed in more than one cluster. The surviving id is cast to a
+    // string so the CASE shares a type with the '__multiple__' sentinel (a bare
+    // numeric id would make the CASE type-mismatch on BigQuery/Postgres) and so
+    // the downstream `<> '__multiple__'` filters compare like types.
     const normalized = buildClusterHealthSql(false).replace(/\s+/g, " ").trim();
 
     expect(normalized).toMatch(
-      /CASE WHEN count\(distinct e\.region_id\) > 1 THEN '__multiple__' ELSE max\(e\.region_id\) END\s*\) AS region_id/,
+      /CASE WHEN count\(distinct e\.region_id\) > 1 THEN '__multiple__' ELSE cast\(max\(e\.region_id\) as string\) END\s*\) AS region_id/,
     );
   });
 

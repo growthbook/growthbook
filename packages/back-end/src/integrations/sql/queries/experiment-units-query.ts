@@ -301,7 +301,7 @@ export function getExperimentUnitsQuery(
             ? `, ${dialect.ifElse(
                 `count(distinct e.${clusterIdColumn}) > 1`,
                 `'${MULTIPLE_CLUSTER_SENTINEL}'`,
-                `max(e.${clusterIdColumn})`,
+                dialect.castToString(`max(e.${clusterIdColumn})`),
               )} AS ${clusterIdColumn}`
             : ""
         }
