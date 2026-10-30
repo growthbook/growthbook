@@ -256,6 +256,8 @@ export function VariationBox({
       {...upload.getRootProps()}
       // Holds controls of its own, so it isn't one button.
       role={undefined}
+      // Focusable by click but not by Tab, so a paste reaches the card.
+      tabIndex={canUpload ? -1 : undefined}
       onPaste={upload.onPaste}
       className={clsx(
         "appbox mb-0 position-relative variation",

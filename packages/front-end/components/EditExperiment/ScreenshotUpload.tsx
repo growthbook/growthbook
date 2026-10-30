@@ -12,6 +12,10 @@ import styles from "./ScreenshotUpload.module.scss";
 
 type UploadProgress = { done: number; total: number };
 
+// The types the upload endpoints accept.
+const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif"];
+const isImageType = (type: string) => IMAGE_TYPES.includes(type);
+
 // Spread `getRootProps()` on the drop target and render `getInputProps()` and
 // `ScreenshotUploadOverlay` inside it.
 export function useScreenshotUpload({
@@ -84,7 +88,7 @@ export function useScreenshotUpload({
   const onPaste = (e: ClipboardEvent<HTMLElement>) => {
     if (disabled) return;
     const files = Array.from(e.clipboardData.items || [])
-      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
+      .filter((item) => item.kind === "file" && isImageType(item.type))
       .map((item) => item.getAsFile())
       .filter((file): file is File => !!file);
 
@@ -96,6 +100,9 @@ export function useScreenshotUpload({
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
     onDrop: upload,
+    accept: IMAGE_TYPES,
+    onDropRejected: () =>
+      alert("Only PNG, JPEG and GIF images can be uploaded"),
     noClick,
     noKeyboard: noClick,
     disabled,
