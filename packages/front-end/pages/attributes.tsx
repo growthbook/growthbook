@@ -144,7 +144,7 @@ const EmptySection: FC<{
   >
     <Text weight="semibold">{title}</Text>
     <Box style={{ maxWidth: 480 }}>
-      <Text as="p" color="text-low">
+      <Text as="div" color="text-low">
         {body}
       </Text>
     </Box>
@@ -590,17 +590,16 @@ const FeatureAttributesPage = (): React.ReactElement => {
   return (
     <>
       <Box className="contents container-fluid pagecontents">
+        <Box mb="5">
+          <Heading as="h1" size="xl" mb="2">
+            Attributes
+          </Heading>
+          <Text as="div" color="text-low">
+            The user properties your SDK passes in: identifiers for experiment
+            assignment, and attributes for targeting.
+          </Text>
+        </Box>
         <Flex direction="column" gap="7" mb="5">
-          <Box>
-            <Heading as="h1" size="xl" mb="2">
-              Attributes
-            </Heading>
-            <Text as="p" color="text-low">
-              The user properties your SDK passes in: identifiers for experiment
-              assignment, and attributes for targeting.
-            </Text>
-          </Box>
-
           <Flex direction="column" gap="3">
             <Flex justify="between" align="end" gap="3">
               <Box>
@@ -610,7 +609,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                   </Heading>
                   <Badge label={String(identifiers.length)} color="gray" />
                 </Flex>
-                <Text as="p" color="text-low">
+                <Text as="div" color="text-low">
                   Used to assign users to experiment variations.
                 </Text>
               </Box>
@@ -782,7 +781,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     color="gray"
                   />
                 </Flex>
-                <Text as="p" color="text-low">
+                <Text as="div" color="text-low">
                   Used in targeting conditions for feature flags and
                   experiments. Attributes must also be passed in through the
                   SDK.
