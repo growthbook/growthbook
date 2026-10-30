@@ -6,6 +6,7 @@ import {
 } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { isDefined } from "shared/util";
+import { isContextualBanditMeasurementArm } from "shared/experiments";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasource";
@@ -89,6 +90,7 @@ import {
 } from "./addedFlags";
 import ResultsTab from "./ResultsTab";
 import StoppedExperimentBanner from "./StoppedExperimentBanner";
+import MeasurementArmBanner from "./MeasurementArmBanner";
 import RunningExperimentDecisionBanner from "./RunningExperimentDecisionBanner";
 import ScheduledEndPassedBanner from "./ScheduledEndPassedBanner";
 import UnhealthyExperimentBanner, {
@@ -624,7 +626,10 @@ function TabbedPageContents({
     mb: tab === "overview" ? "4" : "0",
   } as const;
   const showRunningBanners =
-    experiment.status === "running" && !isHoldout && tab !== "dashboards";
+    experiment.status === "running" &&
+    !isHoldout &&
+    !isContextualBanditMeasurementArm(experiment) &&
+    tab !== "dashboards";
 
   return (
     <PreLaunchChecklistProvider
@@ -793,7 +798,11 @@ function TabbedPageContents({
                 showDashboardView && "pt-0",
               )}
             >
+              {isContextualBanditMeasurementArm(experiment) && (
+                <MeasurementArmBanner experiment={experiment} />
+              )}
               {experiment.type !== "holdout" &&
+                !isContextualBanditMeasurementArm(experiment) &&
                 tab !== "dashboards" &&
                 !showDashboardView && (
                   <CustomMarkdown page={"experiment"} variables={variables} />
@@ -899,14 +908,16 @@ function TabbedPageContents({
                   experiment={experiment}
                   linkedFeatures={linkedFeatures}
                 />
-                <SetupTabOverview
-                  experiment={experiment}
-                  holdout={holdout}
-                  holdoutExperiments={holdoutExperiments}
-                  mutate={mutate}
-                  disableEditing={viewingOldPhase}
-                  editSchedule={editSchedule}
-                />
+                {!isContextualBanditMeasurementArm(experiment) ? (
+                  <SetupTabOverview
+                    experiment={experiment}
+                    holdout={holdout}
+                    holdoutExperiments={holdoutExperiments}
+                    mutate={mutate}
+                    disableEditing={viewingOldPhase}
+                    editSchedule={editSchedule}
+                  />
+                ) : null}
                 <Implementation
                   experiment={experiment}
                   datasourceMissing={datasourceMissing}

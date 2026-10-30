@@ -5,6 +5,7 @@ import { getScopedSettings } from "shared/settings";
 import {
   expandMetricGroups,
   getMetricLink,
+  isContextualBanditMeasurementArm,
   isFactMetric,
 } from "shared/experiments";
 import { DEFAULT_TARGET_MDE } from "shared/constants";
@@ -13,6 +14,7 @@ import { useUser } from "@/services/UserContext";
 import AnalysisForm, {
   AnalysisFormFocus,
 } from "@/components/Experiment/AnalysisForm";
+import MeasurementArmMetricsForm from "@/components/ContextualBandit/MeasurementArmMetricsForm";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import Link from "@/ui/Link";
@@ -20,6 +22,8 @@ import Text from "@/ui/Text";
 import { ExperimentMetricInterfaceWithComputedTargetMDE } from "@/components/Experiment/TabbedPage/DecisionMakingSettings";
 import Heading from "@/ui/Heading";
 import Frame from "@/ui/Frame";
+import { useContextualBanditQueries } from "@/hooks/useContextualBanditQueries";
+import { useContextualBandit } from "@/hooks/useContextualBandits";
 import {
   getExposureQueriesInScope,
   isIdentifierUndeclared,
@@ -66,6 +70,17 @@ export default function AnalysisSettings({
   const [ownAnalysisModal, setOwnAnalysisModal] = useState(false);
   const analysisModal = settingsOpen ?? ownAnalysisModal;
   const setAnalysisModal = setSettingsOpen ?? setOwnAnalysisModal;
+
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
+  const { contextualBandit } = useContextualBandit(
+    isMeasurementArm ? experiment.contextualBanditId : undefined,
+  );
+  const { contextualBanditQueriesMap } = useContextualBanditQueries(
+    isMeasurementArm ? experiment.datasource : undefined,
+  );
+  const contextualBanditQuery = contextualBandit?.contextualBanditQueryId
+    ? contextualBanditQueriesMap.get(contextualBandit.contextualBanditQueryId)
+    : undefined;
 
   const canEditAnalysisSettings =
     canEdit && permissionsUtil.canUpdateExperiment(experiment, {});
@@ -165,7 +180,14 @@ export default function AnalysisSettings({
 
   return (
     <>
-      {analysisModal && mutate ? (
+      {analysisModal && mutate && isMeasurementArm ? (
+        <MeasurementArmMetricsForm
+          cancel={() => setAnalysisModal(false)}
+          experiment={experiment}
+          mutate={mutate}
+          source="analysis-settings"
+        />
+      ) : analysisModal && mutate ? (
         <AnalysisForm
           cancel={() => setAnalysisModal(false)}
           experiment={experiment}
@@ -207,36 +229,55 @@ export default function AnalysisSettings({
               </div>
             </div>
 
-            <div className="col-4 mb-4">
-              <Text color="text-high" weight="semibold">
-                Experiment Assignment Table
-              </Text>
-              <div>
-                <Text color="text-mid">
-                  {assignmentQuery ? assignmentQuery.name : "--"}
-                </Text>{" "}
-                <AssignmentQueryDriftIcon
-                  selection={{
-                    outOfScope:
-                      !!assignmentQuery &&
-                      !scopedQueries.some((q) => q.id === assignmentQuery.id),
-                    identifierUndeclared: isIdentifierUndeclared(
-                      assignmentQuery,
-                      identifierType,
-                    ),
-                    identifierType,
-                    holdoutProjects,
-                  }}
-                />
+            {isMeasurementArm ? (
+              <div className="col-4 mb-4">
+                <Text color="text-high" weight="semibold">
+                  Contextual Bandit Query
+                </Text>
+                <div>
+                  <Text color="text-mid">
+                    {contextualBanditQuery?.name ??
+                      contextualBandit?.contextualBanditQueryId ??
+                      "--"}
+                  </Text>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="col-4 mb-4">
+                <Text color="text-high" weight="semibold">
+                  Experiment Assignment Table
+                </Text>
+                <div>
+                  <Text color="text-mid">
+                    {assignmentQuery ? assignmentQuery.name : "--"}
+                  </Text>{" "}
+                  <AssignmentQueryDriftIcon
+                    selection={{
+                      outOfScope:
+                        !!assignmentQuery &&
+                        !scopedQueries.some((q) => q.id === assignmentQuery.id),
+                      identifierUndeclared: isIdentifierUndeclared(
+                        assignmentQuery,
+                        identifierType,
+                      ),
+                      identifierType,
+                      holdoutProjects,
+                    }}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="col-4 mb-4">
               <Text color="text-high" weight="semibold">
                 Identifier Type
               </Text>
               <div>
-                <Text color="text-mid">{identifierType || "--"}</Text>
+                <Text color="text-mid">
+                  {(isMeasurementArm
+                    ? contextualBanditQuery?.userIdType
+                    : identifierType) || "--"}
+                </Text>
               </div>
             </div>
 

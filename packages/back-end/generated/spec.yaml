@@ -19601,6 +19601,161 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/contextual-bandits/{id}/status' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/contextual-bandits/{id}/measurement-arm:
+    get:
+      operationId: getContextualBanditMeasurementArm
+      summary: Get Contextual Bandit measurement arm results
+      description: >-
+        Returns the measurement arm experiment's status, latest analysis
+        attempt, and the decision-metric comparison from its last successful
+        analysis. `null` when the contextual bandit has no enabled measurement
+        arm.
+      tags:
+        - ContextualBandits
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The Contextual Bandit id
+          schema:
+            description: The Contextual Bandit id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  measurementArm:
+                    anyOf:
+                      - type: object
+                        properties:
+                          experimentId:
+                            type: string
+                          trackingKey:
+                            type: string
+                          percent:
+                            type: number
+                          status:
+                            type: string
+                            enum:
+                              - draft
+                              - running
+                              - stopped
+                          latestSnapshot:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  dateCreated:
+                                    type: string
+                                  status:
+                                    type: string
+                                    enum:
+                                      - running
+                                      - success
+                                      - error
+                                  error:
+                                    type: string
+                                required:
+                                  - id
+                                  - dateCreated
+                                  - status
+                                additionalProperties: false
+                              - type: 'null'
+                          resultsSnapshot:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  id:
+                                    type: string
+                                  dateCreated:
+                                    type: string
+                                required:
+                                  - id
+                                  - dateCreated
+                                additionalProperties: false
+                              - type: 'null'
+                          decisionMetricResult:
+                            anyOf:
+                              - type: object
+                                properties:
+                                  metricId:
+                                    type: string
+                                  controlMean:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  banditMean:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  controlUsers:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  banditUsers:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  lift:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  ci:
+                                    anyOf:
+                                      - type: array
+                                        prefixItems:
+                                          - anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                          - anyOf:
+                                              - type: number
+                                              - type: 'null'
+                                      - type: 'null'
+                                  chanceToWin:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                  pValue:
+                                    anyOf:
+                                      - type: number
+                                      - type: 'null'
+                                required:
+                                  - metricId
+                                  - controlMean
+                                  - banditMean
+                                  - controlUsers
+                                  - banditUsers
+                                  - lift
+                                  - ci
+                                  - chanceToWin
+                                  - pValue
+                                additionalProperties: false
+                              - type: 'null'
+                        required:
+                          - experimentId
+                          - trackingKey
+                          - percent
+                          - status
+                          - latestSnapshot
+                          - resultsSnapshot
+                          - decisionMetricResult
+                        additionalProperties: false
+                      - type: 'null'
+                required:
+                  - measurementArm
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/contextual-bandits/{id}/measurement-arm'
+            \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/contextual-bandits/{id}/linked-features:
     get:
       operationId: getContextualBanditLinkedFeatures
@@ -54931,6 +55086,23 @@ paths:
                     additionalProperties: false
                 seed:
                   type: string
+                measurementArm:
+                  description: >-
+                    Measurement arm settings. Omit to leave unchanged; omitted
+                    on create means no measurement arm.
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    percent:
+                      description: >-
+                        Share of eligible traffic to hold back, 0.01 to 0.5.
+                        Kept but not applied while `enabled` is false; defaults
+                        to 0.05.
+                      type: number
+                      minimum: 0.01
+                      maximum: 0.5
+                  additionalProperties: false
               additionalProperties: false
       responses:
         '200':
@@ -55089,6 +55261,23 @@ paths:
                   enum:
                     - hours
                     - days
+                measurementArm:
+                  description: >-
+                    Measurement arm settings. Omit to leave unchanged; omitted
+                    on create means no measurement arm.
+                  type: object
+                  properties:
+                    enabled:
+                      type: boolean
+                    percent:
+                      description: >-
+                        Share of eligible traffic to hold back, 0.01 to 0.5.
+                        Kept but not applied while `enabled` is false; defaults
+                        to 0.05.
+                      type: number
+                      minimum: 0.01
+                      maximum: 0.5
+                  additionalProperties: false
               required:
                 - name
                 - trackingKey
@@ -71743,6 +71932,12 @@ components:
             - standard
             - multi-armed-bandit
             - holdout
+            - contextualBanditMeasurementArm
+        contextualBanditId:
+          description: >-
+            Set on a `contextualBanditMeasurementArm` experiment: the Contextual
+            Bandit it measures.
+          type: string
         project:
           type: string
         hypothesis:
@@ -72571,6 +72766,12 @@ components:
                 - standard
                 - multi-armed-bandit
                 - holdout
+                - contextualBanditMeasurementArm
+            contextualBanditId:
+              description: >-
+                Set on a `contextualBanditMeasurementArm` experiment: the
+                Contextual Bandit it measures.
+              type: string
             project:
               type: string
             hypothesis:
@@ -79230,6 +79431,7 @@ components:
                 - standard
                 - multi-armed-bandit
                 - holdout
+                - contextualBanditMeasurementArm
             variations:
               description: >-
                 Variation metadata with current traffic weights — use to label
@@ -83231,9 +83433,38 @@ components:
           type: integer
           minimum: 0
         holdoutPercent:
+          description: >-
+            Reserved for a future holdout feature. Currently always 0 and not
+            applied; use `measurementArm` to hold back traffic.
           type: number
           minimum: 0
           maximum: 0.5
+        measurementArm:
+          description: >-
+            Measurement arm: holds back a share of eligible traffic on the
+            default experience and compares it against the Bandit in a linked
+            experiment. Only changeable while the Contextual Bandit is a draft.
+          type: object
+          properties:
+            enabled:
+              type: boolean
+            percent:
+              description: >-
+                Share of eligible traffic held back on the default experience,
+                as a decimal (0.05 = 5%).
+              type: number
+            experimentId:
+              description: >-
+                The experiment that compares held-back users against users in
+                the Bandit.
+              type: string
+            trackingKey:
+              type: string
+          required:
+            - enabled
+            - percent
+            - trackingKey
+          additionalProperties: false
         banditModelVersion:
           type: integer
           minimum: 0

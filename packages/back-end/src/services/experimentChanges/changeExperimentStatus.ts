@@ -4,6 +4,7 @@ import {
   getLaunchChecklistItems,
   sdkConnectionServesProject,
   withScheduledBy,
+  isManagedExperiment,
 } from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -69,6 +70,7 @@ import {
   RampLockdownError,
 } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { assertScheduledStartAllowsChange } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
@@ -100,7 +102,7 @@ export async function validateExperimentChange({
   changes: Changeset;
 }): Promise<void> {
   assertScheduledStartAllowsChange(experiment, changes);
-  if (!customHooksActive(context) || experiment.type === "holdout") return;
+  if (!customHooksActive(context) || isManagedExperiment(experiment)) return;
 
   const merged = { ...experiment, ...changes };
   const willRun =
@@ -135,6 +137,7 @@ export async function planChecklistCompletion({
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported through this endpoint");
   }
+  assertNotMeasurementArmExperiment(experiment, "change status");
 
   const configuredChecklist =
     (experiment.project &&
@@ -253,6 +256,7 @@ async function loadAndValidateExperimentForStatusChange(
   if (experiment.type === "holdout") {
     throw new Error("Holdouts are not supported through this endpoint");
   }
+  assertNotMeasurementArmExperiment(experiment, "change status");
 
   if (!context.permissions.canUpdateExperiment(experiment, {})) {
     context.permissions.throwPermissionError();

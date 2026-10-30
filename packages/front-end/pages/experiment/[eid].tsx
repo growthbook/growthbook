@@ -9,10 +9,12 @@ import { URLRedirectInterface } from "shared/types/url-redirect";
 import React, { ReactElement, useEffect, useState } from "react";
 import { IdeaInterface } from "shared/types/idea";
 import { canEditDeliveryInPlace } from "shared/util";
+import { isContextualBanditMeasurementArm } from "shared/experiments";
 import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import useSwitchOrg from "@/services/useSwitchOrg";
 import EditMetricsForm from "@/components/Experiment/EditMetricsForm";
+import MeasurementArmMetricsForm from "@/components/ContextualBandit/MeasurementArmMetricsForm";
 import StopExperimentForm from "@/components/Experiment/StopExperimentForm";
 import NewExperimentForm from "@/components/Experiment/NewExperimentForm";
 import SnapshotProvider from "@/components/Experiment/SnapshotProvider";
@@ -21,15 +23,27 @@ import EditTargetingModal from "@/components/Experiment/EditTargetingModal";
 import TabbedPage from "@/components/Experiment/TabbedPage";
 import { useStagedTargeting } from "@/components/Experiment/TabbedPage/ExperimentEdits";
 import PageHead from "@/components/Layout/PageHead";
+import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useRunningExperimentStatus } from "@/hooks/useExperimentStatusIndicator";
 import { useHoldouts } from "@/hooks/useHoldouts";
 import EditScheduleModal from "@/components/Experiment/EditScheduleModal";
 
-const ExperimentPage = (): ReactElement => {
+export type ExperimentPageProps = {
+  // When rendered inside another page (the contextual bandit measurement-arm
+  // sub-page), the experiment id and breadcrumb come from the host page
+  // instead of the route.
+  experimentId?: string;
+  breadcrumb?: BreadcrumbItem[];
+};
+
+const ExperimentPage = ({
+  experimentId,
+  breadcrumb,
+}: ExperimentPageProps = {}): ReactElement => {
   const permissionsUtil = usePermissionsUtil();
   const router = useRouter();
-  const { eid } = router.query;
+  const eid = experimentId ?? router.query.eid;
 
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [metricsModalOpen, setMetricsModalOpen] = useState(false);
@@ -78,7 +92,20 @@ const ExperimentPage = (): ReactElement => {
       );
       router.replace(base + holdoutId);
     }
-  }, [data, experimentToHoldoutsMap, router]);
+    if (
+      !experimentId &&
+      data?.experiment &&
+      isContextualBanditMeasurementArm(data.experiment) &&
+      data.experiment.contextualBanditId
+    ) {
+      router.replace(
+        window.location.href.replace(
+          /(.*)\/experiment\/[^#?]*/,
+          `$1/contextual-bandit/${data.experiment.contextualBanditId}/measurement-arm`,
+        ),
+      );
+    }
+  }, [data, experimentId, experimentToHoldoutsMap, router]);
 
   if (error) {
     return <div>There was a problem loading the experiment</div>;
@@ -98,8 +125,14 @@ const ExperimentPage = (): ReactElement => {
 
   const runningExperimentStatus = getRunningExperimentResultStatus(experiment);
 
-  const canEditExperiment =
+  // A measurement-arm experiment is owned by its contextual bandit: only the
+  // secondary and guardrail metrics are editable here; everything else is
+  // managed from the CB.
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
+
+  const canEditAnalysisSettings =
     permissionsUtil.canUpdateExperiment(experiment, {}) && !experiment.archived;
+  const canEditExperiment = canEditAnalysisSettings && !isMeasurementArm;
 
   // The server asks for both: edit rights, and run rights where it serves.
   let canRunExperiment = canEditExperiment;
@@ -109,7 +142,7 @@ const ExperimentPage = (): ReactElement => {
     }
   }
 
-  const editMetrics = canEditExperiment
+  const editMetrics = canEditAnalysisSettings
     ? () => setMetricsModalOpen(true)
     : null;
   const editResult = canRunExperiment ? () => setStopModalOpen(true) : null;
@@ -131,7 +164,15 @@ const ExperimentPage = (): ReactElement => {
 
   return (
     <>
-      {metricsModalOpen && (
+      {metricsModalOpen && isMeasurementArm && (
+        <MeasurementArmMetricsForm
+          experiment={experiment}
+          cancel={() => setMetricsModalOpen(false)}
+          mutate={mutate}
+          source="eid"
+        />
+      )}
+      {metricsModalOpen && !isMeasurementArm && (
         <EditMetricsForm
           experiment={experiment}
           cancel={() => setMetricsModalOpen(false)}
@@ -183,13 +224,15 @@ const ExperimentPage = (): ReactElement => {
       )}
 
       <PageHead
-        breadcrumb={[
-          {
-            display: "Experiments",
-            href: `/experiments`,
-          },
-          { display: experiment.name },
-        ]}
+        breadcrumb={
+          breadcrumb ?? [
+            {
+              display: "Experiments",
+              href: `/experiments`,
+            },
+            { display: experiment.name },
+          ]
+        }
       />
 
       <SnapshotProvider experiment={experiment}>

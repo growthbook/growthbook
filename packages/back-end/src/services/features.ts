@@ -73,6 +73,11 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
+  getActiveMeasurementArm,
+  getContextualBanditMeasurementArmFeatureDefId,
+  measurementArmWeights,
+  MEASUREMENT_ARM_BANDIT_VALUE,
+  MEASUREMENT_ARM_CONTROL_VALUE,
 } from "shared/experiments";
 import cloneDeep from "lodash/cloneDeep";
 import {
@@ -126,6 +131,7 @@ import {
   FeatureTestResult,
   ForceRule,
   RolloutRule,
+  SavedGroupTargeting,
 } from "shared/types/feature";
 import {
   Environment,
@@ -431,38 +437,119 @@ export function generateHoldoutsPayload({
     const mainPhase = exp.phases[0];
     if (!mainPhase) return;
 
-    const rule: FeatureDefinitionRule = {
+    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = buildGatingFeature({
       id: getHoldoutFeatureDefId(holdout.id),
       coverage: mainPhase.coverage,
       hashAttribute: exp.hashAttribute,
       seed: mainPhase.seed,
-      hashVersion: 2,
       variations: ["holdoutcontrol", "holdouttreatment"],
       weights: [0.5, 0.5],
-      key: exp.trackingKey,
+      trackingKey: exp.trackingKey,
       phase: `${exp.phases.length - 1}`,
-      meta: [{ key: "0" }, { key: "1" }],
-    };
-
-    const condition = mergeConditionAndSavedGroups({
-      savedGroupStrategy,
       condition: mainPhase.condition,
       savedGroups: mainPhase.savedGroups,
+      savedGroupStrategy,
     });
-    if (condition) {
-      // Same last step every other rule producer takes. Without it a holdout
-      // authored with the condition builder's "is in saved group" operator
-      // keeps `$inGroup` in a format that does not use it.
-      savedGroupStrategy.finalizeCondition(condition);
-      rule.condition = condition;
-    }
-
-    holdoutDefs[getHoldoutFeatureDefId(holdout.id)] = {
-      defaultValue: "genpop",
-      rules: [rule],
-    };
   });
   return holdoutDefs;
+}
+
+export function generateContextualBanditMeasurementArmsPayload({
+  cbMap,
+  savedGroupStrategy,
+}: {
+  cbMap: Map<string, ContextualBanditInterface> | undefined;
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): Record<string, FeatureDefinition> {
+  const defs: Record<string, FeatureDefinition> = {};
+  if (!cbMap) return defs;
+  cbMap.forEach((cb) => {
+    const arm = getActiveMeasurementArm(cb);
+    if (!arm) return;
+
+    const id = getContextualBanditMeasurementArmFeatureDefId(cb.id);
+    defs[id] = buildGatingFeature({
+      id,
+      coverage: cb.coverage ?? 1,
+      hashAttribute: cb.hashAttribute || "id",
+      seed: arm.seed,
+      disableStickyBucketing: true,
+      variations: [MEASUREMENT_ARM_CONTROL_VALUE, MEASUREMENT_ARM_BANDIT_VALUE],
+      weights: measurementArmWeights(arm.percent),
+      trackingKey: arm.trackingKey,
+      phase: "0",
+      condition: cb.condition,
+      savedGroups: cb.savedGroups,
+      prerequisites: cb.prerequisites,
+      savedGroupStrategy,
+    });
+  });
+  return defs;
+}
+
+const GATING_FEATURE_DEFAULT_VALUE = "genpop";
+
+function buildGatingFeature({
+  id,
+  coverage,
+  hashAttribute,
+  seed,
+  disableStickyBucketing,
+  variations,
+  weights,
+  trackingKey,
+  phase,
+  condition,
+  savedGroups,
+  prerequisites,
+  savedGroupStrategy,
+}: {
+  id: string;
+  coverage: number;
+  hashAttribute: string;
+  seed?: string;
+  disableStickyBucketing?: boolean;
+  variations: [string, string];
+  weights: [number, number];
+  trackingKey: string;
+  phase: string;
+  condition?: string;
+  savedGroups?: SavedGroupTargeting[];
+  prerequisites?: FeaturePrerequisite[];
+  savedGroupStrategy: SavedGroupPayloadStrategy;
+}): FeatureDefinition {
+  const rule: FeatureDefinitionRule = {
+    id,
+    coverage,
+    hashAttribute,
+    seed,
+    hashVersion: 2,
+    ...(disableStickyBucketing ? { disableStickyBucketing: true } : {}),
+    variations,
+    weights,
+    key: trackingKey,
+    phase,
+    meta: [{ key: "0" }, { key: "1" }],
+  };
+
+  const mergedCondition = mergeConditionAndSavedGroups({
+    savedGroupStrategy,
+    condition,
+    savedGroups,
+  });
+  if (mergedCondition) {
+    savedGroupStrategy.finalizeCondition(mergedCondition);
+    rule.condition = mergedCondition;
+  }
+  if (prerequisites?.length) {
+    rule.parentConditions = prerequisiteParentConditions(
+      prerequisites,
+      savedGroupStrategy,
+    );
+    savedGroupStrategy.finalizeCondition(rule.parentConditions);
+  }
+
+  return { defaultValue: GATING_FEATURE_DEFAULT_VALUE, rules: [rule] };
 }
 
 export function generateInterleavingsPayload({
@@ -854,19 +941,22 @@ function generateCbVisualExperimentsPayload({
       savedGroupStrategy,
     );
 
-    if (
-      capabilities &&
-      !capabilities.includes("prerequisites") &&
-      parsedPrerequisites.length
-    ) {
-      return null;
-    }
+    const hasPrerequisites =
+      capabilities === undefined || capabilities.includes("prerequisites");
+    if (!hasPrerequisites && parsedPrerequisites.length) return null;
 
-    const condition = mergeConditionAndSavedGroups({
-      savedGroupStrategy,
-      condition: cb.condition,
-      savedGroups: cb.savedGroups,
-    });
+    const cbCapable =
+      capabilities === undefined || capabilities.includes("contextualBandits");
+    const measurementArm =
+      hasPrerequisites && cbCapable ? getActiveMeasurementArm(cb) : null;
+
+    const condition = measurementArm
+      ? undefined
+      : mergeConditionAndSavedGroups({
+          savedGroupStrategy,
+          condition: cb.condition,
+          savedGroups: cb.savedGroups,
+        });
 
     const exp = buildCbVisualAutoExperiment({
       cbVisualExperiment: data,
@@ -876,7 +966,15 @@ function generateCbVisualExperimentsPayload({
     });
     if (!exp) return null;
 
-    if (parsedPrerequisites.length) {
+    if (measurementArm) {
+      exp.parentConditions = [
+        {
+          id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
+          condition: { value: MEASUREMENT_ARM_BANDIT_VALUE },
+        },
+      ];
+      exp.coverage = 1;
+    } else if (parsedPrerequisites.length) {
       exp.parentConditions = parsedPrerequisites;
     }
 
@@ -2086,20 +2184,21 @@ export type SDKPayloadBuildInput = {
   data: SDKPayloadRawData;
 };
 
-// Keep only holdout defs that are referenced by at least one feature rule.
-function pruneUnreferencedHoldouts(
-  holdouts: Record<string, FeatureDefinition>,
+function pruneUnreferencedGatingFeatures(
+  gatingFeatures: Record<string, FeatureDefinition>,
   features: Record<string, FeatureDefinition>,
+  experiments: AutoExperiment[] = [],
 ): Record<string, FeatureDefinition> {
   const referenced = new Set<string>();
-  for (const k in features) {
-    for (const rule of features[k]?.rules ?? []) {
-      const pcId = rule.parentConditions?.[0]?.id;
-      if (pcId?.startsWith("$holdout:")) referenced.add(pcId);
-    }
+  const parentConditions = [
+    ...Object.values(features).flatMap((f) => f.rules ?? []),
+    ...experiments,
+  ].flatMap((r) => r.parentConditions ?? []);
+  for (const pc of parentConditions) {
+    if (pc.id && pc.id in gatingFeatures) referenced.add(pc.id);
   }
   return Object.fromEntries(
-    Object.entries(holdouts).filter(([key]) => referenced.has(key)),
+    Object.entries(gatingFeatures).filter(([key]) => referenced.has(key)),
   );
 }
 
@@ -2300,9 +2399,16 @@ export async function buildSDKPayloadForConnection(
     projectsMap,
   });
 
-  const holdoutsInUse = pruneUnreferencedHoldouts(
-    holdoutFeatureDefinitions,
+  const measurementArmFeatureDefinitions =
+    generateContextualBanditMeasurementArmsPayload({
+      cbMap,
+      savedGroupStrategy,
+    });
+
+  const gatingFeaturesInUse = pruneUnreferencedGatingFeatures(
+    { ...holdoutFeatureDefinitions, ...measurementArmFeatureDefinitions },
     featureDefinitions,
+    experimentsDefinitions,
   );
 
   const interleavingsPayload = capabilities.includes("interleaving")
@@ -2321,7 +2427,7 @@ export async function buildSDKPayloadForConnection(
 
   const featuresWithHoldouts = {
     ...featureDefinitions,
-    ...holdoutsInUse,
+    ...gatingFeaturesInUse,
     ...interleavingsPayload?.features,
   };
 

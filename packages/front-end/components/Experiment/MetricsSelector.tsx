@@ -329,9 +329,10 @@ const MetricsSelector: FC<{
   const exposureQuery = datasourceSettings?.queries?.exposure?.find(
     (e) => e.id === exposureQueryId,
   );
-  const userIdType = exposureQuery
-    ? resolveAnalysisIdentifierType(exposureQuery, exposureQueryIdentifierType)
-    : undefined;
+  const userIdType = resolveAnalysisIdentifierType(
+    exposureQuery,
+    exposureQueryIdentifierType,
+  );
 
   // Already-selected metrics stay as options when archived (or when their fact
   // table is), otherwise editing the list would silently drop them.

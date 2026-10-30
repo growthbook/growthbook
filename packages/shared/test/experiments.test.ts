@@ -33,6 +33,7 @@ import {
   parseSliceMetricId,
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
+  isAnalysisRefreshBlocked,
   isAutoSnapshotScheduled,
   ExperimentMetricInterface,
   withScheduledBy,
@@ -3097,6 +3098,25 @@ describe("isAutoSnapshotScheduled", () => {
   it("treats a missing user override as not disabled", () => {
     expect(
       isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
+    ).toBe(true);
+  });
+});
+
+describe("isAnalysisRefreshBlocked", () => {
+  it("blocks only on archiving and the auto-refresh toggle", () => {
+    const live = {
+      autoSnapshots: true,
+      disableAutoSnapshots: false,
+      archived: false,
+    };
+    expect(isAnalysisRefreshBlocked(live)).toBe(false);
+    // An externally triggered refresh does not need the schedule flag.
+    expect(isAnalysisRefreshBlocked({ ...live, autoSnapshots: false })).toBe(
+      false,
+    );
+    expect(isAnalysisRefreshBlocked({ ...live, archived: true })).toBe(true);
+    expect(
+      isAnalysisRefreshBlocked({ ...live, disableAutoSnapshots: true }),
     ).toBe(true);
   });
 });

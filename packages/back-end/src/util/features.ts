@@ -33,6 +33,10 @@ import {
 import {
   getActiveVariations,
   getLatestPhaseVariations,
+  getActiveMeasurementArm,
+  getContextualBanditMeasurementArmFeatureDefId,
+  MEASUREMENT_ARM_BANDIT_VALUE,
+  MEASUREMENT_ARM_CONTROL_VALUE,
 } from "shared/experiments";
 import { resolveScheduleStopAfter } from "shared/dates";
 import { GroupMap } from "shared/types/saved-group";
@@ -1335,7 +1339,7 @@ export function getFeatureDefinition({
       ?.filter((r) => {
         return isRuleEnabled(r, date);
       })
-      ?.map((r) => {
+      ?.map((r): FeatureDefinitionRule | FeatureDefinitionRule[] | null => {
         const rule: FeatureDefinitionRule = {
           // SDK payload emits the STEM id so split rules
           // (`fr_abc__production` + `fr_abc__staging`) report as `fr_abc`
@@ -1496,22 +1500,37 @@ export function getFeatureDefinition({
 
           if (!hasPrerequisites && cb.prerequisites?.length) return null;
 
-          const cbCondition = mergeConditionAndSavedGroups({
-            savedGroupStrategy,
-            condition: cb.condition,
-            savedGroups: cb.savedGroups,
-          });
-          if (cbCondition) {
-            rule.condition = cbCondition;
-          }
-          if (cb.prerequisites?.length) {
-            rule.parentConditions = prerequisiteParentConditions(
-              cb.prerequisites,
-              savedGroupStrategy,
-            );
-          }
+          const cbCapable =
+            capabilities === undefined ||
+            capabilities.includes("contextualBandits");
+          const measurementArm =
+            hasPrerequisites && cbCapable ? getActiveMeasurementArm(cb) : null;
 
-          rule.coverage = cb.coverage;
+          if (measurementArm) {
+            rule.parentConditions = [
+              {
+                id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
+                condition: { value: MEASUREMENT_ARM_BANDIT_VALUE },
+              },
+            ];
+            rule.coverage = 1;
+          } else {
+            const cbCondition = mergeConditionAndSavedGroups({
+              savedGroupStrategy,
+              condition: cb.condition,
+              savedGroups: cb.savedGroups,
+            });
+            if (cbCondition) {
+              rule.condition = cbCondition;
+            }
+            if (cb.prerequisites?.length) {
+              rule.parentConditions = prerequisiteParentConditions(
+                cb.prerequisites,
+                savedGroupStrategy,
+              );
+            }
+            rule.coverage = cb.coverage;
+          }
 
           if (cb.hashAttribute) {
             rule.hashAttribute = cb.hashAttribute;
@@ -1555,9 +1574,6 @@ export function getFeatureDefinition({
             ? pairedWeightsToPositional(cb.variationWeights, cbActiveVariations)
             : undefined;
 
-          const cbCapable =
-            capabilities === undefined ||
-            capabilities.includes("contextualBandits");
           if (cbCapable) {
             // Presence of contextualBanditRef is what marks this as a CB rule.
             rule.contextualBanditRef = cb.id;
@@ -1593,17 +1609,32 @@ export function getFeatureDefinition({
             );
           }
 
-          if (allowedKeys) {
-            const picked = pick(
-              rule,
-              allowedKeys.featureRuleKeys,
-            ) as FeatureDefinitionRule;
-            if (includeRuleIds && r.id != null) {
-              (picked as Record<string, unknown>).id = stemRuleId(r.id);
-            }
-            return picked;
+          const pickAllowed = (candidate: FeatureDefinitionRule) =>
+            allowedKeys
+              ? (pick(
+                  candidate,
+                  allowedKeys.featureRuleKeys,
+                ) as FeatureDefinitionRule)
+              : candidate;
+          const cbRule = pickAllowed(rule);
+          if (allowedKeys && includeRuleIds && r.id != null) {
+            (cbRule as Record<string, unknown>).id = stemRuleId(r.id);
           }
-          return rule;
+          if (!measurementArm) return cbRule;
+
+          const controlRule = pickAllowed({
+            ...(includeRuleIds
+              ? { id: `cbma_${md5(feature.id + cb.id)}` }
+              : {}),
+            parentConditions: [
+              {
+                id: getContextualBanditMeasurementArmFeatureDefId(cb.id),
+                condition: { value: MEASUREMENT_ARM_CONTROL_VALUE },
+              },
+            ],
+            force: valueForSDK(defaultValue),
+          });
+          return [controlRule, cbRule];
         }
 
         const condition = mergeConditionAndSavedGroups({
@@ -1837,6 +1868,7 @@ export function getFeatureDefinition({
         }
         return rule;
       })
+      ?.flatMap((rule) => (Array.isArray(rule) ? rule : [rule]))
       ?.filter(isRule) ?? []),
   ];
 

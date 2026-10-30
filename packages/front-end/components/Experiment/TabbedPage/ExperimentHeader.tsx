@@ -1,4 +1,7 @@
-import { getLatestPhaseVariations } from "shared/experiments";
+import {
+  getLatestPhaseVariations,
+  isContextualBanditMeasurementArm,
+} from "shared/experiments";
 import {
   ExperimentInterfaceStringDates,
   LinkedFeatureInfo,
@@ -371,11 +374,16 @@ export default function ExperimentHeader({
     "multi-armed-bandits",
   );
 
-  const { hasUpdatePermissions, canRunExperiment } = start;
-  const canDeleteExperiment = !holdout
-    ? permissionsUtil.canDeleteExperiment(experiment)
-    : permissionsUtil.canDeleteHoldout(holdout);
-  const canEditExperiment = !experiment.archived && hasUpdatePermissions;
+  const { hasUpdatePermissions, canRunExperiment: canRunFromStart } = start;
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
+  const canDeleteExperiment =
+    !isMeasurementArm &&
+    (!holdout
+      ? permissionsUtil.canDeleteExperiment(experiment)
+      : permissionsUtil.canDeleteHoldout(holdout));
+  const canEditExperiment =
+    !experiment.archived && hasUpdatePermissions && !isMeasurementArm;
+  const canRunExperiment = canRunFromStart && !isMeasurementArm;
   const [editingName, setEditingName] = useState(false);
   const editsBlocked = useEditsBlockedReason();
   const canCreateTemplate =
@@ -1013,7 +1021,7 @@ export default function ExperimentHeader({
                   </Button>
                 ) : (
                   <div>
-                    {experiment.status === "running" ? (
+                    {experiment.status === "running" && !isMeasurementArm ? (
                       <ExperimentActionButtons
                         editResult={canRunExperiment ? editResult : undefined}
                         editTargeting={

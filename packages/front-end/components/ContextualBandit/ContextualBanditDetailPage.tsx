@@ -17,6 +17,7 @@ import {
   Variation,
 } from "shared/types/experiment";
 import { useRestApiCall } from "@/services/restApi";
+import { formatPercent } from "@/services/metrics";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { contextualBanditStatusIndicatorData } from "@/services/contextualBandits";
 import {
@@ -50,6 +51,7 @@ import {
 } from "@/ui/DropdownMenu";
 import { DetailSectionColumn } from "@/components/DetailSectionBox";
 import ContextualBanditResultsTable from "@/components/ContextualBandit/ContextualBanditResultsTable";
+import ContextualBanditMeasurementArmSummary from "@/components/ContextualBandit/ContextualBanditMeasurementArmSummary";
 import ContextualBanditHealthTab from "@/components/ContextualBandit/ContextualBanditHealthTab";
 import { VariationBox } from "@/components/Experiment/VariationsTable";
 import ContextualBanditLinkedChanges from "@/components/ContextualBandit/ContextualBanditLinkedChanges";
@@ -718,6 +720,25 @@ export default function ContextualBanditDetailPage({
                 <DetailSectionColumn label="Traffic">
                   {coveragePct} included
                 </DetailSectionColumn>
+                <DetailSectionColumn label="Measurement Arm">
+                  {cb.measurementArm?.enabled ? (
+                    <>
+                      {formatPercent(cb.measurementArm.percent)}
+                      {cb.measurementArm.experimentId ? (
+                        <>
+                          {" · "}
+                          <Link
+                            href={`/contextual-bandit/${cb.id}/measurement-arm`}
+                          >
+                            View results
+                          </Link>
+                        </>
+                      ) : null}
+                    </>
+                  ) : (
+                    <Text color="text-mid">Off</Text>
+                  )}
+                </DetailSectionColumn>
                 <DetailSectionColumn label="Assignment Attribute">
                   <Flex align="center" gap="1" wrap="wrap">
                     <AttributeBadge attributeId={cb.hashAttribute || "id"} />
@@ -860,6 +881,7 @@ export default function ContextualBanditDetailPage({
         {showResultsTab ? (
           <TabsContent value="results">
             <Box pt="4">
+              <ContextualBanditMeasurementArmSummary cb={cb} />
               <Frame>
                 <ContextualBanditResultsTable cb={cb} mutate={mutate} />
               </Frame>

@@ -11,6 +11,7 @@ import {
   apiCreateContextualBanditBody,
   apiUpdateContextualBanditBody,
   ApiContextualBanditInterface,
+  ApiUpdateContextualBanditBody,
   assertContextualAttributesValid,
   cancelContextualBanditEndpoint,
   CONTEXTUAL_BANDIT_API_UPDATE_FIELDS,
@@ -43,7 +44,10 @@ import { someConnectionSupportsCapabilities } from "shared/sdk-versioning";
 import { VisualChangesetURLPattern } from "shared/types/visual-changeset";
 import { BadRequestError, NotFoundError } from "back-end/src/util/errors";
 import { findSDKConnectionsByOrganization } from "back-end/src/models/SdkConnectionModel";
-import { resolveOwnerEmails } from "back-end/src/services/owner";
+import {
+  resolveOwnerEmail,
+  resolveOwnerEmails,
+} from "back-end/src/services/owner";
 import {
   createVisualChangeset,
   deleteVisualChangesetsByContextualBandit,
@@ -73,6 +77,14 @@ import {
   MakeModelClass,
 } from "back-end/src/models/BaseModel";
 import { getCollection } from "back-end/src/util/mongo.util";
+import {
+  assertMeasurementArmChangeAllowed,
+  buildMeasurementArmSubdoc,
+  deleteMeasurementArmExperiment,
+  measurementArmSyncFieldsChanged,
+  reconcileMeasurementArmExperiment,
+  syncMeasurementArmExperiment,
+} from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import {
   contextualBanditChangeActions,
   pinnedFields,
@@ -417,6 +429,14 @@ export function toApiContextualBandit(
     maxLeaves: doc.maxLeaves,
     priorSampleSize: doc.priorSampleSize ?? 0,
     holdoutPercent: doc.holdoutPercent,
+    measurementArm: doc.measurementArm
+      ? {
+          enabled: doc.measurementArm.enabled,
+          percent: doc.measurementArm.percent,
+          experimentId: doc.measurementArm.experimentId,
+          trackingKey: doc.measurementArm.trackingKey,
+        }
+      : undefined,
     banditModelVersion: doc.banditModelVersion,
     banditVersion: doc.banditVersion ?? 0,
     scheduleValue: doc.scheduleValue,
@@ -479,6 +499,11 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     doc: ContextualBanditInterface,
     previousDoc?: ContextualBanditInterface,
   ): Promise<void> {
+    if (previousDoc) {
+      assertMeasurementArmChangeAllowed(previousDoc, {
+        measurementArm: doc.measurementArm,
+      });
+    }
     // Only re-validate the decision metric when it (or the datasource) changes
     // so that CBs whose metric was deleted after the fact can still be
     // updated (e.g. unlinked).
@@ -572,9 +597,15 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
   protected async processApiCreateBody(rawBody: unknown) {
     const body = apiCreateContextualBanditBody.parse(rawBody);
     const orgSettings = this.context.org.settings;
+    const { measurementArm, ...rest } = body;
 
     return {
-      ...body,
+      ...rest,
+      measurementArm: buildMeasurementArmSubdoc({
+        enabled: measurementArm?.enabled,
+        percent: measurementArm?.percent,
+        cbTrackingKey: body.trackingKey,
+      }),
       scheduleValue:
         body.scheduleValue ?? orgSettings?.banditScheduleValue ?? 1,
       scheduleUnit:
@@ -603,35 +634,7 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
     };
   }
 
-  // Held by what the update changes, which takes the bandit as it is now.
-  public override async handleApiUpdate(
-    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
-  ) {
-    const { id } = req.params as { id: string };
-    const existing = await this.getById(id);
-    if (existing) {
-      const body = (req.body ?? {}) as Record<string, unknown>;
-      const changes = await this.processApiUpdateBody(body);
-      await requireConfirmation(req.context, {
-        actions: contextualBanditChangeActions(existing, changes),
-        project: existing.project,
-        summary:
-          plainWriteSummary(
-            "put",
-            "/contextual-bandits/:id",
-            "Contextual Bandit",
-            existing.name,
-            body,
-          ) ?? `Update ${existing.name}`,
-        links: [],
-        pin: [existing.status, pinnedFields(existing, changes)],
-      });
-    }
-    return super.handleApiUpdate(req);
-  }
-
-  protected async processApiUpdateBody(rawBody: unknown) {
-    const body = apiUpdateContextualBanditBody.parse(rawBody);
+  private pickApiUpdateFields(body: ApiUpdateContextualBanditBody) {
     const out: Partial<ContextualBanditInterface> = {};
     for (const field of CONTEXTUAL_BANDIT_API_UPDATE_FIELDS) {
       if (body[field] !== undefined) {
@@ -639,6 +642,135 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
       }
     }
     return out as Parameters<typeof this.updateById>[1];
+  }
+
+  protected async processApiUpdateBody(rawBody: unknown) {
+    return this.pickApiUpdateFields(
+      apiUpdateContextualBanditBody.parse(rawBody),
+    );
+  }
+
+  public override async handleApiCreate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiCreate"]>[0],
+  ): Promise<ApiContextualBanditInterface> {
+    const toCreate = await this.processApiCreateBody(req.body);
+    let created = await this.create(toCreate);
+    const patch = await reconcileMeasurementArmExperiment(
+      this.context,
+      created,
+    );
+    if (patch) {
+      created = await this.applyMeasurementArmPatch(created, patch);
+    }
+    return resolveOwnerEmail(this.toApiInterface(created), this.context);
+  }
+
+  private measurementArmGuard(doc: ContextualBanditInterface) {
+    return {
+      "measurementArm.experimentId": doc.measurementArm?.experimentId ?? {
+        $exists: false,
+      },
+    };
+  }
+
+  // Writes the experimentId set/cleared by reconcile, refusing to clobber an
+  // experimentId another request wrote in the meantime. The loser of that race
+  // removes the experiment it created and returns the stored doc instead.
+  private async applyMeasurementArmPatch(
+    doc: ContextualBanditInterface,
+    patch: Pick<ContextualBanditInterface, "measurementArm">,
+  ): Promise<ContextualBanditInterface> {
+    try {
+      return await this._updateOne(doc, patch, {
+        guard: this.measurementArmGuard(doc),
+      });
+    } catch (e) {
+      if (!(e instanceof CasConflictError)) throw e;
+      const created = patch.measurementArm?.experimentId;
+      if (created && created !== doc.measurementArm?.experimentId) {
+        await deleteMeasurementArmExperiment(this.context, created);
+      }
+      const current = await this.getById(doc.id);
+      if (!current) throw e;
+      return current;
+    }
+  }
+
+  // Held by what the update changes, which takes the bandit as it is now.
+  public override async handleApiUpdate(
+    req: Parameters<InstanceType<typeof BaseClass>["handleApiUpdate"]>[0],
+  ): Promise<ApiContextualBanditInterface> {
+    const { id } = req.params as { id: string };
+    const existing = await this.getById(id);
+    if (!existing) {
+      return this.context.throwNotFoundError(
+        `Contextual Bandit ${id} not found or not accessible`,
+      );
+    }
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const parsed = apiUpdateContextualBanditBody.parse(body);
+    const changes = this.pickApiUpdateFields(parsed);
+    const armInput = parsed.measurementArm;
+    const trackingKeyChanged =
+      changes.trackingKey !== undefined &&
+      changes.trackingKey !== existing.trackingKey;
+    if (armInput || (trackingKeyChanged && existing.measurementArm)) {
+      changes.measurementArm = buildMeasurementArmSubdoc({
+        enabled: armInput?.enabled,
+        percent: armInput?.percent,
+        existing: existing.measurementArm,
+        cbTrackingKey: changes.trackingKey ?? existing.trackingKey,
+        rederiveTrackingKey: trackingKeyChanged && existing.status === "draft",
+      });
+    }
+    await requireConfirmation(req.context, {
+      actions: contextualBanditChangeActions(existing, changes),
+      project: existing.project,
+      summary:
+        plainWriteSummary(
+          "put",
+          "/contextual-bandits/:id",
+          "Contextual Bandit",
+          existing.name,
+          body,
+        ) ?? `Update ${existing.name}`,
+      links: [],
+      pin: [existing.status, pinnedFields(existing, changes)],
+    });
+    let updated = changes.measurementArm
+      ? await this._updateOne(existing, changes, {
+          guard: this.measurementArmGuard(existing),
+        })
+      : await this.update(existing, changes);
+    const patch = await reconcileMeasurementArmExperiment(
+      this.context,
+      updated,
+    );
+    if (patch) {
+      updated = await this.applyMeasurementArmPatch(updated, patch);
+    }
+    return resolveOwnerEmail(this.toApiInterface(updated), this.context);
+  }
+
+  // Keep the measurement-arm experiment in step with CB-governed fields
+  // (status, targeting, metric, naming). Sub-doc create/delete is handled by
+  // the API handlers so the experiment id can be written back.
+  protected async beforeUpdate(
+    existing: ContextualBanditInterface,
+    updates: Partial<ContextualBanditInterface>,
+    newDoc: ContextualBanditInterface,
+  ) {
+    if (!newDoc.measurementArm?.experimentId) return;
+    if (!measurementArmSyncFieldsChanged(existing, newDoc)) return;
+    try {
+      await syncMeasurementArmExperiment(this.context, newDoc);
+    } catch (e) {
+      throw new Error(
+        `Could not update the measurement arm experiment: ${
+          e instanceof Error ? e.message : String(e)
+        }`,
+      );
+    }
   }
 
   protected canRead(doc: ContextualBanditInterface): boolean {
@@ -708,6 +840,12 @@ export class ContextualBanditModel extends BaseClass<WriteOptions> {
   }
 
   protected async afterDelete(doc: ContextualBanditInterface) {
+    if (doc.measurementArm?.experimentId) {
+      await deleteMeasurementArmExperiment(
+        this.context,
+        doc.measurementArm.experimentId,
+      );
+    }
     await this.context.models.contextualBanditSnapshots.deleteForContextualBandit(
       doc.id,
     );

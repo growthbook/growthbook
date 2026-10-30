@@ -1,6 +1,11 @@
 import { z } from "zod";
 import { apiBaseSchema, baseSchema } from "./base-model";
-import { banditStageType, screenshot, variation } from "./experiments";
+import {
+  banditStageType,
+  experimentStatus,
+  screenshot,
+  variation,
+} from "./experiments";
 import { namedSchema } from "./openapi-helpers";
 import {
   apiVisualChangesetValidator,
@@ -80,6 +85,102 @@ export type ContextualBanditVariation = z.infer<
   typeof contextualBanditVariation
 >;
 
+export const DEFAULT_MEASUREMENT_ARM_PERCENT = 0.05;
+export const MIN_MEASUREMENT_ARM_PERCENT = 0.01;
+export const MAX_MEASUREMENT_ARM_PERCENT = 0.5;
+
+export const contextualBanditMeasurementArmValidator = z
+  .object({
+    enabled: z.boolean(),
+    percent: z
+      .number()
+      .min(MIN_MEASUREMENT_ARM_PERCENT)
+      .max(MAX_MEASUREMENT_ARM_PERCENT),
+    experimentId: z.string().optional(),
+    trackingKey: z.string(),
+    seed: z.string(),
+  })
+  .strict();
+export type ContextualBanditMeasurementArm = z.infer<
+  typeof contextualBanditMeasurementArmValidator
+>;
+
+const apiContextualBanditMeasurementArm = z
+  .object({
+    enabled: z.boolean(),
+    percent: z
+      .number()
+      .describe(
+        "Share of eligible traffic held back on the default experience, as a decimal (0.05 = 5%).",
+      ),
+    experimentId: z
+      .string()
+      .optional()
+      .describe(
+        "The experiment that compares held-back users against users in the Bandit.",
+      ),
+    trackingKey: z.string(),
+  })
+  .describe(
+    "Measurement arm: holds back a share of eligible traffic on the default experience and compares it against the Bandit in a linked experiment. Only changeable while the Contextual Bandit is a draft.",
+  );
+
+const apiContextualBanditMeasurementArmInput = z
+  .strictObject({
+    enabled: z.boolean().optional(),
+    percent: z
+      .number()
+      .min(MIN_MEASUREMENT_ARM_PERCENT)
+      .max(MAX_MEASUREMENT_ARM_PERCENT)
+      .optional()
+      .describe(
+        "Share of eligible traffic to hold back, 0.01 to 0.5. Kept but not applied while `enabled` is false; defaults to 0.05.",
+      ),
+  })
+  .describe(
+    "Measurement arm settings. Omit to leave unchanged; omitted on create means no measurement arm.",
+  );
+
+export const contextualBanditMeasurementArmSummaryValidator = z
+  .object({
+    experimentId: z.string(),
+    trackingKey: z.string(),
+    percent: z.number(),
+    status: z.enum(experimentStatus),
+    latestSnapshot: z
+      .object({
+        id: z.string(),
+        dateCreated: z.string(),
+        status: z.enum(["running", "success", "error"]),
+        error: z.string().optional(),
+      })
+      .nullable(),
+    resultsSnapshot: z
+      .object({
+        id: z.string(),
+        dateCreated: z.string(),
+      })
+      .nullable(),
+    decisionMetricResult: z
+      .object({
+        metricId: z.string(),
+        controlMean: z.number().nullable(),
+        banditMean: z.number().nullable(),
+        controlUsers: z.number().nullable(),
+        banditUsers: z.number().nullable(),
+        lift: z.number().nullable(),
+        ci: z.tuple([z.number().nullable(), z.number().nullable()]).nullable(),
+        chanceToWin: z.number().nullable(),
+        pValue: z.number().nullable(),
+      })
+      .nullable(),
+  })
+  .strict();
+
+export type ContextualBanditMeasurementArmSummary = z.infer<
+  typeof contextualBanditMeasurementArmSummaryValidator
+>;
+
 export const contextualBanditValidator = baseSchema
   .extend({
     name: z.string(),
@@ -120,6 +221,7 @@ export const contextualBanditValidator = baseSchema
     // TODO(holdout-v1.5): preserved on the doc but NOT wired through — the orchestrator,
     // SQL runner, stats engine, SDK callback, and results UI all ignore non-zero values.
     holdoutPercent: z.number().min(0).max(0.5),
+    measurementArm: contextualBanditMeasurementArmValidator.optional(),
 
     banditModelVersion: z.number().int().nonnegative(),
 
@@ -200,7 +302,14 @@ export const apiContextualBanditValidator = namedSchema(
     minUsersPerLeaf: z.number().int().positive(),
     maxLeaves: z.number().int().positive(),
     priorSampleSize: z.number().int().nonnegative(),
-    holdoutPercent: z.number().min(0).max(0.5),
+    holdoutPercent: z
+      .number()
+      .min(0)
+      .max(0.5)
+      .describe(
+        "Reserved for a future holdout feature. Currently always 0 and not applied; use `measurementArm` to hold back traffic.",
+      ),
+    measurementArm: apiContextualBanditMeasurementArm.optional(),
     banditModelVersion: z.number().int().nonnegative(),
     scheduleValue: z.number().optional(),
     scheduleUnit: z.enum(["days", "hours"]).optional(),
@@ -270,6 +379,8 @@ export const apiCreateContextualBanditBody = z.strictObject({
   burnInUnit: z.enum(["days", "hours"]).optional(),
   conversionWindowValue: z.number().optional(),
   conversionWindowUnit: z.enum(["hours", "days"]).optional(),
+
+  measurementArm: apiContextualBanditMeasurementArmInput.optional(),
 });
 
 export type ApiCreateContextualBanditBody = z.infer<
@@ -314,6 +425,8 @@ export const apiUpdateContextualBanditBody = z.strictObject({
   savedGroups: z.array(savedGroupTargeting).optional(),
   prerequisites: z.array(featurePrerequisite).optional(),
   seed: z.string().optional(),
+
+  measurementArm: apiContextualBanditMeasurementArmInput.optional(),
 });
 
 export type ApiUpdateContextualBanditBody = z.infer<

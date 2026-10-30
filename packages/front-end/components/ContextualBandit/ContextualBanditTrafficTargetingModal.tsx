@@ -1,13 +1,22 @@
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { useState } from "react";
 import { FormProvider, useForm } from "react-hook-form";
-import { ApiContextualBanditInterface } from "shared/validators";
+import {
+  ApiContextualBanditInterface,
+  DEFAULT_MEASUREMENT_ARM_PERCENT,
+} from "shared/validators";
 import { validateAndFixCondition } from "shared/util";
 import { FeaturePrerequisite, SavedGroupTargeting } from "shared/types/feature";
+import { Separator } from "@radix-ui/themes";
 import { useRestApiCall } from "@/services/restApi";
+import { formatPercent } from "@/services/metrics";
 import { useEnvironments } from "@/services/features";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import Text from "@/ui/Text";
 import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import MeasurementArmSizeField, {
+  MeasurementArmSizeValue,
+} from "@/components/ContextualBandit/MeasurementArmSizeField";
 import FeatureVariationsInput from "@/components/Features/FeatureVariationsInput";
 import TargetingFieldsGroup from "@/components/Features/TargetingFieldsGroup";
 import ContextualBanditAssignmentAttributeSelect from "@/components/ContextualBandit/ContextualBanditAssignmentAttributeSelect";
@@ -18,6 +27,7 @@ type FormValues = {
   condition: string;
   savedGroups: SavedGroupTargeting[];
   prerequisites: FeaturePrerequisite[];
+  measurementArm: MeasurementArmSizeValue;
   variationWeights: number[];
 };
 
@@ -45,6 +55,10 @@ export default function ContextualBanditTrafficTargetingModal({
       condition: cb.condition ?? "",
       savedGroups: cb.savedGroups ?? [],
       prerequisites: cb.prerequisites ?? [],
+      measurementArm: {
+        enabled: cb.measurementArm?.enabled ?? false,
+        percent: cb.measurementArm?.percent ?? DEFAULT_MEASUREMENT_ARM_PERCENT,
+      },
       variationWeights: cb.variations.map(
         (v) =>
           cb.variationWeights?.find((w) => w.variationId === v.id)?.weight ??
@@ -81,6 +95,9 @@ export default function ContextualBanditTrafficTargetingModal({
               condition,
               savedGroups: data.savedGroups,
               prerequisites: data.prerequisites,
+              ...(cb.status === "draft"
+                ? { measurementArm: data.measurementArm }
+                : {}),
             },
           });
           mutate();
@@ -107,11 +124,31 @@ export default function ContextualBanditTrafficTargetingModal({
           hideVariations
         />
 
-        <hr className="my-4" />
+        <Separator size="4" my="4" />
+
+        {cb.status === "draft" ? (
+          <MeasurementArmSizeField
+            value={form.watch("measurementArm")}
+            onChange={(value) => form.setValue("measurementArm", value)}
+          />
+        ) : (
+          <div>
+            <Text as="div" weight="semibold" mb="1">
+              Measurement arm
+            </Text>
+            <Text as="div" color="text-mid">
+              {cb.measurementArm?.enabled
+                ? `${formatPercent(cb.measurementArm.percent)} of eligible users are held back on the default experience. This is locked once the Bandit has started.`
+                : "Off. A measurement arm can only be added while the Bandit is a draft."}
+            </Text>
+          </div>
+        )}
+
+        <Separator size="4" my="4" />
 
         <ContextualBanditAssignmentAttributeSelect project={cb.project} />
 
-        <hr className="my-4" />
+        <Separator size="4" my="4" />
 
         <TargetingFieldsGroup
           project={cb.project ?? ""}

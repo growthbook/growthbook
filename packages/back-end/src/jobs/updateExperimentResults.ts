@@ -1,6 +1,9 @@
 import Agenda, { Job } from "agenda";
 import { getScopedSettings } from "shared/settings";
-import { isAutoSnapshotScheduled } from "shared/experiments";
+import {
+  isAnalysisRefreshBlocked,
+  isContextualBanditMeasurementArm,
+} from "shared/experiments";
 import {
   getExperimentById,
   getExperimentsToUpdate,
@@ -40,7 +43,27 @@ type UpdateSingleExpJob = Job<{
   experimentId: string;
 }>;
 
-export default async function (agenda: Agenda) {
+let agenda: Agenda;
+
+export async function queueExperimentUpdate(
+  organization: string,
+  experimentId: string,
+) {
+  const job = agenda.create(UPDATE_SINGLE_EXP, {
+    organization,
+    experimentId,
+  }) as UpdateSingleExpJob;
+
+  job.unique({
+    experimentId,
+    organization,
+  });
+  job.schedule(new Date());
+  await job.save();
+}
+
+export default async function (ag: Agenda) {
+  agenda = ag;
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
     // Old way of queuing experiments based on a fixed schedule
     // Will remove in the future when it's no longer needed
@@ -84,23 +107,6 @@ export default async function (agenda: Agenda) {
     updateResultsJob.repeatEvery("5 minutes");
     await updateResultsJob.save();
   }
-
-  async function queueExperimentUpdate(
-    organization: string,
-    experimentId: string,
-  ) {
-    const job = agenda.create(UPDATE_SINGLE_EXP, {
-      organization,
-      experimentId,
-    }) as UpdateSingleExpJob;
-
-    job.unique({
-      experimentId,
-      organization,
-    });
-    job.schedule(new Date());
-    await job.save();
-  }
 }
 
 export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
@@ -114,8 +120,14 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   const { org: organization } = context;
 
   const experiment = await getExperimentById(context, experimentId);
-  // Check if it is scheduled again because it might have changed between queued and now
-  if (!experiment || !isAutoSnapshotScheduled(experiment)) return;
+  if (!experiment) return;
+  // Re-check because it might have changed between queued and now. A
+  // measurement arm refreshes on its Bandit's schedule, so the org-derived
+  // autoSnapshots flag doesn't gate it; archiving and the user's auto-refresh
+  // toggle still do.
+  const isMeasurementArm = isContextualBanditMeasurementArm(experiment);
+  if (isAnalysisRefreshBlocked(experiment)) return;
+  if (!isMeasurementArm && !experiment.autoSnapshots) return;
 
   let project = null;
   if (experiment.project) {
@@ -131,7 +143,8 @@ export const updateSingleExperiment = async (job: UpdateSingleExpJob) => {
   // Disable auto snapshots for the experiment so it doesn't keep trying to update if schedule is off (non-bandits only)
   if (
     organization?.settings?.updateSchedule?.type === "never" &&
-    experiment.type !== "multi-armed-bandit"
+    experiment.type !== "multi-armed-bandit" &&
+    !isMeasurementArm
   ) {
     await updateExperiment({
       context,

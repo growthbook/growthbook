@@ -12,3 +12,4 @@ export * from "./contextual-bandit-condition";
 export * from "./contextual-bandit-weights";
 export * from "./contextual-bandit-variation-changes";
 export * from "./contextual-bandit-results";
+export * from "./contextual-bandit-measurement-arm";

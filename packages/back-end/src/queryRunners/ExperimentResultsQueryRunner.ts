@@ -25,6 +25,7 @@ import {
   ExperimentQueryResponses,
   ExperimentResults,
   ExperimentUnitsQueryParams,
+  ResolvedExposureQuery,
 } from "shared/types/integrations";
 import { ExperimentReportResults } from "shared/types/report";
 import {
@@ -35,6 +36,7 @@ import {
   SnapshotType,
 } from "shared/types/experiment-snapshot";
 import { MetricInterface } from "shared/types/metric";
+import { DataSourceInterface, ExposureQuery } from "shared/types/datasource";
 import {
   ExperimentQueryMetadata,
   Queries,
@@ -42,6 +44,7 @@ import {
   QueryStatus,
 } from "shared/types/query";
 import { BanditResult } from "shared/types/experiment";
+import { ContextualBanditQueryInterface } from "shared/validators";
 import { UnrecoverableSnapshotError } from "back-end/src/util/errors";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ApiReqContext } from "back-end/types/api";
@@ -97,6 +100,61 @@ export const TRAFFIC_QUERY_NAME = "traffic";
 
 export const UNITS_TABLE_PREFIX = "growthbook_tmp_units";
 
+export async function resolveSnapshotExposureSource(
+  context: Pick<ApiReqContext, "models">,
+  datasource: DataSourceInterface,
+  snapshotSettings: Pick<
+    ExperimentSnapshotSettings,
+    "contextualBanditId" | "exposureQueryId" | "exposureQueryIdentifierType"
+  >,
+): Promise<{
+  exposureQuery: ExposureQuery | undefined;
+  resolvedExposureQuery: ResolvedExposureQuery;
+}> {
+  if (snapshotSettings.contextualBanditId) {
+    const cb = await context.models.contextualBandits.getById(
+      snapshotSettings.contextualBanditId,
+    );
+    if (!cb) {
+      throw new UnrecoverableSnapshotError(
+        `Contextual Bandit not found: ${snapshotSettings.contextualBanditId}`,
+      );
+    }
+    const contextualBanditQuery: ContextualBanditQueryInterface | null =
+      cb.contextualBanditQueryId
+        ? await context.models.contextualBanditQueries.getById(
+            cb.contextualBanditQueryId,
+          )
+        : null;
+    if (!contextualBanditQuery) {
+      throw new UnrecoverableSnapshotError(
+        `Contextual Bandit Query not found: ${cb.contextualBanditQueryId}`,
+      );
+    }
+    return {
+      exposureQuery: undefined,
+      resolvedExposureQuery: {
+        query: contextualBanditQuery.query,
+        identifierType: contextualBanditQuery.userIdType,
+      },
+    };
+  }
+
+  // Resolve the exposure query the same way the SQL builders used to internally:
+  // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
+  // exposure query, and an unknown id throws a clear error rather than generating
+  // an invalid query with an empty user id type.
+  return {
+    exposureQuery: (datasource.settings?.queries?.exposure || []).find(
+      (q) => q.id === snapshotSettings.exposureQueryId,
+    ),
+    resolvedExposureQuery: resolveExposureQueryForAnalysis(
+      getExposureQuery(datasource, snapshotSettings.exposureQueryId || ""),
+      snapshotSettings.exposureQueryIdentifierType,
+    ),
+  };
+}
+
 export const startExperimentResultQueries = async (
   context: ApiReqContext,
   params: ExperimentResultsQueryParams,
@@ -137,21 +195,12 @@ export const startExperimentResultQueries = async (
 
   const settings = integration.datasource.settings;
 
-  const exposureQuery = (settings?.queries?.exposure || []).find(
-    (q) => q.id === snapshotSettings.exposureQueryId,
-  );
-
-  // Resolve the exposure query the same way the SQL builders used to internally:
-  // an empty exposureQueryId falls back to the auto-generated anonymous_id/user_id
-  // exposure query, and an unknown id throws a clear error rather than generating
-  // an invalid query with an empty user id type.
-  const resolvedExposureQuery = resolveExposureQueryForAnalysis(
-    getExposureQuery(
+  const { exposureQuery, resolvedExposureQuery } =
+    await resolveSnapshotExposureSource(
+      context,
       integration.datasource,
-      snapshotSettings.exposureQueryId || "",
-    ),
-    snapshotSettings.exposureQueryIdentifierType,
-  );
+      snapshotSettings,
+    );
 
   const snapshotDimensions: Dimension[] = (
     await Promise.all(

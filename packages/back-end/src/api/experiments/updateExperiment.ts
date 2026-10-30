@@ -85,12 +85,16 @@ import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
+  const experiment = await requireEditableExperiment(
+    req.context,
+    req.params.id,
+    "update via this API",
+  );
 
   const assignmentQueryInput = parseAssignmentQueryInput(
     req.body.assignmentQuery,

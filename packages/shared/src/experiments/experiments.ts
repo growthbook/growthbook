@@ -2939,17 +2939,20 @@ export function getEqualWeights(n: number, precision: number = 4): number[] {
   );
 }
 
+/** Switches that stop any analysis refresh, scheduled or externally triggered. */
+export function isAnalysisRefreshBlocked(
+  experiment: Pick<ExperimentInterface, "disableAutoSnapshots" | "archived">,
+): boolean {
+  return !!experiment.disableAutoSnapshots || !!experiment.archived;
+}
+
 export function isAutoSnapshotScheduled(
   experiment: Pick<
     ExperimentInterface,
     "autoSnapshots" | "disableAutoSnapshots" | "archived"
   >,
 ): boolean {
-  return (
-    !!experiment.autoSnapshots &&
-    !experiment.disableAutoSnapshots &&
-    !experiment.archived
-  );
+  return !!experiment.autoSnapshots && !isAnalysisRefreshBlocked(experiment);
 }
 
 export async function generateTrackingKey<

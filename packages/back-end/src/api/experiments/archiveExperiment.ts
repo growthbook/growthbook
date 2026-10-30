@@ -20,12 +20,16 @@ import {
   unarchiveActions,
 } from "back-end/src/services/confirmations";
 import { toEnhancedExperimentApiResponse } from "./enhancedExperimentResponse";
-import { requireExperiment } from "./requireExperiment";
+import { requireEditableExperiment } from "./requireExperiment";
 
 export const postExperimentArchive = createApiRequestHandler(
   postExperimentArchiveValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
+  const experiment = await requireEditableExperiment(
+    req.context,
+    req.params.id,
+    "archive via this API",
+  );
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
@@ -54,7 +58,11 @@ export const postExperimentArchive = createApiRequestHandler(
 export const postExperimentUnarchive = createApiRequestHandler(
   postExperimentUnarchiveValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
+  const experiment = await requireEditableExperiment(
+    req.context,
+    req.params.id,
+    "unarchive via this API",
+  );
   if (!req.context.permissions.canUpdateExperiment(experiment, {})) {
     req.context.permissions.throwPermissionError();
   }
@@ -85,7 +93,11 @@ export const postExperimentUnarchive = createApiRequestHandler(
 export const deleteExperiment = createApiRequestHandler(
   deleteExperimentValidator,
 )(async (req) => {
-  const experiment = await requireExperiment(req.context, req.params.id);
+  const experiment = await requireEditableExperiment(
+    req.context,
+    req.params.id,
+    "delete via this API",
+  );
   if (!req.context.permissions.canDeleteExperiment(experiment)) {
     req.context.permissions.throwPermissionError();
   }

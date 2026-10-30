@@ -1,0 +1,182 @@
+import { Box, Flex } from "@radix-ui/themes";
+import { useEffect } from "react";
+import { ago } from "shared/dates";
+import { getMetricLink } from "shared/experiments";
+import { ApiContextualBanditInterface } from "shared/validators";
+import { useDefinitions } from "@/services/DefinitionsContext";
+import { useCurrency } from "@/hooks/useCurrency";
+import {
+  formatNumber,
+  formatPercent,
+  getExperimentMetricFormatter,
+} from "@/services/metrics";
+import { useContextualBanditMeasurementArm } from "@/hooks/useContextualBandits";
+import { useContextualBanditSnapshot } from "@/components/ContextualBandit/ContextualBanditSnapshotProvider";
+import Callout from "@/ui/Callout";
+import Frame from "@/ui/Frame";
+import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
+import Text from "@/ui/Text";
+import Badge from "@/ui/Badge";
+
+function truncate(s: string, max: number) {
+  return s.length > max ? `${s.slice(0, max)}…` : s;
+}
+
+export default function ContextualBanditMeasurementArmSummary({
+  cb,
+}: {
+  cb: ApiContextualBanditInterface;
+}) {
+  const { getExperimentMetricById, getFactTableById } = useDefinitions();
+  const displayCurrency = useCurrency();
+  const { latest: banditLatest } = useContextualBanditSnapshot();
+  const banditLatestId = banditLatest?.id;
+  const banditLatestStatus = banditLatest?.status;
+  const { measurementArm, loading, error, mutate } =
+    useContextualBanditMeasurementArm(
+      cb.measurementArm?.enabled && cb.status !== "draft" ? cb.id : undefined,
+      {
+        expectRefreshAfter:
+          banditLatestStatus === "success"
+            ? banditLatest?.dateCreated
+            : undefined,
+      },
+    );
+  useEffect(() => {
+    if (!banditLatestId) return;
+    void mutate();
+  }, [banditLatestId, banditLatestStatus, mutate]);
+
+  if (!cb.measurementArm?.enabled) return null;
+
+  const percentLabel = formatPercent(cb.measurementArm.percent);
+  const experimentHref = cb.measurementArm.experimentId
+    ? `/contextual-bandit/${cb.id}/measurement-arm`
+    : null;
+
+  const result = measurementArm?.decisionMetricResult ?? null;
+  const latest = measurementArm?.latestSnapshot ?? null;
+  const metric = result ? getExperimentMetricById(result.metricId) : null;
+  const formatMean = (v: number | null) =>
+    v === null
+      ? "—"
+      : metric
+        ? getExperimentMetricFormatter(metric, getFactTableById)(v, {
+            currency: displayCurrency,
+          })
+        : formatNumber(v);
+
+  const latestAttempt =
+    latest?.status === "error" ? (
+      <Callout status="error" mt="2">
+        The last measurement arm update failed
+        {latest.error ? `: ${truncate(latest.error, 200)}` : "."}
+        <Text as="div" mt="1">
+          Inspect the queries and re-run the analysis from the results page.
+        </Text>
+      </Callout>
+    ) : latest?.status === "running" ? (
+      <Text color="text-mid" size="sm">
+        Updating…
+      </Text>
+    ) : null;
+
+  const loadError = error ? (
+    <Callout status="error" mt="2">
+      Could not {measurementArm ? "refresh" : "load"} the measurement arm
+      results: {error.message}
+      <Text as="div" mt="1">
+        Reload the page to try again.
+      </Text>
+    </Callout>
+  ) : null;
+
+  let body: React.ReactNode;
+  if (error && !measurementArm) {
+    body = loadError;
+  } else if (loading) {
+    body = <Text color="text-mid">Loading…</Text>;
+  } else if (cb.status === "draft") {
+    body = (
+      <Text color="text-mid">
+        {percentLabel} of eligible users will be held back on the default
+        experience once the Bandit starts.
+      </Text>
+    );
+  } else if (!result) {
+    body = (
+      <>
+        {latest?.status !== "error" ? (
+          <Text color="text-mid">
+            Collecting data — results appear after the first analysis runs.
+          </Text>
+        ) : null}
+        {latestAttempt}
+        {loadError}
+      </>
+    );
+  } else {
+    const liftText =
+      result.lift !== null
+        ? `${result.lift >= 0 ? "+" : ""}${formatPercent(result.lift)}`
+        : "—";
+    const ciText =
+      result.ci !== null && result.ci[0] !== null && result.ci[1] !== null
+        ? ` (${formatPercent(result.ci[0])} to ${formatPercent(result.ci[1])})`
+        : "";
+    const confidenceText =
+      result.chanceToWin !== null
+        ? ` · ${formatPercent(result.chanceToWin)} chance the Bandit wins`
+        : result.pValue !== null
+          ? ` · p = ${result.pValue.toFixed(3)}`
+          : "";
+    body = (
+      <Flex direction="column" gap="1">
+        <Text>
+          Bandit vs. measurement arm: <Text weight="semibold">{liftText}</Text>
+          {ciText} on{" "}
+          {metric ? (
+            <Link href={getMetricLink(metric.id)}>{metric.name}</Link>
+          ) : (
+            result.metricId
+          )}
+          {confidenceText}
+        </Text>
+        <Text color="text-mid" size="sm">
+          Measurement arm {formatMean(result.controlMean)} (
+          {result.controlUsers !== null
+            ? formatNumber(result.controlUsers)
+            : "—"}{" "}
+          users) · Bandit {formatMean(result.banditMean)} (
+          {result.banditUsers !== null ? formatNumber(result.banditUsers) : "—"}{" "}
+          users)
+          {measurementArm?.resultsSnapshot
+            ? ` · Updated ${ago(measurementArm.resultsSnapshot.dateCreated)}`
+            : ""}
+        </Text>
+        {latestAttempt}
+        {loadError}
+      </Flex>
+    );
+  }
+
+  return (
+    <Frame mb="4">
+      <Flex justify="between" align="start" gap="4" wrap="wrap">
+        <Box>
+          <Flex align="center" gap="2" mb="2">
+            <Heading as="h4" size="sm" mb="0">
+              Measurement Arm
+            </Heading>
+            <Badge label={`${percentLabel} held back`} color="gray" />
+          </Flex>
+          {body}
+        </Box>
+        {experimentHref ? (
+          <Link href={experimentHref}>View results</Link>
+        ) : null}
+      </Flex>
+    </Frame>
+  );
+}

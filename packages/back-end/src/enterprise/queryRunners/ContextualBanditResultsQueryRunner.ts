@@ -28,6 +28,7 @@ import {
   getContextualBanditSettingsForStatsEngine,
   persistContextualBanditEvent,
 } from "back-end/src/enterprise/services/contextualBandits";
+import { refreshMeasurementArmAfterBanditRun } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
 import { getMetricMap } from "back-end/src/models/MetricModel";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
 import { getIntegrationIdentifierQuote } from "back-end/src/services/datasource";
@@ -548,6 +549,10 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         if (result.traffic) {
           updates.traffic = result.traffic;
         }
+        await refreshMeasurementArmAfterBanditRun(
+          this.context,
+          this.model.contextualBandit,
+        );
       }
 
       // Similar to experiment `analysisSummary` pattern, persist a lightweight health

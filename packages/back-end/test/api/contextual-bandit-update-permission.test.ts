@@ -51,6 +51,7 @@ const contextualBandit: ContextualBanditInterface = {
   minUsersPerLeaf: 100,
   maxLeaves: 12,
   holdoutPercent: 0,
+  priorSampleSize: 0,
   banditModelVersion: 1,
 };
 
