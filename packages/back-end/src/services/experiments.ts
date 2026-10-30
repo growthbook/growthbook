@@ -828,7 +828,7 @@ export function getSnapshotSettings({
     clusterSubUnitIdentifier &&
     dimensions.length > MAX_CLUSTER_SUBUNIT_DIMENSIONS
   ) {
-    logger.info(
+    logger.warn(
       {
         experimentId: experiment.id,
         requested: dimensions.length,
