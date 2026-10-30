@@ -328,7 +328,7 @@ const EditOrganization: FC<{
                             runEventForwarderAction(row.datasourceId, "migrate")
                           }
                         >
-                          Migrate to in-house
+                          Migrate
                         </Button>
                       ) : null}
                       {canToggle ? (
