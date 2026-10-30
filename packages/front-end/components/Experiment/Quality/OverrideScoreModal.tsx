@@ -93,6 +93,7 @@ export default function OverrideScoreModal({
                 as="label"
                 weight="semibold"
                 htmlFor="quality-override-reason"
+                mb="0"
               >
                 Reason
               </Text>
