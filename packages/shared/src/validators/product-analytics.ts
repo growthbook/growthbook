@@ -9,7 +9,7 @@ import {
 } from "./fact-table";
 import { populationStepValidator } from "./population";
 
-import { namedSchema } from "./openapi-helpers";
+import { componentSchema, namedSchema } from "./openapi-helpers";
 
 const baseValueValidator = z.object({
   name: z.string(),
@@ -23,6 +23,28 @@ export const draftExplorationMetricValidator = factMetricValidator.omit({
   dateCreated: true,
   dateUpdated: true,
 });
+
+export const explorationPopulationValidator = componentSchema(
+  "ExplorationPopulation",
+  populationStepValidator
+    .extend({
+      rowFilters: z
+        .array(rowFilterValidator)
+        .optional()
+        .transform((filters) => filters ?? [])
+        .pipe(z.array(rowFilterValidator))
+        .meta({ default: [] }),
+      unit: z
+        .string()
+        .describe(
+          "Identifier type that defines population membership. Every metric's unit must match it.",
+        ),
+    })
+    .strict(),
+);
+export type ExplorationPopulation = z.infer<
+  typeof explorationPopulationValidator
+>;
 
 const metricValueValidator = baseValueValidator.extend({
   type: z.literal("metric"),
@@ -52,6 +74,12 @@ const metricDatasetValidator = z
   .object({
     type: z.literal("metric"),
     values: z.array(metricValueValidator),
+    population: explorationPopulationValidator
+      .nullable()
+      .optional()
+      .describe(
+        "**Beta** — this field is new and may change in backwards-incompatible ways. A population applied to every metric in the request. Only proportion metrics on the population's Fact Table are supported; the request is rejected if any metric is incompatible.",
+      ),
   })
   .strict();
 const internalMetricDatasetValidator = metricDatasetValidator.extend({
@@ -222,14 +250,10 @@ const journeyDatasetValidator = z
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
 // Populations: one single-step population definition per value.
-const populationValueValidator = baseValueValidator.extend({
+const populationValueValidator = explorationPopulationValidator.extend({
+  name: z.string(),
   type: z.literal("population"),
   unit: z.string().nullable(),
-  ...populationStepValidator.pick({
-    source: true,
-    aggregateFilter: true,
-    aggregateFilterColumn: true,
-  }).shape,
 });
 export type PopulationValue = z.infer<typeof populationValueValidator>;
 
@@ -530,6 +554,12 @@ export const productAnalyticsResultRowValidator = z.object({
       }),
     )
     .optional(),
+  populationCount: z
+    .number()
+    .optional()
+    .describe(
+      "**Beta** — this field is new and may change in backwards-incompatible ways. Number of units in the dataset's population for this row. Only present when the request has a population; each value's numerator and denominator keep their usual meaning, limited to population members.",
+    ),
   steps: z.array(productAnalyticsFunnelStepResultValidator).optional(),
   journey: productAnalyticsJourneyRowValidator.optional(),
 });

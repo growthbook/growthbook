@@ -42499,6 +42499,20 @@ paths:
                                             - unit
                                             - denominatorUnit
                                           additionalProperties: false
+                                      population:
+                                        description: >-
+                                          **Beta** — this field is new and may
+                                          change in backwards-incompatible ways. A
+                                          population applied to every metric in
+                                          the request. Only proportion metrics on
+                                          the population's Fact Table are
+                                          supported; the request is rejected if
+                                          any metric is incompatible.
+                                        anyOf:
+                                          - title: Exploration Population
+                                            $ref: >-
+                                              #/components/schemas/ExplorationPopulation
+                                          - type: 'null'
                                     required:
                                       - type
                                       - values
@@ -45871,6 +45885,20 @@ paths:
                                             - unit
                                             - denominatorUnit
                                           additionalProperties: false
+                                      population:
+                                        description: >-
+                                          **Beta** — this field is new and may
+                                          change in backwards-incompatible ways. A
+                                          population applied to every metric in
+                                          the request. Only proportion metrics on
+                                          the population's Fact Table are
+                                          supported; the request is rejected if
+                                          any metric is incompatible.
+                                        anyOf:
+                                          - title: Exploration Population
+                                            $ref: >-
+                                              #/components/schemas/ExplorationPopulation
+                                          - type: 'null'
                                     required:
                                       - type
                                       - values
@@ -49440,6 +49468,20 @@ paths:
                                         - unit
                                         - denominatorUnit
                                       additionalProperties: false
+                                  population:
+                                    description: >-
+                                      **Beta** — this field is new and may
+                                      change in backwards-incompatible ways. A
+                                      population applied to every metric in the
+                                      request. Only proportion metrics on the
+                                      population's Fact Table are supported; the
+                                      request is rejected if any metric is
+                                      incompatible.
+                                    anyOf:
+                                      - title: Exploration Population
+                                        $ref: >-
+                                          #/components/schemas/ExplorationPopulation
+                                      - type: 'null'
                                 required:
                                   - type
                                   - values
@@ -53020,6 +53062,20 @@ paths:
                                         - unit
                                         - denominatorUnit
                                       additionalProperties: false
+                                  population:
+                                    description: >-
+                                      **Beta** — this field is new and may
+                                      change in backwards-incompatible ways. A
+                                      population applied to every metric in the
+                                      request. Only proportion metrics on the
+                                      population's Fact Table are supported; the
+                                      request is rejected if any metric is
+                                      incompatible.
+                                    anyOf:
+                                      - title: Exploration Population
+                                        $ref: >-
+                                          #/components/schemas/ExplorationPopulation
+                                      - type: 'null'
                                 required:
                                   - type
                                   - values
@@ -58565,6 +58621,17 @@ paths:
                           - unit
                           - denominatorUnit
                         additionalProperties: false
+                    population:
+                      description: >-
+                        **Beta** — this field is new and may change in
+                        backwards-incompatible ways. A population applied to
+                        every metric in the request. Only proportion metrics on
+                        the population's Fact Table are supported; the request
+                        is rejected if any metric is incompatible.
+                      anyOf:
+                        - title: Exploration Population
+                          $ref: '#/components/schemas/ExplorationPopulation'
+                        - type: 'null'
                   required:
                     - type
                     - values
@@ -58647,6 +58714,17 @@ paths:
                                           - numerator
                                           - denominator
                                         additionalProperties: false
+                                    populationCount:
+                                      description: >-
+                                        **Beta** — this field is new and may
+                                        change in backwards-incompatible ways.
+                                        Number of units in the dataset's
+                                        population for this row. Only present
+                                        when the request has a population; each
+                                        value's numerator and denominator keep
+                                        their usual meaning, limited to
+                                        population members.
+                                      type: number
                                     steps:
                                       type: array
                                       items:
@@ -58994,6 +59072,20 @@ paths:
                                         - unit
                                         - denominatorUnit
                                       additionalProperties: false
+                                  population:
+                                    description: >-
+                                      **Beta** — this field is new and may
+                                      change in backwards-incompatible ways. A
+                                      population applied to every metric in the
+                                      request. Only proportion metrics on the
+                                      population's Fact Table are supported; the
+                                      request is rejected if any metric is
+                                      incompatible.
+                                    anyOf:
+                                      - title: Exploration Population
+                                        $ref: >-
+                                          #/components/schemas/ExplorationPopulation
+                                      - type: 'null'
                                 required:
                                   - type
                                   - values
@@ -59412,6 +59504,17 @@ paths:
                                           - numerator
                                           - denominator
                                         additionalProperties: false
+                                    populationCount:
+                                      description: >-
+                                        **Beta** — this field is new and may
+                                        change in backwards-incompatible ways.
+                                        Number of units in the dataset's
+                                        population for this row. Only present
+                                        when the request has a population; each
+                                        value's numerator and denominator keep
+                                        their usual meaning, limited to
+                                        population members.
+                                      type: number
                                     steps:
                                       type: array
                                       items:
@@ -60203,6 +60306,17 @@ paths:
                                           - numerator
                                           - denominator
                                         additionalProperties: false
+                                    populationCount:
+                                      description: >-
+                                        **Beta** — this field is new and may
+                                        change in backwards-incompatible ways.
+                                        Number of units in the dataset's
+                                        population for this row. Only present
+                                        when the request has a population; each
+                                        value's numerator and denominator keep
+                                        their usual meaning, limited to
+                                        population members.
+                                      type: number
                                     steps:
                                       type: array
                                       items:
@@ -61014,6 +61128,17 @@ paths:
                                           - numerator
                                           - denominator
                                         additionalProperties: false
+                                    populationCount:
+                                      description: >-
+                                        **Beta** — this field is new and may
+                                        change in backwards-incompatible ways.
+                                        Number of units in the dataset's
+                                        population for this row. Only present
+                                        when the request has a population; each
+                                        value's numerator and denominator keep
+                                        their usual meaning, limited to
+                                        population members.
+                                      type: number
                                     steps:
                                       type: array
                                       items:
@@ -61821,6 +61946,17 @@ paths:
                                           - numerator
                                           - denominator
                                         additionalProperties: false
+                                    populationCount:
+                                      description: >-
+                                        **Beta** — this field is new and may
+                                        change in backwards-incompatible ways.
+                                        Number of units in the dataset's
+                                        population for this row. Only present
+                                        when the request has a population; each
+                                        value's numerator and denominator keep
+                                        their usual meaning, limited to
+                                        population members.
+                                      type: number
                                     steps:
                                       type: array
                                       items:
@@ -62643,6 +62779,17 @@ paths:
                                           - numerator
                                           - denominator
                                         additionalProperties: false
+                                    populationCount:
+                                      description: >-
+                                        **Beta** — this field is new and may
+                                        change in backwards-incompatible ways.
+                                        Number of units in the dataset's
+                                        population for this row. Only present
+                                        when the request has a population; each
+                                        value's numerator and denominator keep
+                                        their usual meaning, limited to
+                                        population members.
+                                      type: number
                                     steps:
                                       type: array
                                       items:
@@ -81343,6 +81490,18 @@ components:
                                 - unit
                                 - denominatorUnit
                               additionalProperties: false
+                          population:
+                            description: >-
+                              **Beta** — this field is new and may change in
+                              backwards-incompatible ways. A population applied
+                              to every metric in the request. Only proportion
+                              metrics on the population's Fact Table are
+                              supported; the request is rejected if any metric
+                              is incompatible.
+                            anyOf:
+                              - title: Exploration Population
+                                $ref: '#/components/schemas/ExplorationPopulation'
+                              - type: 'null'
                         required:
                           - type
                           - values
@@ -83055,6 +83214,82 @@ components:
         - blocks
         - owner
       additionalProperties: false
+    ExplorationPopulation:
+      type: object
+      properties:
+        source:
+          anyOf:
+            - type: object
+              properties:
+                type:
+                  type: string
+                  const: factTable
+                factTableId:
+                  type: string
+              required:
+                - type
+                - factTableId
+              additionalProperties: false
+        rowFilters:
+          default: []
+          type: array
+          items:
+            type: object
+            properties:
+              operator:
+                type: string
+                enum:
+                  - '='
+                  - '!='
+                  - <
+                  - <=
+                  - '>'
+                  - '>='
+                  - between
+                  - not_between
+                  - in
+                  - not_in
+                  - contains
+                  - not_contains
+                  - matches_pattern
+                  - not_matches_pattern
+                  - starts_with
+                  - ends_with
+                  - is_null
+                  - not_null
+                  - is_true
+                  - is_false
+                  - sql_expr
+                  - saved_filter
+              column:
+                type: string
+              values:
+                type: array
+                items:
+                  type: string
+            required:
+              - operator
+            additionalProperties: false
+        aggregateFilter:
+          description: >-
+            Conditions on each unit's total within the queried date range, such
+            as ">=3" or ">=3,<10". Requires aggregateFilterColumn
+          type: string
+        aggregateFilterColumn:
+          description: >-
+            Numeric column to total, or "$$count" to count rows. Requires
+            aggregateFilter
+          type: string
+        unit:
+          description: >-
+            Identifier type that defines population membership. Every metric's
+            unit must match it.
+          type: string
+      required:
+        - source
+        - rowFilters
+        - unit
+      additionalProperties: false
     ContextualBandit:
       type: object
       properties:
@@ -84164,6 +84399,15 @@ components:
                         - numerator
                         - denominator
                       additionalProperties: false
+                  populationCount:
+                    description: >-
+                      **Beta** — this field is new and may change in
+                      backwards-incompatible ways. Number of units in the
+                      dataset's population for this row. Only present when the
+                      request has a population; each value's numerator and
+                      denominator keep their usual meaning, limited to
+                      population members.
+                    type: number
                   steps:
                     type: array
                     items:
@@ -84512,6 +84756,17 @@ components:
                           - unit
                           - denominatorUnit
                         additionalProperties: false
+                    population:
+                      description: >-
+                        **Beta** — this field is new and may change in
+                        backwards-incompatible ways. A population applied to
+                        every metric in the request. Only proportion metrics on
+                        the population's Fact Table are supported; the request
+                        is rejected if any metric is incompatible.
+                      anyOf:
+                        - title: Exploration Population
+                          $ref: '#/components/schemas/ExplorationPopulation'
+                        - type: 'null'
                   required:
                     - type
                     - values

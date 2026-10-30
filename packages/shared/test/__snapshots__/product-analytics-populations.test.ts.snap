@@ -1,0 +1,144 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`metric explorations with a population generated SQL matches the snapshot with a population 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 23:59:59'
+      AND (
+        (event_name = 'Purchase')
+        OR (device_type = 'mobile')
+      )
+  ),
+  _factTable0_rows AS (
+    SELECT
+      date(timestamp) AS dimension0,
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN ((device_type = 'mobile')) THEN revenue
+        ELSE NULL
+      END AS population_count
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      dimension0,
+      MAX(m0) AS m0,
+      CASE
+        WHEN (SUM(population_count) > 10) THEN 1
+        ELSE NULL
+      END AS population_count
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0,
+      dimension0
+  ),
+  _factTable0_unit0_members AS (
+    SELECT
+      dimension0,
+      CASE
+        WHEN population_count IS NOT NULL THEN m0
+        ELSE NULL
+      END AS m0,
+      CASE
+        WHEN population_count IS NOT NULL THEN population_count
+        ELSE NULL
+      END AS population_count
+    FROM
+      _factTable0_unit0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      dimension0,
+      CAST(SUM(m0) AS REAL) AS m0_numerator,
+      CAST(COUNT(m0) AS REAL) AS m0_denominator,
+      CAST(SUM(population_count) AS REAL) AS population_count_numerator
+    FROM
+      _factTable0_unit0_members
+    GROUP BY
+      dimension0
+  )
+SELECT
+  dimension0,
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator,
+  population_count_numerator AS population_count_numerator
+FROM
+  _factTable0_unit0_rollup"
+`;
+
+exports[`metric explorations with a population generated SQL matches the snapshot without a population 1`] = `
+"WITH
+  _factTable0 AS (
+    SELECT
+      *
+    FROM
+      (
+        -- Raw fact table SQL
+        SELECT
+          *
+        FROM
+          events
+      ) t
+    WHERE
+      timestamp >= '2026-09-01 00:00:00'
+      AND timestamp <= '2026-09-03 23:59:59'
+      AND (event_name = 'Purchase')
+  ),
+  _factTable0_rows AS (
+    SELECT
+      date(timestamp) AS dimension0,
+      user_id AS unit0,
+      CASE
+        WHEN ((event_name = 'Purchase')) THEN 1
+        ELSE NULL
+      END AS m0
+    FROM
+      _factTable0
+  ),
+  _factTable0_unit0 AS (
+    SELECT
+      unit0,
+      dimension0,
+      MAX(m0) AS m0
+    FROM
+      _factTable0_rows
+    GROUP BY
+      unit0,
+      dimension0
+  ),
+  _factTable0_unit0_rollup AS (
+    SELECT
+      dimension0,
+      CAST(SUM(m0) AS REAL) AS m0_numerator,
+      CAST(COUNT(m0) AS REAL) AS m0_denominator
+    FROM
+      _factTable0_unit0
+    GROUP BY
+      dimension0
+  )
+SELECT
+  dimension0,
+  m0_numerator AS m0_numerator,
+  m0_denominator AS m0_denominator
+FROM
+  _factTable0_unit0_rollup"
+`;

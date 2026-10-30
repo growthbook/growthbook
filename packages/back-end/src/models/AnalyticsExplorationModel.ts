@@ -222,6 +222,9 @@ export class AnalyticsExplorationModel extends BaseClass {
         path: dataset.type === "data_source" ? dataset.path : null,
         sql: dataset.type === "sql" ? dataset.sql : null,
         rawTable: config.chartType === "rawTable",
+        ...(dataset.type === "metric" && dataset.population
+          ? { population: dataset.population }
+          : {}),
         timestampColumn:
           dataset.type === "data_source" || dataset.type === "sql"
             ? dataset.timestampColumn

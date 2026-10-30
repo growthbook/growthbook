@@ -241,6 +241,26 @@ describe("draft metric explorations", () => {
   });
   const internal = { cache: "never", allowDraftMetrics: true } as const;
 
+  it("rejects a draft with a population", async () => {
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
+      throw new Error("Expected metric");
+    testConfig.dataset.population = {
+      source: { type: "factTable", factTableId: "ft_1" },
+      rowFilters: [],
+      unit: "user_id",
+    };
+    const run = runProductAnalyticsExploration(context, testConfig, {
+      ...internal,
+      cache: "preferred",
+    });
+    await expect(run).rejects.toThrow(BadRequestError);
+    await expect(run).rejects.toThrow(
+      "Metrics with populations require a saved metric.",
+    );
+    expect(create).not.toHaveBeenCalled();
+  });
+
   it("uses and validates the unsaved calculation without loading a saved metric", async () => {
     await expect(
       runProductAnalyticsExploration(context, config, internal),
@@ -309,5 +329,124 @@ describe("draft metric explorations", () => {
     expect(
       internalValue.type === "metric" && internalValue.values[0].draftMetric,
     ).toEqual(draftMetric);
+  });
+});
+
+describe("metric dataset population validation", () => {
+  const population = {
+    source: { type: "factTable" as const, factTableId: "ft_1" },
+    rowFilters: [],
+    unit: "user_id",
+  };
+  const metric = {
+    id: "fact_1",
+    datasource: "ds_1",
+    metricType: "proportion",
+    numerator: { factTableId: "ft_1", column: "$$distinctUsers" },
+  };
+  const config: ExplorationConfig = {
+    ...makeConfig(),
+    type: "metric",
+    chartType: "bigNumber",
+    dataset: {
+      type: "metric",
+      values: [
+        {
+          type: "metric",
+          metricId: "fact_1",
+          name: "Converted",
+          rowFilters: [],
+          unit: "user_id",
+          denominatorUnit: null,
+        },
+      ],
+      population,
+    },
+  };
+  const findLatestByConfig = jest.fn();
+  const create = jest.fn();
+  const permissions = makePermissions();
+  const context = {
+    permissions,
+    models: {
+      factMetrics: { getByIds: jest.fn(async () => [metric]) },
+      analyticsExplorations: { findLatestByConfig, create },
+    },
+  } as unknown as ReqContext;
+  beforeEach(() => {
+    jest.clearAllMocks();
+    permissions.canRunProductAnalyticsExplorationQueries.mockReturnValue(true);
+    getDataSourceByIdMock.mockResolvedValue({ id: "ds_1", type: "postgres" });
+    getFactTablesByIdsMock.mockResolvedValue([
+      { ...makeFactTable("ft_1"), columns: [] },
+    ]);
+    findLatestByConfig.mockResolvedValue(null);
+  });
+  const run = (c = config) =>
+    runProductAnalyticsExploration(context, c, { cache: "required" });
+  // Validation runs with the metric load after a cache miss.
+  const runUncached = (c = config) =>
+    runProductAnalyticsExploration(context, c, { cache: "never" });
+  it("passes the supplied population rules to cache lookup", async () => {
+    await expect(run()).resolves.toBeNull();
+    expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
+      throw new Error("Expected metric dataset");
+    testConfig.dataset.population = {
+      ...population,
+      aggregateFilter: ">2",
+      aggregateFilterColumn: "$$count",
+    };
+    await run(testConfig);
+    expect(findLatestByConfig.mock.calls[1][0]).toEqual(testConfig);
+    expect(findLatestByConfig.mock.calls[0][0]).toEqual(config);
+  });
+  it("rejects an incompatible fact table before creating an exploration", async () => {
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
+      throw new Error("Expected metric dataset");
+    testConfig.dataset.population = {
+      ...population,
+      source: { type: "factTable", factTableId: "other" },
+    };
+    const result = runUncached(testConfig);
+    await expect(result).rejects.toThrow(BadRequestError);
+    await expect(result).rejects.toThrow("same Fact Table");
+    expect(create).not.toHaveBeenCalled();
+  });
+  it("rejects the request when any metric is incompatible with the population", async () => {
+    const mean = {
+      ...metric,
+      id: "fact_2",
+      name: "Revenue",
+      metricType: "mean",
+      numerator: { factTableId: "ft_1", column: "revenue" },
+    };
+    const getByIds = context.models.factMetrics.getByIds as jest.Mock;
+    getByIds.mockResolvedValueOnce([metric, mean]);
+    const testConfig = structuredClone(config);
+    if (testConfig.dataset.type !== "metric")
+      throw new Error("Expected metric dataset");
+    testConfig.dataset.values.push({
+      ...testConfig.dataset.values[0],
+      metricId: mean.id,
+      name: "Revenue",
+    });
+    const result = runUncached(testConfig);
+    await expect(result).rejects.toThrow(BadRequestError);
+    await expect(result).rejects.toThrow(
+      'Metric "Revenue" can\'t be combined with a Population.',
+    );
+    // Metrics and Fact Tables are loaded once, together.
+    expect(getByIds).toHaveBeenCalledTimes(1);
+    expect(getByIds).toHaveBeenCalledWith(["fact_1", "fact_2"]);
+    expect(getFactTablesByIdsMock).toHaveBeenCalledTimes(1);
+    expect(create).not.toHaveBeenCalled();
+  });
+  it("checks datasource query permission even for cache-only requests", async () => {
+    permissions.canRunProductAnalyticsExplorationQueries.mockReturnValue(false);
+    await expect(run()).rejects.toThrow("permission denied");
+    expect(findLatestByConfig).not.toHaveBeenCalled();
   });
 });

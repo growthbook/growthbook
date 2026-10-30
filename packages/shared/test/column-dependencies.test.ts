@@ -1,5 +1,5 @@
 import { explorationConfigReferencesColumn } from "shared/enterprise";
-import { ExplorationConfig } from "shared/validators";
+import { ExplorationConfig, ExplorationPopulation } from "shared/validators";
 
 const baseConfig = {
   datasource: "ds1",
@@ -40,6 +40,88 @@ function factTableConfig(
 
 describe("explorationConfigReferencesColumn", () => {
   const filters = [{ id: "flt_1", value: "margin_vc > 0" }];
+
+  describe("metric dataset population", () => {
+    const population: ExplorationPopulation = {
+      source: { type: "factTable", factTableId: "ft1" },
+      rowFilters: [],
+      unit: "user_id",
+    };
+
+    function metricConfig(
+      population: ExplorationPopulation | null | undefined,
+    ): ExplorationConfig {
+      return {
+        ...baseConfig,
+        type: "metric",
+        dataset: {
+          type: "metric",
+          values: [
+            {
+              type: "metric",
+              name: "Metric",
+              metricId: "metric1",
+              unit: "user_id",
+              denominatorUnit: null,
+              rowFilters: [],
+            },
+          ],
+          population,
+        },
+      };
+    }
+
+    it.each<Partial<ExplorationPopulation>>([
+      { aggregateFilter: ">0", aggregateFilterColumn: "margin_vc" },
+      { rowFilters: [{ column: "margin_vc", operator: ">", values: ["0"] }] },
+      { rowFilters: [{ operator: "sql_expr", values: ["margin_vc > 0"] }] },
+      { rowFilters: [{ operator: "saved_filter", values: ["flt_1"] }] },
+    ])("detects population column references: %j", (references) => {
+      const config = metricConfig({ ...population, ...references });
+      expect(
+        explorationConfigReferencesColumn(
+          config,
+          "ft1",
+          "margin_vc",
+          '"',
+          filters,
+        ),
+      ).toBe(true);
+      expect(
+        explorationConfigReferencesColumn(
+          config,
+          "other",
+          "margin_vc",
+          '"',
+          filters,
+        ),
+      ).toBe(false);
+      expect(
+        explorationConfigReferencesColumn(
+          config,
+          "ft1",
+          "other_column",
+          '"',
+          filters,
+        ),
+      ).toBe(false);
+    });
+
+    it.each([undefined, null, population])(
+      "ignores an absent population or one without column references: %j",
+      (p) => {
+        expect(
+          explorationConfigReferencesColumn(
+            metricConfig(p),
+            "ft1",
+            "margin_vc",
+            '"',
+            filters,
+          ),
+        ).toBe(false);
+      },
+    );
+  });
 
   it("detects a direct valueColumn reference", () => {
     const config = factTableConfig([{ valueColumn: "margin_vc" }]);
