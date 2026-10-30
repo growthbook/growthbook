@@ -150,6 +150,9 @@ export async function getInformationSchemaById(
   organization: string,
   informationSchemaId: string,
 ): Promise<InformationSchemaInterface | null> {
+  if (informationSchemaId && typeof informationSchemaId !== "string") {
+    return null;
+  }
   const result = await InformationSchemaModel.findOne({
     organization,
     id: informationSchemaId,
