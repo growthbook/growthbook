@@ -23,7 +23,6 @@ import { BigQueryConnectionParams } from "shared/types/integrations/bigquery";
 import { DatabricksConnectionParams } from "shared/types/integrations/databricks";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { Box, Card, Flex } from "@radix-ui/themes";
-import { useFeatureValue } from "@growthbook/growthbook-react";
 import { PiCaretRight, PiPause, PiPencilSimple, PiPlay } from "react-icons/pi";
 import { DailyUsage, UsageLimits } from "shared/types/organization";
 import { useAuth } from "@/services/auth";
@@ -44,6 +43,7 @@ import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
+import Link from "@/ui/Link";
 import Text from "@/ui/Text";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import ConfirmDialog from "@/ui/ConfirmDialog";
@@ -637,10 +637,6 @@ export default function EventForwarder({
   // "over" is the advertised stop (what the nav and docs say); the hidden
   // `blocked` flag is enforced server-side and needs nothing here.
   const isOverLimit = isMetered && usage?.eventForwarder?.status === "over";
-  const eventsForwarderFlag = useFeatureValue(
-    "events-forwarder-multi-step",
-    "OFF",
-  );
 
   const isPaidPlan = ["pro", "pro_sso", "enterprise"].includes(
     effectiveAccountPlan || "",
@@ -659,7 +655,7 @@ export default function EventForwarder({
       onRefresh: handleRefresh,
     });
 
-  if (!supportsEventForwarder(dataSource)) {
+  if (!isCloud() || !supportsEventForwarder(dataSource)) {
     return null;
   }
 
@@ -804,20 +800,7 @@ export default function EventForwarder({
       ) : null}
 
       {!eventForwarderConfig ? (
-        eventsForwarderFlag === "VISIBLE" ? (
-          <Callout status="info">
-            Event Forwarder is available as an early access feature. Contact
-            your account manager or reach out to{" "}
-            <a
-              href="mailto:sales@growthbook.io"
-              target="_blank"
-              rel="noreferrer"
-            >
-              sales@growthbook.io
-            </a>{" "}
-            to learn more and get started.
-          </Callout>
-        ) : hasEventForwarderFeature ? (
+        hasEventForwarderFeature ? (
           <Callout status="info">
             Event Forwarder is not configured for this datasource.
             {canEdit ? (
@@ -836,13 +819,7 @@ export default function EventForwarder({
           <Callout status="info">
             Event Forwarder is not available for your current plan. Contact your
             account manager or reach out to{" "}
-            <a
-              href="mailto:sales@growthbook.io"
-              target="_blank"
-              rel="noreferrer"
-            >
-              sales@growthbook.io
-            </a>{" "}
+            <Link href="mailto:sales@growthbook.io">sales@growthbook.io</Link>{" "}
             to upgrade.
           </Callout>
         ) : (
