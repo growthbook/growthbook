@@ -277,12 +277,21 @@ html.app-drawer-open body {
   // Its details panel sits flush against the window's right edge, past the
   // page's padding. Without the panel docked beside it, the working area
   // keeps the page's right padding (its own 24px, plus the rest).
-  // Wider by the padding rather than moved: centered (mx="auto"), a negative
-  // right margin alone would push it right by as much.
+  // Its layout reaches past the page's padding on both sides: to the side
+  // nav (so the save bar spans the working area, which the layout clips to)
+  // and to the window's right edge (so the details panel sits flush). Wider
+  // by the padding rather than moved: centered (mx="auto"), negative
+  // margins alone would push it sideways. The working column takes the left
+  // padding back, so its content stays on the page's left edge.
   & .experiment-layout {
-    width: calc(100% + var(--page-padding)) !important;
-    margin-right: calc(-1 * var(--page-padding));
-    @include page-padding-motion(width, margin-right);
+    width: calc(100% + 2 * var(--page-padding)) !important;
+    margin-left: calc(-1 * var(--page-padding)) !important;
+    margin-right: calc(-1 * var(--page-padding)) !important;
+    @include page-padding-motion(width, margin-left, margin-right);
+  }
+  & .experiment-layout [aria-busy] > .experiment-column {
+    padding-left: var(--page-padding);
+    @include page-padding-motion(padding-left);
   }
   // The working column itself, in the layout's content box: the save bar
   // has a column of its own, lined up with it, which these leave alone.
@@ -303,15 +312,13 @@ html.app-drawer-open body {
     padding-bottom: var(--space-6);
   }
   // The save bar runs from the side nav to the panel (the window's edge
-  // without it), its content where it was: 16px in from the working area's
-  // left edge, and on the page's right edge without the panel.
-  & .experiment-layout .experiment-save-bar {
-    margin-left: calc(-1 * var(--page-padding));
-    padding-left: calc(var(--space-4) + var(--page-padding));
-    @include page-padding-motion(margin-left, padding-left, padding-right);
-  }
+  // without it), as wide as the layout. Its content sits as far from its left
+  // edge as Save from its right: 16px beside the panel (the bar's own
+  // padding), or the page's padding without it, on the page's edges.
   & .experiment-layout > :not([data-panel-docked]) .experiment-save-bar {
+    padding-left: var(--page-padding);
     padding-right: var(--page-padding);
+    @include page-padding-motion(padding-left, padding-right);
   }
   // Its padding classes too, but a card's or a full-width band's.
   $card: ":not(.appbox, .card, .box, .rt-Card, .page-bleed)";
