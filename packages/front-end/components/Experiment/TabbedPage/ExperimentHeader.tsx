@@ -540,6 +540,22 @@ export default function ExperimentHeader({
     details.runtime || details.dates.length
       ? dateList(details.dates, details.runtime)
       : null;
+  // A phase's tooltip reads as it would were that phase the only one.
+  const phaseDetails = (index: number) => {
+    const phase = experiment.phases[index];
+    if (!phase) return null;
+    const { runtime, dates } = headerDetails(
+      {
+        ...experiment,
+        phases: [phase],
+        // An earlier phase ended, though the experiment runs on.
+        status:
+          index < experiment.phases.length - 1 ? "stopped" : experiment.status,
+      },
+      now,
+    );
+    return runtime || dates.length ? dateList(dates, runtime) : null;
+  };
   const datesBox = useRef<HTMLDivElement>(null);
   // Off with the dashboard, so it measures the box anew once the tabs show it.
   const datesCut = useIsOverflowingX(
@@ -1484,7 +1500,7 @@ export default function ExperimentHeader({
                             isBandit={experiment.type === "multi-armed-bandit"}
                             isHoldout={experiment.type === "holdout"}
                             holdout={holdout}
-                            details={everyDateList}
+                            details={phaseDetails}
                           />
                         </Text>
                       ) : (
