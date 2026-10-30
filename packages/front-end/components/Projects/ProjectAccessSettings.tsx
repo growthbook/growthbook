@@ -1,5 +1,5 @@
-import { FC, useState } from "react";
-import { Flex } from "@radix-ui/themes";
+import { FC, useEffect, useRef, useState } from "react";
+import { Box, Flex } from "@radix-ui/themes";
 import { ProjectInterface } from "shared/types/project";
 import { ExpandedMember } from "shared/types/organization";
 import { putProjectValidator } from "shared/validators";
@@ -30,6 +30,24 @@ const ProjectAccessSettings: FC<{
   const [allowTargeting, setAllowTargeting] = useState(true);
 
   const canEdit = permissionsUtil.canUpdateProject(project.id);
+  const unchanged =
+    restrictAccess === !!project.restrictAccess &&
+    allowTargeting === (project.allowTargeting !== false);
+
+  // The modal used to manage focus; keep keyboard users in place.
+  const editButton = useRef<HTMLButtonElement>(null);
+  const editor = useRef<HTMLDivElement>(null);
+  const wasEditing = useRef(false);
+  useEffect(() => {
+    if (editing) {
+      editor.current
+        ?.querySelector<HTMLElement>('[role="checkbox"]:not([disabled])')
+        ?.focus();
+    } else if (wasEditing.current) {
+      editButton.current?.focus();
+    }
+    wasEditing.current = editing;
+  }, [editing]);
   const canRestrictAccess = hasCommercialFeature("advanced-permissions");
 
   const hasExplicitGrant = (member: ExpandedMember | undefined) =>
@@ -77,12 +95,18 @@ const ProjectAccessSettings: FC<{
             >
               Cancel
             </Button>
-            <Button onClick={save} setError={setError} loading={saving}>
+            <Button
+              onClick={save}
+              setError={setError}
+              loading={saving}
+              disabled={unchanged}
+            >
               Save
             </Button>
           </Flex>
         ) : (
           <Button
+            ref={editButton}
             variant="ghost"
             disabled={!canEdit}
             onClick={() => {
@@ -97,7 +121,7 @@ const ProjectAccessSettings: FC<{
         )}
       </Flex>
       {editing ? (
-        <>
+        <Box ref={editor}>
           <PremiumTooltip commercialFeature="advanced-permissions">
             <Checkbox
               label="Restrict user access"
@@ -130,7 +154,7 @@ const ProjectAccessSettings: FC<{
               {error}
             </Callout>
           )}
-        </>
+        </Box>
       ) : (
         <Flex direction="column" gap="1">
           <Metadata

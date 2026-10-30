@@ -1,6 +1,5 @@
 import React, { FC, PropsWithChildren } from "react";
 import { Box, Flex } from "@radix-ui/themes";
-import { PiArrowSquareOut } from "react-icons/pi";
 import Button from "@/ui/Button";
 import Heading from "@/ui/Heading";
 import LinkButton from "@/ui/LinkButton";
@@ -14,9 +13,7 @@ type ImportFromServiceCardProps = PropsWithChildren<{
   hasDarkIcon: boolean;
   // Services with a self-serve importer link to their import page
   path?: string;
-  // Services with a docs migration guide link to it
-  guide?: string;
-  // Services with neither open a "request migration help" modal instead
+  // Services without one open a "request migration help" modal instead
   onRequest?: () => void;
 }>;
 
@@ -25,7 +22,6 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
   icon,
   service,
   path,
-  guide,
   hasDarkIcon,
   onRequest,
   children,
@@ -65,20 +61,20 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
       </Box>
       {/* One shared width keeps the description column even down the stack. */}
       <Flex flexShrink="0" minWidth="130px" justify="end">
+        {/* Short visible labels; the accessible name carries the service. */}
         {path ? (
-          <LinkButton href={`importing/${path}`}>Import</LinkButton>
-        ) : guide ? (
           <LinkButton
-            href={guide}
-            external
-            variant="outline"
-            icon={<PiArrowSquareOut />}
-            iconPosition="right"
+            href={`importing/${path}`}
+            aria-label={`Import from ${service}`}
           >
-            View guide
+            Import
           </LinkButton>
         ) : (
-          <Button variant="outline" onClick={() => onRequest?.()}>
+          <Button
+            variant="outline"
+            aria-label={`Get help migrating from ${service}`}
+            onClick={() => onRequest?.()}
+          >
             Get help
           </Button>
         )}

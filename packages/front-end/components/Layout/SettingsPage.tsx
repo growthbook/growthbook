@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import type { BreadcrumbItem } from "@/ui/Breadcrumbs";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
@@ -74,12 +75,17 @@ export default function SettingsPage({
   contentClassName?: string;
   children: ReactNode;
 }) {
+  // Organization lands on Projects, so only link it for users who can open it.
+  const canViewProjects = usePermissionsUtil().canViewProjectsPage();
   return (
     <>
       <PageHead
         breadcrumb={
           breadcrumb ?? [
-            { display: "Organization", href: "/projects" },
+            {
+              display: "Organization",
+              ...(canViewProjects ? { href: "/projects" } : {}),
+            },
             ...(parent ? [parent] : []),
             { display: title },
           ]

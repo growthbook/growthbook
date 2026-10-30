@@ -3,7 +3,6 @@ import { useFeatureIsOn } from "@growthbook/growthbook-react";
 import { Box, Flex } from "@radix-ui/themes";
 import { PiQuestion } from "react-icons/pi";
 import track from "@/services/track";
-import { docsOrigin } from "@/components/docSections";
 import { ImportFromServiceCard } from "@/components/importing/ImportFromServiceCard/ImportFromServiceCard";
 import { ImportRequestModal } from "@/components/importing/ImportRequestModal/ImportRequestModal";
 import Frame from "@/ui/Frame";
@@ -43,17 +42,9 @@ const eppoService = {
   text: "Connect with an Eppo API key. Metrics stay warehouse-native.",
 };
 
-// Services we don't have a self-serve importer for yet. Those with a docs guide
-// link to it; the rest open a modal pointing at support so we can help with the
-// migration (and gauge demand).
-const upcomingServices: {
-  service: string;
-  slug: string;
-  icon: string;
-  hasDarkIcon: boolean;
-  text: string;
-  guide?: string;
-}[] = [
+// Services we don't have a self-serve importer for yet. Each opens a modal
+// pointing at support so we can help with the migration (and gauge demand).
+const upcomingServices = [
   {
     service: "Optimizely",
     slug: "optimizely",
@@ -185,15 +176,14 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
 
       <Section
         title="Migrate With Help"
-        description="No importer yet. Follow a step-by-step guide in the docs, or ask our team for help."
+        description="No importer yet. Ask our team to help plan your migration."
       >
-        {upcoming.map(({ service, slug, icon, hasDarkIcon, text, guide }) => (
+        {upcoming.map(({ service, slug, icon, hasDarkIcon, text }) => (
           <ImportFromServiceCard
             key={`ImportFromServiceCard-${service}`}
             service={service}
             icon={icon}
             hasDarkIcon={hasDarkIcon}
-            guide={guide && `${docsOrigin}${guide}`}
             onRequest={() => {
               track("Import interest clicked", { service: slug });
               setRequestService({ service, slug });
@@ -204,16 +194,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         ))}
       </Section>
 
-      <Flex
-        align="center"
-        gap="4"
-        px="4"
-        py="4"
-        style={{
-          border: "1px dashed var(--gray-a6)",
-          borderRadius: "var(--radius-3)",
-        }}
-      >
+      <Flex align="center" gap="4" px="4" py="4" className={styles.requestBox}>
         <PiQuestion size={22} style={{ color: "var(--color-text-mid)" }} />
         <Box flexGrow="1">
           <Heading as="h3" size="sm" mb="1">
@@ -225,9 +206,7 @@ export const ImportYourData: FC<ImportYourDataProps> = (_props) => {
         </Box>
         <Flex gap="4" flexShrink="0">
           <Link
-            href="#"
-            onClick={(e) => {
-              e.preventDefault();
+            onClick={() => {
               track("Import interest clicked", { service: "other" });
               setRequestService({ service: "another tool", slug: "other" });
             }}

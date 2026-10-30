@@ -458,7 +458,6 @@ const ProjectPage: FC = () => {
                   {saveError && <Callout status="error">{saveError}</Callout>}
                   {saveMsg && (
                     <TempMessage
-                      className="mb-0 py-2"
                       close={() => {
                         setSaveMsg(false);
                       }}
