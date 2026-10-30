@@ -1,14 +1,11 @@
-import React, {
-  ReactNode,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import React, { ReactNode, useCallback, useContext, useState } from "react";
 import { contextualBanditEndpoints } from "shared/api-endpoints";
 import { z } from "zod";
 import { useRestApi, useRestApiCall } from "@/services/restApi";
+import {
+  useCoherentLatest,
+  useRefetchHeavyOnStatusSuccess,
+} from "@/hooks/useCoherentSnapshotStatus";
 
 type ResultsResponse = z.infer<
   typeof contextualBanditEndpoints.getContextualBanditResults.responseSchema
@@ -70,57 +67,6 @@ function heavyReflectsSuccess(
   );
 }
 
-function useRefetchHeavyOnStatusSuccess(
-  statusLatest: LatestStatus,
-  heavyLatest: LatestStatus,
-  heavyIsValidating: boolean,
-  refetchHeavy: () => Promise<unknown>,
-): void {
-  const successStatusId =
-    statusLatest?.status === "success" ? statusLatest.id : undefined;
-  const heavyCaughtUp = heavyReflectsSuccess(statusLatest, heavyLatest);
-  const refetchedForStatusId = useRef<string | undefined>(undefined);
-  useEffect(() => {
-    if (successStatusId === undefined) return;
-    if (heavyIsValidating) return;
-    if (heavyCaughtUp) {
-      // Heavy fetch caught up — reset so a later regression to this id can
-      // trigger a fresh refetch.
-      refetchedForStatusId.current = undefined;
-      return;
-    }
-    if (refetchedForStatusId.current === successStatusId) return;
-    refetchedForStatusId.current = successStatusId;
-    void refetchHeavy();
-  }, [successStatusId, heavyCaughtUp, heavyIsValidating, refetchHeavy]);
-}
-
-// Surfaces the status endpoint's view atomically with the heavy results.
-// While the status endpoint reports a newer successful snapshot than the heavy
-// fetch has caught up to, hold back the visible value so consumers don't see
-// "queries done" alongside stale results for the duration of the heavy refetch.
-// Running / errored / progress updates pass through immediately — only the
-// final success flip is gated on heavy-fetch agreement.
-function useCoherentLatest(
-  statusLatest: LatestStatus,
-  heavyLatest: LatestStatus,
-): LatestStatus {
-  const heavyAgrees =
-    !statusLatest ||
-    statusLatest.status !== "success" ||
-    heavyReflectsSuccess(statusLatest, heavyLatest);
-  const [held, setHeld] = useState<LatestStatus>(null);
-  useEffect(() => {
-    if (!heavyAgrees) return;
-    setHeld((prev) =>
-      prev?.id === statusLatest?.id && prev?.status === statusLatest?.status
-        ? prev
-        : statusLatest,
-    );
-  }, [heavyAgrees, statusLatest]);
-  return heavyAgrees ? statusLatest : held;
-}
-
 export default function ContextualBanditSnapshotProvider({
   cbId,
   children,
@@ -158,14 +104,15 @@ export default function ContextualBanditSnapshotProvider({
 
   const statusLatest = statusData?.latest ?? null;
   const heavyLatest = heavyData?.latest ?? null;
+  const heavyCaughtUp = heavyReflectsSuccess(statusLatest, heavyLatest);
 
   useRefetchHeavyOnStatusSuccess(
     statusLatest,
-    heavyLatest,
+    heavyCaughtUp,
     isValidating,
     mutateHeavy,
   );
-  const latest = useCoherentLatest(statusLatest, heavyLatest);
+  const latest = useCoherentLatest(statusLatest, heavyCaughtUp) ?? null;
 
   const mutate = useCallback(
     () => Promise.all([mutateStatus(), mutateHeavy()]),

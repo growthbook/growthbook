@@ -2,7 +2,11 @@ import {
   InterleavingSnapshotInterface,
   interleavingSnapshotValidator,
 } from "shared/validators";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { UpdateProps } from "shared/types/base-model";
+import {
+  CasConflictError,
+  MakeModelClass,
+} from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: interleavingSnapshotValidator,
@@ -21,10 +25,7 @@ const BaseClass = MakeModelClass({
 });
 
 export class InterleavingSnapshotModel extends BaseClass {
-  // Snapshots have no project of their own: the parent Interleaving's current
-  // project is what authorizes them, and a snapshot is only ever reached
-  // through a parent already loaded via `models.interleavings`. A frozen copy
-  // of the project would go stale the moment the experiment moved.
+  // Callers authorize access through the parent interleaving.
   protected canRead(): boolean {
     return true;
   }
@@ -36,9 +37,6 @@ export class InterleavingSnapshotModel extends BaseClass {
     return { ...keys, datasource: doc.settings.datasourceId };
   }
 
-  // Refreshing results is a query, not an analysis edit. canCreateExperimentSnapshot
-  // is just canRunExperimentQueries, and that is what the service and the query
-  // runner check, so a RunQueries-only member has to pass here too.
   private canRunQueries(doc: InterleavingSnapshotInterface): boolean {
     const { datasource } = this.getForeignRefs(doc, false);
     return (
@@ -65,14 +63,9 @@ export class InterleavingSnapshotModel extends BaseClass {
   ): Promise<InterleavingSnapshotInterface | null> {
     const snapshots = await this._find(
       { interleavingId },
-      { sort: { dateCreated: -1 }, limit: 1 },
+      { sort: { dateCreated: -1 }, limit: 1, bypassReadPermissionChecks: true },
     );
     return snapshots[0] || null;
-  }
-
-  public async deleteForInterleaving(interleavingId: string): Promise<void> {
-    const snapshots = await this._find({ interleavingId });
-    await Promise.all(snapshots.map((snapshot) => this.delete(snapshot)));
   }
 
   // Capped at 100 regardless of what the caller asks for.
@@ -82,7 +75,72 @@ export class InterleavingSnapshotModel extends BaseClass {
   ): Promise<InterleavingSnapshotInterface[]> {
     return this._find(
       { interleavingId },
-      { sort: { dateCreated: -1 }, limit: Math.min(limit, 100) },
+      {
+        sort: { dateCreated: -1 },
+        limit: Math.min(limit, 100),
+        bypassReadPermissionChecks: true,
+      },
     );
+  }
+
+  public listActiveForInterleaving(
+    interleavingId: string,
+  ): Promise<InterleavingSnapshotInterface[]> {
+    return this._find(
+      {
+        interleavingId,
+        status: { $in: ["running", "pending"] },
+      },
+      { bypassReadPermissionChecks: true },
+    );
+  }
+
+  public async getLatestSuccessfulForInterleaving(
+    interleavingId: string,
+  ): Promise<InterleavingSnapshotInterface | null> {
+    const snapshots = await this._find(
+      { interleavingId, status: "success" },
+      { sort: { dateCreated: -1 }, limit: 1, bypassReadPermissionChecks: true },
+    );
+    return snapshots[0] || null;
+  }
+
+  // As getLatestForInterleaving, plus a projection: the status poll needs only
+  // the run metadata, so the results blob is left in the database.
+  public async getLatestStatusForInterleaving(
+    interleavingId: string,
+  ): Promise<InterleavingSnapshotInterface | null> {
+    const snapshots = await this._find(
+      { interleavingId },
+      {
+        sort: { dateCreated: -1 },
+        limit: 1,
+        bypassReadPermissionChecks: true,
+        projection: { results: 0 },
+      },
+    );
+    return snapshots[0] || null;
+  }
+
+  public async finalizeIfRunning(
+    id: string,
+    updates: UpdateProps<InterleavingSnapshotInterface>,
+  ): Promise<InterleavingSnapshotInterface | null> {
+    const latest = await this.getById(id);
+    if (!latest || latest.status !== "running") return null;
+    try {
+      return await this.updateIfUnchanged(latest, updates);
+    } catch (e) {
+      if (e instanceof CasConflictError) return null;
+      throw e;
+    }
+  }
+
+  // Parent deletion has already been authorized.
+  public async deleteAllForInterleaving(interleavingId: string) {
+    await this._dangerousGetCollection().deleteMany({
+      organization: this.context.org.id,
+      interleavingId,
+    });
   }
 }

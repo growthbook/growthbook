@@ -435,6 +435,12 @@ export type ExperimentHealthSettings = {
   experimentMinLengthDays: number;
 };
 
+// Other experiment models reuse the standard status indicator.
+type ExperimentStatusAdapterType =
+  | ExperimentType
+  | "contextual-bandit"
+  | "interleaving";
+
 export type ExperimentDataForStatusStringDates = Omit<
   Pick<
     ExperimentInterfaceStringDates,
@@ -456,10 +462,7 @@ export type ExperimentDataForStatusStringDates = Omit<
   >,
   "type"
 > & {
-  // Contextual bandits are a separate model but reuse the experiment status
-  // badge via an adapter, so allow their type here. Kept optional to match
-  // the source `type` field.
-  type?: ExperimentType | "contextual-bandit";
+  type?: ExperimentStatusAdapterType;
 };
 
 export type ExperimentDataForStatus = Omit<
@@ -483,8 +486,5 @@ export type ExperimentDataForStatus = Omit<
   >,
   "type"
 > & {
-  // Contextual bandits are a separate model but reuse the experiment status
-  // badge via an adapter, so allow their type here. Kept optional to match
-  // the source `type` field.
-  type?: ExperimentType | "contextual-bandit";
+  type?: ExperimentStatusAdapterType;
 };

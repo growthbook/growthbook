@@ -15,10 +15,9 @@ import {
   apiInterleavingResultsReturn,
   apiInterleavingSnapshotReturn,
   apiInterleavingSnapshotsReturn,
+  apiInterleavingStatusReturn,
   apiListInterleavingSnapshotsValidator,
 } from "./interleaving-snapshot";
-
-/** REST API surface for interleaving experiments under `/api/v1/interleavings/*`. */
 
 export const startInterleavingEndpoint = {
   pathFragment: "/:id/start",
@@ -64,7 +63,18 @@ export const getInterleavingResultsEndpoint = {
   zodReturnObject: apiInterleavingResultsReturn,
   summary: "Get the latest interleaving experiment results",
   description:
-    "The most recent results snapshot, whatever its status. `snapshot` is null before the first refresh.",
+    "Returns the most recent successful `snapshot` and the status-only `latest` run. Poll `latest` while a refresh is in progress; `snapshot` remains null until a run succeeds.",
+};
+
+export const getInterleavingStatusEndpoint = {
+  pathFragment: "/:id/status",
+  verb: "get" as const,
+  operationId: "getInterleavingStatus",
+  validator: apiGetInterleavingResultsValidator,
+  zodReturnObject: apiInterleavingStatusReturn,
+  summary: "Get interleaving experiment run status",
+  description:
+    "Just the status of the most recent results run (id, status, queries, timestamps). A lightweight alternative to the full results endpoint, intended for polling while a run is in progress.",
 };
 
 export const listInterleavingSnapshotsEndpoint = {
@@ -74,7 +84,7 @@ export const listInterleavingSnapshotsEndpoint = {
   validator: apiListInterleavingSnapshotsValidator,
   zodReturnObject: apiInterleavingSnapshotsReturn,
   summary: "List interleaving experiment results snapshots",
-  description: "Newest first. The first entry is the latest results.",
+  description: "Newest snapshot first, regardless of status.",
 };
 
 export const getInterleavingSnapshotEndpoint = {
@@ -95,13 +105,15 @@ export const interleavingApiSpec = {
     createBody: apiCreateInterleavingBody,
     updateBody: apiUpdateInterleavingBody,
   },
-  crudActions: ["get", "create", "list", "update"],
+  crudActions: ["get", "create", "list", "update", "delete"],
   crudValidatorOverrides: {
     list: apiListInterleavingsValidator,
   },
   crudDescriptions: {
     update:
       "Archive an interleaving experiment by setting `archived`. Use the start and stop endpoints to change its status.",
+    delete:
+      "Permanently deletes an interleaving experiment and its results snapshots. Archive instead to keep the results.",
   },
   confirmation: {
     create: ["experiment.create"],
@@ -112,6 +124,7 @@ export const interleavingApiSpec = {
       "experiment.phases",
       "experiment.other",
     ],
+    delete: ["experiment.other"],
   },
   confirmationInHandler: { update: true },
   customEndpoints: [
@@ -119,6 +132,7 @@ export const interleavingApiSpec = {
     stopInterleavingEndpoint,
     refreshInterleavingEndpoint,
     getInterleavingResultsEndpoint,
+    getInterleavingStatusEndpoint,
     listInterleavingSnapshotsEndpoint,
     getInterleavingSnapshotEndpoint,
   ],

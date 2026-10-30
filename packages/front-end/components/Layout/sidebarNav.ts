@@ -71,6 +71,12 @@ export const navlinks: SidebarLinkProps[] = [
           gb?.getFeatureValue("contextual-bandits", true) ?? true,
       },
       {
+        name: "Interleaving",
+        href: "/interleavings",
+        path: /^interleavings?($|\/)/,
+        filter: ({ gb }) => !!gb?.isOn("interleave-exp"),
+      },
+      {
         name: "Holdouts",
         href: "/holdouts",
         path: /^holdouts/,

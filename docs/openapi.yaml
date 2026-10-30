@@ -939,6 +939,11 @@ tags:
   - name: InterleavingSnapshot_model
     x-displayName: Interleaving Snapshot
     description: <SchemaDefinition schemaRef="#/components/schemas/InterleavingSnapshot" />
+  - name: InterleavingSnapshotStatus_model
+    x-displayName: Interleaving Snapshot Status
+    description: >-
+      <SchemaDefinition
+      schemaRef="#/components/schemas/InterleavingSnapshotStatus" />
   - name: Learning_model
     x-displayName: Learning
     description: <SchemaDefinition schemaRef="#/components/schemas/Learning" />
@@ -56082,7 +56087,9 @@ paths:
                   items:
                     type: string
                 archived:
-                  description: Stop a running interleaving experiment before archiving it.
+                  description: >-
+                    Archiving removes a running interleaving experiment from the
+                    SDK payload, so its rankers stop serving immediately.
                   type: boolean
                 trackingKey:
                   description: >-
@@ -56355,6 +56362,42 @@ paths:
         - lang: cURL
           source: |-
             curl -X PUT 'https://api.growthbook.io/api/v1/interleavings/{id}' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    delete:
+      operationId: deleteInterleaving
+      summary: Delete a single interleaving
+      description: >-
+        Permanently deletes an interleaving experiment and its results
+        snapshots. Archive instead to keep the results.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ''
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Resource deleted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedId:
+                    type: string
+                required:
+                  - deletedId
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X DELETE 'https://api.growthbook.io/api/v1/interleavings/{id}'
+            \
               -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/interleavings:
     post:
@@ -56837,8 +56880,9 @@ paths:
       operationId: getInterleavingResults
       summary: Get the latest interleaving experiment results
       description: >-
-        The most recent results snapshot, whatever its status. `snapshot` is
-        null before the first refresh.
+        Returns the most recent successful `snapshot` and the status-only
+        `latest` run. Poll `latest` while a refresh is in progress; `snapshot`
+        remains null until a run succeeds.
       tags:
         - Interleavings
       parameters:
@@ -56858,13 +56902,26 @@ paths:
                 type: object
                 properties:
                   snapshot:
-                    description: null until the first refresh
+                    description: >-
+                      The most recent snapshot that succeeded, so results stay
+                      readable while a newer run is in flight. null until the
+                      first run succeeds.
                     anyOf:
                       - title: Interleaving Snapshot
                         $ref: '#/components/schemas/InterleavingSnapshot'
                       - type: 'null'
+                  latest:
+                    description: >-
+                      Status of the most recent snapshot in any state. Poll this
+                      to follow a run; it matches `snapshot` once that run
+                      succeeds. null until the first refresh.
+                    anyOf:
+                      - title: Interleaving Snapshot Status
+                        $ref: '#/components/schemas/InterleavingSnapshotStatus'
+                      - type: 'null'
                 required:
                   - snapshot
+                  - latest
                 additionalProperties: false
       x-codeSamples:
         - lang: cURL
@@ -56872,11 +56929,52 @@ paths:
             curl -X GET
             'https://api.growthbook.io/api/v1/interleavings/{id}/results' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/interleavings/{id}/status:
+    get:
+      operationId: getInterleavingStatus
+      summary: Get interleaving experiment run status
+      description: >-
+        Just the status of the most recent results run (id, status, queries,
+        timestamps). A lightweight alternative to the full results endpoint,
+        intended for polling while a run is in progress.
+      tags:
+        - Interleavings
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: The interleaving experiment id
+          schema:
+            description: The interleaving experiment id
+            type: string
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  latest:
+                    description: null until the first refresh
+                    anyOf:
+                      - title: Interleaving Snapshot Status
+                        $ref: '#/components/schemas/InterleavingSnapshotStatus'
+                      - type: 'null'
+                required:
+                  - latest
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: >-
+            curl -X GET
+            'https://api.growthbook.io/api/v1/interleavings/{id}/status' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
   /v1/interleavings/{id}/snapshots:
     get:
       operationId: listInterleavingSnapshots
       summary: List interleaving experiment results snapshots
-      description: Newest first. The first entry is the latest results.
+      description: Newest snapshot first, regardless of status.
       tags:
         - Interleavings
       parameters:
@@ -84377,6 +84475,56 @@ components:
         - runStarted
         - settings
       additionalProperties: false
+    InterleavingSnapshotStatus:
+      type: object
+      properties:
+        id:
+          type: string
+        status:
+          type: string
+          enum:
+            - running
+            - success
+            - error
+        error:
+          type: string
+        dateCreated:
+          type: string
+          format: date-time
+        runStarted:
+          anyOf:
+            - type: string
+              format: date-time
+            - type: 'null'
+        queries:
+          type: array
+          items:
+            type: object
+            properties:
+              query:
+                type: string
+              status:
+                type: string
+                enum:
+                  - queued
+                  - running
+                  - failed
+                  - partially-succeeded
+                  - succeeded
+              name:
+                type: string
+            required:
+              - query
+              - status
+              - name
+            additionalProperties: false
+      required:
+        - id
+        - status
+        - dateCreated
+        - runStarted
+        - queries
+      additionalProperties: false
     CustomField:
       type: object
       properties:
@@ -91339,6 +91487,7 @@ x-tagGroups:
       - Interleaving_model
       - InterleavingExposureQuery_model
       - InterleavingSnapshot_model
+      - InterleavingSnapshotStatus_model
       - Learning_model
       - LookbackOverride_model
       - Member_model

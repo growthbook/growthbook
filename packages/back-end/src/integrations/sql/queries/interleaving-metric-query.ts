@@ -1,4 +1,4 @@
-import { buildMinimalOrCondition, format } from "shared/sql";
+import { buildMinimalOrCondition, format, quoteIdentifier } from "shared/sql";
 import {
   getColumnExpression,
   getColumnRefWhereClause,
@@ -84,6 +84,9 @@ const PREFERENCE_TIE_TOLERANCE = "1e-9";
  * impression. The timestamp is per metric so the metrics sharing a query stay
  * independent.
  */
+
+// Avoid collisions with warehouse columns copied through `m.*`.
+const PREFERENCE_EXPOSURE_TS_COLUMN = "__gb_first_exposure_timestamp";
 
 // One metric with the SQL fragments its CTEs need
 type PlanEntry = {
@@ -244,6 +247,7 @@ export function getInterleavingMetricQuery(
   const castKey = dialect.castToFilterString ?? dialect.castToString;
   const itemId = castKey(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
   const exposureRankingId = castKey(`e.${INTERLEAVING_RANKING_ID_COLUMN}`);
+  const exposureUserId = `e.${quoteIdentifier(userIdType, dialect.identifierQuote)}`;
 
   // One row per (user, ranking, competitive item). Grouping collapses
   // double-logged impressions (SDK retries) and repeated items in a list.
@@ -251,7 +255,7 @@ export function getInterleavingMetricQuery(
     __exposures AS (
       SELECT
         ${cols([
-          `e.${userIdType} AS user_id`,
+          `${exposureUserId} AS user_id`,
           `${exposureRankingId} AS ranking_id`,
           `${itemId} AS item_id`,
           `MAX(${teamExpr}) AS team`,
@@ -265,7 +269,7 @@ export function getInterleavingMetricQuery(
         AND ${item(INTERLEAVING_ITEM_FIELD_COMPETITIVE)} = 'true'
         AND ${variation} IN (${lit(controlKey)}, ${lit(treatmentKey)})
         AND ${dateFilter(`e.${ts}`)}
-      GROUP BY e.${userIdType}, ${exposureRankingId}, ${itemId}
+      GROUP BY ${exposureUserId}, ${exposureRankingId}, ${itemId}
     )`;
 
   // Treatment share and first exposure for each user x item. Preference
@@ -342,6 +346,20 @@ export function getInterleavingMetricQuery(
       GROUP BY ${eventUserId}, ${eventRankingId}, ${eventItemId}
     )`;
 
+  // Saved row filters can contain unqualified columns, so evaluate them with
+  // only one relation in scope.
+  const preferenceEventRowsCTE = `
+    __preferenceEventRows AS (
+      SELECT
+        m.*,
+        s.first_exposure_timestamp AS ${PREFERENCE_EXPOSURE_TS_COLUMN}
+      FROM __eventRows m
+      INNER JOIN __share s ON (
+        s.user_id = ${eventUserId}
+        AND s.item_id = ${eventItemId}
+      )
+    )`;
+
   const preferenceEventsCTE = `
     __preferenceEvents AS (
       SELECT
@@ -350,12 +368,8 @@ export function getInterleavingMetricQuery(
           `${eventItemId} AS item_id`,
           ...plan.preference.map((e) => `${e.value} AS value_${e.i}`),
         ])}
-      FROM __eventRows m
-      INNER JOIN __share s ON (
-        s.user_id = ${eventUserId}
-        AND s.item_id = ${eventItemId}
-      )
-      WHERE ${eventTs} >= s.first_exposure_timestamp
+      FROM __preferenceEventRows m
+      WHERE ${eventTs} >= m.${PREFERENCE_EXPOSURE_TS_COLUMN}
       GROUP BY ${eventUserId}, ${eventItemId}
     )`;
 
@@ -485,7 +499,7 @@ export function getInterleavingMetricQuery(
     ...(includePreference ? [shareCTE] : []),
     eventRowsCTE,
     ...(includePaired ? [eventsCTE] : []),
-    ...(includePreference ? [preferenceEventsCTE] : []),
+    ...(includePreference ? [preferenceEventRowsCTE, preferenceEventsCTE] : []),
     ...(includePaired ? [creditedCTE, impressionCTE, pairedUserCTE] : []),
     ...(includePreference ? [preferenceUserCTE] : []),
   ].filter(Boolean);

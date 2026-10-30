@@ -37,6 +37,9 @@ import {
   ExperimentMetricInterface,
   withScheduledBy,
   areVariationWeightsValid,
+  getMetricSampleSize,
+  getMetricResultStatus,
+  hasEnoughData,
 } from "../src/experiments";
 import { createLikeStringMatchFn } from "../src/sql";
 import { LookbackOverride } from "../src/validators/experiments";
@@ -3169,5 +3172,82 @@ describe("areVariationWeightsValid", () => {
     [[]],
   ])("rejects %p", (weights) => {
     expect(areVariationWeightsValid(weights)).toBe(false);
+  });
+});
+
+describe("sample size source", () => {
+  // Only quantileMetricType is consulted, so a plain mean metric is enough.
+  const metric = {
+    id: "m",
+    metricType: "mean",
+  } as unknown as ExperimentMetricInterface;
+  const defaults = { minimumSampleSize: 150 };
+
+  it("sizes by metric value by default", () => {
+    const baseline = { value: 40, cr: 0.4, users: 100, denominator: 200 };
+    const stats = { value: 60, cr: 0.6, users: 100, denominator: 200 };
+    expect(getMetricSampleSize(baseline, stats, metric)).toEqual({
+      baselineValue: 40,
+      variationValue: 60,
+    });
+  });
+
+  it("sizes by denominator when asked", () => {
+    const baseline = { value: 40, cr: 0.4, users: 100, denominator: 200 };
+    const stats = { value: 60, cr: 0.6, users: 100, denominator: 200 };
+    expect(getMetricSampleSize(baseline, stats, metric, "denominator")).toEqual(
+      { baselineValue: 200, variationValue: 200 },
+    );
+  });
+
+  it("stops a unanimous split reading as no data", () => {
+    // A preference row: 200 non-tied users, all preferring one ranker.
+    const baseline = { value: 0, cr: 0, users: 300, denominator: 200 };
+    const stats = { value: 200, cr: 1, users: 300, denominator: 200 };
+
+    expect(hasEnoughData(baseline, stats, metric, defaults)).toBe(false);
+    expect(
+      hasEnoughData(baseline, stats, metric, defaults, "denominator"),
+    ).toBe(true);
+  });
+
+  it("lets a unanimous row reach a won/lost status", () => {
+    // 200 non-tied users all preferring treatment: 0 wins for control is a
+    // real result, so the row must not be treated as empty.
+    const baseline = { value: 0, cr: 0, users: 300, denominator: 200 };
+    const stats = {
+      value: 200,
+      cr: 1,
+      users: 300,
+      denominator: 200,
+      expected: 1,
+      pValue: 0.0000001,
+    };
+    const args = {
+      metric,
+      metricDefaults: defaults,
+      baseline,
+      stats,
+      ciLower: 0.05,
+      ciUpper: 0.95,
+      pValueThreshold: 0.05,
+      statsEngine: "frequentist" as const,
+      differenceType: "absolute" as const,
+    };
+
+    expect(getMetricResultStatus(args).resultsStatus).toBe("");
+    expect(
+      getMetricResultStatus({ ...args, sampleSizeFrom: "denominator" })
+        .resultsStatus,
+    ).toBe("won");
+  });
+
+  it("still applies the minimum to the non-tied user count", () => {
+    // 65 non-tied users is below the 150 minimum, win counts notwithstanding.
+    const baseline = { value: 5, cr: 0.08, users: 300, denominator: 65 };
+    const stats = { value: 60, cr: 0.92, users: 300, denominator: 65 };
+    expect(
+      hasEnoughData(baseline, stats, metric, defaults, "denominator"),
+    ).toBe(false);
   });
 });

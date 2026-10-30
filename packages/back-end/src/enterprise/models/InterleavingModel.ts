@@ -7,10 +7,12 @@ import {
   apiInterleavingResultsReturn,
   apiInterleavingSnapshotReturn,
   apiInterleavingSnapshotsReturn,
+  apiInterleavingStatusReturn,
   apiUpdateInterleavingBody,
   ApiInterleavingInterface,
   getInterleavingResultsEndpoint,
   getInterleavingSnapshotEndpoint,
+  getInterleavingStatusEndpoint,
   INTERLEAVING_API_UPDATE_FIELDS,
   InterleavingInterface,
   interleavingApiSpec,
@@ -29,7 +31,7 @@ import {
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
-import { UpdateProps } from "shared/types/base-model";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
@@ -56,14 +58,21 @@ import {
 import {
   toApiInterleaving,
   toApiInterleavingSnapshot,
+  toApiInterleavingSnapshotStatus,
 } from "back-end/src/enterprise/services/interleavingApi";
 import {
+  cancelInterleavingSnapshot,
   resolveInterleavingExposureQuery,
   runInterleavingSnapshot,
 } from "back-end/src/enterprise/services/interleavingAnalysis";
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
+import {
+  ensureIndexOnce,
+  getCollection,
+  isDuplicateKeyErrorForIndex,
+} from "back-end/src/util/mongo.util";
 
 type ApiVariationInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["variations"]
@@ -79,6 +88,23 @@ function payloadAffectingChanges(
   if (!changes) return [];
   return PAYLOAD_AFFECTING_INTERLEAVING_FIELDS.filter(
     (field) => field in changes && !isEqual(changes[field], existing[field]),
+  );
+}
+
+const trackingKeyCollisionMessage = (trackingKey: string) =>
+  `Another interleaving experiment already reports as "${trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`;
+
+const TRACKING_KEY_INDEX = "interleaving_datasource_trackingkey_unique";
+const trackingKeyUniquenessIndex = {
+  name: TRACKING_KEY_INDEX,
+  unique: true,
+} as const;
+
+async function ensureTrackingKeyIndex() {
+  await ensureIndexOnce(
+    getCollection("interleavings"),
+    { organization: 1, datasource: 1, trackingKey: 1 },
+    trackingKeyUniquenessIndex,
   );
 }
 
@@ -193,12 +219,39 @@ const BaseClass = MakeModelClass({
               `Interleaving experiment ${req.params.id} not found or not accessible`,
             );
           }
-          const snapshot =
-            await req.context.models.interleavingSnapshots.getLatestForInterleaving(
+          const [snapshot, latest] = await Promise.all([
+            req.context.models.interleavingSnapshots.getLatestSuccessfulForInterleaving(
+              interleaving.id,
+            ),
+            req.context.models.interleavingSnapshots.getLatestForInterleaving(
+              interleaving.id,
+            ),
+          ]);
+          return {
+            snapshot: snapshot ? toApiInterleavingSnapshot(snapshot) : null,
+            latest: latest ? toApiInterleavingSnapshotStatus(latest) : null,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getInterleavingStatusEndpoint,
+        reqHandler: async (
+          req,
+        ): Promise<z.infer<typeof apiInterleavingStatusReturn>> => {
+          const interleaving = await req.context.models.interleavings.getById(
+            req.params.id,
+          );
+          if (!interleaving) {
+            return req.context.throwNotFoundError(
+              `Interleaving experiment ${req.params.id} not found or not accessible`,
+            );
+          }
+          const latest =
+            await req.context.models.interleavingSnapshots.getLatestStatusForInterleaving(
               interleaving.id,
             );
           return {
-            snapshot: snapshot ? toApiInterleavingSnapshot(snapshot) : null,
+            latest: latest ? toApiInterleavingSnapshotStatus(latest) : null,
           };
         },
       }),
@@ -358,11 +411,6 @@ export class InterleavingModel extends BaseClass {
     if (!existing) return req.context.throwNotFoundError();
     const body = (req.body ?? {}) as Record<string, unknown>;
     const changes = await this.apiUpdateChanges(existing, body);
-    if (changes.archived && existing.status === "running") {
-      req.context.throwBadRequestError(
-        "Stop this interleaving experiment before archiving it.",
-      );
-    }
     await requireConfirmation(req.context, {
       actions: interleavingChangeActions(existing, changes),
       project: existing.project,
@@ -385,6 +433,34 @@ export class InterleavingModel extends BaseClass {
 
   protected hasPremiumFeature(): boolean {
     return this.context.hasPremiumFeature("interleaving");
+  }
+
+  private async mapTrackingKeyCollision<T>(
+    doc: { trackingKey: string },
+    write: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await write();
+    } catch (e) {
+      if (isDuplicateKeyErrorForIndex(e, TRACKING_KEY_INDEX)) {
+        throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
+      }
+      throw e;
+    }
+  }
+
+  public create(props: CreateProps<InterleavingInterface>) {
+    return this.mapTrackingKeyCollision(props, () => super.create(props));
+  }
+
+  public update(
+    existing: InterleavingInterface,
+    updates: UpdateProps<InterleavingInterface>,
+  ) {
+    return this.mapTrackingKeyCollision(
+      { trackingKey: updates.trackingKey ?? existing.trackingKey },
+      () => super.update(existing, updates),
+    );
   }
 
   // Admin context so the scan is not permission-filtered: a tracking key the
@@ -433,16 +509,18 @@ export class InterleavingModel extends BaseClass {
         }
       }
 
+      if (identityChanged) {
+        await ensureTrackingKeyIndex();
+      }
       if (
+        identityChanged &&
         others.some(
           (other) =>
             other.datasource === doc.datasource &&
             other.trackingKey === doc.trackingKey,
         )
       ) {
-        throw new Error(
-          `Another interleaving experiment already reports as "${doc.trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`,
-        );
+        throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
       }
     }
 
@@ -592,14 +670,46 @@ export class InterleavingModel extends BaseClass {
     this.refreshSDKPayload([existing, newDoc], "updated");
   }
 
+  protected async beforeDelete(doc: InterleavingInterface) {
+    if (interleavingInSDKPayload(doc)) {
+      throw new Error(
+        "Stop or archive this interleaving experiment before deleting it.",
+      );
+    }
+    // A stopped or archived experiment can still have a refresh in flight.
+    // Dropping its snapshots would orphan the warehouse queries and the
+    // reaper that finalizes them keys off the snapshot doc, so cancel first.
+    const cancelContext =
+      this.context.scanContextOverride ??
+      getContextForAgendaJobByOrgObject(this.context.org);
+    const running =
+      await cancelContext.models.interleavingSnapshots.listActiveForInterleaving(
+        doc.id,
+      );
+    for (const snapshot of running) {
+      try {
+        await cancelInterleavingSnapshot(cancelContext, snapshot);
+      } catch (e) {
+        // Best effort: an unreachable warehouse must not make the experiment
+        // undeletable. afterDelete still removes the snapshot documents.
+        this.context.logger.error(
+          e,
+          `Failed to cancel interleaving snapshot ${snapshot.id} while deleting ${doc.id}`,
+        );
+      }
+    }
+  }
+
   protected async afterDelete(doc: InterleavingInterface) {
+    this.refreshSDKPayload([doc], "deleted");
     // Orphaned snapshots are not just dead weight: the reapers scan the
     // collection by status with no parent check, so a running one is retried
-    // forever.
-    await this.context.models.interleavingSnapshots.deleteForInterleaving(
+    // forever. Deleted unchecked because `delete()` enforces
+    // canRunExperimentQueries, which the user deleting the parent may not hold
+    // — and throwing here would strand them after the parent is already gone.
+    await this.context.models.interleavingSnapshots.deleteAllForInterleaving(
       doc.id,
     );
-    this.refreshSDKPayload([doc], "deleted");
   }
 
   private refreshSDKPayload(docs: InterleavingInterface[], event: string) {
@@ -642,11 +752,10 @@ export class InterleavingModel extends BaseClass {
     const envsChanged =
       updated?.environmentSettings !== undefined &&
       !isEqual(updated.environmentSettings, existing.environmentSettings);
-    // Editing a running interleaving's targeting, traffic or bucketing changes
-    // what SDKs serve right away, the same as starting it, so it answers to the
-    // same run permission. Drafts don't serve, so they stay on createAnalyses.
+    // Live payload changes require the same permission as starting.
     const servesNow =
-      interleavingInSDKPayload(existing) &&
+      (interleavingInSDKPayload(existing) ||
+        interleavingInSDKPayload({ ...existing, ...updated })) &&
       payloadAffectingChanges(existing, updated).length > 0;
     const envs = interleavingEnvsForChange({
       existing,

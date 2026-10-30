@@ -289,14 +289,12 @@ export class InterleavingResultsQueryRunner extends QueryRunner<
       updates.results = result.results;
     }
 
-    await this.context.models.interleavingSnapshots.updateById(
-      this.model.id,
-      updates,
-    );
-
-    return {
-      ...this.model,
-      ...updates,
-    };
+    const updated =
+      await this.context.models.interleavingSnapshots.finalizeIfRunning(
+        this.model.id,
+        updates,
+      );
+    // Already finalized by the reaper or a cancel; report its state, not ours.
+    return updated ?? (await this.getLatestModel());
   }
 }
