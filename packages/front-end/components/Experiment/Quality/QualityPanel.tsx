@@ -444,15 +444,34 @@ export default function QualityPanel({
             ghostTo={fixesOpen && !override && !draft ? reachable : null}
           />
           {band ? (
-            <Text weight="semibold" size="sm">
-              <span style={{ color: band.text }}>{band.label}</span>
-              {override ? (
-                <span style={{ color: "var(--color-text-mid)" }}>
-                  {" "}
-                  · Overridden
-                </span>
-              ) : null}
-            </Text>
+            <Tooltip
+              enabled={!!override?.reason}
+              content={
+                override ? (
+                  <>
+                    “{override.reason}”
+                    <br />
+                    Overridden
+                    {override.userName ? ` by ${override.userName}` : ""}
+                    {override.dateOverridden
+                      ? ` · ${date(override.dateOverridden)}`
+                      : ""}
+                  </>
+                ) : null
+              }
+            >
+              <span tabIndex={override?.reason ? 0 : undefined}>
+                <Text weight="semibold" size="sm">
+                  <span style={{ color: band.text }}>{band.label}</span>
+                  {override ? (
+                    <span style={{ color: "var(--color-text-mid)" }}>
+                      {" "}
+                      · Overridden
+                    </span>
+                  ) : null}
+                </Text>
+              </span>
+            </Tooltip>
           ) : null}
           <Box maxWidth="250px">
             <Text as="p" align="center" mb="0">
