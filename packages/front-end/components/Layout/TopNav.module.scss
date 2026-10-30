@@ -9,7 +9,8 @@
   right: var(--agent-rail-width, 0px);
   height: var(--header-height);
   z-index: 1010;
-  background-color: var(--color-background);
+  // The page's, so it's white over a white page (global.scss).
+  background-color: var(--page-bg, var(--color-background));
   // The right padding lines up with the page content.
   padding: 0 var(--space-6) 0 var(--space-5);
   transition:
