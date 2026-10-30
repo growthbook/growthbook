@@ -119,19 +119,21 @@ export async function getUserByEmail(
   email: string,
 ): Promise<UserInterface | null> {
   const collection = getCollection(COLLECTION);
+  // $eq + String() so a non-string value can never act as a Mongo operator
+  const exactEmail = String(email);
 
   // Exact case-sensitive match. Existing duplicate accounts (e.g.
   // `User@x.com` and `user@x.com`) keep resolving to their own row.
-  const exact = await collection.findOne({ email });
+  const exact = await collection.findOne({ email: { $eq: exactEmail } });
   if (exact) return toInterface(exact);
 
   // If the input had any uppercase, retry with the lowercased form.
   // `createUser` lowercases on insert, so for any account created
   // after this fix landed this second lookup hits the unique `email`
   // index — no scan.
-  const lower = email.toLowerCase();
-  if (lower !== email) {
-    const lowerHit = await collection.findOne({ email: lower });
+  const lower = exactEmail.toLowerCase();
+  if (lower !== exactEmail) {
+    const lowerHit = await collection.findOne({ email: { $eq: lower } });
     if (lowerHit) return toInterface(lowerHit);
   }
 

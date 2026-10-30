@@ -1680,6 +1680,11 @@ export async function putOrganization(
     licenseKey,
   } = req.body;
 
+  // An object here would reach the global users lookup as a Mongo operator
+  if (ownerEmail && typeof ownerEmail !== "string") {
+    return res.status(400).json({ status: 400, message: "Invalid ownerEmail" });
+  }
+
   if (connections || name || ownerEmail || installationName) {
     if (!context.permissions.canManageOrgSettings()) {
       context.permissions.throwPermissionError();
