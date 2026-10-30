@@ -13,10 +13,8 @@ const ImportFromLaunchDarklyPage: NextPage = () => {
     <SettingsPage
       title="LaunchDarkly Importer"
       description="Import your existing projects, environments, and feature flags from the LaunchDarkly API."
-      breadcrumb={[
-        { display: "Import Your Data", href: "/importing" },
-        { display: "LaunchDarkly Importer" },
-      ]}
+      group="general"
+      parent={{ display: "Import Your Data", href: "/importing" }}
     >
       <ImportFromLaunchDarkly />
     </SettingsPage>

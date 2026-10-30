@@ -59,6 +59,7 @@ export default function SettingsPage({
   description,
   actions,
   parent,
+  group = "organization",
   breadcrumb,
   hideHeader,
   headerClassName,
@@ -69,26 +70,31 @@ export default function SettingsPage({
   description?: ReactNode;
   actions?: ReactNode;
   parent?: BreadcrumbItem;
+  // Which Settings nav group the page is reached from. "general" pages show
+  // under Organization for roles that cannot see General.
+  group?: "general" | "organization";
   breadcrumb?: BreadcrumbItem[];
   hideHeader?: boolean;
   headerClassName?: string;
   contentClassName?: string;
   children: ReactNode;
 }) {
-  // Organization lands on Projects, so only link it for users who can open it.
-  const canViewProjects = usePermissionsUtil().canViewProjectsPage();
+  const permissionsUtil = usePermissionsUtil();
+  const root: BreadcrumbItem =
+    group === "general" && permissionsUtil.canManageOrgSettings()
+      ? { display: "General", href: "/settings" }
+      : {
+          display: "Organization",
+          // Organization lands on Projects, so only link it for users who can open it.
+          ...(permissionsUtil.canViewProjectsPage()
+            ? { href: "/projects" }
+            : {}),
+        };
   return (
     <>
       <PageHead
         breadcrumb={
-          breadcrumb ?? [
-            {
-              display: "Organization",
-              ...(canViewProjects ? { href: "/projects" } : {}),
-            },
-            ...(parent ? [parent] : []),
-            { display: title },
-          ]
+          breadcrumb ?? [root, ...(parent ? [parent] : []), { display: title }]
         }
       />
       <Box className="container-fluid pagecontents" mb="4">

@@ -12,10 +12,8 @@ const ImportFromStatsigPage: NextPage = () => {
   return (
     <SettingsPage
       title="Statsig Importer"
-      breadcrumb={[
-        { display: "Import Your Data", href: "/importing" },
-        { display: "Statsig Importer" },
-      ]}
+      group="general"
+      parent={{ display: "Import Your Data", href: "/importing" }}
     >
       <ImportFromStatsig />
     </SettingsPage>
