@@ -114,6 +114,7 @@ export async function getQueryById(
   context: ReqContext | ApiReqContext,
   id: string,
 ) {
+  if (id && typeof id !== "string") return null;
   const doc = await QueryModel.findOne({
     organization: context.org.id,
     id: id,

@@ -162,6 +162,7 @@ export async function findVisualChangesetsByExperiment(
   experiment: string,
   organization: string,
 ): Promise<VisualChangesetInterface[]> {
+  if (experiment && typeof experiment !== "string") return [];
   const visualChangesets = await VisualChangesetModel.find({
     experiment,
     organization,
