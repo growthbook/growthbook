@@ -1,59 +1,35 @@
 import { Box, Flex } from "@radix-ui/themes";
-import EChartsReact from "echarts-for-react";
 import { PiInfo } from "react-icons/pi";
 import type {
   ExplorationConfig,
   ProductAnalyticsExploration,
 } from "shared/validators";
-import { ago, date, datetime } from "shared/dates";
+import { ago, datetime } from "shared/dates";
 import { getEffectiveMetricValue } from "shared/enterprise";
-import { useAppearanceUITheme } from "@/services/AppearanceUIThemeProvider";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
 import Button from "@/ui/Button";
 import {
-  cssColorToHex,
-  getChartThemeColors,
-} from "@/enterprise/components/ProductAnalytics/chart-theme";
-import {
-  formatPreviewHeadline,
   getMetricPreviewPartLabels,
   getMetricPreviewSummary,
 } from "@/components/FactTables/MetricEditor/metricPreview";
-import {
-  fillDailyBuckets,
-  formatUtcWeekday,
-} from "@/components/FactTables/MetricEditor/activityChart";
+import { formatPreviewHeadline } from "@/components/QueryPreview/previewUtils";
+import { fillDailyBuckets } from "@/components/QueryPreview/activityChart";
+import DailyBarChart from "@/components/QueryPreview/DailyBarChart";
+import PreviewHeadline from "@/components/QueryPreview/PreviewHeadline";
 import FunnelChart from "./FunnelChart";
 
 // The metric editor's preview: a headline value over daily bars for one
-// metric. Errors are shown by the caller.
+// metric.
 export default function MetricPreviewChart({
   exploration,
   submittedExploreState,
-  loading,
-  error,
 }: {
-  exploration: ProductAnalyticsExploration | null;
+  exploration: ProductAnalyticsExploration;
   submittedExploreState: ExplorationConfig;
-  loading: boolean;
-  error: string | null;
 }) {
-  const { theme } = useAppearanceUITheme();
-  const { textColor, tooltipBackgroundColor } = getChartThemeColors(theme);
   const { getFactMetricById } = useDefinitions();
-
-  if (error && !loading) return null;
-  if (loading && !exploration) {
-    return (
-      <Flex p="4" align="center" justify="center">
-        <LoadingSpinner />
-      </Flex>
-    );
-  }
-  if (!exploration) return null;
 
   const dataset = submittedExploreState.dataset;
   if (dataset.type === "funnel") {
@@ -119,23 +95,14 @@ export default function MetricPreviewChart({
             </>
           )}
         </Text>
-        <Flex align="start" gap="1" minWidth="0">
-          <div
-            title={summary?.value?.toLocaleString()}
-            style={{
-              fontSize: "3rem",
-              lineHeight: 1.2,
-              fontWeight: 600,
-              minWidth: 0,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-            }}
-          >
-            {(summary?.value ?? null) === null
+        <PreviewHeadline
+          value={
+            (summary?.value ?? null) === null
               ? "—"
-              : formatPreviewHeadline(summary?.value ?? 0)}
-          </div>
+              : formatPreviewHeadline(summary?.value ?? 0)
+          }
+          title={summary?.value?.toLocaleString()}
+        >
           <Tooltip
             content={
               <Box>
@@ -166,7 +133,7 @@ export default function MetricPreviewChart({
               <PiInfo />
             </Button>
           </Tooltip>
-        </Flex>
+        </PreviewHeadline>
         {parts && summary && summary.denominator !== null && (
           <Text as="div" color="text-mid">
             ={" "}
@@ -180,65 +147,21 @@ export default function MetricPreviewChart({
           </Text>
         )}
       </Box>
-      <EChartsReact
-        key={theme}
-        notMerge
-        option={{
-          grid: { top: 20, right: 0, bottom: 28, left: 0 },
-          tooltip: {
-            appendTo: "body",
-            trigger: "axis",
-            padding: [10, 14],
-            backgroundColor: tooltipBackgroundColor,
-            textStyle: { color: textColor },
-            axisPointer: { type: "shadow" },
-            formatter: (params: unknown) => {
-              const point = (Array.isArray(params) ? params[0] : params) as {
-                name?: string;
-              };
-              const day = String(point?.name ?? "");
-              const cell = cellsByDay.get(day);
-              const lines = [
-                `<strong>${date(new Date(`${day.slice(0, 10)}T00:00:00Z`), "UTC")}</strong>`,
-                `Value: ${formatPreviewHeadline(dailyValue(day))}`,
-              ];
-              if (parts) {
-                lines.push(
-                  `${parts.numerator}: ${formatPreviewHeadline(cell?.numerator ?? 0)}`,
-                  `${parts.denominator}: ${formatPreviewHeadline(cell?.denominator ?? 0)}`,
-                );
-              }
-              return lines.join("<br/>");
-            },
-          },
-          xAxis: {
-            type: "category",
-            data: days,
-            axisLine: { show: false },
-            axisTick: { show: false },
-            splitLine: { show: false },
-            axisLabel: {
-              color: cssColorToHex("var(--gray-10)"),
-              formatter: (day: string) => formatUtcWeekday(day, "short"),
-            },
-          },
-          yAxis: { type: "value", show: false },
-          series: [
-            {
-              name: metric.name,
-              type: "bar",
-              barCategoryGap: "15%",
-              data: days.map((day) => ({
-                value: dailyValue(day),
-                itemStyle: {
-                  color: cssColorToHex("var(--violet-9)"),
-                  borderRadius: [2, 2, 0, 0],
-                },
-              })),
-            },
-          ],
+      <DailyBarChart
+        days={days}
+        values={days.map(dailyValue)}
+        seriesName={metric.name}
+        tooltipLines={(day, value) => {
+          const cell = cellsByDay.get(day);
+          const lines = [`Value: ${formatPreviewHeadline(value)}`];
+          if (parts) {
+            lines.push(
+              `${parts.numerator}: ${formatPreviewHeadline(cell?.numerator ?? 0)}`,
+              `${parts.denominator}: ${formatPreviewHeadline(cell?.denominator ?? 0)}`,
+            );
+          }
+          return lines;
         }}
-        style={{ width: "100%", height: "auto", aspectRatio: "2 / 1" }}
       />
     </Flex>
   );

@@ -1,0 +1,23 @@
+.item[role="option"] {
+  height: auto;
+  min-height: 56px;
+  padding-block: var(--space-2);
+
+  .option {
+    gap: var(--space-1);
+  }
+}
+
+.option {
+  display: inline-flex;
+  flex-direction: column;
+}
+
+.descriptor {
+  color: var(--gray-11);
+  font-size: var(--font-size-1);
+}
+
+.trigger .descriptor {
+  display: none;
+}

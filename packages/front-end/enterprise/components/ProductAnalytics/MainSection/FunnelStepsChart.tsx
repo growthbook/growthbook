@@ -7,7 +7,7 @@ import {
   CHART_COLORS,
   cssColorToHex,
   getChartThemeColors,
-} from "@/enterprise/components/ProductAnalytics/chart-theme";
+} from "@/components/DataViz/chart-theme";
 import Text from "@/ui/Text";
 
 /** Convert a `#rrggbb` hex into `rgba(…)` with the given alpha. Used to

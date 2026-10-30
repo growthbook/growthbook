@@ -6,7 +6,7 @@ import type {
 } from "shared/validators";
 import { getFunnelStepDisplayLabel } from "@/enterprise/components/ProductAnalytics/util";
 import { useDefinitions } from "@/services/DefinitionsContext";
-import { getMetricPreviewUnitLabel } from "@/components/FactTables/MetricEditor/metricPreview";
+import { getPreviewUnitLabel } from "@/components/QueryPreview/previewUtils";
 import Text from "@/ui/Text";
 import FunnelStepsChart, { FunnelChartSeries } from "./FunnelStepsChart";
 
@@ -127,7 +127,7 @@ export default function FunnelChart({
   const dataset = submittedExploreState.dataset;
   const unitLabel =
     dataset.type === "funnel" && dataset.unit
-      ? getMetricPreviewUnitLabel(
+      ? getPreviewUnitLabel(
           dataset.unit,
           getFactTableById(dataset.steps[0]?.factTableId ?? ""),
         ).label.toLowerCase()

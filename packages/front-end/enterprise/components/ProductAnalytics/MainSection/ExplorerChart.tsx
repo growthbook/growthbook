@@ -56,7 +56,7 @@ import {
   CHART_COLORS,
   COMPARISON_SERIES_COLORS,
   getChartThemeColors,
-} from "@/enterprise/components/ProductAnalytics/chart-theme";
+} from "@/components/DataViz/chart-theme";
 import FunnelChart from "./FunnelChart";
 import JourneyChart from "./JourneyChart";
 
