@@ -3,21 +3,21 @@ import { useDropzone } from "react-dropzone";
 import { Screenshot } from "shared/types/experiment";
 import clsx from "clsx";
 import { Flex } from "@radix-ui/themes";
-import { PiUploadSimple } from "react-icons/pi";
+import { PiProhibit, PiUploadSimple } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
-import { uploadFile } from "@/services/files";
+import { UPLOAD_IMAGE_TYPES, uploadFile } from "@/services/files";
 import LoadingSpinner from "@/components/LoadingSpinner";
 import Text from "@/ui/Text";
+import HelperText from "@/ui/HelperText";
 import styles from "./ScreenshotUpload.module.scss";
 
 type UploadProgress = { done: number; total: number };
 
-// The types the upload endpoints accept.
-const IMAGE_TYPES = ["image/png", "image/jpeg", "image/gif"];
-const isImageType = (type: string) => IMAGE_TYPES.includes(type);
+const isImageType = (type: string) => UPLOAD_IMAGE_TYPES.includes(type);
+const REJECTED_TYPE_MESSAGE = "Only PNG, JPEG or GIF images can be uploaded";
 
 // Spread `getRootProps()` on the drop target and render `getInputProps()` and
-// `ScreenshotUploadOverlay` inside it.
+// `ScreenshotUploadOverlay` inside it, and `ScreenshotUploadError` near it.
 export function useScreenshotUpload({
   experiment,
   variation,
@@ -45,9 +45,12 @@ export function useScreenshotUpload({
   useEffect(() => {
     onPendingChange?.(pending);
   }, [pending, onPendingChange]);
+  // Cleared by the next drag or upload.
+  const [error, setError] = useState<string | null>(null);
 
   const upload = async (files: File[]) => {
     if (!files.length) return;
+    setError(null);
     setProgress((p) => ({
       done: p?.done ?? 0,
       total: (p?.total ?? 0) + files.length,
@@ -76,7 +79,7 @@ export function useScreenshotUpload({
           description: "",
         });
       } catch (e) {
-        alert(e.message);
+        setError(e.message);
       } finally {
         setProgress((p) =>
           !p || p.done + 1 >= p.total ? null : { ...p, done: p.done + 1 },
@@ -98,17 +101,28 @@ export function useScreenshotUpload({
     upload(files);
   };
 
-  const { getRootProps, getInputProps, isDragActive, open } = useDropzone({
-    onDrop: upload,
-    accept: IMAGE_TYPES,
-    onDropRejected: () =>
-      alert("Only PNG, JPEG and GIF images can be uploaded"),
-    noClick,
-    noKeyboard: noClick,
-    disabled,
-  });
+  const { getRootProps, getInputProps, isDragActive, isDragReject, open } =
+    useDropzone({
+      onDrop: upload,
+      accept: UPLOAD_IMAGE_TYPES,
+      onDragEnter: () => setError(null),
+      // Some browsers hide the type until the drop, so the overlay can't warn.
+      onDropRejected: () => setError(REJECTED_TYPE_MESSAGE),
+      noClick,
+      noKeyboard: noClick,
+      disabled,
+    });
 
-  return { getRootProps, getInputProps, isDragActive, open, onPaste, progress };
+  return {
+    getRootProps,
+    getInputProps,
+    isDragActive,
+    isDragReject,
+    open,
+    onPaste,
+    progress,
+    error,
+  };
 }
 
 const overlayLayout = {
@@ -122,11 +136,26 @@ const overlayLayout = {
 // Covers its drop target, which has to be positioned.
 export function ScreenshotUploadOverlay({
   dragging,
+  rejecting,
   progress,
 }: {
   dragging: boolean;
+  rejecting: boolean;
   progress: UploadProgress | null;
 }) {
+  if (dragging && rejecting) {
+    return (
+      <Flex
+        {...overlayLayout}
+        className={clsx(styles.overlay, styles.rejecting)}
+      >
+        <PiProhibit size={20} />
+        <Text weight="semibold" align="center">
+          Only PNG, JPEG or GIF
+        </Text>
+      </Flex>
+    );
+  }
   if (dragging) {
     return (
       <Flex
@@ -154,5 +183,14 @@ export function ScreenshotUploadOverlay({
           : `Uploading ${progress.done + 1} of ${progress.total}…`}
       </Text>
     </Flex>
+  );
+}
+
+export function ScreenshotUploadError({ error }: { error: string | null }) {
+  if (!error) return null;
+  return (
+    <HelperText status="error" size="sm">
+      {error}
+    </HelperText>
   );
 }

@@ -15,6 +15,13 @@
   color: var(--violet-11);
 }
 
+.rejecting {
+  pointer-events: none;
+  border: 2px dashed var(--red-a9);
+  background-color: var(--red-2);
+  color: var(--red-11);
+}
+
 // Takes clicks too, so nothing hidden beneath it can be pressed.
 .uploading {
   background-color: var(--color-panel-solid);

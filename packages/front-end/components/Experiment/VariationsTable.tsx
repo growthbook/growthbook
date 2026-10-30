@@ -11,6 +11,7 @@ import clsx from "clsx";
 import { trafficSplitPercentages } from "@/services/utils";
 import Carousel from "@/components/Carousel";
 import {
+  ScreenshotUploadError,
   ScreenshotUploadOverlay,
   useScreenshotUpload,
 } from "@/components/EditExperiment/ScreenshotUpload";
@@ -165,7 +166,7 @@ function NoImageBox({ onUpload }: { onUpload?: () => void }) {
   );
 
   return onUpload ? (
-    <Tooltip content="Upload image" side="top">
+    <Tooltip content="Upload, drop or paste an image" side="top">
       <button
         type="button"
         aria-label="Upload image"
@@ -327,9 +328,15 @@ export function VariationBox({
             {split ? <Metadata label="Split" value={split} /> : null}
           </Flex>
         ) : null}
+        {upload.error ? (
+          <Box mt="2">
+            <ScreenshotUploadError error={upload.error} />
+          </Box>
+        ) : null}
       </Flex>
       <ScreenshotUploadOverlay
         dragging={upload.isDragActive}
+        rejecting={upload.isDragReject}
         progress={upload.progress}
       />
     </Box>

@@ -22,6 +22,7 @@ import {
 import { PiTrash, PiCameraPlusLight } from "react-icons/pi";
 import AuthorizedImage from "@/components/AuthorizedImage";
 import {
+  ScreenshotUploadError,
   ScreenshotUploadOverlay,
   useScreenshotUpload,
 } from "@/components/EditExperiment/ScreenshotUpload";
@@ -73,9 +74,16 @@ function UploadTile({
     >
       <input {...upload.getInputProps()} />
       <PiCameraPlusLight size={32} />
-      <span className={styles.uploadHint}>Upload image</span>
+      {upload.error ? (
+        <Box className={styles.uploadError}>
+          <ScreenshotUploadError error={upload.error} />
+        </Box>
+      ) : (
+        <span className={styles.uploadHint}>Upload image</span>
+      )}
       <ScreenshotUploadOverlay
         dragging={upload.isDragActive}
+        rejecting={upload.isDragReject}
         progress={upload.progress}
       />
     </Flex>
