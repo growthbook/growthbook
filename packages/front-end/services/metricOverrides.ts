@@ -95,16 +95,12 @@ export function describeMetricOverride(
   }
   if (o.delayHours !== undefined) rows.push(row("delay", hours(o.delayHours)));
   if (o.regressionAdjustmentOverride) {
-    const value = cuped(
-      o.regressionAdjustmentEnabled,
-      o.regressionAdjustmentDays,
-    );
     rows.push(
       row(
         "cuped",
         o.regressionAdjustmentEnabled && context?.cupedOff
-          ? `${value} (CUPED is off for this experiment)`
-          : value,
+          ? IGNORED
+          : cuped(o.regressionAdjustmentEnabled, o.regressionAdjustmentDays),
       ),
     );
   }

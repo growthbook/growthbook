@@ -103,10 +103,7 @@ describe("describeMetricOverride", () => {
         conversionWindowsIgnored: true,
         cupedOff: true,
       }).map((r) => r.value),
-    ).toEqual([
-      "Ignored by this experiment",
-      "On, 7 day lookback (CUPED is off for this experiment)",
-    ]);
+    ).toEqual(["Ignored by this experiment", "Ignored by this experiment"]);
     expect(
       describeMetricOverride(
         { id: "met_a", windowType: "lookback", windowHours: 12 },
