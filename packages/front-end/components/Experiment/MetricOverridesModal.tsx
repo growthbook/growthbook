@@ -115,6 +115,19 @@ export default function MetricOverridesModal({
     focusId && withCards.some((o) => o.id === focusId) ? focusId : null,
   );
 
+  const initialOverrides = getDefaultMetricOverridesFormValue(
+    withCards,
+    getExperimentMetricById,
+    settings,
+  );
+  // The form fills in defaults the saved overrides may leave unset, so a
+  // change is judged against the form as it opened.
+  const toSaved = (formOverrides: MetricOverride[]) => {
+    const saved = withoutDeprecatedOverrideFields(formOverrides);
+    fixMetricOverridesBeforeSaving(saved);
+    return pruneMetricOverrides(saved);
+  };
+
   const form = useForm<
     EditMetricsFormInterface & {
       // Percentages, by goal metric; unset follows the metric.
@@ -123,11 +136,7 @@ export default function MetricOverridesModal({
   >({
     defaultValues: {
       ...metrics,
-      metricOverrides: getDefaultMetricOverridesFormValue(
-        withCards,
-        getExperimentMetricById,
-        settings,
-      ),
+      metricOverrides: initialOverrides,
       targetMDEs: Object.fromEntries(
         goalTargetMDEs.map((o) => [o.id, decimalToPercent(o.targetMDE, 11)]),
       ),
@@ -163,19 +172,8 @@ export default function MetricOverridesModal({
       submit={validatedSubmit(form, async (value) => {
         let next: MetricOverride[] | null = null;
         if (canOverride) {
-          const edited = withoutDeprecatedOverrideFields(value.metricOverrides);
-          fixMetricOverridesBeforeSaving(edited);
-          const pruned = pruneMetricOverrides(edited);
-          // Opening and confirming isn't an edit, whatever the saved
-          // overrides' shape.
-          if (
-            !isEqual(
-              pruned,
-              pruneMetricOverrides(withoutDeprecatedOverrideFields(overrides)),
-            )
-          ) {
-            next = pruned;
-          }
+          const pruned = toSaved(value.metricOverrides);
+          if (!isEqual(pruned, toSaved(initialOverrides))) next = pruned;
         }
         const nextTargetMDEs = targetMDEOverrides
           ? mergeTargetMDEs(targetMDEOverrides, goalIds, value.targetMDEs)
