@@ -696,7 +696,7 @@ describe("ContextualBanditResultsQueryRunner", () => {
       expect(updated.contextualBanditEventId).toBe("cbe_42");
       expect(updated.weightsWereUpdated).toBe(true);
       expect(refreshMeasurementArmMock).toHaveBeenCalledTimes(1);
-      expect(refreshMeasurementArmMock).toHaveBeenCalledWith(context, cb);
+      expect(refreshMeasurementArmMock).toHaveBeenCalledWith(context, cb.id);
       expect(
         refreshMeasurementArmMock.mock.invocationCallOrder[0],
       ).toBeLessThan(

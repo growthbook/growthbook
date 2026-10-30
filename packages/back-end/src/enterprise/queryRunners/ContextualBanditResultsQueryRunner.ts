@@ -551,7 +551,7 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
         }
         await refreshMeasurementArmAfterBanditRun(
           this.context,
-          await this.loadCbDoc(),
+          this.model.contextualBandit,
         );
       }
 

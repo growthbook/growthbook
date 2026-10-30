@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from "uuid";
 import isEqual from "lodash/isEqual";
 import { DEFAULT_SEQUENTIAL_TESTING_TUNING_PARAMETER } from "shared/constants";
 import {
+  ActiveMeasurementArm,
   CONTEXTUAL_BANDIT_MEASUREMENT_ARM_TYPE,
   MEASUREMENT_ARM_EDITABLE_FIELDS,
   getActiveMeasurementArm,
@@ -363,20 +364,47 @@ export function assertNotMeasurementArmExperiment(
   }
 }
 
-export async function refreshMeasurementArmAfterBanditRun(
+async function syncMeasurementArmIdentifier(
   context: Context,
   cb: ContextualBanditInterface,
+  arm: ActiveMeasurementArm,
 ): Promise<void> {
-  const arm = getActiveMeasurementArm(cb);
-  if (!arm) return;
+  const experiment = await getExperimentById(context, arm.experimentId);
+  if (!experiment) return;
+  const cbQuery = await getContextualBanditQuery(context, cb);
+  const exposureQueryIdentifierType = cbQuery?.userIdType ?? "";
+  if (experiment.exposureQueryIdentifierType === exposureQueryIdentifierType) {
+    return;
+  }
+  await updateExperiment({
+    context,
+    experiment,
+    changes: { exposureQueryIdentifierType },
+    bypassWebhooks: true,
+  });
+}
+
+export async function refreshMeasurementArmAfterBanditRun(
+  context: Context,
+  contextualBanditId: string,
+): Promise<void> {
   try {
-    // Reconcile before analyzing: the Bandit query's identifier type can change
-    // without a Bandit write, and the analysis filters metrics by it.
-    await syncMeasurementArmExperiment(context, cb);
+    // Re-read rather than trusting the runner's cached copy: a run can be in
+    // flight for hours, and writing a stale doc back would undo a stop or
+    // archive made in the meantime.
+    const cb =
+      await context.models.contextualBandits.getById(contextualBanditId);
+    if (!cb) return;
+    const arm = getActiveMeasurementArm(cb);
+    if (!arm) return;
+    // Every other governed field re-syncs on a Bandit write. The analysis
+    // identifier comes from the Bandit query, which can change without one, so
+    // refresh only that before the analysis reads it.
+    await syncMeasurementArmIdentifier(context, cb, arm);
     await queueExperimentUpdate(cb.organization, arm.experimentId);
   } catch (e) {
     logger.warn(
-      { err: e, cbId: cb.id, experimentId: arm.experimentId },
+      { err: e, cbId: contextualBanditId },
       "Failed to refresh the measurement arm after a bandit run",
     );
   }

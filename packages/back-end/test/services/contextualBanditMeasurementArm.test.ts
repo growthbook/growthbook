@@ -58,6 +58,7 @@ const context = {
   org: { id: "org_1", settings: {} },
   userId: "u_1",
   models: {
+    contextualBandits: { getById: jest.fn() },
     contextualBanditQueries: {
       getById: jest.fn().mockResolvedValue(cbQuery),
     },
@@ -544,50 +545,63 @@ describe("getMeasurementArmResultsSummary", () => {
 });
 
 describe("refreshMeasurementArmAfterBanditRun", () => {
-  it("reconciles the arm before queueing its update", async () => {
-    const experiment = makeArmExperiment();
-    getExperimentByIdMock.mockResolvedValue(experiment);
-    updateExperimentMock.mockResolvedValue(experiment);
+  const cbById = context.models.contextualBandits.getById as jest.Mock;
 
-    await refreshMeasurementArmAfterBanditRun(context, makeCb());
+  it("re-reads the Bandit rather than trusting a cached copy", async () => {
+    // Stopped since the run started: no refresh, and nothing written back.
+    cbById.mockResolvedValue(makeCb({ status: "stopped" }));
 
-    expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma");
-    expect(getExperimentByIdMock.mock.invocationCallOrder[0]).toBeLessThan(
-      queueExperimentUpdateMock.mock.invocationCallOrder[0],
-    );
+    await refreshMeasurementArmAfterBanditRun(context, "cb_1");
+
+    expect(cbById).toHaveBeenCalledWith("cb_1");
+    expect(updateExperimentMock).not.toHaveBeenCalled();
+    expect(queueExperimentUpdateMock).not.toHaveBeenCalled();
   });
 
-  it("picks up a new identifier type from the Bandit's query", async () => {
+  it("refreshes only the identifier, then queues the update", async () => {
+    cbById.mockResolvedValue(makeCb());
     getExperimentByIdMock.mockResolvedValue(makeArmExperiment());
     updateExperimentMock.mockImplementation(async ({ changes }) => changes);
     (
       context.models.contextualBanditQueries.getById as jest.Mock
     ).mockResolvedValueOnce({ ...cbQuery, userIdType: "user_id" });
 
-    await refreshMeasurementArmAfterBanditRun(context, makeCb());
+    await refreshMeasurementArmAfterBanditRun(context, "cb_1");
 
+    expect(updateExperimentMock).toHaveBeenCalledTimes(1);
     expect(updateExperimentMock.mock.calls[0][0].changes).toEqual({
       exposureQueryIdentifierType: "user_id",
     });
+    expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma");
+    expect(updateExperimentMock.mock.invocationCallOrder[0]).toBeLessThan(
+      queueExperimentUpdateMock.mock.invocationCallOrder[0],
+    );
   });
 
-  it("does nothing when the arm is off or the CB is not running", async () => {
-    await refreshMeasurementArmAfterBanditRun(
-      context,
+  it("writes nothing when the identifier already matches", async () => {
+    cbById.mockResolvedValue(makeCb());
+    getExperimentByIdMock.mockResolvedValue(makeArmExperiment());
+
+    await refreshMeasurementArmAfterBanditRun(context, "cb_1");
+
+    expect(updateExperimentMock).not.toHaveBeenCalled();
+    expect(queueExperimentUpdateMock).toHaveBeenCalledWith("org_1", "exp_ma");
+  });
+
+  it("does nothing when the arm is off", async () => {
+    cbById.mockResolvedValue(
       makeCb({ measurementArm: { ...arm, enabled: false } }),
     );
-    await refreshMeasurementArmAfterBanditRun(
-      context,
-      makeCb({ status: "stopped" }),
-    );
+    await refreshMeasurementArmAfterBanditRun(context, "cb_1");
     expect(queueExperimentUpdateMock).not.toHaveBeenCalled();
   });
 
   it("never fails the bandit run when the refresh fails", async () => {
+    cbById.mockResolvedValue(makeCb());
     getExperimentByIdMock.mockResolvedValue(makeArmExperiment());
     queueExperimentUpdateMock.mockRejectedValueOnce(new Error("agenda down"));
     await expect(
-      refreshMeasurementArmAfterBanditRun(context, makeCb()),
+      refreshMeasurementArmAfterBanditRun(context, "cb_1"),
     ).resolves.toBeUndefined();
   });
 });
