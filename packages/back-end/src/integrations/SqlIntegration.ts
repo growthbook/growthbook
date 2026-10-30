@@ -2866,6 +2866,7 @@ export default abstract class SqlIntegration
       unitsWhereConditions.push(
         getSingleClusterPerUnitCondition({
           clusterIdColumn: clusterColumnForDrop,
+          tableAlias: "e",
         }),
       );
     }
