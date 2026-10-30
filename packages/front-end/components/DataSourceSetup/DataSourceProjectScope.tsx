@@ -15,6 +15,8 @@ export type DataSourceProjectChoice = {
 
 const NO_PERMISSION =
   "You don't have permission to create a Data Source in this Project.";
+const INCLUDED =
+  "You don't have permission to create a Data Source in this Project. All Projects includes it.";
 
 export default function DataSourceProjectScope({
   limitToProjects,
@@ -35,9 +37,11 @@ export default function DataSourceProjectScope({
   const creatableIds = projects
     .filter((project) => project.canCreate)
     .map((project) => project.id);
-  // All Projects is stored as an empty list, so every Project this user can
-  // assign shows as checked while that scope is selected.
-  const checkedIds = limitToProjects ? selectedIds : creatableIds;
+  // All Projects is an empty list and covers every Project, including ones
+  // this user cannot assign. Those rows stay checked while that scope is on.
+  const checkedIds = limitToProjects
+    ? selectedIds
+    : projects.map((project) => project.id);
 
   if (projects.length === 0 && canCreateForAllProjects) {
     return (
@@ -61,8 +65,8 @@ export default function DataSourceProjectScope({
   const applySelection = (ids: string[]) => {
     const next = creatableIds.filter((id) => ids.includes(id));
     // Every Project this user can assign, and they may use All Projects:
-    // that scope also covers Projects created later, which a checked list
-    // does not. Someone who can't assign All Projects keeps the explicit list.
+    // that scope also covers Projects they can't assign and Projects created
+    // later. Someone who can't assign All Projects keeps the explicit list.
     if (
       canCreateForAllProjects &&
       creatableIds.length > 0 &&
@@ -162,7 +166,9 @@ export default function DataSourceProjectScope({
                 </Text>
                 <Text as="p" size="sm" color="text-mid" mb="3">
                   {canCreateForAllProjects
-                    ? "Check every Project to assign this Data Source to All Projects, including Projects created later."
+                    ? projects.some((project) => !project.canCreate)
+                      ? "Check every Project you can assign to use All Projects. That also includes Projects you can't assign, and Projects created later."
+                      : "Check every Project to assign this Data Source to All Projects, including Projects created later."
                     : "All Projects isn't available for your role. This Data Source is limited to the Projects you check."}
                 </Text>
                 <Flex align="center" gap="2" mb="3">
@@ -232,6 +238,7 @@ function ProjectOption({
   checked: boolean;
   onToggle: (id: string, checked: boolean) => void;
 }) {
+  const included = checked && !project.canCreate;
   const row = (
     <Flex align="center" justify="between" gap="3" width="100%">
       <Box flexGrow="1" minWidth="0">
@@ -239,17 +246,28 @@ function ProjectOption({
           value={checked}
           disabled={!project.canCreate}
           setValue={(on) => onToggle(project.id, on)}
-          label={project.name}
+          label={
+            <>
+              {project.name}
+              {!project.canCreate ? (
+                <span className="sr-only">
+                  {included
+                    ? ", Included with All Projects"
+                    : ", No permission"}
+                </span>
+              ) : null}
+            </>
+          }
           weight="regular"
           labelSize="sm"
           align="center"
           size="sm"
         />
       </Box>
-      {!project.canCreate ? (
+      {included ? (
         <Flex flexShrink="0">
           <Text size="sm" color="text-low">
-            No permission
+            Included with All Projects
           </Text>
         </Flex>
       ) : null}
@@ -258,7 +276,11 @@ function ProjectOption({
 
   if (project.canCreate) return row;
   return (
-    <Tooltip content={NO_PERMISSION} side="left" maxWidth="240px">
+    <Tooltip
+      content={included ? INCLUDED : NO_PERMISSION}
+      side="left"
+      maxWidth="240px"
+    >
       <Box width="100%">{row}</Box>
     </Tooltip>
   );
