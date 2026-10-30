@@ -3,6 +3,7 @@ import { ChangeEventHandler, ReactNode, useEffect, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
+import Text from "@/ui/Text";
 import AthenaForm from "./AthenaForm";
 import BigQueryForm, { BigQueryAdvancedSettings } from "./BigQueryForm";
 import ClickHouseForm from "./ClickHouseForm";
@@ -291,13 +292,13 @@ export default function ConnectionSettings({
           caret="start"
           action={
             !advancedOpen && advancedSettingsSummary ? (
-              <span className="text-muted">{advancedSettingsSummary}</span>
+              <Text size="sm" color="text-low">
+                {advancedSettingsSummary}
+              </Text>
             ) : undefined
           }
         >
-          <span className="link-purple font-weight-bold">
-            Advanced Settings
-          </span>
+          <Text weight="semibold">Advanced Settings</Text>
         </CollapseTrigger>
         <Collapse open={advancedOpen}>
           <div className="rounded px-3 pt-3 pb-1 mt-2 bg-highlight">
