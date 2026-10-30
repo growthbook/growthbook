@@ -37,6 +37,11 @@ export function apiKeyLookupValues(key: string): string[] {
   return HASHED_API_KEY.test(key) ? [hashToken(key)] : [hashToken(key), key];
 }
 
+// A stored key value as it should be stored: hashed, unless it already is.
+export function hashedApiKey(stored: string): string {
+  return HASHED_API_KEY.test(stored) ? stored : hashToken(stored);
+}
+
 /**
  * Verifies if the provided API key is for a user in the organization.
  * We need to use a {@link Partial<ApiKeyInterface>} so if it is incomplete, i.e. does not have userId,
