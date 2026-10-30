@@ -445,8 +445,6 @@ function ExpandedSection({
             open && styles.openSection,
             active && styles.active,
           )}
-          aria-expanded={open}
-          aria-controls={listId}
           onClick={(e) => {
             if (opensElsewhere(e)) return;
             e.preventDefault();
