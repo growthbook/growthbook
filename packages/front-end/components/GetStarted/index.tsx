@@ -276,7 +276,10 @@ const GetStartedAndHomePage = ({
       <Box py={{ initial: "1", xs: "3", sm: "6" }}>
         {showMarketingBanner && <HomeMarketingBanner />}
         <Grid
-          className={clsx(styles.content, showCreate && styles.withCreate)}
+          className={clsx(
+            styles.content,
+            showCreate && orgIsUsingFeatureOrExperiment && styles.withCreate,
+          )}
           columns={{
             // Stacked, too: a wide table further down mustn't widen the
             // column, and the heading row with Create, past the window.
@@ -287,16 +290,27 @@ const GetStartedAndHomePage = ({
           gapX="4"
           rows="auto 1fr"
         >
+          {/* A new org's Get Started heading runs across both columns, with
+              Create at its end, so the docs card starts with the cards
+              under it, as on main. */}
+          {!orgIsUsingFeatureOrExperiment && (
+            <Flex
+              align="center"
+              justify="between"
+              gap="3"
+              // Padding, not margin: the page wrapper trims a grid item's
+              // bottom margin (global.scss).
+              pb="3"
+              style={{ gridColumn: "1 / -1" }}
+            >
+              <Text size="4" weight="medium" as="div">
+                Get Started
+              </Text>
+              {createMenu}
+            </Flex>
+          )}
           <Box className={styles.mainColumn}>
             <Box>
-              {!orgIsUsingFeatureOrExperiment && (
-                <Flex align="center" justify="between" gap="3" mb="3">
-                  <Text size="4" weight="medium" as="div">
-                    Get Started
-                  </Text>
-                  {createInHeading}
-                </Flex>
-              )}
               {orgIsUsingFeatureOrExperiment && (
                 <Box>
                   <NeedingAttention headingAction={createInHeading} />
@@ -437,7 +451,7 @@ const GetStartedAndHomePage = ({
             </Box>
           </Box>
           <Box>
-            {createMenu ? (
+            {createMenu && orgIsUsingFeatureOrExperiment ? (
               <Flex justify="end" mb="3" className={styles.createInColumn}>
                 {createMenu}
               </Flex>
