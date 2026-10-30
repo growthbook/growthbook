@@ -535,7 +535,7 @@ export function getExperimentFactMetricsQuery(
               `, ${dialect.ifElse(
                 `COUNT(DISTINCT ${c.alias}) > 1`,
                 "'__multiple__'",
-                `MAX(${c.alias})`,
+                dialect.castToString(`MAX(${c.alias})`),
               )} AS ${c.alias}`,
           )
           .join("")}

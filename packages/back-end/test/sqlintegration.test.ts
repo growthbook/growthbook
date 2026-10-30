@@ -2751,8 +2751,12 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     // than one browser there is no non-arbitrary slice to own that value, so it
     // is bucketed as '__multiple__' (mirroring the variation collapse) instead
     // of silently assigning the whole cluster to one browser via MIN.
+    // MAX(...) is cast to a string so the CASE does not mix a numeric breakdown
+    // column with the '__multiple__' marker (BigQuery rejects mixed-type CASE
+    // branches, which would otherwise fail the full refresh for numeric
+    // dimensions / cluster ids).
     expect(normalized).toMatch(
-      /CASE WHEN COUNT\(DISTINCT dim_exp_browser\) > 1 THEN '__multiple__' ELSE MAX\(dim_exp_browser\) END\s*\)\s*AS dim_exp_browser/,
+      /CASE WHEN COUNT\(DISTINCT dim_exp_browser\) > 1 THEN '__multiple__' ELSE cast\(MAX\(dim_exp_browser\) as string\) END\s*\)\s*AS dim_exp_browser/,
     );
     expect(normalized).not.toMatch(/MIN\(dim_exp_browser\)/);
   });
