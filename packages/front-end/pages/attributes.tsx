@@ -262,7 +262,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
     items: targetingAttributes,
     localStorageKey: "attributes",
     defaultSortField: "property",
-    pageSize: 50,
+    pageSize: 10,
     filterResults: archivedFilter,
     searchFields: [
       "property^3",
@@ -604,17 +604,21 @@ const FeatureAttributesPage = (): React.ReactElement => {
               <>
                 <Table variant="list" roundedCorners layout="fixed">
                   <colgroup>
-                    <col style={{ width: 220 }} />
+                    <col style={{ width: 200 }} />
                     <col />
-                    <col style={{ width: 160 }} />
-                    <col style={{ width: 140 }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 130 }} />
+                    <col style={{ width: 130 }} />
                     <col style={{ width: 48 }} />
                   </colgroup>
                   <TableHeader>
                     <TableRow>
                       <TableColumnHeader>Identifier</TableColumnHeader>
                       <TableColumnHeader>Description</TableColumnHeader>
+                      <TableColumnHeader>Data Type</TableColumnHeader>
                       <TableColumnHeader>Projects</TableColumnHeader>
+                      <TableColumnHeader>Tags</TableColumnHeader>
                       <TableColumnHeader>Used in</TableColumnHeader>
                       <TableColumnHeader />
                     </TableRow>
@@ -636,7 +640,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                               >
                                 <TruncateMiddleWithTooltip
                                   text={v.property}
-                                  maxChars={truncateCharsForWidth(220)}
+                                  maxChars={truncateCharsForWidth(200)}
                                   maxWidth="100%"
                                 />
                               </Link>
@@ -657,6 +661,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                               </ClampedCell>
                             ) : null}
                           </TableCell>
+                          <TableCell className="text-gray">
+                            {v.datatype}
+                          </TableCell>
                           <TableCell>
                             <ProjectBadges
                               resourceType="attribute"
@@ -666,6 +673,23 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   : undefined
                               }
                             />
+                          </TableCell>
+                          <TableCell>
+                            <div
+                              className="tags-cell-content"
+                              style={{
+                                minWidth: 0,
+                                maxWidth: "100%",
+                                overflow: "hidden",
+                              }}
+                            >
+                              <SortedTags
+                                tags={v.tags || []}
+                                useFlex={true}
+                                maxVisibleTags={1}
+                                truncateTagChars={15}
+                              />
+                            </div>
                           </TableCell>
                           <TableCell className="text-gray">
                             {experiments === undefined
