@@ -28,6 +28,7 @@ import {
 import {
   assertExposureQueryDeclaresIdentifierType,
   resolveAnalysisIdentifierType,
+  validateClusterExperimentIdentifiers,
   isDefined,
 } from "shared/util";
 import { differenceInMinutes } from "date-fns";
@@ -614,6 +615,17 @@ export function getReportSnapshotSettings({
   const clusterSubUnitIdentifier =
     getClusterSubUnit(report.experimentAnalysisSettings) ?? undefined;
   const isClusterExperiment = clusterSubUnitIdentifier !== undefined;
+
+  if (isClusterExperiment && exposureQuery) {
+    const clusterValidation = validateClusterExperimentIdentifiers(
+      exposureQuery,
+      exposureQueryIdentifierType,
+      clusterSubUnitIdentifier,
+    );
+    if (!clusterValidation.ok) {
+      throw new Error(clusterValidation.error);
+    }
+  }
 
   // Re-check metric eligibility as the snapshot is built (not just at save
   // time). Memoized so filtering and clusterLevelMetricIds share a single pass.

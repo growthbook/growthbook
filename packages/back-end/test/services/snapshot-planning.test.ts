@@ -834,6 +834,83 @@ describe("snapshot planning", () => {
     expect(snapshotSettings.clusterSubUnitIdentifier).toBe("user_id");
   });
 
+  it("refuses to build a cluster report snapshot when the assignment query drops the sub-unit identifier", () => {
+    // The report editor can swap the assignment query while keeping the stored
+    // clusterSubUnitIdentifier. Switching to a query that declares only the
+    // cluster id (region_id) but not the sub-unit id (user_id) must be refused
+    // before the snapshot is inserted; otherwise every refresh fails reading the
+    // missing e.user_id column.
+    const datasource = makeDatasource({
+      settings: {
+        queries: {
+          exposure: [
+            {
+              id: "exposure_region",
+              name: "Regions",
+              userIdType: "region_id",
+              userIdTypes: ["region_id"],
+              query: "SELECT * FROM exposures",
+              dimensions: [],
+            },
+          ],
+        },
+      } as unknown as DataSourceInterface["settings"],
+    });
+    const subUnitTable = factTableFactory.build({
+      id: "ft_subunit",
+      userIdTypes: ["user_id"],
+    });
+    const factTableMap = new Map([
+      [subUnitTable.id, subUnitTable],
+    ]) as FactTableMap;
+    const subUnitMetric = factMetricFactory.build({
+      id: "m_subunit",
+      numerator: { factTableId: "ft_subunit" },
+    });
+    const metricMap = new Map<string, ExperimentMetricInterface>([
+      [subUnitMetric.id, subUnitMetric],
+    ]);
+    const settingsForSnapshotMetrics = [subUnitMetric].map(
+      (metric) =>
+        getMetricSnapshotSettings({
+          metric,
+          denominatorMetrics: [],
+          experimentRegressionAdjustmentEnabled: false,
+        }).metricSnapshotSettings,
+    );
+
+    const experimentAnalysisSettings = {
+      exposureQueryId: "exposure_region",
+      exposureQueryIdentifierType: "region_id",
+      isClusterExperiment: true,
+      clusterSubUnitIdentifier: "user_id",
+      goalMetrics: ["m_subunit"],
+      secondaryMetrics: [],
+      guardrailMetrics: [],
+      metricOverrides: [],
+    };
+
+    expect(() =>
+      getReportSnapshotSettings({
+        report: {
+          experimentAnalysisSettings,
+          experimentMetadata: {
+            phases: [{ variationWeights: [0.5, 0.5] }],
+            variations: [{ key: "0" }, { key: "1" }],
+          },
+        } as unknown as ExperimentSnapshotReportInterface,
+        analysisSettings: makeAnalysisSettings(),
+        phaseIndex: 0,
+        orgPriorSettings: undefined,
+        settingsForSnapshotMetrics,
+        metricMap,
+        factTableMap,
+        metricGroups: [],
+        datasource,
+      }),
+    ).toThrow(/sub-unit identifier type "user_id"/);
+  });
+
   it("expands legacy report metric groups consistently", () => {
     const metricGroups = [
       { id: "mg_goal", metrics: ["m_goal_a", "m_goal_b"] },
