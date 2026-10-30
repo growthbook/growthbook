@@ -30,9 +30,17 @@ import Link from "@/ui/Link";
 import { ExperimentAssignmentQueryModal } from "@/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueryModal";
 import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import { EventForwarderManagedBadge } from "@/components/Settings/EditDataSource/EventForwarderManaged";
+import {
+  applyGoogleAnalytics4Settings,
+  GA4_EXPOSURE_QUERY_ID,
+  getGoogleAnalytics4ExposureQueryDraft,
+  getGoogleAnalytics4UserIdTypes,
+  hasGoogleAnalytics4ExposureQuery,
+} from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Heading from "@/ui/Heading";
 import HelperText from "@/ui/HelperText";
@@ -65,11 +73,12 @@ type IdentifierRow = {
 // Open the attribute modal to create a new identifier or edit an existing one.
 type AttributeModalState = { attribute: string | null } | null;
 
-// Index of the exposure query being edited, or null to add a new one that
-// starts with the given identifier types.
+// A saved query to edit, a new query with starter identifier types, or an
+// unsaved Google Analytics 4 draft that is stored only when the modal is submitted.
 type QueryModal =
-  | { index: number; identifierTypes?: never }
-  | { index: null; identifierTypes: string[] }
+  | { index: number; identifierTypes?: never; draft?: never }
+  | { index: null; identifierTypes: string[]; draft?: never }
+  | { index: null; identifierTypes?: never; draft: ExposureQuery }
   | null;
 
 const EXPANDABLE_STEPS: StepId[] = ["forwarder", "identifiers", "queries"];
@@ -77,7 +86,8 @@ const EXPANDABLE_STEPS: StepId[] = ["forwarder", "identifiers", "queries"];
 // Status icon or checkbox, identifier type, description, row actions.
 const IDENTIFIER_COLUMNS = "24px minmax(0, 1fr) minmax(0, 2fr) 56px";
 
-const IDENTIFIER_ROW_BORDER = { borderTop: "1px solid var(--gray-a5)" };
+const SETUP_DIVIDER = "1px solid var(--gray-a5)";
+const IDENTIFIER_ROW_BORDER = { borderTop: SETUP_DIVIDER };
 
 const attributeKey = (property: string) => `attribute:${property}`;
 const savedTypeKey = (userIdType: string) => `type:${userIdType}`;
@@ -258,6 +268,7 @@ export default function FinishSettingUp({
   const identifierTypes = dataSource.settings?.userIdTypes ?? [];
   const exposureQueries = dataSource.settings?.queries?.exposure ?? [];
   const hasIdentifiers = identifierTypes.length > 0;
+
   // Identifier types no exposure query returns yet. A new query starts with
   // these so one query can cover everything.
   const uncoveredIdentifierTypes = identifierTypes
@@ -393,17 +404,53 @@ export default function FinishSettingUp({
   const identifierDescription =
     "Tell us how you identify your users (for example, user_id or id). This determines how you can split traffic for experiments and track metric conversions. Uncheck any that aren't relevant, and add any that might be missing.";
 
+  const canOfferGoogleAnalytics4 =
+    dataSource.type === "bigquery" &&
+    !hasEventForwarder &&
+    !hasGoogleAnalytics4ExposureQuery(dataSource.settings);
+
+  const openGoogleAnalytics4 = () => {
+    setQueryModal({
+      index: null,
+      draft: getGoogleAnalytics4ExposureQueryDraft(dataSource.params),
+    });
+  };
+
+  const openCustomQuery = () => {
+    setQueryModal({
+      index: null,
+      identifierTypes: uncoveredIdentifierTypes.length
+        ? uncoveredIdentifierTypes
+        : identifierTypes.map((t) => t.userIdType),
+    });
+  };
+
   const saveQuery = async (exposureQuery: ExposureQuery) => {
     if (!queryModal) return;
     const copy = cloneDeep(dataSource);
-    const queries = copy.settings?.queries ?? {};
-    const exposure = [...(queries.exposure ?? [])];
-    if (queryModal.index === null) {
-      exposure.push(exposureQuery);
+    if (queryModal.draft) {
+      // Adds the GA4 identifier types and a placeholder query, then this
+      // overwrites that placeholder with what was actually submitted.
+      copy.settings = applyGoogleAnalytics4Settings(copy.settings, copy.params);
+      const exposure = (copy.settings.queries?.exposure ?? []).map((query) =>
+        query.id === GA4_EXPOSURE_QUERY_ID
+          ? { ...exposureQuery, id: GA4_EXPOSURE_QUERY_ID }
+          : query,
+      );
+      copy.settings = {
+        ...copy.settings,
+        queries: { ...copy.settings.queries, exposure },
+      };
     } else {
-      exposure[queryModal.index] = exposureQuery;
+      const queries = copy.settings?.queries ?? {};
+      const exposure = [...(queries.exposure ?? [])];
+      if (queryModal.index === null) {
+        exposure.push(exposureQuery);
+      } else {
+        exposure[queryModal.index] = exposureQuery;
+      }
+      copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     }
-    copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     await onSave(copy);
     setQueryModal(null);
   };
@@ -545,6 +592,16 @@ export default function FinishSettingUp({
                 )
         }
       >
+        {canOfferGoogleAnalytics4 && canEdit && (
+          <Callout
+            status="info"
+            mt="3"
+            action={<Button onClick={openGoogleAnalytics4}>Set up GA4</Button>}
+          >
+            Are you using Google Analytics 4 for event tracking? We can
+            streamline the setup.
+          </Callout>
+        )}
         {expandedStep === "identifiers" && (
           <Box mt="3">
             <Box
@@ -816,23 +873,21 @@ export default function FinishSettingUp({
                 ))}
               </Box>
               {canEdit && (
-                <Box mt="2">
+                <Flex align="center" gap="2" mt="2" wrap="wrap">
                   <Button
                     variant="ghost"
                     icon={<PiPlus />}
                     disabled={!hasIdentifiers}
-                    onClick={() =>
-                      setQueryModal({
-                        index: null,
-                        identifierTypes: uncoveredIdentifierTypes.length
-                          ? uncoveredIdentifierTypes
-                          : identifierTypes.map((t) => t.userIdType),
-                      })
-                    }
+                    onClick={openCustomQuery}
                   >
                     Add query
                   </Button>
-                </Box>
+                  {!hasIdentifiers && (
+                    <HelperText status="info" size="sm">
+                      Add an identifier type first.
+                    </HelperText>
+                  )}
+                </Flex>
               )}
               <Flex align="center" justify="between" gap="3" mt="3">
                 <Flex align="center" gap="3" flexShrink="0">
@@ -906,12 +961,26 @@ export default function FinishSettingUp({
 
       {queryModal && (
         <ExperimentAssignmentQueryModal
-          dataSource={dataSource}
-          exposureQuery={
-            queryModal.index === null
-              ? undefined
-              : exposureQueries[queryModal.index]
+          dataSource={
+            queryModal.draft
+              ? {
+                  ...dataSource,
+                  settings: {
+                    ...dataSource.settings,
+                    userIdTypes: getGoogleAnalytics4UserIdTypes(
+                      dataSource.settings?.userIdTypes ?? [],
+                    ),
+                  },
+                }
+              : dataSource
           }
+          exposureQuery={
+            queryModal.draft ??
+            (queryModal.index === null
+              ? undefined
+              : exposureQueries[queryModal.index])
+          }
+          unsaved={!!queryModal.draft}
           defaultIdentifierTypes={queryModal.identifierTypes}
           onCancel={() => setQueryModal(null)}
           onSave={saveQuery}
