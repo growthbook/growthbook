@@ -7,6 +7,7 @@ import { pValueFormatter } from "@/services/experiments";
 import Modal from "@/components/Modal";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import { DocLink } from "@/components/DocLink";
 import Link from "@/ui/Link";
 import { ExperimentTab } from "./TabbedPage";
 import { useSnapshot } from "./SnapshotProvider";
@@ -147,13 +148,9 @@ const SRMWarning: FC<{
                   </li>
                 </ul>
                 <p>
-                  <a
-                    target="_blank"
-                    rel="noreferrer"
-                    href="https://docs.growthbook.io/kb/experiments/troubleshooting-experiments"
-                  >
+                  <DocLink docSection="troubleshootingExperiments">
                     Read about troubleshooting experiments in our docs
-                  </a>
+                  </DocLink>
                 </p>
               </>
             )}

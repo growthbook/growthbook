@@ -47,6 +47,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Text from "@/ui/Text";
 import Metadata from "@/ui/Metadata";
 import track from "@/services/track";
+import { docUrl } from "@/components/DocLink";
 
 // Formatter for numbers
 const requestsFormatter = new Intl.NumberFormat("en-US", {
@@ -619,7 +620,7 @@ export default function CloudUsage() {
       )}
       <Box mt="5">
         <Link
-          href="https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits"
+          href={docUrl("cloudCdnUsageLimits")}
           external
           weight="medium"
           onClick={() => {

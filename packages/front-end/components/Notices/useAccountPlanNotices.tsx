@@ -3,6 +3,7 @@ import Link from "@/ui/Link";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import track from "@/services/track";
+import { docUrl } from "@/components/DocLink";
 import { AppNotice } from "./notices";
 
 export default function useAccountPlanNotices(): AppNotice[] {
@@ -42,7 +43,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
           ? "CDN usage limit exceeded"
           : "Approaching CDN usage limit",
       details: usageDetails(
-        "https://docs.growthbook.io/faq#what-are-the-growthbook-cloud-cdn-usage-limits",
+        docUrl("cloudCdnUsageLimits"),
         "Clicked Read About CDN Limits Link in Tooltip",
       ),
       upgrade: {
@@ -65,7 +66,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
           ? "Managed Warehouse event limit exceeded"
           : "Approaching Managed Warehouse event limit",
       details: usageDetails(
-        "https://docs.growthbook.io/app/managed-warehouse#limits",
+        docUrl("managedWarehouseLimits"),
         "Clicked Read About Managed Warehouse Limits Link in Tooltip",
       ),
       upgrade: {
@@ -93,7 +94,7 @@ export default function useAccountPlanNotices(): AppNotice[] {
             ? "Forwarding has stopped for the rest of the month. Events received while it is stopped are not delivered."
             : "Forwarding stops for the rest of the month once the limit is exceeded."}{" "}
           {usageDetails(
-            "https://docs.growthbook.io/app/event-forwarder#usage-limits",
+            docUrl("eventForwarderUsageLimits"),
             "Clicked Read About Event Forwarder Limits Link in Tooltip",
             "Event Forwarder",
           )}

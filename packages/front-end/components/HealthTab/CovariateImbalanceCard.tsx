@@ -11,8 +11,8 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import Heading from "@/ui/Heading";
-import Link from "@/ui/Link";
 import Button from "@/ui/Button";
+import { DocLink } from "@/components/DocLink";
 import { StatusBadge } from "./StatusBadge";
 import { IssueValue } from "./IssueTags";
 
@@ -117,13 +117,10 @@ export default function CovariateImbalanceCard({
   const cupedEnabled = snapshot.settings.regressionAdjustmentEnabled;
 
   const learnMore = (
-    <Link
-      href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
-      external
-    >
+    <DocLink docSection="preExposureBiasCheck">
       Learn more
       <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
-    </Link>
+    </DocLink>
   );
 
   return (

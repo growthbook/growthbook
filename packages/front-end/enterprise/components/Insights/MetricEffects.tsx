@@ -38,6 +38,7 @@ import ExperimentSearchFilters from "@/components/Search/ExperimentSearchFilters
 import Field from "@/components/Forms/Field";
 import Link from "@/ui/Link";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import { docUrl } from "@/components/DocLink";
 
 interface HistogramDatapoint {
   start: number;
@@ -197,7 +198,7 @@ const MetricEffects = (): React.ReactElement => {
           title="Metric Effects"
           description="View the distribution of experiment effects on your metrics."
           commercialFeature="metric-effects"
-          learnMoreLink="https://docs.growthbook.io/app/metrics" //<- fix this link when docs are ready
+          learnMoreLink={docUrl("metricEffects")}
           image={`/images/empty-states/metric_effects_${computedTheme}.png`}
         />
       </Box>
