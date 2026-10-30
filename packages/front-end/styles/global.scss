@@ -268,6 +268,12 @@ html.app-drawer-open body {
     padding-left: 0;
     padding-right: 0;
   }
+  // The experiment page's working area (beside its details panel) starts on
+  // the page's left content edge like its header, at every width. Its tabs'
+  // own px-4 keeps only the right side, by the panel.
+  & .experiment-column .pagecontents {
+    padding-left: 0 !important;
+  }
   // Its padding classes too, but a card's or a full-width band's.
   $card: ":not(.appbox, .card, .box, .rt-Card, .page-bleed)";
   & > :is(.p-2, .p-3, .p-4, .p-5)#{$card},
