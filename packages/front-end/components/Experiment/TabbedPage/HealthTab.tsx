@@ -455,7 +455,7 @@ function HealthSnapshotCards({
           />
         </div>
       )}
-      {showMultipleExposures && (
+      {showMultipleExposures && !isClusterExperiment && (
         <div id="multipleExposures" style={{ scrollMarginTop: "100px" }}>
           <MultipleExposuresCard
             totalUsers={totalUsers}
