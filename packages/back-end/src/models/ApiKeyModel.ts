@@ -30,6 +30,7 @@ import {
   apiKeyLookupValues,
   generateEncryptionKey,
   generateSigningKey,
+  HASHED_API_KEY,
   migrateApiKey,
 } from "back-end/src/util/api-key.util";
 import { hashToken } from "back-end/src/util/oauth-token.util";
@@ -765,6 +766,43 @@ export class ApiKeyModel extends BaseClass {
         { $set: { lastUsed: now, previousKeyLastUsed: now } },
       );
     }
+  }
+
+  // Hashes up to `limit` secrets stored before keys were hashed, returning how many it found.
+  public static async dangerousHashPlaintextSecrets(
+    limit: number,
+  ): Promise<number> {
+    const collection = getCollection<ApiKeyInterface>(COLLECTION_NAME);
+    const docs = await collection
+      .find(
+        {
+          secret: true,
+          $or: [
+            { key: { $type: "string", $not: HASHED_API_KEY } },
+            { previousKey: { $type: "string", $not: HASHED_API_KEY } },
+          ],
+        },
+        { projection: { _id: 1, key: 1, previousKey: 1 }, limit },
+      )
+      .toArray();
+    if (!docs.length) return 0;
+    const hash = (value: string) =>
+      HASHED_API_KEY.test(value) ? value : hashToken(value);
+    // Matching the read value keeps a concurrent rotation from being overwritten.
+    await collection.bulkWrite(
+      docs.map(({ _id, key, previousKey }) => ({
+        updateOne: {
+          filter: { _id, key, ...(previousKey && { previousKey }) },
+          update: {
+            $set: {
+              key: hash(key),
+              ...(previousKey && { previousKey: hash(previousKey) }),
+            },
+          },
+        },
+      })),
+    );
+    return docs.length;
   }
 
   // OAuth token endpoint has no ReqContext. These static helpers keep apikey
