@@ -2982,8 +2982,11 @@ describe("cluster experiment ratio analysis - bigquery", () => {
     // Counts every cluster, flagging those with mixed assignment, off the shared
     // per-cluster aggregate.
     expect(normalized).toMatch(/COUNT\(\*\)[\s\S]*AS metric_a/);
+    // A cluster whose sub-units all carry the multi-variation marker has
+    // min_variation = max_variation = '__multiple__', so it must be flagged as
+    // mixed explicitly (otherwise it looks consistent).
     expect(normalized).toMatch(
-      /SUM\(\s*CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END\s*\)[\s\S]*AS metric_b/,
+      /SUM\(\s*CASE WHEN min_variation <> max_variation OR max_variation = '__multiple__' THEN 1 ELSE 0 END\s*\)[\s\S]*AS metric_b/,
     );
     expect(normalized).toMatch(/'assignment' AS kind[\s\S]*FROM __clusterAgg/);
     // The __multiple__ pseudo-cluster is excluded so it does not inflate the
@@ -3007,9 +3010,11 @@ describe("cluster experiment ratio analysis - bigquery", () => {
   it("drops multi-cluster sub-units and mixed clusters from the reliability branch", () => {
     const normalized = buildClusterHealthSql(true).replace(/\s+/g, " ").trim();
 
-    // The reliability set only keeps real, single-assignment clusters.
+    // The reliability set only keeps real, single-assignment clusters. A cluster
+    // whose sub-units are all the multi-variation marker (min = max =
+    // '__multiple__') is mixed, not consistent, so it is excluded explicitly.
     expect(normalized).toMatch(
-      /__realClusters AS \([\s\S]*WHERE cluster_id <> '__multiple__'[\s\S]*AND min_variation = max_variation/,
+      /__realClusters AS \([\s\S]*WHERE cluster_id <> '__multiple__'[\s\S]*AND min_variation = max_variation[\s\S]*AND max_variation <> '__multiple__'/,
     );
   });
 

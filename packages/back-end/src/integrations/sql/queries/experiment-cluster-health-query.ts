@@ -4,7 +4,10 @@ import type { ExperimentAggregateUnitsQueryParams } from "shared/types/integrati
 import type { SqlDialect } from "shared/types/sql";
 import { MAX_ROWS_CLUSTER_UNITS_QUERY } from "back-end/src/services/experimentQueries/constants";
 
-import { MULTIPLE_CLUSTER_SENTINEL } from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
+import {
+  MULTIPLE_CLUSTER_SENTINEL,
+  MULTIPLE_VARIATION_SENTINEL,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { getExperimentUnitsQuery } from "back-end/src/integrations/sql/queries/experiment-units-query";
 
 // Discriminator values for the rows returned by the consolidated cluster-health
@@ -76,6 +79,7 @@ export function getExperimentClusterHealthQuery(
         FROM __clusterAgg
         WHERE cluster_id <> '${MULTIPLE_CLUSTER_SENTINEL}'
           AND min_variation = max_variation
+          AND max_variation <> '${MULTIPLE_VARIATION_SENTINEL}'
       ),
       __topClusters AS (
         ${dialect.selectStarLimit(
@@ -98,7 +102,7 @@ export function getExperimentClusterHealthQuery(
       , ${nullString} AS variation
       , ${dialect.castToFloat("COUNT(*)")} AS metric_a
       , ${dialect.castToFloat(
-        "SUM(CASE WHEN min_variation <> max_variation THEN 1 ELSE 0 END)",
+        `SUM(CASE WHEN min_variation <> max_variation OR max_variation = '${MULTIPLE_VARIATION_SENTINEL}' THEN 1 ELSE 0 END)`,
       )} AS metric_b
     FROM __clusterAgg
     WHERE cluster_id <> '${MULTIPLE_CLUSTER_SENTINEL}'
