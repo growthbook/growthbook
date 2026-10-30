@@ -26,12 +26,14 @@ import {
   getGrowthBookRegionForWarehouseRegion,
   listEventForwarderWarehouseRegions,
 } from "shared/util";
-import { isSampleDatasource } from "shared/demo-datasource";
+import {
+  getDemoDatasourceProjectIdForOrganization,
+  isSampleDatasource,
+} from "shared/demo-datasource";
 import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import { isTestableDataSourceType } from "shared/validators";
 import ConnectionSettings from "@/components/Settings/ConnectionSettings";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import useProjectOptions from "@/hooks/useProjectOptions";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
@@ -47,13 +49,13 @@ import Callout from "@/ui/Callout";
 import Frame from "@/ui/Frame";
 import Heading from "@/ui/Heading";
 import SelectField from "@/components/Forms/SelectField";
-import MultiSelectField from "@/ui/MultiSelectField";
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 import Tooltip from "@/ui/Tooltip";
 import { useEventForwarderAccessTest } from "@/components/Settings/useEventForwarderAccessTest";
 import { KeyPairGenerator } from "@/components/Settings/SnowflakeForm";
 import { buildEventForwarderConnectDraft } from "./buildEventForwarderConnectDraft";
+import DataSourceProjectScope from "./DataSourceProjectScope";
 import {
   hasGeneratedPassword,
   withGeneratedSnowflakeKey,
@@ -122,7 +124,11 @@ export default function ConnectDataSourceLayout({
   const existing = mode === "edit";
   // Destination and region are chosen once, at create. Edit changes credentials.
   const checksWrite = !existing && setup === "event_forwarder";
-  const { mutateDefinitions, projects: orgProjects } = useDefinitions();
+  const {
+    mutateDefinitions,
+    ready: definitionsReady,
+    projects: orgProjects,
+  } = useDefinitions();
   const { apiCall, orgId } = useAuth();
   const permissionsUtil = usePermissionsUtil();
 
@@ -135,6 +141,11 @@ export default function ConnectDataSourceLayout({
     "idle" | "pending" | "failed"
   >(!existing && initial.type === "snowflake" ? "pending" : "idle");
   const [dirty, setDirty] = useState(false);
+  // False until the user picks a scope. Before that, All Projects is the
+  // default when they can create one there, and every Project they can
+  // create in otherwise.
+  const [projectsTouched, setProjectsTouched] = useState(false);
+  const [limitOverride, setLimitOverride] = useState(false);
   const [paramsDirty, setParamsDirty] = useState(false);
   const [hasError, setHasError] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -292,9 +303,55 @@ export default function ConnectDataSourceLayout({
     };
   }, [existing, initial.type]);
 
+  const demoProjectId = orgId
+    ? getDemoDatasourceProjectIdForOrganization(orgId)
+    : null;
+  const projectChoices = useMemo(
+    () =>
+      orgProjects
+        .filter((project) => project.id !== demoProjectId)
+        .map((project) => ({
+          id: project.id,
+          name: project.name,
+          canCreate: permissionsUtil.canCreateDataSource({
+            projects: [project.id],
+            type: datasource.type,
+          }),
+        })),
+    [orgProjects, demoProjectId, permissionsUtil, datasource.type],
+  );
+  // Empty projects means All Projects. Otherwise the Data Source starts in
+  // each Project this user can create one in.
+  const canCreateForAllProjects =
+    !!datasource.type &&
+    permissionsUtil.canCreateDataSource({
+      projects: [],
+      type: datasource.type,
+    });
+  const creatableProjectKey = projectChoices
+    .filter((project) => project.canCreate)
+    .map((project) => project.id)
+    .join("\0");
+  const creatableProjectIds = useMemo(
+    () => (creatableProjectKey ? creatableProjectKey.split("\0") : []),
+    [creatableProjectKey],
+  );
+  const limitToProjects = projectsTouched
+    ? limitOverride
+    : !canCreateForAllProjects;
+  const selectedProjectIds = limitToProjects
+    ? projectsTouched
+      ? (datasource.projects ?? [])
+      : creatableProjectIds
+    : [];
+
   useEffect(() => {
     if (!dirty) {
-      setDatasource(withGeneratedSnowflakeKey(initial, snowflakeKeyPair));
+      setDatasource((current) => {
+        const next = withGeneratedSnowflakeKey(initial, snowflakeKeyPair);
+        if (existing) return next;
+        return { ...next, projects: current.projects ?? [] };
+      });
       setEventDestination(
         defaultEventForwarderDestination(initial.type || "bigquery"),
       );
@@ -302,7 +359,23 @@ export default function ConnectDataSourceLayout({
       setParamsDirty(false);
       resetTest();
     }
-  }, [initial, dirty, resetTest, snowflakeKeyPair]);
+  }, [initial, dirty, resetTest, snowflakeKeyPair, existing]);
+
+  useEffect(() => {
+    if (existing || !definitionsReady || projectsTouched) return;
+    const ids = canCreateForAllProjects ? [] : creatableProjectIds;
+    setDatasource((current) =>
+      isEqual(current.projects ?? [], ids)
+        ? current
+        : { ...current, projects: ids },
+    );
+  }, [
+    existing,
+    definitionsReady,
+    projectsTouched,
+    canCreateForAllProjects,
+    creatableProjectIds,
+  ]);
 
   // A key that arrives after the user has edited the form still fills an
   // empty private key, and never replaces a file they already uploaded.
@@ -400,31 +473,6 @@ export default function ConnectDataSourceLayout({
       keyPairAutoGenerate,
     ],
   );
-  // Create mode only: let the user scope the new Data Source to Projects they
-  // can create in. An empty selection is All Projects, which needs a global role.
-  const projectOptions = useProjectOptions(
-    (project) =>
-      permissionsUtil.canCreateDataSource({
-        projects: [project],
-        type: datasource.type,
-      }),
-    [],
-  );
-  const showProjectPicker = !existing && orgProjects.length > 0;
-  const projectPermissionError =
-    !existing &&
-    !permissionsUtil.canCreateDataSource({
-      projects: datasource.projects,
-      type: datasource.type,
-    })
-      ? "You don't have permission to create a Data Source for All Projects. Select a Project."
-      : null;
-  // Open Advanced Settings when a Project is already selected, or when All
-  // Projects isn't allowed, so that restriction isn't buried.
-  const expandProjectRestriction =
-    showProjectPicker &&
-    ((datasource.projects?.length ?? 0) > 0 || projectPermissionError !== null);
-
   const canTest =
     !!datasource.type &&
     isTestableDataSourceType(datasource.type) &&
@@ -636,11 +684,22 @@ export default function ConnectDataSourceLayout({
   // us-east-1, because it cannot be changed later.
   const needsEventForwarderRegion =
     !existing && setup === "event_forwarder" && !eventForwarderRegion;
+  const noCreatableProjects =
+    !existing &&
+    definitionsReady &&
+    !canCreateForAllProjects &&
+    creatableProjectIds.length === 0;
+  const needsProjectSelection =
+    !existing &&
+    limitToProjects &&
+    selectedProjectIds.length === 0 &&
+    !noCreatableProjects;
   const canSave =
     !isSampleData &&
     !!datasource.name?.trim() &&
     !!datasource.type &&
-    projectPermissionError === null &&
+    !noCreatableProjects &&
+    !needsProjectSelection &&
     !needsEventForwarderRegion &&
     (!checksWrite || !!eventForwarderDraft) &&
     (!needsSuccessfulTest || testStatus === "passed") &&
@@ -653,7 +712,10 @@ export default function ConnectDataSourceLayout({
     if (!datasource.name?.trim()) {
       return "Enter a Data Source name to continue";
     }
-    if (projectPermissionError !== null) {
+    if (noCreatableProjects) {
+      return "You don't have permission to create a Data Source";
+    }
+    if (needsProjectSelection) {
       return "Select a Project to continue";
     }
     if (regionBlockedMessage) {
@@ -859,8 +921,24 @@ export default function ConnectDataSourceLayout({
             onChange={onChange}
             disabled={isSampleData}
             autoFocus={!existing}
-            mb="3"
+            mb={!existing && definitionsReady ? "1" : "3"}
           />
+          {!existing && definitionsReady ? (
+            <DataSourceProjectScope
+              limitToProjects={limitToProjects}
+              selectedIds={selectedProjectIds}
+              canCreateForAllProjects={canCreateForAllProjects}
+              projects={projectChoices}
+              onChange={(limited, ids) => {
+                setProjectsTouched(true);
+                setLimitOverride(limited);
+                updateDatasource({
+                  ...datasource,
+                  projects: limited ? ids : [],
+                });
+              }}
+            />
+          ) : null}
           <ConnectionSettings
             datasource={datasource}
             existing={existing}
@@ -872,25 +950,6 @@ export default function ConnectDataSourceLayout({
             hideSnowflakeSchema={checksWrite && datasource.type === "snowflake"}
             generatedPassword={
               !existing && hasGeneratedPassword(datasource, initial)
-            }
-            expandAdvancedSettings={expandProjectRestriction}
-            advancedSettingsPrefix={
-              showProjectPicker ? (
-                <Box mb="3">
-                  <MultiSelectField
-                    label="Projects"
-                    placeholder="All Projects"
-                    value={datasource.projects || []}
-                    options={projectOptions}
-                    onChange={(projects) =>
-                      updateDatasource({ ...datasource, projects })
-                    }
-                    helpText="Only Projects where you can create Data Sources are listed. Leave empty for All Projects."
-                    error={projectPermissionError ?? undefined}
-                    errorLevel="warning"
-                  />
-                </Box>
-              ) : undefined
             }
           />
         </Frame>

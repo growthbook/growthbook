@@ -1,5 +1,5 @@
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { ChangeEventHandler, ReactNode, useEffect, useState } from "react";
+import { ChangeEventHandler, ReactNode, useState } from "react";
 import { Box } from "@radix-ui/themes";
 import { isCloud } from "@/services/env";
 import Collapse, { CollapseTrigger } from "@/ui/Collapse";
@@ -25,10 +25,6 @@ export interface Props {
   setDirty?: (dirty: boolean) => void;
   setDatasource: (newVal: Partial<DataSourceInterfaceWithParams>) => void;
   beforeAdvancedSettings?: ReactNode;
-  /** Rendered at the top of Advanced Settings. */
-  advancedSettingsPrefix?: ReactNode;
-  /** Open Advanced Settings now, and again if this becomes true later. */
-  expandAdvancedSettings?: boolean;
   /**
    * Collect credentials only. The connection test lives outside this form and
    * no SQL is generated on save, so BigQuery hides its Default Dataset field
@@ -50,8 +46,6 @@ export default function ConnectionSettings({
   setDirty,
   hasError,
   beforeAdvancedSettings,
-  advancedSettingsPrefix,
-  expandAdvancedSettings = false,
   connectionOnly = false,
   keyPairGenerator,
   hideSnowflakeSchema = false,
@@ -60,17 +54,13 @@ export default function ConnectionSettings({
   const bigQueryParams =
     datasource.type === "bigquery" ? datasource.params : undefined;
   const [advancedOpen, setAdvancedOpen] = useState(
-    expandAdvancedSettings ||
-      !!datasource.settings?.maxConcurrentQueries ||
+    !!datasource.settings?.maxConcurrentQueries ||
       !!datasource.settings?.queryCacheTTLMins ||
       !!bigQueryParams?.apiEndpoint ||
       !!bigQueryParams?.reservation ||
       (!!bigQueryParams?.defaultProject &&
         bigQueryParams.defaultProject !== bigQueryParams.projectId),
   );
-  useEffect(() => {
-    if (expandAdvancedSettings) setAdvancedOpen(true);
-  }, [expandAdvancedSettings]);
 
   // Set the new params (specific per-datasource) and optionally settings (shared between datasources)
   const setParams = (
@@ -299,7 +289,6 @@ export default function ConnectionSettings({
             className="bg-highlight"
             style={{ borderRadius: "var(--radius-2)" }}
           >
-            {advancedSettingsPrefix}
             {datasource.type === "bigquery" && (
               <BigQueryAdvancedSettings
                 params={datasource.params || {}}
