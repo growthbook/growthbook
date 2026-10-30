@@ -22,8 +22,6 @@ export type SidebarMenuEntry =
       content: ReactNode;
       onSelect: () => void;
       className?: string;
-      /** Stays open after it's chosen, e.g. to show a result in place. */
-      keepOpen?: boolean;
     }
   | { type: "separator"; key: string }
   | { type: "label"; key: string; label: string }
@@ -96,11 +94,7 @@ export function DropdownEntries({ entries }: { entries: SidebarMenuEntry[] }) {
               <DropdownMenuItem
                 key={entry.key}
                 className={entry.className}
-                onClick={(event) => {
-                  // Radix closes the menu unless this is cancelled.
-                  if (entry.keepOpen) event.preventDefault();
-                  entry.onSelect();
-                }}
+                onClick={entry.onSelect}
               >
                 {entry.content}
               </DropdownMenuItem>
@@ -227,7 +221,7 @@ export function InPlaceMenu({
                 className={clsx(styles.entry, entry.className)}
                 onClick={() => {
                   entry.onSelect();
-                  if (!entry.keepOpen) inPlace.onDone();
+                  inPlace.onDone();
                 }}
               >
                 {entry.content}

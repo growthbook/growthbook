@@ -7,8 +7,6 @@ import {
   PiArrowSquareOutBold,
   PiBookOpen,
   PiChatCircleDots,
-  PiCheck,
-  PiCopy,
   PiQuestion,
   PiSlackLogo,
 } from "react-icons/pi";
@@ -19,10 +17,9 @@ import { getGrowthBookBuild, isCloud } from "@/services/env";
 import { useUser } from "@/services/UserContext";
 import UpgradeModal from "@/components/Settings/UpgradeModal";
 import PaidFeatureBadge from "@/components/GetStarted/PaidFeatureBadge";
-import { useCopyToClipboard } from "@/hooks/useCopyToClipboard";
 import { withOpticalWeight } from "./opticalWeight";
 import { useMenuTriggerTooltip } from "./SidebarTooltip";
-import { buildVersionLabel } from "./buildVersion";
+import { buildVersion } from "./buildVersion";
 import {
   DropdownEntries,
   InPlaceMenu,
@@ -85,34 +82,7 @@ export default function HelpMenu({
   const { hasCommercialFeature } = useUser();
   // Plans with live chat have Pylon's own chat bubble (PylonLoader.tsx).
   const offerLiveChat = isCloud() && !hasCommercialFeature("livechat");
-  const version = buildVersionLabel(getGrowthBookBuild());
-  const { performCopy, copySuccess } = useCopyToClipboard({ timeout: 1500 });
-
-  // The menu stays open to show "Copied".
-  const copyVersion = () => {
-    if (version) performCopy(version);
-  };
-  const versionContent = (
-    <span className={styles.versionContent}>
-      <VisuallyHidden>Copy </VisuallyHidden>
-      <Text size="sm" truncate>
-        <span className={styles.versionText}>
-          <Text size="inherit" weight="medium">
-            Version:
-          </Text>{" "}
-          {copySuccess ? "Copied" : version}
-        </span>
-      </Text>
-      {copySuccess ? (
-        <PiCheck size={14} className={styles.copyIcon} aria-hidden="true" />
-      ) : (
-        <PiCopy size={14} className={styles.copyIcon} aria-hidden="true" />
-      )}
-      <VisuallyHidden role="status">
-        {copySuccess ? "Version copied" : ""}
-      </VisuallyHidden>
-    </span>
-  );
+  const version = buildVersion(getGrowthBookBuild());
 
   const entries: SidebarMenuEntry[] = [
     { type: "label", key: "header", label: "Help" },
@@ -146,9 +116,28 @@ export default function HelpMenu({
             type: "item" as const,
             key: "version",
             className: styles.versionItem,
-            keepOpen: true,
-            onSelect: copyVersion,
-            content: versionContent,
+            onSelect: () => {
+              window.open(version.commitUrl, "_blank", "noopener,noreferrer");
+            },
+            content: (
+              <span className={styles.versionContent}>
+                <Text size="sm" truncate>
+                  <span className={styles.versionText}>
+                    <Text size="inherit" weight="medium">
+                      Version:
+                    </Text>{" "}
+                    {version.label}
+                    {version.date ? (
+                      <span className={styles.versionDate}>
+                        {" "}
+                        ({version.date})
+                      </span>
+                    ) : null}
+                    <VisuallyHidden> (opens in a new tab)</VisuallyHidden>
+                  </span>
+                </Text>
+              </span>
+            ),
           },
         ]
       : []),
