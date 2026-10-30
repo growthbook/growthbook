@@ -424,11 +424,7 @@ function ExpandedSection({
   section: Section;
   active: boolean;
   open: boolean;
-  /**
-   * `navigate` is true from the row, which also goes to the first page; the
-   * chevron only toggles.
-   */
-  onToggle: (navigate: boolean) => void;
+  onToggle: () => void;
   route: string;
 }) {
   const { Icon } = section;
@@ -436,7 +432,8 @@ function ExpandedSection({
   return (
     <div className={styles.sectionGroup}>
       <div className={styles.sectionHeader}>
-        {/* A link, so the first page can open in a new tab. */}
+        {/* A link to the first page that also opens the section; only the
+          chevron closes it. */}
         <Link
           href={section.pages[0].href}
           className={clsx(
@@ -446,9 +443,14 @@ function ExpandedSection({
             active && styles.active,
           )}
           onClick={(e) => {
-            if (opensElsewhere(e)) return;
-            e.preventDefault();
-            onToggle(true);
+            if (opensElsewhere(e) || open) return;
+            onToggle();
+            // On one of its own pages it only opens the section, and keeps
+            // the drawer open by not reaching the nav's link-click handler.
+            if (active) {
+              e.preventDefault();
+              e.stopPropagation();
+            }
           }}
         >
           <Icon size={SIDEBAR_ICON_SIZE} className={styles.rowIcon} />
@@ -460,7 +462,7 @@ function ExpandedSection({
           aria-label={`${open ? "Collapse" : "Expand"} ${section.link.name}`}
           aria-expanded={open}
           aria-controls={listId}
-          onClick={() => onToggle(false)}
+          onClick={onToggle}
         >
           <PiCaretRightBold
             size={12}
@@ -992,12 +994,12 @@ export default function Sidebar() {
                   open={
                     !sectionsFolded && openSections.includes(section.link.name)
                   }
-                  onToggle={(navigate) => {
+                  onToggle={() => {
                     const opening =
                       sectionsFolded ||
                       !openSections.includes(section.link.name);
-                    // Row and chevron alike leave the other open sections
-                    // open; each stays open until it's closed itself.
+                    // Opening one leaves the other open sections open; each
+                    // stays open until it's closed itself.
                     setOpenSections((open) =>
                       !opening
                         ? open.filter((name) => name !== section.link.name)
@@ -1006,17 +1008,6 @@ export default function Sidebar() {
                           : [...open, section.link.name],
                     );
                     if (opening) setSectionsFolded(false);
-                    // Opening a section goes to its first page, unless the
-                    // current page is already in it.
-                    const first = section.pages[0];
-                    if (
-                      navigate &&
-                      opening &&
-                      first &&
-                      activeSection !== section.link.name
-                    ) {
-                      void router.push(first.href);
-                    }
                   }}
                   route={route}
                 />
