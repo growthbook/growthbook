@@ -90,6 +90,10 @@ export const deleteApiKeyValidator = z.strictObject({
   key: z.string().optional(),
 });
 
+export const postApiKeyRevealValidator = z.strictObject({
+  id: z.string().optional(),
+});
+
 export const postInviteAcceptValidator = z.strictObject({
   key: z.string(),
 });

@@ -12,6 +12,7 @@ import {
 } from "shared/util";
 import {
   canApplyExpirationPolicy,
+  canManageApiKeySecret,
   getRoles,
   hasSuperAdminPermission,
   holdsAllSuperAdminPermissions,
@@ -2309,6 +2310,33 @@ export async function deleteApiKeyPreviousKey(
   });
 
   res.status(200).json({ status: 200 });
+}
+
+export async function postApiKeyReveal(
+  req: AuthRequest<{ id: string }>,
+  res: Response,
+) {
+  const context = getContextFromReq(req);
+  const { id } = req.body;
+
+  const key = await context.models.apiKeys.getSdkEndpointKey(id);
+  if (!key) {
+    return res.status(403).json({
+      status: 403,
+    });
+  }
+
+  if (!canManageApiKeySecret(context.permissions, key, context.userId)) {
+    if (!key.userId) context.permissions.throwPermissionError();
+    return res.status(403).json({
+      status: 403,
+    });
+  }
+
+  res.status(200).json({
+    status: 200,
+    key,
+  });
 }
 
 export async function getLegacyWebhooks(req: AuthRequest, res: Response) {

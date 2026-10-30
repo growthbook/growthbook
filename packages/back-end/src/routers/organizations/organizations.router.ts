@@ -4,6 +4,7 @@ import { validateRequestMiddleware } from "back-end/src/routers/utils/validateRe
 import { IS_CLOUD } from "back-end/src/util/secrets";
 import {
   deleteApiKeyValidator,
+  postApiKeyRevealValidator,
   postApiKeyRotateValidator,
   postInviteAcceptValidator,
   postApiKeyValidator,
@@ -126,6 +127,13 @@ router.delete(
 router.post(
   "/keys/apply-expiration-policy",
   organizationsController.postApplyExpirationPolicy,
+);
+router.post(
+  "/keys/reveal",
+  validateRequestMiddleware({
+    body: postApiKeyRevealValidator,
+  }),
+  organizationsController.postApiKeyReveal,
 );
 router.put(
   "/keys/:id/disabled",

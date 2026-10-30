@@ -11,7 +11,7 @@ import { logger } from "back-end/src/util/logger";
 // Idempotent upkeep for apikeys, run on every install, so steps can't depend on a feature flag.
 const JOB_NAME = "apiKeyMaintenance";
 const HASH_BATCH_SIZE = 1000;
-const LEGACY_SDK_KEY_BATCH_SIZE = 100;
+const LEGACY_SDK_KEY_BATCH_SIZE = 1000;
 
 const moveLegacySdkKey = async (apiKey: ApiKeyInterface) => {
   // An earlier run may have created the connection but not deleted the key.

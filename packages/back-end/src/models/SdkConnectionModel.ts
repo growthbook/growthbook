@@ -39,6 +39,7 @@ import { logger } from "back-end/src/util/logger";
 import { getSDKPayloadCacheLocation } from "back-end/src/models/SdkConnectionCacheModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { createModelAuditLogger } from "back-end/src/services/audit";
+import { ApiKeyModel } from "back-end/src/models/ApiKeyModel";
 import {
   generateEncryptionKey,
   generateSigningKey,
@@ -565,6 +566,10 @@ export async function deleteSDKConnectionModel(
     organization: context.org.id,
     id: sdkConnection.id,
   });
+  // A move that failed partway leaves the old key behind, still serving.
+  if (sdkConnection.languages.includes("legacy")) {
+    await ApiKeyModel.dangerousDeleteLegacySdkKey(sdkConnection.key);
+  }
 
   await audit.logDelete(context, sdkConnection);
 }

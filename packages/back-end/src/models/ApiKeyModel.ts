@@ -937,6 +937,11 @@ export class ApiKeyModel extends BaseClass {
     );
   }
 
+  // Legacy SDK endpoint keys only: secret keys are stored hashed.
+  public async getSdkEndpointKey(id: string): Promise<ApiKeyInterface | null> {
+    return await this._findOne({ id, secret: { $ne: true } });
+  }
+
   // Issues a new secret under the same id, role and settings. With a grace
   // period, the replaced secret keeps working until it ends.
   public async rotateSecret(

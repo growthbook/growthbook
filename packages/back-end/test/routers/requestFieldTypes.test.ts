@@ -26,6 +26,7 @@ afterEach(() => {
 it.each([
   ["delete", "/keys", "deleteApiKey", { id: { a: 1 } }],
   ["delete", "/keys", "deleteApiKey", { key: { a: 1 } }],
+  ["post", "/keys/reveal", "postApiKeyReveal", { id: { a: 1 } }],
   ["post", "/invite/accept", "postInviteAccept", { key: { a: 1 } }],
 ] as const)(
   "%s %s (%s) refuses %j before the handler runs",
