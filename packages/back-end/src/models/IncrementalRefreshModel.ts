@@ -87,8 +87,11 @@ export class IncrementalRefreshModel extends BaseClass {
   }): Promise<boolean> {
     const collection = this._dangerousGetCollection();
     const lockAvailable = this.getAvailableLockFilter();
+    // A new holder voids any earlier run's commit, so that run can no longer
+    // commit or point the tables at its snapshot.
     const lockFields = {
       currentExecutionSnapshotId: snapshotId,
+      lastCommittedSnapshotId: null,
       lockHeartbeatAt: new Date(),
       dateUpdated: new Date(),
     };
@@ -170,6 +173,7 @@ export class IncrementalRefreshModel extends BaseClass {
     };
     const claimFields = {
       currentExecutionSnapshotId: token,
+      lastCommittedSnapshotId: null,
       lockHeartbeatAt: new Date(),
       dateUpdated: new Date(),
     };
@@ -218,6 +222,52 @@ export class IncrementalRefreshModel extends BaseClass {
         },
       },
     );
+  }
+
+  /**
+   * Commits a run's results while it still holds the lock. Committing again
+   * is a no-op success until another run takes the lock, so a retried save
+   * keeps its results. Returns false when another run has taken the lock.
+   */
+  public async commitRunResults(
+    experimentId: string,
+    snapshotId: string,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        $or: [
+          { currentExecutionSnapshotId: snapshotId },
+          { lastCommittedSnapshotId: snapshotId },
+        ],
+      },
+      {
+        $set: { lastCommittedSnapshotId: snapshotId, dateUpdated: new Date() },
+      },
+    );
+    return result.matchedCount > 0;
+  }
+
+  /**
+   * Points the tables at a run's snapshot once it was saved as a success, and
+   * only while that run is still the last to commit.
+   */
+  public async markMaterialized(
+    experimentId: string,
+    snapshotId: string,
+  ): Promise<boolean> {
+    const result = await this._dangerousGetCollection().updateOne(
+      {
+        organization: this.context.org.id,
+        experimentId,
+        lastCommittedSnapshotId: snapshotId,
+      },
+      {
+        $set: { materializedBySnapshotId: snapshotId, dateUpdated: new Date() },
+      },
+    );
+    return result.matchedCount > 0;
   }
 
   public async touchLockHeartbeat(experimentId: string, snapshotId: string) {

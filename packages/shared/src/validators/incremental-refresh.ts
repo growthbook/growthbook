@@ -19,6 +19,9 @@ export const incrementalRefreshMetricSourceValidator = z.object({
   // absent on documents written before it was captured.
   maxTimestampRaw: z.string().nullable().optional(),
   tableFullName: z.string(),
+  // The run that marked this table before writing to it, until it saved the
+  // new watermark. A marked table is rebuilt by the next refresh.
+  dirtyBy: z.string().nullable().optional(),
 });
 
 export const incrementalRefreshMetricCovariateSourceValidator = z.object({
@@ -26,6 +29,8 @@ export const incrementalRefreshMetricCovariateSourceValidator = z.object({
   tableFullName: z.string(),
   lastSuccessfulMaxTimestamp: z.date().nullable(),
   lastSuccessfulMaxTimestampRaw: z.string().nullable().optional(),
+  // As on a metric source: set before writing, cleared with the watermark.
+  dirtyBy: z.string().nullable().optional(),
 });
 
 const incrementalRefresh = z
@@ -37,6 +42,9 @@ const incrementalRefresh = z
 
     // Unit Source Settings
     unitsTableFullName: z.string().nullable(),
+    // The run that marked the units table before changing it, until it saved
+    // the new watermark. A marked units table needs a full refresh.
+    unitsDirtyBy: z.string().nullable().optional(),
     unitsMaxTimestamp: z.date().nullable(),
     unitsMaxTimestampRaw: z.string().nullable().optional(),
     unitsDimensions: z.array(z.string()),
@@ -46,6 +54,8 @@ const incrementalRefresh = z
 
     // Snapshot whose run materialized the current tables
     materializedBySnapshotId: z.string().optional(),
+    // The last run that committed its results while holding the lock
+    lastCommittedSnapshotId: z.string().nullable().optional(),
 
     // Metrics
     metricSources: z.array(incrementalRefreshMetricSourceValidator),

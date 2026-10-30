@@ -40,6 +40,7 @@ import {
 } from "shared/types/fact-table";
 import { orgHasPremiumFeature } from "back-end/src/enterprise";
 import { ExperimentIncrementalPipelineRequiresFullRefreshError } from "back-end/src/util/errors";
+import { INTERRUPTED_UPDATE_REASON } from "back-end/src/services/interruptedRefresh";
 import { SourceIntegrationInterface } from "back-end/src/types/Integration";
 import { getFiltersForHash } from "back-end/src/services/experimentTimeSeries";
 import { getColumnsForMetric } from "back-end/src/integrations/sql/fact-metrics/columns-for-metric";
@@ -91,6 +92,22 @@ export async function assertIncrementalRefreshPrerequisites({
 
   if (unsupportedReason) {
     throw new Error(unsupportedReason);
+  }
+
+  // A breakdown reads the tables as they are, so it can't use any a stopped
+  // run left marked. A marked units table needs a full refresh; marked
+  // sources are rebuilt by the next Update.
+  if (analysisType === "exploratory" && incrementalRefreshModel) {
+    if (incrementalRefreshModel.unitsDirtyBy) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        `${INTERRUPTED_UPDATE_REASON}. Please run a Full Refresh.`,
+      );
+    }
+    if (hasTablesMarkedDirty(incrementalRefreshModel)) {
+      throw new Error(
+        `${INTERRUPTED_UPDATE_REASON}. Please update results before viewing dimensions.`,
+      );
+    }
   }
 
   // If not forcing a full refresh and we have a previous run, ensure the
@@ -344,15 +361,28 @@ export function getMetricSettingsHashForIncrementalRefresh({
  */
 export function getFactTablesNeedingRebuild({
   existingMetricSources,
+  existingCovariateSources = [],
   desiredFanOut,
   currentMetricSettingsHashes,
 }: {
   existingMetricSources: IncrementalRefreshInterface["metricSources"];
+  existingCovariateSources?: IncrementalRefreshInterface["metricCovariateSources"];
   desiredFanOut: MetricFanOut;
   currentMetricSettingsHashes: Map<string, string>;
 }): Set<string> {
   const factTablesToRebuild = new Set<string>();
   if (!existingMetricSources.length) return factTablesToRebuild;
+
+  // A run stopped while writing these tables: they may hold rows past their
+  // saved watermark.
+  const dirtyGroupIds = new Set(
+    [...existingMetricSources, ...existingCovariateSources]
+      .filter((source) => source.dirtyBy)
+      .map((source) => source.groupId),
+  );
+  existingMetricSources
+    .filter((source) => dirtyGroupIds.has(source.groupId))
+    .forEach((source) => factTablesToRebuild.add(source.factTableId));
 
   // (factTableId, metricId) tuples the persisted caches currently hold.
   const storedTuples = new Set<string>();
@@ -599,8 +629,28 @@ export function getAggregatedFactTableRestateReason({
   return null;
 }
 
+// True when a stopped run left a table marked that it may have changed.
+export function hasTablesMarkedDirty(
+  incrementalRefreshModel: Pick<
+    IncrementalRefreshInterface,
+    "unitsDirtyBy" | "metricSources" | "metricCovariateSources"
+  >,
+): boolean {
+  const groupIds = new Set(
+    incrementalRefreshModel.metricSources.map((source) => source.groupId),
+  );
+  return (
+    !!incrementalRefreshModel.unitsDirtyBy ||
+    incrementalRefreshModel.metricSources.some((source) => !!source.dirtyBy) ||
+    // A covariate source without its metric source is never read.
+    incrementalRefreshModel.metricCovariateSources.some(
+      (source) => !!source.dirtyBy && groupIds.has(source.groupId),
+    )
+  );
+}
+
 // True when a dimension breakdown would read a units table built under different
-// experiment-level settings.
+// experiment-level settings, or one a stopped run left marked.
 export function exploratoryOverallRequiresFullRefresh({
   snapshotSettings,
   exposureQueries,
@@ -612,6 +662,8 @@ export function exploratoryOverallRequiresFullRefresh({
   incrementalRefreshModel: IncrementalRefreshInterface;
   latestOverallSnapshotId: string | null;
 }): boolean {
+  if (incrementalRefreshModel.unitsDirtyBy) return true;
+
   const currentSettingsHash = getExperimentSettingsHashForIncrementalRefresh(
     snapshotSettings,
     exposureQueries,

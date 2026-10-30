@@ -13,10 +13,14 @@ import expireOldQueries, {
 import {
   dangerousFindStalledRunningSnapshotsFromAllOrgs,
   errorSnapshotIfStillRunning,
+  findRunningSnapshotsByQueryId,
   findSnapshotById,
+  updateSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
+import { NOT_RUN_QUERY_ERROR } from "back-end/src/services/interruptedRefresh";
 import { recoverStalledSnapshot } from "back-end/src/queryRunners/rehydrate";
 import {
+  failQueuedQueries,
   getQueryStatusesByIds,
   getStaleQueries,
   markPendingQueriesAsFailed,
@@ -40,6 +44,7 @@ jest.mock("back-end/src/queryRunners/rehydrate", () => ({
 }));
 
 jest.mock("back-end/src/models/QueryModel", () => ({
+  failQueuedQueries: jest.fn(),
   getQueryStatusesByIds: jest.fn(),
   getStaleQueries: jest.fn(),
   markPendingQueriesAsFailed: jest.fn(),
@@ -790,5 +795,46 @@ describe("expireOldQueries stalled snapshot reaper", () => {
 
     expect(errorSnapshotIfStillRunning).not.toHaveBeenCalled();
     expect(markPendingQueriesAsFailed).not.toHaveBeenCalled();
+  });
+
+  it("stops a timed-out incremental refresh's queued queries before releasing it", async () => {
+    const snapshot = runningSnapshot("snp_1", {});
+    snapshot.runnerKind = "incremental-update";
+    snapshot.queries = [
+      { name: "insert", query: "qry_running", status: "running" },
+      { name: "statistics", query: "qry_queued", status: "queued" },
+    ];
+    (getStaleQueries as jest.Mock).mockResolvedValue([
+      { id: "qry_running", organization: "org_1" },
+    ]);
+    (findRunningSnapshotsByQueryId as jest.Mock).mockResolvedValue([snapshot]);
+    (getQueryStatusesByIds as jest.Mock).mockResolvedValue([
+      { id: "qry_running", status: "failed" },
+      { id: "qry_queued", status: "queued" },
+    ]);
+    (failQueuedQueries as jest.Mock).mockResolvedValue(["qry_queued"]);
+
+    await runJob();
+
+    expect(failQueuedQueries).toHaveBeenCalledWith(
+      context,
+      ["qry_queued"],
+      NOT_RUN_QUERY_ERROR,
+    );
+    expect(releaseLock).toHaveBeenCalledWith("exp_1", "snp_1");
+    // The snapshot is errored before its lock is released.
+    expect(
+      (updateSnapshot as jest.Mock).mock.invocationCallOrder[0],
+    ).toBeLessThan(releaseLock.mock.invocationCallOrder[0]);
+    expect(updateSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        updates: expect.objectContaining({
+          queries: [
+            { name: "insert", query: "qry_running", status: "failed" },
+            { name: "statistics", query: "qry_queued", status: "failed" },
+          ],
+        }),
+      }),
+    );
   });
 });
