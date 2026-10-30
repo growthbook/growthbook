@@ -144,9 +144,11 @@ const EmptySection: FC<{
       textAlign: "center",
     }}
   >
-    <Text weight="semibold">{title}</Text>
+    <Text weight="semibold" align="center">
+      {title}
+    </Text>
     <Box style={{ maxWidth: 460 }}>
-      <Text as="div" color="text-low">
+      <Text as="div" color="text-low" align="center">
         {body}
       </Text>
     </Box>
