@@ -59,7 +59,7 @@ export default function SettingsPage({
   description,
   actions,
   parent,
-  group = "organization",
+  section,
   breadcrumb,
   hideHeader,
   headerClassName,
@@ -70,9 +70,9 @@ export default function SettingsPage({
   description?: ReactNode;
   actions?: ReactNode;
   parent?: BreadcrumbItem;
-  // Which Settings nav group the page is reached from. "general" pages show
-  // under Organization for roles that cannot see General.
-  group?: "general" | "organization";
+  // The General section this page is reached from, for its breadcrumb. Roles
+  // that cannot see General reach the page under Organization instead.
+  section?: string;
   breadcrumb?: BreadcrumbItem[];
   hideHeader?: boolean;
   headerClassName?: string;
@@ -81,8 +81,8 @@ export default function SettingsPage({
 }) {
   const permissionsUtil = usePermissionsUtil();
   const root: BreadcrumbItem =
-    group === "general" && permissionsUtil.canManageOrgSettings()
-      ? { display: "General", href: "/settings" }
+    section && permissionsUtil.canManageOrgSettings()
+      ? { display: "General", href: `/settings#${section}` }
       : {
           display: "Organization",
           // Organization lands on Projects, so only link it for users who can open it.

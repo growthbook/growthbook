@@ -17,7 +17,7 @@ const ImportFromEppoPage: NextPage = () => {
   return (
     <SettingsPage
       title="Eppo Importer"
-      group="general"
+      section="import"
       parent={{ display: "Import Your Data", href: "/importing" }}
     >
       {enabled ? (
