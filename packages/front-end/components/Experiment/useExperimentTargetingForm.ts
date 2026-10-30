@@ -1,11 +1,16 @@
 import { useState } from "react";
 import { useForm, UseFormReturn } from "react-hook-form";
+import isEqual from "lodash/isEqual";
 import {
   ExperimentInterfaceStringDates,
   ExperimentPhaseStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
-import { changedTargeting, getTargetingDefaults } from "shared/experiments";
+import {
+  areVariationWeightsValid,
+  changedTargeting,
+  getTargetingDefaults,
+} from "shared/experiments";
 import { validateAndFixCondition } from "shared/util";
 import { mergeContiguousRanges } from "@/components/Features/NamespaceSelectorUtils";
 import useSDKConnections from "@/hooks/useSDKConnections";
@@ -115,6 +120,15 @@ export function useExperimentTargetingForm(
 
       if (prerequisiteTargetingSdkIssues) {
         throw new Error("Prerequisite targeting issues must be resolved");
+      }
+
+      if (
+        experiment.type !== "multi-armed-bandit" &&
+        (value.newPhase ||
+          !isEqual(value.variationWeights, lastPhase?.variationWeights)) &&
+        !areVariationWeightsValid(value.variationWeights)
+      ) {
+        throw new Error("Variation weights must add up to 100%.");
       }
 
       // Existing persisted attribute values. Passed as `existingParts` so the

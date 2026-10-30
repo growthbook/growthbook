@@ -181,8 +181,6 @@ it("keeps the query identity when only non-query fields change", () => {
     tags: ["core"],
     owner: "u_1",
     inverse: true,
-    winRisk: 0.5,
-    loseRisk: 1,
     minSampleSize: 500,
     targetMDE: 0.2,
     displayAsPercentage: true,

@@ -886,9 +886,6 @@ const factMetricObjectValidator = z
     targetMDE: z.number().optional(),
     displayAsPercentage: z.boolean().optional(),
 
-    winRisk: z.number(),
-    loseRisk: z.number(),
-
     regressionAdjustmentOverride: z.boolean(),
     regressionAdjustmentEnabled: z.boolean(),
     regressionAdjustmentDays: z.number(),

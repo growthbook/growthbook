@@ -4,19 +4,15 @@ import { Box, Flex } from "@radix-ui/themes";
 import { useRouter } from "next/router";
 import { PiCaretRight, PiMagnifyingGlass } from "react-icons/pi";
 import { date } from "shared/dates";
-import { SuperAdmin } from "shared/validators";
-import {
-  hasSuperAdminPermission,
-  normalizeSuperAdmin,
-} from "shared/permissions";
+import { hasSuperAdminPermission } from "shared/permissions";
 import { AdminOrgSummary } from "shared/enterprise";
 import { useUser } from "@/services/UserContext";
 import OrphanedUsersList from "@/components/Settings/Team/OrphanedUsersList";
 import { isCloud, isMultiOrg } from "@/services/env";
 import LoadingOverlay from "@/components/LoadingOverlay";
+import PageHead from "@/components/Layout/PageHead";
 import CreateOrganization from "@/components/Admin/CreateOrganization";
-import EditMember, { AdminMember } from "@/components/Admin/EditMember";
-import { GBEdit } from "@/components/Icons";
+import { AdminMember, formatSuperAdmin } from "@/components/Admin/EditMember";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import ShowLicenseInfo from "@/components/License/ShowLicenseInfo";
 import useApi from "@/hooks/useApi";
@@ -40,22 +36,19 @@ import Table, {
 import Text from "@/ui/Text";
 import TextField from "@/ui/TextField";
 
-interface memberOrgProps {
-  id: string;
-  name: string;
-  members: number;
-  role: string;
-}
-
 const numberFormatter = new Intl.NumberFormat();
+
+// For names, emails and IDs, which have few spaces to wrap at
+const WRAP = { overflowWrap: "anywhere" } as const;
 
 const MEMBER_RANGES: Record<
   string,
   { min?: number; max?: number; label: string }
 > = {
-  "1-9": { min: 1, max: 9, label: "1–9 members" },
-  "10-49": { min: 10, max: 49, label: "10–49 members" },
-  "50+": { min: 50, label: "50+ members" },
+  "1-3": { min: 1, max: 3, label: "1–3 members" },
+  "4-10": { min: 4, max: 10, label: "4–10 members" },
+  "11-30": { min: 11, max: 30, label: "11–30 members" },
+  "31+": { min: 31, label: "31+ members" },
 };
 
 type FilterOptions = [value: string, label: string][];
@@ -80,6 +73,7 @@ function getOrgFilterOptions() {
       ...(cloud ? cloudStatuses : []),
       ["suspended", "Suspended"],
       ["disabled", "Disabled"],
+      ["has_banner", "Has banner"],
     ],
     members: Object.entries(MEMBER_RANGES).map(([value, r]) => [
       value,
@@ -108,12 +102,6 @@ function optionItems(options: FilterOptions = []) {
       {label}
     </SelectItem>
   ));
-}
-
-function formatSuperAdmin(superAdmin: SuperAdmin | undefined) {
-  const normalized = normalizeSuperAdmin(superAdmin);
-  if (normalized === true) return "Full access";
-  return normalized ? normalized.join(", ") : "-";
 }
 
 type OrgFilters = {
@@ -367,14 +355,14 @@ function OrganizationList({
                   onClick={(e) => {
                     // The caret link handles its own clicks, including Cmd/Ctrl-click
                     if ((e.target as HTMLElement).closest("a")) return;
-                    router.push(`/admin/${o.id}`);
+                    router.push(`/admin/org/${o.id}`);
                   }}
-                  style={{ whiteSpace: "nowrap", cursor: "pointer" }}
+                  style={{ cursor: "pointer" }}
                 >
-                  <TableCell>
+                  <TableCell maxWidth="280px" style={WRAP}>
                     <Text weight="semibold">{o.name}</Text>
                   </TableCell>
-                  <TableCell>
+                  <TableCell style={WRAP}>
                     <code>{o.id}</code>
                   </TableCell>
                   {isCloud() && (
@@ -390,11 +378,15 @@ function OrganizationList({
                     {summary.seats ? ` / ${summary.seats}` : ""}
                   </TableCell>
                   <TableCell>{date(o.dateCreated)}</TableCell>
-                  <TableCell>{o.ownerEmail}</TableCell>
-                  {!isCloud() && <TableCell>{o.externalId}</TableCell>}
+                  <TableCell maxWidth="280px" style={WRAP}>
+                    {o.ownerEmail}
+                  </TableCell>
+                  {!isCloud() && (
+                    <TableCell style={WRAP}>{o.externalId}</TableCell>
+                  )}
                   <TableCell style={{ textAlign: "right" }}>
                     <Link
-                      href={`/admin/${o.id}`}
+                      href={`/admin/org/${o.id}`}
                       color="gray"
                       aria-label={`Open ${o.name}`}
                     >
@@ -444,32 +436,20 @@ function MemberList({
   filters: MemberFilters;
   setFilters: Dispatch<SetStateAction<MemberFilters>>;
 }) {
-  const { superAdmin } = useUser();
-  const canEdit =
-    hasSuperAdminPermission(superAdmin, "users") ||
-    hasSuperAdminPermission(superAdmin, "grant");
+  const router = useRouter();
   const { page, search, superAdminsOnly } = filters;
   const [searchInput, setSearchInput] = useDebouncedSearch(search, setFilters);
-  const [editMember, setEditMember] = useState<AdminMember | null>(null);
 
   const params = new URLSearchParams({ page: String(page), search });
   if (superAdminsOnly) params.set("superAdmins", "1");
 
-  const { data, error, mutate } = useApi<{
+  const { data, error } = useApi<{
     members: AdminMember[];
     total: number;
-    memberOrgs: Record<string, memberOrgProps[]>;
   }>(`/admin/members?${params.toString()}`);
 
   return (
     <>
-      {editMember && (
-        <EditMember
-          member={editMember}
-          onEdit={() => mutate()}
-          close={() => setEditMember(null)}
-        />
-      )}
       <Flex gap="4" wrap="wrap" align="center" mb="3">
         <Box flexGrow="0" flexShrink="1" flexBasis="360px" minWidth="240px">
           <TextField
@@ -508,64 +488,55 @@ function MemberList({
             <TableRow>
               <TableColumnHeader>Name</TableColumnHeader>
               <TableColumnHeader>Email</TableColumnHeader>
-              <TableColumnHeader>ID</TableColumnHeader>
               <TableColumnHeader>Created</TableColumnHeader>
               <TableColumnHeader>Verified</TableColumnHeader>
               <TableColumnHeader>Super admin</TableColumnHeader>
-              <TableColumnHeader>Organizations</TableColumnHeader>
               <TableColumnHeader />
             </TableRow>
           </TableHeader>
           <TableBody>
-            {data?.members.map((m) => {
-              const orgs = data.memberOrgs[m.id] ?? [];
-              return (
-                <TableRow key={m.id} style={{ whiteSpace: "nowrap" }}>
-                  <TableCell>{m.name}</TableCell>
-                  <TableCell>{m.email}</TableCell>
-                  <TableCell>
-                    <code>{m.id}</code>
-                  </TableCell>
-                  <TableCell>
-                    {m.dateCreated ? date(m.dateCreated) : "-"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      label={m.verified ? "Verified" : "Unverified"}
-                      color={m.verified ? "green" : "amber"}
-                    />
-                  </TableCell>
-                  <TableCell>{formatSuperAdmin(m.superAdmin)}</TableCell>
-                  <TableCell>
-                    {orgs.length
-                      ? orgs.map((o, i) => (
-                          <span key={o.id}>
-                            {i > 0 && ", "}
-                            <Link href={`/admin/${o.id}`}>{o.name}</Link> (
-                            {o.role})
-                          </span>
-                        ))
-                      : "-"}
-                  </TableCell>
-                  <TableCell style={{ textAlign: "right" }}>
-                    {canEdit && (
-                      <Link
-                        aria-label={`Edit ${m.name || m.email}`}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setEditMember(m);
-                        }}
-                      >
-                        <GBEdit />
-                      </Link>
-                    )}
-                  </TableCell>
-                </TableRow>
-              );
-            })}
+            {data?.members.map((m) => (
+              <TableRow
+                key={m.id}
+                onClick={(e) => {
+                  // The caret link handles its own clicks, including Cmd/Ctrl-click
+                  if ((e.target as HTMLElement).closest("a")) return;
+                  router.push(`/admin/user/${m.id}`);
+                }}
+                style={{ cursor: "pointer" }}
+              >
+                <TableCell maxWidth="200px" style={WRAP}>
+                  {m.name}
+                </TableCell>
+                <TableCell maxWidth="300px" style={WRAP}>
+                  {m.email}
+                </TableCell>
+                <TableCell>
+                  {m.dateCreated ? date(m.dateCreated) : "-"}
+                </TableCell>
+                <TableCell>
+                  <Badge
+                    label={m.verified ? "Verified" : "Unverified"}
+                    color={m.verified ? "green" : "amber"}
+                  />
+                </TableCell>
+                <TableCell maxWidth="200px" style={WRAP}>
+                  {formatSuperAdmin(m.superAdmin)}
+                </TableCell>
+                <TableCell style={{ textAlign: "right" }}>
+                  <Link
+                    href={`/admin/user/${m.id}`}
+                    color="gray"
+                    aria-label={`Open ${m.name || m.email}`}
+                  >
+                    <PiCaretRight />
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))}
             {data?.members.length === 0 && (
               <TableRow>
-                <TableCell colSpan={8}>
+                <TableCell colSpan={6}>
                   <Text color="text-mid">No members found</Text>
                 </TableCell>
               </TableRow>
@@ -618,21 +589,28 @@ export default function Admin() {
 
   return (
     <Box className="pagecontents" p="3">
+      <PageHead breadcrumb={[{ display: "Admin" }]} />
       <Heading as="h1" size="xl" mb="4">
         GrowthBook Admin
       </Heading>
-      {!isCloud() && (
-        <Frame>
-          <ShowLicenseInfo showInput={false} />
-        </Frame>
-      )}
-      <Tabs defaultValue="organizations" persistInURL={true}>
+      <Tabs
+        defaultValue={isCloud() ? "organizations" : "license"}
+        persistInURL={true}
+      >
         <Box mb="4">
           <TabsList>
+            {!isCloud() && <TabsTrigger value="license">License</TabsTrigger>}
             <TabsTrigger value="organizations">Organizations</TabsTrigger>
             <TabsTrigger value="members">Members</TabsTrigger>
           </TabsList>
         </Box>
+        {!isCloud() && (
+          <TabsContent value="license">
+            <Frame>
+              <ShowLicenseInfo showInput={false} />
+            </Frame>
+          </TabsContent>
+        )}
         <TabsContent value="organizations">
           <OrganizationList filters={orgFilters} setFilters={setOrgFilters} />
         </TabsContent>

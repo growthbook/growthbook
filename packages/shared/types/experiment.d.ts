@@ -182,6 +182,8 @@ type StatusUpdateScheduleStringDates = Omit<
 export type LegacyMetricOverride = MetricOverride & {
   conversionWindowHours?: number;
   conversionDelayHours?: number;
+  winRisk?: number;
+  loseRisk?: number;
 };
 
 export interface LegacyExperimentInterface

@@ -1,6 +1,7 @@
-import { Text } from "@radix-ui/themes";
-import { FC, useRef, ChangeEvent, useState, CSSProperties } from "react";
+import { ChangeEvent, FC, useRef, useState } from "react";
+import clsx from "clsx";
 import Button from "@/ui/Button";
+import styles from "./FileInput.module.scss";
 
 interface FileInputProps {
   onChange: (e: ChangeEvent<HTMLInputElement>) => void;
@@ -29,20 +30,17 @@ const FileInput: FC<FileInputProps> = ({
     onChange(e);
   };
 
-  const placeHolderStyle: CSSProperties = {
-    color: "var(--gray-10)",
-  };
-
   return (
     <div>
       <label
         htmlFor={name}
         onClick={handleClick}
-        className="form-control cursor-pointer"
+        className={styles.control}
         role="button"
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
             handleClick();
           }
         }}
@@ -51,19 +49,17 @@ const FileInput: FC<FileInputProps> = ({
           color="gray"
           variant="outline"
           size="sm"
-          mt="-2px"
-          mr="1"
-          onClick={handleClick}
           tabIndex={-1}
+          stopPropagation
+          onClick={handleClick}
         >
           Browse...
         </Button>
-        <Text
-          weight="regular"
-          style={fileName === null ? placeHolderStyle : undefined}
+        <span
+          className={clsx(styles.name, fileName === null && styles.placeholder)}
         >
           {fileName || placeholder}
-        </Text>
+        </span>
       </label>
       <input
         type="file"
@@ -72,8 +68,7 @@ const FileInput: FC<FileInputProps> = ({
         accept={accept}
         required={required}
         name={name}
-        // NB: Using display: none hides the native required message from the browser
-        style={{ display: "block", height: 0, width: 0, opacity: 0 }}
+        className={styles.native}
         tabIndex={-1}
       />
     </div>

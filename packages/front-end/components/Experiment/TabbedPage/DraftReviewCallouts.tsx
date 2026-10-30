@@ -118,6 +118,15 @@ export default function DraftReviewCallouts({
     flagDrafts(info).flatMap((draft, i) => {
       // Only the newest draft that changes the rule publishes at start.
       const publishesAtStart = experiment.status === "draft" && i === 0;
+      // Something blocking it is the flag's own notice to explain.
+      if (
+        publishesAtStart &&
+        (draft.hasUnrelatedDraftChanges ||
+          draft.hasMergeConflict ||
+          info.cannotPublish)
+      ) {
+        return [];
+      }
       const waiting =
         !startBypassCovers(experiment, info.feature.id, draft) &&
         (draftReviewState(draft) !== "ready" ||

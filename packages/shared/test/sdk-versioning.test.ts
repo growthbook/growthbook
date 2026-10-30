@@ -70,13 +70,13 @@ describe("getConnectionSDKCapabilities", () => {
 
 describe("contextualBanditsAuto", () => {
   it.each(["javascript", "nodejs", "react"] as const)(
-    "is reported for %s 1.8.1 and not 1.8.0",
+    "is reported for %s 2.0.0 and not 1.8.0",
     (language) => {
       expect(
         getConnectionSDKCapabilities({
           ...baseConnection,
           languages: [language],
-          sdkVersion: "1.8.1",
+          sdkVersion: "2.0.0",
         }),
       ).toContain("contextualBanditsAuto");
       expect(
@@ -92,7 +92,7 @@ describe("contextualBanditsAuto", () => {
   it("counts only connections that reach the project", () => {
     const current = {
       ...baseConnection,
-      sdkVersion: "1.8.1",
+      sdkVersion: "2.0.0",
       projects: ["prj_a"],
     };
     const outdated = { ...baseConnection, sdkVersion: "1.8.0", projects: [] };
@@ -116,7 +116,7 @@ describe("contextualBanditsAuto", () => {
     const serverOnly = {
       ...baseConnection,
       languages: ["nodejs" as const],
-      sdkVersion: "1.8.1",
+      sdkVersion: "2.0.0",
     };
     const capabilities = ["visualEditor", "contextualBanditsAuto"] as const;
 
@@ -133,7 +133,7 @@ describe("contextualBanditsAuto", () => {
     ).toBe(false);
     expect(
       someConnectionSupportsCapabilities({
-        connections: [{ ...baseConnection, sdkVersion: "1.8.1" }],
+        connections: [{ ...baseConnection, sdkVersion: "2.0.0" }],
         capabilities: [...capabilities],
         project: "prj_a",
       }),
@@ -141,7 +141,7 @@ describe("contextualBanditsAuto", () => {
     expect(
       someConnectionSupportsCapabilities({
         connections: [
-          { ...baseConnection, sdkVersion: "1.8.1", projects: ["prj_b"] },
+          { ...baseConnection, sdkVersion: "2.0.0", projects: ["prj_b"] },
         ],
         capabilities: [...capabilities],
         project: "prj_a",

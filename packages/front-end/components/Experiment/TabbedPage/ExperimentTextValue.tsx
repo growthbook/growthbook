@@ -1,15 +1,25 @@
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import Markdown from "@/components/Markdown/Markdown";
 import Text from "@/ui/Text";
 import ExpandableBlock from "./ExpandableBlock";
 
+type ExperimentType = ExperimentInterfaceStringDates["type"];
+
 export const EXPERIMENT_TEXT_FIELDS = {
   hypothesis: {
     label: "Hypothesis",
-    placeholder: "What do you expect to happen, and why?",
+    placeholder: () => "What do you expect to happen, and why?",
   },
   description: {
     label: "Description",
-    placeholder: "What is this experiment about?",
+    placeholder: (type: ExperimentType) =>
+      `What is this ${
+        type === "holdout"
+          ? "holdout"
+          : type === "multi-armed-bandit"
+            ? "Bandit"
+            : "experiment"
+      } about?`,
   },
 };
 

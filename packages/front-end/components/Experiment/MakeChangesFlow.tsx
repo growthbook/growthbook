@@ -3,6 +3,7 @@ import {
   ExperimentInterfaceStringDates,
   ExperimentTargetingData,
 } from "shared/types/experiment";
+import { areVariationWeightsValid } from "shared/experiments";
 import omit from "lodash/omit";
 import isEqual from "lodash/isEqual";
 import { Fragment, ReactNode, useEffect, useState } from "react";
@@ -13,7 +14,9 @@ import Page from "@/components/Modal/Page";
 import TargetingInfo from "@/components/Experiment/TabbedPage/TargetingInfo";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import track from "@/services/track";
+import { variationWeightsTotalPercent } from "@/services/utils";
 import RadioGroup, { RadioOptions } from "@/ui/RadioGroup";
+import Callout from "@/ui/Callout";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import ModalWarningBanner from "@/components/Modal/ModalWarningBanner";
@@ -280,6 +283,13 @@ function ChangeTypeSelector({
 }) {
   const { namespaces } = useOrgSettings();
 
+  const weights =
+    experiment.phases[experiment.phases.length - 1]?.variationWeights;
+  const invalidWeights =
+    experiment.type !== "multi-armed-bandit" &&
+    !!weights &&
+    !areVariationWeightsValid(weights);
+
   const options: RadioOptions = [
     { label: "Start a new phase", value: "phase" },
     {
@@ -310,12 +320,29 @@ function ChangeTypeSelector({
 
   return (
     <div>
+      {invalidWeights && (
+        <Callout status="warning" mb="4">
+          The current variation weights add up to{" "}
+          {variationWeightsTotalPercent(weights)}%, so SDKs ignore them and
+          split traffic equally. Fix the weights to make other changes.
+        </Callout>
+      )}
       <h5>What do you want to change?</h5>
       <div className="mt-3">
         <RadioGroup
           value={changeType || ""}
           setValue={(v: ChangeType) => setChangeType(v)}
-          options={options.filter((o) => !o.disabled)}
+          options={options
+            .filter((o) => !o.disabled)
+            .map((o) =>
+              !invalidWeights || ["weights", "advanced"].includes(o.value)
+                ? o
+                : {
+                    ...o,
+                    disabled: true,
+                    disabledReason: "Fix the variation weights first.",
+                  },
+            )}
         />
       </div>
     </div>

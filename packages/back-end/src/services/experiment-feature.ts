@@ -13,7 +13,6 @@ import {
   MatchingRule,
   mergeResultHasChanges,
 } from "shared/util";
-import { isVariationWeightsSumValid } from "shared/experiments";
 import { FeatureRevisionInterface } from "shared/types/feature-revision";
 import { EventUser } from "shared/types/events/event-types";
 import { Variation } from "shared/types/experiment";
@@ -334,8 +333,8 @@ export async function linkFeatureToExperiment({
   if (!bundlingIntoExistingDraft && !revision.title) {
     combinedChanges.title =
       experiment.type === "multi-armed-bandit"
-        ? "Publish bandit"
-        : "Publish experiment";
+        ? "Add Bandit"
+        : "Add experiment";
   }
 
   const auditSubject = scopedRule.allEnvironments
@@ -486,9 +485,6 @@ export function validateExperimentFeatureVariations({
       throw new Error(
         "variations and variationWeights must be the same length.",
       );
-    }
-    if (!isVariationWeightsSumValid(variationWeights)) {
-      throw new Error("variationWeights must add up to 1.");
     }
   }
   if (update.variations.length !== variations.length) {

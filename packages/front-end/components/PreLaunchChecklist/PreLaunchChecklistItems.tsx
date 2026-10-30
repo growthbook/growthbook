@@ -261,6 +261,7 @@ export function getChecklistItems({
       case "visualEditorChanges":
         return { ...row, action: onClick(openImplementation) };
       case "targeting":
+      case "variationWeights":
         return {
           ...row,
           // A confirmed start fixes targeting until it's unscheduled.

@@ -4,10 +4,10 @@ import { SnowflakeConnectionParams } from "shared/types/integrations/snowflake";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
+import FileInput from "@/ui/FileInput";
 import HelperText from "@/ui/HelperText";
 import Switch from "@/ui/Switch";
 import { GBInfo } from "@/components/Icons";
-import FileInput from "@/components/FileInput";
 import {
   KEEP_EXISTING_PLACEHOLDER,
   useCanKeepExistingCredentials,

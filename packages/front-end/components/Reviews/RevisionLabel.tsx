@@ -9,6 +9,26 @@ export function revisionLabelText(
   return `${numbered ? `${version}. ` : ""}${title ?? `Revision ${version}`}`;
 }
 
+// Away from the flag's own revision list, where a bare number reads as a step.
+export function NamedRevision({
+  version,
+  title,
+}: {
+  version: number;
+  title?: string | null;
+}) {
+  return (
+    <>
+      Revision {version}
+      {title ? (
+        <>
+          : <em>{title}</em>
+        </>
+      ) : null}
+    </>
+  );
+}
+
 export default function RevisionLabel({
   version,
   title,

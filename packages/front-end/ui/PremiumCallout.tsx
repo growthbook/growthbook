@@ -75,7 +75,9 @@ export default function PremiumCallout({
   const link =
     hasFeature && docSection ? (
       <DocLink docSection={docSection}>
-        View docs <PiArrowSquareOut size={15} />
+        <Flex as="span" align="center" gap="1">
+          View docs <PiArrowSquareOut size={15} />
+        </Flex>
       </DocLink>
     ) : pro ? (
       <Link
@@ -93,8 +95,13 @@ export default function PremiumCallout({
         href="https://www.growthbook.io/demo"
         target="_blank"
         rel="noreferrer"
+        color="indigo"
+        underline="always"
+        weight="medium"
       >
-        Talk to Sales <PiArrowSquareOut size={15} />
+        <Flex as="span" align="center" gap="1">
+          Talk to Sales <PiArrowSquareOut size={15} />
+        </Flex>
       </Link>
     );
 
@@ -115,6 +122,7 @@ export default function PremiumCallout({
         {...containerProps}
         style={{
           position: "relative",
+          alignItems: "center",
         }}
       >
         <RadixCallout.Icon>{icon}</RadixCallout.Icon>
@@ -122,7 +130,7 @@ export default function PremiumCallout({
             so block-level children and the inner Flex don't produce invalid
             <div>-inside-<p> nesting. */}
         <Text as="div" size={radixSize(size)}>
-          <Flex align="start" gap="1" pr="3">
+          <Flex align="center" gap="1" pr="3">
             <div>{children}</div>
             {/* nowrap keeps the CTA label + external-link icon on one line */}
             <div style={{ flex: 1, whiteSpace: "nowrap" }}>{link}</div>

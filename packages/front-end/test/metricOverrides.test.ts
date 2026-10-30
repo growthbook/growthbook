@@ -16,8 +16,6 @@ describe("describeMetricOverride", () => {
         windowType: "conversion",
         windowHours: 72,
         delayHours: 1,
-        winRisk: 0.0025,
-        loseRisk: 0.0125,
         regressionAdjustmentOverride: true,
         regressionAdjustmentEnabled: true,
         regressionAdjustmentDays: 14,
@@ -29,8 +27,6 @@ describe("describeMetricOverride", () => {
     ).toEqual([
       { key: "window", label: "Conversion window", value: "72 hours" },
       { key: "delay", label: "Metric delay", value: "1 hour" },
-      { key: "winRisk", label: "Win risk", value: "0.25%" },
-      { key: "loseRisk", label: "Lose risk", value: "1.25%" },
       { key: "cuped", label: "CUPED", value: "On, 14 day lookback" },
       { key: "prior", label: "Prior", value: "Proper (mean 0.1, sd 0.3)" },
     ]);
@@ -107,8 +103,6 @@ describe("describeMetricSettings", () => {
     windowHours: 72,
     delayHours: 0,
     conversionWindowsIgnored: false,
-    winRisk: 0.0025,
-    loseRisk: 0.0125,
     cuped: { enabled: true, days: 14 },
     prior: { proper: false, mean: 0, stddev: 0.3 },
   };
@@ -116,8 +110,6 @@ describe("describeMetricSettings", () => {
   it("reads every setting under the Bayesian engine", () => {
     expect(describeMetricSettings(settings, "bayesian", undefined)).toEqual([
       { key: "window", label: "Conversion window", value: "72 hours" },
-      { key: "winRisk", label: "Win risk", value: "0.25%" },
-      { key: "loseRisk", label: "Lose risk", value: "1.25%" },
       { key: "cuped", label: "CUPED", value: "On, 14 day lookback" },
       { key: "prior", label: "Prior", value: "Improper" },
     ]);
@@ -184,7 +176,7 @@ describe("describeMetricSettings", () => {
         regressionAdjustmentOverride: true,
         regressionAdjustmentEnabled: false,
       }).map((r) => r.key),
-    ).toEqual(["winRisk", "loseRisk", "prior"]);
+    ).toEqual(["prior"]);
   });
 });
 
@@ -197,6 +189,8 @@ describe("withoutDeprecatedOverrideFields", () => {
       delayHours: 1,
       conversionWindowHours: 72,
       conversionDelayHours: 1,
+      winRisk: 0.0025,
+      loseRisk: 0.0125,
     };
     expect(() =>
       experimentAnalysisSettingsDraft.parse({ metricOverrides: [legacy] }),

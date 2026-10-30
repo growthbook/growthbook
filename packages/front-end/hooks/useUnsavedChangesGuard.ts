@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/router";
-import { createNavigationCancellation } from "@/components/FactTables/MetricEditor/navigationCancellation";
+import {
+  createNavigationCancellation,
+  isNavigationConfirmed,
+  runConfirmedNavigation,
+} from "@/components/FactTables/MetricEditor/navigationCancellation";
 
 function pathnameOf(url: string) {
   return new URL(url, window.location.origin).pathname;
@@ -22,7 +26,7 @@ export default function useUnsavedChangesGuard(
     if (!hasUnsavedChanges) return;
 
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
-      if (navigationConfirmed.current) return;
+      if (navigationConfirmed.current || isNavigationConfirmed()) return;
       event.preventDefault();
       event.returnValue = "You have unsaved changes.";
     };
@@ -65,7 +69,8 @@ export default function useUnsavedChangesGuard(
     // than the address bar, which Back has already changed.
     const cancellation = createNavigationCancellation();
     const onRouteChangeStart = (url: string, options: { shallow: boolean }) => {
-      if (navigationConfirmed.current) return;
+      // Another guard's confirmed navigation passes too, so one dialog is enough.
+      if (navigationConfirmed.current || isNavigationConfirmed()) return;
       if (pathnameOf(url) === pathnameOf(router.asPath)) return;
       setPendingHref(url);
       router.events.emit("routeChangeError", cancellation.error, url, options);
@@ -94,7 +99,7 @@ export default function useUnsavedChangesGuard(
     setPendingHref(null);
     onLeave?.();
     try {
-      await router.push(pendingHref);
+      await runConfirmedNavigation(() => router.push(pendingHref));
     } finally {
       navigationConfirmed.current = false;
     }

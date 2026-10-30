@@ -119,8 +119,6 @@ describe("settings", () => {
           expect(metricSettings_revenue.regressionAdjustmentDays.value).toEqual(
             0,
           );
-          expect(metricSettings_revenue.winRisk.value).toEqual(0.0025);
-          expect(metricSettings_revenue.loseRisk.value).toEqual(0.0125);
 
           // Testvar
           const { settings: metricSettings_testvar } = getScopedSettings({
@@ -140,8 +138,6 @@ describe("settings", () => {
           expect(metricSettings_testvar.regressionAdjustmentDays.value).toEqual(
             0,
           );
-          expect(metricSettings_testvar.winRisk.value).toEqual(0.0015);
-          expect(metricSettings_testvar.loseRisk.value).toEqual(0.0225);
 
           // CUPED denominator is count rejection
           // const conversions_as_count: MetricInterface = {
@@ -194,9 +190,6 @@ describe("settings", () => {
       //   "stats engine is bayesian"
       // );
       expect(settings_revenue_1.confidenceLevel.value).toEqual(0.95);
-      // metric level:
-      expect(settings_revenue_1.winRisk.value).toEqual(0.0025);
-      expect(settings_revenue_1.loseRisk.value).toEqual(0.0125);
 
       const orgSettings2: Partial<OrganizationSettings> = {
         statsEngine: "frequentist",
@@ -216,14 +209,6 @@ describe("settings", () => {
       // TODO
       // expect(settings_revenue_2.confidenceLevel.meta.warning).toEqual(
       //   "stats engine is frequentist"
-      // );
-      // metric level:
-      // TODO
-      // expect(settings_revenue_1.winRisk.meta.warning).toEqual(
-      //   "stats engine is bayesian"
-      // );
-      // expect(settings_revenue_1.loseRisk.meta.warning).toEqual(
-      //   "stats engine is bayesian"
       // );
     });
   });

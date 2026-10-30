@@ -37,7 +37,9 @@ export default function ProjectModal({
         const body = {
           name: value.name || "",
           description: value.description,
-          publicId: value.publicId,
+          // Blank auto-generates on create but is left unset on edit, since
+          // SDK payloads fall back to the Project ID until one is set.
+          publicId: value.publicId || undefined,
           owner: value.owner,
         };
         if (existing.id) {
@@ -56,8 +58,17 @@ export default function ProjectModal({
         label="Public ID"
         maxLength={64}
         pattern="^[a-z0-9-]+$"
-        placeholder="Auto-generated from name if left blank"
-        helpText="A URL-safe identifier that can be included in SDK payloads. Uses lowercase letters, numbers, and dashes only."
+        // The API can't clear a Public ID, so once set it stays required.
+        required={!!existing.publicId}
+        placeholder={
+          existing.id ? undefined : "Auto-generated from name if left blank"
+        }
+        helpText={
+          "A URL-safe identifier that can be included in SDK payloads. Uses lowercase letters, numbers, and dashes only." +
+          (existing.id && !existing.publicId
+            ? ` If left blank, SDK payloads use ${existing.id}.`
+            : "")
+        }
         {...form.register("publicId")}
       />
       <Field

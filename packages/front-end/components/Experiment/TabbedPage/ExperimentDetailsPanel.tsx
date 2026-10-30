@@ -28,7 +28,6 @@ import { useUser } from "@/services/UserContext";
 import Text from "@/ui/Text";
 import Badge from "@/ui/Badge";
 import useApi from "@/hooks/useApi";
-import EditHoldoutInfoModal from "@/components/Experiment/TabbedPage/EditHoldoutInfoModal";
 import CustomFieldDisplay from "@/components/CustomFields/CustomFieldDisplay";
 import useExperimentEditing from "@/components/Experiment/TabbedPage/useExperimentEditing";
 import { useEditsBlockedReason } from "@/components/Experiment/TabbedPage/ExperimentEdits";
@@ -76,7 +75,6 @@ export default function ExperimentDetailsPanel({
   const { canEdit } = useExperimentEditing(experiment, disableEditing, holdout);
   const [infoSection, setInfoSection] = useState<InfoSection | null>(null);
   const [customFieldId, setCustomFieldId] = useState<string | null>(null);
-  const [editingHoldout, setEditingHoldout] = useState(false);
   const managedFeature =
     linkedFeatures.find((f) =>
       isManagedByExperiment(f.feature, experiment.id),
@@ -120,8 +118,6 @@ export default function ExperimentDetailsPanel({
     }
     return pencil(SECTION_HEADERS[field], () => editSection(field));
   };
-  const isHoldout = experiment.type === "holdout";
-  const rowAction = isHoldout ? null : fieldAction;
   const { active: checklistActive, checklistItemsRemaining } =
     usePreLaunchChecklist();
   const showTodo = checklistActive && !experiment.archived;
@@ -148,18 +144,11 @@ export default function ExperimentDetailsPanel({
       {infoSection ? (
         <EditExperimentInfoModal
           experiment={experiment}
+          holdout={holdout}
           setShowEditInfoModal={() => setInfoSection(null)}
           mutate={mutate}
           section={infoSection}
           customFieldId={customFieldId}
-        />
-      ) : null}
-      {editingHoldout && holdout ? (
-        <EditHoldoutInfoModal
-          experiment={experiment}
-          holdout={holdout}
-          setShowEditInfoModal={setEditingHoldout}
-          mutate={mutate}
         />
       ) : null}
       <Tabs
@@ -218,21 +207,12 @@ export default function ExperimentDetailsPanel({
                   </Box>
                 </>
               ) : null}
-              {/* A holdout's name, owner, tags and projects edit together;
-                  every other field has its own button. */}
-              <PanelSection
-                title="General"
-                action={
-                  isHoldout
-                    ? pencil("Edit details", () => setEditingHoldout(true))
-                    : null
-                }
-              >
+              <PanelSection title="General">
                 <Flex direction="column" gap="3">
                   <ProjectTagBar
                     experiment={experiment}
                     holdout={holdout}
-                    fieldAction={rowAction}
+                    fieldAction={fieldAction}
                   />
                   {/* The header's dates, which a phase selector stands in for
                       there. */}
@@ -258,7 +238,7 @@ export default function ExperimentDetailsPanel({
                   managedFlagId={managedFeature?.feature.id ?? null}
                   stagedImplementationType={stagedImplementationType}
                   stagedHoldoutId={stagedHoldoutId}
-                  fieldAction={rowAction}
+                  fieldAction={fieldAction}
                 />
               </PanelSection>
             </Flex>
