@@ -683,7 +683,9 @@ export function ClusterExperimentFields({
   useEffect(() => {
     if (!isClusterExperiment || locked || disabled) return;
     if (subUnitOptions.includes(subUnitIdentifier)) return;
-    setSubUnitIdentifier(subUnitOptions[0] ?? "");
+    const next = subUnitOptions[0] ?? "";
+    // The form's setter re-renders even when the value is unchanged.
+    if (next !== subUnitIdentifier) setSubUnitIdentifier(next);
   }, [
     isClusterExperiment,
     locked,
