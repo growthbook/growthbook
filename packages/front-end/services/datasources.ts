@@ -5,6 +5,7 @@ import {
   ExposureQuery,
   SchemaFormat,
   SchemaInterface,
+  UserIdType,
 } from "shared/types/datasource";
 import { MetricType } from "shared/types/metric";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -1062,41 +1063,56 @@ export function hasGoogleAnalytics4ExposureQuery(
   );
 }
 
+// This Data Source's identifier types, plus whichever of GA4's are missing.
+export function getGoogleAnalytics4UserIdTypes(
+  existingTypes: UserIdType[],
+): UserIdType[] {
+  const ga4Types = getSchemaObject("ga4").userIdTypes;
+  const existingNames = new Set(existingTypes.map((type) => type.userIdType));
+  return [
+    ...existingTypes,
+    ...ga4Types
+      .filter((id) => !existingNames.has(id))
+      .map((id) => ({
+        userIdType: id,
+        description: USER_ID_TYPE_META[id]?.description ?? "",
+      })),
+  ];
+}
+
+// A GA4 exposure query, prefilled from the warehouse's events table. Not
+// stored until the modal it's opened in is submitted.
+export function getGoogleAnalytics4ExposureQueryDraft(
+  params: DataSourceParams,
+): ExposureQuery {
+  const schema = getSchemaObject("ga4");
+  const ga4Types = schema.userIdTypes;
+  return {
+    id: GA4_EXPOSURE_QUERY_ID,
+    name: "Google Analytics 4",
+    description: "",
+    userIdType: ga4Types[0] ?? "anonymous_id",
+    userIdTypes: [...ga4Types],
+    query: schema.getExperimentSQL(getTablePrefix(params), ga4Types),
+    dimensions: [...schema.experimentDimensions],
+  };
+}
+
 // One exposure query for both GA4 identifier types. Existing types and queries
 // stay; this only fills in what GA4 needs.
 export function applyGoogleAnalytics4Settings(
   settings: DataSourceSettings | undefined,
   params: DataSourceParams,
 ): DataSourceSettings {
-  const schema = getSchemaObject("ga4");
-  const ga4Types = schema.userIdTypes;
-  const existingTypes = settings?.userIdTypes ?? [];
-  const existingNames = new Set(existingTypes.map((type) => type.userIdType));
   const exposure = [...(settings?.queries?.exposure ?? [])];
   if (!hasGoogleAnalytics4ExposureQuery(settings)) {
-    exposure.push({
-      id: GA4_EXPOSURE_QUERY_ID,
-      name: "Google Analytics 4",
-      description: "",
-      userIdType: ga4Types[0] ?? "anonymous_id",
-      userIdTypes: [...ga4Types],
-      query: schema.getExperimentSQL(getTablePrefix(params), ga4Types),
-      dimensions: [...schema.experimentDimensions],
-    });
+    exposure.push(getGoogleAnalytics4ExposureQueryDraft(params));
   }
 
   return {
     ...settings,
     schemaFormat: "ga4",
-    userIdTypes: [
-      ...existingTypes,
-      ...ga4Types
-        .filter((id) => !existingNames.has(id))
-        .map((id) => ({
-          userIdType: id,
-          description: USER_ID_TYPE_META[id]?.description ?? "",
-        })),
-    ],
+    userIdTypes: getGoogleAnalytics4UserIdTypes(settings?.userIdTypes ?? []),
     queries: {
       ...settings?.queries,
       exposure,

@@ -33,6 +33,8 @@ import { EventForwarderManagedBadge } from "@/components/Settings/EditDataSource
 import {
   applyGoogleAnalytics4Settings,
   GA4_EXPOSURE_QUERY_ID,
+  getGoogleAnalytics4ExposureQueryDraft,
+  getGoogleAnalytics4UserIdTypes,
   hasGoogleAnalytics4ExposureQuery,
 } from "@/services/datasources";
 import { dataSourceConnections } from "@/services/eventSchema";
@@ -408,15 +410,10 @@ export default function FinishSettingUp({
     !hasGoogleAnalytics4ExposureQuery(dataSource.settings);
 
   const openGoogleAnalytics4 = () => {
-    const settings = applyGoogleAnalytics4Settings(
-      dataSource.settings,
-      dataSource.params,
-    );
-    const draft = settings.queries?.exposure?.find(
-      (query) => query.id === GA4_EXPOSURE_QUERY_ID,
-    );
-    if (!draft) return;
-    setQueryModal({ index: null, draft });
+    setQueryModal({
+      index: null,
+      draft: getGoogleAnalytics4ExposureQueryDraft(dataSource.params),
+    });
   };
 
   const openCustomQuery = () => {
@@ -431,27 +428,27 @@ export default function FinishSettingUp({
   const saveQuery = async (exposureQuery: ExposureQuery) => {
     if (!queryModal) return;
     const copy = cloneDeep(dataSource);
-    const queries = copy.settings?.queries ?? {};
-    const exposure = [...(queries.exposure ?? [])];
     if (queryModal.draft) {
-      // Identifier types and the query are both stored from the submitted draft.
+      // Adds the GA4 identifier types and a placeholder query, then this
+      // overwrites that placeholder with what was actually submitted.
       copy.settings = applyGoogleAnalytics4Settings(copy.settings, copy.params);
-      const next = [...(copy.settings.queries?.exposure ?? [])];
-      const saved = { ...exposureQuery, id: GA4_EXPOSURE_QUERY_ID };
-      const ga4Index = next.findIndex(
-        (query) => query.id === GA4_EXPOSURE_QUERY_ID,
+      const exposure = (copy.settings.queries?.exposure ?? []).map((query) =>
+        query.id === GA4_EXPOSURE_QUERY_ID
+          ? { ...exposureQuery, id: GA4_EXPOSURE_QUERY_ID }
+          : query,
       );
-      if (ga4Index >= 0) next[ga4Index] = saved;
-      else next.push(saved);
       copy.settings = {
         ...copy.settings,
-        queries: { ...copy.settings.queries, exposure: next },
+        queries: { ...copy.settings.queries, exposure },
       };
-    } else if (queryModal.index === null) {
-      exposure.push(exposureQuery);
-      copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     } else {
-      exposure[queryModal.index] = exposureQuery;
+      const queries = copy.settings?.queries ?? {};
+      const exposure = [...(queries.exposure ?? [])];
+      if (queryModal.index === null) {
+        exposure.push(exposureQuery);
+      } else {
+        exposure[queryModal.index] = exposureQuery;
+      }
       copy.settings = { ...copy.settings, queries: { ...queries, exposure } };
     }
     await onSave(copy);
@@ -1010,10 +1007,12 @@ export default function FinishSettingUp({
             queryModal.draft
               ? {
                   ...dataSource,
-                  settings: applyGoogleAnalytics4Settings(
-                    dataSource.settings,
-                    dataSource.params,
-                  ),
+                  settings: {
+                    ...dataSource.settings,
+                    userIdTypes: getGoogleAnalytics4UserIdTypes(
+                      dataSource.settings?.userIdTypes ?? [],
+                    ),
+                  },
                 }
               : dataSource
           }

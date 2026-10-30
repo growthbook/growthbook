@@ -261,9 +261,10 @@ export const ExperimentAssignmentQueryModal = ({
 
   const source = useSourceTable({
     datasource: dataSource,
-    // A saved query keeps only its SQL, so edits stay in SQL mode
+    // A saved query keeps only its SQL, so edits stay in SQL mode. An unsaved
+    // draft hasn't been stored as SQL yet, so it can still switch to a table.
     tableModeAvailable:
-      !exposureQuery && growthbook.isOn("fact-table-table-mode"),
+      (!exposureQuery || unsaved) && growthbook.isOn("fact-table-table-mode"),
     templates,
     queryType: "exposureQueryTest",
     sql,
@@ -296,6 +297,7 @@ export const ExperimentAssignmentQueryModal = ({
   // columns are only guessed from its mapping
   const columnsDetected =
     !exposureQuery ||
+    unsaved ||
     !!exposureQuery.columns?.length ||
     detected !== savedColumns;
 
@@ -333,7 +335,10 @@ export const ExperimentAssignmentQueryModal = ({
       variationNameColumn,
     ].filter(Boolean),
   );
-  const savedDimensions = exposureQuery?.dimensions ?? [];
+  // An unsaved draft's dimensions are only a starting guess, not a saved
+  // mapping to preserve, so they don't force a column to stay listed.
+  const savedDimensions =
+    exposureQuery && !unsaved ? exposureQuery.dimensions : [];
   const dimensionColumns = columns.filter(
     (c) =>
       savedDimensions.includes(c.column) ||
@@ -358,26 +363,32 @@ export const ExperimentAssignmentQueryModal = ({
   const mappedUserIdTypes = identifierTypes.filter((t) =>
     validColumn(identifierOptions, userIdColumns[t] || ""),
   );
-  const removedIdentifierTypes = savedUserIdTypes.filter(
-    (idType) => !mappedUserIdTypes.includes(idType),
-  );
+  // An unsaved draft isn't analyzed by anything yet, so there's nothing that
+  // dropping one of its identifier types could affect.
+  const removedIdentifierTypes = unsaved
+    ? []
+    : savedUserIdTypes.filter((idType) => !mappedUserIdTypes.includes(idType));
   // Records saved before queries declared several identifiers store none and
   // analyze on this one.
   const removesLegacyIdentifierType =
+    !unsaved &&
     !!exposureQuery?.userIdType &&
     removedIdentifierTypes.includes(exposureQuery.userIdType);
-  const missingRoleColumns = exposureQuery
-    ? Object.entries({
-        experiment_id: experimentIdColumn,
-        variation_id: variationIdColumn,
-        timestamp: timestampColumn,
-        experiment_name: experimentNameColumn,
-        variation_name: variationNameColumn,
-        ...userIdColumns,
-      }).filter(
-        ([, column]) => column && !columns.some((c) => c.column === column),
-      )
-    : [];
+  // An unsaved draft's columns are only guesses until it's tested, so a
+  // missing one isn't a column the query "no longer" returns.
+  const missingRoleColumns =
+    exposureQuery && !unsaved
+      ? Object.entries({
+          experiment_id: experimentIdColumn,
+          variation_id: variationIdColumn,
+          timestamp: timestampColumn,
+          experiment_name: experimentNameColumn,
+          variation_name: variationNameColumn,
+          ...userIdColumns,
+        }).filter(
+          ([, column]) => column && !columns.some((c) => c.column === column),
+        )
+      : [];
 
   async function refreshColumns() {
     setRefreshingColumns(true);
@@ -432,9 +443,7 @@ export const ExperimentAssignmentQueryModal = ({
   );
 
   async function submit() {
-    if (!detected || (unsaved && !columnsDetected)) {
-      throw new Error("Test your SQL first");
-    }
+    if (!detected) throw new Error("Test your SQL first");
     if (!name) throw new Error("Enter a name for this assignment query");
     if (!canCoverAllProjects && !projects.length) {
       throw new Error(
@@ -507,14 +516,16 @@ export const ExperimentAssignmentQueryModal = ({
       }).filter(([, value]) => value !== undefined),
     );
 
+    // An unsaved draft is a new query, not an edit of one that exists yet.
+    const savedQuery = exposureQuery && !unsaved ? exposureQuery : undefined;
     const saved: ExposureQuery = {
       // Keep fields this modal doesn't edit, but not a stale mapping.
-      ...omit(exposureQuery ?? {}, "columnMapping"),
-      id: exposureQuery?.id ?? uniqId("exq_"),
+      ...omit(savedQuery ?? {}, "columnMapping"),
+      id: savedQuery?.id ?? uniqId("exq_"),
       name,
       description,
       // The server keeps a saved query's legacy identifier as is
-      userIdType: exposureQuery?.userIdType || mappedUserIdTypes[0],
+      userIdType: savedQuery?.userIdType || mappedUserIdTypes[0],
       userIdTypes: mappedUserIdTypes,
       query: querySql,
       dimensions: dimensions.filter((d) =>
@@ -678,7 +689,7 @@ export const ExperimentAssignmentQueryModal = ({
                 <Text as="div" weight="semibold">
                   Column mapping
                 </Text>
-                {exposureQuery ? (
+                {exposureQuery && !unsaved ? (
                   <UITooltip
                     content="You don't have permission to run test queries"
                     enabled={!canRunQueries}
