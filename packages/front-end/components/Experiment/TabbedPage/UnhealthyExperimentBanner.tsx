@@ -39,6 +39,7 @@ function getHealthIssues(
     clusterMapping,
   }: ExperimentUnhealthyData,
   srmThreshold: number,
+  isClusterExperiment: boolean,
 ): { label: string; severe: boolean; detail: string }[] {
   return [
     srm
@@ -50,11 +51,13 @@ function getHealthIssues(
       : null,
     multipleExposures
       ? {
-          label: "Multiple exposures",
+          label: isClusterExperiment
+            ? "Sub-unit multiple exposures"
+            : "Multiple exposures",
           severe: true,
           detail: removedFromResults(
             multipleExposures.multipleExposedUsers,
-            "user",
+            isClusterExperiment ? "sub-unit" : "user",
             multipleExposures.rawDecimal,
             "saw more than one variation",
           ),
@@ -116,11 +119,13 @@ export function showsUnhealthyBanner(
 type Props = {
   status: ExperimentResultStatusData;
   viewHealth: (() => void) | null;
+  isClusterExperiment?: boolean;
 } & MarginProps;
 
 export default function UnhealthyExperimentBanner({
   status,
   viewHealth,
+  isClusterExperiment = false,
   ...margin
 }: Props) {
   const { settings } = useUser();
@@ -128,6 +133,7 @@ export default function UnhealthyExperimentBanner({
   const issues = getHealthIssues(
     status.unhealthyData,
     settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
+    isClusterExperiment,
   );
   const severe = issues.some((issue) => issue.severe);
 

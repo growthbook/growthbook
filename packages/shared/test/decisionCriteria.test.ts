@@ -2181,6 +2181,37 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
   });
 
+  it("labels multiple exposures as a sub-unit signal for cluster experiments", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            // 2% > 1% threshold -> unhealthy
+            multipleExposures: 200,
+            totalUsers: 10_000,
+            // Present (so this is a cluster summary) but healthy, isolating the
+            // multiple-exposures label from "Mixed cluster assignment".
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    // For a cluster experiment, a sub-unit seeing multiple variations is a
+    // distinct signal from "Mixed cluster assignment", so it is labeled as such.
+    expect(result?.status).toBe("unhealthy");
+    expect(
+      result?.status === "unhealthy" &&
+        !!result.unhealthyData.multipleExposures,
+    ).toBe(true);
+    expect(result?.tooltip).toBe("Sub-unit multiple exposures");
+  });
+
   it("uses the scheduled end date for days-left even when power reports a different estimate", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({

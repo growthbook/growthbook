@@ -371,6 +371,7 @@ const CompactResults: FC<{
               totalUsers={totalUsers}
               multipleExposures={multipleExposures}
               experimentType={experimentType}
+              isClusterExperiment={!!snapshot?.settings?.isClusterExperiment}
             />
             <ClusterReliabilityWarning
               snapshot={snapshot}

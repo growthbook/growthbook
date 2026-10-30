@@ -19,6 +19,7 @@ interface Props {
   // (only the balance query drops duplicates within a leaf and period), so the
   // warning must not claim these users were removed from results.
   isBandit?: boolean;
+  isClusterExperiment?: boolean;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -33,8 +34,11 @@ export default function MultipleExposuresCard({
   onNotify,
   snapshotId,
   isBandit = false,
+  isClusterExperiment = false,
 }: Props) {
   const settings = useOrgSettings();
+
+  const unitNoun = isClusterExperiment ? "sub-units" : "units";
 
   const minPercentThreshold =
     settings?.multipleExposureMinPercent ??
@@ -53,11 +57,16 @@ export default function MultipleExposuresCard({
 
   useEffect(() => {
     if (health.status === "unhealthy" && onNotify) {
-      onNotify({ label: "Multiple Exposures", value: "multipleExposures" });
+      onNotify({
+        label: isClusterExperiment
+          ? "Sub-unit Multiple Exposures"
+          : "Multiple Exposures",
+        value: "multipleExposures",
+      });
     }
     // `snapshotId` is intentionally a dependency so a new snapshot re-notifies
     // the parent even when `health` and `onNotify` are unchanged.
-  }, [health, onNotify, snapshotId]);
+  }, [health, onNotify, snapshotId, isClusterExperiment]);
 
   if (health.status === "not-enough-traffic") {
     return null;
@@ -65,10 +74,14 @@ export default function MultipleExposuresCard({
 
   return (
     <div className="appbox p-3">
-      <h2 className="d-inline">Multiple Exposures Check</h2>{" "}
+      <h2 className="d-inline">
+        {isClusterExperiment
+          ? "Sub-unit Multiple Exposures Check"
+          : "Multiple Exposures Check"}
+      </h2>{" "}
       {health.status !== "healthy" && <StatusBadge status={health.status} />}
       <p className="mt-1">
-        Detects whether units have been exposed to multiple variations
+        Detects whether {unitNoun} have been exposed to multiple variations
       </p>
       <Separator size="4" my="3" />
       <div className="row justify-content-start">
@@ -87,8 +100,12 @@ export default function MultipleExposuresCard({
             </Callout>
           ) : (
             <Callout status="warning">
-              <strong>Multiple Exposures Warning</strong>.{" "}
-              {numberFormatter.format(multipleExposures)} units (
+              <strong>
+                {isClusterExperiment
+                  ? "Sub-unit Multiple Exposures Warning"
+                  : "Multiple Exposures Warning"}
+              </strong>
+              . {numberFormatter.format(multipleExposures)} {unitNoun} (
               {percentFormatter.format(health.rawDecimal)}) saw multiple
               variations
               {isBandit
