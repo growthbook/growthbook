@@ -135,12 +135,15 @@ const VerifyConnectionPage = ({
   const language = currentConnection?.languages[0] || "javascript";
   const { docs } = languageMapping[language];
   const languagesByType: Record<string, GroupedValue> = {};
-  Object.entries(languageMapping).forEach(([value, { label, type }]) => {
-    if (!languagesByType[type]) {
-      languagesByType[type] = { label: type, options: [] };
-    }
-    languagesByType[type].options.push({ value, label });
-  });
+  Object.entries(languageMapping).forEach(
+    ([value, { label, type, hidden }]) => {
+      if (hidden) return;
+      if (!languagesByType[type]) {
+        languagesByType[type] = { label: type, options: [] };
+      }
+      languagesByType[type].options.push({ value, label });
+    },
+  );
   const languageOptions = Object.values(languagesByType);
   const hashSecureAttributes = !!currentConnection?.hashSecureAttributes;
   const secureAttributes =

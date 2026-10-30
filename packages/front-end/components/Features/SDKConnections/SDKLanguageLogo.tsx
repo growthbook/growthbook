@@ -50,6 +50,8 @@ export type LanguageLogo = {
   type: LanguageType;
   filters: LanguageFilter[];
   hideVersion?: boolean;
+  // Not offered when choosing a language
+  hidden?: boolean;
   extra?: ReactElement | string;
   packageName?: string;
   packageUrl?: string;
@@ -320,6 +322,16 @@ export const languageMapping: Record<SDKLanguage, LanguageLogo> = {
     filters: [],
     hideVersion: true,
   },
+  legacy: {
+    Icon: FaCode,
+    color: "#777",
+    label: "Legacy SDK Endpoint",
+    docs: "sdks",
+    type: "other",
+    filters: [],
+    hideVersion: true,
+    hidden: true,
+  },
 };
 
 export default function SDKLanguageLogo({
@@ -388,6 +400,7 @@ export function getLanguagesByFilter(
 ): SDKLanguage[] {
   return Object.entries(languageMapping)
     .filter(([_, language]) => {
+      if (language.hidden) return false;
       if (languageFilter === "all") return true;
       return language.filters.includes(languageFilter);
     })

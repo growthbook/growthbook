@@ -288,6 +288,9 @@ export const createSDKConnectionValidator = z
   })
   .strict();
 
+const LEGACY_LANGUAGE_ERROR =
+  "The legacy language is only for moved Legacy SDK Endpoints. Choose another language.";
+
 function generateSDKConnectionKey() {
   // IMPORTANT: we use the /^sdk-/ regex to match against this for incoming API requests
   // DO NOT CHANGE the prefix without also updating that
@@ -307,6 +310,8 @@ export async function createSDKConnection(
     includeReferencedPrerequisites = true,
     ...otherParams
   } = createSDKConnectionValidator.parse(params);
+  // `legacy` lets `?project=` reach any project, so only moved legacy keys get it.
+  if (languages.includes("legacy")) throw new Error(LEGACY_LANGUAGE_ERROR);
 
   // TODO: if using a proxy, try to validate the connection
   const connection: SDKConnectionInterface = {
@@ -413,6 +418,12 @@ export async function editSDKConnection(
 ) {
   const { proxyEnabled, proxyHost, languages, ...rest } =
     editSDKConnectionValidator.parse(updates);
+  if (
+    languages?.includes("legacy") &&
+    !connection.languages.includes("legacy")
+  ) {
+    throw new Error(LEGACY_LANGUAGE_ERROR);
+  }
 
   // Keep only the fields that were sent. A field that was left out comes
   // through as `undefined`, and the payload rebuild below would use that
