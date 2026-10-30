@@ -376,11 +376,11 @@ const EditOrganization: FC<{
             {migratingEventForwarderId ? (
               <ConfirmDialog
                 title="Migrate to in-house consumer?"
-                content={`Events for ${
+                content={`New events for ${
                   eventForwarders.find(
                     (r) => r.datasourceId === migratingEventForwarderId,
                   )?.name ?? "this Data Source"
-                } move to the in-house consumer right away. This cannot be undone from the UI. Tear down the Confluent connector manually once it has drained.`}
+                } go to the in-house consumer right away. Events already queued still go through the Confluent connector. Tear it down manually once it has drained. This cannot be undone from the UI.`}
                 yesText="Migrate"
                 // Let the error throw so the dialog shows it inline and stays open
                 onConfirm={async () => {
