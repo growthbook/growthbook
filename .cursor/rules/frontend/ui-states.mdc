@@ -1,0 +1,8 @@
+---
+description: "Error, loading, disabled, and empty state patterns for front-end UI"
+globs: packages/front-end/**/*.tsx,packages/front-end/**/*.ts
+alwaysApply: false
+---
+# Front-end UI States
+
+Before adding or changing an error, loading, disabled, or empty state, read and follow `.agents/guides/frontend/ui-states.md`.
