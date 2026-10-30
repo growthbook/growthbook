@@ -1,3 +1,4 @@
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -144,6 +145,8 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   dimensionId?: string;
   dimensionValue?: string;
   oneSided?: boolean;
+  // Dashboards pass each block's own snapshot; the experiment page's is the fallback.
+  snapshotSettings?: ExperimentSnapshotSettings;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -182,9 +185,11 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   dimensionId,
   dimensionValue,
   oneSided = false,
+  snapshotSettings,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
   const { snapshot } = useSnapshot();
+  const settings = snapshotSettings ?? snapshot?.settings;
 
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
@@ -374,8 +379,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
       statsEngine={statsEngine}
       usesPValueAdjustment={pValueAdjustmentEnabled}
       oneSided={oneSided}
-      unitsLabel={getClusterUnitsLabel(snapshot?.settings)}
-      subUnitsLabel={getClusterSubUnitsLabel(snapshot?.settings, metric.id)}
+      unitsLabel={getClusterUnitsLabel(settings)}
+      subUnitsLabel={getClusterSubUnitsLabel(settings, metric.id)}
     />
   );
 }

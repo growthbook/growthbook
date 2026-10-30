@@ -398,6 +398,11 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
             settings?.approvalFlows,
             hasRequireApprovals,
           );
+        } else if (k === "clusterIssueMinPercent") {
+          // Saved as a fraction; the default is already a percent.
+          newVal.clusterIssueMinPercent = toPercent(
+            settings.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD,
+          );
         } else {
           // A saved false, 0 or empty string wins over the default.
           newVal[k] = settings?.[k] ?? newVal[k];
@@ -412,15 +417,6 @@ export function SettingsFormProvider({ children }: { children: ReactNode }) {
         ) {
           newVal.multipleExposureMinPercent = toPercent(
             newVal.multipleExposureMinPercent ?? 0.01,
-          );
-        }
-        if (
-          k === "clusterIssueMinPercent" &&
-          (newVal?.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD) <=
-            1
-        ) {
-          newVal.clusterIssueMinPercent = toPercent(
-            newVal.clusterIssueMinPercent ?? DEFAULT_CLUSTER_ISSUE_THRESHOLD,
           );
         }
 
