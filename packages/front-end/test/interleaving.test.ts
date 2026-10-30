@@ -42,10 +42,15 @@ describe("interleavingStatusIndicatorData", () => {
   ): Parameters<typeof interleavingStatusIndicatorData>[0] => ({
     status: "running",
     archived: false,
-    variations: [
-      { id: "v0", key: "control", name: "Control", config: "{}" },
-      { id: "v1", key: "treatment", name: "Treatment", config: "{}" },
-    ],
+    variations: {
+      control: { id: "v0", key: "control", name: "Control", config: "{}" },
+      treatment: {
+        id: "v1",
+        key: "treatment",
+        name: "Treatment",
+        config: "{}",
+      },
+    },
     datasource: "ds_1",
     coverage: 0.5,
     condition: '{"country":"US"}',

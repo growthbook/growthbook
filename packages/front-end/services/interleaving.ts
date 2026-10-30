@@ -2,6 +2,7 @@ import type {
   ApiInterleavingInterface,
   InterleavingMetricResult,
 } from "shared/validators";
+import { interleavingVariationsList } from "shared/util";
 import type { SnapshotMetric } from "shared/types/experiment-snapshot";
 import type { ExperimentDataForStatusStringDates } from "shared/types/experiment";
 
@@ -40,9 +41,12 @@ export function interleavingStatusIndicatorData(
     | "dateStopped"
   >,
 ): ExperimentDataForStatusStringDates {
+  const variations = interleavingVariationsList(il.variations).map((v) => ({
+    id: v.id,
+  }));
   return {
     type: "interleaving",
-    variations: il.variations.map((v) => ({ id: v.id })),
+    variations,
     status: il.status,
     archived: il.archived,
     results: undefined,
@@ -55,8 +59,8 @@ export function interleavingStatusIndicatorData(
         reason: "",
         coverage: il.coverage ?? 1,
         condition: il.condition ?? "",
-        variationWeights: il.variations.map(() => 0.5),
-        variations: il.variations.map((v) => ({ id: v.id })),
+        variationWeights: [0.5, 0.5],
+        variations,
         seed: il.seed,
       },
     ],

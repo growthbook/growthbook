@@ -10,7 +10,10 @@ import VariationLabel from "@/ui/VariationLabel";
 
 export type InterleavingRankers = ApiCreateInterleavingBody["variations"];
 
-const RANKER_LABELS = ["Control", "Treatment"] as const;
+const RANKERS = [
+  { role: "control", label: "Control" },
+  { role: "treatment", label: "Treatment" },
+] as const;
 
 function toSchemaDef(jsonSchema: ApiInterleavingInterface["jsonSchema"]) {
   return jsonSchema ? { ...jsonSchema, date: new Date(jsonSchema.date) } : null;
@@ -32,13 +35,13 @@ export function getRankersError(
   rankers: InterleavingRankers,
   jsonSchema: ApiInterleavingInterface["jsonSchema"] = null,
 ): string | null {
-  for (let i = 0; i < rankers.length; i++) {
-    const r = rankers[i];
-    if (!r.key.trim()) return `${RANKER_LABELS[i]}: key is required`;
+  for (const { role, label } of RANKERS) {
+    const r = rankers[role];
+    if (!r.key.trim()) return `${label}: key is required`;
     const err = getRankerConfigError(r.config, jsonSchema);
-    if (err) return `${RANKER_LABELS[i]}: ${err}`;
+    if (err) return `${label}: ${err}`;
   }
-  if (rankers[0].key.trim() === rankers[1].key.trim()) {
+  if (rankers.control.key.trim() === rankers.treatment.key.trim()) {
     return "The two rankers need different keys";
   }
   return null;
@@ -56,21 +59,17 @@ export default function InterleavingVariationsInput({
   disabled?: boolean;
 }) {
   const update = (
-    index: 0 | 1,
-    changes: Partial<InterleavingRankers[number]>,
-  ) => {
-    const next: InterleavingRankers = [value[0], value[1]];
-    next[index] = { ...next[index], ...changes };
-    setValue(next);
-  };
+    role: keyof InterleavingRankers,
+    changes: Partial<InterleavingRankers["control"]>,
+  ) => setValue({ ...value, [role]: { ...value[role], ...changes } });
 
   return (
     <Grid columns={{ initial: "1", md: "2" }} gap="4">
-      {([0, 1] as const).map((i) => {
-        const ranker = value[i];
+      {RANKERS.map(({ role, label }, i) => {
+        const ranker = value[role];
         return (
           <Box
-            key={i}
+            key={role}
             p="5"
             pb="3"
             className="appbox mb-0 position-relative variation"
@@ -88,7 +87,7 @@ export default function InterleavingVariationsInput({
             <Box mb="3">
               <VariationLabel
                 number={i}
-                name={ranker.name || ranker.key || RANKER_LABELS[i]}
+                name={ranker.name || ranker.key || label}
                 size="lg"
               />
             </Box>
@@ -96,7 +95,7 @@ export default function InterleavingVariationsInput({
               <Field
                 label="Key"
                 value={ranker.key}
-                onChange={(e) => update(i, { key: e.target.value })}
+                onChange={(e) => update(role, { key: e.target.value })}
                 disabled={disabled}
                 required
                 containerClassName="flex-1"
@@ -104,7 +103,7 @@ export default function InterleavingVariationsInput({
               <Field
                 label="Name"
                 value={ranker.name}
-                onChange={(e) => update(i, { name: e.target.value })}
+                onChange={(e) => update(role, { name: e.target.value })}
                 disabled={disabled}
                 containerClassName="flex-1"
               />
@@ -112,14 +111,14 @@ export default function InterleavingVariationsInput({
             <Field
               label="Description"
               value={ranker.description ?? ""}
-              onChange={(e) => update(i, { description: e.target.value })}
+              onChange={(e) => update(role, { description: e.target.value })}
               disabled={disabled}
             />
             <CodeTextArea
               label="Config (JSON)"
               language="json"
               value={ranker.config}
-              setValue={(config) => update(i, { config })}
+              setValue={(config) => update(role, { config })}
               minLines={4}
               maxLines={16}
               disabled={disabled}

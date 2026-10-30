@@ -257,7 +257,7 @@ export default function InterleavingDetailPage({
               Users will get
               <VariationLabel
                 number={0}
-                name={il.variations[0].name || il.variations[0].key}
+                name={il.variations.control.name || il.variations.control.key}
                 size="sm"
               />
               &apos;s list. Results stay available.

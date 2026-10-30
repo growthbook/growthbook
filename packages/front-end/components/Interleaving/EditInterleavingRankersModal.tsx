@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
+import { mapInterleavingVariations } from "shared/util";
 import { useRestApiCall } from "@/services/restApi";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
 import Callout from "@/ui/Callout";
@@ -10,13 +11,15 @@ import InterleavingVariationsInput, {
 } from "./InterleavingVariationsInput";
 
 export function rankersOf(il: ApiInterleavingInterface): InterleavingRankers {
-  const [a, b] = il.variations.map(({ key, name, description, config }) => ({
-    key,
-    name,
-    description,
-    config,
-  }));
-  return [a, b];
+  return mapInterleavingVariations(
+    il.variations,
+    ({ key, name, description, config }) => ({
+      key,
+      name,
+      description,
+      config,
+    }),
+  );
 }
 
 export default function EditInterleavingRankersModal({

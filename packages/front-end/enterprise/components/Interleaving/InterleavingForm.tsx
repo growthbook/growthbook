@@ -24,10 +24,10 @@ import InterleavingAnalysisFields, {
 import { getMetricsError } from "@/components/Interleaving/InterleavingMetricsInput";
 import AddEditInterleavingExposureQueryModal from "@/components/Interleaving/AddEditInterleavingExposureQueryModal";
 
-const DEFAULT_RANKERS: InterleavingRankers = [
-  { key: "control", name: "Control", config: "{}" },
-  { key: "treatment", name: "Treatment", config: "{}" },
-];
+const DEFAULT_RANKERS: InterleavingRankers = {
+  control: { key: "control", name: "Control", config: "{}" },
+  treatment: { key: "treatment", name: "Treatment", config: "{}" },
+};
 
 function keyFromName(name: string) {
   return name

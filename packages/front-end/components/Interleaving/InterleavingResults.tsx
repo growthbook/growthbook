@@ -5,6 +5,7 @@ import type {
   InterleavingAnalysis,
 } from "shared/validators";
 import { ago, getValidDate } from "shared/dates";
+import { interleavingVariationsList } from "shared/util";
 import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
 import { useInterleavingResults } from "@/hooks/useInterleavings";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -71,7 +72,9 @@ export default function InterleavingResults({
     !!datasource && permissionsUtil.canRunExperimentQueries(datasource);
 
   if (loading) return <LoadingOverlay />;
-  const variations = (snapshot?.settings.variations ?? []).map((v, index) => ({
+  const variations = (
+    snapshot ? interleavingVariationsList(snapshot.settings.variations) : []
+  ).map((v, index) => ({
     id: v.id,
     name: v.name || v.key,
     weight: 0.5,
