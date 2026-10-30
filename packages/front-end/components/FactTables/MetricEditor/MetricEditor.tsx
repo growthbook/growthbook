@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Flex, Grid } from "@radix-ui/themes";
 import { ColumnRef, FactMetricInterface } from "shared/types/fact-table";
 import { reconcileInlineFilterPrompts } from "shared/experiments";
+import { isExternallyManaged } from "shared/validators";
 import {
   CreateFactMetricFormProps,
   getInitialInlineFilters,
@@ -421,7 +422,7 @@ export default function MetricEditor({
               {canEditOfficial && (
                 <Checkbox
                   label="Mark as official metric"
-                  disabled={form.watch("managedBy") === "api"}
+                  disabled={isExternallyManaged(form.watch("managedBy"))}
                   disabledMessage="This metric is managed by the API, so it cannot be edited in the UI."
                   description="Official metrics can only be modified by admins or users with the Manage Official Resources policy."
                   value={form.watch("managedBy") === "admin"}

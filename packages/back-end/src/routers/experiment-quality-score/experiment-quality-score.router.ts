@@ -10,7 +10,15 @@ const controller = wrapController(rawController);
 
 router.post(
   "/recalculate",
-  validateRequestMiddleware({}),
+  validateRequestMiddleware({
+    body: z
+      .object({
+        // Only this Project's experiments, or with "", only those following
+        // the organization default
+        project: z.string().optional(),
+      })
+      .strict(),
+  }),
   controller.postRecalculateExperimentQualityScores,
 );
 
@@ -27,11 +35,19 @@ router.post(
     body: z
       .object({
         score: z.number().min(0).max(100).nullable(),
-        reason: z.string().max(1000).optional(),
+        reason: z.string().trim().max(1000).optional(),
       })
       .strict(),
   }),
   controller.postExperimentQualityScoreOverride,
+);
+
+router.post(
+  "/experiment/:id/recheck",
+  validateRequestMiddleware({
+    params: z.object({ id: z.string() }).strict(),
+  }),
+  controller.postRecheckExperimentQualityScore,
 );
 
 export { router as experimentQualityScoreRouter };

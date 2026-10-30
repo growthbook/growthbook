@@ -5,6 +5,7 @@ import { FaPlusCircle } from "react-icons/fa";
 import { PiWarningCircle, PiXBold } from "react-icons/pi";
 import omit from "lodash/omit";
 import { Namespaces } from "shared/types/organization";
+import { isNamespaceSelectable } from "shared/util";
 import useApi from "@/hooks/useApi";
 import { useIncrementer } from "@/hooks/useIncrementer";
 import { NamespaceApiResponse } from "@/pages/namespaces";
@@ -146,52 +147,71 @@ export default function NamespaceSelector({
   const isFallbackMode = !!effectiveFallbackAttribute.trim();
   const allNamespaces = namespaces || EMPTY_NAMESPACES;
   const namespaceUsage = data?.namespaces || EMPTY_NAMESPACE_USAGE;
-  const isLegacyNamespace = (n: Namespaces) => n.format !== "multiRange";
+
+  // The namespace the form opened with stays until something here changes it,
+  // even one that's since been deleted or deactivated.
+  const loaded = useRef({
+    name: namespace,
+    hashAttribute: effectiveHashAttribute,
+    fallbackAttribute: effectiveFallbackAttribute,
+  }).current;
+  const keepsLoaded =
+    !!namespace &&
+    namespace === loaded.name &&
+    effectiveHashAttribute === loaded.hashAttribute &&
+    effectiveFallbackAttribute === loaded.fallbackAttribute;
 
   const {
     filteredNamespaces,
     namespaceOptions,
     selectedNamespace,
     selectedIsDifferentHash,
+    unavailableReason,
   } = useMemo(() => {
+    const selectable = (n: Namespaces) =>
+      isNamespaceSelectable(n, {
+        hashAttribute: effectiveHashAttribute,
+        fallbackAttribute: effectiveFallbackAttribute,
+      });
     const activeNamespaces = allNamespaces.filter(
       (n) => n?.status !== "inactive",
     );
-
     const filtered = isFallbackMode
-      ? activeNamespaces.filter((n) => isLegacyNamespace(n))
+      ? activeNamespaces.filter(selectable)
       : activeNamespaces;
+    const selected = activeNamespaces.find((n) => n.name === namespace);
 
-    const options = filtered.map((n) => {
-      const isHashMismatch =
-        !isFallbackMode &&
-        !isLegacyNamespace(n) &&
-        n.hashAttribute !== effectiveHashAttribute;
-      return {
-        value: n.name,
-        label: n.label,
-        isDisabled: isHashMismatch,
-      };
-    }) as SingleValue[];
+    const options = filtered.map((n) => ({
+      value: n.name,
+      label: n.label,
+      isDisabled: !selectable(n),
+    })) as SingleValue[];
+    // Listed while it's the one in use, so the select shows it.
+    const stored = allNamespaces.find((n) => n.name === namespace);
+    const unlisted = !!namespace && !filtered.some((n) => n.name === namespace);
+    if (unlisted)
+      options.unshift({ value: namespace, label: stored?.label || namespace });
 
     return {
       filteredNamespaces: filtered,
       namespaceOptions: hideEnableToggle
         ? [{ value: "", label: "Global (all users)" }, ...options]
         : options,
-      selectedNamespace: activeNamespaces.find((n) => n.name === namespace),
+      selectedNamespace: selected,
       selectedIsDifferentHash:
-        !isFallbackMode &&
-        activeNamespaces.some(
-          (n) =>
-            n.name === namespace &&
-            n.format === "multiRange" &&
-            n.hashAttribute !== effectiveHashAttribute,
-        ),
+        !isFallbackMode && !!selected && !selectable(selected),
+      unavailableReason: !unlisted
+        ? null
+        : !stored
+          ? "This namespace no longer exists."
+          : stored.status === "inactive"
+            ? "This namespace is inactive."
+            : "Only legacy namespaces work with a fallback attribute.",
     };
   }, [
     allNamespaces,
     effectiveHashAttribute,
+    effectiveFallbackAttribute,
     isFallbackMode,
     namespace,
     hideEnableToggle,
@@ -238,7 +258,7 @@ export default function NamespaceSelector({
   const getDraftKey = (index: number, field: 0 | 1) => `${index}:${field}`;
 
   useEffect(() => {
-    if (!namespace) return;
+    if (!namespace || keepsLoaded) return;
     const existsInFiltered = filteredNamespaces.some(
       (n) => n.name === namespace,
     );
@@ -254,7 +274,14 @@ export default function NamespaceSelector({
       { shouldDirty: true, shouldTouch: true },
     );
     setRangeDrafts({});
-  }, [enabled, filteredNamespaces, form, namespace, namespacePath]);
+  }, [
+    enabled,
+    filteredNamespaces,
+    form,
+    keepsLoaded,
+    namespace,
+    namespacePath,
+  ]);
 
   useEffect(() => {
     if (storedRanges.length > 0 || !legacyRange) return;
@@ -290,7 +317,7 @@ export default function NamespaceSelector({
   }, [namespace, ranges]);
 
   useEffect(() => {
-    if (!experimentHashAttribute) return;
+    if (!experimentHashAttribute || keepsLoaded) return;
     const ns = form.getValues(namespacePath) as NamespaceFormState | undefined;
     const nsName = ns?.name;
     if (!nsName) return;
@@ -313,6 +340,7 @@ export default function NamespaceSelector({
     experimentHashAttribute,
     allNamespaces,
     form,
+    keepsLoaded,
     namespacePath,
     forceSelectRemount,
   ]);
@@ -367,7 +395,7 @@ export default function NamespaceSelector({
   };
 
   return (
-    <div className="my-3">
+    <div className={hideEnableToggle ? undefined : "my-3"}>
       {!hideEnableToggle && (
         <Checkbox
           size="lg"
@@ -398,7 +426,8 @@ export default function NamespaceSelector({
         />
       )}
       {(hideEnableToggle || enabled) && (
-        <div className="box p-3 mb-2">
+        // Boxed under its checkbox; on its own it needs no frame.
+        <div className={hideEnableToggle ? undefined : "box p-3 mb-2"}>
           <label>Use namespace</label>
           <SelectField
             size="legacy"
@@ -461,28 +490,34 @@ export default function NamespaceSelector({
               const ns = allNamespaces.find((n) => n.name === option.value);
               const hashAttr =
                 ns?.format === "multiRange" ? ns.hashAttribute : null;
+              const warningIcon = (
+                <PiWarningCircle
+                  size={15}
+                  style={{
+                    color: "var(--amber-9)",
+                    verticalAlign: "-3px",
+                    marginRight: 4,
+                  }}
+                />
+              );
               const row = (
                 <Flex as="div" align="baseline">
                   <span>{option.label}</span>
                   <Text size="sm" color="text-mid" ml="auto">
                     {hashAttr ? (
                       <>
-                        {option.isDisabled && (
-                          <PiWarningCircle
-                            size={15}
-                            style={{
-                              color: "var(--amber-9)",
-                              verticalAlign: "-3px",
-                              marginRight: 4,
-                            }}
-                          />
-                        )}
+                        {option.isDisabled && warningIcon}
                         hash attribute: <strong>{hashAttr}</strong>
                       </>
                     ) : option.value === "" ? (
                       <Text size="sm" color="text-low" weight="medium">
                         DEFAULT
                       </Text>
+                    ) : !ns ? (
+                      <>
+                        {warningIcon}
+                        not found
+                      </>
                     ) : (
                       <span style={{ opacity: 0.45 }}>legacy</span>
                     )}
@@ -497,6 +532,11 @@ export default function NamespaceSelector({
               );
             }}
           />
+          {unavailableReason && (
+            <HelperText status="warning" mt="2" size="sm">
+              {unavailableReason} It stays as is unless you choose another.
+            </HelperText>
+          )}
           {namespace && selectedNamespace && (
             <div className="mt-3">
               {selectedIsDifferentHash && (

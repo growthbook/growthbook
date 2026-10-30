@@ -613,7 +613,6 @@ export default function FeatureModal({
               // to the selected project instead of passing a `feature`.
               project={selectedProject || undefined}
               constantContext={{ project: selectedProject || undefined }}
-              useCodeInput={true}
               showFullscreenButton={true}
               // Config-backing is offered only for the "config" authoring type — a
               // plain JSON flag can't extend a config (any manual `@config:` in its

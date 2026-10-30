@@ -11,7 +11,6 @@ import {
   ExperimentProcessResults,
   ExperimentQualityScoreOverride,
   ProcessExperimentQualityCheckKey,
-  aiExperimentQualityCheckKeys,
 } from "../validators/experiments";
 import {
   DeterministicExperimentQualityCheckKey,
@@ -55,7 +54,7 @@ const EPS = 1e-9;
 
 export interface ExperimentQualitySectionDefinition {
   label: string;
-  // When the section's checks apply, shown next to its label
+  // Shown under the section's name
   note?: string;
   // Raw cross-section share weight; defaults total 100 so raw weights read
   // as percentages, but only the normalized ratio matters
@@ -68,18 +67,22 @@ export const EXPERIMENT_QUALITY_SECTIONS: Record<
 > = {
   setup: {
     label: "Setup",
-    note: "before the experiment starts",
+    note: "Checked from the experiment's setup.",
     defaultWeight: 35,
   },
   process: {
     label: "Process",
-    note: "stopped experiments only, from change history",
+    note: "Scored when the experiment stops, from its change history.",
     defaultWeight: 30,
   },
-  documentation: { label: "Documentation", defaultWeight: 15 },
+  documentation: {
+    label: "Documentation",
+    note: "Checked from what's written about the experiment.",
+    defaultWeight: 15,
+  },
   ai: {
     label: "AI checks",
-    note: "judged by AI, cached until inputs change",
+    note: "Judged by AI.",
     defaultWeight: 20,
   },
 };
@@ -90,7 +93,7 @@ export interface ExperimentQualityCheckDefinition {
   label: string;
   // What to do when it fails, in the imperative
   action: string;
-  // When the check applies, shown next to its label
+  // Which experiments the check applies to, as a chip by its label
   note?: string;
   defaultEnabled: boolean;
   defaultParams?: ExperimentQualityCheckParams;
@@ -134,7 +137,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "deterministic",
     label: "Not too many variations",
     action: "Test fewer variations",
-    note: "all except bandits",
+    note: "Not for Bandits",
     defaultEnabled: false,
     defaultParams: { maxVariations: 4 },
   },
@@ -143,7 +146,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "deterministic",
     label: "Has screenshots",
     action: "Add screenshots of each variation",
-    note: "all except Holdouts",
+    note: "Not for Holdouts",
     defaultEnabled: false,
   },
   "tags-or-project": {
@@ -158,7 +161,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "deterministic",
     label: "Decision recorded",
     action: "Record the decision",
-    note: "stopped experiments only",
+    note: "Stopped only",
     defaultEnabled: true,
   },
   "analysis-written": {
@@ -166,7 +169,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "deterministic",
     label: "Analysis written",
     action: "Write up the analysis",
-    note: "stopped experiments only",
+    note: "Stopped only",
     defaultEnabled: true,
   },
   "goal-metrics-locked": {
@@ -186,8 +189,9 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
   "stable-assignment": {
     section: "process",
     type: "process",
-    label: "Traffic split and targeting unchanged within a phase",
     action: "Keep traffic and targeting fixed within a phase",
+    label: "Traffic split and targeting unchanged",
+    note: "Within a phase",
     defaultEnabled: true,
   },
   "stable-analysis": {
@@ -217,7 +221,7 @@ export const EXPERIMENT_QUALITY_CHECKS: Record<
     type: "process",
     label: "End date scheduled before the start",
     action: "Schedule an end date before the start",
-    note: "any end action, including notify only",
+    note: "Any end action",
     defaultEnabled: false,
   },
   "ai-hypothesis-quality": {
@@ -465,27 +469,6 @@ function cyrb53(str: string, seed = 0): string {
 }
 
 /**
- * Sorted [key, context] pairs for the enabled AI checks — built-in checks
- * carry their per-check context, custom rules carry their rule text.
- * Including the enabled key SET (not just contexts) in the hash means
- * enabling an AI check after verdicts were cached invalidates them, so the
- * new check gets computed instead of staying pending forever. Custom rule
- * names are excluded (cosmetic; renaming shouldn't re-run the judge).
- */
-export function getAICheckHashInputs(
-  settings: ResolvedExperimentQualityScoreSettings,
-): Array<[string, string]> {
-  const builtin: Array<[string, string]> = [...aiExperimentQualityCheckKeys]
-    .filter((key) => settings.checks[key].enabled)
-    .map((key) => [key, settings.checks[key].aiContext ?? ""]);
-  const custom: Array<[string, string]> = settings.customAiChecks
-    .filter((c) => c.enabled)
-    // A change of judge re-runs the check too
-    .map((c) => [c.key, `${c.judge}:${c.rule}`]);
-  return [...builtin, ...custom].sort((a, b) => a[0].localeCompare(b[0]));
-}
-
-/**
  * Trimmed JSON projection of the experiment handed to the AI judge for
  * custom rules, and hashed so any change to it re-runs them. Built
  * identically on the front-end (staleness detection) and back-end (prompt
@@ -524,16 +507,16 @@ export function getExperimentDigestForCustomRules(
   });
 }
 
+// The experiment's AI inputs only: settings changes keep existing verdicts
+// until someone re-checks them
 export function computeAIQualityInputsHash({
   hypothesis,
   goalMetrics,
-  aiCheckContexts,
   experimentDigest = "",
 }: {
   hypothesis?: string;
   // Metric ids, not names, so renaming a metric doesn't re-run the checks
   goalMetrics: string[];
-  aiCheckContexts: Array<[string, string]>;
   experimentDigest?: string;
 }): string {
   return cyrb53(
@@ -541,7 +524,6 @@ export function computeAIQualityInputsHash({
       EXPERIMENT_QUALITY_PROMPT_VERSION,
       hypothesis ?? "",
       [...goalMetrics].sort(),
-      aiCheckContexts,
       experimentDigest,
     ]),
   );
@@ -567,7 +549,6 @@ export function getAIQualityInputsHash(
   return computeAIQualityInputsHash({
     hypothesis: experiment.hypothesis,
     goalMetrics: experiment.goalMetrics,
-    aiCheckContexts: getAICheckHashInputs(settings),
     // Custom rules read the whole experiment, so any change to it must
     // invalidate their verdicts
     experimentDigest: hasCustomRules
@@ -1050,6 +1031,122 @@ export function getQualityImprovements(
     .sort((a, b) => b.gain - a.gain);
 }
 
+export type QualityScoreBand = "weak" | "fair" | "strong";
+
+export function getQualityScoreBand(score: number): QualityScoreBand {
+  if (score >= 80) return "strong";
+  if (score >= 50) return "fair";
+  return "weak";
+}
+
+// The scored checks below the pass mark, most points lost first
+function getFailingChecks(result: ExperimentQualityScoreResult) {
+  return result.sections
+    .filter((s) => s.enabled && s.applicable)
+    .flatMap((s) => s.checks)
+    .filter(
+      (c) =>
+        c.applicable &&
+        c.score !== null &&
+        c.score < QUALITY_CHECK_PASS_THRESHOLD,
+    )
+    .sort(
+      (a, b) =>
+        b.possiblePoints - b.earnedPoints - (a.possiblePoints - a.earnedPoints),
+    );
+}
+
+// What the one-line summary describes; a stored summary with another key is
+// out of date
+export function getQualitySummaryKey(
+  result: ExperimentQualityScoreResult,
+): string {
+  return cyrb53(
+    JSON.stringify([
+      result.sections
+        .filter((s) => s.enabled && s.applicable && s.possiblePoints > 0)
+        .map((s) => [
+          s.key,
+          Math.round((s.earnedPoints / s.possiblePoints) * 10),
+        ]),
+      getFailingChecks(result).map((c) => c.key),
+    ]),
+  );
+}
+
+const SECTION_STRENGTHS: Record<ExperimentQualitySectionKey, string> = {
+  setup: "well set up",
+  process: "run cleanly",
+  documentation: "well documented",
+  ai: "has a strong hypothesis",
+};
+
+function describeFailure(check: ExperimentQualityCheckResult): string {
+  switch (check.key) {
+    case "hypothesis":
+      return "there's no hypothesis";
+    case "description":
+      return "there's no description";
+    case "goal-metrics":
+      return check.reason?.startsWith("No goal")
+        ? "there are no goal metrics"
+        : "there are too many goal metrics";
+    case "guardrail-metrics":
+      return "there are no guardrail metrics";
+    case "max-variations":
+      return "there are too many variations";
+    case "screenshots":
+      return "there are no screenshots";
+    case "tags-or-project":
+      return "it has no tags or Project";
+    case "decision":
+      return "no decision is recorded";
+    case "analysis-written":
+      return "the analysis isn't written up";
+    case "goal-metrics-locked":
+      return "the goal metrics changed after the start";
+    case "hypothesis-locked":
+      return "the hypothesis changed after the start";
+    case "stable-assignment":
+      return "traffic or targeting changed mid-run";
+    case "stable-analysis":
+      return "the analysis changed mid-run";
+    case "no-early-stop":
+      return "it stopped early";
+    case "clean-restarts":
+      return "a new phase didn't re-randomize users";
+    case "planned-end":
+      return "no end date was scheduled";
+    case "ai-hypothesis-quality":
+      return "the hypothesis is vague";
+    case "ai-hypothesis-metric-alignment":
+      return "the goal metrics don't match the hypothesis";
+  }
+  return `it misses “${check.label}”`;
+}
+
+const capitalize = (text: string) =>
+  text.charAt(0).toUpperCase() + text.slice(1);
+
+// The one-line summary when there's no AI-written one
+export function getQualitySummaryTemplate(
+  result: ExperimentQualityScoreResult,
+): string {
+  const failures = getFailingChecks(result).slice(0, 2).map(describeFailure);
+  const strong = result.sections.filter(
+    (s) =>
+      s.enabled &&
+      s.applicable &&
+      s.possiblePoints > 0 &&
+      s.earnedPoints / s.possiblePoints >= 0.8,
+  );
+  if (!failures.length) return "Passes every check.";
+  const problems = failures.join(" and ");
+  return strong.length
+    ? `${capitalize(SECTION_STRENGTHS[strong[0].key])}, but ${problems}.`
+    : `${capitalize(problems)}.`;
+}
+
 // ---------------------------------------------------------------------------
 // Share math for the settings editors
 // ---------------------------------------------------------------------------
@@ -1074,26 +1171,4 @@ export function roundToTotal(values: number[], total = 100): number[] {
     remainder -= 1;
   }
   return out;
-}
-
-/**
- * Sets one share and re-flows the others in proportion so the integer
- * shares keep totalling `total` (others split evenly when all are 0).
- */
-export function reflowShares(
-  shares: number[],
-  index: number,
-  newShare: number,
-  total = 100,
-): number[] {
-  if (shares.length <= 1) return shares.map(() => total);
-  const clamped = Math.min(Math.max(Math.round(newShare), 0), total);
-  const others = shares.filter((_, i) => i !== index);
-  const otherSum = others.reduce((s, v) => s + v, 0);
-  const redistributed = roundToTotal(
-    otherSum > EPS ? others : others.map(() => 1),
-    total - clamped,
-  );
-  let next = 0;
-  return shares.map((_, i) => (i === index ? clamped : redistributed[next++]));
 }

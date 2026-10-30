@@ -61,7 +61,7 @@ function ValuesBox({
           wordBreak: "break-word",
           fontSize: "var(--font-size-1)",
           lineHeight: 1.5,
-          fontFamily: "var(--font-mono)",
+          fontFamily: "var(--code-font-family)",
         }}
       >
         {values.length ? (
@@ -647,6 +647,31 @@ export function getSavedGroupValuesBadges(pre: Pre, post: Post): DiffBadge[] {
     else badges.push({ label: "Edit values", action: "edit values" });
   }
   return badges;
+}
+
+/** A remote group switching to another upload. */
+export function renderSavedGroupUploadVersion(
+  pre: Pre,
+  post: Post,
+): ReactNode | null {
+  const version = (v: number | undefined) =>
+    v === undefined ? undefined : `Version ${v}`;
+  return (
+    <ValueChangedField
+      label="Upload version"
+      pre={version(pre?.currentUploadVersion)}
+      post={version(post.currentUploadVersion)}
+    />
+  );
+}
+
+export function getSavedGroupUploadVersionBadges(
+  pre: Pre,
+  post: Post,
+): DiffBadge[] {
+  return isEqual(pre?.currentUploadVersion, post.currentUploadVersion)
+    ? []
+    : [{ label: "Edit upload version", action: "edit upload version" }];
 }
 
 export function getSavedGroupProjectsBadges(pre: Pre, post: Post): DiffBadge[] {

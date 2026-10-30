@@ -1,6 +1,7 @@
 import { FC, ReactElement } from "react";
 import { useForm } from "react-hook-form";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import MultiSelectField from "@/ui/MultiSelectField";
 import useProjectOptions from "@/hooks/useProjectOptions";
 
@@ -33,7 +34,7 @@ const EditProjectsForm: FC<{
       header={"Edit Projects"}
       open={true}
       close={cancel}
-      submit={form.handleSubmit(async (data) => {
+      submit={validatedSubmit(form, async (data) => {
         await save(data.projects);
         mutate();
       })}

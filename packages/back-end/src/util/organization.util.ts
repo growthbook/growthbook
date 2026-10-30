@@ -7,8 +7,10 @@ import { ApiKeyInterface } from "shared/types/apikey";
 import {
   actsAsUser,
   getRolePermissions,
+  hasSuperAdminPermission,
   intersectUserPermissions,
 } from "shared/permissions";
+import { SuperAdmin } from "shared/validators";
 import { SUPERADMIN_DEFAULT_ROLE } from "./secrets";
 
 export function getEnvironmentIdsFromOrg(org: OrganizationInterface): string[] {
@@ -34,15 +36,19 @@ export function getEnvironments(org: OrganizationInterface) {
 }
 
 export function getUserPermissions(
-  user: { id: string; superAdmin?: boolean },
+  user: { id: string; superAdmin?: SuperAdmin },
   org: OrganizationInterface,
   teams: TeamInterface[],
   restrictedProjects?: string[],
 ): UserPermissions {
   const memberInfo = org.members.find((m) => m.id === user.id);
+  const canImpersonate = hasSuperAdminPermission(
+    user.superAdmin,
+    "impersonate",
+  );
 
   // If the user is a super admin, fall back to a default role if they aren't in the org
-  if (!memberInfo && user.superAdmin && SUPERADMIN_DEFAULT_ROLE) {
+  if (!memberInfo && canImpersonate && SUPERADMIN_DEFAULT_ROLE) {
     return getRolePermissions(
       {
         role: SUPERADMIN_DEFAULT_ROLE,
@@ -65,7 +71,7 @@ export function getUserPermissions(
     org,
     teams,
     // Super admins bypass access-restricted projects
-    user.superAdmin ? undefined : restrictedProjects,
+    canImpersonate ? undefined : restrictedProjects,
     { member: true },
   );
 }
@@ -73,7 +79,7 @@ export function getUserPermissions(
 // A scoped PAT can never exceed its user: it gets what both the user and the key allow.
 export function getPersonalAccessTokenPermissions(
   apiKey: ApiKeyInterface,
-  user: { id: string; superAdmin?: boolean },
+  user: { id: string; superAdmin?: SuperAdmin },
   org: OrganizationInterface,
   teams: TeamInterface[],
   restrictedProjects?: string[],
@@ -134,4 +140,15 @@ export function getKeyPermissionsForRequest({
     ),
     getUserPermissions({ id: requesterId }, org, teams, restrictedProjects),
   );
+}
+
+// Strips the separators people paste around addresses (whitespace, `;`, `,`).
+// A loop rather than `/[\s;,]+$/`, which is quadratic on long runs.
+export function normalizeInviteEmail(email: string): string {
+  const isSeparator = (ch: string) => ch === ";" || ch === "," || /\s/.test(ch);
+  let start = 0;
+  let end = email.length;
+  while (start < end && isSeparator(email[start])) start++;
+  while (end > start && isSeparator(email[end - 1])) end--;
+  return email.slice(start, end).toLowerCase();
 }

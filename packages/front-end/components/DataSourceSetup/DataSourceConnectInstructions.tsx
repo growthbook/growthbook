@@ -9,6 +9,7 @@ import { isCloud } from "@/services/env";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Tooltip from "@/ui/Tooltip";
+import type { EventForwarderDestination } from "./EventForwarderDestinationFields";
 import type { SnowflakeKeyPair } from "./generateSnowflakeKeyPair";
 import {
   ConnectSetupKind,
@@ -39,7 +40,7 @@ function CommandBlock({ code, copyText }: { code: string; copyText?: string }) {
           border: "1px solid var(--gray-a5)",
           borderRadius: 6,
           padding: "12px 48px 12px 14px",
-          fontFamily: "var(--font-mono, monospace)",
+          fontFamily: "var(--code-font-family)",
           fontSize: 12,
           lineHeight: 1.75,
           // Wrap long lines in place of a horizontal scrollbar; a token only
@@ -147,6 +148,7 @@ export default function DataSourceConnectInstructions({
   existing = false,
   savedParams = null,
   eventForwarderRegion = null,
+  eventForwarderDestination = null,
   snowflakeKeyPair = null,
 }: {
   type: DataSourceType;
@@ -158,8 +160,10 @@ export default function DataSourceConnectInstructions({
   existing?: boolean;
   /** The saved connection's params when editing, so the SQL can alter the existing user and repeat only the grants that changed. */
   savedParams?: Partial<DataSourceParams> | null;
-  /** The saved Event Forwarder region. Null until the user picks one in the Event Forwarder setup. */
+  /** Null until the warehouse region is detected or chosen. Edit mode passes the saved region. */
   eventForwarderRegion?: DataRegion | null;
+  /** The dataset/schema/catalog-schema chosen in the Event Destination fields, so write-access SQL grants the place GrowthBook will actually write to. */
+  eventForwarderDestination?: EventForwarderDestination | null;
   /** Key pair GrowthBook generated for Snowflake, if the user asked for one. */
   snowflakeKeyPair?: SnowflakeKeyPair | null;
 }) {
@@ -171,6 +175,7 @@ export default function DataSourceConnectInstructions({
     eventForwarderRegions: eventForwarderRegion
       ? [eventForwarderRegion]
       : regionOptions.map((o) => o.value),
+    eventForwarderDestination,
     snowflakeKeyPair,
   });
 

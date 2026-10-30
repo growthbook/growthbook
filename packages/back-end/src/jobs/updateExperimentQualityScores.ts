@@ -83,7 +83,14 @@ async function retryFailedAICall(
 const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
   const data = job.attrs.data;
   if (!data?.organization) return;
-  const { organization, force, project, outdatedOnly, after = "" } = data;
+  const {
+    organization,
+    force,
+    project,
+    inheritingOnly,
+    outdatedOnly,
+    after = "",
+  } = data;
 
   const context = await getContextForAgendaJobByOrgId(organization);
   if (!context.hasPremiumFeature("experiment-quality-score")) return;
@@ -117,6 +124,15 @@ const recheckExperimentQuality = async (job: RecheckExperimentQualityJob) => {
     filter: {
       $and: [
         project ? { project } : {},
+        inheritingOnly
+          ? {
+              project: {
+                $nin: records
+                  .filter((r) => r.project && r.quality?.config)
+                  .map((r) => r.project),
+              },
+            }
+          : {},
         outdatedOnly
           ? {
               ...scope,

@@ -1,11 +1,18 @@
 import type { ExperimentInterface } from "shared/types/experiment";
+import type { FeatureInterface } from "shared/types/feature";
 import type { DataSourceInterface } from "shared/types/datasource";
 import type { HoldoutInterface, ApiUpdateHoldoutBody } from "shared/validators";
 import { holdoutSizeToCoverage } from "shared/util";
 import {
   createExperiment,
+  dangerouslyGetExperimentsByIdsBypassPermission,
+  getExperimentsByIds,
   updateExperiment,
 } from "back-end/src/models/ExperimentModel";
+import {
+  getFeatureProjectsByIds,
+  getFeaturesByIds,
+} from "back-end/src/models/FeatureModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import { queueSDKPayloadRefresh } from "back-end/src/services/features";
 import { logger } from "back-end/src/util/logger";
@@ -18,9 +25,12 @@ import {
   getNextScheduledStatusUpdateForStage,
   isHoldoutExperiment,
   normalizeHoldoutScheduleUpdates,
+  resolveHoldoutExperimentToLink,
   setHoldoutStage,
   createHoldoutWithExperiment,
   updateHoldoutWithExperiment,
+  getHoldoutLinkage,
+  removeHoldoutMissingLink,
 } from "back-end/src/services/holdouts";
 
 jest.mock("back-end/src/models/ExperimentModel", () => ({
@@ -28,6 +38,13 @@ jest.mock("back-end/src/models/ExperimentModel", () => ({
   createExperiment: jest.fn(),
   deleteExperimentByIdForOrganization: jest.fn(),
   getExperimentsByIds: jest.fn(),
+  dangerouslyGetExperimentsByIdsBypassPermission: jest.fn(),
+}));
+
+jest.mock("back-end/src/models/FeatureModel", () => ({
+  getFeaturesByIds: jest.fn(),
+  getFeatureProjectsByIds: jest.fn(),
+  removeHoldoutFromFeature: jest.fn(),
 }));
 
 jest.mock("back-end/src/services/features", () => ({
@@ -1093,6 +1110,54 @@ describe("assertCanUpdateHoldout", () => {
   });
 });
 
+describe("resolveHoldoutExperimentToLink", () => {
+  const context = {
+    models: {
+      holdout: {
+        getById: async (id: string) => ({ name: `Holdout ${id}` }),
+        getByIdForLinkage: async () => ({
+          name: "Holdout ho_1",
+          projects: ["prj_b"],
+        }),
+      },
+    },
+  } as unknown as ReqContext;
+  const resolve = (
+    featureHoldoutId: string | null,
+    experiment: Partial<ExperimentInterface>,
+  ) =>
+    resolveHoldoutExperimentToLink({
+      context,
+      feature: { id: "flag" } as never,
+      experiment: {
+        holdoutId: "",
+        project: "prj_b",
+        status: "draft",
+        linkedFeatures: [],
+        ...experiment,
+      } as ExperimentInterface,
+      effectiveHoldout: featureHoldoutId ? { id: featureHoldoutId } : null,
+    });
+
+  it("names each refusal the way callers expect", async () => {
+    await expect(resolve("ho_2", { holdoutId: "ho_1" })).rejects.toThrow(
+      'experiment belongs to holdout "Holdout ho_1" but this feature flag uses holdout "Holdout ho_2"',
+    );
+    await expect(resolve(null, { holdoutId: "ho_1" })).rejects.toThrow(
+      'this experiment belongs to holdout "Holdout ho_1", but this feature flag is not in a holdout',
+    );
+    await expect(resolve("ho_1", { project: "prj_a" })).rejects.toThrow(
+      'holdout "Holdout ho_1" is not available in the experiment\'s Project',
+    );
+    await expect(resolve("ho_1", { status: "running" })).rejects.toThrow(
+      'the experiment must be in "draft" status (currently "running")',
+    );
+    await expect(
+      resolve("ho_1", { linkedFeatures: ["other"] }),
+    ).rejects.toThrow("already has linked Feature Flags");
+  });
+});
+
 describe("createHoldoutWithExperiment", () => {
   const input = {
     name: "Holdout",
@@ -1131,5 +1196,145 @@ describe("createHoldoutWithExperiment", () => {
       'no longer declares its default identifier type "user_id"',
     );
     expect(createExperiment).not.toHaveBeenCalled();
+  });
+});
+
+describe("holdout missing linkage", () => {
+  const entry = { dateAdded: new Date() };
+  const holdout = {
+    id: "hld_1",
+    linkedExperiments: {
+      exp_ok: entry,
+      exp_moved: entry,
+      exp_gone: entry,
+      exp_private: entry,
+    },
+    linkedFeatures: {
+      ff_ok: entry,
+      ff_moved: entry,
+      ff_gone: entry,
+      ff_private: entry,
+    },
+  } as unknown as HoldoutInterface;
+  const experiment = (id: string, holdoutId: string) =>
+    ({ id, name: `${id} name`, holdoutId }) as ExperimentInterface;
+  const feature = (id: string, holdoutId: string | null) =>
+    ({
+      id,
+      holdout: holdoutId ? { id: holdoutId, value: "x" } : null,
+    }) as unknown as FeatureInterface;
+
+  let canUpdate = true;
+  const context = {
+    org: { id: "org" },
+    permissions: {
+      canUpdateHoldout: () => canUpdate,
+      throwPermissionError: () => {
+        throw new Error("permission denied");
+      },
+    },
+    models: {
+      holdout: {
+        removeExperimentFromHoldout: jest.fn(),
+        removeFeatureFromHoldout: jest.fn(),
+        addExperimentToHoldout: jest.fn(),
+        addFeatureToHoldout: jest.fn(),
+      },
+    },
+  } as unknown as ReqContext;
+  const holdoutModel = context.models.holdout;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    canUpdate = true;
+    // exp_private and ff_private exist, but the caller can't read them.
+    jest
+      .mocked(getExperimentsByIds)
+      .mockResolvedValue([
+        experiment("exp_ok", "hld_1"),
+        experiment("exp_moved", "hld_other"),
+      ]);
+    jest
+      .mocked(dangerouslyGetExperimentsByIdsBypassPermission)
+      .mockResolvedValue([
+        experiment("exp_ok", "hld_1"),
+        experiment("exp_moved", "hld_other"),
+        experiment("exp_private", "hld_1"),
+      ]);
+    jest
+      .mocked(getFeaturesByIds)
+      .mockResolvedValue([
+        feature("ff_ok", "hld_1"),
+        feature("ff_moved", null),
+      ]);
+    jest.mocked(getFeatureProjectsByIds).mockResolvedValue(
+      new Map([
+        ["ff_ok", undefined],
+        ["ff_moved", undefined],
+        ["ff_private", undefined],
+      ]),
+    );
+  });
+
+  it("splits what still points back from what's deleted or moved off, leaving out what the caller can't read", async () => {
+    const linkage = await getHoldoutLinkage(context, holdout);
+    expect(linkage.experiments.map((e) => e.id)).toEqual(["exp_ok"]);
+    expect(linkage.features.map((f) => f.id)).toEqual(["ff_ok"]);
+    expect(linkage.missing).toEqual({
+      experiments: [
+        { id: "exp_gone", name: null, problem: "deleted" },
+        { id: "exp_moved", name: "exp_moved name", problem: "unlinked" },
+      ],
+      features: [
+        { id: "ff_gone", name: null, problem: "deleted" },
+        { id: "ff_moved", name: "ff_moved", problem: "unlinked" },
+      ],
+    });
+  });
+
+  it("removes only the broken entry it's given", async () => {
+    await removeHoldoutMissingLink(context, holdout, "feature", "ff_moved");
+    expect(holdoutModel.removeFeatureFromHoldout).toHaveBeenCalledTimes(1);
+    expect(holdoutModel.removeFeatureFromHoldout).toHaveBeenCalledWith(
+      "hld_1",
+      "ff_moved",
+    );
+    expect(holdoutModel.removeExperimentFromHoldout).not.toHaveBeenCalled();
+    expect(holdoutModel.addFeatureToHoldout).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an entry that still belongs", "experiment", "exp_ok", true],
+    ["an entry the caller can't read", "experiment", "exp_private", true],
+    ["without permission to update the holdout", "feature", "ff_moved", false],
+  ] as const)("refuses %s", async (_, kind, id, permitted) => {
+    canUpdate = permitted;
+    await expect(
+      removeHoldoutMissingLink(context, holdout, kind, id),
+    ).rejects.toThrow();
+    expect(holdoutModel.removeExperimentFromHoldout).not.toHaveBeenCalled();
+    expect(holdoutModel.removeFeatureFromHoldout).not.toHaveBeenCalled();
+  });
+
+  it("puts the entry back when a publish points it back mid-removal", async () => {
+    jest
+      .mocked(getFeaturesByIds)
+      .mockResolvedValueOnce([
+        feature("ff_ok", "hld_1"),
+        feature("ff_moved", null),
+      ])
+      .mockResolvedValueOnce([
+        feature("ff_ok", "hld_1"),
+        feature("ff_moved", "hld_1"),
+      ]);
+    await removeHoldoutMissingLink(context, holdout, "feature", "ff_moved");
+    expect(holdoutModel.removeFeatureFromHoldout).toHaveBeenCalledWith(
+      "hld_1",
+      "ff_moved",
+    );
+    expect(holdoutModel.addFeatureToHoldout).toHaveBeenCalledWith(
+      "hld_1",
+      "ff_moved",
+    );
   });
 });

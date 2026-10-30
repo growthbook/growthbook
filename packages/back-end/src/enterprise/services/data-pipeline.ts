@@ -1,4 +1,5 @@
 import md5 from "md5";
+import { isEqual } from "lodash";
 import {
   ExperimentMetricInterface,
   getAutoSliceMetrics,
@@ -23,7 +24,15 @@ import {
 } from "shared/types/experiment-snapshot";
 import { OrganizationInterface } from "shared/types/organization";
 import { ExposureQuery } from "shared/types/datasource";
-import { getIdentifierTypeForSettingsHash } from "shared/util";
+import {
+  getExposureQueryExperimentIdColumn,
+  getExposureQueryIdentifierColumn,
+  getExposureQueryTimestampColumn,
+  getExposureQueryVariationIdColumn,
+  getIdentifierTypeForSettingsHash,
+  getSnapshotCutoffDate,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { ExperimentInterface } from "shared/types/experiment";
 import {
   FactMetricInterface,
@@ -41,7 +50,7 @@ import type { MetricFanOut } from "back-end/src/services/experimentQueries/planM
  * Preconditions for running the incremental refresh query runner on a snapshot.
  * Throws when incremental refresh is unsupported for this configuration, or when
  * an incremental update would reuse a units table built under different
- * experiment-level settings.
+ * experiment-level settings or holding data past the snapshot's cutoff.
  *
  * Does not validate metric-source cache drift. See getFactTablesNeedingRebuild.
  */
@@ -106,6 +115,20 @@ export async function assertIncrementalRefreshPrerequisites({
         "The experiment configuration is outdated. Please run a Full Refresh.",
       );
     }
+
+    // The tables only grow, so an update can't analyze through a cutoff
+    // earlier than rows they already hold, such as rows a refresh loaded
+    // before it failed.
+    const cutoff = getSnapshotCutoffDate(snapshotSettings);
+    const tablesEnd = [
+      incrementalRefreshModel.unitsMaxTimestamp,
+      ...incrementalRefreshModel.metricSources.map((s) => s.maxTimestamp),
+    ];
+    if (cutoff && tablesEnd.some((end) => !!end && end > cutoff)) {
+      throw new ExperimentIncrementalPipelineRequiresFullRefreshError(
+        "The Incremental Refresh tables hold data past the analysis end date. Please run a Full Refresh.",
+      );
+    }
   }
 }
 
@@ -113,8 +136,19 @@ const hashObject = (obj: object) => md5(JSON.stringify(obj));
 
 type HashExposureQuery = Pick<
   ExposureQuery,
-  "id" | "userIdType" | "userIdTypes"
+  "id" | "userIdType" | "userIdTypes" | "columnMapping"
 >;
+
+// The assignment query columns an incremental units table is built from
+const getUnitsTableColumns = (
+  query: Pick<ExposureQuery, "columnMapping">,
+  identifierType: string,
+) => ({
+  identifier: getExposureQueryIdentifierColumn(query, identifierType),
+  timestamp: getExposureQueryTimestampColumn(query),
+  experimentId: getExposureQueryExperimentIdColumn(query),
+  variationId: getExposureQueryVariationIdColumn(query),
+});
 
 export function getExperimentSettingsHashForIncrementalRefresh(
   snapshotSettings: ExperimentSnapshotSettings,
@@ -133,6 +167,29 @@ export function getExperimentSettingsHashForIncrementalRefresh(
   );
   if (identifierType) {
     settingsForHash.exposureQueryIdentifierType = identifierType;
+  }
+
+  // Remapping a column the units table reads means rebuilding it. Other
+  // mapped columns (names, other identifiers) don't touch it, and while every
+  // units column keeps its standard name the hash is unchanged, so existing
+  // pipelines don't trigger a full refresh.
+  const exposureQuery = exposureQueries.find(
+    (q) => q.id === snapshotSettings.exposureQueryId,
+  );
+  if (exposureQuery?.columnMapping) {
+    const analysisIdentifierType = resolveAnalysisIdentifierType(
+      exposureQuery,
+      snapshotSettings.exposureQueryIdentifierType,
+    );
+    const unitsColumns = getUnitsTableColumns(
+      exposureQuery,
+      analysisIdentifierType,
+    );
+    if (
+      !isEqual(unitsColumns, getUnitsTableColumns({}, analysisIdentifierType))
+    ) {
+      settingsForHash.unitsColumns = unitsColumns;
+    }
   }
 
   // Incremental units SQL used to ignore segment and queryFilter before #6711.
