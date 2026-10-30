@@ -263,6 +263,16 @@ export const KEEP_ALIVE_TIMEOUT_MS = parseEnvInt(
   { min: 1, name: "KEEP_ALIVE_TIMEOUT_MS" },
 );
 
+// How long a signalled process waits for in-flight HTTP requests, Agenda jobs
+// and query runners before exiting. Keep it below the supervisor's
+// APP_KILL_TIMEOUT_MS and the orchestrator's grace period (ECS stopTimeout /
+// k8s terminationGracePeriodSeconds) or the drain gets SIGKILLed.
+export const GRACEFUL_SHUTDOWN_TIMEOUT_MS = parseEnvInt(
+  process.env.GRACEFUL_SHUTDOWN_TIMEOUT_MS,
+  20000,
+  { min: 0, name: "GRACEFUL_SHUTDOWN_TIMEOUT_MS" },
+);
+
 export const FASTLY_API_TOKEN = process.env.FASTLY_API_TOKEN || "";
 export const FASTLY_SERVICE_ID = process.env.FASTLY_SERVICE_ID || "";
 
