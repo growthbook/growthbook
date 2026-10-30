@@ -2,13 +2,14 @@ import {
   ExperimentForQualityScore,
   computeAIQualityInputsHash,
   getChecksForSection,
-  getAICheckHashInputs,
   getExperimentDigestForCustomRules,
   getAIQualityInputsHash,
   getExperimentQualityScore,
   getQualityImprovements,
+  getQualityScoreBand,
+  getQualitySummaryKey,
+  getQualitySummaryTemplate,
   resolveExperimentQualityScoreSettings,
-  reflowShares,
   roundToTotal,
 } from "../../src/enterprise/experimentQualityScore";
 import { resolveQualityScope } from "../../src/enterprise/experimentationHealth";
@@ -280,13 +281,7 @@ describe("getExperimentDigestForCustomRules", () => {
 });
 
 describe("computeAIQualityInputsHash", () => {
-  const base = {
-    hypothesis: "h",
-    goalMetrics: ["met_signups"],
-    aiCheckContexts: [] as Array<
-      ["ai-hypothesis-quality" | "ai-hypothesis-metric-alignment", string]
-    >,
-  };
+  const base = { hypothesis: "h", goalMetrics: ["met_signups"] };
 
   it("is stable regardless of metric name order", () => {
     const a = computeAIQualityInputsHash({
@@ -300,38 +295,30 @@ describe("computeAIQualityInputsHash", () => {
     expect(a).toBe(b);
   });
 
-  it("changes when any input changes, including per-check contexts and the enabled set", () => {
+  it("changes when the experiment's inputs change", () => {
     const hash = computeAIQualityInputsHash(base);
     expect(computeAIQualityInputsHash({ ...base, hypothesis: "h2" })).not.toBe(
       hash,
     );
     expect(
-      computeAIQualityInputsHash({
-        ...base,
-        aiCheckContexts: [["ai-hypothesis-quality", ""]],
-      }),
-    ).not.toBe(hash);
-    expect(
-      computeAIQualityInputsHash({
-        ...base,
-        aiCheckContexts: [["ai-hypothesis-quality", "judge strictly"]],
-      }),
+      computeAIQualityInputsHash({ ...base, experimentDigest: "{}" }),
     ).not.toBe(hash);
   });
 
-  it("getAICheckHashInputs reflects enabled AI checks and their contexts", () => {
-    const settings = resolveExperimentQualityScoreSettings({
+  // Settings changes keep verdicts until someone re-checks them
+  it("ignores the AI checks' settings", () => {
+    const experiment = baseExperiment();
+    const contexts = resolveExperimentQualityScoreSettings({
       checks: {
-        "ai-hypothesis-quality": {
-          enabled: true,
-          aiContext: "prefer falsifiable",
-        },
+        "ai-hypothesis-quality": { enabled: true, aiContext: "be strict" },
       },
     });
-    expect(getAICheckHashInputs(settings)).toEqual([
-      ["ai-hypothesis-metric-alignment", ""],
-      ["ai-hypothesis-quality", "prefer falsifiable"],
-    ]);
+    expect(getAIQualityInputsHash(experiment, contexts)).toBe(
+      getAIQualityInputsHash(
+        experiment,
+        resolveExperimentQualityScoreSettings(null),
+      ),
+    );
   });
 });
 
@@ -812,30 +799,17 @@ describe("custom AI rules", () => {
     expect(check?.reason).toBe("Within budget");
   });
 
-  it("invalidates verdicts when the rule text or the experiment changes", () => {
+  it("invalidates verdicts when the experiment changes", () => {
     const experiment = baseExperiment();
     const base = {
       hypothesis: experiment.hypothesis,
       goalMetrics: experiment.goalMetrics,
-      aiCheckContexts: getAICheckHashInputs(customSettings),
       experimentDigest: getExperimentDigestForCustomRules(
         experiment,
         experiment.goalMetrics,
       ),
     };
     const hash = computeAIQualityInputsHash(base);
-
-    const editedRule = resolveExperimentQualityScoreSettings({
-      customAiChecks: [
-        { id: "rule1", name: "Metric budget", rule: "Fewer than 10 metrics" },
-      ],
-    });
-    expect(
-      computeAIQualityInputsHash({
-        ...base,
-        aiCheckContexts: getAICheckHashInputs(editedRule),
-      }),
-    ).not.toBe(hash);
 
     // Custom rules see the whole experiment — a tag change re-runs them
     const taggedExperiment = baseExperiment({ tags: ["growth", "new-tag"] });
@@ -850,18 +824,60 @@ describe("custom AI rules", () => {
   });
 });
 
+describe("getQualityScoreBand", () => {
+  it("splits at 50 and 80", () => {
+    expect(getQualityScoreBand(49)).toBe("weak");
+    expect(getQualityScoreBand(50)).toBe("fair");
+    expect(getQualityScoreBand(79)).toBe("fair");
+    expect(getQualityScoreBand(80)).toBe("strong");
+  });
+});
+
+describe("quality summaries", () => {
+  const passing = () => {
+    const experiment = baseExperiment();
+    experiment.aiQualityResults = freshAIResults(experiment);
+    return experiment;
+  };
+
+  it("says when every check passes", () => {
+    expect(getQualitySummaryTemplate(score(passing()))).toBe(
+      "Passes every check.",
+    );
+  });
+
+  it("names a strong section, then the biggest problems", () => {
+    const experiment = passing();
+    experiment.guardrailMetrics = [];
+    experiment.aiQualityResults = {
+      ...freshAIResults(experiment),
+      checks: [
+        { key: "ai-hypothesis-quality", score: 0, reason: "Vague" },
+        { key: "ai-hypothesis-metric-alignment", score: 1, reason: "Fine" },
+      ],
+    };
+    expect(getQualitySummaryTemplate(score(experiment))).toMatch(
+      /^[A-Z].*, but the hypothesis is vague and there are no guardrail metrics\.$/,
+    );
+  });
+
+  it("keys on the outcome, not the wording", () => {
+    const a = passing();
+    const b = passing();
+    b.description = "Another description";
+    expect(getQualitySummaryKey(score(a))).toBe(getQualitySummaryKey(score(b)));
+    b.description = "";
+    expect(getQualitySummaryKey(score(a))).not.toBe(
+      getQualitySummaryKey(score(b)),
+    );
+  });
+});
+
 describe("share math", () => {
   it("roundToTotal produces integers that sum to the total", () => {
     expect(roundToTotal([33.33, 33.33, 33.34])).toEqual([33, 33, 34]);
     const rounded = roundToTotal([35.5, 24.5, 20.0, 20.0]);
     expect(rounded.reduce((a, b) => a + b, 0)).toBe(100);
     expect(roundToTotal([0, 0, 0])).toEqual([0, 0, 0]);
-  });
-
-  it("reflowShares sets one share and re-flows the rest to the total", () => {
-    expect(reflowShares([34, 33, 33], 1, 40)).toEqual([30, 40, 30]);
-    expect(reflowShares([0, 100, 0], 1, 60)).toEqual([20, 60, 20]);
-    expect(reflowShares([50, 50], 0, 120)).toEqual([100, 0]);
-    expect(reflowShares([25], 0, 10)).toEqual([100]);
   });
 });

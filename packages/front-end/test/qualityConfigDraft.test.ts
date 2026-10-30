@@ -6,7 +6,10 @@ import {
   draftToConfig,
   getEnabledSectionKeys,
   isDegenerateDraft,
-  reflowSectionWeights,
+  isSectionChanged,
+  moveSectionDivider,
+  resetSection,
+  setSectionWeight,
   removeCustomCheck,
   setCustomCheckJudge,
   updateCheck,
@@ -33,7 +36,7 @@ describe("qualityConfigDraft", () => {
   });
 
   it("keeps a section dragged to 0% at zero after saving", () => {
-    const draft = reflowSectionWeights(configToDraft(null), "documentation", 0);
+    const draft = setSectionWeight(configToDraft(null), "documentation", 0);
     expect(draft.sections.documentation.weight).toBe(0);
     expect(sectionTotal(draft)).toBe(100);
     const reloaded = configToDraft(draftToConfig(draft));
@@ -41,7 +44,7 @@ describe("qualityConfigDraft", () => {
   });
 
   it("splits equally when every remaining section is at 0%", () => {
-    let draft = reflowSectionWeights(configToDraft(null), "ai", 100);
+    let draft = setSectionWeight(configToDraft(null), "ai", 100);
     draft = updateCheck(draft, "ai-hypothesis-quality", { enabled: false });
     draft = updateCheck(draft, "ai-hypothesis-metric-alignment", {
       enabled: false,
@@ -54,6 +57,34 @@ describe("qualityConfigDraft", () => {
       ).toBeLessThanOrEqual(1);
     }
     expect(sectionTotal(draft)).toBe(100);
+  });
+
+  it("moves only the sections either side of a divider", () => {
+    const start = configToDraft(null);
+    const [first, second, third] = getEnabledSectionKeys(start);
+    const draft = moveSectionDivider(
+      start,
+      0,
+      start.sections[first].weight + 10,
+    );
+    expect(draft.sections[first].weight).toBe(
+      start.sections[first].weight + 10,
+    );
+    expect(draft.sections[second].weight).toBe(
+      start.sections[second].weight - 10,
+    );
+    expect(draft.sections[third]).toEqual(start.sections[third]);
+    expect(sectionTotal(draft)).toBe(100);
+  });
+
+  it("resets one section to the organization default", () => {
+    const base = configToDraft(null);
+    let draft = updateCheck(base, "planned-end", { enabled: true });
+    draft = updateCheck(draft, "screenshots", { enabled: true });
+    expect(isSectionChanged(draft, base, "process")).toBe(true);
+    draft = resetSection(draft, base, "process");
+    expect(isSectionChanged(draft, base, "process")).toBe(false);
+    expect(isSectionChanged(draft, base, "documentation")).toBe(true);
   });
 
   it("drops a section from the split when its last check is turned off", () => {
