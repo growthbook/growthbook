@@ -34,6 +34,8 @@ import {
   generateSliceString,
   getAllExpandedMetricIdsFromExperiment,
   isAutoSnapshotScheduled,
+  getClusterMetricAnalysisLevel,
+  getClusterExperimentMetricEligibility,
   ExperimentMetricInterface,
   withScheduledBy,
   areVariationWeightsValid,
@@ -3098,6 +3100,226 @@ describe("isAutoSnapshotScheduled", () => {
     expect(
       isAutoSnapshotScheduled({ autoSnapshots: true, archived: false }),
     ).toBe(true);
+  });
+});
+
+describe("getClusterExperimentMetricEligibility", () => {
+  const factMetric = (
+    metricType: string,
+    factTableId = "ft_subunit",
+    aggregation: string | undefined = "sum",
+  ) =>
+    ({
+      metricType,
+      numerator: { factTableId, column: "value", aggregation },
+      denominator:
+        metricType === "ratio"
+          ? { factTableId, column: "value", aggregation }
+          : null,
+    }) as unknown as ExperimentMetricInterface;
+
+  // Fact tables: one exposes the sub-unit id (user_id), one only the cluster id.
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_subunit: { userIdTypes: ["user_id", "region_id"] },
+    ft_cluster_only: { userIdTypes: ["region_id"] },
+    ft_anon: { userIdTypes: ["anonymous_id"] },
+  };
+  const getFactTable = (id: string) => factTables[id];
+
+  it("rejects non-fact, quantile, and unsupported-type metrics", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        {
+          type: "binomial",
+        } as unknown as ExperimentMetricInterface,
+        { clusterSubUnitIdentifier: "user_id", getFactTable },
+      ).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("quantile"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("funnel"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }).allowed,
+    ).toBe(false);
+  });
+
+  it("allows metrics whose fact table exposes the sub-unit identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_subunit"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      }),
+    ).toEqual({ allowed: true, level: "subunit" });
+  });
+
+  it("allows metrics whose fact table only has the cluster identifier", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_cluster_only"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "cluster" });
+  });
+
+  it("allows max and hll merge aggregations at the sub-unit grain", () => {
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "max"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "subunit" });
+    expect(
+      getClusterExperimentMetricEligibility(
+        factMetric("mean", "ft_subunit", "hll merge"),
+        {
+          clusterIdentifier: "region_id",
+          clusterSubUnitIdentifier: "user_id",
+          getFactTable,
+        },
+      ),
+    ).toEqual({ allowed: true, level: "subunit" });
+    // A max metric whose fact table reaches neither identifier is still
+    // rejected, now with the generic identifier message (not an aggregation
+    // message, since max is no longer special-cased).
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_anon", "max"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
+    }
+  });
+
+  it("rejects metrics whose fact table has neither identifier", () => {
+    const result = getClusterExperimentMetricEligibility(
+      factMetric("mean", "ft_anon"),
+      {
+        clusterIdentifier: "region_id",
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+      },
+    );
+    expect(result.allowed).toBe(false);
+    if (!result.allowed) {
+      expect(result.reason).toContain("user_id");
+      expect(result.reason).toContain("region_id");
+    }
+  });
+
+  it("allows a fact table that reaches the sub-unit via an identity join", () => {
+    expect(
+      getClusterExperimentMetricEligibility(factMetric("mean", "ft_anon"), {
+        clusterSubUnitIdentifier: "user_id",
+        getFactTable,
+        datasourceSettings: {
+          queries: {
+            identityJoins: [{ ids: ["user_id", "anonymous_id"] }],
+          },
+        } as never,
+      }),
+    ).toEqual({ allowed: true, level: "subunit" });
+  });
+});
+
+describe("getClusterMetricAnalysisLevel", () => {
+  const factTables: Record<string, { userIdTypes: string[] }> = {
+    ft_both: { userIdTypes: ["user_id", "region_id"] },
+    ft_user_only: { userIdTypes: ["user_id"] },
+    ft_region_only: { userIdTypes: ["region_id"] },
+  };
+  const options = {
+    clusterIdentifier: "region_id",
+    clusterSubUnitIdentifier: "user_id",
+    getFactTable: (id: string) => factTables[id],
+  };
+  const ratio = (numerator: string, denominator: string) =>
+    ({
+      metricType: "ratio",
+      numerator: { factTableId: numerator, column: "value" },
+      denominator: { factTableId: denominator, column: "value" },
+    }) as unknown as FactMetricInterface;
+
+  it("prefers the sub-unit when the metric is joinable at both levels", () => {
+    expect(
+      getClusterMetricAnalysisLevel(ratio("ft_both", "ft_both"), options),
+    ).toBe("subunit");
+  });
+
+  it("falls back to the cluster when a fact table lacks the sub-unit", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_region_only", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+    // Mixed ratio: the numerator reaches user_id, the denominator only region_id.
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_both", "ft_region_only"),
+        options,
+      ),
+    ).toBe("cluster");
+  });
+
+  it("routes max and hll merge like summable aggregations", () => {
+    const meanWithAggregation = (factTableId: string, aggregation: string) =>
+      ({
+        metricType: "mean",
+        numerator: { factTableId, column: "value", aggregation },
+        denominator: null,
+      }) as unknown as FactMetricInterface;
+    // max/hll merge reduce to a per-sub-unit scalar, so they roll up at the
+    // sub-unit grain whenever the sub-unit id is reachable, and only fall back
+    // to the cluster grain when it isn't.
+    for (const aggregation of ["max", "hll merge"]) {
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_both", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_user_only", aggregation),
+          options,
+        ),
+      ).toBe("subunit");
+      expect(
+        getClusterMetricAnalysisLevel(
+          meanWithAggregation("ft_region_only", aggregation),
+          options,
+        ),
+      ).toBe("cluster");
+    }
+  });
+
+  it("returns null when no single identifier reaches every fact table", () => {
+    expect(
+      getClusterMetricAnalysisLevel(
+        ratio("ft_user_only", "ft_region_only"),
+        options,
+      ),
+    ).toBeNull();
   });
 });
 

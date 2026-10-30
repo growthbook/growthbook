@@ -9,7 +9,9 @@ import {
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
 import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
+  isUnsupportedClusterBanditCombination,
   updateExperimentValidator,
   postExperimentArchiveValidator,
 } from "shared/validators";
@@ -25,6 +27,7 @@ import {
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentChanges,
+  assertValidClusterExperimentConfig,
   assertCanRunExperimentInAffectedEnvironments,
   assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
@@ -194,6 +197,17 @@ export const updateExperiment = createApiRequestHandler(
   const identifierTypeChanged =
     exposureQueryIdentifierType !== experiment.exposureQueryIdentifierType;
 
+  const effectiveIsClusterExperiment =
+    payload.isClusterExperiment ?? experiment.isClusterExperiment;
+  const effectiveType = payload.type ?? experiment.type ?? "standard";
+  if (
+    isUnsupportedClusterBanditCombination({
+      type: effectiveType,
+      isClusterExperiment: effectiveIsClusterExperiment,
+    })
+  ) {
+    throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+  }
   if (
     req.body.trackingKey !== undefined &&
     req.body.trackingKey !== experiment.trackingKey
@@ -315,6 +329,34 @@ export const updateExperiment = createApiRequestHandler(
       }
     }
   }
+
+  await assertValidClusterExperimentConfig({
+    context: req.context,
+    datasource,
+    current: {
+      isClusterExperiment: effectiveIsClusterExperiment,
+      datasource: datasourceId,
+      exposureQueryId: payload.assignmentQueryId ?? experiment.exposureQueryId,
+      exposureQueryIdentifierType,
+      clusterSubUnitIdentifier:
+        payload.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+      goalMetrics: payload.metrics ?? experiment.goalMetrics,
+      secondaryMetrics: payload.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: payload.guardrailMetrics ?? experiment.guardrailMetrics,
+    },
+    previous: {
+      isClusterExperiment: experiment.isClusterExperiment,
+      datasource: experiment.datasource,
+      exposureQueryId: experiment.exposureQueryId,
+      exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+    },
+    metricMap: map,
+    metricGroups,
+  });
 
   if (payload.variations) {
     validateVariationIds(payload.variations, experiment.variations);

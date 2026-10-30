@@ -4,8 +4,10 @@ import {
   parseAssignmentQueryInput,
 } from "shared/util";
 import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
   ExperimentInterfaceExcludingHoldouts,
   ExperimentTemplateInterface,
+  isUnsupportedClusterBanditCombination,
   postExperimentValidator,
 } from "shared/validators";
 import { omit } from "lodash";
@@ -15,6 +17,7 @@ import {
 } from "back-end/src/models/ExperimentModel";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   getExperimentAttributeScopeProjects,
   postExperimentApiPayloadToInterface,
@@ -216,6 +219,15 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         : requestedIdentifierType,
     };
 
+    if (
+      isUnsupportedClusterBanditCombination({
+        type: payload.type,
+        isClusterExperiment: payload.isClusterExperiment,
+      })
+    ) {
+      throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+    }
+
     await assertExperimentKeyFormat(
       req.context,
       payload.trackingKey,
@@ -275,11 +287,11 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
       true,
       metricGroups,
     );
+    const map = await getMetricMap(req.context);
     if (metricIds.length) {
       if (!datasource) {
         throw new Error("Must provide a datasource when including metrics");
       }
-      const map = await getMetricMap(req.context);
       for (let i = 0; i < metricIds.length; i++) {
         const metric = map.get(metricIds[i]);
         if (metric) {
@@ -310,6 +322,26 @@ export const postExperiment = createApiRequestHandler(postExperimentValidator)(
         }
       }
     }
+
+    await assertValidClusterExperimentConfig({
+      context: req.context,
+      datasource,
+      current: {
+        isClusterExperiment: payload.isClusterExperiment,
+        exposureQueryId: payload.assignmentQueryId,
+        exposureQueryIdentifierType: payload.assignmentQueryIdentifierType,
+        clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+        goalMetrics: payload.metrics,
+        secondaryMetrics: payload.secondaryMetrics,
+        guardrailMetrics: payload.guardrailMetrics,
+      },
+      metricMap: map,
+      metricGroups,
+      wrapIdentifierError: templateId
+        ? (message) => `Template "${templateId}": ${message}`
+        : undefined,
+    });
+
     if (payload.variations) {
       validateVariationIds(payload.variations);
     }

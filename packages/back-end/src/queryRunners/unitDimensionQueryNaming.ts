@@ -17,15 +17,16 @@ export function getUnitDimQueryName(
 }
 
 // Returns the dimensionId + original query name, or null if not a unit-dim
-// query. Dimension ids (`dim_*`), metric ids (`met_*`/`fact__*`) and group
-// names (`group_N`) never contain `:`, so splitting on the first two `:` is
-// unambiguous.
+// query. The base query name (`group_N` or a metric id `met_*`/`fact__*`) never
+// contains `:`, but a dimension id can — experiment dimension ids are prefixed
+// (e.g. `exp:browser`, `precomputed:region`) — so split on the LAST `:` to
+// recover the base name and treat everything before it as the dimension id.
 export function parseUnitDimQueryName(
   name: string,
 ): { dimensionId: string; baseQueryName: string } | null {
   if (!name.startsWith(UNIT_DIM_QUERY_PREFIX)) return null;
   const rest = name.slice(UNIT_DIM_QUERY_PREFIX.length);
-  const sep = rest.indexOf(":");
+  const sep = rest.lastIndexOf(":");
   if (sep < 0) return null;
   return {
     dimensionId: rest.slice(0, sep),

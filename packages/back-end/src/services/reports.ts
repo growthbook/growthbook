@@ -14,6 +14,7 @@ import {
   ExperimentMetricInterface,
   getAllExpandedMetricIdsFromExperiment,
   getAllMetricSettingsForSnapshot,
+  getClusterSubUnit,
   expandMetricGroups,
   generateSliceString,
   expandDerivedMetricsInMap,
@@ -27,6 +28,7 @@ import {
 import {
   assertExposureQueryDeclaresIdentifierType,
   resolveAnalysisIdentifierType,
+  validateClusterExperimentIdentifiers,
   isDefined,
 } from "shared/util";
 import { differenceInMinutes } from "date-fns";
@@ -84,7 +86,7 @@ import {
   getExperimentQueryMetadata,
   getSnapshotQueryMetadata,
   getDefaultExperimentAnalysisSettings,
-  isJoinableMetric,
+  createMetricEligibilityResolver,
 } from "back-end/src/services/experiments";
 import { ReqContextClass } from "back-end/src/services/context";
 import { findDimensionsByOrganization } from "back-end/src/models/DimensionModel";
@@ -176,6 +178,7 @@ export function getSnapshotSettingsFromReportArgs(
     experimentId: args.trackingKey,
     exposureQueryId: args.exposureQueryId,
     exposureQueryIdentifierType: args.exposureQueryIdentifierType,
+    isClusterExperiment: false,
     segment: args.segment || "",
     queryFilter: args.queryFilter || "",
     skipPartialData: !!args.skipPartialData,
@@ -608,43 +611,44 @@ export function getReportSnapshotSettings({
     report.experimentAnalysisSettings.exposureQueryIdentifierType,
   );
 
-  // expand metric groups and scrub unjoinable metrics
+  const clusterSubUnitIdentifier =
+    getClusterSubUnit(report.experimentAnalysisSettings) ?? undefined;
+  const isClusterExperiment = clusterSubUnitIdentifier !== undefined;
+
+  if (isClusterExperiment && exposureQuery) {
+    const clusterValidation = validateClusterExperimentIdentifiers(
+      exposureQuery,
+      exposureQueryIdentifierType,
+      clusterSubUnitIdentifier,
+    );
+    if (!clusterValidation.ok) {
+      throw new Error(clusterValidation.error);
+    }
+  }
+
+  // Re-check metric eligibility as the snapshot is built (not just at save
+  // time). Memoized so filtering and clusterLevelMetricIds share a single pass.
+  const { getMetricEligibility, isEligible } = createMetricEligibilityResolver({
+    metricMap,
+    factTableMap,
+    datasource,
+    exposureQueryIdentifierType,
+    clusterSubUnitIdentifier,
+  });
+
+  // expand metric groups and scrub metrics that can't be analyzed
   const goalMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.goalMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
   const secondaryMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.secondaryMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
   const guardrailMetrics = expandMetricGroups(
     report.experimentAnalysisSettings.guardrailMetrics,
     metricGroups,
-  ).filter((m) =>
-    isJoinableMetric({
-      metricId: m,
-      metricMap,
-      factTableMap,
-      identifierType: exposureQueryIdentifierType,
-      datasource,
-    }),
-  );
+  ).filter(isEligible);
 
   const endDate = report.experimentAnalysisSettings.dateEnded || new Date();
   const lookbackOverride = getEffectiveLookbackOverride(
@@ -704,6 +708,12 @@ export function getReportSnapshotSettings({
     )
     .filter(isDefined);
 
+  const clusterLevelMetricIds = isClusterExperiment
+    ? metricSettings
+        .map((m) => m.id)
+        .filter((id) => getMetricEligibility(id).clusterLevel === "cluster")
+    : [];
+
   const phase = report.experimentMetadata.phases?.[phaseIndex];
   return {
     activationMetric:
@@ -733,6 +743,9 @@ export function getReportSnapshotSettings({
     defaultMetricPriorSettings: defaultPriorSettings,
     exposureQueryId: report.experimentAnalysisSettings.exposureQueryId,
     exposureQueryIdentifierType,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
+    ...(clusterLevelMetricIds.length ? { clusterLevelMetricIds } : {}),
     metricSettings,
     variations: report.experimentMetadata.variations.map((v, i) => ({
       id: v.key || i + "",

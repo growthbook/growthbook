@@ -1,4 +1,5 @@
 import {
+  isSubUnitClusterMetric,
   eligibleForUncappedMetric,
   ExperimentMetricInterface,
   getFactMetricPrimaryFactTableId,
@@ -55,6 +56,9 @@ export function getMetricData(
     | "attributionModel"
     | "regressionAdjustmentEnabled"
     | "startDate"
+    | "isClusterExperiment"
+    | "clusterSubUnitIdentifier"
+    | "clusterLevelMetricIds"
     | "endDateIsCutoff"
   > & { endDate?: Date },
   activationMetric: ExperimentMetricInterface | null,
@@ -68,6 +72,10 @@ export function getMetricData(
   flattenSources: boolean = false,
 ): FactMetricData {
   const { metric, index: metricIndex } = metricWithIndex;
+  const isClusterMetric = isSubUnitClusterMetric(metric, settings);
+  const isClusterRatioConversion =
+    isClusterMetric &&
+    ["mean", "proportion", "retention"].includes(metric.metricType);
   const ratioMetric = isRatioMetric(metric);
   const funnelMetric = isFactFunnelMetric(metric);
   const quantileMetric = funnelMetric ? "" : quantileMetricType(metric);
@@ -266,6 +274,7 @@ export function getMetricData(
     metric,
     metricIndex,
     ratioMetric,
+    isClusterRatioConversion,
     funnelMetric,
     quantileMetric,
     metricQuantileSettings,

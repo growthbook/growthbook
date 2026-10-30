@@ -225,6 +225,8 @@ const EditMetricsForm: FC<{
         filterConversionWindowMetrics={isHoldout}
         experimentId={experiment.id}
         experimentType={experiment.type}
+        isClusterExperiment={experiment.isClusterExperiment}
+        clusterSubUnitIdentifier={experiment.clusterSubUnitIdentifier}
       />
       {/* If the org has the feature, we render a callout within MetricsSelector */}
       {!hasCommercialFeature("metric-groups") ? (

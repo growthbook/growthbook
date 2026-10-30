@@ -465,4 +465,120 @@ describe("covariate insert SQL builders", () => {
     expect(legacyAligned).toContain("2025-10-10 00:00:00.000");
     expect(legacyAligned).toContain("2025-10-24 00:00:00.000");
   });
+
+  const clusterBaseSettings: ExperimentSnapshotSettings = {
+    ...settings,
+    exposureQueryIdentifierType: "region_id",
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+  };
+  const clusterExposureQuery = {
+    query: "*",
+    identifierType: "region_id",
+  };
+
+  it("legacy covariate builder keys the sub-unit cluster cache on the sub-unit id", () => {
+    const subUnitFactTable = factTableFactory.build({
+      id: "ft_su",
+      name: "Sub-unit events",
+      sql: "SELECT * FROM events",
+      userIdTypes: ["user_id"],
+    });
+    const raSubUnit = factMetricFactory.build({
+      id: "fact_ra_su",
+      metricType: "mean",
+      numerator: { factTableId: "ft_su", column: "amount", aggregation: "sum" },
+      regressionAdjustmentEnabled: true,
+    });
+    const sql = integration.getInsertMetricSourceCovariateDataQuery({
+      settings: clusterBaseSettings,
+      exposureQuery: clusterExposureQuery,
+      activationMetric: null,
+      factTableMap: new Map([["ft_su", subUnitFactTable]]),
+      factTableId: "ft_su",
+      metricSourceCovariateTableFullName: "proj.ds.cov_su",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [raSubUnit],
+      lastCovariateSuccessfulMaxTimestamp: null,
+      alignLegacyScanToDailyGrain: false,
+    });
+    // Covariate cache is keyed on the sub-unit; units are joined directly with
+    // no cluster collapse (one row per sub-unit already).
+    expect(sql).toMatch(/d\.user_id = m\.user_id/);
+    expect(sql).not.toMatch(/GROUP BY\s+region_id/);
+  });
+
+  it("legacy covariate builder keys the cluster-level cache on the cluster id and collapses units", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cl",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const raCluster = factMetricFactory.build({
+      id: "fact_ra_cl",
+      metricType: "mean",
+      numerator: { factTableId: "ft_cl", column: "amount", aggregation: "sum" },
+      regressionAdjustmentEnabled: true,
+    });
+    const sql = integration.getInsertMetricSourceCovariateDataQuery({
+      settings: {
+        ...clusterBaseSettings,
+        clusterLevelMetricIds: ["fact_ra_cl"],
+      },
+      exposureQuery: clusterExposureQuery,
+      activationMetric: null,
+      factTableMap: new Map([["ft_cl", clusterFactTable]]),
+      factTableId: "ft_cl",
+      metricSourceCovariateTableFullName: "proj.ds.cov_cl",
+      unitsSourceTableFullName: "proj.ds.units",
+      metrics: [raCluster],
+      lastCovariateSuccessfulMaxTimestamp: null,
+      alignLegacyScanToDailyGrain: false,
+    });
+    // The sub-unit-grained units cache is collapsed to one row per cluster
+    // before the join so cluster-level covariate rows don't fan out.
+    expect(sql).toMatch(
+      /SELECT\s+DISTINCT\s+region_id\s+FROM\s+proj\.ds\.units[\s\S]*\)\s*d/,
+    );
+    expect(sql).toMatch(/d\.region_id = m\.region_id/);
+  });
+
+  it("aggregated covariate builder collapses units to the cluster for cluster-level metrics", () => {
+    const clusterFactTable = factTableFactory.build({
+      id: "ft_cl",
+      name: "Cluster events",
+      sql: "SELECT * FROM region_events",
+      userIdTypes: ["region_id"],
+    });
+    const raCluster = factMetricFactory.build({
+      id: "fact_ra_cl",
+      metricType: "mean",
+      numerator: { factTableId: "ft_cl", column: "amount", aggregation: "sum" },
+      regressionAdjustmentEnabled: true,
+    });
+    const sql =
+      integration.getInsertMetricSourceCovariateFromAggregatedFactTableQuery({
+        settings: {
+          ...clusterBaseSettings,
+          clusterLevelMetricIds: ["fact_ra_cl"],
+        },
+        exposureQuery: clusterExposureQuery,
+        activationMetric: null,
+        factTableMap: new Map([["ft_cl", clusterFactTable]]),
+        factTableId: "ft_cl",
+        metricSourceCovariateTableFullName: "proj.ds.cov_cl",
+        unitsSourceTableFullName: "proj.ds.units",
+        metrics: [raCluster],
+        lastCovariateSuccessfulMaxTimestamp: null,
+        aggregatedTableFullName: "proj.ds.gb_aggregated_ft_cl_region_id",
+        idType: "region_id",
+      });
+    // Aggregated table is keyed on the cluster id; units collapse to one row
+    // per cluster before the join.
+    expect(sql).toMatch(
+      /SELECT\s+DISTINCT\s+region_id\s+FROM\s+proj\.ds\.units[\s\S]*\)\s*d/,
+    );
+    expect(sql).toMatch(/d\.region_id = p\.region_id/);
+  });
 });

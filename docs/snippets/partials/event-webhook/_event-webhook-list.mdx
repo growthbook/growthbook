@@ -3470,6 +3470,10 @@ Triggered when an experiment is created
                 };
                 /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
+                /** Whether this is a cluster-randomized experiment (randomized on the assignment query's identifier type, analyzed on clusterSubUnitIdentifier). */
+                isClusterExperiment?: boolean | undefined;
+                /** For cluster experiments, the nested sub-unit identifier type analyzed within each cluster (e.g. user_id). */
+                clusterSubUnitIdentifier?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;
@@ -3765,6 +3769,10 @@ Triggered when an experiment is updated
                 };
                 /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
+                /** Whether this is a cluster-randomized experiment (randomized on the assignment query's identifier type, analyzed on clusterSubUnitIdentifier). */
+                isClusterExperiment?: boolean | undefined;
+                /** For cluster experiments, the nested sub-unit identifier type analyzed within each cluster (e.g. user_id). */
+                clusterSubUnitIdentifier?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;
@@ -4013,6 +4021,10 @@ Triggered when an experiment is updated
                 };
                 /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
+                /** Whether this is a cluster-randomized experiment (randomized on the assignment query's identifier type, analyzed on clusterSubUnitIdentifier). */
+                isClusterExperiment?: boolean | undefined;
+                /** For cluster experiments, the nested sub-unit identifier type analyzed within each cluster (e.g. user_id). */
+                clusterSubUnitIdentifier?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;
@@ -4313,6 +4325,10 @@ Triggered when an experiment is deleted
                 };
                 /** Deprecated: use `assignmentQuery`. */
                 assignmentQueryId: string;
+                /** Whether this is a cluster-randomized experiment (randomized on the assignment query's identifier type, analyzed on clusterSubUnitIdentifier). */
+                isClusterExperiment?: boolean | undefined;
+                /** For cluster experiments, the nested sub-unit identifier type analyzed within each cluster (e.g. user_id). */
+                clusterSubUnitIdentifier?: string | undefined;
                 experimentId: string;
                 segmentId: string;
                 queryFilter: string;

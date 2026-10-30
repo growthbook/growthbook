@@ -1184,6 +1184,19 @@ def process_single_metric(
             )
             continue
         try:
+            if (
+                a.is_cluster_experiment
+                and a.dimension == ""
+                and any(
+                    str(col).startswith("dim_exp_") or str(col).startswith("dim_unit_")
+                    for col in pdrows.columns
+                )
+            ):
+                raise ValueError(
+                    "Cluster-experiment overall analysis received dimension-bearing "
+                    "rows; the parent query must be dimensionless to preserve "
+                    "cluster-robust variance."
+                )
             dimensions = process_analysis(
                 rows=pdrows,
                 var_id_map=get_var_id_map(a.var_ids),

@@ -51,7 +51,10 @@ import {
   DataSourceInterfaceWithParams,
   DataSourceSettings,
 } from "shared/types/datasource";
-import { SnapshotMetric } from "shared/types/experiment-snapshot";
+import {
+  ExperimentSnapshotSettings,
+  SnapshotMetric,
+} from "shared/types/experiment-snapshot";
 import {
   DifferenceType,
   IndexedPValue,
@@ -71,6 +74,7 @@ import {
   isCappableFactMetric,
 } from "../validators/fact-table";
 import { parseAggregateFilter } from "../aggregate-filters";
+import { parseDimensionId } from "./dimension-ids";
 
 export type ExperimentMetricInterface = MetricInterface | FactMetricInterface;
 
@@ -1414,6 +1418,102 @@ export function isRatioMetric(
   return !!denominatorMetric && !isBinomialMetric(denominatorMetric);
 }
 
+export function getClusterSubUnit(
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier"
+  >,
+): string | null {
+  return settings.isClusterExperiment && settings.clusterSubUnitIdentifier
+    ? settings.clusterSubUnitIdentifier
+    : null;
+}
+
+/**
+ * Whether a metric in a cluster experiment is analyzed per sub-unit and rolled
+ * up to the cluster. Metrics in `clusterLevelMetricIds` instead join on the
+ * cluster id directly and are analyzed with the cluster as the unit.
+ */
+export function isSubUnitClusterMetric(
+  m: ExperimentMetricDefinition,
+  settings: Pick<
+    ExperimentSnapshotSettings,
+    "isClusterExperiment" | "clusterSubUnitIdentifier" | "clusterLevelMetricIds"
+  >,
+): boolean {
+  return (
+    getClusterSubUnit(settings) !== null &&
+    isFactMetric(m) &&
+    !settings.clusterLevelMetricIds?.includes(m.id)
+  );
+}
+
+export type ClusterMetricAnalysisLevel = "subunit" | "cluster";
+
+// Aggregations that collapse to a single scalar per sub-unit, so the rollup can
+// sum them into a cluster total.
+const CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS = [
+  "sum",
+  "count distinct",
+  "max",
+  "hll merge",
+] as const;
+
+function getNonRollupAggregation(metric: FactMetricInterface): string | null {
+  for (const ref of getFactMetricColumnRefs(metric)) {
+    if (
+      ref.aggregation &&
+      !(CLUSTER_SUBUNIT_ROLLUP_AGGREGATIONS as readonly string[]).includes(
+        ref.aggregation,
+      )
+    ) {
+      return ref.aggregation;
+    }
+  }
+  return null;
+}
+
+export function getClusterMetricAnalysisLevel(
+  metric: FactMetricInterface,
+  {
+    clusterIdentifier,
+    clusterSubUnitIdentifier,
+    getFactTable,
+    datasourceSettings,
+  }: {
+    clusterIdentifier?: string | null;
+    clusterSubUnitIdentifier: string;
+    getFactTable: (
+      id: string,
+    ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+    datasourceSettings?: DataSourceSettings;
+  },
+): ClusterMetricAnalysisLevel | null {
+  if (
+    !getNonRollupAggregation(metric) &&
+    isFactMetricJoinable(
+      metric,
+      clusterSubUnitIdentifier,
+      getFactTable,
+      datasourceSettings,
+    )
+  ) {
+    return "subunit";
+  }
+  if (
+    clusterIdentifier &&
+    isFactMetricJoinable(
+      metric,
+      clusterIdentifier,
+      getFactTable,
+      datasourceSettings,
+    )
+  ) {
+    return "cluster";
+  }
+  return null;
+}
+
 export function quantileMetricType(
   m: ExperimentMetricDefinition,
 ): "" | MetricQuantileSettings["type"] {
@@ -1421,6 +1521,84 @@ export function quantileMetricType(
     return m.quantileSettings?.type || "";
   }
   return "";
+}
+
+const CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES = [
+  "proportion",
+  "retention",
+  "mean",
+  "ratio",
+] as const;
+
+// Picker labels for the types that reach the unsupported-type message.
+const UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES: Record<string, string> = {
+  dailyParticipation: "Daily Participation",
+  funnel: "Funnel",
+};
+
+type ClusterMetricEligibility =
+  // `level` is null when no sub-unit identifier was given to resolve it against.
+  | { allowed: true; level: ClusterMetricAnalysisLevel | null }
+  | { allowed: false; reason: string };
+
+export function getClusterExperimentMetricEligibility(
+  metric: ExperimentMetricDefinition,
+  options: {
+    clusterIdentifier?: string | null;
+    clusterSubUnitIdentifier?: string | null;
+    getFactTable: (
+      id: string,
+    ) => Pick<FactTableInterface, "userIdTypes"> | null | undefined;
+    datasourceSettings?: DataSourceSettings;
+  },
+): ClusterMetricEligibility {
+  if (!isFactMetric(metric)) {
+    return {
+      allowed: false,
+      reason: "Cluster experiments support only Fact Metrics.",
+    };
+  }
+  if (quantileMetricType(metric)) {
+    return {
+      allowed: false,
+      reason: "Quantile metrics are not supported in cluster experiments.",
+    };
+  }
+  if (
+    !(CLUSTER_EXPERIMENT_ALLOWED_METRIC_TYPES as readonly string[]).includes(
+      metric.metricType,
+    )
+  ) {
+    return {
+      allowed: false,
+      reason: `Cluster experiments don't support ${
+        UNSUPPORTED_CLUSTER_METRIC_TYPE_NAMES[metric.metricType] ??
+        metric.metricType
+      } metrics. Use proportion, retention, mean, or ratio metrics.`,
+    };
+  }
+  if (!options.clusterSubUnitIdentifier) {
+    return { allowed: true, level: null };
+  }
+  const level = getClusterMetricAnalysisLevel(metric, {
+    clusterIdentifier: options.clusterIdentifier,
+    clusterSubUnitIdentifier: options.clusterSubUnitIdentifier,
+    getFactTable: options.getFactTable,
+    datasourceSettings: options.datasourceSettings,
+  });
+  if (!level) {
+    if (options.clusterIdentifier) {
+      return {
+        allowed: false,
+        reason: `This metric's fact table exposes neither the sub-unit identifier "${options.clusterSubUnitIdentifier}" nor the cluster identifier "${options.clusterIdentifier}".`,
+      };
+    }
+    return {
+      allowed: false,
+      reason: `This metric's fact table does not expose the sub-unit identifier "${options.clusterSubUnitIdentifier}".`,
+    };
+  }
+  return { allowed: true, level };
 }
 
 /**
@@ -3332,6 +3510,44 @@ export function isDimensionPrecomputed(
   }
 
   return !!dimension && snapshotUnitDimensionIds.includes(dimension);
+}
+
+type IsolatedDimensionSettings = Pick<
+  ExperimentSnapshotSettings,
+  | "dimensions"
+  | "precomputedUnitDimensionIds"
+  | "isClusterExperiment"
+  | "clusterSubUnitIdentifier"
+>;
+
+/**
+ * Single source of truth for the dimensions that must be computed in their own
+ * isolated query and analyzed per-dimension, instead of being folded into the
+ * parent snapshot query and re-aggregated by gbstats.
+ */
+export function getIsolatedDimensionIds(
+  settings: IsolatedDimensionSettings,
+): string[] {
+  const ids = new Set<string>(settings.precomputedUnitDimensionIds ?? []);
+
+  if (getClusterSubUnit(settings) !== null) {
+    for (const dimension of settings.dimensions) {
+      if (parseDimensionId(dimension.id).kind === "experiment") {
+        ids.add(dimension.id);
+      }
+    }
+  }
+
+  return Array.from(ids);
+}
+
+/** True when `dimensionId` must be isolated for this snapshot. */
+export function isIsolatedDimension(
+  settings: IsolatedDimensionSettings,
+  dimensionId: string | undefined,
+): boolean {
+  if (!dimensionId) return false;
+  return getIsolatedDimensionIds(settings).includes(dimensionId);
 }
 
 /**

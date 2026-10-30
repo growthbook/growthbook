@@ -1,13 +1,18 @@
 import type {
   ExperimentSnapshotAnalysisSettings,
+  ExperimentSnapshotSettings,
   SnapshotSettingsVariation,
 } from "shared/types/experiment-snapshot";
 import type { ExperimentMetricAnalysis } from "shared/types/stats";
 import type { ExperimentReportVariation } from "shared/types/report";
+import type { QueryInterface } from "shared/types/query";
+import type { QueryMap } from "back-end/src/queryRunners/QueryRunner";
+import { getUnitDimQueryName } from "back-end/src/queryRunners/unitDimensionQueryNaming";
 import {
   analyzeExperimentTraffic,
   getAnalysisSettingsForStatsEngine,
   parseStatsEngineResult,
+  selectAnalysisQueryData,
 } from "back-end/src/services/stats";
 
 const analysisSettings: ExperimentSnapshotAnalysisSettings = {
@@ -350,5 +355,104 @@ describe("getAnalysisSettingsForStatsEngine", () => {
     expect(alphaFor({ statsEngine: "bayesian", pValueThreshold: 0.001 })).toBe(
       0.05,
     );
+  });
+
+  const postStratFor = (
+    settings: Partial<ExperimentSnapshotAnalysisSettings>,
+    isClusterExperiment?: boolean,
+  ): boolean =>
+    getAnalysisSettingsForStatsEngine(
+      { ...analysisSettings, ...settings },
+      reportVariations,
+      1,
+      14,
+      isClusterExperiment,
+    ).post_stratification_enabled;
+
+  it("passes through post-stratification for non-cluster experiments", () => {
+    expect(postStratFor({ postStratificationEnabled: true })).toBe(true);
+    expect(postStratFor({ postStratificationEnabled: false })).toBe(false);
+  });
+
+  it("forces post-stratification off for cluster experiments", () => {
+    expect(postStratFor({ postStratificationEnabled: true }, true)).toBe(false);
+    expect(postStratFor({ postStratificationEnabled: false }, true)).toBe(
+      false,
+    );
+  });
+});
+
+describe("selectAnalysisQueryData", () => {
+  const q = (id: string) => ({ id }) as unknown as QueryInterface;
+
+  const clusterSettings = {
+    isClusterExperiment: true,
+    clusterSubUnitIdentifier: "user_id",
+    dimensions: [{ id: "exp:browser" }],
+    precomputedUnitDimensionIds: [],
+  } as unknown as ExperimentSnapshotSettings;
+
+  // Distinct references so we can tell the parent bucket apart from the
+  // isolated bucket even though they share the bare key names.
+  const parentGroup = q("parent-group");
+  const parentMetric = q("parent-metric");
+  const isolatedGroup = q("isolated-group");
+  const isolatedMetric = q("isolated-metric");
+
+  const fullMap = (): QueryMap =>
+    new Map([
+      ["group_0", parentGroup],
+      ["met_revenue", parentMetric],
+      [getUnitDimQueryName("exp:browser", "group_0"), isolatedGroup],
+      [getUnitDimQueryName("exp:browser", "met_revenue"), isolatedMetric],
+    ]);
+
+  it("routes an isolated cluster sub-unit dimension to its isolated query map", () => {
+    const result = selectAnalysisQueryData(
+      fullMap(),
+      clusterSettings,
+      "exp:browser",
+    );
+    expect([...result.keys()].sort()).toEqual(["group_0", "met_revenue"]);
+    expect(result.get("group_0")).toBe(isolatedGroup);
+    expect(result.get("met_revenue")).toBe(isolatedMetric);
+  });
+
+  it("uses the dimensionless parent query map for the parent analysis", () => {
+    const result = selectAnalysisQueryData(fullMap(), clusterSettings, "");
+    expect([...result.keys()].sort()).toEqual(["group_0", "met_revenue"]);
+    expect(result.get("group_0")).toBe(parentGroup);
+    expect(result.get("met_revenue")).toBe(parentMetric);
+  });
+
+  it("falls through to the parent filter for a non-isolated dimension", () => {
+    const nonClusterSettings = {
+      isClusterExperiment: false,
+      clusterSubUnitIdentifier: null,
+      dimensions: [{ id: "exp:browser" }],
+      precomputedUnitDimensionIds: [],
+    } as unknown as ExperimentSnapshotSettings;
+
+    const result = selectAnalysisQueryData(
+      fullMap(),
+      nonClusterSettings,
+      "exp:browser",
+    );
+    expect(result.get("group_0")).toBe(parentGroup);
+    expect(result.get("met_revenue")).toBe(parentMetric);
+  });
+
+  it("throws when an isolated dimension has no unitdim: query results", () => {
+    // Routing now lives solely here, so a map missing the isolated dimension's
+    // `unitdim:` queries fails loud instead of silently falling back to the
+    // parent (overall) query, which would fail confusingly inside the stats
+    // engine.
+    const missingIsolated: QueryMap = new Map([
+      ["group_0", parentGroup],
+      ["met_revenue", parentMetric],
+    ]);
+    expect(() =>
+      selectAnalysisQueryData(missingIsolated, clusterSettings, "exp:browser"),
+    ).toThrow(/missing query results for dimension "exp:browser"/);
   });
 });

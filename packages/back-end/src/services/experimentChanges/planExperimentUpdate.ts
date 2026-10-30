@@ -16,6 +16,10 @@ import type {
   ExperimentChangesBody,
   ExperimentChangesFields,
 } from "shared/validators";
+import {
+  CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  isUnsupportedClusterBanditCombination,
+} from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import {
   Changeset,
@@ -28,6 +32,7 @@ import { getMetricMap } from "back-end/src/models/MetricModel";
 import {
   assertCanRunExperimentChanges,
   assertExperimentKeyFormat,
+  assertValidClusterExperimentConfig,
   assertValidExperimentPhases,
   determineNextBanditSchedule,
   getExperimentAttributeScopeProjects,
@@ -109,6 +114,8 @@ const UPDATABLE_KEYS: (keyof ExperimentInterface)[] = [
   "datasource",
   "exposureQueryId",
   "exposureQueryIdentifierType",
+  "isClusterExperiment",
+  "clusterSubUnitIdentifier",
   "userIdType",
   "hashAttribute",
   "fallbackAttribute",
@@ -566,6 +573,51 @@ export async function planExperimentUpdate(
   if (resolvedSelection.changed || "exposureQueryIdentifierType" in changes) {
     changes.exposureQueryIdentifierType = resolvedSelection.identifierType;
   }
+
+  const effectiveIsClusterExperiment =
+    changes.isClusterExperiment ?? experiment.isClusterExperiment;
+  const effectiveExperimentType = changes.type ?? experiment.type ?? "standard";
+  if (
+    isUnsupportedClusterBanditCombination({
+      type: effectiveExperimentType,
+      isClusterExperiment: effectiveIsClusterExperiment,
+    })
+  ) {
+    throw new Error(CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE);
+  }
+  const clusterDatasourceId = changes.datasource ?? experiment.datasource ?? "";
+  const clusterDatasource = clusterDatasourceId
+    ? await getDataSourceById(context, clusterDatasourceId)
+    : null;
+  await assertValidClusterExperimentConfig({
+    context,
+    datasource: clusterDatasource,
+    current: {
+      isClusterExperiment: effectiveIsClusterExperiment,
+      datasource: clusterDatasourceId,
+      exposureQueryId: changes.exposureQueryId ?? experiment.exposureQueryId,
+      exposureQueryIdentifierType:
+        changes.exposureQueryIdentifierType ??
+        experiment.exposureQueryIdentifierType,
+      clusterSubUnitIdentifier:
+        changes.clusterSubUnitIdentifier ?? experiment.clusterSubUnitIdentifier,
+      goalMetrics: changes.goalMetrics ?? experiment.goalMetrics,
+      secondaryMetrics: changes.secondaryMetrics ?? experiment.secondaryMetrics,
+      guardrailMetrics: changes.guardrailMetrics ?? experiment.guardrailMetrics,
+    },
+    previous: {
+      isClusterExperiment: experiment.isClusterExperiment,
+      datasource: experiment.datasource,
+      exposureQueryId: experiment.exposureQueryId,
+      exposureQueryIdentifierType: experiment.exposureQueryIdentifierType,
+      clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      goalMetrics: experiment.goalMetrics,
+      secondaryMetrics: experiment.secondaryMetrics,
+      guardrailMetrics: experiment.guardrailMetrics,
+    },
+    metricMap,
+    metricGroups: allMetricGroups,
+  });
 
   const shouldValidatePrecomputedUnitDimensionIds =
     changes.precomputedUnitDimensionIds !== undefined ||

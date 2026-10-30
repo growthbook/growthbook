@@ -183,6 +183,8 @@ const EXPERIMENT_SECTION_KEYS: Record<
   skipPartialData: "analysis",
   exposureQueryId: "analysis",
   exposureQueryIdentifierType: "analysis",
+  isClusterExperiment: "analysis",
+  clusterSubUnitIdentifier: "analysis",
   datasource: "analysis",
   trackingKey: "analysis",
   statsEngine: "analysis",
