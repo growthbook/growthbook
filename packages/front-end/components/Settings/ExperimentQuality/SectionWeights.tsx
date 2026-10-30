@@ -7,7 +7,7 @@ import {
 } from "shared/validators";
 import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
-import { SECTION_WEIGHT_COLORS } from "@/components/Experiment/Quality/qualityDisplay";
+import { SECTION_COLORS } from "@/components/Experiment/Quality/qualityDisplay";
 import { ChangedDot } from "./ChangeMarkers";
 import {
   QualityConfigDraft,
@@ -89,7 +89,7 @@ export default function SectionWeights({
             key={k}
             style={{
               width: `${(weightOf(k) / total) * 100}%`,
-              background: SECTION_WEIGHT_COLORS[k],
+              background: SECTION_COLORS[k].bar,
             }}
           />
         ))}
@@ -122,7 +122,7 @@ export default function SectionWeights({
               {changed ? <ChangedDot /> : null}
               <span
                 className={styles.swatch}
-                style={{ background: SECTION_WEIGHT_COLORS[k] }}
+                style={{ background: SECTION_COLORS[k].bar }}
               />
               <Text color={on ? "text-high" : "text-low"}>
                 {EXPERIMENT_QUALITY_SECTIONS[k].label}
