@@ -5,7 +5,14 @@ import type { OrganizationInterface } from "shared/types/organization";
 export const adminOrgFiltersValidator = z.object({
   plan: z.enum(["starter", "pro", "enterprise"]).optional(),
   status: z
-    .enum(["trialing", "past_due", "canceled", "suspended", "disabled"])
+    .enum([
+      "trialing",
+      "past_due",
+      "canceled",
+      "suspended",
+      "disabled",
+      "has_banner",
+    ])
     .optional(),
   minMembers: z.coerce.number().int().min(0).optional(),
   maxMembers: z.coerce.number().int().min(0).optional(),
@@ -68,6 +75,8 @@ export function buildAdminOrgQuery(
     and.push({ disabled: true });
   } else if (filters.status === "suspended") {
     and.push({ suspended: true, disabled: { $ne: true } });
+  } else if (filters.status === "has_banner") {
+    and.push({ "messages.0": { $exists: true } });
   } else if (filters.status) {
     // Disabled and suspended outrank the subscription in getAdminOrgSummary
     and.push({

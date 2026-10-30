@@ -12,7 +12,10 @@ import { getDemoDatasourceProjectIdForOrganization } from "shared/demo-datasourc
 import { useRouter } from "next/router";
 import { DifferenceType } from "shared/types/stats";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import { HoldoutInterfaceStringDates } from "shared/validators";
+import {
+  HoldoutInterfaceStringDates,
+  HoldoutMissingLinkage,
+} from "shared/validators";
 import { FeatureInterface } from "shared/types/feature";
 import { Box } from "@radix-ui/themes";
 import {
@@ -122,6 +125,7 @@ export interface Props {
   linkedFeatures: LinkedFeatureInfo[];
   holdoutFeatures?: FeatureInterface[];
   holdoutExperiments?: ExperimentInterfaceStringDates[];
+  holdoutMissingLinkage?: HoldoutMissingLinkage;
   mutate: () => void;
   duplicate?: (() => void) | null;
   envs: string[];
@@ -160,6 +164,7 @@ function TabbedPageContents({
   linkedFeatures,
   holdoutFeatures,
   holdoutExperiments,
+  holdoutMissingLinkage,
   mutate,
   duplicate,
   visualChangesets,
@@ -711,14 +716,16 @@ function TabbedPageContents({
         <ConfirmDialog
           title="Leave without saving?"
           content="You have unsaved changes to this experiment. Leaving Setup discards them."
-          yesText="Leave Setup"
-          noText="Keep editing"
-          onConfirm={() => {
+          // Staying is the primary action; leaving is the secondary one.
+          yesText="Keep editing"
+          noText="Leave Setup"
+          onConfirm={() => setPendingTab(null)}
+          onCancel={() => {
             edits?.discardAll();
             switchTab(pendingTab.tab, pendingTab.scrollToId);
             setPendingTab(null);
           }}
-          onCancel={() => setPendingTab(null)}
+          onDismiss={() => setPendingTab(null)}
         />
       ) : null}
       <ExperimentHeader
@@ -908,6 +915,7 @@ function TabbedPageContents({
                   holdout={holdout}
                   holdoutFeatures={holdoutFeatures}
                   holdoutExperiments={holdoutExperiments}
+                  holdoutMissingLinkage={holdoutMissingLinkage}
                   mutate={mutate}
                   setFeatureModal={setFeatureModal}
                   setVisualEditorModal={setVisualEditorModal}

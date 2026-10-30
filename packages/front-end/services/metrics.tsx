@@ -22,12 +22,10 @@ import {
 } from "shared/experiments";
 import {
   DEFAULT_FACT_METRIC_WINDOW,
-  DEFAULT_LOSE_RISK_THRESHOLD,
   DEFAULT_METRIC_WINDOW_DELAY_HOURS,
   DEFAULT_PROPER_PRIOR_STDDEV,
   DEFAULT_REGRESSION_ADJUSTMENT_DAYS,
   DEFAULT_REGRESSION_ADJUSTMENT_ENABLED,
-  DEFAULT_WIN_RISK_THRESHOLD,
   DEFAULT_MIN_PERCENT_CHANGE,
   DEFAULT_MAX_PERCENT_CHANGE,
   DEFAULT_MIN_SAMPLE_SIZE,
@@ -177,8 +175,6 @@ export function getDefaultFactMetricProps({
       delayUnit: "hours",
       delayValue: DEFAULT_METRIC_WINDOW_DELAY_HOURS,
     },
-    winRisk: existing?.winRisk ?? DEFAULT_WIN_RISK_THRESHOLD,
-    loseRisk: existing?.loseRisk ?? DEFAULT_LOSE_RISK_THRESHOLD,
     minPercentChange:
       existing?.minPercentChange ??
       metricDefaults.minPercentageChange ??
@@ -220,8 +216,7 @@ export function getDefaultFactMetricProps({
 // metric shows these as whole percents (5) instead, so this is the one
 // adapter between the two: call it right after getDefaultFactMetricProps to
 // seed a form, and fromFactMetricFormValues (below) to undo it before
-// sending a payload back to the API. winRisk/loseRisk are excluded: neither
-// is displayed by MetricEditor's form, so they pass through unscaled.
+// sending a payload back to the API.
 export function toFactMetricFormValues(
   defaults: CreateFactMetricFormProps & { targetMDE: number },
 ): CreateFactMetricFormProps {
