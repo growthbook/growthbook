@@ -134,22 +134,40 @@ export const createEventWebHookLog = async ({
   return toInterface(doc);
 };
 
+type EventWebHookLogFilters = NonNullable<
+  EventWebHookLegacyLogInterface["filters"]
+>;
+
 /**
  * Get the latest web hook runs for a web hook
  * @param organizationId
  * @param eventWebHookId
  * @param limit
+ * @param canView whether the viewer may see logs delivered under these filters
  * @returns
  */
 export const getLatestRunsForWebHook = async (
   organizationId: string,
   eventWebHookId: string,
-  limit: number = 10,
+  limit: number,
+  canView: (filters: EventWebHookLogFilters) => boolean,
 ): Promise<EventWebHookLegacyLogInterface[]> => {
-  const docs = await EventWebHookLegacyLogModel.find({
-    eventWebHookId,
-    organizationId,
-  })
+  const query = { eventWebHookId, organizationId };
+
+  // Resolve visibility per distinct filter set so the limit applies to visible logs only.
+  const filterSets: EventWebHookLogFilters[] =
+    await EventWebHookLegacyLogModel.distinct("filters", query);
+  // Match the stored object whole: array values on dotted paths would be cast to $in.
+  const visible: Record<string, unknown>[] = filterSets
+    .filter(canView)
+    .map((filters) => ({ filters }));
+  // Logs written before filters were recorded are treated as unfiltered.
+  if (canView({ projects: [], environments: [] })) {
+    visible.push({ filters: { $exists: false } });
+  }
+  if (!visible.length) return [];
+
+  const docs = await EventWebHookLegacyLogModel.find({ ...query, $or: visible })
     .sort([["dateCreated", -1]])
     .limit(limit);
 

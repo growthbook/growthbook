@@ -173,17 +173,12 @@ export const getEventWebHookLogs = async (
     context.permissions.throwPermissionError();
   }
 
-  // Filters may have narrowed since delivery; older logs without them are treated as unfiltered.
-  const eventWebHookLogs = (
-    await EventWebHookLog.getLatestRunsForWebHook(
-      context.org.id,
-      eventWebHook.id,
-      50,
-    )
-  ).filter((log) =>
-    context.permissions.canViewEventWebhook(
-      log.filters ?? { projects: [], environments: [] },
-    ),
+  // Filters may have narrowed since delivery, so each log is checked against its own.
+  const eventWebHookLogs = await EventWebHookLog.getLatestRunsForWebHook(
+    context.org.id,
+    eventWebHook.id,
+    50,
+    (filters) => context.permissions.canViewEventWebhook(filters),
   );
 
   return res.json({ eventWebHookLogs });
