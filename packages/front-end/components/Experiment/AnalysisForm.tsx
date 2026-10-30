@@ -12,7 +12,6 @@ import {
   MAX_PRECOMPUTED_UNIT_DIMENSIONS,
 } from "shared/constants";
 import {
-  experimentHasLinkedChanges,
   resolveAnalysisIdentifierType,
   isProjectListValidForProject,
 } from "shared/util";
@@ -35,6 +34,7 @@ import useOrgSettings from "@/hooks/useOrgSettings";
 import AssignmentQueryFields, {
   AssignmentQueryDriftWarning,
   ClusterExperimentFields,
+  isClusterChangeAfterLaunch,
   POST_STRATIFICATION_CLUSTER_MESSAGE,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -808,10 +808,10 @@ const AnalysisForm: FC<{
                 setSubUnitIdentifier={(value) =>
                   form.setValue("clusterSubUnitIdentifier", value)
                 }
-                locked={
-                  experiment.status !== "draft" &&
-                  experimentHasLinkedChanges(experiment)
-                }
+                changedAfterLaunch={isClusterChangeAfterLaunch(experiment, {
+                  isClusterExperiment,
+                  clusterSubUnitIdentifier,
+                })}
               />
             )}
             {datasource && !isHoldout && (

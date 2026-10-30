@@ -1,5 +1,5 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
-import { CLUSTER_CONFIG_LOCKED_MESSAGE } from "shared/validators";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { Box } from "@radix-ui/themes";
 import {
   DataSourceInterfaceWithParams,
@@ -507,6 +507,29 @@ export function getClusterSubUnitOptions(
     : [];
 }
 
+export const CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE =
+  "This experiment has already started. Changing its cluster settings changes how results are analyzed, so make sure they still match how traffic was randomized.";
+
+// Cluster settings only shape the analysis, so a started experiment can change
+// them, but should be told when it does.
+export function isClusterChangeAfterLaunch(
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "status" | "isClusterExperiment" | "clusterSubUnitIdentifier"
+  >,
+  next: { isClusterExperiment: boolean; clusterSubUnitIdentifier: string },
+): boolean {
+  if (experiment.status === "draft") return false;
+  if (next.isClusterExperiment !== !!experiment.isClusterExperiment) {
+    return true;
+  }
+  return (
+    next.isClusterExperiment &&
+    next.clusterSubUnitIdentifier !==
+      (experiment.clusterSubUnitIdentifier ?? "")
+  );
+}
+
 export function ClusterExperimentFields({
   exposureQuery,
   identifierType,
@@ -515,7 +538,7 @@ export function ClusterExperimentFields({
   setIsClusterExperiment,
   setSubUnitIdentifier,
   disabled,
-  locked,
+  changedAfterLaunch,
   asRows = false,
 }: {
   exposureQuery: ExposureQuery | undefined;
@@ -525,8 +548,7 @@ export function ClusterExperimentFields({
   setIsClusterExperiment: (value: boolean) => void;
   setSubUnitIdentifier: (value: string) => void;
   disabled?: boolean;
-  // Neither cluster mode nor the sub-unit can change after launch.
-  locked?: boolean;
+  changedAfterLaunch?: boolean;
   // Each field beside its label, as on the experiment's setup page.
   asRows?: boolean;
 }) {
@@ -537,12 +559,11 @@ export function ClusterExperimentFields({
   );
   // A new query or identifier can leave the chosen sub-unit off the list.
   useEffect(() => {
-    if (!isClusterExperiment || locked || disabled) return;
+    if (!isClusterExperiment || disabled) return;
     if (subUnitOptions.includes(subUnitIdentifier)) return;
     setSubUnitIdentifier(subUnitOptions[0] ?? "");
   }, [
     isClusterExperiment,
-    locked,
     disabled,
     subUnitOptions,
     subUnitIdentifier,
@@ -573,14 +594,7 @@ export function ClusterExperimentFields({
           : premiumLabel("Cluster experiment")
       }
       weight={asRows ? "regular" : undefined}
-      // Stays on screen, unlike a tooltip, so the lock reads as a lock.
-      description={
-        locked
-          ? CLUSTER_CONFIG_LOCKED_MESSAGE
-          : asRows
-            ? undefined
-            : explanation
-      }
+      description={asRows ? undefined : explanation}
       value={isClusterExperiment}
       setValue={(value) => {
         setIsClusterExperiment(value);
@@ -590,11 +604,15 @@ export function ClusterExperimentFields({
       }}
       disabled={
         disabled ||
-        locked ||
         (!isClusterExperiment && !hasCommercialFeature("cluster-experiments"))
       }
     />
   );
+  const launchWarning = changedAfterLaunch ? (
+    <HelperText status="warning" size="sm" mt="2">
+      {CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE}
+    </HelperText>
+  ) : null;
   const subUnitSelect = (
     <SelectField
       label={
@@ -609,7 +627,7 @@ export function ClusterExperimentFields({
       onChange={setSubUnitIdentifier}
       placeholder="Choose..."
       required
-      disabled={disabled || locked}
+      disabled={disabled}
       sort={false}
       options={subUnitOptions.map((type) => ({
         label: type,
@@ -637,6 +655,7 @@ export function ClusterExperimentFields({
       <>
         <SetupFieldRow label="Cluster experiment" content="text">
           {checkbox}
+          {launchWarning}
         </SetupFieldRow>
         {isClusterExperiment && (
           <SetupFieldRow label="Subunit identifier type" tooltip={SUBUNIT_TIP}>
@@ -649,6 +668,7 @@ export function ClusterExperimentFields({
   return (
     <Box mb="4">
       {checkbox}
+      {launchWarning}
       {isClusterExperiment && (
         <Box ml="5" mt="3">
           {subUnitSelect}

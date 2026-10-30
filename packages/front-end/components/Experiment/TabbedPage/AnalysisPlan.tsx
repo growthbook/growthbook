@@ -17,7 +17,6 @@ import {
 } from "shared/validators";
 import { getScopedSettings } from "shared/settings";
 import {
-  experimentHasLinkedChanges,
   hasPendingScheduledStart,
   isProjectListValidForProject,
   resolveAnalysisIdentifierType,
@@ -50,8 +49,10 @@ import {
 import { getIneligibleClusterMetrics } from "@/services/experiments";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import AssignmentQueryFields, {
+  CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE,
   ClusterExperimentFields,
   getClusterSubUnitOptions,
+  isClusterChangeAfterLaunch,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -927,6 +928,10 @@ function DataSourceModal({
   const clusterIdentifier = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
     : undefined;
+  const clusterChangedAfterLaunch = isClusterChangeAfterLaunch(experiment, {
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
+  });
   const changed =
     suggested ||
     !sameSource ||
@@ -987,11 +992,12 @@ function DataSourceModal({
           subUnitIdentifier={clusterSubUnitIdentifier}
           setIsClusterExperiment={setClusterChecked}
           setSubUnitIdentifier={setClusterSubUnitIdentifier}
-          locked={
-            experiment.status !== "draft" &&
-            experimentHasLinkedChanges(experiment)
-          }
+          changedAfterLaunch={clusterChangedAfterLaunch}
         />
+      ) : clusterChangedAfterLaunch ? (
+        <HelperText status="warning" size="sm">
+          {CLUSTER_CHANGE_AFTER_LAUNCH_MESSAGE}
+        </HelperText>
       ) : null}
       {stagesAttribute && resolution.attribute ? (
         <HelperText status="info" size="sm">
