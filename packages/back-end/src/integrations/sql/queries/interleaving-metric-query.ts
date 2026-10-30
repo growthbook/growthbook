@@ -1,4 +1,4 @@
-import { buildMinimalOrCondition, format } from "shared/sql";
+import { buildMinimalOrCondition, format, quoteIdentifier } from "shared/sql";
 import {
   getColumnExpression,
   getColumnRefWhereClause,
@@ -247,6 +247,7 @@ export function getInterleavingMetricQuery(
   const castKey = dialect.castToFilterString ?? dialect.castToString;
   const itemId = castKey(item(INTERLEAVING_ITEM_FIELD_ITEM_ID));
   const exposureRankingId = castKey(`e.${INTERLEAVING_RANKING_ID_COLUMN}`);
+  const exposureUserId = `e.${quoteIdentifier(userIdType, dialect.identifierQuote)}`;
 
   // One row per (user, ranking, competitive item). Grouping collapses
   // double-logged impressions (SDK retries) and repeated items in a list.
@@ -254,7 +255,7 @@ export function getInterleavingMetricQuery(
     __exposures AS (
       SELECT
         ${cols([
-          `e.${userIdType} AS user_id`,
+          `${exposureUserId} AS user_id`,
           `${exposureRankingId} AS ranking_id`,
           `${itemId} AS item_id`,
           `MAX(${teamExpr}) AS team`,
@@ -268,7 +269,7 @@ export function getInterleavingMetricQuery(
         AND ${item(INTERLEAVING_ITEM_FIELD_COMPETITIVE)} = 'true'
         AND ${variation} IN (${lit(controlKey)}, ${lit(treatmentKey)})
         AND ${dateFilter(`e.${ts}`)}
-      GROUP BY e.${userIdType}, ${exposureRankingId}, ${itemId}
+      GROUP BY ${exposureUserId}, ${exposureRankingId}, ${itemId}
     )`;
 
   // Treatment share and first exposure for each user x item. Preference

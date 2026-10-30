@@ -3,6 +3,7 @@ import { Box, Flex } from "@radix-ui/themes";
 import { interleavingEndpoints } from "shared/api-endpoints";
 import type { ApiInterleavingInterface } from "shared/validators";
 import { interleavingEnvsForChange } from "shared/permissions";
+import { interleavingInSDKPayload } from "shared/util";
 import { useRestApiCall } from "@/services/restApi";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useEnvironments } from "@/services/features";
@@ -65,6 +66,9 @@ export default function InterleavingDetailPage({
   const canEdit =
     permissionsUtil.canUpdateInterleaving({ project: il.project }, {}) &&
     !il.archived;
+  // The server also demands run permission once a change reaches the SDK
+  // payload, so payload-affecting edits must not be offered without it.
+  const canEditServing = canEdit && (!interleavingInSDKPayload(il) || canRun);
 
   const start = async () => {
     await restApiCall(interleavingEndpoints.startInterleaving, {
@@ -162,11 +166,13 @@ export default function InterleavingDetailPage({
                 canEdit ? () => setDescriptionModal(true) : undefined
               }
               editEnvironments={
-                canEdit ? () => setEnvironmentsModal(true) : undefined
+                canEditServing ? () => setEnvironmentsModal(true) : undefined
               }
-              editRankers={canEdit ? () => setRankersModal(true) : undefined}
+              editRankers={
+                canEditServing ? () => setRankersModal(true) : undefined
+              }
               editTargeting={
-                canEdit ? () => setTargetingModal(true) : undefined
+                canEditServing ? () => setTargetingModal(true) : undefined
               }
               editAnalysis={canEdit ? () => setAnalysisModal(true) : undefined}
             />
@@ -189,6 +195,7 @@ export default function InterleavingDetailPage({
       {infoModal && (
         <EditInterleavingInfoModal
           interleaving={il}
+          canEditServing={canEditServing}
           mutate={mutate}
           close={() => setInfoModal(false)}
         />

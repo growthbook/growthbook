@@ -10,7 +10,6 @@ import { useInterleavingResults } from "@/hooks/useInterleavings";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { ExperimentTableRow } from "@/services/experiments";
 import { interleavingResultToSnapshotMetrics } from "@/services/interleaving";
-import usePValueThreshold from "@/hooks/usePValueThreshold";
 import useConfidenceLevels from "@/hooks/useConfidenceLevels";
 import ResultsTable from "@/components/Experiment/ResultsTable";
 import ResultMoreMenu from "@/components/Experiment/ResultMoreMenu";
@@ -54,7 +53,6 @@ export default function InterleavingResults({
 }) {
   const { getExperimentMetricById, getDatasourceById } = useDefinitions();
   const permissionsUtil = usePermissionsUtil();
-  const pValueThreshold = usePValueThreshold(il.project);
   const bayesianConfidenceLevels = useConfidenceLevels(il.project);
   const {
     snapshot,
@@ -209,11 +207,14 @@ export default function InterleavingResults({
                 statsEngine="frequentist"
                 differenceType="absolute"
                 significanceThresholds={{
-                  pValueThreshold,
+                  pValueThreshold: snapshot.settings.pValueThreshold,
                   bayesianConfidenceLevels,
                 }}
                 isTabActive
                 noStickyHeader
+                sampleSizeFrom={
+                  type === "preference" ? "denominator" : undefined
+                }
               />
             </Box>
           );

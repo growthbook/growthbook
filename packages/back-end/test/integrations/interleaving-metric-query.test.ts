@@ -162,7 +162,7 @@ describe("getInterleavingMetricQuery", () => {
     // Exposures collapse to one row per (user, ranking, item) by grouping,
     // with both team arms explicit so an unknown variation is NULL, not 0
     expect(paired).toMatch(
-      /GROUP BY\s+e\.user_id,\s+cast\(e\.ranking_id as varchar\),\s+cast\(item ->> 'itemId' as varchar\)/,
+      /GROUP BY\s+e\."user_id",\s+cast\(e\.ranking_id as varchar\),\s+cast\(item ->> 'itemId' as varchar\)/,
     );
     expect(paired).toMatch(
       /MAX\(\s*CASE\s+WHEN item ->> 'variation' = 'price-low' THEN 1\s+WHEN item ->> 'variation' = 'buyers-picks' THEN 0\s+END\s*\) AS team/,
@@ -243,7 +243,7 @@ describe("getInterleavingMetricQuery", () => {
     // Projected and grouped by the same expression, or the GROUP BY would not
     // cover the SELECT
     expect(sql).toMatch(
-      /GROUP BY\s+e\.user_id,\s+cast\(e\.ranking_id as varchar\),\s+cast\(item ->> 'itemId' as varchar\)/,
+      /GROUP BY\s+e\."user_id",\s+cast\(e\.ranking_id as varchar\),\s+cast\(item ->> 'itemId' as varchar\)/,
     );
     expect(sql).toMatch(
       /GROUP BY\s+m\.user_id,\s+cast\(m\.ranking_id as varchar\),\s+cast\(m\.item_id as varchar\)/,
@@ -269,6 +269,17 @@ describe("getInterleavingMetricQuery", () => {
     expect(sql).not.toContain("varchar(256)");
     expect(sql).toContain("as varchar(8000)) AS item_id");
     expect(sql).toContain("as varchar(8000)) AS ranking_id");
+  });
+
+  it("quotes the exposure identifier column", () => {
+    const sql = getInterleavingMetricQuery(postgresDialect, {
+      ...baseParams,
+      userIdType: "user-id",
+      metrics: withIndices([{ metric: proportion, analyses: [PAIRED] }]),
+    });
+
+    expect(sql).toContain('e."user-id" AS user_id');
+    expect(sql).toMatch(/GROUP BY\s+e\."user-id",/);
   });
 
   it("resolves a virtual item_id through getColumnExpression", () => {

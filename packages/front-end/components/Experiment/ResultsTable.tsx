@@ -35,6 +35,7 @@ import {
   SetExperimentSortBy,
   funnelStepMetricId,
   isFactMetric,
+  SampleSizeSource,
 } from "shared/experiments";
 import { useAuth } from "@/services/auth";
 import {
@@ -146,6 +147,7 @@ export type ResultsTableProps = {
   // rollouts), render CIs as one-sided: a single bound + open side, with the
   // domain/range anchored at 0 rather than the fake (±Infinity) bound.
   oneSided?: boolean;
+  sampleSizeFrom?: SampleSizeSource;
 };
 
 export const ROW_HEIGHT = 46;
@@ -221,6 +223,7 @@ export default function ResultsTable({
   valueColumnWidth = 130,
   labelMaxWidth = 75,
   oneSided = false,
+  sampleSizeFrom,
 }: ResultsTableProps) {
   if (variationFilter?.includes(baselineRow)) {
     variationFilter = variationFilter.filter((v) => v !== baselineRow);
@@ -438,7 +441,13 @@ export default function ResultsTable({
   );
   const compactResults = filteredVariations.length <= 2;
 
-  const domain = useDomain(filteredVariations, rows, differenceType, oneSided);
+  const domain = useDomain(
+    filteredVariations,
+    rows,
+    differenceType,
+    oneSided,
+    sampleSizeFrom,
+  );
 
   const rowsResults: (RowResults | "query error" | RowError | null)[][] =
     useMemo(() => {
@@ -505,6 +514,7 @@ export default function ResultsTable({
             phaseStartDate: getValidDate(startDate),
             isLatestPhase,
             experimentStatus: status,
+            sampleSizeFrom,
           });
           rr[i].push(rowResults);
         });
@@ -529,6 +539,7 @@ export default function ResultsTable({
       queryStatusData,
       ssrPolyfills,
       getExperimentMetricById,
+      sampleSizeFrom,
     ]);
 
   const noRows = rows.length === 0;
@@ -1214,7 +1225,6 @@ export default function ResultsTable({
                                           ) : (
                                             <PValueColumn
                                               stats={stats}
-                                              baseline={baseline}
                                               rowResults={rowResults}
                                               pValueCorrection={
                                                 row.resultGroup === "goal"

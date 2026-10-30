@@ -54,6 +54,7 @@ import {
   parseFunnelStepMetricId,
   parseSliceMetricId,
   parseSliceQueryString,
+  SampleSizeSource,
   SliceDataForMetric,
 } from "shared/experiments";
 import { MetricGroupInterface } from "shared/types/metric-groups";
@@ -252,6 +253,7 @@ export function useDomain(
   // rather than inferring a finite extent from it, so the domain is "0 +
   // padding around the real bound" instead of "[ci, ci]".
   oneSided = false,
+  sampleSizeFrom?: SampleSizeSource,
 ): [number, number] {
   const { metricDefaults } = useOrganizationMetricDefaults();
 
@@ -294,7 +296,15 @@ export function useDomain(
       // Skip if missing or bad data
       const stats = row.variations[v.index];
       if (!stats) return;
-      if (!hasEnoughData(baseline, stats, row.metric, metricDefaults)) {
+      if (
+        !hasEnoughData(
+          baseline,
+          stats,
+          row.metric,
+          metricDefaults,
+          sampleSizeFrom,
+        )
+      ) {
         return;
       }
       if (
@@ -718,6 +728,7 @@ export function getRowResults({
   phaseStartDate,
   isLatestPhase,
   experimentStatus,
+  sampleSizeFrom,
 }: {
   stats: SnapshotMetric;
   baseline: SnapshotMetric;
@@ -734,6 +745,7 @@ export function getRowResults({
   phaseStartDate: Date;
   isLatestPhase: boolean;
   experimentStatus?: ExperimentStatus;
+  sampleSizeFrom?: SampleSizeSource;
 }): RowResults {
   const compactNumberFormatter = Intl.NumberFormat("en-US", {
     notation: "compact",
@@ -750,18 +762,32 @@ export function getRowResults({
 
   const hasScaledImpact =
     !isRatioMetric(metric, denominator) && !quantileMetricType(metric);
-  const hasData = !!stats?.value && !!baseline?.value;
-  const metricSampleSize = getMetricSampleSize(baseline, stats, metric);
+  const metricSampleSize = getMetricSampleSize(
+    baseline,
+    stats,
+    metric,
+    sampleSizeFrom,
+  );
   const baselineSampleSize = metricSampleSize.baselineValue ?? baseline.value;
   const variationSampleSize = metricSampleSize.variationValue ?? stats.value;
-  const enoughData = hasEnoughData(baseline, stats, metric, metricDefaults);
+  // Rows sized by denominator also report presence by it: a win count of 0 is a
+  // real result, not missing data.
+  const baselinePresence = sampleSizeFrom ? baselineSampleSize : baseline.value;
+  const variationPresence = sampleSizeFrom ? variationSampleSize : stats.value;
+  const hasData = !!variationPresence && !!baselinePresence;
+  const enoughData = hasEnoughData(
+    baseline,
+    stats,
+    metric,
+    metricDefaults,
+    sampleSizeFrom,
+  );
 
-  const reason: EnoughDataMeta["reason"] =
-    baseline.value === 0
-      ? "baselineZero"
-      : stats.value === 0
-        ? "variationZero"
-        : "notEnoughData";
+  const reason: EnoughDataMeta["reason"] = !baselinePresence
+    ? "baselineZero"
+    : !variationPresence
+      ? "variationZero"
+      : "notEnoughData";
 
   const enoughDataMeta: EnoughDataMeta = (() => {
     switch (reason) {
@@ -857,6 +883,7 @@ export function getRowResults({
     pValueThreshold,
     statsEngine,
     differenceType,
+    sampleSizeFrom,
   });
 
   let significantReason = "";

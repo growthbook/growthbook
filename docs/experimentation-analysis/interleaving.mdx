@@ -21,7 +21,7 @@ Interleaving is best at answering "which ranker orders items better?" It does no
 ## How it works
 
 1. Your code calls `interleave()` with the experiment's key and the two rankers' lists.
-2. The SDK drafts items from each ranker into a single merged list, records which ranker contributed each item, and whether that item was _competitive_ — present in both rankers' lists at a comparable position.
+2. The SDK drafts items from each ranker into a single merged list, records which ranker contributed each item, and whether that item was _competitive_ — drafted in a round where both rankers still had items and picked **different** ones. An item both rankers picked is placed once as a tie, and so are leftovers once a ranker runs out; neither is competitive.
 3. Your application logs one impression row per merged list, including the per-item detail.
 4. GrowthBook reads those rows through an [Interleaving Exposure Query](#interleaving-exposure-queries) and credits engagement back to whichever ranker supplied the engaged item.
 
@@ -45,11 +45,11 @@ The query must return these columns:
 
 Each element of `items` carries:
 
-| Field         | Description                                                                     |
-| ------------- | ------------------------------------------------------------------------------- |
-| `itemId`      | The item's id, joined against `item_id` on your metric's Fact Table.            |
-| `variation`   | Which ranker contributed this item, matched against the ranker's key.           |
-| `competitive` | Whether both rankers offered this item comparably, so the draft was a fair one. |
+| Field         | Description                                                                                                                                       |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `itemId`      | The item's id, joined against `item_id` on your metric's Fact Table.                                                                              |
+| `variation`   | Which ranker contributed this item, matched against the ranker's key.                                                                             |
+| `competitive` | Whether this item came from a round where both rankers still had items and picked different ones. Ties, leftovers and odd-slot fills are `false`. |
 
 Only warehouses whose SQL dialect can unnest a JSON array support interleaving, so the section appears on those Data Sources only.
 
@@ -64,6 +64,8 @@ Each metric can be analyzed two ways, and you pick per metric when configuring t
 **Paired** compares the two rankers _within the same ranked list_, counting the metric credited to each ranker's items per engaged impression. It is the more sensitive of the two and the reason interleaving needs less traffic, but it requires the `ranking_id` column.
 
 **Preference** works per exposed user: each user is credited to whichever ranker's items they engaged with more. It is coarser but needs only `item_id`.
+
+Both analyses count only competitive items, so two rankers that return near-identical lists yield mostly ties and very little analysable data, while two disjoint lists are competitive throughout. Users who engaged with neither ranker's items, or with both equally, are dropped from the preference denominator.
 
 ## Rankers
 

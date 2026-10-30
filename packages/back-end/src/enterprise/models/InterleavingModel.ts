@@ -31,7 +31,7 @@ import {
   parseInterleavingRankerConfig,
 } from "shared/util";
 import { interleavingEnvsForChange } from "shared/permissions";
-import { UpdateProps } from "shared/types/base-model";
+import { CreateProps, UpdateProps } from "shared/types/base-model";
 import { MakeModelClass } from "back-end/src/models/BaseModel";
 import { validateChangedRuleReferences } from "back-end/src/api/features/validations";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
@@ -68,6 +68,11 @@ import {
 import { resolveInterleavingMetrics } from "back-end/src/enterprise/services/interleavingMetrics";
 import { getContextForAgendaJobByOrgObject } from "back-end/src/services/organizations";
 import { PAYLOAD_AFFECTING_INTERLEAVING_FIELDS } from "back-end/src/services/experimentPayloadFields";
+import {
+  ensureIndexOnce,
+  getCollection,
+  isDuplicateKeyErrorForIndex,
+} from "back-end/src/util/mongo.util";
 
 type ApiVariationInput = NonNullable<
   ReturnType<typeof apiUpdateInterleavingBody.parse>["variations"]
@@ -83,6 +88,23 @@ function payloadAffectingChanges(
   if (!changes) return [];
   return PAYLOAD_AFFECTING_INTERLEAVING_FIELDS.filter(
     (field) => field in changes && !isEqual(changes[field], existing[field]),
+  );
+}
+
+const trackingKeyCollisionMessage = (trackingKey: string) =>
+  `Another interleaving experiment already reports as "${trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`;
+
+const TRACKING_KEY_INDEX = "interleaving_datasource_trackingkey_unique";
+const trackingKeyUniquenessIndex = {
+  name: TRACKING_KEY_INDEX,
+  unique: true,
+} as const;
+
+async function ensureTrackingKeyIndex() {
+  await ensureIndexOnce(
+    getCollection("interleavings"),
+    { organization: 1, datasource: 1, trackingKey: 1 },
+    trackingKeyUniquenessIndex,
   );
 }
 
@@ -413,6 +435,34 @@ export class InterleavingModel extends BaseClass {
     return this.context.hasPremiumFeature("interleaving");
   }
 
+  private async mapTrackingKeyCollision<T>(
+    doc: { trackingKey: string },
+    write: () => Promise<T>,
+  ): Promise<T> {
+    try {
+      return await write();
+    } catch (e) {
+      if (isDuplicateKeyErrorForIndex(e, TRACKING_KEY_INDEX)) {
+        throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
+      }
+      throw e;
+    }
+  }
+
+  public create(props: CreateProps<InterleavingInterface>) {
+    return this.mapTrackingKeyCollision(props, () => super.create(props));
+  }
+
+  public update(
+    existing: InterleavingInterface,
+    updates: UpdateProps<InterleavingInterface>,
+  ) {
+    return this.mapTrackingKeyCollision(
+      { trackingKey: updates.trackingKey ?? existing.trackingKey },
+      () => super.update(existing, updates),
+    );
+  }
+
   // Admin context so the scan is not permission-filtered: a tracking key the
   // caller cannot read still collides.
   private async scanAllInterleavings(): Promise<InterleavingInterface[]> {
@@ -459,16 +509,18 @@ export class InterleavingModel extends BaseClass {
         }
       }
 
+      if (identityChanged) {
+        await ensureTrackingKeyIndex();
+      }
       if (
+        identityChanged &&
         others.some(
           (other) =>
             other.datasource === doc.datasource &&
             other.trackingKey === doc.trackingKey,
         )
       ) {
-        throw new Error(
-          `Another interleaving experiment already reports as "${doc.trackingKey}" in this Data Source. Set a different tracking key so their exposures can be told apart.`,
-        );
+        throw new Error(trackingKeyCollisionMessage(doc.trackingKey));
       }
     }
 

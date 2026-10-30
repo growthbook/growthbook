@@ -2,7 +2,11 @@ import {
   InterleavingSnapshotInterface,
   interleavingSnapshotValidator,
 } from "shared/validators";
-import { MakeModelClass } from "back-end/src/models/BaseModel";
+import { UpdateProps } from "shared/types/base-model";
+import {
+  CasConflictError,
+  MakeModelClass,
+} from "back-end/src/models/BaseModel";
 
 const BaseClass = MakeModelClass({
   schema: interleavingSnapshotValidator,
@@ -116,6 +120,20 @@ export class InterleavingSnapshotModel extends BaseClass {
       },
     );
     return snapshots[0] || null;
+  }
+
+  public async finalizeIfRunning(
+    id: string,
+    updates: UpdateProps<InterleavingSnapshotInterface>,
+  ): Promise<InterleavingSnapshotInterface | null> {
+    const latest = await this.getById(id);
+    if (!latest || latest.status !== "running") return null;
+    try {
+      return await this.updateIfUnchanged(latest, updates);
+    } catch (e) {
+      if (e instanceof CasConflictError) return null;
+      throw e;
+    }
   }
 
   // Parent deletion has already been authorized.

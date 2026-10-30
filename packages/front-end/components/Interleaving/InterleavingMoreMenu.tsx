@@ -49,9 +49,11 @@ export default function InterleavingMoreMenu({
     changeEnvs,
   );
   const canRun = !il.archived && canRunChange;
-  const canDelete = permissionsUtil.canDeleteInterleaving({
-    project: il.project,
-  });
+  // beforeDelete refuses while it is still serving, so offering it here would
+  // guarantee an API error. Archive is the action that works.
+  const canDelete =
+    permissionsUtil.canDeleteInterleaving({ project: il.project }) &&
+    !interleavingInSDKPayload(il);
 
   const setArchived = async (archived: boolean) => {
     await restApiCall(interleavingEndpoints.updateInterleaving, {
