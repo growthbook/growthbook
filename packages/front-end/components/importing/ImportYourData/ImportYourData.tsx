@@ -136,7 +136,7 @@ function Section({
       <Text as="p" color="text-mid" mb="3">
         {description}
       </Text>
-      <Frame mb="0" p="0" className={styles.list}>
+      <Frame mb="0" py="0" px="0" className={styles.list}>
         {children}
       </Frame>
     </Box>

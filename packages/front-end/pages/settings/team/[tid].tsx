@@ -80,8 +80,7 @@ const TeamPage: FC = () => {
       <SettingsPage
         title="Team"
         breadcrumb={[
-          { display: "Settings" },
-          { display: "Organization" },
+          { display: "Organization", href: "/projects" },
           { display: "Teams", href: "/settings/team#teams" },
           { display: String(tid ?? "") },
         ]}
@@ -134,8 +133,7 @@ const TeamPage: FC = () => {
         breadcrumb={
           canManageTeam
             ? [
-                { display: "Settings" },
-                { display: "Organization" },
+                { display: "Organization", href: "/projects" },
                 { display: "Teams", href: "/settings/team#teams" },
                 { display: team.name },
               ]

@@ -34,13 +34,13 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
   const iconFile = hasDarkIcon && theme === "dark" ? `${icon}-dark` : icon;
 
   return (
-    <Flex align="center" gap="4" py="4" px="4">
+    <Flex align="center" gap="4" py="3" px="4">
       <Flex
         align="center"
         justify="center"
         flexShrink="0"
-        width="40px"
-        height="40px"
+        width="36px"
+        height="36px"
         style={{
           backgroundColor: "var(--color-panel-solid)",
           border: "1px solid var(--gray-a5)",
@@ -49,8 +49,8 @@ export const ImportFromServiceCard: FC<ImportFromServiceCardProps> = ({
       >
         <img
           src={`/images/3rd-party-logos/importing/icons/${iconFile}.svg`}
-          width={26}
-          height={26}
+          width={24}
+          height={24}
           style={{ objectFit: "contain" }}
           alt={`${service} logo`}
         />

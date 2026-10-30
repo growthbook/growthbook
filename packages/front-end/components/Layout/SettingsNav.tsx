@@ -64,6 +64,12 @@ export default function SettingsNav() {
         )),
   );
 
+  // One sub-nav item is current. A listed page wins; otherwise the importer
+  // pages fall back to Import & Export, which links to them.
+  const activePage = pages.find((l) => l.path.test(path));
+  const fallbackSection =
+    !activePage && /^importing/.test(path) ? "import" : null;
+
   const cardTotal = Object.values(counts).reduce((a, b) => a + b, 0);
   const matchedSections = Object.values(counts).filter((n) => n > 0).length;
   const total = cardTotal + pages.length;
@@ -156,10 +162,9 @@ export default function SettingsNav() {
           <nav aria-label="General settings sections" className={styles.group}>
             <div className={styles.groupLabel}>General</div>
             {sections.map((s) => {
-              // The importer pages belong to Import & Export, which links to them.
-              const active =
-                (onGeneral && s.id === activeSection) ||
-                (s.id === "import" && router.route.startsWith("/importing"));
+              const active = onGeneral
+                ? s.id === activeSection
+                : s.id === fallbackSection;
               return (
                 <button
                   key={s.id}
@@ -208,7 +213,7 @@ export default function SettingsNav() {
           <nav aria-label="Organization settings" className={styles.group}>
             <div className={styles.groupLabel}>Organization</div>
             {pages.map((l) => {
-              const active = l.path.test(path);
+              const active = l === activePage;
               return (
                 <Link
                   key={l.href}

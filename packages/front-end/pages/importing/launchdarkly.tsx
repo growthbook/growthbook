@@ -14,7 +14,6 @@ const ImportFromLaunchDarklyPage: NextPage = () => {
       title="LaunchDarkly Importer"
       description="Import your existing projects, environments, and feature flags from the LaunchDarkly API."
       breadcrumb={[
-        { display: "Settings" },
         { display: "Import Your Data", href: "/importing" },
         { display: "LaunchDarkly Importer" },
       ]}

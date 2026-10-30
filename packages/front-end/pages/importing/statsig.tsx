@@ -13,7 +13,6 @@ const ImportFromStatsigPage: NextPage = () => {
     <SettingsPage
       title="Statsig Importer"
       breadcrumb={[
-        { display: "Settings" },
         { display: "Import Your Data", href: "/importing" },
         { display: "Statsig Importer" },
       ]}

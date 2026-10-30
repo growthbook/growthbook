@@ -79,8 +79,7 @@ export default function SettingsPage({
       <PageHead
         breadcrumb={
           breadcrumb ?? [
-            { display: "Settings" },
-            { display: "Organization" },
+            { display: "Organization", href: "/projects" },
             ...(parent ? [parent] : []),
             { display: title },
           ]
