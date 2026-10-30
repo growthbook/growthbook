@@ -553,8 +553,6 @@ export function getSavedClusterIdentifier(
   );
 }
 
-const LOCK_REASON = "GrowthBook is assigning this experiment's traffic";
-
 // A locked cluster experiment can still have its Data Source or query changed
 // out from under it; this says which choice can't keep the locked setup.
 export function getLockedClusterError({
@@ -579,49 +577,65 @@ export function getLockedClusterError({
 }): LockedClusterError | null {
   if (!locked || !experiment.isClusterExperiment) return null;
   const cluster = savedClusterIdentifier ?? "";
+  const subUnit = experiment.clusterSubUnitIdentifier ?? "";
   if (!datasourceSelected || !supportsClusterExperiments) {
-    const start = datasourceSelected
-      ? `This experiment's cluster settings are locked because ${LOCK_REASON}, and this Data Source has no assignment queries.`
-      : `This experiment's cluster settings are locked because ${LOCK_REASON}.`;
-    return {
-      field: "datasource",
-      message: `${start} Choose a Data Source with an assignment query on ${cluster}, or move the experiment back to draft.`,
-      content: (
-        <>
-          {start} Choose a Data Source with an assignment query on{" "}
-          <IdentifierCode>{cluster}</IdentifierCode>, or move the experiment
-          back to draft.
-        </>
-      ),
-    };
+    return datasourceSelected
+      ? {
+          field: "datasource",
+          message: `This Data Source has no assignment queries, so it can't analyze this experiment by ${cluster}. Choose one with an assignment query that includes ${cluster} and ${subUnit}.`,
+          content: (
+            <>
+              This Data Source has no assignment queries, so it can&apos;t
+              analyze this experiment by{" "}
+              <IdentifierCode>{cluster}</IdentifierCode>. Choose one with an
+              assignment query that includes{" "}
+              <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+              <IdentifierCode>{subUnit}</IdentifierCode>.
+            </>
+          ),
+        }
+      : {
+          field: "datasource",
+          message: `Choose a Data Source. This experiment's traffic is split by ${cluster}, so it needs an assignment query that includes ${cluster} and ${subUnit}.`,
+          content: (
+            <>
+              Choose a Data Source. This experiment&apos;s traffic is split by{" "}
+              <IdentifierCode>{cluster}</IdentifierCode>, so it needs an
+              assignment query that includes{" "}
+              <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+              <IdentifierCode>{subUnit}</IdentifierCode>.
+            </>
+          ),
+        };
   }
   if (identifierType && identifierType !== cluster) {
     return {
       field: "identifier",
-      message: `This experiment is clustered by ${cluster}, which is locked because ${LOCK_REASON}. Choose an assignment query and identifier type on ${cluster}, or move the experiment back to draft.`,
+      message: `This experiment's traffic is split by ${cluster}, so results must be analyzed by ${cluster} too. Choose an assignment query and identifier type on ${cluster}.`,
       content: (
         <>
-          This experiment is clustered by{" "}
-          <IdentifierCode>{cluster}</IdentifierCode>, which is locked because{" "}
-          {LOCK_REASON}. Choose an assignment query and identifier type on{" "}
-          <IdentifierCode>{cluster}</IdentifierCode>, or move the experiment
-          back to draft.
+          This experiment&apos;s traffic is split by{" "}
+          <IdentifierCode>{cluster}</IdentifierCode>, so results must be
+          analyzed by <IdentifierCode>{cluster}</IdentifierCode> too. Choose an
+          assignment query and identifier type on{" "}
+          <IdentifierCode>{cluster}</IdentifierCode>.
         </>
       ),
     };
   }
-  const subUnit = experiment.clusterSubUnitIdentifier ?? "";
   if (getClusterSubUnitOptions(exposureQuery, identifierType).includes(subUnit))
     return null;
   const queryName = exposureQuery?.name ?? "This assignment query";
   return {
     field: "subunit",
-    message: `${queryName} doesn't include ${subUnit}. The subunit identifier type is locked, so choose an assignment query that does.`,
+    message: `${queryName} doesn't include ${subUnit}, which this experiment's results are counted by. Choose an assignment query that includes both ${cluster} and ${subUnit}.`,
     content: (
       <>
         {queryName} doesn&apos;t include{" "}
-        <IdentifierCode>{subUnit}</IdentifierCode>. The subunit identifier type
-        is locked, so choose an assignment query that does.
+        <IdentifierCode>{subUnit}</IdentifierCode>, which this experiment&apos;s
+        results are counted by. Choose an assignment query that includes both{" "}
+        <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+        <IdentifierCode>{subUnit}</IdentifierCode>.
       </>
     ),
   };
