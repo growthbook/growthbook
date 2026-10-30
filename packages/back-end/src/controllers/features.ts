@@ -290,6 +290,7 @@ import { repairFeatureDriftIfNeeded } from "back-end/src/services/featureDriftRe
 import { getGrowthbookDatasource } from "back-end/src/models/DataSourceModel";
 import {
   assertCanPublishPendingFeatureDrafts,
+  assertValidExperimentPhases,
   getChangesToStartExperiment,
 } from "back-end/src/services/experiments";
 import {
@@ -2325,6 +2326,12 @@ export async function postFeaturePublish(
   }
 
   for (const { experiment, changes } of experimentsToUpdate) {
+    // Also checked on the write; here so a refused start publishes nothing.
+    assertValidExperimentPhases(
+      changes.phases ?? experiment.phases,
+      experiment.phases,
+      true,
+    );
     await validateExperimentChange({ context, experiment, changes });
   }
 

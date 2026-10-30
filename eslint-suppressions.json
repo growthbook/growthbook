@@ -377,14 +377,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -749,11 +741,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/FileInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/FlagCard/FlagCard.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -891,16 +878,6 @@
       "count": 1
     },
     "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Holdout/LinkedExperimentsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Holdout/LinkedFeaturesTable.tsx": {
-    "no-restricted-imports": {
       "count": 1
     }
   },
@@ -1289,7 +1266,7 @@
   },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
     "no-restricted-syntax": {
-      "count": 5
+      "count": 4
     }
   },
   "packages/front-end/components/Settings/DataSourceForm.tsx": {
@@ -1544,16 +1521,6 @@
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/importing/ImportFromStatsig/ImportFromStatsig.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {

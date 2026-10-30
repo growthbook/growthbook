@@ -21,6 +21,7 @@ import { TemplateVariables } from "shared/types/sql";
 import {
   eventForwarderAccessTestCreateBodySchema,
   eventForwarderAccessTestEditBodySchema,
+  eventForwarderDetectRegionBodySchema,
   testQueryTypeValidator,
   testDataSourceConnectionBodySchema,
 } from "shared/validators";
@@ -58,6 +59,8 @@ import {
 } from "back-end/src/services/datasource";
 import {
   assertNoEventForwarderInOrg,
+  createUnconfiguredEventForwarderConfig,
+  recordEventForwarderCreateFailure,
   getEventForwarderForDatasource,
   hasAnyEventForwarderConfig,
   migrateEventForwarderToInHouseConsumer,
@@ -76,6 +79,7 @@ import {
   buildEventForwarderAccessTestDatasource,
   runEventForwarderAccessTest,
 } from "back-end/src/services/eventForwarder/writeAccess";
+import { detectEventForwarderWarehouseRegion } from "back-end/src/services/eventForwarder/detectRegion";
 import {
   pauseEventForwarderThroughLicenseServer,
   provisionEventForwarderThroughLicenseServer,
@@ -232,6 +236,7 @@ export async function postDataSources(
     settings: DataSourceSettings;
     projects?: string[];
     eventForwarderConfig?: EventForwarderConfigDraft | null;
+    eventForwarderRegion?: "us-east-1" | "eu-west-1";
   }>,
   res: Response<
     | {
@@ -246,27 +251,41 @@ export async function postDataSources(
   >,
 ) {
   const context = getContextFromReq(req);
-  const { name, description, type, params, projects, eventForwarderConfig } =
-    req.body;
+  const {
+    name,
+    description,
+    type,
+    params,
+    projects,
+    eventForwarderConfig,
+    eventForwarderRegion,
+  } = req.body;
   const settings = req.body.settings || {};
 
   if (!context.permissions.canCreateDataSource({ projects, type })) {
     context.permissions.throwPermissionError();
   }
 
+  // Set default event properties and queries
+  settings.events = {
+    experimentEvent: "$experiment_started",
+    experimentIdProperty: "Experiment name",
+    variationIdProperty: "Variant name",
+    ...settings?.events,
+  };
+
+  let datasource;
   try {
-    // Before the save, so a refused forwarder leaves no orphan Data Source
-    if (eventForwarderConfig) await assertNoEventForwarderInOrg(context);
-
-    // Set default event properties and queries
-    settings.events = {
-      experimentEvent: "$experiment_started",
-      experimentIdProperty: "Experiment name",
-      variationIdProperty: "Variant name",
-      ...settings?.events,
-    };
-
-    const datasource = await createDataSource(
+    // Before the save, so a refused forwarder leaves no Data Source behind.
+    // A later failure still keeps the Data Source and records the error.
+    if (
+      eventForwarderConfig ||
+      eventForwarderRegion === "us-east-1" ||
+      eventForwarderRegion === "eu-west-1"
+    ) {
+      await assertNoEventForwarderInOrg(context);
+    }
+    datasource = await createDataSource(
       context,
       name,
       type,
@@ -276,37 +295,76 @@ export async function postDataSources(
       description,
       projects,
     );
-    const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
-      datasource.type,
-      params,
-    );
-
-    const syncedEventForwarderConfig =
-      await syncEventForwarderConfigFromDatasource({
-        context,
-        datasource,
-        draft: eventForwarderConfig,
-        datasourceParams: eventForwarderDatasourceParams,
-      });
-    await provisionEventForwarderThroughLicenseServer(
-      context,
-      syncedEventForwarderConfig,
-      eventForwarderDatasourceParams,
-    );
-    const integration = getSourceIntegrationObject(context, datasource);
-
-    res.status(200).json({
-      status: 200,
-      id: datasource.id,
-      datasource: await getDataSourceWithParams(context, integration),
-    });
   } catch (e) {
     req.log.error(e, "Failed to create data source");
     res.status(400).json({
       status: 400,
       message: e.message || "An error occurred",
     });
+    return;
   }
+
+  const eventForwarderDatasourceParams = getEventForwarderDatasourceParams(
+    datasource.type,
+    params,
+  );
+  const forwarderRegion =
+    eventForwarderConfig?.region ??
+    (eventForwarderRegion === "us-east-1" ||
+    eventForwarderRegion === "eu-west-1"
+      ? eventForwarderRegion
+      : undefined);
+
+  if (eventForwarderConfig || forwarderRegion) {
+    try {
+      if (eventForwarderConfig) {
+        const syncedEventForwarderConfig =
+          await syncEventForwarderConfigFromDatasource({
+            context,
+            datasource,
+            draft: eventForwarderConfig,
+            datasourceParams: eventForwarderDatasourceParams,
+          });
+        await provisionEventForwarderThroughLicenseServer(
+          context,
+          syncedEventForwarderConfig,
+          eventForwarderDatasourceParams,
+        );
+      } else if (forwarderRegion) {
+        await createUnconfiguredEventForwarderConfig({
+          context,
+          datasource,
+          region: forwarderRegion,
+        });
+      }
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Event Forwarder setup failed";
+      req.log.error(e, "Data source created, but Event Forwarder setup failed");
+      // Provisioning records its own error. A failure before that row exists
+      // still needs one, or the Data Source page cannot show the step.
+      try {
+        await recordEventForwarderCreateFailure({
+          context,
+          datasource,
+          region: forwarderRegion ?? "us-east-1",
+          message,
+        });
+      } catch (markError) {
+        req.log.error(
+          markError,
+          "Failed to persist Event Forwarder setup error",
+        );
+      }
+    }
+  }
+
+  const integration = getSourceIntegrationObject(context, datasource);
+  res.status(200).json({
+    status: 200,
+    id: datasource.id,
+    datasource: await getDataSourceWithParams(context, integration),
+  });
 }
 
 export async function postManagedWarehouse(
@@ -912,6 +970,38 @@ export async function deleteEventForwarderForDataSource(
       message: e.message || "An error occurred",
     });
   }
+}
+
+export async function postDetectEventForwarderRegion(
+  req: AuthRequest,
+  res: Response,
+) {
+  const parsed = eventForwarderDetectRegionBodySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({
+      status: 400,
+      message: parsed.error.issues.map((i) => i.message).join("; "),
+    });
+  }
+
+  const context = getContextFromReq(req);
+  const { type, projects, location, zerobusEndpoint } = parsed.data;
+  if (!context.permissions.canCreateDataSource({ projects, type })) {
+    context.permissions.throwPermissionError();
+  }
+
+  const detected = await detectEventForwarderWarehouseRegion({
+    type,
+    params: parsed.data.params,
+    location,
+    zerobusEndpoint,
+  });
+
+  res.status(200).json({
+    status: 200,
+    warehouseRegionId: detected?.warehouseRegionId ?? null,
+    growthBookRegion: detected?.growthBookRegion ?? null,
+  });
 }
 
 export async function postTestEventForwarderAccessForCreate(

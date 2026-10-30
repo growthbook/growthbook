@@ -146,6 +146,7 @@ import { savedQueriesRouter } from "./routers/saved-queries/saved-queries.router
 import { projectRouter } from "./routers/project/project.router";
 import { vercelRouter } from "./routers/vercel-native-integration/vercel-native-integration.router";
 import { factTableRouter } from "./routers/fact-table/fact-table.router";
+import { datasourcesRouter } from "./routers/datasources/datasources.router";
 import { slackIntegrationRouter } from "./routers/slack-integration/slack-integration.router";
 import { slackActionsRouter } from "./routers/slack-actions/slack-actions.router";
 import { dataExportRouter } from "./routers/data-export/data-export.router";
@@ -1088,6 +1089,7 @@ app.post(
   "/datasources/event-forwarder/test-access",
   datasourcesController.postTestEventForwarderAccessForCreate,
 );
+app.use(datasourcesRouter);
 app.put("/datasource/:id", datasourcesController.putDataSource);
 app.delete("/datasource/:id", datasourcesController.deleteDataSource);
 app.put(
@@ -1271,6 +1273,7 @@ app.get(
   adminController._dangerousAdminGetOrganizationLicense,
 );
 app.get("/admin/members", adminController._dangerousAdminGetMembers);
+app.get("/admin/user/:userId", adminController._dangerousAdminGetUser);
 app.put("/admin/member", adminController._dangerousAdminPutMember);
 app.post(
   "/admin/sso-connection",

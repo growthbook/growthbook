@@ -10,14 +10,7 @@ export const METRIC_OVERRIDE_COLOR = "var(--blue-9)";
 export const METRIC_OVERRIDE_BORDER_COLOR = "var(--blue-a8)";
 
 // Which setting a row is about, so an override can stand in for it.
-type MetricSettingKey =
-  | "targetMDE"
-  | "window"
-  | "delay"
-  | "winRisk"
-  | "loseRisk"
-  | "cuped"
-  | "prior";
+type MetricSettingKey = "targetMDE" | "window" | "delay" | "cuped" | "prior";
 
 export interface OverrideRow {
   key: MetricSettingKey;
@@ -38,8 +31,6 @@ const prior = (proper?: boolean, mean?: number, stddev?: number) =>
 const LABELS: Record<Exclude<MetricSettingKey, "window">, string> = {
   targetMDE: "Target MDE",
   delay: "Metric delay",
-  winRisk: "Win risk",
-  loseRisk: "Lose risk",
   cuped: "CUPED",
   prior: "Prior",
 };
@@ -81,8 +72,6 @@ export function describeMetricOverride(
     );
   }
   if (o.delayHours !== undefined) rows.push(row("delay", hours(o.delayHours)));
-  if (o.winRisk !== undefined) rows.push(row("winRisk", percent(o.winRisk)));
-  if (o.loseRisk !== undefined) rows.push(row("loseRisk", percent(o.loseRisk)));
   if (o.regressionAdjustmentOverride) {
     rows.push(
       row(
@@ -110,8 +99,6 @@ export interface MetricSettingsInput {
   delayHours: number;
   /** The experiment's analysis ignores conversion windows (not lookbacks). */
   conversionWindowsIgnored: boolean;
-  winRisk: number;
-  loseRisk: number;
   /** Left out where the organization can't use CUPED at all. */
   cuped: { enabled: boolean; days: number } | null;
   prior: { proper: boolean; mean: number; stddev: number };
@@ -119,15 +106,14 @@ export interface MetricSettingsInput {
   targetMDE?: number;
 }
 
-// The settings the override doesn't already cover. Bayesian-only settings are
-// left out under the frequentist engine, which ignores them.
+// The settings the override doesn't already cover. The prior is left out under
+// the frequentist engine, which ignores it.
 export function describeMetricSettings(
   s: MetricSettingsInput,
   statsEngine: StatsEngine,
   override: MetricOverride | undefined,
   targetMDEOverride?: number,
 ): OverrideRow[] {
-  const bayesian = statsEngine === "bayesian";
   const rows: OverrideRow[] = [
     ...(s.targetMDE !== undefined
       ? [row("targetMDE", percent(s.targetMDE))]
@@ -140,14 +126,8 @@ export function describeMetricSettings(
     ),
   ];
   if (s.delayHours) rows.push(row("delay", hours(s.delayHours)));
-  if (bayesian) {
-    rows.push(
-      row("winRisk", percent(s.winRisk)),
-      row("loseRisk", percent(s.loseRisk)),
-    );
-  }
   if (s.cuped) rows.push(row("cuped", cuped(s.cuped.enabled, s.cuped.days)));
-  if (bayesian) {
+  if (statsEngine === "bayesian") {
     rows.push(
       row("prior", prior(s.prior.proper, s.prior.mean, s.prior.stddev)),
     );
@@ -176,8 +156,8 @@ export function getOverriddenMetricIds(
   ]);
 }
 
-// Drops the deprecated window fields older saved overrides still carry, which
-// the override schema refuses.
+// Drops the deprecated window and risk fields older saved overrides still
+// carry, which the override schema refuses.
 export function withoutDeprecatedOverrideFields(
   overrides: LegacyMetricOverride[],
 ): MetricOverride[] {
@@ -185,6 +165,8 @@ export function withoutDeprecatedOverrideFields(
     const current = { ...override };
     delete current.conversionWindowHours;
     delete current.conversionDelayHours;
+    delete current.winRisk;
+    delete current.loseRisk;
     return current;
   });
 }

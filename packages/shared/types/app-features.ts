@@ -137,8 +137,6 @@ export type AppFeatures = {
   "slackbot-enabled": boolean;
   "slackbot-config": Record<string, unknown>;
   "oe-general-agent-gate": boolean;
-  "event-forwarder-multi-step": string;
-  "events-forwarder-multi-step": string;
   "ai-visual-editor-callout": boolean;
   "nps-survey": boolean;
   "home-marketing-banner": Record<string, unknown>;

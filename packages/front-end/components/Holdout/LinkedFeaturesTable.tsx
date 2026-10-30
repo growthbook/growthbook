@@ -1,12 +1,13 @@
 import { HoldoutInterfaceStringDates } from "shared/validators";
-import { Box, Text } from "@radix-ui/themes";
-import { useRouter } from "next/router";
+import { Box } from "@radix-ui/themes";
 import { date } from "shared/dates";
 import { FeatureInterface } from "shared/types/feature";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import Link from "@/ui/Link";
+import Text from "@/ui/Text";
 import ValueDisplay from "@/components/Features/ValueDisplay";
 import { useUser } from "@/services/UserContext";
+import Table, { TableBody, TableCell, TableHeader, TableRow } from "@/ui/Table";
 
 interface Props {
   holdout: HoldoutInterfaceStringDates;
@@ -17,25 +18,22 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
   const { getOwnerDisplay } = useUser();
   const featureItems = useAddComputedFields(
     features,
-    (f) => {
-      return {
-        ...f,
-        ownerNameDisplay: getOwnerDisplay(f.owner),
-        dateAdded: holdout.linkedFeatures[f.id]?.dateAdded,
-        holdoutValue: f.holdout?.value,
-      };
-    },
+    (f) => ({
+      ...f,
+      ownerNameDisplay: getOwnerDisplay(f.owner),
+      dateAdded: holdout.linkedFeatures[f.id]?.dateAdded,
+      holdoutValue: f.holdout?.value,
+    }),
     [getOwnerDisplay, holdout],
   );
 
-  const { items, SortableTH } = useSearch({
+  const { items, SortableTableColumnHeader } = useSearch({
     items: featureItems,
     defaultSortField: "dateAdded",
     localStorageKey: "holdoutLinkedFeatures",
     searchFields: ["id", "ownerNameDisplay", "valueType"],
+    disableUrlSearchTerm: true,
   });
-
-  const router = useRouter();
 
   if (items.length === 0) {
     return (
@@ -50,53 +48,58 @@ const LinkedFeaturesTable = ({ holdout, features }: Props) => {
   }
 
   return (
-    <Box>
-      <table className="appbox table gbtable">
-        <thead>
-          <tr>
-            <SortableTH field="id">Feature Name</SortableTH>
-            <SortableTH field="valueType">Type</SortableTH>
-            <SortableTH field="holdoutValue">Holdout Value</SortableTH>
-            <SortableTH field="ownerNameDisplay">Owner</SortableTH>
-            <SortableTH field="dateCreated">Created</SortableTH>
-            <SortableTH field="dateAdded">In Holdout</SortableTH>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((f) => {
-            return (
-              <tr
-                key={f.id}
-                className="hover-highlight"
-                onClick={(e) => {
-                  e.preventDefault();
-                  router.push(`/features/${f.id}`);
+    <Table variant="list" roundedCorners mt="3">
+      <TableHeader>
+        <TableRow>
+          <SortableTableColumnHeader field="id">
+            Feature Flag
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="valueType">
+            Type
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="holdoutValue">
+            Holdout value
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="ownerNameDisplay">
+            Owner
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="dateCreated">
+            Created
+          </SortableTableColumnHeader>
+          <SortableTableColumnHeader field="dateAdded">
+            Added
+          </SortableTableColumnHeader>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {items.map((f) => (
+          <TableRow key={f.id}>
+            <TableCell style={{ padding: "var(--space-0)" }}>
+              <Link
+                href={`/features/${f.id}`}
+                style={{
+                  padding: "var(--space-3)",
+                  display: "block",
+                  color: "var(--color-text-high)",
                 }}
-                style={{ cursor: "pointer" }}
               >
-                <td data-title="Feature Name" className="col-2">
-                  <Link href={`/features/${f.id}`}>{f.id}</Link>
-                </td>
-                <td data-title="Type">{f.valueType}</td>
-                <td data-title="Holdout Value">
-                  <ValueDisplay
-                    value={f.holdoutValue ?? f.defaultValue}
-                    type={f.valueType}
-                  />
-                </td>
-                <td data-title="Owner" className="col-2">
-                  {f.ownerNameDisplay}
-                </td>
-                <td data-title="Created">{date(f.dateCreated)}</td>
-                <td data-title="Date Added">
-                  {f.dateAdded ? date(f.dateAdded) : ""}
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </Box>
+                {f.id}
+              </Link>
+            </TableCell>
+            <TableCell>{f.valueType}</TableCell>
+            <TableCell>
+              <ValueDisplay
+                value={f.holdoutValue ?? f.defaultValue}
+                type={f.valueType}
+              />
+            </TableCell>
+            <TableCell>{f.ownerNameDisplay}</TableCell>
+            <TableCell>{date(f.dateCreated)}</TableCell>
+            <TableCell>{f.dateAdded ? date(f.dateAdded) : ""}</TableCell>
+          </TableRow>
+        ))}
+      </TableBody>
+    </Table>
   );
 };
 

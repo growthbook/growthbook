@@ -12,8 +12,8 @@ const ImportingFromExternalServicesPage: NextPage = () => {
   return (
     <SettingsPage
       title="Import Your Data"
-      breadcrumb={[{ display: "Settings" }, { display: "Import Your Data" }]}
-      description="Bring in data from another feature flag or experimentation service."
+      section="import"
+      description="Bring features, experiments, and metrics over from another feature flag or experimentation tool."
     >
       <ImportYourData />
     </SettingsPage>

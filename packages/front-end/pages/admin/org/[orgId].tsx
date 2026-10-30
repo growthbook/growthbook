@@ -1,4 +1,4 @@
-import { Fragment, ReactNode, useState } from "react";
+import { ReactNode, useState } from "react";
 import { useRouter } from "next/router";
 import { Box, Flex, Grid } from "@radix-ui/themes";
 import stringify from "json-stringify-pretty-compact";
@@ -10,7 +10,7 @@ import { UserInterface } from "shared/types/user";
 import { SSOConnectionInterface } from "shared/types/sso-connection";
 import { DataSourceInterface } from "shared/types/datasource";
 import { SuperAdminPermission } from "shared/validators";
-import { hasSuperAdminPermission } from "shared/permissions";
+import { getDefaultRole, hasSuperAdminPermission } from "shared/permissions";
 import {
   AdminOrgSummary,
   getAdminOrgSummary,
@@ -37,6 +37,7 @@ import EditOrganization from "@/components/Admin/EditOrganization";
 import EditMember, { AdminMember } from "@/components/Admin/EditMember";
 import EditSSOModal from "@/components/Admin/EditSSOModal";
 import BannerModal from "@/components/Admin/BannerModal";
+import KeyValues from "@/components/Admin/KeyValues";
 import { PlanBadge, StatusBadge } from "@/components/Admin/OrgBadges";
 import Badge from "@/ui/Badge";
 import Button from "@/ui/Button";
@@ -187,6 +188,7 @@ function OrganizationDetail({
       email: user?.email ?? "",
       verified: !!user?.verified,
       superAdmin: user?.superAdmin ?? false,
+      authSubject: user?.authSubject,
     };
   });
   const search = memberSearch.trim().toLowerCase();
@@ -200,6 +202,21 @@ function OrganizationDetail({
   const settings = org.settings ?? {};
   const schedule = settings.updateSchedule;
   const requireReviews = settings.requireReviews;
+  // Shown in two columns of five
+  const usage = (
+    [
+      ["Projects", counts.projects],
+      ["Feature Flags", counts.features],
+      ["Experiments", counts.experiments],
+      ["SDK Connections", counts.sdkConnections],
+      ["Data Sources", datasources.length],
+      ["Namespaces", settings.namespaces?.length ?? 0],
+      ["Saved Groups", counts.savedGroups],
+      ["Custom roles", org.customRoles?.length ?? 0],
+      ["North Star metrics", settings.northStar?.metricIds?.length ?? 0],
+      ["Attributes", settings.attributeSchema?.length ?? 0],
+    ] as const
+  ).map(([label, value]) => ({ label, value: value.toLocaleString() }));
 
   const logIn = () => {
     setOrgId?.(org.id);
@@ -459,9 +476,6 @@ function OrganizationDetail({
             <Text color="text-mid" size="sm">
               Created {date(org.dateCreated)}
             </Text>
-            <Text color="text-mid" size="sm">
-              Owner {org.ownerEmail}
-            </Text>
           </Flex>
         </Flex>
         <Flex gap="2">
@@ -513,19 +527,6 @@ function OrganizationDetail({
           </Flex>
         </Frame>
       ))}
-
-      <Grid columns="repeat(auto-fit, minmax(150px, 1fr))" gap="3" mb="4">
-        <StatCard
-          label="Members"
-          value={org.members.length}
-          suffix={summary.seats ? `of ${summary.seats} seats` : undefined}
-        />
-        <StatCard label="Projects" value={counts.projects} />
-        <StatCard label="Feature Flags" value={counts.features} />
-        <StatCard label="Experiments" value={counts.experiments} />
-        <StatCard label="SDK Connections" value={counts.sdkConnections} />
-        <StatCard label="Data Sources" value={datasources.length} />
-      </Grid>
 
       <Flex gap="4" wrap="wrap" align="start">
         <Flex direction="column" flexGrow="999" flexBasis="640px" minWidth="0">
@@ -583,9 +584,15 @@ function OrganizationDetail({
                   </TableRow>
                 ) : (
                   filteredMembers.map((m) => (
-                    <TableRow key={m.id} style={{ whiteSpace: "nowrap" }}>
-                      <TableCell>{m.name || "-"}</TableCell>
-                      <TableCell>{m.email || "-"}</TableCell>
+                    <TableRow key={m.id}>
+                      <TableCell style={{ overflowWrap: "anywhere" }}>
+                        <Link href={`/admin/user/${m.id}`}>
+                          {m.name || "-"}
+                        </Link>
+                      </TableCell>
+                      <TableCell style={{ overflowWrap: "anywhere" }}>
+                        {m.email || "-"}
+                      </TableCell>
                       <TableCell>{m.role}</TableCell>
                       <TableCell>
                         {m.lastLoginDate ? date(m.lastLoginDate) : "-"}
@@ -607,6 +614,14 @@ function OrganizationDetail({
                 )}
               </TableBody>
             </Table>
+          </Frame>
+
+          <Frame py="4" px="5">
+            {cardHeading("Usage")}
+            <Grid columns={{ initial: "1", md: "2" }} gapX="6" gapY="2">
+              <KeyValues items={usage.slice(0, 5)} />
+              <KeyValues items={usage.slice(5)} />
+            </Grid>
           </Frame>
 
           <Frame py="4" px="5">
@@ -646,14 +661,6 @@ function OrganizationDetail({
                     value: onOff(settings.useStickyBucketing),
                   },
                   {
-                    label: "North Star metrics",
-                    value: settings.northStar?.metricIds?.length ?? 0,
-                  },
-                  {
-                    label: "Namespaces",
-                    value: settings.namespaces?.length ?? 0,
-                  },
-                  {
                     label: "AI enabled",
                     value: settings.aiEnabled ? "Yes" : "No",
                   },
@@ -676,18 +683,10 @@ function OrganizationDetail({
                     ),
                   },
                   {
-                    label: "Attributes",
-                    value: settings.attributeSchema?.length ?? 0,
-                  },
-                  { label: "Saved Groups", value: counts.savedGroups },
-                  {
                     label: "Code references",
                     value: onOff(settings.codeReferencesEnabled),
                   },
-                  {
-                    label: "Custom roles",
-                    value: org.customRoles?.length ?? 0,
-                  },
+                  { label: "Default role", value: getDefaultRole(org).role },
                 ]}
               />
             </Grid>
@@ -708,8 +707,9 @@ function OrganizationDetail({
               </Callout>
             )}
             <KeyValues
-              items={
-                isCloud()
+              items={[
+                { label: "Owner", value: org.ownerEmail },
+                ...(isCloud()
                   ? [
                       {
                         label: "Plan",
@@ -751,8 +751,10 @@ function OrganizationDetail({
                         value: onOff(!org.disableSelfServeBilling),
                       },
                     ]
-                  : [{ label: "External ID", value: org.externalId || "None" }]
-              }
+                  : [
+                      { label: "External ID", value: org.externalId || "None" },
+                    ]),
+              ]}
             />
           </Frame>
 
@@ -777,7 +779,11 @@ function OrganizationDetail({
                       },
                       {
                         label: "Required",
-                        value: org.restrictLoginMethod ? "Yes" : "No",
+                        value: !org.restrictLoginMethod
+                          ? "No"
+                          : org.restrictLoginMethod === ssoConnection?.id
+                            ? "Yes"
+                            : `Yes, via ${org.restrictLoginMethod}`,
                       },
                       {
                         label: "Email domains",
@@ -899,50 +905,5 @@ function OrganizationDetail({
         </Flex>
       </Flex>
     </Box>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  suffix,
-}: {
-  label: string;
-  value: number;
-  suffix?: string;
-}) {
-  return (
-    <Frame mb="0" py="3" px="4">
-      <Text as="div" color="text-mid" size="sm">
-        {label}
-      </Text>
-      <Flex align="baseline" gap="2">
-        <Text size="xl" weight="semibold">
-          {value.toLocaleString()}
-        </Text>
-        {suffix && (
-          <Text color="text-mid" size="sm">
-            {suffix}
-          </Text>
-        )}
-      </Flex>
-    </Frame>
-  );
-}
-
-function KeyValues({
-  items,
-}: {
-  items: { label: string; value: ReactNode }[];
-}) {
-  return (
-    <Grid columns="max-content minmax(0, 1fr)" gapX="4" gapY="2" align="center">
-      {items.map(({ label, value }) => (
-        <Fragment key={label}>
-          <Text color="text-mid">{label}</Text>
-          <Box style={{ overflowWrap: "anywhere" }}>{value}</Box>
-        </Fragment>
-      ))}
-    </Grid>
   );
 }

@@ -22,7 +22,7 @@ import type {
   RevisionTargetType,
   Revision,
   JsonPatchOperation,
-} from "../../../src/enterprise/validators/revisions";
+} from "../../../src/validators/revisions";
 
 // Helper to create a mock revision
 const createRevision = (overrides: Partial<Revision> = {}): Revision =>
@@ -629,7 +629,7 @@ describe("revisions helpers", () => {
           proposedChanges: [
             { op: "replace", path: "/managedBy", value: "admin" },
           ] as JsonPatchOperation[],
-        },
+        } as Revision["target"],
       });
       // Live entity says team — but the revision proposes "admin",
       // so the admin path should be used.
@@ -654,7 +654,7 @@ describe("revisions helpers", () => {
           proposedChanges: [
             { op: "replace", path: "/ownerTeam", value: "team-1" },
           ] as JsonPatchOperation[],
-        },
+        } as Revision["target"],
       });
       const result = canUserReviewEntity({
         entityType: otherType,
@@ -800,7 +800,7 @@ describe("revisions helpers", () => {
           id: "const-1",
           snapshot: { project: "prj_a" } as Record<string, unknown>,
           proposedChanges: [],
-        },
+        } as unknown as Revision["target"],
       });
       const settings = (blockSelfApproval: boolean) =>
         ({
@@ -891,7 +891,7 @@ describe("revisions helpers", () => {
         ],
       } as unknown as OrganizationSettings;
       expect(
-        isAutopublishOnApprovalEnabled(settings, "constant", "prj_a"),
+        isAutopublishOnApprovalEnabled(settings, "constant", ["prj_a"]),
       ).toBe(true);
     });
   });
