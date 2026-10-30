@@ -355,11 +355,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
               href={`/attributes/${encodeURIComponent(v.property)}`}
               style={{ color: "var(--gray-12)" }}
             >
-              <TruncateMiddleWithTooltip
-                text={v.property}
-                maxChars={truncateCharsForWidth(width)}
-                maxWidth="100%"
-              />
+              <Text mono>
+                <TruncateMiddleWithTooltip
+                  text={v.property}
+                  maxChars={truncateCharsForWidth(width)}
+                  maxWidth="100%"
+                />
+              </Text>
             </Link>{" "}
             {v.archived && (
               <span className="badge badge-secondary" style={{ marginLeft: 8 }}>
@@ -373,7 +375,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
         id: "description",
         label: "Description",
         sortField: "description",
-        defaultWidth: 240,
+        defaultWidth: 360,
         cellProps: () => ({ className: "text-gray" }),
         render: (v) =>
           v.description ? (
@@ -382,7 +384,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
             <ClampedCell tooltip={v.description} clampLines={2}>
               <Markdown className="mb-0">{v.description}</Markdown>
             </ClampedCell>
-          ) : null,
+          ) : (
+            <Text color="text-low">—</Text>
+          ),
       },
       {
         id: "datatype",
@@ -626,7 +630,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                     {/* Same widths as the attributes table, with the spacer
                         taking the leftover so description doesn't. */}
                     <col style={{ width: 200 }} />
-                    <col style={{ width: 240 }} />
+                    <col style={{ width: 360 }} />
                     <col style={{ width: 170 }} />
                     <col style={{ width: 130 }} />
                     <col style={{ width: 130 }} />
@@ -668,11 +672,13 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                 href={`/attributes/${encodeURIComponent(v.property)}`}
                                 style={{ color: "var(--gray-12)" }}
                               >
-                                <TruncateMiddleWithTooltip
-                                  text={v.property}
-                                  maxChars={truncateCharsForWidth(200)}
-                                  maxWidth="100%"
-                                />
+                                <Text mono>
+                                  <TruncateMiddleWithTooltip
+                                    text={v.property}
+                                    maxChars={truncateCharsForWidth(200)}
+                                    maxWidth="100%"
+                                  />
+                                </Text>
                               </Link>
                               {v.archived && (
                                 <Badge label="Archived" color="gray" />
@@ -689,7 +695,9 @@ const FeatureAttributesPage = (): React.ReactElement => {
                                   {v.description}
                                 </Markdown>
                               </ClampedCell>
-                            ) : null}
+                            ) : (
+                              <Text color="text-low">—</Text>
+                            )}
                           </TableCell>
                           <TableCell className="text-gray">
                             {v.datatype}
@@ -722,13 +730,14 @@ const FeatureAttributesPage = (): React.ReactElement => {
                             </div>
                           </TableCell>
                           <TableCell className="text-gray">
-                            {experiments === undefined
-                              ? null
-                              : `${experiments} ${
-                                  experiments === 1
-                                    ? "experiment"
-                                    : "experiments"
-                                }`}
+                            {experiments === undefined ? null : experiments ===
+                              0 ? (
+                              <Text color="text-low">Not used</Text>
+                            ) : (
+                              `${experiments} ${
+                                experiments === 1 ? "experiment" : "experiments"
+                              }`
+                            )}
                           </TableCell>
                           <TableCell />
                           <TableCell
