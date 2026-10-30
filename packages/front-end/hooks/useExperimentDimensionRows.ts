@@ -18,6 +18,7 @@ import {
   funnelStepMetricId,
   resolveMetricsForSnapshot,
   resolveSnapshotMetricIds,
+  getSliceDataForMetric,
   SliceDataForMetric,
 } from "shared/experiments";
 import { useDefinitions } from "@/services/DefinitionsContext";
@@ -32,7 +33,6 @@ import { SSRPolyfills } from "@/hooks/useSSRPolyfills";
 import { useOrganizationMetricDefaults } from "@/hooks/useOrganizationMetricDefaults";
 import {
   filterMetricsByTags,
-  getSliceDataForMetric,
   getSliceRowLabel,
   sortMetricsByCustomOrder,
   sortMetricsByTags,
@@ -396,7 +396,7 @@ export function useExperimentDimensionRows({
               metric,
               metricName: newMetric?.name || "",
               customMetricSlices,
-              getFactTableById,
+              getFactTable: getFactTableById,
             }),
           }),
         };
