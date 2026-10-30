@@ -7,8 +7,16 @@
 .versionContent {
   display: flex;
   flex: 1;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
   color: var(--slate-11);
+
+  // The text fills the row, so the external icon sits on its right edge, as
+  // on the other links (SidebarMenu.module.scss).
+  > :first-child {
+    flex-grow: 1;
+  }
 }
 
 .versionItem:hover .versionContent,

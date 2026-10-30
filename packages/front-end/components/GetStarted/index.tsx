@@ -278,7 +278,7 @@ const GetStartedAndHomePage = ({
         />
       )}
 
-      <Box py={{ initial: "1", xs: "3", sm: "6" }}>
+      <Box>
         {showMarketingBanner && <HomeMarketingBanner />}
         <Grid
           className={createInColumn ? styles.withCreate : undefined}

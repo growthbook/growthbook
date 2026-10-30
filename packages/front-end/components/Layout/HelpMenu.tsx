@@ -136,6 +136,11 @@ export default function HelpMenu({
                     <VisuallyHidden> (opens in a new tab)</VisuallyHidden>
                   </span>
                 </Text>
+                <PiArrowSquareOutBold
+                  size={12}
+                  className={styles.externalIcon}
+                  aria-hidden="true"
+                />
               </span>
             ),
           },

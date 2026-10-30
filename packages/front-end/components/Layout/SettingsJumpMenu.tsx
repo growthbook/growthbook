@@ -119,9 +119,13 @@ export function SettingsPageTop() {
   if (!narrow) return null;
   return (
     <>
-      <Heading as="h2" size="2xl" mb="2">
-        Settings
-      </Heading>
+      {/* Seen, not heard: the page's own h1 heads it (an h2 here would come
+          first, and larger), and the menu's name starts with "Settings". */}
+      <div aria-hidden="true">
+        <Heading as="h2" size="2xl" mb="2">
+          Settings
+        </Heading>
+      </div>
       <div className={styles.pinned}>
         <SettingsJumpMenu />
       </div>

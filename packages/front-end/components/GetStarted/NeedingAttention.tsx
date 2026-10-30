@@ -373,7 +373,7 @@ const NeedingAttention = ({
 
     return (
       // Spaced from Recent; first on the page without it.
-      <Box className={showsRecent ? "mt-5" : undefined}>
+      <Box mt={showsRecent ? "8" : undefined}>
         <Flex direction="row" align="center">
           <Text size="4" weight="medium">
             Experiments requiring attention
