@@ -230,12 +230,22 @@ export default function HealthTab({
       const hasClusterIssueData =
         !!snapshot.health?.clusterAssignment ||
         !!snapshot.health?.clusterSubUnitMapping;
+      const clusterNoun =
+        snapshot.settings.exposureQueryIdentifierType || "cluster";
       return (
         <>
-          <Callout status="info" mt="3">
-            No data found. It is likely there are no units in your experiment
-            yet.
-          </Callout>
+          {hasClusterIssueData ? (
+            <Callout status="warning" mt="3">
+              No units remain after the cluster checks below removed every
+              inconsistent {clusterNoun}. Fix the issues below, then refresh
+              results.
+            </Callout>
+          ) : (
+            <Callout status="info" mt="3">
+              No data found. It is likely there are no units in your experiment
+              yet.
+            </Callout>
+          )}
           {hasClusterIssueData ? (
             <ClusterIssueCards
               snapshot={snapshot}
