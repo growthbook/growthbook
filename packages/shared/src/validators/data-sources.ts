@@ -118,3 +118,96 @@ export const getDataSourceValidator = {
   method: "get" as const,
   path: "/data-sources/:id",
 };
+
+const nonEmptyString = z.string().min(1);
+
+export const putDataSourceSettingsBody = z
+  .object({
+    identifierTypes: z
+      .array(
+        z
+          .object({
+            id: nonEmptyString,
+            description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+          })
+          .strict(),
+      )
+      .optional()
+      .describe(
+        "The whole list, in order. Replaces the stored list. A stored identifier type, matched by `id`, only changes its `description`.",
+      ),
+    assignmentQueries: z
+      .array(
+        z
+          .object({
+            id: nonEmptyString,
+            name: nonEmptyString,
+            description: z.string().max(MAX_DESCRIPTION_LENGTH).optional(),
+            identifierTypes: z.array(nonEmptyString).min(1),
+            sql: nonEmptyString,
+            includesNameColumns: z.boolean().optional(),
+            dimensionColumns: z.array(z.string()).optional(),
+            projects: z.array(z.string()).optional(),
+            columnMapping: exposureQueryColumnMappingValidator.optional(),
+            identifierType: z
+              .string()
+              .optional()
+              .describe("Read-only. Accepted and ignored."),
+            error: z
+              .string()
+              .nullable()
+              .optional()
+              .describe("Read-only. Accepted and ignored."),
+          })
+          .strict(),
+      )
+      .optional()
+      .describe(
+        "Added or updated by `id`. Stored queries not listed are kept. A field left out keeps its stored value. If you can't edit the whole Data Source, an added query gets a new id, returned in the response.",
+      ),
+    identifierJoinQueries: z
+      .array(
+        z
+          .object({
+            identifierTypes: z.array(nonEmptyString).min(2),
+            sql: nonEmptyString,
+          })
+          .strict(),
+      )
+      .optional()
+      .describe("The whole list, in order. Replaces the stored list."),
+    dryRun: z
+      .boolean()
+      .optional()
+      .describe(
+        "Run every check and test, and return what would be saved, without saving.",
+      ),
+  })
+  .strict();
+
+export type PutDataSourceSettingsBody = z.infer<
+  typeof putDataSourceSettingsBody
+>;
+
+export const putDataSourceSettingsValidator = {
+  bodySchema: putDataSourceSettingsBody,
+  querySchema: z.never(),
+  paramsSchema: idParams,
+  responseSchema: z
+    .object({
+      dataSource: apiDataSourceValidator,
+      changed: z
+        .boolean()
+        .describe(
+          "Whether this call saved a change, or with `dryRun` would have.",
+        ),
+    })
+    .strict(),
+  summary: "Set a data source's identifier types, joins and assignment queries",
+  description:
+    "Each list is optional, and a list left out stays as it is. Every assignment query or identifier join query the request adds or changes is first run against the warehouse, reading no rows. If one fails, nothing is saved and the error names the query.",
+  operationId: "putDataSourceSettings",
+  tags: ["data-sources"],
+  method: "put" as const,
+  path: "/data-sources/:id/settings",
+};

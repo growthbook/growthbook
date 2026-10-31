@@ -823,12 +823,15 @@ export async function updateDataSource(
     skipExposureQueryValidation = false,
     forceCheckValidity = false,
     skipEventForwarderManagedValidation = false,
+    dryRun = false,
   }: {
     skipExposureQueryValidation?: boolean;
     forceCheckValidity?: boolean;
     skipEventForwarderManagedValidation?: boolean;
+    /** Run every check and return the updates as they'd be saved, writing nothing. */
+    dryRun?: boolean;
   } = {},
-) {
+): Promise<Partial<DataSourceInterface>> {
   if (usingFileConfig()) {
     throw new Error("Cannot update. Data sources managed by config.yml");
   }
@@ -866,8 +869,8 @@ export async function updateDataSource(
     validatePipelineSettingsInvariants(updates.settings.pipelineSettings);
   }
 
-  if (!hasActualChanges(datasource, updates)) {
-    return;
+  if (dryRun || !hasActualChanges(datasource, updates)) {
+    return updates;
   }
 
   // Several service callers mutate `settings` without stamping dateUpdated;
@@ -903,6 +906,7 @@ export async function updateDataSource(
       updates.projects ?? datasource.projects,
     ),
   );
+  return updates;
 }
 
 // WARNING: This does not restrict by organization

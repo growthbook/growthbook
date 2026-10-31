@@ -122,6 +122,8 @@ export type QueryType =
   | "exposureQueryValidation"
   // Validates new or changed feature usage queries when a data source is saved
   | "featureUsageQueryValidation"
+  // Validates new or changed identifier join queries when a data source is saved
+  | "identityJoinQueryValidation"
   // Datasource connectivity probe (SELECT 1)
   | "connectionTest"
   // Schema introspection: list tables + column counts

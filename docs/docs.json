@@ -630,6 +630,7 @@
                 "pages": [
                   "api/data-sources/operation/listDataSources",
                   "api/data-sources/operation/getDataSource",
+                  "api/data-sources/operation/putDataSourceSettings",
                   "api/data-sources/operation/getInformationSchema",
                   "api/data-sources/operation/searchWarehouseTables",
                   "api/data-sources/operation/getWarehouseTableSchema",
