@@ -2226,6 +2226,43 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
   });
 
+  it("flags sub-unit multiple exposures even when the traffic query leaves zero units", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+            // Present but healthy, so this is a cluster summary and the only
+            // unhealthy signal is the sub-unit multiple exposures.
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // 200 / 10,000 = 2% > 1% threshold -> unhealthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 200,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        multipleExposures: {
+          rawDecimal: 0.02,
+          multipleExposedUsers: 200,
+        },
+      },
+      tooltip: "Sub-unit multiple exposures",
+    });
+  });
+
   it("does not flag sub-unit multiple exposures below the threshold for cluster experiments", () => {
     const result = getExperimentResultStatus({
       experimentData: makeExperimentData({

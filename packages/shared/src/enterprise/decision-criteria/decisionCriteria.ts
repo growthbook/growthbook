@@ -743,6 +743,23 @@ export function getExperimentResultStatus({
     }
   }
 
+  if (!healthSummary?.totalUsers && healthSummary?.subUnitMultipleExposures) {
+    const { multipleExposedSubUnits, totalSubUnits } =
+      healthSummary.subUnitMultipleExposures;
+    const multipleExposuresHealthData = getMultipleExposureHealthData({
+      multipleExposuresCount: multipleExposedSubUnits,
+      totalUsersCount: totalSubUnits,
+      minCountThreshold: DEFAULT_MULTIPLE_EXPOSURES_ENOUGH_DATA_THRESHOLD,
+      minPercentThreshold: healthSettings.multipleExposureMinPercent,
+    });
+    if (multipleExposuresHealthData.status === "unhealthy") {
+      unhealthyData.multipleExposures = {
+        rawDecimal: multipleExposuresHealthData.rawDecimal,
+        multipleExposedUsers: multipleExposedSubUnits,
+      };
+    }
+  }
+
   const isClusterSummary = !!(
     healthSummary?.clusterAssignment ||
     healthSummary?.clusterSubUnitMapping ||
