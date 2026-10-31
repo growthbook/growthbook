@@ -129,6 +129,7 @@ import { savedGroupRouter } from "./routers/saved-group/saved-group.router";
 import { ArchetypeRouter } from "./routers/archetype/archetype.router";
 import { learningsRouter } from "./routers/learnings/learnings.router";
 import { confirmationsRouter } from "./routers/confirmations/confirmations.router";
+import { pageLoadRouter } from "./routers/page-load/page-load.router";
 import { AttributeRouter } from "./routers/attributes/attributes.router";
 import { customFieldsRouter } from "./routers/custom-fields/custom-fields.router";
 import {
@@ -607,6 +608,9 @@ if (OAUTH_AS_ENABLED) {
 
 // Organization and Settings
 app.use(organizationsRouter);
+
+// Browser page load timings, written to the log
+app.use("/page-load", pageLoadRouter);
 
 app.use("/environment", environmentRouter);
 app.use("/auto-runs", autoRunRouter);
