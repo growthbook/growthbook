@@ -617,6 +617,12 @@ tags:
   - name: attributes
     x-displayName: Attributes
     description: Used when targeting feature flags and experiments.
+  - name: tags
+    x-displayName: Tags
+    description: >-
+      Tags label features, experiments, metrics and other resources. Writes that
+      name a new tag still create it; these endpoints list tags and set a tag's
+      color and description.
   - name: usage
     x-displayName: Usage
     description: Usage information for metrics in experiments.
@@ -1047,6 +1053,9 @@ tags:
   - name: Settings_model
     x-displayName: Settings
     description: <SchemaDefinition schemaRef="#/components/schemas/Settings" />
+  - name: Tag_model
+    x-displayName: Tag
+    description: <SchemaDefinition schemaRef="#/components/schemas/Tag" />
   - name: Targeting Rule_model
     x-displayName: Targeting Rule
     description: <SchemaDefinition schemaRef="#/components/schemas/Targeting Rule" />
@@ -40432,6 +40441,90 @@ paths:
             curl -X POST
             'https://api.growthbook.io/api/v1/namespaces/ns-abc123/rotateSeed' \
               -H 'Authorization: Bearer YOUR_API_KEY'
+  /v1/tags:
+    get:
+      operationId: listTags
+      summary: Get all tags
+      description: >-
+        Lists every tag in the organization in stored order. Not paginated. Any
+        API key in the organization can read tags.
+      tags:
+        - tags
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tags:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Tag'
+                required:
+                  - tags
+                additionalProperties: false
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X GET 'https://api.growthbook.io/api/v1/tags' \
+              -H 'Authorization: Bearer YOUR_API_KEY'
+    post:
+      operationId: postTag
+      summary: Create or update a tag
+      description: >-
+        Adds the tag if `id` is new, otherwise changes the existing tag. A field
+        left out is empty on a new tag and keeps its current value on an
+        existing one; an existing tag with no stored color gets `#029dd1`. Needs
+        the Manage Tags permission in the organization-wide role.
+      tags:
+        - tags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  description: The tag's name.
+                  type: string
+                  minLength: 2
+                  maxLength: 64
+                color:
+                  description: >-
+                    A color name such as `blue`, or a hex value. Not checked.
+                    Send `""` to clear a stored color.
+                  type: string
+                description:
+                  type: string
+                  maxLength: 256
+              required:
+                - id
+              additionalProperties: false
+      responses:
+        '200':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  tag:
+                    $ref: '#/components/schemas/Tag'
+                required:
+                  - tag
+                additionalProperties: false
+        '202':
+          $ref: '#/components/responses/ConfirmationHeld'
+      x-codeSamples:
+        - lang: cURL
+          source: |-
+            curl -X POST 'https://api.growthbook.io/api/v1/tags' \
+              -H 'Authorization: Bearer YOUR_API_KEY' \
+              -H 'Content-Type: application/json' \
+              -d '{"id":"checkout","color":"blue","description":"Anything that touches the checkout flow"}'
   /v1/transform-copy:
     post:
       operationId: postCopyTransform
@@ -79358,6 +79451,24 @@ components:
         - status
         - ranges
       additionalProperties: false
+    Tag:
+      type: object
+      properties:
+        id:
+          description: The tag's name.
+          type: string
+        color:
+          description: >-
+            A color name such as `blue`, or a hex value. List results show tags
+            with no color as `#029dd1`.
+          type: string
+        description:
+          type: string
+      required:
+        - id
+        - color
+        - description
+      additionalProperties: false
     Dashboard:
       type: object
       properties:
@@ -90535,6 +90646,7 @@ x-tagGroups:
       - queries
       - settings
       - attributes
+      - tags
       - usage
       - meta
       - ContextualBandits
@@ -90661,6 +90773,7 @@ x-tagGroups:
       - SdkConnection_model
       - Segment_model
       - Settings_model
+      - Tag_model
       - Targeting Rule_model
       - TargetingReviewRule_model
       - Team_model
