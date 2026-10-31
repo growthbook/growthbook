@@ -2,6 +2,7 @@ import md5 from "md5";
 import { isEqual } from "lodash";
 import {
   ExperimentMetricInterface,
+  getAggregateFilters,
   getAutoSliceMetrics,
   getFactMetricPrimaryFactTableId,
   getFactTableTimestampColumn,
@@ -414,7 +415,11 @@ export function getMetricSettingsHashForAggregatedFactTable({
     factMetric.denominator.factTableId === factTableId;
 
   // Only the column-ref parts that change stored data type / column name. The
-  // aggregate-filter threshold is omitted (it changes values, not schema).
+  // aggregate-filter threshold is omitted (it changes values, not schema), but
+  // the filter column is what gets summed and stored (and decides whether it's
+  // an integer or float column), so it's included while a filter is active.
+  // Omitted otherwise (JSON.stringify drops undefined) so hashes for metrics
+  // without an aggregate filter stay byte-identical.
   const schemaBreakingColumnRef = (
     ref: FactMetricInterface["numerator"] | null | undefined,
   ) =>
@@ -423,6 +428,13 @@ export function getMetricSettingsHashForAggregatedFactTable({
           factTableId: ref.factTableId,
           column: ref.column,
           aggregation: ref.aggregation,
+          aggregateFilterColumn: getAggregateFilters({
+            columnRef: ref,
+            column: ref.column,
+            ignoreInvalid: true,
+          }).length
+            ? ref.aggregateFilterColumn
+            : undefined,
         }
       : null;
 
