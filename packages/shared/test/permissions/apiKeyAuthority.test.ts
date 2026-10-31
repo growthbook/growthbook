@@ -3,6 +3,7 @@ import {
   canApplyExpirationPolicy,
   canManageApiKeySecret,
   canSetApiKeyDisabled,
+  apiKeyRolesRefusal,
   changesApiKeyAuthority,
 } from "../../src/permissions/apiKeyAuthority";
 import { Policy, permissionsFromRole } from "../../src/permissions";
@@ -262,5 +263,183 @@ describe("changesApiKeyAuthority", () => {
         { ...stored, confirmRules: null },
       ),
     ).toBe(true);
+  });
+});
+
+describe("changesApiKeyAuthority ordering", () => {
+  const rule = (role: string, environments: string[] = []) => ({
+    role,
+    limitAccessByEnvironment: environments.length > 0,
+    environments,
+  });
+  const stored = {
+    role: "readonly",
+    limitAccessByEnvironment: false,
+    environments: [],
+    additionalRoles: [rule("engineer", ["a", "b"]), rule("analyst")],
+    projectRoles: [
+      { project: "p1", ...rule("engineer"), additionalRoles: [] },
+      { project: "p2", ...rule("analyst") },
+    ],
+  };
+
+  it("ignores reordered rules, Projects and nested environments", () => {
+    expect(
+      changesApiKeyAuthority(stored, {
+        ...stored,
+        additionalRoles: [rule("analyst"), rule("engineer", ["b", "a"])],
+        projectRoles: [
+          { project: "p2", ...rule("analyst"), additionalRoles: [] },
+          { project: "p1", ...rule("engineer") },
+        ],
+      }),
+    ).toBe(false);
+  });
+
+  it("counts a changed Project rule", () => {
+    expect(
+      changesApiKeyAuthority(stored, {
+        ...stored,
+        projectRoles: [
+          { project: "p1", ...rule("analyst") },
+          { project: "p2", ...rule("analyst") },
+        ],
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("apiKeyRolesRefusal", () => {
+  const customRole = (id: string, policies: Policy[]) => ({
+    id,
+    displayName: id,
+    description: "",
+    policies,
+  });
+  const org = {
+    customRoles: [
+      customRole("keyCreator", ["ReadData", "APIKeysCreate"]),
+      customRole("keyManager", ["ReadData", "APIKeysEdit"]),
+      customRole("keyDeleter", ["ReadData", "APIKeysDelete"]),
+      customRole("tokenManager", ["ReadData", "APIKeysMemberTokens"]),
+      customRole("keyViewer", ["ReadData", "APIKeysView"]),
+      customRole("settingsEditor", ["GeneralSettingsFullAccess"]),
+      customRole("teamAdmin", ["TeamManagementFullAccess"]),
+      customRole("roleEditor", ["CustomRolesFullAccess"]),
+    ],
+  };
+  const base = {
+    role: "engineer",
+    limitAccessByEnvironment: false,
+    environments: [],
+    additionalRoles: [],
+    projectRoles: [],
+  };
+  const rule = (role: string, limitAccessByEnvironment = false) => ({
+    role,
+    limitAccessByEnvironment,
+    environments: limitAccessByEnvironment ? ["production"] : [],
+  });
+
+  it("allows ordinary roles", () => {
+    expect(
+      apiKeyRolesRefusal(
+        {
+          ...base,
+          limitAccessByEnvironment: true,
+          environments: ["production"],
+          additionalRoles: [rule("analyst")],
+          projectRoles: [
+            { project: "p1", ...rule("collaborator") },
+            { project: "p2", ...rule("readonly"), additionalRoles: [] },
+          ],
+        },
+        org,
+      ),
+    ).toBeNull();
+  });
+
+  it("refuses admin anywhere, with its path", () => {
+    expect(apiKeyRolesRefusal({ ...base, role: "admin" }, org)).toBe(
+      "The admin role can't be given to an API key through this endpoint (role).",
+    );
+    expect(
+      apiKeyRolesRefusal(
+        {
+          ...base,
+          projectRoles: [
+            {
+              project: "p1",
+              ...rule("readonly"),
+              additionalRoles: [rule("analyst"), rule("admin")],
+            },
+          ],
+        },
+        org,
+      ),
+    ).toBe(
+      "The admin role can't be given to an API key through this endpoint (projectRoles[0].additionalRoles[1]).",
+    );
+  });
+
+  it.each([
+    ["teamAdmin", "manage members"],
+    ["roleEditor", "manage custom roles"],
+    ["keyCreator", "create API keys"],
+    ["keyManager", "edit API keys"],
+    ["keyDeleter", "delete API keys"],
+    ["tokenManager", "manage members' personal access tokens"],
+    ["settingsEditor", "change organization settings"],
+    ["gbDefault_projectAdmin", "manage Projects"],
+  ])("refuses %s org-wide", (role, ability) => {
+    expect(
+      apiKeyRolesRefusal({ ...base, additionalRoles: [rule(role)] }, org),
+    ).toBe(
+      `The ${role} role can't be given to an API key through this endpoint, because it can ${ability} (additionalRoles[0]).`,
+    );
+  });
+
+  it("allows a role that can only view API keys", () => {
+    expect(
+      apiKeyRolesRefusal(
+        { ...base, role: "keyViewer", additionalRoles: [rule("keyViewer")] },
+        org,
+      ),
+    ).toBeNull();
+  });
+
+  it("allows global-only permissions in Project rules, but not manageProjects", () => {
+    expect(
+      apiKeyRolesRefusal(
+        { ...base, projectRoles: [{ project: "p1", ...rule("keyManager") }] },
+        org,
+      ),
+    ).toBeNull();
+    expect(
+      apiKeyRolesRefusal(
+        {
+          ...base,
+          projectRoles: [{ project: "p1", ...rule("gbDefault_projectAdmin") }],
+        },
+        org,
+      ),
+    ).toBe(
+      "The gbDefault_projectAdmin role can't be given to an API key through this endpoint, because it can manage Projects (projectRoles[0]).",
+    );
+  });
+
+  it("refuses an environment limit on a role with no environment permissions", () => {
+    expect(
+      apiKeyRolesRefusal(
+        { ...base, additionalRoles: [rule("readonly", true)] },
+        org,
+      ),
+    ).toBe(
+      "The readonly role can't be limited by environment, so limitAccessByEnvironment must be false (additionalRoles[0]).",
+    );
+  });
+
+  it("leaves unknown roles to the key's own validation", () => {
+    expect(apiKeyRolesRefusal({ ...base, role: "missing" }, org)).toBeNull();
   });
 });

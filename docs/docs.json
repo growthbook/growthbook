@@ -950,6 +950,14 @@
                 ]
               },
               {
+                "group": "API Keys",
+                "pages": [
+                  "api/api-keys/operation/listApiKeys",
+                  "api/api-keys/operation/getApiKey",
+                  "api/api-keys/operation/putApiKeyRoles"
+                ]
+              },
+              {
                 "group": "Code References",
                 "pages": [
                   "api/code-references/operation/listCodeRefs",
@@ -1180,6 +1188,7 @@
             "pages": [
               "api/AggregatedFactTable_model",
               "api/AnalyticsExploration_model",
+              "api/ApiKey_model",
               "api/Archetype_model",
               "api/Attribute_model",
               "api/AutoRun_model",

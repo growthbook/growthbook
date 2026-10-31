@@ -3,11 +3,16 @@ import omit from "lodash/omit";
 import pick from "lodash/pick";
 import { ApiKeyInterface, SecretApiKey } from "shared/types/apikey";
 import {
+  ApiApiKey,
   apiKeySchema,
   ConfirmRule,
+  GetApiKeyResponse,
+  ListApiKeysResponse,
+  PutApiKeyRolesResponse,
   OAuthTokenPermissions,
 } from "shared/validators";
 import {
+  apiKeyRolesRefusal,
   apiKeyToggleRequiresAdmin,
   canManageApiKeySecret,
   canSetApiKeyDisabled,
@@ -37,6 +42,18 @@ import {
   getEnvironmentIdsFromOrg,
 } from "back-end/src/services/organizations";
 import { getCollection } from "back-end/src/util/mongo.util";
+import { defineCustomApiHandler } from "back-end/src/api/apiModelHandlers";
+import {
+  apiKeyApiSpec,
+  getApiKeyEndpoint,
+  listApiKeysEndpoint,
+  putApiKeyRolesEndpoint,
+} from "back-end/src/api/specs/api-key.spec";
+import { applyPagination } from "back-end/src/util/handler";
+import { loadApiKeys, toApiKey } from "back-end/src/services/apiKeyResponse";
+import { storedVersionGuard } from "back-end/src/util/storedVersionGuard";
+import { auditDetailsUpdate } from "back-end/src/services/audit";
+import { requireConfirmation } from "back-end/src/services/confirmations";
 import { MakeModelClass } from "./BaseModel";
 
 export const COLLECTION_NAME = "apikeys";
@@ -71,12 +88,62 @@ const BaseClass = MakeModelClass({
     },
   ],
   skipDateUpdatedFields: ["lastUsed"],
+  apiConfig: {
+    modelKey: "apiKeys",
+    openApiSpec: apiKeyApiSpec,
+    customHandlers: [
+      defineCustomApiHandler({
+        ...listApiKeysEndpoint,
+        reqHandler: async (req): Promise<ListApiKeysResponse> => {
+          const { type, userId } = req.query;
+          const keys = (await req.context.models.apiKeys.getApiKeysForApi())
+            .filter(
+              (key) =>
+                (!type || (type === "personal") === !!key.userId) &&
+                (!userId || key.userId === userId),
+            )
+            .sort((a, b) => (a.id ?? "").localeCompare(b.id ?? ""));
+          const { filtered, returnFields } = applyPagination(keys, req.query);
+          return {
+            apiKeys: await loadApiKeys(req.context, filtered),
+            ...returnFields,
+          };
+        },
+      }),
+      defineCustomApiHandler({
+        ...getApiKeyEndpoint,
+        reqHandler: async (req): Promise<GetApiKeyResponse> => {
+          const key = await req.context.models.apiKeys.getApiKeyForApi(
+            req.params.id,
+          );
+          const [apiKey] = await loadApiKeys(req.context, [key]);
+          return { apiKey };
+        },
+      }),
+      defineCustomApiHandler({
+        ...putApiKeyRolesEndpoint,
+        reqHandler: async (req): Promise<PutApiKeyRolesResponse> => {
+          const { dryRun, ...roles } = req.body;
+          const { key, changed } =
+            await req.context.models.apiKeys.replaceRolesForApi(
+              req.params.id,
+              roles,
+              !!dryRun,
+            );
+          const [apiKey] = await loadApiKeys(req.context, [key]);
+          return { apiKey, changed };
+        },
+      }),
+    ],
+  },
   defaultValues: {
     limitAccessByEnvironment: false,
     environments: [],
     lastUsed: null,
   },
 });
+
+type SaveOptions = { dryRun?: boolean; guard?: Record<string, unknown> };
 
 const toTime = (d: ExpiresAt) => (d ? new Date(d).getTime() : null);
 
@@ -628,6 +695,7 @@ export class ApiKeyModel extends BaseClass {
       expiresAt?: Date | null;
       confirmRules?: ConfirmRule[] | null;
     },
+    options: SaveOptions = {},
   ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
     const doc = await this._findOne({ id }, { bypassSanitization: true });
     if (!doc) this.context.throwNotFoundError(`API key not found: ${id}`);
@@ -651,10 +719,10 @@ export class ApiKeyModel extends BaseClass {
         );
       }
       // Mirrors creation: no scopedRole means the token inherits its user's permissions.
-      const after = await this._updateOne(
+      return await this.saveSecretApiKeyPermissions(
         doc,
         {
-          description,
+          ...(description !== undefined && { description }),
           role: scopedRole || "user",
           scoped: scopedRole ? true : undefined,
           limitAccessByEnvironment: !!scopedRole && !!limitAccessByEnvironment,
@@ -664,9 +732,8 @@ export class ApiKeyModel extends BaseClass {
           ...(expiresAt !== undefined && { expiresAt }),
           ...(confirmRules !== undefined && { confirmRules }),
         },
-        { forceCanUpdate: true },
+        options,
       );
-      return { before: doc, after };
     }
 
     if (!this.context.permissions.canUpdateApiKey()) {
@@ -708,15 +775,33 @@ export class ApiKeyModel extends BaseClass {
     // The stored `key` string is left untouched so already-issued tokens keep
     // working. Its `secret_<role>_` prefix is purely cosmetic and is
     // intentionally left stale after a role change rather than reissuing.
-    const after = await this._updateOne(
+    return await this.saveSecretApiKeyPermissions(
       doc,
       {
         ...authority,
-        description,
+        ...(description !== undefined && { description }),
         ...(expiresAt !== undefined && { expiresAt }),
       },
-      { forceCanUpdate: true },
+      options,
     );
+  }
+
+  // A dry run runs the same checks as a save, and writes nothing. A guard
+  // makes the write fail with a 409 if the key changed since it was read.
+  private async saveSecretApiKeyPermissions(
+    doc: ApiKeyInterface,
+    updates: Parameters<ApiKeyModel["_updateOne"]>[1],
+    { dryRun, guard }: SaveOptions,
+  ): Promise<{ before: ApiKeyInterface; after: ApiKeyInterface }> {
+    if (dryRun) {
+      const after = { ...doc, ...updates };
+      await this.customValidation(after, doc);
+      return { before: doc, after };
+    }
+    const after = await this._updateOne(doc, updates, {
+      forceCanUpdate: true,
+      guard,
+    });
     return { before: doc, after };
   }
 
@@ -1012,6 +1097,142 @@ export class ApiKeyModel extends BaseClass {
       userId: { $ne: null },
       oauthClientId: { $exists: false },
     });
+  }
+
+  // A 403 rather than an empty list, so a caller can tell "no keys" from "no
+  // permission". Other members' PATs stay hidden by canRead.
+  protected toApiInterface(doc: ApiKeyInterface): ApiApiKey {
+    return toApiKey(doc);
+  }
+
+  private assertCanViewApiKeys() {
+    if (!this.context.permissions.canViewApiKeys()) {
+      this.context.permissions.throwPermissionError(
+        "You do not have permission to read API keys. This needs permission to view API keys.",
+      );
+    }
+  }
+
+  // Legacy SDK keys and OAuth access tokens aren't credentials a person
+  // manages, so the REST API leaves them out.
+  private async findSecretApiKey(id: string) {
+    return await this._findOne({
+      id,
+      secret: true,
+      oauthClientId: { $exists: false },
+    });
+  }
+
+  public async getApiKeysForApi(): Promise<ApiKeyInterface[]> {
+    this.assertCanViewApiKeys();
+    return await this._find({
+      secret: true,
+      oauthClientId: { $exists: false },
+    });
+  }
+
+  public async getApiKeyForApi(id: string): Promise<ApiKeyInterface> {
+    this.assertCanViewApiKeys();
+    const key = await this.findSecretApiKey(id);
+    if (!key) {
+      this.context.throwNotFoundError(
+        "Could not find an API key or personal access token with that id.",
+      );
+    }
+    return key;
+  }
+
+  // Replaces an org key's whole role set from the REST API. Refuses roles that
+  // would let a key grant itself or other keys more.
+  public async replaceRolesForApi(
+    id: string,
+    {
+      actAs,
+      ...roles
+    }: Pick<
+      ApiKeyInterface,
+      "role" | "limitAccessByEnvironment" | "environments" | "actAs"
+    > &
+      Required<Pick<ApiKeyInterface, "additionalRoles" | "projectRoles">>,
+    dryRun: boolean,
+  ): Promise<{ key: ApiKeyInterface; changed: boolean }> {
+    // Changing a key's roles changes its authority, which also takes create.
+    if (
+      !this.context.permissions.canUpdateApiKey() ||
+      !this.context.permissions.canCreateApiKey()
+    ) {
+      this.context.permissions.throwPermissionError(
+        "You do not have permission to change API keys' roles. This needs permission to edit and create API keys.",
+      );
+    }
+    // The version every check below sees, from the stored doc. Read first, so
+    // a write that lands before `key` is read fails the guard rather than
+    // slipping past it.
+    const stored = await this._dangerousGetCollection().findOne(
+      { organization: this.context.org.id, id },
+      { projection: { dateUpdated: 1 } },
+    );
+    const guard = storedVersionGuard({ dateUpdated: stored?.dateUpdated });
+    const key = await this.findSecretApiKey(id);
+    if (!key) {
+      this.context.throwNotFoundError(
+        "Could not find an organization API key with that id.",
+      );
+    }
+    if (key.userId) {
+      this.context.throwBadRequestError(
+        "That id is a personal access token. Only organization API keys' roles can be changed here.",
+      );
+    }
+    if (key.id === this.context.apiKeyData?.id) {
+      this.context.permissions.throwPermissionError(
+        "An API key can't change its own roles. Use a different key or the GrowthBook dashboard.",
+      );
+    }
+    const refusal = apiKeyRolesRefusal(roles, this.context.org);
+    if (refusal) this.context.throwBadRequestError(refusal);
+
+    const updates = { ...roles, ...(actAs !== undefined && { actAs }) };
+    // The body is the key's whole role set, so its environment list is synced
+    // even while the limit is off, when it grants nothing.
+    if (
+      isEqual(
+        [...key.environments].sort(),
+        [...(roles.environments ?? [])].sort(),
+      ) &&
+      !changesApiKeyAuthority(key, { ...key, ...updates })
+    ) {
+      return { key, changed: false };
+    }
+
+    // Checked before anyone is asked to confirm a change that can't be saved.
+    const preview = await this.updateSecretApiKeyPermissions(id, updates, {
+      dryRun: true,
+    });
+    if (dryRun) return { key: preview.after, changed: true };
+
+    await requireConfirmation(this.context, {
+      actions: ["access.apiKeys"],
+      summary: `Change the roles of API key ${key.description || id}`,
+      links: [],
+      pin: guard,
+    });
+    // Guarded on the version the checks and confirmation saw, so a key
+    // deleted or edited since then is a 404 or 409, with nothing audited.
+    const { before, after } = await this.updateSecretApiKeyPermissions(
+      id,
+      updates,
+      { guard },
+    );
+    await this.context.auditLog({
+      event: "apiKey.update",
+      entity: { object: "apiKey", id, name: after.description },
+      details: auditDetailsUpdate(
+        ApiKeyModel.toAuditDetails(before),
+        ApiKeyModel.toAuditDetails(after),
+      ),
+    });
+    return { key: after, changed: true };
   }
 
   public async dangerousGetAllApiKeysInOrg() {
