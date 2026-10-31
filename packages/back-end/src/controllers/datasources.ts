@@ -450,7 +450,7 @@ type PutDataSourceBody = {
  * permission in the projects it covers rather than in every project of the
  * data source. Anything else still needs the data source-wide permission.
  */
-function assertCanUpdateDataSource(
+export function assertCanUpdateDataSource(
   context: ReqContext,
   datasource: DataSourceInterface,
   body: PutDataSourceBody,

@@ -21,6 +21,7 @@ import {
   DataSourceType,
   ExposureQuery,
   FeatureUsageQuery,
+  IdentityJoinQuery,
 } from "shared/types/datasource";
 import { DetectedColumn, FactTableColumnType } from "shared/types/fact-table";
 import { FeatureInterface } from "shared/types/feature";
@@ -542,6 +543,34 @@ export async function testQueryValidity(
     return findMissingRequiredColumns(
       results,
       requiredColumns,
+      integration.columnNamesAreCaseSensitive,
+    );
+  } catch (e) {
+    return e.message;
+  }
+}
+
+// An identifier join query must return each identifier type it joins
+export async function testIdentityJoinQueryValidity(
+  integration: SourceIntegrationInterface,
+  query: IdentityJoinQuery,
+  testDays?: number,
+): Promise<string | undefined> {
+  if (!integration.getTestValidityQuery || !integration.runTestQuery) {
+    return undefined;
+  }
+
+  const sql = integration.getTestValidityQuery(query.query, testDays);
+  try {
+    const results = await integration.runTestQuery(
+      sql,
+      undefined,
+      "identityJoinQueryValidation",
+      null,
+    );
+    return findMissingRequiredColumns(
+      results,
+      new Set(query.ids),
       integration.columnNamesAreCaseSensitive,
     );
   } catch (e) {

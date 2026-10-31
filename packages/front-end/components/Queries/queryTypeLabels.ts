@@ -49,6 +49,7 @@ const QUERY_TYPE_LABELS: Record<QueryType, string> = {
   freeFormQuery: "SQL Explorer",
   exposureQueryValidation: "Experiment Assignment Query validation",
   featureUsageQueryValidation: "Feature usage query validation",
+  identityJoinQueryValidation: "Identifier join query validation",
   connectionTest: "Connection test",
   informationSchema: "Schema browser: tables",
   tableColumns: "Schema browser: columns",
