@@ -227,14 +227,16 @@ export default function HealthTab({
     }
 
     if (snapshot?.health?.traffic.error === "NO_ROWS_IN_UNIT_QUERY") {
-      const hasClusterIssueData =
-        !!snapshot.health?.clusterAssignment ||
-        !!snapshot.health?.clusterSubUnitMapping;
+      const assignment = snapshot.health?.clusterAssignment;
+      const mapping = snapshot.health?.clusterSubUnitMapping;
+      const hasClusterIssue =
+        (!!assignment && !assignment.error && assignment.mixedClusters > 0) ||
+        (!!mapping && !mapping.error && mapping.multiClusterUnits > 0);
       const clusterNoun =
         snapshot.settings.exposureQueryIdentifierType || "cluster";
       return (
         <>
-          {hasClusterIssueData ? (
+          {hasClusterIssue ? (
             <Callout status="warning" mt="3">
               No units remain after the cluster checks below removed every
               inconsistent {clusterNoun}. Fix the issues below, then refresh
@@ -246,7 +248,7 @@ export default function HealthTab({
               yet.
             </Callout>
           )}
-          {hasClusterIssueData ? (
+          {hasClusterIssue ? (
             <ClusterIssueCards
               snapshot={snapshot}
               onNotify={handleHealthNotification}
