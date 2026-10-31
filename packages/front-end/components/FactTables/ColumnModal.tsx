@@ -774,8 +774,8 @@ export default function ColumnModal({ existing, factTable, close }: Props) {
                                         column values.
                                       </Text>
                                       <Text as="p">
-                                        <strong>Disabled</strong> — enable in
-                                        Fact Table settings.
+                                        <strong>Disabled</strong> — turn on
+                                        above the column list.
                                       </Text>
                                     </>
                                   )}

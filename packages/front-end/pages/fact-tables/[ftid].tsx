@@ -17,10 +17,11 @@ import useApi from "@/hooks/useApi";
 import LoadingOverlay from "@/components/LoadingOverlay";
 import { GBEdit } from "@/components/Icons";
 import { useAuth } from "@/services/auth";
-import FactTableModal from "@/components/FactTables/FactTableModal";
+import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import Code from "@/components/SyntaxHighlighting/Code";
 import ColumnList from "@/components/FactTables/ColumnList";
 import AggregatedFactTablesCard from "@/components/FactTables/AggregatedFactTablesCard";
+import AggregatedFactTableSettingsModal from "@/components/FactTables/AggregatedFactTableSettingsModal";
 import FactFilterList from "@/components/FactTables/FactFilterList";
 import VirtualColumnList from "@/components/FactTables/VirtualColumnList";
 import EditProjectsForm from "@/components/Projects/EditProjectsForm";
@@ -34,7 +35,6 @@ import { OfficialBadge } from "@/components/Metrics/MetricName";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import OfficialResourceModal from "@/components/OfficialResourceModal";
 import Tooltip from "@/components/Tooltip/Tooltip";
-import EditFactTableSQLModal from "@/components/FactTables/EditFactTableSQLModal";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/ui/Tabs";
 import Badge from "@/ui/Badge";
 import Frame from "@/ui/Frame";
@@ -75,6 +75,7 @@ export default function FactTablePage() {
   const [editTagsModal, setEditTagsModal] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [auditModal, setAuditModal] = useState(false);
+  const [aggregatedSettingsOpen, setAggregatedSettingsOpen] = useState(false);
 
   const [duplicateFactTable, setDuplicateFactTable] = useState<
     FactTableInterface | undefined
@@ -145,6 +146,15 @@ export default function FactTablePage() {
     canDelete = false;
   }
 
+  const pipelineSettings = datasource?.settings?.pipelineSettings;
+  const canEditAggregatedSettings =
+    canEdit &&
+    hasCommercialFeature("pipeline-mode") &&
+    pipelineSettings?.allowWriting === true &&
+    pipelineSettings?.mode === "incremental" &&
+    !!datasource &&
+    permissionsUtil.canUpdateDataSourceSettings(datasource);
+
   // Editing columns is less restrictive than editing the whole fact table
   const canEditColumns = permissionsUtil.canUpdateFactTable(factTable, {
     columns: [],
@@ -158,27 +168,27 @@ export default function FactTablePage() {
 
   return (
     <div className="pagecontents container-fluid">
-      {editOpen && (
-        <FactTableModal close={() => setEditOpen(false)} existing={factTable} />
+      {(editOpen || editSQLOpen) && (
+        <NewFactTableModal
+          close={() => {
+            setEditOpen(false);
+            setEditSQLOpen(false);
+          }}
+          existing={factTable}
+          editSql={editSQLOpen}
+        />
       )}
       {duplicateFactTable && (
-        <FactTableModal
+        <NewFactTableModal
           close={() => setDuplicateFactTable(undefined)}
           existing={duplicateFactTable}
           duplicate
         />
       )}
-      {editSQLOpen && (
-        <EditFactTableSQLModal
-          close={() => setEditSQLOpen(false)}
+      {aggregatedSettingsOpen && (
+        <AggregatedFactTableSettingsModal
           factTable={factTable}
-          save={async (data) => {
-            await apiCall(`/fact-tables/${factTable.id}`, {
-              method: "PUT",
-              body: JSON.stringify(data),
-            });
-            await mutateDefinitions();
-          }}
+          close={() => setAggregatedSettingsOpen(false)}
         />
       )}
       {editOwnerModal && (
@@ -336,6 +346,33 @@ export default function FactTablePage() {
                     Convert to Official Fact Table
                   </DropdownMenuItem>
                 )}
+              {factTable.managedBy === "admin" &&
+                canEdit &&
+                permissionsUtil.canCreateOfficialResources(factTable) &&
+                hasCommercialFeature("manage-official-resources") && (
+                  <DropdownMenuItem
+                    onClick={async () => {
+                      await apiCall(`/fact-tables/${factTable.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({ managedBy: "" }),
+                      });
+                      mutateDefinitions();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    Remove official status
+                  </DropdownMenuItem>
+                )}
+              {canEditAggregatedSettings && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setAggregatedSettingsOpen(true);
+                    setDropdownOpen(false);
+                  }}
+                >
+                  Daily aggregated tables
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem
                 onClick={() => {
                   setAuditModal(true);
@@ -557,7 +594,11 @@ export default function FactTablePage() {
         <div className="col col-md-6 d-flex flex-column">
           <h3>Columns</h3>
           <div className="appbox p-3 flex-1 mb-0">
-            <ColumnList factTable={factTable} canEdit={canEditColumns} />
+            <ColumnList
+              factTable={factTable}
+              canEdit={canEditColumns}
+              canEditSettings={canEdit}
+            />
           </div>
         </div>
       </div>

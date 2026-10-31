@@ -13,7 +13,7 @@ import {
   resolveFactMetricCreation,
 } from "@/services/metrics";
 import { envAllowsCreatingMetrics } from "@/services/env";
-import FactTableModal from "@/components/FactTables/FactTableModal";
+import NewFactTableModal from "@/components/FactTables/NewFactTableModal";
 import FactMetricModal from "@/components/FactTables/FactMetricModal";
 import Modal from "@/ui/Modal";
 import Callout from "@/ui/Callout";
@@ -222,9 +222,9 @@ export default function useFactMetricFlow(
   };
   const duplicate = modalTarget?.duplicate;
   const modal = tableTarget ? (
-    <FactTableModal
+    <NewFactTableModal
       close={() => setTableTarget(null)}
-      initialDatasource={tableTarget.datasource}
+      datasourceId={tableTarget.datasource}
       onCreate={(factTable) => {
         setCreatedTable(factTable);
         setTableTarget(null);

@@ -1,14 +1,18 @@
 import { useMemo } from "react";
-import { UseFormReturn } from "react-hook-form";
+import { useForm } from "react-hook-form";
+import { Box, Flex } from "@radix-ui/themes";
 import {
   CreateFactTableProps,
   FactTableInterface,
 } from "shared/types/fact-table";
-import Heading from "@/ui/Heading";
 import Text from "@/ui/Text";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
+import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
+import { useAuth } from "@/services/auth";
+import { useDefinitions } from "@/services/DefinitionsContext";
 
 const DEFAULT_TIME = "02:00";
 const DEFAULT_LOOKBACK_WINDOW = 60;
@@ -35,33 +39,34 @@ function getTimezoneOptions(currentTimezone: string): string[] {
   return zones;
 }
 
-// Default form values so the nested fields always exist; the modal nulls these
-// out at submit time when no id types are selected (disabling the pipeline).
-export function getAggregatedFactTableSettingsFormDefault(
-  existing?: FactTableInterface,
-): NonNullable<CreateFactTableProps["aggregatedFactTableSettings"]> {
-  const settings = existing?.aggregatedFactTableSettings ?? null;
-  return {
-    idTypes: settings?.idTypes ?? [],
-    updateTime: {
-      time: settings?.updateTime.time ?? DEFAULT_TIME,
-      timezone: settings?.updateTime.timezone ?? getDefaultTimezone(),
+type Settings = NonNullable<
+  CreateFactTableProps["aggregatedFactTableSettings"]
+>;
+
+export default function AggregatedFactTableSettingsModal({
+  factTable,
+  close,
+}: {
+  factTable: FactTableInterface;
+  close: () => void;
+}) {
+  const { apiCall } = useAuth();
+  const { mutateDefinitions } = useDefinitions();
+
+  const settings = factTable.aggregatedFactTableSettings ?? null;
+  const form = useForm<{ aggregatedFactTableSettings: Settings }>({
+    defaultValues: {
+      aggregatedFactTableSettings: {
+        idTypes: settings?.idTypes ?? [],
+        updateTime: {
+          time: settings?.updateTime.time ?? DEFAULT_TIME,
+          timezone: settings?.updateTime.timezone ?? getDefaultTimezone(),
+        },
+        lookbackWindow: settings?.lookbackWindow ?? DEFAULT_LOOKBACK_WINDOW,
+      },
     },
-    lookbackWindow: settings?.lookbackWindow ?? DEFAULT_LOOKBACK_WINDOW,
-  };
-}
+  });
 
-interface Props {
-  form: UseFormReturn<CreateFactTableProps>;
-  userIdTypes: string[];
-  canEdit: boolean;
-}
-
-export default function AggregatedFactTableSettings({
-  form,
-  userIdTypes,
-  canEdit,
-}: Props) {
   const timezone =
     form.watch("aggregatedFactTableSettings.updateTime.timezone") || "UTC";
 
@@ -70,20 +75,35 @@ export default function AggregatedFactTableSettings({
     [timezone],
   );
 
-  const idTypeOptions = userIdTypes.map((idType) => ({
-    value: idType,
-    label: idType,
-  }));
-
-  const selectedIdTypes = (
-    form.watch("aggregatedFactTableSettings.idTypes") ?? []
-  ).filter((idType) => userIdTypes.includes(idType));
+  const selectedIdTypes = form
+    .watch("aggregatedFactTableSettings.idTypes")
+    .filter((idType) => factTable.userIdTypes.includes(idType));
 
   return (
-    <>
-      <Heading as="h4" size="sm" mb="1">
-        [Experimental] Daily Aggregated Tables
-      </Heading>
+    <ModalStandard
+      trackingEventModalType=""
+      header="[Experimental] Daily Aggregated Tables"
+      open={true}
+      close={close}
+      cta="Save"
+      submit={validatedSubmit(form, async ({ aggregatedFactTableSettings }) => {
+        const { updateTime, lookbackWindow } = aggregatedFactTableSettings;
+        // Clearing all id types disables the aggregated pipeline.
+        await apiCall(`/fact-tables/${factTable.id}`, {
+          method: "PUT",
+          body: JSON.stringify({
+            aggregatedFactTableSettings: selectedIdTypes.length
+              ? {
+                  idTypes: selectedIdTypes,
+                  updateTime,
+                  lookbackWindow: Number(lookbackWindow),
+                }
+              : null,
+          }),
+        });
+        await mutateDefinitions();
+      })}
+    >
       <Text as="div" color="text-mid" mb="3">
         Configure a daily job to pre-aggregate metric values in this table. Used
         to speed up CUPED in the incremental refresh pipeline mode.
@@ -94,25 +114,26 @@ export default function AggregatedFactTableSettings({
         labelClassName="font-weight-bold"
         helpText="Tables are aggregated by identifier type and only experiments using these identifier types will be able to use the aggregated tables for CUPED. Clear all to disable."
         value={selectedIdTypes}
-        options={idTypeOptions}
+        options={factTable.userIdTypes.map((idType) => ({
+          value: idType,
+          label: idType,
+        }))}
         onChange={(value) =>
           form.setValue("aggregatedFactTableSettings.idTypes", value)
         }
         placeholder="Select identifier types..."
-        disabled={!canEdit}
       />
 
-      <div className="row">
-        <div className="col-auto">
+      <Flex gap="3">
+        <Box>
           <Field
             label="Daily update time"
             labelClassName="font-weight-bold"
             type="time"
-            disabled={!canEdit}
             {...form.register("aggregatedFactTableSettings.updateTime.time")}
           />
-        </div>
-        <div className="col">
+        </Box>
+        <Box flexGrow="1">
           <SelectField
             label="Timezone"
             labelClassName="font-weight-bold"
@@ -127,10 +148,9 @@ export default function AggregatedFactTableSettings({
                 value,
               )
             }
-            disabled={!canEdit}
           />
-        </div>
-      </div>
+        </Box>
+      </Flex>
 
       <Field
         label="Restate lookback window (days)"
@@ -139,11 +159,10 @@ export default function AggregatedFactTableSettings({
         type="number"
         min={1}
         step={1}
-        disabled={!canEdit}
         {...form.register("aggregatedFactTableSettings.lookbackWindow", {
           valueAsNumber: true,
         })}
       />
-    </>
+    </ModalStandard>
   );
 }
