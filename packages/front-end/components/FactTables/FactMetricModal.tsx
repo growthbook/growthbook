@@ -1282,6 +1282,7 @@ function StandardFactMetricModal({
         : "";
 
   const isNew = !existing || duplicate;
+  const canChangeDatasource = isNew && !datasource;
   const initialType = existing?.metricType;
   useEffect(() => {
     if (isNew) {
@@ -1290,6 +1291,7 @@ function StandardFactMetricModal({
       track("Viewed Edit Fact Metric Modal", {
         type: initialType,
         source,
+        flow: "modal",
       });
     }
   }, [isNew, initialType, source]);
@@ -1890,7 +1892,7 @@ function StandardFactMetricModal({
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={true}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1911,7 +1913,7 @@ function StandardFactMetricModal({
                       datasource={selectedDataSource}
                       disableFactTableSelector={!!initialFactTable}
                       supportsAggregatedFilter={true}
-                      allowChangingDatasource={!datasource}
+                      allowChangingDatasource={canChangeDatasource}
                       key={selectedDataSource.id}
                     />
                   </div>
@@ -1940,7 +1942,7 @@ function StandardFactMetricModal({
                     includeDistinctDates={true}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -1962,7 +1964,7 @@ function StandardFactMetricModal({
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
                     supportsAggregatedFilter={false}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                   />
                   <HelperText status="info">
@@ -2016,7 +2018,7 @@ function StandardFactMetricModal({
                     setDatasource={setDatasource}
                     datasource={selectedDataSource}
                     disableFactTableSelector={!!initialFactTable}
-                    allowChangingDatasource={!datasource}
+                    allowChangingDatasource={canChangeDatasource}
                     key={selectedDataSource.id}
                     extraField={
                       <>
@@ -2092,7 +2094,7 @@ function StandardFactMetricModal({
                       supportsAggregatedFilter={
                         numerator.column === "$$distinctUsers"
                       }
-                      allowChangingDatasource={!datasource}
+                      allowChangingDatasource={canChangeDatasource}
                       key={selectedDataSource.id}
                     />
                   </div>
