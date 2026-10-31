@@ -6420,9 +6420,22 @@ export async function getExperimentAnalysisSummary({
       ? getBanditSRMValue(experimentSnapshot)
       : getExperimentSRMValue(experimentSnapshot);
 
-  if (srm !== undefined) {
+  const clusterAssignment = experimentSnapshot.health?.clusterAssignment;
+  const clusterSubUnitMapping =
+    experimentSnapshot.health?.clusterSubUnitMapping;
+  const subUnitMultipleExposures =
+    experimentSnapshot.health?.subUnitMultipleExposures;
+  const hasClusterHealthIssue =
+    (!!clusterAssignment &&
+      !clusterAssignment.error &&
+      clusterAssignment.mixedClusters > 0) ||
+    (!!clusterSubUnitMapping &&
+      !clusterSubUnitMapping.error &&
+      clusterSubUnitMapping.multiClusterUnits > 0);
+
+  if (srm !== undefined || hasClusterHealthIssue) {
     analysisSummary.health = {
-      srm,
+      srm: srm ?? 1,
       multipleExposures: experimentSnapshot.multipleExposures,
       totalUsers,
       srmTotalUnits,
@@ -6452,23 +6465,18 @@ export async function getExperimentAnalysisSummary({
       };
     }
 
-    const clusterAssignment = experimentSnapshot.health?.clusterAssignment;
     if (clusterAssignment && !clusterAssignment.error) {
       analysisSummary.health.clusterAssignment = {
         totalClusters: clusterAssignment.totalClusters,
         mixedClusters: clusterAssignment.mixedClusters,
       };
     }
-    const clusterSubUnitMapping =
-      experimentSnapshot.health?.clusterSubUnitMapping;
     if (clusterSubUnitMapping && !clusterSubUnitMapping.error) {
       analysisSummary.health.clusterSubUnitMapping = {
         totalUnits: clusterSubUnitMapping.totalUnits,
         multiClusterUnits: clusterSubUnitMapping.multiClusterUnits,
       };
     }
-    const subUnitMultipleExposures =
-      experimentSnapshot.health?.subUnitMultipleExposures;
     if (subUnitMultipleExposures && !subUnitMultipleExposures.error) {
       analysisSummary.health.subUnitMultipleExposures = {
         totalSubUnits: subUnitMultipleExposures.totalSubUnits,
