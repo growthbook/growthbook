@@ -11,10 +11,11 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 export default function useFullFactTables(ids: string[]) {
   const { getFactTableById } = useDefinitions();
   const unique = [...new Set(ids.filter(Boolean))].sort();
-  const { data } = useApi<{ factTables: FullFactTableColumns[] }>(
-    `/fact-tables?ids=${unique.map(encodeURIComponent).join(",")}`,
-    { shouldRun: () => unique.length > 0 },
-  );
+  const { data, error, isLoading } = useApi<{
+    factTables: FullFactTableColumns[];
+  }>(`/fact-tables?ids=${unique.map(encodeURIComponent).join(",")}`, {
+    shouldRun: () => unique.length > 0,
+  });
 
   const byId = useMemo(() => {
     const map = new Map<string, FullFactTableColumns>();
@@ -36,5 +37,7 @@ export default function useFullFactTables(ids: string[]) {
     [byId],
   );
 
-  return { getById, isLoadedFor };
+  // isLoading tells a request still in flight apart from one that settled
+  // without an id (or failed, in which case `error` is set).
+  return { getById, isLoadedFor, isLoading, error };
 }

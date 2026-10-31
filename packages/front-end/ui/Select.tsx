@@ -30,6 +30,7 @@ type SelectProps = {
   container?: HTMLElement | null;
   /** Names the trigger when the control has no visible `label` of its own. */
   "aria-label"?: string;
+  "aria-labelledby"?: string;
 } & MarginProps;
 
 export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
@@ -52,6 +53,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
     align = "start",
     container,
     "aria-label": ariaLabel,
+    "aria-labelledby": ariaLabelledBy,
     ...containerProps
   }: SelectProps,
   ref,
@@ -90,6 +92,7 @@ export const Select = forwardRef<HTMLDivElement, SelectProps>(function Select(
           id={triggerId}
           autoFocus={autoFocus}
           aria-label={ariaLabel}
+          aria-labelledby={ariaLabelledBy}
           placeholder={placeholder}
           className={clsx(triggerClassName, { error: error })}
           disabled={disabled}

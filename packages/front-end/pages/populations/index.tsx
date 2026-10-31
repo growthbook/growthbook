@@ -29,6 +29,7 @@ import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { usePopulations, useRefreshPopulations } from "@/hooks/usePopulations";
+import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import PopulationMoreMenu from "@/components/Populations/PopulationMoreMenu";
 import Custom404 from "@/pages/404";
 
@@ -46,6 +47,11 @@ export default function PopulationsPage() {
     enabled: populationsEnabled,
   });
   const refreshPopulations = useRefreshPopulations();
+  const permissionsUtil = usePermissionsUtil();
+  const canCreate = permissionsUtil.canCreatePopulation({
+    projects: project ? [project] : [],
+  });
+
   const populationsWithLabels = useAddComputedFields(
     populations,
     (p) => ({
@@ -106,6 +112,10 @@ export default function PopulationsPage() {
     return <LoadingOverlay />;
   }
 
+  const addButton = canCreate ? (
+    <LinkButton href="/populations/new">Add Population</LinkButton>
+  ) : null;
+
   return (
     <Box className="pagecontents" style={{ margin: "0 auto" }}>
       <PageHead breadcrumb={[{ display: "Populations" }]} />
@@ -122,6 +132,7 @@ export default function PopulationsPage() {
             </Text>
           </Box>
         </Box>
+        {addButton}
       </Flex>
 
       {error ? (
@@ -153,7 +164,7 @@ export default function PopulationsPage() {
               View the API docs
             </LinkButton>
           }
-          rightButton={null}
+          rightButton={addButton}
         />
       ) : (
         <>

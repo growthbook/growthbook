@@ -5,7 +5,19 @@
  */
 export type AggregateFilterCondition = { operator: string; value: string };
 
-const AGGREGATE_CONDITION_REGEX = /^(=|!=|<>|<=|<|>=|>)(\d+(\.\d+)?)$/;
+const OPERATOR_PATTERN = "(=|!=|<>|<=|<|>=|>)";
+const AGGREGATE_CONDITION_REGEX = new RegExp(
+  `^${OPERATOR_PATTERN}(\\d+(\\.\\d+)?)$`,
+);
+
+/**
+ * A single comparison that may still be mid-entry: an operator followed by an
+ * empty or partial number, such as ">" or ">=1.". Matches after whitespace is
+ * removed, like parseAggregateFilter.
+ */
+export const PARTIAL_AGGREGATE_CONDITION_REGEX = new RegExp(
+  `^${OPERATOR_PATTERN}([\\d.]*)$`,
+);
 
 // Empty parts are skipped, so ">=3," and " " parse without an invalid entry.
 export function parseAggregateFilter(aggregateFilter: string): {
