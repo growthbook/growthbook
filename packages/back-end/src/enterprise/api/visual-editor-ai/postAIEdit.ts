@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { ModelMessage } from "ai";
-import { pickVisionModel } from "shared/ai";
+import { isVisionCapableModel, pickVisionModel } from "shared/ai";
 import { updateVisualChange } from "back-end/src/models/VisualChangesetModel";
 import { loadChangesetWithOwner } from "back-end/src/api/visual-editor-ai/loadChangesetWithOwner";
 import { changesetOwnerConfirmationLink } from "back-end/src/services/changesetOwner";
@@ -24,6 +24,13 @@ import {
   verifyEnvelope,
 } from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
 import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
+import {
+  attachScreenshots,
+  PREVIEW_SCREENSHOT_TOOL,
+  SCREENSHOTS_PER_ROUND_MAX,
+  SCREENSHOTS_PER_TURN_MAX,
+  screenshotImageSchema,
+} from "back-end/src/api/visual-editor-ai/screenshots";
 import { requireUserAuth } from "back-end/src/api/visual-editor-ai/requireUserAuth";
 import {
   buildVisualEditorTools,
@@ -254,6 +261,11 @@ const bodySchema = z
             }),
           )
           .max(10),
+        // previewScreenshot images, kept out of the signed transcript.
+        images: z
+          .array(screenshotImageSchema)
+          .max(SCREENSHOTS_PER_ROUND_MAX)
+          .optional(),
       })
       .optional(),
   })
@@ -386,6 +398,14 @@ const outputSchema = z.object({
       "One-paragraph summary of what you changed, for the editor user. Parts you could not do belong in `skipped`, not here.",
     ),
 });
+
+// Appended to the system prompt only when previewScreenshot is offered.
+const SCREENSHOT_GUIDANCE = `Checking your work visually:
+- \`previewScreenshot\` renders a draft on the live page and shows you a screenshot. Use it when the result depends on how things RENDER: layout and spacing changes, moves, inserted sections or banners, color and contrast changes, anything that could overflow or overlap. Skip it for plain copy edits.
+- Workflow: work out your full answer, call \`previewScreenshot\` once with exactly the mutations / cssAppend / insert you plan to return (plus a \`selector\` for the changed element or its section), then either return that answer or fix what the screenshot shows and return the fixed version. Take a second screenshot only if the first showed a real problem. You have at most ${SCREENSHOTS_PER_TURN_MAX} per request.
+- Judge the screenshot critically: text cut off or overflowing, elements overlapping, poor contrast, an insert in the wrong place, a move that didn't happen, broken alignment. If the draft looks wrong, correct it rather than returning it as-is.
+- For requests about the page's current look ("make this section look more modern", "clean up this layout"), you may call it with no draft first to see what's there.
+- Mention a problem you saw and couldn't fix in \`skipped\`.`;
 
 // Selectors whose innerHTML must never be replaced.
 const PAGE_ROOT_SELECTOR_RE = /^\s*(?::root|html|body)\s*$/i;
@@ -1207,12 +1227,22 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     );
   }
   const useToolLoop = streamingMode && !IS_CLOUD && !stateless;
+  // Client-run tools the extension supports beyond the original three. A
+  // header, not a body field: older back-ends reject unknown body fields.
+  const clientTools = String(req.headers["x-gb-client-tools"] ?? "")
+    .split(",")
+    .map((t) => t.trim());
+  const screenshotTool =
+    stateless &&
+    clientTools.includes(PREVIEW_SCREENSHOT_TOOL) &&
+    isVisionCapableModel(editModel);
   const job = aiEditJobStore.create();
   const imageState = newImageTurnState();
   const tools = buildVisualEditorTools({
     context,
     job: useToolLoop ? job : undefined,
     deferDomTools: stateless,
+    screenshotTool,
     pageStructure,
     imageState,
     quarantineImages: !persist,
@@ -1228,7 +1258,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   const parsePromptArgs = {
     context,
-    instructions: effectiveInstructions,
+    instructions: screenshotTool
+      ? `${effectiveInstructions}\n\n${SCREENSHOT_GUIDANCE}`
+      : effectiveInstructions,
     prompt: buildPrompt({
       prompt,
       elementContext,
@@ -1338,7 +1370,10 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       variationId,
       requestHash: requestHash({ ...req.body, resume: undefined }),
     };
+    // What the model sees this round vs. what gets signed for the next one:
+    // screenshots go to the model once and never into the envelope.
     let priorMessages: ModelMessage[] | undefined;
+    let signedPrior: ModelMessage[] = [];
     let stepsAlreadyUsed = 0;
     if (resume) {
       if (!verifyEnvelope(JWT_SECRET, scope, resume.envelope)) {
@@ -1348,12 +1383,21 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
       }
       // Signed by us last round, so it is the SDK's own shape.
       const transcript = resume.envelope.transcript as ModelMessage[];
+      const shots = attachScreenshots(
+        transcript,
+        resume.results,
+        resume.images ?? [],
+      );
+      if (!shots.ok) return context.throwBadRequestError(shots.error);
       const answered = toolResultsMessage(
         pendingToolCalls(transcript),
-        resume.results,
+        shots.results,
       );
       if (!answered.ok) return context.throwBadRequestError(answered.error);
-      priorMessages = [...transcript, answered.message];
+      signedPrior = [...transcript, answered.message];
+      priorMessages = shots.message
+        ? [...signedPrior, shots.message]
+        : signedPrior;
       for (const r of answeredToolCalls(priorMessages)) {
         for (const s of selectorsFoundByTool(r)) trustedSelectors.add(s);
       }
@@ -1379,7 +1423,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
         envelope: signEnvelope(
           JWT_SECRET,
           scope,
-          [...(priorMessages ?? []), ...transcript],
+          [...signedPrior, ...transcript],
           stepsAlreadyUsed + stepsUsed,
         ),
         calls: pending.map((c) => ({

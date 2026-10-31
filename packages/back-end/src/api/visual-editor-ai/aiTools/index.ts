@@ -34,6 +34,9 @@ export interface VisualEditorToolsetOptions {
   job?: ClientJob<unknown>;
   // Stateless alternative to `job`: DOM tools without execute(). Ignored when `job` is set.
   deferDomTools?: boolean;
+  // Offer previewScreenshot. Stateless loop only; the caller checks that the
+  // extension supports it and the model can read images.
+  screenshotTool?: boolean;
   // Page-structure snapshot for the server-side `findElements` tool. When
   // present, the model can locate uncatalogued containers (sections, layout
   // wrappers) without a client round-trip — so it works on Cloud.
@@ -59,6 +62,7 @@ export function buildVisualEditorTools({
   context,
   job,
   deferDomTools = false,
+  screenshotTool = false,
   pageStructure,
   disabled = false,
   imageState,
@@ -106,6 +110,9 @@ export function buildVisualEditorTools({
       getComputedStyles: deferred.getComputedStyles,
       getInnerHTML: deferred.getInnerHTML,
       ...(hasStructure ? {} : { findElements: deferred.findElements }),
+      ...(screenshotTool
+        ? { previewScreenshot: deferred.previewScreenshot }
+        : {}),
     };
   }
   if (!job) return serverTools;

@@ -1,5 +1,6 @@
 import { tool as aiTool } from "ai";
 import { z } from "zod";
+import { SCREENSHOTS_PER_TURN_MAX } from "back-end/src/api/visual-editor-ai/screenshots";
 import type { ClientJob } from "./clientJob";
 
 // DOM-side tools answered by the extension (keep in sync with runAIClientTool): job-based on self-hosted, deferred on Cloud.
@@ -71,6 +72,56 @@ const getInnerHTMLDef = {
   }),
 };
 
+// Stateless loop only: the image comes back in `resume.images` (see screenshots.ts).
+const previewScreenshotDef = {
+  description: `Render your DRAFT on the live page and see a screenshot of it. The extension applies the draft on top of the variation's current changes, screenshots the result, and then removes the draft again (nothing is saved). Pass the same mutations / cssAppend / insert you plan to return. Omit all three to see the page as it is now, e.g. to judge the current design before redesigning it. Use it to check layout, spacing, contrast, overflow, and whether an insert or move landed where you meant — not for plain text swaps. At most ${SCREENSHOTS_PER_TURN_MAX} per request, and each one spends a tool call, so draft first and check once. The shot shows only the visible window: a \`selector\` crops to that element (scrolled into view), and \`truncated: true\` means it is larger than the window. The result's \`viewport\` is the page width the shot was taken at, which is narrower than a normal desktop because the editor's side panel is open.`,
+  inputSchema: z.object({
+    selector: z
+      .string()
+      .min(1)
+      .max(500)
+      .optional()
+      .describe(
+        "Element to crop the screenshot to — usually the one you changed or its section. Omit for the whole visible window.",
+      ),
+    mutations: z
+      .array(
+        z.object({
+          selector: z.string().min(1).max(500),
+          action: z.enum(["set", "append", "remove"]),
+          attribute: z.string().min(1).max(100),
+          value: z.string().max(50000).optional(),
+          parentSelector: z.string().max(500).optional(),
+          insertBeforeSelector: z.string().max(500).optional(),
+        }),
+      )
+      .max(50)
+      .optional()
+      .describe("Draft DOM mutations, same shape as the final output."),
+    cssAppend: z
+      .string()
+      .max(50000)
+      .optional()
+      .describe("Draft global CSS to add after the variation's existing CSS."),
+    insert: z
+      .array(
+        z.object({
+          targetSelector: z.string().min(1).max(500),
+          position: z.enum([
+            "beforebegin",
+            "afterbegin",
+            "beforeend",
+            "afterend",
+          ]),
+          html: z.string().min(1).max(50000),
+        }),
+      )
+      .max(10)
+      .optional()
+      .describe("Draft inserted elements, same shape as the final output."),
+  }),
+};
+
 export function getComputedStylesTool(job: ClientJob<unknown>) {
   return aiTool({
     ...getComputedStylesDef,
@@ -106,6 +157,7 @@ export function deferredDomTools() {
     getComputedStyles: aiTool(getComputedStylesDef),
     getInnerHTML: aiTool(getInnerHTMLDef),
     findElements: aiTool(findElementsDef),
+    previewScreenshot: aiTool(previewScreenshotDef),
   };
 }
 
