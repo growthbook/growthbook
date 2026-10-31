@@ -248,7 +248,7 @@ export default {
   },
   php: {
     name: "PHP SDK",
-    version: "2.6.1",
+    version: "3.0.0",
     github: "https://github.com/growthbook/growthbook-php",
     examples: [],
     packageRepos: [
@@ -263,6 +263,9 @@ export default {
       },
       {
         experimentation: "All versions",
+      },
+      {
+        savedGroupReferencesV2: "≥ v3.0.0",
       },
       {
         remoteEval: "≥ v2.5.0",
@@ -754,7 +757,7 @@ export default {
   },
   elixir: {
     name: "Elixir SDK",
-    version: "0.3.0",
+    version: "0.4.0",
     github: "https://github.com/growthbook/growthbook-elixir",
     examples: [],
     packageRepos: [
