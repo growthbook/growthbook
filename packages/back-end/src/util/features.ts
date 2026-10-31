@@ -2020,3 +2020,17 @@ export function toFeatureMetaInfo(
     ...(includeDefaultValue && { defaultValue: f.defaultValue ?? "" }),
   };
 }
+
+// Index revisions by `${featureId}:${version}` so a list of N flags can look
+// up each one's revision in O(1) instead of scanning all revisions per flag.
+// The first revision for a key wins, matching the old `find()` behavior.
+export function indexRevisions<
+  T extends Pick<FeatureRevisionInterface, "featureId" | "version">,
+>(revisions: T[] | null | undefined): Map<string, T> {
+  const map = new Map<string, T>();
+  for (const r of revisions ?? []) {
+    const key = `${r.featureId}:${r.version}`;
+    if (!map.has(key)) map.set(key, r);
+  }
+  return map;
+}
