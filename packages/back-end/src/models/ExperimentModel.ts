@@ -419,6 +419,11 @@ const experimentSchema = new mongoose.Schema({
         totalUnits: Number,
         multiClusterUnits: Number,
       },
+      subUnitMultipleExposures: {
+        _id: false,
+        totalSubUnits: Number,
+        multipleExposedSubUnits: Number,
+      },
       power: {
         _id: false,
         type: { type: String, enum: ["error", "success"] },
