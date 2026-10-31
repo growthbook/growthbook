@@ -28,11 +28,23 @@ type FeaturePageResponse = {
   rampSchedules: RampScheduleInterface[];
 };
 
-function parseVersion(value: string | string[] | undefined): number | null {
+export function parseVersion(
+  value: string | string[] | undefined,
+): number | null {
   const v = Array.isArray(value) ? value[0] : value;
   if (!v) return null;
   const parsed = parseInt(v, 10);
   return Number.isNaN(parsed) ? null : parsed;
+}
+
+// The feature page's main request. Shared with EarlyFetch so both use the same
+// SWR key and the request is only sent once.
+export function getFeaturePagePath(
+  fid: string | string[] | undefined,
+  version: number | null,
+): string {
+  if (!fid) return "";
+  return `/feature/${fid}${version !== null ? `?v=${version}` : ""}`;
 }
 
 // Build minimal revision from a full revision
@@ -92,9 +104,7 @@ export function useFeaturePageData(
     mutate: mutateBase,
     isValidating: isValidatingBase,
   } = useApi<FeaturePageResponse>(
-    fid
-      ? `/feature/${fid}${initialVersion.current.v !== null ? `?v=${initialVersion.current.v}` : ""}`
-      : "",
+    getFeaturePagePath(fid, initialVersion.current.v),
     { shouldRun: () => !!fid },
   );
 
