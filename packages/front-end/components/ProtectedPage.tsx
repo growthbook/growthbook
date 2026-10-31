@@ -8,6 +8,7 @@ import { isCloud } from "@/services/env";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import LoadingOverlay from "./LoadingOverlay";
+import EarlyFetch from "./EarlyFetch";
 import CreateOrJoinOrganization from "./Auth/CreateOrJoinOrganization";
 import SelectInitialPlan from "./Auth/SelectInitialPlan";
 import InAppHelp from "./Auth/InAppHelp";
@@ -86,7 +87,12 @@ const LoggedInPageGuard = ({
 
   // Still waiting to fetch current user/org details
   if ((organizations || []).length > 0 && !Object.keys(organization).length) {
-    return <LoadingOverlay />;
+    return (
+      <>
+        <EarlyFetch />
+        <LoadingOverlay />
+      </>
+    );
   }
 
   return <>{children}</>;
