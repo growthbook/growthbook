@@ -107,6 +107,11 @@ describe("toApiKey", () => {
     });
   });
 
+  it("shows an org key's stored actAs, and system when none is stored", () => {
+    expect(toApiKey(base).actAs).toBe("system");
+    expect(toApiKey({ ...base, actAs: "user" }).actAs).toBe("user");
+  });
+
   it("maps an unscoped PAT without a role or actAs", () => {
     const apiKey = toApiKey(pat, "owner@example.com");
     expect(apiKey).toMatchObject({

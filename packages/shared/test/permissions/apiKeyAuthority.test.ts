@@ -318,7 +318,11 @@ describe("apiKeyRolesRefusal", () => {
   });
   const org = {
     customRoles: [
+      customRole("keyCreator", ["ReadData", "APIKeysCreate"]),
       customRole("keyManager", ["ReadData", "APIKeysEdit"]),
+      customRole("keyDeleter", ["ReadData", "APIKeysDelete"]),
+      customRole("tokenManager", ["ReadData", "APIKeysMemberTokens"]),
+      customRole("keyViewer", ["ReadData", "APIKeysView"]),
       customRole("settingsEditor", ["GeneralSettingsFullAccess"]),
       customRole("teamAdmin", ["TeamManagementFullAccess"]),
       customRole("roleEditor", ["CustomRolesFullAccess"]),
@@ -381,7 +385,10 @@ describe("apiKeyRolesRefusal", () => {
   it.each([
     ["teamAdmin", "manage members"],
     ["roleEditor", "manage custom roles"],
-    ["keyManager", "manage API keys"],
+    ["keyCreator", "create API keys"],
+    ["keyManager", "edit API keys"],
+    ["keyDeleter", "delete API keys"],
+    ["tokenManager", "manage members' personal access tokens"],
     ["settingsEditor", "change organization settings"],
     ["gbDefault_projectAdmin", "manage Projects"],
   ])("refuses %s org-wide", (role, ability) => {
@@ -390,6 +397,15 @@ describe("apiKeyRolesRefusal", () => {
     ).toBe(
       `The ${role} role can't be given to an API key through this endpoint, because it can ${ability} (additionalRoles[0]).`,
     );
+  });
+
+  it("allows a role that can only view API keys", () => {
+    expect(
+      apiKeyRolesRefusal(
+        { ...base, role: "keyViewer", additionalRoles: [rule("keyViewer")] },
+        org,
+      ),
+    ).toBeNull();
   });
 
   it("allows global-only permissions in Project rules, but not manageProjects", () => {

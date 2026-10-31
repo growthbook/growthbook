@@ -136,10 +136,10 @@ export function changesApiKeyAuthority(
 const ORG_WIDE_REFUSED: [Permission, string][] = [
   ["manageCustomRoles", "manage custom roles"],
   ["manageTeam", "manage members"],
-  ["createApiKeys", "manage API keys"],
-  ["editApiKeys", "manage API keys"],
-  ["deleteApiKeys", "manage API keys"],
-  ["managePersonalAccessTokens", "manage API keys"],
+  ["createApiKeys", "create API keys"],
+  ["editApiKeys", "edit API keys"],
+  ["deleteApiKeys", "delete API keys"],
+  ["managePersonalAccessTokens", "manage members' personal access tokens"],
   ["organizationSettings", "change organization settings"],
 ];
 const REFUSED_EVERYWHERE: [Permission, string][] = [
