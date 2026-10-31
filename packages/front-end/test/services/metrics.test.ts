@@ -449,38 +449,30 @@ describe("getDefaultFactMetricProps datasource", () => {
 
 describe("fact metric creation flow", () => {
   it.each([
-    [false, false, false, "pending"],
-    [false, false, true, "pending"],
-    [false, true, false, "pending"],
-    [false, true, true, "pending"],
-    [true, true, false, "page"],
-    [true, true, true, "page"],
-    [true, false, true, "modal"],
-    [true, false, false, "fact-table"],
+    [false, false, "pending"],
+    [false, true, "pending"],
+    [true, false, "page"],
+    [true, true, "page"],
   ] as const)(
-    "resolves ready=%s, treatment=%s, fact table=%s to %s",
-    (ready, treatment, hasFactTable, expected) => {
-      expect(resolveFactMetricCreation(ready, treatment, hasFactTable)).toBe(
-        expected,
-      );
+    "resolves ready=%s, fact table=%s to %s",
+    (ready, hasFactTable, expected) => {
+      expect(resolveFactMetricCreation(ready, hasFactTable)).toBe(expected);
     },
   );
 });
 
 describe("embedded fact metric creation", () => {
   it.each([
-    [false, false, false, "pending"],
-    [false, true, true, "pending"],
-    [true, true, true, "inline"],
-    [true, true, false, "fact-table"],
-    [true, false, true, "modal"],
-    [true, false, false, "fact-table"],
+    [false, false, "pending"],
+    [false, true, "pending"],
+    [true, true, "inline"],
+    [true, false, "fact-table"],
   ] as const)(
-    "keeps ready=%s, treatment=%s, table=%s on the current form",
-    (ready, treatment, hasFactTable, expected) => {
-      expect(
-        resolveFactMetricCreation(ready, treatment, hasFactTable, true),
-      ).toBe(expected);
+    "keeps ready=%s, table=%s on the current form",
+    (ready, hasFactTable, expected) => {
+      expect(resolveFactMetricCreation(ready, hasFactTable, true)).toBe(
+        expected,
+      );
     },
   );
 });
