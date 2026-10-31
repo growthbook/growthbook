@@ -525,6 +525,9 @@ function HealthSnapshotCards({
     isClusterExperiment && subUnitMultipleExposures
       ? subUnitMultipleExposures.totalSubUnits
       : totalUsers;
+  const multipleExposuresError = isClusterExperiment
+    ? subUnitMultipleExposures?.error
+    : undefined;
 
   // Sub-unit traffic would give an invalid SRM for a cluster experiment, so
   // it's never a fallback for missing cluster traffic.
@@ -614,6 +617,7 @@ function HealthSnapshotCards({
             multipleExposures={multipleExposuresCount}
             snapshotId={snapshot.id}
             isClusterExperiment={isClusterExperiment}
+            error={multipleExposuresError}
           />
         </div>
       )}

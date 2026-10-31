@@ -19,14 +19,20 @@ export default function MultipleExposureWarning({
   experiment,
   experimentType,
   isClusterExperiment = false,
+  error,
 }: {
   multipleExposures: number;
   totalUsers: number;
   experiment?: Pick<ExperimentInterface, "type" | "disableStickyBucketing">;
   experimentType?: ExperimentType;
   isClusterExperiment?: boolean;
+  error?: string;
 }) {
   const settings = useOrgSettings();
+
+  if (error) {
+    return <Callout status="error">Unable to run this check: {error}</Callout>;
+  }
 
   // For bandits, show warning only if sticky bucketing is enabled
   const isBandit =

@@ -20,6 +20,7 @@ interface Props {
   // warning must not claim these users were removed from results.
   isBandit?: boolean;
   isClusterExperiment?: boolean;
+  error?: string;
 }
 
 const percentFormatter = new Intl.NumberFormat(undefined, {
@@ -35,6 +36,7 @@ export default function MultipleExposuresCard({
   snapshotId,
   isBandit = false,
   isClusterExperiment = false,
+  error,
 }: Props) {
   const settings = useOrgSettings();
 
@@ -56,7 +58,7 @@ export default function MultipleExposuresCard({
   );
 
   useEffect(() => {
-    if (health.status === "unhealthy" && onNotify) {
+    if (!error && health.status === "unhealthy" && onNotify) {
       onNotify({
         label: isClusterExperiment
           ? "Sub-unit Multiple Exposures"
@@ -66,7 +68,28 @@ export default function MultipleExposuresCard({
     }
     // `snapshotId` is intentionally a dependency so a new snapshot re-notifies
     // the parent even when `health` and `onNotify` are unchanged.
-  }, [health, onNotify, snapshotId, isClusterExperiment]);
+  }, [error, health, onNotify, snapshotId, isClusterExperiment]);
+
+  if (error) {
+    return (
+      <div className="appbox p-3">
+        <h2 className="d-inline">
+          {isClusterExperiment
+            ? "Sub-unit Multiple Exposures Check"
+            : "Multiple Exposures Check"}
+        </h2>
+        <p className="mt-1">
+          Detects whether {unitNoun} have been exposed to multiple variations
+        </p>
+        <Separator size="4" my="3" />
+        <div className="row justify-content-start">
+          <div className="ml-2 mr-2 mt-1 w-100">
+            <Callout status="error">Unable to run this check: {error}</Callout>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (health.status === "not-enough-traffic") {
     return null;

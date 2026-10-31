@@ -383,6 +383,11 @@ const CompactResults: FC<{
               }
               experimentType={experimentType}
               isClusterExperiment={!!snapshot?.settings?.isClusterExperiment}
+              error={
+                snapshot?.settings?.isClusterExperiment
+                  ? snapshot?.health?.subUnitMultipleExposures?.error
+                  : undefined
+              }
             />
             <ClusterReliabilityWarning
               snapshot={snapshot}
