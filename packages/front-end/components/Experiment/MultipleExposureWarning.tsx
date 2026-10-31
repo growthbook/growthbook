@@ -18,13 +18,21 @@ export default function MultipleExposureWarning({
   totalUsers,
   experiment,
   experimentType,
+  isClusterExperiment = false,
+  error,
 }: {
   multipleExposures: number;
   totalUsers: number;
   experiment?: Pick<ExperimentInterface, "type" | "disableStickyBucketing">;
   experimentType?: ExperimentType;
+  isClusterExperiment?: boolean;
+  error?: string;
 }) {
   const settings = useOrgSettings();
+
+  if (error) {
+    return <Callout status="error">Unable to run this check: {error}</Callout>;
+  }
 
   // For bandits, show warning only if sticky bucketing is enabled
   const isBandit =
@@ -54,8 +62,13 @@ export default function MultipleExposureWarning({
 
   return (
     <Callout status="warning">
-      <strong>Multiple Exposures Warning</strong>.{" "}
-      {numberFormatter.format(multipleExposures)} users (
+      <strong>
+        {isClusterExperiment
+          ? "Sub-unit Multiple Exposures Warning"
+          : "Multiple Exposures Warning"}
+      </strong>
+      . {numberFormatter.format(multipleExposures)}{" "}
+      {isClusterExperiment ? "sub-units" : "users"} (
       {percentFormatter.format(multipleExposureHealth.rawDecimal)}) saw multiple
       variations and were automatically removed from results. Check for bugs in
       your implementation, event tracking, or data pipeline.

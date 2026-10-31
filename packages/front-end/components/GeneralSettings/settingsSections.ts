@@ -120,6 +120,7 @@ const SECTION_FIELDS: Record<string, string[]> = {
     "runHealthTrafficQuery",
     "srmThreshold",
     "multipleExposureMinPercent",
+    "clusterIssueMinPercent",
     "attributionModel",
     "disablePrecomputedDimensions",
     "useStickyBucketing",

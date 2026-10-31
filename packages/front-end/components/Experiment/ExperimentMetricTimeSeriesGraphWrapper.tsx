@@ -1,3 +1,4 @@
+import { ExperimentSnapshotSettings } from "shared/types/experiment-snapshot";
 import { captureException as sentryCaptureException } from "@sentry/nextjs";
 import { useMemo } from "react";
 import { ErrorBoundary } from "react-error-boundary";
@@ -18,6 +19,11 @@ import {
   formatPercent,
 } from "@/services/metrics";
 import { findTimeSeriesVariation } from "@/services/timeSeriesVariations";
+import {
+  getClusterSubUnitsLabel,
+  getClusterUnitsLabel,
+} from "@/services/experiments";
+import { useSnapshot } from "@/components/Experiment/SnapshotProvider";
 import { useCurrency } from "@/hooks/useCurrency";
 import type { GraphVariation } from "./ExperimentDateGraph";
 import ExperimentTimeSeriesGraph, {
@@ -90,6 +96,7 @@ function mapTimeSeriesPointToVariationCells({
         formatterOptions,
       ),
       users: variation.stats?.users ?? 0,
+      subUnits: variation.stats?.sub_count,
       up: liftSlice?.expected ?? 0,
       ctw: liftSlice?.chanceToWin ?? undefined,
       ci: adjustedCI ?? liftSlice?.ci ?? undefined,
@@ -138,6 +145,8 @@ interface ExperimentMetricTimeSeriesGraphWrapperProps {
   dimensionId?: string;
   dimensionValue?: string;
   oneSided?: boolean;
+  // Callers pass the snapshot they render; the experiment page's is the fallback.
+  snapshotSettings?: ExperimentSnapshotSettings;
 }
 
 export default function ExperimentMetricTimeSeriesGraphWrapperWithErrorBoundary(
@@ -176,8 +185,11 @@ function ExperimentMetricTimeSeriesGraphWrapper({
   dimensionId,
   dimensionValue,
   oneSided = false,
+  snapshotSettings,
 }: ExperimentMetricTimeSeriesGraphWrapperProps) {
   const { getFactTableById } = useDefinitions();
+  const { snapshot } = useSnapshot();
+  const settings = snapshotSettings ?? snapshot?.settings;
 
   const displayCurrency = useCurrency();
   const formatterOptions = { currency: displayCurrency };
@@ -367,6 +379,8 @@ function ExperimentMetricTimeSeriesGraphWrapper({
       statsEngine={statsEngine}
       usesPValueAdjustment={pValueAdjustmentEnabled}
       oneSided={oneSided}
+      unitsLabel={getClusterUnitsLabel(settings)}
+      subUnitsLabel={getClusterSubUnitsLabel(settings, metric.id)}
     />
   );
 }

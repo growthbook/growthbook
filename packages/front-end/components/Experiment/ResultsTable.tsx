@@ -1403,6 +1403,7 @@ export default function ResultsTable({
                                           experimentId={experimentId}
                                           pValueThreshold={pValueThreshold}
                                           phase={phase}
+                                          snapshotSettings={snapshot?.settings}
                                           metric={row.metric}
                                           differenceType={differenceType}
                                           variations={timeSeriesVariations}

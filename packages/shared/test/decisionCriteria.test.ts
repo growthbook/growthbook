@@ -67,6 +67,7 @@ describe("getSafeRolloutResultStatus with errored guardrails", () => {
     experimentMinLengthDays: 7,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    clusterIssueMinPercent: 0.01,
   };
 
   function makeSafeRollout(
@@ -1986,6 +1987,7 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     decisionFrameworkEnabled: true,
     srmThreshold: 0.001,
     multipleExposureMinPercent: 0.01,
+    clusterIssueMinPercent: 0.01,
     experimentMinLengthDays: 7,
   };
 
@@ -2109,6 +2111,186 @@ describe("getExperimentResultStatus schedule-driven states", () => {
     });
 
     expect(result?.status).toBe("unhealthy");
+  });
+
+  it("flags cluster assignment and mapping issues at the cluster threshold", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 50_000,
+            clusterAssignment: { totalClusters: 25, mixedClusters: 1 },
+            clusterSubUnitMapping: {
+              totalUnits: 50_000,
+              multiClusterUnits: 400,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    // 1 of 25 clusters (4%) is over 1%; 400 of 50,000 units (0.8%) is not.
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        clusterAssignment: { rawDecimal: 0.04, mixedClusters: 1 },
+      },
+      tooltip: "Mixed cluster assignment",
+    });
+  });
+
+  it("flags cluster assignment and mapping issues even when the filter leaves zero units", () => {
+    // Every cluster is mixed and every sub-unit maps to several clusters, so
+    // the consistency filter removes all traffic and totalUsers is 0. The
+    // assignment/mapping problem that erased the data must still surface as
+    // unhealthy rather than collapsing to a bare "no data" status.
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+            clusterAssignment: { totalClusters: 25, mixedClusters: 25 },
+            clusterSubUnitMapping: {
+              totalUnits: 1000,
+              multiClusterUnits: 1000,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        clusterAssignment: { rawDecimal: 1, mixedClusters: 25 },
+        clusterMapping: { rawDecimal: 1, multiClusterUnits: 1000 },
+      },
+      tooltip: "Mixed cluster assignment, Units in multiple clusters",
+    });
+  });
+
+  it("flags sub-unit multiple exposures from the sub-unit grain for cluster experiments", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            // Cluster-grained multiple exposures is always 0 (the
+            // cluster-consistency filter removes multi-variation sub-units).
+            multipleExposures: 0,
+            // totalUsers is cluster-grained (e.g. 100 clusters).
+            totalUsers: 100,
+            // Present (so this is a cluster summary) but healthy, isolating the
+            // multiple-exposures label from "Mixed cluster assignment".
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // The real signal: measured at the sub-unit grain with its own
+            // denominator. 200 / 10,000 = 2% > 1% threshold -> unhealthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 200,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    // For a cluster experiment, a sub-unit seeing multiple variations is a
+    // distinct signal from "Mixed cluster assignment", so it is labeled as such
+    // and driven by the sub-unit count/denominator rather than the (always-0)
+    // cluster-grained figures.
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        multipleExposures: {
+          rawDecimal: 0.02,
+          multipleExposedUsers: 200,
+        },
+      },
+      tooltip: "Sub-unit multiple exposures",
+    });
+  });
+
+  it("flags sub-unit multiple exposures even when the traffic query leaves zero units", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 1,
+            multipleExposures: 0,
+            totalUsers: 0,
+            // Present but healthy, so this is a cluster summary and the only
+            // unhealthy signal is the sub-unit multiple exposures.
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // 200 / 10,000 = 2% > 1% threshold -> unhealthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 200,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result).toEqual({
+      status: "unhealthy",
+      unhealthyData: {
+        multipleExposures: {
+          rawDecimal: 0.02,
+          multipleExposedUsers: 200,
+        },
+      },
+      tooltip: "Sub-unit multiple exposures",
+    });
+  });
+
+  it("does not flag sub-unit multiple exposures below the threshold for cluster experiments", () => {
+    const result = getExperimentResultStatus({
+      experimentData: makeExperimentData({
+        analysisSummary: {
+          snapshotId: "snap-1",
+          health: {
+            srm: 0.5,
+            multipleExposures: 0,
+            totalUsers: 100,
+            clusterAssignment: { totalClusters: 100, mixedClusters: 0 },
+            // 10 / 10,000 = 0.1% < 1% threshold -> healthy.
+            subUnitMultipleExposures: {
+              totalSubUnits: 10_000,
+              multipleExposedSubUnits: 10,
+            },
+          },
+        },
+      }),
+      healthSettings: baseHealthSettings,
+      decisionCriteria: PRESET_DECISION_CRITERIA,
+      metricGroups: [],
+    });
+
+    expect(result?.tooltip ?? "").not.toContain("multiple exposures");
+    expect(
+      result?.status === "unhealthy" &&
+        !!result.unhealthyData.multipleExposures,
+    ).not.toBe(true);
   });
 
   it("uses the scheduled end date for days-left even when power reports a different estimate", () => {

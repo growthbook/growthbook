@@ -63,6 +63,7 @@ import {
   assertVisualChangesEditable,
   getExperimentAffectedEnvs,
   _getSnapshots,
+  assertCanEnableClusterExperiment,
   assertValidClusterExperimentConfig,
   assertExperimentKeyFormat,
   createSnapshotAnalyses,
@@ -1429,6 +1430,9 @@ export async function postExperiments(
       obj.exposureQueryIdentifierType = parsed.identifierType;
     }
 
+    if (obj.isClusterExperiment) {
+      assertCanEnableClusterExperiment(context);
+    }
     await assertValidClusterExperimentConfig({
       context,
       datasource,

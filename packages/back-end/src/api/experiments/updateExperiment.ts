@@ -27,6 +27,7 @@ import {
 import {
   assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentChanges,
+  assertClusterConfigUnlocked,
   assertValidClusterExperimentConfig,
   assertCanRunExperimentInAffectedEnvironments,
   assertExperimentKeyFormat,
@@ -135,6 +136,8 @@ export const updateExperiment = createApiRequestHandler(
     decisionFrameworkSettings: payload.decisionFrameworkSettings,
     metricOverrides: payload.metricOverrides,
     defaultDashboardId: payload.defaultDashboardId,
+    isClusterExperiment:
+      payload.isClusterExperiment && !experiment.isClusterExperiment,
   });
 
   // validate datasource only if updating
@@ -197,6 +200,14 @@ export const updateExperiment = createApiRequestHandler(
   const identifierTypeChanged =
     exposureQueryIdentifierType !== experiment.exposureQueryIdentifierType;
 
+  await assertClusterConfigUnlocked(req.context, experiment, {
+    status: payload.status,
+    isClusterExperiment: payload.isClusterExperiment,
+    clusterSubUnitIdentifier: payload.clusterSubUnitIdentifier,
+    datasource: datasourceId ?? "",
+    exposureQueryId: payload.assignmentQueryId ?? experiment.exposureQueryId,
+    exposureQueryIdentifierType,
+  });
   const effectiveIsClusterExperiment =
     payload.isClusterExperiment ?? experiment.isClusterExperiment;
   const effectiveType = payload.type ?? experiment.type ?? "standard";

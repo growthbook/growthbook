@@ -16,6 +16,10 @@ import { getBanditCaseWhen } from "back-end/src/integrations/sql/clauses/bandit-
 import { getBanditDates } from "back-end/src/integrations/sql/clauses/bandit-variation-period-weights";
 import { getBanditStatisticsFactMetricCTE } from "back-end/src/integrations/sql/ctes/bandit-statistics-fact-metric-cte";
 import { getClusterRollupCTE } from "back-end/src/integrations/sql/ctes/cluster-rollup-cte";
+import {
+  getConsistentClusterCondition,
+  getSingleClusterPerUnitCondition,
+} from "back-end/src/integrations/sql/clauses/cluster-assignment-filter";
 import { resolveClusterMetricGrain } from "back-end/src/integrations/sql/fact-metrics/cluster-metric-grain";
 import { getDimensionCol } from "back-end/src/integrations/sql/columns/dimension-col";
 import { getExperimentEndDate } from "back-end/src/integrations/sql/dates/experiment-end-date";
@@ -240,6 +244,26 @@ export function getExperimentFactMetricsQuery(
   if (settings.skipPartialData) {
     distinctUsersWhere.push(
       `${timestampColumn} <= ${dialect.toTimestamp(endDate)}`,
+    );
+  }
+  const factMetricsUnitsSource =
+    params.unitsSource === "exposureTable"
+      ? `${params.unitsTableFullName}`
+      : "__experimentUnits";
+  const clusterConsistencyKey = clusterSubUnit
+    ? (clusterIdColumn ?? baseIdType)
+    : null;
+  if (clusterConsistencyKey) {
+    distinctUsersWhere.push(
+      getConsistentClusterCondition({
+        sourceTable: factMetricsUnitsSource,
+        clusterIdColumn: clusterConsistencyKey,
+      }),
+    );
+    distinctUsersWhere.push(
+      getSingleClusterPerUnitCondition({
+        clusterIdColumn: clusterConsistencyKey,
+      }),
     );
   }
 

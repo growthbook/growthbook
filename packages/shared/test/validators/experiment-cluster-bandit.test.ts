@@ -1,5 +1,6 @@
 import {
   CLUSTER_BANDIT_NOT_SUPPORTED_MESSAGE,
+  isClusterConfigChangeLocked,
   isUnsupportedClusterBanditCombination,
   postExperimentValidator,
   updateExperimentValidator,
@@ -24,6 +25,84 @@ describe("isUnsupportedClusterBanditCombination", () => {
     { type: "standard", isClusterExperiment: false },
   ])("is false for %p", (args) => {
     expect(isUnsupportedClusterBanditCombination(args)).toBe(false);
+  });
+});
+
+describe("isClusterConfigChangeLocked", () => {
+  const launched = { status: "running", hasLinkedChanges: true };
+
+  it.each([
+    { ...launched, isClusterExperiment: false, nextIsClusterExperiment: true },
+    {
+      ...launched,
+      status: "stopped",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: false,
+    },
+    {
+      ...launched,
+      isClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "device_id",
+    },
+    {
+      ...launched,
+      isClusterExperiment: true,
+      clusterIdentifier: "region_id",
+      nextClusterIdentifier: "store_id",
+    },
+  ])("locks %p", (args) => {
+    expect(isClusterConfigChangeLocked(args)).toBe(true);
+  });
+
+  it.each([
+    // Assigned outside GrowthBook, e.g. an imported experiment.
+    {
+      ...launched,
+      hasLinkedChanges: false,
+      isClusterExperiment: false,
+      nextIsClusterExperiment: true,
+    },
+    {
+      ...launched,
+      status: "draft",
+      isClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "device_id",
+    },
+    {
+      ...launched,
+      nextStatus: "draft",
+      isClusterExperiment: true,
+      nextIsClusterExperiment: false,
+    },
+    {
+      ...launched,
+      isClusterExperiment: true,
+      nextIsClusterExperiment: true,
+      subUnitIdentifier: "user_id",
+      nextSubUnitIdentifier: "user_id",
+    },
+    {
+      ...launched,
+      isClusterExperiment: false,
+      subUnitIdentifier: "",
+      nextSubUnitIdentifier: "device_id",
+    },
+    {
+      ...launched,
+      isClusterExperiment: false,
+      clusterIdentifier: "user_id",
+      nextClusterIdentifier: "device_id",
+    },
+    {
+      ...launched,
+      isClusterExperiment: true,
+      clusterIdentifier: "region_id",
+      nextClusterIdentifier: "region_id",
+    },
+  ])("allows %p", (args) => {
+    expect(isClusterConfigChangeLocked(args)).toBe(false);
   });
 });
 

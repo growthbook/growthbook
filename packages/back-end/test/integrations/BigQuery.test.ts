@@ -979,6 +979,10 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     // Per-sub-unit values are capped and summed to one row per cluster.
     expect(sql).toContain("__clusterRollup");
     expect(sql).toMatch(/m\.region_id/);
+    // Multi-cluster sub-units are dropped from the units cache before rollup.
+    // The reference is qualified with the units alias so an incremental
+    // breakdown by a cluster-keyed dimension can't make the column ambiguous.
+    expect(sql).toContain("e.region_id <> '__multiple__'");
     // The metric cache is joined and re-aggregated on the sub-unit.
     expect(sql).toMatch(/__metricDataAggregated[\s\S]*GROUP BY[\s\S]*user_id/);
     // Units carry the cluster id from the sub-unit-grained cache.
@@ -1038,6 +1042,11 @@ describe("BigQuery KLL incremental refresh SQL generation (E2E)", () => {
     expect(sql).toMatch(
       /__experimentUnits AS \([\s\S]*GROUP BY[\s\S]*region_id/,
     );
+    // Multi-cluster sub-units are dropped before the cluster rollup, so they
+    // don't form a phantom cluster in the region-level analysis. The reference
+    // is qualified with the units alias so an incremental breakdown by a
+    // cluster-keyed dimension can't make the column ambiguous.
+    expect(sql).toContain("e.region_id <> '__multiple__'");
     // A cluster whose sub-units span multiple variations is flagged
     // '__multiple__' (dropped downstream) rather than counted in each arm.
     // This must match the non-incremental getExperimentFactMetricsQuery path.

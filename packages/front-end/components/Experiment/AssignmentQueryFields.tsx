@@ -1,6 +1,16 @@
 import { ReactNode, useCallback, useEffect, useMemo, useRef } from "react";
-import { DataSourceInterfaceWithParams } from "shared/types/datasource";
-import { getExposureQueryIdentifierTypes } from "shared/util";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
+import { CLUSTER_CONFIG_LOCKED_MESSAGE } from "shared/validators";
+import { Box } from "@radix-ui/themes";
+import {
+  DataSourceInterfaceWithParams,
+  ExposureQuery,
+} from "shared/types/datasource";
+import {
+  experimentHasLinkedChanges,
+  getExposureQueryIdentifierTypes,
+  resolveAnalysisIdentifierType,
+} from "shared/util";
 import { PiInfo, PiWarningFill } from "react-icons/pi";
 import {
   AssignmentQueryNotice,
@@ -18,6 +28,9 @@ import SelectField, {
 } from "@/components/Forms/SelectField";
 import Tooltip from "@/components/Tooltip/Tooltip";
 import Callout from "@/ui/Callout";
+import Checkbox from "@/ui/Checkbox";
+import PremiumTooltip from "@/components/Marketing/PremiumTooltip";
+import { useUser } from "@/services/UserContext";
 import HelperText from "@/ui/HelperText";
 import SetupFieldRow from "@/components/Experiment/TabbedPage/SetupFieldRow";
 
@@ -290,6 +303,13 @@ function getDriftNotice({
 }
 
 /** Why no identifier type can be chosen. */
+// Monospace like code, in the surrounding text color.
+export function IdentifierCode({ children }: { children: ReactNode }) {
+  return (
+    <code style={{ color: "inherit", textTransform: "none" }}>{children}</code>
+  );
+}
+
 export function getNoAssignmentQueriesMessage({
   hasExposureQueries,
   holdoutProjects,
@@ -361,6 +381,7 @@ export default function AssignmentQueryFields({
   autoFocus = false,
   progressive = false,
   asRows = false,
+  identifierError,
 }: {
   selection: Selection;
   initialOption?: string;
@@ -374,6 +395,7 @@ export default function AssignmentQueryFields({
   progressive?: boolean;
   /** Each field beside its label, as on the experiment's setup page. */
   asRows?: boolean;
+  identifierError?: ReactNode;
 }) {
   const {
     exposureQueryId,
@@ -398,6 +420,11 @@ export default function AssignmentQueryFields({
     ) : (
       select
     );
+  const identifierErrorText = identifierError ? (
+    <HelperText status="error" size="sm" mt="2">
+      {identifierError}
+    </HelperText>
+  ) : null;
   return (
     <>
       {asRows ? null : <AssignmentQueryDriftWarning selection={selection} />}
@@ -433,7 +460,9 @@ export default function AssignmentQueryFields({
           sort={false}
           options={groupedIdentifierTypes}
         />,
+        identifierErrorText,
       )}
+      {asRows ? null : identifierErrorText}
       {progressive && !identifierType
         ? null
         : field(
@@ -471,5 +500,350 @@ export default function AssignmentQueryFields({
             />,
           )}
     </>
+  );
+}
+
+export const POST_STRATIFICATION_CLUSTER_MESSAGE =
+  "Post-stratification isn't supported for cluster experiments.";
+
+/** The query's identifier types a cluster experiment can analyze on. */
+export function getClusterSubUnitOptions(
+  exposureQuery: ExposureQuery | undefined,
+  identifierType: string | undefined,
+): string[] {
+  return exposureQuery
+    ? getExposureQueryIdentifierTypes(exposureQuery).filter(
+        (type) => type !== identifierType,
+      )
+    : [];
+}
+
+export const CLUSTER_OFF_FOR_DATASOURCE_MESSAGE =
+  "This Data Source has no assignment queries, so this experiment will no longer be analyzed as a cluster experiment. Make sure that still matches how traffic was randomized.";
+
+const CLUSTER_MODE_CHANGE_MESSAGE =
+  "This experiment has already started. Turning Cluster experiment on or off changes how results are analyzed, so make sure it still matches how traffic was randomized.";
+
+export type ClusterChangeAfterLaunch = "mode" | "subunit" | null;
+
+// Matches the back end's isClusterConfigChangeLocked.
+export function isClusterConfigLocked(
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "status" | "linkedFeatures" | "hasURLRedirects" | "hasVisualChangesets"
+  >,
+): boolean {
+  return (
+    experiment.status !== "draft" && experimentHasLinkedChanges(experiment)
+  );
+}
+
+export type LockedClusterError = {
+  // Which control the error belongs under.
+  field: "datasource" | "identifier" | "subunit";
+  // Plain text, for errors thrown on save.
+  message: string;
+  content: ReactNode;
+};
+
+// The cluster's identifier type as saved, which a locked experiment keeps.
+export function getSavedClusterIdentifier(
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "exposureQueryId" | "exposureQueryIdentifierType"
+  >,
+  savedDatasource: DataSourceInterfaceWithParams | undefined,
+): string | undefined {
+  return resolveAnalysisIdentifierType(
+    savedDatasource?.settings?.queries?.exposure?.find(
+      (q) => q.id === experiment.exposureQueryId,
+    ),
+    experiment.exposureQueryIdentifierType,
+  );
+}
+
+// A locked cluster experiment can still have its Data Source or query changed
+// out from under it; this says which choice can't keep the locked setup.
+export function getLockedClusterError({
+  experiment,
+  locked,
+  datasourceSelected,
+  supportsClusterExperiments,
+  exposureQuery,
+  identifierType,
+  savedClusterIdentifier,
+}: {
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "isClusterExperiment" | "clusterSubUnitIdentifier"
+  >;
+  locked: boolean;
+  datasourceSelected: boolean;
+  supportsClusterExperiments: boolean;
+  exposureQuery: ExposureQuery | undefined;
+  identifierType: string | undefined;
+  savedClusterIdentifier: string | undefined;
+}): LockedClusterError | null {
+  if (!locked || !experiment.isClusterExperiment) return null;
+  const cluster = savedClusterIdentifier ?? "";
+  const subUnit = experiment.clusterSubUnitIdentifier ?? "";
+  if (!datasourceSelected || !supportsClusterExperiments) {
+    return datasourceSelected
+      ? {
+          field: "datasource",
+          message: `This Data Source has no assignment queries, so it can't analyze an experiment randomized by ${cluster}. Choose one with an assignment query that includes ${cluster} and ${subUnit}.`,
+          content: (
+            <>
+              This Data Source has no assignment queries, so it can&apos;t
+              analyze an experiment randomized by{" "}
+              <IdentifierCode>{cluster}</IdentifierCode>. Choose one with an
+              assignment query that includes{" "}
+              <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+              <IdentifierCode>{subUnit}</IdentifierCode>.
+            </>
+          ),
+        }
+      : {
+          field: "datasource",
+          message: `Choose a Data Source. This experiment is randomized by ${cluster}, so it needs an assignment query that includes ${cluster} and ${subUnit}.`,
+          content: (
+            <>
+              Choose a Data Source. This experiment is randomized by{" "}
+              <IdentifierCode>{cluster}</IdentifierCode>, so it needs an
+              assignment query that includes{" "}
+              <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+              <IdentifierCode>{subUnit}</IdentifierCode>.
+            </>
+          ),
+        };
+  }
+  if (identifierType && identifierType !== cluster) {
+    return {
+      field: "identifier",
+      message: `This experiment is randomized by ${cluster}. Choose an assignment query and identifier type on ${cluster}.`,
+      content: (
+        <>
+          This experiment is randomized by{" "}
+          <IdentifierCode>{cluster}</IdentifierCode>. Choose an assignment query
+          and identifier type on <IdentifierCode>{cluster}</IdentifierCode>.
+        </>
+      ),
+    };
+  }
+  if (getClusterSubUnitOptions(exposureQuery, identifierType).includes(subUnit))
+    return null;
+  const queryName = exposureQuery?.name ?? "this assignment query";
+  return {
+    field: "subunit",
+    message: `This experiment's metrics are measured per ${subUnit}, but ${queryName} doesn't include it. Choose an assignment query that includes both ${cluster} and ${subUnit}.`,
+    content: (
+      <>
+        This experiment&apos;s metrics are measured per{" "}
+        <IdentifierCode>{subUnit}</IdentifierCode>, but {queryName} doesn&apos;t
+        include it. Choose an assignment query that includes both{" "}
+        <IdentifierCode>{cluster}</IdentifierCode> and{" "}
+        <IdentifierCode>{subUnit}</IdentifierCode>.
+      </>
+    ),
+  };
+}
+
+// Cluster settings only shape the analysis, so a started experiment can change
+// them, but should be told which one it changed.
+export function getClusterChangeAfterLaunch(
+  experiment: Pick<
+    ExperimentInterfaceStringDates,
+    "status" | "isClusterExperiment" | "clusterSubUnitIdentifier"
+  >,
+  next: { isClusterExperiment: boolean; clusterSubUnitIdentifier: string },
+): ClusterChangeAfterLaunch {
+  if (experiment.status === "draft") return null;
+  if (next.isClusterExperiment !== !!experiment.isClusterExperiment) {
+    return "mode";
+  }
+  return next.isClusterExperiment &&
+    next.clusterSubUnitIdentifier !==
+      (experiment.clusterSubUnitIdentifier ?? "")
+    ? "subunit"
+    : null;
+}
+
+export function ClusterExperimentFields({
+  exposureQuery,
+  identifierType,
+  isClusterExperiment,
+  subUnitIdentifier,
+  setIsClusterExperiment,
+  setSubUnitIdentifier,
+  disabled,
+  locked,
+  lockError,
+  changedAfterLaunch,
+  asRows = false,
+}: {
+  exposureQuery: ExposureQuery | undefined;
+  identifierType: string | undefined;
+  isClusterExperiment: boolean;
+  subUnitIdentifier: string;
+  setIsClusterExperiment: (value: boolean) => void;
+  setSubUnitIdentifier: (value: string) => void;
+  disabled?: boolean;
+  // Neither cluster mode nor the sub-unit can change after launch.
+  locked?: boolean;
+  lockError?: LockedClusterError | null;
+  changedAfterLaunch?: ClusterChangeAfterLaunch;
+  // Each field beside its label, as on the experiment's setup page.
+  asRows?: boolean;
+}) {
+  const { hasCommercialFeature } = useUser();
+  const subUnitOptions = useMemo(
+    () => getClusterSubUnitOptions(exposureQuery, identifierType),
+    [exposureQuery, identifierType],
+  );
+  // A new query or identifier can leave the chosen sub-unit off the list.
+  useEffect(() => {
+    if (!isClusterExperiment || locked || disabled) return;
+    if (subUnitOptions.includes(subUnitIdentifier)) return;
+    const next = subUnitOptions[0] ?? "";
+    // The form's setter re-renders even when the value is unchanged.
+    if (next !== subUnitIdentifier) setSubUnitIdentifier(next);
+  }, [
+    isClusterExperiment,
+    locked,
+    disabled,
+    subUnitOptions,
+    subUnitIdentifier,
+    setSubUnitIdentifier,
+  ]);
+  // Kept visible on a cluster experiment so it can still be turned off after
+  // its query stops declaring a second identifier.
+  if (!subUnitOptions.length && !isClusterExperiment) return null;
+
+  const explanation = (
+    <>
+      Every unit in a <IdentifierCode>{identifierType}</IdentifierCode> gets the
+      same variation, and metrics are analyzed on a smaller unit inside it.
+    </>
+  );
+  const premiumLabel = (label: ReactNode) => (
+    <PremiumTooltip commercialFeature="cluster-experiments">
+      {label}
+    </PremiumTooltip>
+  );
+  const checkbox = (
+    <Checkbox
+      label={
+        asRows
+          ? // PremiumTooltip lays its children out in a row, so the sentence
+            // goes in as one piece to wrap as text.
+            premiumLabel(<span>{explanation}</span>)
+          : premiumLabel("Cluster experiment")
+      }
+      weight={asRows ? "regular" : undefined}
+      // Stays on screen, unlike a tooltip, so the lock reads as a lock.
+      description={
+        locked
+          ? CLUSTER_CONFIG_LOCKED_MESSAGE
+          : asRows
+            ? undefined
+            : explanation
+      }
+      value={isClusterExperiment}
+      setValue={(value) => {
+        setIsClusterExperiment(value);
+        if (value && !subUnitOptions.includes(subUnitIdentifier)) {
+          setSubUnitIdentifier(subUnitOptions[0] ?? "");
+        }
+      }}
+      disabled={
+        disabled ||
+        locked ||
+        (!isClusterExperiment && !hasCommercialFeature("cluster-experiments"))
+      }
+    />
+  );
+  const launchWarning = (kind: ClusterChangeAfterLaunch, message: ReactNode) =>
+    changedAfterLaunch === kind ? (
+      <HelperText status="warning" size="sm" mt="2">
+        {message}
+      </HelperText>
+    ) : null;
+  const modeWarning = launchWarning("mode", CLUSTER_MODE_CHANGE_MESSAGE);
+  const lockErrorText = lockError ? (
+    <HelperText status="error" size="sm" mt="2">
+      {lockError.content}
+    </HelperText>
+  ) : null;
+  const subUnitLockError = lockError?.field === "subunit";
+  const subUnitWarning = subUnitLockError
+    ? lockErrorText
+    : launchWarning(
+        "subunit",
+        <>
+          This experiment has already started. Changing the subunit identifier
+          type changes which unit its metrics are analyzed on, so check that
+          they can be analyzed per{" "}
+          <IdentifierCode>{subUnitIdentifier}</IdentifierCode>.
+        </>,
+      );
+  // Identifier errors sit on the Identifier type field instead.
+  const clusterError = lockError?.field === "datasource" ? lockErrorText : null;
+  const subUnitSelect = (
+    <SelectField
+      label={asRows ? undefined : "Subunit identifier type"}
+      labelClassName={asRows ? undefined : "font-weight-bold"}
+      value={subUnitIdentifier}
+      onChange={setSubUnitIdentifier}
+      placeholder="Choose..."
+      required
+      disabled={disabled || locked}
+      sort={false}
+      options={subUnitOptions.map((type) => ({
+        label: type,
+        value: type,
+      }))}
+      helpText={
+        subUnitLockError ? undefined : subUnitOptions.length ? (
+          <>
+            Metrics are analyzed per{" "}
+            <IdentifierCode>{subUnitIdentifier}</IdentifierCode> wherever they
+            can be.
+          </>
+        ) : exposureQuery ? (
+          `${exposureQuery.name} doesn't declare another identifier type to analyze on.`
+        ) : (
+          "Choose an assignment query to pick a subunit."
+        )
+      }
+    />
+  );
+
+  if (asRows) {
+    return (
+      <>
+        <SetupFieldRow label="Cluster experiment" content="text">
+          {checkbox}
+          {clusterError ?? modeWarning}
+        </SetupFieldRow>
+        {isClusterExperiment && (
+          <SetupFieldRow label="Subunit identifier type">
+            {subUnitSelect}
+            {subUnitWarning}
+          </SetupFieldRow>
+        )}
+      </>
+    );
+  }
+  return (
+    <Box mb="4">
+      {checkbox}
+      {clusterError ?? modeWarning}
+      {isClusterExperiment && (
+        <Box ml="5" mt="3">
+          {subUnitSelect}
+          {subUnitWarning}
+        </Box>
+      )}
+    </Box>
   );
 }

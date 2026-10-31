@@ -296,8 +296,45 @@ export type SnapshotStatusSummary = Pick<
 
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
+  /** Cluster experiments: traffic counted per cluster rather than per sub-unit. */
+  clusterTraffic?: ExperimentSnapshotTraffic;
+  clusterUnits?: ExperimentSnapshotClusterUnits;
+  clusterAssignment?: ExperimentSnapshotClusterAssignment;
+  clusterSubUnitMapping?: ExperimentSnapshotClusterSubUnitMapping;
+  subUnitMultipleExposures?: ExperimentSnapshotSubUnitMultipleExposures;
   power?: MidExperimentPowerCalculationResult;
   covariateImbalance?: CovariateImbalanceResult;
+}
+
+export interface ExperimentSnapshotClusterSubUnitMapping {
+  totalUnits: number;
+  multiClusterUnits: number;
+  error?: string;
+}
+
+export interface ExperimentSnapshotSubUnitMultipleExposures {
+  totalSubUnits: number;
+  multipleExposedSubUnits: number;
+  error?: string;
+}
+
+export interface ExperimentSnapshotClusterAssignment {
+  totalClusters: number;
+  mixedClusters: number;
+  error?: string;
+}
+
+export interface ExperimentSnapshotClusterUnits {
+  // Ordered largest-first; capped at the query's row limit.
+  clusters: ExperimentSnapshotClusterUnit[];
+  error?: string;
+}
+
+export interface ExperimentSnapshotClusterUnit {
+  id: string;
+  variation: number;
+  units: number;
+  pct: number;
 }
 
 export interface ExperimentSnapshotTraffic {

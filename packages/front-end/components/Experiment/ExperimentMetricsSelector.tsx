@@ -9,6 +9,7 @@ import {
   isFactFunnelMetric,
   getUserIdTypes,
   getClusterExperimentMetricEligibility,
+  getClusterSubUnit,
 } from "shared/experiments";
 import {
   FactMetricType,
@@ -100,6 +101,23 @@ export function useMetricDisabledInfo(
     experimentId,
     experimentType,
   );
+  // Same rule as the back-end and MetricsSelector: cluster checks need a
+  // sub-unit and the selected assignment query.
+  const clusterSubUnit = getClusterSubUnit({
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
+  });
+  const exposureQuery = getExposureQuery(
+    datasourceObj?.settings,
+    exposureQueryId,
+  );
+  const clusterIdentifier =
+    clusterSubUnit && exposureQuery
+      ? resolveAnalysisIdentifierType(
+          exposureQuery,
+          exposureQueryIdentifierType,
+        )
+      : null;
   const getMetricDisabledInfo = useMemo(
     () => (metricId: string, isGroup: boolean) => {
       // Query generation rejects funnel metrics for bandits.
@@ -122,28 +140,19 @@ export function useMetricDisabledInfo(
         }
       }
 
-      if (isClusterExperiment) {
+      if (clusterSubUnit && clusterIdentifier) {
         const ids = isGroup
           ? expandMetricGroups(
               metricGroups.find((mg) => mg.id === metricId)?.metrics ?? [],
               metricGroups,
             )
           : [metricId];
-        const exposureQuery = getExposureQuery(
-          datasourceObj?.settings,
-          exposureQueryId,
-        );
         for (const id of ids) {
           const metric = getExperimentMetricById(id);
           if (!metric) continue;
           const eligibility = getClusterExperimentMetricEligibility(metric, {
-            clusterIdentifier: exposureQuery
-              ? resolveAnalysisIdentifierType(
-                  exposureQuery,
-                  exposureQueryIdentifierType,
-                )
-              : undefined,
-            clusterSubUnitIdentifier,
+            clusterIdentifier,
+            clusterSubUnitIdentifier: clusterSubUnit,
             getFactTable: getFactTableById,
             datasourceSettings: datasourceObj?.settings,
           });
@@ -233,10 +242,8 @@ export function useMetricDisabledInfo(
       datasourceObj,
       incrementalRefresh,
       experimentType,
-      isClusterExperiment,
-      clusterSubUnitIdentifier,
-      exposureQueryId,
-      exposureQueryIdentifierType,
+      clusterSubUnit,
+      clusterIdentifier,
       getFactTableById,
       getExperimentMetricById,
       metricGroups,

@@ -47,12 +47,14 @@ import {
   toApiAssignmentQueryRef,
   resolveAnalysisIdentifierType,
   validateClusterExperimentIdentifiers,
+  experimentHasLinkedChanges,
   linkedFeatureEnvStates,
   orgRequiresAnyReview,
 } from "shared/util";
 import {
   getBanditSRMValue,
   getExperimentSRMValue,
+  getExperimentSRMVariationUnits,
   getExperimentVariationUnitsFromHealth,
 } from "shared/health";
 import {
@@ -117,6 +119,8 @@ import {
   ApiMetric,
   ScheduledStopPlan,
   resolveSavedGroupsInput,
+  CLUSTER_CONFIG_LOCKED_MESSAGE,
+  isClusterConfigChangeLocked,
 } from "shared/validators";
 import { ComboConstituent, Dimension } from "shared/types/integrations";
 import {
@@ -4819,6 +4823,77 @@ export type PostExperimentApiPayload = z.infer<
   assignmentQueryIdentifierType?: string;
 };
 
+export function assertCanEnableClusterExperiment(context: ReqContext) {
+  if (!context.hasPremiumFeature("cluster-experiments")) {
+    context.throwPlanDoesNotAllowError(
+      "Cluster experiments require a Pro plan or higher.",
+    );
+  }
+}
+
+// Queries are only loaded once the experiment is locked, so most saves skip them.
+export async function assertClusterConfigUnlocked(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  next: {
+    status?: string;
+    isClusterExperiment?: boolean | null;
+    clusterSubUnitIdentifier?: string | null;
+    datasource: string;
+    exposureQueryId: string;
+    exposureQueryIdentifierType: string | undefined;
+  },
+): Promise<void> {
+  const hasLinkedChanges = experimentHasLinkedChanges(experiment);
+  const lockable =
+    !!experiment.isClusterExperiment &&
+    hasLinkedChanges &&
+    experiment.status !== "draft";
+  const resolveIdentifier = async (
+    datasourceId: string,
+    exposureQueryId: string,
+    stored: string | undefined,
+  ) => {
+    if (stored) return stored;
+    const datasource = datasourceId
+      ? await getDataSourceById(context, datasourceId)
+      : null;
+    return resolveAnalysisIdentifierType(
+      datasource?.settings.queries?.exposure?.find(
+        (q) => q.id === exposureQueryId,
+      ),
+      undefined,
+    );
+  };
+  if (
+    isClusterConfigChangeLocked({
+      status: experiment.status,
+      nextStatus: next.status,
+      hasLinkedChanges,
+      isClusterExperiment: experiment.isClusterExperiment,
+      nextIsClusterExperiment: next.isClusterExperiment,
+      subUnitIdentifier: experiment.clusterSubUnitIdentifier,
+      nextSubUnitIdentifier: next.clusterSubUnitIdentifier,
+      ...(lockable
+        ? {
+            clusterIdentifier: await resolveIdentifier(
+              experiment.datasource,
+              experiment.exposureQueryId,
+              experiment.exposureQueryIdentifierType,
+            ),
+            nextClusterIdentifier: await resolveIdentifier(
+              next.datasource,
+              next.exposureQueryId,
+              next.exposureQueryIdentifierType,
+            ),
+          }
+        : {}),
+    })
+  ) {
+    throw new Error(CLUSTER_CONFIG_LOCKED_MESSAGE);
+  }
+}
+
 export function assertClusterExperimentMetricsSupported({
   goalMetrics,
   secondaryMetrics,
@@ -6334,16 +6409,36 @@ export async function getExperimentAnalysisSummary({
       0,
     ) ?? null;
 
+  const srmTotalUnits =
+    getExperimentSRMVariationUnits(experimentSnapshot)?.reduce(
+      (acc, a) => acc + a,
+      0,
+    ) ?? null;
+
   const srm =
     experiment.type === "multi-armed-bandit"
       ? getBanditSRMValue(experimentSnapshot)
       : getExperimentSRMValue(experimentSnapshot);
 
-  if (srm !== undefined) {
+  const clusterAssignment = experimentSnapshot.health?.clusterAssignment;
+  const clusterSubUnitMapping =
+    experimentSnapshot.health?.clusterSubUnitMapping;
+  const subUnitMultipleExposures =
+    experimentSnapshot.health?.subUnitMultipleExposures;
+  const hasClusterHealthIssue =
+    (!!clusterAssignment &&
+      !clusterAssignment.error &&
+      clusterAssignment.mixedClusters > 0) ||
+    (!!clusterSubUnitMapping &&
+      !clusterSubUnitMapping.error &&
+      clusterSubUnitMapping.multiClusterUnits > 0);
+
+  if (srm !== undefined || hasClusterHealthIssue) {
     analysisSummary.health = {
-      srm,
+      srm: srm ?? 1,
       multipleExposures: experimentSnapshot.multipleExposures,
       totalUsers,
+      srmTotalUnits,
     };
 
     if (snapshotHealthPower?.type === "error") {
@@ -6367,6 +6462,26 @@ export async function getExperimentAnalysisSummary({
     if (snapshotCovariateImbalance) {
       analysisSummary.health.covariateImbalance = {
         isImbalanced: snapshotCovariateImbalance.isImbalanced,
+      };
+    }
+
+    if (clusterAssignment && !clusterAssignment.error) {
+      analysisSummary.health.clusterAssignment = {
+        totalClusters: clusterAssignment.totalClusters,
+        mixedClusters: clusterAssignment.mixedClusters,
+      };
+    }
+    if (clusterSubUnitMapping && !clusterSubUnitMapping.error) {
+      analysisSummary.health.clusterSubUnitMapping = {
+        totalUnits: clusterSubUnitMapping.totalUnits,
+        multiClusterUnits: clusterSubUnitMapping.multiClusterUnits,
+      };
+    }
+    if (subUnitMultipleExposures && !subUnitMultipleExposures.error) {
+      analysisSummary.health.subUnitMultipleExposures = {
+        totalSubUnits: subUnitMultipleExposures.totalSubUnits,
+        multipleExposedSubUnits:
+          subUnitMultipleExposures.multipleExposedSubUnits,
       };
     }
   }

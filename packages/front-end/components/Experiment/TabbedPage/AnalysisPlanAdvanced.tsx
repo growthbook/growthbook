@@ -38,6 +38,7 @@ import Checkbox from "@/ui/Checkbox";
 import Link from "@/ui/Link";
 import HelperText from "@/ui/HelperText";
 import Tooltip from "@/ui/Tooltip";
+import { POST_STRATIFICATION_CLUSTER_MESSAGE } from "@/components/Experiment/AssignmentQueryFields";
 import SetupFieldRow from "./SetupFieldRow";
 import { QuickEditRow } from "./QuickEditButton";
 import { useExperimentEdits } from "./ExperimentEdits";
@@ -340,7 +341,7 @@ export default function AnalysisPlanAdvanced({
             </Box>
           </SetupFieldRow>
           <SetupFieldRow label="Variance reduction" content="text">
-            <Flex direction="column" gap="2">
+            <Flex direction="column" gap="2" align="start">
               <Checkbox
                 label={
                   <PremiumTooltip commercialFeature="regression-adjustment">
@@ -357,25 +358,41 @@ export default function AnalysisPlanAdvanced({
               {!orgSettings.disablePrecomputedDimensions ? (
                 <Checkbox
                   label={
-                    <PremiumTooltip commercialFeature="post-stratification">
-                      Post-stratification
-                    </PremiumTooltip>
+                    // Upgrading wouldn't enable it, so only the cluster reason shows.
+                    experiment.isClusterExperiment ? (
+                      "Post-stratification"
+                    ) : (
+                      <PremiumTooltip commercialFeature="post-stratification">
+                        Post-stratification
+                      </PremiumTooltip>
+                    )
                   }
                   weight="regular"
                   value={
-                    hasPostStratification && !!settled.postStratificationEnabled
+                    hasPostStratification &&
+                    !experiment.isClusterExperiment &&
+                    !!settled.postStratificationEnabled
                   }
                   setValue={(value) =>
                     stage({ postStratificationEnabled: value })
                   }
-                  disabled={disabled || !hasPostStratification}
+                  disabled={
+                    disabled ||
+                    !hasPostStratification ||
+                    !!experiment.isClusterExperiment
+                  }
+                  disabledMessage={
+                    experiment.isClusterExperiment
+                      ? POST_STRATIFICATION_CLUSTER_MESSAGE
+                      : undefined
+                  }
                 />
               ) : null}
             </Flex>
           </SetupFieldRow>
           {settled.statsEngine === "frequentist" ? (
             <SetupFieldRow label="Corrections" content="text">
-              <Flex direction="column" gap="2">
+              <Flex direction="column" gap="2" align="start">
                 <Checkbox
                   label={
                     <PremiumTooltip commercialFeature="sequential-testing">
@@ -449,6 +466,7 @@ export default function AnalysisPlanAdvanced({
               onChange={(metric) => stage({ activationMetric: metric })}
               disabled={disabled}
               incrementalRefresh={incrementalRefresh}
+              isClusterExperiment={!!experiment.isClusterExperiment}
             />
             {properties?.experimentSegments && datasourceSegments.length > 0 ? (
               <SetupFieldRow

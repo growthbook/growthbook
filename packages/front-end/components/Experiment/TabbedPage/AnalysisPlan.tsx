@@ -8,7 +8,7 @@ import {
 } from "react";
 import { Box, Flex, Separator } from "@radix-ui/themes";
 import isEqual from "lodash/isEqual";
-import { datasourceChangeDrops } from "shared/experiments";
+import { datasourceChangeDrops, getClusterSubUnit } from "shared/experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { DataSourceInterfaceWithParams } from "shared/types/datasource";
 import {
@@ -42,9 +42,21 @@ import {
   resolveAssignmentIdentifier,
 } from "@/services/datasources";
 import { useTargetingDefaults } from "@/components/Experiment/useExperimentTargetingForm";
-import type { AnalysisFormFocus } from "@/components/Experiment/AnalysisForm";
+import {
+  DATASOURCE_CHANGE_NOTE,
+  IneligibleClusterMetricsCallouts,
+  type AnalysisFormFocus,
+} from "@/components/Experiment/AnalysisForm";
+import { getIneligibleClusterMetrics } from "@/services/experiments";
 import MetricOverridesModal from "@/components/Experiment/MetricOverridesModal";
 import AssignmentQueryFields, {
+  CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
+  ClusterExperimentFields,
+  getClusterSubUnitOptions,
+  getClusterChangeAfterLaunch,
+  getLockedClusterError,
+  getSavedClusterIdentifier,
+  isClusterConfigLocked,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -70,7 +82,15 @@ type PlanField =
   | "datasource"
   | "exposureQueryId"
   | "exposureQueryIdentifierType"
+  | "isClusterExperiment"
+  | "clusterSubUnitIdentifier"
   | MetricField;
+
+const METRIC_FIELDS: MetricField[] = [
+  "goalMetrics",
+  "secondaryMetrics",
+  "guardrailMetrics",
+];
 
 type AssignmentSelection = {
   datasource: string;
@@ -79,8 +99,10 @@ type AssignmentSelection = {
   identifierType: string;
 };
 
-export const DATASOURCE_CHANGE_NOTE =
-  "Metrics and segments that aren't from the new Data Source are removed.";
+type ClusterSelection = {
+  isClusterExperiment: boolean;
+  clusterSubUnitIdentifier: string;
+};
 
 export interface Props {
   experiment: ExperimentInterfaceStringDates;
@@ -119,6 +141,8 @@ export default function AnalysisPlan({
     getMetricGroupById,
     getSegmentById,
     getProjectById,
+    getFactTableById,
+    metricGroups,
   } = useDefinitions();
   const { organization } = useUser();
   const { defaultDataSource } = useOrgSettings();
@@ -209,6 +233,15 @@ export default function AnalysisPlan({
     "analysis-plan:exposureQueryIdentifierType",
     experiment.exposureQueryIdentifierType || "",
   );
+  const [isClusterExperiment, setIsClusterExperiment] = useStagedState(
+    "analysis-plan:isClusterExperiment",
+    !!experiment.isClusterExperiment,
+  );
+  const [clusterSubUnitIdentifier, setClusterSubUnitIdentifier] =
+    useStagedState(
+      "analysis-plan:clusterSubUnitIdentifier",
+      experiment.clusterSubUnitIdentifier || "",
+    );
   const [goalMetrics, setGoalMetrics] = useStagedState(
     "analysis-plan:goalMetrics",
     experiment.goalMetrics || [],
@@ -287,16 +320,31 @@ export default function AnalysisPlan({
     );
     if (attribute) stageHashAttribute?.(attribute);
   };
+  const changeCluster = (next: ClusterSelection) => {
+    if (
+      next.isClusterExperiment === isClusterExperiment &&
+      next.clusterSubUnitIdentifier === clusterSubUnitIdentifier
+    ) {
+      return;
+    }
+    touch("isClusterExperiment", "clusterSubUnitIdentifier");
+    setIsClusterExperiment(next.isClusterExperiment);
+    setClusterSubUnitIdentifier(next.clusterSubUnitIdentifier);
+  };
   const current = {
     datasource,
     exposureQueryId,
     exposureQueryIdentifierType: identifierType,
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
     goalMetrics,
     secondaryMetrics,
     guardrailMetrics,
   };
   const stored = (field: PlanField) =>
-    experiment[field] ?? (field.endsWith("Metrics") ? [] : "");
+    field === "isClusterExperiment"
+      ? !!experiment.isClusterExperiment
+      : (experiment[field] ?? (field.endsWith("Metrics") ? [] : ""));
   const edited = [...touched].filter(
     (field) => !isEqual(current[field], stored(field)),
   );
@@ -339,6 +387,12 @@ export default function AnalysisPlan({
             experiment.exposureQueryIdentifierType || (keep ? prev : ""),
         );
       }
+      if (!except.has("isClusterExperiment")) {
+        setIsClusterExperiment(!!experiment.isClusterExperiment);
+      }
+      if (!except.has("clusterSubUnitIdentifier")) {
+        setClusterSubUnitIdentifier(experiment.clusterSubUnitIdentifier || "");
+      }
       if (!except.has("goalMetrics")) {
         setGoalMetrics(experiment.goalMetrics || []);
       }
@@ -353,6 +407,8 @@ export default function AnalysisPlan({
       experiment.datasource,
       experiment.exposureQueryId,
       experiment.exposureQueryIdentifierType,
+      experiment.isClusterExperiment,
+      experiment.clusterSubUnitIdentifier,
       experiment.goalMetrics,
       experiment.secondaryMetrics,
       experiment.guardrailMetrics,
@@ -360,6 +416,8 @@ export default function AnalysisPlan({
       setDatasource,
       setExposureQueryId,
       setIdentifierType,
+      setIsClusterExperiment,
+      setClusterSubUnitIdentifier,
       setGoalMetrics,
       setSecondaryMetrics,
       setGuardrailMetrics,
@@ -367,20 +425,83 @@ export default function AnalysisPlan({
   );
   useEffect(() => resync(touchedRef.current), [resync]);
 
+  // Same rule as the back-end: cluster checks need a sub-unit and the selected
+  // assignment query.
+  const clusterSubUnit = getClusterSubUnit({
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
+  });
+  const clusterDatasourceSettings = getDatasourceById(datasource)?.settings;
+  const clusterQuery = clusterDatasourceSettings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
+  );
+  const ineligibleClusterMetrics = useMemo(
+    () =>
+      getIneligibleClusterMetrics(
+        clusterSubUnit && clusterQuery
+          ? [...goalMetrics, ...secondaryMetrics, ...guardrailMetrics]
+          : [],
+        {
+          clusterIdentifier: clusterQuery
+            ? resolveAnalysisIdentifierType(
+                clusterQuery,
+                identifierType || undefined,
+              )
+            : undefined,
+          clusterSubUnitIdentifier: clusterSubUnit,
+          getFactTable: getFactTableById,
+          datasourceSettings: clusterDatasourceSettings,
+          metricGroups,
+          getExperimentMetricById,
+        },
+      ),
+    [
+      clusterSubUnit,
+      clusterQuery,
+      identifierType,
+      goalMetrics,
+      secondaryMetrics,
+      guardrailMetrics,
+      getFactTableById,
+      clusterDatasourceSettings,
+      metricGroups,
+      getExperimentMetricById,
+    ],
+  );
+
   useExperimentFieldEdit("analysis-plan", dirty, experiment, {
     label: "Analysis plan",
-    fields: () => ({
-      ...advanced,
-      ...Object.fromEntries(
-        sent.map((field) => [
-          field,
-          // Unset, the server takes the query's first identifier.
-          field === "exposureQueryIdentifierType"
-            ? current[field] || undefined
-            : current[field],
+    fields: () => {
+      const { droppedIds } = ineligibleClusterMetrics;
+      // Lists holding a metric cluster experiments can't analyze go too, so
+      // the save drops it.
+      const fields = [
+        ...new Set([
+          ...sent,
+          ...METRIC_FIELDS.filter((field) =>
+            current[field].some((id) => droppedIds.has(id)),
+          ),
         ]),
-      ),
-    }),
+      ].filter(
+        (field) => field !== "clusterSubUnitIdentifier" || isClusterExperiment,
+      );
+      return {
+        ...advanced,
+        ...Object.fromEntries(
+          fields.map((field) => [
+            field,
+            // Unset, the server takes the query's first identifier.
+            field === "exposureQueryIdentifierType"
+              ? current[field] || undefined
+              : field === "goalMetrics" ||
+                  field === "secondaryMetrics" ||
+                  field === "guardrailMetrics"
+                ? current[field].filter((id) => !droppedIds.has(id))
+                : current[field],
+          ]),
+        ),
+      };
+    },
     onSaved: () => {
       setTouchedFields([]);
       setAdvanced(null);
@@ -525,8 +646,8 @@ export default function AnalysisPlan({
 
   // Metrics an experiment can't use show disabled, with the reason.
   const clusterSettings = {
-    isClusterExperiment: !!experiment.isClusterExperiment,
-    clusterSubUnitIdentifier: experiment.clusterSubUnitIdentifier ?? undefined,
+    isClusterExperiment,
+    clusterSubUnitIdentifier: clusterSubUnitIdentifier || undefined,
   };
   const getMetricDisabledInfo = useMetricDisabledInfo(
     datasource,
@@ -621,10 +742,14 @@ export default function AnalysisPlan({
           hashAttribute={hashAttribute}
           stagesAttribute={!!stageHashAttribute}
           value={{ datasource, exposureQueryId, identifierType }}
+          cluster={{ isClusterExperiment, clusterSubUnitIdentifier }}
           suggested={!experiment.datasource}
           options={datasourceOptions}
           close={() => setEditingDatasource(false)}
-          change={changeSelection}
+          change={(selection, cluster) => {
+            changeSelection(selection);
+            changeCluster(cluster);
+          }}
         />
       ) : null}
       <Separator size="4" my="2" />
@@ -690,6 +815,9 @@ export default function AnalysisPlan({
           ) : null}
         </SetupFieldRow>
 
+        <IneligibleClusterMetricsCallouts
+          ineligible={ineligibleClusterMetrics}
+        />
         {metricRow("goalMetrics", goalMetrics, setGoalMetrics)}
         {metricRow("secondaryMetrics", secondaryMetrics, setSecondaryMetrics)}
         {metricRow("guardrailMetrics", guardrailMetrics, setGuardrailMetrics)}
@@ -706,7 +834,7 @@ export default function AnalysisPlan({
         <AnalysisPlanAdvanced
           open={advancedOpen}
           setOpen={setAdvancedOpen}
-          experiment={effective}
+          experiment={{ ...effective, isClusterExperiment }}
           datasourceId={datasource}
           exposureQueryId={exposureQueryId}
           identifierType={resolution.identifierType}
@@ -734,6 +862,7 @@ function DataSourceModal({
   hashAttribute,
   stagesAttribute,
   value,
+  cluster,
   suggested,
   options,
   close,
@@ -744,11 +873,12 @@ function DataSourceModal({
   // Confirming also stages the attribute the chosen identifier leads to.
   stagesAttribute: boolean;
   value: AssignmentSelection;
+  cluster: ClusterSelection;
   // Filled in by the page rather than saved, so confirming it is a change.
   suggested: boolean;
   options: { value: string; label: string }[];
   close: () => void;
-  change: (next: AssignmentSelection) => void;
+  change: (next: AssignmentSelection, cluster: ClusterSelection) => void;
 }) {
   const { getDatasourceById } = useDefinitions();
   // An experiment saved before identifiers were stored shows the one it uses.
@@ -763,8 +893,21 @@ function DataSourceModal({
   const [identifierType, setIdentifierType] = useState<string | undefined>(
     initialIdentifier || undefined,
   );
+  const [clusterChecked, setClusterChecked] = useState(
+    cluster.isClusterExperiment,
+  );
+  const [clusterSubUnitIdentifier, setClusterSubUnitIdentifier] = useState(
+    cluster.clusterSubUnitIdentifier,
+  );
   const selected = getDatasourceById(datasource);
   const sameSource = datasource === value.datasource;
+  // A data source without assignment queries can't run a cluster experiment,
+  // so switching to one turns it off.
+  const supportsClusterExperiments = !!selected?.properties?.exposureQueries;
+  const locked = isClusterConfigLocked(experiment);
+  const isClusterExperiment = locked
+    ? !!experiment.isClusterExperiment
+    : supportsClusterExperiments && clusterChecked;
   const selection = useAssignmentQuerySelection({
     datasource: selected,
     project: experiment.project,
@@ -783,25 +926,60 @@ function DataSourceModal({
     identifierType,
     hashAttribute,
   );
+  const exposureQuery = selected?.settings?.queries?.exposure?.find(
+    (q) => q.id === exposureQueryId,
+  );
+  const clusterIdentifier = exposureQuery
+    ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
+    : undefined;
+  const lockError = getLockedClusterError({
+    experiment,
+    locked,
+    datasourceSelected: !!selected,
+    supportsClusterExperiments,
+    exposureQuery,
+    identifierType: clusterIdentifier,
+    savedClusterIdentifier: getSavedClusterIdentifier(
+      experiment,
+      getDatasourceById(experiment.datasource ?? "") ?? undefined,
+    ),
+  });
+  const clusterChangedAfterLaunch = getClusterChangeAfterLaunch(experiment, {
+    isClusterExperiment,
+    clusterSubUnitIdentifier,
+  });
   const changed =
     suggested ||
     !sameSource ||
     exposureQueryId !== value.exposureQueryId ||
-    (identifierType ?? "") !== initialIdentifier;
+    (identifierType ?? "") !== initialIdentifier ||
+    isClusterExperiment !== cluster.isClusterExperiment ||
+    (isClusterExperiment &&
+      clusterSubUnitIdentifier !== cluster.clusterSubUnitIdentifier);
   return (
     <ModalStandard
       open
       header="Data Source"
       close={close}
       cta="Confirm"
-      ctaEnabled={changed}
+      ctaEnabled={
+        changed &&
+        !lockError &&
+        (!isClusterExperiment ||
+          getClusterSubUnitOptions(exposureQuery, clusterIdentifier).includes(
+            clusterSubUnitIdentifier,
+          ))
+      }
       trackingEventModalType="experiment-data-source"
       submit={() => {
-        change({
-          datasource,
-          exposureQueryId,
-          identifierType: identifierType ?? "",
-        });
+        change(
+          {
+            datasource,
+            exposureQueryId,
+            identifierType: identifierType ?? "",
+          },
+          { isClusterExperiment, clusterSubUnitIdentifier },
+        );
         close();
       }}
     >
@@ -821,7 +999,31 @@ function DataSourceModal({
           selection={selection}
           placeholder="Choose..."
           progressive
+          identifierError={
+            lockError?.field === "identifier" ? lockError.content : null
+          }
         />
+      ) : null}
+      {supportsClusterExperiments ? (
+        <ClusterExperimentFields
+          exposureQuery={exposureQuery}
+          identifierType={clusterIdentifier}
+          isClusterExperiment={isClusterExperiment}
+          subUnitIdentifier={clusterSubUnitIdentifier}
+          setIsClusterExperiment={setClusterChecked}
+          setSubUnitIdentifier={setClusterSubUnitIdentifier}
+          locked={locked}
+          lockError={lockError}
+          changedAfterLaunch={clusterChangedAfterLaunch}
+        />
+      ) : lockError ? (
+        <HelperText status="error" size="sm">
+          {lockError.content}
+        </HelperText>
+      ) : selected && cluster.isClusterExperiment ? (
+        <HelperText status="warning" size="sm">
+          {CLUSTER_OFF_FOR_DATASOURCE_MESSAGE}
+        </HelperText>
       ) : null}
       {stagesAttribute && resolution.attribute ? (
         <HelperText status="info" size="sm">

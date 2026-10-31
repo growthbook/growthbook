@@ -20,14 +20,26 @@ const percent = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
 });
 
+// "1 cluster (4%) ... was removed" / "3 clusters (12%) ... were removed"
+const removedFromResults = (
+  n: number,
+  noun: string,
+  rawDecimal: number,
+  what: string,
+) =>
+  `${count.format(n)} ${noun}${n === 1 ? "" : "s"} (${percent.format(rawDecimal)}) ${what} and ${n === 1 ? "was" : "were"} removed from results.`;
+
 function getHealthIssues(
   {
     srm,
     multipleExposures,
     lowPowered,
     covariateImbalance,
+    clusterAssignment,
+    clusterMapping,
   }: ExperimentUnhealthyData,
   srmThreshold: number,
+  isClusterExperiment: boolean,
 ): { label: string; severe: boolean; detail: string }[] {
   return [
     srm
@@ -39,9 +51,16 @@ function getHealthIssues(
       : null,
     multipleExposures
       ? {
-          label: "Multiple exposures",
+          label: isClusterExperiment
+            ? "Sub-unit multiple exposures"
+            : "Multiple exposures",
           severe: true,
-          detail: `${count.format(multipleExposures.multipleExposedUsers)} users (${percent.format(multipleExposures.rawDecimal)}) saw more than one variation and were removed from results.`,
+          detail: removedFromResults(
+            multipleExposures.multipleExposedUsers,
+            isClusterExperiment ? "sub-unit" : "user",
+            multipleExposures.rawDecimal,
+            "saw more than one variation",
+          ),
         }
       : null,
     covariateImbalance
@@ -49,6 +68,30 @@ function getHealthIssues(
           label: "Pre-exposure bias",
           severe: true,
           detail: "The variations differed before users were exposed.",
+        }
+      : null,
+    clusterAssignment
+      ? {
+          label: "Mixed cluster assignment",
+          severe: true,
+          detail: removedFromResults(
+            clusterAssignment.mixedClusters,
+            "cluster",
+            clusterAssignment.rawDecimal,
+            "had units in more than one variation",
+          ),
+        }
+      : null,
+    clusterMapping
+      ? {
+          label: "Units in multiple clusters",
+          severe: true,
+          detail: removedFromResults(
+            clusterMapping.multiClusterUnits,
+            "unit",
+            clusterMapping.rawDecimal,
+            "appeared in more than one cluster",
+          ),
         }
       : null,
     lowPowered
@@ -76,11 +119,13 @@ export function showsUnhealthyBanner(
 type Props = {
   status: ExperimentResultStatusData;
   viewHealth: (() => void) | null;
+  isClusterExperiment?: boolean;
 } & MarginProps;
 
 export default function UnhealthyExperimentBanner({
   status,
   viewHealth,
+  isClusterExperiment = false,
   ...margin
 }: Props) {
   const { settings } = useUser();
@@ -88,6 +133,7 @@ export default function UnhealthyExperimentBanner({
   const issues = getHealthIssues(
     status.unhealthyData,
     settings.srmThreshold ?? DEFAULT_SRM_THRESHOLD,
+    isClusterExperiment,
   );
   const severe = issues.some((issue) => issue.severe);
 

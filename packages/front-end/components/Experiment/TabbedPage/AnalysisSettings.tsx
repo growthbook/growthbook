@@ -233,11 +233,32 @@ export default function AnalysisSettings({
 
             <div className="col-4 mb-4">
               <Text color="text-high" weight="semibold">
-                Identifier Type
+                {experiment.isClusterExperiment
+                  ? "Identifier Types"
+                  : "Identifier Type"}
               </Text>
-              <div>
-                <Text color="text-mid">{identifierType || "--"}</Text>
-              </div>
+              {experiment.isClusterExperiment ? (
+                <>
+                  <div>
+                    <Text color="text-high" weight="medium">
+                      Cluster:
+                    </Text>{" "}
+                    <Text color="text-mid">{identifierType || "--"}</Text>
+                  </div>
+                  <div>
+                    <Text color="text-high" weight="medium">
+                      Subunit:
+                    </Text>{" "}
+                    <Text color="text-mid">
+                      {experiment.clusterSubUnitIdentifier || "--"}
+                    </Text>
+                  </div>
+                </>
+              ) : (
+                <div>
+                  <Text color="text-mid">{identifierType || "--"}</Text>
+                </div>
+              )}
             </div>
 
             {experiment.activationMetric && (
