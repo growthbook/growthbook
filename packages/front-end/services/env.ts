@@ -32,6 +32,7 @@ const env: EnvironmentInitValue = {
   hasMistralKey: false,
   hasGoogleAIKey: false,
   uploadMethod: "local",
+  pageLoadTiming: false,
 };
 
 export async function initEnv() {
@@ -65,6 +66,9 @@ export function getGcsDomain(): string {
 }
 export function getApiHost(): string {
   return env.apiHost;
+}
+export function isPageLoadTimingEnabled(): boolean {
+  return env.pageLoadTiming;
 }
 export function isCloud(): boolean {
   return env.cloud;

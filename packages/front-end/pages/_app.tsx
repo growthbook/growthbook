@@ -20,6 +20,7 @@ import { PageHeadProvider } from "@/components/Layout/PageHead";
 import { RadixTheme } from "@/services/RadixTheme";
 import { AuthProvider, useAuth } from "@/services/auth";
 import ProtectedPage from "@/components/ProtectedPage";
+import PageLoadMark from "@/components/PageLoadMark";
 import {
   DefinitionsGuard,
   DefinitionsProvider,
@@ -75,6 +76,9 @@ type ModAppProps = AppProps & {
     progressiveAuthTopNav?: boolean;
     noLoadingOverlay?: boolean;
     mainClassName?: string;
+    // The page renders <PageLoadMark name="pageReady" last /> once it shows
+    // its content
+    marksPageReady?: boolean;
   };
 };
 
@@ -260,12 +264,20 @@ function App({
                                           <OrgPageContent>
                                             <GuidedGetStartedBar />
                                             <DefinitionsGuard>
-                                              <Component
-                                                {...{
-                                                  ...pageProps,
-                                                  envReady: ready,
-                                                }}
-                                              />
+                                              <>
+                                                <Component
+                                                  {...{
+                                                    ...pageProps,
+                                                    envReady: ready,
+                                                  }}
+                                                />
+                                                <PageLoadMark
+                                                  name="pageMounted"
+                                                  last={
+                                                    !Component.marksPageReady
+                                                  }
+                                                />
+                                              </>
                                             </DefinitionsGuard>
                                           </OrgPageContent>
                                         </main>
