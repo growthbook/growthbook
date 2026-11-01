@@ -298,6 +298,36 @@ describe("detectUnknownContextualVariations", () => {
     ).toEqual(["nope"]);
   });
 
+  it("does not flag a deactivated variation's historical rows when its key is still configured", () => {
+    // Weights are computed only over active arms, but the query still returns
+    // historical rows for a deactivated arm whose key remains on the bandit.
+    // Passing all configured keys (active + deactivated) must treat those rows
+    // as valid rather than report the query as misconfigured.
+    const allConfigured = [
+      { id: "v0", key: "control" }, // active
+      { id: "v1", key: "treatment" }, // deactivated, key retained on the bandit
+    ];
+    expect(
+      detectUnknownContextualVariations(
+        rows([
+          { variation: "control", count: 10 },
+          { variation: "treatment", count: 5 },
+        ]),
+        allConfigured,
+      ),
+    ).toEqual([]);
+  });
+
+  it("would flag the deactivated arm's rows if only active variations were passed (why callers pass all configured keys)", () => {
+    const activeOnly = [{ id: "v0", key: "control" }];
+    expect(
+      detectUnknownContextualVariations(
+        rows([{ variation: "treatment", count: 5 }]),
+        activeOnly,
+      ),
+    ).toEqual(["treatment"]);
+  });
+
   it("handles an empty row set", () => {
     expect(detectUnknownContextualVariations(rows([]), variations)).toEqual([]);
   });

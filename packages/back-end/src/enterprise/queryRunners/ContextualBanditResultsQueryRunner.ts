@@ -35,6 +35,7 @@ import { hasUsableContextualBanditTargeting } from "back-end/src/integrations/sq
 import { logger } from "back-end/src/util/logger";
 import {
   ContextualBanditResult,
+  detectUnknownContextualVariations,
   runContextualStatsEngine,
 } from "back-end/src/enterprise/services/contextualBanditStats";
 import { QueryMap, QueryRunner } from "back-end/src/queryRunners/QueryRunner";
@@ -356,7 +357,12 @@ export class ContextualBanditResultsQueryRunner extends QueryRunner<
       phaseLengthDays: windowLengthDays,
     });
 
-    return { ...analysis, srm, multipleExposures, traffic };
+    const unknownVariations = detectUnknownContextualVariations(
+      rows,
+      cb.variations,
+    );
+
+    return { ...analysis, srm, multipleExposures, traffic, unknownVariations };
   }
 
   private extractTraffic(
