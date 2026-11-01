@@ -145,7 +145,6 @@ function CommaCodeList({ vals }: { vals: string[] }) {
   );
 }
 
-/** Targeted remediation hint for one unmatched `variation_id` value. */
 function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
   switch (cause.kind) {
     case "caseOrWhitespace":
