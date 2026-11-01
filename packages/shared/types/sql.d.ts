@@ -84,6 +84,8 @@ export type SqlIdentifierQuote = '"' | "`";
 export type UnquotedIdentifierFold = "upper" | "lower";
 
 export interface SqlDialect {
+  /** Explicit connection opt-in for materializing expensive, reused CTEs. */
+  useMaterializedCTEs?: boolean;
   identifierQuote: SqlIdentifierQuote;
   unquotedIdentifierFold?: UnquotedIdentifierFold;
   escapeStringLiteral: (s: string) => string;

@@ -1,5 +1,6 @@
 import { FC, ChangeEventHandler } from "react";
 import { ClickHouseConnectionParams } from "shared/types/integrations/clickhouse";
+import Checkbox from "@/ui/Checkbox";
 import { KEEP_EXISTING_PLACEHOLDER } from "@/components/Forms/secretInput";
 import HostWarning from "./HostWarning";
 
@@ -7,7 +8,7 @@ const ClickHouseForm: FC<{
   params: Partial<ClickHouseConnectionParams>;
   existing: boolean;
   onParamChange: ChangeEventHandler<HTMLInputElement>;
-  setParams: (params: { [key: string]: string }) => void;
+  setParams: (params: { [key: string]: string | boolean }) => void;
 }> = ({ params, existing, onParamChange, setParams }) => {
   return (
     <>
@@ -88,6 +89,13 @@ const ClickHouseForm: FC<{
           />
         </div>
       </div>
+      <Checkbox
+        id="clickhouse-materialized-ctes"
+        label="Use materialized CTEs (experimental)"
+        value={params.useMaterializedCTEs === true}
+        setValue={(value) => setParams({ useMaterializedCTEs: value })}
+        description="Enable only if your ClickHouse deployment supports AS MATERIALIZED and has enable_materialized_cte enabled."
+      />
     </>
   );
 };

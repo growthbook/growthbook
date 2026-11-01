@@ -79,6 +79,7 @@ const CLICKHOUSE_FAMILY = {
   password: "secret",
   database: "public",
   maxExecutionTime: "public",
+  useMaterializedCTEs: "public",
 } satisfies ParamClassification<DataSourceParamsForType<"clickhouse">>;
 
 const DATA_SOURCE_PARAM_SENSITIVITY = {
