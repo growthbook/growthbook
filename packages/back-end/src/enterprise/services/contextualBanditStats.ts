@@ -132,7 +132,8 @@ export function detectUnknownContextualVariations(
     }
     unknown.add(value);
   }
-  return [...unknown].sort();
+  const MAX_UNKNOWN_VARIATIONS = 20;
+  return [...unknown].sort().slice(0, MAX_UNKNOWN_VARIATIONS);
 }
 
 export async function runContextualStatsEngine(
