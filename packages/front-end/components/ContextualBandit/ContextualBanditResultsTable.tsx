@@ -171,15 +171,11 @@ function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
     case "index":
       return cause.expectedKey !== undefined ? (
         <>
-          looks like a 0-based index; log <code>result.key</code> (
-          <code>{cause.expectedKey}</code> at this position), not{" "}
-          <code>result.variationId</code>.
+          looks like a 0-based index; emit the variation key{" "}
+          <code>{cause.expectedKey}</code> at this position, not the index.
         </>
       ) : (
-        <>
-          looks like a 0-based index; log <code>result.key</code>, not{" "}
-          <code>result.variationId</code>.
-        </>
+        <>looks like a 0-based index; emit the variation key, not the index.</>
       );
     case "unrecognized":
       return <>matches no configured variation key.</>;
