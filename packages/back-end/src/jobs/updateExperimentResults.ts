@@ -1,4 +1,4 @@
-import Agenda, { Job } from "agenda";
+import Agenda from "agenda";
 import { getScopedSettings } from "shared/settings";
 import {
   isAnalysisRefreshBlocked,
@@ -31,39 +31,18 @@ import { notifyAutoUpdate } from "back-end/src/services/experimentNotifications"
 import { EXPERIMENT_REFRESH_FREQUENCY } from "back-end/src/util/secrets";
 import { logger } from "back-end/src/util/logger";
 import { getFactTableMap } from "back-end/src/models/FactTableModel";
+import {
+  queueExperimentUpdate,
+  UPDATE_SINGLE_EXP,
+  UpdateSingleExpJob,
+} from "back-end/src/jobs/queueExperimentUpdate";
 
 // Time between experiment result updates (default 6 hours)
 const UPDATE_EVERY = EXPERIMENT_REFRESH_FREQUENCY * 60 * 60 * 1000;
 
 const QUEUE_EXPERIMENT_UPDATES = "queueExperimentUpdates";
 
-const UPDATE_SINGLE_EXP = "updateSingleExperiment";
-type UpdateSingleExpJob = Job<{
-  organization: string;
-  experimentId: string;
-}>;
-
-let agenda: Agenda;
-
-export async function queueExperimentUpdate(
-  organization: string,
-  experimentId: string,
-) {
-  const job = agenda.create(UPDATE_SINGLE_EXP, {
-    organization,
-    experimentId,
-  }) as UpdateSingleExpJob;
-
-  job.unique({
-    experimentId,
-    organization,
-  });
-  job.schedule(new Date());
-  await job.save();
-}
-
-export default async function (ag: Agenda) {
-  agenda = ag;
+export default async function (agenda: Agenda) {
   agenda.define(QUEUE_EXPERIMENT_UPDATES, async () => {
     // Old way of queuing experiments based on a fixed schedule
     // Will remove in the future when it's no longer needed

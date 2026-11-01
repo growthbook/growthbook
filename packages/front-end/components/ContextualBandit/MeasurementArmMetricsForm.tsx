@@ -1,6 +1,7 @@
 import { useForm } from "react-hook-form";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { MEASUREMENT_ARM_EDITABLE_FIELDS } from "shared/experiments";
+import { validatedSubmit } from "@/ui/Modal/validatedSubmit";
 import { useAuth } from "@/services/auth";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { getIsExperimentIncludedInIncrementalRefresh } from "@/services/experiments";
@@ -56,7 +57,7 @@ export default function MeasurementArmMetricsForm({
       size="lg"
       open={true}
       close={cancel}
-      submit={form.handleSubmit(async (value) => {
+      submit={validatedSubmit(form, async (value) => {
         await apiCall(`/experiment/${experiment.id}`, {
           method: "POST",
           body: JSON.stringify(value),

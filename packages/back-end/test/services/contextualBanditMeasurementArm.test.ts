@@ -15,10 +15,10 @@ import {
   getLatestSnapshotStatus,
   getLatestSuccessfulSnapshot,
 } from "back-end/src/models/ExperimentSnapshotModel";
-import { queueExperimentUpdate } from "back-end/src/jobs/updateExperimentResults";
+import { queueExperimentUpdate } from "back-end/src/jobs/queueExperimentUpdate";
+import { assertMeasurementArmExperimentEditable } from "back-end/src/enterprise/services/measurementArmGuards";
 import {
   assertMeasurementArmChangeAllowed,
-  assertMeasurementArmExperimentEditable,
   buildMeasurementArmSubdoc,
   cbGovernedChanges,
   getMeasurementArmResultsSummary,
@@ -39,7 +39,7 @@ jest.mock("back-end/src/models/ExperimentSnapshotModel", () => ({
   getLatestSnapshotStatus: jest.fn(),
   getLatestSuccessfulSnapshot: jest.fn(),
 }));
-jest.mock("back-end/src/jobs/updateExperimentResults", () => ({
+jest.mock("back-end/src/jobs/queueExperimentUpdate", () => ({
   queueExperimentUpdate: jest.fn(),
 }));
 

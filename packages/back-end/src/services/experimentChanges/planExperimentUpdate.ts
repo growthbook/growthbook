@@ -68,7 +68,7 @@ import { getLivePayloadChanges } from "back-end/src/services/experimentLivePaylo
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { assertValidExperimentPrerequisites } from "back-end/src/services/prerequisiteParents";
-import { assertMeasurementArmExperimentEditable } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
+import { assertMeasurementArmExperimentEditable } from "back-end/src/enterprise/services/measurementArmGuards";
 
 export type ExperimentUpdateInput = Partial<ExperimentInterfaceStringDates> &
   // The latest phase's targeting.

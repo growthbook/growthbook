@@ -4,7 +4,7 @@ import {
   getLaunchChecklistItems,
   sdkConnectionServesProject,
   withScheduledBy,
-  isManagedExperiment,
+  isContextualBanditMeasurementArm,
 } from "shared/experiments";
 import { getValidDate, resolveScheduledStop } from "shared/dates";
 import { v4 as uuidv4 } from "uuid";
@@ -70,7 +70,10 @@ import {
   RampLockdownError,
 } from "back-end/src/services/rampSchedule";
 import { trackEventForContext } from "back-end/src/services/growthbook";
-import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/contextualBanditMeasurementArm";
+import {
+  assertMeasurementArmExperimentEditable,
+  assertNotMeasurementArmExperiment,
+} from "back-end/src/enterprise/services/measurementArmGuards";
 import { isArmingApiKeyId } from "back-end/src/util/armingApiKeyId";
 import { assertScheduledStartAllowsChange } from "back-end/src/services/experimentChanges/scheduledStartLock";
 
@@ -102,7 +105,11 @@ export async function validateExperimentChange({
   changes: Changeset;
 }): Promise<void> {
   assertScheduledStartAllowsChange(experiment, changes);
-  if (!customHooksActive(context) || isManagedExperiment(experiment)) return;
+  if (isContextualBanditMeasurementArm(experiment)) {
+    assertMeasurementArmExperimentEditable(experiment, changes);
+    return;
+  }
+  if (!customHooksActive(context) || experiment.type === "holdout") return;
 
   const merged = { ...experiment, ...changes };
   const willRun =

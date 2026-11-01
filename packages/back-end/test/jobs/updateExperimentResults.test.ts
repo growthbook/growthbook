@@ -31,6 +31,8 @@ const running = {
   organization: ORG_ID,
   datasource: "ds_1",
   status: "running",
+  dateCreated: new Date(),
+  dateUpdated: new Date(),
   autoSnapshots: true,
   phases: [{ dateStarted: new Date(), variationWeights: [0.5, 0.5] }],
   variations: [

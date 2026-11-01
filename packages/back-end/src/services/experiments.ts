@@ -209,6 +209,7 @@ import {
   EXPERIMENT_REFRESH_FREQUENCY,
 } from "back-end/src/util/secrets";
 import { ReqContext } from "back-end/types/request";
+import { assertNotMeasurementArmExperiment } from "back-end/src/enterprise/services/measurementArmGuards";
 import { logger } from "back-end/src/util/logger";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
 import { assessRevisionApprovalForAutoPublish } from "back-end/src/services/experiment-feature";
@@ -2676,9 +2677,10 @@ export function assertVisualChangesEditable(
   context: ReqContext | ApiReqContext,
   experiment: Pick<
     ExperimentInterface,
-    "archived" | "status" | "nextScheduledStatusUpdate" | "project"
+    "archived" | "status" | "nextScheduledStatusUpdate" | "project" | "type"
   >,
 ): void {
+  assertNotMeasurementArmExperiment(experiment, "edit visual changes");
   if (experiment.archived) {
     throw new BadRequestError(
       "Unarchive the experiment to change its AI Visual Editor changes.",
