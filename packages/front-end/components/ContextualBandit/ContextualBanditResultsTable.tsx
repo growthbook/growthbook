@@ -7,6 +7,7 @@ import { ApiContextualBanditInterface } from "shared/validators";
 import {
   expandMetricGroups,
   conditionFromLeafClauses,
+  classifyUnknownVariations,
   getMetricLink,
   isActiveVariation,
   isDeactivatedVariation,
@@ -14,6 +15,7 @@ import {
 import type {
   ContextualBanditResultsLeaf,
   ContextualLeafClause,
+  UnknownVariationCause,
 } from "shared/experiments";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
@@ -141,6 +143,47 @@ function CommaCodeList({ vals }: { vals: string[] }) {
       ))}
     </>
   );
+}
+
+/** Targeted remediation hint for one unmatched `variation_id` value. */
+function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
+  switch (cause.kind) {
+    case "caseOrWhitespace":
+      return (
+        <>
+          differs only in case or whitespace from the key{" "}
+          <code>{cause.expectedKey}</code> — the match is exact and
+          case-sensitive.
+        </>
+      );
+    case "growthbookId":
+      return cause.expectedKey ? (
+        <>
+          is a GrowthBook variation id; return the key{" "}
+          <code>{cause.expectedKey}</code> instead.
+        </>
+      ) : (
+        <>
+          is a GrowthBook variation id (<code>var_…</code>); return the
+          variation key instead.
+        </>
+      );
+    case "index":
+      return cause.expectedKey !== undefined ? (
+        <>
+          looks like a 0-based index; log <code>result.key</code> (
+          <code>{cause.expectedKey}</code> at this position), not{" "}
+          <code>result.variationId</code>.
+        </>
+      ) : (
+        <>
+          looks like a 0-based index; log <code>result.key</code>, not{" "}
+          <code>result.variationId</code>.
+        </>
+      );
+    case "unrecognized":
+      return <>matches no configured variation key.</>;
+  }
 }
 
 function SectionHeading({
@@ -347,6 +390,10 @@ export default function ContextualBanditResultsTable({
 
   const unknownVariations = results?.unknownVariations ?? [];
   const configuredKeys = cb.variations.map((v) => v.key);
+  const unknownVariationCauses = classifyUnknownVariations(
+    unknownVariations,
+    cb.variations,
+  );
   const assignmentQueryDocUrl = `${docsOrigin}/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query`;
 
   const comparisonColumns: HeatmapColumn[] = useMemo(
@@ -496,20 +543,28 @@ export default function ContextualBanditResultsTable({
         </Callout>
       ) : null}
 
-      {unknownVariations.length > 0 ? (
+      {unknownVariationCauses.length > 0 ? (
         <Callout status="warning" mb="3">
           <strong>Warning:</strong> the assignment query returned{" "}
-          {unknownVariations.length} <code>variation_id</code> value
-          {unknownVariations.length === 1 ? "" : "s"} (
-          <CommaCodeList vals={unknownVariations} />) that match no configured
-          variation key (<CommaCodeList vals={configuredKeys} />
+          {unknownVariationCauses.length} <code>variation_id</code> value
+          {unknownVariationCauses.length === 1 ? "" : "s"} that match no
+          configured variation key (<CommaCodeList vals={configuredKeys} />
           ). Rows with an unrecognized <code>variation_id</code> are dropped, so
-          affected variations show 0 {unitDisplayName.toLowerCase()}. Map{" "}
-          <code>variation_id</code> to your variation keys in the query.{" "}
-          <Link href={assignmentQueryDocUrl} target="_blank" rel="noreferrer">
-            Learn more
-          </Link>
-          .
+          affected variations show 0 {unitDisplayName.toLowerCase()}.
+          <ul className="mb-0 mt-2">
+            {unknownVariationCauses.map((cause) => (
+              <li key={cause.value}>
+                <code>{cause.value}</code> {unknownVariationHint(cause)}
+              </li>
+            ))}
+          </ul>
+          <Text as="div" mt="2">
+            Map <code>variation_id</code> to your variation keys in the query.{" "}
+            <Link href={assignmentQueryDocUrl} target="_blank" rel="noreferrer">
+              Learn more
+            </Link>
+            .
+          </Text>
         </Callout>
       ) : null}
 

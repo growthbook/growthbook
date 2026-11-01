@@ -227,3 +227,59 @@ export function buildContextualBanditResultsView(
     leaves,
   };
 }
+
+export type ContextualBanditVariationIdentity = { id: string; key: string };
+
+/**
+ * Likely root cause of a warehouse `variation_id` value matching no configured
+ * variation key. Ordered most-specific first in {@link classifyUnknownVariation}.
+ */
+export type UnknownVariationCause =
+  | { kind: "caseOrWhitespace"; value: string; expectedKey: string }
+  | { kind: "growthbookId"; value: string; expectedKey?: string }
+  | { kind: "index"; value: string; expectedKey?: string }
+  | { kind: "unrecognized"; value: string };
+
+const normalizeVariationValue = (value: string): string =>
+  value.trim().toLowerCase();
+
+export function classifyUnknownVariation(
+  value: string,
+  variations: ContextualBanditVariationIdentity[],
+): UnknownVariationCause {
+  const byId = variations.find((v) => v.id === value);
+  if (byId) {
+    return { kind: "growthbookId", value, expectedKey: byId.key };
+  }
+  if (/^var_/.test(value)) {
+    return { kind: "growthbookId", value };
+  }
+
+  const normalized = normalizeVariationValue(value);
+  const byNormalizedKey = variations.find(
+    (v) => normalizeVariationValue(v.key) === normalized,
+  );
+  if (byNormalizedKey) {
+    return {
+      kind: "caseOrWhitespace",
+      value,
+      expectedKey: byNormalizedKey.key,
+    };
+  }
+
+  if (/^\d+$/.test(value)) {
+    const index = Number(value);
+    if (Number.isInteger(index) && index >= 0 && index < variations.length) {
+      return { kind: "index", value, expectedKey: variations[index]?.key };
+    }
+  }
+
+  return { kind: "unrecognized", value };
+}
+
+export function classifyUnknownVariations(
+  values: string[],
+  variations: ContextualBanditVariationIdentity[],
+): UnknownVariationCause[] {
+  return values.map((value) => classifyUnknownVariation(value, variations));
+}
