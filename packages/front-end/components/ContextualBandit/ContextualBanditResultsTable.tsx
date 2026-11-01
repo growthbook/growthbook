@@ -547,7 +547,7 @@ export default function ContextualBanditResultsTable({
           configured variation key (<CommaCodeList vals={configuredKeys} />
           ). Rows with an unrecognized <code>variation_id</code> are dropped, so
           affected variations show 0 {unitDisplayName.toLowerCase()}.
-          <ul className="mb-0 mt-2">
+          <ul style={{ marginTop: "var(--space-2)", marginBottom: 0 }}>
             {unknownVariationCauses.map((cause) => (
               <li key={cause.value}>
                 <code>{cause.value}</code> {unknownVariationHint(cause)}
