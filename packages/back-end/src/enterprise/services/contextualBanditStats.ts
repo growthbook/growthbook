@@ -118,11 +118,28 @@ export function buildContextualBanditObservations(
   return observations;
 }
 
+export function detectUnknownContextualVariations(
+  rows: ExperimentMetricQueryResponseRows,
+  variations: ContextualBanditVariationRef[],
+  ignoreIds: ReadonlySet<string> = new Set(["__multiple__"]),
+): string[] {
+  const keys = new Set(variations.map((v) => v.key));
+  const unknown = new Set<string>();
+  for (const row of prepareRowsForContextualStats(rows)) {
+    const value = String(row.variation ?? "");
+    if (value === "" || ignoreIds.has(value) || keys.has(value)) {
+      continue;
+    }
+    unknown.add(value);
+  }
+  return [...unknown].sort();
+}
+
 export async function runContextualStatsEngine(
   settings: ContextualBanditStatsSettings,
   rows: ExperimentMetricQueryResponseRows,
   runParams?: RunContextualStatsEngineOptions,
-): Promise<ContextualBanditResult> {
+): Promise<ContextualBanditResult & { unknownVariations?: string[] }> {
   if (!runParams) {
     throw new Error(
       "Contextual stats engine requires runParams when mock stats are disabled",
@@ -132,12 +149,17 @@ export async function runContextualStatsEngine(
     variations: settings.variations,
     attributes: settings.contextualAttributes,
   });
+  const unknownVariations = detectUnknownContextualVariations(
+    rows,
+    settings.variations,
+  );
   const input = buildContextualBanditWeightsInput(
     settings,
     observations,
     runParams,
   );
-  return computeContextualBanditWeights(input);
+  const weights = await computeContextualBanditWeights(input);
+  return { ...weights, unknownVariations };
 }
 
 function buildContextualBanditWeightsInput(

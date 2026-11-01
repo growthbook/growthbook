@@ -1,5 +1,5 @@
 // TODO(holdout-v1.5): attach holdout-vs-bandit comparison view and EDF recommendations here.
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { Fragment, ReactNode, useEffect, useMemo, useState } from "react";
 import { Box, Flex } from "@radix-ui/themes";
 import { startCase } from "lodash";
 import { getValidDate } from "shared/dates";
@@ -17,6 +17,8 @@ import type {
 } from "shared/experiments";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
+import Link from "@/ui/Link";
+import { docsOrigin } from "@/components/docSections";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
@@ -126,6 +128,19 @@ function formatModeValue(value: number, mode: ComparisonMode): string {
   return new Intl.NumberFormat(undefined, {
     maximumSignificantDigits: 3,
   }).format(value);
+}
+
+function CommaCodeList({ vals }: { vals: string[] }) {
+  return (
+    <>
+      {vals.map((v, i) => (
+        <Fragment key={v}>
+          {i > 0 && ", "}
+          <code>{v}</code>
+        </Fragment>
+      ))}
+    </>
+  );
 }
 
 function SectionHeading({
@@ -330,6 +345,10 @@ export default function ContextualBanditResultsTable({
       ? null
       : getResultsNotice(hasTableData, isExploring);
 
+  const unknownVariations = results?.unknownVariations ?? [];
+  const configuredKeys = cb.variations.map((v) => v.key);
+  const assignmentQueryDocUrl = `${docsOrigin}/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query`;
+
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
       variations.map((v) => ({
@@ -474,6 +493,23 @@ export default function ContextualBanditResultsTable({
       {resultsNotice ? (
         <Callout status="info" mb="3">
           {resultsNotice}
+        </Callout>
+      ) : null}
+
+      {unknownVariations.length > 0 ? (
+        <Callout status="warning" mb="3">
+          <strong>Warning:</strong> the assignment query returned{" "}
+          {unknownVariations.length} <code>variation_id</code> value
+          {unknownVariations.length === 1 ? "" : "s"} (
+          <CommaCodeList vals={unknownVariations} />) that match no configured
+          variation key (<CommaCodeList vals={configuredKeys} />
+          ). Rows with an unrecognized <code>variation_id</code> are dropped, so
+          affected variations show 0 {unitDisplayName.toLowerCase()}. Map{" "}
+          <code>variation_id</code> to your variation keys in the query.{" "}
+          <Link href={assignmentQueryDocUrl} target="_blank" rel="noreferrer">
+            Learn more
+          </Link>
+          .
         </Callout>
       ) : null}
 

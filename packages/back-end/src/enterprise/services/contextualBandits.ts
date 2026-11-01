@@ -1511,6 +1511,7 @@ export type ContextualBanditResultsForUi = {
   resultsRun: { snapshotId: string; dateCreated: Date } | null;
   /** Health computed by that same run. Null for runs that predate health checks. */
   health: ContextualBanditResultsHealth | null;
+  unknownVariations: string[];
 };
 
 function mapCbsStatusToSnapshotStatus(
@@ -1623,6 +1624,7 @@ export async function getContextualBanditResultsForUi(
         }
       : null,
     health,
+    unknownVariations: eventSnapshot?.unknownVariations ?? [],
   };
 }
 
