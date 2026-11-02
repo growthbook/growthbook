@@ -399,6 +399,9 @@ const IMAGE_MODEL_ALIASES: Record<string, string> = {
   "gemini-2.5-flash-image-preview": "gemini-2.5-flash-image",
   // Retired 2026-06-25; the GA id took over.
   "gemini-3-pro-image-preview": "gemini-3-pro-image",
+  // Shut down; staying on OpenAI keeps an OpenAI-only org generating images.
+  "dall-e-3": "gpt-image-1-mini",
+  "gpt-image-1": "gpt-image-1-mini",
 };
 
 export function resolveImageModelIdForSdk(model: string): string {

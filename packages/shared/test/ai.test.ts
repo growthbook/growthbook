@@ -4,6 +4,7 @@ import {
   formatAIRateLimitRetryMessage,
   getAIModelSettingsUsingProvider,
   getProviderForAIModel,
+  getImageModelMeta,
   parseAspectRatio,
   snapAspectRatio,
   aspectRatioToDims,
@@ -41,6 +42,8 @@ describe("getProviderForAIModel", () => {
     expect(
       getProviderForAIModel("image", "gemini-2.5-flash-image-preview"),
     ).toBe("google");
+    expect(getProviderForAIModel("image", "dall-e-3")).toBe("openai");
+    expect(getImageModelMeta("gpt-image-1")?.id).toBe("gpt-image-1-mini");
   });
 
   it("resolves transcription models from their own registry", () => {
