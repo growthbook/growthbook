@@ -513,8 +513,8 @@ export function nonContributingApproverIds({
   approvedIds: string[];
   enforcedTeamIds: string[][];
   requiredTeamsSatisfied: boolean;
-  org: { members?: { id: string; teams?: string[] }[] };
-  teams: { id: string; name: string }[];
+  org: ApproverTeamsOrg;
+  teams: ApproverTeam[];
 }): string[] {
   if (requiredTeamsSatisfied || !enforcedTeamIds.length) return [];
   const ruleTeams = enforcedTeamIds.map((ids) => new Set(ids));

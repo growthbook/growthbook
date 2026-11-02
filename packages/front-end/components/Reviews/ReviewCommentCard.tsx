@@ -6,11 +6,10 @@ import MarkdownWithDiffRefs from "@/components/Reviews/DiffCommentMarkdown";
 import {
   logComment,
   rowVisual,
-  verdictColor,
+  verdictAvatar,
   VerdictRetraction,
   VerdictTags,
 } from "@/components/Reviews/RevisionTimeline";
-import Avatar from "@/ui/Avatar";
 
 export type ReviewComment = RevisionLog & {
   comment?: string;
@@ -62,7 +61,6 @@ export default function ReviewCommentCard({
   body?: ReactNode;
 }) {
   const visual = rowVisual(log.action);
-  const verdict = verdictColor(log.action);
   return (
     <CommentCard
       user={log.user}
@@ -74,18 +72,7 @@ export default function ReviewCommentCard({
         />
       }
       stripeColor={visual.color}
-      leading={
-        verdict ? (
-          <Avatar
-            size={size}
-            color={verdict}
-            variant={uncoveredReason ? "soft" : "solid"}
-            ring={!!uncoveredReason}
-          >
-            <>{visual.icon}</>
-          </Avatar>
-        ) : undefined
-      }
+      leading={verdictAvatar(log.action, size, !!uncoveredReason)}
       avatarSize={size}
       compact={size === "sm"}
       actions={actions}

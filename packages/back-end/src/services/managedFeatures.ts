@@ -1,6 +1,7 @@
 import { RequestHandler } from "express";
 import type { z } from "zod";
 import {
+  canChangeImplementationType,
   copyManagedVariationValues,
   isManagedFeature,
   managedByExperimentId,
@@ -960,7 +961,7 @@ export async function stageManagedFeatureFields({
   guardDateUpdated?: boolean;
 }): Promise<FeatureRevisionInterface> {
   // Against the draft: an earlier edit may already have staged either field.
-  const draftType = revision.metadata?.valueType ?? feature.valueType;
+  const draftType = pendingValueType(feature, revision);
   const typeChanged = valueType !== undefined && valueType !== draftType;
   const defaultChanged =
     defaultValue !== undefined && defaultValue !== revision.defaultValue;
@@ -1373,6 +1374,37 @@ export async function clearManagedMarkersForExperiment(
   }
 }
 
+// Judged against the flag actually managed, not the stored label. Null when the
+// type isn't changing; otherwise the type to release the managed flag for, if any.
+export async function planImplementationTypeRelease(
+  context: ReqContext | ApiReqContext,
+  experiment: ExperimentInterface,
+  next: ImplementationType,
+  surface: ManagedFeatureErrorSurface = "app",
+): Promise<{ releaseManagedFlagFor: ImplementationType | null } | null> {
+  const managed = await getManagedFeatureForExperiment(context, experiment);
+  const current = managed ? "values" : experiment.implementationType;
+  if (next === current) return null;
+
+  const afterRelease =
+    managed && next !== "feature"
+      ? {
+          ...experiment,
+          linkedFeatures: (experiment.linkedFeatures ?? []).filter(
+            (id) => id !== managed.id,
+          ),
+        }
+      : experiment;
+  if (!canChangeImplementationType(afterRelease, next)) {
+    throw new BadRequestError(
+      `Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing ${
+        surface === "rest" ? "implementationType" : "how it is implemented"
+      }.`,
+    );
+  }
+  return { releaseManagedFlagFor: managed ? next : null };
+}
+
 // Feature Flag keeps it as an ordinary linked flag; anything else deletes it (drafts only).
 export async function releaseManagedFlagForImplementationChange({
   context,
@@ -1620,10 +1652,7 @@ function makeResolveManagedFlagParams({
   return (req, res, next) => {
     void (async () => {
       const context = getContextFromReq(req as AuthRequest);
-      const experimentId = req.params?.id;
-      if (!experimentId) throw new NotFoundError("Experiment not found");
-
-      const experiment = await getExperimentById(context, experimentId);
+      const experiment = await getExperimentById(context, req.params.id);
       if (!experiment) throw new NotFoundError("Experiment not found");
 
       const feature = await requireManagedFeature(context, experiment);
@@ -1668,9 +1697,9 @@ export function guardManagedFeatureRoutes(
   routes: OpenApiRoute[],
 ): OpenApiRoute[] {
   return routes.map((route) => {
-    if (!route.method || !isMutatingMethod(route.method)) return route;
+    if (!isMutatingMethod(route.method)) return route;
     // Comments are conversation, not flag content, so they stay editable.
-    if (/\/log\/:logId$/.test(route.path ?? "")) return route;
+    if (/\/log\/:logId$/.test(route.path)) return route;
 
     const inner = route.rawHandler;
     const rawHandler: OpenApiRoute["rawHandler"] = async (req) => {
@@ -1683,7 +1712,7 @@ export function guardManagedFeatureRoutes(
 
     const handler: OpenApiRoute["handler"] = expressApiHandler(
       route.schemas,
-      rawHandler as (req: never) => Promise<unknown>,
+      rawHandler,
     );
 
     return { ...route, handler, rawHandler };

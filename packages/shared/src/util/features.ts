@@ -340,9 +340,7 @@ function asJsonDocument(plain: string): string | null {
   const trimmed = plain.trim();
   if (!/^[[{]/.test(trimmed)) return null;
   try {
-    const parsed = JSON.parse(trimmed);
-    if (parsed === null || typeof parsed !== "object") return null;
-    return JSON.stringify(parsed, null, 2);
+    return JSON.stringify(JSON.parse(trimmed), null, 2);
   } catch (e) {
     return null;
   }

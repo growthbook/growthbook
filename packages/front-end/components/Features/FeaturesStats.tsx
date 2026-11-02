@@ -28,11 +28,11 @@ const generatePlatformUrl = (
 };
 
 export default function FeaturesStats({
-  featureId,
   orgSettings,
+  featureId,
 }: {
-  featureId: string;
   orgSettings: OrganizationSettings;
+  featureId: string;
 }) {
   const router = useRouter();
   const {
@@ -149,7 +149,6 @@ export default function FeaturesStats({
                 {codeRef.refs.length} reference(s) found in{" "}
                 <code>{codeRef.branch}</code> branch.
               </div>
-              {/* Found under a key the flag was renamed away from. */}
               {codeRef.feature !== featureId ? (
                 <Badge
                   ml="2"

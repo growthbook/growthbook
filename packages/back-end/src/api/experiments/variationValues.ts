@@ -181,7 +181,6 @@ export const putExperimentVariationValues = createApiRequestHandler(
   return respond(req.context, experiment);
 });
 
-/** The pending draft, or a 400 when there is nothing waiting. */
 async function requirePendingDraft(
   context: ApiReqContext,
   feature: FeatureInterface,

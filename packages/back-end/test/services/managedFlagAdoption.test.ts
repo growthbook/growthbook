@@ -57,6 +57,13 @@ const experiment = (over: Partial<ExperimentInterface> = {}) =>
 
 const context = {
   org: { id: "org_1", settings: {} },
+  // Denies creation, so a create that passes validation stops there.
+  permissions: {
+    canCreateFeature: () => false,
+    throwPermissionError: () => {
+      throw new Error("permission error");
+    },
+  },
 } as unknown as ReqContext;
 
 /** Only these ids are already taken. */
@@ -131,42 +138,41 @@ describe("createManagedFeatureForExperiment variation validation", () => {
     audit: jest.fn(),
   };
 
-  it("accepts a valid value for every variation", async () => {
+  it.each([
     // "false" is a valid value, not a falsy failure.
-    await expect(
-      createManagedFeatureForExperiment({
-        ...base,
-        valueType: "boolean",
-        variations: [
-          { variationId: "var_0", value: "false" },
-          { variationId: "var_1", value: "true" },
-        ],
-      }),
-    ).rejects.not.toThrow(/^false$/);
-  });
-
-  it("refuses a value that does not parse as the chosen type", async () => {
-    await expect(
-      createManagedFeatureForExperiment({
-        ...base,
-        valueType: "number",
-        variations: [
-          { variationId: "var_0", value: "abc" },
-          { variationId: "var_1", value: "2" },
-        ],
-      }),
-    ).rejects.toThrow(/valid number/i);
-  });
-
-  it("refuses a set that does not cover every variation", async () => {
-    await expect(
-      createManagedFeatureForExperiment({
-        ...base,
-        valueType: "string",
-        variations: [{ variationId: "var_0", value: "a" }],
-      }),
-    ).rejects.toThrow(/one value per experiment variation/i);
-  });
+    [
+      "boolean",
+      [
+        { variationId: "var_0", value: "false" },
+        { variationId: "var_1", value: "true" },
+      ],
+      /permission error/,
+    ],
+    [
+      "number",
+      [
+        { variationId: "var_0", value: "abc" },
+        { variationId: "var_1", value: "2" },
+      ],
+      /valid number/i,
+    ],
+    [
+      "string",
+      [{ variationId: "var_0", value: "a" }],
+      /one value per experiment variation/i,
+    ],
+  ] as const)(
+    "validates %s values %j",
+    async (valueType, variations, error) => {
+      await expect(
+        createManagedFeatureForExperiment({
+          ...base,
+          valueType,
+          variations: [...variations],
+        }),
+      ).rejects.toThrow(error);
+    },
+  );
 });
 
 describe("clearManagedMarkersForExperiment", () => {
@@ -203,8 +209,7 @@ describe("clearManagedMarkersForExperiment", () => {
   });
 
   it("refuses before touching anything when a managed flag is unreadable", async () => {
-    // The ids resolve without the read filter, so an unreadable flag is one the
-    // caller must not release; leaving it locked to a deleted experiment is worse.
+    // Ids resolve unfiltered, so an unreadable flag is one the caller can't release.
     mockManagedIds.mockResolvedValue(["flag-a", "flag-b"]);
     mockGetFeature.mockImplementation(async (_c, id: string) =>
       id === "flag-a" ? { id, managedBy: { type: "experiment" } } : null,
@@ -265,28 +270,20 @@ describe("planManagedFlagKey", () => {
     });
   });
 
-  it("skips a candidate whose tracking key another experiment holds", async () => {
+  it.each([
+    ["exp_other", "checkout-test-3"],
+    // The experiment's own key is no conflict.
+    ["exp_1", "checkout-test-2"],
+  ])("suggests past a tracking key %s holds: %s", async (ownerId, expected) => {
     taken("checkout-test");
     mockByTrackingKey.mockImplementation(async (_ctx, key: string) =>
-      key === "checkout-test-2" ? { id: "exp_other" } : null,
+      key === "checkout-test-2" ? { id: ownerId } : null,
     );
     const plan = await planManagedFlagKey({
       context,
       experiment: experiment(),
     });
-    expect(plan.suggestedPair?.featureId).toBe("checkout-test-3");
-  });
-
-  it("does not treat the experiment's own key as a conflict", async () => {
-    taken("checkout-test");
-    mockByTrackingKey.mockImplementation(async (_ctx, key: string) =>
-      key === "checkout-test-2" ? { id: "exp_1" } : null,
-    );
-    const plan = await planManagedFlagKey({
-      context,
-      experiment: experiment(),
-    });
-    expect(plan.suggestedPair?.featureId).toBe("checkout-test-2");
+    expect(plan.suggestedPair?.featureId).toBe(expected);
   });
 
   it("reports the org key format as an error", async () => {
@@ -310,10 +307,8 @@ describe("planManagedFlagKey", () => {
 });
 
 describe("adoptManagedFlagForExperiment refuses before renaming", () => {
-  // The rename is what makes ordering load-bearing: changing an experiment's
-  // tracking key re-buckets its users, so a non-draft experiment must be
-  // refused before `updateExperiment` is ever reached. The blocker's own
-  // behavior is covered above; this pins its position in the sequence.
+  // Renaming the tracking key re-buckets users, so the blocker runs before
+  // `updateExperiment`.
   const adopt = (over: Partial<ExperimentInterface>) =>
     adoptManagedFlagForExperiment({
       context,
@@ -329,19 +324,14 @@ describe("adoptManagedFlagForExperiment refuses before renaming", () => {
       audit: jest.fn(),
     });
 
-  it.each([
-    ["running", { status: "running" as const }],
-    ["archived", { archived: true }],
-  ])("refuses a %s experiment without renaming it", async (_label, over) => {
-    await expect(adopt(over)).rejects.toThrow();
-    expect(mockUpdateExperiment).not.toHaveBeenCalled();
-  });
-
-  it("refuses an experiment that already has a linked flag, without renaming", async () => {
-    // Staleness is decided by `featureIdExists`: the flag has to look present,
-    // or the blocker treats it as deleted out of band and lets adoption run.
+  it.each<Partial<ExperimentInterface>>([
+    { status: "running" },
+    { archived: true },
+    { linkedFeatures: ["other-flag"] },
+  ])("refuses %j without renaming", async (over) => {
+    // A linked flag that no longer exists would not block.
     taken("other-flag");
-    await expect(adopt({ linkedFeatures: ["other-flag"] })).rejects.toThrow();
+    await expect(adopt(over)).rejects.toThrow();
     expect(mockUpdateExperiment).not.toHaveBeenCalled();
   });
 });

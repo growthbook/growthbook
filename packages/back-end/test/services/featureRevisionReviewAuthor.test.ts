@@ -26,8 +26,8 @@ const feature = {
   version: 4,
 } as unknown as FeatureInterface;
 
-/** `userId` is "" for an API key, and a real id for a dashboard session. */
-// `actorId` is the person, else the org key acting as itself; empty for neither.
+// `actorId` is the person (also its `userId`), else the org key acting as
+// itself; "" for neither.
 const contextFor = (actorId: string) =>
   ({
     org: { id: "org_1", settings: {} },
@@ -71,34 +71,26 @@ beforeEach(() => {
 });
 
 describe("submitFeatureRevisionReview author separation", () => {
-  it("blocks an identityless principal from approving an authorless draft", async () => {
-    await expect(approve("", null)).rejects.toThrow(
-      "Cannot submit a review on a draft you created",
-    );
-    expect(mockSubmit).not.toHaveBeenCalled();
-  });
+  it.each([
+    // An identityless principal on an authorless draft.
+    ["", null],
+    ["key_1", { type: "api_key", apiKey: "key_1" }],
+    ["u_1", { type: "dashboard", id: "u_1" }],
+  ] as const)(
+    "blocks %j approving a draft created by %j",
+    async (actorId, createdBy) => {
+      await expect(approve(actorId, createdBy)).rejects.toThrow(
+        "Cannot submit a review on a draft you created",
+      );
+      expect(mockSubmit).not.toHaveBeenCalled();
+    },
+  );
 
-  it("blocks an org key from approving a draft it opened", async () => {
-    await expect(
-      approve("key_1", { type: "api_key", apiKey: "key_1" }),
-    ).rejects.toThrow("Cannot submit a review on a draft you created");
-    expect(mockSubmit).not.toHaveBeenCalled();
-  });
-
-  it("blocks a user from approving their own draft", async () => {
-    await expect(
-      approve("u_1", { type: "dashboard", id: "u_1" }),
-    ).rejects.toThrow("Cannot submit a review on a draft you created");
-    expect(mockSubmit).not.toHaveBeenCalled();
-  });
-
-  it("allows a user to approve someone else's draft", async () => {
-    await approve("u_2", { type: "dashboard", id: "u_1" });
-    expect(mockSubmit).toHaveBeenCalled();
-  });
-
-  it("allows a user to approve a draft an API key opened", async () => {
-    await approve("u_2", { type: "api_key", apiKey: "key_1" });
+  it.each([
+    { type: "dashboard", id: "u_1" },
+    { type: "api_key", apiKey: "key_1" },
+  ])("allows a user to approve a draft created by %j", async (createdBy) => {
+    await approve("u_2", createdBy);
     expect(mockSubmit).toHaveBeenCalled();
   });
 });

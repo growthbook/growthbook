@@ -49,7 +49,7 @@ import {
   discardDraftIfNoop,
   stageManagedFeatureFields,
   ensureManagedFlagForExperiment,
-  getManagedFeatureForExperiment,
+  requireManagedFeature,
 } from "back-end/src/services/managedFeatures";
 import {
   assertScopedRules,
@@ -966,24 +966,11 @@ async function finishFlags({
   await renameManagedFlag({
     context,
     experiment: healed,
-    feature: await getManagedFeatureToRename(context, healed),
+    feature: await requireManagedFeature(context, healed),
     to: body.renameManagedFlag.to,
     audit,
   });
   return (await getExperimentById(context, healed.id)) ?? healed;
-}
-
-async function getManagedFeatureToRename(
-  context: ReqContext,
-  experiment: ExperimentInterface,
-) {
-  const feature = await getManagedFeatureForExperiment(context, experiment);
-  if (!feature) {
-    throw new BadRequestError(
-      "This experiment does not manage a Feature Flag.",
-    );
-  }
-  return feature;
 }
 
 // Refuses before anything is written; the rename itself checks again.
@@ -993,7 +980,7 @@ async function assertManagedFlagRenamableUpFront(
   body: ExperimentChangesBody,
   to: string,
 ) {
-  const feature = await getManagedFeatureToRename(context, experiment);
+  const feature = await requireManagedFeature(context, experiment);
   if (to === feature.id) return;
   if (body.unlinkFeatures?.includes(feature.id)) {
     throw new BadRequestError(
@@ -1003,9 +990,8 @@ async function assertManagedFlagRenamableUpFront(
   await assertManagedFlagRenamable(context, experiment, feature, to);
 }
 
-// A Values experiment missing its flag gets one on its next save, with the
-// values the page sent or seeded ones. Seeding wasn't asked for and the rest
-// has already landed, so only a seeding failure is logged rather than thrown.
+// A Values experiment missing its flag gets one on its next save. Seeding wasn't
+// asked for and the save has landed, so only a seeding failure is logged.
 async function healManagedFlag(
   args: Parameters<typeof ensureManagedFlagForExperiment>[0],
 ): Promise<ExperimentInterface> {

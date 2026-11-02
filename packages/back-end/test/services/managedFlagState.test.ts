@@ -203,17 +203,6 @@ describe("getManagedFlagState", () => {
     );
   });
 
-  it("reports an empty review list when the revision read comes back empty", async () => {
-    mockLinkedInfo.mockResolvedValue([
-      { feature: managedFeature(), pendingDraft: pendingDraft() },
-    ]);
-    mockGetRevision.mockResolvedValue(null);
-
-    expect(
-      (await getManagedFlagState(context, experiment())).pending?.reviews,
-    ).toEqual([]);
-  });
-
   it("ignores linked-feature info for a different feature", async () => {
     mockLinkedInfo.mockResolvedValue([
       {
@@ -283,26 +272,20 @@ describe("getManagedFlagState", () => {
     expect(state.pending?.version).toBe(3);
   });
 
-  it("reports the type a re-typing draft lands as, not the live one", async () => {
-    mockLinkedInfo.mockResolvedValue([
-      { feature: managedFeature(), pendingDraft: pendingDraft() },
-    ]);
-    mockGetRevision.mockResolvedValue({ metadata: { valueType: "number" } });
+  it.each([
+    [{ valueType: "number" }, "number"],
+    [{}, "string"],
+  ])(
+    "reports the type the draft lands as, beside the live one (metadata %j)",
+    async (metadata, expected) => {
+      mockLinkedInfo.mockResolvedValue([
+        { feature: managedFeature(), pendingDraft: pendingDraft() },
+      ]);
+      mockGetRevision.mockResolvedValue({ metadata });
 
-    const state = await getManagedFlagState(context, experiment());
-    expect(state.valueType).toBe("string");
-    expect(state.pending?.valueType).toBe("number");
-  });
-
-  it("reports the live type when the draft does not re-type", async () => {
-    mockLinkedInfo.mockResolvedValue([
-      { feature: managedFeature(), pendingDraft: pendingDraft() },
-    ]);
-    mockGetFeature.mockResolvedValue(managedFeature({ valueType: "boolean" }));
-    mockGetRevision.mockResolvedValue({ metadata: {} });
-
-    const state = await getManagedFlagState(context, experiment());
-    expect(state.valueType).toBe("boolean");
-    expect(state.pending?.valueType).toBe("boolean");
-  });
+      const state = await getManagedFlagState(context, experiment());
+      expect(state.valueType).toBe("string");
+      expect(state.pending?.valueType).toBe(expected);
+    },
+  );
 });

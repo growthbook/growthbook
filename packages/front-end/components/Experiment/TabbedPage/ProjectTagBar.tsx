@@ -75,7 +75,6 @@ export function ExperimentDataFields({
 }: {
   experiment: ExperimentInterfaceStringDates;
   datasourceMissing?: boolean;
-  // The managed Feature Flag the experiment owns, if any.
   managedFlagId?: string | null;
   // An implementation type staged for the page's Save, shown in place of the
   // stored one.

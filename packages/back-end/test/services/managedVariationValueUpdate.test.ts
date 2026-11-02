@@ -191,12 +191,6 @@ describe("updateManagedVariationValues no-op drafts", () => {
     expect(mockRequestReview).not.toHaveBeenCalled();
     expect(result.version).toBe(managedFeature().version);
   });
-
-  it("keeps a draft that still changes something", async () => {
-    await update();
-
-    expect(mockDiscard).not.toHaveBeenCalled();
-  });
 });
 
 describe("updateManagedVariationValues revision choice", () => {
@@ -223,25 +217,26 @@ describe("updateManagedVariationValues revision choice", () => {
       expect.objectContaining({ id: "checkout-test" }),
       7,
     );
+    expect(mockDiscard).not.toHaveBeenCalled();
     expect(result.version).toBe(8);
   });
 
-  it("writes nothing when the values already match", async () => {
-    mockActiveDraft.mockResolvedValue({ version: 8 });
-    mockValidate.mockResolvedValue(null);
+  it.each([
+    [{ version: 8 }, 8],
+    [null, 7],
+  ])(
+    "writes nothing when the values already match (open draft %j)",
+    async (openDraft, expectedVersion) => {
+      mockActiveDraft.mockResolvedValue(openDraft);
+      mockValidate.mockResolvedValue(null);
 
-    const result = await update();
+      const result = await update();
 
-    expect(mockUpdateRefs).not.toHaveBeenCalled();
-    expect(mockDraftRevision).not.toHaveBeenCalled();
-    expect(result.version).toBe(8);
-  });
-
-  it("reports the live version when nothing matches and nothing is pending", async () => {
-    mockValidate.mockResolvedValue(null);
-
-    expect((await update()).version).toBe(7);
-  });
+      expect(mockUpdateRefs).not.toHaveBeenCalled();
+      expect(mockDraftRevision).not.toHaveBeenCalled();
+      expect(result.version).toBe(expectedVersion);
+    },
+  );
 
   it("refuses when the experiment manages no flag", async () => {
     mockGetFeature.mockResolvedValue({
@@ -275,24 +270,20 @@ describe("updateManagedVariationValues value handling", () => {
   });
 
   it.each([
-    ["misses a variation", [{ variationId: "v0", value: "a" }]],
+    [[], /value for every variation/i],
     [
-      "names a variation the experiment does not have",
+      [{ variationId: "v0", value: "a" }],
+      /one value per experiment variation/i,
+    ],
+    [
       [
         { variationId: "v0", value: "a" },
         { variationId: "v_nope", value: "b" },
       ],
-    ],
-  ])("refuses a set that %s", async (_label, variations) => {
-    await expect(update({ variations })).rejects.toThrow(
       /one value per experiment variation/i,
-    );
-  });
-
-  it("refuses an empty set", async () => {
-    await expect(update({ variations: [] })).rejects.toThrow(
-      /value for every variation/i,
-    );
+    ],
+  ] as const)("refuses the set %j", async (variations, message) => {
+    await expect(update({ variations })).rejects.toThrow(message);
   });
 });
 

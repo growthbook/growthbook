@@ -157,7 +157,9 @@ function ManagedReviewAction({
   if (asLink) {
     return editsBlocked ? (
       <Tooltip content={editsBlocked}>
-        <Text color="text-low">{action.label}</Text>
+        <span>
+          <Text color="text-low">{action.label}</Text>
+        </span>
       </Tooltip>
     ) : (
       <Link onClick={action.run} color="violet" underline="hover">

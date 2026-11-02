@@ -201,7 +201,7 @@ export function getChecklistItems({
     }
   };
 
-  const rows = getLaunchChecklistItems({
+  return getLaunchChecklistItems({
     experiment,
     linkedFeatures,
     visualChangesets,
@@ -296,6 +296,4 @@ export function getChecklistItems({
         return row;
     }
   });
-
-  return rows;
 }

@@ -1,7 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { getValidDate } from "shared/dates";
 import {
-  canChangeImplementationType,
   experimentHasLinkedChanges,
   includeExperimentInPayload,
 } from "shared/util";
@@ -23,6 +22,7 @@ import {
   ExperimentInterface,
   ExperimentInterfaceStringDates,
   ExperimentPhase,
+  ImplementationType,
 } from "shared/types/experiment";
 import type { AuditInterfaceInput } from "shared/types/audit";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -63,9 +63,9 @@ import { BadRequestError } from "back-end/src/util/errors";
 import { getFeaturesByIds } from "back-end/src/models/FeatureModel";
 import {
   assertManagedFlagCanMove,
-  getManagedFeatureForExperiment,
   moveManagedFlagWithExperiment,
   assertManagedFlagKeyFormat,
+  planImplementationTypeRelease,
   releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
 import {
@@ -107,7 +107,7 @@ const BUCKETING_FIELDS = [
 
 export type ExperimentUpdatePlan = {
   changes: Changeset;
-  releaseManagedFlagFor: ExperimentInterface["implementationType"];
+  releaseManagedFlagFor: ImplementationType | null;
   holdout: { remove: string | null; add: string | null };
   tags: string[];
 };
@@ -196,34 +196,18 @@ const DEEP_COMPARED_KEYS = new Set<keyof ExperimentInterface>([
   "precomputedUnitDimensionIds",
 ]);
 
-// Judged against the flag actually managed, not the stored label. Returns the
-// type to release the managed flag for; the release waits until every check passes.
+// Returns the type to release the managed flag for; the release waits until
+// every check passes.
 async function planImplementationTypeChange(
   context: ReqContext,
   experiment: ExperimentInterface,
   data: Pick<ExperimentUpdateInput, "implementationType" | "trackingKey">,
-): Promise<ExperimentInterface["implementationType"]> {
+): Promise<ImplementationType | null> {
   const next = data.implementationType;
-  if (next === undefined) return undefined;
-  const managed = await getManagedFeatureForExperiment(context, experiment);
-  const current = managed ? "values" : experiment.implementationType;
-  if (next === current) return undefined;
-
-  const afterRelease =
-    managed && next !== "feature"
-      ? {
-          ...experiment,
-          linkedFeatures: (experiment.linkedFeatures ?? []).filter(
-            (id) => id !== managed.id,
-          ),
-        }
-      : experiment;
-  if (!canChangeImplementationType(afterRelease, next)) {
-    throw new BadRequestError(
-      "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing how it is implemented.",
-    );
-  }
-  if (managed) return next;
+  if (next === undefined) return null;
+  const change = await planImplementationTypeRelease(context, experiment, next);
+  if (!change) return null;
+  if (change.releaseManagedFlagFor) return change.releaseManagedFlagFor;
 
   // The flag is created once the update lands, and only on a draft; otherwise
   // the Values label would stand alone.
@@ -238,7 +222,7 @@ async function planImplementationTypeChange(
       id: experiment.id,
     });
   }
-  return undefined;
+  return null;
 }
 
 // Every gate an experiment update must pass, with no writes; `applyExperimentUpdatePlan` performs them.

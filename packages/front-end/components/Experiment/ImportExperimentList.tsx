@@ -253,8 +253,6 @@ const ImportExperimentList: FC<{
   }, [setSearchValue, pastExperimentsMinLength]);
   const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
     useSearchFiltersBase({ searchInputProps, syntaxFilters, setSearchValue });
-  // A minimum, or the imported choice, replaces the one before it rather than
-  // adding a second value.
   // A minimum typed into the search joins the presets, so the menu shows it.
   const minimums = (field: string, presets: number[]) => {
     const typed = syntaxFilters
@@ -274,6 +272,8 @@ const ImportExperimentList: FC<{
       ? `${f.negated ? "Not " : ""}${f.operator}${format(f.values)}`
       : name;
   };
+  // A minimum, or the imported choice, replaces the one before it rather than
+  // adding a second value.
   const replaceFilter = (filter: SyntaxFilter) => {
     const kept = syntaxFilters.filter((f) => f.field !== filter.field);
     const same = syntaxFilters.some(
@@ -851,9 +851,7 @@ const ImportExperimentList: FC<{
             </TableHeader>
             <TableBody>
               {items.map((e) => {
-                const key = dedupeFilter
-                  ? e.trackingKey
-                  : e.trackingKey + "::" + e.exposureQueryId;
+                const key = importedKey(e);
                 const existingId = data?.existing?.[key];
                 return (
                   <TableRow key={key}>

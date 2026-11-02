@@ -36,13 +36,9 @@ beforeEach(() => {
 
 describe("assertLoadedFeatureNotManaged", () => {
   it("throws for an experiment-managed flag, carrying the owning experiment", () => {
-    expect.assertions(2);
-    try {
-      assertLoadedFeatureNotManaged(feature(true));
-    } catch (e) {
-      expect(e).toBeInstanceOf(ManagedFeatureError);
-      expect((e as ManagedFeatureError).message).toContain("exp_1");
-    }
+    const assert = () => assertLoadedFeatureNotManaged(feature(true));
+    expect(assert).toThrow(ManagedFeatureError);
+    expect(assert).toThrow(/exp_1/);
   });
 });
 
@@ -72,15 +68,13 @@ describe("blockManagedFeatureWrites", () => {
     );
   });
 
-  it("allows reads of a managed flag", async () => {
+  it.each([
+    ["GET", "/feature/flag"],
+    // The read-only eval POST.
+    ["POST", "/feature/flag/3/eval"],
+  ])("allows %s %s on a managed flag", async (method, path) => {
     mockGetFeature.mockResolvedValue(feature(true));
-    expect(await run("GET", "/feature/flag", "flag")).toBeUndefined();
-    expect(mockGetFeature).not.toHaveBeenCalled();
-  });
-
-  it("allows the read-only eval POST on a managed flag", async () => {
-    mockGetFeature.mockResolvedValue(feature(true));
-    expect(await run("POST", "/feature/flag/3/eval", "flag")).toBeUndefined();
+    expect(await run(method, path, "flag")).toBeUndefined();
     expect(mockGetFeature).not.toHaveBeenCalled();
   });
 

@@ -324,8 +324,7 @@ export async function linkFeatureToContextualBandit({
     throw new Error("Invalid contextual bandit rule");
   }
 
-  // Here, not on the route: the route-level managed guard keys on :id, and
-  // these REST routes address the feature as :featureId.
+  // The route-level managed guard keys on :id; these routes use :featureId.
   assertLoadedFeatureNotManaged(feature);
 
   if (!environments.length) {

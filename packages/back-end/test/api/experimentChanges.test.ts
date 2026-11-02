@@ -388,14 +388,17 @@ describe("applyExperimentChanges", () => {
     ).rejects.toThrow("invalid_variation_weights");
   });
 
-  it("writes a sparse-only change, and refuses a type change on a flag it doesn't manage", async () => {
+  it("refuses a type change on a flag it doesn't manage", async () => {
     await seed({ withDraft: true });
     await expect(
       run({
         flagValues: [draftValues(arms("a", "draft"), { valueType: "number" })],
       }),
     ).rejects.toThrow(/only a Feature Flag managed by this experiment/);
+  });
 
+  it("writes a sparse-only change", async () => {
+    await seed({ withDraft: true });
     await run({
       flagValues: [draftValues(arms("a", "draft"), { sparse: true })],
     });

@@ -59,7 +59,7 @@ describe("getImplementationType", () => {
     ).toBeUndefined();
   });
 
-  it("lets what is wired up override a stale stored value", () => {
+  it("lets what is wired up override a stale or missing stored value", () => {
     expect(
       getImplementationType({
         implementationType: "feature",
@@ -79,9 +79,6 @@ describe("getImplementationType", () => {
         hasURLRedirects: true,
       }),
     ).toBe("multi");
-  });
-
-  it("derives for legacy experiments", () => {
     expect(getImplementationType({ hasURLRedirects: true })).toBe(
       "urlredirect",
     );

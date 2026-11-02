@@ -533,9 +533,8 @@ export default function FeaturesOverview({
     approvalsEngaged &&
     featureReviewConfig?.featureRequireMetadataReview !== false;
 
-  // Managed flags refuse every direct write server-side. Folded in here rather
-  // than in `permissionsClass`, which the experiment-side components share and
-  // where a bare `{project}` caller would skip the check.
+  // Managed flags refuse every direct write server-side. Checked here, not in
+  // `permissionsClass`: its experiment-side callers pass a bare `{project}`.
   const isManagedFlag = isManagedFeature(baseFeature);
   const managedExperimentId = managedByExperimentId(baseFeature) ?? "";
   // The eject endpoint's authority: publish on the flag, and edit on the
@@ -639,8 +638,8 @@ export default function FeaturesOverview({
   // Draft CTA — defined once and rendered via a stable portal host moved
   // between the revision card and sticky banner. Just a navigation affordance:
   // all lifecycle actions (review, publish, fix conflicts, discard) live on the
-  // review tab, which evaluates the full policy matrix. Shown to everyone.
-  // Review & publish happens on the experiment.
+  // review tab, which evaluates the full policy matrix. Shown to everyone,
+  // except on a managed flag, which is reviewed on its experiment.
   const draftCtaGroup =
     isDraft && !isManagedFlag ? (
       <Box>

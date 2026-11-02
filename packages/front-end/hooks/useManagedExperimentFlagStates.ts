@@ -2,11 +2,13 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useRef,
   useState,
   ReactNode,
   createElement,
 } from "react";
+import { ExperimentInterfaceStringDates } from "shared/types/experiment";
 import { useAuth } from "@/services/auth";
 
 /** experiment id -> the Feature Flag key it manages */
@@ -78,7 +80,21 @@ const NOOP: UseManagedExperimentFlagStatesReturn = {
   getManagedFlag: () => undefined,
 };
 
-/** A no-op outside the provider, so lists can opt in without coupling. */
-export function useManagedExperimentFlagStates(): UseManagedExperimentFlagStatesReturn {
-  return useContext(ManagedFlagsContext) ?? NOOP;
+/**
+ * Loads which of the visible experiments manage a flag. A no-op outside the
+ * provider, so lists can opt in without coupling.
+ */
+export function useManagedExperimentFlagStates(
+  visible: Pick<ExperimentInterfaceStringDates, "id" | "linkedFeatures">[],
+): UseManagedExperimentFlagStatesReturn["getManagedFlag"] {
+  const { fetchSome, getManagedFlag } = useContext(ManagedFlagsContext) ?? NOOP;
+  const idsKey = visible
+    .filter((e) => (e.linkedFeatures || []).length > 0)
+    .map((e) => e.id)
+    .join(",");
+  useEffect(() => {
+    if (!idsKey) return;
+    fetchSome(idsKey.split(","));
+  }, [idsKey, fetchSome]);
+  return getManagedFlag;
 }

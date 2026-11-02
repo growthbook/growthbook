@@ -97,41 +97,43 @@ export function getManagedValueProblems({
       problems.push({ variationId: v.id, variationName, problem: "missing" });
       return;
     }
-    if (valueType === "boolean" && value !== "true" && value !== "false") {
+    const detail = malformedValueDetail(valueType, value);
+    if (detail !== null) {
       problems.push({
         variationId: v.id,
         variationName,
         problem: "malformed",
-        detail: "Must be true or false",
-      });
-      return;
-    }
-    // Strict: the SDK parses what is stored.
-    if (valueType === "json") {
-      try {
-        JSON.parse(value);
-      } catch {
-        problems.push({
-          variationId: v.id,
-          variationName,
-          problem: "malformed",
-          detail: "Must be valid JSON",
-        });
-      }
-      return;
-    }
-    try {
-      validateFeatureValue({ valueType }, value);
-    } catch (e) {
-      problems.push({
-        variationId: v.id,
-        variationName,
-        problem: "malformed",
-        detail: e instanceof Error ? e.message : String(e),
+        detail,
       });
     }
   });
   return problems;
+}
+
+// Strict: the SDK parses what is stored.
+function malformedValueDetail(
+  valueType: FeatureValueType,
+  value: string,
+): string | null {
+  if (valueType === "boolean") {
+    return value === "true" || value === "false"
+      ? null
+      : "Must be true or false";
+  }
+  if (valueType === "json") {
+    try {
+      JSON.parse(value);
+      return null;
+    } catch {
+      return "Must be valid JSON";
+    }
+  }
+  try {
+    validateFeatureValue({ valueType }, value);
+    return null;
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  }
 }
 
 // A candidate, not a reservation.

@@ -128,7 +128,7 @@ export default function ApprovalStatusBand({
         {coverageNote}
         {selfNote}
       </>
-    ) : undefined;
+    ) : null;
 
   if (phase === "draft") {
     return (

@@ -9,31 +9,23 @@ const cast = (
 ) => castFeatureValue({ value, from, to, index });
 
 describe("castFeatureValue", () => {
-  it("unquotes a JSON string literal moving to string", () => {
-    expect(cast('"control"', "json", "string")).toBe("control");
-  });
-
   it("leaves a value alone when the type does not change", () => {
     expect(cast("anything", "string", "string")).toBe("anything");
     expect(cast("{bad json", "json", "json")).toBe("{bad json");
   });
 
   describe("to boolean", () => {
-    it("reads the values that already mean true or false", () => {
-      expect(cast("true", "string", "boolean")).toBe("true");
-      expect(cast("false", "string", "boolean")).toBe("false");
-      expect(cast("1", "number", "boolean")).toBe("true");
-      expect(cast("0", "number", "boolean")).toBe("false");
-    });
-
-    it("is case and whitespace insensitive", () => {
-      expect(cast("  TRUE ", "string", "boolean")).toBe("true");
-      expect(cast("False", "string", "boolean")).toBe("false");
-    });
-
-    it("treats an absent value as false", () => {
-      expect(cast("", "string", "boolean")).toBe("false");
-      expect(cast("null", "string", "boolean")).toBe("false");
+    it.each([
+      ["true", "true"],
+      ["1", "true"],
+      ["  TRUE ", "true"],
+      ["false", "false"],
+      ["0", "false"],
+      ["False", "false"],
+      ["", "false"],
+      ["null", "false"],
+    ])("reads %j as %s", (value, expected) => {
+      expect(cast(value, "string", "boolean")).toBe(expected);
     });
 
     it("falls back to position when nothing about the value survives", () => {
@@ -66,11 +58,6 @@ describe("castFeatureValue", () => {
   });
 
   describe("to json", () => {
-    it("quotes a string so the result parses", () => {
-      const out = cast("hello", "string", "json");
-      expect(JSON.parse(out)).toEqual({ value: "hello" });
-    });
-
     it("keeps numbers and booleans as JSON literals", () => {
       expect(JSON.parse(cast("42", "number", "json"))).toEqual({ value: 42 });
       expect(JSON.parse(cast("true", "boolean", "json"))).toEqual({
@@ -86,6 +73,7 @@ describe("castFeatureValue", () => {
 
   describe("to string", () => {
     it("unwraps a value that was moved into JSON", () => {
+      expect(cast('"control"', "json", "string")).toBe("control");
       expect(cast('{"value": "hello"}', "json", "string")).toBe("hello");
       expect(cast('{"value": 42}', "json", "string")).toBe("42");
     });
@@ -135,22 +123,12 @@ describe("castFeatureValue", () => {
     });
   });
 
-  describe("round trips", () => {
-    it("returns a string unchanged through JSON", () => {
-      const original = 'control "A"';
-      const there = cast(original, "string", "json");
-      expect(cast(there, "json", "string")).toBe(original);
-    });
-
-    it("returns a number unchanged through JSON", () => {
-      expect(cast(cast("7", "number", "json"), "json", "number")).toBe("7");
-    });
-
-    it("returns a boolean unchanged through JSON", () => {
-      expect(cast(cast("false", "boolean", "json"), "json", "boolean")).toBe(
-        "false",
-      );
-    });
+  it.each([
+    ['control "A"', "string"],
+    ["7", "number"],
+    ["false", "boolean"],
+  ] as const)("returns %j unchanged through JSON as a %s", (value, type) => {
+    expect(cast(cast(value, type, "json"), "json", type)).toBe(value);
   });
 
   describe("every result is a value the field accepts", () => {

@@ -4,12 +4,8 @@ import {
   getAllMetricIdsFromExperiment,
 } from "shared/experiments";
 import { getScopedSettings } from "shared/settings";
+import { ExperimentInterface } from "shared/types/experiment";
 import {
-  ExperimentInterface,
-  ImplementationType,
-} from "shared/types/experiment";
-import {
-  canChangeImplementationType,
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
 } from "shared/util";
@@ -20,8 +16,8 @@ import {
 } from "shared/validators";
 import {
   assertManagedFlagCanMove,
-  getManagedFeatureForExperiment,
   moveManagedFlagWithExperiment,
+  planImplementationTypeRelease,
   releaseManagedFlagForImplementationChange,
 } from "back-end/src/services/managedFeatures";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
@@ -570,35 +566,18 @@ export const updateExperiment = createApiRequestHandler(
   const isStartingFromDraft =
     experiment.status === "draft" && changes.status === "running";
 
-  // Compared against the flag actually managed, not the stored label; the
-  // release (eject or delete) waits until every check has passed.
-  let releaseManagedFlagFor: ImplementationType | null = null;
-  if (changes.implementationType !== undefined) {
-    const managed = await getManagedFeatureForExperiment(
-      req.context,
-      experiment,
-    );
-    const current = managed ? "values" : experiment.implementationType;
-    if (changes.implementationType !== current) {
-      const afterRelease =
-        managed && changes.implementationType !== "feature"
-          ? {
-              ...experiment,
-              linkedFeatures: (experiment.linkedFeatures ?? []).filter(
-                (id) => id !== managed.id,
-              ),
-            }
-          : experiment;
-      if (
-        !canChangeImplementationType(afterRelease, changes.implementationType)
-      ) {
-        throw new Error(
-          "Remove the experiment's linked Feature Flags, Visual Editor changes and URL Redirects before changing implementationType.",
-        );
-      }
-      if (managed) releaseManagedFlagFor = changes.implementationType;
-    }
-  }
+  // The release (eject or delete) waits until every check has passed.
+  const releaseManagedFlagFor =
+    changes.implementationType === undefined
+      ? null
+      : ((
+          await planImplementationTypeRelease(
+            req.context,
+            experiment,
+            changes.implementationType,
+            "rest",
+          )
+        )?.releaseManagedFlagFor ?? null);
   if (changes.project !== undefined) {
     await assertManagedFlagCanMove(req.context, experiment, changes.project);
   }

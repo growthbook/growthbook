@@ -14,24 +14,15 @@ const org = {
 };
 
 describe("nonContributingApproverIds", () => {
-  it("returns nobody once the required teams are satisfied", () => {
+  it.each([
+    { requiredTeamsSatisfied: true, enforcedTeamIds: [["t-finance"]] },
+    { requiredTeamsSatisfied: false, enforcedTeamIds: [] },
+  ])("returns nobody for %j", ({ requiredTeamsSatisfied, enforcedTeamIds }) => {
     expect(
       nonContributingApproverIds({
         approvedIds: ["u-eng", "u-none"],
-        enforcedTeamIds: [["t-finance"]],
-        requiredTeamsSatisfied: true,
-        org,
-        teams,
-      }),
-    ).toEqual([]);
-  });
-
-  it("returns nobody when no team rule is enforced", () => {
-    expect(
-      nonContributingApproverIds({
-        approvedIds: ["u-eng"],
-        enforcedTeamIds: [],
-        requiredTeamsSatisfied: false,
+        enforcedTeamIds,
+        requiredTeamsSatisfied,
         org,
         teams,
       }),

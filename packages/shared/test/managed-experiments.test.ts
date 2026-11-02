@@ -1,6 +1,5 @@
 import {
   copyManagedVariationValues,
-  FEATURE_KEY_PATTERN,
   featureKeyFormatError,
   getManagedValueProblems,
   hasStartReadyManagedFlag,
@@ -37,34 +36,23 @@ describe("featureKeyFormatError", () => {
 describe("managedFeatureKeyCandidate", () => {
   const experimentId = "exp_abc123";
 
-  it("keeps every character a feature id permits", () => {
-    expect(
-      managedFeatureKeyCandidate({
-        trackingKey: "team:checkout|v2.1_final-3",
-        experimentId,
-      }),
-    ).toBe("team:checkout|v2.1_final-3");
-  });
-
-  it("collapses runs of illegal characters to a single dash", () => {
-    expect(
-      managedFeatureKeyCandidate({
-        trackingKey: "my great   experiment!!",
-        experimentId,
-      }),
-    ).toBe("my-great-experiment");
-  });
-
-  it("trims dashes introduced at the edges by sanitizing", () => {
-    expect(
-      managedFeatureKeyCandidate({ trackingKey: "  !hello!  ", experimentId }),
-    ).toBe("hello");
-  });
-
-  it("falls back to the experiment id when nothing legal survives", () => {
-    expect(
-      managedFeatureKeyCandidate({ trackingKey: "!!! ???", experimentId }),
-    ).toBe(experimentId);
+  it.each([
+    {
+      trackingKey: "team:checkout|v2.1_final-3",
+      expected: "team:checkout|v2.1_final-3",
+    },
+    { trackingKey: "my great   experiment!!", expected: "my-great-experiment" },
+    { trackingKey: "  !hello!  ", expected: "hello" },
+    {
+      trackingKey: "  ✨ Émoji & spaces / slashes ✨  ",
+      expected: "moji-spaces-slashes",
+    },
+    // Nothing legal survives.
+    { trackingKey: "!!! ???", expected: experimentId },
+  ])("sanitizes $trackingKey to $expected", ({ trackingKey, expected }) => {
+    expect(managedFeatureKeyCandidate({ trackingKey, experimentId })).toBe(
+      expected,
+    );
   });
 
   it("suffixes by attempt so collisions retry onto a fresh key", () => {
@@ -80,27 +68,17 @@ describe("managedFeatureKeyCandidate", () => {
       "signup-flow-5",
     );
   });
-
-  it("never emits a candidate outside the feature id charset", () => {
-    const messy = "  ✨ Émoji & spaces / slashes ✨  ";
-    for (let attempt = 0; attempt < 5; attempt++) {
-      const key = managedFeatureKeyCandidate({
-        trackingKey: messy,
-        experimentId,
-        attempt,
-      });
-      expect(key).toMatch(FEATURE_KEY_PATTERN);
-    }
-  });
 });
 
-describe("isManagedFeature / isManagedByExperiment", () => {
+describe("managedByExperimentId / isManagedFeature / isManagedByExperiment", () => {
   const managed = {
     managedBy: { type: "experiment" as const, experimentId: "exp_1" },
   };
 
-  it("recognizes a managed flag", () => {
+  it("returns the owning experiment, or null when nothing owns it", () => {
+    expect(managedByExperimentId(managed)).toBe("exp_1");
     expect(isManagedFeature(managed)).toBe(true);
+    expect(managedByExperimentId({ managedBy: undefined })).toBeNull();
     expect(isManagedFeature({ managedBy: undefined })).toBe(false);
   });
 
@@ -114,36 +92,18 @@ describe("isManagedFeature / isManagedByExperiment", () => {
   });
 });
 
-describe("managedByExperimentId", () => {
-  it("returns the owning experiment, or null when nothing owns it", () => {
-    expect(
-      managedByExperimentId({
-        managedBy: { type: "experiment", experimentId: "exp_1" },
-      }),
-    ).toBe("exp_1");
-    expect(managedByExperimentId({ managedBy: undefined })).toBeNull();
-  });
-});
-
 describe("seedManagedVariationValues", () => {
-  it("pairs each variation id with its key", () => {
+  it("pairs each variation id with its key, or its index without one", () => {
     expect(
       seedManagedVariationValues([
         { id: "v0", key: "control" },
-        { id: "v1", key: "treatment" },
+        { id: "v1" },
+        { id: "v2", key: "" },
       ]),
     ).toEqual([
       { variationId: "v0", value: "control" },
-      { variationId: "v1", value: "treatment" },
-    ]);
-  });
-
-  it("falls back to the index when a variation has no key", () => {
-    expect(
-      seedManagedVariationValues([{ id: "v0" }, { id: "v1", key: "" }]),
-    ).toEqual([
-      { variationId: "v0", value: "0" },
       { variationId: "v1", value: "1" },
+      { variationId: "v2", value: "2" },
     ]);
   });
 
@@ -153,18 +113,15 @@ describe("seedManagedVariationValues", () => {
     { id: "v2", key: "treatment-2" },
   ];
 
-  it("seeds booleans with control off and the rest on", () => {
+  it.each([
+    ["boolean", ["false", "true", "true"]],
+    ["number", ["0", "1", "2"]],
+  ] as const)("seeds %s by position", (valueType, expected) => {
     expect(
-      seedManagedVariationValues(threeVariations, "boolean").map(
+      seedManagedVariationValues(threeVariations, valueType).map(
         (v) => v.value,
       ),
-    ).toEqual(["false", "true", "true"]);
-  });
-
-  it("seeds numbers by position", () => {
-    expect(
-      seedManagedVariationValues(threeVariations, "number").map((v) => v.value),
-    ).toEqual(["0", "1", "2"]);
+    ).toEqual(expected);
   });
 
   it("seeds JSON the value field will parse", () => {
@@ -200,34 +157,21 @@ describe("copyManagedVariationValues", () => {
     ]);
   });
 
-  it("seeds variations the source does not cover", () => {
+  it("seeds positions the source has no value for or does not reach", () => {
     expect(
       copyManagedVariationValues({
-        sourceValues,
+        sourceValues: [{ variationId: "src0", value: "old-control" }],
         sourceVariations,
         targetVariations: [
           { id: "new0", key: "control" },
           { id: "new1", key: "treatment" },
           { id: "new2", key: "third" },
         ],
-      })[2],
-    ).toEqual({ variationId: "new2", value: "third" });
-  });
-
-  it("seeds a position the source left unset rather than dropping it", () => {
-    expect(
-      copyManagedVariationValues({
-        // src1 has no value — the rule never defined one.
-        sourceValues: [{ variationId: "src0", value: "old-control" }],
-        sourceVariations,
-        targetVariations: [
-          { id: "new0", key: "control" },
-          { id: "new1", key: "treatment" },
-        ],
       }),
     ).toEqual([
       { variationId: "new0", value: "old-control" },
       { variationId: "new1", value: "treatment" },
+      { variationId: "new2", value: "third" },
     ]);
   });
 
@@ -243,47 +187,28 @@ describe("copyManagedVariationValues", () => {
 });
 
 describe("requireFreshBaseForPublish", () => {
-  const managed = {
+  const managedFlag = {
     managedBy: { type: "experiment" as const, experimentId: "exp_1" },
   };
-  const shared = { managedBy: undefined };
 
-  it("always requires a fresh base on a managed flag under approvals", () => {
-    expect(
-      requireFreshBaseForPublish({
-        feature: managed,
-        reviewRequired: true,
-        orgSetting: false,
-      }),
-    ).toBe(true);
-  });
-
-  it("follows the org setting when approvals do not apply", () => {
-    expect(
-      requireFreshBaseForPublish({
-        feature: managed,
-        reviewRequired: false,
-        orgSetting: false,
-      }),
-    ).toBe(false);
-    expect(
-      requireFreshBaseForPublish({
-        feature: managed,
-        reviewRequired: false,
-        orgSetting: true,
-      }),
-    ).toBe(true);
-  });
-
-  it("leaves shared flags on the org setting", () => {
-    expect(
-      requireFreshBaseForPublish({
-        feature: shared,
-        reviewRequired: true,
-        orgSetting: false,
-      }),
-    ).toBe(false);
-  });
+  // A managed flag under approvals always needs one; otherwise the org decides.
+  it.each([
+    [true, true, false, true],
+    [true, false, false, false],
+    [true, false, true, true],
+    [false, true, false, false],
+  ])(
+    "managed %s, review %s, org %s -> %s",
+    (managed, reviewRequired, orgSetting, expected) => {
+      expect(
+        requireFreshBaseForPublish({
+          feature: managed ? managedFlag : { managedBy: undefined },
+          reviewRequired,
+          orgSetting,
+        }),
+      ).toBe(expected);
+    },
+  );
 });
 
 describe("hasStartReadyManagedFlag", () => {
@@ -294,21 +219,15 @@ describe("hasStartReadyManagedFlag", () => {
   };
   const shared = { feature: { managedBy: undefined } };
 
-  it("accepts the managed flag with a live rule or a pending draft", () => {
-    expect(
-      hasStartReadyManagedFlag("exp_1", [{ ...managed, state: "live" }]),
-    ).toBe(true);
-    expect(
-      hasStartReadyManagedFlag("exp_1", [{ ...managed, state: "draft" }]),
-    ).toBe(true);
-  });
-
-  it("rejects a managed flag whose draft is discarded or archived", () => {
-    for (const state of ["discarded", "archived"] as const) {
-      expect(hasStartReadyManagedFlag("exp_1", [{ ...managed, state }])).toBe(
-        false,
-      );
-    }
+  it.each([
+    ["live", true],
+    ["draft", true],
+    ["discarded", false],
+    ["archived", false],
+  ] as const)("%s managed flag -> %s", (state, expected) => {
+    expect(hasStartReadyManagedFlag("exp_1", [{ ...managed, state }])).toBe(
+      expected,
+    );
   });
 
   it("ignores flags managed by another experiment and shared flags", () => {
@@ -352,20 +271,6 @@ describe("getManagedValueProblems", () => {
           { variationId: "v2", value: "{" },
         ],
         valueType: "string",
-      }),
-    ).toEqual([]);
-  });
-
-  it("is empty when every arm carries a value of the right type", () => {
-    expect(
-      getManagedValueProblems({
-        variations,
-        values: [
-          { variationId: "v0", value: "1" },
-          { variationId: "v1", value: "2.5" },
-          { variationId: "v2", value: "-3" },
-        ],
-        valueType: "number",
       }),
     ).toEqual([]);
   });

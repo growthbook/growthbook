@@ -12,7 +12,6 @@ export function useManagedExperimentFlags({
   experiment: ExperimentInterfaceStringDates;
   linkedFeatures: LinkedFeatureInfo[];
 }): {
-  isManaged: boolean;
   managedFeature: LinkedFeatureInfo | null;
 } {
   const managedFeature =
@@ -20,8 +19,5 @@ export function useManagedExperimentFlags({
       isManagedByExperiment(f.feature, experiment.id),
     ) ?? null;
 
-  return {
-    isManaged: !!managedFeature,
-    managedFeature,
-  };
+  return { managedFeature };
 }

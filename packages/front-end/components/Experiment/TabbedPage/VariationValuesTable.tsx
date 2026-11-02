@@ -1516,29 +1516,26 @@ function FlagColumn({
             />
           ) : null
         }
+        // The experiment keeps its flag's one draft, so there's no revision to
+        // pick; it toggles between that draft and live instead.
         end={
-          <Flex align="center" gap="3">
-            {/* The experiment keeps its flag's one draft, so there's no
-                revision to pick. */}
-            {!managed &&
+          viewsLive ? (
+            <SegmentedControl
+              aria-label="Show values from"
+              size="sm"
+              value={view}
+              setValue={setView}
+              options={[
+                { value: "draft", label: "Draft" },
+                { value: "live", label: "Live" },
+              ]}
+            />
+          ) : !managed &&
             !showingLive &&
             !noValues &&
-            (showsDraft || startsDraft)
-              ? revisionControl
-              : null}
-            {viewsLive ? (
-              <SegmentedControl
-                aria-label="Show values from"
-                size="sm"
-                value={view}
-                setValue={setView}
-                options={[
-                  { value: "draft", label: "Draft" },
-                  { value: "live", label: "Live" },
-                ]}
-              />
-            ) : null}
-          </Flex>
+            (showsDraft || startsDraft) ? (
+            revisionControl
+          ) : null
         }
       >
         {noValues && !orphaned ? (

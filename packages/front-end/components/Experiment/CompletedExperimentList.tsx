@@ -1,6 +1,6 @@
 import { Box, Flex, Heading, Separator, Text } from "@radix-ui/themes";
 import { PiArrowSquareOutBold } from "react-icons/pi";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { isFactMetricId, getAllVariations } from "shared/experiments";
 import { date } from "shared/dates";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
@@ -49,20 +49,9 @@ const CompletedExperimentList = ({
   const { getOwnerDisplay } = useUser();
   const { getMetricById, getFactMetricById } = useDefinitions();
 
-  const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
-  const managedLookupKey = useMemo(
-    () =>
-      experiments
-        .slice(start, end)
-        .filter((e) => (e.linkedFeatures || []).length > 0)
-        .map((e) => e.id)
-        .join(","),
-    [experiments, start, end],
+  const getManagedFlag = useManagedExperimentFlagStates(
+    experiments.slice(start, end),
   );
-  useEffect(() => {
-    if (!managedLookupKey) return;
-    fetchSome(managedLookupKey.split(","));
-  }, [managedLookupKey, fetchSome]);
 
   // Batch-fetch comment counts for the current page of experiments so each
   // card doesn't fire its own discussion fetch just to render a count.

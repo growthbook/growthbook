@@ -1,4 +1,4 @@
-import React, { FC, useEffect, useMemo, useState } from "react";
+import React, { FC, useEffect, useState } from "react";
 import Link from "next/link";
 import { Flex } from "@radix-ui/themes";
 import { ComputedExperimentInterface } from "shared/types/experiment";
@@ -67,20 +67,9 @@ const ExperimentsListTable: React.FC<ExperimentsListTableProps> = ({
   const start = (currentPage - 1) * NUM_PER_PAGE;
   const end = start + NUM_PER_PAGE;
 
-  const { fetchSome, getManagedFlag } = useManagedExperimentFlagStates();
-  const visibleIdsKey = useMemo(
-    () =>
-      filtered
-        .slice(start, end)
-        .filter((e) => (e.linkedFeatures || []).length > 0)
-        .map((e) => e.id)
-        .join(","),
-    [filtered, start, end],
+  const getManagedFlag = useManagedExperimentFlagStates(
+    filtered.slice(start, end),
   );
-  useEffect(() => {
-    if (!visibleIdsKey) return;
-    fetchSome(visibleIdsKey.split(","));
-  }, [visibleIdsKey, fetchSome]);
 
   const needsStatusColumn = tab === "all" || tab === "running";
   const needsResultColumn =

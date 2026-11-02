@@ -143,8 +143,6 @@ function auditVerb(action: string): string {
   );
 }
 
-// Icons and colors mirror RevisionStatusBadge so the timeline and the
-// actions-column header speak the same visual language.
 /** The comment a log entry carries, if its value is JSON with one. */
 export function logComment(log: { value: string }): string | undefined {
   try {
@@ -154,15 +152,33 @@ export function logComment(log: { value: string }): string | undefined {
   }
 }
 
-/** A verdict's colour; null for anything that isn't one. */
-export function verdictColor(action: string): "green" | "red" | null {
-  return action === "Approved"
-    ? "green"
-    : action === "Requested Changes"
-      ? "red"
-      : null;
+/** A verdict's icon in place of the user avatar; null for anything else. */
+export function verdictAvatar(
+  action: string,
+  size: "sm" | "md",
+  uncovered: boolean,
+) {
+  const color =
+    action === "Approved"
+      ? "green"
+      : action === "Requested Changes"
+        ? "red"
+        : null;
+  if (!color) return null;
+  return (
+    <Avatar
+      size={size}
+      color={color}
+      variant={uncovered ? "soft" : "solid"}
+      ring={uncovered}
+    >
+      <>{rowVisual(action).icon}</>
+    </Avatar>
+  );
 }
 
+// Icons and colors mirror RevisionStatusBadge so the timeline and the
+// actions-column header speak the same visual language.
 export function rowVisual(action: string): RowVisual {
   switch (action) {
     case "Comment":
@@ -417,25 +433,14 @@ export function RevisionLogRow({
   }
 
   const renderAsCard = visual.showCommentBody && !!comment;
-  // Replace the user avatar with a colored verdict icon (green check for
-  // approvals, red speech bubble for change requests) so the timeline reads
-  // at a glance. Plain comments keep the user avatar.
-  const verdictAvatarColor = verdictColor(log.action);
   const uncoveredReason =
     log.action === "Approved" && logUserId
       ? uncoveredApproverReasons?.get(logUserId)
       : undefined;
-  const verdictUncovered = !!uncoveredReason;
-  const verdictLeading = verdictAvatarColor ? (
-    <Avatar
-      size="md"
-      color={verdictAvatarColor}
-      variant={verdictUncovered ? "soft" : "solid"}
-      ring={verdictUncovered}
-    >
-      <>{visual.icon}</>
-    </Avatar>
-  ) : undefined;
+  // Replace the user avatar with a colored verdict icon (green check for
+  // approvals, red speech bubble for change requests) so the timeline reads
+  // at a glance. Plain comments keep the user avatar.
+  const verdictLeading = verdictAvatar(log.action, "md", !!uncoveredReason);
 
   if (renderAsCard) {
     return (

@@ -1661,7 +1661,11 @@ export async function postExperiments(
       }
     } catch (e) {
       await clearManagedMarkersForExperiment(context, experiment.id).catch(
-        () => undefined,
+        (err) =>
+          logger.error(
+            { err, experimentId: experiment.id },
+            "Could not release the managed Feature Flag of a failed create",
+          ),
       );
       await deleteExperimentByIdForOrganization(context, experiment);
       throw new Error(

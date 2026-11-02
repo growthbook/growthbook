@@ -1261,8 +1261,7 @@ export async function updateExperimentRuleEnvironments({
   experiment,
   feature,
   allEnvironments,
-  environments: selected,
-  targetVersion,
+  environments,
   eventAudit,
 }: {
   context: ReqContext | ApiReqContext;
@@ -1270,32 +1269,27 @@ export async function updateExperimentRuleEnvironments({
   feature: FeatureInterface;
   allEnvironments: boolean;
   environments: string[];
-  /** Draft to stage onto. Omit to use the open draft, or start a new one. */
-  targetVersion?: number;
   eventAudit: EventUser;
 }): Promise<{ version: number }> {
-  const { environments } = context;
-
   if (!context.permissions.canEditFeatureDrafts(feature)) {
     context.permissions.throwPermissionError();
   }
 
+  // Stages onto the open draft, or starts one.
   const revision =
-    targetVersion !== undefined
-      ? await getDraftRevision(context, feature, targetVersion)
-      : ((await getActiveDraft(context, feature)) ??
-        (await getDraftRevision(context, feature, feature.version)));
+    (await getActiveDraft(context, feature)) ??
+    (await getDraftRevision(context, feature, feature.version));
 
   const { scopedEnvironments, ruleUpdate, environmentsEnabled } =
     planExperimentRuleEnvironments({
       feature,
       revision,
       experimentId: experiment.id,
-      orgEnvironments: environments,
-      scope: { allEnvironments, environments: selected },
+      orgEnvironments: context.environments,
+      scope: { allEnvironments, environments },
     });
   const nextRules = cloneDeep(revision.rules ?? []).map((rule) =>
-    rule.type === "experiment-ref" && rule.experimentId === experiment.id
+    experimentRuleFor(experiment.id)(rule)
       ? { ...omit(rule, ["environments"]), ...ruleUpdate }
       : rule,
   );
@@ -1309,7 +1303,7 @@ export async function updateExperimentRuleEnvironments({
     action: "update experiment environments",
     subject: allEnvironments
       ? "to all environments"
-      : `to ${scopedEnvironments.join(", ") || "no environments"}`,
+      : `to ${scopedEnvironments.join(", ")}`,
     value: JSON.stringify({
       allEnvironments,
       environments: scopedEnvironments,

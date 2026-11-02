@@ -149,34 +149,32 @@ function managedValueItems(
   });
   const missing = problems.filter((p) => p.problem === "missing");
   const malformed = problems.filter((p) => p.problem === "malformed");
-  const names = (list: ManagedValueProblem[]) =>
-    list.map((p) => p.variationName).join(", ");
-  return [
-    ...(missing.length
-      ? [
-          flagItem(
-            f,
-            "missingVariationValues:",
-            `Add a variation value for ${names(missing)}`,
-            { hardBlock: false, valueProblems: missing },
-          ),
-        ]
-      : []),
-    ...(malformed.length
-      ? [
-          flagItem(
-            f,
-            "malformedVariationValues:",
-            `Fix the variation value for ${malformed
-              .map((p) =>
-                p.detail ? `${p.variationName} (${p.detail})` : p.variationName,
-              )
-              .join(", ")}`,
-            { valueProblems: malformed },
-          ),
-        ]
-      : []),
-  ];
+  const items: LaunchChecklistItem[] = [];
+  if (missing.length) {
+    items.push(
+      flagItem(
+        f,
+        "missingVariationValues:",
+        `Add a variation value for ${missing.map((p) => p.variationName).join(", ")}`,
+        { hardBlock: false, valueProblems: missing },
+      ),
+    );
+  }
+  if (malformed.length) {
+    items.push(
+      flagItem(
+        f,
+        "malformedVariationValues:",
+        `Fix the variation value for ${malformed
+          .map((p) =>
+            p.detail ? `${p.variationName} (${p.detail})` : p.variationName,
+          )
+          .join(", ")}`,
+        { valueProblems: malformed },
+      ),
+    );
+  }
+  return items;
 }
 
 function isTaskComplete(
