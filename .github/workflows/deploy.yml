@@ -28,7 +28,7 @@ jobs:
     uses: ./.github/workflows/build-image.yml
     with:
       ref: ${{ github.sha }}
-      deploy: true
+      latest: true
     secrets: inherit
 
   # Extract front-end static assets to S3 and publish Sentry releases. This runs

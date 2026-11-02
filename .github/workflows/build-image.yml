@@ -4,11 +4,11 @@ on:
   workflow_call:
     inputs:
       ref:
-        description: Commit to build, tagged git-<sha> on Docker Hub unless release is set
+        description: Commit to build, tagged git-<sha> on Docker Hub and ECR unless release is set
         type: string
         required: true
-      deploy:
-        description: Also push :latest and the ECR image that Deploy rolls out
+      latest:
+        description: Also push Docker Hub :latest
         type: boolean
         default: false
       release:
@@ -52,7 +52,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
       - name: Configure AWS credentials for ECR
-        if: inputs.deploy
+        if: inputs.release == ''
         uses: aws-actions/configure-aws-credentials@v5
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -60,7 +60,7 @@ jobs:
           aws-region: us-east-1
 
       - name: Login to Amazon ECR
-        if: inputs.deploy
+        if: inputs.release == ''
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
@@ -70,7 +70,7 @@ jobs:
       - name: Prepare build metadata
         id: metadata
         env:
-          DEPLOY: ${{ inputs.deploy }}
+          LATEST: ${{ inputs.latest }}
           RELEASE: ${{ inputs.release }}
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
         run: |
@@ -84,9 +84,9 @@ jobs:
 
           # No ECR :latest — the ECR repo is immutable, so we push only the
           # unique git-<sha> tag. Docker Hub :latest stays for self-host.
-          TAGS="growthbook/growthbook:git-${SHA::7}"
-          if [ "$DEPLOY" = "true" ]; then
-            TAGS="$TAGS"$'\n'"growthbook/growthbook:latest"$'\n'"${ECR_REGISTRY}/growthbook:git-${SHA::7}"
+          TAGS="growthbook/growthbook:git-${SHA::7}"$'\n'"${ECR_REGISTRY}/growthbook:git-${SHA::7}"
+          if [ "$LATEST" = "true" ]; then
+            TAGS="$TAGS"$'\n'"growthbook/growthbook:latest"
           fi
           # A release rebuilds its commit, so it publishes only the version tag rather than replace that commit's git-<sha> image.
           if [ -n "$RELEASE" ]; then
