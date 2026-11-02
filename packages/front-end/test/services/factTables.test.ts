@@ -388,6 +388,27 @@ describe("rematchUserIdColumns", () => {
       rematchUserIdColumns({ user_id: "gone" }, ["user_id"], columns),
     ).toEqual({});
   });
+
+  it("keeps a JSON field while its JSON column exists", () => {
+    const withJson = [
+      ...columns,
+      { column: "properties", datatype: "json" as const },
+    ];
+    expect(
+      rematchUserIdColumns(
+        { user_id: "properties.userId" },
+        ["user_id"],
+        withJson,
+      ),
+    ).toEqual({ user_id: "properties.userId" });
+    expect(
+      rematchUserIdColumns(
+        { user_id: "properties.userId" },
+        ["user_id"],
+        columns,
+      ),
+    ).toEqual({});
+  });
 });
 
 describe("getRemappedUserIdColumns", () => {

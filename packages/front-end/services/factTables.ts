@@ -99,9 +99,15 @@ export const rematchUserIdColumns = (
 ): Record<string, string> =>
   Object.fromEntries(
     identifierTypes.flatMap((idType) => {
-      const column = rematchColumn(previous[idType] ?? "", columns, () =>
-        findColumnByName(columns, idType),
-      );
+      const prev = previous[idType] ?? "";
+      // A field inside a JSON column survives as long as that column does
+      const [root, field] = prev.split(".");
+      const column =
+        field && columns.some((c) => c.column === root && c.datatype === "json")
+          ? prev
+          : rematchColumn(prev, columns, () =>
+              findColumnByName(columns, idType),
+            );
       return column ? [[idType, column]] : [];
     }),
   );

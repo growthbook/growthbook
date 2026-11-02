@@ -43,6 +43,7 @@ export default function ColumnList({
   const [editOpen, setEditOpen] = useState("");
   const [refreshing, setRefreshing] = useState(false);
   const [savingAutoUpdate, setSavingAutoUpdate] = useState(false);
+  const [autoUpdateError, setAutoUpdateError] = useState<string | null>(null);
   const { mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
   const { hasCommercialFeature } = useUser();
@@ -157,19 +158,25 @@ export default function ColumnList({
         )}
         {canEditSettings &&
           hasCommercialFeature("metric-slices") &&
-          columns.some((c) => c.isAutoSliceColumn) && (
+          // Includes virtual columns, which the list leaves out
+          factTable.columns.some((c) => c.isAutoSliceColumn && !c.deleted) && (
             <Switch
               label="Auto-update Auto Slice levels"
               value={!!factTable.autoSliceUpdatesEnabled}
               disabled={savingAutoUpdate}
+              state={autoUpdateError ? "error" : "default"}
+              stateLabel={autoUpdateError ?? undefined}
               onChange={async (autoSliceUpdatesEnabled) => {
                 setSavingAutoUpdate(true);
+                setAutoUpdateError(null);
                 try {
                   await apiCall(`/fact-tables/${factTable.id}`, {
                     method: "PUT",
                     body: JSON.stringify({ autoSliceUpdatesEnabled }),
                   });
                   await mutateDefinitions();
+                } catch (e) {
+                  setAutoUpdateError(e.message);
                 } finally {
                   setSavingAutoUpdate(false);
                 }

@@ -38,6 +38,7 @@ import SelectField from "@/components/Forms/SelectField";
 import PagedModal from "@/components/Modal/PagedModal";
 import Page from "@/components/Modal/Page";
 import { useAuth } from "@/services/auth";
+import { useUser } from "@/services/UserContext";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import {
   GA4_EVENTS_TEMPLATE,
@@ -346,6 +347,7 @@ export default function NewFactTableModal({
   const { apiCall } = useAuth();
   const settings = useOrgSettings();
   const permissionsUtil = usePermissionsUtil();
+  const { hasCommercialFeature } = useUser();
   const { datasources, project, getDatasourceById, mutateDefinitions } =
     useDefinitions();
 
@@ -445,6 +447,14 @@ export default function NewFactTableModal({
     setTableType(eventTypeColumn ? "event" : "model");
   };
 
+  // Saved mappings stay listed: older Fact Tables didn't check column types,
+  // and an identifier can be a field inside a JSON column
+  const savedIdColumns = [...new Set(Object.values(saved.userIdColumns))];
+  const savedMappedColumns = [
+    saved.timestampColumn,
+    ...savedIdColumns.map((c) => c.split(".")[0]),
+  ];
+
   const source = useSourceTable({
     datasource,
     // A saved Fact Table keeps only its SQL, so edits stay in SQL mode
@@ -454,7 +464,15 @@ export default function NewFactTableModal({
     sql,
     setSql,
     initialColumns: savedColumns,
-    getColumnMappingError,
+    // Counted as unknown types, so the SQL step doesn't reject the saved
+    // mappings the next step still offers
+    getColumnMappingError: (columns, fromTable) =>
+      getColumnMappingError(
+        columns.map((c) =>
+          savedMappedColumns.includes(c.column) ? { ...c, datatype: "" } : c,
+        ),
+        fromTable,
+      ),
     columnSelection: {
       mapped: [
         timestampColumn,
@@ -484,9 +502,6 @@ export default function NewFactTableModal({
   } = source;
   const factTableSql = source.querySql;
 
-  // Saved mappings stay listed: older Fact Tables didn't check column types,
-  // and an identifier can be a field inside a JSON column
-  const savedIdColumns = [...new Set(Object.values(saved.userIdColumns))];
   const timestampOptions = (detected || []).filter(
     (c) => isTimestampCandidate(c) || c.column === saved.timestampColumn,
   );
@@ -599,6 +614,17 @@ export default function NewFactTableModal({
         ? detected.filter((c) => sqlColumns.includes(c.column))
         : detected;
 
+    // A copy keeps the daily aggregation job, where the server would allow it
+    const aggregated = existing?.aggregatedFactTableSettings;
+    const aggregatedIdTypes = (aggregated?.idTypes ?? []).filter((t) =>
+      userIdTypes.includes(t),
+    );
+    const copyAggregated =
+      !!aggregated &&
+      aggregatedIdTypes.length > 0 &&
+      hasCommercialFeature("pipeline-mode") &&
+      permissionsUtil.canUpdateDataSourceSettings(datasource);
+
     const body: CreateFactTableProps = {
       name,
       description: existing?.description ?? "",
@@ -625,6 +651,14 @@ export default function NewFactTableModal({
       })),
       // A background refresh re-detects types and loads inline filter values
       columnRefreshPending: true,
+      ...(copyAggregated
+        ? {
+            aggregatedFactTableSettings: {
+              ...aggregated,
+              idTypes: aggregatedIdTypes,
+            },
+          }
+        : {}),
     };
 
     const { factTable, error: apiError } = await apiCall<{
