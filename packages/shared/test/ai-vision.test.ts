@@ -4,7 +4,7 @@ describe("isVisionCapableModel", () => {
   it("treats all Gemini and Claude models as vision-capable", () => {
     expect(isVisionCapableModel("gemini-2.5-pro")).toBe(true);
     expect(isVisionCapableModel("gemini-3-flash-preview")).toBe(true);
-    expect(isVisionCapableModel("claude-sonnet-4-5-20250929")).toBe(true);
+    expect(isVisionCapableModel("claude-fable-5-1")).toBe(true);
     expect(isVisionCapableModel("claude-haiku-5-5")).toBe(true);
   });
 
@@ -12,14 +12,12 @@ describe("isVisionCapableModel", () => {
     expect(isVisionCapableModel("gpt-4o")).toBe(true);
     expect(isVisionCapableModel("gpt-4o-mini")).toBe(true);
     expect(isVisionCapableModel("gpt-4.1")).toBe(true);
-    expect(isVisionCapableModel("gpt-5")).toBe(true);
+    expect(isVisionCapableModel("gpt-5.4-mini")).toBe(true);
     expect(isVisionCapableModel("gpt-5.2")).toBe(true);
     expect(isVisionCapableModel("gpt-6-luna")).toBe(true);
   });
 
-  it("treats reasoning o-series and non-vision models as not capable", () => {
-    expect(isVisionCapableModel("o3")).toBe(false);
-    expect(isVisionCapableModel("o4-mini")).toBe(false);
+  it("treats non-vision models as not capable", () => {
     expect(isVisionCapableModel("mistral-small-latest")).toBe(false);
   });
 
@@ -42,14 +40,14 @@ describe("pickVisionModel", () => {
   it("falls back by provider key order when the configured model can't see", () => {
     expect(
       pickVisionModel({
-        visualEditorAIModel: "o3",
+        visualEditorAIModel: "mistral-small-latest",
         googleAPIKey: "g",
         openAIAPIKey: "o",
       }),
     ).toBe("gemini-3.8-flash");
     expect(
       pickVisionModel({
-        visualEditorAIModel: "o3",
+        visualEditorAIModel: "mistral-small-latest",
         openAIAPIKey: "o",
       }),
     ).toBe("gpt-6.1-sol");
@@ -62,7 +60,9 @@ describe("pickVisionModel", () => {
   });
 
   it("returns null when no vision-capable provider is available", () => {
-    expect(pickVisionModel({ visualEditorAIModel: "o3" })).toBeNull();
+    expect(
+      pickVisionModel({ visualEditorAIModel: "mistral-small-latest" }),
+    ).toBeNull();
     expect(pickVisionModel({})).toBeNull();
   });
 });

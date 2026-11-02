@@ -45,7 +45,7 @@ describe("getAvailableImageModelOptions", () => {
     // This picker used to be a static list, unlike the other two.
     const options = getAvailableImageModelOptions(["google"]);
 
-    expect(values(options)).not.toContain("dall-e-3");
+    expect(values(options)).not.toContain("gpt-image-1-mini");
     expect(values(options)).not.toContain("grok-2-image");
     expect(values(options)).toContain("gemini-2.5-flash-image");
   });
@@ -61,11 +61,10 @@ describe("getAvailableImageModelOptions", () => {
     ]);
   });
 
-  it("keeps both groups when a provider has models in each", () => {
-    expect(groupLabels(getAvailableImageModelOptions(["google"]))).toEqual([
-      "Supports reference image",
-      "Text prompt only",
-    ]);
+  it("keeps both groups when the providers have models in each", () => {
+    expect(
+      groupLabels(getAvailableImageModelOptions(["google", "openai"])),
+    ).toEqual(["Supports reference image", "Text prompt only"]);
   });
 
   it("shows every model when no providers are known yet", () => {
@@ -87,9 +86,12 @@ describe("getAvailableImageModelOptions", () => {
 
   it("keeps a saved model selectable even when its provider has no key", () => {
     // Otherwise SelectField renders blank while the form still holds it.
-    const options = getAvailableImageModelOptions(["google"], "dall-e-3");
+    const options = getAvailableImageModelOptions(
+      ["google"],
+      "gpt-image-1-mini",
+    );
 
-    expect(values(options)).toContain("dall-e-3");
+    expect(values(options)).toContain("gpt-image-1-mini");
     expect(groupLabels(options)).toContain("Selected, no API key");
   });
 

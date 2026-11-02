@@ -24,6 +24,7 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   // OpenAI. Hyphenated, matching OpenAI's own naming.
   "gpt-6-astra": "GPT-6 Astra",
   "gpt-6.1-sol": "GPT-6.1 Sol",
+  "gpt-6.1-terra": "GPT-6.1 Terra",
   "gpt-6-sol": "GPT-6 Sol",
   "gpt-6-luna": "GPT-6 Luna",
   // GPT-5.6 series
@@ -35,22 +36,13 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "gpt-5.4-nano": "GPT-5.4 Nano",
   "gpt-5.2": "GPT-5.2",
   "gpt-5.2-pro": "GPT-5.2 Pro",
-  "gpt-5": "GPT-5",
-  "gpt-5-nano": "GPT-5 Nano",
-  "gpt-5-mini": "GPT-5 Mini",
-  "gpt-5-pro": "GPT-5 Pro",
   // OpenAI GPT-4 series
   "gpt-4.1": "GPT-4.1",
   "gpt-4.1-mini": "GPT-4.1 Mini",
-  "gpt-4.1-nano": "GPT-4.1 Nano",
   "gpt-4o": "GPT-4o",
   "gpt-4o-mini": "GPT-4o Mini",
-  // OpenAI O series (reasoning models)
-  "o4-mini": "O4 Mini",
-  o3: "O3",
-  "o3-mini": "O3 Mini",
-  o1: "O1",
   // Anthropic Claude. Tier before version, matching Anthropic's own naming.
+  "claude-fable-5-1": "Claude Fable 5.1",
   "claude-opus-5-5": "Claude Opus 5.5",
   "claude-opus-5": "Claude Opus 5",
   "claude-sonnet-5-5": "Claude Sonnet 5.5",
@@ -59,9 +51,6 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   "claude-opus-4-8": "Claude Opus 4.8",
   "claude-sonnet-4-6": "Claude Sonnet 4.6",
   "claude-haiku-4-5-20251001": "Claude Haiku 4.5",
-  "claude-sonnet-4-5-20250929": "Claude Sonnet 4.5",
-  "claude-opus-4-20250514": "Claude Opus 4",
-  "claude-sonnet-4-20250514": "Claude Sonnet 4",
   // xAI Grok
   "grok-4.7": "Grok 4.7",
   "grok-4.6": "Grok 4.6",
@@ -73,9 +62,7 @@ export const AI_MODEL_DISPLAY_LABELS: Record<AIModel, string> = {
   // Google Gemini
   "gemini-3.1-pro-preview": "Gemini 3.1 Pro Preview",
   "gemini-3.8-flash": "Gemini 3.8 Flash",
-  "gemini-3.7-flash": "Gemini 3.7 Flash",
   "gemini-3.6-flash": "Gemini 3.6 Flash",
-  "gemini-3.5-flash": "Gemini 3.5 Flash",
   "gemini-3.5-flash-lite": "Gemini 3.5 Flash Lite",
   "gemini-3-flash-preview": "Gemini 3 Flash Preview",
   "gemini-2.5-flash": "Gemini 2.5 Flash",
