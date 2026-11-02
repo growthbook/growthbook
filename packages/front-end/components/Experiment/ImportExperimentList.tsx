@@ -1,19 +1,29 @@
-import React, { FC, useCallback, useMemo, useState } from "react";
+import React, { FC, useCallback, useEffect, useMemo, useState } from "react";
 import {
   PastExperiment,
   PastExperimentsInterface,
 } from "shared/types/past-experiments";
 import { ExperimentInterfaceStringDates } from "shared/types/experiment";
-import { getValidDate, ago, date, datetime, daysBetween } from "shared/dates";
+import { Box, Flex } from "@radix-ui/themes";
+import {
+  abbreviateAgo,
+  getValidDate,
+  date,
+  datetime,
+  daysBetween,
+} from "shared/dates";
 import {
   getExposureQueryIdentifierTypes,
   getPastExperimentQueryName,
   isProjectListValidForProject,
-  parseIntWithDefault,
-  parseOptionalInt,
 } from "shared/util";
 import Link from "@/ui/Link";
-import { useAddComputedFields, useSearch } from "@/services/search";
+import {
+  SyntaxFilter,
+  transformQuery,
+  useAddComputedFields,
+  useSearch,
+} from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useAuth } from "@/services/auth";
 import useApi from "@/hooks/useApi";
@@ -29,19 +39,43 @@ import RunQueriesButton, {
 } from "@/components/Queries/RunQueriesButton";
 import Field from "@/components/Forms/Field";
 import SelectField from "@/components/Forms/SelectField";
-import Switch from "@/ui/Switch";
 import LoadingOverlay from "@/components/LoadingOverlay";
-import ViewAsyncQueriesButton from "@/components/Queries/ViewAsyncQueriesButton";
-import Tooltip from "@/components/Tooltip/Tooltip";
+import AsyncQueriesModal from "@/components/Queries/AsyncQueriesModal";
+import {
+  FilterDropdown,
+  FilterHeading,
+  FilterItem,
+  filterToString,
+  useSearchFiltersBase,
+} from "@/components/Search/SearchFilters";
+import { InfoTip } from "@/components/Experiment/TabbedPage/SetupFieldRow";
 import { generateVariationId } from "@/services/features";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import LoadingSpinner from "@/components/LoadingSpinner";
-import { useLocalStorage } from "@/hooks/useLocalStorage";
 import Callout from "@/ui/Callout";
 import Text from "@/ui/Text";
 import UITooltip from "@/ui/Tooltip";
+import Badge from "@/ui/Badge";
+import Button from "@/ui/Button";
+import {
+  DropdownMenu,
+  DropdownMenuItem,
+  MoreMenuTrigger,
+} from "@/ui/DropdownMenu";
+import Table, {
+  TableBody,
+  TableCell,
+  TableColumnHeader,
+  TableHeader,
+  TableRow,
+} from "@/ui/Table";
 
 const numberFormatter = new Intl.NumberFormat();
+
+const PAGE_SIZE = 20;
+const DEFAULT_MIN_UNITS = 100;
+const UNIT_MINIMUMS = [DEFAULT_MIN_UNITS, 1000, 10000];
+const DAY_MINIMUMS = [1, 7, 14, 30];
 
 function QueryNames({ queries }: { queries: { id: string; name: string }[] }) {
   return (
@@ -91,22 +125,9 @@ const ImportExperimentList: FC<{
   );
   const { pastExperimentsMinLength, defaultDataSource } = useOrgSettings();
 
-  const [minUsersFilter, setMinUsersFilter] = useLocalStorage(
-    "pastImportNumUsersFilter",
-    "100",
-  );
-  const [minLengthFilter, setMinLengthFilter] = useLocalStorage(
-    "pastImportMinLengthFilter",
-    `${pastExperimentsMinLength || 2}`,
-  );
-  const [alreadyImportedFilter, setAlreadyImportedFilter] = useState(true);
   const [dedupeFilter, setDedupeFilter] = useState(true);
-  const [statusFilter, setStatusFilter] = useState<"" | "running" | "stopped">(
-    "",
-  );
-
-  const [minVariationsFilter, setMinVariationsFilter] = useState("2");
   const [runError, setRunError] = useState<string | null>(null);
+  const [queriesOpen, setQueriesOpen] = useState(false);
 
   const inScopeQueries = useMemo(
     () => (datasource ? getExposureQueriesInScope(datasource, project) : []),
@@ -163,80 +184,52 @@ const ImportExperimentList: FC<{
     [isRowInScope, identifierType],
   );
 
-  // Searching
+  const importedKey = useCallback(
+    (e: Pick<PastExperiment, "trackingKey" | "exposureQueryId">) =>
+      dedupeFilter ? e.trackingKey : e.trackingKey + "::" + e.exposureQueryId,
+    [dedupeFilter],
+  );
+
+  // One identifier at a time, and only real experiments: a single variation
+  // has nothing to compare.
   const filterResults = useCallback(
     (items: typeof pastExpArr) => {
-      const rows = items.filter((e) => {
-        if (!isRowAvailable(e)) return false;
-        if (
-          minUsersFilter &&
-          e.users < parseIntWithDefault(minUsersFilter, 0)
-        ) {
-          return false;
-        }
-        if (alreadyImportedFilter) {
-          const key = dedupeFilter
-            ? e.trackingKey
-            : e.trackingKey + "::" + e.exposureQueryId;
-          if (data?.existing?.[key] !== undefined) {
-            return false;
-          }
-        }
-        const status =
-          daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped";
-        if (statusFilter && statusFilter !== status) {
-          return false;
-        }
-
-        if (
-          minLengthFilter &&
-          daysBetween(e.startDate, e.endDate) <
-            parseIntWithDefault(minLengthFilter, 0)
-        ) {
-          return false;
-        }
-
-        const minVariations = parseOptionalInt(minVariationsFilter);
-        if (minVariations !== undefined && e.numVariations < minVariations) {
-          return false;
-        }
-
-        // Passed all the filters, include it in the table
-        return true;
-      });
-
+      const rows = items.filter(
+        (e) => isRowAvailable(e) && e.numVariations >= 2,
+      );
+      if (!dedupeFilter) return rows;
       // Group by trackingKey instead of trackingKey/exposureQueryId
-      if (dedupeFilter) {
-        const deduped = new Map<string, (typeof rows)[0]>();
-        rows.forEach((e) => {
-          const key = e.trackingKey;
-          if (!deduped.has(key)) {
-            deduped.set(key, e);
-          } else if ((deduped.get(key)?.users || 0) < e.users) {
-            deduped.set(key, e);
-          }
-        });
-        return Array.from(deduped.values());
-      }
-
-      return rows;
+      const deduped = new Map<string, (typeof rows)[0]>();
+      rows.forEach((e) => {
+        if ((deduped.get(e.trackingKey)?.users ?? -1) < e.users) {
+          deduped.set(e.trackingKey, e);
+        }
+      });
+      return Array.from(deduped.values());
     },
-    [
-      alreadyImportedFilter,
-      dedupeFilter,
-      data?.existing,
-      isRowAvailable,
-      minLengthFilter,
-      minUsersFilter,
-      minVariationsFilter,
-      statusFilter,
-    ],
+    [dedupeFilter, isRowAvailable],
+  );
+  const searchTermFilters = useMemo(
+    () => ({
+      query: (e: (typeof pastExpArr)[number]) => e.exposureQueryName,
+      status: (e: (typeof pastExpArr)[number]) =>
+        daysBetween(e.endDate, new Date()) < 2 ? "running" : "stopped",
+      units: (e: (typeof pastExpArr)[number]) => e.users,
+      days: (e: (typeof pastExpArr)[number]) =>
+        daysBetween(e.startDate, e.endDate),
+      imported: (e: (typeof pastExpArr)[number]) =>
+        data?.existing?.[importedKey(e)] !== undefined ? "yes" : "no",
+    }),
+    [data?.existing, importedKey],
   );
   const {
     items,
+    unpaginatedItems,
     searchInputProps,
-    clear: clearSearch,
-    SortableTH,
+    syntaxFilters,
+    setSearchValue,
+    SortableTableColumnHeader,
+    pagination,
   } = useSearch({
     items: pastExpArr,
     searchFields: ["trackingKey", "experimentName", "exposureQueryName"],
@@ -244,7 +237,61 @@ const ImportExperimentList: FC<{
     defaultSortDir: -1,
     localStorageKey: "past-experiments",
     filterResults,
+    searchTermFilters,
+    searchTermFilterDeps: [data?.existing, dedupeFilter],
+    disableUrlSearchTerm: true,
+    pageSize: PAGE_SIZE,
   });
+  // Starts on the usual cuts, in the search box where they can be changed.
+  useEffect(() => {
+    setSearchValue(
+      `imported:no units:>${DEFAULT_MIN_UNITS} days:>${Math.max(
+        0,
+        (pastExperimentsMinLength || 2) - 1,
+      )}`,
+    );
+  }, [setSearchValue, pastExperimentsMinLength]);
+  const { dropdownFilterOpen, setDropdownFilterOpen, updateQuery } =
+    useSearchFiltersBase({ searchInputProps, syntaxFilters, setSearchValue });
+  // A minimum, or the imported choice, replaces the one before it rather than
+  // adding a second value.
+  // A minimum typed into the search joins the presets, so the menu shows it.
+  const minimums = (field: string, presets: number[]) => {
+    const typed = syntaxFilters
+      .filter((f) => f.field === field && f.operator === ">")
+      .flatMap((f) => f.values.map(Number))
+      .filter((n) => Number.isFinite(n) && !presets.includes(n));
+    return [...presets, ...typed].sort((a, b) => a - b);
+  };
+  // What a facet's trigger says: its selection, or its name when none.
+  const facetLabel = (
+    field: string,
+    name: string,
+    format: (values: string[]) => string,
+  ) => {
+    const f = syntaxFilters.find((s) => s.field === field);
+    return f
+      ? `${f.negated ? "Not " : ""}${f.operator}${format(f.values)}`
+      : name;
+  };
+  const replaceFilter = (filter: SyntaxFilter) => {
+    const kept = syntaxFilters.filter((f) => f.field !== filter.field);
+    const same = syntaxFilters.some(
+      (f) =>
+        f.field === filter.field &&
+        f.operator === filter.operator &&
+        f.values.join() === filter.values.join(),
+    );
+    const { searchTerm } = transformQuery(
+      searchInputProps.value,
+      Object.keys(searchTermFilters),
+    );
+    setSearchValue(
+      [searchTerm, ...[...kept, ...(same ? [] : [filter])].map(filterToString)]
+        .filter(Boolean)
+        .join(" "),
+    );
+  };
 
   if (!importId) {
     return <LoadingOverlay />;
@@ -263,15 +310,6 @@ const ImportExperimentList: FC<{
         d.id === data?.experiments?.datasource ||
         isProjectListValidForProject(d.projects, project),
     );
-
-  function clearFilters() {
-    setAlreadyImportedFilter(false);
-    setMinUsersFilter("0");
-    setMinLengthFilter("0");
-    setMinVariationsFilter("0");
-    setStatusFilter("");
-    clearSearch();
-  }
 
   const hasStarted = data.experiments.queries.length > 0;
   // Unlike getQueryStatus, an import refresh only fails when every query does.
@@ -341,74 +379,187 @@ const ImportExperimentList: FC<{
     ? new Set(identifierRows.map((e) => e.trackingKey)).size
     : identifierRows.length;
 
+  const canRun =
+    !!datasource && permissionsUtil.canRunPastExperimentQueries(datasource);
+  const queryStrings = data.experiments.queries.map((q) => q.query);
+  const runStarted = data.experiments.runStarted ?? "";
+
+  const importRow = (e: (typeof items)[number]) => {
+    const variations = e.variationKeys.map((vKey, i) => {
+      let vName = e.variationNames?.[i] || vKey;
+      // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
+      if (vName.match(/^[0-9]{1,2}$/)) {
+        vName = vName === "0" ? "Control" : `Variation ${vName}`;
+      }
+      return {
+        id: generateVariationId(),
+        name: vName,
+        key: vKey,
+        screenshots: [],
+        description: "",
+      };
+    });
+    onImport({
+      name: e.experimentName || e.trackingKey,
+      trackingKey: e.trackingKey,
+      datasource: data?.experiments?.datasource,
+      exposureQueryId: e.exposureQueryId || "",
+      exposureQueryIdentifierType: e.identifierType,
+      variations,
+      phases: [
+        {
+          coverage: 1,
+          name: "Main",
+          reason: "",
+          variationWeights: e.weights,
+          variations: variations.map((v) => ({
+            id: v.id,
+            status: "active" as const,
+          })),
+          dateStarted:
+            getValidDate(e.startDate).toISOString().substr(0, 10) +
+            "T00:00:00Z",
+          dateEnded:
+            getValidDate(e.endDate).toISOString().substr(0, 10) + "T23:59:59Z",
+          condition: "",
+          namespace: {
+            enabled: false,
+            name: "",
+            range: [0, 1],
+          },
+        },
+      ],
+      implementationType: "none",
+      // Default to stopped if the last data was more than 3 days ago
+      status:
+        getValidDate(e.endDate).getTime() < Date.now() - 72 * 60 * 60 * 1000
+          ? "stopped"
+          : "running",
+    });
+  };
+
   return (
     <>
-      <div className="row align-items-center mb-4">
-        <div className="col-auto">
-          {changeDatasource && supportedDatasources.length > 1 ? (
-            <SelectField
-              size="legacy"
-              value={data.experiments.datasource}
-              options={supportedDatasources.map((d) => {
-                const isDefaultDataSource = d.id === defaultDataSource;
-                return {
+      {queriesOpen ? (
+        <AsyncQueriesModal
+          queries={queryStrings}
+          savedQueries={[]}
+          error={data.experiments.error}
+          close={() => setQueriesOpen(false)}
+        />
+      ) : null}
+      <Flex align="end" justify="between" gap="4" wrap="wrap" mb="7">
+        <Flex align="end" gap="3" minWidth="0">
+          <Box flexBasis="360px" flexShrink="1" minWidth="0">
+            {changeDatasource && supportedDatasources.length > 1 ? (
+              <SelectField
+                label="Data Source"
+                containerClassName="mb-0"
+                value={data.experiments.datasource}
+                options={supportedDatasources.map((d) => ({
                   value: d.id,
-                  label: `${d.name}${
-                    d.description ? ` — ${d.description}` : ""
-                  } ${isDefaultDataSource ? " (default)" : ""}`,
-                };
-              })}
-              className="portal-overflow-ellipsis"
-              onChange={changeDatasource}
-            />
-          ) : (
-            <>
-              <div>
-                <strong>{datasource?.name}</strong>
-              </div>
-              <div className="text-gray font-weight-normal small text-ellipsis">
-                {datasource?.description}
-              </div>
-            </>
-          )}
-        </div>
-        {hasStarted && (
-          <div className="col-auto ml-auto">
-            <div
-              className="text-muted"
-              style={{ fontSize: "0.8em" }}
-              title={datetime(data.experiments.runStarted ?? "")}
-            >
-              last updated {ago(data.experiments.runStarted ?? "")}
-            </div>
-          </div>
-        )}
-        {datasource &&
-          permissionsUtil.canRunPastExperimentQueries(datasource) && (
-            <div className="col-auto">
-              <RunQueriesButton
-                cta={data.experiments.latestData ? "Get New Data" : "Run Query"}
-                cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
-                mutate={mutate}
-                model={data.experiments}
-                icon="refresh"
-                setError={setRunError}
-                onSubmit={async () => {
-                  await apiCall<{ id: string }>("/experiments/import", {
-                    method: "POST",
-                    body: JSON.stringify({
-                      datasource: data.experiments.datasource,
-                      force: true,
-                    }),
-                  });
-                  await mutate();
-                }}
+                  label: `${d.name}${d.description ? ` — ${d.description}` : ""}${
+                    d.id === defaultDataSource ? " (default)" : ""
+                  }`,
+                }))}
+                className="portal-overflow-ellipsis"
+                onChange={changeDatasource}
               />
-            </div>
-          )}
-      </div>
+            ) : (
+              <Flex direction="column">
+                <Text weight="semibold" color="text-high">
+                  {datasource?.name}
+                </Text>
+                {datasource?.description ? (
+                  <Text size="sm" color="text-mid" truncate>
+                    {datasource.description}
+                  </Text>
+                ) : null}
+              </Flex>
+            )}
+          </Box>
+          {/* One identifier at a time: its counts are what an import keeps. */}
+          {identifierType !== null && identifierTypes.length > 1 ? (
+            <SelectField
+              label="Identifier"
+              containerClassName="mb-0"
+              value={identifierType}
+              onChange={setSelectedIdentifierType}
+              options={identifierTypes.map((t) => ({ label: t, value: t }))}
+            />
+          ) : null}
+        </Flex>
+        <Flex align="center" gap="4">
+          {hasStarted ? (
+            <UITooltip content={`Last update: ${datetime(runStarted)}`}>
+              <Text color="text-mid">Updated {abbreviateAgo(runStarted)}</Text>
+            </UITooltip>
+          ) : null}
+          {canRun ? (
+            <RunQueriesButton
+              cta={data.experiments.latestData ? "Update" : "Run query"}
+              cancelEndpoint={`/experiments/import/${data.experiments.id}/cancel`}
+              mutate={mutate}
+              model={data.experiments}
+              icon="refresh"
+              setError={setRunError}
+              onSubmit={async () => {
+                await apiCall<{ id: string }>("/experiments/import", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    datasource: data.experiments.datasource,
+                    force: true,
+                  }),
+                });
+                await mutate();
+              }}
+            />
+          ) : null}
+          {showQueries && hasStarted ? (
+            <DropdownMenu
+              trigger={<MoreMenuTrigger label="Import actions" />}
+              menuPlacement="end"
+              variant="soft"
+            >
+              <DropdownMenuItem onClick={() => setQueriesOpen(true)}>
+                View queries
+                <Badge
+                  variant="soft"
+                  radius="full"
+                  label={String(queryStrings.length)}
+                  ml="2"
+                  color={data.experiments.error ? "red" : undefined}
+                />
+              </DropdownMenuItem>
+              {canRun && data.experiments.latestData && status !== "running" ? (
+                <DropdownMenuItem
+                  confirmation={{
+                    confirmationTitle: "Full refresh",
+                    cta: "Full refresh",
+                    getConfirmationContent: async () =>
+                      `This clears the list and queries the past ${data.lookbackDays} days of data from scratch. Update runs a faster incremental query instead.`,
+                    submit: async () => {
+                      await apiCall<{ id: string }>("/experiments/import", {
+                        method: "POST",
+                        body: JSON.stringify({
+                          datasource: data.experiments.datasource,
+                          force: true,
+                          refresh: true,
+                        }),
+                      });
+                      await mutate();
+                    },
+                  }}
+                >
+                  Full refresh
+                </DropdownMenuItem>
+              ) : null}
+            </DropdownMenu>
+          ) : null}
+        </Flex>
+      </Flex>
       {(runError || importFailed) && (
-        <Callout status="error" my="3">
+        <Callout status="error" mb="3">
           {runError && <p>Could not start a new import: {runError}</p>}
           {importFailed && (
             <>
@@ -421,9 +572,8 @@ const ImportExperimentList: FC<{
                       Your datasource&apos;s{" "}
                       <em>Experiment Assignment Queries</em> may have been
                       misconfigured. The datasource has been modified since the
-                      last data refresh, so use the &apos;Get New Data&apos;
-                      button above to check if the issue has been resolved.
-                      Otherwise,{" "}
+                      last data refresh, so use the Update button above to check
+                      if the issue has been resolved. Otherwise,{" "}
                       <Link href={`/datasources/${datasource.id}?openAll=1`}>
                         edit the datasource
                       </Link>
@@ -442,15 +592,8 @@ const ImportExperimentList: FC<{
                   )}
                 </>
               )}
-
               <span>
-                <ViewAsyncQueriesButton
-                  queries={data.experiments.queries?.map((q) => q.query) ?? []}
-                  error={data.experiments.error}
-                  ctaComponent={(onClick) => (
-                    <Link onClick={onClick}>View queries</Link>
-                  )}
-                />{" "}
+                <Link onClick={() => setQueriesOpen(true)}>View queries</Link>{" "}
                 for more information.
               </span>
             </>
@@ -458,7 +601,7 @@ const ImportExperimentList: FC<{
         </Callout>
       )}
       {staleQueries.length > 0 && (
-        <Callout status="warning" my="3">
+        <Callout status="warning" mb="3">
           {failedQueries.length > 0 && (
             <>
               <QueryNames queries={failedQueries} /> failed on the last refresh,
@@ -488,7 +631,7 @@ const ImportExperimentList: FC<{
           ) : !hasStarted ? (
             <>
               <p>
-                Click the button above to query the past{" "}
+                Run the query to look through the past{" "}
                 <strong>{data.lookbackDays} days</strong> of data across all of
                 your Experiment Assignment queries.{" "}
                 {!isCloud() && (
@@ -530,369 +673,279 @@ const ImportExperimentList: FC<{
         </div>
       )}
       {identifiersWithRows.size > 0 && (
-        <div>
-          <h4>Experiments</h4>
-          <p>
-            These are all of the experiments we found in your datasource{" "}
-            {data.experiments.config && (
-              <>
-                from{" "}
-                <strong>
-                  {date(lookbackStart ?? data.experiments.config.start)}
-                </strong>{" "}
-                to <strong>{date(data.experiments.config.end)}</strong>{" "}
-                {!isCloud() && (
-                  <Tooltip
-                    body={
-                      <>
-                        You can change the lookback window with the{" "}
-                        <code>IMPORT_LIMIT_DAYS</code> environment variable.
-                      </>
-                    }
-                  />
-                )}
-              </>
-            )}
-            .
-          </p>
-          <div className="row mb-3 text-align-center bg-light border-top border-bottom">
-            {identifierType !== null && identifierTypes.length > 1 && (
-              <div className="col-auto">
-                <SelectField
-                  label="Identifier"
-                  labelClassName="small mb-0"
-                  value={identifierType}
-                  onChange={setSelectedIdentifierType}
-                  options={identifierTypes.map((t) => ({ label: t, value: t }))}
-                />
-              </div>
-            )}
-            <div className="col-auto">
-              <label className="small mb-0">Filter</label>
+        <>
+          {/* Short on room, the filters wrap above the search. */}
+          <Flex
+            align="center"
+            justify="between"
+            gap="4"
+            wrap="wrap-reverse"
+            mb="3"
+          >
+            <Box flexBasis="240px" flexGrow="1">
               <Field
-                size="legacy"
                 placeholder="Search..."
                 type="search"
+                containerClassName="mb-0"
                 {...searchInputProps}
               />
-            </div>
-            <div className="col-auto">
-              <Field
-                size="legacy"
-                label="# Units"
-                labelClassName="small mb-0"
-                type="number"
-                min={0}
-                step={1}
-                prepend={<>&ge;</>}
-                style={{ width: 80 }}
-                value={minUsersFilter}
-                onChange={(e) => {
-                  setMinUsersFilter(e.target.value || "");
-                }}
-              />
-            </div>
-            <div className="col-auto">
-              <Field
-                size="legacy"
-                label="Test Duration"
-                labelClassName="small mb-0"
-                type="number"
-                min={0}
-                step={1}
-                style={{ width: 60 }}
-                value={minLengthFilter}
-                onChange={(e) => {
-                  setMinLengthFilter(e.target.value || "");
-                }}
-                prepend={<>&ge;</>}
-                append="days"
-              />
-            </div>
-            <div className="col-auto">
-              <Field
-                size="legacy"
-                label="# Variations"
-                labelClassName="small mb-0"
-                type="number"
-                min={1}
-                step={1}
-                style={{ width: 60 }}
-                prepend={<>&ge;</>}
-                value={minVariationsFilter}
-                onChange={(e) => {
-                  setMinVariationsFilter(e.target.value);
-                }}
-              />
-            </div>
-            <div className="col-auto">
-              <SelectField
-                size="legacy"
-                label="Status"
-                labelClassName="small mb-0"
-                options={[
-                  { label: "All", value: "" },
-                  { label: "Running", value: "running" },
-                  { label: "Stopped", value: "stopped" },
+            </Box>
+            <Flex gap="4" align="center" wrap="wrap" ml="auto">
+              {inScopeQueries.length > 1 ? (
+                <FilterDropdown
+                  filter="query"
+                  label={facetLabel("query", "Assignment query", (v) =>
+                    v.length > 1 ? `${v.length} assignment queries` : v[0],
+                  )}
+                  size="2"
+                  heading="Assignment query"
+                  items={inScopeQueries.map((q) => ({
+                    id: q.id,
+                    name: q.name,
+                    searchValue: q.name,
+                  }))}
+                  syntaxFilters={syntaxFilters}
+                  open={dropdownFilterOpen}
+                  setOpen={setDropdownFilterOpen}
+                  updateQuery={updateQuery}
+                  menuPlacement="end"
+                />
+              ) : null}
+              <FilterDropdown
+                filter="status"
+                label={facetLabel("status", "Status", (v) =>
+                  v.map((x) => x[0].toUpperCase() + x.slice(1)).join(", "),
+                )}
+                size="2"
+                heading="Status"
+                items={[
+                  { id: "running", name: "Running", searchValue: "running" },
+                  { id: "stopped", name: "Stopped", searchValue: "stopped" },
                 ]}
-                value={statusFilter}
-                onChange={(value) =>
-                  setStatusFilter((value as "" | "stopped" | "running") || "")
-                }
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={updateQuery}
+                menuPlacement="end"
               />
-            </div>
-            <div className="col-auto align-self-center">
-              <Switch
-                id="hide-imported"
-                label="Hide Imported"
-                value={alreadyImportedFilter}
-                onChange={setAlreadyImportedFilter}
+              <FilterDropdown
+                filter="units"
+                label={facetLabel(
+                  "units",
+                  "Units",
+                  (v) =>
+                    `${v.map((x) => numberFormatter.format(Number(x))).join(", ")} units`,
+                )}
+                size="2"
+                heading="Units"
+                operator=">"
+                items={minimums("units", UNIT_MINIMUMS).map((n) => ({
+                  id: String(n),
+                  name: `More than ${numberFormatter.format(n)}`,
+                  searchValue: String(n),
+                  operator: ">",
+                }))}
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={replaceFilter}
+                menuPlacement="end"
               />
-            </div>
-            <div className="col-auto align-self-center">
-              <Switch
-                id="dedupe-experiments"
-                label={
-                  <>
-                    <span>Group by Experiment Id</span>{" "}
-                    <Tooltip body="How to handle experiments that appear in multiple Assignment Queries. If toggled ON, collapse them into a single row. If OFF, show each one in a separate row." />
-                  </>
-                }
-                value={dedupeFilter}
-                onChange={setDedupeFilter}
+              <FilterDropdown
+                filter="days"
+                label={facetLabel(
+                  "days",
+                  "Duration",
+                  (v) => `${v.join(", ")} days`,
+                )}
+                size="2"
+                heading="Duration"
+                operator=">"
+                items={minimums("days", DAY_MINIMUMS).map((n) => ({
+                  id: String(n),
+                  name: `More than ${n} day${n === 1 ? "" : "s"}`,
+                  searchValue: String(n),
+                  operator: ">",
+                }))}
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={replaceFilter}
+                menuPlacement="end"
               />
-            </div>
-          </div>
-          <small>
-            Showing <strong>{items.length}</strong> of{" "}
-            <strong>{totalRows}</strong> experiments.{" "}
-            {items.length < totalRows && (
-              <a
-                href="#"
-                onClick={(e) => {
-                  e.preventDefault();
-                  clearFilters();
-                }}
+              <FilterDropdown
+                filter="imported"
+                label={facetLabel("imported", "Imported", (v) =>
+                  v
+                    .map((x) => (x === "yes" ? "Imported" : "Not imported"))
+                    .join(", "),
+                )}
+                size="2"
+                heading="Imported"
+                items={[
+                  { id: "no", name: "Not imported", searchValue: "no" },
+                  { id: "yes", name: "Imported", searchValue: "yes" },
+                ]}
+                syntaxFilters={syntaxFilters}
+                open={dropdownFilterOpen}
+                setOpen={setDropdownFilterOpen}
+                updateQuery={replaceFilter}
+                menuPlacement="end"
+              />
+              {/* For experiments more than one Assignment Query found. */}
+              <DropdownMenu
+                trigger={FilterHeading({
+                  heading: dedupeFilter
+                    ? "Per experiment ID"
+                    : "Per assignment query",
+                  open: dropdownFilterOpen === "rows",
+                  size: "2",
+                })}
+                open={dropdownFilterOpen === "rows"}
+                onOpenChange={(o) => setDropdownFilterOpen(o ? "rows" : "")}
+                menuPlacement="end"
+                variant="soft"
               >
-                Clear all filters
-              </a>
-            )}
-          </small>
-          <table className="table appbox">
-            <thead>
-              <tr>
-                <SortableTH field="exposureQueryName">
-                  Assignment Query
-                </SortableTH>
-                <SortableTH field="experimentName">Experiment Id</SortableTH>
-                <SortableTH field="startDate">Date Started</SortableTH>
-                <SortableTH field="endDate">Date Ended</SortableTH>
-                <SortableTH field="numVariations">Variations</SortableTH>
-                <SortableTH field="users">
-                  Approx Units{" "}
-                  <Tooltip body="This count is approximate and does not de-duplicate units across days; therefore it is likely inflated. Once imported, the unit counts will be accurate." />
-                </SortableTH>
-                <th>Traffic Split</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
+                <DropdownMenuItem onClick={() => setDedupeFilter(true)}>
+                  <FilterItem
+                    item="One per experiment ID"
+                    exists={dedupeFilter}
+                  />
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setDedupeFilter(false)}>
+                  <FilterItem
+                    item="One per assignment query"
+                    exists={!dedupeFilter}
+                  />
+                </DropdownMenuItem>
+              </DropdownMenu>
+            </Flex>
+          </Flex>
+          <Table variant="list" roundedCorners>
+            <TableHeader>
+              <TableRow>
+                <SortableTableColumnHeader field="exposureQueryName">
+                  Assignment query
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="experimentName">
+                  Experiment ID
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="startDate">
+                  Started
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="endDate">
+                  Ended
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="numVariations">
+                  Variations
+                </SortableTableColumnHeader>
+                <SortableTableColumnHeader field="users">
+                  <Flex align="center" gap="1">
+                    Approx. units
+                    <InfoTip content="Approximate, and likely high: units aren't de-duplicated across days. Once imported, the counts are exact." />
+                  </Flex>
+                </SortableTableColumnHeader>
+                <TableColumnHeader>Traffic split</TableColumnHeader>
+                <TableColumnHeader style={{ width: 100 }} />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {items.map((e) => {
                 const key = dedupeFilter
                   ? e.trackingKey
                   : e.trackingKey + "::" + e.exposureQueryId;
                 const existingId = data?.existing?.[key];
-
                 return (
-                  <tr key={key}>
-                    <td style={{ wordBreak: "break-word" }}>
+                  <TableRow key={key}>
+                    <TableCell style={{ wordBreak: "break-word" }}>
                       {e.exposureQueryName}
-                    </td>
-                    <td style={{ wordBreak: "break-word" }}>
+                    </TableCell>
+                    <TableCell style={{ wordBreak: "break-word" }}>
                       {e.experimentName || e.trackingKey}
-                    </td>
-                    <td>
-                      <Tooltip
-                        body={
-                          e.startOfRange
-                            ? "We only have partial data for this experiment since it was already running at the start of our query"
-                            : ""
-                        }
+                    </TableCell>
+                    <TableCell>
+                      <UITooltip
+                        content="Partial data: it was already running when this query's window starts."
+                        enabled={!!e.startOfRange}
                       >
-                        {date(e.startDate)}
-                        {e.startOfRange ? "*" : ""}
-                      </Tooltip>
-                    </td>
-                    <td>{date(e.endDate)}</td>
-                    <td>{e.numVariations}</td>
-                    <td>{numberFormatter.format(e.users)}</td>
-                    <td style={{ maxWidth: 180 }}>
+                        <span>
+                          {date(e.startDate)}
+                          {e.startOfRange ? "*" : ""}
+                        </span>
+                      </UITooltip>
+                    </TableCell>
+                    <TableCell>{date(e.endDate)}</TableCell>
+                    <TableCell>{e.numVariations}</TableCell>
+                    <TableCell>{numberFormatter.format(e.users)}</TableCell>
+                    <TableCell>
                       {e.weights.map((w) => Math.round(w * 100)).join(" / ")}
-                    </td>
-                    <td>
+                    </TableCell>
+                    <TableCell style={{ textAlign: "right" }}>
                       {existingId ? (
-                        <Link href={`/experiment/${existingId}`}>imported</Link>
+                        <Link href={`/experiment/${existingId}`}>Imported</Link>
                       ) : existingId === null ? (
                         <UITooltip content="Imported into a Project you don't have access to">
                           <span tabIndex={0}>
-                            <Text color="text-mid">imported</Text>
+                            <Text color="text-mid">Imported</Text>
                           </span>
                         </UITooltip>
                       ) : (
-                        <button
-                          className={`btn btn-primary`}
-                          onClick={(ev) => {
-                            ev.preventDefault();
-                            const variations = e.variationKeys.map(
-                              (vKey, i) => {
-                                let vName = e.variationNames?.[i] || vKey;
-                                // If the name is an integer, rename 0 to "Control" and anything else to "Variation {name}"
-                                if (vName.match(/^[0-9]{1,2}$/)) {
-                                  vName =
-                                    vName === "0"
-                                      ? "Control"
-                                      : `Variation ${vName}`;
-                                }
-                                return {
-                                  id: generateVariationId(),
-                                  name: vName,
-                                  key: vKey,
-                                  screenshots: [],
-                                  description: "",
-                                };
-                              },
-                            );
-                            const importObj: Partial<ExperimentInterfaceStringDates> =
-                              {
-                                name: e.experimentName || e.trackingKey,
-                                trackingKey: e.trackingKey,
-                                datasource: data?.experiments?.datasource,
-                                exposureQueryId: e.exposureQueryId || "",
-                                exposureQueryIdentifierType: e.identifierType,
-                                variations,
-                                phases: [
-                                  {
-                                    coverage: 1,
-                                    name: "Main",
-                                    reason: "",
-                                    variationWeights: e.weights,
-                                    variations: variations.map((v) => ({
-                                      id: v.id,
-                                      status: "active" as const,
-                                    })),
-                                    dateStarted:
-                                      getValidDate(e.startDate)
-                                        .toISOString()
-                                        .substr(0, 10) + "T00:00:00Z",
-                                    dateEnded:
-                                      getValidDate(e.endDate)
-                                        .toISOString()
-                                        .substr(0, 10) + "T23:59:59Z",
-                                    condition: "",
-                                    namespace: {
-                                      enabled: false,
-                                      name: "",
-                                      range: [0, 1],
-                                    },
-                                  },
-                                ],
-                                implementationType: "none",
-                                // Default to stopped if the last data was more than 3 days ago
-                                status:
-                                  getValidDate(e.endDate).getTime() <
-                                  Date.now() - 72 * 60 * 60 * 1000
-                                    ? "stopped"
-                                    : "running",
-                              };
-                            onImport(importObj);
-                          }}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => importRow(e)}
                         >
                           Import
-                        </button>
+                        </Button>
                       )}
-                    </td>
-                  </tr>
+                    </TableCell>
+                  </TableRow>
                 );
               })}
               {items.length <= 0 && (
-                <tr>
-                  <td colSpan={8}>
-                    <Callout status="info">
+                <TableRow>
+                  <TableCell colSpan={8}>
+                    <Text color="text-mid">
                       {identifierType !== null &&
                       !identifiersWithRows.has(identifierType) ? (
-                        <em>No experiments found for {identifierType}.</em>
+                        <>No experiments found for {identifierType}.</>
                       ) : (
-                        <em>
-                          No experiments match your current filters.{" "}
-                          <a
-                            href="#"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              clearFilters();
-                            }}
-                          >
-                            Clear all filters
-                          </a>
-                        </em>
+                        <>No experiments match your search.</>
                       )}
-                    </Callout>
-                  </td>
-                </tr>
+                    </Text>
+                  </TableCell>
+                </TableRow>
               )}
-            </tbody>
-          </table>
-        </div>
-      )}
-
-      {datasource &&
-        permissionsUtil.canRunPastExperimentQueries(datasource) &&
-        data.experiments.latestData &&
-        status !== "running" && (
-          <div className="float-right">
-            <Tooltip
-              body={
+            </TableBody>
+          </Table>
+          <Flex align="center" justify="between" gap="4" wrap="wrap" mt="3">
+            <Text size="sm" color="text-mid">
+              {unpaginatedItems.length} of {totalRows} experiments
+              {data.experiments.config ? (
                 <>
-                  This will wipe the above table and query the past{" "}
-                  <strong>{data.lookbackDays} days</strong> of data from
-                  scratch. Use the &apos;Get New Data&apos; button above to
-                  perform a more efficient incremental query.
+                  {" "}
+                  found from{" "}
+                  {date(lookbackStart ?? data.experiments.config.start)} to{" "}
+                  {date(data.experiments.config.end)}
+                  {!isCloud() ? (
+                    <>
+                      {" "}
+                      <InfoTip
+                        content={
+                          <>
+                            You can change the lookback window with the{" "}
+                            <code>IMPORT_LIMIT_DAYS</code> environment variable.
+                          </>
+                        }
+                      />
+                    </>
+                  ) : null}
                 </>
-              }
-            >
-              <a
-                href="#"
-                className="ml-2 btn btn-link"
-                onClick={async (e) => {
-                  e.preventDefault();
-                  await apiCall<{ id: string }>("/experiments/import", {
-                    method: "POST",
-                    body: JSON.stringify({
-                      datasource: data.experiments.datasource,
-                      force: true,
-                      refresh: true,
-                    }),
-                  });
-                  await mutate();
-                }}
-              >
-                Full Refresh
-              </a>
-            </Tooltip>
-          </div>
-        )}
-
-      {showQueries && hasStarted && (
-        <div>
-          <ViewAsyncQueriesButton
-            queries={
-              data.experiments.queries?.length > 0
-                ? data.experiments.queries.map((q) => q.query)
-                : []
-            }
-            error={data.experiments.error}
-            inline={true}
-          />
-        </div>
+              ) : null}
+            </Text>
+            {pagination}
+          </Flex>
+        </>
       )}
     </>
   );
