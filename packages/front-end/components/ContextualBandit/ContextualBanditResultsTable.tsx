@@ -547,8 +547,8 @@ export default function ContextualBanditResultsTable({
 
       {unknownVariationCauses.length > 0 ? (
         <Callout status="warning" mb="3">
-          <strong>Warning:</strong> the assignment query returned{" "}
-          {unknownVariationCauses.length} <code>variation_id</code> value
+          The assignment query returned {unknownVariationCauses.length}{" "}
+          <code>variation_id</code> value
           {unknownVariationCauses.length === 1 ? "" : "s"} that match no
           configured variation key (<CommaCodeList vals={configuredKeys} />
           ). Rows with an unrecognized <code>variation_id</code> are dropped, so
