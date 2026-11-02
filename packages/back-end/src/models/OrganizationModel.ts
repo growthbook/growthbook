@@ -564,6 +564,7 @@ export async function findOrganizationsByMemberIds(userId: string[]) {
 }
 
 export async function findOrganizationByInviteKey(key: string) {
+  if (key && typeof key !== "string") return null;
   const doc = await OrganizationModel.findOne({
     "invites.key": key,
     disabled: { $ne: true },

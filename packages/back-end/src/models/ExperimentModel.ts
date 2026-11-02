@@ -542,6 +542,7 @@ export async function getExperimentById(
 export async function getExperimentByUid(
   uid: string,
 ): Promise<ExperimentInterface | null> {
+  if (uid && typeof uid !== "string") return null;
   const doc = await getCollection(COLLECTION).findOne({
     uid,
   });

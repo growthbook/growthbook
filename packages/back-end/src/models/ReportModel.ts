@@ -118,6 +118,7 @@ export async function getReportById(
 export async function getReportByUid(
   uid: string,
 ): Promise<ReportInterface | null> {
+  if (uid && typeof uid !== "string") return null;
   const report = await ReportModel.findOne({
     uid,
   });

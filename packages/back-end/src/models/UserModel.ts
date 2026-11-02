@@ -247,6 +247,7 @@ export async function getUserIdsAndEmailsForAllUsersInDb() {
 }
 
 export async function getEmailFromUserId(userId: string) {
+  if (userId && typeof userId !== "string") return "";
   const u = await getCollection(COLLECTION).findOne({ id: userId });
   return u?.email || "";
 }
