@@ -104,6 +104,7 @@ export function explorationConfigReferencesColumn(
       return false;
     }
     return (
+      population.unit === columnName ||
       population.aggregateFilterColumn === columnName ||
       population.rowFilters.some((f) =>
         rowFilterReferencesColumn(f, columnName, identifierQuote, filters),
@@ -182,6 +183,7 @@ export function explorationConfigReferencesColumn(
 
     const valueReferences = values.some(
       (value) =>
+        value.unit === columnName ||
         value.aggregateFilterColumn === columnName ||
         value.rowFilters.some((f) =>
           rowFilterReferencesColumn(f, columnName, identifierQuote, filters),

@@ -502,9 +502,13 @@ function getFactTableGroups({
         }
         if (population) {
           const group = groups[population.source.factTableId];
-          if (!group) {
+          if (
+            !group ||
+            Object.keys(groups).length > 1 ||
+            group.metrics.some((m) => m.unit !== population.unit)
+          ) {
             throw new Error(
-              `Fact table ${population.source.factTableId} not found`,
+              "Every metric must use the population's Fact Table and identifier type.",
             );
           }
           group.metrics.push(createPopulationCountSeries(population));
@@ -1040,9 +1044,10 @@ function getRollupCountExpr(metric: MinimalMetric, alias: string): string {
 // Generate metric value expression from metric with metadata
 function getMetricData(
   series: Series,
-  factTable: MinimalFactTable,
+  factTableGroup: FactTableGroup,
   helpers: SqlDialect,
 ): MetricData {
+  const { factTable } = factTableGroup;
   const { metric, unit, role } = series;
   const columnRef =
     role === "denominator" ? metric.denominator : metric.numerator;
@@ -1103,8 +1108,10 @@ function getMetricData(
 
   // Count-like aggregates can turn another series' users into zero contributors.
   // SUM/MAX already preserve NULL for absent activity and need no extra guard.
+  // A lone series filters the scan to its own rows, so it needs no guard either.
   const requiresMetricPresence =
     selectedUnit !== null &&
+    factTableGroup.metrics.length > 1 &&
     (columnRef.aggregation === "count distinct" ||
       columnRef.aggregation === "hll merge" ||
       columnRef.column === "$$distinctDates");
@@ -1256,7 +1263,7 @@ function generatePercentileCapsCTE(
     const cappingSettings = getCappingSettings(m.metric);
     if (!cappingSettings) return;
 
-    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const metricData = getMetricData(m, factTableGroup, helpers);
     const tails = getCappingTailState(cappingSettings);
 
     if (tails.upperPercentileCapped) {
@@ -1366,7 +1373,7 @@ function generateFactTableRowsCTE(
 
   // Select all metric event values
   factTableGroup.metrics.forEach((m) => {
-    const metricData = getMetricData(m, factTableGroup.factTable, helpers);
+    const metricData = getMetricData(m, factTableGroup, helpers);
     selectCols.push(`${metricData.eventValueExpr} AS ${metricData.alias}`);
     if (metricData.presenceExpr !== null) {
       selectCols.push(`${metricData.presenceExpr} AS ${metricData.alias}_rows`);
@@ -2106,7 +2113,7 @@ export function generateProductAnalyticsSQL(
   const orderedMetricIds: string[] = [];
   factTableGroups.forEach((f) => {
     f.metrics.forEach((m) => {
-      const data = getMetricData(m, f.factTable, dialect);
+      const data = getMetricData(m, f, dialect);
       allMetrics.push(data);
       // For ratio metrics, we only need to add the numerator since it's the same metric id
       if (m.role === "value") {
@@ -2222,7 +2229,7 @@ export function generateProductAnalyticsSQL(
     const unitMetrics: Record<string, MetricData[]> = {};
     const eventMetrics: MetricData[] = [];
     factTableGroup.metrics.forEach((m) => {
-      const metricData = getMetricData(m, factTableGroup.factTable, dialect);
+      const metricData = getMetricData(m, factTableGroup, dialect);
       if (metricData.unit) {
         if (!unitMetrics[metricData.unit]) {
           unitMetrics[metricData.unit] = [];

@@ -249,7 +249,7 @@ const journeyDatasetValidator = z
 export type JourneyDataset = z.infer<typeof journeyDatasetValidator>;
 
 // Populations: one single-step population definition per value.
-const populationValueValidator = explorationPopulationValidator.extend({
+const populationValueValidator = populationStepValidator.extend({
   name: z.string(),
   type: z.literal("population"),
   unit: z.string().nullable(),

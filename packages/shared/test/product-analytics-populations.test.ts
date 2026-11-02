@@ -626,6 +626,21 @@ describe("metric explorations with a population", () => {
       expect(sql).not.toContain("JOIN");
     });
 
+    // The builder is also called without request validation, so it must not
+    // let a series escape membership.
+    it("rejects a metric outside the population's unit", () => {
+      expect(() =>
+        generate(
+          explore({
+            metrics: [purchasers],
+            population: mobileUsers({ unit: "anonymous_id" }),
+          }),
+        ),
+      ).toThrow(
+        "Every metric must use the population's Fact Table and identifier type.",
+      );
+    });
+
     it.each([
       ["without a population", null],
       ["with a population", mobileRevenueOver10],
