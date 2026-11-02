@@ -18,7 +18,7 @@ import {
 import { MetricGroupInterface } from "shared/types/metric-groups";
 import { CSS } from "@dnd-kit/utilities";
 import { GrDrag } from "react-icons/gr";
-import { ExperimentMetricDefinition, isFactMetric } from "shared/experiments";
+import { ExperimentMetricDefinition } from "shared/experiments";
 import Link from "@/ui/Link";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import { useAuth } from "@/services/auth";
@@ -262,11 +262,7 @@ function MetricRow({
         <Link href={metricUrl}>{metric.name}</Link>
       </td>
       <td style={{ width: "27%" }}>
-        {isFactMetric(metric) ? (
-          <FactMetricTypeDisplayName type={metric.metricType} />
-        ) : (
-          metric.type
-        )}
+        <FactMetricTypeDisplayName metric={metric} />
       </td>
       <td style={{ width: "30%" }}>
         {metric.datasource ? getDatasourceById(metric.datasource)?.name : ""}

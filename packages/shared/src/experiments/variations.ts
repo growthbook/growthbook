@@ -4,6 +4,7 @@ import {
   Variation,
   VariationStatus,
 } from "shared/types/experiment";
+import { DestinationURL } from "shared/types/url-redirect";
 
 type ExperimentWithVariations = Pick<ExperimentInterface, "variations">;
 
@@ -30,6 +31,36 @@ export function getLatestPhaseVariations(
 ): VariationWithIndexAndStatus[] {
   const latestPhaseIndex = experiment.phases.length - 1;
   return getPhaseVariations(experiment, latestPhaseIndex);
+}
+
+/**
+ * Names each of a snapshot's result columns by the variation its saved key
+ * belongs to now, as decisions name variations; "" for a key none has. The
+ * columns keep their order when variations are reordered later.
+ */
+export function snapshotColumnVariationIds(
+  experiment: ExperimentWithVariationsAndPhases,
+  snapshotVariations: { id: string }[],
+): string[] {
+  const byKey = new Map(
+    getLatestPhaseVariations(experiment).map((v, i) => [v.key || i + "", v.id]),
+  );
+  return snapshotVariations.map((v) => byKey.get(v.id) ?? "");
+}
+
+// The latest phase's variations in the shape the experiment stores and writes.
+export function getStorableVariations(
+  experiment: ExperimentWithVariationsAndPhases,
+): Variation[] {
+  return getLatestPhaseVariations(experiment).map(
+    ({ id, key, name, description, screenshots }) => ({
+      id,
+      key,
+      name,
+      description,
+      screenshots,
+    }),
+  );
 }
 
 export function getPhaseVariations(
@@ -106,4 +137,15 @@ export function resolveSnapshotVariation<V extends { id: string; key: string }>(
         variations.find((v) => v.id === key))
       : undefined) ?? variations[column];
   return variation ? { variation, index: variations.indexOf(variation) } : null;
+}
+
+// One destination per variation, as an experiment's variation sync leaves a redirect.
+export function syncedDestinationURLs(
+  destinationURLs: DestinationURL[],
+  variations: Pick<Variation, "id">[],
+): DestinationURL[] {
+  const byVariation = new Map(destinationURLs.map((d) => [d.variation, d]));
+  return variations.map(
+    ({ id }) => byVariation.get(id) ?? { variation: id, url: "" },
+  );
 }

@@ -1,30 +1,11 @@
-.picker {
-  width: 330px;
-  margin: 0 auto 2em;
-  background: #f0f0f4;
-  border-radius: 9px;
-  & > div {
-    width: auto;
+// Moves the Select's checkmark from the left to the right.
+.colorItem {
+  padding-left: var(--space-3);
+  padding-right: calc(var(--space-3) + 20px);
+
+  :global(.rt-SelectItemIndicator) {
+    left: auto;
+    right: var(--space-2);
+    color: var(--violet-11);
   }
-}
-
-.picker .react-colorful {
-  width: auto;
-}
-
-.picker__swatches {
-  display: flex;
-  padding: 12px;
-  flex-wrap: wrap;
-}
-
-.picker__swatch {
-  width: 24px;
-  height: 24px;
-  margin: 4px;
-  border: none;
-  padding: 0;
-  border-radius: 4px;
-  cursor: pointer;
-  outline: none;
 }

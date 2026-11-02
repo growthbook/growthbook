@@ -1,0 +1,42 @@
+// Tints a clickable row on hover. The tint reaches $bleed past the row's box,
+// so it has room around the contents while they stay in line with what's
+// around them.
+@mixin hover-highlight($bleed-x: var(--space-2), $bleed-y: var(--space-1)) {
+  margin: calc(-1 * #{$bleed-y}) calc(-1 * #{$bleed-x});
+  padding: $bleed-y $bleed-x;
+  border-radius: var(--radius-2);
+
+  &:hover {
+    background: var(--gray-a2);
+  }
+}
+
+// A row that clicks one of its controls wherever it's clicked. Whatever else
+// in it is clickable, or has a tooltip, stays above that.
+@mixin click-row {
+  position: relative;
+
+  :global(a),
+  :global(button),
+  :global([role="button"]),
+  :global([data-state]) {
+    position: relative;
+    z-index: 1;
+  }
+}
+
+// The control a click-row clicks, stretched over the row. The row's tint is
+// its hover. Select it more specifically than a bare button in the row.
+@mixin click-row-target {
+  position: static;
+
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+  }
+
+  &:hover {
+    background-color: transparent;
+  }
+}

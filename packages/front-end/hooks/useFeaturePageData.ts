@@ -290,9 +290,12 @@ export function useFeaturePageData(
         !!cachedRevisions[version] ||
         (baseData?.revisions?.some((r) => r.version === version) ?? false);
       const base = baseVersionOf(v);
-      return loaded(v) && (base === null || loaded(base));
+      return (
+        loaded(v) &&
+        (base === null || loaded(base) || unavailableVersions.has(base))
+      );
     },
-    [cachedRevisions, baseData, baseVersionOf],
+    [cachedRevisions, baseData, baseVersionOf, unavailableVersions],
   );
 
   const setVersion = useCallback(

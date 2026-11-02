@@ -20,6 +20,8 @@ export type {
   FeatureDefinition,
   ContextualBanditDefinitions,
   ContextualBanditDefinition,
+  InterleavingDefinitions,
+  InterleavingDefinition,
   FeatureRule,
   FeatureResult,
   FeatureResultSource,
@@ -56,9 +58,14 @@ export type {
   InitSyncOptions,
   Helpers,
   GrowthBookPayload,
+  PayloadMetadata,
+  PayloadFilters,
+  ReducePayloadOptions,
   SavedGroupsValues,
   SavedGroupsPayload,
   SavedGroupPayloadEntry,
+  RemoteSavedGroup,
+  SavedGroupResolver,
   EventLogger,
   EventProperties,
   Plugin,
@@ -109,7 +116,15 @@ export type {
   ResponseCompat,
 } from "./sticky-bucket-service";
 
-export { evalCondition } from "./mongrule";
+export { evalCondition, pruneCondition } from "./mongrule";
+
+export {
+  getRemoteSavedGroups,
+  redisResolver,
+  resolveRemoteGroupIds,
+  REMOTE_GROUP_IDS_ATTRIBUTE,
+} from "./remoteSavedGroups";
+export type { RedisSetClient } from "./remoteSavedGroups";
 
 export {
   isURLTargeted,

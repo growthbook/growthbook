@@ -1,6 +1,7 @@
 import { InterleavingInterface } from "shared/validators";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { OrganizationInterface } from "shared/types/organization";
+import { ProjectInterface } from "shared/types/project";
 import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
 import { ApiReqContext } from "back-end/types/api";
 import {
@@ -126,6 +127,13 @@ describe("generateInterleavingsPayload", () => {
       environment = "production",
       projects = [] as string[],
       groupMap = new Map() as GroupMap,
+      metadataOptions = undefined as
+        | {
+            includeProjectIdInMetadata?: boolean;
+            includeTagsInMetadata?: boolean;
+          }
+        | undefined,
+      projectsMap = undefined as Map<string, ProjectInterface> | undefined,
     } = {},
   ) =>
     generateInterleavingsPayload({
@@ -133,6 +141,8 @@ describe("generateInterleavingsPayload", () => {
       environment,
       projects,
       savedGroupStrategy: v2Strategy(groupMap),
+      metadataOptions,
+      projectsMap,
     });
 
   it("builds the pseudo flag and the config entry for a running interleaving", () => {
@@ -156,6 +166,9 @@ describe("generateInterleavingsPayload", () => {
     expect(out.interleavings).toEqual({
       "search-ranking": {
         trackingKey: "search-ranking-tk",
+        // Carried so they survive remote evaluation, which strips the rule
+        hashAttribute: "id",
+        seed: "il-seed",
         variations: [
           { key: "control", config: { algorithm: "popular" } },
           {
@@ -168,15 +181,18 @@ describe("generateInterleavingsPayload", () => {
   });
 
   it.each([
-    ["draft", { status: "draft" as const }],
-    ["stopped", { status: "stopped" as const }],
-    ["archived", { archived: true }],
-    [
-      "disabled in the environment",
-      { environmentSettings: { production: { enabled: false } } },
-    ],
-    ["missing the environment", { environmentSettings: {} }],
-  ])("omits an interleaving that is %s", (_, overrides) => {
+    { label: "draft", overrides: { status: "draft" as const } },
+    { label: "stopped", overrides: { status: "stopped" as const } },
+    { label: "archived", overrides: { archived: true } },
+    {
+      label: "disabled in the environment",
+      overrides: { environmentSettings: { production: { enabled: false } } },
+    },
+    {
+      label: "missing the environment",
+      overrides: { environmentSettings: {} },
+    },
+  ])("omits an interleaving that is $label", ({ overrides }) => {
     const out = generate([interleaving(overrides)]);
     expect(out.features).toEqual({});
     expect(out.interleavings).toBeUndefined();
@@ -187,6 +203,27 @@ describe("generateInterleavingsPayload", () => {
     expect(generate([il], { projects: ["p1"] }).interleavings).toBeDefined();
     expect(generate([il], { projects: ["p2"] }).interleavings).toBeUndefined();
     expect(generate([il]).interleavings).toBeDefined();
+  });
+
+  it("tags the pseudo flag with projects and tags so payload reduction can filter it", () => {
+    const out = generate([interleaving({ project: "p1", tags: ["search"] })], {
+      metadataOptions: {
+        includeProjectIdInMetadata: true,
+        includeTagsInMetadata: true,
+      },
+      projectsMap: new Map([
+        ["p1", { id: "p1", publicId: "proj-search" } as ProjectInterface],
+      ]),
+    });
+    expect(out.features["$interleave:search-ranking"].metadata).toEqual({
+      projects: ["proj-search"],
+      tags: ["search"],
+    });
+  });
+
+  it("leaves the pseudo flag's metadata off when the connection doesn't ask for it", () => {
+    const out = generate([interleaving({ project: "p1", tags: ["search"] })]);
+    expect(out.features["$interleave:search-ranking"].metadata).toBeUndefined();
   });
 
   it("skips an interleaving whose ranker config no longer parses", () => {

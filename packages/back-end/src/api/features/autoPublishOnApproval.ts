@@ -28,7 +28,7 @@ import { ReqContext } from "back-end/types/request";
 import { ApiReqContext } from "back-end/types/api";
 import { getEnvironments } from "back-end/src/util/organization.util";
 import { getContextForArmedPublisherInOrg } from "back-end/src/services/organizations";
-import { getExperimentsByIds } from "back-end/src/models/ExperimentModel";
+import { dangerouslyGetExperimentsByIdsBypassPermission } from "back-end/src/models/ExperimentModel";
 import {
   recordScheduledPublishFailure,
   parkScheduledPublish,
@@ -40,6 +40,7 @@ import {
   BadRequestError,
   isTerminalPublishError,
   getErrorMessage,
+  TerminalPublishError,
 } from "back-end/src/util/errors";
 import { decideScheduledPublishOutcome } from "back-end/src/revisions/publishFailurePolicy";
 import { dispatchFeatureRevisionEvent } from "back-end/src/services/featureRevisionEvents";
@@ -215,11 +216,13 @@ export async function canScheduleFeaturePublish(
   );
 }
 
-async function revisionRequiresPreLaunchChecklist(
+// Includes experiments the caller can't read: a guard that missed them would
+// let the rule land.
+export async function draftExperimentsLaunchedBy(
   context: ReqContext | ApiReqContext,
   feature: FeatureInterface,
   revision: FeatureRevisionInterface,
-): Promise<boolean> {
+): Promise<ExperimentInterfaceStringDates[]> {
   const allEnvironments = getEnvironments(context.org);
   const environments = filterEnvironmentsByFeature(allEnvironments, feature);
   const environmentIds = environments.map((e) => e.id);
@@ -233,23 +236,54 @@ async function revisionRequiresPreLaunchChecklist(
       ).map((result) => (result.rule as ExperimentRefRule).experimentId),
     ),
   ];
-  if (experimentIds.length === 0) return false;
+  if (experimentIds.length === 0) return [];
 
-  const experiments = await getExperimentsByIds(context, experimentIds);
+  const experiments = await dangerouslyGetExperimentsByIdsBypassPermission(
+    context.org.id,
+    experimentIds,
+  );
   const experimentsMap = new Map<string, ExperimentInterfaceStringDates>(
     experiments.map((exp) => [
       exp.id,
       exp as unknown as ExperimentInterfaceStringDates,
     ]),
   );
-  return (
-    getNewDraftExperimentsToPublish({
-      feature,
-      revision,
-      environments,
-      experimentsMap,
-    }).length > 0
+  return getNewDraftExperimentsToPublish({
+    feature,
+    revision,
+    environments,
+    experimentsMap,
+  });
+}
+
+// Names the experiments only when the caller can read every one.
+const launchRefusal = (
+  context: ReqContext | ApiReqContext,
+  experiments: ExperimentInterfaceStringDates[],
+) => {
+  const subject = experiments.every((exp) =>
+    context.permissions.canReadSingleProjectResource(exp.project),
+  )
+    ? `draft experiment ${experiments.map((exp) => `"${exp.name}"`).join(", ")}`
+    : "a draft experiment";
+  return `This draft's rules belong to ${subject}, which a scheduled or auto publish can't start. Schedule the experiment's start instead, which publishes its launch draft.`;
+};
+
+// An armed publish never starts the experiments its rules belong to; those
+// drafts are armed through the experiment's own scheduled start instead.
+export async function assertArmDoesNotLaunchExperiments(
+  context: ReqContext | ApiReqContext,
+  feature: FeatureInterface,
+  revision: FeatureRevisionInterface,
+): Promise<void> {
+  const experiments = await draftExperimentsLaunchedBy(
+    context,
+    feature,
+    revision,
   );
+  if (experiments.length) {
+    throw new BadRequestError(launchRefusal(context, experiments));
+  }
 }
 
 // The dashboard user id an armed publish will run as: the explicit arming user
@@ -295,20 +329,15 @@ async function publishArmedRevision(
   revision: FeatureRevisionInterface,
   mayForceMerge: boolean,
 ): Promise<FeatureRevisionInterface> {
-  // Use the armer's context, not the caller's: a reviewer scoped out of a linked
-  // experiment's project would see no experiments and skip the checklist. An
-  // admin bypass schedule force-merges past this governance gate.
-  // Plain (transient) error, not terminal — an incomplete checklist is
-  // recoverable, so the poller holds and retries rather than parking at once.
-  if (
-    !mayForceMerge &&
-    (await revisionRequiresPreLaunchChecklist(
-      enablerContext,
-      feature,
-      revision,
-    ))
-  ) {
-    throw new Error("pre-launch checklist required");
+  // Arming refused this, so the draft gained the rule since. No bypass lands it:
+  // the experiment would be left unstarted.
+  const launches = await draftExperimentsLaunchedBy(
+    enablerContext,
+    feature,
+    revision,
+  );
+  if (launches.length) {
+    throw new TerminalPublishError(launchRefusal(enablerContext, launches));
   }
 
   // Concurrency note: this shared path can be entered by the poller, by

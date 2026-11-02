@@ -116,6 +116,16 @@ export default function CovariateImbalanceCard({
   // Check if CUPED is enabled for the experiment
   const cupedEnabled = snapshot.settings.regressionAdjustmentEnabled;
 
+  const learnMore = (
+    <Link
+      href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
+      external
+    >
+      Learn more
+      <PiArrowSquareOut style={{ marginLeft: "var(--space-1)" }} />
+    </Link>
+  );
+
   return (
     <Box className="appbox" p="4" my="4">
       <Box mb="2">
@@ -162,31 +172,15 @@ export default function CovariateImbalanceCard({
               </Text>
             </Box>
           ) : !isImbalanced ? (
-            <Callout status="success">
-              <Text weight="semibold">
-                {goalAndGuardrailMetricsTested} goal or guardrail
-              </Text>{" "}
-              <Text as="span" weight="semibold">
-                {goalAndGuardrailMetricsTested > 1
-                  ? "results show"
-                  : "result shows"}{" "}
-                no pre-exposure imbalance
-              </Text>
-              .{" "}
-              <Text weight="semibold">
-                <Link
-                  href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
-                  target="_blank"
-                >
-                  Learn more
-                </Link>
-              </Text>
-              <Box display="inline-block" ml="1">
-                <PiArrowSquareOut size={15} />
-              </Box>
+            <Callout status="success" contentAlign="center" action={learnMore}>
+              {goalAndGuardrailMetricsTested} goal or guardrail{" "}
+              {goalAndGuardrailMetricsTested > 1
+                ? "results show"
+                : "result shows"}{" "}
+              no pre-exposure imbalance.
             </Callout>
           ) : (
-            <Callout status="warning">
+            <Callout status="warning" contentAlign="center" action={learnMore}>
               Pre-exposure imbalance detected in{" "}
               <Text weight="semibold">
                 {goalAndGuardrailMetricsImbalanced} goal and guardrail metric
@@ -195,18 +189,7 @@ export default function CovariateImbalanceCard({
               (significance level{" "}
               {DEFAULT_P_VALUE_THRESHOLD_FOR_COVARIATE_IMBALANCE},
               Bonferroni-corrected for {numBonferroniTests} test
-              {numBonferroniTests !== 1 ? "s" : ""}).{" "}
-              <Text weight="semibold">
-                <Link
-                  href="https://docs.growthbook.io/app/experiment-results#pre-exposure-mean-imbalance"
-                  target="_blank"
-                >
-                  Learn more
-                </Link>
-              </Text>
-              <Box display="inline-block" ml="1">
-                <PiArrowSquareOut size={15} />
-              </Box>
+              {numBonferroniTests !== 1 ? "s" : ""}).
             </Callout>
           )}
         </Box>

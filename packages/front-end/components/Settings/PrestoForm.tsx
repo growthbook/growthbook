@@ -15,7 +15,15 @@ const PrestoForm: FC<{
   onParamChange: ChangeEventHandler<HTMLInputElement | HTMLSelectElement>;
   onManualParamChange: (name: string, value: string) => void;
   setParams: (params: { [key: string]: string | boolean }) => void;
-}> = ({ params, existing, onParamChange, onManualParamChange, setParams }) => {
+  showAllowlist?: boolean;
+}> = ({
+  params,
+  existing,
+  onParamChange,
+  onManualParamChange,
+  setParams,
+  showAllowlist,
+}) => {
   const authType = params.authType ?? "basicAuth";
   const canKeepExistingCredentials = useCanKeepExistingCredentials(
     existing,
@@ -65,6 +73,7 @@ const PrestoForm: FC<{
       <div className=" col-md-12">
         <HostWarning
           host={params.host ?? ""}
+          showAllowlist={showAllowlist}
           setHost={(host) => {
             setParams({
               host,

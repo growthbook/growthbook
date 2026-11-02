@@ -1,5 +1,9 @@
 import { omit } from "lodash";
-import { getAllMetricIdsFromExperiment } from "shared/experiments";
+import {
+  datasourceChangeDrops,
+  getAllMetricIdsFromExperiment,
+} from "shared/experiments";
+import { getScopedSettings } from "shared/settings";
 import {
   parseAssignmentQueryInput,
   resolveAssignmentQuerySelectionChange,
@@ -7,17 +11,24 @@ import {
 import {
   ExperimentInterfaceExcludingHoldouts,
   updateExperimentValidator,
+  postExperimentArchiveValidator,
 } from "shared/validators";
 import { getDataSourceById } from "back-end/src/models/DataSourceModel";
 import {
+  canBypassReviewChecks,
+  canUseRestApiBypassSetting,
+} from "back-end/src/api/features/reviewBypass";
+import {
   updateExperiment as updateExperimentToDb,
-  getExperimentById,
   getExperimentByTrackingKey,
 } from "back-end/src/models/ExperimentModel";
 import {
+  assertCanPublishPendingFeatureDrafts,
   assertCanRunExperimentChanges,
+  assertCanRunExperimentInAffectedEnvironments,
   assertExperimentKeyFormat,
   normalizeStatusUpdateScheduleChanges,
+  syncVisualChangesetsAndUrlRedirectsForExperiment,
   toExperimentApiInterface,
   getExperimentAttributeScopeProjects,
   updateExperimentApiPayloadToInterface,
@@ -36,15 +47,28 @@ import {
 } from "back-end/src/services/prerequisiteParents";
 import { validateChangedPhaseReferences } from "back-end/src/api/features/validations";
 import {
+  assertStartNotBlocked,
+  getStartAcknowledgment,
+  planStartGates,
   startExperiment,
+  startResult,
+  statusChangeEffects,
   validateExperimentChange,
+  type StartPlan,
 } from "back-end/src/services/experimentChanges/changeExperimentStatus";
 import { auditDetailsUpdate } from "back-end/src/services/audit";
+import {
+  archiveExperimentWithCleanup,
+  assertCanArchive,
+  unarchiveExperimentWithCleanup,
+} from "back-end/src/services/experimentRemoval";
 import {
   resolveOwnerEmail,
   resolveOwnerToUserId,
 } from "back-end/src/services/owner";
 import { createApiRequestHandler } from "back-end/src/util/handler";
+import { BadRequestError } from "back-end/src/util/errors";
+import { getHoldoutAvailableForProject } from "back-end/src/services/holdout-availability";
 import { assertExperimentPrecomputedUnitDimensionIdsAreValid } from "back-end/src/services/dimensions";
 import { shouldValidateCustomFieldsOnUpdate } from "back-end/src/util/custom-fields";
 import { getMetricMap } from "back-end/src/models/MetricModel";
@@ -52,24 +76,21 @@ import {
   experimentChangeActions,
   pinnedFields,
   confirmationLink,
+  gateNotices,
   queuedDraftsHold,
   requireConfirmation,
+  unarchiveActions,
 } from "back-end/src/services/confirmations";
 import {
   assertExperimentPayloadCommercialFeatures,
   validateCustomFields,
 } from "./validations";
+import { requireExperiment } from "./requireExperiment";
 
 export const updateExperiment = createApiRequestHandler(
   updateExperimentValidator,
 )(async (req) => {
-  const experiment = await getExperimentById(req.context, req.params.id);
-  if (!experiment) {
-    throw new Error("Could not find the experiment to update");
-  }
-  if (experiment.type === "holdout") {
-    throw new Error("Holdouts are not supported via this API");
-  }
+  const experiment = await requireExperiment(req.context, req.params.id);
 
   const assignmentQueryInput = parseAssignmentQueryInput(
     req.body.assignmentQuery,
@@ -89,6 +110,18 @@ export const updateExperiment = createApiRequestHandler(
   if (payload.project) {
     await req.context.models.projects.ensureProjectsExist([payload.project]);
   }
+  // The experiment's holdout has to cover the Project it moves to.
+  if (
+    payload.project !== undefined &&
+    payload.project !== experiment.project &&
+    experiment.holdoutId
+  ) {
+    await getHoldoutAvailableForProject({
+      context: req.context,
+      holdoutId: experiment.holdoutId,
+      project: payload.project,
+    });
+  }
 
   if (!req.context.permissions.canUpdateExperiment(experiment, payload)) {
     req.context.permissions.throwPermissionError();
@@ -107,17 +140,18 @@ export const updateExperiment = createApiRequestHandler(
     ? await getDataSourceById(req.context, datasourceId)
     : null;
 
-  if (
+  const datasourceChanged =
     payload.datasourceId !== undefined &&
-    payload.datasourceId !== experiment.datasource
-  ) {
-    if (experiment.datasource) {
-      throw new Error(
-        "Cannot change datasource via API if one is already set.",
-      );
-    }
+    payload.datasourceId !== experiment.datasource;
+  if (datasourceChanged) {
     if (!datasource) {
       throw new Error("Datasource not found.");
+    }
+    // The stored query belongs to the old data source.
+    if (experiment.exposureQueryId && payload.assignmentQueryId === undefined) {
+      throw new BadRequestError(
+        "Changing the data source needs an `assignmentQueryId` from the new one.",
+      );
     }
   }
 
@@ -232,16 +266,18 @@ export const updateExperiment = createApiRequestHandler(
     true,
     metricGroups,
   );
+  const payloadMetrics = {
+    goalMetrics: payload.metrics,
+    secondaryMetrics: payload.secondaryMetrics,
+    guardrailMetrics: payload.guardrailMetrics,
+    activationMetric: payload.activationMetric,
+  };
+  // Metrics sent with a new data source have to be from it.
   const newMetricIds = getAllMetricIdsFromExperiment(
-    {
-      goalMetrics: payload.metrics,
-      secondaryMetrics: payload.secondaryMetrics,
-      guardrailMetrics: payload.guardrailMetrics,
-      activationMetric: payload.activationMetric,
-    },
+    payloadMetrics,
     true,
     metricGroups,
-  ).filter((m) => !oldMetricIds.includes(m));
+  ).filter((m) => datasourceChanged || !oldMetricIds.includes(m));
 
   const map = await getMetricMap(req.context);
 
@@ -301,15 +337,15 @@ export const updateExperiment = createApiRequestHandler(
 
   const shouldValidatePrecomputedUnitDimensionIds =
     payload.precomputedUnitDimensionIds !== undefined ||
-    (payload.datasourceId !== undefined &&
-      payload.datasourceId !== experiment.datasource) ||
+    datasourceChanged ||
     (payload.assignmentQueryId !== undefined &&
       payload.assignmentQueryId !== experiment.exposureQueryId) ||
     identifierTypeChanged;
   if (shouldValidatePrecomputedUnitDimensionIds) {
+    // A new data source drops the old one's, unless they're sent.
     const effectivePrecomputedUnitDimensionIds =
       payload.precomputedUnitDimensionIds ??
-      experiment.precomputedUnitDimensionIds ??
+      (datasourceChanged ? [] : experiment.precomputedUnitDimensionIds) ??
       [];
     if (effectivePrecomputedUnitDimensionIds.length > 0) {
       await assertExperimentPrecomputedUnitDimensionIdsAreValid({
@@ -397,7 +433,21 @@ export const updateExperiment = createApiRequestHandler(
   }
 
   const resolvedOwner = await resolveOwnerToUserId(payload.owner, req.context);
+  // As in the app, what the experiment keeps from the old source goes with it.
+  const segment =
+    datasourceChanged && experiment.segment
+      ? await req.context.models.segments.getById(experiment.segment)
+      : null;
   const changes = {
+    ...(datasourceChanged && datasource
+      ? datasourceChangeDrops(experiment, {
+          metricFromSource: (id) =>
+            (map.get(id)?.datasource ??
+              metricGroups.find((g) => g.id === id)?.datasource) ===
+            datasource.id,
+          segmentFromSource: () => segment?.datasource === datasource.id,
+        })
+      : {}),
     ...updateExperimentApiPayloadToInterface(
       {
         ...payload,
@@ -412,6 +462,47 @@ export const updateExperiment = createApiRequestHandler(
   };
 
   normalizeStatusUpdateScheduleChanges(experiment, changes, req.context.armer);
+
+  if (
+    changes.phases?.length === 0 &&
+    experiment.phases.length > 0 &&
+    experiment.status !== "draft"
+  ) {
+    throw new BadRequestError(
+      "An experiment that has started keeps at least one phase.",
+    );
+  }
+
+  // One weight per variation in the latest phase.
+  const latestPhase = (changes.phases ?? experiment.phases).at(-1);
+  if (
+    (changes.variations || changes.phases) &&
+    latestPhase &&
+    latestPhase.variationWeights.length !==
+      (latestPhase.variations?.length ||
+        (changes.variations ?? experiment.variations).length)
+  ) {
+    throw new BadRequestError(
+      "Adding or removing a variation needs a traffic split with one weight per variation. Send `phases` with `variationWeights` for the latest phase.",
+    );
+  }
+
+  // Archiving runs the archive endpoints' checks and cleanup, not a field write.
+  const archive =
+    changes.archived !== undefined && changes.archived !== !!experiment.archived
+      ? changes.archived
+      : null;
+  delete changes.archived;
+  if (archive !== null) {
+    await assertCanRunExperimentInAffectedEnvironments(req.context, experiment);
+  }
+  if (archive) {
+    await assertCanArchive({
+      context: req.context,
+      experiment,
+      linkedChanges: payload.linkedChanges,
+    });
+  }
 
   // canUpdateExperiment (above) is the analysis-level check. Fields that reach
   // SDK payloads additionally need run-experiments permission in the
@@ -466,20 +557,74 @@ export const updateExperiment = createApiRequestHandler(
 
   await validateExperimentChange({ context: req.context, experiment, changes });
 
-  const liveActions = experimentChangeActions(experiment, changes);
+  const skipChecklist = !!payload.skipChecklist;
+  const bypassLockdown =
+    isStartingFromDraft && canBypassReviewChecks(req, experiment);
+  const restApiBypassesReviews = canUseRestApiBypassSetting(req);
+  // A start meets what POST /start does, before the hold: judged on the draft
+  // as this update leaves it, still a draft so its flags' drafts count.
+  let startPlan: StartPlan | null = null;
+  if (isStartingFromDraft) {
+    await assertCanPublishPendingFeatureDrafts(req.context, experiment);
+    startPlan = await planStartGates(
+      req.context,
+      { ...experiment, ...changes, status: experiment.status },
+      {
+        when: "now",
+        skipChecklist,
+        bypassApproval: bypassLockdown,
+        restApiBypassesReviews,
+      },
+    );
+    assertStartNotBlocked(startPlan);
+  }
+
+  const liveActions = [
+    ...experimentChangeActions(experiment, changes),
+    // Archiving and unarchiving hold as POST /archive and /unarchive do.
+    ...(archive === true
+      ? postExperimentArchiveValidator.confirmation
+      : archive === false
+        ? unarchiveActions(experiment)
+        : []),
+  ];
+  // A stop ends the phase and a restart reopens it, applied after liveActions
+  // as part of the status change. Phases sent with it are the caller's.
+  if (
+    changes.status &&
+    changes.status !== experiment.status &&
+    experiment.status !== "draft" &&
+    !payload.phases
+  ) {
+    Object.assign(
+      changes,
+      statusChangeEffects({
+        experiment: {
+          ...experiment,
+          phases: changes.phases ?? experiment.phases,
+        },
+        status: changes.status,
+        settings: getScopedSettings({
+          organization: req.organization,
+          experiment,
+        }).settings,
+      }),
+    );
+  }
   const queued = await queuedDraftsHold(
     req.context,
     changes.status === "running" && experiment.status !== "running"
       ? experiment.pendingFeatureDrafts
       : undefined,
   );
+  // Everything that can refuse has run, so a confirmed update only writes.
   await requireConfirmation(req.context, {
     actions: [
       ...(liveActions.length ? liveActions : ["experiment.draft" as const]),
-      // Starting a draft here skips the launch checklist, as if asked to.
-      ...(isStartingFromDraft ? (["override.skipChecklist"] as const) : []),
       ...queued.actions,
     ],
+    bypassing: startPlan?.bypassed ?? [],
+    notices: startPlan ? gateNotices(startPlan.skipped) : [],
     project: experiment.project,
     summary: `Change ${experiment.name}`,
     links: [
@@ -495,7 +640,28 @@ export const updateExperiment = createApiRequestHandler(
   });
 
   let experimentForUpdate = experiment;
+  if (archive !== null) {
+    experimentForUpdate = archive
+      ? await archiveExperimentWithCleanup({
+          context: req.context,
+          experiment,
+          linkedChanges: payload.linkedChanges,
+          eventAudit: req.eventAudit,
+          audit: req.audit,
+          restApiBypassesReviews,
+        })
+      : await unarchiveExperimentWithCleanup({
+          context: req.context,
+          experiment,
+        });
+    await req.audit({
+      event: archive ? "experiment.archive" : "experiment.unarchive",
+      entity: { object: "experiment", id: experiment.id },
+    });
+  }
   let changesForUpdate = changes;
+  let startAcknowledgment = {};
+  let started: ReturnType<typeof startResult> = {};
 
   if (isStartingFromDraft) {
     // Persist the non-status changes (including any new statusUpdateSchedule)
@@ -507,19 +673,28 @@ export const updateExperiment = createApiRequestHandler(
     if (Object.keys(remainingChanges).length > 0) {
       await updateExperimentToDb({
         context: req.context,
-        experiment,
+        experiment: experimentForUpdate,
         changes: remainingChanges,
       });
     }
     // Route draft->running transitions through the dedicated lifecycle method
     // so ramp lockdown, checklist, and pending-draft publish behavior stays
     // consistent across all entry points.
-    const { updated } = await startExperiment({
-      context: req.context,
-      experimentId: experiment.id,
-      // behavior for patch endpoint is to skip pre-launch checklist
-      skipChecklist: true,
+    const { updated, checklistItems, plan, publishedFeatureDrafts } =
+      await startExperiment({
+        context: req.context,
+        experimentId: experiment.id,
+        skipChecklist,
+        bypassLockdown,
+        restApiBypassesReviews,
+        plan: startPlan ?? undefined,
+      });
+    startAcknowledgment = getStartAcknowledgment({
+      checklistItems,
+      skipChecklist,
+      bypassLockdown,
     });
+    started = startResult(plan, publishedFeatureDrafts);
     experimentForUpdate = updated;
     // All non-status changes were already persisted above; startExperiment
     // handled the transition (and resolved the schedule), so nothing remains.
@@ -538,6 +713,12 @@ export const updateExperiment = createApiRequestHandler(
   if (updatedExperiment === null) {
     throw new Error("Error happened during updating experiment.");
   }
+  if (changes.variations) {
+    await syncVisualChangesetsAndUrlRedirectsForExperiment({
+      context: req.context,
+      updated: updatedExperiment,
+    });
+  }
 
   await req.audit({
     event: "experiment.update",
@@ -545,7 +726,11 @@ export const updateExperiment = createApiRequestHandler(
       object: "experiment",
       id: experiment.id,
     },
-    details: auditDetailsUpdate(experiment, updatedExperiment),
+    details: auditDetailsUpdate(
+      experiment,
+      updatedExperiment,
+      startAcknowledgment,
+    ),
   });
 
   const apiExperiment = await resolveOwnerEmail(
@@ -557,5 +742,6 @@ export const updateExperiment = createApiRequestHandler(
   );
   return {
     experiment: apiExperiment,
+    ...started,
   };
 });

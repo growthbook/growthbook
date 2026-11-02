@@ -58,9 +58,6 @@ interface MetricSettings {
   windowType: MetricWindowSettings["type"];
   windowHours: number;
   delayHours: number;
-
-  winRisk: number;
-  loseRisk: number;
   targetMDE: number;
 }
 

@@ -29,7 +29,6 @@ import { isExperimentIncrementalEnabled } from "shared/enterprise";
 import { isNil, omit } from "lodash";
 import {
   FactTableDefinition,
-  FactMetricInterface,
   FactTableColumnType,
 } from "shared/types/fact-table";
 import {
@@ -220,7 +219,7 @@ export type ExperimentTableRow = {
   // Child row presentation (generic parent/child)
   numChildren?: number;
   isChildRow?: boolean;
-  childRowType?: "slice" | "funnelStep";
+  childRowType?: "slice" | "funnelStep" | "funnelSlice";
   // Slice row properties
   isSliceRow?: boolean;
   parentRowId?: string;
@@ -242,6 +241,19 @@ export type ExperimentTableRow = {
   isHiddenByFilter?: boolean;
   labelOnly?: boolean;
 };
+
+/**
+ * A funnel expands into its steps in a results table; its slices are per-step
+ * and shown in the metric drilldown's Slices tab instead. The rows are still
+ * generated for the drilldown, so every table drops them on the way in.
+ */
+export function excludeFunnelSliceRows(
+  rows: ExperimentTableRow[],
+): ExperimentTableRow[] {
+  return rows.filter(
+    (row) => !(row.isSliceRow && isFactFunnelMetric(row.metric)),
+  );
+}
 
 export function useDomain(
   variations: ExperimentReportVariation[], // must be ordered, baseline first
@@ -399,14 +411,6 @@ export function applyMetricOverrides<T extends ExperimentMetricDefinition>(
       newMetric.windowSettings.delayUnit = "hours";
       newMetric.windowSettings.delayValue = metricOverride.delayHours;
       overrideFields.push("delayHours");
-    }
-    if (!isNil(metricOverride?.winRisk)) {
-      newMetric.winRisk = metricOverride.winRisk;
-      overrideFields.push("winRisk");
-    }
-    if (!isNil(metricOverride?.loseRisk)) {
-      newMetric.loseRisk = metricOverride.loseRisk;
-      overrideFields.push("loseRisk");
     }
     if (!isNil(metricOverride?.regressionAdjustmentOverride)) {
       // only apply RA fields if doing an override
@@ -1392,62 +1396,55 @@ export function getAvailableSliceTags({
 
   allMetricIds.forEach((metricId) => {
     const metric = getExperimentMetricById(metricId);
+    if (!metric || !isFactMetric(metric)) return;
+    // A funnel's slices are shown per step in the metric drilldown, not as
+    // rows in these tables, so they contribute no tags to filter on.
+    if (isFactFunnelMetric(metric)) return;
 
-    if (metric && isFactMetric(metric)) {
-      const factMetric = metric as FactMetricInterface;
-      const factTableId = factMetric.numerator?.factTableId;
+    const autoSliceData = createAutoSliceDataForMetric({
+      parentMetric: metric,
+      getFactTable: getFactTableById,
+      includeOther: true,
+    });
 
-      if (factTableId) {
-        const factTable = getFactTableById(factTableId);
-
-        if (factTable) {
-          const autoSliceData = createAutoSliceDataForMetric({
-            parentMetric: metric,
-            factTable,
-            includeOther: true,
-          });
-
-          // Extract tags from slice data
-          autoSliceData.forEach((slice: SliceDataForMetric) => {
-            // Generate single dimension tags
-            slice.sliceLevels.forEach((sliceLevel) => {
-              const value = sliceLevel.levels[0] || "";
-              const tag = generateSliceString({ [sliceLevel.column]: value });
-              const datatypes = sliceLevel.datatype
-                ? { [sliceLevel.column]: sliceLevel.datatype }
-                : {};
-              sliceTagsMap.set(tag, { datatypes });
-              // Track column for "select all" generation
-              columnSet.add(sliceLevel.column);
-              if (sliceLevel.datatype) {
-                columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
-              }
-            });
-
-            // Generate combined tag for multi-dimensional slices
-            if (slice.sliceLevels.length > 1) {
-              const slices: Record<string, string> = {};
-              slice.sliceLevels.forEach((sl) => {
-                slices[sl.column] = sl.levels[0] || "";
-              });
-              const comboTag = generateSliceString(slices);
-              // Parse the tag to get datatypes using parseSliceQueryString
-              const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
-              const datatypes: Record<string, FactTableColumnType> = {};
-              sliceLevels.forEach((sl) => {
-                datatypes[sl.column] = sl.datatype;
-                // Track column for "select all" generation
-                columnSet.add(sl.column);
-                if (sl.datatype) {
-                  columnDatatypeMap.set(sl.column, sl.datatype);
-                }
-              });
-              sliceTagsMap.set(comboTag, { datatypes });
-            }
-          });
+    // Extract tags from slice data
+    autoSliceData.forEach((slice: SliceDataForMetric) => {
+      // Generate single dimension tags
+      slice.sliceLevels.forEach((sliceLevel) => {
+        const value = sliceLevel.levels[0] || "";
+        const tag = generateSliceString({ [sliceLevel.column]: value });
+        const datatypes = sliceLevel.datatype
+          ? { [sliceLevel.column]: sliceLevel.datatype }
+          : {};
+        sliceTagsMap.set(tag, { datatypes });
+        // Track column for "select all" generation
+        columnSet.add(sliceLevel.column);
+        if (sliceLevel.datatype) {
+          columnDatatypeMap.set(sliceLevel.column, sliceLevel.datatype);
         }
+      });
+
+      // Generate combined tag for multi-dimensional slices
+      if (slice.sliceLevels.length > 1) {
+        const slices: Record<string, string> = {};
+        slice.sliceLevels.forEach((sl) => {
+          slices[sl.column] = sl.levels[0] || "";
+        });
+        const comboTag = generateSliceString(slices);
+        // Parse the tag to get datatypes using parseSliceQueryString
+        const sliceLevels = parseSliceQueryString(comboTag, factTableMap);
+        const datatypes: Record<string, FactTableColumnType> = {};
+        sliceLevels.forEach((sl) => {
+          datatypes[sl.column] = sl.datatype;
+          // Track column for "select all" generation
+          columnSet.add(sl.column);
+          if (sl.datatype) {
+            columnDatatypeMap.set(sl.column, sl.datatype);
+          }
+        });
+        sliceTagsMap.set(comboTag, { datatypes });
       }
-    }
+    });
   });
 
   // Generate "select all" tags for each column (format: dim:column, no equals sign)

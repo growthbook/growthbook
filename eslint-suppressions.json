@@ -4,11 +4,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Admin/EditOrganization.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Archetype/ArchetypeAttributesModal.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -184,11 +179,6 @@
       "count": 3
     }
   },
-  "packages/front-end/components/Events/EventsPage/EventsPage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Events/EventsPage/utils.ts": {
     "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
@@ -212,11 +202,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Experiment/BanditDateGraph.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/BanditDecisionMetricSettings.tsx": {
     "no-restricted-syntax": {
       "count": 2
@@ -230,14 +215,6 @@
   "packages/front-end/components/Experiment/CompletedExperimentList.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/CustomMetricSlicesSelector.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/Experiment/DifferenceTypeChooserChangeColumnLabel.tsx": {
@@ -258,12 +235,7 @@
       "count": 8
     }
   },
-  "packages/front-end/components/Experiment/EditHypothesisModal.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/EditPhaseModal.tsx": {
+  "packages/front-end/components/Experiment/EditPhasesModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
     }
@@ -275,11 +247,6 @@
   },
   "packages/front-end/components/Experiment/EditStatusModal.tsx": {
     "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/Experiment/ExperimentCarouselModal.tsx": {
-    "no-restricted-imports": {
       "count": 2
     }
   },
@@ -331,14 +298,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/MetricsOverridesSelector.tsx": {
-    "no-restricted-syntax": {
-      "count": 8
-    }
-  },
   "packages/front-end/components/Experiment/MetricsSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/NamespaceModal.tsx": {
@@ -364,7 +326,7 @@
   },
   "packages/front-end/components/Experiment/PhaseSelector.tsx": {
     "no-restricted-syntax": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Experiment/QueryModal.tsx": {
@@ -395,11 +357,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/ResultsVariationsFilter.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Experiment/SRMWarning.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -410,11 +367,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Experiment/SortableExperimentVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Experiment/StopExperimentForm.tsx": {
     "no-restricted-syntax": {
       "count": 3
@@ -423,19 +375,6 @@
   "packages/front-end/components/Experiment/TabbedPage/EditExperimentInfoModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/EditHoldoutInfoModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/ExperimentDecisionExplanation.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/Experiment/TabbedPage/ExperimentHeader.tsx": {
@@ -453,19 +392,6 @@
   },
   "packages/front-end/components/Experiment/TabbedPage/ResultsTab.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/RunningExperimentDecisionBanner.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Experiment/TabbedPage/TargetMDEModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
       "count": 1
     }
   },
@@ -587,7 +513,7 @@
   },
   "packages/front-end/components/Features/ConditionInput.tsx": {
     "no-restricted-syntax": {
-      "count": 7
+      "count": 6
     }
   },
   "packages/front-end/components/Features/EditFeatureInfoModal.tsx": {
@@ -670,7 +596,7 @@
   },
   "packages/front-end/components/Features/FeatureVariationsInput.tsx": {
     "no-restricted-syntax": {
-      "count": 3
+      "count": 2
     }
   },
   "packages/front-end/components/Features/FeaturesOverview.tsx": {
@@ -726,11 +652,6 @@
   "packages/front-end/components/Features/RolloutPercentInput.tsx": {
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Features/RuleModal/BanditRefFields.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/Features/RuleModal/BanditRefNewFields.tsx": {
@@ -807,11 +728,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Features/SortableFeatureVariationRow.tsx": {
-    "no-restricted-syntax": {
-      "count": 3
-    }
-  },
   "packages/front-end/components/Features/ValueDisplay.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -823,11 +739,6 @@
     },
     "no-restricted-syntax": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/FileInput.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/components/FlagCard/FlagCard.tsx": {
@@ -855,22 +766,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/AISettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/BanditSettings.tsx": {
     "no-restricted-syntax": {
       "count": 4
-    }
-  },
-  "packages/front-end/components/GeneralSettings/DatasourceSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/ChanceToWinThresholdField.tsx": {
@@ -880,15 +778,7 @@
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/DecisionFrameworkSettings.tsx": {
     "no-restricted-imports": {
-      "count": 3
-    },
-    "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/FrequentistTab.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
     }
   },
   "packages/front-end/components/GeneralSettings/ExperimentSettings/PValueThresholdField.tsx": {
@@ -896,67 +786,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/StatsEngineSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/StickyBucketingSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/ExperimentSettings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 5
-    }
-  },
-  "packages/front-end/components/GeneralSettings/FeatureSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 6
-    }
-  },
-  "packages/front-end/components/GeneralSettings/MetricsSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    },
-    "no-restricted-syntax": {
-      "count": 7
-    }
-  },
-  "packages/front-end/components/GeneralSettings/NorthStarMetricSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/OrganizationAndLicenseSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/GeneralSettings/RampScheduleTemplates.tsx": {
     "no-restricted-imports": {
       "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/GeneralSettings/SavedGroupSettings.tsx": {
-    "no-restricted-imports": {
-      "count": 2
     },
     "no-restricted-syntax": {
       "count": 1
@@ -1049,16 +881,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Holdout/LinkedExperimentsTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Holdout/LinkedFeaturesTable.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Holdout/NewHoldoutForm.tsx": {
     "no-restricted-syntax": {
       "count": 6
@@ -1110,12 +932,7 @@
   },
   "packages/front-end/components/License/OptInModal.tsx": {
     "no-restricted-imports": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/License/ShowLicenseInfo.tsx": {
-    "no-restricted-imports": {
-      "count": 2
+      "count": 1
     }
   },
   "packages/front-end/components/Markdown/MarkdownInput.tsx": {
@@ -1176,11 +993,6 @@
   },
   "packages/front-end/components/MetricDrilldown/MetricDrilldownSlices.tsx": {
     "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/components/Metrics/FactMetricTypeDisplayName.tsx": {
-    "@typescript-eslint/switch-exhaustiveness-check": {
       "count": 1
     }
   },
@@ -1452,14 +1264,9 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/BayesianPriorSettings.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/BigQueryForm.tsx": {
     "no-restricted-syntax": {
-      "count": 5
+      "count": 4
     }
   },
   "packages/front-end/components/Settings/DataSourceForm.tsx": {
@@ -1531,14 +1338,6 @@
       "count": 2
     }
   },
-  "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/AddEditExperimentAssignmentQueryModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Settings/EditDataSource/ExperimentAssignmentQueries/ExperimentAssignmentQueries.tsx": {
     "no-restricted-imports": {
       "count": 1
@@ -1560,11 +1359,6 @@
     },
     "no-restricted-syntax": {
       "count": 1
-    }
-  },
-  "packages/front-end/components/Settings/EditOrganizationModal.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/components/Settings/EnvironmentModal.tsx": {
@@ -1631,11 +1425,6 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Settings/Team/InviteModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
   "packages/front-end/components/Settings/UpdateOrbSubscriptionModal.tsx": {
     "no-restricted-imports": {
       "count": 2
@@ -1675,11 +1464,6 @@
   "packages/front-end/components/Settings/UpgradeModal/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/components/Settings/Usage/CloudUsage.tsx": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "packages/front-end/components/Settings/WebhooksModal.tsx": {
@@ -1734,27 +1518,9 @@
       "count": 1
     }
   },
-  "packages/front-end/components/Tags/TagsModal.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
   "packages/front-end/components/Teams/TeamModal.tsx": {
     "no-restricted-syntax": {
       "count": 3
-    }
-  },
-  "packages/front-end/components/importing/ImportFromLaunchDarkly/ImportFromLaunchDarkly.tsx": {
-    "no-restricted-syntax": {
-      "count": 2
-    }
-  },
-  "packages/front-end/components/importing/ImportFromStatsig/ImportFromStatsig.tsx": {
-    "no-restricted-syntax": {
-      "count": 4
     }
   },
   "packages/front-end/enterprise/components/AIChat/AIChatModelSelect.tsx": {
@@ -1931,14 +1697,6 @@
       "count": 1
     }
   },
-  "packages/front-end/pages/admin.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    },
-    "no-restricted-syntax": {
-      "count": 11
-    }
-  },
   "packages/front-end/pages/attributes.tsx": {
     "no-restricted-syntax": {
       "count": 1
@@ -2065,16 +1823,6 @@
   "packages/front-end/pages/saved-groups/index.tsx": {
     "no-restricted-imports": {
       "count": 2
-    }
-  },
-  "packages/front-end/pages/settings/custom-markdown.tsx": {
-    "no-restricted-imports": {
-      "count": 1
-    }
-  },
-  "packages/front-end/pages/settings/index.tsx": {
-    "no-restricted-imports": {
-      "count": 1
     }
   },
   "packages/front-end/pages/settings/tags.tsx": {

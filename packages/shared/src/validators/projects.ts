@@ -118,7 +118,7 @@ const postProjectBody = z
           .optional(),
       })
       .describe(
-        "Project stats settings that, when set, override the organization settings.",
+        "Project settings that, when set, override the organization settings.",
       )
       .optional(),
     restrictAccess: z
@@ -165,7 +165,7 @@ const putProjectBody = z
           .optional(),
       })
       .describe(
-        "Project stats settings that, when set, override the organization settings.",
+        "Project settings that, when set, override the organization settings.",
       )
       .optional(),
     restrictAccess: z

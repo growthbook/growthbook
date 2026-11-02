@@ -405,7 +405,7 @@ describe("templateToSectionState", () => {
 // ---------------------------------------------------------------------------
 // These two functions are the single source of truth for the UI ↔ backend
 // coverage translation. The conversion must be:
-//   UI value (integer 1–50 for monitored, 1–100 for unmonitored)
+//   UI value (up to 50 for monitored, 100 for unmonitored; fractions allowed)
 //   → backend fraction: ui / 100  (same formula for both modes)
 //   → payload ranges: [[0, c), [c, 2c)] with c = backend fraction
 //
@@ -477,7 +477,7 @@ describe("reconstructUIPatch — backend→UI coverage conversion", () => {
   });
 
   it("round-trips: buildPatch then reconstructUIPatch returns the original UI value", () => {
-    for (const uiInput of [1, 10, 25, 40, 50]) {
+    for (const uiInput of [0.02, 1, 10, 12.5, 25, 40, 50]) {
       const backend = buildPatch({ coverage: uiInput }, "r");
       const restored = reconstructUIPatch({
         ruleId: "r",
@@ -488,7 +488,7 @@ describe("reconstructUIPatch — backend→UI coverage conversion", () => {
   });
 
   it("round-trips for unmonitored steps", () => {
-    for (const uiInput of [1, 25, 50, 75, 100]) {
+    for (const uiInput of [0.0001, 1, 25, 50, 75, 99.9, 100]) {
       const backend = buildPatch({ coverage: uiInput }, "r");
       const restored = reconstructUIPatch({
         ruleId: "r",

@@ -1,7 +1,10 @@
 import cloneDeep from "lodash/cloneDeep";
 import { GroupMap, SavedGroupInterface } from "shared/types/saved-group";
 import { SavedGroupFormat } from "shared/types/sdk-connection";
-import { getSavedGroupPayloadStrategy } from "shared/sdk-versioning";
+import {
+  getSavedGroupPayloadStrategy,
+  SavedGroupPayloadStrategy,
+} from "shared/sdk-versioning";
 import { FeatureDefinition } from "shared/types/sdk";
 import {
   FeatureInterface,
@@ -44,9 +47,17 @@ import {
 // means no SDK connection, which is what previews and the in-app evaluators do.
 const v1Strategy = (groupMap: GroupMap) =>
   getSavedGroupPayloadStrategy({ groupMap });
-const v2Strategy = (groupMap: GroupMap) =>
+// `remoteReferences` adds savedGroupReferencesRemote.
+const v2Strategy = (
+  groupMap: GroupMap,
+  { remoteReferences = false }: { remoteReferences?: boolean } = {},
+) =>
   getSavedGroupPayloadStrategy({
-    capabilities: ["savedGroupReferences", "savedGroupReferencesV2"],
+    capabilities: [
+      "savedGroupReferences",
+      "savedGroupReferencesV2",
+      ...(remoteReferences ? ["savedGroupReferencesRemote" as const] : []),
+    ],
     savedGroupFormat: "referencesV2",
     groupMap,
   });
@@ -3109,8 +3120,8 @@ describe("SDK Payloads", () => {
       "exp-project",
     ]);
 
-    // targetingAllProjects omits the projects list (absent = all), rather than
-    // enumerating every org project
+    // targetingAllProjects is marked rather than enumerating every org project,
+    // since an absent list means no project
     const featureAllProjects = cloneDeep(feature);
     featureAllProjects.targetingAllProjects = true;
     const defAllProjects = getFeatureDefinition({
@@ -3125,6 +3136,24 @@ describe("SDK Payloads", () => {
       projectsMap,
     });
     expect(defAllProjects?.metadata?.projects).toBeUndefined();
+    expect(defAllProjects?.metadata?.allProjects).toBe(true);
+
+    // A feature in no project carries neither
+    const featureNoProject = cloneDeep(feature);
+    featureNoProject.project = "";
+    const defNoProject = getFeatureDefinition({
+      feature: featureNoProject,
+      environment: "production",
+      groupMap,
+      experimentMap: expMap,
+      safeRolloutMap,
+      capabilities: ["looseUnmarshalling"],
+      includeRuleIds: true,
+      metadataOptions: { includeProjectIdInMetadata: true },
+      projectsMap,
+    });
+    expect(defNoProject?.metadata?.projects).toBeUndefined();
+    expect(defNoProject?.metadata?.allProjects).toBeUndefined();
   });
 
   it("Emits a rule's explicit project scope, omitting when the rule targets all", () => {
@@ -3283,6 +3312,7 @@ describe("SDK Payloads", () => {
         id: "2",
         coverage: 0.8,
         hashAttribute: "id",
+        fallbackAttribute: "device_id",
         value: "false",
         enabled: true,
       },
@@ -3329,6 +3359,7 @@ describe("SDK Payloads", () => {
           coverage: 0.8,
           force: false,
           hashAttribute: "id",
+          fallbackAttribute: "device_id",
         },
         {
           coverage: 1,
@@ -3994,6 +4025,26 @@ describe("validateFeatureRuleValues", () => {
       } as never),
     ).toThrow();
   });
+
+  it("refuses JSON that only parses after repair, naming the fix, and passes valid JSON", () => {
+    const jsonFeature = { valueType: "json" as const };
+    const rule = (value: string) =>
+      ({
+        id: "a",
+        type: "experiment-ref",
+        experimentId: "exp",
+        variations: [
+          { variationId: "0", value: "{}" },
+          { variationId: "1", value },
+        ],
+      }) as never;
+    expect(() =>
+      validateFeatureRuleValues(jsonFeature, rule('{"layout":"grid"}}')),
+    ).toThrow(/Variation 2: invalid JSON\. Did you mean/);
+    expect(() =>
+      validateFeatureRuleValues(jsonFeature, rule('{\n  "layout": "grid"\n}')),
+    ).not.toThrow();
+  });
 });
 
 describe("mergeConditionAndSavedGroups with referencesV2", () => {
@@ -4109,6 +4160,96 @@ describe("mergeConditionAndSavedGroups with referencesV2", () => {
       }),
     ).toEqual({
       $and: [{ id_a: { $inGroup: "list_a" } }, { browser: "chrome" }],
+    });
+  });
+});
+
+describe("mergeConditionAndSavedGroups with remote groups", () => {
+  const groupMap: GroupMap = new Map([
+    ["vip", { type: "remote", attributeKey: "account_id" }],
+    ["beta", { type: "remote", attributeKey: "user_id" }],
+    ["list_a", { type: "list", values: ["0"], attributeKey: "id_a" }],
+  ]);
+  // Like a payload build: merge, then finalize, which adds the guard.
+  const build = (
+    strategy: SavedGroupPayloadStrategy,
+    args: Omit<
+      Parameters<typeof mergeConditionAndSavedGroups>[0],
+      "savedGroupStrategy"
+    >,
+  ) => {
+    const condition = mergeConditionAndSavedGroups({
+      savedGroupStrategy: strategy,
+      ...args,
+    });
+    strategy.finalizeCondition(condition);
+    return condition;
+  };
+
+  it("merges remote groups into the rule's condition", () => {
+    expect(
+      build(v2Strategy(groupMap), {
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [
+          { match: "all", ids: ["vip"] },
+          { match: "none", ids: ["beta"] },
+        ],
+      }),
+    ).toEqual({
+      $and: [
+        { country: "US" },
+        { __gb_remoteGroupIds: { $in: ["vip"] } },
+        { __gb_remoteGroupIds: { $nin: ["beta"] } },
+      ],
+      __gb_remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("ANDs one check per group for match: all", () => {
+    expect(
+      build(v1Strategy(groupMap), {
+        savedGroups: [{ match: "all", ids: ["vip", "beta"] }],
+      }),
+    ).toEqual({
+      $and: [
+        { __gb_remoteGroupIds: { $in: ["vip"] } },
+        { __gb_remoteGroupIds: { $in: ["beta"] } },
+      ],
+      __gb_remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("ORs remote and other groups for match: any", () => {
+    expect(
+      build(v2Strategy(groupMap), {
+        savedGroups: [{ match: "any", ids: ["list_a", "vip", "beta"] }],
+      }),
+    ).toEqual({
+      $or: [
+        { $savedGroup: { id: "list_a" } },
+        { __gb_remoteGroupIds: { $in: ["vip"] } },
+        { __gb_remoteGroupIds: { $in: ["beta"] } },
+      ],
+      __gb_remoteGroupIds: { $exists: true },
+    });
+  });
+
+  it("keeps references with savedGroupReferencesRemote", () => {
+    expect(
+      build(v2Strategy(groupMap, { remoteReferences: true }), {
+        condition: JSON.stringify({ country: "US" }),
+        savedGroups: [
+          { match: "all", ids: ["vip"] },
+          { match: "none", ids: ["beta"] },
+        ],
+      }),
+    ).toEqual({
+      $and: [
+        { country: "US" },
+        { $savedGroup: { id: "vip" } },
+        { $not: { $savedGroup: { id: "beta" } } },
+      ],
+      __gb_remoteGroupIds: { $exists: true },
     });
   });
 });

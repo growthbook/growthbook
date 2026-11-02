@@ -1,15 +1,8 @@
 import { Flex, type AvatarProps } from "@radix-ui/themes";
 import { PiCaretDownFill } from "react-icons/pi";
-import {
-  ExperimentInterfaceStringDates,
-  LinkedFeatureInfo,
-} from "shared/types/experiment";
+import { LinkedFeatureInfo } from "shared/types/experiment";
 import { VisualChangesetInterface } from "shared/types/visual-changeset";
 import { URLRedirectInterface } from "shared/types/url-redirect";
-import {
-  getConnectionsSDKCapabilities,
-  SDKCapability,
-} from "shared/sdk-versioning";
 import Avatar from "@/ui/Avatar";
 import Text from "@/ui/Text";
 import SplitButton from "@/ui/SplitButton";
@@ -24,7 +17,13 @@ import {
   LINKED_CHANGE_CONTAINER_PROPERTIES,
   type LinkedChange,
 } from "./constants";
-import { LINKED_CHANGES } from "./AddLinkedChanges";
+import {
+  LINKED_CHANGES,
+  linkedChangePremiumCopy,
+  linkedChangeSdkSupported,
+  linkedChangeSdkUnsupportedCopy,
+  type LinkedChangeTarget,
+} from "./AddLinkedChanges";
 
 const MENU_ITEM_DESCRIPTIONS: Record<LinkedChange, string> = {
   "feature-flag": "Make code changes in your app",
@@ -67,16 +66,16 @@ const LinkedChangeMenuItemContent = ({
 
 const LinkedChangeMenuItem = ({
   type,
-  experiment,
+  target,
   onClick,
 }: {
   type: LinkedChange;
-  experiment: ExperimentInterfaceStringDates;
+  target: LinkedChangeTarget;
   onClick: () => void;
 }) => {
   const { radixColor, component: Icon } = ICON_PROPERTIES[type];
   const description = MENU_ITEM_DESCRIPTIONS[type];
-  const { commercialFeature, sdkCapabilityKey, header } = LINKED_CHANGES[type];
+  const { commercialFeature } = LINKED_CHANGES[type];
   const { data: sdkConnectionsData } = useSDKConnections();
 
   const { hasCommercialFeature } = useUser();
@@ -84,14 +83,11 @@ const LinkedChangeMenuItem = ({
     ? hasCommercialFeature(commercialFeature)
     : true;
 
-  const hasSDKWithFeature =
-    type === "feature-flag" ||
-    getConnectionsSDKCapabilities({
-      connections: sdkConnectionsData?.connections ?? [],
-      project: experiment.project ?? "",
-    }).includes(sdkCapabilityKey as SDKCapability);
-
-  const isCTAClickable = hasSDKWithFeature;
+  const isCTAClickable = linkedChangeSdkSupported(
+    type,
+    target,
+    sdkConnectionsData?.connections ?? [],
+  );
   const textColor = isCTAClickable ? "text-high" : "text-disabled";
   return (
     <DropdownMenuItem
@@ -103,9 +99,7 @@ const LinkedChangeMenuItem = ({
         commercialFeature && !hasFeature ? (
           <PremiumTooltip
             commercialFeature={commercialFeature}
-            body={
-              "You can add this to your draft, but you will not be able to start the experiment until upgrading."
-            }
+            body={linkedChangePremiumCopy(target)}
             tipPosition="left"
           >
             <LinkedChangeMenuItemContent
@@ -127,7 +121,7 @@ const LinkedChangeMenuItem = ({
         )
       ) : (
         <Tooltip
-          body={`The SDKs in this project don't support ${header}. Upgrade your SDK(s) or add a supported SDK.`}
+          body={linkedChangeSdkUnsupportedCopy(type, target)}
           tipPosition="left"
           shouldDisplay={!isCTAClickable}
         >
@@ -144,27 +138,25 @@ const LinkedChangeMenuItem = ({
   );
 };
 
+type Handlers = Record<LinkedChange, (() => void) | undefined>;
+
 type Props = {
-  onFeatureFlag: () => void;
-  onVisualEditor: () => void;
-  onUrlRedirect: () => void;
+  onFeatureFlag?: () => void;
+  onVisualEditor?: () => void;
+  onUrlRedirect?: () => void;
   linkedFeatures: LinkedFeatureInfo[];
   visualChangesets: VisualChangesetInterface[];
   urlRedirects: URLRedirectInterface[];
-  experiment: ExperimentInterfaceStringDates;
+  target: LinkedChangeTarget;
 };
 
 const LinkedChangesDropdown = ({
-  experiment,
-  onFeatureFlag,
-  onVisualEditor,
-  onUrlRedirect,
+  target,
+  handlers,
   cta,
 }: {
-  experiment: ExperimentInterfaceStringDates;
-  onFeatureFlag: () => void;
-  onVisualEditor: () => void;
-  onUrlRedirect: () => void;
+  target: LinkedChangeTarget;
+  handlers: Handlers;
   cta?: string;
 }) => {
   return (
@@ -181,21 +173,18 @@ const LinkedChangesDropdown = ({
       }
       variant="soft"
     >
-      <LinkedChangeMenuItem
-        type="feature-flag"
-        experiment={experiment}
-        onClick={onFeatureFlag}
-      />
-      <LinkedChangeMenuItem
-        type="visual-editor"
-        experiment={experiment}
-        onClick={onVisualEditor}
-      />
-      <LinkedChangeMenuItem
-        type="redirects"
-        experiment={experiment}
-        onClick={onUrlRedirect}
-      />
+      {target.types.map((type) => {
+        const onClick = handlers[type];
+        if (!onClick) return null;
+        return (
+          <LinkedChangeMenuItem
+            key={type}
+            type={type}
+            target={target}
+            onClick={onClick}
+          />
+        );
+      })}
     </DropdownMenu>
   );
 };
@@ -207,63 +196,58 @@ export default function AddLinkedChangeButton({
   onFeatureFlag,
   onVisualEditor,
   onUrlRedirect,
-  experiment,
+  target,
 }: Props) {
-  // Determine the type of implementation. If there are multiple types, return multiple
-  const implementationType =
-    linkedFeatures.length > 0 &&
-    !visualChangesets.length &&
-    !urlRedirects.length
-      ? "feature-flag"
-      : visualChangesets.length > 0 &&
-          !linkedFeatures.length &&
-          !urlRedirects.length
-        ? "visual-editor"
-        : urlRedirects.length > 0 &&
-            !linkedFeatures.length &&
-            !visualChangesets.length
-          ? "redirects"
-          : "multiple";
-
-  const handleAddClick = () => {
-    if (implementationType === "feature-flag") {
-      onFeatureFlag();
-    } else if (implementationType === "visual-editor") {
-      onVisualEditor();
-    } else if (implementationType === "redirects") {
-      onUrlRedirect();
-    }
+  const { data: sdkConnectionsData } = useSDKConnections();
+  const handlers: Handlers = {
+    "feature-flag": onFeatureFlag,
+    "visual-editor": onVisualEditor,
+    redirects: onUrlRedirect,
   };
+  const counts: Record<LinkedChange, number> = {
+    "feature-flag": linkedFeatures.length,
+    "visual-editor": visualChangesets.length,
+    redirects: urlRedirects.length,
+  };
+  const inUse = target.types.filter((t) => counts[t] > 0);
+  const single = inUse.length === 1 ? inUse[0] : null;
+  const singleHandler = single ? handlers[single] : undefined;
 
-  // If there are multiple linked change types, show the dropdown menu
-  if (implementationType === "multiple") {
+  if (!single || !singleHandler) {
     return (
       <LinkedChangesDropdown
         cta="Add Implementation"
-        onFeatureFlag={onFeatureFlag}
-        onVisualEditor={onVisualEditor}
-        onUrlRedirect={onUrlRedirect}
-        experiment={experiment}
+        target={target}
+        handlers={handlers}
       />
     );
   }
 
-  // If there is only one linked change type, show a split button with a main CTA
-  // to add another linked change of the same type
+  const singleSupported = linkedChangeSdkSupported(
+    single,
+    target,
+    sdkConnectionsData?.connections ?? [],
+  );
+  const cta = (
+    <Button onClick={singleHandler} disabled={!singleSupported}>
+      {LINKED_CHANGE_CONTAINER_PROPERTIES[single].addButtonCopy}
+    </Button>
+  );
+
   return (
     <SplitButton
-      menu={
-        <LinkedChangesDropdown
-          experiment={experiment}
-          onFeatureFlag={onFeatureFlag}
-          onVisualEditor={onVisualEditor}
-          onUrlRedirect={onUrlRedirect}
-        />
-      }
+      menu={<LinkedChangesDropdown target={target} handlers={handlers} />}
     >
-      <Button onClick={() => handleAddClick()}>
-        {LINKED_CHANGE_CONTAINER_PROPERTIES[implementationType].addButtonCopy}
-      </Button>
+      {singleSupported ? (
+        cta
+      ) : (
+        <Tooltip
+          body={linkedChangeSdkUnsupportedCopy(single, target)}
+          tipPosition="top"
+        >
+          {cta}
+        </Tooltip>
+      )}
     </SplitButton>
   );
 }

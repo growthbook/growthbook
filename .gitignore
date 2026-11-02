@@ -79,4 +79,5 @@ packages/stats/notebooks
 # AI agents: private Claude folders and agent scratch space
 .claude/worktrees/
 .claude/projects/
+.claude/launch.json
 .context/

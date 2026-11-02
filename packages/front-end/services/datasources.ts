@@ -18,6 +18,11 @@ import {
   isProjectListValidForProject,
 } from "shared/util";
 import type { GroupedValue, SingleValue } from "@/components/Forms/SelectField";
+import {
+  isGA4EventsTable,
+  shardFilter,
+  SourceTableTemplate,
+} from "@/services/factTables";
 
 function camelToUnderscore(orig: string) {
   return orig
@@ -28,23 +33,46 @@ function camelToUnderscore(orig: string) {
     .toLowerCase();
 }
 
-const GA4Schema: SchemaInterface = {
-  experimentDimensions: [
-    "country",
-    "source",
-    "medium",
-    "device",
-    "browser",
-    "os",
-  ],
-  getExperimentSQL: (tablePrefix, userId) => {
-    const userCol = userId === "user_id" ? "user_id" : "user_pseudo_id";
+// A tracker's columns for the requested identifiers, aliased to each type,
+// and a filter keeping rows that have at least one of them.
+function getExposureIdentifierSql(
+  userIdTypes: string[],
+  getColumn: (userIdType: string) => string,
+) {
+  const columns = userIdTypes.map((id) => ({ id, column: getColumn(id) }));
+  const notNull = columns.map(({ column }) => `${column} is not null`);
+  return {
+    select: columns
+      .map(({ id, column }) => (column === id ? id : `${column} as ${id}`))
+      .join(",\n  "),
+    notNull: notNull.length > 1 ? `(${notNull.join(" OR ")})` : notNull[0],
+  };
+}
 
-    return `SELECT
-  ${userCol} as ${userId},
+const GA4_EXPERIMENT_DIMENSIONS = [
+  "country",
+  "source",
+  "medium",
+  "device",
+  "browser",
+  "os",
+];
+
+// GA4 stores a param by how its value looks, so a key sent as "123" lands in
+// int_value and "control" in string_value.
+function getGA4ExposureSql(
+  eventsTable: string,
+  userIdTypes: string[],
+  rowFilterWhere = "",
+) {
+  const ids = getExposureIdentifierSql(userIdTypes, (id) =>
+    id === "user_id" ? "user_id" : "user_pseudo_id",
+  );
+  return `SELECT
+  ${ids.select},
   TIMESTAMP_MICROS(event_timestamp) as timestamp,
-  experiment_id_param.value.string_value AS experiment_id,
-  variation_id_param.value.int_value AS variation_id,
+  COALESCE(experiment_id_param.value.string_value, CAST(experiment_id_param.value.int_value AS STRING)) AS experiment_id,
+  COALESCE(variation_id_param.value.string_value, CAST(variation_id_param.value.int_value AS STRING)) AS variation_id,
   geo.country as country,
   traffic_source.source as source,
   traffic_source.medium as medium,
@@ -52,18 +80,21 @@ const GA4Schema: SchemaInterface = {
   device.web_info.browser as browser,
   device.operating_system as os
 FROM
-  ${tablePrefix}\`events_*\`,
+  ${eventsTable},
   UNNEST(event_params) AS experiment_id_param,
   UNNEST(event_params) AS variation_id_param
 WHERE
-  ((_TABLE_SUFFIX BETWEEN '{{date startDateISO "yyyyMMdd"}}' AND '{{date endDateISO "yyyyMMdd"}}') OR
-   (_TABLE_SUFFIX BETWEEN 'intraday_{{date startDateISO "yyyyMMdd"}}' AND 'intraday_{{date endDateISO "yyyyMMdd"}}'))
+  ${shardFilter(true)}
   AND event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
-  AND ${userCol} is not null
-  `;
-  },
+  AND ${ids.notNull}${rowFilterWhere ? `\n  AND ${rowFilterWhere}` : ""}`;
+}
+
+const GA4Schema: SchemaInterface = {
+  experimentDimensions: GA4_EXPERIMENT_DIMENSIONS,
+  getExperimentSQL: (tablePrefix, userIdTypes) =>
+    getGA4ExposureSql(`${tablePrefix}\`events_*\``, userIdTypes),
   getIdentitySQL: () => {
     return [];
   },
@@ -117,6 +148,25 @@ WHERE
   },
 };
 
+// GA4Schema's assignment query for a picked events table
+export const getGA4ExposureTemplate = (
+  userIdTypes: string[],
+): SourceTableTemplate => ({
+  matches: isGA4EventsTable,
+  name: "GA4 Experiment Exposures",
+  columns: [
+    { column: "timestamp", datatype: "date" },
+    ...[
+      ...userIdTypes,
+      "experiment_id",
+      "variation_id",
+      ...GA4_EXPERIMENT_DIMENSIONS,
+    ].map((column) => ({ column, datatype: "string" as const })),
+  ],
+  getSql: (table, rowFilterWhere) =>
+    getGA4ExposureSql(table.path, userIdTypes, rowFilterWhere),
+});
+
 const SnowplowSchema: SchemaInterface = {
   experimentDimensions: [
     "country",
@@ -126,12 +176,14 @@ const SnowplowSchema: SchemaInterface = {
     "browser",
     "os",
   ],
-  getExperimentSQL: (tablePrefix, userId, options) => {
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
     const actionName = options?.actionName || "Experiment Viewed";
-    const userCol = userId === "user_id" ? "user_id" : "domain_userid";
+    const ids = getExposureIdentifierSql(userIdTypes, (id) =>
+      id === "user_id" ? "user_id" : "domain_userid",
+    );
 
     return `SELECT
-  ${userCol} as ${userId},
+  ${ids.select},
   collector_tstamp as timestamp,
   se_label as experiment_id,
   se_property as variation_id,
@@ -145,7 +197,7 @@ FROM
   ${tablePrefix}events
 WHERE
   se_action = '${actionName}'
-  AND ${userCol} is not null
+  AND ${ids.notNull}
   `;
   },
   getIdentitySQL: () => {
@@ -197,14 +249,14 @@ WHERE
 
 const CustomSchema: SchemaInterface = {
   experimentDimensions: [],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userIdTypes) => {
     return `SELECT
-  ${userId} as ${userId},
-  timestamp as timestamp,
-  experiment_id as experiment_id,
-  variation_id as variation_id
+  ${userIdTypes.map((ut) => `${ut},`).join("\n  ")}
+  timestamp,
+  experiment_id,
+  variation_id
 FROM
-  ${tablePrefix}viewed_experiment`;
+  ${tablePrefix}experiment_viewed`;
   },
   getIdentitySQL: () => {
     return [];
@@ -235,13 +287,15 @@ FROM
 
 const AmplitudeSchema: SchemaInterface = {
   experimentDimensions: ["country", "device", "os", "paying"],
-  getExperimentSQL: (tablePrefix, userId, options) => {
-    const userCol = userId === "user_id" ? "user_id" : "amplitude_id";
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
+    const ids = getExposureIdentifierSql(userIdTypes, (id) =>
+      id === "user_id" ? "user_id" : "amplitude_id",
+    );
     const eventType = options?.eventType || "Experiment Viewed";
     const projectId = options?.projectId || "AMPLITUDE_PROJECT_ID";
 
     return `SELECT
-  ${userCol} as ${userId},
+  ${ids.select},
   event_time as timestamp,
   event_properties:experiment_id as experiment_id,
   event_properties:variation_id as variation_id,
@@ -253,7 +307,7 @@ FROM
   ${tablePrefix}EVENTS_${projectId}
 WHERE
   event_type = '${eventType}'
-  AND ${userCol} is not null
+  AND ${ids.notNull}
   `;
   },
   getIdentitySQL: () => {
@@ -299,12 +353,13 @@ WHERE
 
 const SegmentSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "device", "browser"],
-  getExperimentSQL: (tablePrefix, userId, options) => {
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
     const exposureTableName =
       camelToUnderscore(options?.exposureTableName || "") ||
       "experiment_viewed";
+    const ids = getExposureIdentifierSql(userIdTypes, (id) => id);
     return `SELECT
-  ${userId},
+  ${ids.select},
   received_at as timestamp,
   experiment_id,
   variation_id,
@@ -325,7 +380,7 @@ const SegmentSchema: SchemaInterface = {
 FROM
   ${tablePrefix}${exposureTableName}
 WHERE
-  ${userId} is not null`;
+  ${ids.notNull}`;
   },
   getIdentitySQL: (tablePrefix) => {
     return [
@@ -378,12 +433,13 @@ FROM
 
 const RudderstackSchema: SchemaInterface = {
   experimentDimensions: ["device", "browser"],
-  getExperimentSQL: (tablePrefix, userId, options) => {
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
     const exposureTableName =
       camelToUnderscore(options?.exposureTableName || "") ||
       "experiment_viewed";
+    const ids = getExposureIdentifierSql(userIdTypes, (id) => id);
     return `SELECT
-  ${userId},
+  ${ids.select},
   received_at as timestamp,
   experiment_id,
   variation_id,
@@ -402,7 +458,7 @@ const RudderstackSchema: SchemaInterface = {
 FROM
   ${tablePrefix}${exposureTableName}
 WHERE
-  ${userId} is not null`;
+  ${ids.notNull}`;
   },
   getIdentitySQL: () => {
     return [];
@@ -442,18 +498,19 @@ FROM
 
 const MatomoSchema: SchemaInterface = {
   experimentDimensions: ["device", "OS", "country"],
-  getExperimentSQL: (tablePrefix, userId, options) => {
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
     const tPrefix = options?.tablePrefix || tablePrefix;
     const actionPrefix = "" + options?.actionPrefix || "v";
     const variationPrefixLength = actionPrefix.length;
     const siteId = options?.siteId || "1";
     const categoryName = options?.categoryName || "ExperimentViewed";
-    const userStr =
-      userId === "user_id"
-        ? `visit.user_id`
-        : `conv(hex(events.idvisitor), 16, 16)`;
+    const ids = getExposureIdentifierSql(userIdTypes, (id) =>
+      id === "user_id"
+        ? "visit.user_id"
+        : "conv(hex(events.idvisitor), 16, 16)",
+    );
     return `SELECT
-  ${userStr} as ${userId},
+  ${ids.select},
   events.server_time as timestamp,
   experiment.name as experiment_id,
   SUBSTRING(variation.name, ${variationPrefixLength + 1}) as variation_id,
@@ -469,7 +526,7 @@ INNER JOIN ${tPrefix}_log_visit visit
   ON (events.idvisit = visit.idvisit)
 WHERE events.idaction_event_category = (SELECT idaction FROM ${tPrefix}_log_action mla1 WHERE mla1.name = "${categoryName}" AND mla1.type = 10)
    AND SUBSTRING(variation.name, ${variationPrefixLength + 1}) != ""
-   AND ${userStr} is not null
+   AND ${ids.notNull}
    AND events.idsite = ${siteId}`;
   },
   getIdentitySQL: (tablePrefix, options) => {
@@ -516,12 +573,13 @@ FROM
 
 const FreshpaintSchema: SchemaInterface = {
   experimentDimensions: ["source", "medium", "campaign", "os", "browser"],
-  getExperimentSQL: (tablePrefix, userId, options) => {
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
     const exposureTableName =
       camelToUnderscore(options?.exposureTableName || "") ||
       "experiment_viewed";
+    const ids = getExposureIdentifierSql(userIdTypes, (id) => id);
     return `SELECT
-  ${userId},
+  ${ids.select},
   time as timestamp,
   experiment_id,
   variation_id,
@@ -533,7 +591,7 @@ const FreshpaintSchema: SchemaInterface = {
 FROM
   ${tablePrefix}${exposureTableName}
 WHERE
-  ${userId} is not null`;
+  ${ids.notNull}`;
   },
   getIdentitySQL: (tablePrefix) => {
     return [
@@ -582,12 +640,13 @@ const HeapSchema: SchemaInterface = {
     "country",
     "browser",
   ],
-  getExperimentSQL: (tablePrefix, userId, options) => {
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
     const exposureTableName =
       camelToUnderscore(options?.exposureTableName || "") ||
       "experiment_viewed";
+    const ids = getExposureIdentifierSql(userIdTypes, (id) => id);
     return `SELECT
-  ${userId},
+  ${ids.select},
   time as timestamp,
   experiment_id,
   variation_id,
@@ -601,7 +660,7 @@ const HeapSchema: SchemaInterface = {
 FROM
   ${tablePrefix}${exposureTableName}
 WHERE
-  ${userId} is not null`;
+  ${ids.notNull}`;
   },
   getIdentitySQL: () => {
     return [];
@@ -632,13 +691,14 @@ FROM
 
 const FullStorySchema: SchemaInterface = {
   experimentDimensions: ["source"],
-  getExperimentSQL: (tablePrefix, userId) => {
+  getExperimentSQL: (tablePrefix, userIdTypes) => {
+    const ids = getExposureIdentifierSql(userIdTypes, (id) => id);
     // const exposureTableName =
     //   camelToUnderscore(options?.exposureTableName || "") || "experiment_viewed";
     return `
 -- Modify the below query to match your exported data
 SELECT
-  ${userId},
+  ${ids.select},
   TIMESTAMP_MICROS(event_time) as timestamp,
   experiment_id_param.value.string_value AS experiment_id,
   variation_id_param.value.int_value AS variation_id,
@@ -654,7 +714,7 @@ WHERE
   AND exp_event_properties.event_name = 'experiment_viewed'
   AND experiment_id_param.key = 'experiment_id'
   AND variation_id_param.key = 'variation_id'
-  AND ${userId} is not null
+  AND ${ids.notNull}
   `;
   },
   getIdentitySQL: () => {
@@ -743,10 +803,13 @@ const LANGFUSE_ID_COLUMNS: Record<string, string> = {
 const LangfuseSchema: SchemaInterface = {
   experimentDimensions: ["trace_name", "release", "version"],
   userIdTypes: ["user_id", "session_id", "trace_id"],
-  getExperimentSQL: (tablePrefix, userId, options) => {
-    const idCol = LANGFUSE_ID_COLUMNS[userId] || LANGFUSE_ID_COLUMNS.user_id;
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
+    const ids = getExposureIdentifierSql(
+      userIdTypes,
+      (id) => LANGFUSE_ID_COLUMNS[id] || LANGFUSE_ID_COLUMNS.user_id,
+    );
     return `SELECT
-  ${idCol} AS ${userId},
+  ${ids.select},
   t.timestamp AS timestamp,
   substring(splitByChar('=', tag)[1], ${TRACING_KEY_POS}) AS experiment_id,
   substring(tag, position(tag, '=') + 1) AS variation_id,
@@ -760,7 +823,7 @@ WHERE
   AND position(tag, '=') > ${TRACING_KEY_POS}
   AND position(tag, '=') < length(tag)
   AND t.is_deleted = 0
-  AND ${idCol} IS NOT NULL${langfuseProjectClause("t.", options?.projectId)}
+  AND ${ids.notNull}${langfuseProjectClause("t.", options?.projectId)}
   AND t.timestamp >= toDateTime('{{startDate}}', 'UTC')
   AND t.timestamp <= toDateTime('{{endDate}}', 'UTC')`;
   },
@@ -818,10 +881,13 @@ const PHOENIX_ID_COLUMNS: Record<string, string> = {
 const PhoenixSchema: SchemaInterface = {
   experimentDimensions: ["trace_name"],
   userIdTypes: ["user_id", "session_id", "trace_id"],
-  getExperimentSQL: (tablePrefix, userId, options) => {
-    const idCol = PHOENIX_ID_COLUMNS[userId] || PHOENIX_ID_COLUMNS.user_id;
+  getExperimentSQL: (tablePrefix, userIdTypes, options) => {
+    const ids = getExposureIdentifierSql(
+      userIdTypes,
+      (id) => PHOENIX_ID_COLUMNS[id] || PHOENIX_ID_COLUMNS.user_id,
+    );
     return `SELECT
-  ${idCol} AS ${userId},
+  ${ids.select},
   t.start_time AS timestamp,
   substr(split_part(gb_tags.tag, '=', 1), ${TRACING_KEY_POS}) AS experiment_id,
   substr(gb_tags.tag, strpos(gb_tags.tag, '=') + 1) AS variation_id,
@@ -835,7 +901,7 @@ WHERE
   gb_tags.tag LIKE '${TRACING_TAG_EXPERIMENT_START}%'
   AND strpos(gb_tags.tag, '=') > ${TRACING_KEY_POS}
   AND strpos(gb_tags.tag, '=') < length(gb_tags.tag)
-  AND ${idCol} IS NOT NULL${phoenixProjectClause("p.", options?.projectName)}
+  AND ${ids.notNull}${phoenixProjectClause("p.", options?.projectName)}
   AND t.start_time >= '{{startDate}}'
   AND t.start_time <= '{{endDate}}'`;
   },
@@ -979,11 +1045,122 @@ export function getInitialSettings(
         dimensions: schema.experimentDimensions,
         name: USER_ID_TYPE_META[id]?.exposureName ?? id,
         description: "",
-        query: schema.getExperimentSQL(getTablePrefix(params), id, options),
+        query: schema.getExperimentSQL(getTablePrefix(params), [id], options),
       })),
       identityJoins: schema.getIdentitySQL(getTablePrefix(params), options),
     },
   };
+}
+
+// Splits assignment queries by whether one of their identifier types is linked
+// to `hashAttribute`. With no attribute links at all, every query is `other`.
+export function getExposureQueriesForAttribute(
+  settings: DataSourceSettings | undefined,
+  hashAttribute: string,
+  queries: ExposureQuery[] = settings?.queries?.exposure || [],
+): { matching: ExposureQuery[]; other: ExposureQuery[]; linked: boolean } {
+  const userIdTypes = settings?.userIdTypes || [];
+  const linked = userIdTypes.some((t) => (t.attributes?.length ?? 0) > 0);
+  if (!linked || !hashAttribute) {
+    return { matching: [], other: queries, linked: false };
+  }
+  const types = new Set(
+    userIdTypes
+      .filter((t) => t.attributes?.includes(hashAttribute))
+      .map((t) => t.userIdType),
+  );
+  const matches = (q: ExposureQuery) =>
+    getExposureQueryIdentifierTypes(q).some((t) => types.has(t));
+  return {
+    matching: queries.filter(matches),
+    other: queries.filter((q) => !matches(q)),
+    linked: true,
+  };
+}
+
+// Which identifier a table is analyzed per: a choice it declares, else what
+// the analysis falls back to.
+export function resolveAssignmentIdentifier({
+  query,
+  identifierType,
+  hashAttribute,
+  hashAttributeIdentifierTypeMap,
+}: {
+  query: ExposureQuery | undefined;
+  identifierType: string | undefined;
+  hashAttribute: string;
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+}): {
+  identifierType: string | null;
+  // The table declares several and the attribute doesn't settle which.
+  choose: boolean;
+  // Analyzed per an identifier the assignment attribute isn't linked to.
+  conflict: boolean;
+  // The one attribute the identifier is linked to, when the assignment
+  // attribute isn't: where following the analysis back would assign by.
+  attribute: string | null;
+} {
+  const declared = query ? getExposureQueryIdentifierTypes(query) : [];
+  const attributeIdentifiers =
+    hashAttributeIdentifierTypeMap.get(hashAttribute) ?? [];
+  const linked = declared.filter((t) => attributeIdentifiers.includes(t));
+  const resolved =
+    resolveAnalysisIdentifierType(
+      query,
+      identifierType && declared.includes(identifierType)
+        ? identifierType
+        : undefined,
+    ) || null;
+  const unlinked = !!resolved && !attributeIdentifiers.includes(resolved);
+  const attributes = unlinked
+    ? [...hashAttributeIdentifierTypeMap]
+        .filter(([, identifiers]) => identifiers.includes(resolved))
+        .map(([attribute]) => attribute)
+    : [];
+  return {
+    identifierType: resolved,
+    choose:
+      declared.length > 1 && !(linked.length === 1 && resolved === linked[0]),
+    conflict: unlinked && attributeIdentifiers.length > 0,
+    attribute: attributes.length === 1 ? attributes[0] : null,
+  };
+}
+
+// Where an assignment attribute leads, preferring the current table; null
+// when it doesn't settle one identifier or the selection already follows it.
+export function followAssignmentAttribute({
+  queries,
+  hashAttribute,
+  hashAttributeIdentifierTypeMap,
+  exposureQueryId,
+  identifierType,
+}: {
+  queries: ExposureQuery[];
+  hashAttribute: string;
+  hashAttributeIdentifierTypeMap: Map<string, string[]>;
+  exposureQueryId: string;
+  identifierType: string;
+}): { exposureQueryId: string; identifierType: string } | null {
+  const attributeIdentifiers = (
+    hashAttributeIdentifierTypeMap.get(hashAttribute) ?? []
+  ).filter((t) =>
+    queries.some((q) => getExposureQueryIdentifierTypes(q).includes(t)),
+  );
+  if (attributeIdentifiers.length !== 1) return null;
+  const [next] = attributeIdentifiers;
+  const current = queries.find((q) => q.id === exposureQueryId);
+  const resolved = resolveAssignmentIdentifier({
+    query: current,
+    identifierType,
+    hashAttribute,
+    hashAttributeIdentifierTypeMap,
+  });
+  if (current && resolved.identifierType === next) return null;
+  const query =
+    current && getExposureQueryIdentifierTypes(current).includes(next)
+      ? current
+      : queries.find((q) => getExposureQueryIdentifierTypes(q).includes(next));
+  return query ? { exposureQueryId: query.id, identifierType: next } : null;
 }
 
 export function getExposureQuery(
@@ -1338,6 +1515,30 @@ export function getInitialFactTableQuery(
       datasource.settings?.schemaOptions,
     ),
   };
+}
+
+// The requested identifiers, or every declared one when none are requested
+export function getStarterIdentifierTypes(
+  datasource: DataSourceInterfaceWithParams,
+  identifierTypes?: string[],
+): string[] {
+  const declared = (datasource.settings?.userIdTypes ?? []).map(
+    (ut) => ut.userIdType,
+  );
+  if (identifierTypes?.length) return identifierTypes;
+  return declared.length ? declared : ["user_id"];
+}
+
+// Starter SQL for a new assignment query, from the Data Source's schema
+export function getInitialExposureQuery(
+  datasource: DataSourceInterfaceWithParams,
+  identifierTypes?: string[],
+): string {
+  return getSchemaObject(datasource.settings?.schemaFormat).getExperimentSQL(
+    getTablePrefix(datasource.params),
+    getStarterIdentifierTypes(datasource, identifierTypes),
+    datasource.settings?.schemaOptions,
+  );
 }
 
 export function validateSQL(sql: string, requiredColumns: string[]): void {

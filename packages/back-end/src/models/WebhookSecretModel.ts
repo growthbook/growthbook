@@ -31,17 +31,17 @@ const BaseClass = MakeModelClass({
 
 export class WebhookSecretDataModel extends BaseClass {
   protected canCreate(): boolean {
-    return this.context.permissions.canCreateEventWebhook();
+    return this.context.permissions.canManageWebhookSecrets();
   }
   protected canRead(): boolean {
     return true;
   }
   protected canUpdate(): boolean {
-    return this.context.permissions.canUpdateEventWebhook();
+    return this.context.permissions.canManageWebhookSecrets();
   }
 
   protected canDelete(): boolean {
-    return this.context.permissions.canDeleteEventWebhook();
+    return this.context.permissions.canManageWebhookSecrets();
   }
 
   public async getAllForFrontEnd(): Promise<WebhookSecretFrontEndInterface[]> {

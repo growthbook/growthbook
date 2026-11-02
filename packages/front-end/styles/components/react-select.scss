@@ -70,7 +70,7 @@
   font-size: var(--font-size-2) !important;
 }
 
-.gb-select-wrapper--x-small {
+.gb-select-wrapper--xs {
   .gb-select__control {
     min-height: 24px !important;
     border-radius: var(--radius-2) !important;
@@ -100,7 +100,28 @@
   }
 }
 
-.gb-select-wrapper--small,
+.gb-select-wrapper--sm {
+  .gb-select__control {
+    min-height: 28px !important;
+    border-radius: var(--radius-2) !important;
+  }
+  .gb-select__value-container {
+    padding-top: 0 !important;
+    padding-bottom: 0 !important;
+  }
+  .gb-select__input-container {
+    margin-top: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  .gb-select__indicator {
+    padding-top: 4px !important;
+    padding-bottom: 4px !important;
+  }
+  .gb-select__input {
+    font-size: var(--font-size-2) !important;
+  }
+}
+
 .gb-select-wrapper--md {
   .gb-select__control {
     min-height: 32px !important;
@@ -115,7 +136,6 @@
   }
 }
 
-.gb-select-wrapper--medium,
 .gb-select-wrapper--lg {
   .gb-select__control {
     min-height: 40px !important;
@@ -231,6 +251,12 @@
 
 .gb-select__single-value {
   color: var(--text-color-main) !important;
+
+  // Trailing option detail (identifier type, event name, …) is menu-only: the
+  // closed control has no room for it and it reads as part of the value.
+  .float-right {
+    display: none;
+  }
 }
 .gb-multi-select__multi-value {
   // This one is dynamic. Style it in JS.
@@ -272,12 +298,10 @@
   height: 24px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--small .gb-select__multi-value,
 .gb-select-wrapper--md .gb-select__multi-value {
   height: 22px;
   border-radius: var(--radius-1);
 }
-.gb-select-wrapper--medium .gb-select__multi-value,
 .gb-select-wrapper--lg .gb-select__multi-value {
   height: 26px;
   border-radius: var(--radius-2);
@@ -288,7 +312,6 @@
   font-weight: 500;
   font-size: var(--font-size-1) !important;
 }
-.gb-select-wrapper--medium .gb-select__multi-value__label,
 .gb-select-wrapper--lg .gb-select__multi-value__label {
   font-size: var(--font-size-2) !important;
 }
@@ -323,7 +346,8 @@
   .gb-multi-select__raw-text-mode-indicator,
   .gb-select__raw-text-mode-indicator,
   .gb-select__copy-button,
-  .gb-multi-select__copy-button {
+  .gb-multi-select__copy-button,
+  .gb-multi-select__tag-button {
     opacity: 0 !important;
     transition: opacity 0.1s ease-in-out;
   }
@@ -335,7 +359,8 @@
   .gb-multi-select__raw-text-mode-indicator,
   .gb-select__raw-text-mode-indicator,
   .gb-select__copy-button,
-  .gb-multi-select__copy-button {
+  .gb-multi-select__copy-button,
+  .gb-multi-select__tag-button {
     opacity: 1 !important;
   }
 }
@@ -345,7 +370,9 @@
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
-.gb-select__scope-toggle {
+.gb-multi-select__tag-button,
+.gb-select__scope-toggle,
+.gb-field-indicator {
   width: 22px;
   height: 22px;
   margin: 0 1px;
@@ -368,7 +395,9 @@
 .gb-select__raw-text-mode-indicator,
 .gb-select__copy-button,
 .gb-multi-select__copy-button,
-.gb-select__scope-toggle {
+.gb-multi-select__tag-button,
+.gb-select__scope-toggle,
+.gb-field-indicator {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -389,15 +418,46 @@
   }
 }
 
+// Those grays run the wrong way on a dark background, brightening as they
+// fade; there they start faded and brighten on hover.
+.dark-theme {
+  .gb-select__clear-indicator,
+  .gb-multi-select__clear-indicator,
+  .gb-select__raw-text-mode-indicator,
+  .gb-select__copy-button,
+  .gb-multi-select__copy-button,
+  .gb-multi-select__tag-button,
+  .gb-select__scope-toggle:not(.gb-select__scope-toggle--filtering),
+  .gb-field-indicator {
+    color: var(--gray-a9) !important;
+
+    &:hover {
+      color: var(--gray-12) !important;
+    }
+  }
+}
+
+.gb-field-indicator:hover .gb-field-indicator__accent,
+.gb-field-indicator[data-state="open"] .gb-field-indicator__accent {
+  color: var(--ruby-11);
+}
+
 .gb-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-multi-select__control--is-focused .gb-select__raw-text-mode-indicator,
 .gb-select__control--is-focused .gb-select__copy-button,
 .gb-multi-select__control--is-focused .gb-multi-select__copy-button,
+.gb-multi-select__control--is-focused .gb-multi-select__tag-button,
 .gb-select__control--is-focused .gb-select__scope-toggle {
   color: hsl(0, 0%, 40%);
   &:hover {
     color: hsl(0, 0%, 20%);
   }
+}
+
+// Stays put while its menu is open, even once the pointer leaves the control.
+.gb-multi-select__tag-button[aria-expanded="true"] {
+  opacity: 1 !important;
+  background-color: var(--gray-a3) !important;
 }
 
 // Always visible, unlike the hover-only indicators — it carries state.
