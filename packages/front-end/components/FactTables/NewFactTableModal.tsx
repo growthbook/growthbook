@@ -65,6 +65,7 @@ import { Select, SelectItem } from "@/ui/Select";
 import Table, { TableBody, TableCell, TableRow } from "@/ui/Table";
 import Text from "@/ui/Text";
 import Code from "@/components/SyntaxHighlighting/Code";
+import Tooltip from "@/components/Tooltip/Tooltip";
 import Link from "@/ui/Link";
 
 const TABLE_TYPES: {
@@ -789,20 +790,26 @@ export default function NewFactTableModal({
             placeholder={"SELECT\n  user_id,\n  timestamp\nFROM\n  events"}
             templateVariables={{ eventName: eventName || name }}
             datasourceHeader={
-              <Select
-                aria-label="Data Source"
-                value={datasourceId}
-                setValue={setDatasourceId}
-                disabled={lockDatasource || isEdit}
-                placeholder="Select..."
-                mb="0"
+              // The server doesn't take a new Data Source on update
+              <Tooltip
+                body="A saved Fact Table's Data Source can't be changed. Duplicate it to use another one."
+                shouldDisplay={isEdit}
               >
-                {validDatasources.map((d) => (
-                  <SelectItem key={d.id} value={d.id}>
-                    {d.name}
-                  </SelectItem>
-                ))}
-              </Select>
+                <Select
+                  aria-label="Data Source"
+                  value={datasourceId}
+                  setValue={setDatasourceId}
+                  disabled={lockDatasource || isEdit}
+                  placeholder="Select..."
+                  mb="0"
+                >
+                  {validDatasources.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </Select>
+              </Tooltip>
             }
           />
         </Box>
@@ -948,6 +955,7 @@ export default function NewFactTableModal({
                 {usesEventName(factTableSql) ? (
                   <TextField
                     label="Event name in database"
+                    helpText="Fills {{eventName}} in your SQL. Leave blank to use the Fact Table name."
                     value={eventName}
                     placeholder={name}
                     onChange={(e) => setEventName(e.target.value)}

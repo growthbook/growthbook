@@ -14,7 +14,6 @@ import {
 import { FaTriangleExclamation } from "react-icons/fa6";
 import { Box, Flex, IconButton } from "@radix-ui/themes";
 import { useAuth } from "@/services/auth";
-import { useUser } from "@/services/UserContext";
 import { useAddComputedFields, useSearch } from "@/services/search";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import Field from "@/components/Forms/Field";
@@ -22,31 +21,21 @@ import Tooltip from "@/components/Tooltip/Tooltip";
 import Button from "@/ui/Button";
 import Callout from "@/ui/Callout";
 import Avatar from "@/ui/Avatar";
-import Switch from "@/ui/Switch";
 import ColumnModal from "./ColumnModal";
 
 export interface Props {
   factTable: FactTableInterface;
   canEdit?: boolean;
-  // Fact-table-level settings, which need more than column edit access
-  canEditSettings?: boolean;
 }
 
 const POLL_INTERVAL_MS = 3000; // Poll every 3 seconds
 const POLL_TIMEOUT_MS = 60000; // Give up after 1 minute
 
-export default function ColumnList({
-  factTable,
-  canEdit = false,
-  canEditSettings = false,
-}: Props) {
+export default function ColumnList({ factTable, canEdit = false }: Props) {
   const [editOpen, setEditOpen] = useState("");
   const [refreshing, setRefreshing] = useState(false);
-  const [savingAutoUpdate, setSavingAutoUpdate] = useState(false);
-  const [autoUpdateError, setAutoUpdateError] = useState<string | null>(null);
   const { mutateDefinitions } = useDefinitions();
   const { apiCall } = useAuth();
-  const { hasCommercialFeature } = useUser();
 
   // Silently poll for updates when columns are being refreshed in background
   useEffect(() => {
@@ -156,33 +145,6 @@ export default function ColumnList({
             />
           </Box>
         )}
-        {canEditSettings &&
-          hasCommercialFeature("metric-slices") &&
-          // Includes virtual columns, which the list leaves out
-          factTable.columns.some((c) => c.isAutoSliceColumn && !c.deleted) && (
-            <Switch
-              label="Auto-update Auto Slice levels"
-              value={!!factTable.autoSliceUpdatesEnabled}
-              disabled={savingAutoUpdate}
-              state={autoUpdateError ? "error" : "default"}
-              stateLabel={autoUpdateError ?? undefined}
-              onChange={async (autoSliceUpdatesEnabled) => {
-                setSavingAutoUpdate(true);
-                setAutoUpdateError(null);
-                try {
-                  await apiCall(`/fact-tables/${factTable.id}`, {
-                    method: "PUT",
-                    body: JSON.stringify({ autoSliceUpdatesEnabled }),
-                  });
-                  await mutateDefinitions();
-                } catch (e) {
-                  setAutoUpdateError(e.message);
-                } finally {
-                  setSavingAutoUpdate(false);
-                }
-              }}
-            />
-          )}
         {canEdit && (
           <Box>
             <Button

@@ -6,7 +6,8 @@ import {
   FactTableInterface,
 } from "shared/types/fact-table";
 import Text from "@/ui/Text";
-import Field from "@/components/Forms/Field";
+import Badge from "@/ui/Badge";
+import TextField from "@/ui/TextField";
 import SelectField from "@/components/Forms/SelectField";
 import MultiSelectField from "@/ui/MultiSelectField";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -82,7 +83,8 @@ export default function AggregatedFactTableSettingsModal({
   return (
     <ModalStandard
       trackingEventModalType=""
-      header="[Experimental] Daily Aggregated Tables"
+      header="Daily Aggregated Tables"
+      headerAction={<Badge label="Experimental" variant="soft" />}
       open={true}
       close={close}
       cta="Save"
@@ -111,7 +113,7 @@ export default function AggregatedFactTableSettingsModal({
 
       <MultiSelectField
         label="Materialize aggregated tables for"
-        labelClassName="font-weight-bold"
+        legacyLabelFormatting={false}
         helpText="Tables are aggregated by identifier type and only experiments using these identifier types will be able to use the aggregated tables for CUPED. Clear all to disable."
         value={selectedIdTypes}
         options={factTable.userIdTypes.map((idType) => ({
@@ -126,17 +128,17 @@ export default function AggregatedFactTableSettingsModal({
 
       <Flex gap="3">
         <Box>
-          <Field
+          <TextField
             label="Daily update time"
-            labelClassName="font-weight-bold"
             type="time"
+            mb="3"
             {...form.register("aggregatedFactTableSettings.updateTime.time")}
           />
         </Box>
         <Box flexGrow="1">
           <SelectField
             label="Timezone"
-            labelClassName="font-weight-bold"
+            legacyLabelFormatting={false}
             value={timezone}
             options={timezoneOptions.map((tz) => ({
               value: tz,
@@ -152,9 +154,8 @@ export default function AggregatedFactTableSettingsModal({
         </Box>
       </Flex>
 
-      <Field
+      <TextField
         label="Restate lookback window (days)"
-        labelClassName="font-weight-bold"
         helpText="How far back to re-scan when the table is fully restated (e.g. on schema changes). Leave it longer than your typical regression window to allow for experiments with older start dates to still benefit from the aggregated tables. Also the default retention window for the table is set to this value. If this value changes, however, the retention window on any existing tables will only change when the table is fully restated."
         type="number"
         min={1}

@@ -8,6 +8,7 @@ import {
 } from "shared/types/fact-table";
 import { getFactMetricFactTableIds } from "shared/experiments";
 import { hasStartDateFilter } from "shared/sql";
+import { DEFAULT_TOP_VALUES_LOOKBACK_VALUE } from "shared/settings";
 import Text from "@/ui/Text";
 import Link from "@/ui/Link";
 import Callout from "@/ui/Callout";
@@ -51,6 +52,8 @@ import Modal from "@/components/Modal";
 import HistoryTable from "@/components/HistoryTable";
 import OpenInExplorerButton from "@/enterprise/components/ProductAnalytics/OpenInExplorerButton";
 import { DocLink } from "@/components/DocLink";
+import useOrgSettings from "@/hooks/useOrgSettings";
+import { getAutoSliceUpdateFrequencyText } from "@/services/env";
 
 export function getMetricsForFactTable(
   factMetrics: FactMetricInterface[],
@@ -85,6 +88,9 @@ export default function FactTablePage() {
 
   const permissionsUtil = usePermissionsUtil();
   const { hasCommercialFeature, getOwnerDisplay } = useUser();
+  const topValuesLookbackDays =
+    useOrgSettings().topValuesLookbackValue ??
+    DEFAULT_TOP_VALUES_LOOKBACK_VALUE;
 
   const {
     getFactTableById,
@@ -351,16 +357,48 @@ export default function FactTablePage() {
                 permissionsUtil.canCreateOfficialResources(factTable) &&
                 hasCommercialFeature("manage-official-resources") && (
                   <DropdownMenuItem
-                    onClick={async () => {
-                      await apiCall(`/fact-tables/${factTable.id}`, {
-                        method: "PUT",
-                        body: JSON.stringify({ managedBy: "" }),
-                      });
-                      mutateDefinitions();
-                      setDropdownOpen(false);
+                    confirmation={{
+                      confirmationTitle: "Remove official status",
+                      cta: "Remove",
+                      getConfirmationContent: async () =>
+                        "Anyone with edit access will be able to change this Fact Table.",
+                      submit: async () => {
+                        await apiCall(`/fact-tables/${factTable.id}`, {
+                          method: "PUT",
+                          body: JSON.stringify({ managedBy: "" }),
+                        });
+                        mutateDefinitions();
+                      },
+                      closeDropdown: () => setDropdownOpen(false),
                     }}
                   >
                     Remove official status
+                  </DropdownMenuItem>
+                )}
+              {canEdit &&
+                hasCommercialFeature("metric-slices") &&
+                factTable.columns.some(
+                  (c) => c.isAutoSliceColumn && !c.deleted,
+                ) && (
+                  <DropdownMenuItem
+                    tooltip={`Updates Auto Slice levels every ${getAutoSliceUpdateFrequencyText()} from the top values over the last ${topValuesLookbackDays} days. Locked levels are kept.`}
+                    onClick={async (e) => {
+                      // Stays open to show a failed save
+                      e.preventDefault();
+                      await apiCall(`/fact-tables/${factTable.id}`, {
+                        method: "PUT",
+                        body: JSON.stringify({
+                          autoSliceUpdatesEnabled:
+                            !factTable.autoSliceUpdatesEnabled,
+                        }),
+                      });
+                      await mutateDefinitions();
+                      setDropdownOpen(false);
+                    }}
+                  >
+                    {factTable.autoSliceUpdatesEnabled
+                      ? "Turn off Auto Slice updates"
+                      : "Turn on Auto Slice updates"}
                   </DropdownMenuItem>
                 )}
               {canEditAggregatedSettings && (
@@ -370,7 +408,7 @@ export default function FactTablePage() {
                     setDropdownOpen(false);
                   }}
                 >
-                  Daily aggregated tables
+                  Edit daily aggregation settings
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem
@@ -594,11 +632,7 @@ export default function FactTablePage() {
         <div className="col col-md-6 d-flex flex-column">
           <h3>Columns</h3>
           <div className="appbox p-3 flex-1 mb-0">
-            <ColumnList
-              factTable={factTable}
-              canEdit={canEditColumns}
-              canEditSettings={canEdit}
-            />
+            <ColumnList factTable={factTable} canEdit={canEditColumns} />
           </div>
         </div>
       </div>
