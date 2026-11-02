@@ -62,16 +62,19 @@ export default function DataSourceProjectScope({
   const selectedNames = projects
     .filter((project) => checkedIds.includes(project.id))
     .map((project) => project.name);
+  // A global grant can coexist with a deny on every existing Project. Nothing
+  // in the list can be toggled, and an explicit list cannot be built.
+  const onlyAllProjects = canCreateForAllProjects && creatableIds.length === 0;
   const applySelection = (ids: string[]) => {
+    if (onlyAllProjects) {
+      onChange(false, []);
+      return;
+    }
     const next = creatableIds.filter((id) => ids.includes(id));
     // Every Project this user can assign, and they may use All Projects:
     // that scope also covers Projects they can't assign and Projects created
     // later. Someone who can't assign All Projects keeps the explicit list.
-    if (
-      canCreateForAllProjects &&
-      creatableIds.length > 0 &&
-      next.length === creatableIds.length
-    ) {
+    if (canCreateForAllProjects && next.length === creatableIds.length) {
       onChange(false, []);
       return;
     }
@@ -165,20 +168,26 @@ export default function DataSourceProjectScope({
                   Assign to Projects
                 </Text>
                 <Text as="p" size="sm" color="text-mid" mb="3">
-                  {canCreateForAllProjects
-                    ? projects.some((project) => !project.canCreate)
-                      ? "Check every Project you can assign to use All Projects. That also includes Projects you can't assign, and Projects created later."
-                      : "Check every Project to assign this Data Source to All Projects, including Projects created later."
-                    : "All Projects isn't available for your role. This Data Source is limited to the Projects you check."}
+                  {onlyAllProjects
+                    ? "All Projects is the only scope you can use. It includes every Project, including ones you can't assign, and Projects created later."
+                    : canCreateForAllProjects
+                      ? projects.some((project) => !project.canCreate)
+                        ? "Check every Project you can assign to use All Projects. That also includes Projects you can't assign, and Projects created later."
+                        : "Check every Project to assign this Data Source to All Projects, including Projects created later."
+                      : "All Projects isn't available for your role. This Data Source is limited to the Projects you check."}
                 </Text>
                 <Flex align="center" gap="2" mb="3">
                   <Link onClick={() => applySelection(creatableIds)}>
                     Check all
                   </Link>
-                  <Text size="sm" color="text-low">
-                    ·
-                  </Text>
-                  <Link onClick={() => applySelection([])}>Check none</Link>
+                  {onlyAllProjects ? null : (
+                    <>
+                      <Text size="sm" color="text-low">
+                        ·
+                      </Text>
+                      <Link onClick={() => applySelection([])}>Check none</Link>
+                    </>
+                  )}
                 </Flex>
                 <Box pt="3" style={{ borderTop: "1px solid var(--gray-a6)" }}>
                   {projects.length > 10 ? (
