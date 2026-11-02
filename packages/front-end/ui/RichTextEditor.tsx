@@ -52,7 +52,7 @@ import { useDropzone } from "react-dropzone";
 import { Box, IconButton } from "@radix-ui/themes";
 import { PiCaretDownBold, PiCaretUpBold } from "react-icons/pi";
 import { useAuth } from "@/services/auth";
-import { uploadFile } from "@/services/files";
+import { UPLOAD_IMAGE_TYPES, uploadFile } from "@/services/files";
 import useOrgSettings from "@/hooks/useOrgSettings";
 import { getLinkLabelFromUrl } from "@/components/Markdown/markdownLinkUtils";
 import Collapse from "@/ui/Collapse";
@@ -132,8 +132,6 @@ const MARKDOWN_TRANSFORMERS = [
   AUTO_LINK_TRANSFORMER,
   ...TRANSFORMERS,
 ];
-
-const IMAGE_TYPES = "image/png, image/jpeg, image/gif";
 
 const THEME = {
   paragraph: styles.paragraph,
@@ -390,7 +388,7 @@ export default forwardRef<RichTextEditorHandle, Props>(function RichTextEditor(
     noClick: true,
     noKeyboard: true,
     disabled: !allowImages,
-    accept: IMAGE_TYPES,
+    accept: UPLOAD_IMAGE_TYPES,
   });
 
   const handleChange = useCallback(

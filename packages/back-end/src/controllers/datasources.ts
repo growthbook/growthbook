@@ -2,13 +2,16 @@ import { hasSuperAdminPermission } from "shared/permissions";
 import { Response } from "express";
 import cloneDeep from "lodash/cloneDeep";
 import pick from "lodash/pick";
+import uniqid from "uniqid";
 import { z } from "zod";
 import { SQL_ROW_LIMIT } from "shared/sql";
 import {
   getEventForwarderDatasourceParams,
   buildManagedWarehouseExposureQueries,
   getManagedWarehouseUserIdTypeSettings,
+  assignServerIdsToAddedExposureQueries,
   getDataSourceSaveChanges,
+  getSavedQueriesSharingId,
 } from "shared/util";
 import {
   PIPELINE_MODE_SUPPORTED_DATA_SOURCE_TYPES,
@@ -464,17 +467,45 @@ function assertCanUpdateDataSource(
     permissions.throwPermissionError();
   }
 
+  const saved = datasource.settings?.queries?.exposure ?? [];
   const nextDatasource = { projects: body.projects ?? datasource.projects };
   for (const change of exposureQueryChanges) {
     if (
       (change.previous &&
-        !permissions.canUpdateExposureQuery(change.previous, datasource)) ||
+        [
+          change.previous,
+          ...getSavedQueriesSharingId(saved, change.previous.id),
+        ].some((q) => !permissions.canUpdateExposureQuery(q, datasource))) ||
       (change.next &&
         !permissions.canUpdateExposureQuery(change.next, nextDatasource))
     ) {
       permissions.throwPermissionError();
     }
   }
+}
+
+function withServerExposureQueryIds(
+  context: ReqContext,
+  datasource: DataSourceInterface,
+  body: PutDataSourceBody,
+): PutDataSourceBody {
+  const { settings } = body;
+  if (!settings?.queries?.exposure) return body;
+  return {
+    ...body,
+    settings: {
+      ...settings,
+      queries: {
+        ...settings.queries,
+        exposure: assignServerIdsToAddedExposureQueries(
+          datasource.settings?.queries?.exposure ?? [],
+          settings.queries.exposure,
+          context.permissions.canUpdateDataSourceSettings(datasource),
+          () => uniqid("exq_"),
+        ),
+      },
+    },
+  };
 }
 
 // Tests credentials without saving anything. Connection failures come back as a
@@ -594,7 +625,6 @@ export async function putDataSource(
     description,
     type,
     params,
-    settings,
     projects,
     metricsToCreate,
     eventForwarderConfig,
@@ -609,7 +639,9 @@ export async function putDataSource(
     return;
   }
 
-  assertCanUpdateDataSource(context, datasource, req.body);
+  const body = withServerExposureQueryIds(context, datasource, req.body);
+  const { settings } = body;
+  assertCanUpdateDataSource(context, datasource, body);
 
   // Require higher permissions to change connection settings vs updating query settings
   if (params) {
@@ -1452,7 +1484,12 @@ export async function updateExposureQuery(
   }
 
   const exposureQuery = copy.settings.queries.exposure[exposureQueryIndex];
-  if (!context.permissions.canUpdateExposureQuery(exposureQuery, dataSource)) {
+  if (
+    getSavedQueriesSharingId(
+      copy.settings.queries.exposure,
+      exposureQueryId,
+    ).some((q) => !context.permissions.canUpdateExposureQuery(q, dataSource))
+  ) {
     context.permissions.throwPermissionError();
   }
   // Only dimension metadata; the rest of the query is edited through the data
