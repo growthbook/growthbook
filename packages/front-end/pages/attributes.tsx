@@ -154,9 +154,7 @@ const EmptySection: FC<{
     </Box>
     {cta && (
       <Box mt="2">
-        <Button variant="soft" onClick={onClick}>
-          {cta}
-        </Button>
+        <Button onClick={onClick}>{cta}</Button>
       </Box>
     )}
   </Flex>
@@ -621,7 +619,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 </Text>
               </Box>
               {canCreateAttributes && identifiers.length > 0 && (
-                <Button variant="soft" onClick={() => setIdentifierModal({})}>
+                <Button onClick={() => setIdentifierModal({})}>
                   Add Identifier
                 </Button>
               )}
@@ -800,9 +798,7 @@ const FeatureAttributesPage = (): React.ReactElement => {
                 </Text>
               </Box>
               {canCreateAttributes && targetingAttributes.length > 0 && (
-                <Button variant="soft" onClick={() => setModalData("")}>
-                  Add Attribute
-                </Button>
+                <Button onClick={() => setModalData("")}>Add Attribute</Button>
               )}
             </Flex>
             {targetingAttributes.length > 0 ? (

@@ -23,6 +23,7 @@ import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
 import Badge from "@/ui/Badge";
+import Tooltip from "@/ui/Tooltip";
 import Callout from "@/ui/Callout";
 import Table, {
   TableBody,
@@ -408,49 +409,60 @@ export default function IdentifierModal({
                     return (
                       <TableRow key={d.id}>
                         <TableCell>
-                          <Checkbox
-                            label={
+                          {linked || !editable ? (
+                            <Tooltip
+                              content={
+                                linked
+                                  ? `Linked as ${linked}. Change it from the Data Source.`
+                                  : "You don't have permission to edit this Data Source"
+                              }
+                            >
                               <Flex align="center" gap="2">
+                                <PiLockSimple
+                                  aria-label={linked ? "Linked" : "Locked"}
+                                  color="var(--gray-11)"
+                                />
                                 <PiDatabase />
-                                <Text
-                                  color={isChecked ? undefined : "text-low"}
-                                >
+                                <Text weight="medium" color="text-mid">
                                   {d.name}
                                 </Text>
                               </Flex>
-                            }
-                            weight="medium"
-                            align="center"
-                            description={
-                              !isEdit &&
-                              userIdTypeNames(d).includes(defaultType)
-                                ? `Already has ${defaultType}`
-                                : undefined
-                            }
-                            value={isChecked}
-                            disabled={!!linked || !editable}
-                            disabledMessage={
-                              linked
-                                ? `Linked as ${linked}. Change it from the Data Source.`
-                                : "You don't have permission to edit this Data Source"
-                            }
-                            setValue={(v) => {
-                              if (isEdit) {
-                                setPicks((p) => {
-                                  const next = { ...p };
-                                  if (v) next[d.id] = defaultPick(d);
-                                  else delete next[d.id];
-                                  return next;
-                                });
-                              } else {
-                                setUncheckedIds((ids) =>
-                                  v
-                                    ? ids.filter((id) => id !== d.id)
-                                    : [...ids, d.id],
-                                );
+                            </Tooltip>
+                          ) : (
+                            <Checkbox
+                              label={
+                                <Flex align="center" gap="2">
+                                  <PiDatabase />
+                                  <Text>{d.name}</Text>
+                                </Flex>
                               }
-                            }}
-                          />
+                              weight="medium"
+                              align="center"
+                              description={
+                                !isEdit &&
+                                userIdTypeNames(d).includes(defaultType)
+                                  ? `Already has ${defaultType}`
+                                  : undefined
+                              }
+                              value={isChecked}
+                              setValue={(v) => {
+                                if (isEdit) {
+                                  setPicks((p) => {
+                                    const next = { ...p };
+                                    if (v) next[d.id] = defaultPick(d);
+                                    else delete next[d.id];
+                                    return next;
+                                  });
+                                } else {
+                                  setUncheckedIds((ids) =>
+                                    v
+                                      ? ids.filter((id) => id !== d.id)
+                                      : [...ids, d.id],
+                                  );
+                                }
+                              }}
+                            />
+                          )}
                         </TableCell>
                         {isEdit && (
                           <>
