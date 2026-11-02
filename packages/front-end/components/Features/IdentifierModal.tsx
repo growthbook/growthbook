@@ -22,7 +22,6 @@ import MultiSelectField from "@/ui/MultiSelectField";
 import Checkbox from "@/ui/Checkbox";
 import Text from "@/ui/Text";
 import HelperText from "@/ui/HelperText";
-import Badge from "@/ui/Badge";
 import Tooltip from "@/ui/Tooltip";
 import Callout from "@/ui/Callout";
 import Table, {
@@ -63,30 +62,6 @@ function syncsIdentifiersAutomatically(
 
 function userIdTypeNames(datasource: DataSourceInterfaceWithParams) {
   return (datasource.settings.userIdTypes ?? []).map((t) => t.userIdType);
-}
-
-function UsageBadge({
-  datasource,
-  userIdType,
-}: {
-  datasource: DataSourceInterfaceWithParams;
-  userIdType: string | null;
-}) {
-  if (!userIdType || !userIdTypeNames(datasource).includes(userIdType)) {
-    return <Badge label="New" color="violet" variant="soft" />;
-  }
-  const count = (datasource.settings.queries?.exposure ?? []).filter(
-    (q) => q.userIdType === userIdType || q.userIdTypes?.includes(userIdType),
-  ).length;
-  return count > 0 ? (
-    <Badge
-      label={`Used in ${count} ${count === 1 ? "query" : "queries"}`}
-      color="green"
-      variant="soft"
-    />
-  ) : (
-    <Badge label="Not used yet" color="gray" variant="soft" />
-  );
 }
 
 export default function IdentifierModal({
@@ -387,14 +362,9 @@ export default function IdentifierModal({
                   <TableRow>
                     <TableColumnHeader>Data Source</TableColumnHeader>
                     {isEdit && (
-                      <>
-                        <TableColumnHeader style={{ width: 200 }}>
-                          Identifier type
-                        </TableColumnHeader>
-                        <TableColumnHeader style={{ width: 160 }}>
-                          Assignment queries
-                        </TableColumnHeader>
-                      </>
+                      <TableColumnHeader style={{ width: 240 }}>
+                        Identifier type
+                      </TableColumnHeader>
                     )}
                   </TableRow>
                 </TableHeader>
@@ -405,7 +375,6 @@ export default function IdentifierModal({
                     const isChecked = isEdit
                       ? !!linked || d.id in picks
                       : editable && !uncheckedIds.includes(d.id);
-                    const type = linked ?? pickedType(d);
                     return (
                       <TableRow key={d.id}>
                         <TableCell>
@@ -500,11 +469,6 @@ export default function IdentifierModal({
                                     </>
                                   )}
                                 </Select>
-                              )}
-                            </TableCell>
-                            <TableCell>
-                              {isChecked && (
-                                <UsageBadge datasource={d} userIdType={type} />
                               )}
                             </TableCell>
                           </>
