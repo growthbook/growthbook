@@ -501,9 +501,6 @@ function getFactTableGroups({
           metricIndex++;
         }
         if (population) {
-          // the population applies to all metrics in the request
-          // so metrics dependent on fact tables other than
-          // the population's fact table are invalid.
           const group = groups[population.source.factTableId];
           if (
             !group ||
