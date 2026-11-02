@@ -19,8 +19,7 @@ import type {
 } from "shared/experiments";
 import Text from "@/ui/Text";
 import Callout from "@/ui/Callout";
-import Link from "@/ui/Link";
-import { docsOrigin } from "@/components/docSections";
+import { DocLink } from "@/components/DocLink";
 import HelperText from "@/ui/HelperText";
 import Metadata from "@/ui/Metadata";
 import Heading from "@/ui/Heading";
@@ -150,8 +149,8 @@ function unknownVariationHint(cause: UnknownVariationCause): ReactNode {
     case "empty":
       return (
         <>
-          is empty (a <code>NULL</code> or blank <code>variation_id</code>);
-          return a configured variation key instead.
+          is <code>NULL</code> or blank; return a configured variation key
+          instead.
         </>
       );
     case "caseOrWhitespace":
@@ -396,7 +395,6 @@ export default function ContextualBanditResultsTable({
     unknownVariations,
     cb.variations,
   );
-  const assignmentQueryDocUrl = `${docsOrigin}/bandits/contextual-config#4-create-a-contextual-bandit-assignment-query`;
 
   const comparisonColumns: HeatmapColumn[] = useMemo(
     () =>
@@ -558,7 +556,7 @@ export default function ContextualBanditResultsTable({
               {unknownVariationCauses.map((cause) => (
                 <li key={cause.value}>
                   {cause.kind === "empty" ? (
-                    <em>(empty value)</em>
+                    <Text fontStyle="italic">(empty value)</Text>
                   ) : (
                     <code>{cause.value}</code>
                   )}{" "}
@@ -569,9 +567,9 @@ export default function ContextualBanditResultsTable({
           </Box>
           <Text as="div" mt="2">
             Map <code>variation_id</code> to your variation keys in the query.{" "}
-            <Link href={assignmentQueryDocUrl} target="_blank" rel="noreferrer">
+            <DocLink docSection="contextualBanditsAssignmentQuery">
               Learn more
-            </Link>
+            </DocLink>
             .
           </Text>
         </Callout>
