@@ -9,6 +9,7 @@ export type DataSourceOptionAvailability =
   | { status: "available" }
   | { status: "already-set-up"; datasourceId: string }
   | { status: "upgrade-required" }
+  | { status: "cloud-only"; reason: string }
   | { status: "unavailable"; reason: string };
 
 const NO_PERMISSION: DataSourceOptionAvailability = {
@@ -23,7 +24,7 @@ const LEGACY_PRO_PLAN: DataSourceOptionAvailability = {
 };
 
 const CLOUD_ONLY: DataSourceOptionAvailability = {
-  status: "unavailable",
+  status: "cloud-only",
   reason: "Only available on GrowthBook Cloud.",
 };
 
