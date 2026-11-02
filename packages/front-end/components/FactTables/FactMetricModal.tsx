@@ -1,5 +1,4 @@
 import { useForm, UseFormReturn } from "react-hook-form";
-import omit from "lodash/omit";
 import { ReactElement, useEffect, useMemo, useState } from "react";
 import { FaTimes } from "react-icons/fa";
 import { Box, Flex, Text } from "@radix-ui/themes";
@@ -12,7 +11,6 @@ import {
   FactMetricInterface,
   ColumnRef,
   CreateFactMetricProps,
-  UpdateFactMetricProps,
   MetricQuantileSettings,
   FactTableDefinition,
   FactTableInterface,
@@ -84,10 +82,6 @@ import { DocLink } from "@/components/DocLink";
 export interface Props {
   close?: () => void;
   initialFactTable?: string;
-  existing?: Partial<FactMetricInterface>;
-  duplicate?: boolean;
-  showAdvancedSettings?: boolean;
-  onSave?: () => void;
   source: string;
   datasource?: string;
 }
@@ -1186,10 +1180,6 @@ export default function FactMetricModal(props: Props) {
 function StandardFactMetricModal({
   close,
   initialFactTable,
-  existing,
-  duplicate = false,
-  showAdvancedSettings,
-  onSave,
   source,
   datasource,
 }: Props) {
@@ -1225,14 +1215,12 @@ function StandardFactMetricModal({
   const defaultValues = getDefaultFactMetricProps({
     datasources,
     metricDefaults,
-    existing,
     settings,
     project,
     initialFactTable: initialFactTable
       ? getFactTableById(initialFactTable) || undefined
       : undefined,
     initialDatasource: datasource,
-    managedBy: existing?.managedBy,
   });
 
   // Multiple percent values by 100 for the UI
@@ -1247,9 +1235,7 @@ function StandardFactMetricModal({
 
   const selectedDataSource = getDatasourceById(form.watch("datasource"));
 
-  const [advancedOpen, setAdvancedOpen] = useState(
-    showAdvancedSettings || false,
-  );
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const type = form.watch("metricType");
 
@@ -1281,20 +1267,10 @@ function StandardFactMetricModal({
         ? "Lookback periods under 7 days tend not to capture enough metric data to reduce variance and may be subject to weekly seasonality"
         : "";
 
-  const isNew = !existing || duplicate;
-  const canChangeDatasource = isNew && !datasource;
-  const initialType = existing?.metricType;
+  const canChangeDatasource = !datasource;
   useEffect(() => {
-    if (isNew) {
-      track("Viewed Create Fact Metric Modal", { source, flow: "modal" });
-    } else {
-      track("Viewed Edit Fact Metric Modal", {
-        type: initialType,
-        source,
-        flow: "modal",
-      });
-    }
-  }, [isNew, initialType, source]);
+    track("Viewed Create Fact Metric Modal", { source, flow: "modal" });
+  }, [source]);
 
   const quantileSettings = form.watch("quantileSettings") || {
     type: "event",
@@ -1318,7 +1294,7 @@ function StandardFactMetricModal({
   // Funnel steps live outside react-hook-form: their nested step/filter shape
   // breaks its typed field-path resolution.
   const [funnelSettings, setFunnelSettings] = useState<FunnelSettings | null>(
-    existing?.funnelSettings || null,
+    null,
   );
   const availableAutoSliceColumns = useMemo(() => {
     if (type !== "funnel") {
@@ -1393,7 +1369,7 @@ function StandardFactMetricModal({
     <Modal
       trackingEventModalType=""
       open={true}
-      header={!isNew ? "Edit Metric" : "Create Fact Metric"}
+      header="Create Fact Metric"
       bodyClassName="p-0"
       close={close}
       submit={form.handleSubmit(
@@ -1457,35 +1433,22 @@ function StandardFactMetricModal({
               "modal",
             );
 
-            if (!isNew) {
-              const updatePayload = omit(funnelBody, [
-                "datasource",
-              ]) as UpdateFactMetricProps;
-              await apiCall(`/fact-metrics/${existing.id}`, {
-                method: "PUT",
-                body: JSON.stringify(updatePayload),
-              });
-              track("Edit Fact Metric", trackProps);
-              await mutateDefinitions();
-            } else {
-              const createPayload: CreateFactMetricProps = {
-                ...funnelBody,
-                projects:
-                  getFactTableById(fs.steps[0].factTableId)?.projects ||
-                  selectedDataSource.projects ||
-                  [],
-              };
-              await apiCall<{ factMetric: FactMetricInterface }>(
-                `/fact-metrics`,
-                {
-                  method: "POST",
-                  body: JSON.stringify(createPayload),
-                },
-              );
-              track("Create Fact Metric", trackProps);
-              await mutateDefinitions();
-              onSave && onSave();
-            }
+            const createPayload: CreateFactMetricProps = {
+              ...funnelBody,
+              projects:
+                getFactTableById(fs.steps[0].factTableId)?.projects ||
+                selectedDataSource.projects ||
+                [],
+            };
+            await apiCall<{ factMetric: FactMetricInterface }>(
+              `/fact-metrics`,
+              {
+                method: "POST",
+                body: JSON.stringify(createPayload),
+              },
+            );
+            track("Create Fact Metric", trackProps);
+            await mutateDefinitions();
             return;
           }
 
@@ -1573,58 +1536,30 @@ function StandardFactMetricModal({
 
           const trackProps = getFactMetricTrackProps(values, source, "modal");
 
-          if (!isNew) {
-            // Track auto slices changes
-            const previousSlices = existing.metricAutoSlices || [];
-            const newSlices = values.metricAutoSlices || [];
-            if (JSON.stringify(previousSlices) !== JSON.stringify(newSlices)) {
-              track("metric-auto-slices-updated", {
-                metricId: existing.id,
-                previousSlices: previousSlices,
-                newSlices: newSlices,
-                sliceCount: newSlices.length,
-              });
-            }
-
-            const updatePayload = omit(values, [
-              "datasource",
-            ]) as UpdateFactMetricProps;
-            await apiCall(`/fact-metrics/${existing.id}`, {
-              method: "PUT",
-              body: JSON.stringify(updatePayload),
+          // Track auto slices for new metrics
+          const newSlices = values.metricAutoSlices || [];
+          if (newSlices.length > 0) {
+            track("metric-auto-slices-updated", {
+              newSlices: newSlices,
+              sliceCount: newSlices.length,
             });
-            track("Edit Fact Metric", trackProps);
-            await mutateDefinitions();
-          } else {
-            // Track auto slices for new metrics
-            const newSlices = values.metricAutoSlices || [];
-            if (newSlices.length > 0) {
-              track("metric-auto-slices-updated", {
-                newSlices: newSlices,
-                sliceCount: newSlices.length,
-              });
-            }
-
-            const createPayload: CreateFactMetricProps = {
-              ...values,
-              funnelSettings: null,
-              projects:
-                numeratorFactTable?.projects ||
-                selectedDataSource.projects ||
-                [],
-            };
-
-            await apiCall<{
-              factMetric: FactMetricInterface;
-            }>(`/fact-metrics`, {
-              method: "POST",
-              body: JSON.stringify(createPayload),
-            });
-            track("Create Fact Metric", trackProps);
-            await mutateDefinitions();
-
-            onSave && onSave();
           }
+
+          const createPayload: CreateFactMetricProps = {
+            ...values,
+            funnelSettings: null,
+            projects:
+              numeratorFactTable?.projects || selectedDataSource.projects || [],
+          };
+
+          await apiCall<{
+            factMetric: FactMetricInterface;
+          }>(`/fact-metrics`, {
+            method: "POST",
+            body: JSON.stringify(createPayload),
+          });
+          track("Create Fact Metric", trackProps);
+          await mutateDefinitions();
         },
         (errors) => {
           throw new Error(
@@ -1644,7 +1579,7 @@ function StandardFactMetricModal({
             autoFocus
             required
           />
-          {!existing && !initialFactTable && (
+          {!initialFactTable && (
             <SelectField
               size="legacy"
               label="Data Source"
