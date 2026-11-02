@@ -896,7 +896,7 @@ const MetricsSelector: FC<{
           ? formatClusterGroupLabel
           : undefined
       }
-      // The analysis-level groups are already ordered, sub-unit first.
+      // The analysis-level groups are already ordered, subunit first.
       sortOptions={!(groupOptions && clusterIdType && userIdType)}
       // The card names the chip, so a native title would only cover it.
       valueTitles={!metricOverrides}

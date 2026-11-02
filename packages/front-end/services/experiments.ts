@@ -1529,9 +1529,7 @@ export function getAvailableSliceTags({
 
 // Converts an identifier type to a display name (e.g. "user_id" -> "User Ids")
 export function getUnitDisplayName(identifierType: string | undefined) {
-  return identifierType
-    ? startCase(identifierType.split("_").join(" ")) + "s"
-    : "Units";
+  return identifierType ? startCase(identifierType) + "s" : "Units";
 }
 
 /**
@@ -1583,7 +1581,7 @@ export function getIneligibleClusterMetrics(
 }
 
 /**
- * Cluster experiment results count clusters, not sub-units, so their unit
+ * Cluster experiment results count clusters, not subunits, so their unit
  * counts are labeled with the cluster identifier.
  */
 export function getClusterUnitsLabel(
@@ -1606,7 +1604,7 @@ export function getClusterUnitsLabel(
   return getUnitDisplayName(settings.exposureQueryIdentifierType);
 }
 
-// Sub-unit counts only exist for metrics rolled up from the sub-unit, not for
+// Subunit counts only exist for metrics rolled up from the subunit, not for
 // metrics analyzed directly per cluster.
 export function getClusterSubUnitsLabel(
   settings:

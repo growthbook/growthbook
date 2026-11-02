@@ -214,7 +214,7 @@ describe("incremental refresh units query for cluster experiments", () => {
 
     // The per-sub-unit aggregation groups by the sub-unit, not the cluster.
     expect(sql).toMatch(/GROUP BY\s+user_id/i);
-    // One cluster per sub-unit; a sub-unit seen in several is marked
+    // One cluster per subunit; a subunit seen in several is marked
     // '__multiple__' so it can be dropped.
     expect(sql).toMatch(
       /WHEN\s+COUNT\s*\(\s*DISTINCT\s+e\.region_id\s*\)\s*>\s*1\s+THEN\s+'__multiple__'\s+ELSE\s+MAX\s*\(\s*e\.region_id\s*\)\s+END\s*\)\s+AS region_id/i,

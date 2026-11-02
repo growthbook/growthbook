@@ -257,7 +257,7 @@ const getTooltipContents = (
                         justify="center"
                         style={{ fontWeight: "normal" }}
                       >
-                        {/* The stats engine reports 0 when sub-units weren't counted. */}
+                        {/* The stats engine reports 0 when subunits weren't counted. */}
                         {variation.subUnits || "—"}
                       </TableCell>
                     ) : null}

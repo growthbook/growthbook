@@ -66,7 +66,7 @@ export function getMultipleExposureHealthData({
 
 /**
  * Health status for a cluster experiment check that removes some clusters or
- * sub-units from results (mixed assignment, sub-units in several clusters).
+ * subunits from results (mixed assignment, subunits in several clusters).
  */
 export function getClusterIssueHealthData({
   affectedCount,
@@ -210,7 +210,7 @@ function getStandardOverallResultForHealthFallback(
 }
 
 // Cluster experiments randomize on the cluster, so SRM is tested on cluster
-// counts. Sub-unit counts in `traffic` aren't independent draws and would give
+// counts. Subunit counts in `traffic` aren't independent draws and would give
 // an invalid SRM, so they're never a fallback.
 export function getExperimentSRMTraffic(
   snapshot: Pick<ExperimentSnapshotInterface, "settings" | "health">,

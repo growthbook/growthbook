@@ -125,8 +125,8 @@ function MetricDrilldownOverview({
     !!clusterIdentifier &&
     !!subUnitIdentifier &&
     !!settings.clusterLevelMetricIds?.includes(metric.id);
-  // Cluster-level metrics either can't join the sub-unit, or use an
-  // aggregation (e.g. max) that can't be summed across sub-units.
+  // Cluster-level metrics either can't join the subunit, or use an
+  // aggregation (e.g. max) that can't be summed across subunits.
   const nonRollupAggregation =
     isClusterLevelMetric && isFactMetric(metric)
       ? getNonRollupAggregation(metric)

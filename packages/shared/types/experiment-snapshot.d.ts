@@ -296,7 +296,7 @@ export type SnapshotStatusSummary = Pick<
 
 export interface ExperimentSnapshotHealth {
   traffic: ExperimentSnapshotTraffic;
-  /** Cluster experiments: traffic counted per cluster rather than per sub-unit. */
+  /** Cluster experiments: traffic counted per cluster rather than per subunit. */
   clusterTraffic?: ExperimentSnapshotTraffic;
   clusterUnits?: ExperimentSnapshotClusterUnits;
   clusterAssignment?: ExperimentSnapshotClusterAssignment;

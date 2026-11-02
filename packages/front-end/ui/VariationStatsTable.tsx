@@ -126,7 +126,7 @@ export default function VariationStatsTable({
             : quantileMetric && stats.stats
               ? numberFormatter.format(stats.stats.count)
               : numberFormatter.format(stats.users);
-          // The stats engine reports 0 when the query didn't count sub-units.
+          // The stats engine reports 0 when the query didn't count subunits.
           const subUnitCount = stats?.stats?.sub_count;
           const subUnitsDisplay = subUnitCount
             ? numberFormatter.format(subUnitCount)

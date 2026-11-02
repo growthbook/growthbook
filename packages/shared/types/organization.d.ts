@@ -279,7 +279,7 @@ export interface OrganizationSettings {
   videoInstructionsViewed?: boolean;
   multipleExposureMinPercent?: number;
   // Cluster experiments: share of clusters with mixed assignment, or of
-  // sub-units in more than one cluster, that triggers a health warning.
+  // subunits in more than one cluster, that triggers a health warning.
   clusterIssueMinPercent?: number;
   defaultRole?: MemberRoleWithProjects;
   statsEngine?: StatsEngine;

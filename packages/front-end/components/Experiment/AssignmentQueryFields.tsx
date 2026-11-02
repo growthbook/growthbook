@@ -302,7 +302,6 @@ function getDriftNotice({
   return null;
 }
 
-/** Why no identifier type can be chosen. */
 // Monospace like code, in the surrounding text color.
 export function IdentifierCode({ children }: { children: ReactNode }) {
   return (
@@ -310,6 +309,7 @@ export function IdentifierCode({ children }: { children: ReactNode }) {
   );
 }
 
+/** Why no identifier type can be chosen. */
 export function getNoAssignmentQueriesMessage({
   hasExposureQueries,
   holdoutProjects,
@@ -648,8 +648,48 @@ export function getLockedClusterError({
   };
 }
 
-// Cluster settings only shape the analysis, so a started experiment can change
-// them, but should be told which one it changed.
+// The cluster state both analysis forms derive from their selections. A Data
+// Source without assignment queries can't run a cluster experiment, so
+// switching to one turns it off unless it's locked.
+export function getClusterFormState({
+  experiment,
+  datasource,
+  savedDatasource,
+  checked,
+  exposureQuery,
+  identifierType,
+}: {
+  experiment: Parameters<typeof isClusterConfigLocked>[0] &
+    Parameters<typeof getLockedClusterError>[0]["experiment"] &
+    Parameters<typeof getSavedClusterIdentifier>[0];
+  datasource: DataSourceInterfaceWithParams | undefined;
+  savedDatasource: DataSourceInterfaceWithParams | undefined;
+  checked: boolean;
+  exposureQuery: ExposureQuery | undefined;
+  identifierType: string | undefined;
+}) {
+  const supportsClusterExperiments = !!datasource?.properties?.exposureQueries;
+  const locked = isClusterConfigLocked(experiment);
+  const isClusterExperiment = locked
+    ? !!experiment.isClusterExperiment
+    : supportsClusterExperiments && checked;
+  const lockError = getLockedClusterError({
+    experiment,
+    locked,
+    datasourceSelected: !!datasource,
+    supportsClusterExperiments,
+    exposureQuery,
+    identifierType,
+    savedClusterIdentifier: getSavedClusterIdentifier(
+      experiment,
+      savedDatasource,
+    ),
+  });
+  return { supportsClusterExperiments, locked, isClusterExperiment, lockError };
+}
+
+// Experiments assigned outside GrowthBook aren't locked, so a started one can
+// change cluster settings, but should be told which one it changed.
 export function getClusterChangeAfterLaunch(
   experiment: Pick<
     ExperimentInterfaceStringDates,
@@ -688,7 +728,7 @@ export function ClusterExperimentFields({
   setIsClusterExperiment: (value: boolean) => void;
   setSubUnitIdentifier: (value: string) => void;
   disabled?: boolean;
-  // Neither cluster mode nor the sub-unit can change after launch.
+  // Neither cluster mode nor the subunit can change after launch.
   locked?: boolean;
   lockError?: LockedClusterError | null;
   changedAfterLaunch?: ClusterChangeAfterLaunch;
@@ -700,7 +740,7 @@ export function ClusterExperimentFields({
     () => getClusterSubUnitOptions(exposureQuery, identifierType),
     [exposureQuery, identifierType],
   );
-  // A new query or identifier can leave the chosen sub-unit off the list.
+  // A new query or identifier can leave the chosen subunit off the list.
   useEffect(() => {
     if (!isClusterExperiment || locked || disabled) return;
     if (subUnitOptions.includes(subUnitIdentifier)) return;
@@ -749,12 +789,7 @@ export function ClusterExperimentFields({
             : explanation
       }
       value={isClusterExperiment}
-      setValue={(value) => {
-        setIsClusterExperiment(value);
-        if (value && !subUnitOptions.includes(subUnitIdentifier)) {
-          setSubUnitIdentifier(subUnitOptions[0] ?? "");
-        }
-      }}
+      setValue={setIsClusterExperiment}
       disabled={
         disabled ||
         locked ||

@@ -245,7 +245,7 @@ export default function AnalysisSettingsSummary({
     return totalUsers;
   }, [analysis?.results]);
   const totalUnits = healthUnits ?? resultsUnits;
-  // A cluster's sub-units can fall into several breakdown slices, so summing
+  // A cluster's subunits can fall into several breakdown slices, so summing
   // slices would count it more than once. Use the overall results instead.
   const overallClusterUnits = useMemo(() => {
     const overall = dimensionless?.analyses?.find(
@@ -259,7 +259,7 @@ export default function AnalysisSettingsSummary({
   }, [dimensionless?.analyses]);
 
   // Cluster results are analyzed per cluster, so their unit counts are
-  // clusters, while health traffic counts sub-units.
+  // clusters, while health traffic counts subunits.
   const clusterSubUnitIdentifier = snapshot?.settings?.isClusterExperiment
     ? snapshot.settings.clusterSubUnitIdentifier
     : undefined;
@@ -765,7 +765,7 @@ export default function AnalysisSettingsSummary({
         getExperimentOutdatedReasonLabel("exposureQueryIdentifierType"),
       );
     }
-    // A missing flag means off, and a sub-unit only counts in cluster mode.
+    // A missing flag means off, and a subunit only counts in cluster mode.
     const expSubUnit = exp.isClusterExperiment
       ? (exp.clusterSubUnitIdentifier ?? null)
       : null;

@@ -28,7 +28,7 @@ const metricTimeSeriesVariation = z.object({
       users: z.number(),
       mean: z.number(),
       stddev: z.number(),
-      // Cluster experiments only: distinct sub-units behind the clusters
+      // Cluster experiments only: distinct subunits behind the clusters
       sub_count: z.number().optional(),
     })
     .optional(),

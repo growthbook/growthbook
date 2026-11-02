@@ -540,7 +540,7 @@ function computeSrmAndMultipleExposuresUnhealthyData({
   srm: number;
   multipleExposures: number;
   totalUsers: number;
-  // Cluster experiments check SRM on clusters, not sub-units.
+  // Cluster experiments check SRM on clusters, not subunits.
   srmTotalUnits?: number | null;
   subUnitMultipleExposures?: {
     totalSubUnits: number;

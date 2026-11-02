@@ -250,7 +250,7 @@ export const CLUSTER_CONFIG_LOCKED_MESSAGE =
 
 // Once GrowthBook launches an experiment through linked changes, its SDK has
 // randomized on the cluster (or not), so cluster mode, the cluster (the
-// assignment query's identifier type) and the sub-unit are fixed. Experiments
+// assignment query's identifier type) and the subunit are fixed. Experiments
 // assigned outside GrowthBook (e.g. imported ones) only describe that setup.
 export function isClusterConfigChangeLocked({
   status,

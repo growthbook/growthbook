@@ -36,9 +36,7 @@ import AssignmentQueryFields, {
   ClusterExperimentFields,
   CLUSTER_OFF_FOR_DATASOURCE_MESSAGE,
   getClusterChangeAfterLaunch,
-  getLockedClusterError,
-  getSavedClusterIdentifier,
-  isClusterConfigLocked,
+  getClusterFormState,
   POST_STRATIFICATION_CLUSTER_MESSAGE,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
@@ -378,19 +376,16 @@ const AnalysisForm: FC<{
   const isBandit = type === "multi-armed-bandit";
   const isHoldout = type === "holdout";
 
-  // A data source without assignment queries can't run a cluster experiment,
-  // so switching to one turns it off.
-  const supportsClusterExperiments = !!datasource?.properties?.exposureQueries;
-  const clusterLocked = isClusterConfigLocked(experiment);
-  const isClusterExperiment = clusterLocked
-    ? !!experiment.isClusterExperiment
-    : supportsClusterExperiments && form.watch("isClusterExperiment");
-  const clusterSubUnitIdentifier = form.watch("clusterSubUnitIdentifier");
-  const clusterLockError = getLockedClusterError({
-    experiment,
-    locked: clusterLocked,
-    datasourceSelected: !!datasource,
+  const {
     supportsClusterExperiments,
+    locked: clusterLocked,
+    isClusterExperiment,
+    lockError: clusterLockError,
+  } = getClusterFormState({
+    experiment,
+    datasource: datasource ?? undefined,
+    savedDatasource: initialDatasource ?? undefined,
+    checked: form.watch("isClusterExperiment"),
     exposureQuery,
     identifierType: exposureQuery
       ? resolveAnalysisIdentifierType(
@@ -398,11 +393,8 @@ const AnalysisForm: FC<{
           exposureQueryIdentifierType,
         )
       : undefined,
-    savedClusterIdentifier: getSavedClusterIdentifier(
-      experiment,
-      initialDatasource ?? undefined,
-    ),
   });
+  const clusterSubUnitIdentifier = form.watch("clusterSubUnitIdentifier");
   const goalMetrics = form.watch("goalMetrics");
   const secondaryMetrics = form.watch("secondaryMetrics");
   const guardrailMetrics = form.watch("guardrailMetrics");

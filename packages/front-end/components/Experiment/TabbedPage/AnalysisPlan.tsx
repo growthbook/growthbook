@@ -54,9 +54,7 @@ import AssignmentQueryFields, {
   ClusterExperimentFields,
   getClusterSubUnitOptions,
   getClusterChangeAfterLaunch,
-  getLockedClusterError,
-  getSavedClusterIdentifier,
-  isClusterConfigLocked,
+  getClusterFormState,
   useAssignmentQuerySelection,
 } from "@/components/Experiment/AssignmentQueryFields";
 import ModalStandard from "@/ui/Modal/Patterns/ModalStandard";
@@ -425,7 +423,7 @@ export default function AnalysisPlan({
   );
   useEffect(() => resync(touchedRef.current), [resync]);
 
-  // Same rule as the back-end: cluster checks need a sub-unit and the selected
+  // Same rule as the back-end: cluster checks need a subunit and the selected
   // assignment query.
   const clusterSubUnit = getClusterSubUnit({
     isClusterExperiment,
@@ -901,13 +899,6 @@ function DataSourceModal({
   );
   const selected = getDatasourceById(datasource);
   const sameSource = datasource === value.datasource;
-  // A data source without assignment queries can't run a cluster experiment,
-  // so switching to one turns it off.
-  const supportsClusterExperiments = !!selected?.properties?.exposureQueries;
-  const locked = isClusterConfigLocked(experiment);
-  const isClusterExperiment = locked
-    ? !!experiment.isClusterExperiment
-    : supportsClusterExperiments && clusterChecked;
   const selection = useAssignmentQuerySelection({
     datasource: selected,
     project: experiment.project,
@@ -932,18 +923,16 @@ function DataSourceModal({
   const clusterIdentifier = exposureQuery
     ? resolveAnalysisIdentifierType(exposureQuery, identifierType)
     : undefined;
-  const lockError = getLockedClusterError({
-    experiment,
-    locked,
-    datasourceSelected: !!selected,
-    supportsClusterExperiments,
-    exposureQuery,
-    identifierType: clusterIdentifier,
-    savedClusterIdentifier: getSavedClusterIdentifier(
+  const { supportsClusterExperiments, locked, isClusterExperiment, lockError } =
+    getClusterFormState({
       experiment,
-      getDatasourceById(experiment.datasource ?? "") ?? undefined,
-    ),
-  });
+      datasource: selected ?? undefined,
+      savedDatasource:
+        getDatasourceById(experiment.datasource ?? "") ?? undefined,
+      checked: clusterChecked,
+      exposureQuery,
+      identifierType: clusterIdentifier,
+    });
   const clusterChangedAfterLaunch = getClusterChangeAfterLaunch(experiment, {
     isClusterExperiment,
     clusterSubUnitIdentifier,

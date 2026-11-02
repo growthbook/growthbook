@@ -102,7 +102,7 @@ export function useMetricDisabledInfo(
     experimentType,
   );
   // Same rule as the back-end and MetricsSelector: cluster checks need a
-  // sub-unit and the selected assignment query.
+  // subunit and the selected assignment query.
   const clusterSubUnit = getClusterSubUnit({
     isClusterExperiment,
     clusterSubUnitIdentifier,
