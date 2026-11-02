@@ -2,13 +2,12 @@
 title: Remote Groups
 description: Target large lists of IDs with Saved Groups whose IDs are stored outside the SDK payload.
 sidebarTitle: Remote Groups
-noindex: true
 ---
 
 Remote Groups are Saved Groups for large lists of IDs, such as millions of user or account IDs. The IDs are stored and looked up outside the SDK payload, so the payload stays small no matter how big the group is.
 
 <Note>
-Remote Groups are an Enterprise feature and are in beta. On GrowthBook Cloud they're only available to some organizations. Contact us if you'd like to try them.
+Remote Groups are an Enterprise feature. On GrowthBook Cloud they're only available to some organizations. Contact us if you'd like to try them.
 </Note>
 
 ## How It Works
@@ -81,7 +80,7 @@ Rules check Remote Groups against the user's list of group IDs, in the internal 
 
 ### GrowthBook Proxy with Remote Evaluation
 
-With [remote evaluation](/self-host/remote-evaluation), the Proxy loads uploaded IDs into Redis and looks up each user's groups before evaluating. Your app doesn't need to do anything. IDs sent by the client are ignored, so users can't add themselves to a group. Rules that use a group the Proxy's Redis hasn't loaded yet don't match anyone, so a "not in group" rule never matches everyone while a group is loading.
+With [remote evaluation](/self-host/remote-evaluation), the Proxy (version 1.6.0 or later) loads uploaded IDs into Redis and looks up each user's groups before evaluating. Your app doesn't need to do anything. IDs sent by the client are ignored, so users can't add themselves to a group. Rules that use a group the Proxy's Redis hasn't loaded yet don't match anyone, so a "not in group" rule never matches everyone while a group is loading.
 
 See [Loading IDs into Redis](#loading-ids-into-redis) for the Proxy settings.
 

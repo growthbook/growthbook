@@ -18,7 +18,6 @@ import Portal from "@/components/Modal/Portal";
 import { useDefinitions } from "@/services/DefinitionsContext";
 import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
-import { isCloud } from "@/services/env";
 import { useFeatureMetaInfo } from "@/hooks/useFeatureMetaInfo";
 import { useExperiments } from "@/hooks/useExperiments";
 import { useDashboards } from "@/hooks/useDashboards";
@@ -196,17 +195,7 @@ const CommandPalette: FC<{ onClose: () => void }> = ({ onClose }) => {
   const { experiments } = useExperiments();
   const { dashboards } = useDashboards(false);
 
-  // The flag only applies on Cloud
-  const remoteGroupsOn =
-    !isCloud() || (growthbook?.isOn("remote-saved-groups") ?? false);
-  const docPaletteRows = useMemo(
-    () =>
-      getDocSectionsForCommandPalette().filter(
-        // Its docs page is unlisted while the feature is behind a flag on Cloud
-        (row) => row.section !== "remoteSavedGroups" || remoteGroupsOn,
-      ),
-    [remoteGroupsOn],
-  );
+  const docPaletteRows = useMemo(() => getDocSectionsForCommandPalette(), []);
   const apiReferenceRows = useMemo(() => getApiReferencePaletteRows(), []);
 
   // Build unified item list

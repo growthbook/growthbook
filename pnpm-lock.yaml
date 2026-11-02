@@ -216,8 +216,8 @@ importers:
         specifier: workspace:*
         version: link:../sdk-js
       '@growthbook/proxy-eval':
-        specifier: ^1.1.2
-        version: 1.1.2
+        specifier: ^1.3.0
+        version: 1.3.0
       '@growthbook/remote-saved-groups-csv-parser':
         specifier: workspace:*
         version: link:../remote-saved-groups-csv-parser
@@ -3267,8 +3267,8 @@ packages:
     resolution: {integrity: sha512-lOs/dCyveVF8TkVFnFSF7IGd0CJrTm91qiK6JLu+Z8qiT+7Ag0RyVhxZIWkhiACqwABo7kSHDm8FdH8p2wxSSw==}
     engines: {node: '>=10'}
 
-  '@growthbook/proxy-eval@1.1.2':
-    resolution: {integrity: sha512-xd2sPVvOnupl1JtjZp/rDKqtO0BMRTrjng3MhG1RNhUPah2AXvXSq0XBxEs7n6TxEjElEDe1DvtL6wWWpQY37g==}
+  '@growthbook/proxy-eval@1.3.0':
+    resolution: {integrity: sha512-r9hiVVixFLm5KUZD7ELVwObMlGJdT/rqvhZoqyKCwd1+Ate7gVjwX0ANHginhrfLN4o1K5ic30afRy0UvrNYCQ==}
 
   '@grpc/grpc-js@1.14.5':
     resolution: {integrity: sha512-7VZM+SVdEcUUqSQeNI3zM8Qs/BhQKZndPo2h5VkYkAM8Iz0wJIa8mKV5ekQGqG8UUsnkQ0NMxIxwkIHYvj0qOw==}
@@ -16669,7 +16669,7 @@ snapshots:
       - encoding
       - supports-color
 
-  '@growthbook/proxy-eval@1.1.2':
+  '@growthbook/proxy-eval@1.3.0':
     dependencies:
       '@growthbook/growthbook': link:packages/sdk-js
 
