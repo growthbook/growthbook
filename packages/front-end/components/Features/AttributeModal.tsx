@@ -248,14 +248,6 @@ export default function AttributeModal({
       open={true}
       close={close}
       header={attribute ? "Edit Attribute" : "Add Attribute"}
-      subheader={
-        !attribute && onAddIdentifier ? (
-          <>
-            Using this to split traffic?{" "}
-            <Link onClick={onAddIdentifier}>Add an identifier</Link> instead.
-          </>
-        ) : undefined
-      }
       cta={attribute ? "Save" : "Add Attribute"}
       size="xl"
       ctaEnabled={!!property.trim() && hasProjectPermission}
@@ -331,6 +323,12 @@ export default function AttributeModal({
           </Flex>
         }
       >
+        {!attribute && onAddIdentifier && (
+          <Callout status="info" dismissible id="add-attribute-identifier-hint">
+            Using this to split traffic?{" "}
+            <Link onClick={onAddIdentifier}>Add an identifier</Link> instead.
+          </Callout>
+        )}
         {refCount > 0 && !constrainingChange && refs && (
           <Callout status="info">
             Used by{" "}
