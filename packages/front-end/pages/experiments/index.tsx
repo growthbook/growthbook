@@ -13,7 +13,7 @@ import { useUser } from "@/services/UserContext";
 import usePermissionsUtil from "@/hooks/usePermissionsUtils";
 import CustomMarkdown from "@/components/Markdown/CustomMarkdown";
 import LinkButton from "@/ui/LinkButton";
-import CreateExperimentModal from "@/components/Experiment/CreateExperimentModal";
+import SimpleNewExperimentForm from "@/components/Experiment/SimpleNewExperimentForm";
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -358,7 +358,7 @@ const ExperimentsPage = (): React.ReactElement => {
         </div>
       </div>
       {openNewExperimentModal && (
-        <CreateExperimentModal
+        <SimpleNewExperimentForm
           onClose={() => setOpenNewExperimentModal(false)}
           source="experiment-list"
         />
