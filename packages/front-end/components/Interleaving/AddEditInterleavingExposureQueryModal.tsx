@@ -91,7 +91,7 @@ export const AddEditInterleavingExposureQueryModal: FC<Props> = ({
   const handleSubmit = form.handleSubmit(async (value) => {
     const sharedFields = {
       name: value.name.trim(),
-      description: value.description || undefined,
+      description: value.description,
       userIdTypes: [value.userIdType],
       query: value.query,
     };
