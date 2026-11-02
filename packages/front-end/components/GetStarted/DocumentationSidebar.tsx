@@ -172,8 +172,8 @@ function getLinksFor(
             <LinkItem href="https://docs.growthbook.io/integrations/vercel">
               Vercel Integration Docs
             </LinkItem>
-            <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.1.0">
-              5.1 Release Notes
+            <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.2.0">
+              5.2 Release Notes
             </LinkItem>
             <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
             <LinkItem href="https://www.growthbook.io/pricing">
@@ -186,8 +186,8 @@ function getLinksFor(
       return (
         <>
           <LinkItem href="https://docs.growthbook.io/">Docs</LinkItem>
-          <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.1.0">
-            5.1 Release Notes
+          <LinkItem href="https://github.com/growthbook/growthbook/releases/tag/v5.2.0">
+            5.2 Release Notes
           </LinkItem>
           <LinkItem href="https://www.growthbook.io/pricing">
             Premium Features
