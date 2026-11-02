@@ -220,7 +220,7 @@ function OverrideCard({
   path: string;
   // A goal metric's target MDE, in percent, where the decision framework runs.
   targetMDEPath: string | null;
-  // Shows and offers just the target MDE.
+  /** Shows and offers just the target MDE. */
   onlyTargetMDE: boolean;
   // Any form: `path` locates the override, wherever the host keeps it.
   form: UseFormReturn<FieldValues>;

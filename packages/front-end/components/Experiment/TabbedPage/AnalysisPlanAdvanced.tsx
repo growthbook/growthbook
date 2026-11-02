@@ -319,7 +319,7 @@ export default function AnalysisPlanAdvanced({
       metrics.guardrailMetrics.length >
     0;
   const disabled = !canEdit;
-  // Target MDEs count only for current goals, the only ones that can edit them.
+  // Only current goals' target MDEs count, since only goals can edit them.
   const goalIds = useDecisionFrameworkApplies(experiment)
     ? expandMetricGroups(metrics.goalMetrics, metricGroups)
     : [];

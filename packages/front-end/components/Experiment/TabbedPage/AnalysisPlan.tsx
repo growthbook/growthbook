@@ -531,7 +531,6 @@ export default function AnalysisPlan({
     experiment.id,
     experiment.type,
   );
-  // The override editor opens only where it can change something.
   const overridesBlockedReason = (goal: boolean) =>
     getOverridesBlockedReason({
       hasFeature: hasCommercialFeature("override-metrics"),
@@ -598,10 +597,13 @@ export default function AnalysisPlan({
           focusMetricIds={overridesFor}
           targetMDEOverrides={targetMDEOverrides}
           close={() => setOverridesFor(null)}
-          stageChanges={(next, nextTargetMDEs) => {
+          stageChanges={({
+            targetMDEOverrides: nextTargetMDEs,
+            ...changes
+          }) => {
             // The same bounds the full settings modal stages through.
             const parsed = experimentAnalysisSettingsDraft.parse({
-              ...(next ? { metricOverrides: next } : {}),
+              ...changes,
               ...(nextTargetMDEs
                 ? {
                     decisionFrameworkSettings: {

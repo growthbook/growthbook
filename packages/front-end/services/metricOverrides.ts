@@ -58,7 +58,7 @@ const windowRow = (
       }
     : { key: "window", label: "Metric window", value: "None" };
 
-// Experiment settings that stop an override from applying.
+/** Experiment settings that stop an override from applying. */
 export interface OverrideContext {
   /** The experiment's analysis ignores conversion windows (not lookbacks). */
   conversionWindowsIgnored: boolean;
@@ -79,7 +79,6 @@ export function describeMetricOverride(
 
   if (targetMDE !== undefined) rows.push(row("targetMDE", percent(targetMDE)));
   if (o.windowType !== undefined || o.windowHours !== undefined) {
-    // Hours alone keep the metric's own kind of window.
     const windowType = o.windowType ?? context?.metricWindowType;
     const value =
       windowType === "conversion" && context?.conversionWindowsIgnored
@@ -180,8 +179,10 @@ export function getOverriddenMetricIds(
   ]);
 }
 
-// Keeps only what changes the analysis: CUPED and prior values count only under
-// their override flag, and a metric left overriding nothing drops out.
+/**
+ * Keeps only what changes the analysis: CUPED and prior values count only under
+ * their override flag, and a metric left overriding nothing drops out.
+ */
 export function pruneMetricOverrides(
   overrides: MetricOverride[],
 ): MetricOverride[] {
@@ -194,12 +195,12 @@ export function pruneMetricOverrides(
       properPriorEnabled,
       properPriorMean,
       properPriorStdDev,
-      ...window
+      ...rest
     }) => {
       const kept = {
         ...pickBy(
           {
-            ...window,
+            ...rest,
             ...(regressionAdjustmentOverride
               ? {
                   regressionAdjustmentOverride,
@@ -218,17 +219,19 @@ export function pruneMetricOverrides(
           },
           (v) => v !== undefined,
         ),
-        id: window.id,
+        id: rest.id,
       };
       return Object.keys(kept).length > 1 ? [kept] : [];
     },
   );
 }
 
-// Goals' target MDEs as edited, in percent; an unset or emptied one follows the
-// metric. Entries keep their place, and unchanged ones stay as saved, so an
-// unchanged list equals the saved one. A metric that's no longer a goal keeps
-// what it had.
+/**
+ * Goals' target MDEs as edited, in percent; an unset or emptied one follows the
+ * metric. Entries keep their place, and unchanged ones stay as saved, so an
+ * unchanged list equals the saved one. A metric that's no longer a goal keeps
+ * what it had.
+ */
 export function mergeTargetMDEs(
   previous: DecisionFrameworkMetricOverrides[],
   goalIds: string[],
@@ -255,9 +258,11 @@ export function mergeTargetMDEs(
   return [...kept, ...added];
 }
 
-// Why the override editor can't change a metric, or null where it can. Goals'
-// target MDEs stay editable where nothing else is, since they only change how
-// finished results are judged.
+/**
+ * Why the override editor can't change a metric, or null where it can. Goals'
+ * target MDEs stay editable where nothing else is, since they only change how
+ * finished results are judged.
+ */
 export function getOverridesBlockedReason({
   hasFeature,
   incremental,

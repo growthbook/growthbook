@@ -27,7 +27,7 @@ export function QuickEditRow({
 }: {
   label: string;
   onEdit?: (() => void) | null;
-  // Shown on the row instead of opening the editor.
+  /** Shown on the row instead of opening the editor. */
   blockedReason?: string | null;
   align?: "start" | "center";
   children: ReactNode;

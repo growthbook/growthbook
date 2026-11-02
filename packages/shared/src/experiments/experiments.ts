@@ -1874,7 +1874,7 @@ export function getMetricLink(id: string): string {
   return `/metric/${id}`;
 }
 
-// The CUPED lookback a metric gets when an experiment doesn't override it.
+/** The CUPED lookback a metric gets when an experiment doesn't override it. */
 export function getDefaultRegressionAdjustmentDays(
   metric: Pick<
     ExperimentMetricDefinition,

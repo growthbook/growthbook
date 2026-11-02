@@ -55,12 +55,12 @@ export default function MetricOverridesModal({
   /** Given where the decision framework runs: goal metrics' target MDEs. */
   targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
   close: () => void;
-  stageChanges: (
-    // Each is null where it's left as it was.
-    overrides: MetricOverride[] | null,
+  /** Like a request body, a field left out is left as it was. */
+  stageChanges: (changes: {
+    metricOverrides?: MetricOverride[];
     // Every metric's target MDE override, when goals' are editable here.
-    targetMDEOverrides: DecisionFrameworkMetricOverrides[] | null,
-  ) => void;
+    targetMDEOverrides?: DecisionFrameworkMetricOverrides[];
+  }) => void;
 }) {
   const { getExperimentMetricById, getDatasourceById, metricGroups } =
     useDefinitions();
@@ -170,20 +170,21 @@ export default function MetricOverridesModal({
       ctaEnabled={canOverride || onlyTargetMDE}
       size="lg"
       submit={validatedSubmit(form, async (value) => {
-        let next: MetricOverride[] | null = null;
-        if (canOverride) {
-          const pruned = toSaved(value.metricOverrides);
-          if (!isEqual(pruned, toSaved(initialOverrides))) next = pruned;
-        }
+        const metricOverrides = canOverride
+          ? toSaved(value.metricOverrides)
+          : undefined;
         const nextTargetMDEs = targetMDEOverrides
           ? mergeTargetMDEs(targetMDEOverrides, goalIds, value.targetMDEs)
-          : null;
-        stageChanges(
-          next,
-          nextTargetMDEs && !isEqual(nextTargetMDEs, targetMDEOverrides)
-            ? nextTargetMDEs
-            : null,
-        );
+          : undefined;
+        stageChanges({
+          ...(metricOverrides &&
+          !isEqual(metricOverrides, toSaved(initialOverrides))
+            ? { metricOverrides }
+            : {}),
+          ...(nextTargetMDEs && !isEqual(nextTargetMDEs, targetMDEOverrides)
+            ? { targetMDEOverrides: nextTargetMDEs }
+            : {}),
+        });
       })}
     >
       {blockedReason ? (
