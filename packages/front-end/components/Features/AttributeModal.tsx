@@ -45,7 +45,7 @@ export interface Props {
   onAddIdentifier?: () => void;
 }
 
-const PLACEHOLDER_NAME = "newAttribute";
+const PLACEHOLDER_NAME = "country";
 // Select can't hold an empty value, so "no format" gets its own.
 const NO_FORMAT = "none";
 

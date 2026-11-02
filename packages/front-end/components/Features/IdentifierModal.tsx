@@ -39,7 +39,7 @@ import TagsInput from "@/components/Tags/TagsInput";
 import CustomFieldInput from "@/components/CustomFields/CustomFieldInput";
 import AddAttributeSnippet from "@/components/SyntaxHighlighting/Snippets/AddAttributeSnippet";
 
-const PLACEHOLDER_NAME = "newIdentifier";
+const PLACEHOLDER_NAME = "userId";
 // Select value for creating a type named after the identifier.
 const NEW_TYPE = "__new__";
 
@@ -84,6 +84,9 @@ export default function IdentifierModal({
   const isEdit = !!existing;
 
   const [name, setName] = useState(existing?.property ?? "");
+  // The name once the user leaves the field. Data Source defaults follow this
+  // rather than every keystroke, so they don't flicker while typing.
+  const [settledName, setSettledName] = useState(existing?.property ?? "");
   const [projects, setProjects] = useState<string[]>(
     () =>
       existing?.projects ??
@@ -134,7 +137,7 @@ export default function IdentifierModal({
     });
 
   const newProperty = name.trim() || PLACEHOLDER_NAME;
-  const defaultType = attributeToUserIdTypeName(newProperty);
+  const defaultType = attributeToUserIdTypeName(settledName);
   const linkedType = (d: DataSourceInterfaceWithParams) =>
     existing
       ? (d.settings.userIdTypes?.find((t) =>
@@ -163,20 +166,28 @@ export default function IdentifierModal({
   const mappable = shown.filter((d) => !syncsIdentifiersAutomatically(d));
 
   // Links to an existing type with a similar name, or else creates one.
-  const defaultPick = (d: DataSourceInterfaceWithParams) =>
-    findSimilarUserIdType(userIdTypeNames(d), newProperty) ?? NEW_TYPE;
-  const pickFor = (d: DataSourceInterfaceWithParams) =>
-    picks[d.id] ?? defaultPick(d);
+  const defaultPick = (d: DataSourceInterfaceWithParams, base = settledName) =>
+    findSimilarUserIdType(userIdTypeNames(d), base) ?? NEW_TYPE;
+  const pickFor = (d: DataSourceInterfaceWithParams, base = settledName) =>
+    picks[d.id] ?? defaultPick(d, base);
   // Add starts with every Data Source checked; edit starts with none.
   const isChecked = (d: DataSourceInterfaceWithParams) =>
     isEdit
       ? !!linkedType(d) || d.id in picks
       : canEdit(d) && !uncheckedIds.includes(d.id);
-  const links = mappable.flatMap((d) => {
-    if (!canEdit(d) || linkedType(d) || !isChecked(d)) return [];
-    const pick = pickFor(d);
-    return [{ id: d.id, userIdType: pick === NEW_TYPE ? defaultType : pick }];
-  });
+  const linksFor = (base: string) =>
+    mappable.flatMap((d) => {
+      if (!canEdit(d) || linkedType(d) || !isChecked(d)) return [];
+      const pick = pickFor(d, base);
+      return [
+        {
+          id: d.id,
+          userIdType:
+            pick === NEW_TYPE ? attributeToUserIdTypeName(base) : pick,
+        },
+      ];
+    });
+  const links = settledName ? linksFor(settledName) : [];
 
   const shownTypes = [
     ...new Set([
@@ -211,7 +222,8 @@ export default function IdentifierModal({
                 customFields: customFieldValues,
               }),
               projects,
-              datasources: links,
+              // Not the rendered links: Save can land before the name settles.
+              datasources: linksFor(property),
             }),
           },
         );
@@ -265,6 +277,7 @@ export default function IdentifierModal({
           value={name}
           placeholder="e.g. userId"
           onChange={(e) => setName(e.target.value)}
+          onBlur={() => setSettledName(name.trim())}
           helpText="Must match the key your SDK passes in."
           error={
             lockedLinks.length > 0
@@ -423,7 +436,7 @@ export default function IdentifierModal({
                               </Text>
                               <Badge label="Linked" color="gray" />
                             </Flex>
-                          ) : !checked ? (
+                          ) : !checked || !settledName ? (
                             <Text color="text-low">—</Text>
                           ) : (
                             <Select
