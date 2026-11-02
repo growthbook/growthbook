@@ -23,13 +23,6 @@ type InterleavingExposureQueriesProps = {
 
 type UIMode = "view" | "edit" | "add";
 
-/**
- * Datasource-page section for managing Interleaving Exposure Queries. Follows
- * {@link ContextualBanditAssignmentQueries}: its own collection rather than
- * `datasource.settings.queries`, so it reads through
- * `useInterleavingExposureQueries` and writes through
- * `interleavingExposureQueryEndpoints` (create/edit in the modal, delete here).
- */
 export const InterleavingExposureQueries: FC<
   InterleavingExposureQueriesProps
 > = ({ dataSource, canEdit = true }) => {
