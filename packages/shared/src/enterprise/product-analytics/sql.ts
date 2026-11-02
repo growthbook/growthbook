@@ -1473,40 +1473,19 @@ function generateUnitAggregationRollupCTE(
     }
   });
 
+  // With a Population, only its members count toward each metric
+  const where = includedMetrics.some((m) => m.role === "populationCount")
+    ? `WHERE ${POPULATION_COUNT_ALIAS} IS NOT NULL`
+    : "";
+
   return {
     name: `_factTable${factTableGroup.index}_unit${unitIndex}_rollup`,
     sql: `
     SELECT
       ${selects.join(",\n  ")}
     FROM ${sourceCTE.name}
+    ${where}
     ${groupBys.length ? `GROUP BY ${groupBys.join(", ")}` : ""}
-  `,
-  };
-}
-
-// Restricts each metric to the Population's members. Non-members' values are
-// nulled rather than filtered out, so buckets with no members still return a row.
-function generatePopulationMembersCTE(
-  factTableGroup: FactTableGroup,
-  sourceCTE: CTE,
-  dimensions: DimensionData[],
-  unitIndex: number,
-  includedMetrics: MetricData[],
-): CTE {
-  const isMember = `${POPULATION_COUNT_ALIAS} IS NOT NULL`;
-  const selects = [
-    ...dimensions.map((d) => d.alias),
-    ...includedMetrics.map(
-      (m) =>
-        `CASE WHEN ${isMember} THEN ${m.alias} ELSE NULL END AS ${m.alias}`,
-    ),
-  ];
-  return {
-    name: `_factTable${factTableGroup.index}_unit${unitIndex}_members`,
-    sql: `
-    SELECT
-      ${selects.join(",\n  ")}
-    FROM ${sourceCTE.name}
   `,
   };
 }
@@ -2255,22 +2234,10 @@ export function generateProductAnalyticsSQL(
       );
       ctes.push(unitAggregationCTE);
 
-      let rollupSourceCTE = unitAggregationCTE;
-      if (metrics.some((m) => m.role === "populationCount")) {
-        rollupSourceCTE = generatePopulationMembersCTE(
-          factTableGroup,
-          unitAggregationCTE,
-          groupDimensions,
-          unitIndex,
-          metrics,
-        );
-        ctes.push(rollupSourceCTE);
-      }
-
       // Unit rollup
       const unitRollupCTE = generateUnitAggregationRollupCTE(
         factTableGroup,
-        rollupSourceCTE,
+        unitAggregationCTE,
         groupDimensions,
         unitIndex,
         metrics,

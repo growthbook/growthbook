@@ -51,20 +51,6 @@ exports[`metric explorations with a population generated SQL matches the snapsho
       unit0,
       dimension0
   ),
-  _factTable0_unit0_members AS (
-    SELECT
-      dimension0,
-      CASE
-        WHEN population_count IS NOT NULL THEN m0
-        ELSE NULL
-      END AS m0,
-      CASE
-        WHEN population_count IS NOT NULL THEN population_count
-        ELSE NULL
-      END AS population_count
-    FROM
-      _factTable0_unit0
-  ),
   _factTable0_unit0_rollup AS (
     SELECT
       dimension0,
@@ -72,7 +58,9 @@ exports[`metric explorations with a population generated SQL matches the snapsho
       CAST(COUNT(m0) AS REAL) AS m0_denominator,
       CAST(SUM(population_count) AS REAL) AS population_count_numerator
     FROM
-      _factTable0_unit0_members
+      _factTable0_unit0
+    WHERE
+      population_count IS NOT NULL
     GROUP BY
       dimension0
   )

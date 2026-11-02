@@ -329,14 +329,8 @@ describe("metric explorations with a population", () => {
             [1, 1],
           ],
         },
-        // Frank has events but spent $0: the day is kept, with no members.
-        "2026-09-03": {
-          populationCount: 0,
-          values: [
-            [null, 0],
-            [null, 0],
-          ],
-        },
+        // Frank has events but spent $0: with no members, the day has no row,
+        // as a day with no activity has none without a population.
       },
     ],
     [
@@ -383,7 +377,6 @@ describe("metric explorations with a population", () => {
       {
         "2026-09-01": { populationCount: 1, values: [[1, 1]] }, // Alice (2 purchases)
         "2026-09-02": { populationCount: 1, values: [[1, 1]] }, // Bob (login + purchase)
-        "2026-09-03": { populationCount: 0, values: [[null, 0]] },
       },
     ],
     [
@@ -618,11 +611,8 @@ describe("metric explorations with a population", () => {
       expect(sql).not.toMatch(/\bm2\b/);
       // The population count has no denominator column.
       expect(sql).not.toContain("population_count_denominator");
-      // Each metric is read only for members, in a named CTE; no joins.
-      expect(sql).toContain("_factTable0_unit0_members AS");
-      expect(
-        sql.match(/WHEN population_count IS NOT NULL THEN m[01]\s/g),
-      ).toHaveLength(2);
+      // Each metric is read only for members, filtered in the rollup; no joins.
+      expect(sql).toMatch(/WHERE\s+population_count IS NOT NULL/);
       expect(sql).not.toContain("JOIN");
     });
 
