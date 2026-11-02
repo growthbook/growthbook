@@ -7,10 +7,29 @@ import {
   approxTopKCapacity,
   eligibleTopValueExpr,
 } from "./clauses/approx-top-values";
+import { JsonPathStep, parseJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 const snowflakeEscapeStringLiteral = (value: string) =>
   value.replace(/\\/g, "\\\\").replace(/'/g, "''");
+
+const isSafeSnowflakeStep = (step: JsonPathStep) =>
+  step.kind === "member"
+    ? /^[A-Za-z_][A-Za-z0-9_$]*$/.test(step.raw) ||
+      (step.quote === '"' && /^[^"\\]*$/.test(step.name))
+    : /^(\d+|'[^'\\]*')$/.test(step.inner);
+
+const bareMember = (name: string): JsonPathStep => ({
+  kind: "member",
+  raw: name,
+  name,
+  quote: "",
+});
+
+const stepKey = (step: JsonPathStep) =>
+  step.kind === "member"
+    ? step.name
+    : step.inner.replace(/^(['"])(.*)\1$/, "$2");
 
 export const snowflakeDialect: SqlDialect = {
   ...baseDialect,
@@ -79,8 +98,21 @@ export const snowflakeDialect: SqlDialect = {
     ).join(" + ");
     return `COALESCE((${sumBelow}) * ${nEventsCol} / ${numQuantiles}.0, 0)`;
   },
-  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) =>
-    `PARSE_JSON(${jsonCol}):${path}::${isNumeric ? "float" : "string"}`,
+  // The `:path` form is SQL syntax, so it's only kept when every step is
+  // safe there; otherwise every key becomes an escaped bracket literal.
+  jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
+    const steps = parseJsonPath(path);
+    const access = steps?.every(isSafeSnowflakeStep)
+      ? `:${path}`
+      : (steps ?? path.split(".").map(bareMember))
+          .map((step) =>
+            step.kind === "subscript" && /^\d+$/.test(step.inner)
+              ? step.raw
+              : `['${snowflakeEscapeStringLiteral(stepKey(step))}']`,
+          )
+          .join("");
+    return `PARSE_JSON(${jsonCol})${access}::${isNumeric ? "float" : "string"}`;
+  },
   evalBoolean: (col: string, value: boolean) =>
     `${col} = ${value ? "true" : "false"}`,
   // Snowflake aggregate-with-sort uses `WITHIN GROUP`. NULLs are skipped

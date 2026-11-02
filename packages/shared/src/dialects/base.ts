@@ -2,6 +2,7 @@ import { createLikeMatchFns } from "shared/sql";
 import type { DataType } from "shared/types/integrations";
 import type { DateTruncGranularity, SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
+import { quoteJsonPath } from "./clauses/json-path";
 
 const baseEscapeStringLiteral = (value: string) => value.replace(/'/g, `''`);
 
@@ -18,7 +19,7 @@ export const baseDialect: Omit<SqlDialect, "unpivotLabeledPairs"> = {
   }),
 
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    const raw = `json_extract_scalar(${jsonCol}, '${baseEscapeStringLiteral(quoteJsonPath(path, "bracket"))}')`;
     return isNumeric ? baseDialect.castToFloat(raw) : raw;
   },
 

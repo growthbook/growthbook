@@ -1,5 +1,6 @@
 import type { SqlDialect } from "shared/types/sql";
 import { defaultPercentileCapSelectClause } from "./clauses/percentile-cap-select-clause";
+import { quoteJsonPath } from "./clauses/json-path";
 import { baseDialect } from "./base";
 
 export const athenaDialect: SqlDialect = {
@@ -20,7 +21,7 @@ export const athenaDialect: SqlDialect = {
     `date_diff('day', ${startCol}, ${endCol})`,
   castToFloat: (col: string) => `CAST(${col} AS double)`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `json_extract_scalar(${jsonCol}, '$.${path}')`;
+    const raw = `json_extract_scalar(${jsonCol}, '${athenaDialect.escapeStringLiteral(quoteJsonPath(path, "bracket"))}')`;
     return isNumeric ? athenaDialect.castToFloat(raw) : raw;
   },
   hasCountDistinctHLL: () => true,

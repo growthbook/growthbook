@@ -36,7 +36,7 @@ export const redshiftDialect: SqlDialect = {
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}, ${path
       .split(".")
-      .map((p) => `'${p}'`)
+      .map((p) => `'${redshiftEscapeStringLiteral(p)}'`)
       .join(", ")}, TRUE)`;
     return isNumeric ? redshiftDialect.castToFloat(raw) : raw;
   },

@@ -23,7 +23,7 @@ export const verticaDialect: SqlDialect = {
   formatDateTimeString: (col: string) =>
     `to_char(${col}, 'YYYY-MM-DD HH24:MI:SS.MS')`,
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
-    const raw = `MAPLOOKUP(MapJSONExtractor(${jsonCol}), '${path}')`;
+    const raw = `MAPLOOKUP(MapJSONExtractor(${jsonCol}), '${verticaDialect.escapeStringLiteral(path)}')`;
     return isNumeric ? verticaDialect.castToFloat(raw) : raw;
   },
   percentileApprox: (value: string, quantile: string | number) =>

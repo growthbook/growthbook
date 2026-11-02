@@ -25,7 +25,7 @@ export const postgresDialect: SqlDialect = {
   jsonExtract: (jsonCol: string, path: string, isNumeric: boolean) => {
     const raw = `JSON_EXTRACT_PATH_TEXT(${jsonCol}::json, ${path
       .split(".")
-      .map((p) => `'${p}'`)
+      .map((p) => `'${postgresDialect.escapeStringLiteral(p)}'`)
       .join(", ")})`;
     return isNumeric ? postgresDialect.castToFloat(raw) : raw;
   },
