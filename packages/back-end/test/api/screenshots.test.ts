@@ -1,4 +1,5 @@
 import type { ModelMessage } from "ai";
+import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
 import {
   attachScreenshots,
   PREVIEW_SCREENSHOT_TOOL,
@@ -9,14 +10,14 @@ import {
 const png = Buffer.from("fake-png").toString("base64");
 
 const callStep = (
-  calls: Array<{ id: string; tool: string }>,
+  calls: Array<{ id: string; tool: string; input?: unknown }>,
 ): ModelMessage => ({
   role: "assistant",
   content: calls.map((c) => ({
     type: "tool-call" as const,
     toolCallId: c.id,
     toolName: c.tool,
-    input: {},
+    input: c.input ?? {},
   })),
 });
 
@@ -129,12 +130,50 @@ describe("attachScreenshots", () => {
     expect(res.ok).toBe(false);
   });
 
+  it("refuses a draft that was already shown, whatever its key order", () => {
+    const res = attachScreenshots(
+      [
+        callStep([
+          {
+            id: "old",
+            tool: PREVIEW_SCREENSHOT_TOOL,
+            input: { selector: "h1", cssAppend: "h1{color:red}" },
+          },
+        ]),
+        shownResult("old"),
+        callStep([
+          {
+            id: "s1",
+            tool: PREVIEW_SCREENSHOT_TOOL,
+            input: { cssAppend: "h1{color:red}", selector: "h1" },
+          },
+        ]),
+      ],
+      [
+        {
+          toolCallId: "s1",
+          toolName: PREVIEW_SCREENSHOT_TOOL,
+          result: { ok: true },
+        },
+      ],
+      [{ toolCallId: "s1", data: png, mimeType: "image/jpeg" }],
+    );
+    if (!res.ok) throw new Error(res.error);
+    expect(res.message).toBeNull();
+    expect(res.results[0].result).toMatchObject({
+      ok: false,
+      error: expect.stringContaining("already saw"),
+    });
+  });
+
   it("drops images past the per-turn budget", () => {
     // Earlier rounds already showed the full budget.
     const earlier: ModelMessage[] = [];
     for (let i = 0; i < SCREENSHOTS_PER_TURN_MAX; i++) {
       earlier.push(
-        callStep([{ id: `old${i}`, tool: PREVIEW_SCREENSHOT_TOOL }]),
+        callStep([
+          { id: `old${i}`, tool: PREVIEW_SCREENSHOT_TOOL, input: { n: i } },
+        ]),
         shownResult(`old${i}`),
       );
     }
@@ -181,5 +220,41 @@ describe("screenshotsShown", () => {
       },
     ];
     expect(screenshotsShown(transcript)).toBe(1);
+  });
+});
+
+describe("clientToolArgs for previewScreenshot", () => {
+  it("prepares the draft the way the final answer is saved", () => {
+    const args = clientToolArgs(PREVIEW_SCREENSHOT_TOOL, {
+      mutations: [
+        { selector: "h1", action: "set", attribute: "text", value: "Hi" },
+      ],
+      insert: [{ targetSelector: "html", position: "afterend", html: "<p/>" }],
+    }) as {
+      selector: string | null;
+      draft: {
+        mutations: Array<{ attribute: string }>;
+        inserts: Array<{
+          targetSelector: string;
+          position: string;
+          html: string;
+          scopeToken: string;
+        }>;
+      };
+    };
+    expect(args.selector).toBeNull();
+    expect(args.draft.mutations[0].attribute).toBe("html");
+    const [ins] = args.draft.inserts;
+    expect(ins).toMatchObject({
+      targetSelector: "body",
+      position: "beforeend",
+    });
+    expect(ins.html).toBe(`<div class="${ins.scopeToken}"><p/></div>`);
+  });
+
+  it("sends no draft when there is nothing to apply", () => {
+    expect(clientToolArgs(PREVIEW_SCREENSHOT_TOOL, { selector: "h1" })).toEqual(
+      { selector: "h1", draft: null },
+    );
   });
 });

@@ -142,21 +142,28 @@ export function hasUnguardedDomInsert(js: string | null | undefined): boolean {
   return DOM_INSERT_RE.test(js) && !INSERT_GUARD_RE.test(js);
 }
 
-// Selectors a live findElements call matched, plus the query when anything matched.
+// Selectors a live findElements or searchPage call matched, plus a matching findElements query.
 export function selectorsFoundByTool(result: {
   toolName: string;
   input: unknown;
   output: unknown;
 }): string[] {
-  if (result.toolName !== "findElements") return [];
+  if (result.toolName !== "findElements" && result.toolName !== "searchPage") {
+    return [];
+  }
   const out = result.output as { ok?: unknown; matches?: unknown } | null;
   if (!out || out.ok !== true || !Array.isArray(out.matches)) return [];
   const found = out.matches.flatMap((m: unknown) => {
-    const s = (m as { selector?: unknown } | null)?.selector;
-    return typeof s === "string" ? [s] : [];
+    const { selector, parentSelector } =
+      (m as { selector?: unknown; parentSelector?: unknown } | null) ?? {};
+    return [selector, parentSelector].filter(
+      (s): s is string => typeof s === "string",
+    );
   });
   const query = (result.input as { selector?: unknown } | null)?.selector;
-  return found.length > 0 && typeof query === "string"
+  return result.toolName === "findElements" &&
+    found.length > 0 &&
+    typeof query === "string"
     ? [...found, query]
     : found;
 }

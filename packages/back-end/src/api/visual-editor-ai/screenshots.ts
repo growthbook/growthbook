@@ -1,6 +1,7 @@
 import type { ModelMessage } from "ai";
 import { z } from "zod";
 import {
+  answeredToolCalls,
   pendingToolCalls,
   type ClientToolResult,
 } from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
@@ -44,6 +45,19 @@ function wasShown(value: unknown): boolean {
   );
 }
 
+// Same draft regardless of the key order the model wrote it in.
+function draftKey(input: unknown): string {
+  return JSON.stringify(input, (_k, v: unknown) =>
+    v && typeof v === "object" && !Array.isArray(v)
+      ? Object.fromEntries(
+          Object.entries(v as Record<string, unknown>).sort(([a], [b]) =>
+            a.localeCompare(b),
+          ),
+        )
+      : v,
+  );
+}
+
 export function screenshotsShown(transcript: ModelMessage[]): number {
   let n = 0;
   for (const m of transcript) {
@@ -73,10 +87,17 @@ export function attachScreenshots(
 ):
   | { ok: true; results: ClientToolResult[]; message: ModelMessage | null }
   | { ok: false; error: string } {
-  const screenshotCalls = new Set(
+  const screenshotCalls = new Map(
     pendingToolCalls(transcript)
       .filter((c) => c.toolName === PREVIEW_SCREENSHOT_TOOL)
-      .map((c) => c.toolCallId),
+      .map((c) => [c.toolCallId, draftKey(c.input)]),
+  );
+  const seenDrafts = new Set(
+    answeredToolCalls(transcript)
+      .filter(
+        (c) => c.toolName === PREVIEW_SCREENSHOT_TOOL && wasShown(c.output),
+      )
+      .map((c) => draftKey(c.input)),
   );
   const imageFor = new Map<string, ScreenshotImage>();
   for (const img of images) {
@@ -114,6 +135,17 @@ export function attachScreenshots(
             result: { ok: false, error: "No screenshot was captured." },
           };
     }
+    const key = screenshotCalls.get(r.toolCallId) ?? "";
+    if (seenDrafts.has(key)) {
+      return {
+        ...r,
+        result: {
+          ok: false,
+          error:
+            "You already saw a screenshot of this exact draft. Change the draft or finish from what you saw.",
+        },
+      };
+    }
     if (shown >= SCREENSHOTS_PER_TURN_MAX) {
       return {
         ...r,
@@ -124,6 +156,7 @@ export function attachScreenshots(
       };
     }
     shown++;
+    seenDrafts.add(key);
     attached.push(img);
     return {
       ...r,

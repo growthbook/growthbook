@@ -23,7 +23,11 @@ import {
   toolResultsMessage,
   verifyEnvelope,
 } from "back-end/src/api/visual-editor-ai/toolLoopEnvelope";
-import { clientToolArgs } from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
+import {
+  clientToolArgs,
+  PAGE_TOOLS,
+  type PageTool,
+} from "back-end/src/api/visual-editor-ai/aiTools/clientSideTools";
 import {
   attachScreenshots,
   PREVIEW_SCREENSHOT_TOOL,
@@ -401,11 +405,21 @@ const outputSchema = z.object({
 
 // Appended to the system prompt only when previewScreenshot is offered.
 const SCREENSHOT_GUIDANCE = `Checking your work visually:
-- \`previewScreenshot\` renders a draft on the live page and shows you a screenshot. Use it when the result depends on how things RENDER: layout and spacing changes, moves, inserted sections or banners, color and contrast changes, anything that could overflow or overlap. Skip it for plain copy edits.
-- Workflow: work out your full answer, call \`previewScreenshot\` once with exactly the mutations / cssAppend / insert you plan to return (plus a \`selector\` for the changed element or its section), then either return that answer or fix what the screenshot shows and return the fixed version. Take a second screenshot only if the first showed a real problem. You have at most ${SCREENSHOTS_PER_TURN_MAX} per request.
+- \`previewScreenshot\` renders a draft on the live page and shows you a screenshot. Each one adds several seconds, so decide from your draft whether it needs one:
+  - Text, link, alt or other attribute changes only: answer without one. The exception is new text much longer than the old, which could wrap or overflow.
+  - Layout, CSS, moves, inserts or images: one.
+- Workflow: work out your full answer, call \`previewScreenshot\` once with exactly the mutations / cssAppend / insert you plan to return (plus a \`selector\` for the changed element or its section), then either return that answer or fix what the screenshot shows and return the fixed version. Take another only to check that fix; an identical draft is refused. You have at most ${SCREENSHOTS_PER_TURN_MAX} per request.
+- If the result lists \`unmatchedSelectors\`, those changes are missing from the shot because the selector matched nothing. Fix the selector instead of judging the shot.
 - Judge the screenshot critically: text cut off or overflowing, elements overlapping, poor contrast, an insert in the wrong place, a move that didn't happen, broken alignment. If the draft looks wrong, correct it rather than returning it as-is.
 - For requests about the page's current look ("make this section look more modern", "clean up this layout"), you may call it with no draft first to see what's there.
 - Mention a problem you saw and couldn't fix in \`skipped\`.`;
+
+// One bullet per page tool offered, appended to the system prompt.
+const PAGE_TOOL_GUIDANCE: Record<PageTool, string> = {
+  searchPage: `- \`searchPage\` greps the live page. When the user names something by its words ("the 'Start free trial' button", "the paragraph about pricing", "the $49 price") and it isn't in the catalog or elementContext, call it with those words before guessing a selector, giving up, or asking the user to click. Add a \`selector\` to narrow it (e.g. text "Sign up" + selector "button"). Its \`selector\` and \`parentSelector\` are real and can be used verbatim. To move or reorder whole sections, \`findElements\` and \`describeContainer\` (when offered) also give the siblings.`,
+  inspectLayout: `- \`inspectLayout\` measures an element's box, whether it's above the fold, and what clips or hides it. Use it for placement questions ("move it above the fold", "why is this cut off") instead of guessing from markup.`,
+  getCSSRules: `- \`getCSSRules\` shows which stylesheet rules set a property on an element. Call it when a style change might lose to an existing rule (a media query, a more specific selector, !important), then write cssAppend that wins.`,
+};
 
 // Selectors whose innerHTML must never be replaced.
 const PAGE_ROOT_SELECTOR_RE = /^\s*(?::root|html|body)\s*$/i;
@@ -1236,6 +1250,9 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     stateless &&
     clientTools.includes(PREVIEW_SCREENSHOT_TOOL) &&
     isVisionCapableModel(editModel);
+  const pageTools = stateless
+    ? PAGE_TOOLS.filter((t) => clientTools.includes(t))
+    : [];
   const job = aiEditJobStore.create();
   const imageState = newImageTurnState();
   const tools = buildVisualEditorTools({
@@ -1243,6 +1260,7 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
     job: useToolLoop ? job : undefined,
     deferDomTools: stateless,
     screenshotTool,
+    pageTools,
     pageStructure,
     imageState,
     quarantineImages: !persist,
@@ -1258,9 +1276,18 @@ export const postAIEdit = createApiRequestHandler(validation)(async (req) => {
 
   const parsePromptArgs = {
     context,
-    instructions: screenshotTool
-      ? `${effectiveInstructions}\n\n${SCREENSHOT_GUIDANCE}`
-      : effectiveInstructions,
+    instructions: [
+      effectiveInstructions,
+      ...(pageTools.length > 0
+        ? [
+            [
+              "Inspecting the live page:",
+              ...pageTools.map((t) => PAGE_TOOL_GUIDANCE[t]),
+            ].join("\n"),
+          ]
+        : []),
+      ...(screenshotTool ? [SCREENSHOT_GUIDANCE] : []),
+    ].join("\n\n"),
     prompt: buildPrompt({
       prompt,
       elementContext,

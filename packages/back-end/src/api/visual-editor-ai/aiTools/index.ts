@@ -11,6 +11,8 @@ import {
   getComputedStylesTool,
   findElementsTool,
   getInnerHTMLTool,
+  SEARCH_PAGE_TOOL,
+  type PageTool,
 } from "./clientSideTools";
 import {
   describeContainerServerTool,
@@ -37,6 +39,9 @@ export interface VisualEditorToolsetOptions {
   // Offer previewScreenshot. Stateless loop only; the caller checks that the
   // extension supports it and the model can read images.
   screenshotTool?: boolean;
+  // Page tools the extension announced (searchPage also covers the live
+  // findElements). Stateless loop only.
+  pageTools?: PageTool[];
   // Page-structure snapshot for the server-side `findElements` tool. When
   // present, the model can locate uncatalogued containers (sections, layout
   // wrappers) without a client round-trip — so it works on Cloud.
@@ -63,6 +68,7 @@ export function buildVisualEditorTools({
   job,
   deferDomTools = false,
   screenshotTool = false,
+  pageTools = [],
   pageStructure,
   disabled = false,
   imageState,
@@ -109,7 +115,10 @@ export function buildVisualEditorTools({
       ...serverTools,
       getComputedStyles: deferred.getComputedStyles,
       getInnerHTML: deferred.getInnerHTML,
-      ...(hasStructure ? {} : { findElements: deferred.findElements }),
+      ...Object.fromEntries(pageTools.map((t) => [t, deferred[t]])),
+      ...(pageTools.includes(SEARCH_PAGE_TOOL) || hasStructure
+        ? {}
+        : { findElements: deferred.findElements }),
       ...(screenshotTool
         ? { previewScreenshot: deferred.previewScreenshot }
         : {}),
